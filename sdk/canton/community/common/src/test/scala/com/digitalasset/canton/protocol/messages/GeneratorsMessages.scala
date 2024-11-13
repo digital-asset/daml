@@ -31,8 +31,6 @@ import com.digitalasset.canton.{Generators, LfPartyId}
 import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
 
-import scala.concurrent.ExecutionContext
-
 final class GeneratorsMessages(
     protocolVersion: ProtocolVersion,
     generatorsData: GeneratorsData,
@@ -51,13 +49,6 @@ final class GeneratorsMessages(
   import generatorsProtocol.*
   import generatorsVerdict.*
   import generatorTransactions.*
-
-  @SuppressWarnings(Array("com.digitalasset.canton.GlobalExecutionContext"))
-  /*
-   Execution context is needed for crypto operations. Since wiring a proper ec would be
-   too complex here, using the global one.
-   */
-  private implicit val ec: ExecutionContext = ExecutionContext.global
 
   implicit val acsCommitmentArb: Arbitrary[AcsCommitment] = Arbitrary(
     for {

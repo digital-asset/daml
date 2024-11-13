@@ -7,7 +7,13 @@ import cats.Eval
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
-import com.digitalasset.canton.crypto.{LtHash16, Signature, SigningPublicKey, TestHash}
+import com.digitalasset.canton.crypto.{
+  LtHash16,
+  Signature,
+  SigningPublicKey,
+  SyncCryptoApiProvider,
+  TestHash,
+}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.pruning.{
   SortedReconciliationIntervalsHelpers,
@@ -17,6 +23,7 @@ import com.digitalasset.canton.participant.store.AcsCommitmentStore.CommitmentDa
 import com.digitalasset.canton.participant.store.db.DbAcsCommitmentStore
 import com.digitalasset.canton.participant.store.{
   AcsCommitmentStore,
+  AcsCounterParticipantConfigStore,
   ParticipantNodePersistentState,
   SyncDomainPersistentState,
 }
@@ -101,7 +108,9 @@ sealed trait SyncStateInspectionTest
       timeouts,
       JournalGarbageCollectorControl.NoOp,
       mock[ConnectedDomainsLookup],
+      mock[SyncCryptoApiProvider],
       localId,
+      futureSupervisor,
       loggerFactory,
     )
     (syncStateInspection, stateManager)
@@ -113,10 +122,12 @@ sealed trait SyncStateInspectionTest
       domainAlias: DomainAlias,
   ): AcsCommitmentStore = {
     val persistentStateDomain = mock[SyncDomainPersistentState]
+    val acsCounterParticipantConfigStore = mock[AcsCounterParticipantConfigStore]
 
     val acsCommitmentStore = new DbAcsCommitmentStore(
       storage,
       indexedDomain,
+      acsCounterParticipantConfigStore,
       testedProtocolVersion,
       timeouts,
       futureSupervisor,

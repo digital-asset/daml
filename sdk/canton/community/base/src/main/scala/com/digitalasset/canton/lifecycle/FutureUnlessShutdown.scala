@@ -17,6 +17,7 @@ import com.digitalasset.canton.{
   DoNotTraverseLikeFuture,
 }
 
+import scala.collection.BuildFrom
 import scala.concurrent.{Awaitable, ExecutionContext, Future}
 import scala.util.chaining.*
 import scala.util.{Failure, Success, Try}
@@ -81,6 +82,31 @@ object FutureUnlessShutdown {
   def fromTry[T](result: Try[T]): FutureUnlessShutdown[T] = result match {
     case Success(value) => FutureUnlessShutdown.pure(value)
     case Failure(exception) => FutureUnlessShutdown.failed(exception)
+  }
+
+  /** Analog to [[scala.concurrent.Future]]`.sequence` */
+  def sequence[A, CC[X] <: IterableOnce[X], To](in: CC[FutureUnlessShutdown[A]])(implicit
+      bf: BuildFrom[CC[FutureUnlessShutdown[A]], A, To],
+      ec: ExecutionContext,
+  ): FutureUnlessShutdown[To] = {
+
+    val futures: Iterable[Future[UnlessShutdown[A]]] =
+      in.iterator.map(_.unwrap).iterator.to(Iterable)
+
+    FutureUnlessShutdown {
+      Future.sequence(futures).map { results =>
+        val aborted = results.collectFirst { case UnlessShutdown.AbortedDueToShutdown =>
+          UnlessShutdown.AbortedDueToShutdown
+        }
+
+        aborted.getOrElse {
+          val successfulResults = results.collect { case UnlessShutdown.Outcome(result) =>
+            result
+          }
+          UnlessShutdown.Outcome(bf.newBuilder(in).++=(successfulResults).result())
+        }
+      }
+    }
   }
 
   def never: FutureUnlessShutdown[Nothing] = FutureUnlessShutdown(Future.never)

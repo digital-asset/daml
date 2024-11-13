@@ -23,6 +23,7 @@ import com.digitalasset.canton.participant.pruning.{
 import com.digitalasset.canton.participant.store.AcsCommitmentStore.CommitmentData
 import com.digitalasset.canton.participant.store.{
   AcsCommitmentStore,
+  AcsCounterParticipantConfigStore,
   CommitmentQueue,
   IncrementalCommitmentStore,
 }
@@ -56,6 +57,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class DbAcsCommitmentStore(
     override protected val storage: DbStorage,
     override val indexedDomain: IndexedDomain,
+    override val acsCounterParticipantConfigStore: AcsCounterParticipantConfigStore,
     protocolVersion: ProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
@@ -422,16 +424,21 @@ class DbAcsCommitmentStore(
       functionFullName,
     )
 
-  override def noOutstandingCommitments(beforeOrAt: CantonTimestamp)(implicit
+  override def noOutstandingCommitments(
+      beforeOrAt: CantonTimestamp
+  )(implicit
       traceContext: TraceContext
   ): Future[Option[CantonTimestamp]] =
     for {
       computed <- lastComputedAndSent
       adjustedTsOpt = computed.map(_.forgetRefinement.min(beforeOrAt))
+      ignores <- acsCounterParticipantConfigStore
+        .getAllActiveNoWaitCounterParticipants(Seq(indexedDomain.domainId), Seq.empty)
+        .failOnShutdownToAbortException("noOutstandingCommitments")
       outstandingOpt <- adjustedTsOpt.traverse { ts =>
         storage.query(
-          sql"select from_exclusive, to_inclusive from par_outstanding_acs_commitments where domain_idx=$indexedDomain and from_exclusive < $ts and matching_state != ${CommitmentPeriodState.Matched}"
-            .as[(CantonTimestamp, CantonTimestamp)]
+          sql"select from_exclusive, to_inclusive, counter_participant from par_outstanding_acs_commitments where domain_idx=$indexedDomain and from_exclusive < $ts and matching_state != ${CommitmentPeriodState.Matched}"
+            .as[(CantonTimestamp, CantonTimestamp, ParticipantId)]
             .withTransactionIsolation(Serializable),
           operationName = "commitments: compute no outstanding",
         )
@@ -439,7 +446,15 @@ class DbAcsCommitmentStore(
     } yield {
       for {
         ts <- adjustedTsOpt
-        outstanding <- outstandingOpt
+        outstanding <- outstandingOpt.map { vector =>
+          vector
+            .filter { case (_, _, participantId) =>
+              !ignores.exists(config => config.participantId == participantId)
+            }
+            .map { case (start, end, _) =>
+              (start, end)
+            }
+        }
       } yield AcsCommitmentStore.latestCleanPeriod(ts, outstanding)
     }
 

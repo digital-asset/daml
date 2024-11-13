@@ -404,7 +404,7 @@ object InMemoryStateUpdaterSpec {
           reassignmentCounter = 15L,
           hostedStakeholders = party2 :: Nil,
           unassignId = CantonTimestamp.assertFromLong(155555L),
-          isObservingReassigningParticipant = true,
+          isReassigningParticipant = true,
         ),
         reassignment = TransactionLogUpdate.ReassignmentAccepted.Assigned(
           CreatedEvent(
@@ -451,7 +451,7 @@ object InMemoryStateUpdaterSpec {
           reassignmentCounter = 15L,
           hostedStakeholders = party1 :: Nil,
           unassignId = CantonTimestamp.assertFromLong(1555551L),
-          isObservingReassigningParticipant = true,
+          isReassigningParticipant = true,
         ),
         reassignment = TransactionLogUpdate.ReassignmentAccepted.Unassigned(
           Reassignment.Unassign(
@@ -912,7 +912,7 @@ object InMemoryStateUpdaterSpec {
         reassignmentCounter = 15L,
         hostedStakeholders = party2 :: Nil,
         unassignId = CantonTimestamp.assertFromLong(155555L),
-        isObservingReassigningParticipant = true,
+        isReassigningParticipant = true,
       ),
       reassignment = Reassignment.Assign(
         ledgerEffectiveTime = Timestamp.assertFromLong(12222),
@@ -943,7 +943,7 @@ object InMemoryStateUpdaterSpec {
         reassignmentCounter = 15L,
         hostedStakeholders = party1 :: Nil,
         unassignId = CantonTimestamp.assertFromLong(1555551L),
-        isObservingReassigningParticipant = true,
+        isReassigningParticipant = true,
       ),
       reassignment = Reassignment.Unassign(
         contractId = someCreateNode.coid,

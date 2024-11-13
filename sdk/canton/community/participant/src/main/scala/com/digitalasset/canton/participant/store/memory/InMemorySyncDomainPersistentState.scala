@@ -13,7 +13,11 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
-import com.digitalasset.canton.participant.store.{AcsInspection, SyncDomainPersistentState}
+import com.digitalasset.canton.participant.store.{
+  AcsCounterParticipantConfigStore,
+  AcsInspection,
+  SyncDomainPersistentState,
+}
 import com.digitalasset.canton.participant.topology.ParticipantTopologyValidation
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.store.memory.{InMemorySendTrackerStore, InMemorySequencedEventStore}
@@ -42,6 +46,7 @@ class InMemorySyncDomainPersistentState(
     val staticDomainParameters: StaticDomainParameters,
     override val enableAdditionalConsistencyChecks: Boolean,
     indexedStringStore: IndexedStringStore,
+    acsCounterParticipantConfigStore: AcsCounterParticipantConfigStore,
     exitOnFatalFailures: Boolean,
     packageDependencyResolver: PackageDependencyResolver,
     ledgerApiStore: Eval[LedgerApiStore],
@@ -64,7 +69,11 @@ class InMemorySyncDomainPersistentState(
   val sequencedEventStore = new InMemorySequencedEventStore(loggerFactory)
   val requestJournalStore = new InMemoryRequestJournalStore(loggerFactory)
   val acsCommitmentStore =
-    new InMemoryAcsCommitmentStore(loggerFactory)
+    new InMemoryAcsCommitmentStore(
+      indexedDomain.domainId,
+      acsCounterParticipantConfigStore,
+      loggerFactory,
+    )
   val parameterStore = new InMemoryDomainParameterStore()
   val sendTrackerStore = new InMemorySendTrackerStore()
   val submissionTrackerStore = new InMemorySubmissionTrackerStore(loggerFactory)

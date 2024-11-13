@@ -6,9 +6,12 @@ package com.digitalasset.canton.crypto.provider.jce
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreExtended
+import com.digitalasset.canton.health.ComponentHealthState
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.crypto.tink.subtle.EllipticCurves.CurveType
 import com.google.crypto.tink.subtle.{Ed25519Sign, EllipticCurves}
@@ -28,8 +31,11 @@ class JcePrivateCrypto(
     override val defaultSigningKeySpec: SigningKeySpec,
     override val defaultEncryptionKeySpec: EncryptionKeySpec,
     override protected val store: CryptoPrivateStoreExtended,
+    override protected val timeouts: ProcessingTimeout,
+    override protected val loggerFactory: NamedLoggerFactory,
 )(override implicit val ec: ExecutionContext)
-    extends CryptoPrivateStoreApi {
+    extends CryptoPrivateStoreApi
+    with NamedLogging {
 
   override protected val signingOps: SigningOps = pureCrypto
   override protected val encryptionOps: EncryptionOps = pureCrypto
@@ -158,5 +164,7 @@ class JcePrivateCrypto(
 
   }
 
-  override def close(): Unit = ()
+  override def name: String = "jce-private-crypto"
+
+  override protected def initialHealthState: ComponentHealthState = ComponentHealthState.Ok()
 }

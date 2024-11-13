@@ -284,19 +284,3 @@ object PositiveSeconds extends RefinedDurationCompanion[PositiveSeconds] {
   def fromConfig(config: PositiveDurationSecondsConfig): PositiveSeconds =
     PositiveSeconds(config.asJava)
 }
-
-object EnrichedDurations {
-  import com.digitalasset.canton.config
-
-  implicit class RichNonNegativeFiniteDurationConfig(duration: config.NonNegativeFiniteDuration) {
-    def toInternal: NonNegativeFiniteDuration = checked(
-      NonNegativeFiniteDuration.tryCreate(duration.asJava)
-    )
-  }
-
-  implicit class RichPositiveFiniteDurationConfig(duration: config.PositiveFiniteDuration) {
-    def toInternal: PositiveFiniteDuration = checked(
-      PositiveFiniteDuration.tryCreate(duration.asJava)
-    )
-  }
-}

@@ -5,6 +5,7 @@ package com.digitalasset.canton.caching
 
 import com.daml.metrics.CacheMetrics
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.github.benmanes.caffeine.cache as caffeine
 import com.github.benmanes.caffeine.cache.{AsyncCacheLoader, AsyncLoadingCache}
 
@@ -98,6 +99,19 @@ object CaffeineCache {
     override def asyncLoad(key: K, executor: Executor): CompletableFuture[_ <: V] = {
       val cf = new CompletableFuture[V]
       func(key).onComplete {
+        case Success(value) => cf.complete(value)
+        case Failure(e) => cf.completeExceptionally(e)
+      }
+      cf
+    }
+  }
+
+  class FutureAsyncCacheLoaderUS[K, V](func: K => FutureUnlessShutdown[V])(implicit
+      executionContext: ExecutionContext
+  ) extends AsyncCacheLoader[K, V] {
+    override def asyncLoad(key: K, executor: Executor): CompletableFuture[_ <: V] = {
+      val cf = new CompletableFuture[V]
+      func(key).failOnShutdownToAbortException("Async Cache Loading").onComplete {
         case Success(value) => cf.complete(value)
         case Failure(e) => cf.completeExceptionally(e)
       }

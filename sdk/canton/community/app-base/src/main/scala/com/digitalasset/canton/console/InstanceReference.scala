@@ -53,6 +53,7 @@ import com.digitalasset.canton.participant.{ParticipantNode, ParticipantNodeBoot
 import com.digitalasset.canton.sequencer.admin.v30.SequencerPruningAdministrationServiceGrpc
 import com.digitalasset.canton.sequencer.admin.v30.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
+import com.digitalasset.canton.time.{DelegatingSimClock, SimClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.TimeQuery
 import com.digitalasset.canton.tracing.NoTracing
@@ -685,6 +686,29 @@ class LocalParticipantReference(
 ) extends ParticipantReference(consoleEnvironment, name)
     with LocalInstanceReference
     with BaseInspection[ParticipantNode] {
+
+  @Help.Summary(
+    "Returns the node specific simClock, possible race condition if using environment.SimClock as well."
+  )
+  def simClock: Option[DelegatingSimClock] = cantonConfig.parameters.clock match {
+    case ClockConfig.SimClock =>
+      runningNode match {
+        case Some(node) =>
+          node.clock match {
+            case c: SimClock =>
+              Some(
+                new DelegatingSimClock(
+                  () => Seq(c),
+                  loggerFactory = loggerFactory,
+                )
+              )
+            case _ => None
+          }
+        case _ => None
+      }
+    case ClockConfig.WallClock(_) => None
+    case ClockConfig.RemoteClock(_) => None
+  }
 
   override private[console] val nodes = consoleEnvironment.environment.participants
 

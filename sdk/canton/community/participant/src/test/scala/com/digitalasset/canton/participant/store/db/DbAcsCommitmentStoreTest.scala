@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.store.db
 
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.store.{
   AcsCommitmentStoreTest,
   CommitmentQueueTest,
@@ -36,6 +37,7 @@ trait DbAcsCommitmentStoreTest extends AcsCommitmentStoreTest { this: DbTest =>
       new DbAcsCommitmentStore(
         storage,
         IndexedDomain.tryCreate(domainId, 1),
+        new DbAcsCommitmentConfigStore(ParticipantTestMetrics, storage, timeouts, loggerFactory),
         testedProtocolVersion,
         timeouts,
         futureSupervisor,

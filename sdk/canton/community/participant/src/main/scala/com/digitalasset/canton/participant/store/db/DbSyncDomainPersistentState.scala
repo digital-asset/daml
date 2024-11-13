@@ -13,7 +13,11 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
-import com.digitalasset.canton.participant.store.{AcsInspection, SyncDomainPersistentState}
+import com.digitalasset.canton.participant.store.{
+  AcsCounterParticipantConfigStore,
+  AcsInspection,
+  SyncDomainPersistentState,
+}
 import com.digitalasset.canton.participant.topology.ParticipantTopologyValidation
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.resource.DbStorage
@@ -45,6 +49,7 @@ class DbSyncDomainPersistentState(
     crypto: Crypto,
     parameters: ParticipantNodeParameters,
     indexedStringStore: IndexedStringStore,
+    acsCounterParticipantConfigStore: AcsCounterParticipantConfigStore,
     packageDependencyResolver: PackageDependencyResolver,
     ledgerApiStore: Eval[LedgerApiStore],
     val loggerFactory: NamedLoggerFactory,
@@ -113,6 +118,7 @@ class DbSyncDomainPersistentState(
   val acsCommitmentStore = new DbAcsCommitmentStore(
     storage,
     indexedDomain,
+    acsCounterParticipantConfigStore,
     staticDomainParameters.protocolVersion,
     timeouts,
     futureSupervisor,

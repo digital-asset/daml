@@ -14,9 +14,9 @@ import com.digitalasset.canton.data.ViewType.UnassignmentViewType
 import com.digitalasset.canton.data.{
   CantonTimestamp,
   FullUnassignmentTree,
-  ReassigningParticipants,
   ReassignmentRef,
   ReassignmentSubmitterMetadata,
+  ViewPosition,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
@@ -31,6 +31,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentPro
   NotHostedOnParticipant,
   ParsedReassignmentRequest,
   ReassignmentProcessorError,
+  StakeholderHostingErrors,
   SubmitterMustBeStakeholder,
 }
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessingSteps.PendingUnassignment
@@ -44,6 +45,10 @@ import com.digitalasset.canton.participant.protocol.submission.{
   EncryptedViewMessageFactory,
   SeedGenerator,
 }
+import com.digitalasset.canton.participant.protocol.validation.{
+  AuthenticationError,
+  AuthenticationValidator,
+}
 import com.digitalasset.canton.participant.protocol.{
   EngineController,
   ProcessingStartingPoints,
@@ -51,6 +56,7 @@ import com.digitalasset.canton.participant.protocol.{
 }
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.store.{
+  AcsCounterParticipantConfigStore,
   ParticipantNodeEphemeralState,
   SyncDomainEphemeralState,
 }
@@ -157,6 +163,7 @@ final class UnassignmentProcessingStepsTest
       defaultStaticDomainParameters,
       enableAdditionalConsistencyChecks = true,
       indexedStringStore = indexedStringStore,
+      acsCounterParticipantConfigStore = mock[AcsCounterParticipantConfigStore],
       exitOnFatalFailures = true,
       packageDependencyResolver = mock[PackageDependencyResolver],
       Eval.now(mock[LedgerApiStore]),
@@ -187,6 +194,19 @@ final class UnassignmentProcessingStepsTest
     signatories = Set(submitter),
     stakeholders = Set(submitter, party1),
   )(loggerFactory)
+
+  private lazy val unassignmentRequest = UnassignmentRequest(
+    submitterMetadata = submitterMetadata(party1),
+    reassigningParticipants = Set(submittingParticipant),
+    contract,
+    sourceDomain,
+    Source(testedProtocolVersion),
+    sourceMediator,
+    targetDomain,
+    Target(testedProtocolVersion),
+    timeProof,
+    reassignmentCounter = initialReassignmentCounter,
+  )
 
   private def createTestingIdentityFactory(
       topology: Map[ParticipantId, Map[LfPartyId, ParticipantPermission]],
@@ -312,8 +332,7 @@ final class UnassignmentProcessingStepsTest
     signatureO,
     None,
     isFreshOwnTimelyRequest = true,
-    isConfirmingReassigningParticipant = true,
-    isObservingReassigningParticipant = true,
+    isReassigningParticipant = true,
     Seq.empty,
     sourceMediator,
     cryptoSnapshot,
@@ -425,7 +444,7 @@ final class UnassignmentProcessingStepsTest
       )
 
       val expectedError = StakeholderHostingErrors(
-        s"Signatory $party1 requires at least 1 reassigning participants, but only 0 are available"
+        s"Signatory $party1 requires at least 1 signatory reassigning participants on target domain, but only 0 are available"
       )
 
       result.left.value shouldBe expectedError
@@ -533,10 +552,7 @@ final class UnassignmentProcessingStepsTest
         UnassignmentRequestValidated(
           UnassignmentRequest(
             submitterMetadata = submitterMetadata(submitter),
-            reassigningParticipants = ReassigningParticipants.tryCreate(
-              Set(submittingParticipant),
-              Set(submittingParticipant, participant1),
-            ),
+            reassigningParticipants = Set(submittingParticipant, participant1),
             contract = contract,
             sourceDomain = sourceDomain,
             sourceProtocolVersion = Source(testedProtocolVersion),
@@ -575,10 +591,8 @@ final class UnassignmentProcessingStepsTest
         UnassignmentRequestValidated(
           UnassignmentRequest(
             submitterMetadata = submitterMetadata(submitter),
-            reassigningParticipants = ReassigningParticipants.tryCreate(
-              confirming = Set(submittingParticipant),
-              observing = Set(submittingParticipant, participant1, participant3, participant4),
-            ),
+            reassigningParticipants =
+              Set(submittingParticipant, participant1, participant3, participant4),
             contract = contract,
             sourceDomain = sourceDomain,
             sourceProtocolVersion = Source(testedProtocolVersion),
@@ -612,8 +626,7 @@ final class UnassignmentProcessingStepsTest
         UnassignmentRequest(
           submitterMetadata = submitterMetadata(submitter),
           // Because admin1 is a stakeholder, participant1 is reassigning
-          reassigningParticipants =
-            ReassigningParticipants.tryCreate(Set(), Set(submittingParticipant, participant1)),
+          reassigningParticipants = Set(submittingParticipant, participant1),
           contract = updatedContract,
           sourceDomain = sourceDomain,
           sourceProtocolVersion = Source(testedProtocolVersion),
@@ -691,20 +704,7 @@ final class UnassignmentProcessingStepsTest
   }
 
   "receive request" should {
-    val unassignmentRequest = UnassignmentRequest(
-      submitterMetadata = submitterMetadata(party1),
-      reassigningParticipants = ReassigningParticipants.withConfirmers(Set(submittingParticipant)),
-      contract,
-      sourceDomain,
-      Source(testedProtocolVersion),
-      sourceMediator,
-      targetDomain,
-      Target(testedProtocolVersion),
-      timeProof,
-      reassignmentCounter = initialReassignmentCounter,
-    )
     val unassignmentTree = makeFullUnassignmentTree(unassignmentRequest)
-
     "succeed without errors" in {
       val sessionKeyStore =
         new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionKeyCacheConfig)
@@ -746,8 +746,7 @@ final class UnassignmentProcessingStepsTest
       val state = mkState
       val unassignmentRequest = UnassignmentRequest(
         submitterMetadata = submitterMetadata(party1),
-        reassigningParticipants =
-          ReassigningParticipants.withConfirmers(Set(submittingParticipant)),
+        reassigningParticipants = Set(submittingParticipant),
         contract,
         sourceDomain,
         Source(testedProtocolVersion),
@@ -763,17 +762,32 @@ final class UnassignmentProcessingStepsTest
         .storeCreatedContract(RequestCounter(1), contract)
         .futureValue
 
+      val signature = cryptoSnapshot
+        .sign(fullUnassignmentTree.rootHash.unwrap)
+        .value
+        .onShutdown(fail("unexpected shutdown during a test"))
+        .futureValue
+        .toOption
+
       unassignmentProcessingSteps
         .constructPendingDataAndResponse(
-          mkParsedRequest(fullUnassignmentTree, Recipients.cc(submittingParticipant)),
+          mkParsedRequest(
+            fullUnassignmentTree,
+            Recipients.cc(submittingParticipant),
+            signatureO = signature,
+          ),
           state.reassignmentCache,
           FutureUnlessShutdown.pure(mkActivenessResult()),
-          engineController =
-            EngineController(submittingParticipant, RequestId(CantonTimestamp.Epoch), loggerFactory),
+          engineController = EngineController(
+            submittingParticipant,
+            RequestId(CantonTimestamp.Epoch),
+            loggerFactory,
+          ),
         )
         .value
         .onShutdown(fail("unexpected shutdown during a test"))
         .futureValue
+
     }
 
     "succeed without errors" in {
@@ -885,6 +899,61 @@ final class UnassignmentProcessingStepsTest
             .failOnShutdown
         )("get commit set and contract to be stored and event")
       } yield succeed
+    }
+  }
+
+  "verify the submitting participant signature" should {
+    val fullUnassignmentTree = makeFullUnassignmentTree(unassignmentRequest)
+
+    "succeed when the signature is correct" in {
+      for {
+        signature <- cryptoSnapshot
+          .sign(fullUnassignmentTree.rootHash.unwrap)
+          .valueOrFailShutdown("signing failed")
+
+        parsed = mkParsedRequest(
+          fullUnassignmentTree,
+          Recipients.cc(submittingParticipant),
+          signatureO = Some(signature),
+        )
+        authenticationError <-
+          AuthenticationValidator.verifyViewSignature(parsed)
+      } yield authenticationError shouldBe None
+    }
+
+    "fail when the signature is missing" in {
+      val parsed = mkParsedRequest(
+        fullUnassignmentTree,
+        Recipients.cc(submittingParticipant),
+        signatureO = None,
+      )
+      for {
+        authenticationError <-
+          AuthenticationValidator.verifyViewSignature(parsed)
+      } yield authenticationError shouldBe Some(
+        AuthenticationError.MissingSignature(parsed.requestId, ViewPosition(List()))
+      )
+    }
+
+    "fail when the signature is incorrect" in {
+      for {
+        signature <- cryptoSnapshot
+          .sign(TestHash.digest("wrong signature"))
+          .valueOrFailShutdown("signing failed")
+
+        parsed = mkParsedRequest(
+          fullUnassignmentTree,
+          Recipients.cc(submittingParticipant),
+          signatureO = Some(signature),
+        )
+        authenticationError <-
+          AuthenticationValidator.verifyViewSignature(parsed)
+      } yield {
+        parsed.requestId
+        authenticationError.value should matchPattern {
+          case AuthenticationError.InvalidSignature(requestId, ViewPosition(List()), _) =>
+        }
+      }
     }
   }
 

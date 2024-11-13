@@ -984,3 +984,30 @@ alter table seq_in_flight_aggregation
         autovacuum_vacuum_insert_scale_factor = 0.0,
         autovacuum_vacuum_insert_threshold = 100000
         );
+
+-- Stores participants we should not wait for before pruning when handling ACS commitment
+Create TABLE acs_no_wait_counter_participants
+(
+    domain_id varchar(300) collate "C" not null,
+    participant_id varchar(300) collate "C" not null,
+    primary key(domain_id,participant_id)
+);
+
+-- Stores configuration for metrics around slow participants
+CREATE TABLE acs_slow_participant_config
+(
+   domain_id varchar(300) collate "C" not null,
+   threshold_distinguished integer not null,
+   threshold_default integer not null,
+   primary key(domain_id)
+);
+
+-- Stores distinguished or specifically measured counter participants for ACS commitment metrics
+CREATE TABLE acs_slow_counter_participants
+(
+   domain_id varchar(300) collate "C" not null,
+   participant_id varchar(300)  collate "C" not null,
+   is_distinguished boolean not null,
+   is_added_to_metrics boolean not null,
+   primary key(domain_id,participant_id)
+);

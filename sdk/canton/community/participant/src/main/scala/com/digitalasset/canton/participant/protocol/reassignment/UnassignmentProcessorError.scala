@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.protocol.reassignment
 
-import com.digitalasset.canton.data.ReassigningParticipants
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.PackageUnknownTo
 import com.digitalasset.canton.participant.store.ActiveContractStore.Status
@@ -51,19 +50,6 @@ object UnassignmentProcessorError {
   }
 
   final case class AutomaticAssignmentError(message: String) extends UnassignmentProcessorError
-
-  final case class PermissionErrors(message: String) extends UnassignmentProcessorError
-
-  final case class StakeholderHostingErrors(message: String) extends UnassignmentProcessorError
-
-  final case class ReassigningParticipantsMismatch(
-      contractId: LfContractId,
-      expected: ReassigningParticipants,
-      declared: ReassigningParticipants,
-  ) extends UnassignmentProcessorError {
-    override def message: String =
-      s"Cannot unassign contract `$contractId`: reassigning participants mismatch"
-  }
 
   final case class RecipientsMismatch(
       contractId: LfContractId,

@@ -99,7 +99,7 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
     val partyToParticipantsTargetF =
       targetTopology.unwrap.activeParticipantsOfPartiesWithInfo(stakeholders.all.toSeq)
 
-    // Check that each stakeholder is hosted on at least one observing reassigning participant
+    // Check that each stakeholder is hosted on at least one reassigning participant
     val stakeholdersHostedReassigningParticipants: Future[Either[Error, Unit]] = for {
       partyToParticipantsSource <- partyToParticipantsSourceF
       partyToParticipantsTarget <- partyToParticipantsTargetF
@@ -112,12 +112,12 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
 
         val hostingReassigningParticipants = hostingParticipantsSource
           .intersect(hostingParticipantsTarget)
-          .intersect(reassigningParticipants.observing)
+          .intersect(reassigningParticipants)
 
         Either.cond(
           hostingReassigningParticipants.nonEmpty,
           (),
-          StakeholderNotHostedObservingReassigningParticipant(stakeholder),
+          StakeholderNotHostedReassigningParticipant(stakeholder),
         )
       }
     } yield res
@@ -204,10 +204,10 @@ object DeliveredUnassignmentResultValidation {
     override def error: String = s"Result time $timestamp exceeds decision time $decisionTime"
   }
 
-  final case class StakeholderNotHostedObservingReassigningParticipant(
+  final case class StakeholderNotHostedReassigningParticipant(
       stakeholder: LfPartyId
   ) extends Error {
     override def error: String =
-      s"Stakeholder $stakeholder is not hosted on any observing reassigning participant"
+      s"Stakeholder $stakeholder is not hosted on any reassigning participant"
   }
 }

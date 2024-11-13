@@ -86,7 +86,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
           domainsOfAllInformee: NonEmpty[Set[DomainId]],
       ) extends TransactionErrorImpl(
             cause =
-              s"Not all informee are on the specified domainID: $domainId, but on $domainsOfAllInformee"
+              s"Not all informee are on the specified domain: $domainId, but on $domainsOfAllInformee"
           )
           with TransactionRoutingErrorWithDomain
 

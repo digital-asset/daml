@@ -6,9 +6,13 @@ package com.digitalasset.canton.participant.protocol.reassignment
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.data.{FullUnassignmentTree, ReassigningParticipants}
+import com.digitalasset.canton.data.{FullUnassignmentTree, ReassignmentRef}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
+import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
+  ReassigningParticipantsMismatch,
+  ReassignmentProcessorError,
+  StakeholderHostingErrors,
+}
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.*
 import com.digitalasset.canton.participant.protocol.submission.UsableDomain
 import com.digitalasset.canton.protocol.{LfTemplateId, Stakeholders}
@@ -30,14 +34,14 @@ private[reassignment] sealed abstract case class UnassignmentValidationReassigni
     recipients: Recipients,
 )(request: FullUnassignmentTree) {
   private def checkReassigningParticipants(
-      expectedReassigningParticipants: ReassigningParticipants
+      expectedReassigningParticipants: Set[ParticipantId]
   )(implicit
       ec: ExecutionContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     condUnitET[FutureUnlessShutdown](
       request.reassigningParticipants == expectedReassigningParticipants,
       ReassigningParticipantsMismatch(
-        contractId = request.contractId,
+        reassignmentRef = ReassignmentRef(request.contractId),
         expected = expectedReassigningParticipants,
         declared = request.reassigningParticipants,
       ),

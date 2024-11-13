@@ -66,6 +66,7 @@ class CommunityEnvironment(
       loggerFactory.append(SequencerNodeBootstrap.LoggerFactoryKeyName, name),
       writeHealthDumpToFile,
       configuredOpenTelemetry,
+      executionContext,
     )
 
     val bootstrapCommonArguments = nodeFactoryArguments

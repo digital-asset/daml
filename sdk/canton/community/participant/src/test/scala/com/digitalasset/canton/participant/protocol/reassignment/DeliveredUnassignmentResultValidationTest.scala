@@ -8,7 +8,7 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.SignatureCheckError.SignatureWithWrongKey
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, HashPurpose}
 import com.digitalasset.canton.data.ViewType.{AssignmentViewType, UnassignmentViewType}
-import com.digitalasset.canton.data.{CantonTimestamp, ReassigningParticipants, ViewType}
+import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.participant.protocol.reassignment.DeliveredUnassignmentResultValidation.{
   IncorrectDomain,
@@ -17,7 +17,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.DeliveredUnassi
   IncorrectRootHash,
   IncorrectSignatures,
   ResultTimestampExceedsDecisionTime,
-  StakeholderNotHostedObservingReassigningParticipant,
+  StakeholderNotHostedReassigningParticipant,
 }
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.LocalRejectError.ConsistencyRejections.LockedContracts
@@ -121,7 +121,7 @@ class DeliveredUnassignmentResultValidationTest
     submittingParticipant = submittingParticipant,
     sourceMediator = sourceMediator,
   )(
-    reassigningParticipants = ReassigningParticipants.withConfirmers(reassigningParticipants.toSet)
+    reassigningParticipants = reassigningParticipants.toSet
   )
 
   private lazy val reassignmentData =
@@ -340,8 +340,8 @@ class DeliveredUnassignmentResultValidationTest
       ))
     }
 
-    "detect stakeholder not hosted on some observing reassigning participant" in {
-      // Stakeholder observer is not in this topology, which means that it will not have an observing reassigning participant
+    "detect stakeholder not hosted on some reassigning participant" in {
+      // Stakeholder observer is not in this topology, which means that it will not have a reassigning participant
       val observerMissing = TestingTopology()
         .withDomains(targetDomain.unwrap)
         .withReversedTopology(
@@ -381,7 +381,7 @@ class DeliveredUnassignmentResultValidationTest
       validate(cryptoSnapshot.ipsSnapshot).value shouldBe ()
       validate(
         observerMissing
-      ).left.value shouldBe StakeholderNotHostedObservingReassigningParticipant(
+      ).left.value shouldBe StakeholderNotHostedReassigningParticipant(
         observer
       )
     }

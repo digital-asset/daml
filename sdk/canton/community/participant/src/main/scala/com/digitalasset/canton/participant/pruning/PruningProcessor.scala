@@ -43,7 +43,8 @@ import com.digitalasset.canton.participant.store.{
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
 import com.digitalasset.canton.participant.{GlobalOffset, Pruning}
 import com.digitalasset.canton.protocol.LfContractId
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.pruning.ConfigForNoWaitCounterParticipants
+import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
@@ -630,6 +631,32 @@ class PruningProcessor(
 
   override protected def onClosed(): Unit = Lifecycle.close(executionQueue)(logger)
 
+  def acsSetNoWaitCommitmentsFrom(
+      configs: Seq[ConfigForNoWaitCounterParticipants]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    participantNodePersistentState.value.acsCounterParticipantConfigStore
+      .addNoWaitCounterParticipant(configs)
+
+  def acsGetNoWaitCommitmentsFrom(
+      domains: Seq[DomainId],
+      participants: Seq[ParticipantId],
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Seq[ConfigForNoWaitCounterParticipants]] =
+    for {
+      allNoWait <- participantNodePersistentState.value.acsCounterParticipantConfigStore
+        .getAllActiveNoWaitCounterParticipants(
+          domains,
+          participants,
+        )
+    } yield allNoWait
+
+  def acsResetNoWaitCommitmentsFrom(
+      configs: Seq[ConfigForNoWaitCounterParticipants]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    participantNodePersistentState.value.acsCounterParticipantConfigStore
+      .removeNoWaitCounterParticipant(configs.map(_.domainId), configs.map(_.participantId))
+
   /** Providing the next Offset for iterative pruning: computed by the current pruning Offset increased by the max pruning batch size.
     */
   def locatePruningOffsetForOneIteration(implicit
@@ -703,14 +730,13 @@ private[pruning] object PruningProcessor extends HasLoggerName {
       // so look for the most recent such tick before latestTickBeforeOrAt if any.
       tsSafeToPruneUpTo <- commitmentsPruningBound match {
         case CommitmentsPruningBound.Outstanding(noOutstandingCommitmentsF) =>
-          FutureUnlessShutdown
-            .outcomeF(noOutstandingCommitmentsF(latestTickBeforeOrAt.forgetRefinement))
+          noOutstandingCommitmentsF(latestTickBeforeOrAt.forgetRefinement)
             .flatMap(
               _.traverse(getTickBeforeOrAt)
             )
         case CommitmentsPruningBound.LastComputedAndSent(lastComputedAndSentF) =>
           for {
-            lastComputedAndSentO <- FutureUnlessShutdown.outcomeF(lastComputedAndSentF)
+            lastComputedAndSentO <- lastComputedAndSentF
             tickBeforeLastComputedAndSentO <- lastComputedAndSentO.traverse(getTickBeforeOrAt)
           } yield tickBeforeLastComputedAndSentO.map(_.min(latestTickBeforeOrAt))
       }
@@ -754,10 +780,16 @@ private[pruning] object PruningProcessor extends HasLoggerName {
 
     val commitmentsPruningBound =
       if (checkForOutstandingCommitments)
-        CommitmentsPruningBound.Outstanding(acsCommitmentStore.noOutstandingCommitments(_))
+        CommitmentsPruningBound.Outstanding(ts =>
+          FutureUnlessShutdown.outcomeF {
+            acsCommitmentStore.noOutstandingCommitments(ts)
+          }
+        )
       else
         CommitmentsPruningBound.LastComputedAndSent(
-          acsCommitmentStore.lastComputedAndSent.map(_.map(_.forgetRefinement))
+          FutureUnlessShutdown.outcomeF {
+            acsCommitmentStore.lastComputedAndSent.map(_.map(_.forgetRefinement))
+          }
         )
 
     val earliestInFlightF = inFlightSubmissionStore.lookupEarliest(domainId)

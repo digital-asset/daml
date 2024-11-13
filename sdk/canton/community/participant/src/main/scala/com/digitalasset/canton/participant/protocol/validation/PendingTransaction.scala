@@ -25,6 +25,7 @@ final case class PendingTransaction(
 ) extends PendingRequestData {
 
   val requestId: RequestId = RequestId(requestTime)
+
   override def rootHashO: Option[RootHash] = Some(
     transactionValidationResult.transactionId.toRootHash
   )

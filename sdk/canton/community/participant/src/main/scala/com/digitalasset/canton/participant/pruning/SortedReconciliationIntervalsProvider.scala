@@ -13,7 +13,6 @@ import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.client.DomainTopologyClient
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherUtil.*
-import com.google.common.annotations.VisibleForTesting
 
 import java.security.InvalidParameterException
 import java.util.concurrent.atomic.AtomicReference
@@ -97,8 +96,7 @@ class SortedReconciliationIntervalsProvider(
     * The caller should ensure that `fromExclusive` and `toInclusive` represent valid reconciliation ticks.
     * Otherwise, the method throws an `InvalidParameterException`
     */
-  @VisibleForTesting
-  private[pruning] def computeReconciliationIntervalsCovering(
+  def computeReconciliationIntervalsCovering(
       fromExclusive: CantonTimestamp,
       toInclusive: CantonTimestamp,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[List[CommitmentPeriod]] =

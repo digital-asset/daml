@@ -651,7 +651,7 @@ final case class SigningPublicKey private[crypto] (
     protected[crypto] val key: ByteString,
     keySpec: SigningKeySpec,
     usage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.All,
-    override protected val dataForFingerprintO: Option[ByteString],
+    override protected val dataForFingerprintO: Option[ByteString] = None,
 )(
     override val migrated: Boolean = false
 ) extends PublicKey

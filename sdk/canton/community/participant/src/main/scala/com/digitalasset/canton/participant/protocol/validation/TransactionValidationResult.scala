@@ -19,7 +19,7 @@ final case class TransactionValidationResult(
     submitterMetadataO: Option[SubmitterMetadata],
     workflowIdO: Option[WorkflowId],
     contractConsistencyResultE: Either[List[ReferenceToFutureContractError], Unit],
-    authenticationResult: Map[ViewPosition, String],
+    authenticationResult: Map[ViewPosition, AuthenticationError],
     authorizationResult: Map[ViewPosition, String],
     modelConformanceResultET: EitherT[
       FutureUnlessShutdown,

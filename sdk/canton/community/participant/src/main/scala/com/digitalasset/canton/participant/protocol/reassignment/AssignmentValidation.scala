@@ -18,7 +18,6 @@ import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValid
   ContractDataMismatch,
   InconsistentReassignmentCounter,
   NonInitiatorSubmitsBeforeExclusivityTimeout,
-  ReassigningParticipantsMismatch,
 }
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.{
@@ -46,7 +45,7 @@ private[reassignment] class AssignmentValidation(
 )(implicit val ec: ExecutionContext)
     extends NamedLogging {
 
-  // TODO(#12926) Check what validations should be done for observing reassigning participants
+  // TODO(#12926) Check what validations should be done for reassigning participants
   // TODO(#22119) Split this method in smaller chunks
   /** Validate the unassignment request
     * @return The option should be defined iff a confirmation will be sent, which means:
@@ -59,7 +58,7 @@ private[reassignment] class AssignmentValidation(
       assignmentRequest: FullAssignmentTree,
       reassignmentDataO: Option[ReassignmentData],
       targetCrypto: Target[DomainSnapshotSyncCryptoApi],
-      isConfirmingReassigningParticipant: Boolean,
+      isSignatoryAssigning: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, ReassignmentProcessorError, Option[AssignmentValidationResult]] = {
@@ -67,7 +66,7 @@ private[reassignment] class AssignmentValidation(
     val targetSnapshot = targetCrypto.map(_.ipsSnapshot)
 
     reassignmentDataO match {
-      case Some(reassignmentData) if isConfirmingReassigningParticipant =>
+      case Some(reassignmentData) if isSignatoryAssigning =>
         val sourceDomain = reassignmentData.unassignmentRequest.sourceDomain
         val unassignmentTs = reassignmentData.unassignmentTs
         for {
@@ -93,7 +92,7 @@ private[reassignment] class AssignmentValidation(
           _ <- condUnitET[Future](
             reassignmentData.unassignmentRequest.reassigningParticipants == assignmentRequest.reassigningParticipants,
             ReassigningParticipantsMismatch(
-              reassignmentId,
+              ReassignmentRef(reassignmentId),
               expected = reassignmentData.unassignmentRequest.reassigningParticipants,
               declared = assignmentRequest.reassigningParticipants,
             ),
@@ -182,7 +181,7 @@ private[reassignment] class AssignmentValidation(
 
         } yield Some(AssignmentValidationResult(confirmingParties))
 
-      case _ => // No reassignment data or participant is a pure observing reassigning participant
+      case _ => // No reassignment data or participant is a non-signatory reassigning participant
         // TODO(#12926) Check what validations can be done here + ensure coverage
         for {
           _ <- ReassignmentValidation.checkSubmitter(
@@ -209,7 +208,7 @@ private[reassignment] class AssignmentValidation(
             .liftF[Future, ReassignmentProcessorError, Set[LfPartyId]](confirmingPartiesF)
 
           res <-
-            if (isConfirmingReassigningParticipant) {
+            if (isSignatoryAssigning) {
               // This happens either in case of malicious assignments (incorrectly declared confirming reassigning participants)
               // OR if the reassignment data has been pruned.
               // The assignment should be rejected due to other validations (e.g. conflict detection), but
@@ -279,15 +278,6 @@ object AssignmentValidation extends LocalRejectionGroup {
   ) extends AssignmentValidationError {
     override def message: String =
       s"Cannot assign `$reassignmentId`: expecting domain `$targetDomain` but received on `$receivedOn`"
-  }
-
-  final case class ReassigningParticipantsMismatch(
-      reassignmentId: ReassignmentId,
-      expected: ReassigningParticipants,
-      declared: ReassigningParticipants,
-  ) extends UnassignmentProcessorError {
-    override def message: String =
-      s"Cannot assign `$reassignmentId`: reassigning participants mismatch"
   }
 
   final case class NonInitiatorSubmitsBeforeExclusivityTimeout(

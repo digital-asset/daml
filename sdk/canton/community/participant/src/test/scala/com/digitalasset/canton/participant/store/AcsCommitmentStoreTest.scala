@@ -21,6 +21,7 @@ import com.digitalasset.canton.protocol.messages.{
   CommitmentPeriodState,
   SignedProtocolMessage,
 }
+import com.digitalasset.canton.pruning.ConfigForNoWaitCounterParticipants
 import com.digitalasset.canton.store.PrunableByTimeTest
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
@@ -380,6 +381,57 @@ trait AcsCommitmentStoreTest
         limit4 shouldBe Some(ts(2))
         limit5 shouldBe Some(ts(3))
         limit6 shouldBe Some(ts(4))
+      }
+    }
+
+    "correctly compute the no outstanding when ignoring participants" in {
+      val store = mk()
+      val configRemoteId1 = ConfigForNoWaitCounterParticipants(
+        domainId,
+        remoteId,
+      )
+      val configRemoteId2 = ConfigForNoWaitCounterParticipants(
+        domainId,
+        remoteId2,
+      )
+      val configRemoteId3 = ConfigForNoWaitCounterParticipants(
+        domainId,
+        remoteId3,
+      )
+      val endOfTime = ts(10)
+      for {
+        _ <- store.markOutstanding(period(0, 2), Set())
+        _ <- store.markComputedAndSent(period(0, 2))
+        _ <- store.markOutstanding(period(2, 4), Set(remoteId))
+        _ <- store.markComputedAndSent(period(2, 4))
+        _ <- store.markOutstanding(period(4, 6), Set(remoteId, remoteId2))
+        _ <- store.markComputedAndSent(period(4, 6))
+        _ <- store.markOutstanding(period(6, 8), Set(remoteId, remoteId2, remoteId3))
+        _ <- store.markComputedAndSent(period(6, 8))
+        limitNoIgnore <- store.noOutstandingCommitments(endOfTime)
+        _ <- store.acsCounterParticipantConfigStore
+          .addNoWaitCounterParticipant(Seq(configRemoteId1))
+          .failOnShutdown
+        limitIgnoreRemoteId <- store.noOutstandingCommitments(endOfTime)
+        _ <- store.acsCounterParticipantConfigStore
+          .addNoWaitCounterParticipant(Seq(configRemoteId2))
+          .failOnShutdown
+        limitOnlyRemoteId3 <- store.noOutstandingCommitments(endOfTime)
+        _ <- store.acsCounterParticipantConfigStore
+          .addNoWaitCounterParticipant(Seq(configRemoteId3))
+          .failOnShutdown
+        limitIgnoreAll <- store.noOutstandingCommitments(endOfTime)
+        _ <- store.acsCounterParticipantConfigStore
+          .removeNoWaitCounterParticipant(Seq(domainId), Seq(remoteId, remoteId2, remoteId3))
+          .failOnShutdown
+      } yield {
+        limitNoIgnore shouldBe Some(ts(2)) // remoteId stopped after ts(2)
+        // remoteId is ignored
+        limitIgnoreRemoteId shouldBe Some(ts(4)) // remoteId2 stopped after ts(4)
+        // remoteId,remoteId2 is ignored
+        limitOnlyRemoteId3 shouldBe Some(ts(6)) // remoteId3 stopped after ts(6)
+        // remoteId,remoteId2,remoteId3 is ignored
+        limitIgnoreAll shouldBe Some(ts(8)) // latest commit
       }
     }
 

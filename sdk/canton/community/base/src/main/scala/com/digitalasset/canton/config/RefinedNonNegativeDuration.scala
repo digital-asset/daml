@@ -16,7 +16,10 @@ import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.{DurationConverter, ParsingResult}
-import com.digitalasset.canton.time.NonNegativeFiniteDuration as NonNegativeFiniteDurationInternal
+import com.digitalasset.canton.time.{
+  NonNegativeFiniteDuration as NonNegativeFiniteDurationInternal,
+  PositiveFiniteDuration as PositiveFiniteDurationInternal,
+}
 import com.digitalasset.canton.util.FutureUtil.defaultStackTraceFilter
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{FutureUtil, LoggerUtil, StackTraceUtil}
@@ -333,6 +336,10 @@ final case class NonNegativeFiniteDuration(underlying: FiniteDuration)
     }
 
   def asFiniteApproximation: FiniteDuration = underlying
+
+  def toInternal: NonNegativeFiniteDurationInternal = checked(
+    NonNegativeFiniteDurationInternal.tryCreate(asJava)
+  )
 }
 
 object NonNegativeFiniteDuration
@@ -397,6 +404,10 @@ final case class PositiveFiniteDuration(underlying: FiniteDuration)
     }
 
   def asFiniteApproximation: FiniteDuration = underlying
+
+  def toInternal: PositiveFiniteDurationInternal = checked(
+    PositiveFiniteDurationInternal.tryCreate(asJava)
+  )
 }
 
 object PositiveFiniteDuration extends RefinedNonNegativeDurationCompanion[PositiveFiniteDuration] {

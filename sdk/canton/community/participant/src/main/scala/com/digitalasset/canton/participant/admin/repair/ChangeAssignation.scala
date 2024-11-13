@@ -427,7 +427,7 @@ private final class ChangeAssignation(
         hostedStakeholders =
           hostedParties.unwrap.intersect(contract.payload.contract.metadata.stakeholders).toList,
         unassignId = reassignmentId.unassignmentTs,
-        isObservingReassigningParticipant = false,
+        isReassigningParticipant = false,
       ),
       reassignment = Reassignment.Unassign(
         contractId = contract.payload.contract.contractId,
@@ -466,7 +466,7 @@ private final class ChangeAssignation(
         hostedStakeholders =
           hostedParties.unwrap.intersect(contract.payload.contract.metadata.stakeholders).toList,
         unassignId = reassignmentId.unassignmentTs,
-        isObservingReassigningParticipant = false,
+        isReassigningParticipant = false,
       ),
       reassignment = Reassignment.Assign(
         ledgerEffectiveTime = contract.payload.contract.ledgerCreateTime.toLf,

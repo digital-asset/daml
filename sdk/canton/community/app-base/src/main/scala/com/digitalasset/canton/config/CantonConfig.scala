@@ -88,7 +88,6 @@ import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.pureconfigutils.SharedConfigReaders.catchConvertError
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
-import com.digitalasset.canton.time.EnrichedDurations.RichNonNegativeFiniteDurationConfig
 import com.digitalasset.canton.tracing.TracingConfig
 import com.typesafe.config.ConfigException.UnresolvedSubstitution
 import com.typesafe.config.{
@@ -506,7 +505,6 @@ trait CantonConfig {
 }
 
 private[canton] object CantonNodeParameterConverter {
-  import com.digitalasset.canton.time.EnrichedDurations.*
 
   def general(parent: CantonConfig, node: LocalNodeConfig): CantonNodeParameters.General =
     CantonNodeParameters.General.Impl(

@@ -513,16 +513,6 @@ final class GeneratorsData(
       )
     )
 
-  implicit val reassigningParticipantsArb: Arbitrary[ReassigningParticipants] = Arbitrary(for {
-    confirming <- Gen.containerOf[Set, ParticipantId](
-      Arbitrary.arbitrary[ParticipantId]
-    )
-    pureObserving <- Gen.containerOf[Set, ParticipantId](
-      Arbitrary.arbitrary[ParticipantId]
-    )
-    observing = confirming.union(pureObserving)
-  } yield ReassigningParticipants.tryCreate(confirming, observing))
-
   implicit val assignmentCommonDataArb: Arbitrary[AssignmentCommonData] = Arbitrary(
     for {
       salt <- Arbitrary.arbitrary[Salt]
@@ -535,7 +525,7 @@ final class GeneratorsData(
       uuid <- Gen.uuid
 
       submitterMetadata <- Arbitrary.arbitrary[ReassignmentSubmitterMetadata]
-      reassigningParticipants <- Arbitrary.arbitrary[ReassigningParticipants]
+      reassigningParticipants <- Arbitrary.arbitrary[Set[ParticipantId]]
 
       hashOps = TestHash // Not used for serialization
 
@@ -560,8 +550,7 @@ final class GeneratorsData(
       sourceMediator <- Arbitrary.arbitrary[MediatorGroupRecipient]
 
       stakeholders <- Arbitrary.arbitrary[Stakeholders]
-
-      reassigningParticipants <- Arbitrary.arbitrary[ReassigningParticipants]
+      reassigningParticipants <- Arbitrary.arbitrary[Set[ParticipantId]]
 
       uuid <- Gen.uuid
 

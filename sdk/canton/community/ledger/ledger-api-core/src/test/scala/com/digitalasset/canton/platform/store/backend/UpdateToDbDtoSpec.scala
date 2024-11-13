@@ -1447,7 +1447,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           reassignmentCounter = 1500L,
           hostedStakeholders = Nil,
           unassignId = CantonTimestamp.assertFromLong(1000000000),
-          isObservingReassigningParticipant = true,
+          isReassigningParticipant = true,
         ),
         reassignment = Reassignment.Assign(
           ledgerEffectiveTime = Time.Timestamp.assertFromLong(17000000),
@@ -1552,7 +1552,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           reassignmentCounter = 1500L,
           hostedStakeholders = Nil,
           unassignId = CantonTimestamp.assertFromLong(1000000000),
-          isObservingReassigningParticipant = true,
+          isReassigningParticipant = true,
         ),
         reassignment = Reassignment.Unassign(
           contractId = contractId,

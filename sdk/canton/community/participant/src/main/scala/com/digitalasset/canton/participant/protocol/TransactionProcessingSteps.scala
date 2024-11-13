@@ -61,7 +61,6 @@ import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFa
   SerializableContractOfId,
   UnknownPackageError,
 }
-import com.digitalasset.canton.participant.protocol.validation.*
 import com.digitalasset.canton.participant.protocol.validation.ContractConsistencyChecker.ReferenceToFutureContractError
 import com.digitalasset.canton.participant.protocol.validation.InternalConsistencyChecker.{
   ErrorWithInternalConsistencyCheck,
@@ -69,6 +68,7 @@ import com.digitalasset.canton.participant.protocol.validation.InternalConsisten
 }
 import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.ErrorWithSubTransaction
 import com.digitalasset.canton.participant.protocol.validation.TimeValidator.TimeCheckFailure
+import com.digitalasset.canton.participant.protocol.validation.{AuthenticationError, *}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.*
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
@@ -128,7 +128,6 @@ class TransactionProcessingSteps(
     contractStore: ContractStore,
     metrics: TransactionProcessingMetrics,
     serializableContractAuthenticator: SerializableContractAuthenticator,
-    authenticationValidator: AuthenticationValidator,
     authorizationValidator: AuthorizationValidator,
     internalConsistencyChecker: InternalConsistencyChecker,
     tracker: CommandProgressTracker,
@@ -884,7 +883,7 @@ class TransactionProcessingSteps(
       val ledgerTime = parsedRequest.ledgerTime
 
       for {
-        authenticationResult <- authenticationValidator.verifyViewSignatures(parsedRequest)
+        authenticationResult <- AuthenticationValidator.verifyViewSignatures(parsedRequest)
 
         consistencyResultE = ContractConsistencyChecker
           .assertInputContractsInPast(
@@ -1210,7 +1209,9 @@ class TransactionProcessingSteps(
       mediator: MediatorGroupRecipient,
       freshOwnTimelyTx: Boolean,
       engineController: EngineController,
-  )(implicit traceContext: TraceContext): PendingTransaction = {
+  )(implicit
+      traceContext: TraceContext
+  ): PendingTransaction = {
     // We consider that we rejected if at least one of the responses is not "approve'
     val locallyRejectedF = responsesF.map(_.exists(response => !response.localVerdict.isApprove))
 
@@ -1615,7 +1616,7 @@ object TransactionProcessingSteps {
   }
 
   private final case class ParallelChecksResult(
-      authenticationResult: Map[ViewPosition, String],
+      authenticationResult: Map[ViewPosition, AuthenticationError],
       consistencyResultE: Either[List[ReferenceToFutureContractError], Unit],
       authorizationResult: Map[ViewPosition, String],
       conformanceResultET: EitherT[

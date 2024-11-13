@@ -8,8 +8,10 @@ import com.digitalasset.canton.ReassignmentCounter
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt, SaltSeed}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
-import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.StakeholderHostingErrors
+import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
+  ReassignmentProcessorError,
+  StakeholderHostingErrors,
+}
 import com.digitalasset.canton.participant.protocol.submission.UsableDomain
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, TimeProof}
@@ -31,7 +33,7 @@ import scala.concurrent.ExecutionContext
   */
 final case class UnassignmentRequest(
     submitterMetadata: ReassignmentSubmitterMetadata,
-    reassigningParticipants: ReassigningParticipants,
+    reassigningParticipants: Set[ParticipantId],
     contract: SerializableContract,
     sourceDomain: Source[DomainId],
     sourceProtocolVersion: Source[ProtocolVersion],

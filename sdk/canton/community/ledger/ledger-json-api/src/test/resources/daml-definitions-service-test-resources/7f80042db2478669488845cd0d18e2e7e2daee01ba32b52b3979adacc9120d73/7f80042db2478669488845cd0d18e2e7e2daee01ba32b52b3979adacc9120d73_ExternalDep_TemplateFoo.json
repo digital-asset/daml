@@ -10,7 +10,7 @@
 
                 }
               }],
-              "tyCon": "cfa55b172b71b5bbb95d4d2a4d67f00e64a03ef0b00d2684f416a6983d79e33d:ExternalDep:MyList"
+              "tyCon": "7f80042db2478669488845cd0d18e2e7e2daee01ba32b52b3979adacc9120d73:ExternalDep:MyList"
             }
           }
         }
@@ -23,7 +23,7 @@
       "someRecordField": {
         "Variant": {
           "params": [],
-          "tyCon": "cfa55b172b71b5bbb95d4d2a4d67f00e64a03ef0b00d2684f416a6983d79e33d:ExternalDep:SomeVariant"
+          "tyCon": "7f80042db2478669488845cd0d18e2e7e2daee01ba32b52b3979adacc9120d73:ExternalDep:SomeVariant"
         }
       },
       "someRecordTyped": {
@@ -31,10 +31,10 @@
           "params": [{
             "Variant": {
               "params": [],
-              "tyCon": "cfa55b172b71b5bbb95d4d2a4d67f00e64a03ef0b00d2684f416a6983d79e33d:ExternalDep:SomeVariant"
+              "tyCon": "7f80042db2478669488845cd0d18e2e7e2daee01ba32b52b3979adacc9120d73:ExternalDep:SomeVariant"
             }
           }],
-          "tyCon": "cfa55b172b71b5bbb95d4d2a4d67f00e64a03ef0b00d2684f416a6983d79e33d:ExternalDep:SomeParamRecord"
+          "tyCon": "7f80042db2478669488845cd0d18e2e7e2daee01ba32b52b3979adacc9120d73:ExternalDep:SomeParamRecord"
         }
       }
     },
@@ -65,7 +65,7 @@
 
                 }
               }],
-              "tyCon": "cfa55b172b71b5bbb95d4d2a4d67f00e64a03ef0b00d2684f416a6983d79e33d:ExternalDep:SomeParamRecord"
+              "tyCon": "7f80042db2478669488845cd0d18e2e7e2daee01ba32b52b3979adacc9120d73:ExternalDep:SomeParamRecord"
             }
           }
         },
@@ -75,7 +75,7 @@
       "returnType": {
         "Record": {
           "params": [],
-          "tyCon": "cfa55b172b71b5bbb95d4d2a4d67f00e64a03ef0b00d2684f416a6983d79e33d:ExternalDep:AnotherRecord"
+          "tyCon": "7f80042db2478669488845cd0d18e2e7e2daee01ba32b52b3979adacc9120d73:ExternalDep:AnotherRecord"
         }
       }
     },
@@ -95,15 +95,7 @@
     }
   },
   "definitions": {
-    "9e70a8b3510d617f8a136213f33d6a903a10ca0eeec76bb06ba55d1ed9680f69:DA.Internal.Template:Archive": {
-      "RecordSig": {
-        "fields": {
-
-        },
-        "params": []
-      }
-    },
-    "cfa55b172b71b5bbb95d4d2a4d67f00e64a03ef0b00d2684f416a6983d79e33d:ExternalDep:AnotherRecord": {
+    "7f80042db2478669488845cd0d18e2e7e2daee01ba32b52b3979adacc9120d73:ExternalDep:AnotherRecord": {
       "RecordSig": {
         "fields": {
           "someText": {
@@ -115,7 +107,7 @@
         "params": []
       }
     },
-    "cfa55b172b71b5bbb95d4d2a4d67f00e64a03ef0b00d2684f416a6983d79e33d:ExternalDep:MyList": {
+    "7f80042db2478669488845cd0d18e2e7e2daee01ba32b52b3979adacc9120d73:ExternalDep:MyList": {
       "VariantSig": {
         "constructor": {
           "MyCons": {
@@ -125,7 +117,7 @@
                   "name": "t"
                 }
               }],
-              "tyCon": "cfa55b172b71b5bbb95d4d2a4d67f00e64a03ef0b00d2684f416a6983d79e33d:ExternalDep:MyList.MyCons"
+              "tyCon": "7f80042db2478669488845cd0d18e2e7e2daee01ba32b52b3979adacc9120d73:ExternalDep:MyList.MyCons"
             }
           },
           "Nil": {
@@ -137,7 +129,7 @@
         "params": ["t"]
       }
     },
-    "cfa55b172b71b5bbb95d4d2a4d67f00e64a03ef0b00d2684f416a6983d79e33d:ExternalDep:MyList.MyCons": {
+    "7f80042db2478669488845cd0d18e2e7e2daee01ba32b52b3979adacc9120d73:ExternalDep:MyList.MyCons": {
       "RecordSig": {
         "fields": {
           "head": {
@@ -152,14 +144,14 @@
                   "name": "t"
                 }
               }],
-              "tyCon": "cfa55b172b71b5bbb95d4d2a4d67f00e64a03ef0b00d2684f416a6983d79e33d:ExternalDep:MyList"
+              "tyCon": "7f80042db2478669488845cd0d18e2e7e2daee01ba32b52b3979adacc9120d73:ExternalDep:MyList"
             }
           }
         },
         "params": ["t"]
       }
     },
-    "cfa55b172b71b5bbb95d4d2a4d67f00e64a03ef0b00d2684f416a6983d79e33d:ExternalDep:SomeParamRecord": {
+    "7f80042db2478669488845cd0d18e2e7e2daee01ba32b52b3979adacc9120d73:ExternalDep:SomeParamRecord": {
       "RecordSig": {
         "fields": {
           "foo": {
@@ -171,7 +163,7 @@
         "params": ["a"]
       }
     },
-    "cfa55b172b71b5bbb95d4d2a4d67f00e64a03ef0b00d2684f416a6983d79e33d:ExternalDep:SomeVariant": {
+    "7f80042db2478669488845cd0d18e2e7e2daee01ba32b52b3979adacc9120d73:ExternalDep:SomeVariant": {
       "VariantSig": {
         "constructor": {
           "SomeEnum": {
@@ -188,7 +180,7 @@
         "params": []
       }
     },
-    "cfa55b172b71b5bbb95d4d2a4d67f00e64a03ef0b00d2684f416a6983d79e33d:ExternalDep:SourceTemplate_Args_RetRecord": {
+    "7f80042db2478669488845cd0d18e2e7e2daee01ba32b52b3979adacc9120d73:ExternalDep:SourceTemplate_Args_RetRecord": {
       "RecordSig": {
         "fields": {
           "choiceArg": {
@@ -198,14 +190,22 @@
 
                 }
               }],
-              "tyCon": "cfa55b172b71b5bbb95d4d2a4d67f00e64a03ef0b00d2684f416a6983d79e33d:ExternalDep:SomeParamRecord"
+              "tyCon": "7f80042db2478669488845cd0d18e2e7e2daee01ba32b52b3979adacc9120d73:ExternalDep:SomeParamRecord"
             }
           }
         },
         "params": []
       }
     },
-    "cfa55b172b71b5bbb95d4d2a4d67f00e64a03ef0b00d2684f416a6983d79e33d:ExternalDep:TemplateFoo_NoArgs_RetUnit": {
+    "7f80042db2478669488845cd0d18e2e7e2daee01ba32b52b3979adacc9120d73:ExternalDep:TemplateFoo_NoArgs_RetUnit": {
+      "RecordSig": {
+        "fields": {
+
+        },
+        "params": []
+      }
+    },
+    "9e70a8b3510d617f8a136213f33d6a903a10ca0eeec76bb06ba55d1ed9680f69:DA.Internal.Template:Archive": {
       "RecordSig": {
         "fields": {
 

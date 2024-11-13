@@ -90,8 +90,12 @@ class SyncDomainEphemeralState(
 
   val contractStore: ContractStore = persistentState.contractStore
 
-  val reassignmentCache =
-    new ReassignmentCache(persistentState.reassignmentStore, loggerFactory)
+  val reassignmentCache = new ReassignmentCache(
+    persistentState.reassignmentStore,
+    futureSupervisor,
+    timeouts,
+    loggerFactory,
+  )
 
   val requestTracker: RequestTracker = {
     val conflictDetector = new ConflictDetector(
@@ -180,6 +184,7 @@ class SyncDomainEphemeralState(
       recordOrderPublisher,
       submissionTracker,
       phase37Synchronizer,
+      reassignmentCache,
     )(logger)
 
 }

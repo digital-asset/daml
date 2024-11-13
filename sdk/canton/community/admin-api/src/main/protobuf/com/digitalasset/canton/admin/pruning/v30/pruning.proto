@@ -86,25 +86,17 @@ message LocatePruningTimestamp {
 }
 
 // overwrites previous no-wait-configuration on the given domains for the given counter participants
+// the request will fail if the counter_participant_uids or domain_ids is invalid format, or if duplicates are present in the repeated strings
 message SetNoWaitCommitmentsFrom {
   message Request {
     // ignore the given participants; an empty list has no effect
     repeated string counter_participant_uids = 1;
-    // pruning calls with an offset larger or equal to (the given pruning_offset/ to the offset equivalent to the given
-    // sequencing time) will disregard the given counter participants
-    oneof timestamp_or_offset {
-      google.protobuf.Timestamp sequencing_timestamp = 3;
-      string pruning_offset = 4;
-    }
     // ignore the given participants on these domains
     // an empty list has no effect
-    repeated string domain_ids = 5;
+    repeated string domain_ids = 2;
   }
 
-  message Response {
-    // counter participants for which we updated the no-wait-config and on which domains
-    map <string, Domains> participant_domains_mapping = 1;
-  }
+  message Response {}
 }
 
 // deletes previous no-wait-configuration on the given domains for the given counter participants
@@ -116,10 +108,7 @@ message ResetNoWaitCommitmentsFrom {
     repeated string domain_ids = 2;
   }
 
-  message Response {
-    // counter participants for which we updated the no-wait-config and on which domains
-    map <string, Domains> participant_domains_mapping = 1;
-  }
+  message Response {}
 }
 
 
@@ -144,33 +133,13 @@ message GetNoWaitCommitmentsFrom {
 
   message Response {
     // participants that are ignored
-    repeated NoWaitCommitmentsSetup ignored_participants = 1;
+    repeated WaitCommitmentsSetup ignored_participants = 1;
     // participants that are not ignored
     repeated WaitCommitmentsSetup not_ignored_participants = 2;
   }
 }
 
-message NoWaitCommitmentsSetup {
-  string counter_participant_uid = 1;
-  // since when the counter participant is ignored
-  oneof timestamp_or_offset_active {
-    google.protobuf.Timestamp sequencing_timestamp = 2;
-    string pruning_offset = 3;
-  }
-  Domains domain_ids = 4;
-  SharedContractsState counter_participant_state = 5;
-}
-
 message WaitCommitmentsSetup {
   string counter_participant_uid = 1;
   Domains domain_ids = 2;
-  SharedContractsState counter_participant_state = 3;
-}
-
-enum SharedContractsState {
-  STATE_UNSPECIFIED = 0;
-  // the participant has shared contracts with the counter participant
-  SHARED_CONTRACTS = 1;
-  // the participant knows the counter participant but has no shared contracts
-  NO_SHARED_CONTRACTS = 2;
 }

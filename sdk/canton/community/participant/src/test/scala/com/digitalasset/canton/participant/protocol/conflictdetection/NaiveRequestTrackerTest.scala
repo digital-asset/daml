@@ -36,6 +36,8 @@ class NaiveRequestTrackerTest
           ReassignmentStoreTest.targetDomainId,
           loggerFactory,
         ),
+        FutureSupervisor.Noop,
+        timeouts,
         loggerFactory,
       )
 

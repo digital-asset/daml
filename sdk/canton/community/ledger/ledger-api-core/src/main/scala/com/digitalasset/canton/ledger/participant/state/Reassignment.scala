@@ -25,7 +25,7 @@ object Reassignment {
     * @param stakeholders          Stakeholders of the underlying contract.
     * @param assignmentExclusivity Before this time (measured on the target domain), only the submitter
     *                              of the unassignment can initiate the assignment.
-    *                              Defined for observing reassigning participants.
+    *                              Defined for reassigning participants.
     */
   final case class Unassign(
       contractId: Value.ContractId,
@@ -73,5 +73,5 @@ final case class ReassignmentInfo(
     reassignmentCounter: Long,
     hostedStakeholders: List[Ref.Party],
     unassignId: CantonTimestamp,
-    isObservingReassigningParticipant: Boolean,
+    isReassigningParticipant: Boolean,
 )

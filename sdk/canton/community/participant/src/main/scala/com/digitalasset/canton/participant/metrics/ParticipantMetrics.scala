@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.metrics
 
 import cats.Eval
-import com.daml.metrics.HealthMetrics
 import com.daml.metrics.api.HistogramInventory.Item
 import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
 import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Histogram, LabeledMetricsFactory, Meter}
@@ -17,6 +16,7 @@ import com.daml.metrics.api.{
   MetricsContext,
 }
 import com.daml.metrics.grpc.GrpcServerMetrics
+import com.daml.metrics.{CacheMetrics, HealthMetrics}
 import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.data.TaskSchedulerMetrics
 import com.digitalasset.canton.environment.BaseMetrics
@@ -118,7 +118,7 @@ class ParticipantMetrics(
         // Eval.later ensures that we actually create only one instance of SyncDomainMetrics in such a case
         // by delaying the creation until the getOrElseUpdate call has finished.
         Eval.later(
-          new SyncDomainMetrics(inventory.syncDomain, openTelemetryMetricsFactory)(
+          new SyncDomainMetrics(alias, inventory.syncDomain, openTelemetryMetricsFactory)(
             mc.withExtraLabels("domain" -> alias.unwrap)
           )
         ),
@@ -166,6 +166,8 @@ class ParticipantMetrics(
       () => value().getOrElse(-1),
     )
 
+  val slowCounterParticipantCache: CacheMetrics =
+    new CacheMetrics(this.prefix :+ "slow-counter-participants-cache", openTelemetryMetricsFactory)
 }
 
 class SyncDomainHistograms(val parent: MetricName, val sequencerClient: SequencerClientHistograms)(
@@ -182,6 +184,7 @@ class SyncDomainHistograms(val parent: MetricName, val sequencerClient: Sequence
 }
 
 class SyncDomainMetrics(
+    domainAlias: DomainAlias,
     histograms: SyncDomainHistograms,
     factory: LabeledMetricsFactory,
 )(implicit metricsContext: MetricsContext) {
@@ -222,7 +225,7 @@ class SyncDomainMetrics(
 
   }
 
-  object commitments extends CommitmentMetrics(histograms.commitments, factory)
+  object commitments extends CommitmentMetrics(domainAlias, histograms.commitments, factory)
 
   object transactionProcessing
       extends TransactionProcessingMetrics(histograms.transactionProcessing, factory)
@@ -263,6 +266,7 @@ class SyncDomainMetrics(
       ),
       0,
     )
+
     def taskQueue(size: () => Int): CloseableGauge =
       factory.gaugeWithSupplier(taskQueueForDoc.info, size)
   }

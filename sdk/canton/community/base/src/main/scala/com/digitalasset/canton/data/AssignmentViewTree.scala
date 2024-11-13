@@ -6,6 +6,7 @@ package com.digitalasset.canton.data
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
+import com.digitalasset.canton.ReassignmentCounter
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.MerkleTree.RevealSubtree
 import com.digitalasset.canton.data.ReassignmentRef.ReassignmentIdRef
@@ -26,7 +27,6 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.*
-import com.digitalasset.canton.{ProtoDeserializationError, ReassignmentCounter}
 import com.google.protobuf.ByteString
 
 import java.util.UUID
@@ -146,7 +146,7 @@ final case class AssignmentCommonData private (
     stakeholders: Stakeholders,
     uuid: UUID,
     submitterMetadata: ReassignmentSubmitterMetadata,
-    reassigningParticipants: ReassigningParticipants,
+    reassigningParticipants: Set[ParticipantId],
 )(
     hashOps: HashOps,
     val targetProtocolVersion: Target[ProtocolVersion],
@@ -170,10 +170,7 @@ final case class AssignmentCommonData private (
       stakeholders = Some(stakeholders.toProtoV30),
       uuid = ProtoConverter.UuidConverter.toProtoPrimitive(uuid),
       submitterMetadata = Some(submitterMetadata.toProtoV30),
-      confirmingReassigningParticipantUids =
-        reassigningParticipants.confirming.map(_.uid.toProtoPrimitive).toSeq,
-      observingReassigningParticipantUids =
-        reassigningParticipants.observing.map(_.uid.toProtoPrimitive).toSeq,
+      reassigningParticipantUids = reassigningParticipants.map(_.uid.toProtoPrimitive).toSeq,
     )
 
   override protected[this] def toByteStringUnmemoized: ByteString =
@@ -214,7 +211,7 @@ object AssignmentCommonData
       uuid: UUID,
       submitterMetadata: ReassignmentSubmitterMetadata,
       targetProtocolVersion: Target[ProtocolVersion],
-      reassigningParticipants: ReassigningParticipants,
+      reassigningParticipants: Set[ParticipantId],
   ): AssignmentCommonData = AssignmentCommonData(
     salt = salt,
     targetDomain = targetDomain,
@@ -239,8 +236,7 @@ object AssignmentCommonData
       uuidP,
       targetMediatorGroupP,
       submitterMetadataPO,
-      confirmingReassigningParticipantUidsP,
-      observingReassigningParticipantUidsP,
+      reassigningParticipantsP,
     ) = assignmentCommonDataP
 
     for {
@@ -260,24 +256,11 @@ object AssignmentCommonData
         .required("submitter_metadata", submitterMetadataPO)
         .flatMap(ReassignmentSubmitterMetadata.fromProtoV30)
 
-      confirmingReassigningParticipants <- confirmingReassigningParticipantUidsP.traverse(uid =>
+      reassigningParticipants <- reassigningParticipantsP.traverse(uid =>
         UniqueIdentifier
-          .fromProtoPrimitive(uid, "confirming_reassigning_participant_uids")
+          .fromProtoPrimitive(uid, "reassigning_participant_uids")
           .map(ParticipantId(_))
       )
-      observingReassigningParticipants <- observingReassigningParticipantUidsP.traverse(uid =>
-        UniqueIdentifier
-          .fromProtoPrimitive(uid, "observing_reassigning_participant_uids")
-          .map(ParticipantId(_))
-      )
-
-      reassigningParticipants <- ReassigningParticipants
-        .create(
-          confirming = confirmingReassigningParticipants.toSet,
-          observing = observingReassigningParticipants.toSet,
-        )
-        .leftMap(ProtoDeserializationError.InvariantViolation(field = "confirming", _))
-
     } yield AssignmentCommonData(
       salt,
       targetDomain,
@@ -285,7 +268,7 @@ object AssignmentCommonData
       stakeholders = stakeholders,
       uuid,
       submitterMetadata,
-      reassigningParticipants = reassigningParticipants,
+      reassigningParticipants = reassigningParticipants.toSet,
     )(hashOps, targetProtocolVersion, Some(bytes))
   }
 }

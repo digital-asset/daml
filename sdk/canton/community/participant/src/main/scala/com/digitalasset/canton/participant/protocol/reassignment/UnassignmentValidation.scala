@@ -7,11 +7,8 @@ import cats.data.*
 import cats.syntax.either.*
 import com.digitalasset.canton.data.{FullUnassignmentTree, ReassignmentRef}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.protocol.EngineController.GetEngineAbortStatus
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
-import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.protocol.Stakeholders
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -23,7 +20,7 @@ import scala.concurrent.ExecutionContext
 
 private[reassignment] object UnassignmentValidation {
 
-  /** @param targetTopology Defined if and only if the participant is observing reassigning
+  /** @param targetTopology Defined if and only if the participant is reassigning
     */
   def perform(
       serializableContractAuthenticator: SerializableContractAuthenticator,
@@ -31,16 +28,10 @@ private[reassignment] object UnassignmentValidation {
       sourceTopology: Source[TopologySnapshot],
       targetTopology: Option[Target[TopologySnapshot]],
       recipients: Recipients,
-      engine: DAMLe,
-      getEngineAbortStatus: GetEngineAbortStatus,
-      loggerFactory: NamedLoggerFactory,
   )(request: FullUnassignmentTree)(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] = {
-    val metadataCheckF = new ReassignmentValidation(engine, loggerFactory)
-      .checkMetadata(request, getEngineAbortStatus)
-      .mapK(FutureUnlessShutdown.outcomeK)
 
     val authenticationCheckF = EitherT.fromEither[FutureUnlessShutdown](
       serializableContractAuthenticator
@@ -49,7 +40,6 @@ private[reassignment] object UnassignmentValidation {
     )
 
     for {
-      _ <- metadataCheckF
       _ <- authenticationCheckF
 
       // Now that the contract and metadata are validated, this is safe to use

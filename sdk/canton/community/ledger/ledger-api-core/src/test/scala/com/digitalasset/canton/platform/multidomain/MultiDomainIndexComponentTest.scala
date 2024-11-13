@@ -51,7 +51,7 @@ class MultiDomainIndexComponentTest extends AsyncFlatSpec with IndexComponentTes
           reassignmentCounter = 15L,
           hostedStakeholders = List(party),
           unassignId = CantonTimestamp.now(),
-          isObservingReassigningParticipant = true,
+          isReassigningParticipant = true,
         ),
         reassignment = Reassignment.Assign(
           ledgerEffectiveTime = Time.Timestamp.now(),

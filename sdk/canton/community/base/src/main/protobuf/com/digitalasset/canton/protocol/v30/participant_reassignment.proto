@@ -27,12 +27,11 @@ message UnassignmentCommonData {
   string source_domain = 2;
 
   Stakeholders stakeholders = 3;
-  repeated string confirming_reassigning_participant_uids = 4;
-  repeated string observing_reassigning_participant_uids = 5;
+  repeated string reassigning_participant_uids = 4;
 
-  string uuid = 6;
-  int32 source_mediator_group = 7;
-  ReassignmentSubmitterMetadata submitter_metadata = 8;
+  string uuid = 5;
+  int32 source_mediator_group = 6;
+  ReassignmentSubmitterMetadata submitter_metadata = 7;
 }
 
 message ReassignmentViewTree {
@@ -67,8 +66,7 @@ message AssignmentCommonData {
   string uuid = 4; // request uuid
   int32 target_mediator_group = 5;
   ReassignmentSubmitterMetadata submitter_metadata = 6;
-  repeated string confirming_reassigning_participant_uids = 7;
-  repeated string observing_reassigning_participant_uids = 8;
+  repeated string reassigning_participant_uids = 7;
 }
 
 message ReassignmentSubmitterMetadata {

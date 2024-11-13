@@ -16,6 +16,7 @@ import com.digitalasset.canton.logging.{NamedLogging, SuppressingLogger}
 import com.digitalasset.canton.metrics.OpenTelemetryOnDemandMetricsReader
 import com.digitalasset.canton.protocol.{AcsCommitmentsCatchUpConfig, StaticDomainParameters}
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
+import com.digitalasset.canton.time.WallClock
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, W3CTraceContext}
 import com.digitalasset.canton.util.CheckedT
 import com.digitalasset.canton.util.FutureInstances.*
@@ -95,6 +96,8 @@ trait TestEssentials
   override val loggerFactory: SuppressingLogger = SuppressingLogger(getClass)
 
   val futureSupervisor: FutureSupervisor = FutureSupervisor.Noop
+
+  lazy val wallClock = new WallClock(timeouts, loggerFactory)
 
   // Make sure that JUL logging is redirected to SLF4J
   if (!SLF4JBridgeHandler.isInstalled) {

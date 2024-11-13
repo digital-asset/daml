@@ -5,7 +5,7 @@
         "ContractId": {
           "typeId": {
             "Interface": {
-              "tycon": "cfa55b172b71b5bbb95d4d2a4d67f00e64a03ef0b00d2684f416a6983d79e33d:ExternalDep:MyInterface"
+              "tycon": "7f80042db2478669488845cd0d18e2e7e2daee01ba32b52b3979adacc9120d73:ExternalDep:MyInterface"
             }
           }
         }
@@ -13,7 +13,7 @@
       "externalRecord": {
         "Variant": {
           "params": [],
-          "tyCon": "cfa55b172b71b5bbb95d4d2a4d67f00e64a03ef0b00d2684f416a6983d79e33d:ExternalDep:SomeVariant"
+          "tyCon": "7f80042db2478669488845cd0d18e2e7e2daee01ba32b52b3979adacc9120d73:ExternalDep:SomeVariant"
         }
       },
       "owner": {
@@ -26,7 +26,7 @@
           "typ": {
             "Record": {
               "params": [],
-              "tyCon": "cfa55b172b71b5bbb95d4d2a4d67f00e64a03ef0b00d2684f416a6983d79e33d:ExternalDep:AnotherRecord"
+              "tyCon": "7f80042db2478669488845cd0d18e2e7e2daee01ba32b52b3979adacc9120d73:ExternalDep:AnotherRecord"
             }
           }
         }
@@ -41,7 +41,7 @@
           "v": {
             "Record": {
               "params": [],
-              "tyCon": "cfa55b172b71b5bbb95d4d2a4d67f00e64a03ef0b00d2684f416a6983d79e33d:ExternalDep:AnotherRecord"
+              "tyCon": "7f80042db2478669488845cd0d18e2e7e2daee01ba32b52b3979adacc9120d73:ExternalDep:AnotherRecord"
             }
           }
         }
@@ -75,13 +75,42 @@
       "returnType": {
         "Record": {
           "params": [],
-          "tyCon": "9e701a1045ed361769fe34e068ca3a5eeda5ce4221c775886f17593cd06b9970:MainApp:RecordInMain"
+          "tyCon": "9ba48ac969c9afba979dcc4bf7b97f4c00cf749101759ddf21afda708c54a934:MainApp:RecordInMain"
         }
       }
     }
   },
   "definitions": {
-    "9e701a1045ed361769fe34e068ca3a5eeda5ce4221c775886f17593cd06b9970:MainApp:MainTemplate_Choice": {
+    "7f80042db2478669488845cd0d18e2e7e2daee01ba32b52b3979adacc9120d73:ExternalDep:AnotherRecord": {
+      "RecordSig": {
+        "fields": {
+          "someText": {
+            "Text": {
+
+            }
+          }
+        },
+        "params": []
+      }
+    },
+    "7f80042db2478669488845cd0d18e2e7e2daee01ba32b52b3979adacc9120d73:ExternalDep:SomeVariant": {
+      "VariantSig": {
+        "constructor": {
+          "SomeEnum": {
+            "Unit": {
+
+            }
+          },
+          "SomeVariant": {
+            "Int64": {
+
+            }
+          }
+        },
+        "params": []
+      }
+    },
+    "9ba48ac969c9afba979dcc4bf7b97f4c00cf749101759ddf21afda708c54a934:MainApp:MainTemplate_Choice": {
       "RecordSig": {
         "fields": {
 
@@ -89,7 +118,7 @@
         "params": []
       }
     },
-    "9e701a1045ed361769fe34e068ca3a5eeda5ce4221c775886f17593cd06b9970:MainApp:RecordInMain": {
+    "9ba48ac969c9afba979dcc4bf7b97f4c00cf749101759ddf21afda708c54a934:MainApp:RecordInMain": {
       "RecordSig": {
         "fields": {
           "someInt": {
@@ -105,35 +134,6 @@
       "RecordSig": {
         "fields": {
 
-        },
-        "params": []
-      }
-    },
-    "cfa55b172b71b5bbb95d4d2a4d67f00e64a03ef0b00d2684f416a6983d79e33d:ExternalDep:AnotherRecord": {
-      "RecordSig": {
-        "fields": {
-          "someText": {
-            "Text": {
-
-            }
-          }
-        },
-        "params": []
-      }
-    },
-    "cfa55b172b71b5bbb95d4d2a4d67f00e64a03ef0b00d2684f416a6983d79e33d:ExternalDep:SomeVariant": {
-      "VariantSig": {
-        "constructor": {
-          "SomeEnum": {
-            "Unit": {
-
-            }
-          },
-          "SomeVariant": {
-            "Int64": {
-
-            }
-          }
         },
         "params": []
       }

@@ -86,7 +86,9 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
   ): Future[Option[CantonTimestampSecond]] =
     Future(None)
 
-  override def noOutstandingCommitments(beforeOrAt: CantonTimestamp)(implicit
+  override def noOutstandingCommitments(
+      beforeOrAt: CantonTimestamp
+  )(implicit
       traceContext: TraceContext
   ): Future[Option[CantonTimestamp]] =
     Future.successful(None)
@@ -176,4 +178,6 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
   }
 
   override def close(): Unit = ()
+
+  override def acsCounterParticipantConfigStore: AcsCounterParticipantConfigStore = ???
 }
