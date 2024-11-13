@@ -109,22 +109,22 @@ template Exceptions
 
 -- @LEDGER divByZero LfStableMustFails/divByZero.EXPECTED.ledger
 divByZero = script do
-  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  alice <- allocateParty "Alice"
   submitMustFail alice (createAndExerciseCmd (Exceptions alice) DivZeroC)
 
 -- @LEDGER aborted LfStableMustFails/aborted.EXPECTED.ledger
 aborted = script do
-  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  alice <- allocateParty "Alice"
   submitMustFail alice (createAndExerciseCmd (Exceptions alice) AbortC)
 
 -- @LEDGER int64overflow LfStableMustFails/int64overflow.EXPECTED.ledger
 int64overflow = script do
-  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  alice <- allocateParty "Alice"
   submitMustFail alice (createAndExerciseCmd (Exceptions alice) OverflowC)
 
 -- @LEDGER roundBadScale LfStableMustFails/roundBadScale.EXPECTED.ledger
 roundBadScale = script do
-  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  alice <- allocateParty "Alice"
   submitMustFail alice (createAndExerciseCmd (Exceptions alice) BadRoundC)
 
 -- 2. Failed lookups
@@ -132,16 +132,16 @@ roundBadScale = script do
 -- @LEDGER contractNotEffective LfStableMustFails/contractNotEffective.EXPECTED.ledger
 contractNotEffective = script do
   now <- getTime
-  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
-  bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
   cid <- submit alice (createCmd X with p = alice; p2 = bob)
   passTime (seconds (-100))
   submitMustFail bob (exerciseCmd cid Swap)
 
 -- @LEDGER undivulged LfStableMustFails/undivulged.EXPECTED.ledger
 undivulged = script do
-  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
-  bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
   cid <- submit alice (createCmd TwoParties with p = alice; p2 = alice)
   submitMustFail bob (exerciseCmd cid Hello)
 
@@ -149,33 +149,33 @@ undivulged = script do
 
 -- @LEDGER missingAuthInCreate LfStableMustFails/missingAuthInCreate.EXPECTED.ledger
 missingAuthInCreate = script do
-  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
-  bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
   submitMustFail alice (createCmd TwoParties with p = alice; p2 = bob)
 
 -- @LEDGER missingAuthInExercise LfStableMustFails/missingAuthInExercise.EXPECTED.ledger
 missingAuthInExercise = script do
-  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
-  bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
   cid0 <- submit alice (createCmd ToTwoParties with p = alice; p2 = bob)
   cid1 <- submit bob (exerciseCmd cid0 Convert)
   submitMustFail bob (exerciseCmd cid1 Hello)
 
 -- @LEDGER noControllers LfStableMustFails/noControllers.EXPECTED.ledger
 noControllers = script do
-  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  alice <- allocateParty "Alice"
   cid <- submit alice (createCmd NoCtrls with p = alice; xs = [])
   submitMustFail alice (exerciseCmd cid NoController)
 
 -- @LEDGER noSignatories LfStableMustFails/noSignatories.EXPECTED.ledger
 noSignatories = script do
-  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  alice <- allocateParty "Alice"
   submitMustFail alice (createCmd NoSignatory with text="blah")
 
 -- @LEDGER unauthActor LfStableMustFails/unauthActor.EXPECTED.ledger
 unauthActor = script do
-  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
-  bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
   cid <- submit alice (createCmd X with p = alice; p2 = bob)
   submitMustFail alice (exerciseCmd cid Swap)
 
@@ -183,7 +183,7 @@ unauthActor = script do
 
 -- @LEDGER exerciseInExercise LfStableMustFails/exerciseInExercise.EXPECTED.ledger
 exerciseInExercise = script do
-  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  alice <- allocateParty "Alice"
   cid <- submit alice (createCmd Recursive with p = alice)
   -- Alice tries to exercise a choice that exercises
   -- another choice on the same contract in the follow-up.
@@ -379,13 +379,13 @@ template NestingLimitExercise
 
 -- !@LEDGER nestingLimitCreate LfStableMustFails/nestingLimitCreate.EXPECTED.ledger
 nestingLimitCreate = script do
-  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  alice <- allocateParty "Alice"
   submitMustFail alice (createCmd NestingLimitCreate with p = alice; x = Nesting0{x0 = Nesting1{x1 = Nesting2{x2 = Nesting3{x3 = Nesting4{x4 = Nesting5{x5 = Nesting6{x6 = Nesting7{x7 = Nesting8{x8 = Nesting9{x9 = Nesting10{x10 = Nesting11{x11 = Nesting12{x12 = Nesting13{x13 = Nesting14{x14 = Nesting15{x15 = Nesting16{x16 = Nesting17{x17 = Nesting18{x18 = Nesting19{x19 = Nesting20{x20 = Nesting21{x21 = Nesting22{x22 = Nesting23{x23 = Nesting24{x24 = Nesting25{x25 = Nesting26{x26 = Nesting27{x27 = Nesting28{x28 = Nesting29{x29 = Nesting30{x30 = Nesting31{x31 = Nesting32{x32 = Nesting33{x33 = Nesting34{x34 = Nesting35{x35 = Nesting36{x36 = Nesting37{x37 = Nesting38{x38 = Nesting39{x39 = Nesting40{x40 = Nesting41{x41 = Nesting42{x42 = Nesting43{x43 = Nesting44{x44 = Nesting45{x45 = Nesting46{x46 = Nesting47{x47 = Nesting48{x48 = Nesting49{x49 = Nesting50{x50 = Nesting51{x51 = Nesting52{x52 = Nesting53{x53 = Nesting54{x54 = Nesting55{x55 = Nesting56{x56 = Nesting57{x57 = Nesting58{x58 = Nesting59{x59 = Nesting60{x60 = Nesting61{x61 = Nesting62{x62 = Nesting63{x63 = Nesting64{x64 = Nesting65{x65 = Nesting66{x66 = Nesting67{x67 = Nesting68{x68 = Nesting69{x69 = Nesting70{x70 = Nesting71{x71 = Nesting72{x72 = Nesting73{x73 = Nesting74{x74 = Nesting75{x75 = Nesting76{x76 = Nesting77{x77 = Nesting78{x78 = Nesting79{x79 = Nesting80{x80 = Nesting81{x81 = Nesting82{x82 = Nesting83{x83 = Nesting84{x84 = Nesting85{x85 = Nesting86{x86 = Nesting87{x87 = Nesting88{x88 = Nesting89{x89 = Nesting90{x90 = Nesting91{x91 = Nesting92{x92 = Nesting93{x93 = Nesting94{x94 = Nesting95{x95 = Nesting96{x96 = Nesting97{x97 = Nesting98{x98 = Nesting99{x99 = Nesting100{x100 = Nesting101{x101 = Nesting102{x102 = Nesting103{x103 = Nesting104{x104 = Nesting105{x105 = Nesting106{x106 = Nesting107{x107 = Nesting108{x108 = Nesting109{x109 = Nesting110{x110 = Nesting111{x111 = Nesting112{x112 = Nesting113{x113 = Nesting114{x114 = Nesting115{x115 = Nesting116{x116 = Nesting117{x117 = Nesting118{x118 = Nesting119{x119 = Nesting120{x120 = Nesting121{x121 = Nesting122{x122 = Nesting123{x123 = Nesting124{x124 = Nesting125{x125 = Nesting126{x126 = Nesting127{x127 = Nesting128{x128 = Nesting129{x129 = Nesting130{x130 = Nesting131{x131 = Nesting132{x132 = Nesting133{x133 = Nesting134{x134 = Nesting135{x135 = Nesting136{x136 = Nesting137{x137 = Nesting138{x138 = Nesting139{x139 = Nesting140{x140 = Nesting141{x141 = Nesting142{x142 = Nesting143{x143 = Nesting144{x144 = Nesting145{x145 = Nesting146{x146 = Nesting147{x147 = Nesting148{x148 = Nesting149{x149 = 42}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}})
   pure ()
 
 -- !@LEDGER nestingLimitExercise LfStableMustFails/nestingLimitExercise.EXPECTED.ledger
 nestingLimitExercise = script do
-  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  alice <- allocateParty "Alice"
   cid <- submit alice (createCmd NestingLimitExercise with p = alice)
   submitMustFail alice (exerciseCmd cid NestingLimitExercise_Choose with x = Nesting0{x0 = Nesting1{x1 = Nesting2{x2 = Nesting3{x3 = Nesting4{x4 = Nesting5{x5 = Nesting6{x6 = Nesting7{x7 = Nesting8{x8 = Nesting9{x9 = Nesting10{x10 = Nesting11{x11 = Nesting12{x12 = Nesting13{x13 = Nesting14{x14 = Nesting15{x15 = Nesting16{x16 = Nesting17{x17 = Nesting18{x18 = Nesting19{x19 = Nesting20{x20 = Nesting21{x21 = Nesting22{x22 = Nesting23{x23 = Nesting24{x24 = Nesting25{x25 = Nesting26{x26 = Nesting27{x27 = Nesting28{x28 = Nesting29{x29 = Nesting30{x30 = Nesting31{x31 = Nesting32{x32 = Nesting33{x33 = Nesting34{x34 = Nesting35{x35 = Nesting36{x36 = Nesting37{x37 = Nesting38{x38 = Nesting39{x39 = Nesting40{x40 = Nesting41{x41 = Nesting42{x42 = Nesting43{x43 = Nesting44{x44 = Nesting45{x45 = Nesting46{x46 = Nesting47{x47 = Nesting48{x48 = Nesting49{x49 = Nesting50{x50 = Nesting51{x51 = Nesting52{x52 = Nesting53{x53 = Nesting54{x54 = Nesting55{x55 = Nesting56{x56 = Nesting57{x57 = Nesting58{x58 = Nesting59{x59 = Nesting60{x60 = Nesting61{x61 = Nesting62{x62 = Nesting63{x63 = Nesting64{x64 = Nesting65{x65 = Nesting66{x66 = Nesting67{x67 = Nesting68{x68 = Nesting69{x69 = Nesting70{x70 = Nesting71{x71 = Nesting72{x72 = Nesting73{x73 = Nesting74{x74 = Nesting75{x75 = Nesting76{x76 = Nesting77{x77 = Nesting78{x78 = Nesting79{x79 = Nesting80{x80 = Nesting81{x81 = Nesting82{x82 = Nesting83{x83 = Nesting84{x84 = Nesting85{x85 = Nesting86{x86 = Nesting87{x87 = Nesting88{x88 = Nesting89{x89 = Nesting90{x90 = Nesting91{x91 = Nesting92{x92 = Nesting93{x93 = Nesting94{x94 = Nesting95{x95 = Nesting96{x96 = Nesting97{x97 = Nesting98{x98 = Nesting99{x99 = Nesting100{x100 = Nesting101{x101 = Nesting102{x102 = Nesting103{x103 = Nesting104{x104 = Nesting105{x105 = Nesting106{x106 = Nesting107{x107 = Nesting108{x108 = Nesting109{x109 = Nesting110{x110 = Nesting111{x111 = Nesting112{x112 = Nesting113{x113 = Nesting114{x114 = Nesting115{x115 = Nesting116{x116 = Nesting117{x117 = Nesting118{x118 = Nesting119{x119 = Nesting120{x120 = Nesting121{x121 = Nesting122{x122 = Nesting123{x123 = Nesting124{x124 = Nesting125{x125 = Nesting126{x126 = Nesting127{x127 = Nesting128{x128 = Nesting129{x129 = Nesting130{x130 = Nesting131{x131 = Nesting132{x132 = Nesting133{x133 = Nesting134{x134 = Nesting135{x135 = Nesting136{x136 = Nesting137{x137 = Nesting138{x138 = Nesting139{x139 = Nesting140{x140 = Nesting141{x141 = Nesting142{x142 = Nesting143{x143 = Nesting144{x144 = Nesting145{x145 = Nesting146{x146 = Nesting147{x147 = Nesting148{x148 = Nesting149{x149 = 42}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}})
   pure ()

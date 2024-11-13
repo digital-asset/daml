@@ -41,7 +41,7 @@ template BigTemplate
 
 -- @LEDGER run LfStableManyFields.EXPECTED.ledger
 run = do
-  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  alice <- allocateParty "Alice"
   submit alice do createCmd $
                     BigTemplate
                       alice

@@ -2,7 +2,8 @@ Transactions:
   TX 0 1970-01-01T00:00:00Z (LfStableDivulgeIou:14:5)
   #0:0
   │   referenced by #2:1
-  │   disclosed to (since): 'Alice' (0), 'AlicesBank' (0)
+  │   disclosed to (since): 'Alice' (0),
+                            'AlicesBank' (0)
   │   divulged to (since): 'Bob' (2)
   └─> 'AlicesBank' creates LfStableDivulgeIou:Iou
                    with
@@ -15,20 +16,23 @@ Transactions:
   TX 1 1970-01-01T00:00:00Z (LfStableDivulgeIou:19:5)
   #1:0
   │   referenced by #2:0
-  │   disclosed to (since): 'AlicesBank' (1), 'Bob' (1)
+  │   disclosed to (since): 'AlicesBank' (1),
+                            'Bob' (1)
   └─> 'Bob' creates LfStableDivulgeIou:DivulgeIouByExercise
             with
               payer = 'AlicesBank'; divulgee = 'Bob'
   
   TX 2 1970-01-01T00:00:00Z (LfStableDivulgeIou:22:3)
   #2:0
-  │   disclosed to (since): 'AlicesBank' (2), 'Bob' (2)
+  │   disclosed to (since): 'AlicesBank' (2),
+                            'Bob' (2)
   └─> 'AlicesBank' exercises Divulge on #1:0 (LfStableDivulgeIou:DivulgeIouByExercise)
                    with
                      ref = #0:0
       children:
       #2:1
-      │   disclosed to (since): 'AlicesBank' (2), 'Bob' (2)
+      │   disclosed to (since): 'AlicesBank' (2),
+                                'Bob' (2)
       └─> 'AlicesBank' fetches #0:0 (LfStableDivulgeIou:Iou)
 
 Active contracts:  #0:0, #1:0

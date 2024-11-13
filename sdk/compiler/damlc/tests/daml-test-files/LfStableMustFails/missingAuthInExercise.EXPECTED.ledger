@@ -20,7 +20,8 @@ Transactions:
                               p = 'Alice'; p2 = 'Bob'
   
   TX 2 1970-01-01T00:00:00Z
-     mustFailAt actAs: {'Bob'} readAs: {} (LfStableMustFails:162:3)
+     mustFailAt actAs: {'Bob'} readAs:
+                                          {} (LfStableMustFails:162:3)
 
 Active contracts:  #1:1
 

@@ -9,7 +9,8 @@ Transactions:
   pass 1 -100s
   
   TX 2 1969-12-31T23:58:20Z
-     mustFailAt actAs: {'Bob'} readAs: {} (LfStableMustFails:139:3)
+     mustFailAt actAs: {'Bob'} readAs:
+                                          {} (LfStableMustFails:139:3)
 
 Active contracts:  #0:0
 

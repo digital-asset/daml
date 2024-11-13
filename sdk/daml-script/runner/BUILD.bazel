@@ -93,11 +93,21 @@ scaladoc_jar(
 ) if is_windows == False else None
 
 da_scala_test(
+    name = "unitTests",
+    srcs = glob(
+        ["src/test/scala/**/*Spec.scala"],
+    ),
+    deps = [
+        ":script-runner-lib",
+    ],
+)
+
+da_scala_test(
     name = "tests",
     size = "large",
-    srcs = glob(
-        ["src/test/scala/**/*.scala"],
-    ),
+    srcs = glob([
+        "src/test/scala/**/*Test*.scala",
+    ]),
     data =
         glob(["src/test/resources/**/*"]) + [
             ":daml-script-binary",

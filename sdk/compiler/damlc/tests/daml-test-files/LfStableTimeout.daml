@@ -13,7 +13,7 @@ loop x = loop (x + 1)
 -- @ERROR range=15:1-15:15; Evaluation timed out
 -- @LEDGER testScriptLoop LfStableTimeout.testScriptLoop.EXPECTED.ledger
 testScriptLoop = script do
-  alice <- allocatePartyWithHint "p" (PartyIdHint "p")
+  alice <- allocateParty "p"
   submit alice do
     -- note that the `Witness` contract is created (see EXPECTED.ledger),
     -- which means that `loop 1` below isn't evaluated sooner than necessary by
@@ -30,7 +30,7 @@ template Witness
 -- @ERROR range=32:1-32:15; Evaluation timed out
 -- @LEDGER testUpdateLoop LfStableTimeout.testUpdateLoop.EXPECTED.ledger
 testUpdateLoop = script do
-  alice <- allocatePartyWithHint "p" (PartyIdHint "p")
+  alice <- allocateParty "p"
   submit alice do
     createAndExerciseCmd (Loopy alice) (Exe 1)
 

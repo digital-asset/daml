@@ -15,6 +15,6 @@ template T with
 test : Script ()
 test = script do
   alice <- allocateParty "alice"
-  bob <- allocatePartyWithHint "bob" (PartyIdHint "bob")
+  bob <- allocateParty "bob"
   alice `submit` createCmd (T bob)
   pure ()

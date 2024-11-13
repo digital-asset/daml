@@ -32,6 +32,7 @@ import scalaz.{-\/, OneAnd, \/-}
 import spray.json._
 
 import scala.concurrent.Future
+import scala.util.Random
 
 // Helper to create identifiers pointing to the Daml.Script module
 case class ScriptIds(val scriptPackageId: PackageId) {
@@ -366,6 +367,35 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
     case SOptional(Some(SText(t))) => Right(Some(Participant(t)))
     case SOptional(None) => Right(None)
     case _ => Left(s"Expected optional participant name but got $v")
+  }
+
+  private def randomHex(rand: Random, length: Int) =
+    s"%0${length}x".format(rand.nextLong()).takeRight(length)
+
+  // If the givenIdHint is provided, we just use that as is.
+  def toPartyIdHint(
+      givenIdHint: String,
+      requestedDisplayName: String,
+      random: Random,
+  ): Either[String, String] = {
+    lazy val uniqueSuffix = randomHex(random, 8)
+    (givenIdHint.nonEmpty, requestedDisplayName.nonEmpty) match {
+      case (false, false) =>
+        // Caller doesn't care so come up with something unique
+        Right("party-" + uniqueSuffix)
+      case (false, true) =>
+        // Make unique id hint from name
+        Right(requestedDisplayName + "-" + uniqueSuffix)
+      case (true, false) =>
+        // The caller is responsible for ensuring hints are unique
+        Right(givenIdHint)
+      case (true, true) =>
+        if (givenIdHint != requestedDisplayName)
+          Left(
+            s"Requested name '$requestedDisplayName' cannot be different from id hint '$givenIdHint'"
+          )
+        else Right(givenIdHint)
+    }
   }
 
   def fromApiIdentifier(id: value.Identifier): Either[String, Identifier] =

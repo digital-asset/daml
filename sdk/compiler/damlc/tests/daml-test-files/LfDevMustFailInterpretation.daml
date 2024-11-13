@@ -28,7 +28,7 @@ template Helper
 
 -- @LEDGER run LfDevMustFailInterpretation.EXPECTED.ledger
 run = do
-  p <- allocatePartyWithHint "p" (PartyIdHint "p")
+  p <- allocateParty "p"
   submit p $ createCmd (Keyed p 0)
   -- This fails during interpretation so it never hits
   -- the duplicate key error during commit. See

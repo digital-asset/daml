@@ -451,7 +451,7 @@ testScriptService lfVersion getScriptService =
                 expectScriptSuccess rs (vr "testSucceed") $ \r ->
                   matchRegex r "Active contracts:  #2:0, #3:0"
                 expectScriptFailure rs (vr "testFail") $ \r ->
-                  matchRegex r "missing authorization from 'party1'",
+                  matchRegex r "missing authorization from 'p1-[a-z0-9]+'",
               testCase "submitTree" $ do
                 rs <-
                   runScripts
@@ -882,7 +882,7 @@ testScriptServiceWithKeys lfVersion getScriptService =
                       "  submitMustFail party1 (createCmd (Helper party1))"
                     ]
                 expectScriptFailure rs (vr "testMissingAuthorization") $ \r ->
-                  matchRegex r "failed due to a missing authorization from 'party1'"
+                  matchRegex r "failed due to a missing authorization from 'party1-[a-z0-9]+'"
                 expectScriptFailure rs (vr "testDuplicateKey") $ \r ->
                   matchRegex r "due to unique key violation for key"
                 expectScriptFailure rs (vr "testNotVisible") $ \r ->
@@ -902,7 +902,7 @@ testScriptServiceWithKeys lfVersion getScriptService =
                     , "Partial transaction:"
                     , "  Sub-transactions:"
                     , "     0"
-                    , ".*'party' creates Test:Helper.*"
+                    , ".*'party-[a-z0-9]+' creates Test:Helper.*"
                     ]
                 expectScriptFailure rs (vr "testPartialSubmitMustFail") $ \r ->
                   matchRegex r $ T.unlines
@@ -914,7 +914,7 @@ testScriptServiceWithKeys lfVersion getScriptService =
                     , "Partial transaction:"
                     , "  Sub-transactions:"
                     , "     0"
-                    , ".*'party1' creates Test:Helper.*"
+                    , ".*'party1-[a-z0-9]+' creates Test:Helper.*"
                     ]
                 pure (),
               testCase "contract keys" $ do

@@ -7,6 +7,7 @@ import Daml.Script.Internal.LowLevel
 import DA.Stack
 
 data AllocateParty = AllocateParty with
+  requestedName: Text
   idHint : Text
   participant : Optional Text
 instance IsQuestion AllocateParty Party where command = "AllocateParty"
@@ -20,24 +21,26 @@ newtype ParticipantName = ParticipantName { participantName : Text }
 -- | Allocate a party with the given display name
 -- using the party management service.
 allocateParty : HasCallStack => Text -> Script Party
-allocateParty _deprecatedDisplayName = allocatePartyWithHint _deprecatedDisplayName (PartyIdHint "")
+allocateParty requestedName = allocatePartyWithHint requestedName (PartyIdHint "")
 
 -- | Allocate a party with the given display name and id hint
 -- using the party management service.
 allocatePartyWithHint : HasCallStack => Text -> PartyIdHint -> Script Party
-allocatePartyWithHint _ (PartyIdHint idHint) = lift $ AllocateParty with
+allocatePartyWithHint requestedName (PartyIdHint idHint) = lift $ AllocateParty with
+  requestedName = requestedName
   idHint = idHint
   participant = None
 
 -- | Allocate a party with the given display name
 -- on the specified participant using the party management service.
 allocatePartyOn : Text -> ParticipantName -> Script Party
-allocatePartyOn _deprecatedDisplayName participantName = allocatePartyWithHintOn _deprecatedDisplayName (PartyIdHint "") participantName
+allocatePartyOn requestedName participantName = allocatePartyWithHintOn requestedName (PartyIdHint "") participantName
 
 -- | Allocate a party with the given display name and id hint
 -- on the specified participant using the party management service.
 allocatePartyWithHintOn : Text -> PartyIdHint -> ParticipantName -> Script Party
-allocatePartyWithHintOn _ (PartyIdHint idHint) (ParticipantName participant) = lift $ AllocateParty with
+allocatePartyWithHintOn requestedName (PartyIdHint idHint) (ParticipantName participant) = lift $ AllocateParty with
+  requestedName = requestedName
   idHint = idHint
   participant = Some participant
 
