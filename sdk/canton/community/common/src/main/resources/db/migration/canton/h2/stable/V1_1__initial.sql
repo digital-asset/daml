@@ -887,3 +887,30 @@ create table ord_p2p_endpoints (
   port smallint not null,
   primary key (host, port)
 );
+
+-- Stores participants we should not wait for before pruning when handling ACS commitment
+create table acs_no_wait_counter_participants
+(
+    domain_id varchar(300) not null,
+    participant_id varchar(300) not null,
+    primary key(domain_id,participant_id)
+);
+
+-- Stores configuration for metrics around slow participants
+create table acs_slow_participant_config
+(
+   domain_id varchar(300) not null,
+   threshold_distinguished integer not null,
+   threshold_default integer not null,
+   primary key(domain_id)
+);
+
+-- Stores distinguished or specifically measured counter participants for ACS commitment metrics
+create table acs_slow_counter_participants
+(
+   domain_id varchar(300) not null,
+   participant_id varchar(300) not null,
+   is_distinguished boolean not null,
+   is_added_to_metrics boolean not null,
+   primary key(domain_id,participant_id)
+);

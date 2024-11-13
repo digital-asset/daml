@@ -9,8 +9,10 @@ import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong}
+import com.digitalasset.canton.crypto.SyncCryptoApiProvider
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond, Offset}
 import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -23,6 +25,7 @@ import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection.
   SyncStateInspectionError,
 }
 import com.digitalasset.canton.participant.protocol.RequestJournal
+import com.digitalasset.canton.participant.pruning.SortedReconciliationIntervalsProviderFactory
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.{
   ConnectedDomainsLookup,
@@ -31,9 +34,17 @@ import com.digitalasset.canton.participant.sync.{
 }
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.DomainOffset
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.protocol.messages.CommitmentPeriodState.fromIntValidSentPeriodState
+import com.digitalasset.canton.protocol.messages.CommitmentPeriodState.{
+  Matched,
+  fromIntValidSentPeriodState,
+}
 import com.digitalasset.canton.protocol.{LfContractId, SerializableContract}
-import com.digitalasset.canton.pruning.PruningStatus
+import com.digitalasset.canton.pruning.{
+  ConfigForDomainThresholds,
+  ConfigForSlowCounterParticipants,
+  CounterParticipantIntervalsBehind,
+  PruningStatus,
+}
 import com.digitalasset.canton.sequencing.PossiblyIgnoredProtocolEvent
 import com.digitalasset.canton.sequencing.client.channel.SequencerChannelClient
 import com.digitalasset.canton.sequencing.handlers.EnvelopeOpener
@@ -43,6 +54,7 @@ import com.digitalasset.canton.store.SequencedEventStore.{
   PossiblyIgnoredSequencedEvent,
 }
 import com.digitalasset.canton.store.{SequencedEventRangeOverlapsWithPruning, SequencedEventStore}
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.OptionUtils.OptionExtension
@@ -76,12 +88,21 @@ final class SyncStateInspection(
     timeouts: ProcessingTimeout,
     journalCleaningControl: JournalGarbageCollectorControl,
     connectedDomainsLookup: ConnectedDomainsLookup,
+    syncCrypto: SyncCryptoApiProvider,
     participantId: ParticipantId,
+    futureSupervisor: FutureSupervisor,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
 
   import SyncStateInspection.getOrFail
+
+  private lazy val sortedReconciliationIntervalsProviderFactory =
+    new SortedReconciliationIntervalsProviderFactory(
+      syncDomainPersistentStateManager,
+      futureSupervisor,
+      loggerFactory,
+    )
 
   /** Returns the potentially large ACS of a given domain
     * containing a map of contract IDs to tuples containing the latest activation timestamp and the contract reassignment counter
@@ -585,11 +606,17 @@ final class SyncStateInspection(
 
   def noOutstandingCommitmentsTs(domain: DomainAlias, beforeOrAt: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Option[CantonTimestamp] =
+  ): Option[CantonTimestamp] = {
+    val persistentState = getPersistentState(domain)
+
     timeouts.inspection.await(s"$functionFullName on $domain for ts $beforeOrAt")(
-      getOrFail(getPersistentState(domain), domain).acsCommitmentStore
-        .noOutstandingCommitments(beforeOrAt)
+      for {
+        result <- getOrFail(persistentState, domain).acsCommitmentStore.noOutstandingCommitments(
+          beforeOrAt
+        )
+      } yield result
     )
+  }
 
   def lookupRequestIndex(domain: DomainAlias)(implicit
       traceContext: TraceContext
@@ -641,6 +668,125 @@ final class SyncStateInspection(
         .map(_.toRight(s"offset $ledgerOffset not found"))
     )
   } yield CantonTimestamp(domainOffset.publicationTime)
+
+  def getConfigsForSlowCounterParticipants()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[
+    (Seq[ConfigForSlowCounterParticipants], Seq[ConfigForDomainThresholds])
+  ] =
+    participantNodePersistentState.value.acsCounterParticipantConfigStore
+      .fetchAllSlowCounterParticipantConfig()
+
+  def getIntervalsBehindForParticipants(domains: Seq[DomainId], participants: Seq[ParticipantId])(
+      implicit traceContext: TraceContext
+  ): FutureUnlessShutdown[Iterable[CounterParticipantIntervalsBehind]] = {
+    val result = for {
+      (domainId, syncDomain) <-
+        syncDomainPersistentStateManager.getAll
+          .filter { case (domain, _) => domains.contains(domain) || domains.isEmpty }
+    } yield for {
+      lastSent <- FutureUnlessShutdown.outcomeF(
+        syncDomain.acsCommitmentStore.lastComputedAndSent(traceContext)
+      )
+      lastSentFinal = lastSent.fold(CantonTimestamp.MinValue)(_.forgetRefinement)
+      outstanding <- FutureUnlessShutdown.outcomeF(
+        syncDomain.acsCommitmentStore
+          .outstanding(
+            CantonTimestamp.MinValue,
+            lastSentFinal,
+            participants,
+            includeMatchedPeriods = true,
+          )
+      )
+
+      upToDate <- FutureUnlessShutdown.outcomeF(
+        syncDomain.acsCommitmentStore.searchReceivedBetween(
+          lastSentFinal,
+          lastSentFinal,
+        )
+      )
+
+      filteredAllParticipants <- findAllKnownParticipants(domains, participants)
+      allParticipantIds = filteredAllParticipants.values.flatten.toSet
+
+      matchedFilteredByYoungest = outstanding
+        .filter { case (_, _, state) => state == Matched }
+        .groupBy { case (_, participantId, _) => participantId }
+        .view
+        .mapValues(_.maxByOption { case (period, _, _) => period.fromExclusive })
+        .values
+        .flatten
+        .toSeq
+
+      sortedReconciliationProvider <- EitherTUtil.toFutureUnlessShutdown(
+        sortedReconciliationIntervalsProviderFactory
+          .get(domainId, lastSentFinal)
+          .leftMap(string =>
+            new IllegalStateException(
+              s"failed to retrieve reconciliationIntervalProvider: $string"
+            )
+          )
+          .mapK(FutureUnlessShutdown.outcomeK)
+      )
+      oldestOutstandingTimeOption = outstanding
+        .filter { case (_, _, state) => state != CommitmentPeriodState.Matched }
+        .minByOption { case (period, _, _) =>
+          period.toInclusive
+        }
+      allCoveredTimePeriods <-
+        sortedReconciliationProvider
+          .computeReconciliationIntervalsCovering(
+            oldestOutstandingTimeOption.fold(lastSentFinal) { case (period, _, _) =>
+              period.toInclusive.forgetRefinement
+            },
+            lastSentFinal,
+          )
+    } yield {
+      val newestMatchPerParticipant = matchedFilteredByYoungest
+        .filter { case (_, participant, _) =>
+          participants.contains(participant) || participants.isEmpty
+        }
+        .map { case (period, participant, _) =>
+          CounterParticipantIntervalsBehind(
+            domainId,
+            participant,
+            NonNegativeLong
+              .tryCreate(allCoveredTimePeriods.count(_.toInclusive > period.toInclusive).toLong),
+            NonNegativeFiniteDuration
+              .tryOfSeconds((lastSentFinal - period.toInclusive.forgetRefinement).getSeconds),
+            lastSentFinal,
+          )
+        }
+      // anything that is up to date, or we don't have any commitments would not have an entry in matchedFilteredByYoungest.
+      val participantsWithoutMatches = allParticipantIds
+        .filter(participantId =>
+          !matchedFilteredByYoungest.exists { case (_, outstandingParticipant, _) =>
+            outstandingParticipant == participantId
+          }
+        )
+        .map { participantId =>
+          val isUpToDate =
+            upToDate.exists(signMessage => signMessage.message.sender == participantId)
+          CounterParticipantIntervalsBehind(
+            domainId,
+            participantId,
+            if (isUpToDate) NonNegativeLong.zero else NonNegativeLong.maxValue,
+            NonNegativeFiniteDuration.tryOfSeconds(Long.MaxValue),
+            lastSentFinal,
+          )
+
+        }
+      newestMatchPerParticipant ++ participantsWithoutMatches
+    }
+    FutureUnlessShutdown.sequence(result).map(_.flatten)
+  }
+
+  def addOrUpdateConfigsForSlowCounterParticipants(
+      configs: Seq[ConfigForSlowCounterParticipants],
+      thresholds: Seq[ConfigForDomainThresholds],
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    participantNodePersistentState.value.acsCounterParticipantConfigStore
+      .createOrUpdateCounterParticipantConfigs(configs, thresholds)
 
   def countInFlight(
       domain: DomainAlias
@@ -711,6 +857,32 @@ final class SyncStateInspection(
 
   def getAcsInspection(domainId: DomainId): Option[AcsInspection] =
     connectedDomainsLookup.get(domainId).map(_.domainHandle.domainPersistentState.acsInspection)
+
+  def findAllKnownParticipants(
+      domainFilter: Seq[DomainId] = Seq.empty,
+      participantFilter: Seq[ParticipantId] = Seq.empty,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[DomainId, Set[ParticipantId]]] = {
+    val result = for {
+      (domainId, _) <-
+        syncDomainPersistentStateManager.getAll.filter { case (domainId, _) =>
+          domainFilter.contains(domainId) || domainFilter.isEmpty
+        }
+    } yield for {
+      _ <- FutureUnlessShutdown.unit
+      domainTopoClient = syncCrypto.ips.tryForDomain(domainId)
+      ipsSnapshot <- domainTopoClient.awaitSnapshotUS(domainTopoClient.approximateTimestamp)
+      allMembers <- FutureUnlessShutdown.outcomeF(ipsSnapshot.allMembers())
+      allParticipants = allMembers
+        .filter(_.code == ParticipantId.Code)
+        .map(member => ParticipantId.apply(member.uid))
+        .excl(participantId)
+        .filter(participantFilter.contains(_) || participantFilter.isEmpty)
+    } yield (domainId, allParticipants)
+
+    FutureUnlessShutdown.sequence(result).map(_.toMap)
+  }
 }
 
 object SyncStateInspection {

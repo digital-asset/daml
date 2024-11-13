@@ -4,18 +4,19 @@
 package com.digitalasset.canton.protocol
 
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
-import com.digitalasset.canton.data.ViewPosition
+import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
+import com.digitalasset.canton.pruning.CounterParticipantIntervalsBehind
 import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, PositiveSeconds}
 import com.digitalasset.canton.topology.transaction.ParticipantDomainLimits
-import com.digitalasset.canton.topology.{DomainId, PartyId}
+import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.transaction.Versioned
 import com.google.protobuf.ByteString
@@ -122,6 +123,23 @@ final class GeneratorsProtocol(
 
     } yield dynamicDomainParameters
   )
+
+  implicit val counterParticipantIntervalsBehindArb: Arbitrary[CounterParticipantIntervalsBehind] =
+    Arbitrary(
+      for {
+        domainId <- Arbitrary.arbitrary[DomainId]
+        participantId <- Arbitrary.arbitrary[ParticipantId]
+        intervalsBehind <- Arbitrary.arbitrary[NonNegativeLong]
+        timeBehind <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
+        asOfSequencingTime <- Arbitrary.arbitrary[CantonTimestamp]
+      } yield CounterParticipantIntervalsBehind(
+        domainId,
+        participantId,
+        intervalsBehind,
+        timeBehind,
+        asOfSequencingTime,
+      )
+    )
 
   implicit val dynamicSequencingParametersArb: Arbitrary[DynamicSequencingParameters] = Arbitrary(
     for {

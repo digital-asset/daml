@@ -8,6 +8,7 @@ package com.digitalasset.canton.admin.participant.v30;
 import "com/digitalasset/canton/admin/participant/v30/active_contract.proto";
 import "google/protobuf/timestamp.proto";
 import "scalapb/scalapb.proto";
+import "google/protobuf/duration.proto";
 
 /**
  * Inspection Service
@@ -33,14 +34,11 @@ service InspectionService {
   rpc LookupReceivedAcsCommitments(LookupReceivedAcsCommitments.Request) returns (LookupReceivedAcsCommitments.Response);
   // Configure metrics for slow counter-participants (i.e., that are behind in sending commitments) and
   // configure thresholds for when a counter-participant is deemed slow.
-  // TODO(#10436) R7
   rpc SetConfigForSlowCounterParticipants(SetConfigForSlowCounterParticipants.Request) returns (SetConfigForSlowCounterParticipants.Response);
   // Get the current configuration for metrics for slow counter-participants.
-  // TODO(#10436) R7
   rpc GetConfigForSlowCounterParticipants(GetConfigForSlowCounterParticipants.Request) returns (GetConfigForSlowCounterParticipants.Response);
   // Get the number of intervals that counter-participants are behind in sending commitments.
   // Can be used to decide whether to ignore slow counter-participants w.r.t. pruning.
-  // TODO(#10436) R7
   rpc GetIntervalsBehindForCounterParticipants(GetIntervalsBehindForCounterParticipants.Request) returns (GetIntervalsBehindForCounterParticipants.Response);
   // Count in-flight submissions and transactions for a domain
   rpc CountInFlight(CountInFlight.Request) returns (CountInFlight.Response);
@@ -247,10 +245,11 @@ message LookupSentAcsCommitments {
 }
 
 /*
-The configuration concerns the following metrics, and each of the metrics is issued per domain:
- - The maximum number of intervals that a distiguished participant falls behind
+The configuration concerns the following metrics, issued per domain;
+threshold_distinguished & threshold_default are overwritten, distinguished_participant_uids & participant_uids_metrics is additive:
+ - The maximum number of intervals that a distinguished participant falls behind
  - The maximum number of intervals that a participant in the "default" group falls behind
- - The number of participants in the distiguished group that are behind by at least `thresholdDistiguished`
+ - The number of participants in the distinguished group that are behind by at least `thresholdDistinguished`
  reconciliation intervals.
  - The number of participants in the "default" group that are behind by at least `thresholdDefault`
  reconciliation intervals.
@@ -261,7 +260,7 @@ message SlowCounterParticipantDomainConfig {
   repeated string domain_ids = 1;
   // all non-distinguished counter-participants are implicitly part of the group "default"
   repeated string distinguished_participant_uids = 2;
-  // the number of reconciliation intervals for a distiguished counter-participant to be considered slow
+  // the number of reconciliation intervals for a distinguished counter-participant to be considered slow
   uint64 threshold_distinguished = 3;
   // the number of reconciliation intervals for an "other" counter-participant to be considered slow
   uint64 threshold_default = 4;
@@ -293,10 +292,16 @@ message GetIntervalsBehindForCounterParticipants {
   message CounterParticipantInfo {
     string counter_participant_uid = 1;
     string domain_id = 2;
-    // MaxInt means that the counter-participant never sent a commitment
+    // MaxInt(2147483647) means that the counter-participant never sent a commitment
     uint64 intervals_behind = 3;
+    // how long time the corresponding intervals correlate to (Timestamp in the future means it has never sent a commitment)
+    // this is to help debugging, especially in the case where the reconciliation interval have been changed.
+    // for example, if we have a counter participant that is three intervals behind, and each interval is one minute.
+    // if the reconciliation interval is changed to 24 hours,
+    // then it might look like that counter-participant is three days behind (when it is actually only three minutes behind).
+    google.protobuf.Duration behind_since = 4;
     // the "as of" sequencing timestamp at which this information was obtained
-    google.protobuf.Timestamp as_of_sequencing_timestamp = 4;
+    google.protobuf.Timestamp as_of_sequencing_timestamp = 5;
   }
 
   message Request {

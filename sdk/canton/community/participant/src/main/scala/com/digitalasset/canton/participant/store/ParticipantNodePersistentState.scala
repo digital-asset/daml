@@ -37,6 +37,7 @@ import scala.concurrent.duration.*
   */
 class ParticipantNodePersistentState private (
     val settingsStore: ParticipantSettingsStore,
+    val acsCounterParticipantConfigStore: AcsCounterParticipantConfigStore,
     val ledgerApiStore: LedgerApiStore,
     val inFlightSubmissionStore: InFlightSubmissionStore,
     val commandDeduplicationStore: CommandDeduplicationStore,
@@ -102,7 +103,8 @@ object ParticipantNodePersistentState extends HasLoggerName {
       NamedLoggingContext(loggerFactory, traceContext)
     val logger = loggingContext.tracedLogger
     val flagCloseable = FlagCloseable(logger, timeouts)
-
+    val acsCounterParticipantConfigStore =
+      AcsCounterParticipantConfigStore.create(metrics, storage, timeouts, loggerFactory)
     def waitForSettingsStoreUpdate[A](
         lens: ParticipantSettingsStore.Settings => Option[A],
         settingName: String,
@@ -173,6 +175,7 @@ object ParticipantNodePersistentState extends HasLoggerName {
     } yield {
       new ParticipantNodePersistentState(
         settingsStore,
+        acsCounterParticipantConfigStore,
         ledgerApiStore,
         inFlightSubmissionStore,
         commandDeduplicationStore,

@@ -17,9 +17,7 @@ import com.digitalasset.canton.version.*
 import com.digitalasset.daml.lf.data.Ref
 import com.google.protobuf.ByteString
 
-/** Information about the submitters of the transaction
-  * `maxSequencingTimeO` was added in PV=5, so it will only be defined for PV >= 5, and will be `None` otherwise.
-  */
+/** Information about the submitters of the transaction */
 final case class SubmitterMetadata private (
     actAs: NonEmpty[Set[LfPartyId]],
     applicationId: ApplicationId,

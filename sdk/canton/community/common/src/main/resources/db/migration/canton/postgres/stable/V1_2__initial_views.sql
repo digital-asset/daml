@@ -687,3 +687,24 @@ create or replace view debug.ord_p2p_endpoints as
     host,
     port
   from ord_p2p_endpoints;
+
+create or replace VIEW debug.acs_no_wait_counter_participants as
+    select
+        domain_id,
+        participant_id
+        from acs_no_wait_counter_participants;
+
+create or replace VIEW debug.acs_slow_participant_config as
+    select
+        domain_id,
+        threshold_distinguished,
+        threshold_default
+        from acs_slow_participant_config;
+
+create or replace VIEW debug.acs_slow_counter_participants as
+    select
+        domain_id,
+        participant_id,
+        is_distinguished,
+        is_added_to_metrics
+        from acs_slow_counter_participants;

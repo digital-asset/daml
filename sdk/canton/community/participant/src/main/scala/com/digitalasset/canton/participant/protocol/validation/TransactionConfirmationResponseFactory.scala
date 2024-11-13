@@ -171,7 +171,7 @@ class TransactionConfirmationResponseFactory(
                 .map(err =>
                   logged(
                     requestId,
-                    LocalRejectError.MalformedRejects.MalformedRequest.Reject(err),
+                    LocalRejectError.MalformedRejects.MalformedRequest.Reject(err.message),
                   ).toLocalReject(protocolVersion)
                 )
 

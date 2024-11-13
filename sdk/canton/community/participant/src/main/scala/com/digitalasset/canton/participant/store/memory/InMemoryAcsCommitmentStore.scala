@@ -17,6 +17,7 @@ import com.digitalasset.canton.participant.pruning.{
 import com.digitalasset.canton.participant.store.AcsCommitmentStore.CommitmentData
 import com.digitalasset.canton.participant.store.{
   AcsCommitmentStore,
+  AcsCounterParticipantConfigStore,
   CommitmentQueue,
   IncrementalCommitmentStore,
 }
@@ -27,7 +28,7 @@ import com.digitalasset.canton.protocol.messages.{
   SignedProtocolMessage,
 }
 import com.digitalasset.canton.store.memory.InMemoryPrunableByTime
-import com.digitalasset.canton.topology.ParticipantId
+import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import pprint.Tree
@@ -39,7 +40,11 @@ import scala.collection.immutable.SortedSet
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future, blocking}
 
-class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory)(implicit
+class InMemoryAcsCommitmentStore(
+    domainId: DomainId,
+    override val acsCounterParticipantConfigStore: AcsCounterParticipantConfigStore,
+    protected val loggerFactory: NamedLoggerFactory,
+)(implicit
     val ec: ExecutionContext
 ) extends AcsCommitmentStore
     with InMemoryPrunableByTime
@@ -68,7 +73,7 @@ class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory
   )(implicit traceContext: TraceContext): Future[Unit] = {
     blocking {
       computed.synchronized {
-        items.toList.foreach { case item =>
+        items.toList.foreach { item =>
           val CommitmentData(counterParticipant, period, commitment) = item
           val oldMap = computed.getOrElse(counterParticipant, Map.empty)
           val oldCommitment = oldMap.getOrElse(period, commitment)
@@ -252,22 +257,31 @@ class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory
   override def noOutstandingCommitments(
       beforeOrAt: CantonTimestamp
   )(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]] =
-    Future.successful {
-      for {
-        lastTs <- lastComputed.get
-        adjustedTs = lastTs.forgetRefinement.min(beforeOrAt)
-        periods = _outstanding
-          .get()
-          .collect {
-            case (period, _, state) if state != CommitmentPeriodState.Matched =>
-              period.fromExclusive.forgetRefinement -> period.toInclusive.forgetRefinement
-          }
-        safe = AcsCommitmentStore.latestCleanPeriod(
-          beforeOrAt = adjustedTs,
-          uncleanPeriods = periods,
-        )
-      } yield safe
-    }
+    for {
+      ignoredParticipants <- acsCounterParticipantConfigStore
+        .getAllActiveNoWaitCounterParticipants(Seq(domainId), Seq.empty)
+        .failOnShutdownToAbortException("noOutstandingCommitments")
+      result <- Future.successful {
+        for {
+          lastTs <- lastComputed.get
+          adjustedTs = lastTs.forgetRefinement.min(beforeOrAt)
+
+          periods = _outstanding
+            .get()
+            .collect {
+              case (period, participantId, state)
+                  if state != CommitmentPeriodState.Matched &&
+                    !ignoredParticipants
+                      .exists(config => config.participantId == participantId) =>
+                period.fromExclusive.forgetRefinement -> period.toInclusive.forgetRefinement
+            }
+          safe = AcsCommitmentStore.latestCleanPeriod(
+            beforeOrAt = adjustedTs,
+            uncleanPeriods = periods,
+          )
+        } yield safe
+      }
+    } yield result
 
   override def outstanding(
       start: CantonTimestamp,
@@ -375,7 +389,7 @@ class InMemoryIncrementalCommitments(
 
   private val rt: AtomicReference[RecordTime] = new AtomicReference(initialRt)
 
-  private object lock;
+  private object lock
 
   /** Update the snapshot */
   private def update_(
@@ -391,7 +405,7 @@ class InMemoryIncrementalCommitments(
     }
   }
 
-  def watermark_(): RecordTime = rt.get()
+  private def watermark_(): RecordTime = rt.get()
 
   /** A read-only version of the snapshot.
     */
@@ -427,7 +441,7 @@ class InMemoryCommitmentQueue(implicit val ec: ExecutionContext) extends Commitm
       Ordering.by[AcsCommitment, CantonTimestampSecond](cmt => cmt.period.toInclusive).reverse
     )
 
-  private object lock;
+  private object lock
 
   private def syncF[T](v: => T): Future[T] = {
     val evaluated = blocking(lock.synchronized(v))
@@ -488,7 +502,7 @@ class InMemoryCommitmentQueue(implicit val ec: ExecutionContext) extends Commitm
 }
 
 object InMemoryCommitmentQueue {
-  def deleteWhile[A](q: mutable.PriorityQueue[A])(p: A => Boolean): Unit = {
+  private def deleteWhile[A](q: mutable.PriorityQueue[A])(p: A => Boolean): Unit = {
     @tailrec
     def go(): Unit =
       q.headOption match {

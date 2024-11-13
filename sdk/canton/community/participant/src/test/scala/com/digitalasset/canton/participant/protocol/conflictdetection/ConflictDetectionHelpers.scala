@@ -85,7 +85,11 @@ private[protocol] trait ConflictDetectionHelpers {
             .failOnShutdown
         } yield result
       }
-      .map(_ => new ReassignmentCache(store, loggerFactory)(parallelExecutionContext))
+      .map(_ =>
+        new ReassignmentCache(store, futureSupervisor, timeouts, loggerFactory)(
+          parallelExecutionContext
+        )
+      )
 }
 
 private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatience {

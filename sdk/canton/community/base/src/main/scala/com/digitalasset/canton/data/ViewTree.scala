@@ -71,11 +71,9 @@ trait FullReassignmentViewTree extends ViewTree {
   override def informees: Set[LfPartyId] = view.contract.metadata.stakeholders
   def stakeholders: Stakeholders = commonData.stakeholders
 
-  def reassigningParticipants: ReassigningParticipants = commonData.reassigningParticipants
-  def isConfirmingReassigningParticipant(participantId: ParticipantId): Boolean =
-    reassigningParticipants.confirming.contains(participantId)
-  def isObservingReassigningParticipant(participantId: ParticipantId): Boolean =
-    reassigningParticipants.observing.contains(participantId)
+  def reassigningParticipants: Set[ParticipantId] = commonData.reassigningParticipants
+  def isReassigningParticipant(participantId: ParticipantId): Boolean =
+    reassigningParticipants.contains(participantId)
 
   // Contract
   def contract: SerializableContract = view.contract

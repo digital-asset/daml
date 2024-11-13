@@ -17,6 +17,7 @@ import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.Ins
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.{GrpcFUSExtended, wrapErrUS}
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection.InFlightCount
 import com.digitalasset.canton.participant.domain.DomainAliasManager
@@ -28,8 +29,8 @@ import com.digitalasset.canton.protocol.messages.{
   ReceivedAcsCommitment,
   SentAcsCommitment,
 }
+import com.digitalasset.canton.pruning.{ConfigForDomainThresholds, ConfigForSlowCounterParticipants}
 import com.digitalasset.canton.serialization.ProtoConverter
-import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
 import com.digitalasset.canton.topology.client.IdentityProvidingServiceClient
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
@@ -72,26 +73,148 @@ class GrpcInspectionService(
 
   /** Configure metrics for slow counter-participants (i.e., that are behind in sending commitments) and
     * configure thresholds for when a counter-participant is deemed slow.
-    * TODO(#10436) R7
+    *
+    * returns error if domain ids re not distinct.
     */
   override def setConfigForSlowCounterParticipants(
       request: SetConfigForSlowCounterParticipants.Request
-  ): Future[SetConfigForSlowCounterParticipants.Response] = ???
+  ): Future[SetConfigForSlowCounterParticipants.Response] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    val result = for {
+      mapped <- wrapErrUS(
+        request.configs
+          .flatMap(ConfigForSlowCounterParticipants.fromProto30)
+          .sequence
+      )
+      allDomainIds = request.configs.flatMap(_.domainIds)
+
+      mappedDistinct <- EitherT.fromEither[FutureUnlessShutdown](
+        if (allDomainIds.distinct.lengthIs == allDomainIds.length) Right(mapped)
+        else {
+          println(mapped)
+          println(mapped.distinctBy(_.domainId).length)
+          println(mapped.length)
+          Left(
+            InspectionServiceError.IllegalArgumentError.Error(
+              "DomainIds are not distinct"
+            )
+          )
+        }
+      )
+
+      mappedThreshold <- wrapErrUS(
+        request.configs
+          .flatMap(ConfigForDomainThresholds.fromProto30)
+          .sequence
+      )
+
+      _ <- EitherTUtil
+        .fromFuture(
+          syncStateInspection.addOrUpdateConfigsForSlowCounterParticipants(
+            mappedDistinct,
+            mappedThreshold,
+          ),
+          err => InspectionServiceError.InternalServerError.Error(err.toString),
+        )
+        .leftWiden[CantonError]
+    } yield SetConfigForSlowCounterParticipants.Response()
+
+    CantonGrpcUtil.mapErrNewEUS(result)
+  }
 
   /** Get the current configuration for metrics for slow counter-participants.
-    * TODO(#10436) R7
     */
   override def getConfigForSlowCounterParticipants(
       request: GetConfigForSlowCounterParticipants.Request
-  ): Future[GetConfigForSlowCounterParticipants.Response] = ???
+  ): Future[GetConfigForSlowCounterParticipants.Response] =
+    TraceContextGrpc.withGrpcTraceContext { implicit traceContext =>
+      {
+        for {
+          allConfigs <- syncStateInspection.getConfigsForSlowCounterParticipants()
+          (slowCounterParticipants, domainThresholds) = allConfigs
+          filtered =
+            if (request.domainIds.isEmpty) slowCounterParticipants
+            else
+              slowCounterParticipants.filter(config =>
+                request.domainIds.contains(config.domainId.toProtoPrimitive)
+              )
+          filteredWithThreshold = filtered
+            .map(cfg =>
+              (
+                cfg,
+                domainThresholds
+                  .find(dThresh => dThresh.domainId == cfg.domainId),
+              )
+            )
+            .flatMap {
+              case (cfg, Some(thresh)) => Some(cfg.toProto30(thresh))
+              case (_, None) => None
+            }
+            .groupBy(_.domainIds)
+            .map { case (domains, configs) =>
+              configs.foldLeft(
+                new SlowCounterParticipantDomainConfig(Seq.empty, Seq.empty, -1, -1, Seq.empty)
+              ) { (next, previous) =>
+                new SlowCounterParticipantDomainConfig(
+                  domains, // since we have them grouped by domainId, these are the same
+                  next.distinguishedParticipantUids ++ previous.distinguishedParticipantUids,
+                  Math.max(
+                    next.thresholdDistinguished,
+                    previous.thresholdDistinguished,
+                  ), // we use max since they will have th same value (unless it uses the default from fold)
+                  Math.max(
+                    next.thresholdDefault,
+                    previous.thresholdDefault,
+                  ), // we use max since they will have th same value (unless it uses the default from fold)
+                  next.participantUidsMetrics ++ previous.participantUidsMetrics,
+                )
+              }
+            }
+            .toSeq
+
+        } yield GetConfigForSlowCounterParticipants.Response(
+          filteredWithThreshold
+        )
+      }.asGrpcResponse
+    }
 
   /** Get the number of intervals that counter-participants are behind in sending commitments.
     * Can be used to decide whether to ignore slow counter-participants w.r.t. pruning.
-    * TODO(#10436) R7
     */
   override def getIntervalsBehindForCounterParticipants(
       request: GetIntervalsBehindForCounterParticipants.Request
-  ): Future[GetIntervalsBehindForCounterParticipants.Response] = ???
+  ): Future[GetIntervalsBehindForCounterParticipants.Response] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+
+    val result = for {
+      domains <- wrapErrUS(request.domainIds.traverse(DomainId.fromProtoPrimitive(_, "domain_id")))
+      participants <- wrapErrUS(
+        request.counterParticipantUids.traverse(
+          ParticipantId.fromProtoPrimitive(_, "counter_participant_uid")
+        )
+      )
+      intervals <- EitherTUtil
+        .fromFuture(
+          syncStateInspection
+            .getIntervalsBehindForParticipants(domains, participants),
+          err => InspectionServiceError.InternalServerError.Error(err.toString),
+        )
+        .leftWiden[CantonError]
+
+      mapped = intervals
+        .filter(interval =>
+          participants.contains(
+            interval.participantId
+          ) || (participants.isEmpty && request.threshold
+            .fold(true)(interval.intervalsBehind.value > _))
+        )
+        .map(_.toProtoV30)
+    } yield {
+      GetIntervalsBehindForCounterParticipants.Response(mapped.toSeq)
+    }
+
+    CantonGrpcUtil.mapErrNewEUS(result)
+  }
 
   /** Look up the ACS commitments computed and sent by a participant
     */
@@ -115,12 +238,7 @@ class GrpcInspectionService(
         )
         states <- request.commitmentState
           .map(CommitmentPeriodState.fromProtoV30)
-          .foldRight(Right(Seq.empty): ParsingResult[Seq[CommitmentPeriodState]]) { (either, acc) =>
-            for {
-              xs <- acc
-              x <- either
-            } yield x +: xs
-          }
+          .sequence
           .leftMap(err => err.message)
       } yield {
         for {
@@ -172,12 +290,7 @@ class GrpcInspectionService(
         )
         states <- request.commitmentState
           .map(CommitmentPeriodState.fromProtoV30)
-          .foldRight(Right(Seq.empty): ParsingResult[Seq[CommitmentPeriodState]]) { (either, acc) =>
-            for {
-              xs <- acc
-              x <- either
-            } yield x +: xs
-          }
+          .sequence
           .leftMap(err => err.message)
       } yield {
         for {

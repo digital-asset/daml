@@ -197,14 +197,14 @@ final case class TestingTopology(
   }
 
   def withThreshold(
-      parties: Map[LfPartyId, (PositiveInt, Seq[ParticipantId])]
+      parties: Map[LfPartyId, (PositiveInt, Seq[(ParticipantId, ParticipantPermission)])]
   ): TestingTopology = {
     val tmp: Map[LfPartyId, PartyInfo] = parties.map { case (party, (threshold, participants)) =>
       party -> PartyInfo(
         threshold,
-        participants
-          .map(pid => pid -> ParticipantAttributes(ParticipantPermission.Confirmation, None))
-          .toMap,
+        participants.map { case (pid, permission) =>
+          pid -> ParticipantAttributes(permission, None)
+        }.toMap,
       )
     }
     this.copy(topology = tmp)

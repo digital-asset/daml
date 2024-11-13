@@ -31,8 +31,8 @@ import com.digitalasset.canton.admin.participant.v30.PruningServiceGrpc.PruningS
 import com.digitalasset.canton.admin.participant.v30.ResourceManagementServiceGrpc.ResourceManagementServiceStub
 import com.digitalasset.canton.admin.participant.v30.{ResourceLimits as _, *}
 import com.digitalasset.canton.admin.pruning
-import com.digitalasset.canton.admin.pruning.v30.{NoWaitCommitmentsSetup, WaitCommitmentsSetup}
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.admin.pruning.v30.WaitCommitmentsSetup
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.participant.admin.ResourceLimits
@@ -41,7 +41,6 @@ import com.digitalasset.canton.participant.domain.DomainConnectionConfig as CDom
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.{
   ReceivedCmtState,
   SentCmtState,
-  SharedContractsState,
 }
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.protocol.messages.{AcsCommitment, CommitmentPeriod}
@@ -1326,7 +1325,6 @@ object ParticipantAdminCommands {
         state,
       )
 
-    // TODO(#10436) R7: The code below should be sufficient.
     final case class SetConfigForSlowCounterParticipants(
         configs: Seq[SlowCounterParticipantDomainConfig]
     ) extends Base[
@@ -1392,7 +1390,6 @@ object ParticipantAdminCommands {
       }
     }
 
-    // TODO(#10436) R7: The code below should be sufficient.
     final case class GetConfigForSlowCounterParticipants(
         domainIds: Seq[DomainId]
     ) extends Base[
@@ -1423,11 +1420,10 @@ object ParticipantAdminCommands {
     final case class CounterParticipantInfo(
         participantId: ParticipantId,
         domainId: DomainId,
-        intervalsBehind: PositiveInt,
+        intervalsBehind: NonNegativeLong,
         asOfSequencingTimestamp: Instant,
     )
 
-    // TODO(#10436) R7: The code below should be sufficient.
     final case class GetIntervalsBehindForCounterParticipants(
         counterParticipants: Seq[ParticipantId],
         domainIds: Seq[DomainId],
@@ -1469,7 +1465,7 @@ object ParticipantAdminCommands {
                 info.asOfSequencingTimestamp,
               )
               .leftMap(_.toString)
-            intervalsBehind <- PositiveInt.create(info.intervalsBehind.toInt).leftMap(_.toString)
+            intervalsBehind <- NonNegativeLong.create(info.intervalsBehind).leftMap(_.toString)
           } yield CounterParticipantInfo(
             participantId,
             domainId,
@@ -1605,38 +1601,20 @@ object ParticipantAdminCommands {
         }
     }
 
-    // TODO(#18453) R6: The code below should be sufficient.
     final case class SetNoWaitCommitmentsFrom(
         counterParticipants: Seq[ParticipantId],
         domainIds: Seq[DomainId],
-        startingAt: Either[Instant, String],
     ) extends Base[
           pruning.v30.SetNoWaitCommitmentsFrom.Request,
           pruning.v30.SetNoWaitCommitmentsFrom.Response,
-          Map[ParticipantId, Seq[DomainId]],
+          Unit,
         ] {
-      override protected def createRequest()
-          : Either[String, pruning.v30.SetNoWaitCommitmentsFrom.Request] =
-        for {
-          tsOrOffset <- startingAt match {
-            case Right(offset) =>
-              Right(Right(offset).withLeft[CantonTimestamp]).withLeft[String]
-            case Left(ts) =>
-              CantonTimestamp.fromInstant(ts) match {
-                case Left(value) => Left(value)
-                case Right(value) => Right(Left(value).withRight[String]).withLeft[String]
-              }
-          }
-        } yield pruning.v30.SetNoWaitCommitmentsFrom.Request(
-          counterParticipants.map(_.toProtoPrimitive),
-          tsOrOffset match {
-            case Left(ts) =>
-              pruning.v30.SetNoWaitCommitmentsFrom.Request.TimestampOrOffset
-                .SequencingTimestamp(ts.toProtoTimestamp)
-            case Right(offset) =>
-              pruning.v30.SetNoWaitCommitmentsFrom.Request.TimestampOrOffset.PruningOffset(offset)
-          },
-          domainIds.map(_.toProtoPrimitive),
+      override def createRequest(): Either[String, pruning.v30.SetNoWaitCommitmentsFrom.Request] =
+        Right(
+          pruning.v30.SetNoWaitCommitmentsFrom.Request(
+            counterParticipants.map(_.toProtoPrimitive),
+            domainIds.map(_.toProtoPrimitive),
+          )
         )
 
       override protected def submitRequest(
@@ -1647,60 +1625,25 @@ object ParticipantAdminCommands {
 
       override protected def handleResponse(
           response: pruning.v30.SetNoWaitCommitmentsFrom.Response
-      ): Either[String, Map[ParticipantId, Seq[DomainId]]] = {
-
-        val m = response.participantDomainsMapping
-          .map { case (participant, domains) =>
-            ParticipantId.tryFromProtoPrimitive(participant) ->
-              domains.domainIds.map(DomainId.fromString).sequence
-          }
-
-        if (m.forall(_._2.isRight)) Right(m.map { case (id, either) =>
-          id -> either.getOrElse(Seq.empty)
-        })
-        else
-          Left("Error parsing response of setNoWaitCommitmentsFrom")
-      }
+      ): Either[String, Unit] = Right(())
     }
 
-    // TODO(#18453) R6: The code below should be sufficient.
     final case class NoWaitCommitments(
         counterParticipant: ParticipantId,
-        startingAt: Either[Instant, String],
         domains: Seq[DomainId],
-        state: SharedContractsState,
     )
 
     object NoWaitCommitments {
-      def fromSetup(setup: Seq[NoWaitCommitmentsSetup]): Either[String, Seq[NoWaitCommitments]] = {
+      def fromSetup(setup: Seq[WaitCommitmentsSetup]): Either[String, Seq[NoWaitCommitments]] = {
         val s = setup.map(setup =>
           for {
-            ts <- setup.timestampOrOffsetActive match {
-              case NoWaitCommitmentsSetup.TimestampOrOffsetActive.SequencingTimestamp(ts) =>
-                CantonTimestamp.fromProtoTimestamp(ts).leftMap(_.toString)
-              case _ => Left("Conversion error for timestamp in ignoredParticipants")
-            }
-            offset <- setup.timestampOrOffsetActive match {
-              case NoWaitCommitmentsSetup.TimestampOrOffsetActive.PruningOffset(offset) =>
-                Right(offset)
-              case _ => Left("Conversion error for Offset in ignoredParticipants")
-            }
             domains <- setup.domainIds.traverse(_.domainIds.traverse(DomainId.fromString))
-            state <- SharedContractsState
-              .fromProtoV30(setup.counterParticipantState)
-              .leftMap(_.toString)
             participantId <- ParticipantId
               .fromProtoPrimitive(setup.counterParticipantUid, "")
               .leftMap(_.toString)
           } yield NoWaitCommitments(
             participantId,
-            setup.timestampOrOffsetActive match {
-              case NoWaitCommitmentsSetup.TimestampOrOffsetActive.SequencingTimestamp(_) =>
-                ts.toInstant.asLeft[String]
-              case _ => offset.asRight[Instant]
-            },
             domains.getOrElse(Seq.empty),
-            state,
           )
         )
         if (s.forall(_.isRight)) {
@@ -1709,9 +1652,7 @@ object ParticipantAdminCommands {
               _.getOrElse(
                 NoWaitCommitments(
                   ParticipantId.tryFromProtoPrimitive("PAR::participant::error"),
-                  Left(Instant.EPOCH),
                   Seq.empty,
-                  SharedContractsState.NoSharedContracts,
                 )
               )
             )
@@ -1721,14 +1662,13 @@ object ParticipantAdminCommands {
       }
     }
 
-    // TODO(#18453) R6: The code below should be sufficient.
     final case class SetWaitCommitmentsFrom(
         counterParticipants: Seq[ParticipantId],
         domainIds: Seq[DomainId],
     ) extends Base[
           pruning.v30.ResetNoWaitCommitmentsFrom.Request,
           pruning.v30.ResetNoWaitCommitmentsFrom.Response,
-          Map[ParticipantId, Seq[DomainId]],
+          Unit,
         ] {
       override protected def createRequest()
           : Right[String, pruning.v30.ResetNoWaitCommitmentsFrom.Request] =
@@ -1747,27 +1687,12 @@ object ParticipantAdminCommands {
 
       override protected def handleResponse(
           response: pruning.v30.ResetNoWaitCommitmentsFrom.Response
-      ): Either[String, Map[ParticipantId, Seq[DomainId]]] = {
-
-        val m = response.participantDomainsMapping
-          .map { case (participant, domains) =>
-            ParticipantId.tryFromProtoPrimitive(participant) ->
-              domains.domainIds.map(DomainId.fromString).sequence
-          }
-
-        if (m.forall(_._2.isRight)) Right(m.map { case (id, either) =>
-          id -> either.getOrElse(Seq.empty)
-        })
-        else
-          Left("Error parsing response of resetNoWaitCommitmentsFrom")
-      }
+      ): Either[String, Unit] = Right(())
     }
 
-    // TODO(#18453) R6: The code below should be sufficient.
     final case class WaitCommitments(
         counterParticipant: ParticipantId,
         domains: Seq[DomainId],
-        state: SharedContractsState,
     )
 
     object WaitCommitments {
@@ -1775,13 +1700,9 @@ object ParticipantAdminCommands {
         val s = setup.map(setup =>
           for {
             domains <- setup.domainIds.traverse(_.domainIds.traverse(DomainId.fromString))
-            state <- SharedContractsState
-              .fromProtoV30(setup.counterParticipantState)
-              .leftMap(_.toString)
           } yield WaitCommitments(
             ParticipantId.tryFromProtoPrimitive(setup.counterParticipantUid),
             domains.getOrElse(Seq.empty),
-            state,
           )
         )
         if (s.forall(_.isRight)) {
@@ -1791,7 +1712,6 @@ object ParticipantAdminCommands {
                 WaitCommitments(
                   ParticipantId.tryFromProtoPrimitive("PAR::participant::error"),
                   Seq.empty,
-                  SharedContractsState.NoSharedContracts,
                 )
               )
             )
@@ -1801,7 +1721,6 @@ object ParticipantAdminCommands {
       }
     }
 
-    // TODO(#18453) R6: The code below should be sufficient.
     final case class GetNoWaitCommitmentsFrom(
         domains: Seq[DomainId],
         counterParticipants: Seq[ParticipantId],

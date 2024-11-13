@@ -272,6 +272,7 @@ class ProtocolProcessorTest
         defaultStaticDomainParameters,
         enableAdditionalConsistencyChecks = true,
         new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1), // only one domain needed
+        nodePersistentState.acsCounterParticipantConfigStore,
         exitOnFatalFailures = true,
         packageDependencyResolver,
         Eval.now(nodePersistentState.ledgerApiStore),

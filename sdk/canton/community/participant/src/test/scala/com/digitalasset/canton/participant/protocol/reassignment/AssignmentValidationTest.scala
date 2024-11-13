@@ -9,7 +9,6 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.{
   CantonTimestamp,
   FullAssignmentTree,
-  ReassigningParticipants,
   ReassignmentRef,
   ReassignmentSubmitterMetadata,
 }
@@ -17,6 +16,7 @@ import com.digitalasset.canton.participant.protocol.SerializableContractAuthenti
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidation.*
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
   ContractError,
+  ReassigningParticipantsMismatch,
   SubmitterMustBeStakeholder,
 }
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
@@ -91,10 +91,7 @@ class AssignmentValidationTest
     .withSimpleParticipants(submittingParticipant)
     .build(loggerFactory)
 
-  private lazy val reassigningParticipants = ReassigningParticipants.tryCreate(
-    confirming = Set(submittingParticipant),
-    observing = Set(submittingParticipant, observingParticipant),
-  )
+  private lazy val reassigningParticipants = Set(submittingParticipant, observingParticipant)
 
   private val cryptoSnapshot =
     identityFactory
@@ -151,7 +148,7 @@ class AssignmentValidationTest
           assignmentRequest,
           reassignmentDataO = None,
           Target(cryptoSnapshot),
-          isConfirmingReassigningParticipant = false,
+          isSignatoryAssigning = false,
         )
         .futureValue shouldBe None
     }
@@ -165,7 +162,7 @@ class AssignmentValidationTest
           assignmentRequest,
           reassignmentDataO = Some(reassignmentData),
           Target(cryptoSnapshot),
-          isConfirmingReassigningParticipant = isConfirmingReassigningParticipant,
+          isSignatoryAssigning = isConfirmingReassigningParticipant,
         )
         .futureValue
 
@@ -190,7 +187,7 @@ class AssignmentValidationTest
           assignmentRequest,
           Some(reassignmentData),
           Target(cryptoSnapshot),
-          isConfirmingReassigningParticipant = true,
+          isSignatoryAssigning = true,
         )
         .value
 
@@ -217,7 +214,7 @@ class AssignmentValidationTest
           assignmentTreeWrongCounter,
           Some(reassignmentData),
           Target(cryptoSnapshot),
-          isConfirmingReassigningParticipant = true,
+          isSignatoryAssigning = true,
         )
         .value
         .futureValue
@@ -244,7 +241,7 @@ class AssignmentValidationTest
             assignmentRequest,
             Some(reassignmentData),
             Target(cryptoSnapshot),
-            isConfirmingReassigningParticipant = true,
+            isSignatoryAssigning = true,
           )
           .value
           .futureValue
@@ -303,7 +300,7 @@ class AssignmentValidationTest
             assignmentRequest,
             reassignmentDataO = Option.when(reassignmentDataDefined)(reassignmentData),
             Target(cryptoSnapshot),
-            isConfirmingReassigningParticipant = true,
+            isSignatoryAssigning = true,
           )
           .value
           .futureValue
@@ -335,7 +332,7 @@ class AssignmentValidationTest
     }
 
     "detect reassigning participant mismatch" in {
-      def validate(reassigningParticipants: ReassigningParticipants) = {
+      def validate(reassigningParticipants: Set[ParticipantId]) = {
         val assignmentTree = makeFullAssignmentTree(
           contract,
           unassignmentResult,
@@ -348,7 +345,7 @@ class AssignmentValidationTest
             assignmentTree,
             Some(reassignmentData),
             Target(cryptoSnapshot),
-            isConfirmingReassigningParticipant = true,
+            isSignatoryAssigning = true,
           )
           .value
           .futureValue
@@ -358,38 +355,32 @@ class AssignmentValidationTest
       validate(reassigningParticipants).value.value.confirmingParties shouldBe Set(signatory)
 
       // Additional observing participant
-      val additionalObservingParticipant = ReassigningParticipants.tryCreate(
-        confirming = reassigningParticipants.confirming,
-        observing = reassigningParticipants.observing + otherParticipant,
-      )
+      val additionalObservingParticipant = reassigningParticipants + otherParticipant
 
       validate(
         additionalObservingParticipant
       ).left.value shouldBe ReassigningParticipantsMismatch(
-        unassignmentResult.reassignmentId,
+        ReassignmentRef(unassignmentResult.reassignmentId),
         expected = reassigningParticipants,
         declared = additionalObservingParticipant,
       )
 
       // Additional confirming participant
-      val additionalConfirmingParticipant = ReassigningParticipants.tryCreate(
-        confirming = reassigningParticipants.confirming + otherParticipant,
-        observing = reassigningParticipants.observing + otherParticipant,
-      )
+      val additionalConfirmingParticipant = reassigningParticipants + otherParticipant
 
       validate(
         additionalConfirmingParticipant
       ).left.value shouldBe ReassigningParticipantsMismatch(
-        unassignmentResult.reassignmentId,
+        ReassignmentRef(unassignmentResult.reassignmentId),
         expected = reassigningParticipants,
         declared = additionalConfirmingParticipant,
       )
 
       // Empty reassigning participants
-      validate(ReassigningParticipants.empty).left.value shouldBe ReassigningParticipantsMismatch(
-        unassignmentResult.reassignmentId,
+      validate(Set.empty).left.value shouldBe ReassigningParticipantsMismatch(
+        ReassignmentRef(unassignmentResult.reassignmentId),
         expected = reassigningParticipants,
-        declared = ReassigningParticipants.empty,
+        declared = Set.empty,
       )
     }
 
@@ -407,7 +398,7 @@ class AssignmentValidationTest
             assignmentRequest,
             Some(reassignmentData),
             Target(cryptoSnapshot),
-            isConfirmingReassigningParticipant = true,
+            isSignatoryAssigning = true,
           )
           .value
           .futureValue
@@ -452,7 +443,7 @@ class AssignmentValidationTest
       targetDomain: Target[DomainId] = targetDomain,
       targetMediator: MediatorGroupRecipient = targetMediator,
       reassignmentCounter: ReassignmentCounter = ReassignmentCounter(1),
-      reassigningParticipants: ReassigningParticipants = reassigningParticipants,
+      reassigningParticipants: Set[ParticipantId] = reassigningParticipants,
   ): FullAssignmentTree = {
     val seed = seedGenerator.generateSaltSeed()
     valueOrFail(

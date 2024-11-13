@@ -70,7 +70,7 @@ object EitherTUtil {
   ): EitherT[Future, E, A] =
     liftFailedFuture(fut.map(Right(_)), errorHandler)
 
-  /** Variation of fromFuture  that takes a [[com.digitalasset.canton.lifecycle.FutureUnlessShutdown]] */
+  /** Variation of fromFuture that takes a [[com.digitalasset.canton.lifecycle.FutureUnlessShutdown]] */
   def fromFuture[E, A](futUnlSht: FutureUnlessShutdown[A], errorHandler: Throwable => E)(implicit
       ec: ExecutionContext
   ): EitherT[FutureUnlessShutdown, E, A] =
@@ -166,6 +166,11 @@ object EitherTUtil {
       timer.stop()
     }
   }
+
+  def rightUS[A, B](v: Future[B])(implicit
+      executionContext: ExecutionContext
+  ): EitherT[FutureUnlessShutdown, A, B] =
+    EitherT.right(v).mapK(FutureUnlessShutdown.outcomeK)
 
   /** Transform an EitherT into a Future.failed on left
     *

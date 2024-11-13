@@ -14,9 +14,13 @@ import com.daml.metrics.api.MetricsContext
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.participant.v30.{ReceivedCommitmentState, SentCommitmentState}
-import com.digitalasset.canton.admin.pruning
 import com.digitalasset.canton.concurrent.{FutureSupervisor, Threading}
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt, PositiveNumeric}
+import com.digitalasset.canton.config.RequireTypes.{
+  NonNegativeInt,
+  NonNegativeLong,
+  PositiveInt,
+  PositiveNumeric,
+}
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
@@ -30,6 +34,7 @@ import com.digitalasset.canton.lifecycle.{
   FutureUnlessShutdown,
   Lifecycle,
   OnShutdownRunner,
+  UnlessShutdown,
 }
 import com.digitalasset.canton.logging.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -52,8 +57,13 @@ import com.digitalasset.canton.protocol.messages.{
   SignedProtocolMessage,
 }
 import com.digitalasset.canton.protocol.{AcsCommitmentsCatchUpConfig, LfContractId}
+import com.digitalasset.canton.pruning.{
+  ConfigForDomainThresholds,
+  ConfigForNoWaitCounterParticipants,
+  ConfigForSlowCounterParticipants,
+}
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.RequestRefused
-import com.digitalasset.canton.sequencing.client.SequencerClientSend
+import com.digitalasset.canton.sequencing.client.{SendResult, SequencerClientSend}
 import com.digitalasset.canton.sequencing.protocol.{Batch, OpenEnvelope, Recipients, SendAsyncError}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.Clock
@@ -187,6 +197,7 @@ class AcsCommitmentProcessor private (
     futureSupervisor: FutureSupervisor,
     activeContractStore: ActiveContractStore,
     contractStore: ContractStore,
+    acsCounterParticipantConfigStore: AcsCounterParticipantConfigStore,
     /* An in-memory, mutable running ACS snapshot, updated on every call to [[publish]]  */
     val runningCommitments: RunningCommitments,
     endLastProcessedPeriod: Option[CantonTimestampSecond],
@@ -261,6 +272,11 @@ class AcsCommitmentProcessor private (
   private val runningCmtSnapshotsForCatchUp =
     scala.collection.mutable.Map
       .empty[CommitmentPeriod, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType]]
+
+  /** A list containing the last timestamp for a received message per counter participant per domain. */
+  private val counterParticipantLastMessage =
+    TrieMap
+      .empty[ParticipantId, CantonTimestamp]
 
   /** A future checking whether the node should enter catch-up mode by computing the catch-up timestamp.
     * At most one future runs computing this
@@ -792,6 +808,12 @@ class AcsCommitmentProcessor private (
     }
 
     val future = for {
+      allConfigs <- acsCounterParticipantConfigStore.fetchAllSlowCounterParticipantConfig()
+      (configsForSlowCounterParticipants, configsForDomainThreshold) = allConfigs
+      allNoWaits <- acsCounterParticipantConfigStore.getAllActiveNoWaitCounterParticipants(
+        Seq(domainId),
+        Seq.empty,
+      )
       _ <- batch.parTraverse_ { envelope =>
         getReconciliationIntervals(
           envelope.protocolMessage.message.period.toInclusive.forgetRefinement
@@ -800,7 +822,7 @@ class AcsCommitmentProcessor private (
           .flatMap { reconciliationIntervals =>
             validateEnvelope(timestamp, envelope, reconciliationIntervals) match {
               case Right(()) =>
-                checkSignedMessage(timestamp, envelope.protocolMessage)
+                checkSignedMessage(timestamp, envelope)
 
               case Left(errors) =>
                 errors.toList.foreach(logger.error(_))
@@ -808,6 +830,13 @@ class AcsCommitmentProcessor private (
             }
           }
       }
+      reconInterval <- getReconciliationIntervals(timestamp)
+      _ = calculateParticipantLatencies(
+        configsForSlowCounterParticipants,
+        configsForDomainThreshold,
+        allNoWaits,
+        reconInterval,
+      )
     } yield ()
 
     FutureUtil.logOnFailureUnlessShutdown(
@@ -820,6 +849,103 @@ class AcsCommitmentProcessor private (
       logPassiveInstanceAtInfo = true,
     )
   }
+
+  private def updateParticipantLatency(
+      timestamp: CantonTimestamp,
+      payload: AcsCommitment,
+  ): Unit =
+    if (counterParticipantLastMessage.get(payload.sender).fold(true)(_ < timestamp))
+      counterParticipantLastMessage.addOne(payload.sender -> timestamp)
+
+  private def calculateParticipantLatencies(
+      slowConfigs: Seq[ConfigForSlowCounterParticipants],
+      thresholds: Seq[ConfigForDomainThresholds],
+      noWaits: Seq[ConfigForNoWaitCounterParticipants],
+      reconIntervals: SortedReconciliationIntervals,
+  ): Unit = {
+    val newest = endOfLastProcessedPeriod.getOrElse(CantonTimestampSecond.MinValue).forgetRefinement
+    val reconIntervalLength =
+      reconIntervals.intervals.headOption.fold(1L)(_.intervalLength.duration.toMillis * 1000)
+
+    val threshold = thresholds
+      .find(cfg => cfg.domainId == domainId)
+      .getOrElse(
+        // we use a default value of 0 for threshold if no config have been provided
+        ConfigForDomainThresholds(domainId, NonNegativeLong.zero, NonNegativeLong.zero)
+      )
+
+    val defaultMax = threshold.thresholdDefault.value * reconIntervalLength
+    val distinguishedMax = threshold.thresholdDistinguished.value * reconIntervalLength
+
+    val configuredParticipants = counterParticipantLastMessage
+      .map { case (participantId, cts) =>
+        val cfg = slowConfigs
+          .find(cfg => cfg.participantId == participantId)
+          .fold(
+            slowConfigs
+              .find(cfg => cfg.domainId == domainId)
+              .map(default => default.copy(isDistinguished = false, isAddedToMetrics = false))
+          )(Some(_))
+        (
+          participantId,
+          // we floor it to 0, negative numbers here indicate we are lacking behind everybody else.
+          math.max(0, newest.toMicros - cts.toMicros),
+          cfg.fold(false)(_.isDistinguished),
+          cfg.fold(false)(_.isAddedToMetrics),
+        )
+      }
+
+    // Update the Non-Distinguished
+    checkAndUpdateMetric(
+      configuredParticipants
+        .filter { case (participantId, timeDiff, isDistinguished, isAddedToMetrics) =>
+          !isDistinguished && !isAddedToMetrics && !noWaits.exists(noWait =>
+            noWait.participantId == participantId
+          ) && timeDiff > defaultMax
+        }
+        .maxByOption { case (_, timeDiff, _, _) => timeDiff },
+      metrics.largestCounterParticipantLatency.getValue,
+      metrics.largestCounterParticipantLatency.updateValue,
+    )
+
+    // Update the Distinguished
+    checkAndUpdateMetric(
+      configuredParticipants
+        .filter { case (_, timeDiff, isDistinguished, isAddedToMetrics) =>
+          isDistinguished && !isAddedToMetrics && timeDiff > distinguishedMax
+        }
+        .maxByOption { case (_, timeDiff, _, _) => timeDiff },
+      metrics.largestDistinguishedCounterParticipantLatency.getValue,
+      metrics.largestDistinguishedCounterParticipantLatency.updateValue,
+    )
+
+    // update all the added to metric
+    configuredParticipants
+      .filter { case (_, _, _, isAddedToMetrics) => isAddedToMetrics }
+      .foreach { case (participantId, timeDiff, _, _) =>
+        metrics.counterParticipantLatency(participantId).updateValue(timeDiff)
+      }
+  }
+
+  private def checkAndUpdateMetric(
+      maxByTimeDiff: Option[(ParticipantId, Long, Boolean, Boolean)],
+      currentValue: Long,
+      update: (Long) => Unit,
+  ): Unit =
+    maxByTimeDiff match {
+      case Some((_, timeDiff, _, _)) =>
+        if (
+          // this means that either, the slowest participant is falling further behind, or he is catching up and somebody new is the slowest
+          timeDiff != currentValue
+        ) {
+          update(timeDiff)
+        }
+      case None => {
+        // this means all participants have caught up
+        if (currentValue != 0)
+          update(0)
+      }
+    }
 
   private def validateEnvelope(
       timestamp: CantonTimestamp,
@@ -907,7 +1033,8 @@ class AcsCommitmentProcessor private (
     runningCommitments.update(rt, acsChange)
   }
 
-  private def indicateLocallyProcessed(
+  @VisibleForTesting
+  private[pruning] def indicateLocallyProcessed(
       period: CommitmentPeriod
   )(implicit traceContext: TraceContext): Future[Unit] = {
     endOfLastProcessedPeriod = Some(period.toInclusive)
@@ -931,8 +1058,9 @@ class AcsCommitmentProcessor private (
 
   private def checkSignedMessage(
       timestamp: CantonTimestamp,
-      message: SignedProtocolMessage[AcsCommitment],
+      envelope: OpenEnvelope[SignedProtocolMessage[AcsCommitment]],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+    val message = envelope.protocolMessage
     logger.debug(
       s"Checking commitment (purportedly by) ${message.message.sender} for period ${message.message.period}"
     )
@@ -955,6 +1083,8 @@ class AcsCommitmentProcessor private (
             s"""Received wrong signature for ACS commitment at timestamp $timestamp; purported sender: ${commitment.sender}; commitment: $commitment"""
           )
           .report()
+      } else {
+        updateParticipantLatency(timestamp, envelope.protocolMessage.message)
       }
     }
   }
@@ -1368,6 +1498,12 @@ class AcsCommitmentProcessor private (
                 None,
                 // ACS commitments are best effort, so no need to amplify them
                 amplify = false,
+                callback = {
+                  case UnlessShutdown.Outcome(SendResult.Success(deliver)) =>
+                    val difference = deliver.timestamp.toMicros - period.toInclusive.toMicros
+                    metrics.sequencingTime.updateValue(difference)
+                  case _ => // Failed to sequence the message, so no update to the metric
+                },
               )
               .leftMap {
                 case RequestRefused(SendAsyncError.ShuttingDown(_)) =>
@@ -1551,6 +1687,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       timeouts: ProcessingTimeout,
       futureSupervisor: FutureSupervisor,
       activeContractStore: ActiveContractStore,
+      acsCounterParticipantConfigStore: AcsCounterParticipantConfigStore,
       contractStore: ContractStore,
       enableAdditionalConsistencyChecks: Boolean,
       loggerFactory: NamedLoggerFactory,
@@ -1607,6 +1744,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
         futureSupervisor,
         activeContractStore,
         contractStore,
+        acsCounterParticipantConfigStore,
         runningCommitments,
         endOfLastProcessedPeriod,
         enableAdditionalConsistencyChecks,
@@ -2005,12 +2143,12 @@ object AcsCommitmentProcessor extends HasLoggerName {
   object CommitmentsPruningBound {
     // Not before any outstanding commitment
     final case class Outstanding(
-        noOutstandingCommitmentsF: CantonTimestamp => Future[Option[CantonTimestamp]]
+        noOutstandingCommitmentsF: CantonTimestamp => FutureUnlessShutdown[Option[CantonTimestamp]]
     ) extends CommitmentsPruningBound
 
     // Not before any computed and sent commitment
     final case class LastComputedAndSent(
-        lastComputedAndSentF: Future[Option[CantonTimestamp]]
+        lastComputedAndSentF: FutureUnlessShutdown[Option[CantonTimestamp]]
     ) extends CommitmentsPruningBound
   }
 
@@ -2206,37 +2344,6 @@ object AcsCommitmentProcessor extends HasLoggerName {
             with AcsCommitmentDegradation
       }
     }
-  }
-
-  sealed trait SharedContractsState {
-    def toProtoV30: pruning.v30.SharedContractsState
-  }
-
-  object SharedContractsState {
-    object SharedContracts extends SharedContractsState {
-      override val toProtoV30: pruning.v30.SharedContractsState =
-        pruning.v30.SharedContractsState.SHARED_CONTRACTS
-    }
-
-    object NoSharedContracts extends SharedContractsState {
-      override val toProtoV30: pruning.v30.SharedContractsState =
-        pruning.v30.SharedContractsState.NO_SHARED_CONTRACTS
-    }
-
-    def fromProtoV30(
-        proto: pruning.v30.SharedContractsState
-    ): ParsingResult[SharedContractsState] =
-      proto match {
-        case pruning.v30.SharedContractsState.NO_SHARED_CONTRACTS => Right(NoSharedContracts)
-        case pruning.v30.SharedContractsState.SHARED_CONTRACTS => Right(SharedContracts)
-        case _ =>
-          Left(
-            ProtoDeserializationError.ValueConversionError(
-              "no wait commitments from",
-              s"Unknown value: $proto",
-            )
-          )
-      }
   }
 
   sealed trait ReceivedCmtState {

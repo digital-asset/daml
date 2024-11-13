@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.data
 
-import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
+import com.digitalasset.canton.ReassignmentCounter
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.MerkleTree.RevealSubtree
 import com.digitalasset.canton.data.ReassignmentRef.ContractIdRef
@@ -18,7 +18,6 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.*
-import com.digitalasset.canton.{ProtoDeserializationError, ReassignmentCounter}
 import com.google.protobuf.ByteString
 
 import java.util.UUID
@@ -138,7 +137,7 @@ final case class UnassignmentCommonData private (
     sourceDomain: Source[DomainId],
     sourceMediatorGroup: MediatorGroupRecipient,
     stakeholders: Stakeholders,
-    reassigningParticipants: ReassigningParticipants,
+    reassigningParticipants: Set[ParticipantId],
     uuid: UUID,
     submitterMetadata: ReassignmentSubmitterMetadata,
 )(
@@ -164,10 +163,7 @@ final case class UnassignmentCommonData private (
       stakeholders = Some(stakeholders.toProtoV30),
       uuid = ProtoConverter.UuidConverter.toProtoPrimitive(uuid),
       submitterMetadata = Some(submitterMetadata.toProtoV30),
-      confirmingReassigningParticipantUids =
-        reassigningParticipants.confirming.toSeq.map(_.uid.toProtoPrimitive),
-      observingReassigningParticipantUids =
-        reassigningParticipants.observing.toSeq.map(_.uid.toProtoPrimitive),
+      reassigningParticipantUids = reassigningParticipants.toSeq.map(_.uid.toProtoPrimitive),
     )
 
   override protected[this] def toByteStringUnmemoized: ByteString =
@@ -205,7 +201,7 @@ object UnassignmentCommonData
       sourceDomain: Source[DomainId],
       sourceMediatorGroup: MediatorGroupRecipient,
       stakeholders: Stakeholders,
-      reassigningParticipants: ReassigningParticipants,
+      reassigningParticipants: Set[ParticipantId],
       uuid: UUID,
       submitterMetadata: ReassignmentSubmitterMetadata,
       sourceProtocolVersion: Source[ProtocolVersion],
@@ -230,8 +226,7 @@ object UnassignmentCommonData
       saltP,
       sourceDomainP,
       stakeholdersP,
-      confirmingReassigningParticipantUidsP,
-      observingReassigningParticipantUidsP,
+      reassigningParticipantUidsP,
       uuidP,
       sourceMediatorGroupP,
       submitterMetadataPO,
@@ -250,14 +245,9 @@ object UnassignmentCommonData
         "stakeholders",
         stakeholdersP,
       )
-      confirmingReassigningParticipants <- confirmingReassigningParticipantUidsP.traverse(uid =>
+      reassigningParticipants <- reassigningParticipantUidsP.traverse(uid =>
         UniqueIdentifier
-          .fromProtoPrimitive(uid, "confirming_reassigning_participant_uids")
-          .map(ParticipantId(_))
-      )
-      observingReassigningParticipants <- observingReassigningParticipantUidsP.traverse(uid =>
-        UniqueIdentifier
-          .fromProtoPrimitive(uid, "observing_reassigning_participant_uids")
+          .fromProtoPrimitive(uid, "reassigning_participant_uids")
           .map(ParticipantId(_))
       )
 
@@ -265,20 +255,12 @@ object UnassignmentCommonData
       submitterMetadata <- ProtoConverter
         .required("submitter_metadata", submitterMetadataPO)
         .flatMap(ReassignmentSubmitterMetadata.fromProtoV30)
-
-      reassigningParticipants <- ReassigningParticipants
-        .create(
-          confirming = confirmingReassigningParticipants.toSet,
-          observing = observingReassigningParticipants.toSet,
-        )
-        .leftMap(ProtoDeserializationError.InvariantViolation(field = "confirming", _))
-
     } yield UnassignmentCommonData(
       salt,
       sourceDomain,
       MediatorGroupRecipient(sourceMediatorGroup),
       stakeholders = stakeholders,
-      reassigningParticipants = reassigningParticipants,
+      reassigningParticipants = reassigningParticipants.toSet,
       uuid,
       submitterMetadata,
     )(hashOps, sourceProtocolVersion, Some(bytes))

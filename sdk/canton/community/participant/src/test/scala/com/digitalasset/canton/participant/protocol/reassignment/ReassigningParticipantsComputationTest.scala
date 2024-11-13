@@ -4,12 +4,15 @@
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.data.ReassigningParticipants
-import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.StakeholderHostingErrors
+import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.StakeholderHostingErrors
 import com.digitalasset.canton.protocol.Stakeholders
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
-import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
+import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
+  Confirmation,
+  Observation,
+  Submission,
+}
 import com.digitalasset.canton.topology.{ParticipantId, PartyId, TestingTopology, UniqueIdentifier}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, LfPartyId}
@@ -29,7 +32,7 @@ class ReassigningParticipantsComputationTest
       .topologySnapshot()
 
   private def createTestingWithThreshold(
-      topology: Map[LfPartyId, (PositiveInt, Seq[ParticipantId])]
+      topology: Map[LfPartyId, (PositiveInt, Seq[(ParticipantId, ParticipantPermission)])]
   ): TopologySnapshot =
     TestingTopology()
       .withThreshold(topology)
@@ -73,7 +76,7 @@ class ReassigningParticipantsComputationTest
         stakeholders = Stakeholders.withSignatoriesAndObservers(Set(signatory), Set(observer)),
         sourceTopology = Source(snapshot),
         targetTopology = Target(snapshot),
-      ).compute.futureValue shouldBe ReassigningParticipants.tryCreate(Set(p1), Set(p1, p2))
+      ).compute.futureValue shouldBe Set(p1, p2)
     }
 
     "not return participants connected to a single domain" in {
@@ -99,19 +102,19 @@ class ReassigningParticipantsComputationTest
         stakeholders = stakeholders,
         sourceTopology = Source(source), // p4 missing
         targetTopology = Target(target), // p3 missing
-      ).compute.futureValue shouldBe ReassigningParticipants.tryCreate(Set(p1), Set(p1, p2))
+      ).compute.futureValue shouldBe Set(p1, p2)
 
       new ReassigningParticipantsComputation(
         stakeholders = stakeholders,
         sourceTopology = Source(source),
         targetTopology = Target(source), // p3 is there as well
-      ).compute.futureValue shouldBe ReassigningParticipants.tryCreate(Set(p1, p3), Set(p1, p2, p3))
+      ).compute.futureValue shouldBe Set(p1, p2, p3)
 
       new ReassigningParticipantsComputation(
         stakeholders = stakeholders,
         sourceTopology = Source(target), // p4 is there as well
         targetTopology = Target(target),
-      ).compute.futureValue shouldBe ReassigningParticipants.tryCreate(Set(p1), Set(p1, p2, p4))
+      ).compute.futureValue shouldBe Set(p1, p2, p4)
     }
 
     "fail if one signatory is unknown in the topology state" in {
@@ -150,7 +153,7 @@ class ReassigningParticipantsComputationTest
         stakeholders = stakeholders,
         sourceTopology = Source(complete),
         targetTopology = Target(complete),
-      ).compute.futureValue shouldBe ReassigningParticipants.tryCreate(Set(p1), Set(p1, p2))
+      ).compute.futureValue shouldBe Set(p1, p2)
     }
 
     "fail if one observer is unknown in the topology state" in {
@@ -189,7 +192,7 @@ class ReassigningParticipantsComputationTest
         stakeholders = stakeholders,
         sourceTopology = Source(complete),
         targetTopology = Target(complete),
-      ).compute.futureValue shouldBe ReassigningParticipants.tryCreate(Set(p1), Set(p1, p2))
+      ).compute.futureValue shouldBe Set(p1, p2)
     }
 
     "return all participants for a given party" in {
@@ -206,109 +209,146 @@ class ReassigningParticipantsComputationTest
         stakeholders = Stakeholders.withSignatoriesAndObservers(Set(signatory), Set(observer)),
         sourceTopology = Source(topology),
         targetTopology = Target(topology),
-      ).compute.futureValue shouldBe ReassigningParticipants.tryCreate(
-        Set(p1, p2),
-        Set(p1, p2, p3, p4),
-      )
+      ).compute.futureValue shouldBe Set(p1, p2, p3, p4)
+
     }
 
-    "only return participants with confirmation rights for signatories" in {
-      val topology = createTestingIdentityFactory(
-        Map(
-          p1 -> Map(signatory -> ParticipantPermission.Submission),
-          p2 -> Map(signatory -> ParticipantPermission.Observation),
-        )
-      )
-
-      new ReassigningParticipantsComputation(
-        stakeholders = Stakeholders.withSignatories(Set(signatory)),
-        sourceTopology = Source(topology),
-        targetTopology = Target(topology),
-      ).compute.futureValue shouldBe ReassigningParticipants.tryCreate(Set(p1), Set(p1, p2))
-    }
-
-    "return participants with observations rights for observers" in {
+    "return participants with observations rights" in {
       val topology = createTestingIdentityFactory(
         Map(
           p1 -> Map(observer -> ParticipantPermission.Confirmation),
           p2 -> Map(observer -> ParticipantPermission.Observation),
+          p3 -> Map(signatory -> ParticipantPermission.Confirmation),
+          p4 -> Map(signatory -> ParticipantPermission.Observation),
         )
       )
 
       new ReassigningParticipantsComputation(
-        stakeholders = Stakeholders.withSignatoriesAndObservers(Set(), Set(observer)),
+        stakeholders = Stakeholders.withSignatoriesAndObservers(Set(signatory), Set(observer)),
         sourceTopology = Source(topology),
         targetTopology = Target(topology),
-      ).compute.futureValue shouldBe ReassigningParticipants.tryCreate(Set(), Set(p1, p2))
+      ).compute.futureValue shouldBe Set(p1, p2, p3, p4)
     }
 
-    "fail if one party is not hosted with confirmation rights on a domain" in {
-      val source = createTestingIdentityFactory(
+    "fail if there are not enough signatory reassigning participants" in {
+      // ti_c_x_o: threshold is i, p1 hosts signatory with Confirmation, p2 does not host signatory, p3 hosts signatory with Observing
+
+      val t1_c_x_x = createTestingWithThreshold(
+        Map(signatory -> (PositiveInt.one, Seq((p1, Confirmation))))
+      )
+      val t2_c_c_x = createTestingWithThreshold(
         Map(
-          p1 -> Map(signatory -> ParticipantPermission.Confirmation)
+          signatory -> (PositiveInt.two, Seq((p1, Confirmation), (p2, Confirmation)))
         )
       )
-
-      val target = createTestingIdentityFactory(
+      val t1_c_o_x = createTestingWithThreshold(
         Map(
-          p1 -> Map(signatory -> ParticipantPermission.Observation)
+          signatory -> (PositiveInt.one, Seq((p1, Confirmation), (p2, Observation)))
+        )
+      )
+      val t2_c_o_c = createTestingWithThreshold(
+        Map(
+          signatory -> (PositiveInt.two, Seq(
+            (p1, Confirmation),
+            (p2, Observation),
+            (p3, Confirmation),
+          ))
+        )
+      )
+      val t2_c_c_c = createTestingWithThreshold(
+        Map(
+          signatory -> (PositiveInt.two, Seq(
+            (p1, Confirmation),
+            (p2, Confirmation),
+            (p3, Confirmation),
+          ))
         )
       )
 
       new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.withSignatories(Set(signatory)),
-        sourceTopology = Source(source),
-        targetTopology = Target(target),
+        sourceTopology = Source(t1_c_x_x),
+        targetTopology = Target(t1_c_x_x),
+      ).compute.futureValue shouldBe Set(p1)
+
+      new ReassigningParticipantsComputation(
+        stakeholders = Stakeholders.withSignatories(Set(signatory)),
+        sourceTopology = Source(t2_c_c_x),
+        targetTopology = Target(t2_c_c_c),
+      ).compute.futureValue shouldBe Set(p1, p2)
+      new ReassigningParticipantsComputation(
+        stakeholders = Stakeholders.withSignatories(Set(signatory)),
+        sourceTopology = Source(t2_c_c_c),
+        targetTopology = Target(t2_c_c_x),
+      ).compute.futureValue shouldBe Set(p1, p2)
+
+      new ReassigningParticipantsComputation(
+        stakeholders = Stakeholders.withSignatories(Set(signatory)),
+        sourceTopology = Source(t2_c_c_x),
+        targetTopology = Target(t1_c_o_x),
+      ).compute.futureValue shouldBe Set(p1, p2)
+      new ReassigningParticipantsComputation(
+        stakeholders = Stakeholders.withSignatories(Set(signatory)),
+        sourceTopology = Source(t1_c_o_x),
+        targetTopology = Target(t2_c_c_x),
+      ).compute.futureValue shouldBe Set(p1, p2)
+
+      new ReassigningParticipantsComputation(
+        stakeholders = Stakeholders.withSignatories(Set(signatory)),
+        sourceTopology = Source(t2_c_o_c),
+        targetTopology = Target(t2_c_o_c),
+      ).compute.futureValue shouldBe Set(p1, p2, p3)
+      // Errors
+      new ReassigningParticipantsComputation(
+        stakeholders = Stakeholders.withSignatories(Set(signatory)),
+        sourceTopology = Source(t1_c_x_x),
+        targetTopology = Target(t2_c_c_x),
       ).compute.value.futureValue.left.value shouldBe StakeholderHostingErrors(
-        s"Signatory $signatory requires at least 1 reassigning participants, but only 0 are available"
+        s"Signatory $signatory requires at least 2 signatory reassigning participants on target domain, but only 1 are available"
+      )
+      new ReassigningParticipantsComputation(
+        stakeholders = Stakeholders.withSignatories(Set(signatory)),
+        sourceTopology = Source(t2_c_c_x),
+        targetTopology = Target(t1_c_x_x),
+      ).compute.value.futureValue.left.value shouldBe StakeholderHostingErrors(
+        s"Signatory $signatory requires at least 2 signatory reassigning participants on source domain, but only 1 are available"
+      )
+
+      new ReassigningParticipantsComputation(
+        stakeholders = Stakeholders.withSignatories(Set(signatory)),
+        sourceTopology = Source(t1_c_x_x),
+        targetTopology = Target(t2_c_o_c),
+      ).compute.value.futureValue.left.value shouldBe StakeholderHostingErrors(
+        s"Signatory $signatory requires at least 2 signatory reassigning participants on target domain, but only 1 are available"
+      )
+      new ReassigningParticipantsComputation(
+        stakeholders = Stakeholders.withSignatories(Set(signatory)),
+        sourceTopology = Source(t2_c_o_c),
+        targetTopology = Target(t1_c_x_x),
+      ).compute.value.futureValue.left.value shouldBe StakeholderHostingErrors(
+        s"Signatory $signatory requires at least 2 signatory reassigning participants on source domain, but only 1 are available"
       )
     }
 
-    "fail if there are not enough reassigning participants" in {
-      val source = createTestingWithThreshold(
-        Map(
-          signatory -> (PositiveInt.two, Seq(p1, p2, p3)),
-          observer -> (PositiveInt.two, Seq(p1, p2, p3)),
-          charlie -> (PositiveInt.one, Seq(p1)),
-        )
+    "not require confirmation on both domains" in {
+      val t1_c_o_x = createTestingWithThreshold(
+        Map(signatory -> (PositiveInt.one, Seq((p1, Confirmation), (p2, Observation))))
       )
-
-      val target = createTestingWithThreshold(
+      val t2_c_c_c = createTestingWithThreshold(
         Map(
-          signatory -> (PositiveInt.one, Seq(p1)),
-          observer -> (PositiveInt.two, Seq(p1, p2)),
-          charlie -> (PositiveInt.two, Seq(p1, p3)),
+          signatory -> (PositiveInt.two, Seq(
+            (p1, Confirmation),
+            (p2, Confirmation),
+            (p3, Confirmation),
+          ))
         )
       )
 
       new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.withSignatories(Set(signatory)),
-        sourceTopology = Source(source),
-        targetTopology = Target(target),
-      ).compute.value.futureValue.left.value shouldBe StakeholderHostingErrors(
-        s"Signatory $signatory requires at least 2 reassigning participants, but only 1 are available"
-      )
-
-      new ReassigningParticipantsComputation(
-        stakeholders = Stakeholders.withSignatories(Set(observer)),
-        sourceTopology = Source(source),
-        targetTopology = Target(target),
-      ).compute.futureValue shouldBe ReassigningParticipants.tryCreate(Set(p1, p2), Set(p1, p2))
-
-      new ReassigningParticipantsComputation(
-        stakeholders = Stakeholders.withSignatoriesAndObservers(signatories = Set(charlie), Set()),
-        sourceTopology = Source(source),
-        targetTopology = Target(target),
-      ).compute.value.futureValue.left.value shouldBe StakeholderHostingErrors(
-        s"Signatory $charlie requires at least 2 reassigning participants, but only 1 are available"
-      )
-
-      // For observers, one reassigning participant is sufficient
-      new ReassigningParticipantsComputation(
-        stakeholders = Stakeholders.withSignatoriesAndObservers(signatories = Set(), Set(charlie)),
-        sourceTopology = Source(source),
-        targetTopology = Target(target),
-      ).compute.futureValue shouldBe ReassigningParticipants.tryCreate(Set(), Set(p1))
+        sourceTopology = Source(t2_c_c_c),
+        targetTopology = Target(t1_c_o_x),
+      ).compute.futureValue shouldBe Set(p1, p2)
     }
   }
 }

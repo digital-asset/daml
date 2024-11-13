@@ -91,6 +91,8 @@ class ConflictDetectorTest
   private def defaultReassignmentCache: ReassignmentCache =
     new ReassignmentCache(
       new InMemoryReassignmentStore(targetDomainId, loggerFactory),
+      futureSupervisor,
+      timeouts,
       loggerFactory,
     )
 

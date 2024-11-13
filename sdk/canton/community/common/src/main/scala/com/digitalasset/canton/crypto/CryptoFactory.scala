@@ -290,6 +290,8 @@ object JceCrypto {
           storesAndSchemes.signingKeySpec,
           storesAndSchemes.encryptionKeySpec,
           cryptoPrivateStoreExtended,
+          timeouts,
+          loggerFactory,
         )
       crypto = new Crypto(
         pureCrypto,

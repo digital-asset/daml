@@ -33,7 +33,7 @@ trait ReassignmentCommonData extends ProtocolVersionedMemoizedEvidence {
   def stakeholders: Stakeholders
   def uuid: UUID
   def submitterMetadata: ReassignmentSubmitterMetadata
-  def reassigningParticipants: ReassigningParticipants
+  def reassigningParticipants: Set[ParticipantId]
 
   def hashOps: HashOps
 

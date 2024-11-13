@@ -58,6 +58,7 @@ import com.digitalasset.canton.config.{
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
   BaseInspection,
+  CommandSuccessful,
   ConsoleCommandResult,
   ConsoleEnvironment,
   ConsoleMacros,
@@ -954,7 +955,6 @@ class CommitmentsAdministrationGroup(
       )
     )
 
-  // TODO(#18453) R6: The code below should be sufficient.
   @Help.Summary(
     "Disable waiting for commitments from the given counter-participants."
   )
@@ -962,40 +962,35 @@ class CommitmentsAdministrationGroup(
     """Disabling waiting for commitments disregards these counter-participants w.r.t. pruning,
       |which gives up non-repudiation for those counter-participants, but increases pruning resilience
       |to failures and slowdowns of those counter-participants and/or the network.
-      |The command returns a map of counter-participants and the domains for which the setting was changed.
-      |Returns an error if `startingAt` does not translate to an existing offset.
       |If the participant set is empty, the command does nothing."""
   )
   def set_no_wait_commitments_from(
       counterParticipants: Seq[ParticipantId],
       domainIds: Seq[DomainId],
-      startingAt: Either[Instant, String],
-  ): Map[ParticipantId, Seq[DomainId]] =
+  ): Unit =
     consoleEnvironment.run(
       runner.adminCommand(
         SetNoWaitCommitmentsFrom(
           counterParticipants,
           domainIds,
-          startingAt,
         )
       )
     )
 
-  // TODO(#18453) R6: The code below should be sufficient.
   @Help.Summary(
-    "Enable waiting for commitments from the given counter-participants. This is the default behavior; enabling waiting" +
+    "Enable waiting for commitments from the given counter-participants. " +
+      "Waiting for commitments from all counter-participants is the default behavior; explicitly enabling waiting" +
       "for commitments is only necessary if it was previously disabled."
   )
   @Help.Description(
     """Enables waiting for commitments, which blocks pruning at offsets where commitments from these counter-participants
       |are missing.
-      |The command returns a map of counter-participants and the domains for which the setting was changed.
       |If the participant set is empty or the domain set is empty, the command does nothing."""
   )
   def set_wait_commitments_from(
       counterParticipants: Seq[ParticipantId],
       domainIds: Seq[DomainId],
-  ): Map[ParticipantId, Seq[DomainId]] =
+  ): Unit =
     consoleEnvironment.run(
       runner.adminCommand(
         SetWaitCommitmentsFrom(
@@ -1005,7 +1000,6 @@ class CommitmentsAdministrationGroup(
       )
     )
 
-  // TODO(#18453) R6: The code below should be sufficient.
   @Help.Summary(
     "Retrieves the latest (i.e., w.r.t. the query execution time) configuration of waiting for commitments from counter-participants."
   )
@@ -1019,7 +1013,7 @@ class CommitmentsAdministrationGroup(
       |Even if some participants may not be connected to some domains at the time the query executes, the response still
       |includes them if they are known to the participant or specified in the arguments."""
   )
-  def get_no_wait_commitments_from(
+  def get_wait_commitments_config_from(
       domains: Seq[DomainId],
       counterParticipants: Seq[ParticipantId],
   ): (Seq[NoWaitCommitments], Seq[WaitCommitments]) =
@@ -1032,7 +1026,6 @@ class CommitmentsAdministrationGroup(
       )
     )
 
-  // TODO(#10436) R7: The code below should be sufficient.
   @Help.Summary(
     "Configure metrics for slow counter-participants (i.e., that are behind in sending commitments) and" +
       "configure thresholds for when a counter-participant is deemed slow."
@@ -1040,11 +1033,11 @@ class CommitmentsAdministrationGroup(
   @Help.Description("""The configurations are per domain or set of domains and concern the following metrics
         |issued per domain:
         | - The maximum number of intervals that a distinguished participant falls
-        | behind. All participants that are not in the distinguished group are automatically part of the default group
+        | behind. All participants that are not in the distinguished or the individual group are automatically part of the default group
         | - The maximum number of intervals that a participant in the default groups falls behind
         | - The number of participants in the distinguished group that are behind by at least `thresholdDistinguished`
         | reconciliation intervals.
-        | - The number of participants not in the distinguished group that are behind by at least `thresholdDefault`
+        | - The number of participants not in the distinguished or the individual group that are behind by at least `thresholdDefault`
         | reconciliation intervals.
         | - Separate metric for each participant in `individualMetrics` argument tracking how many intervals that
         |participant is behind""")
@@ -1059,31 +1052,241 @@ class CommitmentsAdministrationGroup(
       )
     )
 
-  // TODO(#10436) R7
-  def add_config_for_slow_counter_participants(
+  @Help.Summary(
+    "Add additional distinguished counter participants to already existing slow counter participant configuration."
+  )
+  @Help.Description(
+    """The configuration can be extended by adding additional counter participants to existing domains.
+      | if a given domain is not already configured then it will be ignored without error.
+      |"""
+  )
+  def add_config_distinguished_slow_counter_participants(
       counterParticipantsDistinguished: Seq[ParticipantId],
       domains: Seq[DomainId],
-  ) = ???
+  ): Unit = consoleEnvironment.run {
+    val result = runner.adminCommand(
+      GetConfigForSlowCounterParticipants(
+        domains
+      )
+    )
+    result.toEither match {
+      case Left(err) => sys.error(err)
+      case Right(configs) =>
+        val missing = domains
+          .flatMap(x => counterParticipantsDistinguished.map(y => (x, y)))
+          .filter { case (domainId, participantId) =>
+            configs.exists(slowCp =>
+              slowCp.domainIds.contains(domainId) && !slowCp.distinguishedParticipants.contains(
+                participantId
+              )
+            )
+          }
+          .groupBy { case (domainId, _) => domainId }
+          .map { case (domainId, participantSeq) =>
+            domainId -> participantSeq.map { case (_, participantId) => participantId }
+          }
+        if (missing.nonEmpty) {
+          val newConfigs = missing.flatMap { case (domainId, participantSeq) =>
+            val existing = configs.find(slowCp => slowCp.domainIds.contains(domainId))
+            existing match {
+              case None => None
+              case Some(config) =>
+                Some(
+                  new SlowCounterParticipantDomainConfig(
+                    Seq(domainId),
+                    config.distinguishedParticipants ++ participantSeq,
+                    config.thresholdDistinguished,
+                    config.thresholdDefault,
+                    config.participantsMetrics,
+                  )
+                )
+            }
+          }
+          runner.adminCommand(
+            SetConfigForSlowCounterParticipants(
+              newConfigs.toSeq
+            )
+          )
+        } else CommandSuccessful.apply()
 
-  // TODO(#10436) R7
+    }
+  }
+
+  @Help.Summary(
+    "removes existing configurations from domains and distinguished counter participants."
+  )
+  @Help.Description("""The configurations can be removed from distinguished counter participant and domains
+      | use empty sequences correlates to selecting all, so removing all distinguished participants
+      | from a domain can be done with Seq.empty for 'counterParticipantsDistinguished' and Seq(Domain) for domains.
+      | Leaving both sequences empty clears all configs on all domains.
+      |""")
   def remove_config_for_slow_counter_participants(
       counterParticipantsDistinguished: Seq[ParticipantId],
       domains: Seq[DomainId],
-  ) = ???
+  ): Unit = consoleEnvironment.run {
+    val result = runner.adminCommand(
+      GetConfigForSlowCounterParticipants(
+        domains
+      )
+    )
+    result.toEither match {
+      case Left(err) => sys.error(err)
+      case Right(configs) =>
+        val toBeRemoved = domains
+          .zip(counterParticipantsDistinguished)
+          .filter { case (domainId, participantId) =>
+            configs.exists(slowCp =>
+              slowCp.domainIds.contains(domainId) && slowCp.distinguishedParticipants.contains(
+                participantId
+              )
+            )
+          }
+          .groupBy { case (domainId, _) => domainId }
+          .view
+          .mapValues(_.map { case (_, participantId) => participantId })
+          .toMap
 
-  // TODO(#10436) R7
+        val newConfigs = toBeRemoved.flatMap { case (domainId, participantSeq) =>
+          val existing = configs.find(slowCp => slowCp.domainIds.contains(domainId))
+          existing match {
+            case None => None
+            case Some(config) =>
+              Some(
+                new SlowCounterParticipantDomainConfig(
+                  Seq(domainId),
+                  config.distinguishedParticipants.diff(participantSeq),
+                  config.thresholdDistinguished,
+                  config.thresholdDefault,
+                  config.participantsMetrics,
+                )
+              )
+          }
+        }
+        runner.adminCommand(
+          SetConfigForSlowCounterParticipants(
+            newConfigs.toSeq
+          )
+        )
+    }
+  }
+
+  @Help.Summary(
+    "Add additional individual metrics participants to already existing slow counter participant configuration."
+  )
+  @Help.Description(
+    """The configuration can be extended by adding additional counter participants to existing domains.
+      | if a given domain is not already configured then it will be ignored without error.
+      |"""
+  )
   def add_participant_to_individual_metrics(
       individualMetrics: Seq[ParticipantId],
       domains: Seq[DomainId],
-  ) = ???
+  ): Unit = consoleEnvironment.run {
+    val result = runner.adminCommand(
+      GetConfigForSlowCounterParticipants(
+        domains
+      )
+    )
+    result.toEither match {
+      case Left(err) => sys.error(err)
+      case Right(configs) =>
+        val missing = domains
+          .zip(individualMetrics)
+          .filter { case (domainId, participantId) =>
+            configs.exists(slowCp =>
+              slowCp.domainIds.contains(domainId) && !slowCp.participantsMetrics.contains(
+                participantId
+              )
+            )
+          }
+          .groupBy { case (domainId, _) => domainId }
+          .view
+          .mapValues(_.map { case (_, participantId) => participantId })
+          .toMap
 
-  // TODO(#10436) R7
+        val newConfigs = missing.flatMap { case (domainId, participantSeq) =>
+          val existing = configs.find(slowCp => slowCp.domainIds.contains(domainId))
+          existing match {
+            case None => None
+            case Some(config) =>
+              Some(
+                new SlowCounterParticipantDomainConfig(
+                  Seq(domainId),
+                  config.distinguishedParticipants,
+                  config.thresholdDistinguished,
+                  config.thresholdDefault,
+                  config.participantsMetrics ++ participantSeq,
+                )
+              )
+          }
+        }
+        runner.adminCommand(
+          SetConfigForSlowCounterParticipants(
+            newConfigs.toSeq
+          )
+        )
+    }
+  }
+  @Help.Summary(
+    "removes existing configurations from domains and individual metrics participants."
+  )
+  @Help.Description(
+    """The configurations can be removed from individual metrics counter participant and domains
+      | use empty sequences correlates to selecting all, so removing all individual metrics participants
+      | from a domain can be done with Seq.empty for 'individualMetrics' and Seq(Domain) for domains.
+      | Leaving both sequences empty clears all configs on all domains.
+      |"""
+  )
   def remove_participant_from_individual_metrics(
       individualMetrics: Seq[ParticipantId],
       domains: Seq[DomainId],
-  ) = ???
+  ): Unit = consoleEnvironment.run {
+    val result = runner.adminCommand(
+      GetConfigForSlowCounterParticipants(
+        domains
+      )
+    )
+    result.toEither match {
+      case Left(err) => sys.error(err)
+      case Right(configs) =>
+        val toBeRemoved = domains
+          .zip(individualMetrics)
+          .filter { case (domainId, participantId) =>
+            configs.exists(slowCp =>
+              slowCp.domainIds.contains(domainId) && slowCp.participantsMetrics.contains(
+                participantId
+              )
+            )
+          }
+          .groupBy { case (domainId, _) => domainId }
+          .view
+          .mapValues(_.map { case (_, participantId) => participantId })
+          .toMap
 
-  // TODO(#10436) R7: The code below should be sufficient.
+        val newConfigs = toBeRemoved.flatMap { case (domainId, participantSeq) =>
+          val existing = configs.find(slowCp => slowCp.domainIds.contains(domainId))
+          existing match {
+            case None => None
+            case Some(config) =>
+              Some(
+                new SlowCounterParticipantDomainConfig(
+                  Seq(domainId),
+                  config.distinguishedParticipants,
+                  config.thresholdDistinguished,
+                  config.thresholdDefault,
+                  config.participantsMetrics.diff(participantSeq),
+                )
+              )
+          }
+        }
+        runner.adminCommand(
+          SetConfigForSlowCounterParticipants(
+            newConfigs.toSeq
+          )
+        )
+    }
+  }
+
   @Help.Summary(
     "Lists for the given domains the configuration of metrics for slow counter-participants (i.e., that" +
       "are behind in sending commitments)"
@@ -1109,33 +1312,30 @@ class CommitmentsAdministrationGroup(
       )
     )
 
-  case class SlowCounterParticipantInfo(
-      domains: Seq[DomainId],
-      distinguished: Seq[ParticipantId],
-      default: Seq[ParticipantId],
-      individualMetrics: Seq[ParticipantId],
-      thresholdDistinguished: NonNegativeInt,
-      thresholdDefault: NonNegativeInt,
-  )
-
-  // TODO(#10436) R7: Return the slow counter participant config for the given domains and counterParticipants
-  //  Filter the gRPC response of `getConfigForSlowCounterParticipants` with `counterParticipants`
   def get_config_for_slow_counter_participant(
       domains: Seq[DomainId],
       counterParticipants: Seq[ParticipantId],
-  ): Seq[SlowCounterParticipantInfo] = Seq.empty
+  ): Seq[SlowCounterParticipantDomainConfig] =
+    get_config_for_slow_counter_participants(domains).filter(config =>
+      config.participantsMetrics.exists(metricParticipant =>
+        counterParticipants.contains(metricParticipant) ||
+          config.distinguishedParticipants.exists(distinguished =>
+            counterParticipants.contains(distinguished)
+          )
+      )
+    )
 
-  // TODO(#10436) R7: The code below should be sufficient.
   @Help.Summary(
     "Lists for every participant and domain the number of intervals that the participant is behind in sending commitments" +
       "if that participant is behind by at least threshold intervals."
   )
-  @Help.Description("""If `counterParticipants` is empty, the command considers all counter-participants.
+  @Help.Description(
+    """If `counterParticipants` is empty, the command considers all counter-participants.
       |If `domains` is empty, the command considers all domains.
       |If `threshold` is not set, the command considers 0.
-      |Counter-participants that never sent a commitment appear in the output only if they're explicitly given in
-      |`counterParticipants`. For such counter-participant that never sent a commitment, the output shows they are
-      |behind by MaxInt""")
+      |For counter-participant that never sent a commitment, the output shows they are
+      |behind by MaxInt"""
+  )
   def get_intervals_behind_for_counter_participants(
       counterParticipants: Seq[ParticipantId],
       domains: Seq[DomainId],

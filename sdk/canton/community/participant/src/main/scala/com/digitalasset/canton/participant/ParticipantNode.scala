@@ -79,7 +79,6 @@ import com.digitalasset.canton.scheduler.{Schedulers, SchedulersImpl}
 import com.digitalasset.canton.sequencing.client.{RecordingConfig, ReplayConfig, SequencerClient}
 import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.time.*
-import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.time.admin.v30.DomainTimeServiceGrpc
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{
@@ -410,6 +409,7 @@ class ParticipantNodeBootstrap(
           domainAliasManager,
           storage,
           indexedStringStore,
+          persistentState.map(_.acsCounterParticipantConfigStore).value,
           parameters,
           crypto,
           clock,
@@ -799,7 +799,14 @@ class ParticipantNodeBootstrap(
         adminServerRegistry
           .addServiceU(
             PruningServiceGrpc.bindService(
-              new GrpcPruningService(sync, pruningScheduler, loggerFactory),
+              new GrpcPruningService(
+                participantId,
+                sync,
+                pruningScheduler,
+                syncDomainPersistentStateManager,
+                ips,
+                loggerFactory,
+              ),
               executionContext,
             )
           )
@@ -865,7 +872,7 @@ class ParticipantNodeBootstrap(
       "participant",
       logger,
       timeouts,
-      criticalDependencies = Seq(storage),
+      criticalDependencies = storage +: crypto.toList,
       // The sync service won't be reporting Ok until the node is initialized, but that shouldn't prevent traffic from
       // reaching the node
       Seq(

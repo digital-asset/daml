@@ -16,9 +16,9 @@ import com.digitalasset.canton.data.{
   AssignmentViewTree,
   CantonTimestamp,
   FullAssignmentTree,
-  ReassigningParticipants,
   ReassignmentRef,
   ReassignmentSubmitterMetadata,
+  ViewPosition,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
@@ -46,6 +46,10 @@ import com.digitalasset.canton.participant.protocol.submission.{
   EncryptedViewMessageFactory,
   SeedGenerator,
 }
+import com.digitalasset.canton.participant.protocol.validation.{
+  AuthenticationError,
+  AuthenticationValidator,
+}
 import com.digitalasset.canton.participant.protocol.{
   EngineController,
   ProcessingStartingPoints,
@@ -54,6 +58,7 @@ import com.digitalasset.canton.participant.protocol.{
 import com.digitalasset.canton.participant.store.ReassignmentStoreTest.coidAbs1
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.store.{
+  AcsCounterParticipantConfigStore,
   ParticipantNodeEphemeralState,
   ReassignmentStoreTest,
   SyncDomainEphemeralState,
@@ -175,6 +180,7 @@ class AssignmentProcessingStepsTest
         defaultStaticDomainParameters,
         enableAdditionalConsistencyChecks = true,
         indexedStringStore = indexedStringStore,
+        acsCounterParticipantConfigStore = mock[AcsCounterParticipantConfigStore],
         packageDependencyResolver = mock[PackageDependencyResolver],
         ledgerApiStore = Eval.now(mock[LedgerApiStore]),
         loggerFactory = loggerFactory,
@@ -226,7 +232,7 @@ class AssignmentProcessingStepsTest
   private lazy val unassignmentResult =
     reassignmentDataHelpers.unassignmentResult(reassignmentData).futureValue
 
-  def mkParsedRequest(
+  private def mkParsedRequest(
       view: FullAssignmentTree,
       recipients: Recipients = RecipientsTest.testInstance,
       signatureO: Option[Signature] = None,
@@ -239,8 +245,7 @@ class AssignmentProcessingStepsTest
     signatureO,
     None,
     isFreshOwnTimelyRequest = true,
-    isConfirmingReassigningParticipant = false,
-    isObservingReassigningParticipant = false,
+    isReassigningParticipant = false,
     Seq.empty,
     targetMediator,
     cryptoSnapshot,
@@ -729,7 +734,7 @@ class AssignmentProcessingStepsTest
         contract,
         initialReassignmentCounter,
         submitterInfo(submitter),
-        isObservingReassigningParticipant = false,
+        isReassigningParticipant = false,
         reassignmentId,
         contract.metadata.stakeholders,
         MediatorGroupRecipient(MediatorGroupIndex.one),
@@ -761,6 +766,58 @@ class AssignmentProcessingStepsTest
             .failOnShutdown
         )("get commit set and contracts to be stored and event failed")
       } yield succeed
+    }
+  }
+
+  "verify the submitting participant signature" should {
+    val assignmentTree = makeFullAssignmentTree()
+
+    "succeed when the signature is correct" in {
+      for {
+        signature <- cryptoSnapshot
+          .sign(assignmentTree.rootHash.unwrap)
+          .valueOrFailShutdown("signing failed")
+
+        parsed = mkParsedRequest(
+          assignmentTree,
+          signatureO = Some(signature),
+        )
+        authenticationError <-
+          AuthenticationValidator.verifyViewSignature(parsed)
+      } yield authenticationError shouldBe None
+    }
+
+    "fail when the signature is missing" in {
+      val parsed = mkParsedRequest(
+        assignmentTree,
+        signatureO = None,
+      )
+      for {
+        authenticationError <-
+          AuthenticationValidator.verifyViewSignature(parsed)
+      } yield authenticationError shouldBe Some(
+        AuthenticationError.MissingSignature(parsed.requestId, ViewPosition(List()))
+      )
+    }
+
+    "fail when the signature is incorrect" in {
+      for {
+        signature <- cryptoSnapshot
+          .sign(TestHash.digest("wrong signature"))
+          .valueOrFailShutdown("signing failed")
+
+        parsed = mkParsedRequest(
+          assignmentTree,
+          signatureO = Some(signature),
+        )
+        authenticationError <-
+          AuthenticationValidator.verifyViewSignature(parsed)
+      } yield {
+        parsed.requestId
+        authenticationError.value should matchPattern {
+          case AuthenticationError.InvalidSignature(requestId, ViewPosition(List()), _) =>
+        }
+      }
     }
   }
 
@@ -818,7 +875,7 @@ class AssignmentProcessingStepsTest
         uuid,
         Source(testedProtocolVersion),
         Target(testedProtocolVersion),
-        reassigningParticipants = ReassigningParticipants.empty,
+        reassigningParticipants = Set.empty,
       )
     )("Failed to create FullAssignmentTree")
   }

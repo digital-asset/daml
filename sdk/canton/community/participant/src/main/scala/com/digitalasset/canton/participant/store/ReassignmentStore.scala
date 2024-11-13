@@ -140,7 +140,7 @@ object ReassignmentStore {
       updates
         .collect {
           case (reassignmentAccepted: Update.ReassignmentAccepted, offset)
-              if reassignmentAccepted.reassignmentInfo.isObservingReassigningParticipant =>
+              if reassignmentAccepted.reassignmentInfo.isReassigningParticipant =>
             (reassignmentAccepted, offset)
         }
         .groupBy { case (event, _) => event.reassignmentInfo.targetDomain }

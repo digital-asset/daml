@@ -12,7 +12,15 @@ import com.digitalasset.canton.crypto.store.{
   CryptoPublicStore,
 }
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.health.{
+  CloseableHealthComponent,
+  CloseableHealthElement,
+  ComponentHealthState,
+  CompositeHealthElement,
+  HealthComponent,
+  HealthQuasiComponent,
+}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.serialization.DeserializationError
@@ -35,7 +43,9 @@ class Crypto(
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging
-    with FlagCloseable {
+    with CloseableHealthElement
+    with CompositeHealthElement[String, HealthQuasiComponent]
+    with HealthComponent {
 
   /** Helper method to generate a new signing key pair and store the public key in the public store as well. */
   def generateSigningKey(
@@ -64,6 +74,17 @@ class Crypto(
 
   override def onClosed(): Unit =
     Lifecycle.close(privateCrypto, cryptoPrivateStore, cryptoPublicStore)(logger)
+
+  override def name: String = "crypto"
+
+  setDependency("private-crypto", privateCrypto)
+
+  override protected def combineDependentStates: ComponentHealthState =
+    // Currently we only check the health of the private crypto API due to its implementation on an external KMS
+    privateCrypto.getState
+
+  override protected def initialHealthState: ComponentHealthState =
+    ComponentHealthState.NotInitializedState
 }
 
 trait CryptoPureApi
@@ -83,7 +104,11 @@ object CryptoPureApiError {
   }
 }
 
-trait CryptoPrivateApi extends EncryptionPrivateOps with SigningPrivateOps with AutoCloseable
+trait CryptoPrivateApi
+    extends EncryptionPrivateOps
+    with SigningPrivateOps
+    with CloseableHealthComponent
+
 trait CryptoPrivateStoreApi
     extends CryptoPrivateApi
     with EncryptionPrivateStoreOps

@@ -139,6 +139,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
         SdkTracerProvider.builder(),
         OnDemandMetricsReader.NoOpOnDemandMetricsReader$,
       ),
+      executionContext = parallelExecutionContext,
     )
 
   def arguments(config: TestNodeConfig) = factoryArguments(config)

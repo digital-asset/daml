@@ -28,6 +28,8 @@ trait AcsCommitmentStore extends AcsCommitmentLookup with PrunableByTime with Au
 
   override protected def kind: String = "acs commitments"
 
+  def acsCounterParticipantConfigStore: AcsCounterParticipantConfigStore
+
   /** Store a locally computed ACS commitment. To be called by the ACS commitment processor only.
     *
     * If the method is called twice with the same period and counter participant, then the supplied
@@ -154,12 +156,15 @@ trait AcsCommitmentLookup {
   ): Future[Option[CantonTimestampSecond]]
 
   /** The latest timestamp before or at the given timestamp for which no commitments are outstanding.
+    * A list of [[com.digitalasset.canton.pruning.ConfigForNoWaitCounterParticipants]] can be given for counter participants that should not be considered.
     * It is safe to prune the domain at the returned timestamp as long as it is not before the last timestamp needed
     * for crash recovery (see com.digitalasset.canton.participant.pruning.PruningProcessor.latestSafeToPruneTick)
     *
     * Returns None if no such tick is known.
     */
-  def noOutstandingCommitments(beforeOrAt: CantonTimestamp)(implicit
+  def noOutstandingCommitments(
+      beforeOrAt: CantonTimestamp
+  )(implicit
       traceContext: TraceContext
   ): Future[Option[CantonTimestamp]]
 

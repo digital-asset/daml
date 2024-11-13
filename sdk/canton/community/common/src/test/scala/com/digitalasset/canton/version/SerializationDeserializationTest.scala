@@ -8,6 +8,7 @@ import com.digitalasset.canton.data.*
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessage.computeRandomnessLength
+import com.digitalasset.canton.pruning.*
 import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.sequencing.channel.{
   ConnectToSequencerChannelRequest,
@@ -152,6 +153,7 @@ class SerializationDeserializationTest
           MaxRequestSizeToDeserialize.NoLimit,
         )
         testVersioned(SequencerConnections)
+        testVersioned(CounterParticipantIntervalsBehind)
         testProtocolVersioned(GetTrafficStateForMemberRequest, version)
         // This fails, which is expected, because PartySignatures serialization is only defined on PV.dev
         // We do this on purpose to make clear that this is a work in progress and should **NOT** be merged to 3.1
