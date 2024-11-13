@@ -396,9 +396,9 @@ stripPartySuffix :: T.Text -> T.Text
 stripPartySuffix = replace "'([a-zA-Z0-9]+)-[a-z0-9]{8}'" "'\\1'"
   where
     replace :: BS.ByteString -> BS.ByteString -> T.Text -> T.Text
-    replace pattern replacement input = case PCRE.substituteCompile' pattern (TE.encodeUtf8 input) replacement of
-      Right(result) -> TE.decodeUtf8 result
-      Left(err) -> error err
+    replace patt replacement input = case PCRE.substituteCompile' patt (TE.encodeUtf8 input) replacement of
+      Right result -> TE.decodeUtf8 result
+      Left err -> error $ "Failed to strip party suffix within " <> show input <> " because " <> err
 
 testSetup :: IO IdeState -> FilePath -> FilePath -> IO DamlOutput
 testSetup getService outdir path = do
@@ -436,8 +436,8 @@ damlFileTestTree version (IsScriptV2Opt isScriptV2Opt) getService outdir registe
               testPassed . buildLog <$> getDamlOutput
           , singleTest "Check diagnostics" $ TestCase \log -> do
               diags <- diagnostics <$> getDamlOutput
-              let diags_ = [ (x, y, d { _message = (stripPartySuffix (_message d)) }) | (x, y, d) <- diags ] 
-              resDiag <- checkDiagnostics log [fields | DiagnosticFields fields <- anns] diags_
+              let strippedDiags = [ (x, y, diag { _message = stripPartySuffix (_message diag) }) | (x, y, diag) <- diags ]
+              resDiag <- checkDiagnostics log [fields | DiagnosticFields fields <- anns] strippedDiags
               pure $ maybe (testPassed "") testFailed resDiag
           , testGroup "jq Queries"
               [ singleTest ("#" <> show @Integer ix) $ TestCase \log -> do

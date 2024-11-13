@@ -63,7 +63,7 @@ fileTest damlc damlFile = do
         goldenVsStringDiff ("File: " <> expectation) diff expectation $
           runDamlRename damlc damlFile
   where
-    diff ref new = [POSIX_DIFF, "-w", "--strip-trailing-cr", ref, new]
+    diff ref new = [POSIX_DIFF, "--strip-trailing-cr", ref, new]
 
 -- | Shells out to @damlc@ to obtain the parsed, desugared and renamed output
 --   for the given @damlFile@.
