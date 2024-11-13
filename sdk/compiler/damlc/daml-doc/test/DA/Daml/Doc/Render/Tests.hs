@@ -5,6 +5,7 @@
 module DA.Daml.Doc.Render.Tests(mkTestTree)
   where
 
+import           DA.Daml.Doc.Anchor
 import           DA.Daml.Doc.Types
 import           DA.Daml.Doc.Render
 
@@ -367,8 +368,8 @@ renderTest format externalAnchors (name, input) expected =
   testCase name $ do
   let
     renderer = case format of
-                 Rst -> renderPage renderRst externalAnchors . renderModule
-                 Markdown -> renderPage renderMd externalAnchors . renderModule
+                 Rst -> renderPage renderRst externalAnchors defaultAnchorGenerators . renderModule
+                 Markdown -> renderPage renderMd externalAnchors defaultAnchorGenerators . renderModule
                  Html -> error "HTML testing not supported (use Markdown)"
     output = T.strip $ renderer input
     expect = T.strip expected
@@ -423,8 +424,8 @@ renderFolderTest format externalAnchors (name, input) expected =
     (expectIndex, expectModules) = strip expected
 
     renderer = case format of
-      Rst -> renderFolder renderRst externalAnchors "html" . renderMap
-      Markdown -> renderFolder renderMd externalAnchors "html" . renderMap
+      Rst -> renderFolder renderRst externalAnchors defaultAnchorGenerators "html" . renderMap
+      Markdown -> renderFolder renderMd externalAnchors defaultAnchorGenerators "html" . renderMap
       Html -> error "HTML testing not supported (use Markdown)"
 
     renderMap mods = Map.fromList

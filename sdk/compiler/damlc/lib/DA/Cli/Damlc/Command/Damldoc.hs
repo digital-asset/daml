@@ -7,6 +7,7 @@ module DA.Cli.Damlc.Command.Damldoc(cmd, exec) where
 import Control.Monad (when)
 import DA.Cli.Options
 import DA.Daml.Compiler.Output
+import DA.Daml.Doc.Anchor
 import DA.Daml.Doc.Driver
 import DA.Daml.Doc.Extract
 import DA.Daml.Options.Types
@@ -224,6 +225,7 @@ documentation numProcessors = Damldoc
     optExtractOptions = ExtractOptions
         <$> optQualifyTypes
         <*> optSimplifyQualifiedTypes
+        <*> pure defaultAnchorGenerators
 
     optQualifyTypes :: Parser QualifyTypes
     optQualifyTypes = option readQualifyTypes $
@@ -325,7 +327,7 @@ exec Damldoc{..} = do
         , do_baseURL = cBaseURL
         , do_hooglePath = cHooglePath
         , do_anchorPath = cAnchorPath
-        , do_externalAnchorPath = cExternalAnchorPath
+        , do_externalAnchorBehaviour = ExternalAnchorMapPath cExternalAnchorPath
         , do_globalInternalExt = cGlobalInternalExt
         }
 

@@ -6,7 +6,6 @@ module DA.Daml.Doc.Extract.Util
     ) where
 
 import DA.Daml.Doc.Types
-import DA.Daml.Doc.Anchor
 import DA.Daml.Doc.Extract.Types
 
 import Control.Monad (guard)
@@ -115,8 +114,8 @@ tyConAnchor DocCtx{..} tycon = do
         name = Typename . packName $ ghcName
         mod = maybe dc_modname getModulename (nameModule_maybe ghcName)
         anchorFn
-            | isClassTyCon tycon = classAnchor
-            | otherwise = typeAnchor
+            | isClassTyCon tycon = ag_classAnchor (eo_anchorGenerators dc_extractOptions)
+            | otherwise = ag_typeAnchor (eo_anchorGenerators dc_extractOptions)
     Just (anchorFn mod name)
 
 -- | Create a (possibly external) reference from a TyCon.

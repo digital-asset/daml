@@ -11,6 +11,8 @@ import {
   LanguageClient,
   LanguageClientOptions,
   RequestType,
+  CancellationToken,
+  ProvideDefinitionSignature,
 } from "vscode-languageclient/node";
 import * as which from "which";
 import {
@@ -28,6 +30,7 @@ import {
 import * as semver from "semver";
 import * as util from "util";
 import * as child_process from "child_process";
+import { URLSearchParams } from "url";
 
 namespace DamlKeepAliveRequest {
   export let type = new RequestType<void, void, void>("daml/keepAlive");
@@ -80,12 +83,16 @@ export class DamlLanguageClient {
     identifier: string | undefined = undefined,
   ): Promise<DamlLanguageClient | null> {
     try {
+      const docWebviewScript = vscode.Uri.file(
+        path.join(_context.extensionPath, "src", "doc-webview.js"),
+      );
       const [languageClient, multiIdeSupport] =
         await DamlLanguageClient.createLanguageClient(
           rootPath,
           envVars,
           config,
           telemetryConsent,
+          docWebviewScript,
           identifier,
         );
       return new DamlLanguageClient(
@@ -299,11 +306,40 @@ export class DamlLanguageClient {
       }
     }
   }
+
+  private static panels: { [packageName: string]: vscode.WebviewPanel } = {};
+
+  private static getOrCreateDocWindow(
+    packageName: string,
+  ): vscode.WebviewPanel {
+    let panels = DamlLanguageClient.panels;
+    let panel = panels[packageName];
+    if (panel) {
+      panel.reveal();
+      return panel;
+    }
+    panel = vscode.window.createWebviewPanel(
+      `docs-${packageName}`,
+      `Generated documentation for ${packageName}`,
+      vscode.ViewColumn.One,
+      {
+        enableCommandUris: true,
+        enableScripts: true,
+      },
+    );
+    panel.onDidDispose(function () {
+      delete panels[packageName];
+    });
+    panels[packageName] = panel;
+    return panel;
+  }
+
   private static async createLanguageClient(
     rootPath: string,
     envVars: { [envVarName: string]: string },
     config: vscode.WorkspaceConfiguration,
     telemetryConsent: boolean | undefined,
+    docWebviewScript: vscode.Uri,
     identifier: string | undefined,
   ): Promise<[LanguageClient, boolean]> {
     // Options to control the language client
@@ -312,6 +348,48 @@ export class DamlLanguageClient {
       documentSelector: [
         { language: "daml", pattern: rootPath + "/**/*.daml" },
       ],
+      middleware: {
+        provideDefinition: async (
+          document: vscode.TextDocument,
+          position: vscode.Position,
+          token: CancellationToken,
+          next: ProvideDefinitionSignature,
+        ) => {
+          const result = await next(document, position, token);
+          if (!result) return;
+
+          let locations: Array<vscode.Location> | Array<vscode.LocationLink>;
+          if (result instanceof vscode.Location)
+            locations = new Array(result as vscode.Location);
+          else if (Array.isArray(result)) locations = result;
+          else throw "Provide definition result was wrongly typed";
+
+          if (locations.length == 0) return;
+
+          // Currently ghc-ide only ever gives 1 or 0 results, so we operate only on the first element
+          let location = locations[0];
+
+          // this should reuse existing page
+          if (
+            location instanceof vscode.Location &&
+            location.uri.scheme == "daml" &&
+            location.uri.path == "open-docs"
+          ) {
+            const params = new URLSearchParams(location.uri.query);
+            const path = params.get("path");
+            const unitId = params.get("unitid");
+            const anchor = params.get("anchor");
+            if (!path || !unitId) throw "Invalid open-docs data";
+            const content = fs.readFileSync(path).toString();
+            const panel = DamlLanguageClient.getOrCreateDocWindow(unitId);
+            const docWebviewScriptPath =
+              panel.webview.asWebviewUri(docWebviewScript);
+            panel.webview.html =
+              `<script src="${docWebviewScriptPath}"></script>\n` + content;
+            panel.webview.postMessage(anchor);
+          } else return locations;
+        },
+      },
     };
 
     const command = DamlLanguageClient.findDamlCommand();

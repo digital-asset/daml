@@ -31,4 +31,5 @@ data RenderOptions = RenderOptions
     , ro_anchorPath :: Maybe FilePath -- ^ path to output anchor table
     , ro_externalAnchors :: AnchorMap -- ^ external input anchor table
     , ro_globalInternalExt :: String -- ^ File extension for internal links
+    , ro_anchorGenerators :: AnchorGenerators -- ^ control how anchor strings are generated, useful for multi-ide
     }
