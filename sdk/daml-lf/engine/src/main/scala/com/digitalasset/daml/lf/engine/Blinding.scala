@@ -86,7 +86,7 @@ object Blinding {
       disclosure: Relation[NodeId, Party],
       contractVisibility: Relation[ContractId, Party],
       contractPackages: Map[ContractId, Ref.PackageId],
-  ): Map[Party, RequiredPackages] = {
+  ): Map[Party, PackagesTopology] = {
     disclosedPartyPackages(tx, disclosure) ++
       contractPartyPackages(contractPackages, contractVisibility)
   }.groupMapReduce(_._1)(_._2)(_ |+| _)
@@ -95,25 +95,25 @@ object Blinding {
   private def contractPartyPackages(
       contractPackages: Map[ContractId, Ref.PackageId],
       contractVisibility: Relation[ContractId, Party],
-  ): View[(Party, RequiredPackages)] =
+  ): View[(Party, PackagesTopology)] =
     for {
       (contractId, packageId) <- contractPackages.view
       party <- contractVisibility.getOrElse(contractId, Set.empty)
-    } yield party -> RequiredPackages(readOnly = Set(packageId), execute = Set.empty)
+    } yield party -> PackagesTopology(known = Set(packageId), vetted = Set.empty)
 
   // These are the package needed for reinterpretation
   private[engine] def disclosedPartyPackages(
       tx: VersionedTransaction,
       disclosure: Relation[NodeId, Party],
-  ): View[(Party, RequiredPackages)] =
+  ): View[(Party, PackagesTopology)] =
     disclosure.view.flatMap { case (nodeId, parties) =>
       def readOnly(tyCon: Ref.TypeConName) =
         parties.view.map(
-          _ -> RequiredPackages(readOnly = Set(tyCon.packageId), execute = Set.empty)
+          _ -> PackagesTopology(known = Set(tyCon.packageId), vetted = Set.empty)
         )
       def execute(tyCon: Ref.TypeConName) =
         parties.view.map(
-          _ -> RequiredPackages(readOnly = Set.empty, execute = Set(tyCon.packageId))
+          _ -> PackagesTopology(known = Set.empty, vetted = Set(tyCon.packageId))
         )
 
       tx.nodes(nodeId) match {
@@ -139,33 +139,33 @@ object Blinding {
   def partyPackages(
       tx: VersionedTransaction,
       contractPackages: Map[ContractId, Ref.PackageId] = Map.empty,
-  ): Map[Party, RequiredPackages] = {
+  ): Map[Party, PackagesTopology] = {
     val (BlindingInfo(disclosure, _), contractVisibility) =
       BlindingTransaction.calculateBlindingInfoWithContactVisibility(tx)
     partyPackages(tx, disclosure, contractVisibility, contractPackages)
   }
 }
 
-case class RequiredPackages(readOnly: Set[PackageId], execute: Set[PackageId]){
-  def flattened: Set[PackageRequirement] = readOnly.map(ReadOnlyPackageRequirement) ++ execute.map(ExecutablePackageRequirement)
+case class PackagesTopology(known: Set[PackageId], vetted: Set[PackageId]) {
+  lazy val isEmpty: Boolean = known.isEmpty && vetted.isEmpty
 }
 
-sealed trait PackageRequirement extends Product with Serializable{
-  def pkgId: PackageId
-}
-final case class ExecutablePackageRequirement(pkgId: PackageId) extends PackageRequirement
-final case class ReadOnlyPackageRequirement(pkgId: PackageId) extends PackageRequirement
+object PackagesTopology {
 
-object RequiredPackages {
+  val empty: PackagesTopology = PackagesTopology(Set.empty, Set.empty)
 
-  val empty: RequiredPackages = RequiredPackages(Set.empty, Set.empty)
-
-  implicit val packagesUsedSemigroup: Semigroup[RequiredPackages] = Semigroup.instance { (x, y) =>
-    val execute = x.execute ++ y.execute
-    val readOnly = (x.readOnly ++ y.readOnly) -- execute
-    RequiredPackages(
-      readOnly = readOnly,
-      execute = execute,
+  implicit val packagesUsedSemigroup: Semigroup[PackagesTopology] = Semigroup.instance { (x, y) =>
+    val vetted = x.vetted ++ y.vetted
+    val known = (x.known ++ y.known) -- vetted
+    PackagesTopology(
+      known = known,
+      vetted = vetted,
     )
   }
+
+  def known(singleton: PackageId): PackagesTopology =
+    PackagesTopology(known = Set(singleton), vetted = Set.empty)
+
+  def vetted(singleton: PackageId): PackagesTopology =
+    PackagesTopology(known = Set.empty, vetted = Set(singleton))
 }
