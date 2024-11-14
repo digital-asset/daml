@@ -2517,14 +2517,19 @@ private[lf] object SBuiltin {
         }
       case None =>
         machine.lookupGlobalContract(coid)(coinst =>
-          importValue(machine, coinst.template, coinst.arg) { templateArg =>
-            getContractInfo(
-              machine,
-              coid,
-              coinst.template,
-              templateArg,
-              allowCatchingContractInfoErrors = false,
-            )(importContract)
+          machine.ensurePackageIsLoaded(
+            coinst.template.packageId,
+            language.Reference.Template(coinst.template),
+          ) { () =>
+            importValue(machine, coinst.template, coinst.arg) { templateArg =>
+              getContractInfo(
+                machine,
+                coid,
+                coinst.template,
+                templateArg,
+                allowCatchingContractInfoErrors = false,
+              )(importContract)
+            }
           }
         )
     }
