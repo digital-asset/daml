@@ -107,18 +107,16 @@ object Blinding {
       disclosure: Relation[NodeId, Party],
   ): View[(Party, PackageRequirements)] =
     disclosure.view.flatMap { case (nodeId, parties) =>
-      def readOnly(tyCon: Ref.TypeConName) =
-        parties.view.map(_ -> PackageRequirements.knownOnly(tyCon.packageId))
-      def execute(tyCon: Ref.TypeConName) =
+      def vetted(tyCon: Ref.TypeConName) =
         parties.view.map(_ -> PackageRequirements.vetted(tyCon.packageId))
 
       tx.nodes(nodeId) match {
         case fetch: Node.Fetch =>
-          readOnly(fetch.templateId) ++ fetch.interfaceId.toList.view.flatMap(readOnly)
+          vetted(fetch.templateId) ++ fetch.interfaceId.toList.view.flatMap(vetted)
         case action: Node.LeafOnlyAction =>
-          readOnly(action.templateId)
+          vetted(action.templateId)
         case exe: Node.Exercise =>
-          execute(exe.templateId) ++ exe.interfaceId.toList.view.flatMap(execute)
+          vetted(exe.templateId) ++ exe.interfaceId.toList.view.flatMap(vetted)
         case _: Node.Rollback =>
           Iterable.empty
       }
