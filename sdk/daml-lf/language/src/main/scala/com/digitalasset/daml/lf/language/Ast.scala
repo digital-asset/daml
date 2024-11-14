@@ -1245,21 +1245,17 @@ object Ast {
         pkgId
       ) && !isUtilityPackage)
     def isInvalidDamlPrimOrStdlib(pkgId: Ref.PackageId) =
-      if (metadata.name == "daml-prim") {
-        if (!LanguageVersion.supportsPackageUpgrades(languageVersion)) {
-          false
-        } else {
-          !isUtilityPackage && !UtilityDamlPackages.checkDamlPrim(pkgId)
-        }
-      } else if (metadata.name == "daml-stdlib") {
-        if (!LanguageVersion.supportsPackageUpgrades(languageVersion)) {
-          false
-        } else {
-          !isUtilityPackage && !UtilityDamlPackages.checkDamlStdlib(pkgId)
-        }
-      } else {
+      if (!LanguageVersion.supportsPackageUpgrades(languageVersion)) {
         false
-      }
+      } else
+        metadata.name match {
+          case "daml-prim" =>
+            !isUtilityPackage && !UtilityDamlPackages.checkDamlPrim(pkgId)
+          case "daml-stdlib" =>
+            !isUtilityPackage && !UtilityDamlPackages.checkDamlStdlib(pkgId)
+          case _ =>
+            false
+        }
     // package Name if the package support upgrade
     // TODO: https://github.com/digital-asset/daml/issues/17965
     //  drop that in daml-3
