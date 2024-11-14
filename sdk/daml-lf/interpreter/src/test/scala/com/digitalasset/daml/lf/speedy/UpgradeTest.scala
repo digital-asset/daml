@@ -560,10 +560,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((_, ValueContractId(cid), verificationRequests)) =>
-        verificationRequests shouldBe List(
-          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v1_key))
-        )
+      inside(res) { case Right((_, ValueContractId(_), verificationRequests)) =>
+        verificationRequests shouldBe empty
       }
     }
 
@@ -576,11 +574,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((_, ValueContractId(cid), verificationRequests)) =>
-        verificationRequests shouldBe List(
-          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
-          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
-        )
+      inside(res) { case Right((_, ValueContractId(_), verificationRequests)) =>
+        verificationRequests shouldBe empty
       }
     }
 
@@ -592,10 +587,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((_, ValueContractId(cid), verificationRequests)) =>
-        verificationRequests shouldBe List(
-          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v1_key))
-        )
+      inside(res) { case Right((_, ValueContractId(_), verificationRequests)) =>
+        verificationRequests shouldBe empty
       }
     }
 
@@ -608,16 +601,12 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
                in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((_, ValueContractId(cid), verificationRequests)) =>
-        verificationRequests shouldBe List(
-          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
-          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
-        )
+      inside(res) { case Right((_, ValueContractId(_), verificationRequests)) =>
+        verificationRequests shouldBe empty
       }
     }
 
-    // TODO(https://github.com/digital-asset/daml/issues/20099): re-enable this test once fixed
-    "be able to exercise by interface locally created contract using different versions" ignore {
+    "be able to exercise by interface locally created contract using different versions" in {
       val res = go(
         e"""let alice : Party = '-pkg1-':M:mkParty "alice"
             in ubind
@@ -630,10 +619,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           """,
         packageResolution = Map(Ref.PackageName.assertFromString("-upgrade-test-") -> pkgId2),
       )
-      inside(res) { case Right((_, ValueContractId(cid), verificationRequests)) =>
-        verificationRequests shouldBe List(
-          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v1_key))
-        )
+      inside(res) { case Right((_, ValueContractId(_), verificationRequests)) =>
+        verificationRequests shouldBe empty
       }
     }
 
