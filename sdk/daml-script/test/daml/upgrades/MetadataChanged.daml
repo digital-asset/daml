@@ -229,7 +229,7 @@ contents: |
         controller [p1, p2]
         do
           cid <- create (V1.ChangedSignatories p1 p2)
-          exercise @I (coerceContractId cid) DynamicCall
+          exercise @I (toInterfaceContractId cid) DynamicCall
           pure ()
 
       nonconsuming choice ExerciseByKeySignatoriesChanged : ()
@@ -261,7 +261,7 @@ contents: |
         controller [p1, p2]
         do
           cid <- create (V1.ChangedObservers p1 p2)
-          exercise @I (coerceContractId cid) DynamicCall
+          exercise @I (toInterfaceContractId cid) DynamicCall
           pure ()
 
       nonconsuming choice ExerciseByKeyObserversChanged : ()
@@ -293,7 +293,7 @@ contents: |
         controller [p1, p2]
         do
           cid <- create (V1.ChangedKey p1 p2)
-          exercise @I (coerceContractId cid) DynamicCall
+          exercise @I (toInterfaceContractId cid) DynamicCall
           pure ()
 
       nonconsuming choice ExerciseByKeyKeyChanged : ()
@@ -325,7 +325,7 @@ contents: |
         controller [p1, p2]
         do
           cid <- create (V1.ChangedMaintainer p1 p2)
-          exercise @I (coerceContractId cid) DynamicCall
+          exercise @I (toInterfaceContractId cid) DynamicCall
           pure ()
 
       nonconsuming choice ExerciseByKeyMaintainerChanged : ()
@@ -379,7 +379,7 @@ exerciseByInterfaceSignatoriesChangedGlobal = test $ do
   b <- allocateParty "bob"
   cid <- a `submit` createExactCmd (V1.ChangedSignatories a b)
   expectMetadataChangedError =<<
-    trySubmitMulti [a,b] [] (exerciseExactCmd @I (coerceContractId cid) DynamicCall)
+    trySubmitMulti [a,b] [] (exerciseExactCmd @I (toInterfaceContractId cid) DynamicCall)
 
 exerciseByKeySignatoriesChangedGlobal : Test
 exerciseByKeySignatoriesChangedGlobal = test $ do
@@ -429,7 +429,7 @@ exerciseByInterfaceObserversChangedGlobal = test $ do
   b <- allocateParty "bob"
   cid <- a `submit` createExactCmd (V1.ChangedObservers a b)
   expectMetadataChangedError =<<
-    trySubmitMulti [a,b] [] (exerciseExactCmd @I (coerceContractId cid) DynamicCall)
+    trySubmitMulti [a,b] [] (exerciseExactCmd @I (toInterfaceContractId cid) DynamicCall)
 
 exerciseByKeyObserversChangedGlobal : Test
 exerciseByKeyObserversChangedGlobal = test $ do
@@ -479,7 +479,7 @@ exerciseByInterfaceKeyChangedGlobal = test $ do
   b <- allocateParty "bob"
   cid <- a `submit` createExactCmd (V1.ChangedKey a b)
   expectMetadataChangedError =<<
-    trySubmitMulti [a,b] [] (exerciseExactCmd @I (coerceContractId cid) DynamicCall)
+    trySubmitMulti [a,b] [] (exerciseExactCmd @I (toInterfaceContractId cid) DynamicCall)
 
 exerciseByKeyKeyChangedGlobal : Test
 exerciseByKeyKeyChangedGlobal = test $ do
@@ -529,7 +529,7 @@ exerciseByInterfaceMaintainerChangedGlobal = test $ do
   b <- allocateParty "bob"
   cid <- a `submit` createExactCmd (V1.ChangedMaintainer a b)
   expectMetadataChangedError =<<
-    trySubmitMulti [a,b] [] (exerciseExactCmd @I (coerceContractId cid) DynamicCall)
+    trySubmitMulti [a,b] [] (exerciseExactCmd @I (toInterfaceContractId cid) DynamicCall)
 
 exerciseByKeyMaintainerChangedGlobal : Test
 exerciseByKeyMaintainerChangedGlobal = test $ do
