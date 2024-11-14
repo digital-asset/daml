@@ -2394,22 +2394,17 @@ private[lf] object SBuiltin {
   )(
       k: () => Control[Question.Update]
   ): Control[Question.Update] = {
-    def check[T](recomputed: T, original: T, desc: String): Option[String] =
-      Option.when(recomputed != original)(s"$desc mismatch: $original vs $recomputed")
+
+    def check[T](getter: ContractInfo => T, desc: String): Option[String] =
+      Option.when(getter(recomputed) != getter(original))(
+        s"$desc mismatch: $original vs $recomputed"
+      )
 
     List(
-      check(recomputed.signatories, original.signatories, "signatories"),
-      check(recomputed.observers, original.observers, "observers"),
-      check(
-        recomputed.keyOpt.map(_.maintainers),
-        original.keyOpt.map(_.maintainers),
-        "key maintainers",
-      ),
-      check(
-        recomputed.keyOpt.map(_.globalKey.key),
-        original.keyOpt.map(_.globalKey.key),
-        "key value",
-      ),
+      check(_.signatories, "signatories"),
+      check(_.observers, "observers"),
+      check(_.keyOpt.map(_.maintainers), "key maintainers"),
+      check(_.keyOpt.map(_.globalKey.key), "key value"),
     ).flatten match {
       case Nil => k()
       case errors =>
