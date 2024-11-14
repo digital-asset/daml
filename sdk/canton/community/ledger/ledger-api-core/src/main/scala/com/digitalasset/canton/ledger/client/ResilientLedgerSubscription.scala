@@ -186,6 +186,8 @@ object ResilientLedgerSubscription {
         Some(value.offset)
       case Update.OffsetCheckpoint(value) =>
         Some(value.offset)
+      case Update.TopologyTransaction(value) =>
+        Some(value.offset)
       case Update.Empty => None
     }
 

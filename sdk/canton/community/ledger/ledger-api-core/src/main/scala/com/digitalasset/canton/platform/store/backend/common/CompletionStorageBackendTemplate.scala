@@ -8,7 +8,7 @@ import anorm.{Row, RowParser, SimpleSql, ~}
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.platform.v1.index.StatusDetails
 import com.digitalasset.canton.SequencerCounter
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.indexer.parallel.{PostPublishData, PublishSource}
 import com.digitalasset.canton.platform.store.CompletionFromTransaction
@@ -37,8 +37,8 @@ class CompletionStorageBackendTemplate(
     with NamedLogging {
 
   override def commandCompletions(
-      startExclusive: Offset,
-      endInclusive: Offset,
+      startInclusive: AbsoluteOffset,
+      endInclusive: AbsoluteOffset,
       applicationId: ApplicationId,
       parties: Set[Party],
       limit: Int,
@@ -72,9 +72,9 @@ class CompletionStorageBackendTemplate(
         FROM
           lapi_command_completions
         WHERE
-          ${QueryStrategy.offsetIsBetween(
+          ${QueryStrategy.offsetIsBetweenInclusive(
           nonNullableColumn = "completion_offset",
-          startExclusive = startExclusive,
+          startInclusive = startInclusive,
           endInclusive = endInclusive,
         )} AND
           application_id = $applicationId

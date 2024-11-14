@@ -214,7 +214,6 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
         logFuture(AllocatePartyLog) {
           client.partyManagementClient.allocateParty(
             hint = identifierHint,
-            deprecatedDisplayName = None,
             token = bearer(jwt),
           )
         }

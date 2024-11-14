@@ -370,6 +370,8 @@ final class ApiUpdateService(
         entityLoggable(r.commandId, r.updateId, r.workflowId, r.offset)
       case GetUpdatesResponse.Update.OffsetCheckpoint(c) =>
         LoggingEntries(logging.offset(c.offset))
+      case GetUpdatesResponse.Update.TopologyTransaction(tt) =>
+        LoggingEntries(logging.offset(tt.offset))
       case GetUpdatesResponse.Update.Empty =>
         LoggingEntries()
     }
@@ -382,6 +384,8 @@ final class ApiUpdateService(
         entityLoggable(r.commandId, r.updateId, r.workflowId, r.offset)
       case GetUpdateTreesResponse.Update.OffsetCheckpoint(c) =>
         LoggingEntries(logging.offset(c.offset))
+      case GetUpdateTreesResponse.Update.TopologyTransaction(tt) =>
+        LoggingEntries(logging.offset(tt.offset))
       case GetUpdateTreesResponse.Update.Empty =>
         LoggingEntries()
     }

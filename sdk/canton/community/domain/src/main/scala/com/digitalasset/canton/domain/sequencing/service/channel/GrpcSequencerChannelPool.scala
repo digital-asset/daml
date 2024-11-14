@@ -110,13 +110,18 @@ private[channel] final class GrpcSequencerChannelPool(
                           newChannel.onClosed(() => removeChannel(metadata.channelId))
                           Right((newChannel, newChannel.firstMemberHandler))
                         case Some(existingChannel) =>
-                          logger.debug(
-                            s"Attaching to existing channel in response to connect request by second member ${metadata.initiatingMember}"
-                          )
-                          // If channel already exists, we expect the opposite member positions to reflect that
-                          // channel.firstMemberToConnect has already connected and channel.secondMemberToConnect
-                          // is now connecting and that each request to the channel expects the other member.
                           for {
+                            _ <- Either.cond(
+                              !existingChannel.isFullyConnected,
+                              (),
+                              s"Sequencer channel ${metadata.channelId} already exists: $metadata",
+                            )
+                            _ = logger.debug(
+                              s"Attaching to existing channel in response to connect request by second member ${metadata.initiatingMember}"
+                            )
+                            // If channel already exists, we expect the opposite member positions to reflect that
+                            // channel.firstMemberToConnect has already connected and channel.secondMemberToConnect
+                            // is now connecting and that each request to the channel expects the other member.
                             _ <- Either.cond(
                               existingChannel.secondMember == metadata.initiatingMember,
                               (),

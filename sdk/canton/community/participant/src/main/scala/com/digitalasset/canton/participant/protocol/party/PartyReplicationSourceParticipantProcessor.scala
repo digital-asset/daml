@@ -11,7 +11,7 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.protocol.party.PartyReplicationSourceMessage.ContractWithReassignmentCounter
+import com.digitalasset.canton.participant.admin.data.ActiveContract
 import com.digitalasset.canton.participant.store.AcsInspection
 import com.digitalasset.canton.sequencing.client.channel.SequencerChannelProtocolProcessor
 import com.digitalasset.canton.topology.{DomainId, PartyId}
@@ -117,16 +117,18 @@ class PartyReplicationSourceParticipantProcessor private (
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Seq[
-    (NonEmpty[Seq[ContractWithReassignmentCounter]], Int)
+    (NonEmpty[Seq[ActiveContract]], NonNegativeInt)
   ]] = {
-    val contracts = List.newBuilder[ContractWithReassignmentCounter]
+    val contracts = List.newBuilder[ActiveContract]
     performUnlessClosingEitherUSF(
       s"Read ACS from ${newChunkToConsumerFrom.unwrap} to $newChunkToConsumeTo"
     )(
       acsInspection
         .forEachVisibleActiveContract(domainId, Set(partyId.toLf), Some(activeAt)) {
           case (contract, reassignmentCounter) =>
-            contracts += ContractWithReassignmentCounter(contract, reassignmentCounter)
+            contracts += ActiveContract.create(domainId, contract, reassignmentCounter)(
+              protocolVersion
+            )
             Right(())
         }(traceContext, executionContext)
         .bimap(
@@ -138,13 +140,14 @@ class PartyReplicationSourceParticipantProcessor private (
               .toSeq
               .map(NonEmpty.from(_).getOrElse(throw new IllegalStateException("Grouping failed")))
               .zipWithIndex
-              .slice(newChunkToConsumerFrom.unwrap, newChunkToConsumeTo.unwrap + 1),
+              .slice(newChunkToConsumerFrom.unwrap, newChunkToConsumeTo.unwrap + 1)
+              .map { case (chunk, index) => (chunk, NonNegativeInt.tryCreate(index)) },
         )
     )
   }
 
   private def sendContracts(
-      indexedContractChunks: Seq[(NonEmpty[Seq[ContractWithReassignmentCounter]], Int)]
+      indexedContractChunks: Seq[(NonEmpty[Seq[ActiveContract]], NonNegativeInt)]
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
@@ -154,7 +157,7 @@ class PartyReplicationSourceParticipantProcessor private (
     MonadUtil.sequentialTraverse_(indexedContractChunks) { case (chunkContracts, index) =>
       val acsChunk = PartyReplicationSourceMessage(
         PartyReplicationSourceMessage.AcsChunk(
-          NonNegativeInt.tryCreate(index),
+          index,
           chunkContracts,
         )
       )(

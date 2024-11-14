@@ -26,6 +26,7 @@ import com.daml.ledger.api.v2.state_service.{
   GetActiveContractsResponse,
   GetConnectedDomainsResponse,
 }
+import com.daml.ledger.api.v2.topology_transaction.TopologyTransaction as TopoplogyTransactionProto
 import com.daml.ledger.api.v2.transaction.{
   Transaction as TransactionV2,
   TransactionTree as TransactionTreeProto,
@@ -39,6 +40,7 @@ import com.daml.ledger.javaapi.data.{
   GetUpdateTreesResponse,
   GetUpdatesResponse,
   Reassignment,
+  TopologyTransaction,
   Transaction,
   TransactionFilter,
   TransactionTree,
@@ -364,6 +366,8 @@ trait BaseLedgerApiAdministration extends NoTracing {
                   transactionTree.rootEventIds.size.toLong -> transactionTree.serializedSize
                 case reassignmentWrapper: ReassignmentWrapper =>
                   1L -> reassignmentWrapper.reassignment.serializedSize
+                case TopologyTransactionWrapper(topologyTransaction) =>
+                  topologyTransaction.events.size.toLong -> topologyTransaction.serializedSize
               }
               consoleMetrics.metric.mark(s)
               consoleMetrics.nodeCount.update(s)
@@ -2203,6 +2207,12 @@ trait BaseLedgerApiAdministration extends NoTracing {
                   .pipe(ReassignmentProto.toJavaProto)
                   .pipe(Reassignment.fromProto)
                   .pipe(new GetUpdateTreesResponse(_))
+
+              case tt: TopologyTransactionWrapper =>
+                tt.topologyTransaction
+                  .pipe(TopoplogyTransactionProto.toJavaProto)
+                  .pipe(TopologyTransaction.fromProto)
+                  .pipe(new GetUpdateTreesResponse(_))
             }
         )
 
@@ -2251,6 +2261,12 @@ trait BaseLedgerApiAdministration extends NoTracing {
                   .pipe(ReassignmentProto.toJavaProto)
                   .pipe(Reassignment.fromProto)
                   .pipe(new GetUpdatesResponse(_))
+
+              case tt: TopologyTransactionWrapper =>
+                tt.topologyTransaction
+                  .pipe(TopoplogyTransactionProto.toJavaProto)
+                  .pipe(TopologyTransaction.fromProto)
+                  .pipe(new GetUpdatesResponse(_))
             }
         )
 
@@ -2298,6 +2314,12 @@ trait BaseLedgerApiAdministration extends NoTracing {
                 reassignment.reassignment
                   .pipe(ReassignmentProto.toJavaProto)
                   .pipe(Reassignment.fromProto)
+                  .pipe(new GetUpdatesResponse(_))
+
+              case tt: TopologyTransactionWrapper =>
+                tt.topologyTransaction
+                  .pipe(TopoplogyTransactionProto.toJavaProto)
+                  .pipe(TopologyTransaction.fromProto)
                   .pipe(new GetUpdatesResponse(_))
             }
         )
@@ -2428,6 +2450,8 @@ trait BaseLedgerApiAdministration extends NoTracing {
               case reassignmentW: ReassignmentWrapper =>
                 reassignmentW.reassignment.updateId == updateId
               case TransactionWrapper(transaction) => transaction.updateId == updateId
+              case tt: TopologyTransactionWrapper =>
+                tt.topologyTransaction.updateId == updateId
             },
             timeout = timeout,
           )

@@ -1,4 +1,4 @@
-sdk-version: 3.3.0-snapshot.20241111.13420.0.v06161db3
+sdk-version: 3.3.0-snapshot.20241112.13422.0.vf18106b1
 name: upgrade-tests
 source: .
 version: 2.0.0

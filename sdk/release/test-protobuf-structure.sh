@@ -37,6 +37,7 @@ com/daml/daml_lf_2_1/daml_lf.proto
 com/daml/daml_lf_2_1/daml_lf2.proto
 com/daml/ledger/api/v2/trace_context.proto
 com/daml/ledger/api/v2/testing/time_service.proto
+com/daml/ledger/api/v2/topology_transaction.proto
 com/daml/ledger/api/v2/command_completion_service.proto
 com/daml/ledger/api/v2/command_submission_service.proto
 com/daml/ledger/api/v2/command_service.proto

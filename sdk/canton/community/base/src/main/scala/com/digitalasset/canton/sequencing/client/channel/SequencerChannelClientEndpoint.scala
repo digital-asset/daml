@@ -83,6 +83,15 @@ private[channel] final class SequencerChannelClientEndpoint(
         observer.onNext(value)
 
       override def onError(t: Throwable): Unit = {
+        // In bidirectional GRPC streaming, a client request observer onError call results in a response observer onError
+        // call. (Details: The io.grpc.internal.ClientCallImpl.ClientStreamListenerImpl.closedInternal call made
+        // via the observer.onError call below remembers in an asynchronously executed Runnable the fact that
+        // the "call" has ended with an error along with the throwable "cause". When the Runnable indirectly
+        // invokes io.grpc.stub.ClientCalls.StreamObserverToCallListenerAdapter.onClose, a non-OK status results
+        // in the response observer.onError call.)
+        // Set the `cancelledByClient` flag to prevent a flake (#22364) in which the response observer CANCEL error
+        // is interpreted as a server crash in case the GRPC client call reacts before the `complete` call below executes.
+        cancelledByClient.set(true)
         observer.onError(t)
         // TODO(#22135): Report as error instead of completion once EndpointCloseReason exists.
         complete(SubscriptionCloseReason.Closed)

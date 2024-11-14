@@ -7,6 +7,8 @@ import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRespons
 import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.participant.state.DomainIndex
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel.*
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.{
   ParticipantMetering,
@@ -20,6 +22,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   Entry,
   RawActiveContract,
   RawAssignEvent,
+  RawParticipantAuthorization,
   RawUnassignEvent,
 }
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
@@ -209,8 +212,8 @@ trait PartyStorageBackend {
 
 trait CompletionStorageBackend {
   def commandCompletions(
-      startExclusive: Offset,
-      endInclusive: Offset,
+      startInclusive: AbsoluteOffset,
+      endInclusive: AbsoluteOffset,
       applicationId: ApplicationId,
       parties: Set[Party],
       limit: Int,
@@ -362,6 +365,17 @@ trait EventStorageBackend {
   def archivals(fromExclusive: Option[Offset], toInclusive: Offset)(
       connection: Connection
   ): Set[ContractId]
+
+  def fetchTopologyPartyEventIds(
+      party: Option[Party],
+      startExclusive: Long,
+      endInclusive: Long,
+      limit: Int,
+  )(connection: Connection): Vector[Long]
+
+  def topologyPartyEventBatch(
+      eventSequentialIds: Iterable[Long]
+  )(connection: Connection): Vector[RawParticipantAuthorization]
 }
 
 object EventStorageBackend {
@@ -467,6 +481,24 @@ object EventStorageBackend {
       recordTime: Timestamp,
       publicationTime: Timestamp,
   )
+
+  final case class RawParticipantAuthorization(
+      offset: Offset,
+      updateId: String,
+      partyId: String,
+      participantId: String,
+      participant_permission: AuthorizationLevel,
+      recordTime: Timestamp,
+      domainId: String,
+      traceContext: Option[Array[Byte]],
+  )
+
+  def intToAuthorizationLevel(n: Int): AuthorizationLevel = n match {
+    case 0 => Revoked
+    case 1 => Submission
+    case 2 => Confirmation
+    case 3 => Observation
+  }
 }
 
 trait DataSourceStorageBackend {

@@ -5,7 +5,7 @@ syntax = "proto3";
 
 package com.digitalasset.canton.participant.admin.party.v30;
 
-import "com/digitalasset/canton/protocol/v30/common_stable.proto";
+import "com/digitalasset/canton/admin/participant/v30/active_contract.proto";
 import "scalapb/scalapb.proto";
 
 message PartyReplicationInstruction {
@@ -29,12 +29,7 @@ message PartyReplicationSourceMessage {
     // The portion of the ACS in the chunk expressed as nonempty list
     // TODO(#18525): Use a Ledger API representation instead.
     // Required
-    message ContractWithReassignmentCounter {
-      option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
-      com.digitalasset.canton.protocol.v30.SerializableContract contract = 1;
-      int64 reassignment_counter = 2;
-    }
-    repeated ContractWithReassignmentCounter contracts = 2;
+    repeated com.digitalasset.canton.admin.participant.v30.ActiveContract contracts = 2;
   }
 
   message SourceParticipantIsReady {

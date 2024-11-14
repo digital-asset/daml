@@ -4,6 +4,13 @@
 package com.digitalasset.canton.platform.store.dao.events
 
 import com.daml.ledger.api.v2.event.Event
+import com.daml.ledger.api.v2.state_service.ParticipantPermission.*
+import com.daml.ledger.api.v2.topology_transaction.{
+  ParticipantAuthorizationChanged,
+  ParticipantAuthorizationRevoked,
+  TopologyEvent,
+  TopologyTransaction,
+}
 import com.daml.ledger.api.v2.trace_context.TraceContext as DamlTraceContext
 import com.daml.ledger.api.v2.transaction.{
   Transaction as ApiTransaction,
@@ -16,10 +23,15 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdateTreesResponse,
   GetUpdatesResponse,
 }
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel.*
 import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.platform.store.ScalaPbStreamingOptimizations.*
-import com.digitalasset.canton.platform.store.backend.EventStorageBackend.Entry
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
+  Entry,
+  RawParticipantAuthorization,
+}
 import com.digitalasset.canton.platform.store.utils.EventOps.TreeEventOps
 
 object EventsTable {
@@ -66,6 +78,49 @@ object EventsTable {
         tx.offset -> GetUpdatesResponse(GetUpdatesResponse.Update.Transaction(tx))
           .withPrecomputedSerializedSize()
       )
+
+    def toTopologyTransaction(
+        events: Vector[RawParticipantAuthorization]
+    ): Option[(Offset, TopologyTransaction)] =
+      events.headOption.map { first =>
+        first.offset ->
+          TopologyTransaction(
+            updateId = first.updateId,
+            events = events
+              .map(event =>
+                event.participant_permission match {
+                  case Submission => (event, true, PARTICIPANT_PERMISSION_SUBMISSION)
+                  case Confirmation => (event, true, PARTICIPANT_PERMISSION_CONFIRMATION)
+                  case Observation => (event, true, PARTICIPANT_PERMISSION_OBSERVATION)
+                  case Revoked => (event, false, PARTICIPANT_PERMISSION_UNSPECIFIED)
+                }
+              )
+              .map {
+                case (event, true, level) =>
+                  TopologyEvent(
+                    TopologyEvent.Event.ParticipantAuthorizationChanged(
+                      ParticipantAuthorizationChanged(
+                        partyId = event.partyId,
+                        participantId = event.participantId,
+                        particiantPermission = level,
+                      )
+                    )
+                  )
+                case (event, false, _) =>
+                  TopologyEvent(
+                    TopologyEvent.Event.ParticipantAuthorizationRevoked(
+                      ParticipantAuthorizationRevoked(
+                        partyId = event.partyId,
+                        participantId = event.participantId,
+                      )
+                    )
+                  )
+              },
+            offset = first.offset.toLong,
+            traceContext = first.traceContext.map(DamlTraceContext.parseFrom),
+            recordTime = Some(TimestampConversion.fromLf(first.recordTime)),
+          )
+      }
 
     def toGetFlatTransactionResponse(
         events: Seq[Entry[Event]]

@@ -12,7 +12,7 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdateTreesResponse,
   GetUpdatesResponse,
 }
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.{AbsoluteOffset, Offset}
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
 import com.digitalasset.canton.ledger.participant.state
@@ -67,13 +67,13 @@ private[platform] trait LedgerDaoTransactionsReader {
 
 private[platform] trait LedgerDaoCommandCompletionsReader {
   def getCommandCompletions(
-      startExclusive: Offset,
-      endInclusive: Offset,
+      startInclusive: AbsoluteOffset,
+      endInclusive: AbsoluteOffset,
       applicationId: ApplicationId,
       parties: Set[Party],
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(Offset, CompletionStreamResponse), NotUsed]
+  ): Source[(AbsoluteOffset, CompletionStreamResponse), NotUsed]
 }
 
 private[platform] trait LedgerDaoEventsReader {

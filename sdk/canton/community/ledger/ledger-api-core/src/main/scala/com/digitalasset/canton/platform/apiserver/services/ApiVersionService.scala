@@ -78,6 +78,8 @@ private[apiserver] final class ApiVersionService(
           interactiveSubmissionService = Some(
             ExperimentalInteractiveSubmissionService(ledgerFeatures.interactiveSubmissionService)
           ),
+          partyTopologyEvents =
+            Some(ExperimentalPartyTopologyEvents(ledgerFeatures.partyTopologyEvents)),
         )
       ),
       offsetCheckpoint = Some(ledgerFeatures.offsetCheckpointFeature),

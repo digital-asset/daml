@@ -82,7 +82,7 @@ abstract class ConsumesCancellableGrpcStreamObserver[
     override def run(): Unit = currentAwaitOnNext.get.trySuccess(AbortedDueToShutdown).discard
   })(TraceContext.empty)
 
-  private val cancelledByClient = new AtomicBoolean(false)
+  protected val cancelledByClient = new AtomicBoolean(false)
 
   private def cancel(): Unit =
     if (!cancelledByClient.getAndSet(true)) context.close()

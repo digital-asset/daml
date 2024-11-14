@@ -215,7 +215,7 @@ object SyncDomainEphemeralStateFactory {
             if (ts == CantonTimestamp.MinValue) ts else ts.immediatePredecessor
           }
       }
-      // TODO(i18695): Note for unifying crashRecoveryPruningBoundInclusive and startingPoints: This minimum building is not needed anymore, as the request timestamp is also smaller than the sequencer timestamp.
+      // TODO(i21246): Note for unifying crashRecoveryPruningBoundInclusive and startingPoints: This minimum building is not needed anymore, as the request timestamp is also smaller than the sequencer timestamp.
       preheadSequencerCounterTs = domainIndex.sequencerIndex
         .fold(CantonTimestamp.MinValue)(_.timestamp.immediatePredecessor)
     } yield requestReplayTs.min(preheadSequencerCounterTs)

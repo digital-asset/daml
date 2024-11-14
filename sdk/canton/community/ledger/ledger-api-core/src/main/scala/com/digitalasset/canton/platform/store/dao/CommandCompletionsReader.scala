@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.backend.CompletionStorageBackend
@@ -30,30 +30,30 @@ private[dao] final class CommandCompletionsReader(
   private val paginatingAsyncStream = new PaginatingAsyncStream(loggerFactory)
 
   @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
-  private def offsetFor(response: CompletionStreamResponse): Offset =
+  private def offsetFor(response: CompletionStreamResponse): AbsoluteOffset =
     // It would be nice to obtain the offset such that it's obvious that it always exists (rather then relaying on calling .get)
-    Offset.fromLong(response.completionResponse.completion.get.offset)
+    AbsoluteOffset.tryFromLong(response.completionResponse.completion.get.offset)
 
   override def getCommandCompletions(
-      startExclusive: Offset,
-      endInclusive: Offset,
+      startInclusive: AbsoluteOffset,
+      endInclusive: AbsoluteOffset,
       applicationId: ApplicationId,
       parties: Set[Party],
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(Offset, CompletionStreamResponse), NotUsed] = {
+  ): Source[(AbsoluteOffset, CompletionStreamResponse), NotUsed] = {
     val pruneSafeQuery =
-      (range: QueryRange[Offset]) => { implicit connection: Connection =>
+      (range: QueryRange[AbsoluteOffset]) => { implicit connection: Connection =>
         queryValidRange.withRangeNotPruned[Vector[CompletionStreamResponse]](
-          minOffsetExclusive = startExclusive,
+          minOffsetInclusive = startInclusive,
           maxOffsetInclusive = endInclusive,
-          errorPruning = (prunedOffset: Offset) =>
-            s"Command completions request from ${startExclusive.toLong} to ${endInclusive.toLong} overlaps with pruned offset ${prunedOffset.toLong}",
-          errorLedgerEnd = (ledgerEndOffset: Offset) =>
-            s"Command completions request from ${startExclusive.toLong} to ${endInclusive.toLong} is beyond ledger end offset ${ledgerEndOffset.toLong}",
+          errorPruning = (prunedOffset: AbsoluteOffset) =>
+            s"Command completions request from ${startInclusive.unwrap} to ${endInclusive.unwrap} overlaps with pruned offset ${prunedOffset.unwrap}",
+          errorLedgerEnd = (ledgerEndOffset: AbsoluteOffset) =>
+            s"Command completions request from ${startInclusive.unwrap} to ${endInclusive.unwrap} is beyond ledger end offset ${ledgerEndOffset.unwrap}",
         ) {
           storageBackend.commandCompletions(
-            startExclusive = range.startExclusive,
+            startInclusive = range.startInclusive,
             endInclusive = range.endInclusive,
             applicationId = applicationId,
             parties = parties,
@@ -62,18 +62,18 @@ private[dao] final class CommandCompletionsReader(
         }
       }
 
-    val initialRange = new QueryRange[Offset](
-      startExclusive = startExclusive,
+    val initialRange = new QueryRange[AbsoluteOffset](
+      startInclusive = startInclusive,
       endInclusive = endInclusive,
     )
     val source: Source[CompletionStreamResponse, NotUsed] = paginatingAsyncStream
-      .streamFromSeekPagination[QueryRange[Offset], CompletionStreamResponse](
+      .streamFromSeekPagination[QueryRange[AbsoluteOffset], CompletionStreamResponse](
         startFromOffset = initialRange,
         getOffset = (previousCompletion: CompletionStreamResponse) => {
           val lastOffset = offsetFor(previousCompletion)
-          initialRange.copy(startExclusive = lastOffset)
+          initialRange.copy(startInclusive = lastOffset.increment)
         },
-      ) { (subRange: QueryRange[Offset]) =>
+      ) { (subRange: QueryRange[AbsoluteOffset]) =>
         dispatcher.executeSql(metrics.index.db.getCompletions)(pruneSafeQuery(subRange))
       }
     source.map(response => offsetFor(response) -> response)

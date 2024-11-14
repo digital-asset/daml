@@ -25,7 +25,6 @@ import com.digitalasset.canton.admin.participant.v30.PackageServiceGrpc.PackageS
 import com.digitalasset.canton.admin.participant.v30.ParticipantRepairServiceGrpc.ParticipantRepairServiceStub
 import com.digitalasset.canton.admin.participant.v30.ParticipantStatusServiceGrpc.ParticipantStatusServiceStub
 import com.digitalasset.canton.admin.participant.v30.PartyManagementServiceGrpc.PartyManagementServiceStub
-import com.digitalasset.canton.admin.participant.v30.PartyNameManagementServiceGrpc.PartyNameManagementServiceStub
 import com.digitalasset.canton.admin.participant.v30.PingServiceGrpc.PingServiceStub
 import com.digitalasset.canton.admin.participant.v30.PruningServiceGrpc.PruningServiceStub
 import com.digitalasset.canton.admin.participant.v30.ResourceManagementServiceGrpc.ResourceManagementServiceStub
@@ -382,36 +381,6 @@ object ParticipantAdminCommands {
       ): Either[String, Unit] =
         Either.unit
     }
-  }
-
-  object PartyNameManagement {
-
-    final case class SetPartyDisplayName(partyId: PartyId)
-        extends GrpcAdminCommand[SetPartyDisplayNameRequest, SetPartyDisplayNameResponse, Unit] {
-      override type Svc = PartyNameManagementServiceStub
-
-      override def createService(channel: ManagedChannel): PartyNameManagementServiceStub =
-        PartyNameManagementServiceGrpc.stub(channel)
-
-      override protected def createRequest(): Either[String, SetPartyDisplayNameRequest] =
-        Right(
-          SetPartyDisplayNameRequest(
-            partyId = partyId.uid.toProtoPrimitive
-          )
-        )
-
-      override protected def submitRequest(
-          service: PartyNameManagementServiceStub,
-          request: SetPartyDisplayNameRequest,
-      ): Future[SetPartyDisplayNameResponse] =
-        service.setPartyDisplayName(request)
-
-      override protected def handleResponse(
-          response: SetPartyDisplayNameResponse
-      ): Either[String, Unit] = Either.unit
-
-    }
-
   }
 
   object ParticipantRepairManagement {

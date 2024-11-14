@@ -136,6 +136,14 @@ trait TransactionStreamsDbMetrics {
       openTelemetryMetricsFactory.timer(inventory.reassignmentStreamTranslationTimer.info)
 
   }
+
+  object topologyTransactionsStream {
+    val fetchTopologyPartyEventIds: DatabaseMetrics =
+      createDbMetrics("fetch_topology_party_event_ids")
+
+    val fetchTopologyPartyEventPayloads: DatabaseMetrics =
+      createDbMetrics("fetch_topology_party_event_payloads")
+  }
 }
 
 class MainIndexDBHistograms(val prefix: MetricName)(implicit

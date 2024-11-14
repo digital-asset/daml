@@ -117,6 +117,7 @@ import com.daml.ledger.api.v2.testing.time_service.{
   SetTimeRequest,
   TimeServiceGrpc,
 }
+import com.daml.ledger.api.v2.topology_transaction.TopologyTransaction
 import com.daml.ledger.api.v2.transaction.{Transaction, TransactionTree}
 import com.daml.ledger.api.v2.transaction_filter.CumulativeFilter.IdentifierFilter
 import com.daml.ledger.api.v2.transaction_filter.{
@@ -1013,6 +1014,7 @@ object LedgerApiCommands {
           case UpdateService.TransactionWrapper(t) => t.events.headOption.map(_.getCreated)
           case u: UpdateService.AssignedWrapper => u.assignedEvent.createdEvent
           case _: UpdateService.UnassignedWrapper => None
+          case _: UpdateService.TopologyTransactionWrapper => None
         }
 
       def domainId: String
@@ -1032,6 +1034,14 @@ object LedgerApiCommands {
       override def isUnassignment: Boolean = false
 
       override def domainId: String = transaction.domainId
+    }
+    final case class TopologyTransactionWrapper(topologyTransaction: TopologyTransaction)
+        extends UpdateTreeWrapper
+        with UpdateWrapper {
+      override def updateId: String = topologyTransaction.updateId
+      override def isUnassignment: Boolean = false
+
+      override def domainId: String = topologyTransaction.domainId
     }
     sealed trait ReassignmentWrapper extends UpdateTreeWrapper with UpdateWrapper {
       def reassignment: Reassignment
@@ -1119,6 +1129,7 @@ object LedgerApiCommands {
         response.update.transactionTree
           .map[UpdateTreeWrapper](TransactionTreeWrapper.apply)
           .orElse(response.update.reassignment.map(ReassignmentWrapper(_)))
+          .orElse(response.update.topologyTransaction.map(TopologyTransactionWrapper(_)))
     }
 
     final case class SubscribeFlat(
@@ -1140,6 +1151,7 @@ object LedgerApiCommands {
         response.update.transaction
           .map[UpdateWrapper](TransactionWrapper.apply)
           .orElse(response.update.reassignment.map(ReassignmentWrapper(_)))
+          .orElse(response.update.topologyTransaction.map(TopologyTransactionWrapper(_)))
     }
 
     final case class GetTransactionById(parties: Set[LfPartyId], id: String)(implicit

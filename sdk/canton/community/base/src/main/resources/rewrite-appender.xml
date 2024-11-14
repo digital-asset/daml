@@ -459,6 +459,18 @@
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>
         </rewrite>
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.protocol.ParticipantTopologyTerminateProcessing:LedgerApiTopologyTransactionsTestDefault</logger>
+            <contains>Topology events are enabled. This is an experimental feature, unsafe for production use.</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.protocol.ParticipantTopologyTerminateProcessing:LedgerApiTopologyEventsConformanceTestPostgres</logger>
+            <contains>Topology events are enabled. This is an experimental feature, unsafe for production use.</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
         <!-- At shutdown of the HikariPool warnings are going to be logged when ThreadPoolExecutor#awaitTermination
          time out or get interrupted.
 

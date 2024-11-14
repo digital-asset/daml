@@ -1670,6 +1670,7 @@ filegroup(
             "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/trace_context.proto",
             "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/transaction.proto",
             "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/update_service.proto",
+            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/topology_transaction.proto",
         ],
     ),
     visibility = ["//visibility:private"],
