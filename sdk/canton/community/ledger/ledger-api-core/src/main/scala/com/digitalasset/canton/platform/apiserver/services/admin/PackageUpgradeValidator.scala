@@ -88,7 +88,7 @@ class PackageUpgradeValidator(
     logger.info(
       s"Uploading DAR file for $uploadedPackageIdWithMeta in submission ID ${loggingContext.serializeFiltered("submissionId")}."
     )
-    if (uploadedPackageAst.isInvalidDamlPrim(uploadedPackageId)) {
+    if (uploadedPackageAst.isInvalidDamlPrimOrStdlib(uploadedPackageId)) {
       EitherT.leftT[Future, Unit](
         Validation.UpgradeDamlPrimIsNotAUtilityPackage
           .Error(
