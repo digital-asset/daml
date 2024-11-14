@@ -1238,15 +1238,24 @@ object Ast {
       private val isUtilityPackage: Boolean,
   ) {
     def supportsUpgrades(pkgId: Ref.PackageId) =
-      LanguageVersion.supportsPackageUpgrades(languageVersion) && (!UtilityDamlPrimPackages.check(
+      LanguageVersion
+        .supportsPackageUpgrades(languageVersion) && (!UtilityDamlPackages.checkDamlPrim(
+        pkgId
+      ) && !UtilityDamlPackages.checkDamlStdlib(
         pkgId
       ) && !isUtilityPackage)
-    def isInvalidDamlPrim(pkgId: Ref.PackageId) =
+    def isInvalidDamlPrimOrStdlib(pkgId: Ref.PackageId) =
       if (metadata.name == "daml-prim") {
         if (!LanguageVersion.supportsPackageUpgrades(languageVersion)) {
           false
         } else {
-          !isUtilityPackage && !UtilityDamlPrimPackages.check(pkgId)
+          !isUtilityPackage && !UtilityDamlPackages.checkDamlPrim(pkgId)
+        }
+      } else if (metadata.name == "daml-stdlib") {
+        if (!LanguageVersion.supportsPackageUpgrades(languageVersion)) {
+          false
+        } else {
+          !isUtilityPackage && !UtilityDamlPackages.checkDamlStdlib(pkgId)
         }
       } else {
         false
