@@ -406,6 +406,9 @@ CREATE INDEX lapi_events_party_to_participant_event_offset_idx ON lapi_events_pa
 -- sequential_id index for paging
 CREATE INDEX lapi_events_party_to_participant_event_sequential_id_idx ON lapi_events_party_to_participant (event_sequential_id);
 
+-- party_id with event_sequential_id for id queries
+CREATE INDEX lapi_events_party_to_participant_event_party_sequential_id_idx ON lapi_events_party_to_participant (party_id, event_sequential_id);
+
 -----------------------------
 -- Filter tables for events
 -----------------------------

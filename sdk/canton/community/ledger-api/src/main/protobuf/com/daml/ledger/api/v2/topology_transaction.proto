@@ -1,0 +1,77 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v2;
+
+import "com/daml/ledger/api/v2/state_service.proto";
+import "com/daml/ledger/api/v2/trace_context.proto";
+import "google/protobuf/timestamp.proto";
+
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
+option java_outer_classname = "TopologyTransactionOuterClass";
+option java_package = "com.daml.ledger.api.v2";
+
+message TopologyTransaction {
+  // Assigned by the server. Useful for correlating logs.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string update_id = 1;
+
+  // The absolute offset. The details of this field are described in ``community/ledger-api/README.md``.
+  // Required, it is a valid absolute offset (positive integer).
+  int64 offset = 2;
+
+  // A valid domain ID.
+  // Identifies the domain that synchronized the topology transaction.
+  // Required
+  string domain_id = 3;
+
+  // The time at which the changes in the topology transaction become effective. There is a small delay between a
+  // topology transaction being sequenced and the changes it contains becoming effective. Topology transactions appear
+  // in order relative to a domain based on their effective time rather than their sequencing time.
+  // Required
+  google.protobuf.Timestamp record_time = 4;
+
+  // A non-empty list of topology events.
+  // Required
+  repeated TopologyEvent events = 5;
+
+  // Optional; ledger api trace context
+  //
+  // The trace context transported in this message corresponds to the trace context supplied
+  // by the client application in a HTTP2 header of the original command submission.
+  // We typically use a header to transfer this type of information. Here we use message
+  // body, because it is used in gRPC streams which do not support per message headers.
+  // This field will be populated with the trace context contained in the original submission.
+  // If that was not provided, a unique ledger-api-server generated trace context will be used
+  // instead.
+  com.daml.ledger.api.v2.TraceContext trace_context = 6;
+}
+
+message TopologyEvent {
+  oneof event {
+    ParticipantAuthorizationChanged participant_authorization_changed = 1;
+    ParticipantAuthorizationRevoked participant_authorization_revoked = 2;
+  }
+}
+
+message ParticipantAuthorizationChanged {
+  // Required
+  string party_id = 1;
+
+  // Required
+  string participant_id = 2;
+
+  // Required
+  ParticipantPermission particiant_permission = 3;
+}
+
+message ParticipantAuthorizationRevoked {
+  // Required
+  string party_id = 1;
+
+  // Required
+  string participant_id = 2;
+}

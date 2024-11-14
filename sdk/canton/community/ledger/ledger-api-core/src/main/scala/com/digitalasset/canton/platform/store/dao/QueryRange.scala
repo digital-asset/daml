@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-final case class QueryRange[A](startExclusive: A, endInclusive: A) {
+final case class QueryRange[A](startInclusive: A, endInclusive: A) {
   def map[B](f: A => B): QueryRange[B] =
-    copy(startExclusive = f(startExclusive), endInclusive = f(endInclusive))
+    copy(startInclusive = f(startInclusive), endInclusive = f(endInclusive))
 }

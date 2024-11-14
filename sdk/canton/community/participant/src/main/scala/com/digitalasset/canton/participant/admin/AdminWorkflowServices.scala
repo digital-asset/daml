@@ -277,6 +277,8 @@ class AdminWorkflowServices(
                   case GetUpdatesResponse.Update.Reassignment(reassignment) =>
                     service.processReassignment(reassignment)
                   case GetUpdatesResponse.Update.OffsetCheckpoint(_) => ()
+                  case GetUpdatesResponse.Update.TopologyTransaction(_) =>
+                    ()
                   case GetUpdatesResponse.Update.Empty => ()
                 },
               subscriptionName = service.getClass.getSimpleName,

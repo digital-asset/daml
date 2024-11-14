@@ -286,12 +286,11 @@ private[index] class IndexServiceImpl(
             subSource = RangeSource((startInclusive, endInclusive) =>
               commandCompletionsReader
                 .getCommandCompletions(
-                  Offset.fromAbsoluteOffsetO(startInclusive.decrement),
-                  Offset.fromAbsoluteOffset(endInclusive),
+                  startInclusive,
+                  endInclusive,
                   applicationId,
                   parties,
                 )
-                .map { case (offset, response) => (offset.toAbsoluteOffset, response) }
                 .via(
                   rangeDecorator(
                     startInclusive,

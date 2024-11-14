@@ -24,6 +24,7 @@ import com.digitalasset.canton.platform.store.backend.common.{
 import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.IdPaginationState
 import com.digitalasset.canton.platform.store.dao.events.EventsTable.TransactionConversions
 import com.digitalasset.canton.platform.store.dao.events.ReassignmentStreamReader.ReassignmentStreamQueryParams
+import com.digitalasset.canton.platform.store.dao.events.TopologyTransactionsStreamReader.TopologyTransactionsStreamQueryParams
 import com.digitalasset.canton.platform.store.dao.{
   DbDispatcher,
   EventProjectionProperties,
@@ -56,6 +57,7 @@ class TransactionsTreeStreamReader(
     metrics: LedgerApiServerMetrics,
     tracer: Tracer,
     reassignmentStreamReader: ReassignmentStreamReader,
+    topologyTransactionsStreamReader: TopologyTransactionsStreamReader,
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
@@ -303,36 +305,62 @@ class TransactionsTreeStreamReader(
         responses.map { case (offset, response) => Offset.fromLong(offset) -> response }
       }
 
-    reassignmentStreamReader
-      .streamReassignments(
-        ReassignmentStreamQueryParams(
-          queryRange = queryRange,
-          filteringConstraints = TemplatePartiesFilter(
-            relation = Map.empty,
-            templateWildcardParties = requestingParties,
-          ),
-          eventProjectionProperties = eventProjectionProperties,
-          payloadQueriesLimiter = payloadQueriesLimiter,
-          deserializationQueriesLimiter = deserializationQueriesLimiter,
-          idPageSizing = idPageSizing,
-          decomposedFilters = filterParties.map(DecomposedFilter(_, None)),
-          maxParallelIdAssignQueries = maxParallelIdAssignQueries,
-          maxParallelIdUnassignQueries = maxParallelIdUnassignQueries,
-          maxPagesPerIdPagesBuffer = maxPagesPerIdPagesBuffer,
-          maxPayloadsPerPayloadsPage = maxPayloadsPerPayloadsPage,
-          maxParallelPayloadAssignQueries = maxParallelPayloadAssignQueries,
-          maxParallelPayloadUnassignQueries = maxParallelPayloadUnassignQueries,
-          deserializationProcessingParallelism = transactionsProcessingParallelism,
+    val topologyTransactions =
+      topologyTransactionsStreamReader
+        .streamTopologyTransactions(
+          TopologyTransactionsStreamQueryParams(
+            queryRange = queryRange,
+            filteringConstraints = TemplatePartiesFilter(
+              relation = Map.empty,
+              templateWildcardParties = requestingParties,
+            ),
+            payloadQueriesLimiter = payloadQueriesLimiter,
+            idPageSizing = idPageSizing,
+            decomposedFilters = filterParties.map(DecomposedFilter(_, None)),
+            maxParallelIdQueries = maxParallelIdTopologyEventsQueries,
+            maxPagesPerIdPagesBuffer = maxPayloadsPerPayloadsPage,
+            maxPayloadsPerPayloadsPage = maxParallelPayloadTopologyEventsQueries,
+            maxParallelPayloadQueries = transactionsProcessingParallelism,
+          )
         )
-      )
-      .map { case (offset, reassignment) =>
-        offset -> GetUpdateTreesResponse(
-          GetUpdateTreesResponse.Update.Reassignment(reassignment)
+        .map { case (offset, topologyTransaction) =>
+          offset -> GetUpdateTreesResponse(
+            GetUpdateTreesResponse.Update.TopologyTransaction(topologyTransaction)
+          )
+        }
+
+    val reassignments =
+      reassignmentStreamReader
+        .streamReassignments(
+          ReassignmentStreamQueryParams(
+            queryRange = queryRange,
+            filteringConstraints = TemplatePartiesFilter(
+              relation = Map.empty,
+              templateWildcardParties = requestingParties,
+            ),
+            eventProjectionProperties = eventProjectionProperties,
+            payloadQueriesLimiter = payloadQueriesLimiter,
+            deserializationQueriesLimiter = deserializationQueriesLimiter,
+            idPageSizing = idPageSizing,
+            decomposedFilters = filterParties.map(DecomposedFilter(_, None)),
+            maxParallelIdAssignQueries = maxParallelIdAssignQueries,
+            maxParallelIdUnassignQueries = maxParallelIdUnassignQueries,
+            maxPagesPerIdPagesBuffer = maxPagesPerIdPagesBuffer,
+            maxPayloadsPerPayloadsPage = maxPayloadsPerPayloadsPage,
+            maxParallelPayloadAssignQueries = maxParallelPayloadAssignQueries,
+            maxParallelPayloadUnassignQueries = maxParallelPayloadUnassignQueries,
+            deserializationProcessingParallelism = transactionsProcessingParallelism,
+          )
         )
-      }
-      .mergeSorted(sourceOfTreeTransactions)(
-        Ordering.by(_._1)
-      )
+        .map { case (offset, reassignment) =>
+          offset -> GetUpdateTreesResponse(
+            GetUpdateTreesResponse.Update.Reassignment(reassignment)
+          )
+        }
+
+    sourceOfTreeTransactions
+      .mergeSorted(topologyTransactions)(Ordering.by(_._1))
+      .mergeSorted(reassignments)(Ordering.by(_._1))
   }
 
   private def mergeSortAndBatch(

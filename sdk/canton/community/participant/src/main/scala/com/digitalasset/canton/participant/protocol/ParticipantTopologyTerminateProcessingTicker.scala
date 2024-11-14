@@ -11,7 +11,7 @@ import com.digitalasset.canton.{SequencerCounter, topology}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-// TODO(i18695): Clean up this and the trait as polymorphism is not needed here anymore
+// TODO(i21243): Clean up this and the trait as polymorphism is not needed here anymore
 class ParticipantTopologyTerminateProcessingTicker(
     recordOrderPublisher: RecordOrderPublisher,
     override protected val loggerFactory: NamedLoggerFactory,

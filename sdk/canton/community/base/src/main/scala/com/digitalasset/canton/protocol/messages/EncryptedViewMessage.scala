@@ -151,35 +151,29 @@ object EncryptedView {
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, DecryptionError, Unit] =
     for {
-      encryptionKey <- EitherT.right(
-        cryptoPublicStore
-          .findEncryptionKeyIdByFingerprint(keyId)
-          .value
-      )
-      _ <- encryptionKey match {
-        case Some(encPubKey) =>
-          (if (!allowedEncryptionSpecs.keys.contains(encPubKey.keySpec))
-             Left(
-               DecryptionError.UnsupportedKeySpec(
-                 encPubKey.keySpec,
-                 allowedEncryptionSpecs.keys,
-               )
-             )
-           else if (
-             !encryptionAlgorithmSpec.supportedEncryptionKeySpecs.contains(encPubKey.keySpec)
-           )
-             Left(
-               DecryptionError.UnsupportedKeySpec(
-                 encPubKey.keySpec,
-                 encryptionAlgorithmSpec.supportedEncryptionKeySpecs,
-               )
-             )
-           else Either.unit).toEitherT[FutureUnlessShutdown]
-        case None =>
-          EitherT.leftT[FutureUnlessShutdown, Unit](
-            DecryptionError.InvalidEncryptionKey(s"Encryption key $keyId not found")
-          )
-      }
+      encryptionKey <- cryptoPublicStore
+        .encryptionKey(keyId)
+        .toRight(
+          DecryptionError.InvalidEncryptionKey(s"Encryption key $keyId not found")
+        )
+      _ <- (if (!allowedEncryptionSpecs.keys.contains(encryptionKey.keySpec))
+              Left(
+                DecryptionError.UnsupportedKeySpec(
+                  encryptionKey.keySpec,
+                  allowedEncryptionSpecs.keys,
+                )
+              )
+            else if (
+              !encryptionAlgorithmSpec.supportedEncryptionKeySpecs.contains(encryptionKey.keySpec)
+            )
+              Left(
+                DecryptionError.UnsupportedKeySpec(
+                  encryptionKey.keySpec,
+                  encryptionAlgorithmSpec.supportedEncryptionKeySpecs,
+                )
+              )
+            else Either.unit).toEitherT[FutureUnlessShutdown]
+
       _ <- EitherT
         .cond[FutureUnlessShutdown](
           allowedEncryptionSpecs.algorithms.contains(encryptionAlgorithmSpec),

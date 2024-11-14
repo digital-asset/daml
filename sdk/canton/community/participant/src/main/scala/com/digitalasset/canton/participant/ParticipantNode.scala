@@ -748,13 +748,6 @@ class ParticipantNodeBootstrap(
           )
         adminServerRegistry
           .addServiceU(
-            PartyNameManagementServiceGrpc.bindService(
-              new GrpcPartyNameManagementService(partyNotifier),
-              executionContext,
-            )
-          )
-        adminServerRegistry
-          .addServiceU(
             DomainConnectivityServiceGrpc
               .bindService(
                 new GrpcDomainConnectivityService(

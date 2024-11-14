@@ -101,6 +101,10 @@ private[channel] final class GrpcSequencerChannel(
     } yield secondHandler
   }
 
+  /** Exposes whether all members have already connected to the channel.
+    */
+  def isFullyConnected: Boolean = secondMemberHandler.get.isDefined
+
   private def onHandlerClosed(handler: GrpcSequencerChannelMemberMessageHandler): Unit = {
     val closedHandlers = closedMemberHandlers.updateAndGet(_ + handler)
     // If the second member has not connected yet, only wait for the first member handler to close.

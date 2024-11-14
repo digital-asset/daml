@@ -51,6 +51,7 @@ import io.grpc.ServerServiceDefinition
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.*
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
+import org.slf4j.event.Level
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -443,7 +444,8 @@ class BlockSequencer(
 
     val (isNewRequest, pruningF) = waitForPruningToComplete(requestedTimestamp)
     val supervisedPruningF = futureSupervisor.supervised(
-      s"Waiting for local pruning operation at $requestedTimestamp to complete"
+      description = s"Waiting for local pruning operation at $requestedTimestamp to complete",
+      logLevel = Level.INFO,
     )(pruningF)
 
     if (isNewRequest)

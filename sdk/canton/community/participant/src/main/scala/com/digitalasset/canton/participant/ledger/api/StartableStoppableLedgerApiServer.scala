@@ -444,6 +444,7 @@ class StartableStoppableLedgerApiServer(
       )
     ),
     interactiveSubmissionService = config.serverConfig.interactiveSubmissionService.enabled,
+    partyTopologyEvents = config.cantonParameterConfig.experimentalEnableTopologyEvents,
   )
 
   private def startHttpApiIfEnabled(packageSyncService: PackageSyncService): ResourceOwner[Unit] =

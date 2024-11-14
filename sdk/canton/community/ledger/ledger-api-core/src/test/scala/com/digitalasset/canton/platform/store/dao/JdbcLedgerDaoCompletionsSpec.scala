@@ -4,6 +4,7 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
+import com.digitalasset.canton.data.AbsoluteOffset.firstOffset
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDaoCompletionsSpec.*
@@ -31,8 +32,8 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       to <- ledgerDao.lookupLedgerEnd()
       (_, response) <- ledgerDao.completions
         .getCommandCompletions(
-          Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
-          Offset.fromAbsoluteOffset(to.value.lastOffset),
+          from.fold(firstOffset)(_.lastOffset.increment),
+          to.value.lastOffset,
           tx.applicationId.value,
           tx.actAs.toSet,
         )
@@ -56,8 +57,8 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       // Response 1: querying as all submitters
       (_, response1) <- ledgerDao.completions
         .getCommandCompletions(
-          Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
-          Offset.fromAbsoluteOffset(to.value.lastOffset),
+          from.fold(firstOffset)(_.lastOffset.increment),
+          to.value.lastOffset,
           tx.applicationId.value,
           tx.actAs.toSet,
         )
@@ -65,8 +66,8 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       // Response 2: querying as a proper subset of all submitters
       (_, response2) <- ledgerDao.completions
         .getCommandCompletions(
-          Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
-          Offset.fromAbsoluteOffset(to.value.lastOffset),
+          from.fold(firstOffset)(_.lastOffset.increment),
+          to.value.lastOffset,
           tx.applicationId.value,
           Set(tx.actAs.head),
         )
@@ -74,8 +75,8 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       // Response 3: querying as a proper superset of all submitters
       (_, response3) <- ledgerDao.completions
         .getCommandCompletions(
-          Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
-          Offset.fromAbsoluteOffset(to.value.lastOffset),
+          from.fold(firstOffset)(_.lastOffset.increment),
+          to.value.lastOffset,
           tx.applicationId.value,
           tx.actAs.toSet + "UNRELATED",
         )
@@ -98,8 +99,8 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       to <- ledgerDao.lookupLedgerEnd()
       (_, response) <- ledgerDao.completions
         .getCommandCompletions(
-          Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
-          Offset.fromAbsoluteOffset(to.value.lastOffset),
+          from.fold(firstOffset)(_.lastOffset.increment),
+          to.value.lastOffset,
           applicationId,
           parties,
         )
@@ -127,8 +128,8 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       // Response 1: querying as all submitters
       (_, response1) <- ledgerDao.completions
         .getCommandCompletions(
-          Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
-          Offset.fromAbsoluteOffset(to.value.lastOffset),
+          from.fold(firstOffset)(_.lastOffset.increment),
+          to.value.lastOffset,
           applicationId,
           parties,
         )
@@ -136,8 +137,8 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       // Response 2: querying as a proper subset of all submitters
       (_, response2) <- ledgerDao.completions
         .getCommandCompletions(
-          Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
-          Offset.fromAbsoluteOffset(to.value.lastOffset),
+          from.fold(firstOffset)(_.lastOffset.increment),
+          to.value.lastOffset,
           applicationId,
           Set(parties.head),
         )
@@ -145,8 +146,8 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       // Response 3: querying as a proper superset of all submitters
       (_, response3) <- ledgerDao.completions
         .getCommandCompletions(
-          Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
-          Offset.fromAbsoluteOffset(to.value.lastOffset),
+          from.fold(firstOffset)(_.lastOffset.increment),
+          to.value.lastOffset,
           applicationId,
           parties + "UNRELATED",
         )
@@ -168,8 +169,8 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       to <- ledgerDao.lookupLedgerEnd()
       response <- ledgerDao.completions
         .getCommandCompletions(
-          Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
-          Offset.fromAbsoluteOffset(to.value.lastOffset),
+          from.fold(firstOffset)(_.lastOffset.increment),
+          to.value.lastOffset,
           applicationId = Ref.ApplicationId.assertFromString("WRONG"),
           parties,
         )
@@ -189,16 +190,16 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       to <- ledgerDao.lookupLedgerEnd()
       response1 <- ledgerDao.completions
         .getCommandCompletions(
-          Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
-          Offset.fromAbsoluteOffset(to.value.lastOffset),
+          from.fold(firstOffset)(_.lastOffset.increment),
+          to.value.lastOffset,
           applicationId,
           Set("WRONG"),
         )
         .runWith(Sink.seq)
       response2 <- ledgerDao.completions
         .getCommandCompletions(
-          Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
-          Offset.fromAbsoluteOffset(to.value.lastOffset),
+          from.fold(firstOffset)(_.lastOffset.increment),
+          to.value.lastOffset,
           applicationId,
           Set("WRONG1", "WRONG2", "WRONG3"),
         )
@@ -219,16 +220,16 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       to <- ledgerDao.lookupLedgerEnd()
       response1 <- ledgerDao.completions
         .getCommandCompletions(
-          Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
-          Offset.fromAbsoluteOffset(to.value.lastOffset),
+          from.fold(firstOffset)(_.lastOffset.increment),
+          to.value.lastOffset,
           applicationId,
           Set("WRONG"),
         )
         .runWith(Sink.seq)
       response2 <- ledgerDao.completions
         .getCommandCompletions(
-          Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
-          Offset.fromAbsoluteOffset(to.value.lastOffset),
+          from.fold(firstOffset)(_.lastOffset.increment),
+          to.value.lastOffset,
           applicationId,
           Set("WRONG1", "WRONG2", "WRONG3"),
         )
@@ -249,8 +250,8 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       to <- ledgerDao.lookupLedgerEnd()
       response1 <- ledgerDao.completions
         .getCommandCompletions(
-          Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
-          Offset.fromAbsoluteOffset(to.value.lastOffset),
+          from.fold(firstOffset)(_.lastOffset.increment),
+          to.value.lastOffset,
           applicationId,
           Set("WRONG"),
         )

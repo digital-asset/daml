@@ -26,7 +26,7 @@ final case class ActiveContract(
     extends HasProtocolVersionedWrapper[ActiveContract]
     with HasDomainId
     with HasSerializableContract {
-  private def toProtoV30: v30.ActiveContract =
+  def toProtoV30: v30.ActiveContract =
     v30.ActiveContract(
       domainId.toProtoPrimitive,
       Some(contract.toAdminProtoV30),
@@ -53,7 +53,7 @@ private[canton] object ActiveContract extends HasProtocolVersionedCompanion[Acti
     )
   )
 
-  private def fromProtoV30(
+  def fromProtoV30(
       proto: v30.ActiveContract
   ): ParsingResult[ActiveContract] =
     for {

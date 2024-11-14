@@ -25,6 +25,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawFlatEvent,
   RawTreeEvent,
   RawUnassignEvent,
+  intToAuthorizationLevel,
 }
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.{
   CompositeSql,
@@ -427,6 +428,42 @@ object EventStorageBackendTemplate {
     long("event_sequential_id_first") ~ long("event_sequential_id_last") map {
       case event_sequential_id_first ~ event_sequential_id_last =>
         (event_sequential_id_first, event_sequential_id_last)
+    }
+
+  val partyToParticipantEventRow =
+    long("event_sequential_id") ~
+      offset("event_offset") ~
+      str("update_id") ~
+      int("party_id") ~
+      str("participant_id") ~
+      int("participant_permission") ~
+      int("domain_id") ~
+      timestampFromMicros("record_time") ~
+      byteArray("trace_context").?
+
+  private def partyToParticipantEventParser(
+      stringInterning: StringInterning
+  ): RowParser[EventStorageBackend.RawParticipantAuthorization] =
+    partyToParticipantEventRow map {
+      case _ ~
+          eventOffset ~
+          updateId ~
+          partyId ~
+          participantId ~
+          participant_permission ~
+          domainId ~
+          recordTime ~
+          traceContext =>
+        EventStorageBackend.RawParticipantAuthorization(
+          offset = eventOffset,
+          updateId = updateId,
+          partyId = stringInterning.party.unsafe.externalize(partyId),
+          participantId = participantId,
+          participant_permission = intToAuthorizationLevel(participant_permission),
+          recordTime = recordTime,
+          domainId = stringInterning.domainId.unsafe.externalize(domainId),
+          traceContext = traceContext,
+        )
     }
 
   val assignEventRow =
@@ -1620,4 +1657,31 @@ abstract class EventStorageBackendTemplate(
       .asVectorOf(contractId("contract_id"))(connection)
       .toSet
   }
+  override def fetchTopologyPartyEventIds(
+      party: Option[Party],
+      startExclusive: Long,
+      endInclusive: Long,
+      limit: Int,
+  )(connection: Connection): Vector[Long] =
+    TransactionStreamingQueries.fetchEventIds(
+      tableName = "lapi_events_party_to_participant",
+      witnessO = party,
+      templateIdO = None,
+      startExclusive = startExclusive,
+      endInclusive = endInclusive,
+      limit = limit,
+      stringInterning = stringInterning,
+    )(connection)
+
+  override def topologyPartyEventBatch(
+      eventSequentialIds: Iterable[Long]
+  )(connection: Connection): Vector[EventStorageBackend.RawParticipantAuthorization] =
+    SQL"""
+          SELECT *
+          FROM lapi_events_party_to_participant e
+          WHERE e.event_sequential_id ${queryStrategy.anyOf(eventSequentialIds)}
+          ORDER BY e.event_sequential_id -- deliver in index order
+          """
+      .withFetchSize(Some(eventSequentialIds.size))
+      .asVectorOf(partyToParticipantEventParser(stringInterning))(connection)
 }

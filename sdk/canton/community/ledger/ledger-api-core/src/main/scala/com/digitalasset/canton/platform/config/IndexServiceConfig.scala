@@ -131,10 +131,12 @@ object ActiveContractsServiceStreamsConfig {
   * @param maxParallelIdConsumingQueries      Number of parallel queries that fetch ids of consuming events. Per single stream.
   * @param maxParallelIdAssignQueries         Number of parallel queries that fetch ids of assign events. Per single stream.
   * @param maxParallelIdUnassignQueries       Number of parallel queries that fetch ids of unassign events. Per single stream.
+  * @param maxParallelIdTopologyEventsQueries Number of parallel queries that fetch payloads of topology events. Per single stream.
   * @param maxParallelPayloadCreateQueries    Number of parallel queries that fetch payloads of create events. Per single stream.
   * @param maxParallelPayloadConsumingQueries Number of parallel queries that fetch payloads of consuming events. Per single stream.
   * @param maxParallelPayloadAssignQueries    Number of parallel queries that fetch payloads of assign events. Per single stream.
   * @param maxParallelPayloadUnassignQueries  Number of parallel queries that fetch payloads of unassign events. Per single stream.
+  * @param maxParallelPayloadTopologyEventsQueries Number of parallel queries that fetch ids of topology events. Per single stream.
   * @param maxParallelPayloadQueries          Upper bound on the number of parallel queries that fetch payloads. Per single stream.
   * @param transactionsProcessingParallelism  Number of transactions to process in parallel. Per single stream.
   */
@@ -147,10 +149,12 @@ final case class TransactionFlatStreamsConfig(
     maxParallelIdConsumingQueries: Int = 4,
     maxParallelIdAssignQueries: Int = 4,
     maxParallelIdUnassignQueries: Int = 4,
+    maxParallelIdTopologyEventsQueries: Int = 4,
     maxParallelPayloadCreateQueries: Int = 2,
     maxParallelPayloadConsumingQueries: Int = 2,
     maxParallelPayloadAssignQueries: Int = 2,
     maxParallelPayloadUnassignQueries: Int = 2,
+    maxParallelPayloadTopologyEventsQueries: Int = 2,
     maxParallelPayloadQueries: Int = 2,
     transactionsProcessingParallelism: Int = 8,
 )
@@ -169,11 +173,13 @@ object TransactionFlatStreamsConfig {
   * @param maxParallelIdNonConsumingQueries       Number of parallel queries that fetch payloads of non-consuming events. Per single stream.
   * @param maxParallelIdAssignQueries             Number of parallel queries that fetch payloads of assign events. Per single stream.
   * @param maxParallelIdUnassignQueries           Number of parallel queries that fetch payloads of unassign events. Per single stream.
+  * @param maxParallelIdTopologyEventsQueries     Number of parallel queries that fetch payloads of topology events. Per single stream.
   * @param maxParallelPayloadCreateQueries        Number of parallel queries that fetch payloads of create events. Per single stream.
   * @param maxParallelPayloadConsumingQueries     Number of parallel queries that fetch payloads of consuming events. Per single stream.
   * @param maxParallelPayloadNonConsumingQueries  Number of parallel queries that fetch ids of non-consuming events. Per single stream.
   * @param maxParallelPayloadAssignQueries        Number of parallel queries that fetch ids of assign events. Per single stream.
   * @param maxParallelPayloadUnassignQueries      Number of parallel queries that fetch ids of unassign events. Per single stream.
+  * @param maxParallelPayloadTopologyEventsQueries Number of parallel queries that fetch ids of topology events. Per single stream.
   * @param maxParallelPayloadQueries              Upper bound on the number of parallel queries that fetch payloads. Per single stream.
   * @param transactionsProcessingParallelism      Number of transactions to process in parallel. Per single stream.
   */
@@ -187,11 +193,13 @@ final case class TransactionTreeStreamsConfig(
     maxParallelIdNonConsumingQueries: Int = 4,
     maxParallelIdAssignQueries: Int = 4,
     maxParallelIdUnassignQueries: Int = 4,
+    maxParallelIdTopologyEventsQueries: Int = 4,
     maxParallelPayloadCreateQueries: Int = 2,
     maxParallelPayloadConsumingQueries: Int = 2,
     maxParallelPayloadNonConsumingQueries: Int = 2,
     maxParallelPayloadAssignQueries: Int = 2,
     maxParallelPayloadUnassignQueries: Int = 2,
+    maxParallelPayloadTopologyEventsQueries: Int = 2,
     maxParallelPayloadQueries: Int = 2,
     transactionsProcessingParallelism: Int = 8,
 )

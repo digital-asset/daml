@@ -353,6 +353,16 @@ private class JdbcLedgerDao(
     loggerFactory = loggerFactory,
   )(servicesExecutionContext)
 
+  private val topologyTransactionsStreamReader = new TopologyTransactionsStreamReader(
+    globalIdQueriesLimiter = globalIdQueriesLimiter,
+    globalPayloadQueriesLimiter = globalPayloadQueriesLimiter,
+    dbDispatcher = dbDispatcher,
+    queryValidRange = queryValidRange,
+    eventStorageBackend = readStorageBackend.eventStorageBackend,
+    metrics = metrics,
+    loggerFactory = loggerFactory,
+  )(servicesExecutionContext)
+
   private val reassignmentStreamReader = new ReassignmentStreamReader(
     globalIdQueriesLimiter = globalIdQueriesLimiter,
     globalPayloadQueriesLimiter = globalPayloadQueriesLimiter,
@@ -361,7 +371,6 @@ private class JdbcLedgerDao(
     eventStorageBackend = readStorageBackend.eventStorageBackend,
     lfValueTranslation = translation,
     metrics = metrics,
-    tracer = tracer,
     loggerFactory = loggerFactory,
   )(servicesExecutionContext)
 
@@ -375,6 +384,7 @@ private class JdbcLedgerDao(
     lfValueTranslation = translation,
     metrics = metrics,
     tracer = tracer,
+    topologyTransactionsStreamReader = topologyTransactionsStreamReader,
     reassignmentStreamReader = reassignmentStreamReader,
     loggerFactory = loggerFactory,
   )(servicesExecutionContext)
@@ -389,6 +399,7 @@ private class JdbcLedgerDao(
     lfValueTranslation = translation,
     metrics = metrics,
     tracer = tracer,
+    topologyTransactionsStreamReader = topologyTransactionsStreamReader,
     reassignmentStreamReader = reassignmentStreamReader,
     loggerFactory = loggerFactory,
   )(servicesExecutionContext)

@@ -240,6 +240,23 @@ object Generators {
       .build()
   }
 
+  def topologyEventGen: Gen[v2.TopologyTransactionOuterClass.TopologyEvent] = {
+    import v2.TopologyTransactionOuterClass.TopologyEvent
+    for {
+      event <- Gen.oneOf(
+        participantAuthorizationChangedGen.map(e =>
+          (b: TopologyEvent.Builder) => b.setParticipantAuthorizationChanged(e)
+        ),
+        participantAuthorizationRevokedGen.map(e =>
+          (b: TopologyEvent.Builder) => b.setParticipantAuthorizationRevoked(e)
+        ),
+      )
+    } yield v2.TopologyTransactionOuterClass.TopologyEvent
+      .newBuilder()
+      .pipe(event)
+      .build()
+  }
+
   private[this] val failingStatusGen = Gen const com.google.rpc.Status.getDefaultInstance
 
   private[this] val interfaceViewGen: Gen[v2.EventOuterClass.InterfaceView] =
@@ -314,6 +331,34 @@ object Generators {
       .setEventId(eventId)
       .addAllWitnessParties(witnessParties.asJava)
       .setExerciseResult(exerciseResult)
+      .build()
+
+  val participantAuthorizationChangedGen
+      : Gen[v2.TopologyTransactionOuterClass.ParticipantAuthorizationChanged] =
+    for {
+      partyId <- Arbitrary.arbString.arbitrary
+      participantId <- Arbitrary.arbString.arbitrary
+      permission <- Gen.oneOf(
+        v2.StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION,
+        v2.StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_CONFIRMATION,
+        v2.StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_OBSERVATION,
+      )
+    } yield v2.TopologyTransactionOuterClass.ParticipantAuthorizationChanged
+      .newBuilder()
+      .setPartyId(partyId)
+      .setParticipantId(participantId)
+      .setParticiantPermission(permission)
+      .build()
+
+  val participantAuthorizationRevokedGen
+      : Gen[v2.TopologyTransactionOuterClass.ParticipantAuthorizationRevoked] =
+    for {
+      partyId <- Arbitrary.arbString.arbitrary
+      participantId <- Arbitrary.arbString.arbitrary
+    } yield v2.TopologyTransactionOuterClass.ParticipantAuthorizationRevoked
+      .newBuilder()
+      .setPartyId(partyId)
+      .setParticipantId(participantId)
       .build()
 
   def transactionFilterGen: Gen[v2.TransactionFilterOuterClass.TransactionFilter] =
@@ -747,6 +792,26 @@ object Generators {
       .build()
   }
 
+  def topologyTransactionGen: Gen[v2.TopologyTransactionOuterClass.TopologyTransaction] = {
+    import v2.TopologyTransactionOuterClass.TopologyTransaction
+    for {
+      updateId <- Arbitrary.arbString.arbitrary
+      events <- Gen.listOf(topologyEventGen)
+      offset <- Arbitrary.arbLong.arbitrary
+      domainId <- Arbitrary.arbString.arbitrary
+      traceContext <- Gen.const(Utils.newProtoTraceContext("parent", "state"))
+      recordTime <- instantGen
+    } yield TopologyTransaction
+      .newBuilder()
+      .setUpdateId(updateId)
+      .addAllEvents(events.asJava)
+      .setOffset(offset)
+      .setDomainId(domainId)
+      .setTraceContext(traceContext)
+      .setRecordTime(Utils.instantToProto(recordTime))
+      .build()
+  }
+
   def reassignmentGen: Gen[v2.ReassignmentOuterClass.Reassignment] = {
     import v2.ReassignmentOuterClass.Reassignment
     for {
@@ -859,6 +924,9 @@ object Generators {
         offsetCheckpointGen.map(checkpoint =>
           (b: Response.Builder) => b.setOffsetCheckpoint(checkpoint)
         ),
+        topologyTransactionGen.map(topologyTransaction =>
+          (b: Response.Builder) => b.setTopologyTransaction(topologyTransaction)
+        ),
       )
     } yield Response
       .newBuilder()
@@ -878,6 +946,9 @@ object Generators {
         ),
         offsetCheckpointGen.map(checkpoint =>
           (b: Response.Builder) => b.setOffsetCheckpoint(checkpoint)
+        ),
+        topologyTransactionGen.map(topologyTransaction =>
+          (b: Response.Builder) => b.setTopologyTransaction(topologyTransaction)
         ),
       )
     } yield Response
