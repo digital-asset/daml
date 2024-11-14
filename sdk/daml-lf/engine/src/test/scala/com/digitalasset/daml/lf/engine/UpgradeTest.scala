@@ -11,9 +11,8 @@ import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.speedy.SValue
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.ParserParameters
-import com.daml.lf.transaction.Node.Create
+import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
-import com.daml.lf.transaction.{GlobalKeyWithMaintainers, NodeId, VersionedTransaction}
 import com.daml.lf.value.Value._
 import com.daml.logging.LoggingContext
 import org.scalatest.freespec.AnyFreeSpec
@@ -244,7 +243,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     val bob: Party = Party.assertFromString("Bob")
 
     val tplQualifiedName =
-      Ref.QualifiedName.assertFromString(s"Mod:${ChangedObserversInvalid.templateName}")
+      Ref.QualifiedName.assertFromString(s"Mod:${ChangedObserversValid.templateName}")
     val tplId = Identifier(templateDefsV1PkgId, tplQualifiedName)
     val let = Time.Timestamp.Epoch
 
@@ -259,67 +258,36 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         keyOpt: Option[GlobalKeyWithMaintainers],
     )
 
-    // create global contracts
-    val contractInfo = {
-      val createCommand =
-        ApiCommand.Create(
-          tplId,
-          ValueRecord(
-            Some(tplId),
-            ImmArray(
-              Some(Name.assertFromString("p1")) -> ValueParty(alice),
-              Some(Name.assertFromString("p2")) -> ValueParty(bob),
-            ),
+    @nowarn
+    val createCommand =
+      ApiCommand.Create(
+        tplId,
+        ValueRecord(
+          Some(tplId),
+          ImmArray(
+            Some(Name.assertFromString("p1")) -> ValueParty(alice),
+            Some(Name.assertFromString("p2")) -> ValueParty(bob),
           ),
-        )
-      val interpretResult = engine
-        .submit(
-          packageMap = packageMap,
-          packagePreference = Set(commonDefsPkgId, templateDefsV1PkgId),
-          submitters = submitters,
-          readAs = readAs,
-          cmds = ApiCommands(ImmArray(createCommand), let, "test"),
-          disclosures = ImmArray.empty,
-          participantId = participant,
-          submissionSeed = submissionSeed,
-        )
-        .consume(
-          pcs = Map.empty,
-          pkgs = lookupPackage,
-          keys = Map.empty,
-          grantNeedAuthority = false,
-          grantUpgradeVerification = (_, _, _, _) => None,
-        )
-      interpretResult match {
-        case Right((VersionedTransaction(_, nodes, _), _)) =>
-          nodes.toList match {
-            case List(
-                  NodeId(0) -> Create(
-                    _,
-                    packageName,
-                    templateId,
-                    arg,
-                    _,
-                    signatories,
-                    stakeholders,
-                    keyOpt,
-                    _,
-                  )
-                ) =>
-              ContractInfo(
-                assertAsVersionedContract(ContractInstance(packageName, templateId, arg)),
-                signatories,
-                stakeholders -- signatories,
-                keyOpt,
-              )
-            case _ => fail("Unexpected transaction nodes")
-          }
-        case _ => fail("Unexpected transaction result")
-      }
-    }
+        ),
+      )
 
     val lookupContract =
-      Map(toContractId("1") -> contractInfo.instance)
+      Map(
+        toContractId("1") ->
+          assertAsVersionedContract(
+            ContractInstance(
+              templateDefsV1Pkg.name,
+              Identifier(templateDefsV1PkgId, tplQualifiedName),
+              ValueRecord(
+                Some(Identifier(templateDefsV1PkgId, tplQualifiedName)),
+                ImmArray(
+                  Some(Name.assertFromString("p1")) -> ValueParty(alice),
+                  Some(Name.assertFromString("p2")) -> ValueParty(bob),
+                ),
+              ),
+            )
+          )
+      )
 
     @nowarn
     val fetchCmd = speedy.Command.FetchTemplate(
@@ -350,20 +318,6 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         pcs = lookupContract,
         pkgs = lookupPackage,
         keys = Map.empty,
-        grantNeedAuthority = false,
-        grantUpgradeVerification = (coid, signatories, observers, keyOpt) => {
-          println(s"grantUpgradeVerification: $coid, $signatories, $observers, $keyOpt")
-          println(s"contractInfo: ${contractInfo}")
-          if (
-            coid == toContractId(
-              "1"
-            ) && signatories == contractInfo.signatories && observers == contractInfo.observers && keyOpt == contractInfo.keyOpt
-          ) {
-            None
-          } else {
-            Some("Upgrade verification failed")
-          }
-        },
       )
     interpretResult shouldBe a[Right[_, _]]
   }
