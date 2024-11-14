@@ -1197,7 +1197,7 @@ private[lf] object SBuiltin {
       coid: V.ContractId,
       ifaceId: TypeConName,
   )(k: SAny => Control[Question.Update]): Control[Question.Update] = {
-    fetchAny(machine, None, coid) { (_, srcContract) =>
+    fetchAny(machine, None, coid) { (_, srcContract, _) =>
       val (tplId, arg) = getSAnyContract(ArrayList.single(srcContract), 0)
       ensureTemplateImplementsInterface(machine, ifaceId, coid, tplId) {
         viewInterface(machine, ifaceId, tplId, arg) { srcView =>
@@ -1218,12 +1218,12 @@ private[lf] object SBuiltin {
       coid: V.ContractId,
       interfaceId: TypeConName,
   )(k: SAny => Control[Question.Update]): Control[Question.Update] =
-    fetchAny(machine, None, coid) { (maybePkgName, srcContract) =>
+    fetchAny(machine, None, coid) { (maybePkgName, srcContractAny, srcContract) =>
       maybePkgName match {
         case None =>
           crash(s"unexpected contract instance without packageName")
         case Some(pkgName) =>
-          val (srcTplId, srcArg) = getSAnyContract(ArrayList.single(srcContract), 0)
+          val (srcTplId, srcArg) = getSAnyContract(ArrayList.single(srcContractAny), 0)
           ensureTemplateImplementsInterface(machine, interfaceId, coid, srcTplId) {
             viewInterface(machine, interfaceId, srcTplId, srcArg) { srcView =>
               resolvePackageName(machine, pkgName) { pkgId =>
@@ -1251,7 +1251,7 @@ private[lf] object SBuiltin {
                               if (dstTplId == srcTplId)
                                 k(SAny(Ast.TTyCon(dstTplId), dstArg))
                               else {
-                                validateContractInfo(machine, coid, dstTplId, contract) { () =>
+                                checkContractUpgradable(coid, srcContract, contract) { () =>
                                   executeExpression(machine, SEPreventCatch(dstView)) {
                                     dstViewValue =>
                                       if (srcViewValue != dstViewValue) {
@@ -1306,7 +1306,7 @@ private[lf] object SBuiltin {
         machine: UpdateMachine,
     ): Control[Question.Update] = {
       val coid = getSContractId(args, 0)
-      fetchAny(machine, optTargetTemplateId, coid) { (_, sv) =>
+      fetchAny(machine, optTargetTemplateId, coid) { (_, sv, _) =>
         Control.Value(sv)
       }
     }
@@ -2369,7 +2369,7 @@ private[lf] object SBuiltin {
       optTargetTemplateId: Option[TypeConName],
       coid: V.ContractId,
   )(f: SValue => Control[Question.Update]): Control[Question.Update] = {
-    fetchAny(machine, optTargetTemplateId, coid) { (_, fetched) =>
+    fetchAny(machine, optTargetTemplateId, coid) { (_, fetched, _) =>
       // The SBCastAnyContract check can never fail when the upgrading feature flag is enabled.
       // This is because the contract got up/down-graded when imported by importValue.
 
@@ -2386,62 +2386,66 @@ private[lf] object SBuiltin {
     }
   }
 
+  /** Checks that the metadata of [original] and [recomputed] are the same, fails with a [Control.Error] if not. */
+  private def checkContractUpgradable(
+      coid: V.ContractId,
+      original: ContractInfo,
+      recomputed: ContractInfo,
+  )(
+      k: () => Control[Question.Update]
+  ): Control[Question.Update] = {
+    def check[T](recomputed: T, original: T)(desc: String): Either[String, Unit] =
+      Either.cond(recomputed == original, (), s"$desc mismatch: $original vs $recomputed")
+
+    {
+      for {
+        _ <- check(recomputed.signatories, original.signatories)("signatories")
+        _ <- check(recomputed.observers, original.observers)("observers")
+        _ <- check(recomputed.keyOpt.map(_.maintainers), original.keyOpt.map(_.maintainers))(
+          "key maintainers"
+        )
+        _ <- check(recomputed.keyOpt.map(_.globalKey.key), original.keyOpt.map(_.globalKey.key))(
+          "key value"
+        )
+      } yield ()
+    }.fold(
+      errorMsg =>
+        Control.Error(
+          IE.Upgrade(
+            IE.Upgrade.ValidationFailed(
+              coid = coid,
+              srcTemplateId = original.templateId,
+              dstTemplateId = recomputed.templateId,
+              signatories = recomputed.signatories,
+              observers = recomputed.observers,
+              keyOpt = recomputed.keyOpt.map(_.globalKeyWithMaintainers),
+              msg = errorMsg,
+            )
+          )
+        ),
+      _ => k(),
+    )
+  }
+
   // This is the core function which fetches a contract given its coid.
   // Regardless of it being a local, disclosed or global contract
   private def fetchAny(
       machine: UpdateMachine,
       optTargetTemplateId: Option[TypeConName],
       coid: V.ContractId,
-  )(f: (Option[Ref.PackageName], SValue) => Control[Question.Update]): Control[Question.Update] = {
-
-    // Checks that the metadata of [original] and [recomputed] are the same, fails with a [Control.Error] if not.
-    def checkContractUpgradable(
-        original: ContractInfo,
-        recomputed: ContractInfo,
-    )(
-        k: () => Control[Question.Update]
-    ): Control[Question.Update] = {
-      def check[T](recomputed: T, original: T)(desc: String): Either[String, Unit] =
-        Either.cond(recomputed == original, (), s"$desc mismatch: $original vs $recomputed")
-
-      {
-        for {
-          _ <- check(recomputed.signatories, original.signatories)("signatories")
-          _ <- check(recomputed.observers, original.observers)("observers")
-          _ <- check(recomputed.keyOpt.map(_.maintainers), original.keyOpt.map(_.maintainers))(
-            "key maintainers"
-          )
-          _ <- check(recomputed.keyOpt.map(_.globalKey.key), original.keyOpt.map(_.globalKey.key))(
-            "key value"
-          )
-        } yield ()
-      }.fold(
-        errorMsg =>
-          Control.Error(
-            IE.Upgrade(
-              IE.Upgrade.ValidationFailed(
-                coid = coid,
-                srcTemplateId = original.templateId,
-                dstTemplateId = recomputed.templateId,
-                signatories = recomputed.signatories,
-                observers = recomputed.observers,
-                keyOpt = recomputed.keyOpt.map(_.globalKeyWithMaintainers),
-                msg = errorMsg,
-              )
-            )
-          ),
-        _ => k(),
-      )
-    }
+  )(
+      f: (Option[Ref.PackageName], SValue, ContractInfo) => Control[Question.Update]
+  ): Control[Question.Update] = {
 
     type ContractInfoChecker =
       ContractInfo => (() => Control[Question.Update]) => Control[Question.Update]
 
     def localContractInfoUpgradeChecker(
+        coid: V.ContractId,
         originalContractInfo: ContractInfo
     ): ContractInfoChecker =
       (upgradedContractInfo: ContractInfo) =>
-        checkContractUpgradable(originalContractInfo, upgradedContractInfo)
+        checkContractUpgradable(coid, originalContractInfo, upgradedContractInfo)
 
     def globalContractInfoUpgradeChecker(
         coid: V.ContractId,
@@ -2495,10 +2499,10 @@ private[lf] object SBuiltin {
                   }
                 if (needValidationCall) {
                   contractInfoUpgradeChecker(upgradedContract) { () =>
-                    f(upgradedContract.packageName, upgradedContract.any)
+                    f(upgradedContract.packageName, upgradedContract.any, upgradedContract)
                   }
                 } else {
-                  f(upgradedContract.packageName, upgradedContract.any)
+                  f(upgradedContract.packageName, upgradedContract.any, upgradedContract)
                 }
               }
             }
@@ -2519,11 +2523,11 @@ private[lf] object SBuiltin {
             if (optTargetTemplateId.forall(_ == templateId)) {
               // If the local contract has the same package ID as the target template ID, then we don't need to
               // import its value and validate its contract info again.
-              f(contract.packageName, SValue.SAnyContract(templateId, templateArg))
+              f(contract.packageName, SValue.SAnyContract(templateId, templateArg), contract)
             } else {
               importContract(
                 V.ContractInstance(contract.packageName, templateId, contract.arg),
-                localContractInfoUpgradeChecker(contract),
+                localContractInfoUpgradeChecker(coid, contract),
               )
             }
           }

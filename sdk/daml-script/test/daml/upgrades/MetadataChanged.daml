@@ -37,19 +37,19 @@ main = tests
       , subtree "exercise by interface"
           [ subtree "signatories"
               [ ("changed", exerciseByInterfaceSignatoriesChangedLocal)
-              , broken ("unchanged", exerciseByInterfaceSignatoriesUnchangedLocal)
+              , ("unchanged", exerciseByInterfaceSignatoriesUnchangedLocal)
               ]
           , subtree "observers"
               [ ("changed", exerciseByInterfaceObserversChangedLocal)
-              , broken ("unchanged", exerciseByInterfaceObserversUnchangedLocal)
+              , ("unchanged", exerciseByInterfaceObserversUnchangedLocal)
               ]
           , subtree "key"
               [ ("changed", exerciseByInterfaceKeyChangedLocal)
-              , broken ("unchanged", exerciseByInterfaceKeyUnchangedLocal)
+              , ("unchanged", exerciseByInterfaceKeyUnchangedLocal)
               ]
           , subtree "maintainer"
               [ ("changed", exerciseByInterfaceMaintainerChangedLocal)
-              , broken ("unchanged", exerciseByInterfaceMaintainerUnchangedLocal)
+              , ("unchanged", exerciseByInterfaceMaintainerUnchangedLocal)
               ]
           ]
       , subtree "exercise by key"
