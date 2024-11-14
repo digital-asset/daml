@@ -2437,28 +2437,12 @@ private[lf] object SBuiltin {
       f: (Option[Ref.PackageName], SValue, ContractInfo) => Control[Question.Update]
   ): Control[Question.Update] = {
 
-    type ContractInfoChecker =
-      ContractInfo => (() => Control[Question.Update]) => Control[Question.Update]
-
-    def localContractInfoUpgradeChecker(
-        coid: V.ContractId,
-        originalContractInfo: ContractInfo
-    ): ContractInfoChecker =
-      (upgradedContractInfo: ContractInfo) =>
-        checkContractUpgradable(coid, originalContractInfo, upgradedContractInfo)
-
-    def globalContractInfoUpgradeChecker(
-        coid: V.ContractId,
-        srcTemplateId: Ref.Identifier,
-    ): ContractInfoChecker =
-      (upgradedContractInfo: ContractInfo) =>
-        validateContractInfo(machine, coid, srcTemplateId, upgradedContractInfo)
-
     def importContract(
-        coinst: V.ContractInstance,
-        contractInfoUpgradeChecker: ContractInfoChecker,
+        srcContract: ContractInfo
     ) = {
-      val V.ContractInstance(_, srcTmplId, coinstArg) = coinst
+      val srcTmplId = srcContract.templateId
+      val coinst =
+        V.ContractInstance(srcContract.packageName, srcContract.templateId, srcContract.arg)
       val (upgradingIsEnabled, dstTmplId) = optTargetTemplateId match {
         case Some(tycon) if coinst.upgradable =>
           (true, tycon)
@@ -2474,19 +2458,19 @@ private[lf] object SBuiltin {
           dstTmplId.packageId,
           language.Reference.Template(dstTmplId),
         ) { () =>
-          importValue(machine, dstTmplId, coinstArg) { templateArg =>
+          importValue(machine, dstTmplId, srcContract.arg) { templateArg =>
             getContractInfo(
               machine,
               coid,
               dstTmplId,
               templateArg,
               allowCatchingContractInfoErrors = false,
-            ) { upgradedContract =>
-              ensureContractActive(machine, coid, upgradedContract.templateId) {
+            ) { dstContract =>
+              ensureContractActive(machine, coid, dstContract.templateId) {
 
-                machine.checkContractVisibility(coid, upgradedContract)
+                machine.checkContractVisibility(coid, dstContract)
                 machine.enforceLimitAddInputContract()
-                machine.enforceLimitSignatoriesAndObservers(coid, upgradedContract)
+                machine.enforceLimitSignatoriesAndObservers(coid, dstContract)
 
                 // In Validation mode, we always call validateContractInfo
                 // In Submission mode, we only call validateContractInfo when src != dest
@@ -2498,11 +2482,11 @@ private[lf] object SBuiltin {
                     upgradingIsEnabled && (srcTmplId.packageId != dstTmplId.packageId)
                   }
                 if (needValidationCall) {
-                  contractInfoUpgradeChecker(upgradedContract) { () =>
-                    f(upgradedContract.packageName, upgradedContract.any, upgradedContract)
+                  checkContractUpgradable(coid, srcContract, dstContract) { () =>
+                    f(dstContract.packageName, dstContract.any, dstContract)
                   }
                 } else {
-                  f(upgradedContract.packageName, upgradedContract.any, upgradedContract)
+                  f(dstContract.packageName, dstContract.any, dstContract)
                 }
               }
             }
@@ -2525,59 +2509,23 @@ private[lf] object SBuiltin {
               // import its value and validate its contract info again.
               f(contract.packageName, SValue.SAnyContract(templateId, templateArg), contract)
             } else {
-              importContract(
-                V.ContractInstance(contract.packageName, templateId, contract.arg),
-                localContractInfoUpgradeChecker(coid, contract),
-              )
+              importContract(contract)
             }
           }
         }
       case None =>
         machine.lookupGlobalContract(coid)(coinst =>
-          importContract(coinst, globalContractInfoUpgradeChecker(coid, coinst.template))
+          importValue(machine, coinst.template, coinst.arg) { templateArg =>
+            getContractInfo(
+              machine,
+              coid,
+              coinst.template,
+              templateArg,
+              allowCatchingContractInfoErrors = false,
+            )(importContract)
+          }
         )
     }
-  }
-
-  private def validateContractInfo(
-      machine: UpdateMachine,
-      coid: V.ContractId,
-      srcTemplateId: Ref.Identifier,
-      contract: ContractInfo,
-  )(
-      continue: () => Control[Question.Update]
-  ): Control[Question.Update] = {
-
-    val keyOpt: Option[GlobalKeyWithMaintainers] = contract.keyOpt match {
-      case None => None
-      case Some(cachedKey) =>
-        Some(cachedKey.globalKeyWithMaintainers)
-    }
-    machine.needUpgradeVerification(
-      location = NameOf.qualifiedNameOfCurrentFunc,
-      coid = coid,
-      signatories = contract.signatories,
-      observers = contract.observers,
-      keyOpt = keyOpt,
-      continue = {
-        case None =>
-          continue()
-        case Some(msg) =>
-          Control.Error(
-            IE.Upgrade(
-              IE.Upgrade.ValidationFailed(
-                coid = coid,
-                srcTemplateId = srcTemplateId,
-                dstTemplateId = contract.templateId,
-                signatories = contract.signatories,
-                observers = contract.observers,
-                keyOpt = keyOpt,
-                msg = msg,
-              )
-            )
-          )
-      },
-    )
   }
 
   private def importValue[Q](machine: Machine[Q], templateId: TypeConName, coinstArg: V)(
