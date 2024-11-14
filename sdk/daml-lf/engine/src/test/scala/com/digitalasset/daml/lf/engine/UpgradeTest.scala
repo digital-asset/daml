@@ -29,7 +29,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
 
   // A package that defines an interface, a key type, an exception, and a party to be used by
   // the packages defined below.
-  val commonDefsPkgId = Ref.PackageId.assertFromString("-common-defs-v1-id-")
+  val commonDefsPkgId = Ref.PackageId.assertFromString("-common-defs-id-")
   val commonDefsPkg =
     p"""metadata ( '-common-defs-' : '1.0.0' )
           module Mod {
@@ -37,13 +37,13 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
             interface (this : Iface) = {
               viewtype Mod:MyUnit;
 
-              method myChoiceControllers : List Party;
-              method myChoiceObservers : List Party;
+              method interfaceChoiceControllers : List Party;
+              method interfaceChoiceObservers : List Party;
 
-              choice @nonConsuming MyChoice (self) (u: Unit): Text
-                  , controllers (call_method @Mod:Iface myChoiceControllers this)
-                  , observers (call_method @Mod:Iface myChoiceObservers this)
-                  to upure @Text "MyChoice was called";
+              choice @nonConsuming InterfaceChoice (self) (u: Unit): Text
+                  , controllers (call_method @Mod:Iface interfaceChoiceControllers this)
+                  , observers (call_method @Mod:Iface interfaceChoiceObservers this)
+                  to upure @Text "InterfaceChoice was called";
             };
 
             record @serializable Key = { label: Text, maintainers: List Party };
@@ -114,8 +114,8 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
          |
          |    implements '$commonDefsPkgId':Mod:Iface {
          |      view = '$commonDefsPkgId':Mod:MyUnit {};
-         |      method myChoiceControllers = $choiceControllers;
-         |      method myChoiceObservers = $choiceObservers;
+         |      method interfaceChoiceControllers = $choiceControllers;
+         |      method interfaceChoiceObservers = $choiceObservers;
          |    };
          |
          |    key @'$commonDefsPkgId':Mod:Key ($key) ($maintainers);
@@ -142,6 +142,23 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       v2ChoiceControllers,
       v2ChoiceObservers,
     )
+
+    def clientChoices(v1PkgId: Ref.PackageId, v2PkgId: Ref.PackageId): String = {
+      val v1TplQualifiedName = s"'$v1PkgId':Mod:$templateName"
+      val v2TplQualifiedName = s"'$v2PkgId':Mod:$templateName"
+      s"""
+        |  choice @nonConsuming ExerciseLocal${templateName} (self) (u: Unit): Text
+        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+        |    , observers (Nil @Party)
+        |    to ubind cid: ContractId $v1TplQualifiedName <-
+        |         create @$v1TplQualifiedName ($v1TplQualifiedName { p = '$commonDefsPkgId':Mod:alice })
+        |       in exercise
+        |            @$v2TplQualifiedName
+        |            SomeChoice
+        |            (COERCE_CONTRACT_ID @$v1TplQualifiedName @$v2TplQualifiedName cid)
+        |            ();
+        |""".stripMargin
+    }
   }
 
   case object ChangedPreconditionValid extends TemplateGenerator("ChangedPreconditionValid") {
@@ -199,7 +216,27 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
           }
       """ (templateDefsV2ParserParams)
 
-//  val compiledPackages: PureCompiledPackages =
+  val clientPkgId = Ref.PackageId.assertFromString("-client-id-")
+  val clientParserParams = parserParameters(clientPkgId)
+  val clientPkg = {
+    val choices = templateGenerators
+      .map(_.clientChoices(templateDefsV1PkgId, templateDefsV2PkgId))
+    p"""metadata ( '-client-' : '1.0.0' )
+            module Mod {
+              record @serializable Client = { p: Party };
+              template (this: Client) = {
+                precondition True;
+                signatories Cons @Party [Mod:Client {p} this] (Nil @Party);
+                observers Nil @Party;
+                agreement "agreement";
+
+                ${choices.mkString("\n")}
+              };
+            }
+        """ (clientParserParams)
+  }
+
+  //  val compiledPackages: PureCompiledPackages =
 //    PureCompiledPackages.assertBuild(
 //      Map(
 //        commonDefsPkgId -> commonDefsPkg,
@@ -216,6 +253,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     commonDefsPkgId -> commonDefsPkg,
     templateDefsV1PkgId -> templateDefsV1Pkg,
     templateDefsV2PkgId -> templateDefsV2Pkg,
+    clientPkgId -> clientPkg,
   )
 
   val packageMap =
@@ -306,7 +344,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     val interpretResult = engine
       .submit(
         packageMap = packageMap,
-        packagePreference = Set(commonDefsPkgId, templateDefsV2PkgId),
+        packagePreference = Set(commonDefsPkgId, templateDefsV2PkgId, clientPkgId),
         submitters = submitters,
         readAs = readAs,
         cmds = ApiCommands(ImmArray(exerciseCmd), let, "test"),
