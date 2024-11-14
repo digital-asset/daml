@@ -2402,7 +2402,8 @@ private[lf] object SBuiltin {
 
     List(
       check(_.signatories, "signatories"),
-      check(_.observers, "observers"),
+      // This definition of observers allows observers to lose parties that are signatories
+      check(c => c.stakeholders -- c.signatories, "observers"),
       check(_.keyOpt.map(_.maintainers), "key maintainers"),
       check(_.keyOpt.map(_.globalKey.key), "key value"),
     ).flatten match {
