@@ -2394,22 +2394,25 @@ private[lf] object SBuiltin {
   )(
       k: () => Control[Question.Update]
   ): Control[Question.Update] = {
-    def check[T](recomputed: T, original: T)(desc: String): Either[String, Unit] =
-      Either.cond(recomputed == original, (), s"$desc mismatch: $original vs $recomputed")
+    def check[T](recomputed: T, original: T, desc: String): Option[String] =
+      Option.when(recomputed != original)(s"$desc mismatch: $original vs $recomputed")
 
-    {
-      for {
-        _ <- check(recomputed.signatories, original.signatories)("signatories")
-        _ <- check(recomputed.observers, original.observers)("observers")
-        _ <- check(recomputed.keyOpt.map(_.maintainers), original.keyOpt.map(_.maintainers))(
-          "key maintainers"
-        )
-        _ <- check(recomputed.keyOpt.map(_.globalKey.key), original.keyOpt.map(_.globalKey.key))(
-          "key value"
-        )
-      } yield ()
-    }.fold(
-      errorMsg =>
+    List(
+      check(recomputed.signatories, original.signatories, "signatories"),
+      check(recomputed.observers, original.observers, "observers"),
+      check(
+        recomputed.keyOpt.map(_.maintainers),
+        original.keyOpt.map(_.maintainers),
+        "key maintainers",
+      ),
+      check(
+        recomputed.keyOpt.map(_.globalKey.key),
+        original.keyOpt.map(_.globalKey.key),
+        "key value",
+      ),
+    ).flatten match {
+      case Nil => k()
+      case errors =>
         Control.Error(
           IE.Upgrade(
             IE.Upgrade.ValidationFailed(
@@ -2419,12 +2422,11 @@ private[lf] object SBuiltin {
               signatories = recomputed.signatories,
               observers = recomputed.observers,
               keyOpt = recomputed.keyOpt.map(_.globalKeyWithMaintainers),
-              msg = errorMsg,
+              msg = errors.mkString("['", "', '", "']"),
             )
           )
-        ),
-      _ => k(),
-    )
+        )
+    }
   }
 
   // This is the core function which fetches a contract given its coid.
