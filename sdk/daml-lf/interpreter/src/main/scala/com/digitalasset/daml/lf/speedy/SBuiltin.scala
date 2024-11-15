@@ -2403,7 +2403,7 @@ private[lf] object SBuiltin {
     List(
       check(_.signatories, "signatories"),
       // This definition of observers allows observers to lose parties that are signatories
-      check(c => c.stakeholders -- c.signatories, "observers"),
+      check(_.stakeholders, "stakeholders"),
       check(_.keyOpt.map(_.maintainers), "key maintainers"),
       check(_.keyOpt.map(_.globalKey.key), "key value"),
     ).flatten match {
@@ -2411,6 +2411,7 @@ private[lf] object SBuiltin {
       case errors =>
         Control.Error(
           IE.Upgrade(
+            // TODO(https://github.com/digital-asset/daml/issues/20305): also include the original metadata
             IE.Upgrade.ValidationFailed(
               coid = coid,
               srcTemplateId = original.templateId,
