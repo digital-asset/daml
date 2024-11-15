@@ -713,7 +713,6 @@ scala_library(
     ],
     deps = [
         ":bindings-java",
-        ":community_admin-api",
         ":community_base",
         ":community_common",
         ":community_ledger_ledger-common",
@@ -767,8 +766,6 @@ scala_library(
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "@maven//:com_typesafe_slick_slick_2_13",
         "@maven//:com_zaxxer_HikariCP",
-        "@maven//:dev_optics_monocle_core_2_13",
-        "@maven//:dev_optics_monocle_macro_2_13",
         "@maven//:io_circe_circe_core_2_13",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_netty",
