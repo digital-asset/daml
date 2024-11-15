@@ -42,6 +42,7 @@ private[parser] object Lexer extends RegexParsers {
     "to_any_exception" -> `to_any_exception`,
     "from_any_exception" -> `from_any_exception`,
     "throw" -> `throw`,
+    "view_interface" -> `view_interface`,
     "catch" -> `catch`,
     "to_interface" -> `to_interface`,
     "to_required_interface" -> `to_required_interface`,
