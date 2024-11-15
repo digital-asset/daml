@@ -133,12 +133,13 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
             simulationEpochStore,
             orderedBlocksReader = simulationEpochStore,
             outputBlockMetadataStore,
+            outputBlocksReader = outputBlockMetadataStore,
           )
 
           val orderingTopologyProvider =
             new SimulationOrderingTopologyProvider(peerEndpointsToOnboardingTimes)
 
-          val initialOrderingTopology = resolveOrderingTopology(
+          val genesisOrderingTopology = resolveOrderingTopology(
             orderingTopologyProvider.getOrderingTopologyAt(EffectiveTime(simulationStartTime))
           )
 
@@ -147,7 +148,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
               val thisPeer = SimulationP2PNetworkManager.fakeSequencerId(endpoint)
 
               val sequencerSnapshotAdditionalInfo =
-                if (initialOrderingTopology.contains(thisPeer))
+                if (genesisOrderingTopology.contains(thisPeer))
                   None
                 else {
                   // Non-simulated snapshots contain information about other peers as well.
@@ -160,6 +161,21 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
               logger.info(
                 s"Sequencer snapshot additional info for $thisPeer: $sequencerSnapshotAdditionalInfo"
               )
+
+              val initialOrderingTopology =
+                if (genesisOrderingTopology.contains(thisPeer))
+                  genesisOrderingTopology
+                else {
+                  // We keep the onboarding topology after state transfer. See the Output module for details.
+                  maybeFirstKnownAt
+                    .flatMap(_.timestamp)
+                    .map(onboardingTime =>
+                      resolveOrderingTopology(
+                        orderingTopologyProvider.getOrderingTopologyAt(onboardingTime)
+                      )
+                    )
+                    .getOrElse(genesisOrderingTopology)
+                }
 
               // Forces always querying for an up-to-date topology, so that we simulate correctly topology changes.
               val requestInspector: RequestInspector =

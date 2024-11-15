@@ -59,7 +59,7 @@ class FutureUnlessShutdownTest extends AsyncWordSpec with BaseTest with HasExecu
       val f =
         FutureUnlessShutdown(Future(AbortedDueToShutdown)).failOnShutdownToAbortException("test")
       FutureUnlessShutdown
-        .transformAbortedF(f)
+        .recoverFromAbortException(f)
         .unwrap
         .map(_ shouldBe UnlessShutdown.AbortedDueToShutdown)
     }
@@ -67,12 +67,12 @@ class FutureUnlessShutdownTest extends AsyncWordSpec with BaseTest with HasExecu
       val expected = UnlessShutdown.Outcome("expected")
       val f =
         FutureUnlessShutdown(Future.successful(expected)).failOnShutdownToAbortException("test")
-      FutureUnlessShutdown.transformAbortedF(f).unwrap.map(_ shouldBe expected)
+      FutureUnlessShutdown.recoverFromAbortException(f).unwrap.map(_ shouldBe expected)
     }
     "restore failed FutureUnlessShutdown" in {
       val expected = new IllegalArgumentException("test")
       val f = FutureUnlessShutdown(Future.failed(expected)).failOnShutdownToAbortException("test")
-      FutureUnlessShutdown.transformAbortedF(f).unwrap.failed.map(_ shouldBe expected)
+      FutureUnlessShutdown.recoverFromAbortException(f).unwrap.failed.map(_ shouldBe expected)
     }
   }
 }

@@ -7,13 +7,13 @@ import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
+import com.digitalasset.canton.participant.store.ExtendedContractLookupTest.Divulgence
 import com.digitalasset.canton.participant.store.memory.InMemoryContractStore
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
   asSerializable,
   contractInstance,
   packageName,
-  transactionId,
 }
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
@@ -36,39 +36,33 @@ class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest {
   }
 
   val coid00: LfContractId = suffixedId(0, 0)
-  val coid01: LfContractId = suffixedId(0, 1)
-  val coid10: LfContractId = suffixedId(1, 0)
-  val coid11: LfContractId = suffixedId(1, 1)
-  val coid20: LfContractId = suffixedId(2, 0)
-  val coid21: LfContractId = suffixedId(2, 1)
+  private val coid01: LfContractId = suffixedId(0, 1)
+  private val coid10: LfContractId = suffixedId(1, 0)
+  private val coid11: LfContractId = suffixedId(1, 1)
+  private val coid20: LfContractId = suffixedId(2, 0)
+  private val coid21: LfContractId = suffixedId(2, 1)
 
-  val let0: CantonTimestamp = CantonTimestamp.Epoch
-  val let1: CantonTimestamp = CantonTimestamp.ofEpochMilli(1)
+  private val let0: CantonTimestamp = CantonTimestamp.Epoch
+  private val let1: CantonTimestamp = CantonTimestamp.ofEpochMilli(1)
 
-  val alice: LfPartyId = LfPartyId.assertFromString("alice")
-  val bob: LfPartyId = LfPartyId.assertFromString("bob")
-  val charlie: LfPartyId = LfPartyId.assertFromString("charlie")
-  val david: LfPartyId = LfPartyId.assertFromString("david")
-  val eleonore: LfPartyId = LfPartyId.assertFromString("eleonore")
+  private val rc0 = RequestCounter(0)
+  private val rc1 = RequestCounter(1)
+  private val rc2 = RequestCounter(2)
 
-  val rc0 = RequestCounter(0)
-  val rc1 = RequestCounter(1)
-  val rc2 = RequestCounter(2)
-
-  def mk(
+  private def mk(
       entries: (
           LfContractId,
           LfContractInst,
           ContractMetadata,
           CantonTimestamp,
           RequestCounter,
-          Option[TransactionId],
+          Divulgence,
       )*
   ): Future[ContractLookup] = {
     val store = new InMemoryContractStore(loggerFactory)
     entries
       .parTraverse_ {
-        case (id, contractInstance, metadata, ledgerTime, requestCounter, None) =>
+        case (id, contractInstance, metadata, ledgerTime, requestCounter, Divulgence(true)) =>
           store.storeDivulgedContract(
             requestCounter,
             asSerializable(id, contractInstance, metadata, ledgerTime),
@@ -79,11 +73,10 @@ class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest {
               metadata,
               ledgerTime,
               requestCounter,
-              Some(creatingTransactionId),
+              Divulgence(false),
             ) =>
           store.storeCreatedContract(
             requestCounter,
-            creatingTransactionId,
             asSerializable(id, contractInstance, metadata, ledgerTime),
           )
       }
@@ -95,9 +88,6 @@ class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest {
     val instance0 = contractInstance()
     val instance0Template = instance0.unversioned.template
     val instance1 = contractInstance()
-    val transactionId0 = transactionId(0)
-    val transactionId1 = transactionId(1)
-    val transactionId2 = transactionId(2)
     val key00: LfGlobalKey =
       LfGlobalKey.build(instance0Template, ValueUnit, packageName).value
     val key1: LfGlobalKey =
@@ -119,24 +109,22 @@ class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest {
       ContractMetadata.tryCreate(signatories = Set(alice), stakeholders = Set(alice, bob), None)
 
     val preloadedStoreF = mk(
-      (coid00, instance0, metadata00, let0, rc0, None),
-      (coid01, instance1, metadata1, let1, rc1, Some(transactionId1)),
-      (coid01, instance1, metadata1, let1, rc1, None),
-      (coid10, instance1, metadata1, let0, rc2, Some(transactionId2)),
+      (coid00, instance0, metadata00, let0, rc0, Divulgence(true)),
+      (coid01, instance1, metadata1, let1, rc1, Divulgence(false)),
+      (coid01, instance1, metadata1, let1, rc1, Divulgence(true)),
+      (coid10, instance1, metadata1, let0, rc2, Divulgence(false)),
     )
 
     val overwrites = Map(
       coid01 -> StoredContract.fromCreatedContract(
         asSerializable(coid01, instance0, metadata2, let0),
         rc2,
-        transactionId0,
       ),
       coid20 -> StoredContract
         .fromDivulgedContract(asSerializable(coid20, instance0, metadata2, let1), rc1),
       coid21 -> StoredContract.fromCreatedContract(
         asSerializable(coid21, instance0, metadata2, let0),
         rc1,
-        transactionId1,
       ),
     )
 
@@ -230,4 +218,11 @@ class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest {
       }
     }
   }
+}
+
+object ExtendedContractLookupTest {
+
+  /** @param value True iff the contract is a divulged contract
+    */
+  final case class Divulgence(value: Boolean) extends AnyVal
 }

@@ -203,7 +203,7 @@ final class BftBlockOrderer(
           latestEpoch.info.topologySnapshotEffectiveTime
         }
 
-    awaitFuture(
+    val (topology, cryptoProvider) = awaitFuture(
       orderingTopologyProvider.getOrderingTopologyAt(
         topologyQueryTimestamp,
         // TODO(#21999) workaround: skip `awaitMaxTimestamp` because, in the case of onboarded sequencers,
@@ -217,6 +217,31 @@ final class BftBlockOrderer(
         logger.error(msg)
         sys.error(msg)
       }
+
+    // TODO(#19661): If the sequencer is known, it does not mean that it can use the domain yet (e.g., not all domain
+    //  owners might yet have signed the topology change). Right now, just add the onboarded sequencer to the
+    //  returned topology from the snapshot additional info as a workaround.
+    sequencerSnapshotAdditionalInfo
+      .map { info =>
+        lazy val errorMsg =
+          s"$sequencerId's onboarding timestamp should be present in the snapshot additional info but isn't"
+        val onboardingTimestamp = info.peerFirstKnownAt.view
+          .mapValues(_.timestamp)
+          .getOrElse(
+            sequencerId, {
+              logger.error(errorMsg)
+              sys.error(errorMsg)
+            },
+          )
+          .getOrElse {
+            logger.error(errorMsg)
+            sys.error(errorMsg)
+          }
+        topology.copy(
+          peersFirstKnownAt = topology.peersFirstKnownAt + (sequencerId -> onboardingTimestamp)
+        )
+      }
+      .getOrElse(topology) -> cryptoProvider
   }
 
   private val PekkoModuleSystem.PekkoModuleSystemInitResult(
@@ -288,6 +313,7 @@ final class BftBlockOrderer(
         epochStore,
         orderedBlocksReader = epochStore,
         outputStore,
+        outputBlocksReader = outputStore,
       )
     BftOrderingModuleSystemInitializer(
       sequencerId,

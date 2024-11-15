@@ -206,7 +206,7 @@ message AcknowledgeSignedRequest {
 message AcknowledgeSignedResponse {}
 
 message DownloadTopologyStateForInitRequest {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   string member = 1;
 }
@@ -216,7 +216,7 @@ message DownloadTopologyStateForInitResponse {
 }
 
 message GetTrafficStateForMemberRequest {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   // Member for which to get the traffic state
   string member = 1;
@@ -225,7 +225,7 @@ message GetTrafficStateForMemberRequest {
 }
 
 message GetTrafficStateForMemberResponse {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   com.digitalasset.canton.protocol.v30.TrafficState traffic_state = 1;
 }

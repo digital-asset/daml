@@ -11,7 +11,6 @@ import com.digitalasset.canton.protocol.{
   RootHash,
   SerializableContract,
   Stakeholders,
-  TransactionId,
   ViewHash,
 }
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
@@ -85,5 +84,4 @@ trait FullReassignmentViewTree extends ViewTree {
   def contractId: LfContractId = view.contract.contractId
   def templateId: LfTemplateId = view.templateId
   def reassignmentCounter: ReassignmentCounter = view.reassignmentCounter
-  def creatingTransactionId: TransactionId = view.creatingTransactionId
 }

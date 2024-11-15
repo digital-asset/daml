@@ -63,6 +63,7 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.EitherTUtil.{condUnitET, ifThenET}
@@ -110,6 +111,8 @@ class UnassignmentProcessingSteps(
 
   override def submissionDescription(param: SubmissionParam): String =
     s"Submitter ${param.submittingParty}, contract ${param.contractId}, target ${param.targetDomain}"
+
+  override def explicitMediatorGroup(param: SubmissionParam): Option[MediatorGroupIndex] = None
 
   override def submissionIdOfPendingRequest(pendingData: PendingUnassignment): RootHash =
     pendingData.rootHash
@@ -177,14 +180,9 @@ class UnassignmentProcessingSteps(
           .leftMap(_ => UnassignmentProcessorError.ReassignmentCounterOverflow)
       )
 
-      creatingTransactionId <- EitherT.fromEither[FutureUnlessShutdown](
-        storedContract.creatingTransactionIdO.toRight(CreatingTransactionIdNotFound(contractId))
-      )
-
       validated <- UnassignmentRequest.validated(
         participantId,
         timeProof,
-        creatingTransactionId,
         storedContract.contract,
         submitterMetadata,
         domainId,

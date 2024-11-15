@@ -25,6 +25,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   EpochNumber,
   ViewNumber,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.{
   CommitCertificate,
@@ -35,7 +36,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
   Commit,
   NewView,
-  PbftEvent,
   PbftNetworkMessage,
   PrePrepare,
   Prepare,
@@ -59,30 +59,34 @@ abstract class GenericInMemoryEpochStore[E <: Env[E]]
   private val blocks: TrieMap[BlockNumber, CompletedBlock] = TrieMap.empty
 
   // The maps below are for messages for in-progress blocks.
-  private val prePreparesMap: TrieMap[BlockNumber, TrieMap[ViewNumber, PrePrepare]] = TrieMap.empty
-  private val preparesMap: TrieMap[BlockNumber, TrieMap[ViewNumber, Seq[Prepare]]] = TrieMap.empty
-  private val viewChangesMap: TrieMap[BlockNumber, TrieMap[ViewNumber, ViewChange]] = TrieMap.empty
-  private val newViewsMap: TrieMap[BlockNumber, TrieMap[ViewNumber, NewView]] = TrieMap.empty
+  private val prePreparesMap: TrieMap[BlockNumber, TrieMap[ViewNumber, SignedMessage[PrePrepare]]] =
+    TrieMap.empty
+  private val preparesMap: TrieMap[BlockNumber, TrieMap[ViewNumber, Seq[SignedMessage[Prepare]]]] =
+    TrieMap.empty
+  private val viewChangesMap: TrieMap[BlockNumber, TrieMap[ViewNumber, SignedMessage[ViewChange]]] =
+    TrieMap.empty
+  private val newViewsMap: TrieMap[BlockNumber, TrieMap[ViewNumber, SignedMessage[NewView]]] =
+    TrieMap.empty
 
   protected def createFuture[T](action: String)(value: () => Try[T]): E#FutureUnlessShutdownT[T]
 
   private def addSingleMessageToMap[M <: PbftNetworkMessage](
       storeType: String,
-      map: TrieMap[BlockNumber, TrieMap[ViewNumber, M]],
+      map: TrieMap[BlockNumber, TrieMap[ViewNumber, SignedMessage[M]]],
   )(
-      message: M
+      message: SignedMessage[M]
   ): Try[Unit] = {
     map
       .putIfAbsent(
-        message.blockMetadata.blockNumber,
-        new TrieMap[ViewNumber, M](),
+        message.message.blockMetadata.blockNumber,
+        new TrieMap[ViewNumber, SignedMessage[M]](),
       )
       .discard
     putIfAbsent(
-      store = map(message.blockMetadata.blockNumber),
-      key = message.viewNumber,
+      store = map(message.message.blockMetadata.blockNumber),
+      key = message.message.viewNumber,
       value = message,
-      storeType = s"$storeType(${message.blockMetadata.blockNumber})",
+      storeType = s"$storeType(${message.message.blockMetadata.blockNumber})",
     )
   }
   private def putIfAbsent[K, V](
@@ -147,55 +151,65 @@ abstract class GenericInMemoryEpochStore[E <: Env[E]]
           .map { case (_, EpochStatus(epochInfo, _)) => epochInfo }
           .getOrElse(Genesis.GenesisEpochInfo)
         val commits =
-          blocks.get(epochInfo.lastBlockNumber).fold[Seq[Commit]](Seq.empty)(_.commits)
+          blocks
+            .get(epochInfo.lastBlockNumber)
+            .fold[Seq[SignedMessage[Commit]]](Seq.empty)(_.commits)
         Epoch(epochInfo, commits)
       }
   }
 
   override def addPrePrepare(
-      prePrepare: PrePrepare
+      prePrepare: SignedMessage[PrePrepare]
   )(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Unit] =
     createFuture(addPrePrepareActionName(prePrepare)) { () =>
       addSingleMessageToMap("pre-prepares", prePreparesMap)(prePrepare)
     }
 
   override def addPrepares(
-      prepares: Seq[Prepare]
+      prepares: Seq[SignedMessage[Prepare]]
   )(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Unit] =
     createFuture(addPreparesActionName) { () =>
       prepares.headOption.fold[Try[Unit]](Success(())) { head =>
         preparesMap
-          .putIfAbsent(head.blockMetadata.blockNumber, TrieMap[ViewNumber, Seq[Prepare]]())
+          .putIfAbsent(
+            head.message.blockMetadata.blockNumber,
+            TrieMap[ViewNumber, Seq[SignedMessage[Prepare]]](),
+          )
           .discard
         putIfAbsent(
-          store = preparesMap(head.blockMetadata.blockNumber),
-          key = head.viewNumber,
+          store = preparesMap(head.message.blockMetadata.blockNumber),
+          key = head.message.viewNumber,
           value = prepares,
-          storeType = s"prepares(${head.blockMetadata.blockNumber})",
+          storeType = s"prepares(${head.message.blockMetadata.blockNumber})",
         )
       }
     }
 
+  @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   override def addViewChangeMessage[M <: ConsensusMessage.PbftViewChangeMessage](
-      viewChangeMessage: M
+      viewChangeMessage: SignedMessage[M]
   )(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Unit] =
     createFuture(addViewChangeMessageActionName(viewChangeMessage)) { () =>
-      viewChangeMessage match {
-        case vc: ViewChange =>
-          addSingleMessageToMap("view-changes", viewChangesMap)(vc)
-        case nv: NewView =>
-          addSingleMessageToMap("new-views", newViewsMap)(nv)
+      viewChangeMessage.message match {
+        case _: ViewChange =>
+          addSingleMessageToMap("view-changes", viewChangesMap)(
+            viewChangeMessage.asInstanceOf[SignedMessage[ViewChange]]
+          )
+        case _: NewView =>
+          addSingleMessageToMap("new-views", newViewsMap)(
+            viewChangeMessage.asInstanceOf[SignedMessage[NewView]]
+          )
       }
     }
 
   override def addOrderedBlock(
-      prePrepare: PrePrepare,
-      commitMessages: Seq[Commit],
+      prePrepare: SignedMessage[PrePrepare],
+      commitMessages: Seq[SignedMessage[Commit]],
   )(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Unit] = {
-    val epochNumber = prePrepare.blockMetadata.epochNumber
-    val blockNumber = prePrepare.blockMetadata.blockNumber
+    val epochNumber = prePrepare.message.blockMetadata.epochNumber
+    val blockNumber = prePrepare.message.blockMetadata.blockNumber
     createFuture(addOrderedBlockActionName(epochNumber, blockNumber)) { () =>
       // we can drop the in progress messages for this block
       preparesMap.remove(blockNumber).discard
@@ -217,14 +231,14 @@ abstract class GenericInMemoryEpochStore[E <: Env[E]]
       Try {
         val blocksInEpoch = blocks.view
           .filter { case (_, CompletedBlock(prePrepare, _)) =>
-            prePrepare.blockMetadata.epochNumber == activeEpochInfo.number
+            prePrepare.message.blockMetadata.epochNumber == activeEpochInfo.number
           }
           .values
           .toSeq
           .map { case CompletedBlock(prePrepare, commits) =>
             Block(
-              prePrepare.blockMetadata.epochNumber,
-              prePrepare.blockMetadata.blockNumber,
+              prePrepare.message.blockMetadata.epochNumber,
+              prePrepare.message.blockMetadata.blockNumber,
               CommitCertificate(prePrepare, commits),
             )
           }
@@ -241,8 +255,8 @@ abstract class GenericInMemoryEpochStore[E <: Env[E]]
           .sortBy(pbftEventSortData)
 
         def messagesForIncompleteBlocks[M <: PbftNetworkMessage](
-            mapView: MapView[BlockNumber, TrieMap[ViewNumber, M]]
-        ): List[PbftNetworkMessage] = mapView
+            mapView: MapView[BlockNumber, TrieMap[ViewNumber, SignedMessage[M]]]
+        ): List[SignedMessage[PbftNetworkMessage]] = mapView
           .filter { case (blockNumber, _) =>
             blockNumber >= activeEpochInfo.startBlockNumber
           }
@@ -258,7 +272,7 @@ abstract class GenericInMemoryEpochStore[E <: Env[E]]
         val pbftMessagesForIncompleteBlocks =
           viewChangesForIncompleteSegments ++ newViewsForIncompleteSegments ++
             (prePreparesForIncompleteBlocks: List[
-              PbftNetworkMessage
+              SignedMessage[PbftNetworkMessage]
             ]) ++ preparesForIncompleteBlocks
         EpochInProgress(blocksInEpoch, pbftMessagesForIncompleteBlocks)
       }
@@ -269,12 +283,12 @@ abstract class GenericInMemoryEpochStore[E <: Env[E]]
       endEpochNumberInclusive: EpochNumber,
   )(implicit
       traceContext: TraceContext
-  ): E#FutureUnlessShutdownT[Seq[PrePrepare]] =
+  ): E#FutureUnlessShutdownT[Seq[SignedMessage[PrePrepare]]] =
     createFuture(loadPrePreparesActionName(startEpochNumberInclusive, endEpochNumberInclusive)) {
       () =>
         val prePrepares = blocks.view
           .filter { case (_, CompletedBlock(prePrepare, _)) =>
-            val epochNumber = prePrepare.blockMetadata.epochNumber
+            val epochNumber = prePrepare.message.blockMetadata.epochNumber
             epochNumber >= startEpochNumberInclusive && epochNumber <= endEpochNumberInclusive
           }
           .values
@@ -296,8 +310,8 @@ abstract class GenericInMemoryEpochStore[E <: Env[E]]
           case (partialResult, next) =>
             partialResult.flatMap { orderedBlocks =>
               val CompletedBlock(prePrepare, _) = next
-              val epochNumber = prePrepare.blockMetadata.epochNumber
-              val blockNumber = prePrepare.blockMetadata.blockNumber
+              val epochNumber = prePrepare.message.blockMetadata.epochNumber
+              val blockNumber = prePrepare.message.blockMetadata.blockNumber
               epochs.get(epochNumber) match {
                 case Some(EpochStatus(epochInfo, _)) =>
                   val isBlockLastInEpoch =
@@ -306,9 +320,9 @@ abstract class GenericInMemoryEpochStore[E <: Env[E]]
                     orderedBlocks :+
                       OrderedBlockForOutput(
                         OrderedBlock(
-                          prePrepare.blockMetadata,
-                          prePrepare.block.proofs,
-                          prePrepare.canonicalCommitSet,
+                          prePrepare.message.blockMetadata,
+                          prePrepare.message.block.proofs,
+                          prePrepare.message.canonicalCommitSet,
                         ),
                         prePrepare.from,
                         isBlockLastInEpoch,
@@ -331,10 +345,13 @@ private object GenericInMemoryEpochStore {
 
   final case class EpochStatus(epochInfo: EpochInfo, isInProgress: Boolean)
 
-  final case class CompletedBlock(prePrepare: PrePrepare, commits: Seq[Commit])
+  final case class CompletedBlock(
+      prePrepare: SignedMessage[PrePrepare],
+      commits: Seq[SignedMessage[Commit]],
+  )
 
-  def pbftEventSortData(pbftEvent: PbftEvent): (BlockNumber, ViewNumber) =
-    (pbftEvent.blockMetadata.blockNumber, pbftEvent.viewNumber)
+  def pbftEventSortData(pbftEvent: SignedMessage[PbftNetworkMessage]): (BlockNumber, ViewNumber) =
+    (pbftEvent.message.blockMetadata.blockNumber, pbftEvent.message.viewNumber)
 }
 
 final class InMemoryEpochStore extends GenericInMemoryEpochStore[PekkoEnv] {

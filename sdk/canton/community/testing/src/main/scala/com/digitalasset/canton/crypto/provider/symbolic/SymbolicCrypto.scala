@@ -78,7 +78,7 @@ class SymbolicCrypto(
   ): SigningPublicKey =
     processE("generate symbolic signing key") { implicit traceContext =>
       // We don't care about the signing key scheme in symbolic crypto
-      generateSigningKey(SigningKeyScheme.Ed25519, usage, name.map(KeyName.tryCreate))
+      generateSigningKey(usage = usage, name = name.map(KeyName.tryCreate))
     }
 
   /** Generates a new symbolic signing keypair but does not store it in the public store */
@@ -88,7 +88,7 @@ class SymbolicCrypto(
     processE("generate symbolic signing keypair") { implicit traceContext =>
       // We don't care about the signing key scheme in symbolic crypto
       privateCrypto
-        .generateSigningKeypair(SigningKeyScheme.Ed25519, usage)
+        .generateSigningKeypair(SigningKeySpec.EcCurve25519, usage)
     }
 
   def generateSymbolicEncryptionKey(
@@ -96,10 +96,7 @@ class SymbolicCrypto(
   ): EncryptionPublicKey =
     processE("generate symbolic encryption key") { implicit traceContext =>
       // We don't care about the encryption key specification in symbolic crypto
-      generateEncryptionKey(
-        privateCrypto.defaultEncryptionKeySpec,
-        name.map(KeyName.tryCreate),
-      )
+      generateEncryptionKey(name = name.map(KeyName.tryCreate))
     }
 
   def newSymbolicEncryptionKeyPair(): EncryptionKeyPair =

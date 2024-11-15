@@ -36,11 +36,11 @@ class TimeoutManager[E <: Env[E], ParentModuleMessageT, TimeoutIdT](
       case Some(previousTimeout) =>
         previousTimeout.cancel().discard
         logger.debug(
-          s"Rescheduling view change timeout w/ duration: $timeout; previous event: $previousTimeout; new event: $timeoutEvent"
+          s"Rescheduling timeout w/ duration: $timeout; previous event: $previousTimeout; new event: $timeoutEvent"
         )
       case None =>
         logger.debug(
-          s"Scheduling new view change timeout w/ duration: $timeout; new event: $timeoutEvent"
+          s"Scheduling new timeout w/ duration: $timeout; new event: $timeoutEvent"
         )
     }
     timeoutCancellable = Some(cancellableEvent)
@@ -49,6 +49,6 @@ class TimeoutManager[E <: Env[E], ParentModuleMessageT, TimeoutIdT](
   def cancelTimeout()(implicit traceContext: TraceContext): Unit = {
     timeoutCancellable.foreach(_.cancel().discard)
     timeoutCancellable = None
-    logger.debug(s"Canceling view change timeout w/ ID: $timeoutId")
+    logger.debug(s"Canceling timeout w/ ID: $timeoutId")
   }
 }

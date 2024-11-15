@@ -5,12 +5,7 @@ package com.digitalasset.canton.data
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{HashOps, Salt}
-import com.digitalasset.canton.protocol.{
-  LfTemplateId,
-  SerializableContract,
-  Stakeholders,
-  TransactionId,
-}
+import com.digitalasset.canton.protocol.{LfTemplateId, SerializableContract, Stakeholders}
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
@@ -49,7 +44,6 @@ trait ReassignmentCommonData extends ProtocolVersionedMemoizedEvidence {
 trait ReassignmentView extends ProtocolVersionedMemoizedEvidence {
   def salt: Salt
   def contract: SerializableContract
-  def creatingTransactionId: TransactionId
   def reassignmentCounter: ReassignmentCounter
 
   def templateId: LfTemplateId =

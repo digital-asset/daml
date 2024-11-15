@@ -15,11 +15,11 @@ import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.daml.lf.archive.DamlLf.Archive
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.Util.{
   PkgIdWithNameAndVersion,
   dependenciesInTopologicalOrder,
 }
-import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.daml.lf.validation.{TypecheckUpgrades, UpgradeError}
 import scalaz.std.either.*
 import scalaz.std.option.*

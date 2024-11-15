@@ -74,6 +74,7 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
       None,
       DeduplicationPeriod.DeduplicationDuration(Duration.ZERO),
       CantonTimestamp.MaxValue,
+      None,
       hashOps,
       testedProtocolVersion,
     )

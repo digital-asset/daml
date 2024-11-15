@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.ledger.api.validation
 
+import cats.implicits.toBifunctorOps
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.value.Identifier
 import com.digitalasset.canton.data.Offset
@@ -13,10 +14,10 @@ import com.digitalasset.canton.ledger.api.validation.ResourceAnnotationValidator
   EmptyAnnotationsValueError,
   InvalidAnnotationsKeyError,
 }
-import com.digitalasset.canton.ledger.api.validation.ValidationErrors.*
+import com.digitalasset.canton.ledger.api.validation.ValidationErrors.{invalidField, *}
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId as TopologyPartyId}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{Party, TypeConRef}
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -40,6 +41,15 @@ object FieldValidator {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Ref.Party] =
     Ref.Party.fromString(s).left.map(invalidField(fieldName, _))
+
+  def requireTopologyPartyIdField(s: String, fieldName: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, TopologyPartyId] = for {
+    lf <- requirePartyField(s, fieldName)
+    id <- TopologyPartyId
+      .fromLfParty(lf)
+      .leftMap(err => invalidField(fieldName = fieldName, message = err))
+  } yield id
 
   def optionalParticipantId(participantId: String, fieldName: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger

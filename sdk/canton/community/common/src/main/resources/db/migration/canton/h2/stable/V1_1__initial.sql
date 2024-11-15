@@ -81,8 +81,8 @@ create table par_contracts (
     ledger_create_time varchar(300) not null,
     -- The request counter of the request that created or divulged the contract
     request_counter bigint not null,
-    -- The transaction that created the contract; null for divulged contracts
-    creating_transaction_id binary large object,
+    -- Whether the contract is known via divulgence
+    is_divulged boolean not null,
     -- We store metadata of the contract instance for inspection
     package_id varchar(300) not null,
     template_id varchar not null,
@@ -879,6 +879,7 @@ create table ord_metadata_output_blocks (
     block_number bigint not null,
     bft_ts bigint not null,
     epoch_could_alter_sequencing_topology bool not null, -- Cumulative over all blocks in the epoch (restart support)
+    pending_topology_changes_in_next_epoch bool not null, -- Possibly true only for last block in epoch
     primary key (block_number)
 );
 

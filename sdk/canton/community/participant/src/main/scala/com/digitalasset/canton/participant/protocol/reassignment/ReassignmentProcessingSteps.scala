@@ -486,14 +486,14 @@ object ReassignmentProcessingSteps {
     override def message: String = s"Cannot fetch time proof for domain `$domainId`: $reason"
   }
 
-  final case class NoReassignmentSubmissionPermission(
-      kind: String,
+  final case class NotHostedOnParticipant(
+      reference: ReassignmentRef,
       party: LfPartyId,
       participantId: ParticipantId,
   ) extends ReassignmentProcessorError {
 
     override def message: String =
-      s"For $kind: $party does not have submission permission on $participantId"
+      s"For $reference: $party is not hosted on $participantId"
   }
 
   final case class StakeholdersMismatch(
@@ -532,13 +532,13 @@ object ReassignmentProcessingSteps {
     )
   }
 
-  final case class AssignmentSubmitterMustBeStakeholder(
-      reassignmentId: ReassignmentId,
+  final case class SubmitterMustBeStakeholder(
+      reference: ReassignmentRef,
       submittingParty: LfPartyId,
       stakeholders: Set[LfPartyId],
   ) extends ReassignmentProcessorError {
     override def message: String =
-      s"Cannot assign `$reassignmentId`: submitter `$submittingParty` is not a stakeholder"
+      s"For$reference: submitter `$submittingParty` is not a stakeholder"
   }
 
   final case class ReassignmentStoreFailed(

@@ -18,6 +18,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   EpochNumber,
   ViewNumber,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.availability.OrderingBlock
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.bfttime.CanonicalCommitSet
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.{
@@ -34,6 +35,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   NewView,
   PbftNestedViewChangeTimeout,
   PbftNormalTimeout,
+  PbftSignedNetworkMessage,
   PbftTimeout,
   PrePrepare,
   Prepare,
@@ -56,6 +58,7 @@ import PbftBlockState.{
   ViewChangeCompleted,
   ViewChangeStartNestedTimer,
 }
+import BftSequencerBaseTest.FakeSigner
 
 class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
@@ -75,12 +78,12 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         segmentState.isBlockComplete(blockNumber) shouldBe false
 
         val prePrepare = createPrePrepare(blockNumber, ViewNumber.First, myId)
-        segmentState.processEvent(prePrepare)
+        segmentState.processEvent(PbftSignedNetworkMessage(prePrepare))
         otherPeers.foreach { peer =>
-          val prepare = createPrepare(blockNumber, ViewNumber.First, peer, prePrepare.hash)
-          val commit = createCommit(blockNumber, ViewNumber.First, peer, prePrepare.hash)
-          segmentState.processEvent(prepare)
-          segmentState.processEvent(commit)
+          val prepare = createPrepare(blockNumber, ViewNumber.First, peer, prePrepare.message.hash)
+          val commit = createCommit(blockNumber, ViewNumber.First, peer, prePrepare.message.hash)
+          segmentState.processEvent(PbftSignedNetworkMessage(prepare))
+          segmentState.processEvent(PbftSignedNetworkMessage(commit))
         }
         segmentState.isBlockComplete(blockNumber) shouldBe false
         segmentState.confirmCompleteBlockStored(blockNumber, ViewNumber.First)
@@ -119,14 +122,16 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       // Create and receive "local" timeout event
       val nextView = ViewNumber(ViewNumber.First + 1)
       val results = assertNoLogs(segment.processEvent(createTimeout(ViewNumber.First)))
-      val message = ViewChange.create(
-        blockMetaData,
-        allPeers.indexOf(originalLeader),
-        nextView,
-        clock.now,
-        Seq.empty,
-        myId,
-      )
+      val message = ViewChange
+        .create(
+          blockMetaData,
+          allPeers.indexOf(originalLeader),
+          nextView,
+          clock.now,
+          Seq.empty,
+          myId,
+        )
+        .fakeSign
       results should contain theSameElementsInOrderAs List(
         SendPbftMessage(
           message,
@@ -146,29 +151,33 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       // Create and receive "local" timeout event
       val nextView = ViewNumber(ViewNumber.First + 1)
       val results = assertNoLogs(segment.processEvent(createTimeout(ViewNumber.First)))
-      val viewChangeMessage = ViewChange.create(
-        blockMetaData,
-        0,
-        nextView,
-        clock.now,
-        Seq.empty,
-        myId,
-      )
-      val newViewMessage = NewView.create(
-        blockMetaData,
-        0,
-        nextView,
-        clock.now,
-        Seq(
-          viewChangeMessage
-        ),
-        Vector(
-          createBottomPrePrepare(slotNumbers(0), nextView, myId),
-          createBottomPrePrepare(slotNumbers(1), nextView, myId),
-          createBottomPrePrepare(slotNumbers(2), nextView, myId),
-        ),
-        from = myId,
-      )
+      val viewChangeMessage = ViewChange
+        .create(
+          blockMetaData,
+          0,
+          nextView,
+          clock.now,
+          Seq.empty,
+          myId,
+        )
+        .fakeSign
+      val newViewMessage = NewView
+        .create(
+          blockMetaData,
+          0,
+          nextView,
+          clock.now,
+          Seq(
+            viewChangeMessage
+          ),
+          Vector(
+            createBottomPrePrepare(slotNumbers(0), nextView, myId),
+            createBottomPrePrepare(slotNumbers(1), nextView, myId),
+            createBottomPrePrepare(slotNumbers(2), nextView, myId),
+          ),
+          from = myId,
+        )
+        .fakeSign
       results.take(4) should contain theSameElementsInOrderAs List(
         SendPbftMessage(
           viewChangeMessage,
@@ -210,11 +219,11 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val view1 = ViewNumber.First
       val block1 = slotNumbers.head1
       val pp1 = createPrePrepare(block1, view1, from = myId)
-      val myCommit = createCommit(block1, view1, from = myId, pp1.hash)
+      val myCommit = createCommit(block1, view1, from = myId, pp1.message.hash)
 
       // Complete slotNumbers.head1 in view; in a 1-node network, processing the PrePrepare produces
       // local Prepare, local Commit, and CompletedBlock processResults
-      val _ = assertNoLogs(segment.processEvent(pp1))
+      val _ = assertNoLogs(segment.processEvent(PbftSignedNetworkMessage(pp1)))
       segment.confirmCompleteBlockStored(block1, view1)
       segment.isBlockComplete(block1) shouldBe true
 
@@ -222,29 +231,33 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val nextView = ViewNumber(ViewNumber.First + 1)
       val results = assertNoLogs(segment.processEvent(createTimeout(ViewNumber.First)))
       val commitCertificate = CommitCertificate(pp1, Seq(myCommit))
-      val viewChangeMessage = ViewChange.create(
-        blockMetaData,
-        0,
-        nextView,
-        clock.now,
-        Seq(commitCertificate),
-        myId,
-      )
-      val newViewMessage = NewView.create(
-        blockMetaData,
-        0,
-        nextView,
-        clock.now,
-        Seq(
-          viewChangeMessage
-        ),
-        Vector(
-          pp1,
-          createBottomPrePrepare(slotNumbers(1), nextView, myId),
-          createBottomPrePrepare(slotNumbers(2), nextView, myId),
-        ),
-        from = myId,
-      )
+      val viewChangeMessage = ViewChange
+        .create(
+          blockMetaData,
+          0,
+          nextView,
+          clock.now,
+          Seq(commitCertificate),
+          myId,
+        )
+        .fakeSign
+      val newViewMessage = NewView
+        .create(
+          blockMetaData,
+          0,
+          nextView,
+          clock.now,
+          Seq(
+            viewChangeMessage
+          ),
+          Vector(
+            pp1,
+            createBottomPrePrepare(slotNumbers(1), nextView, myId),
+            createBottomPrePrepare(slotNumbers(2), nextView, myId),
+          ),
+          from = myId,
+        )
+        .fakeSign
       results.take(4) should contain theSameElementsInOrderAs List(
         SendPbftMessage(
           viewChangeMessage,
@@ -261,7 +274,7 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       // block1 is completing again now as part of a view change, but since it has completed previously
       // we do not return its completion again
       val newCompletedBlocks = results.drop(4).collect { case c: CompletedBlock =>
-        c.prePrepare.blockMetadata
+        c.prePrepare.message.blockMetadata
       }
       newCompletedBlocks should have size 2
       newCompletedBlocks should contain theSameElementsAs Seq(
@@ -287,9 +300,9 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
       val pp1 = createPrePrepare(block1, view1, from = otherPeer1)
       val commits = Seq(
-        createCommit(block1, view1, from = otherPeer1, pp1.hash),
-        createCommit(block1, view1, from = otherPeer2, pp1.hash),
-        createCommit(block1, view1, from = otherPeer3, pp1.hash),
+        createCommit(block1, view1, from = otherPeer1, pp1.message.hash),
+        createCommit(block1, view1, from = otherPeer2, pp1.message.hash),
+        createCommit(block1, view1, from = otherPeer3, pp1.message.hash),
       )
       val commitCertificate = CommitCertificate(pp1, commits)
 
@@ -298,31 +311,35 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
       // this view change message from another peer contains a commit certificate for block1
       // which is included in the new-view message
-      val viewChangeMessage = ViewChange.create(
-        blockMetaData,
-        segmentIndex,
-        view2,
-        clock.now,
-        Seq(commitCertificate),
-        otherPeer1,
-      )
-      val newViewMessage = NewView.create(
-        blockMetaData,
-        segmentIndex,
-        view2,
-        clock.now,
-        Seq(
-          viewChangeMessage
-        ),
-        Vector(
-          pp1,
-          bottomPP1,
-          bottomPP2,
-        ),
-        from = otherPeer1,
-      )
+      val viewChangeMessage = ViewChange
+        .create(
+          blockMetaData,
+          segmentIndex,
+          view2,
+          clock.now,
+          Seq(commitCertificate),
+          otherPeer1,
+        )
+        .fakeSign
+      val newViewMessage = NewView
+        .create(
+          blockMetaData,
+          segmentIndex,
+          view2,
+          clock.now,
+          Seq(
+            viewChangeMessage
+          ),
+          Vector(
+            pp1,
+            bottomPP1,
+            bottomPP2,
+          ),
+          from = otherPeer1,
+        )
+        .fakeSign
 
-      val results = assertNoLogs(segment.processEvent(newViewMessage))
+      val results = assertNoLogs(segment.processEvent(PbftSignedNetworkMessage(newViewMessage)))
       segment.isViewChangeInProgress shouldBe false
       segment.currentView shouldBe view2
 
@@ -336,25 +353,27 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         // block one gets completed as see in the presence of the result below and the absence of prepares for it
         CompletedBlock(pp1, commits, view2),
         SendPbftMessage(
-          createPrepare(slotNumbers(1), view2, myId, bottomPP1.hash),
+          createPrepare(slotNumbers(1), view2, myId, bottomPP1.message.hash),
           store = Some(StorePrePrepare(bottomPP1)),
         ),
         SendPbftMessage(
-          createPrepare(slotNumbers(2), view2, myId, bottomPP2.hash),
+          createPrepare(slotNumbers(2), view2, myId, bottomPP2.message.hash),
           store = Some(StorePrePrepare(bottomPP2)),
         ),
       )
 
       // in the case of a timeout in the new view, this node will propagate the commit certificate
       val results2 = segment.processEvent(createTimeout(view2))
-      val myViewChangeMessage = ViewChange.create(
-        blockMetaData,
-        segmentIndex,
-        view3,
-        clock.now,
-        Seq(commitCertificate),
-        myId,
-      )
+      val myViewChangeMessage = ViewChange
+        .create(
+          blockMetaData,
+          segmentIndex,
+          view3,
+          clock.now,
+          Seq(commitCertificate),
+          myId,
+        )
+        .fakeSign
       results2 should contain theSameElementsInOrderAs List(
         SendPbftMessage(
           myViewChangeMessage,
@@ -377,18 +396,23 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val nextView = ViewNumber(ViewNumber.First + 1)
       def viewChangeMessage(from: SequencerId = otherPeer2) =
         createViewChange(nextView, from = from, originalLeader, Seq.empty)
-      val results1 = assertNoLogs(segment.processEvent(viewChangeMessage()))
+      val results1 =
+        assertNoLogs(segment.processEvent(PbftSignedNetworkMessage(viewChangeMessage())))
       results1 shouldBe empty
 
-      val results2 = assertNoLogs(segment.processEvent(viewChangeMessage(from = otherPeer3)))
-      val viewChangeMessage2 = ViewChange.create(
-        blockMetaData,
-        allPeers.indexOf(originalLeader),
-        nextView,
-        clock.now,
-        Seq.empty,
-        from = myId,
+      val results2 = assertNoLogs(
+        segment.processEvent(PbftSignedNetworkMessage(viewChangeMessage(from = otherPeer3)))
       )
+      val viewChangeMessage2 = ViewChange
+        .create(
+          blockMetaData,
+          allPeers.indexOf(originalLeader),
+          nextView,
+          clock.now,
+          Seq.empty,
+          from = myId,
+        )
+        .fakeSign
       results2 should contain theSameElementsInOrderAs List(
         SendPbftMessage(
           viewChangeMessage2,
@@ -417,30 +441,38 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       segment.isViewChangeInProgress shouldBe false
 
       // Create and receive f+1 view change messages from peers
-      assertNoLogs(segment.processEvent(viewChangeMessage())) shouldBe empty
+      assertNoLogs(
+        segment.processEvent(PbftSignedNetworkMessage(viewChangeMessage()))
+      ) shouldBe empty
 
-      val results = assertNoLogs(segment.processEvent(viewChangeMessage(from = otherPeer2)))
-      val myViewChangeMessage = ViewChange.create(
-        blockMetaData,
-        originalSegmentIndex,
-        nextView,
-        clock.now,
-        Seq.empty,
-        from = myId,
+      val results = assertNoLogs(
+        segment.processEvent(PbftSignedNetworkMessage(viewChangeMessage(from = otherPeer2)))
       )
-      val newViewMessage = NewView.create(
-        blockMetaData,
-        originalSegmentIndex,
-        nextView,
-        clock.now,
-        Seq(
-          viewChangeMessage(),
-          viewChangeMessage(from = otherPeer2),
-          viewChangeMessage(from = myId),
-        ),
-        Vector(botBlock0, botBlock1, botBlock2),
-        from = myId,
-      )
+      val myViewChangeMessage = ViewChange
+        .create(
+          blockMetaData,
+          originalSegmentIndex,
+          nextView,
+          clock.now,
+          Seq.empty,
+          from = myId,
+        )
+        .fakeSign
+      val newViewMessage = NewView
+        .create(
+          blockMetaData,
+          originalSegmentIndex,
+          nextView,
+          clock.now,
+          Seq(
+            viewChangeMessage(),
+            viewChangeMessage(from = otherPeer2),
+            viewChangeMessage(from = myId),
+          ),
+          Vector(botBlock0, botBlock1, botBlock2),
+          from = myId,
+        )
+        .fakeSign
       results should contain theSameElementsInOrderAs List(
         SendPbftMessage(
           myViewChangeMessage,
@@ -453,14 +485,17 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         ),
         ViewChangeCompleted(blockMetaData, nextView, store = None),
         SendPbftMessage(
-          createPrepare(slotNumbers(0), nextView, myId, botBlock0.hash),
+          createPrepare(slotNumbers(0), nextView, myId, botBlock0.message.hash),
           store = None,
         ),
         SendPbftMessage(
-          createPrepare(slotNumbers(1), nextView, myId, botBlock1.hash),
+          createPrepare(slotNumbers(1), nextView, myId, botBlock1.message.hash),
           store = None,
         ),
-        SendPbftMessage(createPrepare(slotNumbers(2), nextView, myId, botBlock2.hash), store = None),
+        SendPbftMessage(
+          createPrepare(slotNumbers(2), nextView, myId, botBlock2.message.hash),
+          store = None,
+        ),
       )
 
       // The local node should have completed the view change by sending a NewView after collecting enough ViewChanges
@@ -478,20 +513,25 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val futureView = ViewNumber(5L)
       def viewChangeMessage5(from: SequencerId = otherPeer1) =
         createViewChange(futureView, from = from, originalLeader, Seq.empty)
-      val results1 = assertNoLogs(segment.processEvent(viewChangeMessage5()))
+      val results1 =
+        assertNoLogs(segment.processEvent(PbftSignedNetworkMessage(viewChangeMessage5())))
       results1 shouldBe empty
       segment.isViewChangeInProgress shouldBe false
 
       val results2 =
-        assertNoLogs(segment.processEvent(viewChangeMessage5(from = otherPeer2)))
-      val myViewChangeMessage5 = ViewChange.create(
-        blockMetaData,
-        allPeers.indexOf(originalLeader),
-        futureView,
-        clock.now,
-        Seq.empty,
-        from = myId,
-      )
+        assertNoLogs(
+          segment.processEvent(PbftSignedNetworkMessage(viewChangeMessage5(from = otherPeer2)))
+        )
+      val myViewChangeMessage5 = ViewChange
+        .create(
+          blockMetaData,
+          allPeers.indexOf(originalLeader),
+          futureView,
+          clock.now,
+          Seq.empty,
+          from = myId,
+        )
+        .fakeSign
       results2 should contain theSameElementsInOrderAs List(
         SendPbftMessage(
           myViewChangeMessage5,
@@ -509,19 +549,24 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val evenFurtherView = ViewNumber(21L)
       def viewChangeMessage21(from: SequencerId = otherPeer1) =
         createViewChange(evenFurtherView, from = from, originalLeader, Seq.empty)
-      val results3 = assertNoLogs(segment.processEvent(viewChangeMessage21()))
+      val results3 =
+        assertNoLogs(segment.processEvent(PbftSignedNetworkMessage(viewChangeMessage21())))
       results3 shouldBe empty
 
       val results4 =
-        assertNoLogs(segment.processEvent(viewChangeMessage21(from = otherPeer2)))
-      val myViewChangeMessageEvenFurther = ViewChange.create(
-        blockMetaData,
-        allPeers.indexOf(originalLeader),
-        evenFurtherView,
-        clock.now,
-        Seq.empty,
-        from = myId,
-      )
+        assertNoLogs(
+          segment.processEvent(PbftSignedNetworkMessage(viewChangeMessage21(from = otherPeer2)))
+        )
+      val myViewChangeMessageEvenFurther = ViewChange
+        .create(
+          blockMetaData,
+          allPeers.indexOf(originalLeader),
+          evenFurtherView,
+          clock.now,
+          Seq.empty,
+          from = myId,
+        )
+        .fakeSign
       results4 should contain theSameElementsInOrderAs List(
         SendPbftMessage(
           myViewChangeMessageEvenFurther,
@@ -545,8 +590,10 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       // Create and receive f+1 view change messages from peers
       def viewChangeMessage(from: SequencerId = otherPeer2) =
         createViewChange(nextView, from = from, originalLeader, Seq.empty)
-      assertNoLogs(segment.processEvent(viewChangeMessage()))
-      assertNoLogs(segment.processEvent(viewChangeMessage(from = otherPeer3)))
+      assertNoLogs(segment.processEvent(PbftSignedNetworkMessage(viewChangeMessage())))
+      assertNoLogs(
+        segment.processEvent(PbftSignedNetworkMessage(viewChangeMessage(from = otherPeer3)))
+      )
 
       // Create new view message for later, but don't process yet
       val ppBottom1 = createBottomPrePrepare(slotNumbers(0), nextView, from = otherPeer1)
@@ -567,11 +614,11 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
       // Simulate receiving early Prepare messages (for nextView) before receiving the new view message
       def prepare1(from: SequencerId = myId) =
-        createPrepare(slotNumbers(0), nextView, from = from, ppBottom1.hash)
-      val prepare2 = createPrepare(slotNumbers(1), nextView, from = myId, ppBottom2.hash)
-      val prepare3 = createPrepare(slotNumbers(2), nextView, from = myId, ppBottom3.hash)
+        createPrepare(slotNumbers(0), nextView, from = from, ppBottom1.message.hash)
+      val prepare2 = createPrepare(slotNumbers(1), nextView, from = myId, ppBottom2.message.hash)
+      val prepare3 = createPrepare(slotNumbers(2), nextView, from = myId, ppBottom3.message.hash)
       assertLogs(
-        segment.processEvent(prepare1(from = otherPeer1)),
+        segment.processEvent(PbftSignedNetworkMessage(prepare1(from = otherPeer1))),
         log => {
           log.level shouldBe INFO
           log.message should include("early PbftNormalCaseMessage")
@@ -580,7 +627,7 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       segment.futureQueueSize shouldBe 1
 
       assertLogs(
-        segment.processEvent(prepare1(from = otherPeer2)),
+        segment.processEvent(PbftSignedNetworkMessage(prepare1(from = otherPeer2))),
         log => {
           log.level shouldBe INFO
           log.message should include("early PbftNormalCaseMessage")
@@ -590,9 +637,9 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
       // Simulate receiving an early message from an even more future view
       val prepareFuture =
-        createPrepare(slotNumbers(1), nextView + 1, from = otherPeer2, ppBottom2.hash)
+        createPrepare(slotNumbers(1), nextView + 1, from = otherPeer2, ppBottom2.message.hash)
       assertLogs(
-        segment.processEvent(prepareFuture),
+        segment.processEvent(PbftSignedNetworkMessage(prepareFuture)),
         log => {
           log.level shouldBe INFO
           log.message should include("early PbftNormalCaseMessage")
@@ -603,18 +650,20 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
       // Now, process the new view message. Upon completing the view change, two of the three queued future
       // prepares should also be processed, resulting in the local node sending a Commit for slot 0
-      val results = assertNoLogs(segment.processEvent(newView))
+      val results = assertNoLogs(segment.processEvent(PbftSignedNetworkMessage(newView)))
       results should contain theSameElementsInOrderAs List(
         ViewChangeCompleted(blockMetaData, nextView, store = Some(StoreViewChangeMessage(newView))),
         SendPbftMessage(prepare1(), Some(StorePrePrepare(ppBottom1))),
         SendPbftMessage(
-          Commit.create(
-            blockMetaData,
-            nextView,
-            prepare1().hash,
-            prepare1().localTimestamp,
-            from = myId,
-          ),
+          Commit
+            .create(
+              blockMetaData,
+              nextView,
+              prepare1().message.hash,
+              prepare1().message.localTimestamp,
+              from = myId,
+            )
+            .fakeSign,
           Some(
             StorePrepares(
               Seq(prepare1(), prepare1(from = otherPeer1), prepare1(from = otherPeer2))
@@ -642,14 +691,16 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
       // Initial view change due to local timeout; move from firstView to secondView
       var results = assertNoLogs(segment.processEvent(createTimeout(firstView)))
-      val viewChangeFromTimeout = ViewChange.create(
-        blockMetaData,
-        segmentIndex = originalLeaderIndex,
-        secondView,
-        clock.now,
-        Seq.empty,
-        myId,
-      )
+      val viewChangeFromTimeout = ViewChange
+        .create(
+          blockMetaData,
+          segmentIndex = originalLeaderIndex,
+          secondView,
+          clock.now,
+          Seq.empty,
+          myId,
+        )
+        .fakeSign
       results should contain theSameElementsInOrderAs List(
         SendPbftMessage(
           viewChangeFromTimeout,
@@ -662,11 +713,19 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       // Simulate nested view change:
       // - process 2f+1 total view change message for secondView
       results = assertNoLogs(
-        segment.processEvent(createViewChange(secondView, otherPeer1, originalLeader, Seq.empty))
+        segment.processEvent(
+          PbftSignedNetworkMessage(
+            createViewChange(secondView, otherPeer1, originalLeader, Seq.empty)
+          )
+        )
       )
       results shouldBe empty
       results = assertNoLogs(
-        segment.processEvent(createViewChange(secondView, otherPeer2, originalLeader, Seq.empty))
+        segment.processEvent(
+          PbftSignedNetworkMessage(
+            createViewChange(secondView, otherPeer2, originalLeader, Seq.empty)
+          )
+        )
       )
       results should contain theSameElementsInOrderAs List(
         ViewChangeStartNestedTimer(blockMetaData, secondView)
@@ -676,14 +735,16 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
       // - then process local timeout of secondView to move to thirdView
       results = assertNoLogs(segment.processEvent(createTimeout(secondView, nested = true)))
-      val viewChangeFromNewTimeout = ViewChange.create(
-        blockMetaData,
-        allPeers.indexOf(originalLeader),
-        thirdView,
-        clock.now,
-        Seq.empty,
-        myId,
-      )
+      val viewChangeFromNewTimeout = ViewChange
+        .create(
+          blockMetaData,
+          allPeers.indexOf(originalLeader),
+          thirdView,
+          clock.now,
+          Seq.empty,
+          myId,
+        )
+        .fakeSign
       results should contain theSameElementsInOrderAs List(
         SendPbftMessage(
           viewChangeFromNewTimeout,
@@ -699,9 +760,9 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val thirdViewLeader = computeLeaderOfView(thirdView, originalLeaderIndex, allPeers)
       def viewChangeMessage(from: SequencerId = otherPeer1) =
         createViewChange(thirdView, from = from, originalLeader, Seq.empty)
-      val _ = assertNoLogs(segment.processEvent(viewChangeMessage()))
-      segment.processEvent(viewChangeMessage(from = otherPeer2))
-      val bottomBlocks: Seq[PrePrepare] = Seq(
+      val _ = assertNoLogs(segment.processEvent(PbftSignedNetworkMessage(viewChangeMessage())))
+      segment.processEvent(PbftSignedNetworkMessage(viewChangeMessage(from = otherPeer2)))
+      val bottomBlocks: Seq[SignedMessage[PrePrepare]] = Seq(
         createBottomPrePrepare(slotNumbers(0), thirdView, thirdViewLeader),
         createBottomPrePrepare(slotNumbers(1), thirdView, thirdViewLeader),
         createBottomPrePrepare(slotNumbers(2), thirdView, thirdViewLeader),
@@ -717,29 +778,42 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         ),
         bottomBlocks,
       )
-      val _ = assertNoLogs(segment.processEvent(newView))
+      val _ = assertNoLogs(segment.processEvent(PbftSignedNetworkMessage(newView)))
 
       // For each slot, finish receiving prepares and commits, and confirm DB storage to complete block
       slotNumbers.zipWithIndex.foreach { case (blockNumber, idx) =>
         val _ = assertNoLogs(
           segment.processEvent(
-            createPrepare(blockNumber, thirdView, otherPeer1, bottomBlocks(idx).hash)
+            PbftSignedNetworkMessage(
+              createPrepare(blockNumber, thirdView, otherPeer1, bottomBlocks(idx).message.hash)
+            )
           )
         )
         val _ = assertNoLogs(
           segment.processEvent(
-            createPrepare(blockNumber, thirdView, thirdViewLeader, bottomBlocks(idx).hash)
+            PbftSignedNetworkMessage(
+              createPrepare(blockNumber, thirdView, thirdViewLeader, bottomBlocks(idx).message.hash)
+            )
           )
         )
         val _ = assertNoLogs(
           segment.processEvent(
-            createCommit(blockNumber, thirdView, otherPeer1, bottomBlocks(idx).hash)
+            PbftSignedNetworkMessage(
+              createCommit(blockNumber, thirdView, otherPeer1, bottomBlocks(idx).message.hash)
+            )
           )
         )
         val _ = assertNoLogs(
           segment
             .processEvent(
-              createCommit(blockNumber, thirdView, thirdViewLeader, bottomBlocks(idx).hash)
+              PbftSignedNetworkMessage(
+                createCommit(
+                  blockNumber,
+                  thirdView,
+                  thirdViewLeader,
+                  bottomBlocks(idx).message.hash,
+                )
+              )
             )
         )
 
@@ -769,25 +843,41 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val ppBottom3 = createBottomPrePrepare(block3, view2, from = otherPeer1)
 
       // Complete slotNumbers(0) in view1
-      val _ = assertNoLogs(segment.processEvent(pp1))
-      val _ = assertNoLogs(segment.processEvent(createPrepare(block1, view1, otherPeer1, pp1.hash)))
-      val _ = assertNoLogs(segment.processEvent(createPrepare(block1, view1, otherPeer2, pp1.hash)))
-      val _ = assertNoLogs(segment.processEvent(createCommit(block1, view1, otherPeer1, pp1.hash)))
-      val _ = assertNoLogs(segment.processEvent(createCommit(block1, view1, otherPeer2, pp1.hash)))
+      val _ = assertNoLogs(segment.processEvent(PbftSignedNetworkMessage(pp1)))
+      val _ = assertNoLogs(
+        segment.processEvent(
+          PbftSignedNetworkMessage(createPrepare(block1, view1, otherPeer1, pp1.message.hash))
+        )
+      )
+      val _ = assertNoLogs(
+        segment.processEvent(
+          PbftSignedNetworkMessage(createPrepare(block1, view1, otherPeer2, pp1.message.hash))
+        )
+      )
+      val _ = assertNoLogs(
+        segment.processEvent(
+          PbftSignedNetworkMessage(createCommit(block1, view1, otherPeer1, pp1.message.hash))
+        )
+      )
+      val _ = assertNoLogs(
+        segment.processEvent(
+          PbftSignedNetworkMessage(createCommit(block1, view1, otherPeer2, pp1.message.hash))
+        )
+      )
       // note: local commit from myId is already created as part of processing logic
       segment.confirmCompleteBlockStored(block1, view1)
       segment.isBlockComplete(block1) shouldBe true
 
       // Simulate a local timeout via PbftTimeout event
       var results = assertNoLogs(segment.processEvent(createTimeout(view1)))
-      inside(results) { case Seq(SendPbftMessage(vc: ViewChange, _)) =>
+      inside(results) { case Seq(SendPbftMessage(SignedMessage(vc: ViewChange, _), _)) =>
         vc.consensusCerts should have size 1
         vc.consensusCerts.head.prePrepare shouldBe pp1
         inside(vc.consensusCerts.head) { case cc: CommitCertificate =>
           cc.commits should contain theSameElementsInOrderAs Seq(
-            createCommit(block1, view1, otherPeer1, pp1.hash),
-            createCommit(block1, view1, otherPeer2, pp1.hash),
-            createCommit(block1, view1, myId, pp1.hash),
+            createCommit(block1, view1, otherPeer1, pp1.message.hash),
+            createCommit(block1, view1, otherPeer2, pp1.message.hash),
+            createCommit(block1, view1, myId, pp1.message.hash),
           )
         }
       }
@@ -806,23 +896,27 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         originalLeader,
         Seq(slotNumbers(0) -> view1),
       )
-      val _ = assertNoLogs(segment.processEvent(viewChangeMsgForView2()))
+      val _ = assertNoLogs(segment.processEvent(PbftSignedNetworkMessage(viewChangeMsgForView2())))
       segment.isViewChangeInProgress shouldBe true
-      val _ = assertNoLogs(segment.processEvent(viewChangeMsgForView2(from = otherPeer2)))
+      val _ = assertNoLogs(
+        segment.processEvent(PbftSignedNetworkMessage(viewChangeMsgForView2(from = otherPeer2)))
+      )
       segment.isViewChangeInProgress shouldBe true
       val _ = assertNoLogs(
         segment
           .processEvent(
-            createNewView(
-              view2,
-              otherPeer1,
-              originalLeader,
-              Seq(
-                viewChangeMsgForView2(from = myId),
-                viewChangeMsgForView2(),
-                viewChangeMsgForView2(from = otherPeer2),
-              ),
-              Seq(pp1, ppBottom2, ppBottom3),
+            PbftSignedNetworkMessage(
+              createNewView(
+                view2,
+                otherPeer1,
+                originalLeader,
+                Seq(
+                  viewChangeMsgForView2(from = myId),
+                  viewChangeMsgForView2(),
+                  viewChangeMsgForView2(from = otherPeer2),
+                ),
+                Seq(pp1, ppBottom2, ppBottom3),
+              )
             )
           )
       )
@@ -832,35 +926,55 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
       // Next, simulate some progress being made when view1 is active
       // Suppose block1 (slot0) achieves a fresh prepare certificate in view2 (note: myPrepare already processed)
-      val _ = assertNoLogs(segment.processEvent(createPrepare(block1, view2, otherPeer2, pp1.hash)))
-      val _ = assertNoLogs(segment.processEvent(createPrepare(block1, view2, otherPeer3, pp1.hash)))
+      val _ = assertNoLogs(
+        segment.processEvent(
+          PbftSignedNetworkMessage(createPrepare(block1, view2, otherPeer2, pp1.message.hash))
+        )
+      )
+      val _ = assertNoLogs(
+        segment.processEvent(
+          PbftSignedNetworkMessage(createPrepare(block1, view2, otherPeer3, pp1.message.hash))
+        )
+      )
 
       // Suppose block2 (slot1) achieves a prepare certificate in view2 (note: myPrepare already processed)
       val _ =
-        assertNoLogs(segment.processEvent(createPrepare(block2, view2, otherPeer2, ppBottom2.hash)))
+        assertNoLogs(
+          segment.processEvent(
+            PbftSignedNetworkMessage(
+              createPrepare(block2, view2, otherPeer2, ppBottom2.message.hash)
+            )
+          )
+        )
       val _ =
-        assertNoLogs(segment.processEvent(createPrepare(block2, view2, otherPeer3, ppBottom2.hash)))
+        assertNoLogs(
+          segment.processEvent(
+            PbftSignedNetworkMessage(
+              createPrepare(block2, view2, otherPeer3, ppBottom2.message.hash)
+            )
+          )
+        )
       segment.isBlockComplete(block2) shouldBe false
 
       // Simulate next view change via local timeout again, expecting prepareCert for block1 and block2
       results = assertNoLogs(segment.processEvent(createTimeout(view2)))
-      inside(results) { case Seq(SendPbftMessage(vc: ViewChange, _)) =>
+      inside(results) { case Seq(SendPbftMessage(SignedMessage(vc: ViewChange, _), _)) =>
         vc.consensusCerts should have size 2
         // For block1, we expect PrePrepare from original view1 but Prepares from new view2
         vc.consensusCerts.head.prePrepare shouldBe pp1
         inside(vc.consensusCerts.head) { case pc: PrepareCertificate =>
           pc.prepares should contain theSameElementsInOrderAs Seq(
-            createPrepare(block1, view2, otherPeer2, pp1.hash),
-            createPrepare(block1, view2, otherPeer3, pp1.hash),
-            createPrepare(block1, view2, myId, pp1.hash),
+            createPrepare(block1, view2, otherPeer2, pp1.message.hash),
+            createPrepare(block1, view2, otherPeer3, pp1.message.hash),
+            createPrepare(block1, view2, myId, pp1.message.hash),
           )
         }
         vc.consensusCerts(1).prePrepare shouldBe ppBottom2
         inside(vc.consensusCerts(1)) { case pc: PrepareCertificate =>
           pc.prepares should contain theSameElementsInOrderAs Seq(
-            createPrepare(block2, view2, otherPeer2, ppBottom2.hash),
-            createPrepare(block2, view2, otherPeer3, ppBottom2.hash),
-            createPrepare(block2, view2, myId, ppBottom2.hash),
+            createPrepare(block2, view2, otherPeer2, ppBottom2.message.hash),
+            createPrepare(block2, view2, otherPeer3, ppBottom2.message.hash),
+            createPrepare(block2, view2, myId, ppBottom2.message.hash),
           )
         }
       }
@@ -874,23 +988,26 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         originalLeader,
         Seq(slotNumbers(0) -> view1, slotNumbers(1) -> view2),
       )
-      val _ = assertNoLogs(segment.processEvent(viewChangeMsgForView3()))
-      results = segment.processEvent(viewChangeMsgForView3(from = otherPeer2))
+      val _ = assertNoLogs(segment.processEvent(PbftSignedNetworkMessage(viewChangeMsgForView3())))
+      results =
+        segment.processEvent(PbftSignedNetworkMessage(viewChangeMsgForView3(from = otherPeer2)))
       results should contain theSameElementsInOrderAs List(
         ViewChangeStartNestedTimer(BlockMetadata(epochInfo.number, block1), view3)
       )
       segment.isViewChangeInProgress shouldBe true
       segment.processEvent(
-        createNewView(
-          view3,
-          otherPeer2,
-          originalLeader,
-          Seq(
-            viewChangeMsgForView3(from = myId),
-            viewChangeMsgForView3(),
-            viewChangeMsgForView3(from = otherPeer2),
-          ),
-          Seq(pp1, ppBottom2, createBottomPrePrepare(block3, view3, otherPeer2)),
+        PbftSignedNetworkMessage(
+          createNewView(
+            view3,
+            otherPeer2,
+            originalLeader,
+            Seq(
+              viewChangeMsgForView3(from = myId),
+              viewChangeMsgForView3(),
+              viewChangeMsgForView3(from = otherPeer2),
+            ),
+            Seq(pp1, ppBottom2, createBottomPrePrepare(block3, view3, otherPeer2)),
+          )
         )
       )
       segment.isViewChangeInProgress shouldBe false
@@ -920,16 +1037,18 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val results = assertNoLogs(
         segment
           .processEvent(
-            createNewView(
-              view2,
-              otherPeer1,
-              originalLeader,
-              Seq(
-                viewChangeMsgForView2(from = myId),
-                viewChangeMsgForView2(),
-                viewChangeMsgForView2(from = otherPeer2),
-              ),
-              Seq(pp1, ppBottom2, ppBottom3),
+            PbftSignedNetworkMessage(
+              createNewView(
+                view2,
+                otherPeer1,
+                originalLeader,
+                Seq(
+                  viewChangeMsgForView2(from = myId),
+                  viewChangeMsgForView2(),
+                  viewChangeMsgForView2(from = otherPeer2),
+                ),
+                Seq(pp1, ppBottom2, ppBottom3),
+              )
             )
           )
       )
@@ -937,9 +1056,9 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       results should matchPattern {
         case List(
               _: ViewChangeCompleted,
-              SendPbftMessage(_: Prepare, _),
-              SendPbftMessage(_: Prepare, _),
-              SendPbftMessage(_: Prepare, _),
+              SendPbftMessage(SignedMessage(_: Prepare, _), _),
+              SendPbftMessage(SignedMessage(_: Prepare, _), _),
+              SendPbftMessage(SignedMessage(_: Prepare, _), _),
             ) =>
       }
 
@@ -966,13 +1085,13 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val ppBottom2 = createBottomPrePrepare(slotNumbers(1), view2, from = otherPeer1)
       val ppBottom3 = createBottomPrePrepare(slotNumbers(2), view2, from = otherPeer1)
 
-      val prepare1 = createPrepare(slotNumbers(0), view2, from = myId, pp1.hash)
-      val prepare2 = createPrepare(slotNumbers(1), view2, from = myId, ppBottom2.hash)
-      val prepare3 = createPrepare(slotNumbers(2), view2, from = myId, ppBottom3.hash)
+      val prepare1 = createPrepare(slotNumbers(0), view2, from = myId, pp1.message.hash)
+      val prepare2 = createPrepare(slotNumbers(1), view2, from = myId, ppBottom2.message.hash)
+      val prepare3 = createPrepare(slotNumbers(2), view2, from = myId, ppBottom3.message.hash)
 
-      segment.processEvent(prepare1) shouldBe empty
-      segment.processEvent(prepare2) shouldBe empty
-      segment.processEvent(prepare3) shouldBe empty
+      segment.processEvent(PbftSignedNetworkMessage(prepare1)) shouldBe empty
+      segment.processEvent(PbftSignedNetworkMessage(prepare2)) shouldBe empty
+      segment.processEvent(PbftSignedNetworkMessage(prepare3)) shouldBe empty
 
       // getting new-view message without having gotten any view-change messages
       // although this could indeed happen in real life, it is more commonly seen during rehydration of messages
@@ -980,16 +1099,18 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val results = assertNoLogs(
         segment
           .processEvent(
-            createNewView(
-              view2,
-              otherPeer1,
-              originalLeader,
-              Seq(
-                viewChangeMsgForView2(from = myId),
-                viewChangeMsgForView2(),
-                viewChangeMsgForView2(from = otherPeer2),
-              ),
-              Seq(pp1, ppBottom2, ppBottom3),
+            PbftSignedNetworkMessage(
+              createNewView(
+                view2,
+                otherPeer1,
+                originalLeader,
+                Seq(
+                  viewChangeMsgForView2(from = myId),
+                  viewChangeMsgForView2(),
+                  viewChangeMsgForView2(from = otherPeer2),
+                ),
+                Seq(pp1, ppBottom2, ppBottom3),
+              )
             )
           )
       )
@@ -997,9 +1118,9 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       inside(results) {
         case List(
               _: ViewChangeCompleted,
-              SendPbftMessage(p1: Prepare, _),
-              SendPbftMessage(p2: Prepare, _),
-              SendPbftMessage(p3: Prepare, _),
+              SendPbftMessage(p1 @ SignedMessage(_: Prepare, _), _),
+              SendPbftMessage(p2 @ SignedMessage(_: Prepare, _), _),
+              SendPbftMessage(p3 @ SignedMessage(_: Prepare, _), _),
             ) =>
           // because we advanced the clock time, this would fail if new prepares were being created, with different timestamps
           p1 shouldBe prepare1
@@ -1026,7 +1147,8 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       )
 
       clock.advance(Duration.ofMinutes(5))
-      val results = assertNoLogs(segment.processEvent(viewChangeMsgForView2))
+      val results =
+        assertNoLogs(segment.processEvent(PbftSignedNetworkMessage(viewChangeMsgForView2)))
       results shouldBe Seq(SendPbftMessage(viewChangeMsgForView2, None))
 
       segment.currentView shouldBe view2
@@ -1053,6 +1175,8 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 }
 
 object SegmentStateTest {
+  import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
+
   val myId: SequencerId = fakeSequencerId("self")
   val otherPeers: IndexedSeq[SequencerId] = (1 to 3).map { index =>
     fakeSequencerId(
@@ -1086,53 +1210,65 @@ object SegmentStateTest {
       blockNumber: BlockNumber,
       view: Long,
       from: SequencerId,
-  ): PrePrepare =
-    PrePrepare.create(
-      BlockMetadata(epochInfo.number, blockNumber),
-      ViewNumber(view),
-      CantonTimestamp.Epoch,
-      OrderingBlock(Seq.empty),
-      CanonicalCommitSet(Set.empty),
-      from,
-    )
+  ): SignedMessage[PrePrepare] =
+    PrePrepare
+      .create(
+        BlockMetadata(epochInfo.number, blockNumber),
+        ViewNumber(view),
+        CantonTimestamp.Epoch,
+        OrderingBlock(Seq.empty),
+        CanonicalCommitSet(Set.empty),
+        from,
+      )
+      .fakeSign
 
-  def createPrePrepare(blockNumber: Long, view: Long, from: SequencerId): PrePrepare =
-    PrePrepare.create(
-      BlockMetadata.mk(epochInfo.number, blockNumber),
-      ViewNumber(view),
-      CantonTimestamp.Epoch,
-      OrderingBlock(Seq.empty),
-      canonicalCommitSet,
-      from,
-    )
+  def createPrePrepare(
+      blockNumber: Long,
+      view: Long,
+      from: SequencerId,
+  ): SignedMessage[PrePrepare] =
+    PrePrepare
+      .create(
+        BlockMetadata.mk(epochInfo.number, blockNumber),
+        ViewNumber(view),
+        CantonTimestamp.Epoch,
+        OrderingBlock(Seq.empty),
+        canonicalCommitSet,
+        from,
+      )
+      .fakeSign
 
   def createPrepare(
       blockNumber: Long,
       view: Long,
       from: SequencerId,
       hash: Hash,
-  ): Prepare =
-    Prepare.create(
-      BlockMetadata.mk(epochInfo.number, blockNumber),
-      ViewNumber(view),
-      hash,
-      CantonTimestamp.Epoch,
-      from,
-    )
+  ): SignedMessage[Prepare] =
+    Prepare
+      .create(
+        BlockMetadata.mk(epochInfo.number, blockNumber),
+        ViewNumber(view),
+        hash,
+        CantonTimestamp.Epoch,
+        from,
+      )
+      .fakeSign
 
   def createCommit(
       blockNumber: Long,
       view: Long,
       from: SequencerId,
       hash: Hash,
-  ): Commit =
-    Commit.create(
-      BlockMetadata.mk(epochInfo.number, blockNumber),
-      ViewNumber(view),
-      hash,
-      CantonTimestamp.Epoch,
-      from,
-    )
+  ): SignedMessage[Commit] =
+    Commit
+      .create(
+        BlockMetadata.mk(epochInfo.number, blockNumber),
+        ViewNumber(view),
+        hash,
+        CantonTimestamp.Epoch,
+        from,
+      )
+      .fakeSign
 
   def createPrepareCertificate(
       blockNumber: Long,
@@ -1140,7 +1276,7 @@ object SegmentStateTest {
       prePrepareSource: SequencerId,
   ): PrepareCertificate = {
     val prePrepare = createPrePrepare(blockNumber, view, prePrepareSource)
-    val prePrepareHash = prePrepare.hash
+    val prePrepareHash = prePrepare.message.hash
     val prepareSeq = allPeers
       .filterNot(_ == prePrepareSource)
       .take(fullMembership.orderingTopology.strongQuorum)
@@ -1153,7 +1289,7 @@ object SegmentStateTest {
       from: SequencerId,
       originalLeader: SequencerId,
       slotsAndViewNumbers: Seq[(Long, Long)],
-  ): ViewChange = {
+  ): SignedMessage[ViewChange] = {
     val originalLeaderIndex = allPeers.indexOf(originalLeader)
     val certs = slotsAndViewNumbers.map { case (slot, view) =>
       createPrepareCertificate(
@@ -1162,21 +1298,23 @@ object SegmentStateTest {
         computeLeaderOfView(ViewNumber(view), originalLeaderIndex, allPeers),
       )
     }
-    ViewChange.create(
-      blockMetaData,
-      originalLeaderIndex,
-      ViewNumber(viewNumber),
-      CantonTimestamp.Epoch,
-      consensusCerts = certs,
-      from,
-    )
+    ViewChange
+      .create(
+        blockMetaData,
+        originalLeaderIndex,
+        ViewNumber(viewNumber),
+        CantonTimestamp.Epoch,
+        consensusCerts = certs,
+        from,
+      )
+      .fakeSign
   }
 
   def createViewChangeSet(
       viewNumber: Long,
       originalLeader: SequencerId,
       viewNumbersPerPeer: Seq[Map[Long, Long]],
-  ): IndexedSeq[ViewChange] =
+  ): IndexedSeq[SignedMessage[ViewChange]] =
     allPeers.zip(viewNumbersPerPeer).map { case (peer, slotToViewNumber) =>
       val slotsAndViewNumbers = slotToViewNumber.toList
       createViewChange(viewNumber, peer, originalLeader, slotsAndViewNumbers)
@@ -1186,18 +1324,20 @@ object SegmentStateTest {
       viewNumber: Long,
       from: SequencerId,
       originalLeader: SequencerId,
-      vcSet: Seq[ViewChange],
-      ppSet: Seq[PrePrepare],
-  ): NewView =
-    NewView.create(
-      blockMetaData,
-      segmentIndex = allPeers.indexOf(originalLeader),
-      viewNumber = ViewNumber(viewNumber),
-      localTimestamp = CantonTimestamp.Epoch,
-      viewChanges = vcSet,
-      prePrepares = ppSet,
-      from,
-    )
+      vcSet: Seq[SignedMessage[ViewChange]],
+      ppSet: Seq[SignedMessage[PrePrepare]],
+  ): SignedMessage[NewView] =
+    NewView
+      .create(
+        blockMetaData,
+        segmentIndex = allPeers.indexOf(originalLeader),
+        viewNumber = ViewNumber(viewNumber),
+        localTimestamp = CantonTimestamp.Epoch,
+        viewChanges = vcSet,
+        prePrepares = ppSet,
+        from,
+      )
+      .fakeSign
 
   def createTimeout(view: Long, nested: Boolean = false): PbftTimeout = {
     val viewNumber = ViewNumber(view)

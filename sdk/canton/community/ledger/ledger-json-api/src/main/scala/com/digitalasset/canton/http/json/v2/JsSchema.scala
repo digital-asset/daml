@@ -23,7 +23,7 @@ import sttp.tapir.{DecodeResult, Schema, SchemaType}
 
 import java.time.Instant
 import java.util.Base64
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.util.Try
 
 /** JSON wrappers that do not belong to a particular service */
@@ -124,10 +124,12 @@ object JsSchema {
       resources: Seq[(String, String)],
       errorCategory: Int,
       grpcCodeValue: Option[Int],
+      retryInfo: Option[Duration],
       definiteAnswer: Option[Boolean],
   )
 
   object JsCantonError {
+    import DirectScalaPbRwImplicits.*
     implicit val rw: Codec[JsCantonError] = deriveCodec
 
     def fromErrorCode(damlError: DamlError): JsCantonError = JsCantonError(
@@ -139,6 +141,7 @@ object JsSchema {
       resources = damlError.resources.map { case (k, v) => (k.asString, v) },
       errorCategory = damlError.code.category.asInt,
       grpcCodeValue = damlError.code.category.grpcCode.map(_.value()),
+      retryInfo = damlError.code.category.retryable.map(_.duration),
       definiteAnswer = damlError match {
         case errorWithDefiniteAnswer: DamlErrorWithDefiniteAnswer =>
           Some(errorWithDefiniteAnswer.definiteAnswer)
@@ -156,6 +159,7 @@ object JsSchema {
         traceId = decodedCantonError.traceId,
         context = decodedCantonError.context,
         resources = decodedCantonError.resources.map { case (k, v) => (k.toString, v) },
+        retryInfo = decodedCantonError.code.category.retryable.map(_.duration),
         definiteAnswer = decodedCantonError.definiteAnswerO,
       )
 
@@ -176,7 +180,9 @@ object JsSchema {
           category = GenericErrorCategory(
             grpcCode = jsCantonError.grpcCodeValue.map(Status.fromCodeValue).map(_.getCode),
             logLevel = Level.INFO,
-            retryable = None,
+            retryable = jsCantonError.retryInfo.map(duration =>
+              ErrorCategoryRetry(FiniteDuration(duration.length, duration.unit))
+            ),
             securitySensitive = false,
             asInt = jsCantonError.errorCategory,
             rank = 1,

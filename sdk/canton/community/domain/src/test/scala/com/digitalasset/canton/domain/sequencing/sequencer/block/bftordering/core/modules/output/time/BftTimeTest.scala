@@ -6,6 +6,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.co
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.time.BftTime.MinimumBlockTimeGranularity
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
@@ -99,11 +100,13 @@ object BftTimeTest {
     CantonTimestamp.assertFromInstant(Instant.parse("2024-02-16T12:00:00.000Z"))
 
   private def createCommit(timestamp: CantonTimestamp) =
-    Commit.create(
-      BlockMetadata.mk(EpochNumber.First, BlockNumber.First),
-      ViewNumber.First,
-      Hash.digest(HashPurpose.BftOrderingPbftBlock, ByteString.EMPTY, HashAlgorithm.Sha256),
-      timestamp,
-      from = fakeSequencerId(""),
-    )
+    Commit
+      .create(
+        BlockMetadata.mk(EpochNumber.First, BlockNumber.First),
+        ViewNumber.First,
+        Hash.digest(HashPurpose.BftOrderingPbftBlock, ByteString.EMPTY, HashAlgorithm.Sha256),
+        timestamp,
+        from = fakeSequencerId(""),
+      )
+      .fakeSign
 }

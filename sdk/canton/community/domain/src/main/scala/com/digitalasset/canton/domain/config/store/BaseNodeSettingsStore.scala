@@ -15,7 +15,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** Base trait for individual node configuration stores
   *
-  * Used by DomainManager, Sequencer and Mediator nodes.
+  * Used by Sequencer and Mediator nodes.
   */
 trait BaseNodeSettingsStore[T] extends AutoCloseable {
   this: NamedLogging =>
@@ -24,7 +24,7 @@ trait BaseNodeSettingsStore[T] extends AutoCloseable {
   //          and update configuration. We might also want to cache the configuration directly in memory
   //          (as we do it for participant settings).
   //          also, the update configuration should be atomic. right now, we do fetch / save, which is racy
-  //          also, update this to mediator and sequencer. right now, we only do this for domain manager and domain nodes
+  //          also, update this to mediator and sequencer.
   def fetchSettings(implicit
       traceContext: TraceContext
   ): EitherT[Future, BaseNodeSettingsStoreError, Option[T]]

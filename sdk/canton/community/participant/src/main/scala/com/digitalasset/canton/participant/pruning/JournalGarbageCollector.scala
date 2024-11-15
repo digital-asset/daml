@@ -156,7 +156,11 @@ private[pruning] object JournalGarbageCollector {
               doFlush()(traceContext)
             }
           }
-          FutureUtil.doNotAwait(runningF, "Periodic background journal pruning failed")
+          FutureUtil.doNotAwait(
+            runningF,
+            "Periodic background journal pruning failed",
+            logPassiveInstanceAtInfo = true,
+          )
         }
       }
 

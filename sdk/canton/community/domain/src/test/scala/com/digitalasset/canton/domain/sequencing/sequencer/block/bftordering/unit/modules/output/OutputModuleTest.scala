@@ -9,6 +9,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.BlockFormat
 import com.digitalasset.canton.domain.block.BlockFormat.OrderedRequest
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.OrderedBlocksReader
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.memory.GenericInMemoryEpochStore
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.OutputModule.{
@@ -268,6 +269,7 @@ class OutputModuleTest
               blockNumber = recoverFromBlockNumber,
               blockBftTime = aTimestamp,
               epochCouldAlterSequencingTopology = true,
+              pendingTopologyChangesInNextEpoch = true,
             )
           )
         )
@@ -311,6 +313,7 @@ class OutputModuleTest
               blockNumber = BlockNumber(3L),
               blockBftTime = aTimestamp,
               epochCouldAlterSequencingTopology = true,
+              pendingTopologyChangesInNextEpoch = true,
             )
           )
         )
@@ -496,198 +499,263 @@ class OutputModuleTest
       }
     }
 
-    "set the potential topology change flag to `true`, fetch a new topology and send it to consensus" when {
+    "set the potential topology change flag to `true`, " +
+      "request to tick the topology, " +
+      "if not in the middle of state transfer " +
+      "fetch a new topology and send it to consensus and " +
+      "set up the new topology, " +
+      "including the potential topology changes flag " +
+      "based on whether pending changes are reported " when {
 
-      "at least one block in the current epoch has requests to all members of domain" in {
-        val topologySnapshotEffectiveTime =
-          EffectiveTime(anotherTimestamp.immediateSuccessor)
+        "at least one block in the just completed epoch has requests to all members of domain" in {
+          val topologySnapshotEffectiveTime =
+            EffectiveTime(anotherTimestamp.immediateSuccessor)
 
-        Table(
-          ("Pending Canton topology changes", "first block mode", "second block mode"),
-          (
-            false,
-            OrderedBlockForOutput.Mode.FromConsensus,
-            OrderedBlockForOutput.Mode.FromConsensus,
-          ),
-          (
-            true,
-            OrderedBlockForOutput.Mode.FromConsensus,
-            OrderedBlockForOutput.Mode.FromConsensus,
-          ),
-          (
-            false,
-            OrderedBlockForOutput.Mode.StateTransfer,
-            OrderedBlockForOutput.Mode.StateTransferLastBlock,
-          ),
-          (
-            true,
-            OrderedBlockForOutput.Mode.StateTransfer,
-            OrderedBlockForOutput.Mode.StateTransferLastBlock,
-          ),
-          (
-            false,
-            OrderedBlockForOutput.Mode.StateTransfer,
-            OrderedBlockForOutput.Mode.StateTransfer,
-          ),
-          (
-            true,
-            OrderedBlockForOutput.Mode.StateTransfer,
-            OrderedBlockForOutput.Mode.StateTransfer,
-          ),
-        ).forEvery { case (pendingChanges, firstBlockMode, secondBlockMode) =>
-          val topologyProviderMock = mock[OrderingTopologyProvider[ProgrammableUnitTestEnv]]
-          val consensusRef = mock[ModuleRef[Consensus.Message[ProgrammableUnitTestEnv]]]
-          val newOrderingTopology =
-            OrderingTopology(
-              peers = Set.empty,
-              SequencingParameters.Default,
-              topologySnapshotEffectiveTime = topologySnapshotEffectiveTime,
-              areTherePendingCantonTopologyChanges = pendingChanges,
+          Table(
+            ("Pending Canton topology changes", "first block mode", "last block mode"),
+            (
+              false,
+              OrderedBlockForOutput.Mode.FromConsensus,
+              OrderedBlockForOutput.Mode.FromConsensus,
+            ),
+            (
+              true,
+              OrderedBlockForOutput.Mode.FromConsensus,
+              OrderedBlockForOutput.Mode.FromConsensus,
+            ),
+            (
+              false,
+              OrderedBlockForOutput.Mode.StateTransfer
+                .MiddleBlock(pendingTopologyChangesInNextEpoch = false),
+              OrderedBlockForOutput.Mode.StateTransfer
+                .LastBlock(pendingTopologyChangesInNextEpoch = false),
+            ),
+            (
+              true,
+              OrderedBlockForOutput.Mode.StateTransfer
+                .MiddleBlock(pendingTopologyChangesInNextEpoch = false),
+              OrderedBlockForOutput.Mode.StateTransfer
+                .LastBlock(pendingTopologyChangesInNextEpoch = false),
+            ),
+            (
+              false,
+              OrderedBlockForOutput.Mode.StateTransfer
+                .MiddleBlock(pendingTopologyChangesInNextEpoch = false),
+              OrderedBlockForOutput.Mode.StateTransfer
+                .LastBlock(pendingTopologyChangesInNextEpoch = true),
+            ),
+            (
+              true,
+              OrderedBlockForOutput.Mode.StateTransfer
+                .MiddleBlock(pendingTopologyChangesInNextEpoch = false),
+              OrderedBlockForOutput.Mode.StateTransfer
+                .LastBlock(pendingTopologyChangesInNextEpoch = true),
+            ),
+            (
+              false,
+              OrderedBlockForOutput.Mode.StateTransfer
+                .MiddleBlock(pendingTopologyChangesInNextEpoch = false),
+              OrderedBlockForOutput.Mode.StateTransfer
+                .MiddleBlock(pendingTopologyChangesInNextEpoch = false),
+            ),
+            (
+              true,
+              OrderedBlockForOutput.Mode.StateTransfer
+                .MiddleBlock(pendingTopologyChangesInNextEpoch = false),
+              OrderedBlockForOutput.Mode.StateTransfer
+                .MiddleBlock(pendingTopologyChangesInNextEpoch = false),
+            ),
+            (
+              false,
+              OrderedBlockForOutput.Mode.StateTransfer
+                .MiddleBlock(pendingTopologyChangesInNextEpoch = false),
+              OrderedBlockForOutput.Mode.StateTransfer
+                .MiddleBlock(pendingTopologyChangesInNextEpoch = true),
+            ),
+            (
+              true,
+              OrderedBlockForOutput.Mode.StateTransfer
+                .MiddleBlock(pendingTopologyChangesInNextEpoch = false),
+              OrderedBlockForOutput.Mode.StateTransfer
+                .MiddleBlock(pendingTopologyChangesInNextEpoch = true),
+            ),
+          ).forEvery { case (pendingChanges, firstBlockMode, lastBlockMode) =>
+            val topologyProviderMock = mock[OrderingTopologyProvider[ProgrammableUnitTestEnv]]
+            val consensusRef = mock[ModuleRef[Consensus.Message[ProgrammableUnitTestEnv]]]
+            val newOrderingTopology =
+              OrderingTopology(
+                peers = Set.empty,
+                SequencingParameters.Default,
+                topologySnapshotEffectiveTime = topologySnapshotEffectiveTime,
+                areTherePendingCantonTopologyChanges = pendingChanges,
+              )
+            when(
+              topologyProviderMock.getOrderingTopologyAt(
+                topologySnapshotEffectiveTime,
+                assumePendingTopologyChanges = false,
+              )
             )
-          when(
-            topologyProviderMock.getOrderingTopologyAt(
-              topologySnapshotEffectiveTime,
-              assumePendingTopologyChanges = false,
-            )
-          )
-            .thenReturn(() => Some((newOrderingTopology, fakeCryptoProvider)))
-          val subscriptionBlocks = mutable.Queue.empty[BlockFormat.Block]
-          val output = createOutputModule[ProgrammableUnitTestEnv](
-            orderingTopologyProvider = topologyProviderMock,
-            consensusRef = consensusRef,
-            requestInspector = new AccumulatingRequestInspector,
-          )(blockSubscription = new EnqueueingBlockSubscription(subscriptionBlocks))
-          implicit val context
-              : ProgrammableUnitTestContext[Output.Message[ProgrammableUnitTestEnv]] =
-            new ProgrammableUnitTestContext(resolveAwaits = true)
+              .thenReturn(() => Some((newOrderingTopology, fakeCryptoProvider)))
+            val subscriptionBlocks = mutable.Queue.empty[BlockFormat.Block]
+            val output = createOutputModule[ProgrammableUnitTestEnv](
+              orderingTopologyProvider = topologyProviderMock,
+              consensusRef = consensusRef,
+              requestInspector = new AccumulatingRequestInspector,
+            )(blockSubscription = new EnqueueingBlockSubscription(subscriptionBlocks))
+            implicit val context
+                : ProgrammableUnitTestContext[Output.Message[ProgrammableUnitTestEnv]] =
+              new ProgrammableUnitTestContext(resolveAwaits = true)
 
-          val blockData1 = // lastInEpoch = false, isRequestToAllMembersOfDomain = true
-            completeBlockData(
+            val blockData1 = // lastInEpoch = false, isRequestToAllMembersOfDomain = true
+              completeBlockData(
+                BlockNumber.First,
+                commitTimestamp = aTimestamp,
+                lastInEpoch = false,
+                mode = firstBlockMode,
+              )
+            val blockData2 = // lastInEpoch = true, isRequestToAllMembersOfDomain = false
+              completeBlockData(
+                BlockNumber(BlockNumber.First + 1L),
+                commitTimestamp = anotherTimestamp,
+                lastInEpoch = true,
+                mode = lastBlockMode,
+              )
+
+            output.receive(Output.Start)
+            output.receive(Output.BlockDataFetched(blockData1))
+            val piped1 = context.runPipedMessages()
+
+            piped1 should contain only Output.BlockDataStored(
+              blockData1,
               BlockNumber.First,
-              commitTimestamp = aTimestamp,
-              lastInEpoch = false,
-              mode = firstBlockMode,
-            )
-          val blockData2 = // lastInEpoch = true, isRequestToAllMembersOfDomain = false
-            completeBlockData(
-              BlockNumber(BlockNumber.First + 1L),
-              commitTimestamp = anotherTimestamp,
-              lastInEpoch = true,
-              mode = secondBlockMode,
+              aTimestamp,
+              epochCouldAlterSequencingTopology = true,
             )
 
-          output.receive(Output.Start)
-          output.receive(Output.BlockDataFetched(blockData1))
-          val piped1 = context.runPipedMessages()
+            piped1.foreach(output.receive) // Store first block's metadata
 
-          piped1 should contain only Output.BlockDataStored(
-            blockData1,
-            BlockNumber.First,
-            aTimestamp,
-            epochCouldAlterSequencingTopology = true,
-          )
+            output.getCurrentEpochCouldAlterSequencingTopology shouldBe true
 
-          piped1.foreach(output.receive) // Store first block's metadata
+            output.receive(Output.BlockDataFetched(blockData2))
+            val piped2 = context.runPipedMessages()
 
-          output.getCurrentEpochCouldAlterSequencingTopology shouldBe true
+            val (blockData2Stored, topologyFetched) =
+              if (lastBlockMode.shouldQueryTopology) {
+                piped2 should have size 2
+                piped2 match {
+                  case Seq(
+                        m1 @ Output.BlockDataStored(
+                          blockData,
+                          1L,
+                          `anotherTimestamp`,
+                          true, // epochCouldAlterSequencingTopology
+                        ),
+                        m2 @ Output.TopologyFetched(
+                          1L, // Last block number
+                          1L, // Epoch number
+                          `newOrderingTopology`,
+                          _, // A fake crypto provider instance
+                        ),
+                      ) =>
+                    (m1, Some(m2))
+                  case _ => fail("Unexpected messages")
+                }
+              } else {
+                piped2 should have size 1
+                piped2 match {
+                  case Seq(
+                        m1 @ Output.BlockDataStored(
+                          blockData,
+                          1L,
+                          `anotherTimestamp`,
+                          true, // epochCouldAlterSequencingTopology
+                        )
+                      ) =>
+                    (m1, None)
+                  case _ => fail("Unexpected messages")
+                }
+              }
 
-          output.receive(Output.BlockDataFetched(blockData2))
-          val piped2 = context.runPipedMessages()
+            // If we are in state transfer, the topology for the new epoch is not fetched,
+            //  so completing the epoch immediately sets up the new epoch and resets the "could alter topology" flag.
+            //  However, the state transferred block, if it's the last one in the epoch, carries the information of
+            //  whether the next epoch has pending topology changes, which must also be taken into account when it ends.
+            output.getCurrentEpochCouldAlterSequencingTopology shouldBe
+              lastBlockMode.shouldQueryTopology ||
+              (lastBlockMode match {
+                case st: OrderedBlockForOutput.Mode.StateTransfer =>
+                  st.pendingTopologyChangesInNextEpoch
+                case OrderedBlockForOutput.Mode.FromConsensus => false
+              })
 
-          val (blockData2Stored, topologyFetched) =
-            if (secondBlockMode.isConsensusActive) {
-              piped2 should have size 2
-              piped2 match {
+            output.receive(blockData2Stored) // Store the second block's metadata
+
+            // All blocks have now been output to the subscription
+            subscriptionBlocks should have size 2
+            val block1 = subscriptionBlocks.dequeue()
+            block1.blockHeight shouldBe BlockNumber.First
+            block1.tickTopologyAtMicrosFromEpoch shouldBe None
+            val block2 = subscriptionBlocks.dequeue()
+            block2.blockHeight shouldBe BlockNumber(1)
+            // We should tick even during state transfer if the epoch has potential sequencer topology changes
+            block2.tickTopologyAtMicrosFromEpoch shouldBe Some(anotherTimestamp.toMicros)
+
+            if (lastBlockMode.shouldQueryTopology) {
+              verify(topologyProviderMock, times(1)).getOrderingTopologyAt(
+                topologySnapshotEffectiveTime,
+                assumePendingTopologyChanges = false,
+              )
+              topologyFetched shouldBe defined
+              output.receive(topologyFetched.getOrElse(fail("Topology message not sent")))
+            } else {
+              verify(topologyProviderMock, never).getOrderingTopologyAt(
+                any[EffectiveTime],
+                any[Boolean],
+              )(any[TraceContext])
+            }
+
+            if (lastBlockMode.shouldQueryTopology && pendingChanges) { // Then the last block will be updated
+              val piped3 = context.runPipedMessages()
+              piped3 should matchPattern {
                 case Seq(
-                      m1 @ Output.BlockDataStored(
-                        blockData,
-                        1L,
-                        `anotherTimestamp`,
-                        true, // epochCouldAlterSequencingTopology
-                      ),
-                      m2 @ Output.TopologyFetched(
+                      Output.LastBlockUpdated(
+                        1L, // Last block number
                         1L, // Epoch number
                         `newOrderingTopology`,
                         _, // A fake crypto provider instance
-                      ),
-                    ) =>
-                  (m1, Some(m2))
-                case _ => fail("Unexpected messages")
-              }
-            } else {
-              piped2 should have size 1
-              piped2 match {
-                case Seq(
-                      m1 @ Output.BlockDataStored(
-                        blockData,
-                        1L,
-                        `anotherTimestamp`,
-                        true, // epochCouldAlterSequencingTopology
                       )
                     ) =>
-                  (m1, None)
-                case _ => fail("Unexpected messages")
               }
+              piped3.foreach(output.receive)
             }
 
-          // If we are in the middle of state transfer, the topology for the new epoch is not fetched,
-          //  so completing the epoch immediately sets up the new epoch and resets the "could alter topology" flag.
-          //  Additionally, since during state transfer we don't fetch any topology, the "could alter topology" flag
-          //  never stays true when setting up a new epoch.
-          output.getCurrentEpochCouldAlterSequencingTopology shouldBe secondBlockMode.isConsensusActive
+            if (lastBlockMode.shouldQueryTopology) // Else already checked and clarified previously
+              output.getCurrentEpochCouldAlterSequencingTopology shouldBe pendingChanges
 
-          output.receive(blockData2Stored) // Store the second block's metadata
-
-          // All blocks have now been output to the subscription
-          subscriptionBlocks should have size 2
-          val block1 = subscriptionBlocks.dequeue()
-          block1.blockHeight shouldBe BlockNumber.First
-          block1.tickTopologyAtMicrosFromEpoch shouldBe None
-          val block2 = subscriptionBlocks.dequeue()
-          block2.blockHeight shouldBe BlockNumber(1)
-          // We should tick even during state transfer if the epoch has potential sequencer topology changes
-          block2.tickTopologyAtMicrosFromEpoch shouldBe Some(anotherTimestamp.toMicros)
-
-          // We should get a topology snapshot only during consensus and when finishing state transfer,
-          //  never in the middle of state transfer as consensus is inactive then.
-          if (secondBlockMode.isConsensusActive) {
-            verify(topologyProviderMock, times(1)).getOrderingTopologyAt(
-              topologySnapshotEffectiveTime,
-              assumePendingTopologyChanges = false,
-            )
-            topologyFetched shouldBe defined
-            output.receive(topologyFetched.getOrElse(fail("Topology message not sent")))
-          } else {
-            verify(topologyProviderMock, never).getOrderingTopologyAt(
-              any[EffectiveTime],
-              any[Boolean],
-            )(any[TraceContext])
-          }
-
-          if (secondBlockMode.isConsensusActive) // Else already checked and clarified previously
-            output.getCurrentEpochCouldAlterSequencingTopology shouldBe pendingChanges
-
-          // We should send a new ordering topology to consensus only during consensus
-          //  and when finishing state transfer, never in the middle of state transfer
-          //  as consensus is inactive then.
-          if (secondBlockMode.isConsensusActive) {
-            verify(consensusRef, times(1)).asyncSend(
-              Consensus.NewEpochTopology(
-                secondEpochNumber,
-                newOrderingTopology,
-                any[CryptoProvider[ProgrammableUnitTestEnv]],
+            // We should send a new ordering topology to consensus only during consensus
+            //  and when finishing state transfer, never in the middle of state transfer
+            //  as consensus is inactive then.
+            if (
+              lastBlockMode.shouldQueryTopology || lastBlockMode
+                .isInstanceOf[OrderedBlockForOutput.Mode.StateTransfer.LastBlock]
+            ) {
+              verify(consensusRef, times(1)).asyncSend(
+                Consensus.NewEpochTopology(
+                  secondEpochNumber,
+                  newOrderingTopology,
+                  any[CryptoProvider[ProgrammableUnitTestEnv]],
+                )
               )
-            )
-          } else {
-            verify(consensusRef, never).asyncSend(
-              any[Consensus.ConsensusMessage]
-            )
-          }
+            } else {
+              verify(consensusRef, never).asyncSend(
+                any[Consensus.ConsensusMessage]
+              )
+            }
 
-          succeed
+            succeed
+          }
         }
       }
-    }
 
     "not try to issue a new topology but still send a topology to consensus" when {
       "no block in the epoch has requests to all members of domain" in {
@@ -1007,13 +1075,16 @@ object OutputModuleTest {
         batchRefs = Seq.empty,
         CanonicalCommitSet(
           Set(
-            Commit.create(
-              BlockMetadata.mk(epochNumber = -1L /* whatever */, blockNumber - 1),
-              viewNumber = ViewNumber.First,
-              Hash.digest(HashPurpose.BftOrderingPbftBlock, ByteString.EMPTY, HashAlgorithm.Sha256),
-              commitTimestamp,
-              from = fakeSequencerId(""),
-            )
+            Commit
+              .create(
+                BlockMetadata.mk(epochNumber = -1L /* whatever */, blockNumber - 1),
+                viewNumber = ViewNumber.First,
+                Hash
+                  .digest(HashPurpose.BftOrderingPbftBlock, ByteString.EMPTY, HashAlgorithm.Sha256),
+                commitTimestamp,
+                from = fakeSequencerId(""),
+              )
+              .fakeSign
           )
         ),
       ),

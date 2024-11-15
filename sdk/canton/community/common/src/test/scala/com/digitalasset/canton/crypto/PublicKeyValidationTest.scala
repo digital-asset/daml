@@ -53,22 +53,22 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
   /** Test public key validation
     */
   def publicKeyValidationProvider(
-      supportedSigningKeySchemes: Set[SigningKeyScheme],
+      supportedSigningKeySpecs: Set[SigningKeySpec],
       supportedEncryptionKeySpecs: Set[EncryptionKeySpec],
       supportedCryptoKeyFormats: Set[CryptoKeyFormat],
       newCrypto: => Future[Crypto],
   ): Unit =
     "Validate public keys" should {
-      forAll(supportedSigningKeySchemes) { signingKeyScheme =>
+      forAll(supportedSigningKeySpecs) { signingKeySpec =>
         keyValidationTest[SigningPublicKey](
           supportedCryptoKeyFormats,
-          signingKeyScheme.toString,
+          if (signingKeySpec.toString == "EC-P256") "EC-P256-Signing" else signingKeySpec.toString,
           newCrypto,
           crypto =>
             getSigningPublicKey(
               crypto,
               SigningKeyUsage.ProtocolOnly,
-              signingKeyScheme,
+              signingKeySpec,
             ).failOnShutdown,
         )
       }
@@ -76,7 +76,8 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
       forAll(supportedEncryptionKeySpecs) { encryptionKeySpec =>
         keyValidationTest[EncryptionPublicKey](
           supportedCryptoKeyFormats,
-          encryptionKeySpec.toString,
+          if (encryptionKeySpec.toString == "EC-P256") "EC-P256-Encryption"
+          else encryptionKeySpec.toString,
           newCrypto,
           crypto => getEncryptionPublicKey(crypto, encryptionKeySpec).failOnShutdown,
         )

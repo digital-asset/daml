@@ -378,23 +378,23 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation(
-    """This error indicates that it has been attempted to increase the ``ledgerTimeRecordTimeTolerance`` domain parameter in an insecure manner.
+    """This error indicates that it has been attempted to increase the ``submissionTimeRecordTimeTolerance`` domain parameter in an insecure manner.
       |Increasing this parameter may disable security checks and can therefore be a security risk.
       |"""
   )
   @Resolution(
-    """Make sure that the new value of ``ledgerTimeRecordTimeTolerance`` is at most half of the ``mediatorDeduplicationTimeout`` domain parameter.
+    """Make sure that the new value of ``submissionTimeRecordTimeTolerance`` is at most half of the ``mediatorDeduplicationTimeout`` domain parameter.
       |
-      |Use ``myDomain.service.set_ledger_time_record_time_tolerance`` for securely increasing ledgerTimeRecordTimeTolerance.
+      |Use ``myDomain.service.set_submission_time_record_time_tolerance`` for securely increasing submissionTimeRecordTimeTolerance.
       |
-      |Alternatively, add the flag ``ForceFlag.LedgerTimeRecordTimeToleranceIncrease`` to your command, if security is not a concern for you.
-      |The security checks will be effective again after twice the new value of ``ledgerTimeRecordTimeTolerance``.
-      |Using ``ForceFlag.LedgerTimeRecordTimeToleranceIncrease`` is safe upon domain bootstrapping.
+      |Alternatively, add the flag ``ForceFlag.SubmissionTimeRecordTimeToleranceIncrease`` to your command, if security is not a concern for you.
+      |The security checks will be effective again after twice the new value of ``submissionTimeRecordTimeTolerance``.
+      |Using ``ForceFlag.SubmissionTimeRecordTimeToleranceIncrease`` is safe upon domain bootstrapping.
       |"""
   )
-  object IncreaseOfLedgerTimeRecordTimeTolerance
+  object IncreaseOfSubmissionTimeRecordTimeTolerance
       extends ErrorCode(
-        id = "INCREASE_OF_LEDGER_TIME_RECORD_TIME_TOLERANCE",
+        id = "INCREASE_OF_SUBMISSION_TIME_TOLERANCE",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     final case class TemporarilyInsecure(
@@ -404,18 +404,18 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         override val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause =
-            s"The parameter ledgerTimeRecordTimeTolerance can currently not be increased to $newValue."
+            s"The parameter submissionTimeRecordTimeTolerance can currently not be increased to $newValue."
         )
         with TopologyManagerError
 
     final case class PermanentlyInsecure(
-        newLedgerTimeRecordTimeTolerance: NonNegativeFiniteDuration,
+        newSubmissionTimeRecordTimeTolerance: NonNegativeFiniteDuration,
         mediatorDeduplicationTimeout: NonNegativeFiniteDuration,
     )(implicit
         override val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause =
-            s"Unable to increase ledgerTimeRecordTimeTolerance to $newLedgerTimeRecordTimeTolerance, because it must not be more than half of mediatorDeduplicationTimeout ($mediatorDeduplicationTimeout)."
+            s"Unable to increase submissionTimeRecordTimeTolerance to $newSubmissionTimeRecordTimeTolerance, because it must not be more than half of mediatorDeduplicationTimeout ($mediatorDeduplicationTimeout)."
         )
         with TopologyManagerError
   }

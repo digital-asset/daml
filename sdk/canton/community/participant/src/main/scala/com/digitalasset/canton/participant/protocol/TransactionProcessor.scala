@@ -4,12 +4,14 @@
 package com.digitalasset.canton.participant.protocol
 
 import cats.data.EitherT
+import cats.syntax.bifunctor.*
 import com.daml.error.*
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.crypto.InteractiveSubmission.TransactionMetadataForHashing
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.data.ViewType.TransactionViewType
 import com.digitalasset.canton.error.*
@@ -41,11 +43,13 @@ import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
+import com.digitalasset.canton.protocol.hash.HashTracer.NoOp
 import com.digitalasset.canton.sequencing.client.{SendAsyncClientError, SequencerClient}
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.version.ProtocolVersion
 import org.slf4j.event.Level
 
 import java.time.Duration
@@ -100,8 +104,8 @@ class TransactionProcessor(
         ephemeral.contractStore,
         metrics,
         SerializableContractAuthenticator(crypto.pureCrypto),
-        new AuthenticationValidator(),
-        new AuthorizationValidator(participantId),
+        new AuthenticationValidator(loggerFactory, damle.enrichTransaction),
+        new AuthorizationValidator(participantId, parameters.enableExternalAuthorization),
         new InternalConsistencyChecker(
           staticDomainParameters.protocolVersion,
           loggerFactory,
@@ -128,6 +132,82 @@ class TransactionProcessor(
       "application-id" -> submissionParam.submitterInfo.applicationId,
       "type" -> "send-confirmation-request",
     )
+
+  override protected def preSubmissionValidations(
+      params: TransactionProcessingSteps.SubmissionParam,
+      cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      protocolVersion: ProtocolVersion,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, TransactionProcessor.TransactionSubmissionError, Unit] =
+    validateExternalSignatures(
+      params.transaction,
+      params.submitterInfo,
+      params.disclosedContracts,
+      cryptoSnapshot,
+      protocolVersion,
+    )
+
+  // Validate that provided external signatures are valid
+  // Doing this during preSubmissionValidations allows us to fail synchronously the "execute" call of interactive submissions
+  // and give better UX to the caller in case of invalid hash or signature
+  private def validateExternalSignatures(
+      wfTransaction: WellFormedTransaction[WithoutSuffixes],
+      submitterInfo: SubmitterInfo,
+      disclosedContracts: Map[LfContractId, SerializableContract],
+      cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      protocolVersion: ProtocolVersion,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, TransactionProcessor.TransactionSubmissionError, Unit] =
+    submitterInfo.externallySignedSubmission
+      .map { externallySignedSubmission =>
+        // Re-compute the transaction hash
+        val hashE = InteractiveSubmission.computeVersionedHash(
+          externallySignedSubmission.version,
+          wfTransaction.unwrap,
+          TransactionMetadataForHashing(
+            actAs = submitterInfo.actAs.toSet,
+            commandId = submitterInfo.commandId,
+            transactionUUID = externallySignedSubmission.transactionUUID,
+            mediatorGroup = externallySignedSubmission.mediatorGroup.value,
+            domainId = domainId,
+            ledgerEffectiveTime = Option.when(externallySignedSubmission.usesLedgerEffectiveTime)(
+              wfTransaction.metadata.ledgerTime.toLf
+            ),
+            submissionTime = wfTransaction.metadata.submissionTime.toLf,
+            disclosedContracts = disclosedContracts,
+          ),
+          nodeSeeds = wfTransaction.metadata.seeds,
+          protocolVersion,
+          hashTracer = NoOp,
+        )
+
+        for {
+          hash <- EitherT
+            .fromEither[FutureUnlessShutdown](hashE)
+            .leftMap(err =>
+              TransactionProcessor.SubmissionErrors.InvalidExternallySignedTransaction
+                .Error(err.message)
+            )
+            .leftWiden[TransactionProcessor.TransactionSubmissionError]
+
+          // Verify signatures
+          _ <- InteractiveSubmission
+            .verifySignatures(
+              hash,
+              externallySignedSubmission.signatures,
+              cryptoSnapshot,
+              submitterInfo.actAs.toSet,
+              logger,
+            )
+            .leftMap(TransactionProcessor.SubmissionErrors.InvalidExternalSignature.Error.apply)
+            .leftWiden[TransactionProcessor.TransactionSubmissionError]
+        } yield ()
+      }
+      .getOrElse(
+        EitherT.pure[FutureUnlessShutdown, TransactionProcessor.TransactionSubmissionError](())
+      )
 
   def submit(
       submitterInfo: SubmitterInfo,
@@ -234,6 +314,47 @@ object TransactionProcessor {
             // Reported asynchronously after in-flight submission checking, so covered by the rank guarantee
             definiteAnswer = true,
           )
+    }
+
+    @Explanation(
+      """This error occurs when an invalid transaction with external signatures is submitted, for which a valid hash
+        |cannot be computed."""
+    )
+    @Resolution(
+      """Inspect the error message and re-submit a valid transaction instead."""
+    )
+    object InvalidExternallySignedTransaction
+        extends ErrorCode(
+          id = "INVALID_EXTERNAL_TRANSACTION",
+          ErrorCategory.InvalidIndependentOfSystemState,
+        ) {
+      final case class Error(details: String)
+          extends TransactionErrorImpl(
+            cause = s"Provided external transaction is invalid: $details",
+            definiteAnswer = true,
+          )
+          with TransactionSubmissionError
+    }
+
+    @Explanation(
+      """This error occurs when a transaction with external signatures is submitted, but the signature is invalid.
+        |This can be caused either by an incorrect hash computation, or by an invalid signing key.
+        |"""
+    )
+    @Resolution(
+      """Check that the hashing function used is correct and that the signing key is correctly registered for the submitting party."""
+    )
+    object InvalidExternalSignature
+        extends ErrorCode(
+          id = "INVALID_EXTERNAL_SIGNATURE",
+          ErrorCategory.InvalidIndependentOfSystemState,
+        ) {
+      final case class Error(details: String)
+          extends TransactionErrorImpl(
+            cause = s"Provided external signatures are invalid: $details",
+            definiteAnswer = true,
+          )
+          with TransactionSubmissionError
     }
 
     // TODO(#7348) Add the submission rank of the in-flight submission

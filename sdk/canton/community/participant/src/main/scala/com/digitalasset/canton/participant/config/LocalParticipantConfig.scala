@@ -273,6 +273,7 @@ object TestingTimeServiceConfig {
   * @param disableUpgradeValidation Disable the package upgrade verification on DAR upload
   * @param packageMetadataView Initialization parameters for the package metadata in-memory store.
   * @param experimentalEnableTopologyEvents If true, topology events are propagated to the Ledger API clients
+  * @param enableExternalAuthorization If true, external authentication is supported
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
@@ -288,8 +289,7 @@ final case class ParticipantNodeParameterConfig(
     initialProtocolVersion: ParticipantProtocolVersion = ParticipantProtocolVersion(
       ProtocolVersion.latest
     ),
-    // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
-    alphaVersionSupport: Boolean = true,
+    alphaVersionSupport: Boolean = false,
     betaVersionSupport: Boolean = false,
     dontWarnOnDeprecatedPV: Boolean = false,
     warnIfOverloadedFor: Option[config.NonNegativeFiniteDuration] = Some(
@@ -306,6 +306,7 @@ final case class ParticipantNodeParameterConfig(
     commandProgressTracker: CommandProgressTrackerConfig = CommandProgressTrackerConfig(),
     unsafeEnableOnlinePartyReplication: Boolean = false,
     experimentalEnableTopologyEvents: Boolean = false,
+    enableExternalAuthorization: Boolean = false,
 ) extends LocalNodeParametersConfig
 
 /** Parameters for the participant node's stores

@@ -1,0 +1,318 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v2.interactive;
+
+import "com/daml/ledger/api/v2/commands.proto";
+import "com/daml/ledger/api/v2/interactive/interactive_submission_common_data.proto";
+import "com/daml/ledger/api/v2/interactive/transaction/v1/interactive_submission_data.proto";
+import "com/daml/ledger/api/v2/value.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+option csharp_namespace = "Com.Daml.Ledger.Api.V2.Interactive";
+option java_outer_classname = "InteractiveSubmissionServiceOuterClass";
+option java_package = "com.daml.ledger.api.v2.interactive";
+
+// The InteractiveSubmissionService allows to submit commands in 2-steps:
+// 1) prepare transaction from commands, 2) submit the prepared transaction
+// This gives callers the ability to sign the daml transaction with their own signing keys
+service InteractiveSubmissionService {
+  // Requires `readAs` scope for the submitting party when LAPI User authorization is enabled
+  rpc PrepareSubmission(PrepareSubmissionRequest) returns (PrepareSubmissionResponse);
+  rpc ExecuteSubmission(ExecuteSubmissionRequest) returns (ExecuteSubmissionResponse);
+}
+
+message PrepareSubmissionRequest {
+  // Uniquely identifies the application or participant user that prepares the transaction.
+  // Must be a valid ApplicationIdString (as described in ``value.proto``).
+  // Required unless authentication is used with a user token or a custom token specifying an application-id.
+  // In that case, the token's user-id, respectively application-id, will be used for the request's application_id.
+  string application_id = 1;
+
+  // Uniquely identifies the command.
+  // The triple (application_id, act_as, command_id) constitutes the change ID for the intended ledger change,
+  // where act_as is interpreted as a set of party names.
+  // The change ID can be used for matching the intended ledger changes with all their completions.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string command_id = 2;
+
+  // Individual elements of this atomic command. Must be non-empty.
+  // Required
+  repeated Command commands = 3;
+
+  // Optional
+  MinLedgerTime min_ledger_time = 4;
+
+  // Set of parties on whose behalf the command should be executed, if submitted.
+  // If ledger API authorization is enabled, then the authorization metadata must authorize the sender of the request
+  // to **read** (not act) on behalf of each of the given parties. This is because this RPC merely prepares a transaction
+  // and does not execute it. Therefore read authorization is sufficient even for actAs parties.
+  // Note: This may change, and more specific authorization scope may be introduced in the future.
+  // Each element must be a valid PartyIdString (as described in ``value.proto``).
+  // Required, must be non-empty.
+  repeated string act_as = 5;
+
+  // Set of parties on whose behalf (in addition to all parties listed in ``act_as``) contracts can be retrieved.
+  // This affects Daml operations such as ``fetch``, ``fetchByKey``, ``lookupByKey``, ``exercise``, and ``exerciseByKey``.
+  // Note: A command can only use contracts that are visible to at least
+  // one of the parties in ``act_as`` or ``read_as``. This visibility check is independent from the Daml authorization
+  // rules for fetch operations.
+  // If ledger API authorization is enabled, then the authorization metadata must authorize the sender of the request
+  // to read contract data on behalf of each of the given parties.
+  // Optional
+  repeated string read_as = 6;
+
+  // Additional contracts used to resolve contract & contract key lookups.
+  // Optional
+  repeated DisclosedContract disclosed_contracts = 7;
+
+  // Must be a valid domain ID
+  // Required
+  string domain_id = 8;
+
+  // The package-id selection preference of the client for resolving
+  // package names and interface instances in command submission and interpretation
+  repeated string package_id_selection_preference = 9;
+
+  // When true, the response will contain additional details on how the transaction was encoded and hashed
+  // This can be useful for troubleshooting of hash mismatches. Should only be used for debugging.
+  bool verbose_hashing = 10;
+}
+
+// The hashing scheme version used when building the hash of the PreparedTransaction
+enum HashingSchemeVersion {
+  HASHING_SCHEME_VERSION_UNSPECIFIED = 0;
+  HASHING_SCHEME_VERSION_V1 = 1;
+}
+
+message PrepareSubmissionResponse {
+  // The interpreted transaction, it represents the ledger changes necessary to execute the commands specified in the request.
+  // Clients MUST display the content of the transaction to the user for them to validate before signing the hash if the preparing participant is not trusted.
+  PreparedTransaction prepared_transaction = 1;
+  // Hash of the transaction, this is what needs to be signed by the party to authorize the transaction.
+  // Only provided for convenience, clients MUST recompute the hash from the raw transaction if the preparing participant is not trusted.
+  // May be removed in future versions
+  bytes prepared_transaction_hash = 2;
+
+  // The hashing scheme version used when building the hash
+  HashingSchemeVersion hashing_scheme_version = 3;
+
+  // Optional additional details on how the transaction was encoded and hashed. Only set if verbose_hashing = true in the request
+  // Note that there are no guarantees on the stability of the format or content of this field.
+  // Its content should NOT be parsed and should only be used for troubleshooting purposes.
+  optional string hashing_details = 4;
+}
+
+message Signature {
+  SignatureFormat format = 1;
+
+  bytes signature = 2;
+
+  // The fingerprint/id of the keypair used to create this signature and needed to verify.
+  // The referenced key provides the context for the used signature scheme.
+  string signed_by = 3;
+
+  // The signing algorithm specification used to generate this signature
+  SigningAlgorithmSpec signing_algorithm_spec = 4;
+}
+
+enum SigningAlgorithmSpec {
+  SIGNING_ALGORITHM_SPEC_UNSPECIFIED = 0;
+
+  // EdDSA Signature based on Curve25519 with SHA-512
+  // http://ed25519.cr.yp.to/
+  SIGNING_ALGORITHM_SPEC_ED25519 = 1;
+
+  // Elliptic Curve Digital Signature Algorithm with SHA256
+  SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256 = 2;
+
+  // Elliptic Curve Digital Signature Algorithm with SHA384
+  SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384 = 3;
+}
+
+enum SignatureFormat {
+  SIGNATURE_FORMAT_UNSPECIFIED = 0;
+
+  // Signature scheme specific signature format
+  SIGNATURE_FORMAT_RAW = 1;
+}
+
+// Signatures provided by a single party
+message SinglePartySignatures {
+  string party = 1; // Submitting party
+  repeated Signature signatures = 2; // Signatures
+}
+
+// Additional signatures provided by the submitting parties
+message PartySignatures {
+  // Additional signatures provided by all individual parties
+  repeated SinglePartySignatures signatures = 1;
+}
+
+message ExecuteSubmissionRequest {
+  // the prepared transaction
+  // Typically this is the value of the `prepared_transaction` field in `PrepareSubmissionResponse`
+  // obtained from calling `prepareSubmission`.
+  PreparedTransaction prepared_transaction = 1;
+
+  // The party(ies) signatures that authorize the prepared submission to be executed by this node.
+  // Each party can provide one or more signatures..
+  // and one or more parties can sign.
+  // Note that currently, only single party submissions are supported.
+  PartySignatures party_signatures = 2;
+
+  // Specifies the deduplication period for the change ID (See PrepareSubmissionRequest).
+  // If omitted, the participant will assume the configured maximum deduplication time (see
+  // ``ledger_configuration_service.proto``).
+  oneof deduplication_period {
+    // Specifies the length of the deduplication period.
+    // It is interpreted relative to the local clock at some point during the submission's processing.
+    // Must be non-negative. Must not exceed the maximum deduplication time (see
+    // ``ledger_configuration_service.proto``).
+    google.protobuf.Duration deduplication_duration = 3;
+
+    // Specifies the start of the deduplication period by a completion stream offset (exclusive).
+    // Must be a valid absolute offset (positive integer).
+    int64 deduplication_offset = 4;
+  }
+
+  // This field will be ignored if the ledger effective time has already been set in the PreparedTransaction
+  // Otherwise, it serves the same purpose as described in PrepareSubmissionRequest
+  // Optional
+  MinLedgerTime min_ledger_time = 5;
+
+  // A unique identifier to distinguish completions for different submissions with the same change ID.
+  // Typically a random UUID. Applications are expected to use a different UUID for each retry of a submission
+  // with the same change ID.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  //
+  // Required
+  string submission_id = 6;
+
+  // See [PrepareSubmissionRequest.application_id]
+  string application_id = 7;
+
+  // The hashing scheme version used when building the hash
+  HashingSchemeVersion hashing_scheme_version = 8;
+}
+
+message ExecuteSubmissionResponse {}
+
+message MinLedgerTime {
+  oneof time {
+    // Lower bound for the ledger time assigned to the resulting transaction.
+    // The ledger time of a transaction is assigned as part of command interpretation.
+    // Important note: for interactive submissions, if the transaction depends on time, it **must** be signed
+    // and submitted within a time window around the ledger time assigned to the transaction during the prepare method.
+    // The time delta around that ledger time is a configuration of the ledger, usually short, around 1 minute.
+    // If however the transaction does not depend on time, the available time window to sign and submit the transaction is bound
+    // by the submission timestamp, which is also assigned in the "prepare" step (this request),
+    // but can be configured with a much larger skew, allowing for more time to sign the request (in the order of hours).
+    // Must not be set at the same time as min_ledger_time_rel.
+    // Optional
+    google.protobuf.Timestamp min_ledger_time_abs = 1;
+
+    // Same as min_ledger_time_abs, but specified as a duration, starting from the time this request is received by the server.
+    // Must not be set at the same time as min_ledger_time_abs.
+    // Optional
+    google.protobuf.Duration min_ledger_time_rel = 2;
+  }
+}
+
+/**
+ * Prepared Transaction Message
+ */
+message PreparedTransaction {
+  // Daml Transaction representing the ledger effect if executed. See below
+  DamlTransaction transaction = 1;
+  // Metadata context necessary to execute the transaction
+  Metadata metadata = 2;
+}
+
+// Transaction Metadata
+// Refer to the hashing documentation for information on how it should be hashed.
+message Metadata {
+  message SubmitterInfo {
+    repeated string act_as = 1;
+    string command_id = 2;
+  }
+
+  message GlobalKeyMappingEntry {
+    interactive.GlobalKey key = 1;
+    optional Value value = 2;
+  }
+
+  message ProcessedDisclosedContract {
+    oneof contract {
+      // When new versions will be added, they will show here
+      interactive.transaction.v1.Create v1 = 1;
+    }
+    uint64 created_at = 1000;
+    bytes driver_metadata = 1001;
+  }
+
+  /* ******************************************************** */
+  /* ** Metadata information that needs to be signed in V1 ** */
+  /* ******************************************************** */
+  /*
+   * Ledger effective time picked during preparation of the command.
+   * This is optional, because if the transaction does NOT depend on time, this value will not be set.
+   * Instead, it will be chosen when the command is submitted through the [execute] RPC.
+   * This allows increasing the time window necessary to acquire the signature and submit the transaction
+   * (effectively the time between when [prepare] and [execute] are called).
+   * Note however that if the transaction does use time, then this value will bet set and will constrain the available
+   * time to perform the signature and submit the transaction. The time window allowed is a configuration of the ledger
+   * and usually is counted in minutes.
+   */
+  optional uint64 ledger_effective_time = 1;
+  SubmitterInfo submitter_info = 2;
+  string domain_id = 3;
+  uint32 mediator_group = 4;
+  string transaction_uuid = 5;
+  uint64 submission_time = 6;
+  repeated ProcessedDisclosedContract disclosed_events = 7;
+
+  /* **************************************************************** */
+  /* ** Metadata information that does NOT need to be signed in V1 ** */
+  /* **************************************************************** */
+  // Contextual information needed to process the transaction but not signed, either because it's already indirectly
+  // signed by signing the transaction, or because it doesn't impact the ledger state
+  repeated GlobalKeyMappingEntry global_key_mapping = 10;
+}
+
+/*
+ * Daml Transaction.
+ * This represents the effect on the ledger if this transaction is successfully committed.
+ */
+message DamlTransaction {
+  message NodeSeed {
+    int32 node_id = 1;
+    bytes seed = 2;
+  }
+
+  // A transaction may contain nodes with different versions.
+  // Each node must be hashed using the hashing algorithm corresponding to its specific version.
+  message Node {
+    string node_id = 1;
+
+    // Versioned node
+    oneof versioned_node {
+      // Start at 1000 so we can add more fields before if necessary
+      // When new versions will be added, they will show here
+      interactive.transaction.v1.Node v1 = 1000;
+    }
+  }
+
+  // Transaction version, will be >= max(nodes version)
+  string version = 1;
+  // Root nodes of the transaction
+  repeated string roots = 2;
+  // List of nodes in the transaction
+  repeated Node nodes = 3;
+  // Node seeds are values associated with certain nodes used for generating cryptographic salts
+  repeated NodeSeed node_seeds = 4;
+}

@@ -7,8 +7,11 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.OutputBlockMetadataStore
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.OutputBlockMetadataStore.OutputBlockMetadata
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.{
+  OutputBlockMetadataStore,
+  OutputBlocksReader,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
   EpochNumber,
@@ -31,6 +34,7 @@ class DbOutputBlockMetadataStore(
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends OutputBlockMetadataStore[PekkoEnv]
+    with OutputBlocksReader[PekkoEnv]
     with DbStore {
 
   import storage.api.*
@@ -43,6 +47,7 @@ class DbOutputBlockMetadataStore(
         BlockNumber(r.nextLong()),
         CantonTimestamp.assertFromLong(r.nextLong()),
         r.nextBoolean(),
+        r.nextBoolean(),
       )
     }
 
@@ -54,21 +59,57 @@ class DbOutputBlockMetadataStore(
       storage.update_(
         profile match {
           case _: Postgres =>
-            sqlu"""insert into ord_metadata_output_blocks(epoch_number, block_number, bft_ts, epoch_could_alter_sequencing_topology)
-                  values (${metadata.epochNumber}, ${metadata.blockNumber}, ${metadata.blockBftTime}, ${metadata.epochCouldAlterSequencingTopology})
-                  on conflict (epoch_number, block_number, bft_ts, epoch_could_alter_sequencing_topology) do nothing
-                  """
+            sqlu"""insert into
+                     ord_metadata_output_blocks(
+                       epoch_number,
+                       block_number,
+                       bft_ts,
+                       epoch_could_alter_sequencing_topology,
+                       pending_topology_changes_in_next_epoch
+                     )
+                     values (
+                       ${metadata.epochNumber},
+                       ${metadata.blockNumber},
+                       ${metadata.blockBftTime},
+                       ${metadata.epochCouldAlterSequencingTopology},
+                       ${metadata.pendingTopologyChangesInNextEpoch}
+                     )
+                     on conflict (
+                       epoch_number,
+                       block_number,
+                       bft_ts,
+                       epoch_could_alter_sequencing_topology,
+                       pending_topology_changes_in_next_epoch
+                     ) do nothing"""
           case _: H2 =>
-            sqlu"""merge into ord_metadata_output_blocks
-                 using dual on (
-                    ord_metadata_output_blocks.epoch_number = ${metadata.epochNumber}
-                    and ord_metadata_output_blocks.block_number = ${metadata.blockNumber}
-                    and ord_metadata_output_blocks.bft_ts = ${metadata.blockBftTime}
-                    and ord_metadata_output_blocks.epoch_could_alter_sequencing_topology = ${metadata.epochCouldAlterSequencingTopology}
-                 )
-                 when not matched then
-                    insert (epoch_number, block_number, bft_ts, epoch_could_alter_sequencing_topology)
-                    values (${metadata.epochNumber}, ${metadata.blockNumber}, ${metadata.blockBftTime}, ${metadata.epochCouldAlterSequencingTopology})"""
+            sqlu"""merge into
+                     ord_metadata_output_blocks using dual on (
+                       ord_metadata_output_blocks.epoch_number =
+                         ${metadata.epochNumber}
+                       and ord_metadata_output_blocks.block_number =
+                         ${metadata.blockNumber}
+                       and ord_metadata_output_blocks.bft_ts =
+                         ${metadata.blockBftTime}
+                       and ord_metadata_output_blocks.epoch_could_alter_sequencing_topology =
+                         ${metadata.epochCouldAlterSequencingTopology}
+                       and ord_metadata_output_blocks.pending_topology_changes_in_next_epoch =
+                         ${metadata.pendingTopologyChangesInNextEpoch}
+                     )
+                     when not matched then
+                       insert (
+                         epoch_number,
+                         block_number,
+                         bft_ts,
+                         epoch_could_alter_sequencing_topology,
+                         pending_topology_changes_in_next_epoch
+                       )
+                       values (
+                         ${metadata.epochNumber},
+                         ${metadata.blockNumber},
+                         ${metadata.blockBftTime},
+                         ${metadata.epochCouldAlterSequencingTopology},
+                         ${metadata.pendingTopologyChangesInNextEpoch}
+                       )"""
         },
         functionFullName,
       )
@@ -86,7 +127,13 @@ class DbOutputBlockMetadataStore(
       storage
         .query(
           sql"""
-          select epoch_number, block_number, bft_ts, epoch_could_alter_sequencing_topology from ord_metadata_output_blocks
+          select
+            epoch_number,
+            block_number,
+            bft_ts,
+            epoch_could_alter_sequencing_topology,
+            pending_topology_changes_in_next_epoch
+          from ord_metadata_output_blocks
           where block_number >= $initial
           """
             .as[OutputBlockMetadata]
@@ -113,10 +160,17 @@ class DbOutputBlockMetadataStore(
   )(implicit traceContext: TraceContext): PekkoFutureUnlessShutdown[Option[OutputBlockMetadata]] = {
     val name = getLatestAtOrBeforeActionName(timestamp)
     val future = storage.performUnlessClosingF(name) {
+      // TODO(#19661): Figure out how to transfer less data.
       storage
         .query(
           sql"""
-          select epoch_number, block_number, bft_ts, epoch_could_alter_sequencing_topology from ord_metadata_output_blocks
+          select
+            epoch_number,
+            block_number,
+            bft_ts,
+            epoch_could_alter_sequencing_topology,
+            pending_topology_changes_in_next_epoch
+          from ord_metadata_output_blocks
           where bft_ts <= $timestamp
           order by block_number desc
           limit 1
@@ -149,7 +203,13 @@ class DbOutputBlockMetadataStore(
       storage
         .query(
           sql"""
-          select epoch_number, block_number, bft_ts, epoch_could_alter_sequencing_topology from ord_metadata_output_blocks
+          select
+            epoch_number,
+            block_number,
+            bft_ts,
+            epoch_could_alter_sequencing_topology,
+            pending_topology_changes_in_next_epoch
+          from ord_metadata_output_blocks
           where epoch_number = $epochNumber
           order by block_number #$order
           limit 1
@@ -169,7 +229,12 @@ class DbOutputBlockMetadataStore(
       storage
         .query(
           sql"""
-          select t.epoch_number, t.block_number, t.bft_ts, t.epoch_could_alter_sequencing_topology
+          select
+            t.epoch_number,
+            t.block_number,
+            t.bft_ts,
+            t.epoch_could_alter_sequencing_topology,
+            t.pending_topology_changes_in_next_epoch
           from (select *, row_number() over (order by block_number) as idx from ord_metadata_output_blocks) t
           where t.idx = t.block_number + 1
           order by t.block_number desc
@@ -178,6 +243,51 @@ class DbOutputBlockMetadataStore(
           functionFullName,
         )
         .map(_.headOption)
+    }
+    PekkoFutureUnlessShutdown(name, future)
+  }
+
+  override def setPendingChangesInNextEpoch(
+      block: BlockNumber,
+      areTherePendingCantonTopologyChanges: Boolean,
+  )(implicit
+      traceContext: TraceContext
+  ): PekkoFutureUnlessShutdown[Unit] = {
+    val name = setPendingChangesInNextEpochActionName
+    val future = storage.performUnlessClosingF(name) {
+      storage.update_(
+        sqlu"""
+          update ord_metadata_output_blocks
+          set pending_topology_changes_in_next_epoch = $areTherePendingCantonTopologyChanges
+          where block_number = $block
+          """,
+        functionFullName,
+      )
+    }
+    PekkoFutureUnlessShutdown(name, future)
+  }
+
+  override def loadOutputBlockMetadata(
+      startEpochNumberInclusive: EpochNumber,
+      endEpochNumberInclusive: EpochNumber,
+  )(implicit traceContext: TraceContext): PekkoFutureUnlessShutdown[Seq[OutputBlockMetadata]] = {
+    val name = loadOutputBlockMetadataActionName(startEpochNumberInclusive, endEpochNumberInclusive)
+    val future = storage.performUnlessClosingF(name) {
+      storage
+        .query(
+          sql"""
+          select
+            epoch_number,
+            block_number,
+            bft_ts,
+            epoch_could_alter_sequencing_topology,
+            pending_topology_changes_in_next_epoch
+          from ord_metadata_output_blocks
+          where epoch_number >= $startEpochNumberInclusive and epoch_number <= $endEpochNumberInclusive
+          order by block_number
+          """.as[OutputBlockMetadata],
+          functionFullName,
+        )
     }
     PekkoFutureUnlessShutdown(name, future)
   }

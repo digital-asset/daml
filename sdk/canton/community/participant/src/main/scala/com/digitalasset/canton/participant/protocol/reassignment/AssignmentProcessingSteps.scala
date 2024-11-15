@@ -42,7 +42,6 @@ import com.digitalasset.canton.participant.protocol.submission.{
 import com.digitalasset.canton.participant.protocol.{
   EngineController,
   ProcessingSteps,
-  ReassignmentSubmissionValidation,
   SerializableContractAuthenticator,
 }
 import com.digitalasset.canton.participant.store.*
@@ -55,6 +54,7 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.ShowUtil.*
@@ -96,6 +96,8 @@ private[reassignment] class AssignmentProcessingSteps(
 
   override def submissionDescription(param: SubmissionParam): String =
     s"Submitter ${param.submitterMetadata.submitter}, reassignmentId ${param.reassignmentId}"
+
+  override def explicitMediatorGroup(param: SubmissionParam): Option[MediatorGroupIndex] = None
 
   override type SubmissionResultArgs = PendingReassignmentSubmission
 
@@ -172,9 +174,9 @@ private[reassignment] class AssignmentProcessingSteps(
         )
 
       stakeholders = reassignmentData.unassignmentRequest.stakeholders
-      _ <- ReassignmentSubmissionValidation
-        .assignment(
-          reassignmentId,
+      _ <- ReassignmentValidation
+        .checkSubmitter(
+          ReassignmentRef(reassignmentId),
           topologySnapshot,
           submitter,
           participantId,
@@ -192,7 +194,6 @@ private[reassignment] class AssignmentProcessingSteps(
           submitterMetadata,
           reassignmentData.contract,
           reassignmentData.reassignmentCounter,
-          reassignmentData.creatingTransactionId,
           targetDomain,
           mediator,
           unassignmentResult,
@@ -453,7 +454,6 @@ private[reassignment] class AssignmentProcessingSteps(
         fullViewTree.contract,
         fullViewTree.reassignmentCounter,
         fullViewTree.submitterMetadata,
-        fullViewTree.creatingTransactionId,
         isObservingReassigningParticipant = isObservingReassigningParticipant,
         reassignmentId,
         hostedStakeholders.toSet,
@@ -570,7 +570,6 @@ private[reassignment] class AssignmentProcessingSteps(
       contract,
       reassignmentCounter,
       submitterMetadata,
-      creatingTransactionId,
       isObservingReassigningParticipant,
       reassignmentId,
       hostedStakeholders,
@@ -604,7 +603,7 @@ private[reassignment] class AssignmentProcessingSteps(
           ),
         )
         val commitSetO = Some(Future.successful(commitSet))
-        val contractsToBeStored = Seq(WithTransactionId(contract, creatingTransactionId))
+        val contractsToBeStored = Seq(contract)
 
         for {
           update <- createReassignmentAccepted(
@@ -734,7 +733,6 @@ object AssignmentProcessingSteps {
       contract: SerializableContract,
       reassignmentCounter: ReassignmentCounter,
       submitterMetadata: ReassignmentSubmitterMetadata,
-      creatingTransactionId: TransactionId,
       isObservingReassigningParticipant: Boolean,
       reassignmentId: ReassignmentId,
       hostedStakeholders: Set[LfPartyId],
@@ -753,7 +751,6 @@ object AssignmentProcessingSteps {
       submitterMetadata: ReassignmentSubmitterMetadata,
       contract: SerializableContract,
       reassignmentCounter: ReassignmentCounter,
-      creatingTransactionId: TransactionId,
       targetDomain: Target[DomainId],
       targetMediator: MediatorGroupRecipient,
       unassignmentResult: DeliveredUnassignmentResult,
@@ -783,7 +780,6 @@ object AssignmentProcessingSteps {
         .create(pureCrypto)(
           viewSalt,
           contract,
-          creatingTransactionId,
           unassignmentResult,
           sourceProtocolVersion,
           targetProtocolVersion,

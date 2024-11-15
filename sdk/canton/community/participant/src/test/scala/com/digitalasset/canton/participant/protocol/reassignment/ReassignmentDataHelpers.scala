@@ -83,13 +83,10 @@ final case class ReassignmentDataHelpers(
   )(
       reassigningParticipants: ReassigningParticipants =
         ReassigningParticipants.withConfirmers(Set(submittingParticipant))
-  ): UnassignmentRequest = {
-    val creatingTransactionId = ExampleTransactionFactory.transactionId(0)
-
+  ): UnassignmentRequest =
     UnassignmentRequest(
       submitterMetadata = submitterInfo(submitter, submittingParticipant),
       reassigningParticipants = reassigningParticipants,
-      creatingTransactionId = creatingTransactionId,
       contract = contract,
       sourceDomain = sourceDomain,
       sourceProtocolVersion = Source(protocolVersion),
@@ -99,7 +96,6 @@ final case class ReassignmentDataHelpers(
       targetTimeProof = targetTimeProof,
       reassignmentCounter = ReassignmentCounter.Genesis,
     )
-  }
 
   def reassignmentData(reassignmentId: ReassignmentId, unassignmentRequest: UnassignmentRequest)(
       unassignmentGlobalOffset: Option[GlobalOffset] = None

@@ -21,6 +21,7 @@ import com.digitalasset.canton.lifecycle.{
   UnlessShutdown,
 }
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.grpc.GrpcError.GrpcServiceUnavailable
 import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, ClientChannelBuilder}
 import com.digitalasset.canton.time.Clock.SystemClockRunningBackwards
 import com.digitalasset.canton.topology.admin.v30.{
@@ -489,6 +490,14 @@ class RemoteClock(
           this,
           // We retry at a higher level indefinitely and not here at all because we want a fairly short connection timeout here.
           retryPolicy = _ => false,
+          // Do not log warnings for unavailable servers as that can happen on cancellation of the grpc channel on shutdown.
+          logPolicy = err =>
+            logger =>
+              implicit traceContext =>
+                err match {
+                  case unavailable: GrpcServiceUnavailable => logger.info(unavailable.toString)
+                  case _ => err.log(logger)
+                },
         )
         .bimap(_.toString, _.currentTime)
       timestamp <- EitherT.fromEither[FutureUnlessShutdown](

@@ -35,6 +35,7 @@ import com.digitalasset.canton.protocol.messages.CommitmentPeriodState.fromIntVa
 import com.digitalasset.canton.protocol.{LfContractId, SerializableContract}
 import com.digitalasset.canton.pruning.PruningStatus
 import com.digitalasset.canton.sequencing.PossiblyIgnoredProtocolEvent
+import com.digitalasset.canton.sequencing.client.channel.SequencerChannelClient
 import com.digitalasset.canton.sequencing.handlers.EnvelopeOpener
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.SequencedEventStore.{
@@ -703,6 +704,13 @@ final class SyncStateInspection(
       participantNodePersistentState.value.pruningStore.pruningStatus().map(_.completedO)
     )
 
+  def getSequencerChannelClient(domainId: DomainId): Option[SequencerChannelClient] = for {
+    syncDomain <- connectedDomainsLookup.get(domainId)
+    sequencerChannelClient <- syncDomain.domainHandle.sequencerChannelClientO
+  } yield sequencerChannelClient
+
+  def getAcsInspection(domainId: DomainId): Option[AcsInspection] =
+    connectedDomainsLookup.get(domainId).map(_.domainHandle.domainPersistentState.acsInspection)
 }
 
 object SyncStateInspection {

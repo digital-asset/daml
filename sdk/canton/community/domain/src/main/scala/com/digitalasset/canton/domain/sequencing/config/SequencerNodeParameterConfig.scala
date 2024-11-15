@@ -13,8 +13,7 @@ import com.digitalasset.canton.config.RequireTypes.PositiveDouble
   * @param maxConfirmationRequestsBurstFactor how forgiving the rate limit is in case of bursts (so rate limit starts after observing an initial burst of factor * max_rate commands)
   */
 final case class SequencerNodeParameterConfig(
-    // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
-    override val alphaVersionSupport: Boolean = true,
+    override val alphaVersionSupport: Boolean = false,
     override val betaVersionSupport: Boolean = false,
     override val dontWarnOnDeprecatedPV: Boolean = false,
     maxConfirmationRequestsBurstFactor: PositiveDouble = PositiveDouble.tryCreate(0.5),

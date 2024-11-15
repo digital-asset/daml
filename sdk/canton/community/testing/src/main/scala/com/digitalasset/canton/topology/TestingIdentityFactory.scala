@@ -645,7 +645,7 @@ class TestingOwnerWithKeys(
     implicit val ec: ExecutionContext = initEc
 
     val key1 = genSignKey("key1")
-    val key1_unsupportedScheme = genSignKey("key1", Some(SigningKeyScheme.EcDsaP384))
+    val key1_unsupportedSpec = genSignKey("key1", Some(SigningKeySpec.EcP384))
     val key2 = genSignKey("key2")
     val key3 = genSignKey("key3")
     val key4 = genSignKey("key4")
@@ -880,16 +880,16 @@ class TestingOwnerWithKeys(
       signingKeys,
       isProposal,
     )
-  private def genSignKey(name: String, schemeO: Option[SigningKeyScheme] = None): SigningPublicKey =
+  private def genSignKey(name: String, keySpecO: Option[SigningKeySpec] = None): SigningPublicKey =
     Await
       .result(
-        schemeO.fold(
+        keySpecO.fold(
           cryptoApi.crypto
             .generateSigningKey(name = Some(KeyName.tryCreate(name)))
             .value
-        )(scheme =>
+        )(keySpec =>
           cryptoApi.crypto
-            .generateSigningKey(name = Some(KeyName.tryCreate(name)), scheme = scheme)
+            .generateSigningKey(keySpec = keySpec, name = Some(KeyName.tryCreate(name)))
             .value
         ),
         30.seconds,

@@ -4,8 +4,8 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss
 
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1.BftOrderingMessageBody
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.IssSegmentModule.BlockCompletionTimeout
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.PbftBlockState.{
@@ -26,6 +26,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   BlockNumber,
   ViewNumber,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.availability.BatchId
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.OrderedBlock
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.BlockMetadata
@@ -34,6 +35,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   NewView,
   PbftNestedViewChangeTimeout,
   PbftNormalTimeout,
+  PbftSignedNetworkMessage,
   ViewChange,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.{
@@ -64,7 +66,7 @@ class IssSegmentModule[E <: Env[E]](
     epochStore: EpochStore[E],
     clock: Clock,
     cryptoProvider: CryptoProvider[E],
-    latestCompletedEpochLastCommits: Seq[Commit],
+    latestCompletedEpochLastCommits: Seq[SignedMessage[Commit]],
     epochInProgress: EpochInProgress,
     parent: ModuleRef[Consensus.Message[E]],
     availability: ModuleRef[Availability.Message[E]],
@@ -104,16 +106,20 @@ class IssSegmentModule[E <: Env[E]](
           epochInProgress,
         )
         (prepares ++ viewMessages.dropRight(1)).foreach { prepare =>
-          segmentState.processEvent(prepare).discard
+          segmentState.processEvent(PbftSignedNetworkMessage(prepare)).discard
         }
         viewMessages.lastOption.foreach { msg =>
           processPbftEvent(
-            msg,
+            PbftSignedNetworkMessage(msg),
             storeMessages =
               false, // we don't want to store again messages as part of rehydration (but we do want to potentially resend)
           )
         }
 
+        logger.info(
+          s"Received `Start` message, segment ${segmentState.segment} is complete = ${segmentState.isSegmentComplete}, " +
+            s"view change in progress = ${segmentState.isViewChangeInProgress}"
+        )
         if (!segmentState.isSegmentComplete && !segmentState.isViewChangeInProgress)
           viewChangeTimeoutManager.scheduleTimeout(
             PbftNormalTimeout(segmentBlockMetadata, segmentState.currentView)
@@ -153,7 +159,7 @@ class IssSegmentModule[E <: Env[E]](
                   latestCompletedEpochLastCommits,
                 )
 
-              val prePrepare =
+              val prePrepare = SignedMessage(
                 ConsensusSegment.ConsensusMessage.PrePrepare.create(
                   orderedBlock.metadata,
                   viewNumber = ViewNumber.First,
@@ -161,8 +167,10 @@ class IssSegmentModule[E <: Env[E]](
                   orderingBlock,
                   orderedBlock.canonicalCommitSet,
                   from = thisPeer,
-                )
-              processPbftEvent(prePrepare)
+                ),
+                Signature.noSignature, // TODO(#20458) actually sign
+              )
+              processPbftEvent(PbftSignedNetworkMessage(prePrepare))
             } else {
               logger.debug(
                 s"$logMessage. Not using empty block because we are not blocking progress."
@@ -271,6 +279,8 @@ class IssSegmentModule[E <: Env[E]](
 
     def handleStore(store: StoreResult, sendMsg: () => Unit): Unit = store match {
       case StorePrePrepare(prePrepare) =>
+        // TODO(#20914): Store before sending.
+        sendMsg()
         context.pipeToSelf(epochStore.addPrePrepare(prePrepare)) {
           case Failure(exception) =>
             logAsyncException(exception)
@@ -278,13 +288,14 @@ class IssSegmentModule[E <: Env[E]](
             None
           case Success(_) =>
             logger.debug(
-              s"DB stored pre-prepare w/ ${prePrepare.blockMetadata} and batches ${prePrepare.block.proofs
+              s"DB stored pre-prepare w/ ${prePrepare.message.blockMetadata} and batches ${prePrepare.message.block.proofs
                   .map(_.batchId)}"
             )
-            sendMsg()
             None
         }
       case StorePrepares(prepares) =>
+        // TODO(#20914): Store before sending.
+        sendMsg()
         context.pipeToSelf(epochStore.addPrepares(prepares)) {
           case Failure(exception) =>
             logAsyncException(exception)
@@ -292,25 +303,25 @@ class IssSegmentModule[E <: Env[E]](
           case Success(_) =>
             prepares.headOption.foreach { head =>
               // We assume all prepares are for the same block, so we just need to look at one metadata.
-              val metadata = head.blockMetadata
+              val metadata = head.message.blockMetadata
               logger.debug(s"DB stored ${prepares.size} prepares w/ $metadata")
             }
-            sendMsg()
             None
         }
       case StoreViewChangeMessage(vcMessage) =>
+        // TODO(#20914): Store before sending.
+        sendMsg()
         context.pipeToSelf(epochStore.addViewChangeMessage(vcMessage)) {
           case Failure(exception) =>
             logAsyncException(exception)
             None
           case Success(_) =>
             logger.debug(
-              s"DB stored ${vcMessage match {
+              s"DB stored ${vcMessage.message match {
                   case _: ViewChange => "view change"
                   case _: NewView => "new view"
-                }} for view ${vcMessage.viewNumber} and segment ${vcMessage.blockMetadata.blockNumber}"
+                }} for view ${vcMessage.message.viewNumber} and segment ${vcMessage.message.blockMetadata.blockNumber}"
             )
-            sendMsg()
             None
         }
     }
@@ -324,10 +335,7 @@ class IssSegmentModule[E <: Env[E]](
           )
           p2pNetworkOut.asyncSend(
             P2PNetworkOut.Multicast(
-              BftOrderingMessageBody.of(
-                BftOrderingMessageBody.Message.ConsensusMessage(pbftMessage.toProto)
-              ),
-              signature = None,
+              P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(pbftMessage),
               to = peers,
             )
           )
@@ -358,8 +366,8 @@ class IssSegmentModule[E <: Env[E]](
   }
 
   private def storeOrderedBlock(
-      prePrepare: ConsensusSegment.ConsensusMessage.PrePrepare,
-      commits: Seq[ConsensusSegment.ConsensusMessage.Commit],
+      prePrepare: SignedMessage[ConsensusSegment.ConsensusMessage.PrePrepare],
+      commits: Seq[SignedMessage[ConsensusSegment.ConsensusMessage.Commit]],
       viewNumber: ViewNumber,
   )(implicit
       context: E#ActorContextT[ConsensusSegment.Message],
@@ -375,9 +383,9 @@ class IssSegmentModule[E <: Env[E]](
       case Failure(exception) => ConsensusSegment.Internal.AsyncException(exception)
       case Success(_) =>
         val orderedBlock = OrderedBlock(
-          prePrepare.blockMetadata,
-          prePrepare.block.proofs,
-          prePrepare.canonicalCommitSet,
+          prePrepare.message.blockMetadata,
+          prePrepare.message.block.proofs,
+          prePrepare.message.canonicalCommitSet,
         )
         ConsensusSegment.Internal.OrderedBlockStored(orderedBlock, commits, viewNumber)
     }

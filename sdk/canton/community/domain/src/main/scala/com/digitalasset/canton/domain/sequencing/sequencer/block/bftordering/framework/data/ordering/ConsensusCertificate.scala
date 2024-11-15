@@ -5,11 +5,13 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fr
 
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError
+import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1
 import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1.{
   CommitCertificate as ProtoCommitCertificate,
   ConsensusCertificate as ProtoConsensusCertificate,
   PrepareCertificate as ProtoPrepareCertificate,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
   Commit,
   PrePrepare,
@@ -19,20 +21,24 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 
 sealed trait ConsensusCertificate {
-  def prePrepare: PrePrepare
+  def prePrepare: SignedMessage[PrePrepare]
 }
 
-final case class PrepareCertificate(override val prePrepare: PrePrepare, prepares: Seq[Prepare])
-    extends ConsensusCertificate {
-  private lazy val sortedPrepares: Seq[Prepare] = prepares.sorted
+final case class PrepareCertificate(
+    override val prePrepare: SignedMessage[PrePrepare],
+    prepares: Seq[SignedMessage[Prepare]],
+) extends ConsensusCertificate {
+  private lazy val sortedPrepares: Seq[SignedMessage[Prepare]] = prepares.sorted
 
   def toProto: ProtoPrepareCertificate =
     ProtoPrepareCertificate.of(Some(prePrepare.toProto), sortedPrepares.map(_.toProto))
 }
 
-final case class CommitCertificate(override val prePrepare: PrePrepare, commits: Seq[Commit])
-    extends ConsensusCertificate {
-  private lazy val sortedCommits: Seq[Commit] = commits.sorted
+final case class CommitCertificate(
+    override val prePrepare: SignedMessage[PrePrepare],
+    commits: Seq[SignedMessage[Commit]],
+) extends ConsensusCertificate {
+  private lazy val sortedCommits: Seq[SignedMessage[Commit]] = commits.sorted
 
   def toProto: ProtoCommitCertificate =
     ProtoCommitCertificate.of(Some(prePrepare.toProto), sortedCommits.map(_.toProto))
@@ -54,13 +60,18 @@ object ConsensusCertificate {
 
 object PrepareCertificate {
   def fromProto(
-      prepareCertificate: ProtoPrepareCertificate
+      prepareCertificate: v1.PrepareCertificate
   ): ParsingResult[PrepareCertificate] =
     for {
-      consensusPP <- ProtoConverter
-        .required("prePrepare", prepareCertificate.prePrepare)
-      prePrepare <- PrePrepare.fromProtoConsensusMessage(consensusPP)
-      prepares <- prepareCertificate.prepares.traverse(Prepare.fromProtoConsensusMessage)
+      prePrepare <- ProtoConverter
+        .parseRequired(
+          SignedMessage.fromProto(v1.ConsensusMessage)(PrePrepare.fromProtoConsensusMessage),
+          "prePrepare",
+          prepareCertificate.prePrepare,
+        )
+      prepares <- prepareCertificate.prepares.traverse(
+        SignedMessage.fromProto(v1.ConsensusMessage)(Prepare.fromProtoConsensusMessage)
+      )
     } yield PrepareCertificate(prePrepare, prepares)
 }
 
@@ -69,12 +80,17 @@ object CommitCertificate {
     Ordering.by(commit => (commit.from, commit.localTimestamp))
 
   def fromProto(
-      commitCertificate: ProtoCommitCertificate
+      commitCertificate: v1.CommitCertificate
   ): ParsingResult[CommitCertificate] =
     for {
-      consensusPP <- ProtoConverter
-        .required("prePrepare", commitCertificate.prePrepare)
-      prePrepare <- PrePrepare.fromProtoConsensusMessage(consensusPP)
-      commits <- commitCertificate.commits.traverse(Commit.fromProtoConsensusMessage)
+      prePrepare <- ProtoConverter
+        .parseRequired(
+          SignedMessage.fromProto(v1.ConsensusMessage)(PrePrepare.fromProtoConsensusMessage),
+          "prePrepare",
+          commitCertificate.prePrepare,
+        )
+      commits <- commitCertificate.commits.traverse(
+        SignedMessage.fromProto(v1.ConsensusMessage)(Commit.fromProtoConsensusMessage)
+      )
     } yield CommitCertificate(prePrepare, commits)
 }

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.protocol.reassignment
 
-import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.ReassigningParticipants
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.PackageUnknownTo
@@ -16,15 +15,6 @@ import com.digitalasset.canton.topology.DomainId
 trait UnassignmentProcessorError extends ReassignmentProcessorError
 
 object UnassignmentProcessorError {
-
-  final case class UnassignmentSubmitterMustBeStakeholder(
-      contractId: LfContractId,
-      submittingParty: LfPartyId,
-      stakeholders: Set[LfPartyId],
-  ) extends UnassignmentProcessorError {
-    override def message: String =
-      s"Cannot unassign contract `$contractId`: submitter `$submittingParty` is not a stakeholder"
-  }
 
   final case class UnexpectedDomain(reassignmentId: ReassignmentId, receivedOn: DomainId)
       extends UnassignmentProcessorError {

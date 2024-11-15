@@ -6,20 +6,23 @@ package com.digitalasset.canton.participant.util
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{LoggingContextUtil, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.PackageService
+import com.digitalasset.canton.participant.protocol.EngineController
 import com.digitalasset.canton.participant.protocol.EngineController.GetEngineAbortStatus
 import com.digitalasset.canton.participant.store.ContractLookupAndVerification
 import com.digitalasset.canton.participant.util.DAMLe.{
   ContractWithMetadata,
   HasReinterpret,
   PackageResolver,
+  ReInterpretationResult,
+  TransactionEnricher,
 }
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
-import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{LfCommand, LfCreateCommand, LfKeyResolver, LfPartyId, LfVersioned}
 import com.digitalasset.daml.lf.VersionRange
@@ -38,6 +41,14 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 object DAMLe {
+  final case class ReInterpretationResult(
+      transaction: LfVersionedTransaction,
+      metadata: TransactionMetadata,
+      keyResolver: LfKeyResolver,
+      usedPackages: Set[PackageId],
+      usesLedgerTime: Boolean,
+  )
+
   def newEngine(
       enableLfDev: Boolean,
       enableLfBeta: Boolean,
@@ -72,6 +83,11 @@ object DAMLe {
     * so that [[com.digitalasset.daml.lf.engine.Engine]] can skip validation.
     */
   type PackageResolver = PackageId => TraceContext => Future[Option[Package]]
+  type TransactionEnricher = LfVersionedTransaction => TraceContext => EitherT[
+    FutureUnlessShutdown,
+    ReinterpretationError,
+    LfVersionedTransaction,
+  ]
 
   sealed trait ReinterpretationError extends PrettyPrinting
 
@@ -123,7 +139,7 @@ object DAMLe {
     )(implicit traceContext: TraceContext): EitherT[
       Future,
       ReinterpretationError,
-      (LfVersionedTransaction, TransactionMetadata, LfKeyResolver, Set[PackageId]),
+      ReInterpretationResult,
     ]
   }
 
@@ -138,7 +154,6 @@ object DAMLe {
   */
 class DAMLe(
     resolvePackage: PackageResolver,
-    domainId: Option[DomainId],
     engine: Engine,
     engineLoggingConfig: EngineLoggingConfig,
     protected val loggerFactory: NamedLoggerFactory,
@@ -149,6 +164,29 @@ class DAMLe(
   import DAMLe.{EngineAborted, EngineError, ReinterpretationError}
 
   logger.debug(engine.info.show)(TraceContext.empty)
+
+  // TODO(i21582) Because we do not hash suffixed CIDs, we need to disable validation of suffixed CIDs otherwise enrichment
+  // will fail. Remove this when we hash and sign suffixed CIDs
+  private lazy val engineForEnrichment = new Engine(
+    engine.config.copy(requireSuffixedGlobalContractId = false)
+  )
+  private lazy val valueEnricher = new ValueEnricher(engineForEnrichment)
+
+  /** Enrich transaction values by re-hydrating record labels
+    */
+  val enrichTransaction: TransactionEnricher = { transaction => implicit traceContext =>
+    EitherT {
+      handleResult(
+        ContractLookupAndVerification.noContracts(loggerFactory),
+        valueEnricher.enrichVersionedTransaction(transaction),
+        // This should not happen as value enrichment should only request lookups
+        () =>
+          EngineController.EngineAbortStatus(
+            Some("Unexpected engine interruption while enriching transaction")
+          ),
+      )
+    }.mapK(FutureUnlessShutdown.outcomeK)
+  }
 
   override def reinterpret(
       contracts: ContractLookupAndVerification,
@@ -163,7 +201,7 @@ class DAMLe(
   )(implicit traceContext: TraceContext): EitherT[
     Future,
     ReinterpretationError,
-    (LfVersionedTransaction, TransactionMetadata, LfKeyResolver, Set[PackageId]),
+    ReInterpretationResult,
   ] = {
 
     def peelAwayRootLevelRollbackNode(
@@ -229,11 +267,12 @@ class DAMLe(
       txNoRootRollback <- EitherT.fromEither[Future](
         peeledTxE: Either[ReinterpretationError, LfVersionedTransaction]
       )
-    } yield (
+    } yield ReInterpretationResult(
       txNoRootRollback,
       TransactionMetadata.fromLf(ledgerTime, metadata),
       metadata.globalKeyMapping,
       metadata.usedPackages,
+      metadata.dependsOnTime,
     )
   }
 
@@ -296,7 +335,7 @@ class DAMLe(
         expectFailure = false,
         getEngineAbortStatus = getEngineAbortStatus,
       )
-      (transaction, _, _, _) = transactionWithMetadata
+      ReInterpretationResult(transaction, _, _, _, _) = transactionWithMetadata
       md = transaction.nodes(transaction.roots(0)) match {
         case nc: LfNodeCreate =>
           ContractWithMetadata(

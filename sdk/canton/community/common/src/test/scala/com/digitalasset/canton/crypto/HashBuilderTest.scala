@@ -59,6 +59,6 @@ class HashBuilderTest extends AnyWordSpec with BaseTest {
 
   testHashBuilder(
     "HashBuilderFromMessageDigest",
-    purpose => new HashBuilderFromMessageDigest(HashAlgorithm.Sha256, purpose),
+    purpose => HashBuilderFromMessageDigest(HashAlgorithm.Sha256, purpose),
   )
 }

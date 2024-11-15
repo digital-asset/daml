@@ -9,39 +9,51 @@ import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.concurrent.atomic.AtomicInteger
-import scala.concurrent.Future
 
 class TracedScaffeineTest extends AsyncWordSpec with BaseTest {
 
-  private def getValueBroken(input: Int): FutureUnlessShutdown[Int] = FutureUnlessShutdown(
-    Future(UnlessShutdown.AbortedDueToShutdown)
-  )
+  private def getValueBroken(input: Int): FutureUnlessShutdown[Int] =
+    FutureUnlessShutdown.abortedDueToShutdown
   private def getValue(input: Int): FutureUnlessShutdown[Int] = FutureUnlessShutdown.pure(input)
 
   "TracedScaffeineUS" should {
     "should get a value when not shutting down" in {
       val keysCache =
-        TracedScaffeine.buildTracedAsyncFutureUS[Int, Int](
+        TracedScaffeine.buildTracedAsync[FutureUnlessShutdown, Int, Int](
           cache = CachingConfigs.testing.mySigningKeyCache.buildScaffeine(),
           loader = traceContext => input => getValue(input),
         )(logger)
       for {
-        result <- keysCache.getUS(10)(TraceContext.empty)
+        result <- keysCache.get(10)(TraceContext.empty)
       } yield {
         result shouldBe 10
       }
     }.failOnShutdown
 
+    "ignore the trace context stored with a key" in {
+      val counter = new AtomicInteger()
+      val keysCache = TracedScaffeine.buildTracedAsync[FutureUnlessShutdown, Int, Int](
+        cache = CachingConfigs.testing.mySigningKeyCache.buildScaffeine(),
+        loader = traceContext => input => getValue(counter.incrementAndGet() + input),
+      )(logger)
+      for {
+        result1 <- keysCache.get(10)(TraceContext.empty)
+        result2 <- keysCache.get(10)(TraceContext.createNew())
+      } yield {
+        result1 shouldBe result2
+      }
+    }.failOnShutdown
+
     "Handle AbortDueToShutdownException in get" in {
       val keysCache =
-        TracedScaffeine.buildTracedAsyncFutureUS[Int, Int](
+        TracedScaffeine.buildTracedAsync[FutureUnlessShutdown, Int, Int](
           cache = CachingConfigs.testing.mySigningKeyCache.buildScaffeine(),
           loader = traceContext => input => getValueBroken(input),
         )(logger)
 
       for {
         result <-
-          keysCache.getUS(10).unwrap
+          keysCache.get(10).unwrap
       } yield {
         result shouldBe UnlessShutdown.AbortedDueToShutdown
       }
@@ -51,13 +63,13 @@ class TracedScaffeineTest extends AsyncWordSpec with BaseTest {
     // with java.util.concurrent.CompletionException
     "Handle AbortDueToShutdownException in getAll" in {
       val keysCache =
-        TracedScaffeine.buildTracedAsyncFutureUS[Int, Int](
+        TracedScaffeine.buildTracedAsync[FutureUnlessShutdown, Int, Int](
           cache = CachingConfigs.testing.mySigningKeyCache.buildScaffeine(),
           loader = traceContext => input => getValueBroken(input),
         )(logger)
 
       for {
-        result <- keysCache.getAllUS(Set(10)).unwrap
+        result <- keysCache.getAll(Set(10)).unwrap
       } yield {
         result shouldBe UnlessShutdown.AbortedDueToShutdown
       }
@@ -72,20 +84,20 @@ class TracedScaffeineTest extends AsyncWordSpec with BaseTest {
       }
 
       val keysCache =
-        TracedScaffeine.buildTracedAsyncFutureUS[Int, Int](
+        TracedScaffeine.buildTracedAsync[FutureUnlessShutdown, Int, Int](
           cache = CachingConfigs.testing.mySigningKeyCache.buildScaffeine(),
           loader = traceContext => input => getValueCount(input),
         )(logger)
 
       for {
-        _ <- keysCache.getUS(2)
-        _ <- keysCache.getUS(3)
-        _ <- keysCache.getAllUS(Seq(2, 3)).map { m =>
+        _ <- keysCache.get(2)
+        _ <- keysCache.get(3)
+        _ <- keysCache.getAll(Seq(2, 3)).map { m =>
           keysCache.clear((i, _) => i == 2)
           m
         }
-        _ <- keysCache.getUS(2)
-        _ <- keysCache.getUS(3)
+        _ <- keysCache.get(2)
+        _ <- keysCache.get(3)
       } yield {
         loads.get() shouldBe 3 // Initial 2 + 1 reload
       }

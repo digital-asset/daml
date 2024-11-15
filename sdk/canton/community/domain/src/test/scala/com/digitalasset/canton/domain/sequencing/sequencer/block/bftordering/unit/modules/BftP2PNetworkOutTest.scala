@@ -193,7 +193,10 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
 
           val networkMessageBody = BftOrderingMessageBody(BftOrderingMessageBody.Message.Empty)
           module.receive(
-            P2PNetworkOut.Multicast(networkMessageBody, signature = None, sequencerIds)
+            P2PNetworkOut.Multicast(
+              P2PNetworkOut.BftOrderingNetworkMessage.Empty,
+              sequencerIds,
+            )
           )
 
           authenticatedEndpoints.foreach(
@@ -203,7 +206,6 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
                 "",
                 Some(networkMessageBody),
                 selfSequencerId.uid.toProtoPrimitive,
-                signature = None,
               ),
             )
           )
@@ -229,8 +231,7 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
           val networkMessageBody = BftOrderingMessageBody(BftOrderingMessageBody.Message.Empty)
           module.receive(
             P2PNetworkOut.Multicast(
-              networkMessageBody,
-              signature = None,
+              P2PNetworkOut.BftOrderingNetworkMessage.Empty,
               Set(sequencerId),
             )
           )
@@ -239,7 +240,6 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
             "",
             Some(networkMessageBody),
             selfSequencerId.uid.toProtoPrimitive,
-            signature = None,
           )
           verify(sendActionSpy, times(1)).apply(
             otherInitialEndpointsTupled._1,
@@ -264,8 +264,7 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
         val networkMessageBody = BftOrderingMessageBody(BftOrderingMessageBody.Message.Empty)
         module.receive(
           P2PNetworkOut.Multicast(
-            networkMessageBody,
-            None,
+            P2PNetworkOut.BftOrderingNetworkMessage.Empty,
             Set(selfSequencerId),
           )
         )
@@ -276,7 +275,6 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
             traceContext = "",
             Some(networkMessageBody),
             selfSequencerId.uid.toProtoPrimitive,
-            signature = None,
           )
         )
       }

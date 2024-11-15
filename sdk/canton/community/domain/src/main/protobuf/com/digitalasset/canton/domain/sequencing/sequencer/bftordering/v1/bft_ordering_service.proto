@@ -37,7 +37,6 @@ message BftOrderingServiceReceiveRequest {
   string trace_context = 1;
   BftOrderingMessageBody body = 2;
   string sent_by_sequencer_uid = 3;
-  com.digitalasset.canton.crypto.v30.Signature signature = 4;
 }
 
 message BftOrderingServiceReceiveResponse {
@@ -46,15 +45,20 @@ message BftOrderingServiceReceiveResponse {
 
 message BftOrderingMessageBody {
   oneof message {
-    // The bytes represents a `AvailabilityMessage` but are bytes here to so that we have
-    // a stable source for signatures
-    bytes availability_message = 1;
-    ConsensusMessage consensus_message = 2;
-    StateTransferMessage state_transfer_message = 3;
+    SignedMessage /* AvailabilityMessage */ availability_message = 1;
+    SignedMessage /* ConsensusMessage */ consensus_message = 2;
+    SignedMessage /* StateTransferMessage */ state_transfer_message = 3;
   }
 }
 
+message SignedMessage {
+  bytes message = 1;
+  string from = 2;
+  com.digitalasset.canton.crypto.v30.Signature signature = 3;
+}
+
 message AvailabilityMessage {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
   oneof message {
     google.protobuf.Empty ping = 1;
     StoreRequest store_request = 2;
@@ -66,8 +70,6 @@ message AvailabilityMessage {
 
 // A `StoreRequest` is requesting another availability node to store
 message StoreRequest {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
-
   bytes batch_id = 1;
   Batch batch = 2;
 }
@@ -86,23 +88,21 @@ message OrderingRequest {
 }
 
 message StoreResponse {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
   bytes batch_id = 1;
   com.digitalasset.canton.crypto.v30.Signature signature = 2;
 }
 
 message BatchRequest {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
   bytes batch_id = 1;
 }
 
 message BatchResponse {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
   bytes batch_id = 1;
   Batch batch = 2;
 }
 
 message ConsensusMessage {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
   BlockMetadata block_metadata = 1;
   int64 view_number = 2;
   string from_sequencer_uid = 3;
@@ -152,14 +152,14 @@ message ViewChange {
 // of a PBFT instance at the end of a view change
 message NewView {
   int32 segment_index = 1;
-  repeated ConsensusMessage view_changes = 2;
-  repeated ConsensusMessage pre_prepares = 3;
+  repeated SignedMessage /*ConsensusMessage*/ view_changes = 2;
+  repeated SignedMessage /*ConsensusMessage*/ pre_prepares = 3;
 }
 
 // A canonical (fixed) set of (usually 2f+1) Commit messages that completed the recent stable block.
 // Check the BFT time design for more details.
 message CanonicalCommitSet {
-  repeated ConsensusMessage canonical_commits = 1;
+  repeated SignedMessage /*ConsensusMessage*/ canonical_commits = 1;
 }
 
 message ConsensusCertificate {
@@ -172,15 +172,15 @@ message ConsensusCertificate {
 // A self-contained, cryptographically-verifiable set of one PrePrepare and quorum-1 Prepares that
 // prove a particular value (payload) was prepared for a particular (epoch, block, view)-tuple
 message PrepareCertificate {
-  ConsensusMessage pre_prepare = 1;
-  repeated ConsensusMessage prepares = 2;
+  SignedMessage /*ConsensusMessage*/ pre_prepare = 1;
+  repeated SignedMessage /*ConsensusMessage*/ prepares = 2;
 }
 
 // A self-contained, cryptographically-verifiable set of one PrePrepare and quorum-1 Commits that
 // prove a particular value (payload) was committed for a particular (epoch, block, view)-tuple
 message CommitCertificate {
-  ConsensusMessage pre_prepare = 1;
-  repeated ConsensusMessage commits = 2;
+  SignedMessage /*ConsensusMessage*/ pre_prepare = 1;
+  repeated SignedMessage /*ConsensusMessage*/ commits = 2;
 }
 
 message OrderingBlock {
@@ -199,6 +199,7 @@ message AvailabilityAck {
 
 // State transfer
 message StateTransferMessage {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
   oneof message {
     BlockTransferRequest block_request = 1;
     BlockTransferResponse block_response = 2;
@@ -216,8 +217,14 @@ message BlockTransferResponse {
   int64 latest_completed_epoch = 1;
   // Effective time of the topology for the latest completed epoch of the serving node.
   google.protobuf.Timestamp latest_completed_epoch_topology_effective_time = 2;
-  // Reused to reduce the number of messages and conversions.
-  repeated ConsensusMessage block_pre_prepares = 3;
+  repeated BlockTransferData block_transfer_data = 3;
   // For BFT time calculation.
-  repeated ConsensusMessage last_block_commits = 4;
+  repeated SignedMessage /*ConsensusMessage*/ last_block_commits = 4;
+}
+
+message BlockTransferData {
+  // Reused to reduce the number of messages and conversions.
+  SignedMessage /*ConsensusMessage*/ block_pre_prepare = 1;
+  // Can only be true for last blocks in epochs, used to correctly tick the topology during state transfer.
+  bool pending_topology_changes = 2;
 }
