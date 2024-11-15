@@ -122,7 +122,7 @@ class GrpcSequencerClientTransportPekko(
       )
     }
 
-    val subscriber = sequencerServiceClient.subscribeVersioned _
+    val subscriber = sequencerServiceClient.service.subscribeVersioned _
 
     mkSubscription(subscriber)(SubscriptionResponse.fromVersionedProtoV30(protocolVersion)(_)(_))
   }

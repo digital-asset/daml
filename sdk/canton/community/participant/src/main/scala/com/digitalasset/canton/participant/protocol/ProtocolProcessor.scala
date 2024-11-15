@@ -575,7 +575,7 @@ abstract class ProtocolProcessor[
       }
     }
 
-    FutureUtil.doNotAwaitUnlessShutdown(
+    FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
       removeF,
       s"Failed to remove the pending submission $submissionId",
     )

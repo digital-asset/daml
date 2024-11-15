@@ -45,8 +45,8 @@ import com.digitalasset.canton.topology.{
 }
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.EitherUtil.RichEither
-import com.digitalasset.canton.util.FutureUtil
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.util.{FutureUnlessShutdownUtil, FutureUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import io.opentelemetry.api.trace.Tracer
@@ -323,7 +323,7 @@ private[mediator] class Mediator(
 
           logger.debug(s"Processing ${tracedOpenEvents.size} events for the mediator")
 
-          val result = FutureUtil.logOnFailureUnlessShutdown(
+          val result = FutureUnlessShutdownUtil.logOnFailureUnlessShutdown(
             eventsProcessor.handle(tracedOpenEvents),
             "Failed to handle Mediator events",
             closeContext = Some(closeContext),

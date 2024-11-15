@@ -12,7 +12,7 @@ import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{Crypto, SyncCryptoApi, SyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLoggingContext}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NamedLoggingContext}
 import com.digitalasset.canton.metrics.SequencerClientMetrics
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
@@ -78,11 +78,12 @@ object SequencerClientFactory {
       metrics: SequencerClientMetrics,
       loggingConfig: LoggingConfig,
       exitOnTimeout: Boolean,
-      loggerFactory: NamedLoggerFactory,
+      namedLoggerFactory: NamedLoggerFactory,
       supportedProtocolVersions: Seq[ProtocolVersion],
       minimumProtocolVersion: Option[ProtocolVersion],
   ): SequencerClientFactory & SequencerClientTransportFactory =
-    new SequencerClientFactory with SequencerClientTransportFactory {
+    new SequencerClientFactory with SequencerClientTransportFactory with NamedLogging {
+      override protected def loggerFactory: NamedLoggerFactory = namedLoggerFactory
 
       override def create(
           member: Member,
@@ -146,7 +147,7 @@ object SequencerClientFactory {
               ], Option[TrafficState]](
                 s"Retrieving traffic state from domain for $member at $ts",
                 futureSupervisor,
-                loggerFactory.getTracedLogger(this.getClass),
+                logger,
                 sequencerTransportsMap.forgetNE,
                 sequencerConnections.sequencerTrustThreshold,
                 _.getTrafficStateForMember(
@@ -373,6 +374,5 @@ object SequencerClientFactory {
           domainParameters.protocolVersion,
         )
       }
-
     }
 }

@@ -451,6 +451,7 @@ object BaseTest {
           sleep()
       }
     }
+    println("jarekr: timeout - last time")
     testCode // try one last time and throw exception, if assertion keeps failing
   }
 

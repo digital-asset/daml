@@ -79,7 +79,7 @@ class BatchAggregatorTest
   case class CacheWithAggregator(aggregator: BatchAggregator[K, V])(implicit
       traceContext: TraceContext
   ) {
-    private val cache = Scaffeine().buildAsync[K, V]()
+    private val cache = Scaffeine().executor(executorService).buildAsync[K, V]()
 
     def get(key: K): Future[V] = cache.getFuture(key, key => aggregator.run(key))
   }

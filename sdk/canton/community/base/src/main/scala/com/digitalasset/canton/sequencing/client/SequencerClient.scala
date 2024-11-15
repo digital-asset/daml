@@ -583,7 +583,7 @@ abstract class SequencerClientImpl(
             logger.debug(
               s"Scheduling amplification for message ID $messageId after $patience"
             )
-            FutureUtil.doNotAwaitUnlessShutdown(
+            FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
               clock.scheduleAfter(_ => maybeResendAfterPatience(), patience.asJava).flatten,
               s"Submission request amplification failed for message ID $messageId",
             )
@@ -1691,7 +1691,7 @@ class SequencerClientImplPekko[E: Pretty](
           }
 
         val ((killSwitch, subscriptionDoneF, health), completion) =
-          PekkoUtil.runSupervised(logger.error("Sequencer subscription failed", _), stream)
+          PekkoUtil.runSupervised(stream, errorLogMessagePrefix = "Sequencer subscription failed")
         val handle = SubscriptionHandle(killSwitch, subscriptionDoneF, completion)
         subscriptionHandle.getAndSet(Some(handle)).foreach { _ =>
           // TODO(#13789) Clean up the error logging.

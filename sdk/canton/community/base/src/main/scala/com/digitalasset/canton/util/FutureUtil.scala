@@ -4,7 +4,7 @@
 package com.digitalasset.canton.util
 
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
+import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
 import org.slf4j.event.Level
@@ -68,28 +68,6 @@ object FutureUtil {
     }
   }
 
-  /** If the future fails, log the associated error and re-throw. The returned future completes after logging.
-    * @param logPassiveInstanceAtInfo: If true, log [[PassiveInstanceException]] at INFO instead of ERROR level. Default is false.
-    */
-  def logOnFailureUnlessShutdown[T](
-      future: FutureUnlessShutdown[T],
-      failureMessage: => String,
-      onFailure: Throwable => Unit = _ => (),
-      level: => Level = Level.ERROR,
-      closeContext: Option[CloseContext] = None,
-      logPassiveInstanceAtInfo: Boolean = false,
-  )(implicit loggingContext: ErrorLoggingContext): FutureUnlessShutdown[T] =
-    FutureUnlessShutdown(
-      logOnFailure(
-        future.unwrap,
-        failureMessage,
-        onFailure,
-        level,
-        closeContext,
-        logPassiveInstanceAtInfo,
-      )
-    )
-
   /** Discard `future` and log an error if it does not complete successfully.
     * This is useful to document that a `Future` is intentionally not being awaited upon.
     *  @param logPassiveInstanceAtInfo: If true, log [[PassiveInstanceException]] at INFO instead of ERROR level. Default is false.
@@ -105,17 +83,6 @@ object FutureUtil {
     val _ =
       logOnFailure(future, failureMessage, onFailure, level, closeContext, logPassiveInstanceAtInfo)
   }
-
-  /** [[doNotAwait]] but for FUS
-    */
-  def doNotAwaitUnlessShutdown[A](
-      future: FutureUnlessShutdown[A],
-      failureMessage: => String,
-      onFailure: Throwable => Unit = _ => (),
-      level: => Level = Level.ERROR,
-      closeContext: Option[CloseContext] = None,
-  )(implicit loggingContext: ErrorLoggingContext): Unit =
-    doNotAwait(future.unwrap, failureMessage, onFailure, level, closeContext)
 
   /** Variant of [[doNotAwait]] that also catches non-fatal errors thrown while constructing the future. */
   def catchAndDoNotAwait(

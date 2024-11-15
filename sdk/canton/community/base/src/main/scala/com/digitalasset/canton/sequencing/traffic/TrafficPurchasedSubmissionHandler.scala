@@ -26,7 +26,7 @@ import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
 import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{ErrorUtil, FutureUtil}
+import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
@@ -223,7 +223,10 @@ class TrafficPurchasedSubmissionHandler(
             show"The traffic balance request submission timed out after sequencing time $time has elapsed"
           )
       }
-      FutureUtil.doNotAwaitUnlessShutdown(logOutcomeF, "Traffic balance request submission failed")
+      FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
+        logOutcomeF,
+        "Traffic balance request submission failed",
+      )
     }
   }
 

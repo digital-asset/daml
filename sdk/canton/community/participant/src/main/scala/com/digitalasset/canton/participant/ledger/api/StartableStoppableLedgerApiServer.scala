@@ -453,7 +453,9 @@ class StartableStoppableLedgerApiServer(
         for {
           channel <- ResourceOwner
             .forReleasable(() =>
-              ClientChannelBuilder.createChannelToTrustedServer(config.serverConfig.clientConfig)
+              ClientChannelBuilder
+                .createChannelBuilderToTrustedServer(config.serverConfig.clientConfig)
+                .build()
             )(channel => Future(channel.shutdown().discard))
           _ <- HttpApiServer(
             jsonApiConfig,

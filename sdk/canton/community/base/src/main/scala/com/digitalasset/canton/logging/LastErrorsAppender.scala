@@ -13,6 +13,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.github.blemale.scaffeine.Scaffeine
 
 import java.util
+import java.util.concurrent.Executors
 import scala.collection.mutable
 
 /** Logback appender that keeps a bounded queue of errors/warnings that have been logged and associated log entries with
@@ -33,13 +34,22 @@ class LastErrorsAppender()
   private var maxErrors = 128
   private var lastErrorsFileAppenderName = ""
 
+  /** Separate executor for scaffeine - to avoid using ForkJoin common pool */
+  private val scaffeineExecutor = Executors.newSingleThreadExecutor()
+
   /** An error/warn event with previous events of the same trace-id */
   private case class ErrorWithEvents(error: ILoggingEvent, events: Seq[ILoggingEvent])
 
   private val eventsCache =
-    Scaffeine().maximumSize(maxTraces.toLong).build[String, BoundedQueue[ILoggingEvent]]()
+    Scaffeine()
+      .maximumSize(maxTraces.toLong)
+      .executor(scaffeineExecutor)
+      .build[String, BoundedQueue[ILoggingEvent]]()
   private val errorsCache =
-    Scaffeine().maximumSize(maxErrors.toLong).build[String, ErrorWithEvents]()
+    Scaffeine()
+      .maximumSize(maxErrors.toLong)
+      .executor(scaffeineExecutor)
+      .build[String, ErrorWithEvents]()
 
   private def isLastErrorsFileAppender(appender: Appender[ILoggingEvent]): Boolean =
     appender.getName == lastErrorsFileAppenderName
