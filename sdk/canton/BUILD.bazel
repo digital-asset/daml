@@ -43,7 +43,7 @@ cat << EOF > $@
 package com.digitalasset.canton.buildinfo
 
 case object BuildInfo {{
-  val version: String = "3.0.0-SNAPSHOT"
+  val version: String = "3.2.0-SNAPSHOT"
   val scalaVersion: String = "{scala_version}"
   val sbtVersion: String = "bazel"
   val damlLibrariesVersion: String = "{sdk_version}"
