@@ -649,7 +649,6 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
       ) extends DamlErrorWithDefiniteAnswer(cause = cause) {}
     }
 
-    // TODO https://github.com/digital-asset/daml/issues/18616: use a non-Dev based error code
     @Explanation("Upgrade validation fails when trying to upgrade the contract")
     @Resolution(
       "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed"
@@ -670,7 +669,8 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
 
         override def resources: Seq[(ErrorResource, String)] =
           Seq(
-            (ErrorResource.DevErrorType, err.getClass.getSimpleName)
+            // Class name is reported to help clients (e.g. daml-script) discriminate the type of upgrade error
+            (ErrorResource.UpgradeErrorType, err.getClass.getSimpleName)
           )
       }
     }
