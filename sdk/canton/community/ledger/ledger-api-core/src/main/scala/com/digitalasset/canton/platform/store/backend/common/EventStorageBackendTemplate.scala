@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.backend.common
 
 import anorm.SqlParser.*
 import anorm.{Row, RowParser, SimpleSql, ~}
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.store.backend.Conversions.{
   contractId,
@@ -1171,7 +1171,7 @@ abstract class EventStorageBackendTemplate(
               SELECT 1 FROM lapi_events_consuming_exercise archive_events
               WHERE
                 archive_events.event_offset <= $pruneUpToInclusive
-                -- please note: this is the only indexed contraint, this is enough since there can be at most one archival
+                -- please note: this is the only indexed constraint, this is enough since there can be at most one archival
                 AND archive_events.contract_id = #$eventTableName.contract_id
                 AND archive_events.domain_id = #$eventTableName.#$eventDomainName
             )
@@ -1260,7 +1260,7 @@ abstract class EventStorageBackendTemplate(
   }
 
   override def maxEventSequentialId(
-      untilInclusiveOffset: Offset
+      untilInclusiveOffset: Option[AbsoluteOffset]
   )(connection: Connection): Long = {
     val ledgerEnd = ledgerEndCache()
     SQL"""
@@ -1269,8 +1269,8 @@ abstract class EventStorageBackendTemplate(
      FROM
         lapi_transaction_meta
      WHERE
-        ${QueryStrategy.offsetIsGreater("event_offset", untilInclusiveOffset.toAbsoluteOffsetO)}
-        AND event_offset <= ${Offset.fromAbsoluteOffsetO(ledgerEnd.map(_.lastOffset))}
+        ${QueryStrategy.offsetIsGreater("event_offset", untilInclusiveOffset)}
+        AND ${QueryStrategy.offsetIsLessOrEqual("event_offset", ledgerEnd.map(_.lastOffset))}
      ORDER BY
         event_offset
      ${QueryStrategy.limitClause(Some(1))}
@@ -1645,8 +1645,11 @@ abstract class EventStorageBackendTemplate(
   def archivals(fromExclusive: Option[Offset], toInclusive: Offset)(
       connection: Connection
   ): Set[ContractId] = {
-    val fromExclusiveSeqId = fromExclusive.map(maxEventSequentialId(_)(connection)).getOrElse(-1L)
-    val toInclusiveSeqId = maxEventSequentialId(toInclusive)(connection)
+    val fromExclusiveSeqId =
+      fromExclusive
+        .map(from => maxEventSequentialId(from.toAbsoluteOffsetO)(connection))
+        .getOrElse(-1L)
+    val toInclusiveSeqId = maxEventSequentialId(toInclusive.toAbsoluteOffsetO)(connection)
     SQL"""
         SELECT contract_id
         FROM lapi_events_consuming_exercise

@@ -121,7 +121,6 @@ class BftSequencerFactory(
       protocolVersion,
       rateLimitManager,
       orderingTimeFixMode,
-      nodeParameters.cachingConfigs,
       nodeParameters.processingTimeouts,
       nodeParameters.loggingConfig.eventDetails,
       nodeParameters.loggingConfig.api.printer,

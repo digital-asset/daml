@@ -50,13 +50,21 @@ object CantonGrpcUtilTest {
     registry.addService(helloServiceDefinition)
     registry.addService(apiInfoServiceDefinition)
 
-    val channel: ManagedChannel = InProcessChannelBuilder
-      .forName(channelName)
-      .intercept(TraceContextGrpc.clientInterceptor)
-      .build()
-    val client: HelloServiceGrpc.HelloServiceStub = HelloServiceGrpc.stub(channel)
-
     val onShutdownRunner = new PureOnShutdownRunner(logger)
+    val channelBuilder: ManagedChannelBuilderProxy = ManagedChannelBuilderProxy(
+      InProcessChannelBuilder
+        .forName(channelName)
+        .intercept(TraceContextGrpc.clientInterceptor)
+    )
+    val managedChannel: GrpcManagedChannel =
+      GrpcManagedChannel(
+        "channel-to-broken-client",
+        channelBuilder.build(),
+        onShutdownRunner,
+        logger,
+      )
+    val client: GrpcClient[HelloServiceStub] =
+      GrpcClient.create(managedChannel, HelloServiceGrpc.stub)
 
     def sendRequest(
         timeoutMs: Long = 2000
@@ -70,14 +78,11 @@ object CantonGrpcUtilTest {
           "command",
           Duration(timeoutMs, TimeUnit.MILLISECONDS),
           logger,
-          onShutdownRunner,
         )
         .onShutdown(throw new IllegalStateException("Unexpected shutdown"))
 
     def close(): Unit = {
-      channel.shutdown()
-      channel.awaitTermination(2, TimeUnit.SECONDS)
-      assert(channel.isTerminated)
+      managedChannel.close()
 
       server.shutdown()
       server.awaitTermination()
@@ -231,7 +236,7 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
         val err = Await.result(requestF, 5.seconds).left.value
         err shouldBe a[GrpcServiceUnavailable]
         err.status.getCode shouldBe UNAVAILABLE
-        channel.getState(false) shouldBe ConnectivityState.TRANSIENT_FAILURE
+        managedChannel.channel.getState(false) shouldBe ConnectivityState.TRANSIENT_FAILURE
       }
     }
 
@@ -374,8 +379,9 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
         import env.*
 
         // Create a mocked client
-        val brokenClient =
-          mock[HelloServiceStub](withSettings.useConstructor(channel, CallOptions.DEFAULT))
+        val brokenClient = mock[HelloServiceStub](
+          withSettings.useConstructor(managedChannel.channel, CallOptions.DEFAULT)
+        )
         when(brokenClient.build(*[Channel], *[CallOptions])).thenReturn(brokenClient)
 
         // Make the client fail with an embedded cause
@@ -383,15 +389,16 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
         val status = Status.INTERNAL.withDescription("test description").withCause(cause)
         when(brokenClient.hello(request)).thenReturn(Future.failed(status.asRuntimeException()))
 
+        val brokenGrpcClient = GrpcClient.create(managedChannel, _ => brokenClient)
+
         // Send the request
         val requestF = loggerFactory.assertLogs(
           CantonGrpcUtil
-            .sendGrpcRequest(brokenClient, "serverName")(
+            .sendGrpcRequest(brokenGrpcClient, "serverName")(
               _.hello(request),
               "command",
               Duration(2000, TimeUnit.MILLISECONDS),
               logger,
-              onShutdownRunner,
             )
             .value
             .failOnShutdown,
@@ -424,7 +431,7 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
           .checkCantonApiInfo(
             "server-name",
             "correct-api",
-            channel,
+            channelBuilder,
             logger,
             timeouts.network,
             onShutdownRunner,
@@ -442,7 +449,7 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
           .checkCantonApiInfo(
             "server-name",
             "other-api",
-            channel,
+            channelBuilder,
             logger,
             timeouts.network,
             onShutdownRunner,
@@ -452,12 +459,7 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
 
         val resultE = requestET.value.futureValue
         inside(resultE) { case Left(message) =>
-          message shouldBe CantonGrpcUtil.apiInfoErrorMessage(
-            channel = channel,
-            receivedApiName = "correct-api",
-            expectedApiName = "other-api",
-            serverName = "server-name",
-          )
+          message should include regex """Endpoint '.*' provides 'correct-api', expected 'other-api'\. This message indicates a possible mistake in configuration, please check node connection settings for 'server-name'\."""
         }
       }
     }

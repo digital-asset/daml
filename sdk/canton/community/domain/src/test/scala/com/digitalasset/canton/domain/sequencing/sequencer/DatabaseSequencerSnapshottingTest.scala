@@ -11,7 +11,6 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer as CantonSequencer
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerStore
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.DynamicDomainParameters
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.sequencing.protocol.{Recipients, SubmissionRequest}
@@ -65,10 +64,8 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
       sequencerId,
       testedProtocolVersion,
       crypto,
-      CachingConfigs(),
       metrics,
       loggerFactory,
-      runtimeReady = FutureUnlessShutdown.unit,
     )(executorService, tracer, materializer)
   }
 

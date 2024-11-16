@@ -32,18 +32,18 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
 
   override def storeComputed(items: NonEmpty[Seq[AcsCommitmentStore.CommitmentData]])(implicit
       traceContext: TraceContext
-  ): Future[Unit] =
-    incrementCounterAndErrF()
+  ): FutureUnlessShutdown[Unit] =
+    incrementCounterAndErrUS()
 
   override def markOutstanding(period: CommitmentPeriod, counterParticipants: Set[ParticipantId])(
       implicit traceContext: TraceContext
-  ): Future[Unit] =
-    incrementCounterAndErrF()
+  ): FutureUnlessShutdown[Unit] =
+    incrementCounterAndErrUS()
 
   override def markComputedAndSent(period: CommitmentPeriod)(implicit
       traceContext: TraceContext
-  ): Future[Unit] =
-    incrementCounterAndErrF()
+  ): FutureUnlessShutdown[Unit] =
+    incrementCounterAndErrUS()
 
   override def storeReceived(commitment: SignedProtocolMessage[AcsCommitment])(implicit
       traceContext: TraceContext
@@ -55,8 +55,8 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
       period: CommitmentPeriod,
       sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
       matchingState: CommitmentPeriodState,
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    incrementCounterAndErrF()
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    incrementCounterAndErrUS()
 
   override def pruningStatus(implicit
       traceContext: TraceContext
@@ -83,15 +83,15 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
 
   override def lastComputedAndSent(implicit
       traceContext: TraceContext
-  ): Future[Option[CantonTimestampSecond]] =
-    Future(None)
+  ): FutureUnlessShutdown[Option[CantonTimestampSecond]] =
+    FutureUnlessShutdown.pure(None)
 
   override def noOutstandingCommitments(
       beforeOrAt: CantonTimestamp
   )(implicit
       traceContext: TraceContext
-  ): Future[Option[CantonTimestamp]] =
-    Future.successful(None)
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] =
+    FutureUnlessShutdown.pure(None)
 
   override def outstanding(
       start: CantonTimestamp,
@@ -100,8 +100,8 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
       includeMatchedPeriods: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): Future[Iterable[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)]] =
-    Future.successful(Iterable.empty)
+  ): FutureUnlessShutdown[Iterable[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)]] =
+    FutureUnlessShutdown.pure(Iterable.empty)
 
   override def searchComputedBetween(
       start: CantonTimestamp,
@@ -109,15 +109,17 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
       counterParticipants: Seq[ParticipantId],
   )(implicit
       traceContext: TraceContext
-  ): Future[Iterable[(CommitmentPeriod, ParticipantId, CommitmentType)]] =
-    Future.successful(Iterable.empty)
+  ): FutureUnlessShutdown[Iterable[(CommitmentPeriod, ParticipantId, CommitmentType)]] =
+    FutureUnlessShutdown.pure(Iterable.empty)
 
   override def searchReceivedBetween(
       start: CantonTimestamp,
       end: CantonTimestamp,
       counterParticipants: Seq[ParticipantId],
-  )(implicit traceContext: TraceContext): Future[Iterable[SignedProtocolMessage[AcsCommitment]]] =
-    Future.successful(Iterable.empty)
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Iterable[SignedProtocolMessage[AcsCommitment]]] =
+    FutureUnlessShutdown.pure(Iterable.empty)
 
   override val runningCommitments: IncrementalCommitmentStore =
     new ThrowOnWriteIncrementalCommitmentStore
@@ -137,18 +139,18 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
   class ThrowOnWriteIncrementalCommitmentStore extends IncrementalCommitmentStore {
     override def get()(implicit
         traceContext: TraceContext
-    ): Future[(RecordTime, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType])] =
-      Future.successful((RecordTime.MinValue, Map.empty))
+    ): FutureUnlessShutdown[(RecordTime, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType])] =
+      FutureUnlessShutdown.pure((RecordTime.MinValue, Map.empty))
 
-    override def watermark(implicit traceContext: TraceContext): Future[RecordTime] =
-      Future.successful(RecordTime.MinValue)
+    override def watermark(implicit traceContext: TraceContext): FutureUnlessShutdown[RecordTime] =
+      FutureUnlessShutdown.pure(RecordTime.MinValue)
 
     override def update(
         rt: RecordTime,
         updates: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
         deletes: Set[SortedSet[LfPartyId]],
-    )(implicit traceContext: TraceContext): Future[Unit] =
-      incrementCounterAndErrF()
+    )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+      incrementCounterAndErrUS()
   }
 
   class ThrowOnWriteCommitmentQueue extends CommitmentQueue {
@@ -162,19 +164,19 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
 
     override def peekThroughAtOrAfter(
         timestamp: CantonTimestamp
-    )(implicit traceContext: TraceContext): Future[Seq[AcsCommitment]] =
-      Future.successful(List.empty)
+    )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[AcsCommitment]] =
+      FutureUnlessShutdown.pure(List.empty)
 
     def peekOverlapsForCounterParticipant(
         period: CommitmentPeriod,
         counterParticipant: ParticipantId,
     )(implicit
         traceContext: TraceContext
-    ): Future[Seq[AcsCommitment]] = Future.successful(List.empty)
+    ): FutureUnlessShutdown[Seq[AcsCommitment]] = FutureUnlessShutdown.pure(List.empty)
 
     override def deleteThrough(timestamp: CantonTimestamp)(implicit
         traceContext: TraceContext
-    ): Future[Unit] = incrementCounterAndErrF()
+    ): FutureUnlessShutdown[Unit] = incrementCounterAndErrUS()
   }
 
   override def close(): Unit = ()

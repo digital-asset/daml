@@ -212,15 +212,8 @@ class TransactionProcessingSteps(
 
   override def getSubmitterInformation(
       views: Seq[DecryptedView]
-  ): (Option[ViewSubmitterMetadata], Option[SubmissionTracker.SubmissionData]) = {
-    val submitterMetadataO =
-      views.map(_.tree.submitterMetadata.unwrap).collectFirst { case Right(meta) => meta }
-    val submissionDataForTrackerO = submitterMetadataO.map(meta =>
-      SubmissionTracker.SubmissionData(meta.submittingParticipant, meta.maxSequencingTime)
-    )
-
-    (submitterMetadataO, submissionDataForTrackerO)
-  }
+  ): Option[ViewSubmitterMetadata] =
+    views.map(_.tree.submitterMetadata.unwrap).collectFirst { case Right(meta) => meta }
 
   private class TrackedTransactionSubmission(
       submitterInfo: SubmitterInfo,

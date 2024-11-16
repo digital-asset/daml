@@ -56,7 +56,10 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   SimulationP2PNetworkManager,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.simulation.onboarding.EmptyOnboardingDataProvider
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.simulation.topology.SimulationCryptoProvider
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.simulation.topology.{
+  SimulationOrderingTopologyProvider,
+  SimulationTopologyHelpers,
+}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.time.{Clock, SimClock}
@@ -379,12 +382,34 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
       val minimumNumberOfCorrectNodes = OrderingTopology.strongQuorumSize(peersCount)
 
       val simulationModels = peersRange.map(_ => new SimulationModel).toArray
-      val cryptoProvider = SimulationCryptoProvider
       val clock = new SimClock(loggerFactory = loggerFactory)
+
+      val peerEndpointsToOnboardingTimes = peerEndpoints.map { endpoint =>
+        endpoint -> Genesis.GenesisTopologySnapshotEffectiveTime
+      }.toMap
+
+      val peerEndpointsSimulationOnboardingInformation =
+        SimulationTopologyHelpers.generateSimulationOnboardingInformation(
+          peerEndpointsToOnboardingTimes,
+          loggerFactory,
+        )
 
       val topologyInit = peersRange.map { n =>
         val peerEndpoint = peerEndpoints(n)
         val sequencerId = SimulationP2PNetworkManager.fakeSequencerId(peerEndpoint)
+
+        val orderingTopologyProvider =
+          new SimulationOrderingTopologyProvider(
+            sequencerId,
+            peerEndpointsSimulationOnboardingInformation,
+            loggerFactory,
+          )
+        val (_, cryptoProvider) = SimulationTopologyHelpers.resolveOrderingTopology(
+          orderingTopologyProvider.getOrderingTopologyAt(
+            Genesis.GenesisTopologySnapshotEffectiveTime
+          )
+        )
+
         peerEndpoint -> SimulationInitializer.noClient[
           BftOrderingServiceReceiveRequest,
           Availability.LocalDissemination.LocalBatchCreated,

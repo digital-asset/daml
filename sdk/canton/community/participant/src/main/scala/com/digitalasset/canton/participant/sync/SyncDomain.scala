@@ -86,7 +86,7 @@ import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, MonadUtil}
+import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.engine.Engine
 import io.grpc.Status
@@ -571,8 +571,10 @@ class SyncDomain(
       // The "suitable point" must ensure that the [[com.digitalasset.canton.participant.store.AcsSnapshotStore]]
       // receives any partially-applied changes; choosing the timestamp returned by the store is sufficient and optimal
       // in terms of performance, but any earlier timestamp is also correct
-      acsChangesReplayStartRt <- liftF(persistent.acsCommitmentStore.runningCommitments.watermark)
-        .mapK(FutureUnlessShutdown.outcomeK)
+      acsChangesReplayStartRt <- EitherT.right(
+        persistent.acsCommitmentStore.runningCommitments.watermark
+      )
+
       _ <- loadPendingEffectiveTimesFromTopologyStore(acsChangesReplayStartRt.timestamp)
       acsChangesToReplay <-
         if (
@@ -729,7 +731,7 @@ class SyncDomain(
       logger.debug(s"Started sync domain for $domainId")(initializationTraceContext)
       ephemeral.markAsRecovered()
       logger.debug("Sync domain is ready.")(initializationTraceContext)
-      FutureUtil.doNotAwaitUnlessShutdown(
+      FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
         completeAssignment,
         "Failed to complete outstanding assignments on startup. " +
           "You may have to complete the assignments manually.",

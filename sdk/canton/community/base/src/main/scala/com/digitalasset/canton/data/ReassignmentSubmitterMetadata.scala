@@ -21,7 +21,10 @@ final case class ReassignmentSubmitterMetadata(
     submissionId: Option[LedgerSubmissionId],
     applicationId: LedgerApplicationId,
     workflowId: Option[LfWorkflowId],
-) extends PrettyPrinting {
+) extends PrettyPrinting
+    with HasSubmissionTrackerData {
+
+  override def submissionTrackerData: Option[SubmissionTrackerData] = None
 
   def toProtoV30: v30.ReassignmentSubmitterMetadata =
     v30.ReassignmentSubmitterMetadata(

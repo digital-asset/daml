@@ -20,9 +20,21 @@ import com.digitalasset.canton.lifecycle.{
   SyncCloseable,
   UnlessShutdown,
 }
-import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{
+  ErrorLoggingContext,
+  NamedLoggerFactory,
+  NamedLogging,
+  TracedLogger,
+}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcLogPolicy
 import com.digitalasset.canton.networking.grpc.GrpcError.GrpcServiceUnavailable
-import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, ClientChannelBuilder}
+import com.digitalasset.canton.networking.grpc.{
+  CantonGrpcUtil,
+  ClientChannelBuilder,
+  GrpcClient,
+  GrpcError,
+  GrpcManagedChannel,
+}
 import com.digitalasset.canton.time.Clock.SystemClockRunningBackwards
 import com.digitalasset.canton.topology.admin.v30.{
   CurrentTimeRequest,
@@ -403,7 +415,10 @@ class RemoteClock(
     loggerFactory.threadName + "-remoteclock",
     noTracingLogger,
   )
-  private val service = IdentityInitializationServiceGrpc.stub(channel)
+
+  private val managedChannel =
+    GrpcManagedChannel("channel to remote clock server", channel, this, logger)
+  private val service = GrpcClient.create(managedChannel, IdentityInitializationServiceGrpc.stub)
 
   private val updating = new AtomicReference[Option[CantonTimestamp]](None)
 
@@ -477,6 +492,17 @@ class RemoteClock(
         )
     }
 
+  // Do not log warnings for unavailable servers as that can happen on cancellation of the grpc channel on shutdown.
+  private object LogPolicy extends GrpcLogPolicy {
+    override def log(err: GrpcError, logger: TracedLogger)(implicit
+        traceContext: TraceContext
+    ): Unit =
+      err match {
+        case unavailable: GrpcServiceUnavailable => logger.info(unavailable.toString)
+        case _ => err.log(logger)
+      }
+  }
+
   private def getCurrentRemoteTimeOnce(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, CantonTimestamp] =
@@ -487,17 +513,10 @@ class RemoteClock(
           "fetch remote time",
           timeouts.network.duration,
           logger,
-          this,
           // We retry at a higher level indefinitely and not here at all because we want a fairly short connection timeout here.
           retryPolicy = _ => false,
           // Do not log warnings for unavailable servers as that can happen on cancellation of the grpc channel on shutdown.
-          logPolicy = err =>
-            logger =>
-              implicit traceContext =>
-                err match {
-                  case unavailable: GrpcServiceUnavailable => logger.info(unavailable.toString)
-                  case _ => err.log(logger)
-                },
+          logPolicy = LogPolicy,
         )
         .bimap(_.toString, _.currentTime)
       timestamp <- EitherT.fromEither[FutureUnlessShutdown](
@@ -513,7 +532,7 @@ class RemoteClock(
     Lifecycle.close(
       // stopping the scheduler before the channel, so we don't get a failed call on shutdown
       SyncCloseable("remote clock scheduler", scheduler.shutdown()),
-      Lifecycle.toCloseableChannel(channel, logger, "channel to remote clock server"),
+      managedChannel,
     )(logger)
 }
 
@@ -524,7 +543,7 @@ object RemoteClock {
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContextExecutor): RemoteClock =
     new RemoteClock(
-      ClientChannelBuilder.createChannelToTrustedServer(config),
+      ClientChannelBuilder.createChannelBuilderToTrustedServer(config).build(),
       timeouts,
       loggerFactory,
     )

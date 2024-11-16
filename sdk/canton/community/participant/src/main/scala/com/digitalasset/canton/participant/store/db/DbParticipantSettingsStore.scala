@@ -15,7 +15,7 @@ import com.digitalasset.canton.participant.store.ParticipantSettingsStore.Settin
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
+import com.digitalasset.canton.util.{FutureUnlessShutdownUtil, SimpleExecutionQueue}
 import slick.jdbc.{GetResult, SetParameter}
 import slick.sql.SqlAction
 
@@ -147,7 +147,7 @@ class DbParticipantSettingsStore(
     performUnlessClosingF(operationName)(storage.update_(query, operationName)).transformWith {
       res =>
         // Reload cache to make it consistent with the DB. Particularly important in case of concurrent writes.
-        FutureUtil
+        FutureUnlessShutdownUtil
           .logOnFailureUnlessShutdown(
             refreshCache(),
             s"An exception occurred while refreshing the cache. Keeping old value $settings.",

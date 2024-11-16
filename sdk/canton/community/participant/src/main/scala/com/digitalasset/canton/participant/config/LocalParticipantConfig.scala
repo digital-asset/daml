@@ -71,26 +71,6 @@ trait LocalParticipantConfig extends BaseParticipantConfig with LocalNodeConfig 
   def toRemoteConfig: RemoteParticipantConfig
 }
 
-/** How eagerly participants make the ledger api aware of added (and eventually changed or removed) parties */
-sealed trait PartyNotificationConfig
-object PartyNotificationConfig {
-
-  /** Publish party changes through the ledger api as soon as possible,
-    * i.e., as soon as identity checks have succeeded on the participant.
-    * Note that ledger API applications may not make use of the change immediately,
-    * because the domains of the participant may not yet have processed the change when the notification is sent.
-    */
-  case object Eager extends PartyNotificationConfig
-
-  /** Publish party changes when they have become effective on a domain.
-    * This ensures that ledger API apps can immediately make use of party changes when they receive the notification.
-    * If a party is changed on a participant while the participant is not connected to any domain,
-    * then the party change will fail if triggered via the ledger API
-    * and delayed until the participant connects to a domain if triggered via Canton's admin endpoint.
-    */
-  case object ViaDomain extends PartyNotificationConfig
-}
-
 final case class ParticipantProtocolConfig(
     minimumProtocolVersion: Option[ProtocolVersion],
     override val alphaVersionSupport: Boolean,
@@ -274,7 +254,6 @@ object TestingTimeServiceConfig {
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
-    partyChangeNotification: PartyNotificationConfig = PartyNotificationConfig.ViaDomain,
     maxUnzippedDarSize: Int = 1024 * 1024 * 1024,
     batching: BatchingConfig = BatchingConfig(),
     caching: CachingConfigs = CachingConfigs(),

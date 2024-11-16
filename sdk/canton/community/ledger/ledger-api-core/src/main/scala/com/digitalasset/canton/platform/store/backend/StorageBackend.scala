@@ -338,7 +338,7 @@ trait EventStorageBackend {
       contractIds: Iterable[String]
   )(connection: Connection): Vector[Long]
 
-  def maxEventSequentialId(untilInclusiveOffset: Offset)(
+  def maxEventSequentialId(untilInclusiveOffset: Option[AbsoluteOffset])(
       connection: Connection
   ): Long
 

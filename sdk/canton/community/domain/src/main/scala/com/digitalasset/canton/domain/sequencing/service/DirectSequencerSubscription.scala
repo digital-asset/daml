@@ -49,7 +49,6 @@ private[service] class DirectSequencerSubscription[E](
     new SingleUseCell[SubscriptionCloseReason[E]]()
 
   private val ((killSwitch, sourceDone), done) = PekkoUtil.runSupervised(
-    logger.error("Fatally failed to handle event", _),
     source
       .mapAsync(1) { eventOrError =>
         externalCompletionRef.get match {
@@ -68,6 +67,7 @@ private[service] class DirectSequencerSubscription[E](
       }
       .take(1)
       .toMat(Sink.headOption)(Keep.both),
+    errorLogMessagePrefix = "Fatally failed to handle event",
   )
 
   FutureUtil.doNotAwait(

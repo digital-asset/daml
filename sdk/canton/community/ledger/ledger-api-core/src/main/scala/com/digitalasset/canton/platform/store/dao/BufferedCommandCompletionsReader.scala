@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
-import com.digitalasset.canton.data.{AbsoluteOffset, Offset}
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer
@@ -31,13 +31,12 @@ class BufferedCommandCompletionsReader(
   ): Source[(AbsoluteOffset, CompletionStreamResponse), NotUsed] =
     bufferReader
       .stream(
-        startExclusive = Offset.fromAbsoluteOffsetO(startInclusive.decrement),
-        endInclusive = Offset.fromAbsoluteOffset(endInclusive),
+        startInclusive = startInclusive,
+        endInclusive = endInclusive,
         persistenceFetchArgs = applicationId -> parties,
         bufferFilter = filterCompletions(_, parties, applicationId),
         toApiResponse = (response: CompletionStreamResponse) => Future.successful(response),
       )
-      .map { case (offset, response) => offset.toAbsoluteOffset -> response }
 
   private def filterCompletions(
       transactionLogUpdate: TransactionLogUpdate,
@@ -83,22 +82,20 @@ object BufferedCommandCompletionsReader {
   )(implicit ec: ExecutionContext): BufferedCommandCompletionsReader = {
     val fetchCompletions = new FetchFromPersistence[CompletionsFilter, CompletionStreamResponse] {
       override def apply(
-          startExclusive: Offset,
-          endInclusive: Offset,
+          startInclusive: AbsoluteOffset,
+          endInclusive: AbsoluteOffset,
           filter: (ApplicationId, Parties),
       )(implicit
           loggingContext: LoggingContextWithTrace
-      ): Source[(Offset, CompletionStreamResponse), NotUsed] = {
+      ): Source[(AbsoluteOffset, CompletionStreamResponse), NotUsed] = {
         val (applicationId, parties) = filter
         delegate
           .getCommandCompletions(
-            startExclusive.toAbsoluteOffsetO.fold(AbsoluteOffset.firstOffset)(_.increment),
-            endInclusive.toAbsoluteOffset,
+            startInclusive,
+            endInclusive,
             applicationId,
             parties,
           )
-          .map { case (offset, response) => Offset.fromAbsoluteOffset(offset) -> response }
-
       }
     }
 

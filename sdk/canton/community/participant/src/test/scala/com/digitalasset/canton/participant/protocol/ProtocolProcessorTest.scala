@@ -22,9 +22,9 @@ import com.digitalasset.canton.config.{
   TestingConfigInternal,
 }
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationDuration
 import com.digitalasset.canton.data.PeanoQueue.{BeforeHead, NotInserted}
+import com.digitalasset.canton.data.{CantonTimestamp, SubmissionTrackerData}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Update}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, UnlessShutdown}
@@ -232,7 +232,7 @@ class ProtocolProcessorTest
       sequencerClient: SequencerClientSend = mockSequencerClient,
       crypto: DomainSyncCryptoClient = crypto,
       overrideInFlightSubmissionTrackerO: Option[InFlightSubmissionTracker] = None,
-      submissionDataForTrackerO: Option[SubmissionTracker.SubmissionData] = None,
+      submissionDataForTrackerO: Option[SubmissionTrackerData] = None,
       overrideInFlightSubmissionStoreO: Option[InFlightSubmissionStore] = None,
   ): (
       TestInstance,
@@ -782,7 +782,7 @@ class ProtocolProcessorTest
         testProcessingSteps(
           overrideInFlightSubmissionTrackerO = Some(mockInFlightSubmissionTracker),
           submissionDataForTrackerO = Some(
-            SubmissionTracker.SubmissionData(
+            SubmissionTrackerData(
               submittingParticipant = participant,
               maxSequencingTime = requestId.unwrap.plusSeconds(10),
             )
@@ -806,7 +806,7 @@ class ProtocolProcessorTest
         testProcessingSteps(
           overrideInFlightSubmissionTrackerO = Some(mockInFlightSubmissionTracker),
           submissionDataForTrackerO = Some(
-            SubmissionTracker.SubmissionData(
+            SubmissionTrackerData(
               submittingParticipant = participant,
               maxSequencingTime = requestId.unwrap.plusSeconds(10),
             )
@@ -827,7 +827,7 @@ class ProtocolProcessorTest
         testProcessingSteps(
           overrideInFlightSubmissionTrackerO = Some(mockInFlightSubmissionTracker),
           submissionDataForTrackerO = Some(
-            SubmissionTracker.SubmissionData(
+            SubmissionTrackerData(
               submittingParticipant = otherParticipant,
               maxSequencingTime = requestId.unwrap.plusSeconds(10),
             )
@@ -865,7 +865,7 @@ class ProtocolProcessorTest
       val inFlightSubmissionStore = new InMemoryInFlightSubmissionStore(loggerFactory)
       val (sut, _persistent, ephemeral, nodeEphemeral) = testProcessingSteps(
         submissionDataForTrackerO = Some(
-          SubmissionTracker.SubmissionData(
+          SubmissionTrackerData(
             submittingParticipant = participant,
             maxSequencingTime = requestId.unwrap.plusSeconds(10),
           )

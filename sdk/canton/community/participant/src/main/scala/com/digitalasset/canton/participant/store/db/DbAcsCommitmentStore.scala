@@ -120,7 +120,7 @@ class DbAcsCommitmentStore(
 
   override def storeComputed(
       items: NonEmpty[Seq[AcsCommitmentStore.CommitmentData]]
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
 
     // We want to detect if we try to overwrite an existing commitment with a different value, as this signals an error.
     // Still, for performance reasons, we want to do everything in a single, non-interactive statement.
@@ -161,25 +161,26 @@ class DbAcsCommitmentStore(
 
     val bulkUpsert = DbStorage.bulkOperation(query, items.toList, storage.profile)(setData)
 
-    storage.queryAndUpdate(bulkUpsert, "commitments: insert computed").map { rowCounts =>
-      rowCounts.zip(items.toList).foreach { case (rowCount, item) =>
-        val CommitmentData(counterParticipant, period, commitment) = item
-        // Underreporting of the affected rows should not matter here as the query is idempotent and updates the row even if the same values had been there before
-        ErrorUtil.requireState(
-          rowCount != 0,
-          s"Commitment for domain $indexedDomain, counterparticipant $counterParticipant and period $period already computed with a different value; refusing to insert $commitment",
-        )
-      }
+    storage.queryAndUpdateUnlessShutdown(bulkUpsert, "commitments: insert computed").map {
+      rowCounts =>
+        rowCounts.zip(items.toList).foreach { case (rowCount, item) =>
+          val CommitmentData(counterParticipant, period, commitment) = item
+          // Underreporting of the affected rows should not matter here as the query is idempotent and updates the row even if the same values had been there before
+          ErrorUtil.requireState(
+            rowCount != 0,
+            s"Commitment for domain $indexedDomain, counterparticipant $counterParticipant and period $period already computed with a different value; refusing to insert $commitment",
+          )
+        }
     }
   }
 
   override def markOutstanding(period: CommitmentPeriod, counterParticipants: Set[ParticipantId])(
       implicit traceContext: TraceContext
-  ): Future[Unit] = {
+  ): FutureUnlessShutdown[Unit] = {
     logger.debug(
       s"Marking $period as outstanding for ${counterParticipants.size} remote participants"
     )
-    if (counterParticipants.isEmpty) Future.unit
+    if (counterParticipants.isEmpty) FutureUnlessShutdown.unit
     else {
       import DbStorage.Implicits.BuilderChain.*
 
@@ -192,13 +193,16 @@ class DbAcsCommitmentStore(
             )
             .intercalate(sql", ") ++ sql" on conflict do nothing").asUpdate
 
-      storage.update_(insertOutstanding, operationName = "commitments: storeOutstanding")
+      storage.updateUnlessShutdown_(
+        insertOutstanding,
+        operationName = "commitments: storeOutstanding",
+      )
     }
   }
 
   override def markComputedAndSent(
       period: CommitmentPeriod
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val timestamp = period.toInclusive
     val upsertQuery = storage.profile match {
       case _: DbStorage.Profile.H2 =>
@@ -208,7 +212,7 @@ class DbAcsCommitmentStore(
                  on conflict (domain_idx) do update set ts = $timestamp"""
     }
 
-    storage.update_(upsertQuery, operationName = "commitments: markComputedAndSent")
+    storage.updateUnlessShutdown_(upsertQuery, operationName = "commitments: markComputedAndSent")
   }
 
   override def outstanding(
@@ -218,7 +222,7 @@ class DbAcsCommitmentStore(
       includeMatchedPeriods: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): Future[Iterable[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)]] = {
+  ): FutureUnlessShutdown[Iterable[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)]] = {
     val participantFilter: SQLActionBuilderChain = counterParticipants match {
       case Seq() => sql""
       case list =>
@@ -234,7 +238,7 @@ class DbAcsCommitmentStore(
                     and ($includeMatchedPeriods or matching_state != ${CommitmentPeriodState.Matched})
                 """ ++ participantFilter
 
-    storage.query(
+    storage.queryUnlessShutdown(
       query
         .as[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)]
         .transactionally
@@ -281,7 +285,7 @@ class DbAcsCommitmentStore(
       matchingState: CommitmentPeriodState,
   )(implicit
       traceContext: TraceContext
-  ): Future[Unit] = {
+  ): FutureUnlessShutdown[Unit] = {
     def dbQueries(
         sortedReconciliationIntervals: SortedReconciliationIntervals
     ): DBIOAction[Unit, NoStream, Effect.All] = {
@@ -377,22 +381,16 @@ class DbAcsCommitmentStore(
               )
             }
 
-          _ <- FutureUnlessShutdown.outcomeF(
-            storage.queryAndUpdate(
-              dbQueries(sortedReconciliationIntervals).transactionally.withTransactionIsolation(
-                TransactionIsolation.Serializable
-              ),
-              operationName =
-                s"commitments: mark period safe (${period.fromExclusive}, ${period.toInclusive}]",
-            )
+          _ <- storage.queryAndUpdateUnlessShutdown(
+            dbQueries(sortedReconciliationIntervals).transactionally.withTransactionIsolation(
+              TransactionIsolation.Serializable
+            ),
+            operationName =
+              s"commitments: mark period safe (${period.fromExclusive}, ${period.toInclusive}]",
           )
+
         } yield (),
         "Run mark period safe DB query",
-      )
-      .onShutdown(
-        logger.debug(
-          s"Aborted marking period safe (${period.fromExclusive}, ${period.toInclusive}] due to shutdown"
-        )
       )
   }
 
@@ -416,8 +414,8 @@ class DbAcsCommitmentStore(
 
   override def lastComputedAndSent(implicit
       traceContext: TraceContext
-  ): Future[Option[CantonTimestampSecond]] =
-    storage.query(
+  ): FutureUnlessShutdown[Option[CantonTimestampSecond]] =
+    storage.queryUnlessShutdown(
       sql"select ts from par_last_computed_acs_commitments where domain_idx = $indexedDomain"
         .as[CantonTimestampSecond]
         .headOption,
@@ -428,15 +426,14 @@ class DbAcsCommitmentStore(
       beforeOrAt: CantonTimestamp
   )(implicit
       traceContext: TraceContext
-  ): Future[Option[CantonTimestamp]] =
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] =
     for {
       computed <- lastComputedAndSent
       adjustedTsOpt = computed.map(_.forgetRefinement.min(beforeOrAt))
       ignores <- acsCounterParticipantConfigStore
         .getAllActiveNoWaitCounterParticipants(Seq(indexedDomain.domainId), Seq.empty)
-        .failOnShutdownToAbortException("noOutstandingCommitments")
       outstandingOpt <- adjustedTsOpt.traverse { ts =>
-        storage.query(
+        storage.queryUnlessShutdown(
           sql"select from_exclusive, to_inclusive, counter_participant from par_outstanding_acs_commitments where domain_idx=$indexedDomain and from_exclusive < $ts and matching_state != ${CommitmentPeriodState.Matched}"
             .as[(CantonTimestamp, CantonTimestamp, ParticipantId)]
             .withTransactionIsolation(Serializable),
@@ -464,7 +461,9 @@ class DbAcsCommitmentStore(
       counterParticipants: Seq[ParticipantId],
   )(implicit
       traceContext: TraceContext
-  ): Future[Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.CommitmentType)]] = {
+  ): FutureUnlessShutdown[
+    Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.CommitmentType)]
+  ] = {
 
     val participantFilter: SQLActionBuilderChain = counterParticipants match {
       case Seq() => sql""
@@ -480,7 +479,7 @@ class DbAcsCommitmentStore(
             from par_computed_acs_commitments
             where domain_idx = $indexedDomain and to_inclusive >= $start and from_exclusive < $end""" ++ participantFilter
 
-    storage.query(
+    storage.queryUnlessShutdown(
       query.as[(CommitmentPeriod, ParticipantId, AcsCommitment.CommitmentType)],
       functionFullName,
     )
@@ -490,7 +489,9 @@ class DbAcsCommitmentStore(
       start: CantonTimestamp,
       end: CantonTimestamp,
       counterParticipants: Seq[ParticipantId] = Seq.empty,
-  )(implicit traceContext: TraceContext): Future[Iterable[SignedProtocolMessage[AcsCommitment]]] = {
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Iterable[SignedProtocolMessage[AcsCommitment]]] = {
 
     val participantFilter: SQLActionBuilderChain = counterParticipants match {
       case Seq() => sql""
@@ -506,7 +507,7 @@ class DbAcsCommitmentStore(
             from par_received_acs_commitments
             where domain_idx = $indexedDomain and to_inclusive >= $start and from_exclusive < $end""" ++ participantFilter
 
-    storage.query(query.as[SignedProtocolMessage[AcsCommitment]], functionFullName)
+    storage.queryUnlessShutdown(query.as[SignedProtocolMessage[AcsCommitment]], functionFullName)
 
   }
 
@@ -549,9 +550,9 @@ class DbIncrementalCommitmentStore(
 
   override def get()(implicit
       traceContext: TraceContext
-  ): Future[(RecordTime, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType])] =
+  ): FutureUnlessShutdown[(RecordTime, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType])] =
     for {
-      res <- storage.query(
+      res <- storage.queryUnlessShutdown(
         (for {
           tsWithTieBreaker <-
             sql"""select ts, tie_breaker from par_commitment_snapshot_time where domain_idx = $indexedDomain"""
@@ -575,13 +576,13 @@ class DbIncrementalCommitmentStore(
       }
     }
 
-  override def watermark(implicit traceContext: TraceContext): Future[RecordTime] = {
+  override def watermark(implicit traceContext: TraceContext): FutureUnlessShutdown[RecordTime] = {
     val query =
       sql"""select ts, tie_breaker from par_commitment_snapshot_time where domain_idx=$indexedDomain"""
         .as[(CantonTimestamp, Long)]
         .headOption
     storage
-      .query(query, operationName = "commitments: read snapshot watermark")
+      .queryUnlessShutdown(query, operationName = "commitments: read snapshot watermark")
       .map(_.fold(RecordTime.MinValue) { case (ts, tieBreaker) => RecordTime(ts, tieBreaker) })
   }
 
@@ -589,7 +590,7 @@ class DbIncrementalCommitmentStore(
       rt: RecordTime,
       updates: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
       deletes: Set[SortedSet[LfPartyId]],
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     def partySetHash(parties: SortedSet[LfPartyId]): String68 =
       Hash
         .digest(
@@ -650,7 +651,7 @@ class DbIncrementalCommitmentStore(
 
     val operations = List(insertRt(rt), storeUpdates(updateList), deleteCommitments(deleteList))
 
-    storage.queryAndUpdate(
+    storage.queryAndUpdateUnlessShutdown(
       DBIO.seq(operations*).transactionally.withTransactionIsolation(Serializable),
       operationName = "commitments: incremental commitments snapshot update",
     )
@@ -710,9 +711,9 @@ class DbCommitmentQueue(
     */
   override def peekThroughAtOrAfter(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Seq[AcsCommitment]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[AcsCommitment]] =
     storage
-      .query(
+      .queryUnlessShutdown(
         sql"""select sender, counter_participant, from_exclusive, to_inclusive, commitment
                                             from par_commitment_queue
                                             where domain_idx = $indexedDomain and to_inclusive >= $timestamp"""
@@ -725,9 +726,9 @@ class DbCommitmentQueue(
       counterParticipant: ParticipantId,
   )(implicit
       traceContext: TraceContext
-  ): Future[Seq[AcsCommitment]] =
+  ): FutureUnlessShutdown[Seq[AcsCommitment]] =
     storage
-      .query(
+      .queryUnlessShutdown(
         sql"""select sender, counter_participant, from_exclusive, to_inclusive, commitment
                  from par_commitment_queue
                  where domain_idx = $indexedDomain and sender = $counterParticipant
@@ -740,8 +741,8 @@ class DbCommitmentQueue(
   /** Deletes all commitments whose period ends at or before the given timestamp. */
   override def deleteThrough(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    storage.update_(
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    storage.updateUnlessShutdown_(
       sqlu"delete from par_commitment_queue where domain_idx = $indexedDomain and to_inclusive <= $timestamp",
       operationName = "delete queued commitments",
     )

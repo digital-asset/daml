@@ -6,12 +6,14 @@ package com.digitalasset.canton.console.commands
 import better.files.File
 import cats.syntax.either.*
 import cats.syntax.foldable.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands
 import com.digitalasset.canton.admin.participant.v30.ExportAcsResponse
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
+  CommandErrors,
   ConsoleCommandResult,
   ConsoleEnvironment,
   FeatureFlag,
@@ -392,17 +394,26 @@ abstract class LocalParticipantRepairAdministration(
       skipInactive: Boolean = true,
       batchSize: Int = 100,
   ): Unit =
-    runRepairCommand(tc =>
-      access(
-        _.sync.repairService.changeAssignationAwait(
-          contractIds,
-          sourceDomain,
-          targetDomain,
-          skipInactive,
-          PositiveInt.tryCreate(batchSize),
-        )(tc)
-      )
-    )
+    NonEmpty
+      .from(contractIds.distinct) match {
+      case Some(contractIds) =>
+        runRepairCommand(tc =>
+          access(
+            _.sync.repairService.changeAssignationAwait(
+              contractIds,
+              sourceDomain,
+              targetDomain,
+              skipInactive,
+              PositiveInt.tryCreate(batchSize),
+            )(tc)
+          )
+        )
+      case None =>
+        consoleEnvironment.run(
+          CommandErrors
+            .GenericCommandError("contractIds must be non-empty")
+        )
+    }
 
   @Help.Summary("Rollback an unassignment by re-assigning the contract to the source domain.")
   @Help.Description(

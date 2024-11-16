@@ -7,7 +7,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.SubmissionTrackerData
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{
   AsyncOrSyncCloseable,
@@ -17,7 +17,6 @@ import com.digitalasset.canton.lifecycle.{
   SyncCloseable,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.protocol.SubmissionTracker.SubmissionData
 import com.digitalasset.canton.participant.store.SubmissionTrackerStore
 import com.digitalasset.canton.protocol.{RequestId, RootHash}
 import com.digitalasset.canton.topology.ParticipantId
@@ -76,15 +75,11 @@ trait SubmissionTracker extends AutoCloseable {
   def provideSubmissionData(
       rootHash: RootHash,
       requestId: RequestId,
-      submissionData: SubmissionData,
+      submissionData: SubmissionTrackerData,
   )(implicit traceContext: TraceContext): Unit
 }
 
 object SubmissionTracker {
-  final case class SubmissionData(
-      submittingParticipant: ParticipantId,
-      maxSequencingTime: CantonTimestamp,
-  )
 
   def apply(protocolVersion: ProtocolVersion)(
       participantId: ParticipantId,
@@ -281,7 +276,7 @@ class SubmissionTrackerImpl private[protocol] (protocolVersion: ProtocolVersion)
   override def provideSubmissionData(
       rootHash: RootHash,
       requestId: RequestId,
-      submissionData: SubmissionData,
+      submissionData: SubmissionTrackerData,
   )(implicit traceContext: TraceContext): Unit = {
     val Entry(prevFUS, nextPUS, resultPUS) = tryGetEntry(rootHash, requestId)
 

@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.protocol
 import cats.syntax.parallel.*
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.crypto.TestHash
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, SubmissionTrackerData}
 import com.digitalasset.canton.participant.store.memory.InMemorySubmissionTrackerStore
 import com.digitalasset.canton.protocol.{RequestId, RootHash}
 import com.digitalasset.canton.topology.{ParticipantId, UniqueIdentifier}
@@ -55,8 +55,8 @@ class SubmissionTrackerTest
       requestId: RequestId,
       participantId: ParticipantId = participantId,
       maxSeqTimeOffset: Long = 10,
-  ): SubmissionTracker.SubmissionData =
-    SubmissionTracker.SubmissionData(
+  ): SubmissionTrackerData =
+    SubmissionTrackerData(
       participantId,
       requestId.unwrap.plusSeconds(maxSeqTimeOffset),
     )

@@ -575,7 +575,7 @@ abstract class ProtocolProcessor[
       }
     }
 
-    FutureUtil.doNotAwaitUnlessShutdown(
+    FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
       removeF,
       s"Failed to remove the pending submission $submissionId",
     )
@@ -768,9 +768,10 @@ abstract class ProtocolProcessor[
           logger.warn(s"Request $rc: Found malformed payload: $incorrectRootHash")
         }
 
-        (submitterMetadataO, submissionDataForTrackerO) = steps.getSubmitterInformation(
+        submitterMetadataO = steps.getSubmitterInformation(
           viewsWithCorrectRootHash.map { case (view, _) => view.unwrap }
         )
+        submissionDataForTrackerO = submitterMetadataO.flatMap(_.submissionTrackerData)
 
         submissionTopologyTimestamp = rootHashMessage.submissionTopologyTimestamp
         submissionTopologySnapshotO <- EitherT.right(

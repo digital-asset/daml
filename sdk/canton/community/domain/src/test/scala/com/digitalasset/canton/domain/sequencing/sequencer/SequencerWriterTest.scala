@@ -79,7 +79,7 @@ class SequencerWriterTest extends FixtureAsyncWordSpec with BaseTest {
     val writer =
       new SequencerWriter(
         storageFactory,
-        createWriterFlow,
+        TestSequencerWriterFlowFactory,
         storage,
         store,
         clock,
@@ -101,13 +101,14 @@ class SequencerWriterTest extends FixtureAsyncWordSpec with BaseTest {
 
     def close(): Unit = ()
 
-    private def createWriterFlow(
-        store: SequencerWriterStore,
-        traceContext: TraceContext,
-    ): RunningSequencerWriterFlow = {
-      val mockFlow = new MockRunningWriterFlow
-      runningFlows.append(mockFlow)
-      mockFlow.writerFlow
+    object TestSequencerWriterFlowFactory extends SequencerWriter.SequencerWriterFlowFactory {
+      override def create(
+          store: SequencerWriterStore
+      )(implicit traceContext: TraceContext): RunningSequencerWriterFlow = {
+        val mockFlow = new MockRunningWriterFlow
+        runningFlows.append(mockFlow)
+        mockFlow.writerFlow
+      }
     }
   }
 
