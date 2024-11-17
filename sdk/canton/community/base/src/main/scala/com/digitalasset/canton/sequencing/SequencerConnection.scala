@@ -8,13 +8,12 @@ import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.domain.v30
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
+import com.digitalasset.canton.networking.grpc.{ClientChannelBuilder, ManagedChannelBuilderProxy}
 import com.digitalasset.canton.networking.{Endpoint, UrlValidator}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.tracing.TracingConfig.Propagation
 import com.digitalasset.canton.{ProtoDeserializationError, SequencerAlias}
 import com.google.protobuf.ByteString
-import io.grpc.netty.NettyChannelBuilder
 
 import java.net.URI
 import java.util.concurrent.Executor
@@ -65,9 +64,11 @@ final case class GrpcSequencerConnection(
 
   def mkChannelBuilder(clientChannelBuilder: ClientChannelBuilder, tracePropagation: Propagation)(
       implicit executor: Executor
-  ): NettyChannelBuilder =
-    clientChannelBuilder
-      .create(endpoints, transportSecurity, executor, customTrustCertificates, tracePropagation)
+  ): ManagedChannelBuilderProxy =
+    ManagedChannelBuilderProxy(
+      clientChannelBuilder
+        .create(endpoints, transportSecurity, executor, customTrustCertificates, tracePropagation)
+    )
 
   override def toProtoV30: v30.SequencerConnection =
     v30.SequencerConnection(

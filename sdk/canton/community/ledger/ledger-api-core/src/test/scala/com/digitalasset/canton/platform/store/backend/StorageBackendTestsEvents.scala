@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   DomainOffset,
   RawCreatedEvent,
@@ -390,10 +390,10 @@ private[backend] trait StorageBackendTestsEvents
     val maxEventSequentialId: Long => Long =
       longOffset =>
         executeSql(
-          backend.event.maxEventSequentialId(offset(longOffset))
+          backend.event.maxEventSequentialId(Some(absoluteOffset(longOffset)))
         )
 
-    executeSql(backend.event.maxEventSequentialId(Offset.beforeBegin)) shouldBe 999
+    executeSql(backend.event.maxEventSequentialId(None)) shouldBe 999
     maxEventSequentialId(1) shouldBe 999
     maxEventSequentialId(2) shouldBe 999
     maxEventSequentialId(9) shouldBe 999

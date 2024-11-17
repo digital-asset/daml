@@ -4,13 +4,12 @@
 package com.digitalasset.canton.participant.store
 
 import cats.data.{EitherT, OptionT}
+import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.participant.protocol.RequestJournal.{RequestData, RequestState}
-import com.digitalasset.canton.store.CursorPreheadStore
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{RequestCounter, RequestCounterDiscriminator}
 import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -18,8 +17,6 @@ import scala.concurrent.{ExecutionContext, Future}
 trait RequestJournalStore { this: NamedLogging =>
 
   private[store] implicit def ec: ExecutionContext
-
-  private[store] val cleanPreheadStore: CursorPreheadStore[RequestCounterDiscriminator]
 
   /** Adds the initial request information to the store.
     *

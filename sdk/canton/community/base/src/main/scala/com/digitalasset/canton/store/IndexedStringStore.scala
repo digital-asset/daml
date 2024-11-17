@@ -14,7 +14,6 @@ import com.digitalasset.canton.store.db.DbIndexedStringStore
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, TracedAsyncLoadingCache, TracedScaffeine}
-import com.github.blemale.scaffeine.Scaffeine
 import com.google.common.annotations.VisibleForTesting
 import slick.jdbc.{PositionedParameters, SetParameter}
 
@@ -166,9 +165,7 @@ class IndexedStringCache(
   private val str2Index
       : TracedAsyncLoadingCache[FutureUnlessShutdown, (String300, IndexedStringType), Int] =
     TracedScaffeine.buildTracedAsync[FutureUnlessShutdown, (String300, IndexedStringType), Int](
-      cache = Scaffeine()
-        .maximumSize(config.maximumSize.value)
-        .expireAfterAccess(config.expireAfterAccess.underlying),
+      cache = config.buildScaffeine(),
       loader = implicit tc => { case (str, typ) =>
         parent
           .getOrCreateIndex(typ, str)
@@ -184,9 +181,7 @@ class IndexedStringCache(
       : TracedAsyncLoadingCache[FutureUnlessShutdown, (Int, IndexedStringType), Option[String300]] =
     TracedScaffeine
       .buildTracedAsync[FutureUnlessShutdown, (Int, IndexedStringType), Option[String300]](
-        cache = Scaffeine()
-          .maximumSize(config.maximumSize.value)
-          .expireAfterAccess(config.expireAfterAccess.underlying),
+        cache = config.buildScaffeine(),
         loader = implicit tc => { case (idx, typ) =>
           parent
             .getForIndex(typ, idx)

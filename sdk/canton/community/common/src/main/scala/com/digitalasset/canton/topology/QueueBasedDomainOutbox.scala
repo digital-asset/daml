@@ -22,7 +22,7 @@ import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.retry.AllExceptionRetryPolicy
-import com.digitalasset.canton.util.{DelayUtil, EitherTUtil, FutureUtil, retry}
+import com.digitalasset.canton.util.{DelayUtil, EitherTUtil, FutureUnlessShutdownUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
@@ -305,7 +305,7 @@ class QueueBasedDomainOutbox(
                 s"Attempting to push ${transactions.size} topology transactions to $domain, specifically: $transactions"
               )
             }
-            FutureUtil.logOnFailureUnlessShutdown(
+            FutureUnlessShutdownUtil.logOnFailureUnlessShutdown(
               handle.submit(transactions),
               s"Pushing topology transactions to $domain",
             )

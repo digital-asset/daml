@@ -96,7 +96,7 @@ class AuthenticationTokenProvider(
 
   private def getChallenge(
       authenticationClient: SequencerAuthenticationServiceStub
-  )(implicit traceContext: TraceContext): EitherT[Future, Status, ChallengeResponse.Success] =
+  )(implicit traceContext: TraceContext): EitherT[Future, Status, ChallengeResponse] =
     EitherT {
       CantonGrpcUtil
         .sendGrpcRequestUnsafe(authenticationClient)(
@@ -107,17 +107,9 @@ class AuthenticationTokenProvider(
             )
           )
         )
-        .map(response => response.value)
-        .map {
-          case ChallengeResponse.Value.Success(success) => Right(success)
-          case ChallengeResponse.Value.Failure(ChallengeResponse.Failure(code, reason)) =>
-            Left(Status.fromCodeValue(code).withDescription(reason))
-          case ChallengeResponse.Value.Empty =>
-            Left(
-              Status.INTERNAL.withDescription(
-                "Problem with domain handshake with challenge. Received empty response from domain."
-              )
-            )
+        .map(Right(_))
+        .recover { case e: StatusRuntimeException =>
+          Left(e.getStatus)
         }
     }
 
@@ -160,27 +152,18 @@ class AuthenticationTokenProvider(
               )
             )
           )
-          .map(response => response.value)
-          .map {
-            case AuthenticateResponse.Value.Success(
-                  AuthenticateResponse.Success(tokenP, expiryOP)
-                ) =>
-              (for {
-                token <- AuthenticationToken.fromProtoPrimitive(tokenP).leftMap(_.toString)
-                expiresAtP <- ProtoConverter.required("expires_at", expiryOP).leftMap(_.toString)
-                expiresAt <- CantonTimestamp.fromProtoTimestamp(expiresAtP).leftMap(_.toString)
-              } yield AuthenticationTokenWithExpiry(token, expiresAt))
-                .leftMap(err =>
-                  Status.INTERNAL.withDescription(s"Received invalid authentication token: $err")
-                )
-            case AuthenticateResponse.Value.Failure(AuthenticateResponse.Failure(code, reason)) =>
-              Left(Status.fromCodeValue(code).withDescription(reason))
-            case AuthenticateResponse.Value.Empty =>
-              Left(
-                Status.INTERNAL.withDescription(
-                  "Problem authenticating participant. Received empty response from domain."
-                )
+          .map { case AuthenticateResponse(tokenP, expiryOP) =>
+            (for {
+              token <- AuthenticationToken.fromProtoPrimitive(tokenP).leftMap(_.toString)
+              expiresAtP <- ProtoConverter.required("expires_at", expiryOP).leftMap(_.toString)
+              expiresAt <- CantonTimestamp.fromProtoTimestamp(expiresAtP).leftMap(_.toString)
+            } yield AuthenticationTokenWithExpiry(token, expiresAt))
+              .leftMap(err =>
+                Status.INTERNAL.withDescription(s"Received invalid authentication token: $err")
               )
+          }
+          .recover { case e: StatusRuntimeException =>
+            Left(e.getStatus)
           }
       }.mapK(FutureUnlessShutdown.outcomeK)
     } yield token

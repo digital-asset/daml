@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import com.digitalasset.canton.data.{AbsoluteOffset, Offset}
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
@@ -16,31 +16,20 @@ import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend
 import java.sql.Connection
 
 trait QueryValidRange {
-  // TODO(#21220) remove me
-  def withRangeNotPruned[T](
-      minOffsetExclusive: Offset,
-      maxOffsetInclusive: Offset,
-      errorPruning: Offset => String,
-      errorLedgerEnd: Offset => String,
-  )(query: => T)(implicit
-      conn: Connection,
-      loggingContext: LoggingContextWithTrace,
-  ): T
-
   def withRangeNotPruned[T](
       minOffsetInclusive: AbsoluteOffset,
       maxOffsetInclusive: AbsoluteOffset,
       errorPruning: AbsoluteOffset => String,
-      errorLedgerEnd: AbsoluteOffset => String,
+      errorLedgerEnd: Option[AbsoluteOffset] => String,
   )(query: => T)(implicit
       conn: Connection,
       loggingContext: LoggingContextWithTrace,
   ): T
 
   def withOffsetNotBeforePruning[T](
-      offset: Offset,
-      errorPruning: Offset => String,
-      errorLedgerEnd: Offset => String,
+      offset: AbsoluteOffset,
+      errorPruning: AbsoluteOffset => String,
+      errorLedgerEnd: Option[AbsoluteOffset] => String,
   )(query: => T)(implicit
       conn: Connection,
       loggingContext: LoggingContextWithTrace,
@@ -53,63 +42,6 @@ final case class QueryValidRangeImpl(
     val loggerFactory: NamedLoggerFactory,
 ) extends QueryValidRange
     with NamedLogging {
-
-  /** Runs a query and throws an error if the query accesses an invalid offset range.
-    *
-    * @param query              query to execute
-    * @param minOffsetExclusive minimum, exclusive offset used by the query (i.e. all fetched offsets are larger)
-    * @param maxOffsetInclusive maximum, inclusive offset used by the query (i.e. all fetched offsets are before or at)
-    * @param errorPruning       function that generates a context-specific error parameterized by participant pruning offset
-    * @param errorLedgerEnd     function that generates a context-specific error parameterized by ledger end offset
-    * @tparam T type of result passed through
-    * @return either an Error if offset range violates conditions or query result
-    *
-    * Note in order to prevent race condition on connections at READ_COMMITTED isolation levels
-    * (in fact any level below SNAPSHOT isolation level), this check must be performed after
-    * fetching the corresponding range of data. This way we avoid a race between pruning and
-    * the query reading the offsets in which offsets are "silently skipped". First fetching
-    * the objects and only afterwards checking that no pruning operation has interfered, avoids
-    * such a race condition.
-    */
-  override def withRangeNotPruned[T](
-      minOffsetExclusive: Offset,
-      maxOffsetInclusive: Offset,
-      errorPruning: Offset => String,
-      errorLedgerEnd: Offset => String,
-  )(query: => T)(implicit
-      conn: Connection,
-      loggingContext: LoggingContextWithTrace,
-  ): T = {
-    assert(maxOffsetInclusive >= minOffsetExclusive)
-    val result = query
-    val params = storageBackend.prunedUpToInclusiveAndLedgerEnd(conn)
-
-    params.pruneUptoInclusive
-      .filter(_ > minOffsetExclusive)
-      .foreach(pruningOffsetUpToInclusive =>
-        throw RequestValidationErrors.ParticipantPrunedDataAccessed
-          .Reject(
-            cause = errorPruning(pruningOffsetUpToInclusive),
-            earliestOffset = pruningOffsetUpToInclusive.toLong,
-          )(
-            ErrorLoggingContext(logger, loggingContext)
-          )
-          .asGrpcError
-      )
-
-    if (maxOffsetInclusive > params.ledgerEnd) {
-      throw RequestValidationErrors.ParticipantDataAccessedAfterLedgerEnd
-        .Reject(
-          cause = errorLedgerEnd(params.ledgerEnd),
-          latestOffset = params.ledgerEnd.toLong,
-        )(
-          ErrorLoggingContext(logger, loggingContext)
-        )
-        .asGrpcError
-    }
-
-    result
-  }
 
   /** Runs a query and throws an error if the query accesses an invalid offset range.
     *
@@ -132,12 +64,12 @@ final case class QueryValidRangeImpl(
       minOffsetInclusive: AbsoluteOffset,
       maxOffsetInclusive: AbsoluteOffset,
       errorPruning: AbsoluteOffset => String,
-      errorLedgerEnd: AbsoluteOffset => String,
+      errorLedgerEnd: Option[AbsoluteOffset] => String,
   )(query: => T)(implicit
       conn: Connection,
       loggingContext: LoggingContextWithTrace,
   ): T = {
-    assert(maxOffsetInclusive >= minOffsetInclusive)
+    assert(Option(maxOffsetInclusive) >= minOffsetInclusive.decrement)
     val result = query
     val params = storageBackend.prunedUpToInclusiveAndLedgerEnd(conn)
 
@@ -154,34 +86,32 @@ final case class QueryValidRangeImpl(
           .asGrpcError
       )
 
-    params.ledgerEnd.toAbsoluteOffsetO match {
-      case Some(ledgerEnd) if maxOffsetInclusive > ledgerEnd =>
-        throw RequestValidationErrors.ParticipantDataAccessedAfterLedgerEnd
-          .Reject(
-            cause = errorLedgerEnd(ledgerEnd),
-            latestOffset = ledgerEnd.unwrap,
-          )(
-            ErrorLoggingContext(logger, loggingContext)
-          )
-          .asGrpcError
-      case _ => ()
+    if (Option(maxOffsetInclusive) > params.ledgerEnd.toAbsoluteOffsetO) {
+      throw RequestValidationErrors.ParticipantDataAccessedAfterLedgerEnd
+        .Reject(
+          cause = errorLedgerEnd(params.ledgerEnd.toAbsoluteOffsetO),
+          latestOffset = params.ledgerEnd.toLong,
+        )(
+          ErrorLoggingContext(logger, loggingContext)
+        )
+        .asGrpcError
     }
 
     result
   }
 
   override def withOffsetNotBeforePruning[T](
-      offset: Offset,
-      errorPruning: Offset => String,
-      errorLedgerEnd: Offset => String,
+      offset: AbsoluteOffset,
+      errorPruning: AbsoluteOffset => String,
+      errorLedgerEnd: Option[AbsoluteOffset] => String,
   )(query: => T)(implicit
       conn: Connection,
       loggingContext: LoggingContextWithTrace,
   ): T =
     withRangeNotPruned(
-      // as the range not pruned forms a condition that the minOffsetExclusive is bigger or equal than the pruning offset,
-      // by setting this to the offset we ensure that the offset is bigger or equal than the pruning offset.
-      minOffsetExclusive = offset,
+      // as the range not pruned forms a condition that the minOffsetInclusive is greater than the pruning offset,
+      // by setting this to the offset + 1 we ensure that the offset is greater than or equal to the pruning offset.
+      minOffsetInclusive = offset.increment,
       maxOffsetInclusive = offset,
       errorPruning = errorPruning,
       errorLedgerEnd = errorLedgerEnd,

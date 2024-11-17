@@ -74,9 +74,10 @@ class ReferenceSequencerDriver(
     with NamedLogging
     with FlagCloseableAsync {
 
-  private lazy val (sendQueue, done) =
+  private lazy val (sendQueue, done) = {
+    implicit val traceContext: TraceContext = TraceContext.empty
+
     PekkoUtil.runSupervised(
-      ex => logger.error("Fatally failed to handle state changes", ex)(TraceContext.empty),
       Source
         .queue[Traced[TimestampedRequest]](bufferSize = 100)
         .groupedWithin(n = config.maxBlockSize, d = config.maxBlockCutMillis.millis)
@@ -91,10 +92,12 @@ class ReferenceSequencerDriver(
         .map(req =>
           store.insertRequest(
             BlockFormat.OrderedRequest(req.microsecondsSinceEpoch, req.tag, req.body)
-          )(TraceContext.empty)
+          )
         )
         .toMat(Sink.ignore)(Keep.both),
+      errorLogMessagePrefix = "Fatally failed to handle state changes",
     )
+  }
 
   override def subscribe()(implicit
       traceContext: TraceContext

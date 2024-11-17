@@ -21,7 +21,7 @@ import com.digitalasset.canton.concurrent.{
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.http.HttpApiServer
 import com.digitalasset.canton.ledger.api.auth.CachedJwtVerifierLoader
@@ -244,7 +244,7 @@ class StartableStoppableLedgerApiServer(
       _ = timedSyncService.registerInternalStateService(new InternalStateService {
         override def activeContracts(
             partyIds: Set[LfPartyId],
-            validAt: Offset,
+            validAt: Option[AbsoluteOffset],
         )(implicit traceContext: TraceContext): Source[GetActiveContractsResponse, NotUsed] =
           indexService.getActiveContracts(
             filter = TransactionFilter(
@@ -453,7 +453,9 @@ class StartableStoppableLedgerApiServer(
         for {
           channel <- ResourceOwner
             .forReleasable(() =>
-              ClientChannelBuilder.createChannelToTrustedServer(config.serverConfig.clientConfig)
+              ClientChannelBuilder
+                .createChannelBuilderToTrustedServer(config.serverConfig.clientConfig)
+                .build()
             )(channel => Future(channel.shutdown().discard))
           _ <- HttpApiServer(
             jsonApiConfig,

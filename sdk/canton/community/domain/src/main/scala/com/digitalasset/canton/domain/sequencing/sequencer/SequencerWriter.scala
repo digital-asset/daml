@@ -11,20 +11,22 @@ import cats.syntax.option.*
 import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.admin.data.SequencerHealthStatus
-import com.digitalasset.canton.domain.sequencing.sequencer.SequencerWriter.ResetWatermark
+import com.digitalasset.canton.domain.sequencing.sequencer.SequencerWriter.{
+  ResetWatermark,
+  SequencerWriterFlowFactory,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.WriterStartupError.FailedToInitializeFromSnapshot
 import com.digitalasset.canton.domain.sequencing.sequencer.store.*
 import com.digitalasset.canton.lifecycle.*
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.sequencing.protocol.{SendAsyncError, SubmissionRequest}
 import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration, SimClock}
-import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.util.FutureInstances.*
@@ -126,10 +128,7 @@ object SequencerWriterStoreFactory {
   */
 class SequencerWriter(
     writerStoreFactory: SequencerWriterStoreFactory,
-    createWriterFlow: (
-        SequencerWriterStore,
-        TraceContext,
-    ) => RunningSequencerWriterFlow,
+    writerFlowFactory: SequencerWriterFlowFactory,
     storage: Storage,
     val generalStore: SequencerStore,
     clock: Clock,
@@ -396,10 +395,8 @@ class SequencerWriter(
   )(implicit traceContext: TraceContext): Unit =
     // if these actions fail we want to ensure that the store is closed
     try {
-      val writerFlow = createWriterFlow(store, traceContext)
-
+      val writerFlow = writerFlowFactory.create(store)
       setupWriterRecovery(writerFlow.done)
-
       runningWriterRef.set(RunningWriter(writerFlow, store).some)
     } catch {
       case NonFatal(ex) =>
@@ -488,18 +485,19 @@ object SequencerWriter {
       protocolVersion: ProtocolVersion,
       loggerFactory: NamedLoggerFactory,
       blockSequencerMode: Boolean,
-      sequencerMember: Member,
-      cachingConfigs: CachingConfigs,
       metrics: SequencerMetrics,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): SequencerWriter = {
-    val logger = TracedLogger(SequencerWriter.getClass, loggerFactory)
+    implicit val loggingContext: ErrorLoggingContext = ErrorLoggingContext(
+      loggerFactory.getTracedLogger(SequencerWriter.getClass),
+      loggerFactory.properties,
+      TraceContext.empty,
+    )
 
-    def createWriterFlow(store: SequencerWriterStore)(implicit
-        traceContext: TraceContext
-    ): RunningSequencerWriterFlow =
-      PekkoUtil.runSupervised(
-        logger.error(s"Sequencer writer flow error", _)(TraceContext.empty),
-        SequencerWriterSource(
+    object DefaultSequencerWriterFlowFactory extends SequencerWriterFlowFactory {
+      override def create(
+          store: SequencerWriterStore
+      )(implicit traceContext: TraceContext): RunningSequencerWriterFlow = {
+        val runnableGraph = SequencerWriterSource(
           writerConfig,
           totalNodeCount,
           keepAliveInterval,
@@ -510,15 +508,22 @@ object SequencerWriter {
           protocolVersion,
           metrics,
           processingTimeout,
-          blockSequencerMode = blockSequencerMode,
+          blockSequencerMode,
         )
           .toMat(Sink.ignore)(Keep.both)
-          .mapMaterializedValue(m => new RunningSequencerWriterFlow(m._1, m._2.void)),
-      )
+          .mapMaterializedValue(m => new RunningSequencerWriterFlow(m._1, m._2.void))
+
+        PekkoUtil.runSupervised(
+          runnableGraph,
+          errorLogMessagePrefix = "Sequencer writer flow error",
+          isDone = (runningFlow: RunningSequencerWriterFlow) => runningFlow.done.isCompleted,
+        )
+      }
+    }
 
     new SequencerWriter(
       writerStorageFactory,
-      createWriterFlow(_)(_),
+      DefaultSequencerWriterFlowFactory,
       storage,
       sequencerStore,
       clock,
@@ -533,4 +538,9 @@ object SequencerWriter {
   final case object ResetWatermarkToClockNow extends ResetWatermark
   final case class ResetWatermarkToTimestamp(timestamp: CantonTimestamp) extends ResetWatermark
 
+  trait SequencerWriterFlowFactory {
+    def create(store: SequencerWriterStore)(implicit
+        traceContext: TraceContext
+    ): RunningSequencerWriterFlow
+  }
 }

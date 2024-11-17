@@ -35,7 +35,7 @@ import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.retry.NoExceptionRetryPolicy
-import com.digitalasset.canton.util.{FutureUtil, LoggerUtil, retry}
+import com.digitalasset.canton.util.{FutureUnlessShutdownUtil, LoggerUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import io.opentelemetry.api.trace.Tracer
@@ -318,7 +318,7 @@ class SequencerInfoLoader(
       )
       // Note that we tested using HasFlushFuture.addToFlush, but the complexity and risk of delaying shutdown
       // wasn't worth the questionable benefit of tracking "dangling threads" without ownership of the netty channel.
-      FutureUtil.doNotAwaitUnlessShutdown(
+      FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
         getInfo(connection).transform(
           {
             case Outcome(res) =>

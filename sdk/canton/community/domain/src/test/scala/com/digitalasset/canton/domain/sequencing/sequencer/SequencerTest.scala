@@ -122,10 +122,8 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
         topologyClientMember,
         testedProtocolVersion,
         crypto,
-        CachingConfigs(),
         metrics,
         loggerFactory,
-        runtimeReady = FutureUnlessShutdown.unit,
       )(parallelExecutionContext, tracer, materializer)
 
     def readAsSeq(

@@ -154,12 +154,9 @@ trait ProcessingSteps[
 
   def embedNoMediatorError(error: NoMediatorError): SubmissionError
 
-  /** Return the submitter metadata along with the submission data needed by the SubmissionTracker
-    * to decide on transaction validity
+  /** Return the submitter metadata
     */
-  def getSubmitterInformation(
-      views: Seq[DecryptedView]
-  ): (Option[ViewSubmitterMetadata], Option[SubmissionTracker.SubmissionData])
+  def getSubmitterInformation(views: Seq[DecryptedView]): Option[ViewSubmitterMetadata]
 
   sealed trait Submission {
 

@@ -97,7 +97,9 @@ final class SequencerChannelClientFactory(
       member: Member,
   )(implicit
       executionContext: ExecutionContextExecutor
-  ): SequencerChannelClientTransport =
+  ): SequencerChannelClientTransport = {
+    val loggerFactoryWithSequencerId =
+      SequencerClient.loggerFactoryWithSequencerId(loggerFactory, sequencerId)
     conn match {
       case connection: GrpcSequencerConnection =>
         val channel = createChannel(connection)
@@ -106,9 +108,10 @@ final class SequencerChannelClientFactory(
           channel,
           auth,
           processingTimeout,
-          loggerFactory.append("sequencerId", sequencerId.uid.toString),
+          loggerFactoryWithSequencerId,
         )
     }
+  }
 
   private def grpcSequencerClientAuth(
       connection: GrpcSequencerConnection,

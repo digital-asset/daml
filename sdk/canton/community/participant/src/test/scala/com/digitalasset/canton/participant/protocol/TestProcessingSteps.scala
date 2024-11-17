@@ -29,7 +29,6 @@ import com.digitalasset.canton.participant.protocol.ProcessingSteps.{
   WrapsProcessorError,
 }
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.NoMediatorError
-import com.digitalasset.canton.participant.protocol.SubmissionTracker.SubmissionData
 import com.digitalasset.canton.participant.protocol.TestProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.conflictdetection.{
   ActivenessResult,
@@ -64,7 +63,7 @@ class TestProcessingSteps(
     pendingSubmissionMap: concurrent.Map[Int, Unit],
     pendingRequestData: Option[TestPendingRequestData],
     informeesOfView: ViewHash => Set[LfPartyId] = _ => Set.empty,
-    submissionDataForTrackerO: Option[SubmissionData] = None,
+    submissionDataForTrackerO: Option[SubmissionTrackerData] = None,
 )(implicit val ec: ExecutionContext)
     extends ProcessingSteps[
       Int,
@@ -115,10 +114,8 @@ class TestProcessingSteps(
   override def embedNoMediatorError(error: NoMediatorError): TestProcessingError =
     TestProcessorError(error)
 
-  override def getSubmitterInformation(
-      views: Seq[DecryptedView]
-  ): (Option[ViewSubmitterMetadata], Option[SubmissionTracker.SubmissionData]) =
-    (None, submissionDataForTrackerO)
+  override def getSubmitterInformation(views: Seq[DecryptedView]): Option[ViewSubmitterMetadata] =
+    submissionDataForTrackerO
 
   override def createSubmission(
       submissionParam: Int,
@@ -339,6 +336,7 @@ object TestProcessingSteps {
   case object TestViewType extends ViewTypeTest {
     override type View = TestViewTree
     override type FullView = TestViewTree
+    override type ViewSubmitterMetadata = SubmissionTrackerData
 
     override def toProtoEnum: v30.ViewType =
       throw new UnsupportedOperationException("TestViewType cannot be serialized")

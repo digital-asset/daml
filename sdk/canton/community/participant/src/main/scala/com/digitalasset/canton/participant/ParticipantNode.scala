@@ -570,11 +570,6 @@ class ParticipantNodeBootstrap(
           loggerFactory,
         )
 
-        // Notify at participant level if eager notification is configured, else rely on notification via domain.
-        _ = if (parameterConfig.partyChangeNotification == PartyNotificationConfig.Eager) {
-          authorizedTopologyManager.addObserver(partyNotifier.attachToIdentityManager())
-        }
-
         domainRegistry = new GrpcDomainRegistry(
           participantId,
           syncDomainPersistentStateManager,

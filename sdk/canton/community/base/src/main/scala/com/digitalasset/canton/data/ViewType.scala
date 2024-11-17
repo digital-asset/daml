@@ -18,7 +18,7 @@ sealed trait ViewType extends Product with Serializable with PrettyPrinting {
 
   type FullView <: ViewTree
 
-  type ViewSubmitterMetadata
+  type ViewSubmitterMetadata <: HasSubmissionTrackerData
 
   type Processor = RequestProcessor[this.type]
 

@@ -86,7 +86,7 @@ import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, MonadUtil}
+import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.engine.Engine
 import io.grpc.Status
@@ -244,7 +244,7 @@ class SyncDomain(
 
   private val journalGarbageCollector = new JournalGarbageCollector(
     persistent.requestJournalStore,
-    tc => ephemeral.ledgerApiIndexer.ledgerApiStore.value.domainIndex(domainId)(tc),
+    tc => ephemeral.ledgerApiIndexer.ledgerApiStore.value.cleanDomainIndex(domainId)(tc),
     sortedReconciliationIntervalsProvider,
     persistent.acsCommitmentStore,
     participantNodePersistentState.value.acsCounterParticipantConfigStore,
@@ -571,8 +571,10 @@ class SyncDomain(
       // The "suitable point" must ensure that the [[com.digitalasset.canton.participant.store.AcsSnapshotStore]]
       // receives any partially-applied changes; choosing the timestamp returned by the store is sufficient and optimal
       // in terms of performance, but any earlier timestamp is also correct
-      acsChangesReplayStartRt <- liftF(persistent.acsCommitmentStore.runningCommitments.watermark)
-        .mapK(FutureUnlessShutdown.outcomeK)
+      acsChangesReplayStartRt <- EitherT.right(
+        persistent.acsCommitmentStore.runningCommitments.watermark
+      )
+
       _ <- loadPendingEffectiveTimesFromTopologyStore(acsChangesReplayStartRt.timestamp)
       acsChangesToReplay <-
         if (
@@ -613,15 +615,14 @@ class SyncDomain(
         .find(SequencedEventStore.LatestUpto(CantonTimestamp.MaxValue))(initializationTraceContext)
         .fold(_ => SequencerCounter.Genesis, _.counter + 1)
 
-    val sequencerCounterPreheadTs =
+    val cleanProcessingTs =
       ephemeral.startingPoints.processing.prenextTimestamp
-    // note: we need the optional prehead here, since it changes the behavior inside (subscribing from Some(CantonTimestamp.MinValue) would result in timeouts at requesting topology snapshot ... has not completed after...)
-    val sequencerCounterPreheadTsO = Option.when(
-      sequencerCounterPreheadTs != CantonTimestamp.MinValue
-    )(sequencerCounterPreheadTs)
+    // note: we need the optional here, since it changes the behavior inside (subscribing from Some(CantonTimestamp.MinValue) would result in timeouts at requesting topology snapshot ... has not completed after...)
+    val cleanProcessingTsO = Some(cleanProcessingTs)
+      .filterNot(_ == CantonTimestamp.MinValue)
     val subscriptionPriorTs = {
       val cleanReplayTs = ephemeral.startingPoints.cleanReplay.prenextTimestamp
-      Ordering[CantonTimestamp].min(cleanReplayTs, sequencerCounterPreheadTs)
+      Ordering[CantonTimestamp].min(cleanReplayTs, cleanProcessingTs)
     }
 
     def waitForParticipantToBeInTopology(implicit
@@ -705,13 +706,13 @@ class SyncDomain(
         .right[SyncDomainInitializationError](
           sequencerClient.subscribeAfter(
             subscriptionPriorTs,
-            sequencerCounterPreheadTsO,
+            cleanProcessingTsO,
             monitor(messageHandler),
             ephemeral.timeTracker,
             tc =>
               FutureUnlessShutdown.outcomeF(
                 participantNodePersistentState.value.ledgerApiStore
-                  .domainIndex(domainId)(tc)
+                  .cleanDomainIndex(domainId)(tc)
                   .map(_.sequencerIndex.map(_.timestamp))
               ),
           )(initializationTraceContext)
@@ -729,7 +730,7 @@ class SyncDomain(
       logger.debug(s"Started sync domain for $domainId")(initializationTraceContext)
       ephemeral.markAsRecovered()
       logger.debug("Sync domain is ready.")(initializationTraceContext)
-      FutureUtil.doNotAwaitUnlessShutdown(
+      FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
         completeAssignment,
         "Failed to complete outstanding assignments on startup. " +
           "You may have to complete the assignments manually.",
@@ -987,7 +988,7 @@ object SyncDomain {
 
           if (batchIncludesCounter(startingPoints.cleanReplay.nextSequencerCounter)) {
             logger.info(
-              s"Replaying requests ${startingPoints.cleanReplay.nextRequestCounter} up to clean prehead ${startingPoints.processing.nextRequestCounter - 1L}"
+              s"Replaying requests ${startingPoints.cleanReplay.nextRequestCounter} up to clean request index ${startingPoints.processing.nextRequestCounter - 1L}"
             )
           }
           if (batchIncludesCounter(startingPoints.processing.nextSequencerCounter)) {

@@ -4,17 +4,15 @@
 package com.digitalasset.canton.participant.store.memory
 
 import cats.data.{EitherT, OptionT}
+import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.RequestJournal.{RequestData, RequestState}
 import com.digitalasset.canton.participant.store.*
-import com.digitalasset.canton.store.CursorPreheadStore
-import com.digitalasset.canton.store.memory.InMemoryCursorPreheadStore
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MapsUtil
-import com.digitalasset.canton.{RequestCounter, RequestCounterDiscriminator}
 import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.concurrent.TrieMap
@@ -29,9 +27,6 @@ class InMemoryRequestJournalStore(protected val loggerFactory: NamedLoggerFactor
     DirectExecutionContext(noTracingLogger)
 
   private val requestTable = new TrieMap[RequestCounter, RequestData]
-
-  override private[store] val cleanPreheadStore: CursorPreheadStore[RequestCounterDiscriminator] =
-    new InMemoryCursorPreheadStore[RequestCounterDiscriminator](loggerFactory)
 
   override def insert(data: RequestData)(implicit traceContext: TraceContext): Future[Unit] =
     Future.fromTry(Try(MapsUtil.tryPutIdempotent(requestTable, data.rc, data)))

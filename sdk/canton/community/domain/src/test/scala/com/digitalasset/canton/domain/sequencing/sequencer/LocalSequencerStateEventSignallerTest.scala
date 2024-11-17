@@ -89,13 +89,13 @@ class LocalSequencerStateEventSignallerTest
       // regardless of all of the prior events that were pummeled only a single signal is produced when subscribed
       // what's past is prologue
       aliceSignals <- PekkoUtil.runSupervised(
-        logger.error("writer updates", _),
         signaller
           .readSignalsForMember(alice, aliceId)
           .takeWithin(
             200.millis
           ) // crude wait to receive more signals if some were going to be produced
           .toMat(Sink.seq)(Keep.right),
+        errorLogMessagePrefix = "writer updates",
       )
     } yield {
       aliceSignals should have size (2) // there is a one item buffer on both the source queue and broadcast hub

@@ -13,7 +13,7 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdatesResponse,
 }
 import com.daml.metrics.Timed
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.{AbsoluteOffset, Offset}
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.UpdateId
 import com.digitalasset.canton.ledger.api.domain.types.ParticipantOffset
@@ -92,7 +92,7 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
   override def getActiveContracts(
       filter: domain.TransactionFilter,
       verbose: Boolean,
-      activeAt: Offset,
+      activeAt: Option[AbsoluteOffset],
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetActiveContractsResponse, NotUsed] =
     Timed.source(
       metrics.services.index.getActiveContracts,

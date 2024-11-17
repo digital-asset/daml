@@ -11,7 +11,7 @@ import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.connection.v30.{ApiInfoServiceGrpc, GetApiInfoRequest}
 import com.digitalasset.canton.error.CantonErrorGroups.GrpcErrorGroup
 import com.digitalasset.canton.error.{BaseCantonError, CantonError}
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle, OnShutdownRunner}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, OnShutdownRunner, UnlessShutdown}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -111,14 +111,12 @@ object CantonGrpcUtil {
     * @param retryPolicy        invoked after an error to determine whether to retry
     */
   @GrpcServiceInvocationMethod
-  def sendGrpcRequest[Svc <: AbstractStub[Svc], Res](client: Svc, serverName: String)(
+  def sendGrpcRequest[Svc <: AbstractStub[Svc], Res](client: GrpcClient[Svc], serverName: String)(
       send: Svc => Future[Res],
       requestDescription: String,
       timeout: Duration,
       logger: TracedLogger,
-      onShutdownRunner: OnShutdownRunner,
-      logPolicy: GrpcError => TracedLogger => TraceContext => Unit = err =>
-        logger => traceContext => err.log(logger)(traceContext),
+      logPolicy: GrpcLogPolicy = DefaultGrpcLogPolicy,
       retryPolicy: GrpcError => Boolean = _.retry,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, GrpcError, Res] = {
     implicit val ec: ExecutionContext = DirectExecutionContext(logger)
@@ -132,19 +130,19 @@ object CantonGrpcUtil {
         // This deadline is significantly before `requestDeadline`, because we want to avoid DEADLINE_EXCEEDED due to overly short deadlines.
         val retryDeadline = requestDeadline.offset(-finite.toMillis * 3 / 10, TimeUnit.MILLISECONDS)
         (
-          client.withDeadline(requestDeadline),
+          client.service.withDeadline(requestDeadline),
           (backoffMs: Long) =>
             Math.min(backoffMs, retryDeadline.timeRemaining(TimeUnit.MILLISECONDS)),
         )
       case Duration.Inf =>
-        (client, Predef.identity[Long])
+        (client.service, Predef.identity[Long])
       case _ =>
         logger.error(s"Ignoring unexpected timeout $timeout value.")
-        (client, Predef.identity[Long])
+        (client.service, Predef.identity[Long])
     }
 
     def go(backoffMs: Long): FutureUnlessShutdown[Either[GrpcError, Res]] =
-      if (onShutdownRunner.isClosing) FutureUnlessShutdown.abortedDueToShutdown
+      if (client.onShutdownRunner.isClosing) FutureUnlessShutdown.abortedDueToShutdown
       else {
         logger.debug(s"Sending request $requestDescription to $serverName.")
         val sendF = sendGrpcRequestUnsafe(clientWithDeadline)(send)
@@ -154,31 +152,36 @@ object CantonGrpcUtil {
             FutureUnlessShutdown.pure(Right(value)).unwrap
           case Failure(e: StatusRuntimeException) =>
             val error = GrpcError(requestDescription, serverName, e)
-            logPolicy(error)(logger)(traceContext)
-            if (retryPolicy(error)) {
-              val effectiveBackoff = calcEffectiveBackoff(backoffMs)
-              if (effectiveBackoff > 0) {
-                logger.info(s"Waiting for ${effectiveBackoff}ms before retrying...")
-                DelayUtil
-                  .delayIfNotClosing(
-                    s"Delay retrying request $requestDescription for $serverName",
-                    FiniteDuration.apply(effectiveBackoff, TimeUnit.MILLISECONDS),
-                    onShutdownRunner,
-                  )
-                  .flatMap { _ =>
-                    logger.info(s"Retrying request $requestDescription for $serverName...")
-                    go(backoffMs * 2)
-                  }
-                  .unwrap
+            if (client.onShutdownRunner.isClosing) {
+              logger.info(s"Ignoring gRPC error due to shutdown. Ignored error: $error")
+              FutureUnlessShutdown.abortedDueToShutdown.unwrap
+            } else {
+              logPolicy.log(error, logger)
+              if (retryPolicy(error)) {
+                val effectiveBackoff = calcEffectiveBackoff(backoffMs)
+                if (effectiveBackoff > 0) {
+                  logger.info(s"Waiting for ${effectiveBackoff}ms before retrying...")
+                  DelayUtil
+                    .delayIfNotClosing(
+                      s"Delay retrying request $requestDescription for $serverName",
+                      FiniteDuration.apply(effectiveBackoff, TimeUnit.MILLISECONDS),
+                      client.onShutdownRunner,
+                    )
+                    .flatMap { _ =>
+                      logger.info(s"Retrying request $requestDescription for $serverName...")
+                      go(backoffMs * 2)
+                    }
+                    .unwrap
+                } else {
+                  logger.warn("Retry timeout has elapsed, giving up.")
+                  FutureUnlessShutdown.pure(Left(error)).unwrap
+                }
               } else {
-                logger.warn("Retry timeout has elapsed, giving up.")
+                logger.debug(
+                  s"Retry has not been configured for ${error.getClass.getSimpleName}, giving up."
+                )
                 FutureUnlessShutdown.pure(Left(error)).unwrap
               }
-            } else {
-              logger.debug(
-                s"Retry has not been configured for ${error.getClass.getSimpleName}, giving up."
-              )
-              FutureUnlessShutdown.pure(Left(error)).unwrap
             }
           case Failure(e) =>
             logger.error(
@@ -201,37 +204,72 @@ object CantonGrpcUtil {
   def sendSingleGrpcRequest[Svc <: AbstractStub[Svc], Res](
       serverName: String,
       requestDescription: String,
-      channel: ManagedChannel,
+      channelBuilder: ManagedChannelBuilderProxy,
       stubFactory: Channel => Svc,
       timeout: Duration,
       logger: TracedLogger,
-      logPolicy: GrpcError => TracedLogger => TraceContext => Unit = err =>
-        logger => traceContext => err.log(logger)(traceContext),
       onShutdownRunner: OnShutdownRunner,
+      logPolicy: GrpcLogPolicy = DefaultGrpcLogPolicy,
       retryPolicy: GrpcError => Boolean,
       token: Option[String],
   )(
       send: Svc => Future[Res]
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, GrpcError, Res] = {
-
-    val closeableChannel = Lifecycle.toCloseableChannel(channel, logger, "sendSingleGrpcRequest")
-    val stub = token.foldLeft(stubFactory(closeableChannel.channel))((stub, token) =>
-      AuthCallCredentials.authorizingStub(stub, token)
-    )
-
-    val res = sendGrpcRequest(stub, serverName)(
-      send(_),
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, GrpcError, Res] = {
+    val (_, fut) = sendSingleGrpcRequestInternal(
+      serverName,
       requestDescription,
+      channelBuilder,
+      stubFactory,
       timeout,
       logger,
       onShutdownRunner,
       logPolicy,
       retryPolicy,
+      token,
+    )(send)
+    fut
+  }
+
+  @GrpcServiceInvocationMethod
+  private def sendSingleGrpcRequestInternal[Svc <: AbstractStub[Svc], Res](
+      serverName: String,
+      requestDescription: String,
+      channelBuilder: ManagedChannelBuilderProxy,
+      stubFactory: Channel => Svc,
+      timeout: Duration,
+      logger: TracedLogger,
+      onShutdownRunner: OnShutdownRunner,
+      logPolicy: GrpcLogPolicy,
+      retryPolicy: GrpcError => Boolean,
+      token: Option[String],
+  )(send: Svc => Future[Res])(implicit
+      traceContext: TraceContext
+  ): (GrpcManagedChannelHandle, EitherT[FutureUnlessShutdown, GrpcError, Res]) = {
+    val managedChannel = GrpcManagedChannel(
+      "sendSingleGrpcRequest",
+      channelBuilder.build(),
+      onShutdownRunner,
+      logger,
+    )
+    val client = GrpcClient.create(
+      managedChannel,
+      channel => token.foldLeft(stubFactory(channel))(AuthCallCredentials.authorizingStub),
+    )
+
+    val res = sendGrpcRequest(client, serverName)(
+      send(_),
+      requestDescription,
+      timeout,
+      logger,
+      logPolicy,
+      retryPolicy,
     )
 
     implicit val ec: ExecutionContext = DirectExecutionContext(logger)
-    res.thereafter { _ =>
-      closeableChannel.close()
+    managedChannel.handle -> res.thereafter { _ =>
+      managedChannel.close()
     }
   }
 
@@ -246,11 +284,25 @@ object CantonGrpcUtil {
   )(implicit traceContext: TraceContext): Future[Resp] =
     TraceContextGrpc.withGrpcContext(traceContext)(send(service))
 
-  def silentLogPolicy(error: GrpcError)(logger: TracedLogger)(traceContext: TraceContext): Unit =
-    // Log an info, if a cause is defined to not discard the cause information
-    Option(error.status.getCause).foreach { cause =>
-      logger.info(error.toString, cause)(traceContext)
-    }
+  trait GrpcLogPolicy {
+    def log(error: GrpcError, logger: TracedLogger)(implicit
+        traceContext: TraceContext
+    ): Unit
+  }
+  object DefaultGrpcLogPolicy extends GrpcLogPolicy {
+    override def log(error: GrpcError, logger: TracedLogger)(implicit
+        traceContext: TraceContext
+    ): Unit = error.log(logger)
+  }
+  object SilentLogPolicy extends GrpcLogPolicy {
+    def log(error: GrpcError, logger: TracedLogger)(implicit
+        traceContext: TraceContext
+    ): Unit =
+      // Log an info, if a cause is defined to not discard the cause information
+      Option(error.status.getCause).foreach { cause =>
+        logger.info(error.toString, cause)
+      }
+  }
 
   object RetryPolicy {
     lazy val noRetry: GrpcError => Boolean = _ => false
@@ -301,10 +353,15 @@ object CantonGrpcUtil {
       EitherTUtil.toFutureUnlessShutdown(et).asGrpcResponse
   }
 
+  implicit class GrpcUSExtended[A](val u: UnlessShutdown[A]) extends AnyVal {
+    def asGrpcResponse(implicit elc: ErrorLoggingContext): A =
+      u.onShutdown(throw GrpcErrors.AbortedDueToShutdown.Error().asGrpcError)
+  }
+
   def checkCantonApiInfo(
       serverName: String,
       expectedName: String,
-      channel: ManagedChannel,
+      channelBuilder: ManagedChannelBuilderProxy,
       logger: TracedLogger,
       timeout: config.NonNegativeDuration,
       onShutdownRunner: OnShutdownRunner,
@@ -312,50 +369,42 @@ object CantonGrpcUtil {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, String, Unit] =
+  ): EitherT[FutureUnlessShutdown, String, Unit] = {
+    val (channelHandle, sendF) = CantonGrpcUtil
+      .sendSingleGrpcRequestInternal(
+        serverName = s"$serverName/$expectedName",
+        requestDescription = "GetApiInfo",
+        channelBuilder = channelBuilder,
+        stubFactory = ApiInfoServiceGrpc.stub,
+        timeout = timeout.unwrap,
+        logger = logger,
+        logPolicy = CantonGrpcUtil.SilentLogPolicy,
+        retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
+        onShutdownRunner = onShutdownRunner,
+        token = token,
+      )(_.getApiInfo(GetApiInfoRequest()))
     for {
-      apiInfo <- EitherTUtil
-        .leftSubflatMap(
-          CantonGrpcUtil
-            .sendSingleGrpcRequest(
-              serverName = s"$serverName/$expectedName",
-              requestDescription = "GetApiInfo",
-              channel = channel,
-              stubFactory = ApiInfoServiceGrpc.stub,
-              timeout = timeout.unwrap,
-              logger = logger,
-              logPolicy = CantonGrpcUtil.silentLogPolicy,
-              onShutdownRunner = onShutdownRunner,
-              retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
-              token = token,
-            )(_.getApiInfo(GetApiInfoRequest()))
-            .map(_.name)
-        ) {
-          // TODO(i16458): Remove this special case once we have a stable release
-          case _: GrpcError.GrpcServiceUnavailable =>
-            logger.debug(
-              s"Endpoint '$channel' is not providing an API info service, " +
-                s"will skip the check for '$serverName/$expectedName' " +
-                "and assume it is running an older version of Canton."
-            )
-            Right(expectedName)
-          case error =>
-            Left(error.toString)
-        }
-      errorMessage = apiInfoErrorMessage(channel, apiInfo, expectedName, serverName)
+      apiInfo <- EitherTUtil.leftSubflatMap(sendF.map(_.name)) {
+        // TODO(i16458): Remove this special case once we have a stable release
+        case _: GrpcError.GrpcServiceUnavailable =>
+          logger.debug(
+            s"Endpoint '$channelHandle' is not providing an API info service, " +
+              s"will skip the check for '$serverName/$expectedName' " +
+              "and assume it is running an older version of Canton."
+          )
+          Right(expectedName)
+        case error =>
+          Left(error.toString)
+      }
       _ <-
-        EitherTUtil.condUnitET[FutureUnlessShutdown](apiInfo == expectedName, errorMessage)
+        EitherTUtil.condUnitET[FutureUnlessShutdown](
+          apiInfo == expectedName,
+          s"Endpoint '${channelHandle.toString}' provides '$apiInfo', " +
+            s"expected '$expectedName'. This message indicates a possible mistake in configuration, " +
+            s"please check node connection settings for '$serverName'.",
+        )
     } yield ()
-
-  private[grpc] def apiInfoErrorMessage(
-      channel: Channel,
-      receivedApiName: String,
-      expectedApiName: String,
-      serverName: String,
-  ): String =
-    s"Endpoint '$channel' provides '$receivedApiName', " +
-      s"expected '$expectedApiName'. This message indicates a possible mistake in configuration, " +
-      s"please check node connection settings for '$serverName'."
+  }
 
   object ApiName {
     val AdminApi: String = "admin-api"

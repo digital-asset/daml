@@ -36,12 +36,17 @@ final case class SubmitterMetadata private (
     override val deserializedFrom: Option[ByteString],
 ) extends MerkleTreeLeaf[SubmitterMetadata](hashOps)
     with HasProtocolVersionedWrapper[SubmitterMetadata]
-    with ProtocolVersionedMemoizedEvidence {
+    with ProtocolVersionedMemoizedEvidence
+    with HasSubmissionTrackerData {
 
   override protected[this] def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString
 
   override val hashPurpose: HashPurpose = HashPurpose.SubmitterMetadata
+
+  override def submissionTrackerData: Option[SubmissionTrackerData] = Some(
+    SubmissionTrackerData(submittingParticipant, maxSequencingTime)
+  )
 
   override protected def pretty: Pretty[SubmitterMetadata] = prettyOfClass(
     param("act as", _.actAs),

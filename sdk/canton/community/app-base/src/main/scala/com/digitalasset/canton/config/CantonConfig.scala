@@ -373,7 +373,6 @@ trait CantonConfig {
       val participantParameters = participantConfig.parameters
       ParticipantNodeParameters(
         general = CantonNodeParameterConverter.general(this, participantConfig),
-        partyChangeNotification = participantParameters.partyChangeNotification,
         adminWorkflow = participantParameters.adminWorkflow,
         maxUnzippedDarSize = participantParameters.maxUnzippedDarSize,
         stores = participantParameters.stores,
@@ -974,16 +973,6 @@ object CantonConfig {
       deriveReader[ProcessingTimeout]
     lazy implicit val timeoutSettingsReader: ConfigReader[TimeoutSettings] =
       deriveReader[TimeoutSettings]
-
-    lazy implicit val partyNotificationConfigReader: ConfigReader[PartyNotificationConfig] = {
-      implicit val partyNotificationConfigViaDomainReader
-          : ConfigReader[PartyNotificationConfig.ViaDomain.type] =
-        deriveReader[PartyNotificationConfig.ViaDomain.type]
-      implicit val partyNotificationConfigEagerReader
-          : ConfigReader[PartyNotificationConfig.Eager.type] =
-        deriveReader[PartyNotificationConfig.Eager.type]
-      deriveReader[PartyNotificationConfig]
-    }
     lazy implicit val cacheConfigReader: ConfigReader[CacheConfig] =
       deriveReader[CacheConfig]
     lazy implicit val cacheConfigWithTimeoutReader: ConfigReader[CacheConfigWithTimeout] =
@@ -1419,14 +1408,6 @@ object CantonConfig {
       deriveWriter[ProcessingTimeout]
     lazy implicit val timeoutSettingsWriter: ConfigWriter[TimeoutSettings] =
       deriveWriter[TimeoutSettings]
-    lazy implicit val partyNotificationConfigViaDomainWriter
-        : ConfigWriter[PartyNotificationConfig.ViaDomain.type] =
-      deriveWriter[PartyNotificationConfig.ViaDomain.type]
-    lazy implicit val partyNotificationConfigEagerWriter
-        : ConfigWriter[PartyNotificationConfig.Eager.type] =
-      deriveWriter[PartyNotificationConfig.Eager.type]
-    lazy implicit val partyNotificationConfigWriter: ConfigWriter[PartyNotificationConfig] =
-      deriveWriter[PartyNotificationConfig]
     lazy implicit val cacheConfigWriter: ConfigWriter[CacheConfig] =
       deriveWriter[CacheConfig]
     lazy implicit val cacheConfigWithTimeoutWriter: ConfigWriter[CacheConfigWithTimeout] =

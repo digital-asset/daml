@@ -38,8 +38,11 @@ final case class CacheConfigWithTimeout(
     expireAfterTimeout: PositiveFiniteDuration = PositiveFiniteDuration.ofMinutes(10),
 ) {
 
-  def buildScaffeine(): Scaffeine[Any, Any] =
-    Scaffeine().maximumSize(maximumSize.value).expireAfterWrite(expireAfterTimeout.underlying)
+  def buildScaffeine()(implicit executionContext: ExecutionContext): Scaffeine[Any, Any] =
+    Scaffeine()
+      .maximumSize(maximumSize.value)
+      .expireAfterWrite(expireAfterTimeout.underlying)
+      .executor(executionContext.execute(_))
 
 }
 

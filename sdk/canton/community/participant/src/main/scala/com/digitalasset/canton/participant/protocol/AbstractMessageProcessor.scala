@@ -24,7 +24,7 @@ import com.digitalasset.canton.sequencing.client.{SendCallback, SequencerClientS
 import com.digitalasset.canton.sequencing.protocol.{Batch, MessageId, Recipients}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{ErrorUtil, FutureUtil}
+import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 
@@ -200,7 +200,7 @@ abstract class AbstractMessageProcessor(
               if (timeoutResult.timedOut) FutureUnlessShutdown.outcomeF(onTimeout)
               else FutureUnlessShutdown.unit
             }
-          FutureUtil.doNotAwaitUnlessShutdown(timeoutF, "Handling timeout failed")
+          FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(timeoutF, "Handling timeout failed")
         }
     } yield ()
 
