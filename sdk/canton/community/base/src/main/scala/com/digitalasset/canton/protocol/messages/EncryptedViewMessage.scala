@@ -154,26 +154,19 @@ object EncryptedView {
       traceContext: TraceContext,
   ): EitherT[Future, InvalidEncryptionKey, Unit] =
     for {
-      encryptionKey <- EitherT.right(
-        cryptoPublicStore
-          .findEncryptionKeyIdByFingerprint(keyId)
-          .value
+      encryptionKey <- cryptoPublicStore
+        .encryptionKey(keyId)
+        .toRight(
+          DecryptionError.InvalidEncryptionKey(s"Encryption key $keyId not found")
+        )
+      _ <- EitherT.cond[Future](
+        allowedEncryptionKeySchemes.contains(encryptionKey.scheme),
+        (),
+        DecryptionError.InvalidEncryptionKey(
+          s"The encryption key scheme ${encryptionKey.scheme} of key $keyId is not part of the " +
+            s"required schemes: $allowedEncryptionKeySchemes"
+        ),
       )
-      _ <- encryptionKey match {
-        case Some(encPubKey) =>
-          EitherT.cond[Future](
-            allowedEncryptionKeySchemes.contains(encPubKey.scheme),
-            (),
-            DecryptionError.InvalidEncryptionKey(
-              s"The encryption key scheme ${encPubKey.scheme} of key $keyId is not part of the " +
-                s"required schemes: $allowedEncryptionKeySchemes"
-            ),
-          )
-        case None =>
-          EitherT.leftT[Future, Unit](
-            DecryptionError.InvalidEncryptionKey(s"Encryption key $keyId not found")
-          )
-      }
     } yield ()
 
 }

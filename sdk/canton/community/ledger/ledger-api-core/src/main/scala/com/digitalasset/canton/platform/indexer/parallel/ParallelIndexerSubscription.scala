@@ -9,6 +9,7 @@ import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.Update
+import com.digitalasset.canton.ledger.participant.state.v2.Update.TransactionAccepted
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{
   LoggingContextWithTrace,
@@ -178,6 +179,8 @@ object ParallelIndexerSubscription {
 
     val meteringBatch = toMeteringDbDto(input)
 
+    collectEventMetrics(input, metrics)
+
     val batch = mainBatch ++ meteringBatch
 
     // TODO(i11665): Replace with NonEmpty after sorting out the dependencies
@@ -195,6 +198,21 @@ object ParallelIndexerSubscription {
       offsetsUpdates = input.toVector,
     )
   }
+
+  private def collectEventMetrics(
+      input: Iterable[(Offset, Traced[Update])],
+      metrics: Metrics,
+  ): Unit =
+    input
+      .collect { case (_, Traced(ta: TransactionAccepted)) => ta }
+      .flatMap(_.completionInfoO)
+      .flatMap(_.statistics)
+      .map(s => (s.committed.creates, s.committed.consumingExercises))
+      .reduceOption((acc, elem) => (acc._1 + elem._1, acc._2 + elem._2))
+      .foreach { case (creates, archivals) =>
+        metrics.daml.parallelIndexer.creates.inc(creates.toLong)(MetricsContext.Empty)
+        metrics.daml.parallelIndexer.archivals.inc(archivals.toLong)(MetricsContext.Empty)
+      }
 
   @SuppressWarnings(Array("org.wartremover.warts.Null"))
   def seqMapperZero(
