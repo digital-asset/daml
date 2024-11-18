@@ -8,17 +8,19 @@ import static java.util.Collections.unmodifiableList;
 import static java.util.Optional.empty;
 
 import com.daml.ledger.javaapi.data.codegen.HasCommands;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 /**
  * This class can be used to build a valid submission. It provides {@link #create(String, String, List)}
  * for initial creation and methods to set optional parameters
  * e.g {@link #withActAs(List)}, {@link #withWorkflowId(String)} etc.
- *
+ * <p>
  * Usage:
  * <pre>
  *   var submission = CommandsSubmission.create(applicationId, commandId, commands)
@@ -40,6 +42,7 @@ public final class CommandsSubmission {
   private Optional<Duration> deduplicationTime;
   private Optional<String> accessToken;
   private List<DisclosedContract> disclosedContracts;
+  private List<String> packageIdSelectionPreference;
 
   protected CommandsSubmission(
       String applicationId,
@@ -52,7 +55,8 @@ public final class CommandsSubmission {
       Optional<Duration> minLedgerTimeRel,
       Optional<Duration> deduplicationTime,
       Optional<String> accessToken,
-      List<@NonNull DisclosedContract> disclosedContracts) {
+      List<@NonNull DisclosedContract> disclosedContracts,
+      List<String> packageIdSelectionPreference) {
     this.workflowId = workflowId;
     this.applicationId = applicationId;
     this.commandId = commandId;
@@ -64,6 +68,7 @@ public final class CommandsSubmission {
     this.commands = commands;
     this.accessToken = accessToken;
     this.disclosedContracts = disclosedContracts;
+    this.packageIdSelectionPreference = packageIdSelectionPreference;
   }
 
   public static CommandsSubmission create(
@@ -79,11 +84,16 @@ public final class CommandsSubmission {
         Optional.empty(),
         empty(),
         empty(),
+        emptyList(),
         emptyList());
   }
 
   public Optional<String> getWorkflowId() {
     return workflowId;
+  }
+
+  public List<String> getPackageIdSelectionPreference() {
+    return unmodifiableList(packageIdSelectionPreference);
   }
 
   public String getApplicationId() {
@@ -138,7 +148,8 @@ public final class CommandsSubmission {
         minLedgerTimeRel,
         deduplicationTime,
         accessToken,
-        disclosedContracts);
+        disclosedContracts,
+        packageIdSelectionPreference);
   }
 
   public CommandsSubmission withActAs(String actAs) {
@@ -153,7 +164,8 @@ public final class CommandsSubmission {
         minLedgerTimeRel,
         deduplicationTime,
         accessToken,
-        disclosedContracts);
+        disclosedContracts,
+        packageIdSelectionPreference);
   }
 
   public CommandsSubmission withActAs(List<@NonNull String> actAs) {
@@ -168,7 +180,8 @@ public final class CommandsSubmission {
         minLedgerTimeRel,
         deduplicationTime,
         accessToken,
-        disclosedContracts);
+        disclosedContracts,
+        packageIdSelectionPreference);
   }
 
   public CommandsSubmission withReadAs(List<@NonNull String> readAs) {
@@ -183,7 +196,8 @@ public final class CommandsSubmission {
         minLedgerTimeRel,
         deduplicationTime,
         accessToken,
-        disclosedContracts);
+        disclosedContracts,
+        packageIdSelectionPreference);
   }
 
   public CommandsSubmission withMinLedgerTimeAbs(Optional<Instant> minLedgerTimeAbs) {
@@ -198,7 +212,8 @@ public final class CommandsSubmission {
         minLedgerTimeRel,
         deduplicationTime,
         accessToken,
-        disclosedContracts);
+        disclosedContracts,
+        packageIdSelectionPreference);
   }
 
   public CommandsSubmission withMinLedgerTimeRel(Optional<Duration> minLedgerTimeRel) {
@@ -213,7 +228,8 @@ public final class CommandsSubmission {
         minLedgerTimeRel,
         deduplicationTime,
         accessToken,
-        disclosedContracts);
+        disclosedContracts,
+        packageIdSelectionPreference);
   }
 
   public CommandsSubmission withDeduplicationTime(Optional<Duration> deduplicationTime) {
@@ -228,7 +244,8 @@ public final class CommandsSubmission {
         minLedgerTimeRel,
         deduplicationTime,
         accessToken,
-        disclosedContracts);
+        disclosedContracts,
+        packageIdSelectionPreference);
   }
 
   public CommandsSubmission withCommands(List<@NonNull ? extends HasCommands> commands) {
@@ -243,7 +260,8 @@ public final class CommandsSubmission {
         minLedgerTimeRel,
         deduplicationTime,
         accessToken,
-        disclosedContracts);
+        disclosedContracts,
+        packageIdSelectionPreference);
   }
 
   public CommandsSubmission withAccessToken(Optional<String> accessToken) {
@@ -258,7 +276,8 @@ public final class CommandsSubmission {
         minLedgerTimeRel,
         deduplicationTime,
         accessToken,
-        disclosedContracts);
+        disclosedContracts,
+        packageIdSelectionPreference);
   }
 
   public CommandsSubmission withDisclosedContracts(List<DisclosedContract> disclosedContracts) {
@@ -273,6 +292,23 @@ public final class CommandsSubmission {
         minLedgerTimeRel,
         deduplicationTime,
         accessToken,
-        disclosedContracts);
+        disclosedContracts,
+        packageIdSelectionPreference);
+  }
+
+  public CommandsSubmission withPackageIdSelectionPreference(List<String> packageIdSelectionPreference) {
+    return new CommandsSubmission(
+        applicationId,
+        commandId,
+        commands,
+        actAs,
+        readAs,
+        workflowId,
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationTime,
+        accessToken,
+        disclosedContracts,
+        packageIdSelectionPreference);
   }
 }
