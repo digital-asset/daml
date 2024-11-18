@@ -51,10 +51,16 @@ daml_compile(
     srcs = ["test/daml/for-upload/ExtraModule.daml"],
 )
 
+daml_compile(
+    name = "dummy",
+    srcs = ["test/daml/dummy/Main.daml"],
+)
+
 da_haskell_test(
     name = "test",
     srcs = glob(["test/**/*.hs"]),
     data = [
+        "dummy.dar",
         ":for-tests.dar",
         ":for-upload.dar",
     ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),

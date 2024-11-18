@@ -131,9 +131,10 @@ tGetPackageStatusUnspecify withSandbox = testCase "getPackageStatus/Unspecify" $
     let pid = PackageId "xxxxxxxxxxxxxxxxxxxxxx"
     status <- getPackageStatus pid
     liftIO $ assertBool "status" (status == PackageStatusPACKAGE_STATUS_UNSPECIFIED)
-
+    
 tUploadDarFileBad :: SandboxTest
 tUploadDarFileBad withSandbox = testCase "tUploadDarFileBad" $ run withSandbox $ \_darMetadata _testId -> do
+    Right _ <- uploadDummy -- force uploading the stdlib
     let bytes = BS.fromString "not-the-bytes-for-a-darfile"
     Left err <- uploadDarFileGetPid bytes
     liftIO $ assertTextContains err "Dar file is corrupt"
@@ -143,6 +144,7 @@ tUploadDarFileBad withSandbox = testCase "tUploadDarFileBad" $ run withSandbox $
 -- I'd assume the domain is somehow still busy from the upload in some way?
 tUploadDarFileGood :: SandboxTest
 tUploadDarFileGood withSandbox = testCase "tUploadDarFileGood" $ run withSandbox $ \_darMetadata _testId -> do
+    Right _ <- uploadDummy -- force uploading the stdlib
     bytes <- liftIO getBytesForUpload
     before <- listKnownPackages
     pid <- uploadDarFileGetPid bytes >>= either (liftIO . assertFailure) return
@@ -151,6 +153,17 @@ tUploadDarFileGood withSandbox = testCase "tUploadDarFileGood" $ run withSandbox
     liftIO $ assertEqual "new pids"
         (Set.fromList (map getPid after) Set.\\ Set.fromList (map getPid before))
         (Set.singleton pid)
+
+getBytesDummy :: IO BS.ByteString
+getBytesDummy = do
+        let extraDarFilename = "language-support/hs/bindings/dummy.dar"
+        file <- locateRunfiles (mainWorkspace </> extraDarFilename)
+        BS.readFile file
+
+uploadDummy :: LedgerService (Either String ())
+uploadDummy = do
+    bytes <- liftIO getBytesDummy
+    uploadDarFile bytes
 
 getBytesForUpload :: IO BS.ByteString
 getBytesForUpload = do
