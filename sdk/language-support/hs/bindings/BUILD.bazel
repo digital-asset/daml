@@ -51,7 +51,6 @@ daml_compile(
     srcs = ["test/daml/for-upload/ExtraModule.daml"],
 )
 
-
 daml_compile(
     name = "dummy",
     srcs = ["test/daml/dummy/Main.daml"],
@@ -61,9 +60,9 @@ da_haskell_test(
     name = "test",
     srcs = glob(["test/**/*.hs"]),
     data = [
+        "dummy.dar",
         ":for-tests.dar",
         ":for-upload.dar",
-        "dummy.dar",
     ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     # The tests throw flaky timeout errors. It looks like this comes
     # from a fundamental issue in the Haskell bindings: they eagerly pull
@@ -72,7 +71,7 @@ da_haskell_test(
     # We could increase the timeout to an absurd value but that also seems silly
     # and affects other operations as well so for now, we still keep it flaky
     # and try not to cry.
- #   flaky = True,
+    #   flaky = True,
     hackage_deps = [
         "aeson",
         "async",
