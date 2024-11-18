@@ -71,7 +71,7 @@ da_haskell_test(
     # We could increase the timeout to an absurd value but that also seems silly
     # and affects other operations as well so for now, we still keep it flaky
     # and try not to cry.
-    #   flaky = True,
+    flaky = True,
     hackage_deps = [
         "aeson",
         "async",
