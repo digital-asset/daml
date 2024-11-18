@@ -131,7 +131,7 @@ tGetPackageStatusUnspecify withSandbox = testCase "getPackageStatus/Unspecify" $
     let pid = PackageId "xxxxxxxxxxxxxxxxxxxxxx"
     status <- getPackageStatus pid
     liftIO $ assertBool "status" (status == PackageStatusPACKAGE_STATUS_UNSPECIFIED)
-    
+
 tUploadDarFileBad :: SandboxTest
 tUploadDarFileBad withSandbox = testCase "tUploadDarFileBad" $ run withSandbox $ \_darMetadata _testId -> do
     Right _ <- uploadDummy -- force uploading the stdlib
