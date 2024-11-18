@@ -83,7 +83,7 @@ import SdkVersion.Class (SdkVersioned, damlStdlib)
 createProjectPackageDb :: SdkVersioned => NormalizedFilePath -> Options -> MS.Map UnitId GHC.ModuleName -> IO ()
 createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefixes
   = do
-    (needsReinitalization, depsFingerprint) <- dbNeedsReinitialization projectRoot depsDir
+    (needsReinitalization, depsFingerprint) <- dbNeedsReinitialization projectRoot depsDir modulePrefixes
     loggerH <- getLogger opts "package-db"
     when needsReinitalization $ do
       Logger.logDebug loggerH "package db is not up2date, reinitializing"
@@ -221,8 +221,8 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
 -- | Compute the hash over all dependencies and compare it to the one stored in the metadata file in
 -- the package db to decide whether to run reinitialization or not.
 dbNeedsReinitialization ::
-       NormalizedFilePath -> FilePath -> IO (Bool, Fingerprint)
-dbNeedsReinitialization projectRoot depsDir = do
+       NormalizedFilePath -> FilePath -> MS.Map UnitId GHC.ModuleName -> IO (Bool, Fingerprint)
+dbNeedsReinitialization projectRoot depsDir modulePrefixes = do
     allDeps <- listFilesRecursive depsDir
     fileFingerprints <- mapM getFileHash allDeps
     let depsFingerprint = fingerprintFingerprints fileFingerprints
@@ -231,7 +231,11 @@ dbNeedsReinitialization projectRoot depsDir = do
     pure $
         case errOrmetaData of
             Left _err -> (True, depsFingerprint)
-            Right metaData -> (fingerprintDependencies metaData /= depsFingerprint, depsFingerprint)
+            Right metaData ->
+              let fingerprintChanged = fingerprintDependencies metaData /= depsFingerprint
+                  -- Use `fst` to throw away the contained module list, as the daml.yaml doesn't contain this information
+                  modulePrefixesChanged = (fst <$> moduleRenamings metaData) /= modulePrefixes
+               in (fingerprintChanged || modulePrefixesChanged, depsFingerprint)
 
 disableScenarioService :: Options -> Options
 disableScenarioService opts = opts
