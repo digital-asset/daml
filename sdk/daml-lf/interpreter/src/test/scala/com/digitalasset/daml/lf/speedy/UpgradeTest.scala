@@ -7,7 +7,7 @@ package speedy
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion, Reference}
 import com.daml.lf.speedy.SError.SError
 import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.daml.lf.speedy.SValue.SContractId
@@ -63,6 +63,73 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     }
     """
   }
+
+  val recordPkgId: Ref.PackageId = Ref.PackageId.assertFromString("-record-")
+  private lazy val recordPkg = {
+    // unknown record type constructor
+    implicit def pkgId: Ref.PackageId = recordPkgId
+    p""" metadata ( '-upgrade-test-' : '1.0.0' )
+    module M {
+
+      record @serializable T = { sig: Party, obs: Party };
+      template (this: T) = {
+        precondition True;
+        signatories '-pkg1-':M:mkList (M:T {sig} this) (None @Party);
+        observers '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
+        agreement "Agreement";
+      };
+
+      val do_fetch: ContractId M:T -> Update M:T =
+        \(cId: ContractId M:T) ->
+          fetch_template @M:T cId;
+    }
+    """
+  }
+
+  val variantPkgId: Ref.PackageId = Ref.PackageId.assertFromString("-variant-")
+//  private lazy val variantPkg = {
+//    // unknown variant type constructor
+//    implicit def pkgId: Ref.PackageId = variantPkgId
+//    p""" metadata ( '-upgrade-test-' : '1.0.0' )
+//    module M {
+//
+//      data @serializable T = T T.T;
+//      record @serializable T.T = { sig: Party, obs: Party };
+//      template (this: T) = {
+//        precondition True;
+//        signatories '-pkg1-':M:mkList (M:T {sig} this) (None @Party);
+//        observers '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
+//        agreement "Agreement";
+//      };
+//
+//      val do_fetch: ContractId M:T -> Update M:T =
+//        \(cId: ContractId M:T) ->
+//          fetch_template @M:T cId;
+//    }
+//    """
+//  }
+
+  val enumPkgId: Ref.PackageId = Ref.PackageId.assertFromString("-enum-")
+//  private lazy val enumPkg = {
+//    // unknown enum type constructor
+//    implicit def pkgId: Ref.PackageId = enumPkgId
+//    p""" metadata ( '-upgrade-test-' : '1.0.0' )
+//    module M {
+//
+//      enum @serializable T = Black | White;
+//      template (this: T) = {
+//        precondition True;
+//        signatories '-pkg1-':M:mkList ($alice) (None @Party);
+//        observers '-pkg1-':M:mkList ($bob) (None @Party);
+//        agreement "Agreement";
+//      };
+//
+//      val do_fetch: ContractId M:T -> Update M:T =
+//        \(cId: ContractId M:T) ->
+//          fetch_template @M:T cId;
+//    }
+//    """
+//  }
 
   lazy val pkgId0 = Ref.PackageId.assertFromString("-pkg0-")
   private lazy val pkg0 = {
@@ -138,7 +205,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   val pkgId2: Ref.PackageId = Ref.PackageId.assertFromString("-pkg2-")
-
   private lazy val pkg2 = {
     // adds a choice to T
     implicit def pkgId: Ref.PackageId = pkgId2
@@ -240,6 +306,9 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     PureCompiledPackages.assertBuild(
       Map(
         ifacePkgId -> ifacePkg,
+        recordPkgId -> recordPkg,
+//        variantPkgId -> variantPkg,
+//        enumPkgId -> enumPkg,
         pkgId0 -> pkg0,
         pkgId1 -> pkg1,
         pkgId2 -> pkg2,
@@ -460,6 +529,42 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           case Left(SError.SErrorDamlException(e)) =>
             e shouldBe IE.WronglyTypedContract(theCid, expectedTyCon, tyCon)
         }
+      }
+    }
+
+    "unknown record constructor -- should be rejected" in {
+      val expectedRef = Reference.DataRecord(i"'-record-':M:Invalid")
+
+      inside(go(
+        e"from_interface @'-record-':M:T @'-record-':M:I { }",
+        packageResolution = Map(Ref.PackageName.assertFromString("-upgrade-test-") -> recordPkgId),
+      )) {
+        case Left(SError.SErrorDamlException(e)) =>
+          e shouldBe IE.Upgrade.LookupNotFound(expectedRef, expectedRef)
+      }
+    }
+
+    "unknown variant constructor -- should be rejected" in {
+      val expectedRef = Reference.DataVariantConstructor(i"'-variant-':M:T", n"'-variant-':M:T")
+
+      inside(go(
+        e"from_interface @'-variant-':M:T @'-variant-':M:I { }",
+        packageResolution = Map(Ref.PackageName.assertFromString("-upgrade-test-") -> variantPkgId),
+      )) {
+        case Left(SError.SErrorDamlException(e)) =>
+          e shouldBe IE.Upgrade.LookupNotFound(expectedRef, expectedRef)
+      }
+    }
+
+    "unknown enum constructor -- should be rejected" in {
+      val expectedRef = Reference.DataEnumConstructor(i"'-enum-':M:T", n"'-enum-':M:T")
+
+      inside(go(
+        e"from_interface @'-enum-':M:T @'-enum-':M:I { }",
+        packageResolution = Map(Ref.PackageName.assertFromString("-upgrade-test-") -> enumPkgId),
+      )) {
+        case Left(SError.SErrorDamlException(e)) =>
+          e shouldBe IE.Upgrade.LookupNotFound(expectedRef, expectedRef)
       }
     }
   }

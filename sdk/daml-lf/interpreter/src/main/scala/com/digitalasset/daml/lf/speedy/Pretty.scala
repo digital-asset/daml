@@ -198,6 +198,8 @@ private[lf] object Pretty {
                 "in the destination contract is"
               ) & prettyValue(false)(dstViewValue)
           }
+          case Upgrade.LookupNotFound(_, _) =>
+            text("Lookup error") // FIXME:
         }
       case Dev(_, error) =>
         error match {

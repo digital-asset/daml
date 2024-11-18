@@ -6,7 +6,7 @@ package interpretation
 
 import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, Reference}
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, NodeId}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -182,6 +182,8 @@ object Error {
         srcView: Value,
         dstView: Value,
     ) extends Error
+
+    final case class LookupNotFound(notFound: Reference, context: Reference) extends Error
   }
 
   // Error that can be thrown by dev or PoC feature only
