@@ -22,8 +22,6 @@ import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet
 import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot
-import com.digitalasset.canton.store.CursorPrehead
-import com.digitalasset.canton.store.CursorPrehead.SequencerCounterCursorPrehead
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -63,7 +61,7 @@ class RecordOrderPublisher(
     futureSupervisor: FutureSupervisor,
     activeContractSnapshot: ActiveContractSnapshot,
     clock: Clock,
-    onSequencerIndexMovingAhead: Traced[SequencerCounterCursorPrehead] => Unit,
+    onSequencerIndexMovingAhead: Traced[CantonTimestamp] => Unit,
 )(implicit val executionContextForPublishing: ExecutionContext)
     extends NamedLogging
     with FlagCloseableAsync {
@@ -347,9 +345,7 @@ class RecordOrderPublisher(
                 updatePersisted = event.persisted.future,
               )
             )
-            onSequencerIndexMovingAhead(
-              Traced(CursorPrehead(sequencerCounter, timestamp))
-            )
+            onSequencerIndexMovingAhead(Traced(timestamp))
           }
       )
     }

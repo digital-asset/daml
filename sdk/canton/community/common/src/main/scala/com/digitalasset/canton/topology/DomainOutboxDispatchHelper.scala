@@ -24,7 +24,7 @@ import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.Ge
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.retry.AllExceptionRetryPolicy
-import com.digitalasset.canton.util.{FutureUtil, retry}
+import com.digitalasset.canton.util.{FutureUnlessShutdownUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.duration.*
@@ -179,7 +179,7 @@ trait DomainOutboxDispatch extends NamedLogging with FlagCloseable {
             logger.debug(
               s"Attempting to push ${transactions.size} topology transactions to $domain: $transactions"
             )
-            FutureUtil.logOnFailureUnlessShutdown(
+            FutureUnlessShutdownUtil.logOnFailureUnlessShutdown(
               handle.submit(transactions),
               s"Pushing topology transactions to $domain",
             )

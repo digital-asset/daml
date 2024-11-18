@@ -14,7 +14,7 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdatesResponse,
 }
 import com.digitalasset.canton.data
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -69,21 +69,22 @@ private[dao] final class TransactionsReader(
   private val dbMetrics = metrics.index.db
 
   override def getFlatTransactions(
-      startExclusive: Offset,
-      endInclusive: Offset,
+      startInclusive: AbsoluteOffset,
+      endInclusive: AbsoluteOffset,
       filter: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(Offset, GetUpdatesResponse), NotUsed] = {
-    val futureSource = getEventSeqIdRange(startExclusive, endInclusive)
-      .map(queryRange =>
-        flatTransactionsStreamReader.streamFlatTransactions(
-          queryRange,
-          filter,
-          eventProjectionProperties,
+  ): Source[(AbsoluteOffset, GetUpdatesResponse), NotUsed] = {
+    val futureSource =
+      getEventSeqIdRange(startInclusive, endInclusive)
+        .map(queryRange =>
+          flatTransactionsStreamReader.streamFlatTransactions(
+            queryRange,
+            filter,
+            eventProjectionProperties,
+          )
         )
-      )
     Source
       .futureSource(futureSource)
       .mapMaterializedValue((_: Future[NotUsed]) => NotUsed)
@@ -118,47 +119,51 @@ private[dao] final class TransactionsReader(
     )
 
   override def getTransactionTrees(
-      startExclusive: Offset,
-      endInclusive: Offset,
+      startInclusive: AbsoluteOffset,
+      endInclusive: AbsoluteOffset,
       requestingParties: Option[Set[Party]],
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(Offset, GetUpdateTreesResponse), NotUsed] = {
-    val futureSource = getEventSeqIdRange(startExclusive, endInclusive)
-      .map(queryRange =>
-        treeTransactionsStreamReader.streamTreeTransaction(
-          queryRange = queryRange,
-          requestingParties = requestingParties,
-          eventProjectionProperties = eventProjectionProperties,
+  ): Source[(AbsoluteOffset, GetUpdateTreesResponse), NotUsed] = {
+    val futureSource =
+      getEventSeqIdRange(startInclusive, endInclusive)
+        .map(queryRange =>
+          treeTransactionsStreamReader.streamTreeTransaction(
+            queryRange = queryRange,
+            requestingParties = requestingParties,
+            eventProjectionProperties = eventProjectionProperties,
+          )
         )
-      )
     Source
       .futureSource(futureSource)
       .mapMaterializedValue((_: Future[NotUsed]) => NotUsed)
   }
 
   override def getActiveContracts(
-      activeAt: Offset,
+      activeAt: Option[AbsoluteOffset],
       filter: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[GetActiveContractsResponse, NotUsed] = {
-    val futureSource = getMaxAcsEventSeqId(activeAt)
-      .map(maxSeqId =>
-        acsReader.streamActiveContracts(
-          filter,
-          activeAt -> maxSeqId,
-          eventProjectionProperties,
-        )
-      )
-    Source
-      .futureSource(futureSource)
-      .mapMaterializedValue((_: Future[NotUsed]) => NotUsed)
-  }
+  ): Source[GetActiveContractsResponse, NotUsed] =
+    activeAt match {
+      case None => Source.empty
+      case Some(offset) =>
+        val futureSource = getMaxAcsEventSeqId(offset)
+          .map(maxSeqId =>
+            acsReader.streamActiveContracts(
+              filteringConstraints = filter,
+              activeAt = offset -> maxSeqId,
+              eventProjectionProperties = eventProjectionProperties,
+            )
+          )
+        Source
+          .futureSource(futureSource)
+          .mapMaterializedValue((_: Future[NotUsed]) => NotUsed)
+    }
 
-  private def getMaxAcsEventSeqId(activeAt: Offset)(implicit
+  private def getMaxAcsEventSeqId(activeAt: AbsoluteOffset)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Long] =
     dispatcher
@@ -176,32 +181,32 @@ private[dao] final class TransactionsReader(
               ledgerEndOffset = ledgerEnd,
             ),
         )(
-          eventStorageBackend.maxEventSequentialId(activeAt)(connection)
+          eventStorageBackend.maxEventSequentialId(Some(activeAt))(connection)
         )
       )
 
   private def getEventSeqIdRange(
-      startExclusive: Offset,
-      endInclusive: Offset,
+      startInclusive: AbsoluteOffset,
+      endInclusive: AbsoluteOffset,
   )(implicit loggingContext: LoggingContextWithTrace): Future[EventsRange] =
     dispatcher
       .executeSql(dbMetrics.getEventSeqIdRange)(implicit connection =>
         queryValidRange.withRangeNotPruned(
-          minOffsetExclusive = startExclusive,
+          minOffsetInclusive = startInclusive,
           maxOffsetInclusive = endInclusive,
-          errorPruning = (prunedOffset: Offset) =>
-            s"Transactions request from ${startExclusive.toLong} to ${endInclusive.toLong} precedes pruned offset ${prunedOffset.toLong}",
-          errorLedgerEnd = (ledgerEndOffset: Offset) =>
-            s"Transactions request from ${startExclusive.toLong} to ${endInclusive.toLong} is beyond ledger end offset ${ledgerEndOffset.toLong}",
+          errorPruning = (prunedOffset: AbsoluteOffset) =>
+            s"Transactions request from ${startInclusive.unwrap} to ${endInclusive.unwrap} precedes pruned offset ${prunedOffset.unwrap}",
+          errorLedgerEnd = (ledgerEndOffset: Option[AbsoluteOffset]) =>
+            s"Transactions request from ${startInclusive.unwrap} to ${endInclusive.unwrap} is beyond ledger end offset ${ledgerEndOffset
+                .fold(0L)(_.unwrap)}",
         ) {
           EventsRange(
-            startExclusiveOffset = startExclusive,
-            startExclusiveEventSeqId = eventStorageBackend.maxEventSequentialId(
-              startExclusive
-            )(connection),
+            startInclusiveOffset = startInclusive,
+            startInclusiveEventSeqId =
+              eventStorageBackend.maxEventSequentialId(startInclusive.decrement)(connection),
             endInclusiveOffset = endInclusive,
             endInclusiveEventSeqId =
-              eventStorageBackend.maxEventSequentialId(endInclusive)(connection),
+              eventStorageBackend.maxEventSequentialId(Some(endInclusive))(connection),
           )
         }
       )

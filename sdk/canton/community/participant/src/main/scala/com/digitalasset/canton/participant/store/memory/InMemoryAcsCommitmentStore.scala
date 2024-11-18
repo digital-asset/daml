@@ -70,7 +70,7 @@ class InMemoryAcsCommitmentStore(
 
   override def storeComputed(
       items: NonEmpty[Seq[AcsCommitmentStore.CommitmentData]]
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     blocking {
       computed.synchronized {
         items.toList.foreach { item =>
@@ -89,7 +89,7 @@ class InMemoryAcsCommitmentStore(
         }
       }
     }
-    Future.unit
+    FutureUnlessShutdown.unit
   }
 
   override def getComputed(period: CommitmentPeriod, counterParticipant: ParticipantId)(implicit
@@ -120,27 +120,27 @@ class InMemoryAcsCommitmentStore(
 
   override def markOutstanding(period: CommitmentPeriod, counterParticipants: Set[ParticipantId])(
       implicit traceContext: TraceContext
-  ): Future[Unit] = {
+  ): FutureUnlessShutdown[Unit] = {
     if (counterParticipants.nonEmpty) {
       _outstanding.updateAndGet(os =>
         os ++ counterParticipants.map(cp => (period, cp, CommitmentPeriodState.Outstanding))
       )
     }
-    Future.unit
+    FutureUnlessShutdown.unit
   }
 
   override def markComputedAndSent(
       period: CommitmentPeriod
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val timestamp = period.toInclusive
     lastComputed.set(Some(timestamp))
-    Future.unit
+    FutureUnlessShutdown.unit
   }
 
   override def lastComputedAndSent(implicit
       traceContext: TraceContext
-  ): Future[Option[CantonTimestampSecond]] =
-    Future.successful(lastComputed.get())
+  ): FutureUnlessShutdown[Option[CantonTimestampSecond]] =
+    FutureUnlessShutdown.pure(lastComputed.get())
 
   private def computeOutstanding(
       counterParticipant: ParticipantId,
@@ -218,7 +218,7 @@ class InMemoryAcsCommitmentStore(
       period: CommitmentPeriod,
       sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
       matchingState: CommitmentPeriodState,
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val approxInterval = sortedReconciliationIntervalsProvider.approximateReconciliationIntervals
 
     val intervals = approxInterval
@@ -247,21 +247,15 @@ class InMemoryAcsCommitmentStore(
         )
         ()
       }
-      .onShutdown(
-        logger.debug(
-          s"Aborted marking period safe (${period.fromExclusive}, ${period.toInclusive}] due to shutdown"
-        )
-      )
   }
 
   override def noOutstandingCommitments(
       beforeOrAt: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[CantonTimestamp]] =
     for {
       ignoredParticipants <- acsCounterParticipantConfigStore
         .getAllActiveNoWaitCounterParticipants(Seq(domainId), Seq.empty)
-        .failOnShutdownToAbortException("noOutstandingCommitments")
-      result <- Future.successful {
+      result <- FutureUnlessShutdown.pure {
         for {
           lastTs <- lastComputed.get
           adjustedTs = lastTs.forgetRefinement.min(beforeOrAt)
@@ -290,8 +284,8 @@ class InMemoryAcsCommitmentStore(
       includeMatchedPeriods: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): Future[Iterable[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)]] =
-    Future.successful(_outstanding.get.filter { case (period, participant, state) =>
+  ): FutureUnlessShutdown[Iterable[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)]] =
+    FutureUnlessShutdown.pure(_outstanding.get.filter { case (period, participant, state) =>
       (counterParticipant.isEmpty ||
         counterParticipant.contains(participant)) &&
       period.fromExclusive < end &&
@@ -305,12 +299,14 @@ class InMemoryAcsCommitmentStore(
       counterParticipant: Seq[ParticipantId] = Seq.empty,
   )(implicit
       traceContext: TraceContext
-  ): Future[Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.CommitmentType)]] = {
+  ): FutureUnlessShutdown[
+    Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.CommitmentType)]
+  ] = {
     val filteredByCounterParty =
       if (counterParticipant.isEmpty) computed
       else computed.filter(c => counterParticipant.contains(c._1))
 
-    Future.successful(
+    FutureUnlessShutdown.pure(
       filteredByCounterParty.flatMap { case (p, m) =>
         LazyList
           .continually(p)
@@ -328,12 +324,14 @@ class InMemoryAcsCommitmentStore(
       start: CantonTimestamp,
       end: CantonTimestamp,
       counterParticipant: Seq[ParticipantId] = Seq.empty,
-  )(implicit traceContext: TraceContext): Future[Iterable[SignedProtocolMessage[AcsCommitment]]] = {
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Iterable[SignedProtocolMessage[AcsCommitment]]] = {
     val filteredByCounterParty = (if (counterParticipant.isEmpty) received
                                   else
                                     received.filter(c => counterParticipant.contains(c._1))).values
 
-    Future.successful(
+    FutureUnlessShutdown.pure(
       filteredByCounterParty.flatMap(msgs =>
         msgs.filter(msg =>
           start <= msg.message.period.toInclusive && msg.message.period.fromExclusive < end
@@ -413,20 +411,20 @@ class InMemoryIncrementalCommitments(
 
   override def get()(implicit
       traceContext: TraceContext
-  ): Future[(RecordTime, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType])] = {
+  ): FutureUnlessShutdown[(RecordTime, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType])] = {
     val rt = watermark_()
-    Future.successful((rt, snapshot.toMap))
+    FutureUnlessShutdown.pure((rt, snapshot.toMap))
   }
 
   override def update(
       rt: RecordTime,
       updates: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
       deletes: Set[SortedSet[LfPartyId]],
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    Future.successful(update_(rt, updates, deletes))
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.pure(update_(rt, updates, deletes))
 
-  override def watermark(implicit traceContext: TraceContext): Future[RecordTime] =
-    Future.successful(watermark_())
+  override def watermark(implicit traceContext: TraceContext): FutureUnlessShutdown[RecordTime] =
+    FutureUnlessShutdown.pure(watermark_())
 }
 
 class InMemoryCommitmentQueue(implicit val ec: ExecutionContext) extends CommitmentQueue {
@@ -442,11 +440,6 @@ class InMemoryCommitmentQueue(implicit val ec: ExecutionContext) extends Commitm
     )
 
   private object lock
-
-  private def syncF[T](v: => T): Future[T] = {
-    val evaluated = blocking(lock.synchronized(v))
-    Future.successful(evaluated)
-  }
 
   private def syncUS[T](v: => T): FutureUnlessShutdown[T] = {
     val evaluated = blocking(lock.synchronized(v))
@@ -475,8 +468,8 @@ class InMemoryCommitmentQueue(implicit val ec: ExecutionContext) extends Commitm
     */
   override def peekThroughAtOrAfter(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Seq[AcsCommitment]] =
-    syncF {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[AcsCommitment]] =
+    syncUS {
       queue.filter(_.period.toInclusive >= timestamp).toSeq
     }
 
@@ -485,8 +478,8 @@ class InMemoryCommitmentQueue(implicit val ec: ExecutionContext) extends Commitm
       counterParticipant: ParticipantId,
   )(implicit
       traceContext: TraceContext
-  ): Future[Seq[AcsCommitment]] =
-    syncF {
+  ): FutureUnlessShutdown[Seq[AcsCommitment]] =
+    syncUS {
       queue
         .filter(_.period.overlaps(period))
         .filter(_.sender == counterParticipant)
@@ -496,7 +489,7 @@ class InMemoryCommitmentQueue(implicit val ec: ExecutionContext) extends Commitm
   /** Deletes all commitments whose period ends at or before the given timestamp. */
   override def deleteThrough(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Unit] = syncF {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = syncUS {
     deleteWhile(queue)(_.period.toInclusive <= timestamp)
   }
 }

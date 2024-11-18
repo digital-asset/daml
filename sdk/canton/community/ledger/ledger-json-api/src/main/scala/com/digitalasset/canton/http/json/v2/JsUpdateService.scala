@@ -24,7 +24,7 @@ import org.apache.pekko.stream.scaladsl.Flow
 import sttp.capabilities.pekko.PekkoStreams
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.*
-import sttp.tapir.{CodecFormat, Endpoint, path, query, webSocketBody}
+import sttp.tapir.{AnyEndpoint, CodecFormat, Endpoint, Schema, path, query, webSocketBody}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -181,7 +181,7 @@ class JsUpdateService(
 
 }
 
-object JsUpdateService {
+object JsUpdateService extends DocumentationEndpoints {
   import Endpoints.*
   import JsUpdateServiceCodecs.*
 
@@ -246,6 +246,14 @@ object JsUpdateService {
       .out(jsonBody[JsGetTransactionResponse])
       .description("Get transaction by event id")
 
+  override def documentation: Seq[AnyEndpoint] = List(
+    getUpdatesFlatEndpoint,
+    getUpdatesTreeEndpoint,
+    getTransactionTreeByEventIdEndpoint,
+    getTransactionByEventIdEndpoint,
+    getTransactionByIdEndpoint,
+    getTransactionTreeByIdEndpoint,
+  )
 }
 
 object JsReassignmentEvent {
@@ -308,14 +316,20 @@ object JsUpdateServiceCodecs {
 
   implicit val jsGetUpdatesResponse: Codec[JsGetUpdatesResponse] = deriveCodec
 
-  implicit val jsUpdate: Codec[JsUpdate.Update] = deriveCodec
+  implicit val jsUpdateRW: Codec[JsUpdate.Update] = deriveCodec
+
   implicit val jsUpdateOffsetCheckpoint: Codec[JsUpdate.OffsetCheckpoint] = deriveCodec
   implicit val jsUpdateReassignment: Codec[JsUpdate.Reassignment] = deriveCodec
   implicit val jsUpdateTransaction: Codec[JsUpdate.Transaction] = deriveCodec
   implicit val jsReassignment: Codec[JsReassignment] = deriveCodec
-  implicit val jsReassignmentEvent: Codec[JsReassignmentEvent.JsReassignmentEvent] = deriveCodec
 
-  implicit val jsReassignmentEventJsUnassignedEvent: Codec[JsReassignmentEvent.JsUnassignedEvent] =
+  implicit val jsReassignmentEventRW: Codec[JsReassignmentEvent.JsReassignmentEvent] = deriveCodec
+
+  implicit val jsReassignmentEventJsUnassignedEventRW
+      : Codec[JsReassignmentEvent.JsUnassignedEvent] =
+    deriveCodec
+
+  implicit val jsReassignmentEventJsAssignedEventRW: Codec[JsReassignmentEvent.JsAssignmentEvent] =
     deriveCodec
 
   implicit val jsGetUpdateTreesResponse: Codec[JsGetUpdateTreesResponse] = deriveCodec
@@ -326,4 +340,12 @@ object JsUpdateServiceCodecs {
   implicit val jsUpdateTree: Codec[JsUpdateTree.Update] = deriveCodec
   implicit val jsUpdateTreeReassignment: Codec[JsUpdateTree.Reassignment] = deriveCodec
   implicit val jsUpdateTreeTransaction: Codec[JsUpdateTree.TransactionTree] = deriveCodec
+
+  // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
+  implicit val jsReassignmentEventSchema: Schema[JsReassignmentEvent.JsReassignmentEvent] =
+    Schema.oneOfWrapped
+
+  implicit val jsUpdateSchema: Schema[JsUpdate.Update] = Schema.oneOfWrapped
+
+  implicit val jsUpdateTreeSchema: Schema[JsUpdateTree.Update] = Schema.oneOfWrapped
 }

@@ -13,8 +13,6 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.parallelInstanceFutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.config.PartyNotificationConfig
 import com.digitalasset.canton.participant.store.ParticipantNodeEphemeralState
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError.IdentityManagerParentError
 import com.digitalasset.canton.participant.topology.{LedgerServerPartyNotifier, PartyOps}
@@ -37,7 +35,6 @@ private[sync] class PartyAllocation(
     participantNodeEphemeralState: ParticipantNodeEphemeralState,
     partyOps: PartyOps,
     partyNotifier: LedgerServerPartyNotifier,
-    parameters: ParticipantNodeParameters,
     isActive: () => Boolean,
     connectedDomainsLookup: ConnectedDomainsLookup,
     timeouts: ProcessingTimeout,
@@ -82,11 +79,10 @@ private[sync] class PartyAllocation(
             .fromProtoPrimitive(rawSubmissionId, "LedgerSubmissionId")
             .leftMap(err => SyncServiceError.Synchronous.internalError(err.toString))
         )
-        // Allow party allocation via ledger API only if notification is Eager or the participant is connected to a domain
-        // Otherwise the gRPC call will just timeout without a meaning error message
+        // Allow party allocation via ledger API only if the participant is connected to a domain
+        // Otherwise the gRPC call will just timeout without a meaningful error message
         _ <- EitherT.cond[Future](
-          parameters.partyChangeNotification == PartyNotificationConfig.Eager ||
-            connectedDomainsLookup.snapshot.nonEmpty,
+          connectedDomainsLookup.snapshot.nonEmpty,
           (),
           SubmissionResult.SynchronousError(
             SyncServiceError.PartyAllocationNoDomainError.Error(rawSubmissionId).rpcStatus()

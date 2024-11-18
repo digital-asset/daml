@@ -13,7 +13,6 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker
 import com.digitalasset.canton.participant.store.ParticipantNodeEphemeralState
 import com.digitalasset.canton.participant.sync
-import com.digitalasset.canton.store.CursorPrehead.SequencerCounterCursorPrehead
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil}
@@ -39,19 +38,17 @@ class TimelyRejectNotifier(
       (initialUpperBound, Outcome(Idle))
     )
 
-  /** Notifies the `rejecter` that the clean sequencer counter prehead
+  /** Notifies the `rejecter` that the clean sequencer index
     * has advanced to the given point. Does nothing if a notification with a higher timestamp has
     * already happened or is happening concurrently.
     *
     * The method returns immediately after the notification has been scheduled.
     * The notification itself happens asynchronously in a spawned future.
     */
-  def notifyAsync(tracedCleanSequencerCounterPrehead: Traced[SequencerCounterCursorPrehead]): Unit =
-    tracedCleanSequencerCounterPrehead.withTraceContext {
-      implicit traceContext => cleanSequencerCounterPrehead =>
-        val observedTime = cleanSequencerCounterPrehead.timestamp
-        notifyLoop(observedTime, increaseBound = true).discard[Boolean]
-    }
+  def notifyAsync(observedSequencerTime: Traced[CantonTimestamp]): Unit =
+    notifyLoop(observedSequencerTime.value, increaseBound = true)(
+      observedSequencerTime.traceContext
+    ).discard
 
   /** Notifies the `rejecter` again
     * if it may have already been notified for the given timestamp or later.

@@ -15,7 +15,6 @@ import com.digitalasset.canton.tracing.TraceContextGrpc
 import com.digitalasset.canton.tracing.TracingConfig.Propagation
 import com.digitalasset.canton.util.ResourceUtil.withResource
 import com.google.protobuf.ByteString
-import io.grpc.ManagedChannel
 import io.grpc.netty.{GrpcSslContexts, NettyChannelBuilder}
 import io.netty.handler.ssl.{SslContext, SslContextBuilder}
 
@@ -52,14 +51,12 @@ trait ClientChannelBuilder {
         .useTransportSecurity() // this is strictly unnecessary as is the default for the channel builder, but can't hurt either
 
       // add certificates if provided
-      trustCertificate
-        .fold(builder) { certChain =>
-          val sslContext = withResource(certChain.newInput()) { inputStream =>
-            GrpcSslContexts.forClient().trustManager(inputStream).build()
-          }
-          builder.sslContext(sslContext)
+      trustCertificate.foreach { certChain =>
+        val sslContext = withResource(certChain.newInput()) { inputStream =>
+          GrpcSslContexts.forClient().trustManager(inputStream).build()
         }
-        .discard
+        builder.sslContext(sslContext)
+      }
     } else
       builder.usePlaintext().discard
 
@@ -159,16 +156,16 @@ object ClientChannelBuilder {
   /** Simple channel construction for test and console clients.
     * `maxInboundMessageSize` is 2GB; so don't use this to connect to an untrusted server.
     */
-  def createChannelToTrustedServer(
+  def createChannelBuilderToTrustedServer(
       clientConfig: ClientConfig
-  )(implicit executor: Executor): ManagedChannel = {
+  )(implicit executor: Executor): ManagedChannelBuilderProxy = {
     val baseBuilder: NettyChannelBuilder = NettyChannelBuilder
       .forAddress(clientConfig.address, clientConfig.port.unwrap)
       .executor(executor)
       .maxInboundMessageSize(Int.MaxValue)
 
     // apply keep alive settings
-    configureKeepAlive(
+    val builder = configureKeepAlive(
       clientConfig.keepAliveClient,
       // if tls isn't configured assume that it's a plaintext channel
       clientConfig.tls
@@ -177,6 +174,7 @@ object ClientChannelBuilder {
             .useTransportSecurity()
             .sslContext(sslContext(tls))
         },
-    ).build()
+    )
+    ManagedChannelBuilderProxy(builder)
   }
 }

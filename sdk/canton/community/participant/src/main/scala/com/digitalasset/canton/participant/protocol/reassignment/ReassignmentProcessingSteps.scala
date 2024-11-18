@@ -40,11 +40,7 @@ import com.digitalasset.canton.participant.protocol.ProtocolProcessor.{
 }
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.EncryptedViewMessageCreationError
-import com.digitalasset.canton.participant.protocol.{
-  ProcessingSteps,
-  ProtocolProcessor,
-  SubmissionTracker,
-}
+import com.digitalasset.canton.participant.protocol.{ProcessingSteps, ProtocolProcessor}
 import com.digitalasset.canton.participant.store.ReassignmentStore.ReassignmentStoreError
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.participant.util.DAMLe
@@ -341,14 +337,8 @@ trait ReassignmentProcessingSteps[
     Right(updateO)
   }
 
-  override def getSubmitterInformation(
-      views: Seq[DecryptedView]
-  ): (Option[ViewSubmitterMetadata], Option[SubmissionTracker.SubmissionData]) = {
-    val submitterMetadataO = views.map(_.submitterMetadata).headOption
-    val submissionDataForTrackerO = None // Currently not used for reassignments
-
-    (submitterMetadataO, submissionDataForTrackerO)
-  }
+  override def getSubmitterInformation(views: Seq[DecryptedView]): Option[ViewSubmitterMetadata] =
+    views.map(_.submitterMetadata).headOption
 
   case class ReassignmentsSubmission(
       override val batch: Batch[DefaultOpenEnvelope],

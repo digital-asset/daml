@@ -46,8 +46,7 @@ private[apiserver] final class ApiVersionService(
     with GrpcApiService
     with NamedLogging {
 
-  private val versionFile: String = "VERSION"
-  private val apiVersion: Try[String] = readVersion(versionFile)
+  private val apiVersion: Try[String] = VersionFile.readVersion()
 
   private val featuresDescriptor =
     FeaturesDescriptor.of(
@@ -106,19 +105,24 @@ private[apiserver] final class ApiVersionService(
   private def apiVersionResponse(version: String) =
     GetLedgerApiVersionResponse(version, Some(featuresDescriptor))
 
-  private def readVersion(versionFileName: String): Try[String] =
-    Try {
-      Source
-        .fromResource(versionFileName)
-        .getLines()
-        .toList
-        .headOption
-        .getOrElse(throw new IllegalStateException("Empty version file"))
-    }
-
   override def bindService(): ServerServiceDefinition =
     VersionServiceGrpc.bindService(this, executionContext)
 
   override def close(): Unit = ()
 
+}
+
+object VersionFile {
+
+  private val versionFile: String = "VERSION"
+
+  def readVersion(): Try[String] =
+    Try {
+      Source
+        .fromResource(versionFile)
+        .getLines()
+        .toList
+        .headOption
+        .getOrElse(throw new IllegalStateException("Empty version file"))
+    }
 }

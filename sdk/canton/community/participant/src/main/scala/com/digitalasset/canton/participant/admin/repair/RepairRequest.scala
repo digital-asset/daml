@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.admin.repair
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.protocol.ProcessingStartingPoints
 import com.digitalasset.canton.participant.protocol.RequestJournal.{RequestData, RequestState}
@@ -13,6 +12,7 @@ import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.{StaticDomainParameters, TransactionId}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.{DomainAlias, RequestCounter}
 
 private[repair] final case class RepairRequest(
     domain: RepairRequest.DomainData,
@@ -48,7 +48,7 @@ private[repair] object RepairRequest {
 
   final case class DomainData(
       id: DomainId,
-      alias: String,
+      alias: DomainAlias,
       topologySnapshot: TopologySnapshot,
       persistentState: SyncDomainPersistentState,
       parameters: StaticDomainParameters,

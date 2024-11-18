@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store.dao
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer
@@ -47,7 +47,7 @@ class BufferedStreamsReader[PERSISTENCE_FETCH_ARGS, API_RESPONSE](
   /** Serves processed and filtered events from the buffer, with fallback to persistence fetches
     * if the bounds are not within the buffer range bounds.
     *
-    * @param startExclusive The start exclusive offset of the search range.
+    * @param startInclusive The start inclusive offset of the search range.
     * @param endInclusive The end inclusive offset of the search range.
     * @param persistenceFetchArgs The filter used for fetching the Ledger API stream responses from persistence.
     * @param bufferFilter The filter used for filtering when searching within the buffer.
@@ -57,17 +57,17 @@ class BufferedStreamsReader[PERSISTENCE_FETCH_ARGS, API_RESPONSE](
     * @return The Ledger API stream source.
     */
   def stream[BUFFER_OUT](
-      startExclusive: Offset,
-      endInclusive: Offset,
+      startInclusive: AbsoluteOffset,
+      endInclusive: AbsoluteOffset,
       persistenceFetchArgs: PERSISTENCE_FETCH_ARGS,
       bufferFilter: TransactionLogUpdate => Option[BUFFER_OUT],
       toApiResponse: BUFFER_OUT => Future[API_RESPONSE],
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(Offset, API_RESPONSE), NotUsed] = {
+  ): Source[(AbsoluteOffset, API_RESPONSE), NotUsed] = {
     def toApiResponseStream(
-        slice: Vector[(Offset, BUFFER_OUT)]
-    ): Source[(Offset, API_RESPONSE), NotUsed] =
+        slice: Vector[(AbsoluteOffset, BUFFER_OUT)]
+    ): Source[(AbsoluteOffset, API_RESPONSE), NotUsed] =
       if (slice.isEmpty) Source.empty
       else
         Source(slice)
@@ -80,13 +80,13 @@ class BufferedStreamsReader[PERSISTENCE_FETCH_ARGS, API_RESPONSE](
           }
 
     val source = Source
-      .unfoldAsync(startExclusive) {
-        case scannedToInclusive if scannedToInclusive < endInclusive =>
+      .unfoldAsync(startInclusive) {
+        case scanFrom if scanFrom <= endInclusive =>
           Future {
             val bufferSlice = Timed.value(
               bufferReaderMetrics.slice,
               inMemoryFanoutBuffer.slice(
-                startExclusive = scannedToInclusive,
+                startInclusive = scanFrom,
                 endInclusive = endInclusive,
                 filter = bufferFilter,
               ),
@@ -97,18 +97,19 @@ class BufferedStreamsReader[PERSISTENCE_FETCH_ARGS, API_RESPONSE](
             bufferSlice match {
               case BufferSlice.Inclusive(slice) =>
                 val apiResponseSource = toApiResponseStream(slice)
-                val nextSliceStartExclusive = slice.lastOption.map(_._1).getOrElse(endInclusive)
-                Some(nextSliceStartExclusive -> apiResponseSource)
+                val nextSliceStart =
+                  slice.lastOption.map(_._1).getOrElse(endInclusive).increment
+                Some(nextSliceStart -> apiResponseSource)
 
               case BufferSlice.LastBufferChunkSuffix(bufferedStartExclusive, slice) =>
                 val sourceFromBuffer =
                   fetchFromPersistence(
-                    startExclusive = scannedToInclusive,
+                    startInclusive = scanFrom,
                     endInclusive = bufferedStartExclusive,
                     filter = persistenceFetchArgs,
                   )(loggingContext)
                     .concat(toApiResponseStream(slice))
-                Some(endInclusive -> sourceFromBuffer)
+                Some(endInclusive.increment -> sourceFromBuffer)
             }
           }
         case _ => Future.successful(None)
@@ -127,9 +128,11 @@ class BufferedStreamsReader[PERSISTENCE_FETCH_ARGS, API_RESPONSE](
 private[platform] object BufferedStreamsReader {
   trait FetchFromPersistence[FILTER, API_RESPONSE] {
     def apply(
-        startExclusive: Offset,
-        endInclusive: Offset,
+        startInclusive: AbsoluteOffset,
+        endInclusive: AbsoluteOffset,
         filter: FILTER,
-    )(implicit loggingContext: LoggingContextWithTrace): Source[(Offset, API_RESPONSE), NotUsed]
+    )(implicit
+        loggingContext: LoggingContextWithTrace
+    ): Source[(AbsoluteOffset, API_RESPONSE), NotUsed]
   }
 }

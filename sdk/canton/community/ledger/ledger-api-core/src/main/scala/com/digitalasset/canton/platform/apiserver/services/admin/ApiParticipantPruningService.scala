@@ -109,7 +109,7 @@ final class ApiParticipantPruningService private (
             _ = logger.debug("Getting incomplete reassignments")
             incompletReassignmentOffsets <- syncService
               .incompleteReassignmentOffsets(
-                validAt = pruneUpTo,
+                validAt = pruneUpTo.toAbsoluteOffset,
                 stakeholders = Set.empty, // getting all incomplete reassignments
               )
               .failOnShutdownTo(ServerIsShuttingDown.Reject().asGrpcError)
@@ -121,7 +121,7 @@ final class ApiParticipantPruningService private (
               pruneLedgerApiServerIndex(
                 pruneUpTo,
                 request.pruneAllDivulgedContracts,
-                incompletReassignmentOffsets,
+                incompletReassignmentOffsets.map(Offset.fromAbsoluteOffset),
               )(loggingContext),
             )(MetricsContext(("phase", "ledgerApiServerIndex")))
 

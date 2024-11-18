@@ -68,43 +68,30 @@ class GrpcSequencerAuthenticationService(
       tokenAndExpiry <- authenticationService
         .validateSignature(member, signature, providedNonce)
         .leftMap(handleAuthError)
-    } yield tokenAndExpiry)
-      .fold[AuthenticateResponse.Value](
-        error => {
-          val sensitive =
-            if (
-              error.getCode == Status.Code.INTERNAL || error.getCode == Status.Code.INVALID_ARGUMENT
-            ) {
-              // create error message to appropriately log this incident
-              SequencerAuthenticationFaultyOrMalicious
-                .AuthenticationFailure(request.member, error)
-                .discard
-              true
-            } else {
-              // create error message to appropriately log this incident
-              SequencerAuthenticationFailure
-                .AuthenticationFailure(request.member, error)
-                .discard
-              false
-            }
-          AuthenticateResponse.Value.Failure(
-            AuthenticateResponse.Failure(
-              code = error.getCode.value(),
-              reason = if (sensitive) "Bad authentication request" else error.getDescription,
-            )
-          )
-        },
-        { case AuthenticationTokenWithExpiry(token, expiry) =>
-          AuthenticateResponse.Value.Success(
-            AuthenticateResponse
-              .Success(token = token.toProtoPrimitive, expiresAt = Some(expiry.toProtoTimestamp))
-          )
-        },
+    } yield {
+      val AuthenticationTokenWithExpiry(token, expiry) = tokenAndExpiry
+      AuthenticateResponse(
+        token = token.toProtoPrimitive,
+        expiresAt = Some(expiry.toProtoTimestamp),
       )
-      .map(AuthenticateResponse(_))
+    }).valueOr { error =>
+      // create error message to appropriately log this error
+      val redactedError = if (isSensitive(error)) {
+        SequencerAuthenticationFaultyOrMalicious
+          .AuthenticationFailure(request.member, error)
+          .discard
+        error.withDescription("Bad authentication request")
+      } else {
+        SequencerAuthenticationFailure
+          .AuthenticationFailure(request.member, error)
+          .discard
+        error
+      }
+      throw redactedError.asRuntimeException()
+    }
   }
 
-  /** This is will return a random number (nonce) plus the fingerprint of the key the participant needs to use to complete
+  /** This will return a random number (nonce) plus the fingerprint of the key the participant needs to use to complete
     * the authentication process with this domain.
     * A handshake check is also done here to make sure that no participant can start authenticating without doing this check.
     * While the pure handshake can be called without any prior setup, this endpoint will only work after topology state
@@ -118,50 +105,39 @@ class GrpcSequencerAuthenticationService(
       result <- authenticationService
         .generateNonce(member)
         .leftMap(handleAuthError)
-    } yield result)
-      .fold[ChallengeResponse.Value](
-        error => {
-          val sensitive =
-            if (
-              error.getCode == Status.Code.INTERNAL || error.getCode == Status.Code.INVALID_ARGUMENT
-            ) {
-              SequencerAuthenticationFaultyOrMalicious
-                .ChallengeFailure(
-                  request.member,
-                  request.memberProtocolVersions,
-                  error,
-                )
-                .discard
-              true
-            } else {
-              SequencerAuthenticationFailure
-                .ChallengeFailure(
-                  request.member,
-                  request.memberProtocolVersions,
-                  error,
-                )
-                .discard
-              false
-            }
-          ChallengeResponse.Value.Failure(
-            ChallengeResponse.Failure(
-              code = error.getCode.value(),
-              reason = if (sensitive) "Bad challenge request" else error.getDescription,
-            )
-          )
-        },
-        { case (nonce, fingerprints) =>
-          ChallengeResponse.Value.Success(
-            ChallengeResponse.Success(
-              protocolVersion.toProtoPrimitiveS,
-              nonce.toProtoPrimitive,
-              fingerprints.map(_.unwrap).toList,
-            )
-          )
-        },
+    } yield {
+      val (nonce, fingerprints) = result
+      ChallengeResponse(
+        protocolVersion.toProtoPrimitiveS,
+        nonce.toProtoPrimitive,
+        fingerprints.map(_.unwrap).toList,
       )
-      .map(ChallengeResponse(_))
+    }).valueOr { error =>
+      val redactedError = if (isSensitive(error)) {
+        SequencerAuthenticationFaultyOrMalicious
+          .ChallengeFailure(
+            request.member,
+            request.memberProtocolVersions,
+            error,
+          )
+          .discard
+        error.withDescription("Bad challenge request")
+      } else {
+        SequencerAuthenticationFailure
+          .ChallengeFailure(
+            request.member,
+            request.memberProtocolVersions,
+            error,
+          )
+          .discard
+        error
+      }
+      throw redactedError.asRuntimeException()
+    }
   }
+
+  private def isSensitive(err: Status): Boolean =
+    err.getCode == Status.Code.INTERNAL || err.getCode == Status.Code.INVALID_ARGUMENT
 
   private def handleAuthError(err: AuthenticationError): Status = {
     def maliciousOrFaulty(): Status =

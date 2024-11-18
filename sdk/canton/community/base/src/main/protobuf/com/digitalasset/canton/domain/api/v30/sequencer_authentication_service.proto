@@ -27,22 +27,12 @@ message SequencerAuthentication {
   }
 
   message ChallengeResponse {
-    message Success {
-      string domain_version = 1;
-      // random nonce to be used for authentication
-      bytes nonce = 2;
-      // A hint containing fingerprints of keys that the sequencer considers valid
-      // This is helpful, because the client does not necessarily have the current topology state before connecting.
-      repeated string fingerprints = 3;
-    }
-    message Failure {
-      uint32 code = 1;
-      string reason = 2;
-    }
-    oneof value {
-      Success success = 1;
-      Failure failure = 2;
-    }
+    string domain_version = 1;
+    // random nonce to be used for authentication
+    bytes nonce = 2;
+    // A hint containing fingerprints of keys that the sequencer considers valid
+    // This is helpful, because the client does not necessarily have the current topology state before connecting.
+    repeated string fingerprints = 3;
   }
 
   message AuthenticateRequest {
@@ -56,18 +46,8 @@ message SequencerAuthentication {
   }
 
   message AuthenticateResponse {
-    message Success {
-      bytes token = 1;
-      google.protobuf.Timestamp expires_at = 2;
-    }
-    message Failure {
-      uint32 code = 1;
-      string reason = 2;
-    }
-    oneof value {
-      Success success = 1;
-      Failure failure = 2;
-    }
+    bytes token = 1;
+    google.protobuf.Timestamp expires_at = 2;
   }
 
   message LogoutRequest {

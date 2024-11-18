@@ -25,7 +25,7 @@ import org.apache.pekko.stream.scaladsl.Flow
 import sttp.capabilities.pekko.PekkoStreams
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.*
-import sttp.tapir.{CodecFormat, query, webSocketBody}
+import sttp.tapir.{AnyEndpoint, CodecFormat, Schema, query, webSocketBody}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -113,7 +113,7 @@ class JsStateService(
     }
 }
 
-object JsStateService {
+object JsStateService extends DocumentationEndpoints {
   import Endpoints.*
   import JsStateServiceCodecs.*
 
@@ -147,6 +147,13 @@ object JsStateService {
     .in(sttp.tapir.stringToPath("latest-pruned-offsets"))
     .out(jsonBody[state_service.GetLatestPrunedOffsetsResponse])
     .description("Get latest pruned offsets")
+
+  override def documentation: Seq[AnyEndpoint] = Seq(
+    activeContractsEndpoint,
+    getConnectedDomainsEndpoint,
+    getLedgerEndEndpoint,
+    getLastPrunedOffsetsEndpoint,
+  )
 }
 
 object JsContractEntry {
@@ -195,6 +202,10 @@ final case class JsGetActiveContractsResponse(
 
 object JsStateServiceCodecs {
 
+  implicit val identifierFilterSchema
+      : Schema[transaction_filter.CumulativeFilter.IdentifierFilter] =
+    Schema.oneOfWrapped
+
   implicit val filtersRW: Codec[transaction_filter.Filters] = deriveCodec
   implicit val cumulativeFilterRW: Codec[transaction_filter.CumulativeFilter] = deriveCodec
   implicit val identifierFilterRW: Codec[transaction_filter.CumulativeFilter.IdentifierFilter] =
@@ -207,16 +218,7 @@ object JsStateServiceCodecs {
 
   implicit val interfaceFilterRW: Codec[transaction_filter.InterfaceFilter] =
     deriveCodec
-  implicit val iwildcardFilterRW
-      : Codec[transaction_filter.CumulativeFilter.IdentifierFilter.WildcardFilter] =
-    deriveCodec
 
-  implicit val itemplateFilterRW
-      : Codec[transaction_filter.CumulativeFilter.IdentifierFilter.TemplateFilter] =
-    deriveCodec
-  implicit val iinterfaceFilterRW
-      : Codec[transaction_filter.CumulativeFilter.IdentifierFilter.InterfaceFilter] =
-    deriveCodec
   implicit val transactionFilterRW: Codec[transaction_filter.TransactionFilter] = deriveCodec
   implicit val getActiveContractsRequestRW: Codec[state_service.GetActiveContractsRequest] =
     deriveCodec
@@ -224,6 +226,8 @@ object JsStateServiceCodecs {
   implicit val jsGetActiveContractsResponseRW: Codec[JsGetActiveContractsResponse] = deriveCodec
 
   implicit val jsContractEntryRW: Codec[JsContractEntry] = deriveCodec
+  implicit val jsContractEntrySchema: Schema[JsContractEntry] = Schema.oneOfWrapped
+
   implicit val jsIncompleteUnassignedRW: Codec[JsIncompleteUnassigned] = deriveCodec
   implicit val unassignedEventRW: Codec[reassignment.UnassignedEvent] = deriveCodec
   implicit val jsIncompleteAssignedRW: Codec[JsIncompleteAssigned] = deriveCodec
@@ -246,4 +250,11 @@ object JsStateServiceCodecs {
       : Codec[state_service.GetLatestPrunedOffsetsResponse] =
     deriveCodec
 
+  // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
+  implicit val participantPermissionRecognizedSchema
+      : Schema[state_service.ParticipantPermission.Recognized] =
+    Schema.oneOfWrapped
+
+  implicit val participantPermissionSchema: Schema[state_service.ParticipantPermission] =
+    Schema.oneOfWrapped
 }

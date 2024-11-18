@@ -7,10 +7,11 @@ import cats.data.{EitherT, OptionT}
 import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.{CloseContext, Lifecycle}
+import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.participant.admin.repair.RepairContext
@@ -20,12 +21,11 @@ import com.digitalasset.canton.participant.store.db.DbRequestJournalStore.Replac
 import com.digitalasset.canton.resource.DbStorage.DbAction.ReadOnly
 import com.digitalasset.canton.resource.DbStorage.{DbAction, Profile}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
-import com.digitalasset.canton.store.db.{DbBulkUpdateProcessor, DbCursorPreheadStore}
-import com.digitalasset.canton.store.{CursorPreheadStore, IndexedDomain}
+import com.digitalasset.canton.store.IndexedDomain
+import com.digitalasset.canton.store.db.DbBulkUpdateProcessor
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{BatchAggregator, ErrorUtil}
-import com.digitalasset.canton.{RequestCounter, RequestCounterDiscriminator}
 import com.google.common.annotations.VisibleForTesting
 import slick.jdbc.*
 
@@ -47,15 +47,6 @@ class DbRequestJournalStore(
 
   import DbStorage.Implicits.*
   import storage.api.*
-
-  private[store] override val cleanPreheadStore: CursorPreheadStore[RequestCounterDiscriminator] =
-    new DbCursorPreheadStore[RequestCounterDiscriminator](
-      indexedDomain,
-      storage,
-      cursorTable = "par_head_clean_counters",
-      timeouts,
-      loggerFactory,
-    )
 
   implicit val getResultRequestState: GetResult[RequestState] = GetResult { r =>
     val index = r.nextInt()
@@ -382,8 +373,6 @@ class DbRequestJournalStore(
         """.as[Int].head
     storage.query(statement, functionFullName).map(NonNegativeInt.tryCreate)
   }
-
-  override def onClosed(): Unit = Lifecycle.close(cleanPreheadStore)(logger)
 
   override def lastRequestCounterWithRequestTimestampBeforeOrAt(requestTimestamp: CantonTimestamp)(
       implicit traceContext: TraceContext

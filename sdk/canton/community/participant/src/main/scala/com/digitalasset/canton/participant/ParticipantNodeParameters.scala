@@ -16,7 +16,6 @@ import com.digitalasset.canton.version.ProtocolVersion
 
 final case class ParticipantNodeParameters(
     general: CantonNodeParameters.General,
-    partyChangeNotification: PartyNotificationConfig,
     adminWorkflow: AdminWorkflowConfig,
     maxUnzippedDarSize: Int,
     stores: ParticipantStoreConfig,
@@ -60,7 +59,6 @@ object ParticipantNodeParameters {
       exitOnFatalFailures = true,
       watchdog = None,
     ),
-    partyChangeNotification = PartyNotificationConfig.Eager,
     adminWorkflow = AdminWorkflowConfig(
       bongTestMaxLevel = NonNegativeInt.tryCreate(10)
     ),

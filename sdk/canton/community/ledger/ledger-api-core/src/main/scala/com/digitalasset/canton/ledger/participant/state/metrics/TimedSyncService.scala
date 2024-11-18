@@ -6,7 +6,7 @@ package com.digitalasset.canton.ledger.participant.state.metrics
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.metrics.Timed
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.data.{Offset, ProcessedDisclosedContract}
+import com.digitalasset.canton.data.{AbsoluteOffset, Offset, ProcessedDisclosedContract}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.ledger.participant.state.SyncService.{
@@ -127,9 +127,9 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
   override def getProtocolVersionForDomain(domainId: Traced[DomainId]): Option[ProtocolVersion] =
     delegate.getProtocolVersionForDomain(domainId)
 
-  override def incompleteReassignmentOffsets(validAt: Offset, stakeholders: Set[LfPartyId])(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Vector[Offset]] =
+  override def incompleteReassignmentOffsets(validAt: AbsoluteOffset, stakeholders: Set[LfPartyId])(
+      implicit traceContext: TraceContext
+  ): FutureUnlessShutdown[Vector[AbsoluteOffset]] =
     Timed.future(
       metrics.services.read.getConnectedDomains,
       delegate.incompleteReassignmentOffsets(validAt, stakeholders),

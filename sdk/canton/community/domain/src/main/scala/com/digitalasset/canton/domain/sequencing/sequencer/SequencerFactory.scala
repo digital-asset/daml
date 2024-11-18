@@ -129,10 +129,8 @@ class CommunityDatabaseSequencerFactory(
       sequencerId,
       sequencerProtocolVersion,
       domainSyncCryptoApi,
-      nodeParameters.cachingConfigs,
       metrics,
       loggerFactory,
-      runtimeReady,
     )
 
     Future.successful(config.testingInterceptor.map(_(clock)(sequencer)(ec)).getOrElse(sequencer))

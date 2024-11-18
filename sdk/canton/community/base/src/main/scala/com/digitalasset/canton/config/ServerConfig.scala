@@ -223,7 +223,9 @@ final case class ClientConfig(
     port: Port,
     tls: Option[TlsClientConfig] = None,
     keepAliveClient: Option[KeepAliveClientConfig] = Some(KeepAliveClientConfig()),
-)
+) {
+  def endpointAsString: String = address + ":" + port.unwrap
+}
 
 sealed trait BaseTlsArguments {
   def certChainFile: ExistingFile

@@ -366,19 +366,19 @@ final class GrpcParticipantRepairService(
   ): Future[RollbackUnassignmentResponse] =
     TraceContext.withNewTraceContext { implicit traceContext =>
       val res = for {
-        unassignId <- EitherT.fromEither[Future](
+        unassignId <- EitherT.fromEither[FutureUnlessShutdown](
           Try(request.unassignId.toLong).toEither.left
             .map(_ => TimestampConversionError(s"cannot convert ${request.unassignId} into Long"))
             .flatMap(fromProtoPrimitive)
             .leftMap(_.message)
         )
-        sourceDomainId <- EitherT.fromEither[Future](
+        sourceDomainId <- EitherT.fromEither[FutureUnlessShutdown](
           DomainId
             .fromProtoPrimitive(request.source, "source")
             .map(Source(_))
             .leftMap(_.message)
         )
-        targetDomainId <- EitherT.fromEither[Future](
+        targetDomainId <- EitherT.fromEither[FutureUnlessShutdown](
           DomainId
             .fromProtoPrimitive(request.target, "target")
             .map(Target(_))
@@ -390,9 +390,11 @@ final class GrpcParticipantRepairService(
 
       } yield RollbackUnassignmentResponse()
 
-      EitherTUtil.toFuture(
-        res.leftMap(err => io.grpc.Status.CANCELLED.withDescription(err).asRuntimeException())
-      )
+      EitherTUtil
+        .toFutureUnlessShutdown(
+          res.leftMap(err => io.grpc.Status.CANCELLED.withDescription(err).asRuntimeException())
+        )
+        .asGrpcResponse
     }
 }
 

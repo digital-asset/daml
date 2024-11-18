@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.daml.logging.entries.LoggingEntry
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.digitalasset.canton.ledger.participant.state
@@ -65,10 +65,10 @@ private class JdbcLedgerDao(
     tracer: Tracer,
     val loggerFactory: NamedLoggerFactory,
     incompleteOffsets: (
-        Offset,
+        AbsoluteOffset,
         Option[Set[Ref.Party]],
         TraceContext,
-    ) => FutureUnlessShutdown[Vector[Offset]],
+    ) => FutureUnlessShutdown[Vector[AbsoluteOffset]],
     contractLoader: ContractLoader,
     translation: LfValueTranslation,
 ) extends LedgerDao
@@ -571,10 +571,10 @@ private[platform] object JdbcLedgerDao {
       tracer: Tracer,
       loggerFactory: NamedLoggerFactory,
       incompleteOffsets: (
-          Offset,
+          AbsoluteOffset,
           Option[Set[Ref.Party]],
           TraceContext,
-      ) => FutureUnlessShutdown[Vector[Offset]],
+      ) => FutureUnlessShutdown[Vector[AbsoluteOffset]],
       contractLoader: ContractLoader = ContractLoader.dummyLoader,
       lfValueTranslation: LfValueTranslation,
   ): LedgerReadDao =

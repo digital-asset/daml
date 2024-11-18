@@ -18,6 +18,7 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.{CryptoPureApi, SyncCryptoApiProvider}
 import com.digitalasset.canton.data.{
+  AbsoluteOffset,
   CantonTimestamp,
   Offset,
   ProcessedDisclosedContract,
@@ -199,7 +200,6 @@ class CantonSyncService(
     participantNodeEphemeralState,
     partyOps,
     partyNotifier,
-    parameters,
     isActive,
     connectedDomainsLookup,
     timeouts,
@@ -1715,36 +1715,32 @@ class CantonSyncService(
   }
 
   override def incompleteReassignmentOffsets(
-      validAt: Offset,
+      validAt: AbsoluteOffset,
       stakeholders: Set[LfPartyId],
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Vector[Offset]] =
-    if (validAt == Offset.beforeBegin) {
-      FutureUnlessShutdown.pure(Vector.empty)
-    } else {
-      UpstreamOffsetConvert
-        .toGlobalOffset(validAt)
-        .fold(
-          error => FutureUnlessShutdown.failed(new IllegalArgumentException(error)),
-          globalOffset =>
-            syncDomainPersistentStateManager.getAll.values.toList
-              .parTraverse {
-                _.reassignmentStore.findIncomplete(
-                  sourceDomain = None,
-                  validAt = globalOffset,
-                  stakeholders = NonEmpty.from(stakeholders),
-                  limit = NonNegativeInt.maxValue,
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Vector[AbsoluteOffset]] =
+    UpstreamOffsetConvert
+      .toGlobalOffset(Offset.fromAbsoluteOffset(validAt))
+      .fold(
+        error => FutureUnlessShutdown.failed(new IllegalArgumentException(error)),
+        globalOffset =>
+          syncDomainPersistentStateManager.getAll.values.toList
+            .parTraverse {
+              _.reassignmentStore.findIncomplete(
+                sourceDomain = None,
+                validAt = globalOffset,
+                stakeholders = NonEmpty.from(stakeholders),
+                limit = NonNegativeInt.maxValue,
+              )
+            }
+            .map(
+              _.flatten
+                .map(
+                  _.reassignmentEventGlobalOffset.globalOffset
+                    .pipe(UpstreamOffsetConvert.fromGlobalOffsetToAbsoluteOffset)
                 )
-              }
-              .map(
-                _.flatten
-                  .map(
-                    _.reassignmentEventGlobalOffset.globalOffset
-                      .pipe(UpstreamOffsetConvert.fromGlobalOffset)
-                  )
-                  .toVector
-              ),
-        )
-    }
+                .toVector
+            ),
+      )
 }
 
 object CantonSyncService {

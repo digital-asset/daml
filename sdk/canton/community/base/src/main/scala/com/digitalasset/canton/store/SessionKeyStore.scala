@@ -22,7 +22,9 @@ sealed trait SessionKeyStore {
     * Otherwise, if the 'global' session store is disabled, we create a local cache that is valid only for a single
     * transaction.
     */
-  def convertStore: ConfirmationRequestSessionKeyStore =
+  def convertStore(implicit
+      executionContext: ExecutionContext
+  ): ConfirmationRequestSessionKeyStore =
     this match {
       case SessionKeyStoreDisabled => new SessionKeyStoreWithNoEviction()
       case cache: SessionKeyStoreWithInMemoryCache => cache
@@ -91,8 +93,9 @@ sealed trait ConfirmationRequestSessionKeyStore {
 
 object SessionKeyStoreDisabled extends SessionKeyStore
 
-final class SessionKeyStoreWithInMemoryCache(sessionKeysCacheConfig: SessionKeyCacheConfig)
-    extends SessionKeyStore
+final class SessionKeyStoreWithInMemoryCache(sessionKeysCacheConfig: SessionKeyCacheConfig)(implicit
+    executionContext: ExecutionContext
+) extends SessionKeyStore
     with ConfirmationRequestSessionKeyStore {
 
   /** This cache keeps track of the session key information for each recipient tree, which is then used to encrypt
@@ -134,20 +137,23 @@ final class SessionKeyStoreWithInMemoryCache(sessionKeysCacheConfig: SessionKeyC
   * However, in this implementation, the session keys have neither a size limit nor an eviction time.
   * Therefore, this cache MUST only be used when it is local to each transaction and short-lived.
   */
-final class SessionKeyStoreWithNoEviction extends ConfirmationRequestSessionKeyStore {
+final class SessionKeyStoreWithNoEviction(implicit executionContext: ExecutionContext)
+    extends ConfirmationRequestSessionKeyStore {
 
   override protected lazy val sessionKeysCacheSender: Cache[RecipientGroup, SessionKeyInfo] =
-    Scaffeine().build()
+    Scaffeine().executor(executionContext.execute(_)).build()
 
   override protected lazy val sessionKeysCacheReceiver
       : Cache[AsymmetricEncrypted[SecureRandomness], SecureRandomness] =
-    Scaffeine().build()
+    Scaffeine().executor(executionContext.execute(_)).build()
 
 }
 
 object SessionKeyStore {
 
-  def apply(sessionKeyCacheConfig: SessionKeyCacheConfig): SessionKeyStore =
+  def apply(
+      sessionKeyCacheConfig: SessionKeyCacheConfig
+  )(implicit executionContext: ExecutionContext): SessionKeyStore =
     if (sessionKeyCacheConfig.enabled)
       new SessionKeyStoreWithInMemoryCache(sessionKeyCacheConfig)
     else SessionKeyStoreDisabled

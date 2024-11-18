@@ -9,7 +9,7 @@ import com.daml.metrics.{DatabaseMetrics, Timed}
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.tracing
 import com.daml.tracing.Spans
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.ledger.api.TraceIdentifiers
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
@@ -77,17 +77,17 @@ class TransactionsFlatStreamReader(
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(Offset, GetUpdatesResponse), NotUsed] = {
+  ): Source[(AbsoluteOffset, GetUpdatesResponse), NotUsed] = {
     val span =
       Telemetry.Transactions.createSpan(
         tracer,
-        queryRange.startExclusiveOffset,
+        queryRange.startInclusiveOffset,
         queryRange.endInclusiveOffset,
       )(
         qualifiedNameOfCurrentFunc
       )
     logger.debug(
-      s"streamFlatTransactions(${queryRange.startExclusiveOffset}, ${queryRange.endInclusiveOffset}, $filteringConstraints, $eventProjectionProperties)"
+      s"streamFlatTransactions(${queryRange.startInclusiveOffset}, ${queryRange.endInclusiveOffset}, $filteringConstraints, $eventProjectionProperties)"
     )
     doStreamFlatTransactions(
       queryRange,
@@ -120,7 +120,7 @@ class TransactionsFlatStreamReader(
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(Offset, GetUpdatesResponse), NotUsed] = {
+  ): Source[(AbsoluteOffset, GetUpdatesResponse), NotUsed] = {
     val createEventIdQueriesLimiter =
       new QueueBasedConcurrencyLimiter(maxParallelIdCreateQueries, executionContext)
     val consumingEventIdQueriesLimiter =
@@ -151,7 +151,7 @@ class TransactionsFlatStreamReader(
           paginatingAsyncStream.streamIdsFromSeekPagination(
             idPageSizing = idPageSizing,
             idPageBufferSize = maxPagesPerIdPagesBuffer,
-            initialFromIdExclusive = queryRange.startExclusiveEventSeqId,
+            initialFromIdExclusive = queryRange.startInclusiveEventSeqId,
           )(
             fetchPage = (state: IdPaginationState) => {
               maxParallelIdQueriesLimiter.execute {
@@ -193,12 +193,13 @@ class TransactionsFlatStreamReader(
             globalPayloadQueriesLimiter.execute {
               dbDispatcher.executeSql(dbMetric) { implicit connection =>
                 queryValidRange.withRangeNotPruned(
-                  minOffsetExclusive = queryRange.startExclusiveOffset,
+                  minOffsetInclusive = queryRange.startInclusiveOffset,
                   maxOffsetInclusive = queryRange.endInclusiveOffset,
-                  errorPruning = (prunedOffset: Offset) =>
-                    s"Transactions request from ${queryRange.startExclusiveOffset.toLong} to ${queryRange.endInclusiveOffset.toLong} precedes pruned offset ${prunedOffset.toLong}",
-                  errorLedgerEnd = (ledgerEndOffset: Offset) =>
-                    s"Transactions request from ${queryRange.startExclusiveOffset.toLong} to ${queryRange.endInclusiveOffset.toLong} is beyond ledger end offset ${ledgerEndOffset.toLong}",
+                  errorPruning = (prunedOffset: AbsoluteOffset) =>
+                    s"Transactions request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} precedes pruned offset ${prunedOffset.unwrap}",
+                  errorLedgerEnd = (ledgerEndOffset: Option[AbsoluteOffset]) =>
+                    s"Transactions request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} is beyond ledger end offset ${ledgerEndOffset
+                        .fold(0L)(_.unwrap)}",
                 ) {
                   eventStorageBackend.transactionStreamingQueries
                     .fetchEventPayloadsFlat(target = target)(
@@ -251,7 +252,7 @@ class TransactionsFlatStreamReader(
       )
       .mapConcat { (groupOfPayloads: Seq[Entry[Event]]) =>
         val responses = TransactionConversions.toGetTransactionsResponse(groupOfPayloads)
-        responses.map { case (offset, response) => Offset.fromLong(offset) -> response }
+        responses.map { case (offset, response) => AbsoluteOffset.tryFromLong(offset) -> response }
       }
 
     val topologyTransactions =
@@ -302,8 +303,12 @@ class TransactionsFlatStreamReader(
         }
 
     sourceOfTransactions
-      .mergeSorted(topologyTransactions)(Ordering.by(_._1))
-      .mergeSorted(reassignments)(Ordering.by(_._1))
+      .mergeSorted(topologyTransactions.map { case (offset, response) =>
+        offset.toAbsoluteOffset -> response
+      })(Ordering.by(_._1))
+      .mergeSorted(reassignments.map { case (offset, response) =>
+        offset.toAbsoluteOffset -> response
+      })(Ordering.by(_._1))
   }
 
   private def deserializeLfValues(

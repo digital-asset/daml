@@ -33,11 +33,13 @@ import scala.concurrent.Future
 
 private[platform] trait LedgerDaoTransactionsReader {
   def getFlatTransactions(
-      startExclusive: Offset,
-      endInclusive: Offset,
+      startInclusive: AbsoluteOffset,
+      endInclusive: AbsoluteOffset,
       filter: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
-  )(implicit loggingContext: LoggingContextWithTrace): Source[(Offset, GetUpdatesResponse), NotUsed]
+  )(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Source[(AbsoluteOffset, GetUpdatesResponse), NotUsed]
 
   def lookupFlatTransactionById(
       updateId: UpdateId,
@@ -45,13 +47,13 @@ private[platform] trait LedgerDaoTransactionsReader {
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]]
 
   def getTransactionTrees(
-      startExclusive: Offset,
-      endInclusive: Offset,
+      startInclusive: AbsoluteOffset,
+      endInclusive: AbsoluteOffset,
       requestingParties: Option[Set[Party]],
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(Offset, GetUpdateTreesResponse), NotUsed]
+  ): Source[(AbsoluteOffset, GetUpdateTreesResponse), NotUsed]
 
   def lookupTransactionTreeById(
       updateId: UpdateId,
@@ -59,7 +61,7 @@ private[platform] trait LedgerDaoTransactionsReader {
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]]
 
   def getActiveContracts(
-      activeAt: Offset,
+      activeAt: Option[AbsoluteOffset],
       filter: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetActiveContractsResponse, NotUsed]
