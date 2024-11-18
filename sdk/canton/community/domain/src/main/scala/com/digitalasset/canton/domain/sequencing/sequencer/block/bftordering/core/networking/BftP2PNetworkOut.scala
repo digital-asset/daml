@@ -5,7 +5,6 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.co
 
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.v30
 import com.digitalasset.canton.domain.metrics.BftOrderingMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1.{
   BftOrderingMessageBody,
@@ -29,7 +28,10 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.networking.data.P2pEndpointsStore
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.topology.OrderingTopology.strongQuorumSize
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.P2PNetworkOut.Admin
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.P2PNetworkOut.{
+  Admin,
+  BftOrderingNetworkMessage,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.dependencies.P2PNetworkOutModuleDependencies
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.{
   Availability,
@@ -153,10 +155,10 @@ final class BftP2PNetworkOut[E <: Env[E]](
           }
         }
 
-      case P2PNetworkOut.Multicast(message, signature, peers) =>
+      case P2PNetworkOut.Multicast(message, peers) =>
         SortedSet // For determinism
           .from(peers)
-          .foreach(sendIfKnown(_, message, signature))
+          .foreach(sendIfKnown(_, message))
 
       case admin: P2PNetworkOut.Admin =>
         processModuleAdmin(admin)
@@ -164,30 +166,30 @@ final class BftP2PNetworkOut[E <: Env[E]](
 
   private def sendIfKnown(
       peer: SequencerId,
-      message: BftOrderingMessageBody,
-      signature: Option[v30.Signature],
+      message: BftOrderingNetworkMessage,
   )(implicit
       traceContext: TraceContext
   ): Unit =
     if (peer != thisSequencerId)
-      networkSendIfKnown(peer, message, signature)
+      networkSendIfKnown(peer, message)
     else
-      dependencies.p2pNetworkIn.asyncSend(messageToSend(message, signature))
+      dependencies.p2pNetworkIn.asyncSend(messageToSend(message.toProto))
 
   private def networkSendIfKnown(
       to: SequencerId,
-      message: BftOrderingMessageBody,
-      signature: Option[v30.Signature],
+      message: BftOrderingNetworkMessage,
   )(implicit
       traceContext: TraceContext
-  ): Unit =
+  ): Unit = {
+    val serializedMessage = message.toProto
     knownPeers.actOn(
       to,
       ifEmpty = {
-        val mc1 = sendMetricsContext(metrics, message, to, droppedAsUnauthenticated = true)
+        val mc1 =
+          sendMetricsContext(metrics, serializedMessage, to, droppedAsUnauthenticated = true)
         locally {
           implicit val mc: MetricsContext = mc1
-          emitSendStats(metrics, message)
+          emitSendStats(metrics, serializedMessage)
         }
         logger.info(
           s"Dropping $message to $to because it is unknown (possibly unauthenticated as of yet)"
@@ -195,14 +197,15 @@ final class BftP2PNetworkOut[E <: Env[E]](
       },
     ) { ref =>
       val mc1: MetricsContext =
-        sendMetricsContext(metrics, message, to, droppedAsUnauthenticated = false)
+        sendMetricsContext(metrics, serializedMessage, to, droppedAsUnauthenticated = false)
       locally {
         logger.debug(s"Sending network message to $to: $message")
         implicit val mc: MetricsContext = mc1
-        networkSend(ref, message, signature)
-        emitSendStats(metrics, message)
+        networkSend(ref, serializedMessage)
+        emitSendStats(metrics, serializedMessage)
       }
     }
+  }
 
   private def processModuleAdmin(
       admin: P2PNetworkOut.Admin
@@ -318,24 +321,21 @@ final class BftP2PNetworkOut[E <: Env[E]](
   private def networkSend(
       ref: P2PNetworkRef[BftOrderingServiceReceiveRequest],
       message: BftOrderingMessageBody,
-      signature: Option[v30.Signature],
   )(implicit traceContext: TraceContext, mc: MetricsContext): Unit = {
     val start = Instant.now()
-    ref.asyncP2PSend(messageToSend(message, signature)) {
+    ref.asyncP2PSend(messageToSend(message)) {
       val end = Instant.now()
       metrics.p2p.send.networkWriteLatency.update(Duration.between(start, end))
     }
   }
 
   private def messageToSend(
-      message: BftOrderingMessageBody,
-      signature: Option[v30.Signature],
+      message: BftOrderingMessageBody
   )(implicit traceContext: TraceContext): BftOrderingServiceReceiveRequest =
     BftOrderingServiceReceiveRequest.of(
       traceContext.traceId.getOrElse(""),
       Some(message),
       thisSequencerId.uid.toProtoPrimitive,
-      signature,
     )
 
   private def connectInitialPeers(otherInitialEndpoints: Seq[Endpoint])(implicit

@@ -109,7 +109,7 @@ final class RepairService(
     with FlagCloseable
     with HasCloseContext {
 
-  private type MissingContract = (WithTransactionId[SerializableContract], RequestCounter)
+  private type MissingContract = (SerializableContract, RequestCounter)
   private type MissingAssignment =
     (LfContractId, Source[DomainId], ReassignmentCounter, TimeOfChange)
   private type MissingAdd = (LfContractId, ReassignmentCounter, TimeOfChange)
@@ -879,7 +879,7 @@ final class RepairService(
             storedContracts.get(contractToAdd.cid) match {
               case None =>
                 EitherT.pure[Future, String](
-                  Some((WithTransactionId(contractToAdd.contract, repair.transactionId), toc.rc))
+                  Some((contractToAdd.contract, toc.rc))
                 )
 
               case Some(storedContract) =>

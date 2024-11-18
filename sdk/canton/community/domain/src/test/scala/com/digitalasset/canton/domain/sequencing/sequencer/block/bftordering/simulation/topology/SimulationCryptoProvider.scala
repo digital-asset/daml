@@ -4,15 +4,27 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.simulation.topology
 
 import cats.syntax.either.*
-import com.digitalasset.canton.crypto.{Hash, Signature, SignatureCheckError, SyncCryptoError}
+import com.digitalasset.canton.crypto.{
+  Hash,
+  HashPurpose,
+  Signature,
+  SignatureCheckError,
+  SyncCryptoError,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.CryptoProvider
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.{
+  MessageFrom,
+  SignedMessage,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.SimulationEnv
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.simulation.future.SimulationFuture
+import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.util.Try
 
+// TODO(#22242) Use [[SymbolicPureCrypto]] here
 object SimulationCryptoProvider extends CryptoProvider[SimulationEnv] {
 
   override def sign(hash: Hash)(implicit
@@ -20,6 +32,17 @@ object SimulationCryptoProvider extends CryptoProvider[SimulationEnv] {
   ): SimulationFuture[Either[SyncCryptoError, Signature]] = SimulationFuture { () =>
     Try {
       Right(Signature.noSignature)
+    }
+  }
+
+  override def signMessage[MessageT <: ProtocolVersionedMemoizedEvidence with MessageFrom](
+      message: MessageT,
+      hashPurpose: HashPurpose,
+  )(implicit
+      traceContext: TraceContext
+  ): SimulationFuture[Either[SyncCryptoError, SignedMessage[MessageT]]] = SimulationFuture { () =>
+    Try {
+      Right(SignedMessage(message, Signature.noSignature))
     }
   }
 

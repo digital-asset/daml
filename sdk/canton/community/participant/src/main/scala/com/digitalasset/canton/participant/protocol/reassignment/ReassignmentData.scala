@@ -7,7 +7,7 @@ import com.digitalasset.canton.data.{CantonTimestamp, FullUnassignmentTree}
 import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentData.ReassignmentGlobalOffset
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
-import com.digitalasset.canton.protocol.{ReassignmentId, SerializableContract, TransactionId}
+import com.digitalasset.canton.protocol.{ReassignmentId, SerializableContract}
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.util.OptionUtil
@@ -49,9 +49,6 @@ final case class ReassignmentData(
 
   def addUnassignmentResult(result: DeliveredUnassignmentResult): Option[ReassignmentData] =
     mergeUnassignmentResult(Some(result))
-
-  def creatingTransactionId: TransactionId =
-    unassignmentRequest.tree.view.tryUnwrap.creatingTransactionId
 
   def mergeWith(other: ReassignmentData): Option[ReassignmentData] =
     if (this eq other) Some(this)

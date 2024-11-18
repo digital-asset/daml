@@ -40,12 +40,12 @@ final class GeneratorsData(
     generatorsProtocol: GeneratorsProtocol,
 ) {
   import com.digitalasset.canton.Generators.*
-  import com.digitalasset.canton.sequencing.protocol.GeneratorsProtocol.*
   import com.digitalasset.canton.GeneratorsLf.*
   import com.digitalasset.canton.config.GeneratorsConfig.*
   import com.digitalasset.canton.crypto.GeneratorsCrypto.*
   import com.digitalasset.canton.data.GeneratorsDataTime.*
   import com.digitalasset.canton.ledger.api.GeneratorsApi.*
+  import com.digitalasset.canton.sequencing.protocol.GeneratorsProtocol.*
   import com.digitalasset.canton.topology.GeneratorsTopology.*
   import generatorsProtocol.*
   import org.scalatest.OptionValues.*
@@ -112,7 +112,7 @@ final class GeneratorsData(
       submissionId <- Gen.option(ledgerSubmissionIdArb.arbitrary)
       dedupPeriod <- Arbitrary.arbitrary[DeduplicationPeriod]
       maxSequencingTime <- Arbitrary.arbitrary[CantonTimestamp]
-      hashOps = TestHash // Not used for serialization
+      externalAuthorization <- Gen.option(Arbitrary.arbitrary[ExternalAuthorization])
     } yield SubmitterMetadata(
       actAs,
       applicationId,
@@ -122,7 +122,8 @@ final class GeneratorsData(
       submissionId,
       dedupPeriod,
       maxSequencingTime,
-      hashOps,
+      externalAuthorization,
+      hashOps = TestHash, // Not used for serialization
       protocolVersion,
     )
   )
@@ -633,7 +634,6 @@ final class GeneratorsData(
     for {
       salt <- Arbitrary.arbitrary[Salt]
       contract <- serializableContractArb(canHaveEmptyKey = true).arbitrary
-      creatingTransactionId <- Arbitrary.arbitrary[TransactionId]
       unassignmentResultEvent <- deliveryUnassignmentResultGen(contract, sourceProtocolVersion)
       reassignmentCounter <- reassignmentCounterGen
 
@@ -643,7 +643,6 @@ final class GeneratorsData(
       .create(hashOps)(
         salt,
         contract,
-        creatingTransactionId,
         unassignmentResultEvent,
         sourceProtocolVersion,
         targetProtocolVersion,
@@ -656,7 +655,6 @@ final class GeneratorsData(
     for {
       salt <- Arbitrary.arbitrary[Salt]
 
-      creatingTransactionId <- Arbitrary.arbitrary[TransactionId]
       contract <- serializableContractArb(canHaveEmptyKey = true).arbitrary
 
       targetDomain <- Arbitrary.arbitrary[Target[DomainId]]
@@ -669,7 +667,6 @@ final class GeneratorsData(
       .create(hashOps)(
         salt,
         contract,
-        creatingTransactionId,
         targetDomain,
         timeProof,
         sourceProtocolVersion,

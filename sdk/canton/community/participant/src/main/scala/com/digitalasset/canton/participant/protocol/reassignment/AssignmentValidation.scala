@@ -16,7 +16,6 @@ import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValid
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidation.{
   AssignmentValidationResult,
   ContractDataMismatch,
-  CreatingTransactionIdMismatch,
   InconsistentReassignmentCounter,
   NonInitiatorSubmitsBeforeExclusivityTimeout,
   ReassigningParticipantsMismatch,
@@ -24,7 +23,6 @@ import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValid
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.{
   ProcessingSteps,
-  ReassignmentSubmissionValidation,
   SerializableContractAuthenticator,
 }
 import com.digitalasset.canton.participant.store.*
@@ -136,9 +134,8 @@ private[reassignment] class AssignmentValidation(
             .leftMap(err => DeliveredUnassignmentResultError(reassignmentId, err.error).reported())
 
           // TODO(#12926): validate assignmentRequest.stakeholders
-
-          _ <- ReassignmentSubmissionValidation.assignment(
-            reassignmentId = reassignmentId,
+          _ <- ReassignmentValidation.checkSubmitter(
+            ReassignmentRef(reassignmentId),
             topologySnapshot = targetSnapshot,
             submitter = assignmentRequest.submitter,
             participantId = assignmentRequest.submitterMetadata.submittingParticipant,
@@ -162,14 +159,6 @@ private[reassignment] class AssignmentValidation(
             ),
           )
 
-          _ <- condUnitET[Future](
-            reassignmentData.creatingTransactionId == assignmentRequest.creatingTransactionId,
-            CreatingTransactionIdMismatch(
-              reassignmentId,
-              assignmentRequest.creatingTransactionId,
-              reassignmentData.creatingTransactionId,
-            ),
-          )
           sourceIps = sourceCrypto.map(_.ipsSnapshot)
 
           stakeholders = assignmentRequest.stakeholders
@@ -197,8 +186,8 @@ private[reassignment] class AssignmentValidation(
       case _ => // No reassignment data or participant is a pure observing reassigning participant
         // TODO(#12926) Check what validations can be done here + ensure coverage
         for {
-          _ <- ReassignmentSubmissionValidation.assignment(
-            reassignmentId = reassignmentId,
+          _ <- ReassignmentValidation.checkSubmitter(
+            ReassignmentRef(reassignmentId),
             topologySnapshot = targetSnapshot,
             submitter = assignmentRequest.submitter,
             participantId = assignmentRequest.submitterMetadata.submittingParticipant,
@@ -315,15 +304,6 @@ object AssignmentValidation extends LocalRejectionGroup {
   final case class ContractDataMismatch(reassignmentId: ReassignmentId)
       extends AssignmentValidationError {
     override def message: String = s"Cannot assign `$reassignmentId`: contract data mismatch"
-  }
-
-  final case class CreatingTransactionIdMismatch(
-      reassignmentId: ReassignmentId,
-      assignmentTransactionId: TransactionId,
-      localTransactionId: TransactionId,
-  ) extends AssignmentValidationError {
-    override def message: String =
-      s"Cannot assign `$reassignmentId`: creating transaction id mismatch"
   }
 
   final case class InconsistentReassignmentCounter(

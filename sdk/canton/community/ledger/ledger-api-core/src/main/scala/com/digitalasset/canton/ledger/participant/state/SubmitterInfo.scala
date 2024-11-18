@@ -4,12 +4,15 @@
 package com.digitalasset.canton.ledger.participant.state
 
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
+import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.DeduplicationPeriod
-import com.digitalasset.canton.protocol.{
-  ExternallySignedTransaction,
-  TransactionAuthorizationPartySignatures,
-}
+import com.digitalasset.canton.ledger.participant.state.SubmitterInfo.ExternallySignedSubmission
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
+import com.digitalasset.canton.topology.PartyId
+import com.digitalasset.canton.version.HashingSchemeVersion
 import com.digitalasset.daml.lf.data.Ref
+
+import java.util.UUID
 
 /** Collects context information for a submission.
   *
@@ -29,6 +32,14 @@ import com.digitalasset.daml.lf.data.Ref
   *                             [[Update]].
   * @param submissionId         An identifier for the submission that allows an application to
   *                             correlate completions to its submissions.
+  * @param transactionUUID      Optionally explicitly chosen TransactionUUID. This is set in externally signed transactions
+  *                             where the external party has included the transactionUUID in the signature.
+  *                             It acts as a replay protection mechanism by allowing the mediator to deduplicate requests.
+  * @param mediatorGroup        Optionally explicitly chosen mediator group. This is set in externally signed transactions
+  *                             where the external party has included the mediator group in the signature.
+  *
+  * @param externallySignedSubmission If this is provided then the authorization for all acting parties
+  *                                   will be provided by the enclosed signatures.
   */
 final case class SubmitterInfo(
     actAs: List[Ref.Party],
@@ -37,7 +48,7 @@ final case class SubmitterInfo(
     commandId: Ref.CommandId,
     deduplicationPeriod: DeduplicationPeriod,
     submissionId: Option[Ref.SubmissionId],
-    externallySignedTransaction: Option[ExternallySignedTransaction],
+    externallySignedSubmission: Option[ExternallySignedSubmission],
 ) {
 
   /** The ID for the ledger change */
@@ -52,14 +63,25 @@ final case class SubmitterInfo(
       submissionId,
       None,
     )
+
 }
 
 object SubmitterInfo {
-  implicit val `PartySignatures to LoggingValue`
-      : ToLoggingValue[TransactionAuthorizationPartySignatures] = {
-    case TransactionAuthorizationPartySignatures(signatures) =>
+  implicit val `ExternallySignedSubmission to LoggingValue`
+      : ToLoggingValue[ExternallySignedSubmission] = {
+    case ExternallySignedSubmission(
+          version,
+          signatures,
+          transactionUUID,
+          mediatorGroup,
+          usesLedgerEffectiveTime,
+        ) =>
       LoggingValue.Nested.fromEntries(
-        "parties" -> signatures.map(_._1.toProtoPrimitive)
+        "version" -> version.index,
+        "signatures" -> signatures.keys.map(_.toProtoPrimitive),
+        "transactionUUID" -> transactionUUID.toString,
+        "mediatorGroup" -> mediatorGroup.toString,
+        "usesLedgerEffectiveTime" -> usesLedgerEffectiveTime,
       )
   }
   implicit val `SubmitterInfo to LoggingValue`: ToLoggingValue[SubmitterInfo] = {
@@ -70,7 +92,7 @@ object SubmitterInfo {
           commandId,
           deduplicationPeriod,
           submissionId,
-          externallySignedTransaction,
+          externallySignedSubmission,
         ) =>
       LoggingValue.Nested.fromEntries(
         "actAs " -> actAs,
@@ -79,7 +101,16 @@ object SubmitterInfo {
         "commandId " -> commandId,
         "deduplicationPeriod " -> deduplicationPeriod,
         "submissionId" -> submissionId,
-        "partySignatures" -> externallySignedTransaction.map(_.signatures),
+        "externallySignedSubmission" -> externallySignedSubmission,
       )
   }
+
+  final case class ExternallySignedSubmission(
+      version: HashingSchemeVersion,
+      signatures: Map[PartyId, Seq[Signature]],
+      transactionUUID: UUID,
+      mediatorGroup: MediatorGroupIndex,
+      usesLedgerEffectiveTime: Boolean,
+  )
+
 }

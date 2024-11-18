@@ -27,9 +27,10 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDe
   mkActivenessSet,
 }
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
-  NoReassignmentSubmissionPermission,
+  NotHostedOnParticipant,
   ParsedReassignmentRequest,
   ReassignmentProcessorError,
+  SubmitterMustBeStakeholder,
 }
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessingSteps.PendingUnassignment
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.*
@@ -296,8 +297,6 @@ final class UnassignmentProcessingStepsTest
   )
   private lazy val contractId = contract.contractId
 
-  private lazy val creatingTransactionId = ExampleTransactionFactory.transactionId(0)
-
   def mkParsedRequest(
       view: FullUnassignmentTree,
       recipients: Recipients = RecipientsTest.testInstance,
@@ -341,7 +340,6 @@ final class UnassignmentProcessingStepsTest
         .validated(
           submittingParticipant,
           timeProof,
-          creatingTransactionId,
           updatedContract,
           submitterMetadata(submitter),
           sourceDomain,
@@ -364,28 +362,28 @@ final class UnassignmentProcessingStepsTest
         testingTopology,
         testingTopology,
         stakeholdersOverride = Some(stakeholders),
-      ).left.value shouldBe UnassignmentSubmitterMustBeStakeholder(
-        contractId,
+      ).left.value shouldBe SubmitterMustBeStakeholder(
+        ReassignmentRef(contractId),
         submitter,
         stakeholders.all,
       )
     }
 
-    "fail if submitting participant does not have submission permission" in {
-      val ipsNoSubmissionPermission =
-        createTestingTopologySnapshot(Map(submittingParticipant -> Map(submitter -> Confirmation)))
+    "fail if submitting party is not hosted on participant" in {
+      val ipsNotHostedOnParticipant =
+        createTestingTopologySnapshot(Map.empty)
 
       mkUnassignmentResult(
-        ipsNoSubmissionPermission,
+        ipsNotHostedOnParticipant,
         testingTopology,
-      ).left.value shouldBe NoReassignmentSubmissionPermission(
-        s"Unassignment of $contractId",
+      ).left.value shouldBe NotHostedOnParticipant(
+        ReassignmentRef(contractId),
         submitter,
         submittingParticipant,
       )
     }
 
-    "fail if a stakeholder cannot submit on target domain" in {
+    "succeed if a stakeholder cannot submit on target domain" in {
       val ipsNoSubmissionOnTarget = createTestingTopologySnapshot(
         Map(
           submittingParticipant -> Map(submitter -> Submission),
@@ -398,9 +396,7 @@ final class UnassignmentProcessingStepsTest
         testingTopology,
         ipsNoSubmissionOnTarget,
         stakeholdersOverride = Some(stakeholders),
-      ).left.value shouldBe PermissionErrors(
-        s"For party $party1, no participant with submission permission on source domain has submission permission on target domain."
-      )
+      ).value shouldBe a[UnassignmentRequestValidated]
     }
 
     "fail if a signatory is not hosted on a confirming reassigning participant" in {
@@ -431,25 +427,6 @@ final class UnassignmentProcessingStepsTest
       )
 
       result.left.value shouldBe expectedError
-    }
-
-    "fail if a stakeholder is not hosted on the same participant on both domains" in {
-      val ipsDifferentParticipant = createTestingTopologySnapshot(
-        Map(
-          submittingParticipant -> Map(submitter -> Submission),
-          participant1 -> Map(party1 -> Confirmation),
-          participant2 -> Map(party1 -> Submission),
-        )
-      )
-
-      val stakeholders = Stakeholders.tryCreate(Set(submitter, party1), Set())
-      mkUnassignmentResult(
-        testingTopology,
-        ipsDifferentParticipant,
-        stakeholdersOverride = Some(stakeholders),
-      ).left.value shouldBe PermissionErrors(
-        s"For party $party1, no participant with submission permission on source domain has submission permission on target domain."
-      )
     }
 
     // TODO(i13201) This should ideally be covered in integration tests as well
@@ -558,7 +535,6 @@ final class UnassignmentProcessingStepsTest
               Set(submittingParticipant),
               Set(submittingParticipant, participant1),
             ),
-            creatingTransactionId = creatingTransactionId,
             contract = contract,
             sourceDomain = sourceDomain,
             sourceProtocolVersion = Source(testedProtocolVersion),
@@ -601,7 +577,6 @@ final class UnassignmentProcessingStepsTest
               confirming = Set(submittingParticipant),
               observing = Set(submittingParticipant, participant1, participant3, participant4),
             ),
-            creatingTransactionId = creatingTransactionId,
             contract = contract,
             sourceDomain = sourceDomain,
             sourceProtocolVersion = Source(testedProtocolVersion),
@@ -637,7 +612,6 @@ final class UnassignmentProcessingStepsTest
           // Because admin1 is a stakeholder, participant1 is reassigning
           reassigningParticipants =
             ReassigningParticipants.tryCreate(Set(), Set(submittingParticipant, participant1)),
-          creatingTransactionId = creatingTransactionId,
           contract = updatedContract,
           sourceDomain = sourceDomain,
           sourceProtocolVersion = Source(testedProtocolVersion),
@@ -657,7 +631,6 @@ final class UnassignmentProcessingStepsTest
   "prepare submission" should {
     "succeed without errors" in {
       val state = mkState
-      val transactionId = ExampleTransactionFactory.transactionId(1)
       val submissionParam =
         UnassignmentProcessingSteps.SubmissionParam(
           submitterMetadata = submitterMetadata(party1),
@@ -667,11 +640,7 @@ final class UnassignmentProcessingStepsTest
         )
 
       for {
-        _ <- state.contractStore.storeCreatedContract(
-          RequestCounter(1),
-          transactionId,
-          contract,
-        )
+        _ <- state.contractStore.storeCreatedContract(RequestCounter(1), contract)
         _ <- persistentState.activeContractStore
           .markContractsCreated(
             Seq(contractId -> initialReassignmentCounter),
@@ -696,7 +665,6 @@ final class UnassignmentProcessingStepsTest
         contractId,
         contractInstance = ExampleTransactionFactory.contractInstance(),
       )
-      val transactionId = ExampleTransactionFactory.transactionId(1)
       val submissionParam = UnassignmentProcessingSteps.SubmissionParam(
         submitterMetadata = submitterMetadata(party1),
         contractId,
@@ -705,11 +673,7 @@ final class UnassignmentProcessingStepsTest
       )
 
       for {
-        _ <- state.contractStore.storeCreatedContract(
-          RequestCounter(1),
-          transactionId,
-          contract,
-        )
+        _ <- state.contractStore.storeCreatedContract(RequestCounter(1), contract)
         submissionResult <- leftOrFailShutdown(
           unassignmentProcessingSteps.createSubmission(
             submissionParam,
@@ -728,7 +692,6 @@ final class UnassignmentProcessingStepsTest
     val unassignmentRequest = UnassignmentRequest(
       submitterMetadata = submitterMetadata(party1),
       reassigningParticipants = ReassigningParticipants.withConfirmers(Set(submittingParticipant)),
-      creatingTransactionId,
       contract,
       sourceDomain,
       Source(testedProtocolVersion),
@@ -779,12 +742,10 @@ final class UnassignmentProcessingStepsTest
         unassignmentProcessingSteps: UnassignmentProcessingSteps
     ) = {
       val state = mkState
-      val transactionId = ExampleTransactionFactory.transactionId(1)
       val unassignmentRequest = UnassignmentRequest(
         submitterMetadata = submitterMetadata(party1),
         reassigningParticipants =
           ReassigningParticipants.withConfirmers(Set(submittingParticipant)),
-        creatingTransactionId,
         contract,
         sourceDomain,
         Source(testedProtocolVersion),
@@ -797,11 +758,7 @@ final class UnassignmentProcessingStepsTest
       val fullUnassignmentTree = makeFullUnassignmentTree(unassignmentRequest)
 
       state.contractStore
-        .storeCreatedContract(
-          RequestCounter(1),
-          transactionId,
-          contract,
-        )
+        .storeCreatedContract(RequestCounter(1), contract)
         .futureValue
 
       unassignmentProcessingSteps

@@ -30,10 +30,10 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDe
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidation.*
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
-  AssignmentSubmitterMustBeStakeholder,
-  NoReassignmentSubmissionPermission,
+  NotHostedOnParticipant,
   ParsedReassignmentRequest,
   StakeholdersMismatch,
+  SubmitterMustBeStakeholder,
 }
 import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.{
   ViewHashAndRecipients,
@@ -379,43 +379,14 @@ class AssignmentProcessingStepsTest
           )
         )("prepare submission did not return a left")
       } yield {
-        preparedSubmission should matchPattern {
-          case AssignmentSubmitterMustBeStakeholder(_, _, _) =>
-        }
-      }
-    }
-
-    "fail when participant does not have submission permission for party" in {
-      val failingTopology = TestingTopology(domains = Set(sourceDomain.unwrap))
-        .withReversedTopology(
-          Map(participant -> Map(party1 -> ParticipantPermission.Observation))
-        )
-        .build(loggerFactory)
-      val cryptoSnapshot2 = failingTopology
-        .forOwnerAndDomain(participant, sourceDomain.unwrap)
-        .currentSnapshotApproximation
-
-      for {
-        deps <- statefulDependencies
-        (persistentState, state) = deps
-        _ <- setUpOrFail(reassignmentData, unassignmentResult, persistentState).failOnShutdown
-        preparedSubmission <- leftOrFailShutdown(
-          assignmentProcessingSteps.createSubmission(
-            submissionParam,
-            targetMediator,
-            state,
-            cryptoSnapshot2,
-          )
-        )("prepare submission did not return a left")
-      } yield {
-        preparedSubmission should matchPattern { case NoReassignmentSubmissionPermission(_, _, _) =>
+        preparedSubmission should matchPattern { case SubmitterMustBeStakeholder(_, _, _) =>
         }
       }
     }
 
     "fail when submitting party not hosted on the participant" in {
       val submissionParam2 = SubmissionParam(
-        submitterInfo(party2),
+        submitterInfo(party3),
         reassignmentId,
       )
 
@@ -424,13 +395,13 @@ class AssignmentProcessingStepsTest
         contractId = coidAbs1,
         contractInstance = ExampleTransactionFactory.contractInstance(),
         ledgerTime = CantonTimestamp.Epoch,
-        metadata = ContractMetadata.tryCreate(Set(), Set(party2), None),
+        metadata = ContractMetadata.tryCreate(Set(), Set(party3), None),
       )
 
       val reassignmentData2 = ReassignmentStoreTest.mkReassignmentDataForDomain(
         reassignmentId,
         sourceMediator,
-        party2,
+        party3,
         targetDomain,
         contract,
       )
@@ -448,7 +419,7 @@ class AssignmentProcessingStepsTest
           )
         )("prepare submission did not return a left")
       } yield {
-        preparedSubmission should matchPattern { case NoReassignmentSubmissionPermission(_, _, _) =>
+        preparedSubmission should matchPattern { case NotHostedOnParticipant(_, _, _) =>
         }
       }
     }
@@ -459,7 +430,6 @@ class AssignmentProcessingStepsTest
       makeFullAssignmentTree(
         party1,
         contract,
-        ExampleTransactionFactory.transactionId(0),
         targetDomain,
         targetMediator,
         unassignmentResult,
@@ -505,7 +475,6 @@ class AssignmentProcessingStepsTest
       val inTree2 = makeFullAssignmentTree(
         party1,
         contract,
-        ExampleTransactionFactory.transactionId(0),
         Target(anotherDomain),
         anotherMediator,
         unassignmentResult,
@@ -566,7 +535,6 @@ class AssignmentProcessingStepsTest
           fullAssignmentTree2 = makeFullAssignmentTree(
             party1,
             contractWrongStakeholders,
-            ExampleTransactionFactory.transactionId(0),
             targetDomain,
             targetMediator,
             unassignmentResult,
@@ -627,7 +595,6 @@ class AssignmentProcessingStepsTest
         fullAssignmentTree = makeFullAssignmentTree(
           party1,
           contract,
-          ExampleTransactionFactory.transactionId(0),
           targetDomain,
           targetMediator,
           unassignmentResult,
@@ -672,7 +639,6 @@ class AssignmentProcessingStepsTest
         contract,
         initialReassignmentCounter,
         submitterInfo(submitter),
-        ExampleTransactionFactory.transactionId(0),
         isObservingReassigningParticipant = false,
         reassignmentId,
         contract.metadata.stakeholders,
@@ -742,7 +708,6 @@ class AssignmentProcessingStepsTest
   private def makeFullAssignmentTree(
       submitter: LfPartyId,
       contract: SerializableContract,
-      creatingTransactionId: TransactionId,
       targetDomain: Target[DomainId],
       targetMediator: MediatorGroupRecipient,
       unassignmentResult: DeliveredUnassignmentResult,
@@ -757,7 +722,6 @@ class AssignmentProcessingStepsTest
         submitterInfo(submitter),
         contract,
         initialReassignmentCounter,
-        creatingTransactionId,
         targetDomain,
         targetMediator,
         unassignmentResult,

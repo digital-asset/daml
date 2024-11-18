@@ -76,8 +76,7 @@ private final class ChangeAssignation(
       unassignedContract <- readContract(
         reassignmentData.map(data => (contractId, data.reassignmentCounter))
       )
-      transactionId = randomTransactionId(syncCrypto)
-      _ <- persistContractsAtTarget(transactionId, List(unassignedContract))
+      _ <- persistContractsAtTarget(List(unassignedContract))
       _ <- targetPersistentState.unwrap.reassignmentStore
         .completeReassignment(
           reassignmentData.payload.reassignmentId,
@@ -123,8 +122,7 @@ private final class ChangeAssignation(
       _ = logger.debug(
         s"Contracts that need to change assignation with persistence status: $contracts"
       )
-      transactionId = randomTransactionId(syncCrypto)
-      _ <- persistContractsAtTarget(transactionId, contracts)
+      _ <- persistContractsAtTarget(contracts)
       _ <- persistUnassignAndAssign(contracts).toEitherT
       _ <- EitherT.right(publishReassignmentEvents(contracts))
     } yield ()
@@ -289,8 +287,7 @@ private final class ChangeAssignation(
     }
 
   private def persistContractsAtTarget(
-      transactionId: TransactionId,
-      contracts: List[ChangeAssignation.Data[Changed]],
+      contracts: List[ChangeAssignation.Data[Changed]]
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, String, Unit] =
@@ -301,7 +298,6 @@ private final class ChangeAssignation(
             targetPersistentState.unwrap.contractStore
               .storeCreatedContract(
                 contract.targetTimeOfChange.unwrap.rc,
-                transactionId,
                 contract.payload.contract,
               )
           else Future.unit

@@ -29,8 +29,8 @@ trait CryptoPublicStore extends AutoCloseable {
   implicit val ec: ExecutionContext
 
   // Cached values for public keys with names
-  protected val signingKeyMap: TrieMap[Fingerprint, SigningPublicKeyWithName] = TrieMap.empty
-  protected val encryptionKeyMap: TrieMap[Fingerprint, EncryptionPublicKeyWithName] = TrieMap.empty
+  private val signingKeyMap: TrieMap[Fingerprint, SigningPublicKeyWithName] = TrieMap.empty
+  private val encryptionKeyMap: TrieMap[Fingerprint, EncryptionPublicKeyWithName] = TrieMap.empty
 
   // Write methods that the underlying store has to implement for the caching
   protected def writeSigningKey(key: SigningPublicKey, name: Option[KeyName])(implicit
@@ -51,7 +51,7 @@ trait CryptoPublicStore extends AutoCloseable {
       traceContext: TraceContext
   ): FutureUnlessShutdown[Set[EncryptionPublicKeyWithName]]
 
-  def storePublicKey(publicKey: PublicKey, name: Option[KeyName])(implicit
+  private[crypto] def storePublicKey(publicKey: PublicKey, name: Option[KeyName])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
     (publicKey: @unchecked) match {
@@ -72,22 +72,12 @@ trait CryptoPublicStore extends AutoCloseable {
   ): OptionT[FutureUnlessShutdown, SigningPublicKey] =
     OptionT(listSigningKeys.map(_.find(_.name.contains(keyName)).map(_.publicKey)))
 
-  def findSigningKeyIdByFingerprint(fingerprint: Fingerprint)(implicit
-      traceContext: TraceContext
-  ): OptionT[FutureUnlessShutdown, SigningPublicKey] =
-    OptionT(listSigningKeys.map(_.find(_.publicKey.fingerprint == fingerprint).map(_.publicKey)))
-
   def findEncryptionKeyIdByName(keyName: KeyName)(implicit
       traceContext: TraceContext
   ): OptionT[FutureUnlessShutdown, EncryptionPublicKey] =
     OptionT(listEncryptionKeys.map(_.find(_.name.contains(keyName)).map(_.publicKey)))
 
-  def findEncryptionKeyIdByFingerprint(fingerprint: Fingerprint)(implicit
-      traceContext: TraceContext
-  ): OptionT[FutureUnlessShutdown, EncryptionPublicKey] =
-    OptionT(listEncryptionKeys.map(_.find(_.publicKey.fingerprint == fingerprint).map(_.publicKey)))
-
-  def publicKeysWithName(implicit
+  private[crypto] def publicKeysWithName(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Set[PublicKeyWithName]] =
     for {
@@ -109,7 +99,7 @@ trait CryptoPublicStore extends AutoCloseable {
   ): FutureUnlessShutdown[Set[SigningPublicKey]] =
     retrieveKeysAndUpdateCache(listSigningKeys, signingKeyMap)
 
-  def storeSigningKey(key: SigningPublicKey, name: Option[KeyName] = None)(implicit
+  private[crypto] def storeSigningKey(key: SigningPublicKey, name: Option[KeyName] = None)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
     writeSigningKey(key, name).map { _ =>

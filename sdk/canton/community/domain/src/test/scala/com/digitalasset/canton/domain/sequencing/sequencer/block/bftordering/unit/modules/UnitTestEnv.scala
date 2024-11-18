@@ -7,8 +7,18 @@ import cats.Traverse
 import cats.syntax.either.*
 import com.daml.metrics.api.MetricHandle.Timer
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.crypto.{Hash, Signature, SignatureCheckError, SyncCryptoError}
+import com.digitalasset.canton.crypto.{
+  Hash,
+  HashPurpose,
+  Signature,
+  SignatureCheckError,
+  SyncCryptoError,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.CryptoProvider
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.{
+  MessageFrom,
+  SignedMessage,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.{
   CancellableEvent,
   Env,
@@ -20,6 +30,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.unit.modules.UnitTestContext.DelayCount
 import com.digitalasset.canton.logging.{NamedLoggerFactory, SuppressingLogger}
+import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.Assertions.fail
@@ -261,6 +272,12 @@ object ProgrammableUnitTestEnv {
         traceContext: TraceContext
     ): () => Either[SyncCryptoError, Signature] = () => Right(Signature.noSignature)
 
+    override def signMessage[MessageT <: ProtocolVersionedMemoizedEvidence with MessageFrom](
+        message: MessageT,
+        hashPurpose: HashPurpose,
+    )(implicit traceContext: TraceContext): () => Either[SyncCryptoError, SignedMessage[MessageT]] =
+      () => Right(SignedMessage(message, Signature.noSignature))
+
     override def verifySignature(hash: Hash, member: SequencerId, signature: Signature)(implicit
         traceContext: TraceContext
     ): () => Either[SignatureCheckError, Unit] = () => Either.unit
@@ -342,4 +359,7 @@ final class ProgrammableUnitTestContext[MessageT](resolveAwaits: Boolean = false
   override def timeFuture[X](timer: Timer, futureUnlessShutdown: => () => X)(implicit
       mc: MetricsContext
   ): () => X = futureUnlessShutdown
+
+  override def zipFuture[X, Y](future1: () => X, future2: () => Y): () => (X, Y) =
+    () => (future1(), future2())
 }

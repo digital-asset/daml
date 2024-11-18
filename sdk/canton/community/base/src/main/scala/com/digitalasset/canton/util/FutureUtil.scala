@@ -92,6 +92,7 @@ object FutureUtil {
 
   /** Discard `future` and log an error if it does not complete successfully.
     * This is useful to document that a `Future` is intentionally not being awaited upon.
+    *  @param logPassiveInstanceAtInfo: If true, log [[PassiveInstanceException]] at INFO instead of ERROR level. Default is false.
     */
   def doNotAwait(
       future: Future[?],
@@ -99,8 +100,10 @@ object FutureUtil {
       onFailure: Throwable => Unit = _ => (),
       level: => Level = Level.ERROR,
       closeContext: Option[CloseContext] = None,
+      logPassiveInstanceAtInfo: Boolean = false,
   )(implicit loggingContext: ErrorLoggingContext): Unit = {
-    val _ = logOnFailure(future, failureMessage, onFailure, level, closeContext)
+    val _ =
+      logOnFailure(future, failureMessage, onFailure, level, closeContext, logPassiveInstanceAtInfo)
   }
 
   /** [[doNotAwait]] but for FUS
@@ -124,6 +127,14 @@ object FutureUtil {
     val wrappedFuture = Future.fromTry(Try(future)).flatten
     doNotAwait(wrappedFuture, failureMessage, onFailure, level)
   }
+
+  /** Java libraries often wrap exceptions in a future inside a [[java.util.concurrent.CompletionException]]
+    * when they convert a Java-style future into a Scala-style future. When our code then tries to catch our own
+    * exceptions, the logic fails because we do not look inside the [[java.util.concurrent.CompletionException]].
+    * We therefore want to unwrap such exceptions
+    */
+  def unwrapCompletionException[A](f: Future[A])(implicit ec: ExecutionContext): Future[A] =
+    f.transform(TryUtil.unwrapCompletionException)
 
   lazy val defaultStackTraceFilter: Thread => Boolean = {
     // Include threads directly used by Canton (incl. tests).

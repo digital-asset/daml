@@ -7,6 +7,7 @@ package com.digitalasset.canton.http.json.v2
 import com.daml.error.utils.DecodedCantonError
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.pekko.ClientAdapter
+import com.digitalasset.canton.http.WebsocketConfig
 import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidArgument
@@ -32,7 +33,7 @@ import io.grpc.stub.StreamObserver
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
-import scala.concurrent.duration.DurationInt
+import scala.util.control.NonFatal
 
 trait Endpoints extends NamedLogging {
   import Endpoints.*
@@ -46,15 +47,14 @@ trait Endpoints extends NamedLogging {
           .fromStatusRuntimeException(sre)
           .getOrElse(
             throw new RuntimeException(
-              "Failed to convert response to JsCantonError."
-            )
+              s"Failed to convert response to JsCantonError from ${sre.getMessage}", sre
+            ) // TODO (i19398) improve error handling in JSON (repeated code)
           )
       )
       Success(
         Left(error)
       )
     case Success(value) => Success(value)
-    // TODO (i19398): Handle
     case Failure(unhandled) =>
       unhandled match {
         case unexpected: UnexpectedFieldsException =>
@@ -106,13 +106,13 @@ trait Endpoints extends NamedLogging {
         CallerContext,
         HI,
         JsCantonError,
-        Flow[I, O, Any],
+        Flow[I, Either[JsCantonError, O], Any],
         PekkoStreams & WebSockets,
       ],
       service: CallerContext => TracedInput[HI] => Flow[I, O, Any],
   ): Full[CallerContext, CallerContext, HI, JsCantonError, Flow[
     I,
-    O,
+    Either[JsCantonError, O],
     Any,
   ], PekkoStreams & WebSockets, Future] =
     endpoint
@@ -122,7 +122,27 @@ trait Endpoints extends NamedLogging {
       // TODO(i19398): Handle error result
       // TODO(i19103)  decide if tracecontext headers on websockets are handled
       .serverLogicSuccess { jwt => i =>
-        Future.successful(service(jwt)(TracedInput(i, TraceContext.empty)))
+        val errorHandlingService =
+          service(jwt)(TracedInput(i, TraceContext.empty))
+            .map(out =>
+              Right[JsCantonError, O](out)
+            ) // TODO(i19398): Try if it is practicable to deliver an error as CloseReason on websocket
+            .recover {
+              case sre: StatusRuntimeException =>
+                Left(
+                  JsCantonError.fromDecodedCantonError(
+                    DecodedCantonError
+                      .fromStatusRuntimeException(sre)
+                      .getOrElse(
+                        throw new RuntimeException(
+                          "Failed to convert response to JsCantonError."
+                        )
+                      )
+                  )
+                )
+              case NonFatal(e) => throw e
+            }
+        Future.successful(errorHandlingService)
       }
 
   def error[R](error: JsCantonError): Future[Either[JsCantonError, R]] =
@@ -155,28 +175,31 @@ trait Endpoints extends NamedLogging {
   }
 
   /** Utility to prepare flow from a gRPC method with an observer.
-    * @param limited  if true then server will close websocket after a delay when no new elements appear in stream
+    * @param closeDelay  if true then server will close websocket after a delay when no new elements appear in stream
     */
   protected def prepareSingleWsStream[REQ, RESP, JSRESP](
       stream: (REQ, StreamObserver[RESP]) => Unit,
       mapToJs: RESP => Future[JSRESP],
-      limited: Boolean = false,
-  )(implicit esf: ExecutionSequencerFactory): Flow[REQ, JSRESP, NotUsed] = {
+      withCloseDelay: Boolean = false,
+  )(implicit
+      esf: ExecutionSequencerFactory,
+      wsConfig: WebsocketConfig,
+  ): Flow[REQ, JSRESP, NotUsed] = {
     val flow =
       Flow[REQ]
         .take(1) // we take only single request elem
         .flatMapConcat { req =>
           ClientAdapter
-            .serverStreaming(
-              req,
-              stream,
-            )
+            .serverStreaming(req, stream)
         }
-
-    if (limited) {
+    if (withCloseDelay) {
       flow
         .map(Some(_))
-        .concat(Source.single(None).delay(2.seconds)) // TODO (i21030)  make it configurable
+        .concat(
+          Source
+            .single(None)
+            .delay(wsConfig.closeDelay)
+        )
         .collect { case Some(elem) =>
           elem
         }
@@ -220,7 +243,6 @@ object Endpoints {
                 .map(_.substring(tokenPrefix.length))
                 .headOption
                 .map(Jwt.apply)
-              bearer.map(Jwt.apply)
             }(_.map(_.token))
             .description("Ledger API standard JWT token (websocket)")
         )

@@ -14,6 +14,9 @@ trait HasTraceContext {
   */
 final case class Traced[+A](value: A)(implicit override val traceContext: TraceContext)
     extends HasTraceContext {
+
+  def unwrap: A = value
+
   def map[B](fn: A => B): Traced[B] = new Traced[B](fn(value))
 
   def mapWithTraceContext[B](fn: TraceContext => A => B): Traced[B] =

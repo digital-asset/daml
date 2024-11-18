@@ -73,7 +73,9 @@ class JsPackageService(
       val bs = protobuf.ByteString.readFrom(inputStream)
       packageManagementClient
         .uploadDarFile(bs, caller.jwt.map(_.token))
-        .map(_ => package_management_service.UploadDarFileResponse())
+        .map { _ =>
+          package_management_service.UploadDarFileResponse()
+        }
         .resultToRight
 
   }
@@ -82,12 +84,15 @@ class JsPackageService(
     packageClient
       .getPackage(tracedInput.in, caller.jwt.map(_.token))(tracedInput.traceContext)
       .map(response =>
-        Source.fromIterator(() =>
-          response.archivePayload
-            .asReadOnlyByteBufferList()
-            .iterator
-            .asScala
-            .map(org.apache.pekko.util.ByteString(_))
+        (
+          Source.fromIterator(() =>
+            response.archivePayload
+              .asReadOnlyByteBufferList()
+              .iterator
+              .asScala
+              .map(org.apache.pekko.util.ByteString(_))
+          ),
+          response.hash,
         )
       )
       .resultToRight
@@ -114,6 +119,9 @@ object JsPackageService {
     packages.get
       .in(path[String](packageIdPath))
       .out(streamBinaryBody(PekkoStreams)(CodecFormat.OctetStream()))
+      .out(
+        sttp.tapir.header[String]("Canton-Package-Hash")
+      ) // Non standard header used for hash output
       .description("Download the package for the requested package-id")
 
   val packageStatusEndpoint =

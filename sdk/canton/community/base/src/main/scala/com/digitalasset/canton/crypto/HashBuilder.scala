@@ -4,7 +4,12 @@
 package com.digitalasset.canton.crypto
 
 import com.digitalasset.canton.checked
+import com.digitalasset.canton.crypto.HashAlgorithm.Sha256
+import com.digitalasset.canton.protocol.LfHash
+import com.digitalasset.canton.protocol.hash.HashTracer
 import com.digitalasset.canton.serialization.DeterministicEncoding
+import com.digitalasset.daml.lf.data
+import com.digitalasset.daml.lf.data.ImmArray
 import com.google.protobuf.ByteString
 
 import java.nio.ByteBuffer
@@ -33,12 +38,24 @@ trait HashBuilder {
     */
   def addWithoutLengthPrefix(a: ByteString): this.type
 
+  /** Same as addWithoutLengthPrefix but takes an additional context argument.
+    * The context is used by a [[com.digitalasset.canton.protocol.hash.HashTracer]] to trace hashing steps.
+    */
+  def addWithoutLengthPrefixWithContext(a: ByteString, context: => String): this.type
+
   /** Appends the length of `a` (encoded as fixed length [[com.google.protobuf.ByteString]]) as well as `a` to this builder.
     *
     * @return the updated hash builder
     * @throws java.lang.IllegalStateException if the [[finish]] method has already been called on this [[HashBuilder]]
     */
-  def add(a: ByteString): this.type = add(a.size).addWithoutLengthPrefix(a)
+  def add(a: ByteString): this.type =
+    add(a.size).addWithoutLengthPrefix(a)
+
+  /** Same as add but with an additional context.
+    * The context is used by a [[com.digitalasset.canton.protocol.hash.HashTracer]] to trace hashing steps.
+    */
+  def add(a: ByteString, context: => String): this.type =
+    add(a.size).addWithoutLengthPrefixWithContext(a, context)
 
   /** Shorthand for `addWithoutLengthPrefix(ByteString.copyFrom(a))` */
   def addWithoutLengthPrefix(a: Array[Byte]): this.type = addWithoutLengthPrefix(
@@ -56,13 +73,15 @@ trait HashBuilder {
   )
 
   /** Shorthand for `add(ByteString.copyFromUtf8(a))` */
-  def add(a: String): this.type = add(ByteString.copyFromUtf8(a))
+  def add(a: String): this.type = add(ByteString.copyFromUtf8(a), s"$a (string)")
 
   /** Shorthand for `addWithoutLengthPrefix(DeterministicEncoding.encodeInt(a))` */
-  def add(a: Int): this.type = addWithoutLengthPrefix(DeterministicEncoding.encodeInt(a))
+  def add(a: Int): this.type =
+    addWithoutLengthPrefixWithContext(DeterministicEncoding.encodeInt(a), s"$a (int)")
 
   /** Shorthand for `addWithoutLengthPrefix(DeterministicEncoding.encodeLong(a))` */
-  def add(a: Long): this.type = addWithoutLengthPrefix(DeterministicEncoding.encodeLong(a))
+  def add(a: Long): this.type =
+    addWithoutLengthPrefixWithContext(DeterministicEncoding.encodeLong(a), s"$a (long)")
 
   /** Terminates the building of the hash.
     * No more additions can be made using `HashBuilder.addWithoutLengthPrefix` after this method has been called.
@@ -73,18 +92,36 @@ trait HashBuilder {
   def finish(): Hash
 }
 
-/** Constructs a [[HashBuilder]] from the specified [[MessageDigest]]
+object HashBuilderFromMessageDigest {
+  // The apply method to make sure the
+  // purpose is always added first thing, while allowing subclasses to not automatically add the purpose.
+  // This is useful when building transaction hashes for example which involve instantiating multiple builders
+  // and where repeating the purpose in the encoding would be redundant
+  def apply(algorithm: HashAlgorithm, purpose: HashPurpose): HashBuilderFromMessageDigest =
+    new HashBuilderFromMessageDigest(algorithm, purpose).addPurpose
+}
+
+/** Constructs a [[HashBuilder]] from the specified [[java.security.MessageDigest]]
+  * ALWAYS use the apply method unless you know what you're doing.
   */
-private[crypto] class HashBuilderFromMessageDigest(algorithm: HashAlgorithm, purpose: HashPurpose)
+class HashBuilderFromMessageDigest private[crypto] (algorithm: HashAlgorithm, purpose: HashPurpose)
     extends HashBuilder {
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var finished: Boolean = false
 
   private val md: MessageDigest = MessageDigest.getInstance(algorithm.name)
+  protected lazy val purposeByteArray: Array[Byte] =
+    ByteBuffer.allocate(java.lang.Integer.BYTES).putInt(purpose.id).array()
 
-  {
-    md.update(ByteBuffer.allocate(java.lang.Integer.BYTES).putInt(purpose.id).array())
+  private[canton] def addPurpose: this.type = {
+    md.update(purposeByteArray)
+    this
+  }
+
+  def addByte(byte: Byte, context: => String): this.type = {
+    md.update(byte)
+    this
   }
 
   override def addWithoutLengthPrefix(a: Array[Byte]): this.type = {
@@ -97,6 +134,9 @@ private[crypto] class HashBuilderFromMessageDigest(algorithm: HashAlgorithm, pur
     a.toByteArray
   )
 
+  override def addWithoutLengthPrefixWithContext(a: ByteString, context: => String): this.type =
+    addWithoutLengthPrefix(a)
+
   override def finish(): Hash = {
     assertNotFinished()
     finished = true
@@ -107,4 +147,66 @@ private[crypto] class HashBuilderFromMessageDigest(algorithm: HashAlgorithm, pur
   private def assertNotFinished(): Unit =
     if (finished)
       throw new IllegalStateException(s"HashBuilder for $purpose has already been finalized.")
+}
+
+private[canton] class PrimitiveHashBuilder(purpose: HashPurpose, hashTracer: HashTracer)
+    extends HashBuilderFromMessageDigest(Sha256, purpose) {
+
+  override private[canton] def addPurpose: this.type = {
+    hashTracer.traceByteArray(purposeByteArray, "Hash Purpose")
+    super.addPurpose
+  }
+
+  override def addByte(byte: Byte, context: => String): this.type = {
+    hashTracer.traceByte(byte, context)
+    super.addByte(byte, context)
+  }
+
+  override def addWithoutLengthPrefixWithContext(a: ByteString, context: => String): this.type = {
+    hashTracer.traceByteString(a, context)
+    super.addWithoutLengthPrefix(a)
+  }
+
+  /* no size delimitation as hashes have fixed size  */
+  final def addHash(a: Hash, context: => String): this.type = {
+    addWithoutLengthPrefixWithContext(a.unwrap, context)
+    this
+  }
+
+  /* no size delimitation as hashes have fixed size  */
+  final def addLfHash(a: LfHash, context: => String): this.type = {
+    addWithoutLengthPrefixWithContext(a.bytes.toByteString, context)
+    this
+  }
+
+  final def addBool(b: Boolean): this.type =
+    addByte(if (b) 1.toByte else 0.toByte, s"${b.toString} (bool)")
+
+  final def addNumeric(v: data.Numeric): this.type =
+    add(ByteString.copyFromUtf8(data.Numeric.toString(v)), s"${data.Numeric.toString(v)} (numeric)")
+
+  final def iterateOver[T, U](a: ImmArray[T])(f: (this.type, T) => this.type): this.type =
+    a.foldLeft[this.type](add(a.length))(f)
+
+  final def iterateOver[T](a: Iterator[T], size: Int)(f: (this.type, T) => this.type): this.type =
+    a.foldLeft[this.type](add(size))(f)
+
+  final def addStringSet[S <: String](set: Set[S]): this.type = {
+    val ss = set.toSeq.sorted[String]
+    iterateOver(ss.iterator, ss.size)(_ add _)
+  }
+
+  final def addOptional[S](opt: Option[S], hashS: this.type => S => this.type): this.type =
+    opt match {
+      case None => addByte(0.toByte, "None")
+      case Some(value) => hashS(addByte(1.toByte, "Some"))(value)
+    }
+
+  def addContext(context: => String): this.type =
+    withContext(context)(identity)
+
+  def withContext(context: => String)(f: this.type => this.type): this.type = {
+    hashTracer.context(s"# $context")
+    f(this)
+  }
 }

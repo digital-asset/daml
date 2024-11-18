@@ -62,9 +62,10 @@ class SchemaProcessors(
       contextualizedErrorLogger: ContextualizedErrorLogger,
   ): Future[value.Value] =
     findTemplate(template, token).flatMap { templateId =>
-      prepareToProto(templateId.packageId, token).map(
-        _.choiceArguments((templateId, choiceName)).convert(jsonArgsValue)
-      )
+      prepareToProto(templateId.packageId, token)
+        .map(
+          _.choiceArguments((templateId, choiceName)).convert(jsonArgsValue)
+        )
     }
 
   def contractArgFromProtoToJson(
@@ -188,11 +189,12 @@ class SchemaProcessors(
       cache.getIfPresent(token.getOrElse("")).getOrElse(Map.empty)
     val matchingPackages = filterMatching(signatures)
 
-    val packagesMatchingName = if (matchingPackages.isEmpty) {
-      reloadSignatures(token).map(filterMatching)
-    } else {
-      Future(matchingPackages)
-    }
+    val packagesMatchingName =
+      if (matchingPackages.isEmpty) {
+        reloadSignatures(token).map(filterMatching)
+      } else {
+        Future(matchingPackages)
+      }
 
     packagesMatchingName.map { packages =>
       val topPackage: (PackageId, PackageSignature) = packages
@@ -258,16 +260,6 @@ class SchemaProcessors(
         )
         .fold(error => throw new IllegalStateException(error), identity)
     }
-
-  def choiceArgsFromJsonToProto(
-      templateId: Ref.Identifier,
-      choiceName: IdString.Name,
-      jsonArgsValue: ujson.Value,
-  )(token: Option[String]): Future[value.Value] =
-    prepareToProto(templateId.packageId, token).map(
-      _.choiceArguments((templateId, choiceName)).convert(jsonArgsValue)
-    )
-
 }
 
 object SchemaProcessorsCache {

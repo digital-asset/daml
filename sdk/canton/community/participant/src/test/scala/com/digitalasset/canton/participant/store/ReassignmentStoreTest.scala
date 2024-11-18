@@ -26,7 +26,6 @@ import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
   asSerializable,
   contractInstance,
   suffixedId,
-  transactionId,
 }
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.{
@@ -1421,7 +1420,6 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
     contractInstance = contractInstance(),
     ledgerTime = CantonTimestamp.Epoch,
   )
-  val transactionId1 = transactionId(1)
 
   val domain1 = DomainId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1"))
   val sourceDomain1 = Source(DomainId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))

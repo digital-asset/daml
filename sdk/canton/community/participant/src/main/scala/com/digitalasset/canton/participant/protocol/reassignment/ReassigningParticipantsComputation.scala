@@ -6,7 +6,6 @@ package com.digitalasset.canton.participant.protocol.reassignment
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
-import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.LfPartyId
@@ -19,7 +18,6 @@ import com.digitalasset.canton.protocol.Stakeholders
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.PartyInfo
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.transaction.{ParticipantAttributes, ParticipantPermission}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.SingletonTraverse.syntax.SingletonTraverseOps
@@ -50,13 +48,6 @@ private[protocol] class ReassigningParticipantsComputation(
       sourceStakeholdersInfo <- getStakeholdersPartyInfo(sourceTopology)
       targetStakeholdersInfo <- getStakeholdersPartyInfo(targetTopology)
 
-      sourcePermissions = sourceStakeholdersInfo.map(_.fmap(_.participants))
-      targetPermissions = targetStakeholdersInfo.map(_.fmap(_.participants))
-
-      _ <- EitherT
-        .fromEither[Future](partySubmissionCheck(sourcePermissions, targetPermissions))
-        .leftWiden
-
       confirmingReassigningParticipants <- EitherT
         .fromEither[Future](
           computeConfirmingReassigningParticipants(sourceStakeholdersInfo, targetStakeholdersInfo)
@@ -79,45 +70,6 @@ private[protocol] class ReassigningParticipantsComputation(
       )
 
     } yield reassigningParticipants
-
-  /* Checks the following hosting requirements for each party:
-   * If the party is hosted on a participant with submission permission,
-   * then at least one such participant must also have submission permission
-   * for that party on the target domain.
-   * This ensures that the party can initiate the assignment if needed and continue to use the contract on the
-   * target domain, unless the permissions change in between.
-   */
-  // TODO(#21795) Check whether we want to keep that requirement
-  private def partySubmissionCheck(
-      permissionsSource: Source[Map[LfPartyId, Map[ParticipantId, ParticipantAttributes]]],
-      permissionsTarget: Target[Map[LfPartyId, Map[ParticipantId, ParticipantAttributes]]],
-  ): Either[PermissionErrors, Unit] = {
-
-    def keepParticipantsSubmissionPermission(
-        permissions: Map[ParticipantId, ParticipantAttributes]
-    ): Set[ParticipantId] =
-      permissions.toSeq.collect {
-        case (participant, participantPermissions)
-            if participantPermissions.permission == ParticipantPermission.Submission =>
-          participant
-      }.toSet
-
-    permissionsSource.unwrap.toSeq.traverse_ { case (party, sourcePermissions) =>
-      val source = keepParticipantsSubmissionPermission(sourcePermissions)
-      val target =
-        keepParticipantsSubmissionPermission(permissionsTarget.unwrap.getOrElse(party, Map.empty))
-
-      def hasSubmissionPermission = source.isEmpty || source.exists(target.contains)
-
-      Either.cond(
-        hasSubmissionPermission,
-        (),
-        PermissionErrors(
-          s"For party $party, no participant with submission permission on source domain has submission permission on target domain."
-        ),
-      )
-    }
-  }
 
   /** Compute the confirming reassigning participants
     * Fails if one signatory is not hosted on sufficiently many confirming reassigning participants

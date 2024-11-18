@@ -67,7 +67,10 @@ import com.digitalasset.canton.participant.protocol.validation.InternalConsisten
   ErrorWithInternalConsistencyCheck,
   alertingPartyLookup,
 }
-import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.ErrorWithSubTransaction
+import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.{
+  ErrorWithSubTransaction,
+  LazyAsyncReInterpretation,
+}
 import com.digitalasset.canton.participant.protocol.validation.TimeValidator.TimeCheckFailure
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.*
@@ -85,6 +88,7 @@ import com.digitalasset.canton.sequencing.client.SendAsyncClientError
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.{ConfirmationRequestSessionKeyStore, SessionKeyStore}
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -166,6 +170,9 @@ class TransactionProcessingSteps(
 
   override def submissionDescription(param: SubmissionParam): String =
     show"submitters ${param.submitterInfo.actAs}, command-id ${param.submitterInfo.commandId}"
+
+  override def explicitMediatorGroup(param: SubmissionParam): Option[MediatorGroupIndex] =
+    param.submitterInfo.externallySignedSubmission.map(_.mediatorGroup)
 
   override def submissionIdOfPendingRequest(pendingData: PendingTransaction): Unit = ()
 
@@ -318,7 +325,10 @@ class TransactionProcessingSteps(
       val submitterInfoWithDedupPeriod =
         submitterInfo.copy(deduplicationPeriod = actualDeduplicationOffset)
 
-      def causeWithTemplate(message: String, reason: TransactionConfirmationRequestCreationError) =
+      def causeWithTemplate(
+          message: String,
+          reason: TransactionConfirmationRequestCreationError,
+      ): TransactionSubmissionTrackingData.CauseWithTemplate =
         TransactionSubmissionTrackingData.CauseWithTemplate(
           SubmissionErrors.MalformedRequest.Error(message, reason)
         )
@@ -873,11 +883,41 @@ class TransactionProcessingSteps(
     def checkReplayedTransaction: Option[String] =
       Option.when(!freshOwnTimelyTx)("View %s belongs to a replayed transaction")
 
-    def doParallelChecks(): Future[ParallelChecksResult] = {
+    def doParallelChecks(): FutureUnlessShutdown[ParallelChecksResult] = {
       val ledgerTime = parsedRequest.ledgerTime
 
+      // Asynchronous and lazy Re-interpretation of top level views
+      // This may be used by the authentication checks in case of external submissions to re-compute the externally signed
+      // transaction hash.
+      // Either way we also pass the result to the model conformance checker to avoid interpreting again the same transactions
+      // and save us some work.
+      // Note that we keep this asynchronous and lazy on purpose here, such that the authentication checks will only access the result
+      // if they need to (for external submissions). For classic submissions the behavior remains the same.
+      val reInterpretedTopLevelViews: LazyAsyncReInterpretation =
+        parsedRequest.rootViewTrees.forgetNE
+          .filter(_.isTopLevel)
+          .map { viewTree =>
+            viewTree.view.viewHash -> cats.Eval.later {
+              modelConformanceChecker
+                .reInterpret(
+                  viewTree.view,
+                  keyResolverFor(viewTree.view),
+                  rc,
+                  ledgerTime,
+                  parsedRequest.submissionTime,
+                  () => engineController.abortStatus,
+                )
+            }
+          }
+          .toMap
+
       for {
-        authenticationResult <- authenticationValidator.verifyViewSignatures(parsedRequest)
+        authenticationResult <- authenticationValidator.verifyViewSignatures(
+          parsedRequest,
+          reInterpretedTopLevelViews,
+          domainId,
+          protocolVersion,
+        )
 
         consistencyResultE = ContractConsistencyChecker
           .assertInputContractsInPast(
@@ -885,7 +925,9 @@ class TransactionProcessingSteps(
             ledgerTime,
           )
 
-        domainParameters <- ipsSnapshot.findDynamicDomainParametersOrDefault(protocolVersion)
+        domainParameters <- FutureUnlessShutdown.outcomeF(
+          ipsSnapshot.findDynamicDomainParametersOrDefault(protocolVersion)
+        )
 
         // `tryCommonData` should never throw here because all views have the same root hash
         // which already commits to the ParticipantMetadata and CommonMetadata
@@ -897,6 +939,7 @@ class TransactionProcessingSteps(
           commonData,
           requestTimestamp,
           domainParameters.ledgerTimeRecordTimeTolerance,
+          domainParameters.submissionTimeRecordTimeTolerance,
           amSubmitter,
           logger,
         )
@@ -916,12 +959,15 @@ class TransactionProcessingSteps(
             ipsSnapshot,
             commonData,
             getEngineAbortStatus = () => engineController.abortStatus,
+            reInterpretedTopLevelViews,
           )
 
-        globalKeyHostedParties <- InternalConsistencyChecker.hostedGlobalKeyParties(
-          parsedRequest.rootViewTrees,
-          participantId,
-          snapshot.ipsSnapshot,
+        globalKeyHostedParties <- FutureUnlessShutdown.outcomeF(
+          InternalConsistencyChecker.hostedGlobalKeyParties(
+            parsedRequest.rootViewTrees,
+            participantId,
+            snapshot.ipsSnapshot,
+          )
         )
 
         internalConsistencyResultE = internalConsistencyChecker.check(
@@ -1024,7 +1070,7 @@ class TransactionProcessingSteps(
 
     val result =
       for {
-        parallelChecksResult <- FutureUnlessShutdown.outcomeF(doParallelChecks())
+        parallelChecksResult <- doParallelChecks()
         activenessResult <- awaitActivenessResult
       } yield {
         val transactionValidationResult = computeValidationResult(
@@ -1273,7 +1319,7 @@ class TransactionProcessingSteps(
       traceContext: TraceContext
   ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] = {
     val commitSetF = Future.successful(commitSet)
-    val contractsToBeStored = createdContracts.values.toSeq.map(WithTransactionId(_, txId))
+    val contractsToBeStored = createdContracts.values.toSeq
 
     val witnessedAndDivulged = witnessed ++ divulged
     def storeDivulgedContracts: Future[Unit] =
@@ -1609,6 +1655,8 @@ object TransactionProcessingSteps {
     def transactionId: TransactionId = rootViewTrees.head1.transactionId
 
     def ledgerTime: CantonTimestamp = rootViewTrees.head1.ledgerTime
+
+    def submissionTime: CantonTimestamp = rootViewTrees.head1.submissionTime
   }
 
   private final case class ParallelChecksResult(

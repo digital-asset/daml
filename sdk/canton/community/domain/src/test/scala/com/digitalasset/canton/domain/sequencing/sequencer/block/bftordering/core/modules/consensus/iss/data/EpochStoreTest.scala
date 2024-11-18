@@ -6,6 +6,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.co
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.{
   Block,
   Epoch,
@@ -18,6 +19,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   EpochNumber,
   ViewNumber,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.availability.OrderingBlock
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.bfttime.CanonicalCommitSet
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.{
@@ -194,7 +196,7 @@ trait EpochStoreTest extends AsyncWordSpec {
                 ),
               )
             ),
-            pbftMessagesForIncompleteBlocks = Seq[PbftNetworkMessage](
+            pbftMessagesForIncompleteBlocks = Seq[SignedMessage[PbftNetworkMessage]](
               viewChange(EpochNumber.First, 0L),
               newView(EpochNumber.First, 0L),
               prePrepare(EpochNumber.First, 3L),
@@ -290,68 +292,78 @@ object EpochStoreTest {
       epochNumber: Long,
       blockNumber: Long,
       viewNumber: Long = ViewNumber.First,
-  ) = PrePrepare.create(
-    BlockMetadata.mk(epochNumber, blockNumber),
-    ViewNumber(viewNumber),
-    CantonTimestamp.Epoch,
-    OrderingBlock(Seq.empty),
-    CanonicalCommitSet(Set.empty),
-    from = fakeSequencerId("address"),
-  )
+  ) = PrePrepare
+    .create(
+      BlockMetadata.mk(epochNumber, blockNumber),
+      ViewNumber(viewNumber),
+      CantonTimestamp.Epoch,
+      OrderingBlock(Seq.empty),
+      CanonicalCommitSet(Set.empty),
+      from = fakeSequencerId("address"),
+    )
+    .fakeSign
 
   private def prepare(
       epochNumber: Long,
       blockNumber: Long,
       viewNumber: Long = ViewNumber.First,
   ) =
-    Prepare.create(
-      BlockMetadata.mk(epochNumber, blockNumber),
-      ViewNumber(viewNumber),
-      Hash.digest(HashPurpose.BftOrderingPbftBlock, ByteString.EMPTY, HashAlgorithm.Sha256),
-      CantonTimestamp.Epoch,
-      from = fakeSequencerId("address"),
-    )
+    Prepare
+      .create(
+        BlockMetadata.mk(epochNumber, blockNumber),
+        ViewNumber(viewNumber),
+        Hash.digest(HashPurpose.BftOrderingPbftBlock, ByteString.EMPTY, HashAlgorithm.Sha256),
+        CantonTimestamp.Epoch,
+        from = fakeSequencerId("address"),
+      )
+      .fakeSign
 
   private def commitMessages(
       epochNumber: Long,
       blockNumber: Long,
       viewNumber: Long = ViewNumber.First,
   ) = (0L to 2L).map { i =>
-    Commit.create(
-      BlockMetadata.mk(epochNumber, blockNumber),
-      ViewNumber(viewNumber),
-      Hash.digest(HashPurpose.BftOrderingPbftBlock, ByteString.EMPTY, HashAlgorithm.Sha256),
-      CantonTimestamp.Epoch,
-      from = fakeSequencerId(s"address$i"),
-    )
+    Commit
+      .create(
+        BlockMetadata.mk(epochNumber, blockNumber),
+        ViewNumber(viewNumber),
+        Hash.digest(HashPurpose.BftOrderingPbftBlock, ByteString.EMPTY, HashAlgorithm.Sha256),
+        CantonTimestamp.Epoch,
+        from = fakeSequencerId(s"address$i"),
+      )
+      .fakeSign
   }
 
   def viewChange(
       epochNumber: Long,
       segmentNumber: Long,
       viewNumber: Long = ViewNumber.First,
-  ): ViewChange =
-    ViewChange.create(
-      BlockMetadata.mk(epochNumber, segmentNumber),
-      0,
-      ViewNumber(viewNumber),
-      CantonTimestamp.Epoch,
-      consensusCerts = Seq.empty,
-      fakeSequencerId("address"),
-    )
+  ): SignedMessage[ViewChange] =
+    ViewChange
+      .create(
+        BlockMetadata.mk(epochNumber, segmentNumber),
+        0,
+        ViewNumber(viewNumber),
+        CantonTimestamp.Epoch,
+        consensusCerts = Seq.empty,
+        fakeSequencerId("address"),
+      )
+      .fakeSign
 
   def newView(
       epochNumber: Long,
       segmentNumber: Long,
       viewNumber: Long = ViewNumber.First,
-  ): NewView =
-    NewView.create(
-      BlockMetadata.mk(epochNumber, segmentNumber),
-      segmentIndex = 0,
-      viewNumber = ViewNumber(viewNumber),
-      localTimestamp = CantonTimestamp.Epoch,
-      viewChanges = Seq.empty,
-      prePrepares = Seq.empty,
-      fakeSequencerId("address"),
-    )
+  ): SignedMessage[NewView] =
+    NewView
+      .create(
+        BlockMetadata.mk(epochNumber, segmentNumber),
+        segmentIndex = 0,
+        viewNumber = ViewNumber(viewNumber),
+        localTimestamp = CantonTimestamp.Epoch,
+        viewChanges = Seq.empty,
+        prePrepares = Seq.empty,
+        fakeSequencerId("address"),
+      )
+      .fakeSign
 }

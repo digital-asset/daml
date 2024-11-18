@@ -17,7 +17,8 @@ import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.protocol.PackageDescription
 import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.archive.DamlLf.Archive
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
@@ -122,6 +123,9 @@ final class TimedWriteService(delegate: WriteService, metrics: LedgerApiServerMe
       metrics.services.read.getConnectedDomains,
       delegate.getConnectedDomains(request),
     )
+
+  override def getProtocolVersionForDomain(domainId: Traced[DomainId]): Option[ProtocolVersion] =
+    delegate.getProtocolVersionForDomain(domainId)
 
   override def incompleteReassignmentOffsets(validAt: Offset, stakeholders: Set[LfPartyId])(implicit
       traceContext: TraceContext

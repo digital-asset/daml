@@ -14,7 +14,8 @@ import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.protocol.PackageDescription
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DomainAlias, LfPartyId}
 import com.digitalasset.daml.lf.archive.DamlLf.Archive
 import com.digitalasset.daml.lf.data.Ref.PackageId
@@ -165,6 +166,9 @@ trait WriteService
       traceContext: TraceContext
   ): Future[ConnectedDomainResponse] =
     throw new UnsupportedOperationException()
+
+  // TODO(i20688): Temporary until prepared transactions run through the domain router
+  def getProtocolVersionForDomain(domainId: Traced[DomainId]): Option[ProtocolVersion] = None
 
   /** Get the offsets of the incomplete assigned/unassigned events for a set of stakeholders.
     *

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer
 
+import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultLeaderSelectionPolicy
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisEpochNumber
@@ -11,12 +12,14 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
   EpochState,
   TimeoutManager,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.OutputBlocksReader
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.Env
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
   EpochLength,
   EpochNumber,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.{
   OrderedBlock,
@@ -24,7 +27,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.Consensus.StateTransferMessage
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PrePrepare
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.Consensus.StateTransferMessage.BlockTransferData
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.{
   Consensus,
@@ -50,6 +53,7 @@ class StateTransferManager[E <: Env[E]](
     dependencies: ConsensusModuleDependencies[E],
     epochLength: EpochLength, // TODO(#19661): Support transferring epochs with different lengths
     epochStore: EpochStore[E],
+    outputBlocksReader: OutputBlocksReader[E],
     thisPeer: SequencerId,
     override val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
@@ -99,7 +103,12 @@ class StateTransferManager[E <: Env[E]](
 
         val blockTransferRequest = StateTransferMessage.BlockTransferRequest
           .create(startEpoch, latestCompletedEpochNumber, activeMembership.myId)
-        sendBlockTransferRequest(blockTransferRequest, to = peerId)(abort)
+        val signedMessage = SignedMessage(
+          blockTransferRequest,
+          Signature.noSignature,
+        ) // TODO(#20458) properly sign this message
+
+        sendBlockTransferRequest(signedMessage, to = peerId)(abort)
       }
     }
 
@@ -111,6 +120,38 @@ class StateTransferManager[E <: Env[E]](
       context: E#ActorContextT[Consensus.Message[E]],
       traceContext: TraceContext,
   ): Option[NewEpochState] =
+    message match {
+      case StateTransferMessage.NetworkMessage(message) =>
+        handleStateTransferNetworkMessage(message, activeMembership, latestCompletedEpoch)(
+          completeInit,
+          abort,
+        )
+        NoEpochStateUpdates
+
+      case StateTransferMessage.SendBlockTransferRequest(blockTransferRequest, to) =>
+        sendBlockTransferRequest(blockTransferRequest, to)(abort)
+        NoEpochStateUpdates
+
+      case StateTransferMessage.BlockStored(blockTransferData, fullResponse) =>
+        if (isInStateTransfer) {
+          handleStoredPrePrepare(blockTransferData, fullResponse, activeMembership)(abort)
+        } else {
+          logger.info(
+            s"State transfer: received a block stored message for block " +
+              s"${blockTransferData.prePrepare.message.blockMetadata} while not in state transfer"
+          )
+          NoEpochStateUpdates
+        }
+    }
+
+  def handleStateTransferNetworkMessage(
+      message: Consensus.StateTransferMessage.StateTransferNetworkMessage,
+      activeMembership: Membership,
+      latestCompletedEpoch: EpochStore.Epoch,
+  )(completeInit: () => Unit, abort: String => Nothing)(implicit
+      context: E#ActorContextT[Consensus.Message[E]],
+      traceContext: TraceContext,
+  ): Unit =
     message match {
       case request @ StateTransferMessage.BlockTransferRequest(
             startEpoch,
@@ -135,7 +176,6 @@ class StateTransferManager[E <: Env[E]](
               s"dropping..."
           )
         }
-        NoEpochStateUpdates
 
       case StateTransferMessage.BlockTransferResponse(_, _, Seq(), Seq(), from) =>
         if (isInStateTransfer) {
@@ -146,7 +186,6 @@ class StateTransferManager[E <: Env[E]](
             s"State transfer: received an empty block transfer response while not in state transfer"
           )
         }
-        NoEpochStateUpdates
 
       case response: StateTransferMessage.BlockTransferResponse =>
         if (isInStateTransfer) {
@@ -159,26 +198,10 @@ class StateTransferManager[E <: Env[E]](
               "while not in state transfer"
           )
         }
-        NoEpochStateUpdates
-
-      case StateTransferMessage.SendBlockTransferRequest(blockTransferRequest, to) =>
-        sendBlockTransferRequest(blockTransferRequest, to)(abort)
-        NoEpochStateUpdates
-
-      case StateTransferMessage.BlockStored(prePrepare, fullResponse) =>
-        if (isInStateTransfer) {
-          handleStoredPrePrepare(prePrepare, fullResponse, activeMembership)(abort)
-        } else {
-          logger.info(
-            s"State transfer: received a block stored message for block ${prePrepare.blockMetadata} " +
-              "while not in state transfer"
-          )
-          NoEpochStateUpdates
-        }
     }
 
   private def sendBlockTransferRequest(
-      blockTransferRequest: StateTransferMessage.BlockTransferRequest,
+      blockTransferRequest: SignedMessage[StateTransferMessage.BlockTransferRequest],
       to: SequencerId,
   )(abort: String => Nothing)(implicit
       context: E#ActorContextT[Consensus.Message[E]],
@@ -192,7 +215,7 @@ class StateTransferManager[E <: Env[E]](
         )
       logger.debug(s"State transfer: sending a block transfer request to $to")
       dependencies.p2pNetworkOut.asyncSend(
-        P2PNetworkOut.send(blockTransferRequest.toProto, signature = None, to)
+        P2PNetworkOut.send(wrapSignedMessage(blockTransferRequest), to)
       )
     } else {
       logger.info(
@@ -213,46 +236,86 @@ class StateTransferManager[E <: Env[E]](
         s"State transfer: nothing to transfer to $to, start epoch was $startEpoch, " +
           s"latest locally completed epoch is $lastEpochToTransfer"
       )
-      val responseProto = StateTransferMessage.BlockTransferResponse
+      val response = StateTransferMessage.BlockTransferResponse
         .create(
           lastEpochToTransfer,
           lastEpochToTransferTopologySnapshotEffectiveTime,
-          prePrepares = Seq.empty,
+          blockTransferData = Seq.empty,
           lastBlockCommits = Seq.empty,
           from = thisPeer,
         )
-        .toProto
-      dependencies.p2pNetworkOut.asyncSend(P2PNetworkOut.send(responseProto, signature = None, to))
+      val signedMessage =
+        SignedMessage(response, Signature.noSignature) // TODO(#20458) properly sign this message
+      dependencies.p2pNetworkOut.asyncSend(
+        P2PNetworkOut.send(wrapSignedMessage(signedMessage), to)
+      )
     } else {
+      val blocksToTransfer = (lastEpochToTransfer - startEpoch + 1) * epochLength
       logger.info(
-        s"State transfer: loading pre-prepares from epochs $startEpoch to $lastEpochToTransfer"
+        s"State transfer: loading pre-prepares from epochs $startEpoch to $lastEpochToTransfer " +
+          s"(blocksToTransfer = $blocksToTransfer)"
       )
       context.pipeToSelf(
-        epochStore.loadPrePreparesForCompleteBlocks(startEpoch, lastEpochToTransfer)
+        context.zipFuture(
+          epochStore.loadPrePreparesForCompleteBlocks(startEpoch, lastEpochToTransfer),
+          outputBlocksReader.loadOutputBlockMetadata(
+            startEpoch,
+            lastEpochToTransfer,
+          ),
+        )
       ) {
-        case Success(prePrepares) =>
-          val startBlockNumber = prePrepares.map(_.blockMetadata.blockNumber).minOption
+        case Success((prePrepares, outputBlocksMetadata)) =>
+          // TODO(#22205): consider using a separate table for epoch-level info in output metadata; in particular,
+          //  the "pending topology changes" flag is not stable and may get updated before the block is output;
+          //  this is currently not a problem for state transfer, as it doesn't transfer a current, in-progress
+          //  epoch (and it probably will never transfer not-yet-output blocks anyway, not even in catch-up mode)
+          //  but avoiding updates would make reasoning simpler.
+          require(
+            prePrepares.length == blocksToTransfer && outputBlocksMetadata.length == blocksToTransfer,
+            "Internal invariant violation: " +
+              "only whole epochs with blocks that have been both ordered and output can be state transferred, but " +
+              s"${prePrepares.length} pre-prepares and ${outputBlocksMetadata.length} output blocks have been loaded " +
+              s"instead of $blocksToTransfer",
+          )
+          val blockTransferData =
+            prePrepares
+              .zip(outputBlocksMetadata.map(_.pendingTopologyChangesInNextEpoch))
+              .map { case (prePrepare, pendingTopologyChanges) =>
+                BlockTransferData.create(
+                  prePrepare,
+                  pendingTopologyChanges,
+                )
+              }
+          val startBlockNumber = prePrepares.map(_.message.blockMetadata.blockNumber).minOption
           logger.info(
             s"State transfer: sending blocks starting from epoch $startEpoch (block number = $startBlockNumber) up to " +
               s"$lastEpochToTransfer (inclusive) to $to"
           )
-          val responseProto = StateTransferMessage.BlockTransferResponse
+          val response = StateTransferMessage.BlockTransferResponse
             .create(
               lastEpochToTransfer,
               lastEpochToTransferTopologySnapshotEffectiveTime,
-              prePrepares,
+              blockTransferData,
               latestCompletedEpoch.lastBlockCommitMessages,
               from = thisPeer,
             )
-            .toProto
+          val signedMessage = SignedMessage(
+            response,
+            Signature.noSignature,
+          ) // TODO(#20458) properly sign this message
           dependencies.p2pNetworkOut.asyncSend(
-            P2PNetworkOut.send(responseProto, signature = None, to)
+            P2PNetworkOut.send(wrapSignedMessage(signedMessage), to)
           )
           None // do not send anything back
         case Failure(exception) => Some(Consensus.ConsensusMessage.AsyncException(exception))
       }
     }
   }
+
+  private def wrapSignedMessage(
+      signedMessage: SignedMessage[Consensus.StateTransferMessage.StateTransferNetworkMessage]
+  ): P2PNetworkOut.BftOrderingNetworkMessage =
+    P2PNetworkOut.BftOrderingNetworkMessage.StateTransferMessage(signedMessage)
 
   private def handleEmptyBlockResponse(completeInit: () => Unit, abort: String => Nothing)(implicit
       traceContext: TraceContext
@@ -278,16 +341,17 @@ class StateTransferManager[E <: Env[E]](
       context: E#ActorContextT[Consensus.Message[E]],
       traceContext: TraceContext,
   ): Unit =
-    response.prePrepares.foreach { prePrepare =>
-      val blockNumber = prePrepare.blockMetadata.blockNumber
+    response.blockTransferData.foreach { blockTransferData =>
+      val prePrepare = blockTransferData.prePrepare
+      val blockNumber = prePrepare.message.blockMetadata.blockNumber
       stateTransferState.get(blockNumber) match {
         case Some(inProgress: StateTransferState.InProgress) =>
           val updatedState = StateTransferState.InProgress(
-            inProgress.prePreparesFromState.prePrepares :+ prePrepare
+            inProgress.prePreparesFromState.prePrepares :+ prePrepare.message
           )
           stateTransferState.update(blockNumber, updatedState)
           storePrePrepareIfQuorumReceived(
-            prePrepare,
+            blockTransferData,
             updatedState.prePreparesFromState,
             response,
             activeMembership,
@@ -297,10 +361,10 @@ class StateTransferManager[E <: Env[E]](
             s"State transfer: received block $blockNumber for which we have a quorum of messages already, dropping..."
           )
         case None =>
-          val newState = StateTransferState.InProgress(Seq(prePrepare))
+          val newState = StateTransferState.InProgress(Seq(prePrepare.message))
           stateTransferState.update(blockNumber, newState)
           storePrePrepareIfQuorumReceived(
-            prePrepare,
+            blockTransferData,
             newState.prePreparesFromState,
             response,
             activeMembership,
@@ -309,7 +373,7 @@ class StateTransferManager[E <: Env[E]](
     }
 
   private def storePrePrepareIfQuorumReceived(
-      prePrepare: PrePrepare,
+      blockTransferData: BlockTransferData,
       prePreparesFromState: PrePreparesFromState,
       fullResponse: StateTransferMessage.BlockTransferResponse,
       activeMembership: Membership,
@@ -319,27 +383,29 @@ class StateTransferManager[E <: Env[E]](
       // TODO(#19661): Figure out how to verify the last block commits for the calculated e_end (get f+1 sets?)
 
       // TODO(#19661): Send and store commits (so that they can be used for retransmissions)
+      val prePrepare = blockTransferData.prePrepare
       context.pipeToSelf(epochStore.addOrderedBlock(prePrepare, commitMessages = Seq.empty)) {
         case Success(()) =>
-          Some(StateTransferMessage.BlockStored(prePrepare, fullResponse))
+          Some(StateTransferMessage.BlockStored(blockTransferData, fullResponse))
         case Failure(exception) =>
           Some(Consensus.ConsensusMessage.AsyncException(exception))
       }
     }
 
   private def handleStoredPrePrepare(
-      prePrepare: PrePrepare,
+      blockTransferData: BlockTransferData,
       fullResponse: StateTransferMessage.BlockTransferResponse,
       activeMembership: Membership,
   )(abort: String => Nothing)(implicit traceContext: TraceContext): Option[NewEpochState] = {
-    val blockMetadata = prePrepare.blockMetadata
+    val prePrepareMessage = blockTransferData.prePrepare.message
+    val blockMetadata = prePrepareMessage.blockMetadata
     val blockNumber = blockMetadata.blockNumber
     val prePrepareEpochNumber = blockMetadata.epochNumber
     stateTransferState.update(blockNumber, StateTransferState.Done(prePrepareEpochNumber))
 
     logger.debug(s"State transfer: sending block $blockMetadata to Output")
     val lastEpochToTransfer = fullResponse.latestCompletedEpoch
-    sendBlockToOutput(prePrepare, lastEpochToTransfer)
+    sendBlockToOutput(blockTransferData, lastEpochToTransfer)
 
     val blocksTransferred = stateTransferState.filter {
       case (_, StateTransferState.Done(_)) => true
@@ -376,8 +442,12 @@ class StateTransferManager[E <: Env[E]](
     }
   }
 
-  private def sendBlockToOutput(prePrepare: PrePrepare, lastEpochToTransfer: EpochNumber): Unit = {
-    val blockMetadata = prePrepare.blockMetadata
+  private def sendBlockToOutput(
+      blockTransferData: BlockTransferData,
+      lastEpochToTransfer: EpochNumber,
+  ): Unit = {
+    val prePrepareMessage = blockTransferData.prePrepare.message
+    val blockMetadata = prePrepareMessage.blockMetadata
     // TODO(#19661): don't assume a fixed epoch length
     val isLastInEpoch =
       (blockMetadata.blockNumber + 1) % epochLength == 0 // As blocks are 0-indexed
@@ -389,16 +459,22 @@ class StateTransferManager[E <: Env[E]](
         OrderedBlockForOutput(
           OrderedBlock(
             blockMetadata,
-            prePrepare.block.proofs,
-            prePrepare.canonicalCommitSet,
+            prePrepareMessage.block.proofs,
+            prePrepareMessage.canonicalCommitSet,
           ),
-          prePrepare.from,
+          prePrepareMessage.from,
           isLastInEpoch,
           mode =
             if (isLastStateTransferred)
-              OrderedBlockForOutput.Mode.StateTransferLastBlock
+              OrderedBlockForOutput.Mode.StateTransfer
+                .LastBlock(pendingTopologyChangesInNextEpoch =
+                  blockTransferData.pendingTopologyChanges
+                )
             else
-              OrderedBlockForOutput.Mode.StateTransfer,
+              OrderedBlockForOutput.Mode.StateTransfer
+                .MiddleBlock(pendingTopologyChangesInNextEpoch =
+                  blockTransferData.pendingTopologyChanges
+                ),
         )
       )
     )

@@ -6,12 +6,9 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.co
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.domain.metrics.BftOrderingMetrics
-import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1.ConsensusMessage.Message
-import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1.{
-  ConsensusMessage,
-  StateTransferMessage as ProtoStateTransferMessage,
-}
+import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.{
   DefaultLeaderSelectionPolicy,
@@ -30,6 +27,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferManager
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferManager.NewEpochState
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.validation.IssConsensusValidator
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.OutputBlocksReader
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.{
   HasDelayedInit,
   shortType,
@@ -39,6 +37,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   EpochLength,
   EpochNumber,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.{
   OrderedBlock,
   OrderedBlockForOutput,
@@ -53,8 +52,11 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   PbftVerifiedNetworkMessage,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.Consensus.NewEpochTopology
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PbftNetworkMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PbftNetworkMessage.headerFromProto
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
+  PbftNetworkMessage,
+  PbftSignedNetworkMessage,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.{
   Consensus,
@@ -71,6 +73,7 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
+import com.google.protobuf.ByteString
 
 import scala.collection.mutable
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -81,6 +84,7 @@ final class IssConsensusModule[E <: Env[E]](
     epochLength: EpochLength, // Currently fixed for all epochs
     startupState: StartupState[E],
     epochStore: EpochStore[E],
+    outputBlocksReader: OutputBlocksReader[E],
     clock: Clock,
     metrics: BftOrderingMetrics,
     segmentModuleRefFactory: SegmentModuleRefFactory[E],
@@ -89,8 +93,14 @@ final class IssConsensusModule[E <: Env[E]](
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
 )(
-    stateTransferManager: StateTransferManager[E] =
-      new StateTransferManager(dependencies, epochLength, epochStore, thisPeer, loggerFactory)
+    stateTransferManager: StateTransferManager[E] = new StateTransferManager(
+      dependencies,
+      epochLength,
+      epochStore,
+      outputBlocksReader,
+      thisPeer,
+      loggerFactory,
+    )
 )(implicit mc: MetricsContext)
     extends Consensus[E]
     with HasDelayedInit[Consensus.ProtocolMessage] {
@@ -111,7 +121,7 @@ final class IssConsensusModule[E <: Env[E]](
   @VisibleForTesting
   private[bftordering] def getEpochState: EpochState[E] = epochState
 
-  private val futurePbftMessageQueue = new mutable.Queue[PbftNetworkMessage]()
+  private val futurePbftMessageQueue = new mutable.Queue[SignedMessage[PbftNetworkMessage]]()
 
   private var newEpochTopology: Option[(OrderingTopology, CryptoProvider[E])] = None
 
@@ -241,7 +251,7 @@ final class IssConsensusModule[E <: Env[E]](
         // Process messages for this epoch that may have arrived when processing the previous one.
         val queuedMessages =
           futurePbftMessageQueue.dequeueAll(
-            _.blockMetadata.epochNumber == epochState.epoch.info.number
+            _.message.blockMetadata.epochNumber == epochState.epoch.info.number
           )
         queuedMessages.foreach(processPbftMessage)
     }
@@ -327,15 +337,15 @@ final class IssConsensusModule[E <: Env[E]](
 
       case Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage(underlyingNetworkMessage) =>
         context.pipeToSelf(
-          validator.validate(underlyingNetworkMessage, context, activeCryptoProvider)
+          validator.validate(underlyingNetworkMessage.message, context, activeCryptoProvider)
         ) {
           case Failure(error) =>
             logger.warn(s"Could not verify message $underlyingNetworkMessage, dropping", error)
             emitNonCompliance(metrics)(
               underlyingNetworkMessage.from,
-              underlyingNetworkMessage.blockMetadata.epochNumber,
-              underlyingNetworkMessage.viewNumber,
-              underlyingNetworkMessage.blockMetadata.blockNumber,
+              underlyingNetworkMessage.message.blockMetadata.epochNumber,
+              underlyingNetworkMessage.message.viewNumber,
+              underlyingNetworkMessage.message.blockMetadata.blockNumber,
               metrics.security.noncompliant.labels.violationType.values.ConsensusInvalidMessage,
             )
             None
@@ -449,36 +459,36 @@ final class IssConsensusModule[E <: Env[E]](
   }
 
   private def processPbftMessage(
-      msg: ConsensusSegment.ConsensusMessage.PbftNetworkMessage
+      msg: SignedMessage[ConsensusSegment.ConsensusMessage.PbftNetworkMessage]
   )(implicit
       traceContext: TraceContext
   ): Unit = {
     lazy val messageType = shortType(msg)
     logger.debug(
-      s"$messageType: received from ${msg.from} w/ metadata ${msg.blockMetadata}"
+      s"$messageType: received from ${msg.from} w/ metadata ${msg.message.blockMetadata}"
     )
 
     // Messages from stale epoch are discarded.
-    if (msg.blockMetadata.epochNumber < epochState.epoch.info.number)
+    if (msg.message.blockMetadata.epochNumber < epochState.epoch.info.number)
       logger.info(
-        s"Discarded block ${msg.blockMetadata.blockNumber} at epoch ${msg.blockMetadata.epochNumber} because we're at a later epoch (${epochState.epoch.info.number})"
+        s"Discarded block ${msg.message.blockMetadata.blockNumber} at epoch ${msg.message.blockMetadata.epochNumber} because we're at a later epoch (${epochState.epoch.info.number})"
       )
 
     // Messages from future epoch are queued to be processed when we move to that epoch.
-    else if (msg.blockMetadata.epochNumber > epochState.epoch.info.number) {
+    else if (msg.message.blockMetadata.epochNumber > epochState.epoch.info.number) {
       futurePbftMessageQueue.enqueue(msg)
       logger.debug(
-        s"Received PBFT message from epoch ${msg.blockMetadata.epochNumber} while being in epoch " +
+        s"Received PBFT message from epoch ${msg.message.blockMetadata.epochNumber} while being in epoch " +
           s"${epochState.epoch.info.number}, queued the message"
       )
 
       // Messages with blocks numbers out of bounds of the epoch are discarded.
     } else if (
-      msg.blockMetadata.blockNumber < epochState.epoch.info.startBlockNumber || msg.blockMetadata.blockNumber > epochState.epoch.info.lastBlockNumber
+      msg.message.blockMetadata.blockNumber < epochState.epoch.info.startBlockNumber || msg.message.blockMetadata.blockNumber > epochState.epoch.info.lastBlockNumber
     ) {
       val epochInfo = epochState.epoch.info
       logger.info(
-        s"Discarded block ${msg.blockMetadata.blockNumber} from epoch ${msg.blockMetadata.epochNumber} (current epoch number = ${epochInfo.number}, " +
+        s"Discarded block ${msg.message.blockMetadata.blockNumber} from epoch ${msg.message.blockMetadata.epochNumber} (current epoch number = ${epochInfo.number}, " +
           s"first block = ${epochInfo.startBlockNumber}, epoch length = ${epochInfo.length}) because block number is out of bounds of the current epoch"
       )
     }
@@ -490,7 +500,7 @@ final class IssConsensusModule[E <: Env[E]](
         s"Discarded Pbft message from peer ${msg.from} not in the current epoch's topology"
       )
     else
-      epochState.processPbftMessage(msg)
+      epochState.processPbftMessage(PbftSignedNetworkMessage(msg))
   }
 
   private def completeEpoch()(implicit
@@ -528,71 +538,86 @@ object IssConsensusModule {
 
   def parseNetworkMessage(
       from: SequencerId,
-      message: ConsensusMessage,
+      message: v1.ConsensusMessage,
+  )(
+      originalByteString: ByteString
   ): ParsingResult[ConsensusSegment.ConsensusMessage.PbftNetworkMessage] =
     for {
       header <- headerFromProto(message)
       result <- (message.message match {
-        case Message.PrePrepare(value) =>
+        case v1.ConsensusMessage.Message.PrePrepare(value) =>
           ConsensusSegment.ConsensusMessage.PrePrepare.fromProto(
             header.blockMetadata,
             header.viewNumber,
             header.timestamp,
             value,
             from,
-          )
-        case Message.Prepare(value) =>
+          )(originalByteString)
+        case v1.ConsensusMessage.Message.Prepare(value) =>
           ConsensusSegment.ConsensusMessage.Prepare.fromProto(
             header.blockMetadata,
             header.viewNumber,
             header.timestamp,
             value,
             from,
-          )
-        case Message.Commit(value) =>
+          )(originalByteString)
+        case v1.ConsensusMessage.Message.Commit(value) =>
           ConsensusSegment.ConsensusMessage.Commit.fromProto(
             header.blockMetadata,
             header.viewNumber,
             header.timestamp,
             value,
             from,
-          )
-        case Message.ViewChange(value) =>
+          )(originalByteString)
+        case v1.ConsensusMessage.Message.ViewChange(value) =>
           ConsensusSegment.ConsensusMessage.ViewChange.fromProto(
             header.blockMetadata,
             header.viewNumber,
             header.timestamp,
             value,
             from,
-          )
-        case Message.NewView(value) =>
+          )(originalByteString)
+        case v1.ConsensusMessage.Message.NewView(value) =>
           ConsensusSegment.ConsensusMessage.NewView.fromProto(
             header.blockMetadata,
             header.viewNumber,
             header.timestamp,
             value,
             from,
-          )
-        case Message.Empty => Left(ProtoDeserializationError.OtherError("Empty Received"))
+          )(originalByteString)
+        case v1.ConsensusMessage.Message.Empty =>
+          Left(ProtoDeserializationError.OtherError("Empty Received"))
       }): ParsingResult[ConsensusSegment.ConsensusMessage.PbftNetworkMessage]
     } yield result
 
   def parseUnverifiedNetworkMessage(
       from: SequencerId,
-      message: ConsensusMessage,
+      message: v1.ConsensusMessage,
+  )(
+      originalByteString: ByteString
   ): ParsingResult[Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage] =
-    parseNetworkMessage(from, message).map(PbftUnverifiedNetworkMessage.apply)
+    parseNetworkMessage(from, message)(originalByteString).map(msg =>
+      PbftUnverifiedNetworkMessage(SignedMessage(msg, Signature.noSignature))
+    ) // TODO(#20458) Check that all consensus messages are valid
 
   def parseStateTransferMessage(
       from: SequencerId,
-      message: ProtoStateTransferMessage,
-  ): ParsingResult[Consensus.StateTransferMessage] =
+      message: v1.StateTransferMessage,
+  )(
+      originalByteString: ByteString
+  ): ParsingResult[Consensus.StateTransferMessage.StateTransferNetworkMessage] =
     message.message match {
-      case ProtoStateTransferMessage.Message.BlockRequest(value) =>
-        Right(Consensus.StateTransferMessage.BlockTransferRequest.fromProto(value, from))
-      case ProtoStateTransferMessage.Message.BlockResponse(value) =>
-        Consensus.StateTransferMessage.BlockTransferResponse.fromProto(value, from)
-      case ProtoStateTransferMessage.Message.Empty =>
+      case v1.StateTransferMessage.Message.BlockRequest(value) =>
+        Right(
+          Consensus.StateTransferMessage.BlockTransferRequest.fromProto(from, value)(
+            originalByteString
+          )
+        )
+      case v1.StateTransferMessage.Message.BlockResponse(value) =>
+        Consensus.StateTransferMessage.BlockTransferResponse.fromProto(from, value)(
+          originalByteString
+        )
+      case v1.StateTransferMessage.Message.Empty =>
         Left(ProtoDeserializationError.OtherError("Empty Received"))
     }
 }

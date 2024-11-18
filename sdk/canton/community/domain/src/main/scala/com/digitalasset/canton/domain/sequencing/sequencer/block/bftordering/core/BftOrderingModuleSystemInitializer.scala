@@ -27,7 +27,10 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.OutputModule
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.OutputModule.RequestInspector
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.OutputBlockMetadataStore
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.{
+  OutputBlockMetadataStore,
+  OutputBlocksReader,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.networking.data.P2pEndpointsStore
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.networking.{
   BftP2PNetworkIn,
@@ -188,6 +191,7 @@ object BftOrderingModuleSystemInitializer {
             initialCryptoProvider,
             epochLength,
             stores.epochStore,
+            stores.outputBlocksReader,
             sequencerSnapshotAdditionalInfo,
             clock,
             metrics,
@@ -226,5 +230,6 @@ object BftOrderingModuleSystemInitializer {
       epochStore: EpochStore[E],
       orderedBlocksReader: OrderedBlocksReader[E],
       outputStore: OutputBlockMetadataStore[E],
+      outputBlocksReader: OutputBlocksReader[E],
   )
 }

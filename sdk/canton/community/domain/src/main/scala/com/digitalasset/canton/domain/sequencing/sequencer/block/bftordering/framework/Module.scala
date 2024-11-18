@@ -12,8 +12,8 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   Output,
   P2PNetworkOut,
 }
-import com.digitalasset.canton.lifecycle.FlagCloseable
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.AbortedDueToShutdownException
+import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, UnlessShutdown}
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.topology.SequencerId
@@ -21,7 +21,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import org.apache.pekko.dispatch.ControlMessage
 
 import scala.concurrent.duration.FiniteDuration
-import scala.util.{Failure, Try}
+import scala.util.{Failure, Success, Try}
 
 final case class ModuleName(name: String)
 
@@ -227,11 +227,14 @@ trait ModuleContext[E <: Env[E], MessageT] extends NamedLogging {
   def pipeToSelf[X](futureUnlessShutdown: E#FutureUnlessShutdownT[X])(
       fun: Try[X] => Option[MessageT]
   )(implicit traceContext: TraceContext): Unit = pipeToSelfInternal(futureUnlessShutdown) {
-    case Failure(exception: AbortedDueToShutdownException) =>
-      logger.info("Can't complete future, shutting down", exception)
-      stop()
-      None
-    case other => fun(other)
+    UnlessShutdown.recoverFromAbortException(_) match {
+      case Success(Outcome(x)) => fun(Success(x))
+      case Success(AbortedDueToShutdown) =>
+        logger.info("Can't complete future, shutting down")
+        stop()
+        None
+      case Failure(ex) => fun(Failure(ex))
+    }
   }
 
   protected def pipeToSelfInternal[X](futureUnlessShutdown: E#FutureUnlessShutdownT[X])(

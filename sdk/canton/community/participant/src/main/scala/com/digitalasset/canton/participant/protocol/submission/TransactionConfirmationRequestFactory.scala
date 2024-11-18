@@ -15,6 +15,7 @@ import com.digitalasset.canton.data.*
 import com.digitalasset.canton.data.GenTransactionTree.ViewWithWitnessesAndRecipients
 import com.digitalasset.canton.data.ViewType.TransactionViewType
 import com.digitalasset.canton.ledger.participant.state.SubmitterInfo
+import com.digitalasset.canton.ledger.participant.state.SubmitterInfo.ExternallySignedSubmission
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -48,7 +49,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.version.ProtocolVersion
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Factory class for creating transaction confirmation requests from Daml-LF transactions.
   *
@@ -91,16 +92,19 @@ class TransactionConfirmationRequestFactory(
     TransactionConfirmationRequestCreationError,
     TransactionConfirmationRequest,
   ] = {
-    val transactionUuid = seedGenerator.generateUuid()
+    // For externally signed transaction, the transactionUUID is generated during "prepare" and is part of the hash,
+    // so we use that one.
+    val transactionUuid = submitterInfo.externallySignedSubmission
+      .map(_.transactionUUID)
+      .getOrElse(seedGenerator.generateUuid())
     val ledgerTime = wfTransaction.metadata.ledgerTime
 
     for {
-      _ <- assertSubmittersNodeAuthorization(submitterInfo.actAs, cryptoSnapshot.ipsSnapshot).mapK(
-        FutureUnlessShutdown.outcomeK
-      )
-      _ <- assertNonLocalPartyAuthorization(submitterInfo, cryptoSnapshot)
 
-      // Starting with Daml 1.6.0, the daml engine performs authorization validation.
+      _ <- assertPartiesCanSubmit(
+        submitterInfo,
+        cryptoSnapshot,
+      )
 
       transactionSeed = seedGenerator.generateSaltSeed()
 
@@ -175,42 +179,60 @@ class TransactionConfirmationRequestFactory(
       )
     }
 
-  private def validatePartySignatures(
+  private def assertNonLocalPartiesCanSubmit(
       submitterInfo: SubmitterInfo,
+      externallySignedSubmission: ExternallySignedSubmission,
       cryptoSnapshot: DomainSnapshotSyncCryptoApi,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, ParticipantAuthorizationError, Set[LfPartyId]] =
-    submitterInfo.externallySignedTransaction match {
-      case None => EitherT.rightT[FutureUnlessShutdown, ParticipantAuthorizationError](Set.empty)
-      case Some(ExternallySignedTransaction(hash, partySignatures)) =>
-        for {
-          parties <- partySignatures
-            .verifySignatures(hash, cryptoSnapshot)
-            .leftMap(ParticipantAuthorizationError.apply)
-        } yield parties
-    }
+  ): EitherT[FutureUnlessShutdown, ParticipantAuthorizationError, Unit] = {
+    // Signatures have been validated synchronously in the TransactionProcessor before the submission
+    // makes it here. Therefore we only do authorization checks at this point
+    val signedAs = externallySignedSubmission.signatures.keySet.map(_.toLf)
+    val unauthorized = submitterInfo.actAs.toSet -- signedAs
+    for {
+      _ <- EitherT.cond[FutureUnlessShutdown](
+        unauthorized.isEmpty,
+        (),
+        ParticipantAuthorizationError(
+          s"External authorization has not been provided for: $unauthorized"
+        ),
+      )
+      notHosted <- EitherT
+        .liftF(cryptoSnapshot.ipsSnapshot.hasNoConfirmer(signedAs))
+        .mapK(FutureUnlessShutdown.outcomeK)
+      _ <- EitherT.cond[FutureUnlessShutdown](
+        notHosted.isEmpty,
+        (),
+        ParticipantAuthorizationError(
+          s"The following parties are not hosted with confirmation rights on the domain: $notHosted"
+        ),
+      )
+    } yield ()
+  }
 
-  private def assertNonLocalPartyAuthorization(
+  private def assertPartiesCanSubmit(
       submitterInfo: SubmitterInfo,
       cryptoSnapshot: DomainSnapshotSyncCryptoApi,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ParticipantAuthorizationError, Unit] =
-    // TODO(i20746): This is the absolute minimum level of validation
-    // We only check that provided signatures (if any) are valid
-    // As we thread authorization checks through for external signing, we'll need to make sure that all "actAs" parties
-    // are either hosted on this participant, or have provided a valid external signature.
-    // _For now_, we still require all submitting parties to be hosted on this participant anyway (via assertSubmittersNodeAuthorization below),
-    // so the external signatures are checked here ONLY, and are not used validated in phase 3.
-    // We'll also need to check that parties with external signatures are hosted with confirmation rights somewhere, although
-    // this may belong in the logic in AdmissibleDomains instead.
-    validatePartySignatures(submitterInfo, cryptoSnapshot).void
+    submitterInfo.externallySignedSubmission match {
+      case Some(e) =>
+        assertNonLocalPartiesCanSubmit(
+          submitterInfo,
+          e,
+          cryptoSnapshot,
+        )
+      case None => assertLocalPartiesCanSubmit(submitterInfo.actAs, cryptoSnapshot.ipsSnapshot)
+    }
 
-  private def assertSubmittersNodeAuthorization(
+  private def assertLocalPartiesCanSubmit(
       submitters: List[LfPartyId],
       identities: TopologySnapshot,
-  )(implicit traceContext: TraceContext): EitherT[Future, ParticipantAuthorizationError, Unit] =
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, ParticipantAuthorizationError, Unit] =
     EitherT(
       identities
         .hostedOn(submitters.toSet, submitterNode)
@@ -236,7 +258,7 @@ class TransactionConfirmationRequestFactory(
             )
             .void
         }
-    )
+    ).mapK(FutureUnlessShutdown.outcomeK)
 
   private def createTransactionViewEnvelopes(
       transactionTree: GenTransactionTree,

@@ -44,7 +44,7 @@ enum OnboardingRestriction {
 }
 
 message DynamicDomainParameters {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   google.protobuf.Duration confirmation_response_timeout = 1;
   google.protobuf.Duration mediator_reaction_timeout = 2;
@@ -70,4 +70,5 @@ message DynamicDomainParameters {
   google.protobuf.Duration sequencer_aggregate_submission_timeout = 15;
   com.digitalasset.canton.protocol.v30.TrafficControlParameters traffic_control_parameters = 16;
   AcsCommitmentsCatchUpConfig acs_commitments_catchup_config = 17;
+  google.protobuf.Duration submission_time_record_time_tolerance = 18;
 }

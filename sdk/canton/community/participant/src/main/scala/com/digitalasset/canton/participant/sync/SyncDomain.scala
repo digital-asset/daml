@@ -172,7 +172,6 @@ class SyncDomain(
   private val damle =
     new DAMLe(
       pkgId => traceContext => packageService.value.getPackage(pkgId)(traceContext),
-      Some(domainId),
       engine,
       parameters.engine.validationPhaseLogging,
       loggerFactory,

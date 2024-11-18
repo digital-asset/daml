@@ -12,12 +12,14 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   BlockNumber,
   ViewNumber,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.{
   CommitCertificate,
   ConsensusCertificate,
   PrepareCertificate,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.topology.Membership
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.ViewChange
 
 class ViewChangeMessageValidator(
@@ -34,7 +36,7 @@ class ViewChangeMessageValidator(
     for {
       _ <- {
         val wrongEpochs = certs
-          .map(_.prePrepare.blockMetadata.epochNumber)
+          .map(_.prePrepare.message.blockMetadata.epochNumber)
           .filter(_ != epochNumber)
           .toSet
         Either.cond(
@@ -45,7 +47,7 @@ class ViewChangeMessageValidator(
       }
       _ <- {
         val wrongSegmentBlocks = certs
-          .map(_.prePrepare.blockMetadata.blockNumber)
+          .map(_.prePrepare.message.blockMetadata.blockNumber)
           .filter(blockNumber => !segmentBlockNumbers.contains(blockNumber))
           .toSet
         Either.cond(
@@ -57,7 +59,7 @@ class ViewChangeMessageValidator(
       }
       _ <- {
         val blocksWithRepeatedCerts = certs
-          .groupBy(_.prePrepare.blockMetadata)
+          .groupBy(_.prePrepare.message.blockMetadata)
           .collect {
             case (blockMetadata, certsForSameBlock) if certsForSameBlock.size > 1 =>
               blockMetadata.blockNumber
@@ -72,7 +74,7 @@ class ViewChangeMessageValidator(
       }
       _ <- {
         val viewNumbersInTheFuture =
-          certs.map(_.prePrepare.viewNumber).filter(_ >= currentViewNumber).toSet
+          certs.map(_.prePrepare.message.viewNumber).filter(_ >= currentViewNumber).toSet
         Either.cond(
           viewNumbersInTheFuture.isEmpty,
           (),
@@ -93,13 +95,19 @@ class ViewChangeMessageValidator(
       consensusCertificate: ConsensusCertificate,
   ): Validated[NonEmpty[Seq[String]], Unit] = {
     val prePrepare = consensusCertificate.prePrepare
-    val blockNumber = prePrepare.blockMetadata.blockNumber
+    val blockNumber = prePrepare.message.blockMetadata.blockNumber
     val strongQuorum = membership.orderingTopology.strongQuorum
     val (messages, messageName) = consensusCertificate match {
       case prepareCertificate: PrepareCertificate =>
-        (prepareCertificate.prepares, "prepare")
+        (
+          prepareCertificate.prepares: Seq[SignedMessage[ConsensusMessage.PbftNormalCaseMessage]],
+          "prepare",
+        )
       case commitCertificate: CommitCertificate =>
-        (commitCertificate.commits, "commit")
+        (
+          commitCertificate.commits: Seq[SignedMessage[ConsensusMessage.PbftNormalCaseMessage]],
+          "commit",
+        )
     }
 
     val valid: Validated[NonEmpty[Seq[String]], Unit] = Validated.valid(())
@@ -109,7 +117,7 @@ class ViewChangeMessageValidator(
     (NonEmpty.from(messages) match {
       case Some(nonEmptyMessages) =>
         val messagesViewNumberValidation = {
-          val byViewNumber = nonEmptyMessages.groupBy(_.viewNumber)
+          val byViewNumber = nonEmptyMessages.groupBy(_.message.viewNumber)
           if (byViewNumber.size > 1)
             invalid(
               s"all ${messageName}s should be of the same view number, but they are distributed across multiple view numbers (${byViewNumber.keys
@@ -137,7 +145,7 @@ class ViewChangeMessageValidator(
 
         val wrongBlockNumbersValidation = {
           val wrongBlockNumbers =
-            messages.map(_.blockMetadata.blockNumber).filter(_ != blockNumber).toSet
+            messages.map(_.message.blockMetadata.blockNumber).filter(_ != blockNumber).toSet
           if (wrongBlockNumbers.isEmpty) valid
           else
             invalid(
@@ -155,9 +163,9 @@ class ViewChangeMessageValidator(
         }
 
         val hashesValidation = {
-          val hash = prePrepare.hash
+          val hash = prePrepare.message.hash
           messages
-            .find(_.hash != hash)
+            .find(_.message.hash != hash)
             .fold(valid) { msgWithWrongHash =>
               val from = msgWithWrongHash.from
               invalid(

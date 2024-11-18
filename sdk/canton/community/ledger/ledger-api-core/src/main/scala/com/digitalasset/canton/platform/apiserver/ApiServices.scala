@@ -418,8 +418,8 @@ object ApiServices {
                 commandExecutor,
                 metrics,
                 checkOverloaded,
-                interactiveSubmissionServiceConfig,
                 lfValueTranslation,
+                interactiveSubmissionServiceConfig,
                 loggerFactory,
               )
 

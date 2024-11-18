@@ -30,7 +30,8 @@ class SymbolicPrivateCrypto(
   override protected val encryptionOps: EncryptionOps = pureCrypto
 
   // NOTE: These schemes are not really used by Symbolic crypto
-  override val defaultSigningKeyScheme: SigningKeyScheme = SigningKeyScheme.Ed25519
+  override val defaultSigningAlgorithmSpec: SigningAlgorithmSpec = SigningAlgorithmSpec.Ed25519
+  override val defaultSigningKeySpec: SigningKeySpec = SigningKeySpec.EcCurve25519
   override val defaultEncryptionKeySpec: EncryptionKeySpec = EncryptionKeySpec.EcP256
 
   @VisibleForTesting
@@ -49,14 +50,14 @@ class SymbolicPrivateCrypto(
   }
 
   override protected[crypto] def generateSigningKeypair(
-      scheme: SigningKeyScheme,
+      keySpec: SigningKeySpec,
       usage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.All,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SigningKeyGenerationError, SigningKeyPair] =
     EitherT.rightT(
       genKeyPair((pubKey, privKey) =>
-        SigningKeyPair.create(CryptoKeyFormat.Symbolic, pubKey, privKey, scheme, usage)
+        SigningKeyPair.create(CryptoKeyFormat.Symbolic, pubKey, privKey, keySpec, usage)
       )
     )
 

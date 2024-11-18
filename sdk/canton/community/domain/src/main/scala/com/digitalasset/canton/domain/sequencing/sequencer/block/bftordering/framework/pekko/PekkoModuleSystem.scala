@@ -208,7 +208,7 @@ object PekkoModuleSystem {
         action: String,
         futureUnlessShutdown: FutureUnlessShutdown[X],
         underlying: ActorContext[ModuleControl[PekkoEnv, MessageT]],
-    ) =
+    ): Future[X] =
       futureUnlessShutdown.failOnShutdownToAbortException(action)(underlying.executionContext)
   }
 

@@ -1,0 +1,53 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.participant.admin.party.v30;
+
+import "com/digitalasset/canton/protocol/v30/common_stable.proto";
+import "scalapb/scalapb.proto";
+
+message PartyReplicationInstruction {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+  // ACS snapshot chunk counter (0-based) up to which the source participant is allowed to send ACS chunks
+  // inclusively
+  // Required
+  uint32 max_counter = 1;
+}
+
+message PartyReplicationSourceMessage {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  message AcsChunk {
+    option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+    // ACS chunk counter (0-based)
+    // Required
+    uint32 chunk_counter = 1;
+
+    // The portion of the ACS in the chunk expressed as nonempty list
+    // TODO(#18525): Use a Ledger API representation instead.
+    // Required
+    message ContractWithReassignmentCounter {
+      option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+      com.digitalasset.canton.protocol.v30.SerializableContract contract = 1;
+      int64 reassignment_counter = 2;
+    }
+    repeated ContractWithReassignmentCounter contracts = 2;
+  }
+
+  message SourceParticipantIsReady {
+    option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+  }
+
+  message EndOfACS {
+    option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+  }
+
+  oneof data_or_status {
+    AcsChunk acs_chunk = 1;
+    SourceParticipantIsReady source_participant_is_ready = 2;
+    EndOfACS end_of_acs = 3;
+  }
+}

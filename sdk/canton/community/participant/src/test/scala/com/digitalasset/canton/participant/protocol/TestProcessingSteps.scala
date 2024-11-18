@@ -110,6 +110,8 @@ class TestProcessingSteps(
 
   override def submissionDescription(param: Int): String = s"submission $param"
 
+  override def explicitMediatorGroup(param: Int): Option[MediatorGroupIndex] = None
+
   override def embedNoMediatorError(error: NoMediatorError): TestProcessingError =
     TestProcessorError(error)
 

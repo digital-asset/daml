@@ -138,6 +138,9 @@ class TransactionTreeFactoryImpl(
           submittingParticipant = participantId,
           salt = submitterMetadataSalt,
           maxSequencingTime,
+          externalAuthorization = submitterInfo.externallySignedSubmission.map(s =>
+            ExternalAuthorization.create(s.signatures, s.version, protocolVersion)
+          ),
           protocolVersion = protocolVersion,
         )
         .leftMap(SubmitterMetadataError.apply)
@@ -167,17 +170,17 @@ class TransactionTreeFactoryImpl(
             .leftMap(_.transformInto[UnknownPackageError])
         else EitherT.rightT[FutureUnlessShutdown, TransactionTreeConversionError](())
 
-      rootViews <- createRootViews(rootViewDecompositions, state, contractOfId)
-        .map(rootViews =>
-          GenTransactionTree.tryCreate(cryptoOps)(
-            submitterMetadata,
-            commonMetadata,
-            participantMetadata,
-            MerkleSeq.fromSeq(cryptoOps, protocolVersion)(rootViews),
-          )
-        )
-        .mapK(FutureUnlessShutdown.outcomeK)
-    } yield rootViews
+      rootViews <- createRootViews(rootViewDecompositions, state, contractOfId).mapK(
+        FutureUnlessShutdown.outcomeK
+      )
+    } yield {
+      GenTransactionTree.tryCreate(cryptoOps)(
+        submitterMetadata,
+        commonMetadata,
+        participantMetadata,
+        MerkleSeq.fromSeq(cryptoOps, protocolVersion)(rootViews),
+      )
+    }
   }
 
   private def stateForSubmission(

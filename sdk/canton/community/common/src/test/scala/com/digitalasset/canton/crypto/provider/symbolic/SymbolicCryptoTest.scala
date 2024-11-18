@@ -33,14 +33,17 @@ class SymbolicCryptoTest
         )
       )
 
-    behave like signingProvider(SymbolicCryptoProvider.supportedSigningKeySchemes, symbolicCrypto())
+    behave like signingProvider(
+      SymbolicCryptoProvider.supportedSigningSpecs.algorithms.forgetNE,
+      symbolicCrypto(),
+    )
     behave like encryptionProvider(
       SymbolicCryptoProvider.supportedEncryptionSpecs.algorithms.forgetNE,
       SymbolicCryptoProvider.supportedSymmetricKeySchemes,
       symbolicCrypto(),
     )
     behave like privateKeySerializerProvider(
-      SymbolicCryptoProvider.supportedSigningKeySchemes,
+      SymbolicCryptoProvider.supportedSigningSpecs.keys.forgetNE,
       SymbolicCryptoProvider.supportedEncryptionSpecs.keys.forgetNE,
       symbolicCrypto(),
     )

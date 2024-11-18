@@ -63,7 +63,7 @@ class DbContractStore(
     val metadata = r.<<[ContractMetadata]
     val ledgerCreateTime = r.<<[CantonTimestamp]
     val requestCounter = r.<<[RequestCounter]
-    val creatingTransactionIdO = r.<<[Option[TransactionId]]
+    val isDivulged = r.<<[Boolean]
     val contractSalt = r.<<[Option[Salt]]
 
     val contract =
@@ -74,7 +74,7 @@ class DbContractStore(
         LedgerCreateTime(ledgerCreateTime),
         contractSalt,
       )
-    StoredContract(contract, requestCounter, creatingTransactionIdO)
+    StoredContract(contract, requestCounter, isDivulged)
   }
 
   private implicit val setParameterContractMetadata: SetParameter[ContractMetadata] =
@@ -112,7 +112,7 @@ class DbContractStore(
   }
 
   private val contractsBaseQuery =
-    sql"""select contract_id, instance, metadata, ledger_create_time, request_counter, creating_transaction_id, contract_salt
+    sql"""select contract_id, instance, metadata, ledger_create_time, request_counter, is_divulged, contract_salt
           from par_contracts"""
 
   private def lookupQuery(
@@ -202,10 +202,10 @@ class DbContractStore(
   }
 
   override def storeCreatedContracts(
-      creations: Seq[(WithTransactionId[SerializableContract], RequestCounter)]
+      creations: Seq[(SerializableContract, RequestCounter)]
   )(implicit traceContext: TraceContext): Future[Unit] =
-    creations.parTraverse_ { case (WithTransactionId(creation, transactionId), requestCounter) =>
-      storeContract(StoredContract.fromCreatedContract(creation, requestCounter, transactionId))
+    creations.parTraverse_ { case (creation, requestCounter) =>
+      storeContract(StoredContract.fromCreatedContract(creation, requestCounter))
     }
 
   override def storeDivulgedContracts(
@@ -251,7 +251,7 @@ class DbContractStore(
               contractSalt: Option[Salt],
             ),
             requestCounter: RequestCounter,
-            creatingTransactionId: Option[TransactionId],
+            isDivulged,
           ) = storedContract
 
           val template = instance.contractInstance.unversioned.template
@@ -263,7 +263,7 @@ class DbContractStore(
           pp >> metadata
           pp >> ledgerCreateTime.ts
           pp >> requestCounter
-          pp >> creatingTransactionId
+          pp >> isDivulged
           pp >> packageId
           pp >> templateId
           pp >> contractSalt
@@ -277,14 +277,14 @@ class DbContractStore(
             case _: DbStorage.Profile.Postgres =>
               """insert into par_contracts as c (
                    domain_idx, contract_id, metadata,
-                   ledger_create_time, request_counter, creating_transaction_id, package_id, template_id, contract_salt, instance)
+                   ledger_create_time, request_counter, is_divulged, package_id, template_id, contract_salt, instance)
                  values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                  on conflict(domain_idx, contract_id) do update
                    set
                      request_counter = excluded.request_counter,
-                     creating_transaction_id = excluded.creating_transaction_id
-                   where (c.creating_transaction_id is null and (excluded.creating_transaction_id is not null or c.request_counter < excluded.request_counter)) or
-                         (c.creating_transaction_id is not null and excluded.creating_transaction_id is not null and c.request_counter < excluded.request_counter)"""
+                     is_divulged = excluded.is_divulged
+                   where (c.is_divulged is true and (excluded.is_divulged is false or c.request_counter < excluded.request_counter)) or
+                         (c.is_divulged is false and excluded.is_divulged is false and c.request_counter < excluded.request_counter)"""
             case _: DbStorage.Profile.H2 =>
               """merge into par_contracts c
                  using (select cast(? as integer) domain_idx,
@@ -292,7 +292,7 @@ class DbContractStore(
                                cast(? as binary large object) metadata,
                                cast(? as varchar(300)) ledger_create_time,
                                cast(? as bigint) request_counter,
-                               cast(? as binary large object) creating_transaction_id,
+                               cast(? as boolean) is_divulged,
                                cast(? as varchar(300)) package_id,
                                cast(? as varchar) template_id,
                                cast(? as binary large object) contract_salt,
@@ -300,17 +300,17 @@ class DbContractStore(
                                from dual) as input
                  on (c.domain_idx = input.domain_idx and c.contract_id = input.contract_id)
                  when matched and (
-                   (c.creating_transaction_id is null and (input.creating_transaction_id is not null or c.request_counter < input.request_counter)) or
-                   (c.creating_transaction_id is not null and input.creating_transaction_id is not null and c.request_counter < input.request_counter)
+                   (c.is_divulged is true and (input.is_divulged is false or c.request_counter < input.request_counter)) or
+                   (c.is_divulged is false and input.is_divulged is false and c.request_counter < input.request_counter)
                  ) then
                    update set
                      request_counter = input.request_counter,
-                     creating_transaction_id = input.creating_transaction_id
+                     is_divulged = input.is_divulged
                  when not matched then
                   insert (domain_idx, contract_id, instance, metadata, ledger_create_time,
-                    request_counter, creating_transaction_id, package_id, template_id, contract_salt)
+                    request_counter, is_divulged, package_id, template_id, contract_salt)
                   values (input.domain_idx, input.contract_id, input.instance, input.metadata, input.ledger_create_time,
-                    input.request_counter, input.creating_transaction_id, input.package_id, input.template_id, input.contract_salt)"""
+                    input.request_counter, input.is_divulged, input.package_id, input.template_id, input.contract_salt)"""
           }
         DbStorage.bulkOperation(query, items.map(_.value), profile)(setParams)
 
@@ -358,7 +358,7 @@ class DbContractStore(
               success
             } else {
               (item, data) match {
-                case (StoredContract(_, rcItem, Some(_)), StoredContract(_, rcFound, Some(_))) =>
+                case (StoredContract(_, rcItem, false), StoredContract(_, rcFound, false)) =>
                   // a non-divulged contract must overwrite another non-divulged contract when its request counter is
                   // higher
                   if (rcItem > rcFound) {
@@ -368,16 +368,16 @@ class DbContractStore(
                            |replace non-divulged contract ${data.contractId} with request counter $rcFound""".stripMargin
                     )
                   } else success
-                case (StoredContract(_, _, Some(_)), StoredContract(_, _, None)) =>
+                case (StoredContract(_, _, false), StoredContract(_, _, true)) =>
                   // a create or assign contract must overwrite a divulged contract
                   invalidateCache(data.contractId)
                   failWith(
                     s"Non-divulged contract ${item.contractId} did not replace divulged contract ${data.contractId}"
                   )
-                case (StoredContract(_, _, None), StoredContract(_, _, Some(_))) =>
+                case (StoredContract(_, _, true), StoredContract(_, _, false)) =>
                   // a divulged contract should not replace a non-divulged contract
                   success
-                case (StoredContract(_, rcItem, None), StoredContract(_, rcFound, None)) =>
+                case (StoredContract(_, rcItem, true), StoredContract(_, rcFound, true)) =>
                   // inserted and found contracts are both divulged contracts
                   if (rcItem > rcFound) {
                     invalidateCache(data.contractId)
@@ -433,7 +433,7 @@ class DbContractStore(
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val query =
       sqlu"""delete from par_contracts
-             where domain_idx = $indexedDomain and request_counter <= $upTo and creating_transaction_id is null"""
+             where domain_idx = $indexedDomain and request_counter <= $upTo and is_divulged is true"""
 
     storage.update_(query, functionFullName)
   }
@@ -474,8 +474,4 @@ class DbContractStore(
 
   override def contractCount()(implicit traceContext: TraceContext): Future[Int] =
     storage.query(sql"select count(*) from par_contracts".as[Int].head, functionFullName)
-}
-
-object DbContractStore {
-  final case class AbortedDueToShutdownException(message: String) extends RuntimeException(message)
 }

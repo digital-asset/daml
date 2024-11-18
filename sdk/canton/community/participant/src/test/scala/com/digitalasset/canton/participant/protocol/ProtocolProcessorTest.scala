@@ -73,7 +73,7 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.PekkoUtil.FutureQueue
-import com.digitalasset.canton.version.HasTestCloseContext
+import com.digitalasset.canton.version.{HasTestCloseContext, ProtocolVersion}
 import com.digitalasset.canton.{
   BaseTest,
   DefaultDamlValues,
@@ -373,6 +373,15 @@ class ProtocolProcessorTest
         override protected def metricsContextForSubmissionParam(
             submissionParam: Int
         ): MetricsContext = MetricsContext.Empty
+
+        override protected def preSubmissionValidations(
+            params: Int,
+            cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+            protocolVersion: ProtocolVersion,
+        )(implicit
+            traceContext: TraceContext
+        ): EitherT[FutureUnlessShutdown, TestProcessingSteps.TestProcessingError, Unit] =
+          EitherT.pure(())
       }
 
     (sut, persistentState, ephemeralState.get(), participantNodeEphemeralState)

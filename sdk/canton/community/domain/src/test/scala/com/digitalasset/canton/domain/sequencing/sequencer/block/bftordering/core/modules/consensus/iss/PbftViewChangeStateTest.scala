@@ -12,6 +12,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   EpochNumber,
   ViewNumber,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.ViewChange
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.SequencerId
@@ -82,7 +83,7 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           .map(peer =>
             createViewChange(nextView, peer, myId, slotNumbers.map(_ -> ViewNumber.First))
           )
-        val ppSeq = vcSet(0).consensusCerts.map(_.prePrepare)
+        val ppSeq = vcSet(0).message.consensusCerts.map(_.prePrepare)
 
         // Receiving a New View message from the incorrect leader fails
         val wrongNextLeader =
@@ -130,7 +131,7 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           metrics,
           loggerFactory,
         )
-        val vcSet: IndexedSeq[ViewChange] = createViewChangeSet(
+        val vcSet: IndexedSeq[SignedMessage[ViewChange]] = createViewChangeSet(
           nextView,
           originalLeader,
           viewNumbersPerPeer,
@@ -150,9 +151,9 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         val nv = vcState.createNewViewMessage(blockMetaData, segmentIndex, clock.now)
 
         // TODO(#16820): more explicit check for NO bottom blocks once better defined
-        nv.prePrepares.foreach(_.viewNumber shouldBe ViewNumber.First)
-        nv.prePrepares.foreach(_.from shouldBe originalLeader)
-        nv.prePrepares should have size slotNumbers.size.toLong
+        nv.message.prePrepares.foreach(_.message.viewNumber shouldBe ViewNumber.First)
+        nv.message.prePrepares.foreach(_.from shouldBe originalLeader)
+        nv.message.prePrepares should have size slotNumbers.size.toLong
       }
 
       "produce a New View with all bottom blocks when no slots have any prepare cert" in {
@@ -168,9 +169,9 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         val nv = vcState.createNewViewMessage(blockMetaData, segmentIndex, clock.now)
 
         // TODO(#16820): more explicit check for ALL bottom blocks once better defined
-        nv.prePrepares.foreach(_.viewNumber shouldBe nextView)
-        nv.prePrepares.foreach(_.from shouldBe nextLeader)
-        nv.prePrepares should have size slotNumbers.size.toLong
+        nv.message.prePrepares.foreach(_.message.viewNumber shouldBe nextView)
+        nv.message.prePrepares.foreach(_.from shouldBe nextLeader)
+        nv.message.prePrepares should have size slotNumbers.size.toLong
       }
 
       "produce a New View with the highest-view PrePrepare (w/ valid cert) for each slot" in {
@@ -189,14 +190,14 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         vcState.shouldCreateNewView shouldBe true
 
         val nv = vcState.createNewViewMessage(blockMetaData, segmentIndex, clock.now)
-        nv.prePrepares.map(pp =>
-          pp.from -> pp.viewNumber
+        nv.message.prePrepares.map(pp =>
+          pp.from -> pp.message.viewNumber
         ) should contain theSameElementsInOrderAs Seq(
           originalLeader -> 0,
           otherPeer2 -> 1,
           otherPeer3 -> 2,
         )
-        nv.prePrepares should have size slotNumbers.size.toLong
+        nv.message.prePrepares should have size slotNumbers.size.toLong
       }
 
       "produce a New View with highest-view PrePrepare for each slot, including bottom blocks" in {
@@ -215,14 +216,14 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         vcState.shouldCreateNewView shouldBe true
 
         val nv = vcState.createNewViewMessage(blockMetaData, segmentIndex, clock.now)
-        nv.prePrepares.map(pp =>
-          pp.from -> pp.viewNumber
+        nv.message.prePrepares.map(pp =>
+          pp.from -> pp.message.viewNumber
         ) should contain theSameElementsInOrderAs Seq(
           originalLeader -> 0,
           otherPeer2 -> 1,
           myId -> 3,
         )
-        nv.prePrepares should have size slotNumbers.size.toLong
+        nv.message.prePrepares should have size slotNumbers.size.toLong
       }
     }
   }

@@ -133,8 +133,7 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
       pickDomain(repair) shouldBe repair
     }
 
-    // TODO(#15561) Re-enable this test when we have a stable protocol version
-    "take minimum protocol version into account" ignore {
+    "take minimum protocol version into account" in {
       val oldPV = ProtocolVersion.v32
 
       val transactionVersion = LfLanguageVersion.v2_dev
@@ -553,6 +552,7 @@ private[routing] object DomainSelectorTest {
         .create(
           actAs = Set(signatory),
           readAs = Set(),
+          externallySignedSubmissionO = None,
           ledgerTime = ledgerTime,
           transaction = tx,
           domainStateProvider = TestDomainStateProvider,

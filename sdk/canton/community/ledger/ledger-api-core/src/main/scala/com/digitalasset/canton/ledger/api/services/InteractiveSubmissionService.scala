@@ -3,11 +3,12 @@
 
 package com.digitalasset.canton.ledger.api.services
 
-import com.daml.ledger.api.v2.interactive_submission_data.PreparedTransaction
-import com.daml.ledger.api.v2.interactive_submission_service.{
+import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   ExecuteSubmissionResponse,
   PrepareSubmissionResponse,
+  PreparedTransaction,
 }
+import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.{
@@ -15,19 +16,29 @@ import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.
   PrepareRequest,
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-import com.digitalasset.canton.protocol.TransactionAuthorizationPartySignatures
-import com.digitalasset.daml.lf.data.Ref.{SubmissionId, WorkflowId}
+import com.digitalasset.canton.topology.{DomainId, PartyId}
+import com.digitalasset.canton.version.HashingSchemeVersion
+import com.digitalasset.daml.lf.data.Ref.{ApplicationId, SubmissionId}
+import com.digitalasset.daml.lf.data.Time
 
 import scala.concurrent.Future
 
 object InteractiveSubmissionService {
-  final case class PrepareRequest(commands: domain.Commands)
+  final case class PrepareRequest(commands: domain.Commands, verboseHashing: Boolean)
+
+  /** @param ledgerEffectiveTimeIfNotAlreadySet If getTime was not used in the interpretation of the command,
+    *                                    we'll set the ledger effective time here during "execute".
+    *                                    In that case, this is the value we'll use.
+    */
   final case class ExecuteRequest(
+      applicationId: ApplicationId,
       submissionId: SubmissionId,
-      workflowId: Option[WorkflowId],
       deduplicationPeriod: DeduplicationPeriod,
-      partiesSignatures: TransactionAuthorizationPartySignatures,
+      ledgerEffectiveTimeIfNotAlreadySet: Time.Timestamp,
+      signatures: Map[PartyId, Seq[Signature]],
       preparedTransaction: PreparedTransaction,
+      serializationVersion: HashingSchemeVersion,
+      domainId: DomainId,
   )
 }
 

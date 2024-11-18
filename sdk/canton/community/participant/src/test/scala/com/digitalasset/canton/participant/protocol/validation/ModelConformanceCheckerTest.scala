@@ -3,10 +3,12 @@
 
 package com.digitalasset.canton.participant.protocol.validation
 
+import cats.Eval
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
+import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.Pretty
@@ -16,13 +18,19 @@ import com.digitalasset.canton.participant.protocol.EngineController.{
 }
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactoryImpl
 import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.*
+import com.digitalasset.canton.participant.protocol.validation.ModelConformanceCheckerTest.HashReInterpretationCounter
 import com.digitalasset.canton.participant.protocol.{
   SerializableContractAuthenticator,
   TransactionProcessingSteps,
 }
 import com.digitalasset.canton.participant.store.ContractLookupAndVerification
 import com.digitalasset.canton.participant.util.DAMLe
-import com.digitalasset.canton.participant.util.DAMLe.{EngineError, HasReinterpret, PackageResolver}
+import com.digitalasset.canton.participant.util.DAMLe.{
+  EngineError,
+  HasReinterpret,
+  PackageResolver,
+  ReInterpretationResult,
+}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -47,6 +55,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 import pprint.Tree
 
 import java.time.Duration
+import java.util.concurrent.atomic.AtomicInteger
 import scala.annotation.unused
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -66,10 +75,11 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       @unused _context: TraceContext,
   ): EitherT[Future, ContractValidationFailure, Unit] = EitherT.pure(())
 
-  def reinterpretExample(
+  private def reinterpretExample(
       example: ExampleTransaction,
       usedPackages: Set[PackageId] = Set.empty,
-  ): HasReinterpret = new HasReinterpret {
+  ): HasReinterpret with HashReInterpretationCounter = new HasReinterpret
+    with HashReInterpretationCounter {
 
     override def reinterpret(
         contracts: ContractLookupAndVerification,
@@ -84,8 +94,9 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
     )(implicit traceContext: TraceContext): EitherT[
       Future,
       DAMLe.ReinterpretationError,
-      (LfVersionedTransaction, TransactionMetadata, LfKeyResolver, Set[PackageId]),
+      ReInterpretationResult,
     ] = {
+      incrementInterpretations()
       ledgerTime shouldEqual factory.ledgerTime
       submissionTime shouldEqual factory.submissionTime
 
@@ -99,7 +110,9 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
           md.seeds.get(tx.roots(0)) == rootSeed
         }.value
 
-      EitherT.rightT((reinterpretedTx, metadata, keyResolver, usedPackages))
+      EitherT.rightT(
+        ReInterpretationResult(reinterpretedTx, metadata, keyResolver, usedPackages, false)
+      )
     }
   }
 
@@ -117,7 +130,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
     )(implicit traceContext: TraceContext): EitherT[
       Future,
       DAMLe.ReinterpretationError,
-      (LfVersionedTransaction, TransactionMetadata, LfKeyResolver, Set[PackageId]),
+      ReInterpretationResult,
     ] = fail("Reinterpret should not be called by this test case.")
   }
 
@@ -150,10 +163,28 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
     ): Either[String, Unit] = Either.unit
   }
 
-  def check(
+  def reInterpret(
+      mcc: ModelConformanceChecker,
+      view: TransactionView,
+      keyResolver: LfKeyResolver,
+      commonData: TransactionProcessingSteps.CommonData,
+  ): EitherT[Future, Error, ConformanceReInterpretationResult] =
+    mcc
+      .reInterpret(
+        view,
+        keyResolver,
+        RequestCounter(0),
+        commonData.ledgerTime,
+        commonData.submissionTime,
+        getEngineAbortStatus = () => EngineAbortStatus.notAborted,
+      )
+      .failOnShutdown
+
+  private[protocol] def check(
       mcc: ModelConformanceChecker,
       views: NonEmpty[Seq[(FullTransactionViewTree, Seq[(TransactionView, LfKeyResolver)])]],
       ips: TopologySnapshot = factory.topologySnapshot,
+      reInterpretedTopLevelViews: ModelConformanceChecker.LazyAsyncReInterpretation = Map.empty,
   ): EitherT[Future, ErrorWithSubTransaction, Result] = {
     val rootViewTrees = views.map(_._1)
     val commonData = TransactionProcessingSteps.tryCommonData(rootViewTrees)
@@ -166,6 +197,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         ips,
         commonData,
         getEngineAbortStatus = () => EngineAbortStatus.notAborted,
+        reInterpretedTopLevelViews,
       )
       .failOnShutdown
   }
@@ -218,6 +250,53 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
               ),
               s"$absoluteTransaction should equal ${example.wellFormedSuffixedTransaction} up to nid renaming",
             )
+          }
+        }
+
+        "re-use pre-interpreted transactions" in {
+          val topLevelViewTrees = NonEmptyUtil.fromUnsafe(
+            example.rootTransactionViewTrees
+              .filter(_.isTopLevel)
+          )
+          val reInterpretedTopLevelViews = topLevelViewTrees.forgetNE
+            .map({ viewTree =>
+              viewTree.view.viewHash ->
+                Eval.now(
+                  reInterpret(
+                    sut,
+                    viewTree.view,
+                    Map.empty: LfKeyResolver,
+                    TransactionProcessingSteps.tryCommonData(topLevelViewTrees),
+                  ).mapK(FutureUnlessShutdown.outcomeK)
+                )
+            })
+            .toMap
+
+          val reInterpreter = reinterpretExample(example)
+          val mcc = buildUnderTest(reInterpreter)
+
+          for {
+            result <- valueOrFail(
+              check(
+                mcc,
+                viewsWithNoInputKeys(example.rootTransactionViewTrees),
+                reInterpretedTopLevelViews = reInterpretedTopLevelViews,
+              )
+            )(s"model conformance check for root views")
+          } yield {
+            val Result(transactionId, absoluteTransaction) = result
+            transactionId should equal(example.transactionId)
+            absoluteTransaction.metadata.ledgerTime should equal(factory.ledgerTime)
+            absoluteTransaction.unwrap.version should equal(
+              example.versionedSuffixedTransaction.version
+            )
+            assert(
+              absoluteTransaction.withoutVersion.equalForest(
+                example.wellFormedSuffixedTransaction.withoutVersion
+              ),
+              s"$absoluteTransaction should equal ${example.wellFormedSuffixedTransaction} up to nid renaming",
+            )
+            reInterpreter.getInterpretationCount shouldBe 0
           }
         }
 
@@ -281,7 +360,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         )(implicit traceContext: TraceContext): EitherT[
           Future,
           DAMLe.ReinterpretationError,
-          (LfVersionedTransaction, TransactionMetadata, LfKeyResolver, Set[PackageId]),
+          ReInterpretationResult,
         ] = EitherT.leftT(error)
       })
 
@@ -348,9 +427,15 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
           )(implicit traceContext: TraceContext): EitherT[
             Future,
             DAMLe.ReinterpretationError,
-            (LfVersionedTransaction, TransactionMetadata, LfKeyResolver, Set[PackageId]),
+            ReInterpretationResult,
           ] = EitherT.pure(
-            (reinterpreted, subviewMissing.metadata, subviewMissing.keyResolver, Set.empty)
+            ReInterpretationResult(
+              reinterpreted,
+              subviewMissing.metadata,
+              subviewMissing.keyResolver,
+              Set.empty,
+              true,
+            )
           )
         })
 
@@ -427,7 +512,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
             )(implicit traceContext: TraceContext): EitherT[
               Future,
               DAMLe.ReinterpretationError,
-              (LfVersionedTransaction, TransactionMetadata, LfKeyResolver, Set[PackageId]),
+              ReInterpretationResult,
             ] = EitherT.fromEither(Left(engineError))
           })
         val viewHash = example.transactionViewTrees.head.viewHash
@@ -461,4 +546,12 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       result.toEitherT
   }
 
+}
+
+object ModelConformanceCheckerTest {
+  private trait HashReInterpretationCounter {
+    private val counter = new AtomicInteger(0)
+    def incrementInterpretations(): Unit = discard(counter.getAndIncrement())
+    def getInterpretationCount: Int = counter.get()
+  }
 }

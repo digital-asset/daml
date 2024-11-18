@@ -5,6 +5,7 @@ package com.digitalasset.canton.http.json.v2
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v2.{offset_checkpoint, reassignment, update_service}
+import com.digitalasset.canton.http.{JsonApiConfig, WebsocketConfig}
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.canton.http.json.v2.JsSchema.JsEvent.CreatedEvent
 import com.digitalasset.canton.http.json.v2.JsSchema.{JsTransaction, JsTransactionTree}
@@ -31,6 +32,7 @@ class JsUpdateService(
 )(implicit
     val executionContext: ExecutionContext,
     esf: ExecutionSequencerFactory,
+  wsConfig: WebsocketConfig,
 ) extends Endpoints
     with NamedLogging {
   import JsUpdateServiceCodecs.*
@@ -152,7 +154,7 @@ class JsUpdateService(
       prepareSingleWsStream(
         updateServiceClient(caller.token())(TraceContext.empty).getUpdates,
         (r: update_service.GetUpdatesResponse) => protocolConverters.GetUpdatesResponse.toJson(r),
-        limited = true,
+        withCloseDelay = true,
       )
     }
 
@@ -170,7 +172,7 @@ class JsUpdateService(
         updateServiceClient(caller.token()).getUpdateTrees,
         (r: update_service.GetUpdateTreesResponse) =>
           protocolConverters.GetUpdateTreesResponse.toJson(r),
-        limited = true,
+        withCloseDelay = true,
       )
     }
 
@@ -187,7 +189,7 @@ object JsUpdateService {
       webSocketBody[
         update_service.GetUpdatesRequest,
         CodecFormat.Json,
-        JsGetUpdatesResponse,
+        Either[JsCantonError, JsGetUpdatesResponse],
         CodecFormat.Json,
       ](PekkoStreams)
     )
@@ -199,7 +201,7 @@ object JsUpdateService {
       webSocketBody[
         update_service.GetUpdatesRequest,
         CodecFormat.Json,
-        JsGetUpdateTreesResponse,
+        Either[JsCantonError, JsGetUpdateTreesResponse],
         CodecFormat.Json,
       ](PekkoStreams)
     )

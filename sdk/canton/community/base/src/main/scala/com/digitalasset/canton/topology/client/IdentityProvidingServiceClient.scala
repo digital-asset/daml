@@ -280,6 +280,11 @@ trait PartyTopologySnapshotClient {
       parties: Set[LfPartyId],
   )(implicit traceContext: TraceContext): Future[Set[LfPartyId]]
 
+  /** Returns parties with no hosting participant that can confirm for them. */
+  def hasNoConfirmer(
+      parties: Set[LfPartyId]
+  )(implicit traceContext: TraceContext): Future[Set[LfPartyId]]
+
   /** Returns the subset of parties the given participant can NOT submit on behalf of */
   def canNotSubmit(
       participant: ParticipantId,
@@ -846,6 +851,17 @@ private[client] trait PartyTopologySnapshotBaseClient {
             .map(_ => party)
         }.toSet
       )(executionContext)
+
+  override def hasNoConfirmer(
+      parties: Set[LfPartyId]
+  )(implicit traceContext: TraceContext): Future[Set[LfPartyId]] =
+    activeParticipantsOfPartiesWithInfo(parties.toSeq).map { partyToParticipants =>
+      parties.filterNot { party =>
+        partyToParticipants
+          .get(party)
+          .exists(_.participants.values.exists(_.canConfirm))
+      }
+    }
 
   override def activeParticipantsOfAll(
       parties: List[LfPartyId]

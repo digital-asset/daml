@@ -5,6 +5,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.co
 
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.metrics.BftOrderingMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Segment
@@ -16,6 +17,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   EpochNumber,
   ViewNumber,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.BlockMetadata
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.{
   CommitCertificate,
@@ -57,7 +59,7 @@ class SegmentState(
   private var inViewChange: Boolean = false
   private var strongQuorumReachedForCurrentView: Boolean = false
 
-  private val futureViewMessagesQueue = mutable.Queue[PbftNormalCaseMessage]()
+  private val futureViewMessagesQueue = mutable.Queue[SignedMessage[PbftNormalCaseMessage]]()
   private val viewChangeState = new mutable.HashMap[ViewNumber, PbftViewChangeState]
 
   private val pbftBlocks = new mutable.HashMap[ViewNumber, NonEmpty[Seq[PbftBlockState]]]()
@@ -89,15 +91,23 @@ class SegmentState(
     )
     .discard
 
+  @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   def processEvent(
       event: PbftEvent
   )(implicit traceContext: TraceContext): Seq[ProcessResult] = {
     val blockCompletion = blockCompletionState
     val processResults = event match {
-      case normalCase: PbftNormalCaseMessage =>
-        processNormalCaseMessage(normalCase)
-      case viewChange: PbftViewChangeMessage =>
-        processViewChangeMessage(viewChange)
+      case PbftSignedNetworkMessage(signedMessage) =>
+        signedMessage.message match {
+          case _: PbftNormalCaseMessage =>
+            processNormalCaseMessage(
+              signedMessage.asInstanceOf[SignedMessage[PbftNormalCaseMessage]]
+            )
+          case _: PbftViewChangeMessage =>
+            processViewChangeMessage(
+              signedMessage.asInstanceOf[SignedMessage[PbftViewChangeMessage]]
+            )
+        }
       case timeout: PbftTimeout =>
         processTimeout(timeout)
     }
@@ -105,7 +115,9 @@ class SegmentState(
     // in a higher view, we don't want to signal again that the block got completed
     processResults.filter {
       case c: CompletedBlock
-          if blockCompletion(segment.relativeBlockIndex(c.prePrepare.blockMetadata.blockNumber)) =>
+          if blockCompletion(
+            segment.relativeBlockIndex(c.prePrepare.message.blockMetadata.blockNumber)
+          ) =>
         false
       case _ => true
     }
@@ -120,7 +132,7 @@ class SegmentState(
 
   def isSegmentComplete: Boolean = blockCompletionState.forall(identity)
 
-  def blockCommitMessages(blockNumber: BlockNumber): Seq[Commit] = {
+  def blockCommitMessages(blockNumber: BlockNumber): Seq[SignedMessage[Commit]] = {
     val viewNumber = findViewWhereBlockIsComplete(blockNumber)
       .getOrElse(abort(s"Block $blockNumber should have been completed"))
     pbftBlocks(viewNumber)(segment.relativeBlockIndex(blockNumber)).commitMessageQuorum
@@ -156,22 +168,22 @@ class SegmentState(
   // Note: We may want to limit the number of messages in the future queue, per peer
   //       When capacity is reached, we can (a) drop new messages, or (b) evict older for newer
   private def processNormalCaseMessage(
-      msg: PbftNormalCaseMessage
+      msg: SignedMessage[PbftNormalCaseMessage]
   )(implicit traceContext: TraceContext): Seq[ProcessResult] = {
     var result = Seq.empty[ProcessResult]
-    if (msg.viewNumber < currentViewNumber)
+    if (msg.message.viewNumber < currentViewNumber)
       logger.info(
-        s"Segment received PbftNormalCaseMessage with stale view ${msg.viewNumber}; " +
+        s"Segment received PbftNormalCaseMessage with stale view ${msg.message.viewNumber}; " +
           s"current view = $currentViewNumber"
       )
-    else if (msg.viewNumber > currentViewNumber || inViewChange) {
+    else if (msg.message.viewNumber > currentViewNumber || inViewChange) {
       futureViewMessagesQueue.enqueue(msg)
       logger.info(
-        s"Segment received early PbftNormalCaseMessage; message view = ${msg.viewNumber}, " +
+        s"Segment received early PbftNormalCaseMessage; message view = ${msg.message.viewNumber}, " +
           s"current view = $currentViewNumber, inViewChange = $inViewChange"
       )
     } else
-      result = processPbftNormalCaseMessage(msg, msg.blockMetadata.blockNumber)
+      result = processPbftNormalCaseMessage(msg, msg.message.blockMetadata.blockNumber)
     result
   }
 
@@ -179,34 +191,34 @@ class SegmentState(
   // Note: Similarly to the future message queue, we may want to limit how many concurrent viewChangeState
   //       entries exist in the map at any given point in time
   private def processViewChangeMessage(
-      msg: PbftViewChangeMessage
+      msg: SignedMessage[PbftViewChangeMessage]
   )(implicit traceContext: TraceContext): Seq[ProcessResult] = {
     var result = Seq.empty[ProcessResult]
-    if (msg.viewNumber < currentViewNumber)
+    if (msg.message.viewNumber < currentViewNumber)
       logger.info(
-        s"Segment received PbftViewChangeMessage with stale view ${msg.viewNumber}; " +
+        s"Segment received PbftViewChangeMessage with stale view ${msg.message.viewNumber}; " +
           s"current view = $currentViewNumber"
       )
-    else if (msg.viewNumber == currentViewNumber && !inViewChange)
+    else if (msg.message.viewNumber == currentViewNumber && !inViewChange)
       logger.info(
-        s"Segment received PbftViewChangeMessage with matching view ${msg.viewNumber}, " +
+        s"Segment received PbftViewChangeMessage with matching view ${msg.message.viewNumber}, " +
           s"but View Change is already complete, current view = $currentViewNumber"
       )
     else {
       val vcState = viewChangeState.getOrElseUpdate(
-        msg.viewNumber,
+        msg.message.viewNumber,
         new PbftViewChangeState(
           membership,
-          computeLeader(msg.viewNumber),
+          computeLeader(msg.message.viewNumber),
           epochNumber,
-          msg.viewNumber,
+          msg.message.viewNumber,
           segment.slotNumbers,
           metrics,
           loggerFactory,
         ),
       )
       if (vcState.processMessage(msg) && vcState.shouldAdvanceViewChange) {
-        result = advanceViewChange(msg.viewNumber)
+        result = advanceViewChange(msg.message.viewNumber)
       }
     }
     result
@@ -344,7 +356,7 @@ class SegmentState(
 
   private def startViewChange(
       newViewNumber: ViewNumber
-  )(implicit traceContext: TraceContext): ViewChange = {
+  )(implicit traceContext: TraceContext): SignedMessage[ViewChange] = {
     val viewChangeMessage = {
       val initialAccumulator =
         Seq.fill[Option[ConsensusCertificate]](segment.slotNumbers.size)(None)
@@ -360,13 +372,16 @@ class SegmentState(
               }
             }
         }
-      ViewChange.create(
-        viewChangeBlockMetadata,
-        segmentIndex = originalLeaderIndex,
-        newViewNumber,
-        clock.now,
-        consensusCerts = consensusCerts.collect { case Some(cert) => cert },
-        from = membership.myId,
+      SignedMessage(
+        ViewChange.create(
+          viewChangeBlockMetadata,
+          segmentIndex = originalLeaderIndex,
+          newViewNumber,
+          clock.now,
+          consensusCerts = consensusCerts.collect { case Some(cert) => cert },
+          from = membership.myId,
+        ),
+        Signature.noSignature,
       )
     }
 
@@ -378,18 +393,22 @@ class SegmentState(
   }
 
   private def completeViewChange(
-      newView: NewView
+      newView: SignedMessage[NewView]
   )(implicit traceContext: TraceContext): Seq[ProcessResult] = {
     val blockToCommitCert: Map[BlockNumber, CommitCertificate] =
-      newView.computedCertificatePerBlock.collect { case (blockNumber, cc: CommitCertificate) =>
-        (blockNumber, cc)
+      newView.message.computedCertificatePerBlock.collect {
+        case (blockNumber, cc: CommitCertificate) =>
+          (blockNumber, cc)
       }
-    val blockToPrePrepare = newView.prePrepares.groupBy(_.blockMetadata.blockNumber).collect {
-      case (blockNumber, Seq(prePrepare)) =>
-        (blockNumber, prePrepare)
-      case _ =>
-        abort("There should be exactly one PrePrepare for each slot upon completing a view change")
-    }
+    val blockToPrePrepare =
+      newView.message.prePrepares.groupBy(_.message.blockMetadata.blockNumber).collect {
+        case (blockNumber, Seq(prePrepare)) =>
+          (blockNumber, prePrepare)
+        case _ =>
+          abort(
+            "There should be exactly one PrePrepare for each slot upon completing a view change"
+          )
+      }
 
     // Create the new set of blocks for the currentView
     pbftBlocks
@@ -422,13 +441,14 @@ class SegmentState(
     // It is important that this step happens before processing the pre-prepares for the new-view so that
     // during rehydration we can first process previously stored prepares and thus avoid that new conflicting prepares
     // are created as a result of rehydrating the new-view message's pre-prepares.
-    val queuedMessages = futureViewMessagesQueue.dequeueAll(_.viewNumber == currentViewNumber)
+    val queuedMessages =
+      futureViewMessagesQueue.dequeueAll(_.message.viewNumber == currentViewNumber)
     val futureMessageQueueResults =
       for {
         pbftMessage <- queuedMessages
         processResult <- processPbftNormalCaseMessage(
           pbftMessage,
-          pbftMessage.blockMetadata.blockNumber,
+          pbftMessage.message.blockMetadata.blockNumber,
         )
       } yield processResult
 
@@ -459,7 +479,7 @@ class SegmentState(
   }
 
   private def processPbftNormalCaseMessage(
-      pbftNormalCaseMessage: PbftNormalCaseMessage,
+      pbftNormalCaseMessage: SignedMessage[PbftNormalCaseMessage],
       blockNumber: BlockNumber,
   )(implicit
       traceContext: TraceContext
