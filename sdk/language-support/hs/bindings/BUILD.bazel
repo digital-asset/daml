@@ -61,8 +61,8 @@ da_haskell_test(
     srcs = glob(["test/**/*.hs"]),
     data = [
         "dummy.dar",
-        ":for-tests.dar",
-        ":for-upload.dar",
+        "for-tests.dar",
+        "for-upload.dar",
     ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     # The tests throw flaky timeout errors. It looks like this comes
     # from a fundamental issue in the Haskell bindings: they eagerly pull
