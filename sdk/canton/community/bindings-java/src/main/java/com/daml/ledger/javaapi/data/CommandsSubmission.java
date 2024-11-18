@@ -8,17 +8,19 @@ import static java.util.Collections.unmodifiableList;
 import static java.util.Optional.empty;
 
 import com.daml.ledger.javaapi.data.codegen.HasCommands;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 /**
  * This class can be used to build a valid submission. It provides {@link #create(String, String, List)}
  * for initial creation and methods to set optional parameters
  * e.g {@link #withActAs(List)}, {@link #withWorkflowId(String)} etc.
- *
+ * <p>
  * Usage:
  * <pre>
  *   var submission = CommandsSubmission.create(applicationId, commandId, commands)
@@ -296,17 +298,17 @@ public final class CommandsSubmission {
 
   public CommandsSubmission withPackageIdSelectionPreference(List<String> packageIdSelectionPreference) {
     return new CommandsSubmission(
-            applicationId,
-            commandId,
-            commands,
-            actAs,
-            readAs,
-            workflowId,
-            minLedgerTimeAbs,
-            minLedgerTimeRel,
-            deduplicationTime,
-            accessToken,
-            disclosedContracts,
-            packageIdSelectionPreference);
+        applicationId,
+        commandId,
+        commands,
+        actAs,
+        readAs,
+        workflowId,
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationTime,
+        accessToken,
+        disclosedContracts,
+        packageIdSelectionPreference);
   }
 }
