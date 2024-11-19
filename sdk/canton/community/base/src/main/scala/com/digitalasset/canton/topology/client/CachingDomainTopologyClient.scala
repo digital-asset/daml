@@ -363,13 +363,16 @@ class CachingTopologySnapshot(
     cachingConfigs.participantCache
       .buildScaffeine()
       .buildAsyncFuture[ParticipantId, Option[ParticipantAttributes]](parent.findParticipantState)
+
   private val keyCache = cachingConfigs.keyCache
     .buildScaffeine()
     .buildAsyncFuture[KeyOwner, KeyCollection](parent.allKeys)
 
   private val packageVettingCache =
     TracedScaffeine
-      .buildTracedAsyncFutureUS[(ParticipantId, PackageId), Either[PackageId, Set[PackageId]]](
+      .buildTracedAsync[FutureUnlessShutdown, (ParticipantId, PackageId), Either[PackageId, Set[
+        PackageId
+      ]]](
         cache = cachingConfigs.packageVettingCache.buildScaffeine(),
         _ => x => loadUnvettedPackagesOrDependencies(x._1, x._2).value,
       )(logger)
@@ -458,7 +461,7 @@ class CachingTopologySnapshot(
     findUnvettedPackagesOrDependenciesUsingLoader(
       participantId,
       packages,
-      (x, y) => EitherT(packageVettingCache.getUS((x, y))),
+      (x, y) => EitherT(packageVettingCache.get((x, y))),
     )
 
   private[client] def loadUnvettedPackagesOrDependencies(

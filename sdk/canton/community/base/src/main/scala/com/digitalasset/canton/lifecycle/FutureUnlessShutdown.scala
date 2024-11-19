@@ -66,6 +66,14 @@ object FutureUnlessShutdown {
     case Failure(exception) => FutureUnlessShutdown.failed(exception)
   }
 
+  /** Transforms a future from [[FutureUnlessShutdownImpl.Ops.failOnShutdownToAbortException]] back
+    * to [[FutureUnlessShutdown]].
+    */
+  def recoverFromAbortException[V](f: Future[V])(implicit
+      ec: ExecutionContext
+  ): FutureUnlessShutdown[V] =
+    FutureUnlessShutdown.apply(f.transform(UnlessShutdown.recoverFromAbortException))
+
   /** Can transform a future from [[FutureUnlessShutdownImpl.Ops.failOnShutdownToAbortException]] back
     * to [[FutureUnlessShutdown]].
     */
