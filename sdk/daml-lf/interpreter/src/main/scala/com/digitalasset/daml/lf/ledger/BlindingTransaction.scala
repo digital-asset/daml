@@ -61,11 +61,11 @@ object BlindingTransaction {
 
   /** Calculate blinding information for a transaction. */
   def calculateBlindingInfo(tx: VersionedTransaction): BlindingInfo = {
-    val (info, _) = calculateBlindingInfoWithContactVisibility(tx)
+    val (info, _) = calculateBlindingInfoWithContractVisibility(tx)
     info
   }
 
-  def calculateBlindingInfoWithContactVisibility(
+  def calculateBlindingInfoWithContractVisibility(
       tx: VersionedTransaction
   ): (BlindingInfo, Relation[ContractId, Party]) = {
     val state = calculateBlindState(tx)

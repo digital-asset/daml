@@ -142,7 +142,7 @@ object Blinding {
       contractPackages: Map[ContractId, Ref.PackageId] = Map.empty,
   ): Relation[Party, PackageId] = {
     val (BlindingInfo(disclosure, _), contractVisibility) =
-      BlindingTransaction.calculateBlindingInfoWithContactVisibility(tx)
+      BlindingTransaction.calculateBlindingInfoWithContractVisibility(tx)
     partyPackages(tx, disclosure, contractVisibility, contractPackages)
   }
 
@@ -154,7 +154,7 @@ object Blinding {
   ): Map[Party, PackageRequirements] = {
     disclosedPartyPackageRequirements(tx, disclosure) ++
       contractPartyPackageRequirements(contractPackages, contractVisibility)
-  }.groupMapReduce(_._1)(_._2)(_ |+| _)
+  }.groupMapReduce(_._1)(_._2)(_ |+| _).view.mapValues(_.normalized).toMap
 
   // These are the package needed for reinterpretation
   private[engine] def disclosedPartyPackageRequirements(
@@ -201,7 +201,7 @@ object Blinding {
       contractPackages: Map[ContractId, Ref.PackageId] = Map.empty,
   ): Map[Party, PackageRequirements] = {
     val (BlindingInfo(disclosure, _), contractVisibility) =
-      BlindingTransaction.calculateBlindingInfoWithContactVisibility(tx)
+      BlindingTransaction.calculateBlindingInfoWithContractVisibility(tx)
     partyPackageRequirements(tx, disclosure, contractVisibility, contractPackages)
   }
 }
