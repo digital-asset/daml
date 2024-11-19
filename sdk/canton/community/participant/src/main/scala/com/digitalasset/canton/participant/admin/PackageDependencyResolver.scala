@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.admin
 
 import cats.data.{EitherT, OptionT}
-import cats.implicits.toTraverseOps
 import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.daml.lf.data.Ref.PackageId
@@ -15,7 +14,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.DamlPackageStore
 import com.digitalasset.canton.protocol.PackageDescription
 import com.digitalasset.canton.topology.store.PackageDependencyResolverUS
-import com.digitalasset.canton.tracing.{TraceContext, TracedAsyncLoadingCache, TracedScaffeine}
+import com.digitalasset.canton.tracing.{TraceContext, TracedScaffeine}
 import com.github.blemale.scaffeine.Scaffeine
 
 import scala.concurrent.duration.*
@@ -31,28 +30,21 @@ class PackageDependencyResolver(
     with FlagCloseable
     with PackageDependencyResolverUS {
 
-  private val dependencyCache
-      : TracedAsyncLoadingCache[PackageId, Either[PackageId, Set[PackageId]]] =
-    TracedScaffeine.buildTracedAsyncFutureUS[PackageId, Either[PackageId, Set[PackageId]]](
-      cache = Scaffeine().maximumSize(10000).expireAfterAccess(15.minutes),
-      loader = t => p => loadPackageDependencies(p)(t).value,
-      allLoader = None,
-    )(logger)
+  private val dependencyCache =
+    TracedScaffeine
+      .buildTracedAsync[EitherT[FutureUnlessShutdown, PackageId, *], PackageId, Set[PackageId]](
+        cache = Scaffeine().maximumSize(10000).expireAfterAccess(15.minutes),
+        loader = implicit tc => loadPackageDependencies _,
+      )(logger)
 
   def packageDependencies(packages: List[PackageId])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
-    EitherT(
-      packages
-        .parTraverse(pkgId => dependencyCache.getUS(pkgId))
-        .map(_.sequence.map(_.flatten.toSet -- packages))
-    )
+    packages.parTraverse(dependencyCache.get).map(_.view.flatten.toSet -- packages)
 
   def getPackageDescription(packageId: PackageId)(implicit
       traceContext: TraceContext
   ): Future[Option[PackageDescription]] = damlPackageStore.getPackageDescription(packageId)
-
-  def clearPackagesNotPreviouslyFound(): Unit = dependencyCache.clear((_, e) => e.isLeft)
 
   private def loadPackageDependencies(packageId: PackageId)(implicit
       traceContext: TraceContext

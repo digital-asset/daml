@@ -8,19 +8,17 @@ import static java.util.Collections.unmodifiableList;
 import static java.util.Optional.empty;
 
 import com.daml.ledger.javaapi.data.codegen.Update;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 /**
  * This class can be used to build a valid submission for an Update. It provides {@link #create(String, String, Update)}
  * for initial creation and methods to set optional parameters
  * e.g {@link #withActAs(List)}, {@link #withWorkflowId(String)} etc.
- * <p>
+ *
  * Usage:
  * <pre>
  *   var submission = UpdateSubmission.create(applicationId, commandId, update)
@@ -41,8 +39,6 @@ public final class UpdateSubmission<U> {
   private Optional<Duration> minLedgerTimeRel;
   private Optional<Duration> deduplicationTime;
   private Optional<String> accessToken;
-  private List<DisclosedContract> disclosedContracts;
-  private List<String> packageIdSelectionPreference;
 
   private UpdateSubmission(
       String applicationId,
@@ -54,10 +50,7 @@ public final class UpdateSubmission<U> {
       Optional<Instant> minLedgerTimeAbs,
       Optional<Duration> minLedgerTimeRel,
       Optional<Duration> deduplicationTime,
-      Optional<String> accessToken,
-      List<DisclosedContract> disclosedContracts,
-      List<String> packageIdSelectionPreference
-  ) {
+      Optional<String> accessToken) {
     this.workflowId = workflowId;
     this.applicationId = applicationId;
     this.commandId = commandId;
@@ -68,8 +61,6 @@ public final class UpdateSubmission<U> {
     this.deduplicationTime = deduplicationTime;
     this.update = update;
     this.accessToken = accessToken;
-    this.disclosedContracts = disclosedContracts;
-    this.packageIdSelectionPreference = packageIdSelectionPreference;
   }
 
   public static <U> UpdateSubmission<U> create(
@@ -84,9 +75,7 @@ public final class UpdateSubmission<U> {
         empty(),
         Optional.empty(),
         empty(),
-        empty(),
-        emptyList(),
-        emptyList());
+        empty());
   }
 
   public Optional<String> getWorkflowId() {
@@ -129,14 +118,6 @@ public final class UpdateSubmission<U> {
     return accessToken;
   }
 
-  public List<String> getPackageIdSelectionPreference() {
-    return unmodifiableList(packageIdSelectionPreference);
-  }
-
-  public List<DisclosedContract> getDisclosedContracts() {
-    return unmodifiableList(disclosedContracts);
-  }
-
   public UpdateSubmission<U> withWorkflowId(String workflowId) {
     return new UpdateSubmission<U>(
         applicationId,
@@ -148,7 +129,7 @@ public final class UpdateSubmission<U> {
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        accessToken, disclosedContracts, packageIdSelectionPreference);
+        accessToken);
   }
 
   public UpdateSubmission<U> withActAs(String actAs) {
@@ -162,7 +143,7 @@ public final class UpdateSubmission<U> {
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        accessToken, disclosedContracts, packageIdSelectionPreference);
+        accessToken);
   }
 
   public UpdateSubmission<U> withActAs(List<@NonNull String> actAs) {
@@ -176,7 +157,7 @@ public final class UpdateSubmission<U> {
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        accessToken, disclosedContracts, packageIdSelectionPreference);
+        accessToken);
   }
 
   public UpdateSubmission<U> withReadAs(List<@NonNull String> readAs) {
@@ -190,7 +171,7 @@ public final class UpdateSubmission<U> {
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        accessToken, disclosedContracts, packageIdSelectionPreference);
+        accessToken);
   }
 
   public UpdateSubmission<U> withMinLedgerTimeAbs(Optional<Instant> minLedgerTimeAbs) {
@@ -204,7 +185,7 @@ public final class UpdateSubmission<U> {
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        accessToken, disclosedContracts, packageIdSelectionPreference);
+        accessToken);
   }
 
   public UpdateSubmission<U> withMinLedgerTimeRel(Optional<Duration> minLedgerTimeRel) {
@@ -218,7 +199,7 @@ public final class UpdateSubmission<U> {
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        accessToken, disclosedContracts, packageIdSelectionPreference);
+        accessToken);
   }
 
   public UpdateSubmission<U> withDeduplicationTime(Optional<Duration> deduplicationTime) {
@@ -232,7 +213,7 @@ public final class UpdateSubmission<U> {
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        accessToken, disclosedContracts, packageIdSelectionPreference);
+        accessToken);
   }
 
   public UpdateSubmission<U> withAccessToken(Optional<String> accessToken) {
@@ -246,35 +227,7 @@ public final class UpdateSubmission<U> {
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        accessToken, disclosedContracts, packageIdSelectionPreference);
-  }
-
-  public UpdateSubmission<U> withDisclosedContracts(List<DisclosedContract> disclosedContracts) {
-    return new UpdateSubmission<U>(
-        applicationId,
-        commandId,
-        update,
-        actAs,
-        readAs,
-        workflowId,
-        minLedgerTimeAbs,
-        minLedgerTimeRel,
-        deduplicationTime,
-        accessToken, disclosedContracts, packageIdSelectionPreference);
-  }
-
-  public UpdateSubmission<U> withPackageIdSelectionPreference(List<String> packageIdSelectionPreference) {
-    return new UpdateSubmission<U>(
-        applicationId,
-        commandId,
-        update,
-        actAs,
-        readAs,
-        workflowId,
-        minLedgerTimeAbs,
-        minLedgerTimeRel,
-        deduplicationTime,
-        accessToken, disclosedContracts, packageIdSelectionPreference);
+        accessToken);
   }
 
   public CommandsSubmission toCommandsSubmission() {
@@ -289,7 +242,6 @@ public final class UpdateSubmission<U> {
         minLedgerTimeRel,
         deduplicationTime,
         accessToken,
-        disclosedContracts,
-        packageIdSelectionPreference);
+        emptyList());
   }
 }

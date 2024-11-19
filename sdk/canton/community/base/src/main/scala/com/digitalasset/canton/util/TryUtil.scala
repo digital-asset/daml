@@ -3,6 +3,8 @@
 
 package com.digitalasset.canton.util
 
+import java.util.concurrent.CompletionException
+import scala.annotation.tailrec
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
@@ -24,4 +26,21 @@ object TryUtil {
     def forFailed(f: Throwable => Unit): Unit = a.fold(f, _ => ())
   }
 
+  /** Unwraps all [[java.util.concurrent.CompletionException]] from a failure and
+    * leaves only the wrapped causes (unless there is no such cause)
+    */
+  def unwrapCompletionException[A](x: Try[A]): Try[A] = x match {
+    case _: Success[_] => x
+    case Failure(ex) =>
+      val stripped = stripCompletionException(ex)
+      if (stripped eq ex) x else Failure(stripped)
+  }
+
+  @tailrec
+  private def stripCompletionException(throwable: Throwable): Throwable = throwable match {
+    case ce: CompletionException =>
+      if (ce.getCause != null) stripCompletionException(ce.getCause)
+      else ce
+    case _ => throwable
+  }
 }

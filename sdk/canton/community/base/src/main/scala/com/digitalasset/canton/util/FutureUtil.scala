@@ -108,6 +108,14 @@ object FutureUtil {
     doNotAwait(wrappedFuture, failureMessage, onFailure, level)
   }
 
+  /** Java libraries often wrap exceptions in a future inside a [[java.util.concurrent.CompletionException]]
+    * when they convert a Java-style future into a Scala-style future. When our code then tries to catch our own
+    * exceptions, the logic fails because we do not look inside the [[java.util.concurrent.CompletionException]].
+    * We therefore want to unwrap such exceptions
+    */
+  def unwrapCompletionException[A](f: Future[A])(implicit ec: ExecutionContext): Future[A] =
+    f.transform(TryUtil.unwrapCompletionException)
+
   /** Await the completion of `future`. Log a message if the future does not complete within `timeout`.
     * If the `future` fails with an exception within `timeout`, this method rethrows the exception.
     *
