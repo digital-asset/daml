@@ -1035,25 +1035,16 @@ proto_gen(
     ],
 )
 
-genrule(
+daml_compile(
+    name = "community_participant_admin-workflows",
+    srcs = glob(["community/participant/src/main/daml/**/*.daml"]),
+    project_name = "AdminWorkflows",
+)
+
+copy_file(
     name = "community_participant_admin-workflows_dar",
-    srcs = glob(["community/participant/src/main/daml/**/*"]) + [
-        "//daml-script/daml3:daml3-script-2.1.dar",
-    ],
-    outs = ["community_participant_resources/AdminWorkflows.dar"],
-    cmd = """
-            set -euo pipefail
-            project_dir=$$(dirname $(location community/participant/src/main/daml/daml.yaml))
-            tmpdir=$$(mktemp -d)
-            trap "rm -rf $$tmpdir" EXIT
-            cp -r $$project_dir/* $$tmpdir
-            cp $(location //daml-script/daml3:daml3-script-2.1.dar) $$tmpdir
-            sed -i 's/sdk-version:.*/sdk-version: {sdk_version}/' $$tmpdir/daml.yaml
-            sed -i 's/daml3-script/daml3-script-2.1.dar/' $$tmpdir/daml.yaml
-            $(location //compiler/damlc) build --project-root=$$tmpdir --ghc-option=-Werror -o $$PWD/$@
-            """.format(sdk_version = sdk_version),
-    tools = ["//compiler/damlc"],
-    visibility = ["//visibility:public"],
+    src = ":community_participant_admin-workflows.dar",
+    out = "community_participant_resources/AdminWorkflows.dar",
 )
 
 dar_to_java(
