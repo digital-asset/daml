@@ -9,6 +9,7 @@ module DA.Text
   , DA.Text.explode
   , DA.Text.implode
   , DA.Text.isEmpty
+  , DA.Text.isNotEmpty
   , DA.Text.length
   , DA.Text.trim
   , DA.Text.replace
@@ -69,6 +70,10 @@ implode = primitive @"BEImplodeText"
 -- | Test for emptiness.
 isEmpty : Text -> Bool
 isEmpty = (=="")
+
+-- | Test for non-emptiness.
+isNotEmpty : Text -> Bool
+isNotEmpty = (/="")
 
 -- | Compute the number of symbols in the text.
 length : Text -> Int
