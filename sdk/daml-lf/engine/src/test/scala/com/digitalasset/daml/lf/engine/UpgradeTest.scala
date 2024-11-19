@@ -797,21 +797,14 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
   case object Command extends EntryPoint("Command")
   case object ChoiceBody extends EntryPoint("ChoiceBody")
 
-  val entryPoints: List[EntryPoint] = List(
-    Command,
-    ChoiceBody,
-  )
+  val entryPoints: List[EntryPoint] = List(Command, ChoiceBody)
 
   sealed abstract class ContractOrigin(val name: String)
   case object Global extends ContractOrigin("Global")
   case object Disclosed extends ContractOrigin("Disclosed")
   case object Local extends ContractOrigin("Local")
 
-  val contractOrigins: List[ContractOrigin] = List(
-    Global,
-    Disclosed,
-    Local,
-  )
+  val contractOrigins: List[ContractOrigin] = List(Global, Disclosed, Local)
 
   /** A class that defines all the "global" variables shared by tests for a given template name: the template ID of the
     * v1 template, the template ID of the v2 template, the ID of the v1 contract, etc. It exposes two methods:
