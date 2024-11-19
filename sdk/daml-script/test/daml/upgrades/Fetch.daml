@@ -84,7 +84,7 @@ fetchDowngradedSome = test $ do
   eV1Name <- a `tryExerciseV1Util` V1.DoFetch with cid = v1Cid
 
   case eV1Name of
-    Left (UpgradeError msg)
+    Left (UpgradeError _ msg)
       | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg
       -> pure ()
     res -> assertFail $ "Expected DevError Upgrade, got " <> show res
