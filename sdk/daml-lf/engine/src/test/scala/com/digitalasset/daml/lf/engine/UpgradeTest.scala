@@ -65,6 +65,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
   sealed trait ExpectedOutcome
   case object ExpectSuccess extends ExpectedOutcome
   case object ExpectUpgradeError extends ExpectedOutcome
+  case object ExpectUnhandledException extends ExpectedOutcome
 
   /** An abstract class whose [[templateDefinition]] method generates LF code that defines a template named
     * [[templateName]].
@@ -157,13 +158,18 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       v2View,
     )
 
-    def clientChoices(v1PkgId: Ref.PackageId, v2PkgId: Ref.PackageId): String = {
+    def clientChoices(
+        clientPkgId: Ref.PackageId,
+        v1PkgId: Ref.PackageId,
+        v2PkgId: Ref.PackageId,
+    ): String = {
+      val clientTplQualifiedName = s"'$clientPkgId':Mod:Client"
       val v1TplQualifiedName = s"'$v1PkgId':Mod:$templateName"
       val v2TplQualifiedName = s"'$v2PkgId':Mod:$templateName"
       val ifaceQualifiedName = s"'$commonDefsPkgId':Mod:Iface"
       val viewQualifiedName = s"'$commonDefsPkgId':Mod:MyView"
       s"""
-        |  choice @nonConsuming ExerciseLocal${templateName} (self) (u: Unit): Text
+        |  choice @nonConsuming ExerciseNoCatchLocal${templateName} (self) (u: Unit): Text
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
         |    to ubind cid: ContractId $v1TplQualifiedName <-
@@ -179,7 +185,16 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |            (COERCE_CONTRACT_ID @$v1TplQualifiedName @$v2TplQualifiedName cid)
         |            ();
         |
-        |  choice @nonConsuming ExerciseGlobal${templateName} (self) (cid: ContractId $v1TplQualifiedName): Text
+        |  choice @nonConsuming ExerciseAttemptCatchLocal${templateName} (self) (u: Unit): Text
+        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+        |    , observers (Nil @Party)
+        |    to try @Text
+        |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseNoCatchLocal${templateName} self ()
+        |         in upure @Text "no exception was caught"
+        |       catch
+        |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+        |
+        |  choice @nonConsuming ExerciseNoCatchGlobal${templateName} (self) (cid: ContractId $v1TplQualifiedName): Text
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
         |    to exercise
@@ -188,7 +203,19 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |         (COERCE_CONTRACT_ID @$v1TplQualifiedName @$v2TplQualifiedName cid)
         |         ();
         |
-        |  choice @nonConsuming ExerciseInterfaceLocal${templateName} (self) (u: Unit): Text
+        |  choice @nonConsuming ExerciseAttemptCatchGlobal${templateName}
+        |        (self)
+        |        (cid: ContractId $v1TplQualifiedName)
+        |        : Text
+        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+        |    , observers (Nil @Party)
+        |    to try @Text
+        |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseNoCatchGlobal${templateName} self cid
+        |         in upure @Text "no exception was caught"
+        |       catch
+        |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+        |
+        |  choice @nonConsuming ExerciseInterfaceNoCatchLocal${templateName} (self) (u: Unit): Text
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
         |    to ubind cid: ContractId $v1TplQualifiedName <-
@@ -204,7 +231,19 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |            (COERCE_CONTRACT_ID @$v1TplQualifiedName @$ifaceQualifiedName cid)
         |            ();
         |
-        |  choice @nonConsuming ExerciseInterfaceGlobal${templateName} (self) (cid: ContractId $v1TplQualifiedName): Text
+        |  choice @nonConsuming ExerciseInterfaceAttemptCatchLocal${templateName} (self) (u: Unit): Text
+        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+        |    , observers (Nil @Party)
+        |    to try @Text
+        |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseInterfaceNoCatchLocal${templateName} self ()
+        |         in upure @Text "no exception was caught"
+        |       catch
+        |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+        |
+        |  choice @nonConsuming ExerciseInterfaceNoCatchGlobal${templateName}
+        |        (self)
+        |        (cid: ContractId $v1TplQualifiedName)
+        |        : Text
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
         |    to exercise_interface
@@ -213,7 +252,19 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |         (COERCE_CONTRACT_ID @$v1TplQualifiedName @$ifaceQualifiedName cid)
         |         ();
         |
-        |  choice @nonConsuming ExerciseByKeyLocal${templateName} (self) (u: Unit): Text
+        |  choice @nonConsuming ExerciseInterfaceAttemptCatchGlobal${templateName}
+        |        (self)
+        |        (cid: ContractId $v1TplQualifiedName)
+        |        : Text
+        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+        |    , observers (Nil @Party)
+        |    to try @Text
+        |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseInterfaceNoCatchGlobal${templateName} self cid
+        |         in upure @Text "no exception was caught"
+        |       catch
+        |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+        |
+        |  choice @nonConsuming ExerciseByKeyNoCatchLocal${templateName} (self) (u: Unit): Text
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
         |    to ubind cid: ContractId $v1TplQualifiedName <-
@@ -232,7 +283,16 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |                 maintainers2 = (Cons @Party ['$commonDefsPkgId':Mod:bob] (Nil @Party)) })
         |            ();
         |
-        |  choice @nonConsuming ExerciseByKeyGlobal${templateName} (self) (key: '$commonDefsPkgId':Mod:Key): Text
+        |  choice @nonConsuming ExerciseByKeyAttemptCatchLocal${templateName} (self) (u: Unit): Text
+        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+        |    , observers (Nil @Party)
+        |    to try @Text
+        |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseByKeyNoCatchLocal${templateName} self ()
+        |         in upure @Text "no exception was caught"
+        |       catch
+        |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+        |
+        |  choice @nonConsuming ExerciseByKeyNoCatchGlobal${templateName} (self) (key: '$commonDefsPkgId':Mod:Key): Text
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
         |    to exercise_by_key
@@ -241,7 +301,17 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |         key
         |         ();
         |
-        |  choice @nonConsuming FetchLocal${templateName} (self) (u: Unit): $v2TplQualifiedName
+        |  choice @nonConsuming ExerciseByKeyAttemptCatchGlobal${templateName} (self) (key: '$commonDefsPkgId':Mod:Key)
+        |        : Text
+        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+        |    , observers (Nil @Party)
+        |    to try @Text
+        |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseByKeyNoCatchGlobal${templateName} self key
+        |         in upure @Text "no exception was caught"
+        |       catch
+        |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+        |
+        |  choice @nonConsuming FetchNoCatchLocal${templateName} (self) (u: Unit): $v2TplQualifiedName
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
         |    to ubind cid: ContractId $v1TplQualifiedName <-
@@ -255,14 +325,35 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |            @$v2TplQualifiedName
         |            (COERCE_CONTRACT_ID @$v1TplQualifiedName @$v2TplQualifiedName cid);
         |
-        |  choice @nonConsuming FetchGlobal${templateName} (self) (cid: ContractId $v1TplQualifiedName): $v2TplQualifiedName
+        |  choice @nonConsuming FetchAttemptCatchLocal${templateName} (self) (u: Unit): Text
+        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+        |    , observers (Nil @Party)
+        |    to try @Text
+        |         ubind _:$v2TplQualifiedName <-
+        |             exercise @$clientTplQualifiedName FetchNoCatchLocal${templateName} self ()
+        |         in upure @Text "no exception was caught"
+        |       catch
+        |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+        |
+        |  choice @nonConsuming FetchNoCatchGlobal${templateName} (self) (cid: ContractId $v1TplQualifiedName)
+        |        : $v2TplQualifiedName
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
         |    to fetch_template
         |         @$v2TplQualifiedName
         |         (COERCE_CONTRACT_ID @$v1TplQualifiedName @$v2TplQualifiedName cid);
         |
-        |  choice @nonConsuming FetchByKeyLocal${templateName} (self) (u: Unit): $v2TplQualifiedName
+        |  choice @nonConsuming FetchAttemptCatchGlobal${templateName} (self) (cid: ContractId $v1TplQualifiedName): Text
+        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+        |    , observers (Nil @Party)
+        |    to try @Text
+        |         ubind _:$v2TplQualifiedName <-
+        |             exercise @$clientTplQualifiedName FetchNoCatchGlobal${templateName} self cid
+        |         in upure @Text "no exception was caught"
+        |       catch
+        |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+        |
+        |  choice @nonConsuming FetchByKeyNoCatchLocal${templateName} (self) (u: Unit): $v2TplQualifiedName
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
         |    to ubind cid: ContractId $v1TplQualifiedName <-
@@ -281,7 +372,18 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |                     maintainers2 = (Cons @Party ['$commonDefsPkgId':Mod:bob] (Nil @Party)) })
         |          in upure @$v2TplQualifiedName (pair).contract;
         |
-        |  choice @nonConsuming FetchByKeyGlobal${templateName} (self) (key: '$commonDefsPkgId':Mod:Key): $v2TplQualifiedName
+        |  choice @nonConsuming FetchByKeyAttemptCatchLocal${templateName} (self) (u: Unit): Text
+        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+        |    , observers (Nil @Party)
+        |    to try @Text
+        |         ubind _:$v2TplQualifiedName <-
+        |             exercise @$clientTplQualifiedName FetchByKeyNoCatchLocal${templateName} self ()
+        |         in upure @Text "no exception was caught"
+        |       catch
+        |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+        |
+        |  choice @nonConsuming FetchByKeyNoCatchGlobal${templateName} (self) (key: '$commonDefsPkgId':Mod:Key)
+        |        : $v2TplQualifiedName
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
         |    to ubind pair:<contract: $v2TplQualifiedName, contractId: ContractId $v2TplQualifiedName> <-
@@ -290,7 +392,18 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |            key
         |       in upure @$v2TplQualifiedName (pair).contract;
         |
-        |  choice @nonConsuming FetchInterfaceLocal${templateName} (self) (u: Unit): $viewQualifiedName
+        |  choice @nonConsuming FetchByKeyAttemptCatchGlobal${templateName} (self) (key: '$commonDefsPkgId':Mod:Key)
+        |        : Text
+        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+        |    , observers (Nil @Party)
+        |    to try @Text
+        |         ubind _:$v2TplQualifiedName <-
+        |             exercise @$clientTplQualifiedName FetchByKeyNoCatchGlobal${templateName} self key
+        |         in upure @Text "no exception was caught"
+        |       catch
+        |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+        |
+        |  choice @nonConsuming FetchInterfaceNoCatchLocal${templateName} (self) (u: Unit): $viewQualifiedName
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
         |    to ubind
@@ -306,7 +419,18 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |            (COERCE_CONTRACT_ID @$v1TplQualifiedName @$ifaceQualifiedName cid)
         |         in upure @$viewQualifiedName (view_interface @$ifaceQualifiedName iface);
         |
-        |  choice @nonConsuming FetchInterfaceGlobal${templateName} (self) (cid: ContractId $v1TplQualifiedName): $viewQualifiedName
+        |  choice @nonConsuming FetchInterfaceAttemptCatchLocal${templateName} (self) (u: Unit): Text
+        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+        |    , observers (Nil @Party)
+        |    to try @Text
+        |         ubind _:$viewQualifiedName <-
+        |             exercise @$clientTplQualifiedName FetchInterfaceNoCatchLocal${templateName} self ()
+        |         in upure @Text "no exception was caught"
+        |       catch
+        |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+        |
+        |  choice @nonConsuming FetchInterfaceNoCatchGlobal${templateName} (self) (cid: ContractId $v1TplQualifiedName)
+        |        : $viewQualifiedName
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
         |    to ubind iface: $ifaceQualifiedName <- fetch_interface
@@ -314,7 +438,17 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |         (COERCE_CONTRACT_ID @$v1TplQualifiedName @$ifaceQualifiedName cid)
         |       in upure @$viewQualifiedName (view_interface @$ifaceQualifiedName iface);
         |
-        |  choice @nonConsuming LookupByKeyLocal${templateName} (self) (u: Unit): Option (ContractId $v2TplQualifiedName)
+        |  choice @nonConsuming FetchInterfaceAttemptCatchGlobal${templateName} (self) (cid: ContractId $v1TplQualifiedName): Text
+        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+        |    , observers (Nil @Party)
+        |    to try @Text
+        |         ubind _:$viewQualifiedName <-
+        |             exercise @$clientTplQualifiedName FetchInterfaceNoCatchGlobal${templateName} self cid
+        |         in upure @Text "no exception was caught"
+        |       catch
+        |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+        |
+        |  choice @nonConsuming LookupByKeyNoCatchLocal${templateName} (self) (u: Unit): Option (ContractId $v2TplQualifiedName)
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
         |    to ubind cid: ContractId $v1TplQualifiedName <-
@@ -331,12 +465,34 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |                 maintainers1 = (Cons @Party ['$commonDefsPkgId':Mod:alice] (Nil @Party)),
         |                 maintainers2 = (Cons @Party ['$commonDefsPkgId':Mod:bob] (Nil @Party)) });
         |
-        |  choice @nonConsuming LookupByKeyGlobal${templateName} (self) (key: '$commonDefsPkgId':Mod:Key): Option (ContractId $v2TplQualifiedName)
+        |  choice @nonConsuming LookupByKeyAttemptCatchLocal${templateName} (self) (u: Unit): Text
+        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+        |    , observers (Nil @Party)
+        |    to try @Text
+        |         ubind _:Option (ContractId $v2TplQualifiedName) <-
+        |             exercise @$clientTplQualifiedName LookupByKeyNoCatchLocal${templateName} self ()
+        |         in upure @Text "no exception was caught"
+        |       catch
+        |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+        |
+        |  choice @nonConsuming LookupByKeyNoCatchGlobal${templateName} (self) (key: '$commonDefsPkgId':Mod:Key)
+        |        : Option (ContractId $v2TplQualifiedName)
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
         |    to lookup_by_key
         |         @$v2TplQualifiedName
         |         key;
+        |
+        |  choice @nonConsuming LookupByKeyAttemptCatchGlobal${templateName} (self) (key: '$commonDefsPkgId':Mod:Key)
+        |        : Text
+        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+        |    , observers (Nil @Party)
+        |    to try @Text
+        |         ubind _:Option (ContractId $v2TplQualifiedName) <-
+        |             exercise @$clientTplQualifiedName LookupByKeyNoCatchGlobal${templateName} self key
+        |         in upure @Text "no exception was caught"
+        |       catch
+        |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
         |""".stripMargin
     }
   }
@@ -353,6 +509,13 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     override def v2Precondition = "False"
   }
 
+  case object ThrowingPrecondition
+      extends TemplateGenerator("ThrowingPrecondition", ExpectUnhandledException) {
+    override def v1Precondition = "True"
+    override def v2Precondition =
+      s"""throw @Bool @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "Precondition"})"""
+  }
+
   case object UnchangedSignatories
       extends TemplateGenerator("UnchangedSignatories", ExpectSuccess) {
     override def v1Signatories = s"Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)"
@@ -367,6 +530,13 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       s"Cons @Party [Mod:${templateName} {p1} this, Mod:${templateName} {p2} this] (Nil @Party)"
   }
 
+  case object ThrowingSignatories
+      extends TemplateGenerator("ThrowingSignatories", ExpectUnhandledException) {
+    override def v1Signatories = s"Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)"
+    override def v2Signatories =
+      s"""throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "Signatories"})"""
+  }
+
   case object UnchangedObservers extends TemplateGenerator("UnchangedObservers", ExpectSuccess) {
     override def v1Observers = "Nil @Party"
     override def v2Observers = "case () of () -> Nil @Party"
@@ -377,6 +547,13 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     override def v2Observers = s"Cons @Party [Mod:${templateName} {p2} this] (Nil @Party)"
   }
 
+  case object ThrowingObservers
+      extends TemplateGenerator("ThrowingObservers", ExpectUnhandledException) {
+    override def v1Observers = "Nil @Party"
+    override def v2Observers =
+      s"""throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "Observers"})"""
+  }
+
   case object UnchangedAgreement extends TemplateGenerator("UnchangedAgreement", ExpectSuccess) {
     override def v1Agreement = """ "agreement" """
     override def v2Agreement = """ case () of () -> "agreement" """
@@ -385,6 +562,13 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
   case object ChangedAgreement extends TemplateGenerator("ChangedAgreement", ExpectSuccess) {
     override def v1Agreement = """ "agreement" """
     override def v2Agreement = """ "text changed, but we don't care" """
+  }
+
+  case object ThrowingAgreement
+      extends TemplateGenerator("ThrowingAgreement", ExpectUnhandledException) {
+    override def v1Agreement = """ "agreement" """
+    override def v2Agreement =
+      s"""throw @Text @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "Agreement"})"""
   }
 
   case object UnchangedKey extends TemplateGenerator("UnchangedKey", ExpectSuccess) {
@@ -417,6 +601,17 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
                             |    }""".stripMargin
   }
 
+  case object ThrowingKey extends TemplateGenerator("ThrowingKey", ExpectUnhandledException) {
+    override def v1Key = s"""
+                            |  '$commonDefsPkgId':Mod:Key {
+                            |    label = "test-key",
+                            |    maintainers1 = (Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)),
+                            |    maintainers2 = (Cons @Party [Mod:${templateName} {p2} this] (Nil @Party))
+                            |  }""".stripMargin
+    override def v2Key =
+      s"""throw @'$commonDefsPkgId':Mod:Key @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "Key"})"""
+  }
+
   case object UnchangedMaintainers
       extends TemplateGenerator("UnchangedMaintainers", ExpectSuccess) {
     override def v1Maintainers =
@@ -433,19 +628,42 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       s"\\(key: '$commonDefsPkgId':Mod:Key) -> ('$commonDefsPkgId':Mod:Key {maintainers2} key)"
   }
 
+  case object ThrowingMaintainers
+      extends TemplateGenerator("ThrowingMaintainers", ExpectUnhandledException) {
+    override def v1Maintainers =
+      s"\\(key: '$commonDefsPkgId':Mod:Key) -> ('$commonDefsPkgId':Mod:Key {maintainers1} key)"
+    override def v2Maintainers =
+      s"""throw @('$commonDefsPkgId':Mod:Key -> List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "Maintainers"})"""
+  }
+
+  case object ThrowingMaintainersBody
+      extends TemplateGenerator("ThrowingMaintainersBody", ExpectUnhandledException) {
+    override def v1Maintainers =
+      s"\\(key: '$commonDefsPkgId':Mod:Key) -> ('$commonDefsPkgId':Mod:Key {maintainers1} key)"
+    override def v2Maintainers =
+      s"""\\(key: '$commonDefsPkgId':Mod:Key) -> throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "MaintainersBody"})"""
+  }
+
   val testCases: Seq[TemplateGenerator] = List(
     UnchangedPrecondition,
     ChangedPrecondition,
+    ThrowingPrecondition,
     UnchangedSignatories,
     ChangedSignatories,
+    ThrowingSignatories,
     UnchangedObservers,
     ChangedObservers,
+    ThrowingObservers,
     UnchangedAgreement,
     ChangedAgreement,
+    ThrowingAgreement,
     ChangedKey,
     UnchangedKey,
+    ThrowingKey,
     ChangedMaintainers,
     UnchangedMaintainers,
+    ThrowingMaintainers,
+    ThrowingMaintainersBody,
   )
 
   val templateDefsPkgName = Ref.PackageName.assertFromString("-template-defs-")
@@ -480,7 +698,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
   val clientParserParams = parserParameters(clientPkgId)
   val clientPkg = {
     val choices = testCases
-      .map(_.clientChoices(templateDefsV1PkgId, templateDefsV2PkgId))
+      .map(_.clientChoices(clientPkgId, templateDefsV1PkgId, templateDefsV2PkgId))
     p"""metadata ( '-client-' : '1.0.0' )
             module Mod {
               record @serializable Client = { p: Party };
@@ -516,7 +734,21 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
   case object LookupByKey extends Operation("LookupByKey")
 
   val operations: List[Operation] =
-    List(Exercise, ExerciseByKey, ExerciseInterface, Fetch, FetchByKey, FetchInterface, LookupByKey)
+    List(
+      Exercise,
+      ExerciseByKey,
+      ExerciseInterface,
+      Fetch,
+      FetchByKey,
+      FetchInterface,
+      LookupByKey,
+    )
+
+  sealed abstract class CatchBehavior(val name: String)
+  case object AttemptCatch extends CatchBehavior("AttemptCatch")
+  case object NoCatch extends CatchBehavior("NoCatch")
+
+  val catchBehaviors: List[CatchBehavior] = List(AttemptCatch, NoCatch)
 
   sealed abstract class EntryPoint(val name: String)
   case object Command extends EntryPoint("Command")
@@ -624,16 +856,17 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
 
     def makeApiCommand(
         operation: Operation,
+        catchBehavior: CatchBehavior,
         entryPoint: EntryPoint,
         contractOrigin: ContractOrigin,
     ): Option[ApiCommand] = {
 
-      (operation, entryPoint, contractOrigin) match {
-        case (_, Command, Local) =>
+      (operation, catchBehavior, entryPoint, contractOrigin) match {
+        case (_, _, Command, Local) =>
           None // Local contracts cannot be exercised by commands
-        case (Fetch | FetchInterface | FetchByKey | LookupByKey, Command, _) =>
+        case (Fetch | FetchInterface | FetchByKey | LookupByKey, _, Command, _) =>
           None // There are no fetch* or lookupByKey commands
-        case (Exercise, Command, Global | Disclosed) =>
+        case (Exercise, _, Command, Global | Disclosed) =>
           Some(
             ApiCommand.Exercise(
               v2TplId,
@@ -642,7 +875,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
               ValueUnit,
             )
           )
-        case (ExerciseInterface, Command, Global | Disclosed) =>
+        case (ExerciseInterface, _, Command, Global | Disclosed) =>
           Some(
             ApiCommand.Exercise(
               ifaceId,
@@ -651,7 +884,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
               ValueUnit,
             )
           )
-        case (ExerciseByKey, Command, Global | Disclosed) =>
+        case (ExerciseByKey, _, Command, Global | Disclosed) =>
           Some(
             ApiCommand.ExerciseByKey(
               v2TplId,
@@ -660,13 +893,13 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
               ValueUnit,
             )
           )
-        case (_, ChoiceBody, Global | Disclosed) =>
+        case (_, _, ChoiceBody, Global | Disclosed) =>
           Some(
             ApiCommand.Exercise(
               clientTplId,
               clientContractId,
               Ref.ChoiceName.assertFromString(
-                s"${operation.name}Global${templateName}"
+                s"${operation.name}${catchBehavior.name}Global${templateName}"
               ),
               operation match {
                 case Fetch | FetchInterface | Exercise | ExerciseInterface =>
@@ -676,12 +909,14 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
               },
             )
           )
-        case (_, ChoiceBody, Local) =>
+        case (_, _, ChoiceBody, Local) =>
           Some(
             ApiCommand.Exercise(
               clientTplId,
               clientContractId,
-              Ref.ChoiceName.assertFromString(s"${operation.name}Local${templateName}"),
+              Ref.ChoiceName.assertFromString(
+                s"${operation.name}${catchBehavior.name}Local${templateName}"
+              ),
               ValueUnit,
             )
           )
@@ -741,27 +976,38 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       val testHelper = new TestHelper(template.templateName)
       for (operation <- operations) {
         operation.name - {
-          for (entryPoint <- entryPoints) {
-            entryPoint.name - {
-              for (contractOrigin <- contractOrigins) {
-                contractOrigin.name - {
-                  testHelper.makeApiCommand(operation, entryPoint, contractOrigin).foreach {
-                    apiCommand =>
-                      template.expectedOutcome match {
-                        case ExpectSuccess =>
-                          s"should succeed" in {
-                            testHelper.execute(apiCommand, contractOrigin) shouldBe a[Right[_, _]]
+          for (catchBehavior <- catchBehaviors)
+            catchBehavior.name - {
+              for (entryPoint <- entryPoints) {
+                entryPoint.name - {
+                  for (contractOrigin <- contractOrigins) {
+                    contractOrigin.name - {
+                      testHelper
+                        .makeApiCommand(operation, catchBehavior, entryPoint, contractOrigin)
+                        .foreach { apiCommand =>
+                          template.expectedOutcome match {
+                            case ExpectSuccess =>
+                              s"should succeed" in {
+                                testHelper
+                                  .execute(apiCommand, contractOrigin) shouldBe a[Right[_, _]]
+                              }
+                            case ExpectUpgradeError =>
+                              "should fail with an upgrade error" in {
+                                testHelper
+                                  .execute(apiCommand, contractOrigin) shouldBe a[Left[_, _]]
+                              }
+                            case ExpectUnhandledException =>
+                              "should fail with an unhandled exception error" in {
+                                testHelper
+                                  .execute(apiCommand, contractOrigin) shouldBe a[Left[_, _]]
+                              }
                           }
-                        case ExpectUpgradeError =>
-                          "should fail" in {
-                            testHelper.execute(apiCommand, contractOrigin) shouldBe a[Left[_, _]]
-                          }
-                      }
+                        }
+                    }
                   }
                 }
               }
             }
-          }
         }
       }
     }
