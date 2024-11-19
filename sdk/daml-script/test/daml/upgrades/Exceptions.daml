@@ -1,0 +1,279 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Exceptions (main) where
+
+import UpgradeTestLib
+import qualified V1.ExceptionsTemplate as V1
+import qualified V2.ExceptionsTemplate as V2
+import ExceptionsInterface
+import ExceptionsHelper
+import PackageIds
+
+main : TestTree
+main = tests
+  [ ("Can't catch ValidationFailed", cantCatchValidationFailed)
+  , ("Can't catch DowngradeDropDefinedField", cantCatchDowngradeDropDefinedField)
+  , ("Can't catch ViewMismatch", cantCatchViewMismatch)
+  , ("Can catch common errors across version (via interface)", canCatchCommonErrors)
+  , ("Can catch changing errors (using AnyException) across version (via interface)", canCatchChangingErrors)
+  , ("Can catch changing new error (using AnyException) across version (via interface)", canCatchNewError)
+  ]
+
+{- PACKAGE
+name: exceptions-interface
+versions: 1
+-}
+
+{- MODULE
+package: exceptions-interface
+contents: |
+  module ExceptionsInterface where
+
+  data EIView = EIView with
+    owner : Party
+    someText : Text
+
+  interface ExceptionsInterface where
+    viewtype EIView
+
+    throwSameError : Update ()
+    throwDifferentError : Update ()
+    throwNewError : Update ()
+
+    choice GetTextInterface : Text
+      controller (view this).owner
+      do
+        pure $ (view this).someText
+
+    choice ThrowSameError : ()
+      controller (view this).owner
+      do throwSameError this
+
+    choice ThrowDifferentError : ()
+      controller (view this).owner
+      do throwDifferentError this
+
+    choice ThrowNewError : ()
+      controller (view this).owner
+      do throwNewError this
+  
+  exception Exception1
+    where
+      message "exception 1"
+
+  exception Exception2
+    where
+      message "exception 2"
+-}
+
+{- PACKAGE
+name: new-exception
+versions: 1
+-}
+
+{- MODULE
+package: new-exception
+contents: |
+  module NewException where
+
+  exception NewException
+    where
+      message "new exception"
+-}
+
+{- PACKAGE
+name: exceptions
+versions: 2
+depends: |
+  exceptions-interface-1.0.0
+  new-exception-1.0.0        -- @V 2
+-}
+
+{- MODULE
+package: exceptions
+contents: |
+  module ExceptionsTemplate where
+
+  import ExceptionsInterface
+  import DA.List
+  import DA.Exception
+
+  import NewException -- @V 2
+
+  template ExceptionsTemplate with
+      v1Sigs : [Party]
+      v2Sigs : [Party]
+      v1ViewText : Text
+      v2ViewText : Text
+      v2NewField : Optional Text -- @V 2
+    where
+      signatory v1Sigs -- @V 1
+      signatory v2Sigs -- @V  2
+      
+      interface instance ExceptionsInterface for ExceptionsTemplate where
+        view = EIView (head v1Sigs) v1ViewText -- @V 1
+        view = EIView (head v1Sigs) v2ViewText -- @V  2
+        throwSameError = throw $ GeneralError "V1" -- @V 1
+        throwSameError = throw $ GeneralError "V2" -- @V  2
+        throwDifferentError = throw Exception1 -- @V 1
+        throwDifferentError = throw Exception2 -- @V  2
+        throwNewError = throw Exception1   -- @V 1
+        throwNewError = throw NewException -- @V  2
+
+      choice GetText : Text
+        controller v1Sigs
+        do
+          pure v1ViewText -- @V 1
+          pure v2ViewText -- @V  2
+-}
+
+{- PACKAGE
+name: exceptions-helper
+versions: 1
+depends: |
+  exceptions-1.0.0
+  exceptions-2.0.0
+  exceptions-interface-1.0.0
+-}
+
+{- MODULE
+package: exceptions-helper
+contents: |
+  module ExceptionsHelper where
+
+  import qualified V1.ExceptionsTemplate as V1
+  import qualified V2.ExceptionsTemplate as V2
+  import ExceptionsInterface
+  import DA.Exception
+
+  template ExceptionsHelper with
+      owner : Party
+    where
+      signatory owner
+
+      choice GetTextHelperV1 : () with
+          cid : ContractId V1.ExceptionsTemplate
+        controller owner
+        do
+          try do
+            _ <- exercise cid V1.GetText
+            pure ()
+          catch (_ : AnyException) -> pure ()
+
+      choice GetTextHelperV2 : () with
+          cid : ContractId V2.ExceptionsTemplate
+        controller owner
+        do
+          try do
+            _ <- exercise cid V2.GetText
+            pure ()
+          catch (_ : AnyException) -> pure ()
+
+      choice GetTextHelperInterface : () with
+          iid : ContractId ExceptionsInterface
+        controller owner
+        do
+          try do
+            _ <- exercise iid GetTextInterface
+            pure ()
+          catch (_ : AnyException) -> pure ()
+
+      nonconsuming choice ThrowSameErrorHelper : Optional Text with
+          iid : ContractId ExceptionsInterface
+        controller owner
+        do
+          try do
+            _ <- exercise iid ThrowSameError
+            pure None
+          catch (e : GeneralError) -> pure $ Some e.message
+
+      nonconsuming choice ThrowDifferentErrorHelper : Optional Text with
+          iid : ContractId ExceptionsInterface
+        controller owner
+        do
+          try do
+            _ <- exercise iid ThrowDifferentError
+            pure None
+          catch (e : AnyException) -> pure $ Some $ message e
+
+      nonconsuming choice ThrowNewErrorHelper : Optional Text with
+          iid : ContractId ExceptionsInterface
+        controller owner
+        do
+          try do
+            _ <- exercise iid ThrowNewError
+            pure None
+          catch (e : AnyException) -> pure $ Some $ message e
+          
+-}
+
+assertIsUpgradeError : Either SubmitError a -> Script ()
+assertIsUpgradeError (Left (UpgradeError _)) = pure ()
+assertIsUpgradeError (Left e) = fail $ "Expected upgrade error but got " <> show e
+assertIsUpgradeError _ = fail "Expected upgrade error but got success"
+
+-- TEST_EVIDENCE: Integrity: Smart Contract Upgrade: Cannot catch ValidationFailed upgrade exceptions within Update
+cantCatchValidationFailed : Test
+cantCatchValidationFailed = test $ do
+  alice <- allocateParty "alice"
+  bob <- allocateParty "bob"
+  helperCid <- alice `submit` createExactCmd ExceptionsHelper with owner = alice
+  cidV1 <- alice `submit` createExactCmd V1.ExceptionsTemplate with v1Sigs = [alice], v2Sigs = [alice, bob], v1ViewText = "view", v2ViewText = "view"
+  let cidV2 = coerceContractId @V1.ExceptionsTemplate @V2.ExceptionsTemplate cidV1
+  res <- alice `trySubmit` exerciseExactCmd helperCid GetTextHelperV2 with cid = cidV2
+  assertIsUpgradeError res
+
+-- TEST_EVIDENCE: Integrity: Smart Contract Upgrade: Cannot catch DowngradeDropDefinedField upgrade exceptions within Update
+cantCatchDowngradeDropDefinedField : Test
+cantCatchDowngradeDropDefinedField = test $ do
+  alice <- allocateParty "alice"
+  helperCid <- alice `submit` createExactCmd ExceptionsHelper with owner = alice
+  cidV2 <- alice `submit` createExactCmd V2.ExceptionsTemplate with v1Sigs = [alice], v2Sigs = [alice], v1ViewText = "view", v2ViewText = "view", v2NewField = Some "Hello"
+  let cidV1 = coerceContractId @V2.ExceptionsTemplate @V1.ExceptionsTemplate cidV2
+  res <- alice `trySubmit` exerciseExactCmd helperCid GetTextHelperV1 with cid = cidV1
+  assertIsUpgradeError res
+
+-- TEST_EVIDENCE: Integrity: Smart Contract Upgrade: Cannot catch ViewMismatch upgrade exceptions within Update
+cantCatchViewMismatch : Test
+cantCatchViewMismatch = test $ do
+  alice <- allocateParty "alice"
+  helperCid <- alice `submit` createExactCmd ExceptionsHelper with owner = alice
+  cidV1 <- alice `submit` createExactCmd V1.ExceptionsTemplate with v1Sigs = [alice], v2Sigs = [alice], v1ViewText = "view", v2ViewText = "changed view"
+  let iid = toInterfaceContractId @ExceptionsInterface cidV1
+  res <- alice `trySubmit` exerciseExactCmd helperCid GetTextHelperInterface with iid = iid
+  assertIsUpgradeError res
+
+exceptionsTemplateV1 : PackageId
+exceptionsTemplateV1 = getPackageId "exceptions-1.0.0"
+
+exceptionsTemplateV2 : PackageId
+exceptionsTemplateV2 = getPackageId "exceptions-2.0.0"
+
+canCatchErrorTest
+  :  Choice ExceptionsHelper c (Optional Text)
+  => (ContractId ExceptionsInterface -> c)
+  -> Text
+  -> Text
+  -> Test
+canCatchErrorTest makeChoice v1Expected v2Expected = test $ do
+  alice <- allocateParty "alice"
+  helperCid <- alice `submit` createExactCmd ExceptionsHelper with owner = alice
+  cidV1 <- alice `submit` createExactCmd V1.ExceptionsTemplate with v1Sigs = [alice], v2Sigs = [alice], v1ViewText = "view", v2ViewText = "view"
+  let iid = toInterfaceContractId @ExceptionsInterface cidV1
+  resV1 <- (actAs alice <> packagePreference [exceptionsTemplateV1]) `submitWithOptions` exerciseCmd helperCid (makeChoice iid)
+  resV1 === Some v1Expected
+  resV2 <- (actAs alice <> packagePreference [exceptionsTemplateV2]) `submitWithOptions` exerciseCmd helperCid (makeChoice iid)
+  resV2 === Some v2Expected
+
+-- TEST_EVIDENCE: Integrity: Smart Contract Upgrade: Can catch same errors thrown by different choice versions within Update
+canCatchCommonErrors : Test
+canCatchCommonErrors = canCatchErrorTest ThrowSameErrorHelper "V1" "V2"
+
+-- TEST_EVIDENCE: Integrity: Smart Contract Upgrade: Can catch different errors thrown by different choice version within Update, using AnyException
+canCatchChangingErrors : Test
+canCatchChangingErrors = canCatchErrorTest ThrowDifferentErrorHelper "exception 1" "exception 2"
+
+-- TEST_EVIDENCE: Integrity: Smart Contract Upgrade: Can catch different errors thrown by different choice version, where one is new to V2 within Update, using AnyException
+canCatchNewError : Test
+canCatchNewError = canCatchErrorTest ThrowNewErrorHelper "exception 1" "new exception"
