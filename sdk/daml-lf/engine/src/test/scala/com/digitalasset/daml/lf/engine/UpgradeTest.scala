@@ -8,6 +8,8 @@ import com.daml.lf.command.{ApiCommand, ApiCommands, DisclosedContract}
 import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
+import com.daml.lf.engine.{Error => EE}
+import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.speedy.{ArrayList, SValue}
 import com.daml.lf.testing.parser.Implicits._
@@ -16,9 +18,43 @@ import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.lf.transaction.{GlobalKeyWithMaintainers, SubmittedTransaction, Transaction}
 import com.daml.lf.value.Value._
 import com.daml.logging.LoggingContext
+import org.scalatest.Assertion
+import org.scalatest.Inside.inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
+/** A test suite for smart contract upgrades.
+  *
+  * It tests many scenarios of the following form in a systematic way:
+  *   - define a v1 template
+  *   - define a v2 template that changes one aspect of the v1 template (e.g. observers)
+  *   - create a v1 contract (locally, globally, or as a disclosure)
+  *   - perform some v2 operation on the v1 contract (exercise, exercise by key, fetch, etc.)
+  *   - compare the execution result to the expected outcome
+  *
+  * Pairs of v1/v2 templates are called [[TestCase]]s and are listed in [[testCases]]. A test case is defined by
+  * subclassing [[TestCase]] and overriding one definition. For instance, [[ChangedObservers]] overrides
+  * [[TestCase.v2Observers]] with an expression that is different from [[TestCase.v1Observers]].
+  * Each test case is tested many times against the cartesian product of the following features:
+  *  - The operation to perform ([[Exercise]], [[ExerciseByKey]], etc.), listed in [[operations]].
+  *  - Whether or not to try and catch exceptions thrown when performing the operation, listed in [[catchBehaviors]].
+  *  - What triggered the operation: a toplevel command or the body of a choice, listed in [[entryPoints]].
+  *  - The origin of the contract being operated on: locally created, globally created, or disclosed. This is listed in
+  *    [[contractOrigins]].
+  *
+  * Some combinations of these features don't make sense. For instance, there are no commands for fetching a contract.
+  * These invalid combinations are discarded in [[TestHelper.makeApiCommand]]. For other valid combinations, this method
+  * produces a command to be run against an engine by the main test loop.
+  *
+  * In order to test scenarios where the operation is triggered by a choice body, we need a "client" contract whose only
+  * role is to exercise/fetch/lookup the v1 contract. The template for that client contract is defined in [[clientPkg]].
+  * It defines a large number of choices: one per combination of operation, catch behavior, entry point and test case.
+  * These choices are defined in [[TestCase.clientChoices]]. This method is pretty boilerplate-y and constitutes the
+  * bulk of this test suite.
+  *
+  * Finally, some definitions need to be shared between v1 and v2 templates: key and interface definitions, gobal
+  * parties. These are defined in [[commonDefsPkg]].
+  */
 class UpgradeTest extends AnyFreeSpec with Matchers {
 
   private[this] implicit def parserParameters(implicit
@@ -62,21 +98,25 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
           }
       """ (parserParameters(commonDefsPkgId))
 
-  sealed trait ExpectedOutcome
-  case object ExpectSuccess extends ExpectedOutcome
-  case object ExpectUpgradeError extends ExpectedOutcome
-  case object ExpectUnhandledException extends ExpectedOutcome
+  sealed abstract class ExpectedOutcome(val description: String)
+  case object ExpectSuccess extends ExpectedOutcome("should succeed")
+  case object ExpectPreconditionViolated
+      extends ExpectedOutcome("should fail with a precondition violated error")
+  case object ExpectUpgradeError extends ExpectedOutcome("should fail with an upgrade error")
+  case object ExpectUnhandledException
+      extends ExpectedOutcome("should fail with an unhandled exception")
 
-  /** An abstract class whose [[templateDefinition]] method generates LF code that defines a template named
-    * [[templateName]].
-    * The class is meant to be extended by concrete case objects which override one the metadata's expressions with an
-    * expression that throws an exception.
+  /** An abstract class whose [[v1TemplateDefinition]], [[v2TemplateDefinition]] and [[clientChoices]] methods generate
+    * LF code that define a template named [[templateName]] and test choices for that template.
+    * The class is meant to be extended by concrete case objects which override some aspect of the default template,
+    * for instance [[v2Observers]].
     */
-  abstract class TemplateGenerator(val templateName: String, val expectedOutcome: ExpectedOutcome) {
-    def v1Precondition: String = """True"""
-    def v1Signatories: String = s"""Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)"""
-    def v1Observers: String = """Nil @Party"""
-    def v1Agreement: String = """"agreement""""
+  abstract class TestCase(val templateName: String, val expectedOutcome: ExpectedOutcome) {
+    def v1AdditionalFields: String = ""
+    def v1Precondition: String = "True"
+    def v1Signatories: String = s"Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)"
+    def v1Observers: String = "Nil @Party"
+    def v1Agreement: String = """ "agreement" """
     def v1Key: String =
       s"""
          |  '$commonDefsPkgId':Mod:Key {
@@ -85,12 +125,13 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
          |    maintainers2 = (Cons @Party [Mod:${templateName} {p2} this] (Nil @Party))
          |  }""".stripMargin
     def v1Maintainers: String =
-      s"""\\(key: '$commonDefsPkgId':Mod:Key) -> ('$commonDefsPkgId':Mod:Key {maintainers1} key)"""
+      s"\\(key: '$commonDefsPkgId':Mod:Key) -> ('$commonDefsPkgId':Mod:Key {maintainers1} key)"
     def v1ChoiceControllers: String =
-      s"""Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)"""
-    def v1ChoiceObservers: String = """Nil @Party"""
+      s"Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)"
+    def v1ChoiceObservers: String = "Nil @Party"
     def v1View: String = s"'$commonDefsPkgId':Mod:MyView { value = 0 }"
 
+    def v2AdditionalFields: String = ""
     def v2Precondition: String = v1Precondition
     def v2Signatories: String = v1Signatories
     def v2Observers: String = v1Observers
@@ -102,6 +143,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     def v2View: String = v1View
 
     private def templateDefinition(
+        additionalFields: String,
         precondition: String,
         signatories: String,
         observers: String,
@@ -113,7 +155,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         view: String,
     ): String =
       s"""
-         |  record @serializable $templateName = { p1: Party, p2: Party };
+         |  record @serializable $templateName = { p1: Party, p2: Party $additionalFields };
          |  template (this: $templateName) = {
          |    precondition $precondition;
          |    signatories $signatories;
@@ -135,6 +177,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
          |  };""".stripMargin
 
     def v1TemplateDefinition: String = templateDefinition(
+      v1AdditionalFields,
       v1Precondition,
       v1Signatories,
       v1Observers,
@@ -147,6 +190,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     )
 
     def v2TemplateDefinition: String = templateDefinition(
+      v2AdditionalFields,
       v2Precondition,
       v2Signatories,
       v2Observers,
@@ -497,81 +541,76 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     }
   }
 
-  case object UnchangedPrecondition
-      extends TemplateGenerator("UnchangedPrecondition", ExpectSuccess) {
+  case object UnchangedPrecondition extends TestCase("UnchangedPrecondition", ExpectSuccess) {
     override def v1Precondition = "True"
     override def v2Precondition = "case () of () -> True"
   }
 
   case object ChangedPrecondition
-      extends TemplateGenerator("ChangedPrecondition", ExpectUpgradeError) {
+      extends TestCase("ChangedPrecondition", ExpectPreconditionViolated) {
     override def v1Precondition = "True"
     override def v2Precondition = "False"
   }
 
   case object ThrowingPrecondition
-      extends TemplateGenerator("ThrowingPrecondition", ExpectUnhandledException) {
+      extends TestCase("ThrowingPrecondition", ExpectUnhandledException) {
     override def v1Precondition = "True"
     override def v2Precondition =
       s"""throw @Bool @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "Precondition"})"""
   }
 
-  case object UnchangedSignatories
-      extends TemplateGenerator("UnchangedSignatories", ExpectSuccess) {
+  case object UnchangedSignatories extends TestCase("UnchangedSignatories", ExpectSuccess) {
     override def v1Signatories = s"Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)"
     override def v2Signatories =
       s"case () of () -> Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)"
   }
 
-  case object ChangedSignatories
-      extends TemplateGenerator("ChangedSignatories", ExpectUpgradeError) {
+  case object ChangedSignatories extends TestCase("ChangedSignatories", ExpectUpgradeError) {
     override def v1Signatories = s"Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)"
     override def v2Signatories =
       s"Cons @Party [Mod:${templateName} {p1} this, Mod:${templateName} {p2} this] (Nil @Party)"
   }
 
   case object ThrowingSignatories
-      extends TemplateGenerator("ThrowingSignatories", ExpectUnhandledException) {
+      extends TestCase("ThrowingSignatories", ExpectUnhandledException) {
     override def v1Signatories = s"Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)"
     override def v2Signatories =
       s"""throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "Signatories"})"""
   }
 
-  case object UnchangedObservers extends TemplateGenerator("UnchangedObservers", ExpectSuccess) {
+  case object UnchangedObservers extends TestCase("UnchangedObservers", ExpectSuccess) {
     override def v1Observers = "Nil @Party"
     override def v2Observers = "case () of () -> Nil @Party"
   }
 
-  case object ChangedObservers extends TemplateGenerator("ChangedObservers", ExpectUpgradeError) {
+  case object ChangedObservers extends TestCase("ChangedObservers", ExpectUpgradeError) {
     override def v1Observers = "Nil @Party"
     override def v2Observers = s"Cons @Party [Mod:${templateName} {p2} this] (Nil @Party)"
   }
 
-  case object ThrowingObservers
-      extends TemplateGenerator("ThrowingObservers", ExpectUnhandledException) {
+  case object ThrowingObservers extends TestCase("ThrowingObservers", ExpectUnhandledException) {
     override def v1Observers = "Nil @Party"
     override def v2Observers =
       s"""throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "Observers"})"""
   }
 
-  case object UnchangedAgreement extends TemplateGenerator("UnchangedAgreement", ExpectSuccess) {
+  case object UnchangedAgreement extends TestCase("UnchangedAgreement", ExpectSuccess) {
     override def v1Agreement = """ "agreement" """
     override def v2Agreement = """ case () of () -> "agreement" """
   }
 
-  case object ChangedAgreement extends TemplateGenerator("ChangedAgreement", ExpectSuccess) {
+  case object ChangedAgreement extends TestCase("ChangedAgreement", ExpectSuccess) {
     override def v1Agreement = """ "agreement" """
     override def v2Agreement = """ "text changed, but we don't care" """
   }
 
-  case object ThrowingAgreement
-      extends TemplateGenerator("ThrowingAgreement", ExpectUnhandledException) {
+  case object ThrowingAgreement extends TestCase("ThrowingAgreement", ExpectUnhandledException) {
     override def v1Agreement = """ "agreement" """
     override def v2Agreement =
       s"""throw @Text @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "Agreement"})"""
   }
 
-  case object UnchangedKey extends TemplateGenerator("UnchangedKey", ExpectSuccess) {
+  case object UnchangedKey extends TestCase("UnchangedKey", ExpectSuccess) {
     override def v1Key = s"""
                             |  '$commonDefsPkgId':Mod:Key {
                             |    label = "test-key",
@@ -586,7 +625,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
                             |    }""".stripMargin
   }
 
-  case object ChangedKey extends TemplateGenerator("ChangedKey", ExpectUpgradeError) {
+  case object ChangedKey extends TestCase("ChangedKey", ExpectUpgradeError) {
     override def v1Key = s"""
                             |  '$commonDefsPkgId':Mod:Key {
                             |    label = "test-key",
@@ -601,7 +640,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
                             |    }""".stripMargin
   }
 
-  case object ThrowingKey extends TemplateGenerator("ThrowingKey", ExpectUnhandledException) {
+  case object ThrowingKey extends TestCase("ThrowingKey", ExpectUnhandledException) {
     override def v1Key = s"""
                             |  '$commonDefsPkgId':Mod:Key {
                             |    label = "test-key",
@@ -612,16 +651,14 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       s"""throw @'$commonDefsPkgId':Mod:Key @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "Key"})"""
   }
 
-  case object UnchangedMaintainers
-      extends TemplateGenerator("UnchangedMaintainers", ExpectSuccess) {
+  case object UnchangedMaintainers extends TestCase("UnchangedMaintainers", ExpectSuccess) {
     override def v1Maintainers =
       s"\\(key: '$commonDefsPkgId':Mod:Key) -> ('$commonDefsPkgId':Mod:Key {maintainers1} key)"
     override def v2Maintainers =
       s"\\(key: '$commonDefsPkgId':Mod:Key) -> case () of () -> ('$commonDefsPkgId':Mod:Key {maintainers1} key)"
   }
 
-  case object ChangedMaintainers
-      extends TemplateGenerator("ChangedMaintainers", ExpectUpgradeError) {
+  case object ChangedMaintainers extends TestCase("ChangedMaintainers", ExpectUpgradeError) {
     override def v1Maintainers =
       s"\\(key: '$commonDefsPkgId':Mod:Key) -> ('$commonDefsPkgId':Mod:Key {maintainers1} key)"
     override def v2Maintainers =
@@ -629,7 +666,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
   }
 
   case object ThrowingMaintainers
-      extends TemplateGenerator("ThrowingMaintainers", ExpectUnhandledException) {
+      extends TestCase("ThrowingMaintainers", ExpectUnhandledException) {
     override def v1Maintainers =
       s"\\(key: '$commonDefsPkgId':Mod:Key) -> ('$commonDefsPkgId':Mod:Key {maintainers1} key)"
     override def v2Maintainers =
@@ -637,14 +674,19 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
   }
 
   case object ThrowingMaintainersBody
-      extends TemplateGenerator("ThrowingMaintainersBody", ExpectUnhandledException) {
+      extends TestCase("ThrowingMaintainersBody", ExpectUnhandledException) {
     override def v1Maintainers =
       s"\\(key: '$commonDefsPkgId':Mod:Key) -> ('$commonDefsPkgId':Mod:Key {maintainers1} key)"
     override def v2Maintainers =
       s"""\\(key: '$commonDefsPkgId':Mod:Key) -> throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "MaintainersBody"})"""
   }
 
-  val testCases: Seq[TemplateGenerator] = List(
+  case object AdditionalTemplateArg extends TestCase("AdditionalTemplateArg", ExpectSuccess) {
+    override def v1AdditionalFields: String = ""
+    override def v2AdditionalFields: String = ", extra: Option Unit"
+  }
+
+  val testCases: Seq[TestCase] = List(
     UnchangedPrecondition,
     ChangedPrecondition,
     ThrowingPrecondition,
@@ -664,6 +706,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     UnchangedMaintainers,
     ThrowingMaintainers,
     ThrowingMaintainersBody,
+    AdditionalTemplateArg,
   )
 
   val templateDefsPkgName = Ref.PackageName.assertFromString("-template-defs-")
@@ -770,6 +813,12 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     Local,
   )
 
+  /** A class that defines all the "global" variables shared by tests for a given template name: the template ID of the
+    * v1 template, the template ID of the v2 template, the ID of the v1 contract, etc. It exposes two methods:
+    * - [[makeApiCommand]], which generates an API command for a given operation, catch behavior, entry point,
+    *   and contract origin.
+    * - [[execute]], which executes a command against a fresh engine seeded with the v1 contract.
+    */
   class TestHelper(templateName: String) {
 
     implicit val logContext: LoggingContext = LoggingContext.ForTesting
@@ -971,6 +1020,30 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     }
   }
 
+  def assertResultMatchesExpectedOutcome(
+      result: Either[Error, (SubmittedTransaction, Transaction.Metadata)],
+      expectedOutcome: ExpectedOutcome,
+  ): Assertion = {
+    expectedOutcome match {
+      case ExpectSuccess =>
+        result shouldBe a[Right[_, _]]
+      case ExpectUpgradeError =>
+        inside(result) { case Left(EE.Interpretation(EE.Interpretation.DamlException(error), _)) =>
+          error shouldBe a[IE.Upgrade]
+        }
+      case ExpectPreconditionViolated =>
+        inside(result) { case Left(EE.Interpretation(EE.Interpretation.DamlException(error), _)) =>
+          error shouldBe a[IE.TemplatePreconditionViolated]
+        }
+      case ExpectUnhandledException =>
+        inside(result) { case Left(EE.Interpretation(EE.Interpretation.DamlException(error), _)) =>
+          error shouldBe a[IE.UnhandledException]
+        }
+    }
+  }
+
+  // This is the main loop of the test: for every combination of test case, operation, catch behavior, entry point, and
+  // contract origin, we generate an API command, execute it, and check that the result matches the expected outcome.
   for (template <- testCases)
     template.templateName - {
       val testHelper = new TestHelper(template.templateName)
@@ -985,22 +1058,11 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
                       testHelper
                         .makeApiCommand(operation, catchBehavior, entryPoint, contractOrigin)
                         .foreach { apiCommand =>
-                          template.expectedOutcome match {
-                            case ExpectSuccess =>
-                              s"should succeed" in {
-                                testHelper
-                                  .execute(apiCommand, contractOrigin) shouldBe a[Right[_, _]]
-                              }
-                            case ExpectUpgradeError =>
-                              "should fail with an upgrade error" in {
-                                testHelper
-                                  .execute(apiCommand, contractOrigin) shouldBe a[Left[_, _]]
-                              }
-                            case ExpectUnhandledException =>
-                              "should fail with an unhandled exception error" in {
-                                testHelper
-                                  .execute(apiCommand, contractOrigin) shouldBe a[Left[_, _]]
-                              }
+                          template.expectedOutcome.description in {
+                            assertResultMatchesExpectedOutcome(
+                              testHelper.execute(apiCommand, contractOrigin),
+                              template.expectedOutcome,
+                            )
                           }
                         }
                     }
