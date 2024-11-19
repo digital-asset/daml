@@ -33,8 +33,6 @@ load("//rules_daml:daml.bzl", "daml_compile")
 
 canton_scalacopts = ["-Xsource:3"]
 
-# TODO(https://github.com/DACH-NY/canton/issues/15106): read 'version' from the canton repository
-#  once it is exposed in some file.
 genrule(
     name = "community_buildinfo_src",
     srcs = ["VERSION"],
