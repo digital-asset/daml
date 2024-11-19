@@ -13,12 +13,14 @@ import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
 import com.digitalasset.canton.crypto.SigningPublicKey.getDataForFingerprint
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPrivateStoreExtended}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.{BaseCantonError, CantonErrorGroups}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{DefaultDeserializationError, ProtoConverter}
 import com.digitalasset.canton.store.db.DbDeserializationException
+import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.NoCopy
@@ -37,6 +39,7 @@ import org.bouncycastle.asn1.x509.{AlgorithmIdentifier, SubjectPublicKeyInfo}
 import org.bouncycastle.asn1.{ASN1OctetString, DEROctetString}
 import slick.jdbc.GetResult
 
+import java.time.Duration
 import scala.annotation.nowarn
 import scala.concurrent.ExecutionContext
 
@@ -161,6 +164,7 @@ final case class Signature private[crypto] (
     private val signature: ByteString,
     signedBy: Fingerprint,
     signingAlgorithmSpec: Option[SigningAlgorithmSpec],
+    signatureDelegation: Option[SignatureDelegation] = None,
 ) extends HasVersionedWrapper[Signature]
     with PrettyPrinting
     with NoCopy {
@@ -173,6 +177,7 @@ final case class Signature private[crypto] (
       signature = signature,
       signedBy = signedBy.toProtoPrimitive,
       signingAlgorithmSpec = SigningAlgorithmSpec.toProtoEnumOption(signingAlgorithmSpec),
+      signatureDelegation = signatureDelegation.map(_.toProtoV30),
     )
 
   override protected def pretty: Pretty[Signature] =
@@ -209,6 +214,7 @@ object Signature
       signature: ByteString,
       signedBy: Fingerprint,
       signingAlgorithmSpec: SigningAlgorithmSpec,
+      signatureDelegation: Option[SignatureDelegation],
   ): Signature =
     throw new UnsupportedOperationException("Use deserialization method instead")
 
@@ -222,7 +228,10 @@ object Signature
         "signing_algorithm_spec",
         signatureP.signingAlgorithmSpec,
       )
-    } yield new Signature(format, signature, signedBy, signingAlgorithmSpecO)
+      signatureDelegationO <- signatureP.signatureDelegation.traverse(
+        SignatureDelegation.fromProtoV30
+      )
+    } yield new Signature(format, signature, signedBy, signingAlgorithmSpecO, signatureDelegationO)
 
   def fromExternalSigning(
       format: SignatureFormat,
@@ -232,6 +241,154 @@ object Signature
   ): Signature =
     new Signature(format, signature, signedBy, Some(signingAlgorithmSpec))
 
+}
+
+/** Defines the validity period of a session signing key delegation within a specific domain timeframe.
+  * This period starts at a creation 'from' timestamp and extends for a specified duration,
+  * covering both the initial and end times inclusively.
+  *
+  * @param fromInclusive the inclusive timestamp, indicating when a delegation to the session
+  *                      key was created
+  * @param periodLength the inclusive validity duration of the session key delegation in seconds
+  */
+final case class SignatureDelegationValidityPeriod(
+    fromInclusive: CantonTimestamp,
+    periodLength: PositiveSeconds,
+) extends PrettyPrinting {
+  val toInclusive: CantonTimestamp = fromInclusive + periodLength
+
+  override protected def pretty: Pretty[SignatureDelegationValidityPeriod] =
+    prettyOfClass(
+      param("fromInclusive", _.fromInclusive),
+      param("toInclusive", _.toInclusive),
+    )
+}
+
+/** An extension to the signature to accommodate the necessary information
+  * to be able to use session signing keys for protocol messages.
+  *
+  * @param sessionKey the session signing key that can be used to verify the protocol message, must be
+  *                   in DerX509Spki format
+  * @param validityPeriod indicates the 'lifespan' (i.e. how long the key is valid) of a session signing key
+  * @param signature this signature authorizes the session key to act on behalf of a long-term key
+  *                  We sign over the combined hash of the fingerprint of the session key, the validity period, and
+  *                  the domain ID.
+  */
+final case class SignatureDelegation private[crypto] (
+    sessionKey: SigningPublicKey,
+    validityPeriod: SignatureDelegationValidityPeriod,
+    signature: Signature,
+) extends Product
+    with Serializable {
+
+  // All session signing keys must be an ASN.1 + DER-encoding of X.509 SubjectPublicKeyInfo structure and be
+  // set to be used for protocol messages.
+  require(
+    sessionKey.format == CryptoKeyFormat.DerX509Spki &&
+      sessionKey.usage == SigningKeyUsage.ProtocolOnly &&
+      signature.signatureDelegation.isEmpty // we don't support recursive delegations
+  )
+
+  def toProtoV30: v30.SignatureDelegation =
+    v30.SignatureDelegation(
+      sessionKey = sessionKey.key,
+      sessionKeySpec = sessionKey.keySpec.toProtoEnum,
+      validityPeriodFromInclusive = validityPeriod.fromInclusive.toProtoPrimitive,
+      validityPeriodDurationInclusive = validityPeriod.periodLength.duration.toSeconds.toInt,
+      format = signature.format.toProtoEnum,
+      // In this case, we send the raw content of the signature because the remaining parameters for deserialization are
+      // already included in the v30.SignatureDelegation message (e.g. format).
+      signature = signature.toProtoV30.signature,
+      signingAlgorithmSpec = SigningAlgorithmSpec.toProtoEnumOption(signature.signingAlgorithmSpec),
+    )
+}
+
+object SignatureDelegation {
+
+  // TODO(#22362): https://github.com/DACH-NY/canton/pull/22185#discussion_r1846626744
+  def create(
+      sessionKey: SigningPublicKey,
+      validityPeriod: SignatureDelegationValidityPeriod,
+      signature: Signature,
+  ): Either[String, SignatureDelegation] =
+    for {
+      _ <-
+        Either.cond(
+          sessionKey.format == CryptoKeyFormat.DerX509Spki,
+          (),
+          s"session key must be in ${CryptoKeyFormat.DerX509Spki.name} format (${sessionKey.format})",
+        )
+      _ <-
+        Either.cond(
+          sessionKey.usage == SigningKeyUsage.ProtocolOnly,
+          (),
+          s"session key must only be used for protocol messages (${sessionKey.usage})",
+        )
+      _ <-
+        Either.cond(
+          signature.signatureDelegation.isEmpty,
+          (),
+          s"a signature delegation cannot itself be delegated",
+        )
+    } yield SignatureDelegation(
+      sessionKey = sessionKey,
+      validityPeriod = validityPeriod,
+      signature = signature,
+    )
+
+  def fromProtoV30(signatureP: v30.SignatureDelegation): ParsingResult[SignatureDelegation] =
+    for {
+      scheme <- SigningKeySpec.fromProtoEnum("session_key_spec", signatureP.sessionKeySpec)
+      sessionKey <- SigningPublicKey.create(
+        CryptoKeyFormat.DerX509Spki,
+        signatureP.sessionKey,
+        scheme,
+        SigningKeyUsage.ProtocolOnly,
+      )
+      fromInclusive <-
+        CantonTimestamp.fromProtoPrimitive(
+          signatureP.validityPeriodFromInclusive
+        )
+      validityPeriodDurationInclusive <-
+        ProtoConverter.parsePositiveInt(
+          "validity_period_duration_inclusive",
+          signatureP.validityPeriodDurationInclusive,
+        )
+      // Duration is already validated as positive and non-zero during parsing,
+      // so calling Positive.create method here is unnecessary.
+      periodLength = PositiveSeconds.tryCreate(
+        Duration.ofSeconds(validityPeriodDurationInclusive.value.toLong)
+      )
+      signatureRaw = signatureP.signature
+      signatureFormat <- SignatureFormat.fromProtoEnum("format", signatureP.format)
+      signatureAlgorithmSpecO <- SigningAlgorithmSpec.fromProtoEnumOption(
+        "signing_algorithm_spec",
+        signatureP.signingAlgorithmSpec,
+      )
+      signature = Signature(
+        signatureFormat,
+        signatureRaw,
+        sessionKey.fingerprint,
+        signatureAlgorithmSpecO,
+      )
+      signatureDelegation <-
+        SignatureDelegation
+          .create(
+            sessionKey,
+            SignatureDelegationValidityPeriod(
+              fromInclusive,
+              periodLength,
+            ),
+            signature,
+          )
+          .leftMap(errMsg =>
+            ProtoDeserializationError.InvariantViolation(
+              None,
+              "Failed to create signature " +
+                s"delegation from deserialized content with: $errMsg",
+            )
+          )
+    } yield signatureDelegation
 }
 
 sealed trait SignatureFormat extends Product with Serializable {
@@ -434,7 +591,7 @@ object SigningKeySpec {
   /** Converts an old SigningKeyScheme enum to the new key scheme,
     * ensuring backward compatibility with existing data.
     */
-  def fromProtoEnumSigningKeyScheme(
+  private def fromProtoEnumSigningKeyScheme(
       field: String,
       schemeP: v30.SigningKeyScheme,
   ): ParsingResult[SigningKeySpec] =

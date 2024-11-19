@@ -25,7 +25,6 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data.Time.Timestamp
 import org.mockito.MockitoSugar.mock
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -222,7 +221,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     ): ParameterStorageBackend.PruneUptoInclusiveAndLedgerEnd =
       throw new UnsupportedOperationException
 
-    override def domainLedgerEnd(domainId: DomainId)(connection: Connection): DomainIndex =
+    override def cleanDomainIndex(domainId: DomainId)(connection: Connection): DomainIndex =
       throw new UnsupportedOperationException
 
     override def updatePostProcessingEnd(postProcessingEnd: Option[AbsoluteOffset])(
@@ -246,7 +245,7 @@ object SequentialWriteDaoSpec {
     Update.PartyAllocationRejected(
       submissionId = Ref.SubmissionId.assertFromString("abc"),
       participantId = Ref.ParticipantId.assertFromString("participant"),
-      recordTime = Timestamp.now(),
+      recordTime = CantonTimestamp.now(),
       rejectionReason = key,
     )(TraceContext.empty)
   )

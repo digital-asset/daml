@@ -4,16 +4,10 @@
 package com.digitalasset.canton.caching
 
 import com.daml.metrics.CacheMetrics
-import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.github.benmanes.caffeine.cache as caffeine
-import com.github.benmanes.caffeine.cache.{AsyncCacheLoader, AsyncLoadingCache}
 
-import java.util.concurrent.{CompletableFuture, Executor}
-import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.*
 import scala.jdk.OptionConverters.{RichOptional, RichOptionalLong}
-import scala.util.{Failure, Success}
 
 object CaffeineCache {
 
@@ -45,21 +39,6 @@ object CaffeineCache {
     override def invalidateAll(): Unit = cache.invalidateAll()
   }
 
-  final class AsyncLoadingCaffeineCache[Key <: AnyRef, Value <: AnyRef](
-      cache: caffeine.AsyncLoadingCache[Key, Value],
-      cacheMetrics: CacheMetrics,
-  ) {
-    installMetrics(cacheMetrics, cache.synchronous())
-
-    def get(key: Key): Future[Value] = cache.get(key).toScalaUnwrapped
-
-    def invalidate(key: Key): Unit = cache.synchronous().invalidate(key)
-
-    def invalidateAll(): Unit = cache.synchronous().invalidateAll()
-
-    val underlying: AsyncLoadingCache[Key, Value] = cache
-  }
-
   private final class InstrumentedCaffeineCache[Key <: AnyRef, Value <: AnyRef](
       cache: caffeine.Cache[Key, Value],
       metrics: CacheMetrics,
@@ -83,40 +62,13 @@ object CaffeineCache {
     override def invalidateAll(): Unit = delegate.invalidateAll()
   }
 
-  private def installMetrics[Key <: AnyRef, Value <: AnyRef](
+  private[caching] def installMetrics(
       metrics: CacheMetrics,
-      cache: caffeine.Cache[Key, Value],
+      cache: caffeine.Cache[?, ?],
   ): Unit = {
     metrics.registerSizeGauge(() => cache.estimatedSize())
     metrics.registerWeightGauge(() =>
       cache.policy().eviction().toScala.flatMap(_.weightedSize.toScala).getOrElse(0)
     )
   }
-
-  class FutureAsyncCacheLoader[K, V](func: K => Future[V])(implicit
-      executionContext: ExecutionContext
-  ) extends AsyncCacheLoader[K, V] {
-    override def asyncLoad(key: K, executor: Executor): CompletableFuture[_ <: V] = {
-      val cf = new CompletableFuture[V]
-      func(key).onComplete {
-        case Success(value) => cf.complete(value)
-        case Failure(e) => cf.completeExceptionally(e)
-      }
-      cf
-    }
-  }
-
-  class FutureAsyncCacheLoaderUS[K, V](func: K => FutureUnlessShutdown[V])(implicit
-      executionContext: ExecutionContext
-  ) extends AsyncCacheLoader[K, V] {
-    override def asyncLoad(key: K, executor: Executor): CompletableFuture[_ <: V] = {
-      val cf = new CompletableFuture[V]
-      func(key).failOnShutdownToAbortException("Async Cache Loading").onComplete {
-        case Success(value) => cf.complete(value)
-        case Failure(e) => cf.completeExceptionally(e)
-      }
-      cf
-    }
-  }
-
 }

@@ -7,13 +7,15 @@ import cats.data.{EitherT, OptionT}
 import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.caching.ScaffeineCache
+import com.digitalasset.canton.caching.ScaffeineCache.TracedAsyncLoadingCache
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.DamlPackageStore
 import com.digitalasset.canton.protocol.PackageDescription
 import com.digitalasset.canton.topology.store.PackageDependencyResolverUS
-import com.digitalasset.canton.tracing.{TraceContext, TracedAsyncLoadingCache, TracedScaffeine}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.github.blemale.scaffeine.Scaffeine
 
@@ -34,9 +36,9 @@ class PackageDependencyResolver(
     EitherT[FutureUnlessShutdown, PackageId, *],
     PackageId,
     Set[PackageId],
-  ] = TracedScaffeine
+  ] = ScaffeineCache
     .buildTracedAsync[EitherT[FutureUnlessShutdown, PackageId, *], PackageId, Set[PackageId]](
-      cache = Scaffeine().maximumSize(10000).expireAfterAccess(15.minutes),
+      cache = Scaffeine().maximumSize(10000).expireAfterAccess(15.minutes).executor(ec.execute(_)),
       loader = implicit tc => loadPackageDependencies _,
       allLoader = None,
     )(logger)

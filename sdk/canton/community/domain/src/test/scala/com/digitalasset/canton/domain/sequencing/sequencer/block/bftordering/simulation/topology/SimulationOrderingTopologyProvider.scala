@@ -16,14 +16,18 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   SimulationP2PNetworkManager,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.simulation.future.SimulationFuture
+import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.Endpoint
+import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.util.Success
 
 class SimulationOrderingTopologyProvider(
-    peerEndpointsToOnboardingTimes: Map[Endpoint, EffectiveTime]
+    thisPeer: SequencerId,
+    peerEndpointsToOnboardingInformation: Map[Endpoint, SimulationOnboardingInformation],
+    loggerFactory: NamedLoggerFactory,
 ) extends OrderingTopologyProvider[SimulationEnv] {
 
   override def getOrderingTopologyAt(
@@ -33,22 +37,33 @@ class SimulationOrderingTopologyProvider(
       traceContext: TraceContext
   ): SimulationFuture[Option[(OrderingTopology, CryptoProvider[SimulationEnv])]] =
     SimulationFuture { () =>
-      val peerIdsToOnboardingTimes = peerEndpointsToOnboardingTimes.view
-        .filter { case (_, onboardingTime) =>
-          timestamp.value >= onboardingTime.value
-        }
-        .map { case (endpoint, timestamp) =>
-          SimulationP2PNetworkManager.fakeSequencerId(endpoint) -> timestamp
-        }
-        .toMap
+      val sequencerOnboardInformationValidAtThisTimestamp =
+        peerEndpointsToOnboardingInformation.view
+          .filter { case (_, onboardingInformation) =>
+            // Reflecting that topology snapshots are timestamp-exclusive in Canton.
+            timestamp.value > onboardingInformation.onboardingTime.value
+          }
+          .map { case (endpoint, onboardInformation) =>
+            SimulationP2PNetworkManager.fakeSequencerId(endpoint) -> onboardInformation
+          }
+          .toMap
 
       val topology =
         OrderingTopology(
-          peerIdsToOnboardingTimes,
+          sequencerOnboardInformationValidAtThisTimestamp.view.mapValues(_.onboardingTime).toMap,
           SequencingParameters.Default,
           timestamp,
           areTherePendingCantonTopologyChanges = assumePendingTopologyChanges,
         )
-      Success(Some(topology -> SimulationCryptoProvider))
+      Success(
+        Some(
+          topology -> SimulationCryptoProvider.create(
+            thisPeer,
+            sequencerOnboardInformationValidAtThisTimestamp,
+            timestamp.value,
+            loggerFactory,
+          )
+        )
+      )
     }
 }

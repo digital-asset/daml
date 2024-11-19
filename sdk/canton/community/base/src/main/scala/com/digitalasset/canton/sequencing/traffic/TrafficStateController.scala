@@ -24,7 +24,7 @@ import com.digitalasset.canton.sequencing.protocol.{
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureUtil
+import com.digitalasset.canton.util.FutureUnlessShutdownUtil
 import com.digitalasset.canton.version.ProtocolVersion
 
 import java.util.concurrent.atomic.AtomicReference
@@ -110,7 +110,7 @@ class TrafficStateController(
   def tickStateAt(sequencingTimestamp: CantonTimestamp)(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): Unit = FutureUtil.doNotAwaitUnlessShutdown(
+  ): Unit = FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
     for {
       topology <- topologyClient.awaitSnapshotUS(sequencingTimestamp)
       snapshot = topology.ipsSnapshot

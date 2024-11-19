@@ -7,7 +7,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerAlias
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.crypto.Crypto
+import com.digitalasset.canton.crypto.{Crypto, DomainSyncCryptoClient}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
 import com.digitalasset.canton.protocol.StaticDomainParameters
@@ -31,6 +31,7 @@ import scala.concurrent.ExecutionContextExecutor
   */
 final class SequencerChannelClientFactory(
     domainId: DomainId,
+    domainCryptoApi: DomainSyncCryptoClient,
     crypto: Crypto,
     config: SequencerClientConfig,
     traceContextPropagation: TracingConfig.Propagation,
@@ -55,6 +56,7 @@ final class SequencerChannelClientFactory(
       new SequencerChannelClient(
         member,
         new SequencerChannelClientState(transportMap, processingTimeout, loggerFactory),
+        domainCryptoApi,
         domainParameters,
         processingTimeout,
         loggerFactory,
@@ -97,7 +99,9 @@ final class SequencerChannelClientFactory(
       member: Member,
   )(implicit
       executionContext: ExecutionContextExecutor
-  ): SequencerChannelClientTransport =
+  ): SequencerChannelClientTransport = {
+    val loggerFactoryWithSequencerId =
+      SequencerClient.loggerFactoryWithSequencerId(loggerFactory, sequencerId)
     conn match {
       case connection: GrpcSequencerConnection =>
         val channel = createChannel(connection)
@@ -106,9 +110,10 @@ final class SequencerChannelClientFactory(
           channel,
           auth,
           processingTimeout,
-          loggerFactory.append("sequencerId", sequencerId.uid.toString),
+          loggerFactoryWithSequencerId,
         )
     }
+  }
 
   private def grpcSequencerClientAuth(
       connection: GrpcSequencerConnection,

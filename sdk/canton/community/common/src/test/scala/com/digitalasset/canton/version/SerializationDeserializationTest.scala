@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.version
 
-import com.digitalasset.canton.crypto.TestHash
+import com.digitalasset.canton.crypto.{SymmetricKey, TestHash}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
@@ -13,6 +13,12 @@ import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.sequencing.channel.{
   ConnectToSequencerChannelRequest,
   ConnectToSequencerChannelResponse,
+}
+import com.digitalasset.canton.sequencing.protocol.channel.{
+  SequencerChannelConnectedToAllEndpoints,
+  SequencerChannelMetadata,
+  SequencerChannelSessionKey,
+  SequencerChannelSessionKeyAck,
 }
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
@@ -24,8 +30,6 @@ import com.digitalasset.canton.sequencing.protocol.{
   GetTrafficStateForMemberResponse,
   MaxRequestSizeToDeserialize,
   SequencedEvent,
-  SequencerChannelConnectedToAllEndpoints,
-  SequencerChannelMetadata,
   SequencingSubmissionCost,
   SignedContent,
   SubmissionRequest,
@@ -82,9 +86,13 @@ class SerializationDeserializationTest
     import generatorsProtocol.*
     import generatorsProtocolSeq.*
     import generatorsTransaction.*
+    import com.digitalasset.canton.crypto.GeneratorsCrypto.*
 
     s"Serialization and deserialization methods using protocol version $version" should {
       "compose to the identity" in {
+        testVersioned(SymmetricKey)
+//        testVersioned(AsymmetricEncrypted[SymmetricKey])
+
         testProtocolVersioned(StaticDomainParameters, version)
         testProtocolVersioned(DynamicDomainParameters, version)
         testProtocolVersioned(DynamicSequencingParameters, version)
@@ -162,10 +170,12 @@ class SerializationDeserializationTest
         testProtocolVersioned(TopologyStateForInitRequest, version)
         testProtocolVersioned(SubscriptionRequest, version)
         if (version.isDev) {
-          testProtocolVersioned(SequencerChannelMetadata, version)
-          testProtocolVersioned(SequencerChannelConnectedToAllEndpoints, version)
           testProtocolVersioned(ConnectToSequencerChannelRequest, version)
           testProtocolVersioned(ConnectToSequencerChannelResponse, version)
+          testProtocolVersioned(SequencerChannelMetadata, version)
+          testProtocolVersioned(SequencerChannelConnectedToAllEndpoints, version)
+          testProtocolVersioned(SequencerChannelSessionKey, version)
+          testProtocolVersioned(SequencerChannelSessionKeyAck, version)
         }
         testMemoizedProtocolVersioned2(
           SequencedEvent,

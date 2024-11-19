@@ -192,18 +192,27 @@ final class BftBlockOrderer(
   private val (initialOrderingTopology, initialCryptoProvider) = {
     implicit val traceContext: TraceContext = TraceContext.empty
 
+    val thisPeerOnboardingEffectiveTime = for {
+      snapshotAdditionalInfo <- sequencerSnapshotAdditionalInfo
+      thisPeerFirstKnownAt <- snapshotAdditionalInfo.peerFirstKnownAt.get(sequencerId)
+      thisPeerOnboardingEffectiveTime <- thisPeerFirstKnownAt.timestamp
+    } yield thisPeerOnboardingEffectiveTime
+
     // We assume that, if a sequencer snapshot has been provided, then we're onboarding; in that case, we use
     //  topology information from the sequencer snapshot, else we fetch the latest topology from the DB.
-    val topologyQueryTimestamp =
-      sequencerSnapshotAdditionalInfo
-        .flatMap(_.peerFirstKnownAt.get(sequencerId).flatMap(_.timestamp))
-        .getOrElse {
-          val latestEpoch =
-            awaitFuture(epochStore.latestEpoch(includeInProgress = true), "fetch latest epoch")
-          latestEpoch.info.topologySnapshotEffectiveTime
-        }
+    val topologyQueryTimestamp = thisPeerOnboardingEffectiveTime
+      // We need to take `immediateSuccessor` as topology snapshots are timestamp-exclusive.
+      //  This timestamp is always known by the topology client, even when `lastTs` from the onboarding state is equal
+      //  to this timestamp (even if the block containing this timestamp does not contain any topology transactions,
+      //  i.e., there's no tick) because the topology is known up to its head state effective timestamp's `immediateSuccessor`.
+      .map(_.immediateSuccessor())
+      .getOrElse {
+        val latestEpoch =
+          awaitFuture(epochStore.latestEpoch(includeInProgress = true), "fetch latest epoch")
+        latestEpoch.info.topologySnapshotEffectiveTime
+      }
 
-    val (topology, cryptoProvider) = awaitFuture(
+    awaitFuture(
       orderingTopologyProvider.getOrderingTopologyAt(
         topologyQueryTimestamp,
         // TODO(#21999) workaround: skip `awaitMaxTimestamp` because, in the case of onboarded sequencers,
@@ -217,31 +226,6 @@ final class BftBlockOrderer(
         logger.error(msg)
         sys.error(msg)
       }
-
-    // TODO(#19661): If the sequencer is known, it does not mean that it can use the domain yet (e.g., not all domain
-    //  owners might yet have signed the topology change). Right now, just add the onboarded sequencer to the
-    //  returned topology from the snapshot additional info as a workaround.
-    sequencerSnapshotAdditionalInfo
-      .map { info =>
-        lazy val errorMsg =
-          s"$sequencerId's onboarding timestamp should be present in the snapshot additional info but isn't"
-        val onboardingTimestamp = info.peerFirstKnownAt.view
-          .mapValues(_.timestamp)
-          .getOrElse(
-            sequencerId, {
-              logger.error(errorMsg)
-              sys.error(errorMsg)
-            },
-          )
-          .getOrElse {
-            logger.error(errorMsg)
-            sys.error(errorMsg)
-          }
-        topology.copy(
-          peersFirstKnownAt = topology.peersFirstKnownAt + (sequencerId -> onboardingTimestamp)
-        )
-      }
-      .getOrElse(topology) -> cryptoProvider
   }
 
   private val PekkoModuleSystem.PekkoModuleSystemInitResult(

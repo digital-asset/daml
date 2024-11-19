@@ -311,7 +311,7 @@ class MainIndexDBMetrics(
   val getCompletions: DatabaseMetrics = createDbMetrics("get_completions")
   val getParticipantId: DatabaseMetrics = createDbMetrics("get_participant_id")
   val getLedgerEnd: DatabaseMetrics = createDbMetrics("get_ledger_end")
-  val getDomainledgerEnd: DatabaseMetrics = createDbMetrics("get_domain_ledger_end")
+  val getCleanDomainIndex: DatabaseMetrics = createDbMetrics("get_clean_domain_index")
   val getPostProcessingEnd: DatabaseMetrics = createDbMetrics("get_post_processing_end")
   val initializeLedgerParameters: DatabaseMetrics = createDbMetrics(
     "initialize_ledger_parameters"

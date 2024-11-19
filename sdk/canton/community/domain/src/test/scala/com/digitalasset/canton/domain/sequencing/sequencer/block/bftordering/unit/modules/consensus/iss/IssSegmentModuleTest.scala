@@ -41,7 +41,9 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.{
   CommitCertificate,
+  ConsensusCertificate,
   OrderedBlock,
+  PrepareCertificate,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.topology.{
   Membership,
@@ -54,11 +56,13 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   ConsensusSegment,
   P2PNetworkOut,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.unit.modules.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.unit.modules.UnitTestContext.DelayCount
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.unit.modules.{
+  fakeRecordingModule,
+  *,
+}
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.SequencerId
-import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -998,32 +1002,308 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
           commits,
         )
       }
+
+      // CRASH-RECOVERY TESTS
+      val blockMetadata = blockMetadata4Nodes(blockOrder4Nodes.indexOf(selfId))
+      val prePrepare = PrePrepare.create(
+        blockMetadata,
+        ViewNumber.First,
+        clock.now,
+        OrderingBlock(oneRequestOrderingBlock.proofs),
+        CanonicalCommitSet(Genesis.genesisCanonicalCommitSet(selfId, clock.now).toSet),
+        selfId,
+      )
+      def basePrepare(from: SequencerId) = prepareFromPrePrepare(prePrepare)(from = from)
+      def baseCommit(from: SequencerId) = commitFromPrePrepare(prePrepare)(from = from)
+
+      "function after a crash from a pre-stored pre-prepare" in {
+        implicit val context: ProgrammableUnitTestContext[ConsensusSegment.Message] =
+          new ProgrammableUnitTestContext(resolveAwaits = true)
+
+        val initialMessages =
+          EpochStore.EpochInProgress(pbftMessagesForIncompleteBlocks = Seq(prePrepare.fakeSign))
+
+        val p2pBuffer = new ArrayBuffer[P2PNetworkOut.Message](defaultBufferSize)
+        val consensus = createIssSegmentModule[ProgrammableUnitTestEnv](
+          p2pNetworkOutModuleRef = fakeRecordingModule(p2pBuffer),
+          epochInProgress = initialMessages,
+          otherPeers = otherPeers.toSet,
+        )
+
+        consensus.receive(ConsensusSegment.Start)
+        context.runPipedMessages() shouldBe empty
+
+        p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
+          P2PNetworkOut.Multicast(
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(prePrepare.fakeSign),
+            otherPeers.toSet,
+          ),
+          P2PNetworkOut.Multicast(
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
+              prepareFromPrePrepare(prePrepare)(from = selfId)
+            ),
+            otherPeers.toSet,
+          ),
+        )
+        p2pBuffer.clear()
+
+        // after starting from initial pre-prepare, we should be able to process prepares and create a commit
+        consensus.receive(PbftSignedNetworkMessage(basePrepare(from = otherPeers(0))))
+        consensus.receive(PbftSignedNetworkMessage(basePrepare(from = otherPeers(1))))
+        p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
+          P2PNetworkOut.Multicast(
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
+              baseCommit(from = selfId)
+            ),
+            otherPeers.toSet,
+          )
+        )
+      }
+
+      "function after a crash from pre-stored pre-prepare and prepares" in {
+        implicit val context: ProgrammableUnitTestContext[ConsensusSegment.Message] =
+          new ProgrammableUnitTestContext(resolveAwaits = true)
+
+        val myPrepare = prepareFromPrePrepare(prePrepare)(from = selfId)
+        val prepares = List[SignedMessage[PbftNetworkMessage]](
+          myPrepare,
+          basePrepare(from = otherPeers(0)),
+          basePrepare(from = otherPeers(1)),
+        )
+
+        val initialMessages =
+          EpochStore.EpochInProgress(pbftMessagesForIncompleteBlocks =
+            prePrepare.fakeSign :: prepares
+          )
+
+        val parentBuffer =
+          new ArrayBuffer[Consensus.Message[ProgrammableUnitTestEnv]](defaultBufferSize)
+
+        val p2pBuffer = new ArrayBuffer[P2PNetworkOut.Message](defaultBufferSize)
+        val consensus = createIssSegmentModule[ProgrammableUnitTestEnv](
+          p2pNetworkOutModuleRef = fakeRecordingModule(p2pBuffer),
+          parentModuleRef = fakeRecordingModule(parentBuffer),
+          epochInProgress = initialMessages,
+          otherPeers = otherPeers.toSet,
+        )
+
+        consensus.receive(ConsensusSegment.Start)
+        context.runPipedMessages() shouldBe empty
+
+        p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
+          P2PNetworkOut.Multicast(
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(prePrepare.fakeSign),
+            otherPeers.toSet,
+          ),
+          P2PNetworkOut.Multicast(
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(myPrepare),
+            otherPeers.toSet,
+          ),
+          P2PNetworkOut.Multicast(
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
+              baseCommit(from = selfId)
+            ),
+            otherPeers.toSet,
+          ),
+        )
+        p2pBuffer.clear()
+
+        consensus.receive(PbftSignedNetworkMessage(baseCommit(from = otherPeers(0))))
+        consensus.receive(PbftSignedNetworkMessage(baseCommit(from = otherPeers(1))))
+        val expectedOrderedBlock = orderedBlockFromPrePrepare(prePrepare)
+        val commits = Seq(
+          baseCommit(from = otherPeers(0)),
+          baseCommit(from = otherPeers(1)),
+          baseCommit(from = selfId),
+        )
+        val orderedBlockStored = ConsensusSegment.Internal.OrderedBlockStored(
+          expectedOrderedBlock,
+          commits,
+          ViewNumber.First,
+        )
+
+        val pipedMessages = context.runPipedMessages()
+        pipedMessages should contain only orderedBlockStored
+
+        pipedMessages.foreach(consensus.receive)
+        parentBuffer should contain only Consensus.ConsensusMessage.BlockOrdered(
+          expectedOrderedBlock,
+          commits,
+        )
+      }
+
+      "take initial messages into account for prepare certificate" in {
+        implicit val context: ProgrammableUnitTestContext[ConsensusSegment.Message] =
+          new ProgrammableUnitTestContext(resolveAwaits = true)
+
+        val myPrepare = prepareFromPrePrepare(prePrepare)(from = selfId)
+        val prepares = List(
+          basePrepare(from = otherPeers(0)),
+          basePrepare(from = otherPeers(1)),
+          myPrepare,
+        )
+
+        val initialMessages =
+          EpochStore.EpochInProgress(pbftMessagesForIncompleteBlocks =
+            prePrepare.fakeSign :: (prepares: List[SignedMessage[PbftNetworkMessage]])
+          )
+
+        val p2pBuffer = new ArrayBuffer[P2PNetworkOut.Message](defaultBufferSize)
+        val consensus = createIssSegmentModule[ProgrammableUnitTestEnv](
+          p2pNetworkOutModuleRef = fakeRecordingModule(p2pBuffer),
+          epochInProgress = initialMessages,
+          otherPeers = otherPeers.toSet,
+        )
+
+        consensus.receive(ConsensusSegment.Start)
+        context.runPipedMessages() shouldBe empty
+
+        consensus.receive(
+          ConsensusSegment.ConsensusMessage.PbftNormalTimeout(blockMetadata, ViewNumber.First)
+        )
+
+        // should take initial messages into account for prepare certificate
+        val viewChange = ViewChange
+          .create(
+            blockMetadata,
+            segmentIndex = blockOrder4Nodes.indexOf(selfId),
+            viewNumber = NextViewNumber,
+            clock.now,
+            consensusCerts =
+              Seq[ConsensusCertificate](PrepareCertificate(prePrepare.fakeSign, prepares)),
+            from = selfId,
+          )
+          .fakeSign
+
+        p2pBuffer should contain(
+          P2PNetworkOut.Multicast(
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(viewChange),
+            otherPeers.toSet,
+          )
+        )
+      }
+
+      "properly handle pre-stored new-view message" in {
+        implicit val context: ProgrammableUnitTestContext[ConsensusSegment.Message] =
+          new ProgrammableUnitTestContext(resolveAwaits = true)
+
+        val myPrepare = prepareFromPrePrepare(prePrepare)(from = selfId)
+        val prepares = List(
+          basePrepare(from = otherPeers(0)),
+          basePrepare(from = otherPeers(1)),
+          myPrepare,
+        )
+
+        val bottomBlock1 =
+          bottomBlock(
+            blockMetadata4Nodes(blockOrder4Nodes.indexOf(selfId) + allPeers.size),
+            NextViewNumber,
+            clock.now,
+            from = otherPeers(0),
+          )
+
+        val newView =
+          NewView.create(
+            blockMetadata,
+            segmentIndex = blockOrder4Nodes.indexOf(selfId),
+            viewNumber = NextViewNumber,
+            clock.now,
+            Seq(
+              ViewChange
+                .create(
+                  blockMetadata,
+                  segmentIndex = blockOrder4Nodes.indexOf(selfId),
+                  viewNumber = NextViewNumber,
+                  clock.now,
+                  consensusCerts =
+                    Seq[ConsensusCertificate](PrepareCertificate(prePrepare.fakeSign, prepares)),
+                  from = selfId,
+                )
+                .fakeSign
+            ),
+            Seq(prePrepare.fakeSign, bottomBlock1),
+            from = otherPeers(0),
+          )
+
+        val initialMessages =
+          EpochStore.EpochInProgress(pbftMessagesForIncompleteBlocks =
+            List[SignedMessage[PbftNetworkMessage]](
+              prePrepare.fakeSign,
+              newView.fakeSign,
+            ) ++ (prepares: List[
+              SignedMessage[PbftNetworkMessage]
+            ])
+          )
+
+        val p2pBuffer = new ArrayBuffer[P2PNetworkOut.Message](defaultBufferSize)
+        val consensus = createIssSegmentModule[ProgrammableUnitTestEnv](
+          p2pNetworkOutModuleRef = fakeRecordingModule(p2pBuffer),
+          epochInProgress = initialMessages,
+          otherPeers = otherPeers.toSet,
+          leader = selfId,
+        )
+
+        consensus.receive(ConsensusSegment.Start)
+        context.runPipedMessages() shouldBe empty
+
+        p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
+          P2PNetworkOut.Multicast(
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
+              prepareFromPrePrepare(prePrepare)(from = selfId, viewNumber = NextViewNumber)
+            ),
+            otherPeers.toSet,
+          ),
+          P2PNetworkOut.Multicast(
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
+              prepareFromPrePrepare(bottomBlock1.message)(from = selfId)
+            ),
+            otherPeers.toSet,
+          ),
+        )
+        p2pBuffer.clear()
+
+        // after starting from initial-prepare, we should be able to process prepares and create a commit
+        def basePrepareNextView(from: SequencerId) =
+          prepareFromPrePrepare(prePrepare)(from = from, viewNumber = NextViewNumber)
+        consensus.receive(PbftSignedNetworkMessage(basePrepareNextView(from = otherPeers(0))))
+        consensus.receive(PbftSignedNetworkMessage(basePrepareNextView(from = otherPeers(1))))
+        p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
+          P2PNetworkOut.Multicast(
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
+              commitFromPrePrepare(prePrepare)(from = selfId, viewNumber = NextViewNumber)
+            ),
+            otherPeers.toSet,
+          )
+        )
+      }
     }
   }
 
   def createIssSegmentModule[E <: BaseIgnoringUnitTestEnv[E]](
-      availabilityModuleRef: ModuleRef[Availability.Message[E]],
-      p2pNetworkOutModuleRef: ModuleRef[P2PNetworkOut.Message],
-      parentModuleRef: ModuleRef[Consensus.Message[E]],
+      availabilityModuleRef: ModuleRef[Availability.Message[E]] =
+        fakeIgnoringModule[Availability.Message[E]],
+      p2pNetworkOutModuleRef: ModuleRef[P2PNetworkOut.Message] =
+        fakeIgnoringModule[P2PNetworkOut.Message],
+      parentModuleRef: ModuleRef[Consensus.Message[E]] = fakeIgnoringModule[Consensus.Message[E]],
       leader: SequencerId = selfId,
       epochLength: EpochLength = DefaultEpochLength,
       otherPeers: Set[SequencerId] = Set.empty,
       storeMessages: Boolean = false,
       epochStore: EpochStore[E] = new InMemoryUnitTestEpochStore[E](),
+      epochInProgress: EpochStore.EpochInProgress = EpochStore.EpochInProgress(),
   ): IssSegmentModule[E] = {
-    val initialMembership = Membership(selfId, otherPeers = otherPeers)
     val initialLatestCompletedEpoch = EpochStore.Epoch(Genesis.GenesisEpochInfo, Seq.empty)
     val epochInfo = initialLatestCompletedEpoch.info.next(epochLength)
-    val epoch = Epoch(
-      epochInfo,
-      initialMembership,
-      SimpleLeaderSelectionPolicy,
-    )
-    val segment = epoch.segments.find(_.originalLeader == leader).getOrElse(fail(""))
-    val epochInProgress: EpochStore.EpochInProgress =
-      epochStore.loadEpochProgress(epochInfo)(TraceContext.empty)()
-    new IssSegmentModule[E](
-      epoch,
+    val epoch = {
+      val initialMembership = Membership(selfId, otherPeers = otherPeers)
+      Epoch(
+        epochInfo,
+        initialMembership,
+        SimpleLeaderSelectionPolicy,
+      )
+    }
+    val segmentState = {
+      val segment = epoch.segments.find(_.originalLeader == leader).getOrElse(fail(""))
       new SegmentState(
         segment,
         epochInfo.number,
@@ -1034,14 +1314,18 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         fail(_),
         SequencerMetrics.noop(getClass.getSimpleName).bftOrdering,
         loggerFactory,
-      )(MetricsContext.Empty),
+      )(MetricsContext.Empty)
+    }
+    new IssSegmentModule[E](
+      epoch,
+      segmentState,
       new EpochMetricsAccumulator(),
       storePbftMessages = storeMessages,
       epochStore,
       clock,
       fakeCryptoProvider,
       initialLatestCompletedEpoch.lastBlockCommitMessages,
-      EpochStore.EpochInProgress(),
+      epochInProgress,
       parentModuleRef,
       availabilityModuleRef,
       p2pNetworkOutModuleRef,

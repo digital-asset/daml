@@ -131,7 +131,7 @@ class StateTransferManager[E <: Env[E]](
         )
         NoEpochStateUpdates
 
-      case StateTransferMessage.SendBlockTransferRequest(blockTransferRequest, to) =>
+      case StateTransferMessage.ResendBlockTransferRequest(blockTransferRequest, to) =>
         sendBlockTransferRequest(blockTransferRequest, to)(abort)
         NoEpochStateUpdates
 
@@ -147,7 +147,7 @@ class StateTransferManager[E <: Env[E]](
         }
     }
 
-  def handleStateTransferNetworkMessage(
+  private def handleStateTransferNetworkMessage(
       message: Consensus.StateTransferMessage.StateTransferNetworkMessage,
       activeMembership: Membership,
       latestCompletedEpoch: EpochStore.Epoch,
@@ -214,7 +214,7 @@ class StateTransferManager[E <: Env[E]](
       blockTransferResponseTimeouts
         .getOrElse(to, abort(s"No timeout manager for peer $to"))
         .scheduleTimeout(
-          StateTransferMessage.SendBlockTransferRequest(blockTransferRequest, to)
+          StateTransferMessage.ResendBlockTransferRequest(blockTransferRequest, to)
         )
       logger.debug(s"State transfer: sending a block transfer request to $to")
       dependencies.p2pNetworkOut.asyncSend(
@@ -312,7 +312,7 @@ class StateTransferManager[E <: Env[E]](
   }
 
   private def wrapSignedMessage(
-      signedMessage: SignedMessage[Consensus.StateTransferMessage.StateTransferNetworkMessage]
+      signedMessage: SignedMessage[StateTransferMessage.StateTransferNetworkMessage]
   ): P2PNetworkOut.BftOrderingNetworkMessage =
     P2PNetworkOut.BftOrderingNetworkMessage.StateTransferMessage(signedMessage)
 

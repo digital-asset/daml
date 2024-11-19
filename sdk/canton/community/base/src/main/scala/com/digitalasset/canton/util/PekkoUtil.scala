@@ -21,7 +21,12 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.Pretty
-import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggerFactory, NamedLoggingContext}
+import com.digitalasset.canton.logging.{
+  ErrorLoggingContext,
+  HasLoggerName,
+  NamedLoggerFactory,
+  NamedLoggingContext,
+}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.SingletonTraverse.syntax.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
@@ -76,22 +81,42 @@ object PekkoUtil extends HasLoggerName {
     *
     * By default, an Pekko flow will discard exceptions. Use this method to avoid discarding exceptions.
     */
-  def runSupervised[T](
-      reporter: Throwable => Unit,
-      graph: RunnableGraph[T],
+  def runSupervised[MaterializedValueT](
+      graph: RunnableGraph[MaterializedValueT],
+      errorLogMessagePrefix: String,
+      isDone: MaterializedValueT => Boolean = (_: MaterializedValueT) => false,
       debugLogging: Boolean = false,
-  )(implicit
-      mat: Materializer
-  ): T = {
-    val tmp = graph
+  )(implicit mat: Materializer, loggingContext: ErrorLoggingContext): MaterializedValueT = {
+    val materializedValueCell = new SingleUseCell[MaterializedValueT]
+
+    val graphWithSupervisionStrategy = graph
       .addAttributes(ActorAttributes.supervisionStrategy { ex =>
-        reporter(ex)
+        val materializedValue = materializedValueCell.getOrElse(
+          throw new IllegalStateException(
+            "Internal invariant violation: materialized value should always be set at this point",
+            ex, // Pass the original error as well so that we don't lose it
+          )
+        )
+        // Avoid errors on shutdown
+        if (isDone(materializedValue)) {
+          loggingContext
+            .info(s"$errorLogMessagePrefix (encountered after the graph is completed)", ex)
+        } else {
+          loggingContext.error(errorLogMessagePrefix, ex)
+        }
         Supervision.Stop
       })
-    (if (debugLogging)
-       tmp.addAttributes(ActorAttributes.debugLogging(true))
-     else tmp)
-      .run()
+      .mapMaterializedValue { materializedValue =>
+        materializedValueCell.putIfAbsent(materializedValue).discard
+        materializedValue
+      }
+
+    val materializedValue =
+      (if (debugLogging)
+         graphWithSupervisionStrategy.addAttributes(ActorAttributes.debugLogging(true))
+       else graphWithSupervisionStrategy).run()
+
+    materializedValue
   }
 
   /** Create an Actor system using the existing execution context `ec`

@@ -36,7 +36,7 @@ private[backend] trait StorageBackendTestsParameters
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(backend.parameter.ledgerEnd) shouldBe LedgerEnd.beforeBegin
     executeSql(
-      backend.parameter.domainLedgerEnd(StorageBackendTestValues.someDomainId)
+      backend.parameter.cleanDomainIndex(StorageBackendTestValues.someDomainId)
     ) shouldBe DomainIndex.empty
     val someDomainIdInterned =
       backend.stringInterningSupport.domainId.internalize(StorageBackendTestValues.someDomainId)
@@ -52,7 +52,7 @@ private[backend] trait StorageBackendTestsParameters
       )
     )
     executeSql(
-      backend.parameter.domainLedgerEnd(StorageBackendTestValues.someDomainId2)
+      backend.parameter.cleanDomainIndex(StorageBackendTestValues.someDomainId2)
     ) shouldBe DomainIndex.empty
     val someDomainIdInterned2 =
       backend.stringInterningSupport.domainId.internalize(StorageBackendTestValues.someDomainId2)
@@ -91,7 +91,7 @@ private[backend] trait StorageBackendTestsParameters
       )
     )
     val resultDomainIndex = executeSql(
-      backend.parameter.domainLedgerEnd(StorageBackendTestValues.someDomainId)
+      backend.parameter.cleanDomainIndex(StorageBackendTestValues.someDomainId)
     )
     resultDomainIndex.requestIndex shouldBe someDomainIndex.requestIndex
     resultDomainIndex.sequencerIndex shouldBe someDomainIndex.sequencerIndex
@@ -133,12 +133,12 @@ private[backend] trait StorageBackendTestsParameters
       )
     )
     val resultDomainIndexSecond = executeSql(
-      backend.parameter.domainLedgerEnd(StorageBackendTestValues.someDomainId)
+      backend.parameter.cleanDomainIndex(StorageBackendTestValues.someDomainId)
     )
     resultDomainIndexSecond.requestIndex shouldBe someDomainIndexSecond.requestIndex
     resultDomainIndexSecond.sequencerIndex shouldBe someDomainIndex.sequencerIndex
     val resultDomainIndexSecond2 = executeSql(
-      backend.parameter.domainLedgerEnd(StorageBackendTestValues.someDomainId2)
+      backend.parameter.cleanDomainIndex(StorageBackendTestValues.someDomainId2)
     )
     resultDomainIndexSecond2.requestIndex shouldBe None
     resultDomainIndexSecond2.sequencerIndex shouldBe someDomainIndex2.sequencerIndex

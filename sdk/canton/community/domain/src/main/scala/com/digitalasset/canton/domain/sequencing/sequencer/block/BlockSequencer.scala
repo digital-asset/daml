@@ -6,8 +6,8 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
-import com.digitalasset.canton.config.{CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, HashPurpose, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.api.v30.TrafficControlErrorReason
@@ -75,7 +75,6 @@ class BlockSequencer(
     protocolVersion: ProtocolVersion,
     blockRateLimitManager: SequencerRateLimitManager,
     orderingTimeFixMode: OrderingTimeFixMode,
-    cachingConfigs: CachingConfigs,
     processingTimeouts: ProcessingTimeout,
     logEventDetails: Boolean,
     prettyPrinter: CantonPrettyPrinter,
@@ -107,11 +106,9 @@ class BlockSequencer(
       Some(blockRateLimitManager.trafficConsumedStore),
       protocolVersion,
       cryptoApi,
-      cachingConfigs,
       metrics,
       loggerFactory,
       blockSequencerMode = true,
-      runtimeReady,
     )
     with DatabaseSequencerIntegration
     with NamedLogging
@@ -152,16 +149,16 @@ class BlockSequencer(
       memberValidator = memberValidator,
     )(CloseContext(cryptoApi))
 
+    implicit val traceContext: TraceContext = TraceContext.empty
+
     val driverSource = Source
       .futureSource(runtimeReady.unwrap.map {
         case UnlessShutdown.AbortedDueToShutdown =>
-          logger.debug("Not initiating subscription to block source due to shutdown")(
-            TraceContext.empty
-          )
+          noTracingLogger.debug("Not initiating subscription to block source due to shutdown")
           Source.empty.viaMat(KillSwitches.single)(Keep.right)
         case UnlessShutdown.Outcome(_) =>
-          logger.debug("Subscribing to block source")(TraceContext.empty)
-          blockOrderer.subscribe()(TraceContext.empty)
+          noTracingLogger.debug("Subscribing to block source")
+          blockOrderer.subscribe()
       })
       // Explicit async to make sure that the block processing runs in parallel with the block retrieval
       .async
@@ -173,8 +170,8 @@ class BlockSequencer(
         metrics.block.delay.updateValue((clock.now - lastTs.value).toMillis)
       }
     PekkoUtil.runSupervised(
-      ex => logger.error("Fatally failed to handle state changes", ex)(TraceContext.empty),
       driverSource.toMat(Sink.ignore)(Keep.both),
+      errorLogMessagePrefix = "Fatally failed to handle state changes",
     )
   }
 

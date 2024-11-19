@@ -9,7 +9,7 @@ import com.daml.metrics.{DatabaseMetrics, Timed}
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.tracing
 import com.daml.tracing.Spans
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.ledger.api.TraceIdentifiers
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
@@ -77,17 +77,17 @@ class TransactionsTreeStreamReader(
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(Offset, GetUpdateTreesResponse), NotUsed] = {
+  ): Source[(AbsoluteOffset, GetUpdateTreesResponse), NotUsed] = {
     val span =
       Telemetry.Transactions.createSpan(
         tracer,
-        queryRange.startExclusiveOffset,
+        queryRange.startInclusiveOffset,
         queryRange.endInclusiveOffset,
       )(
         qualifiedNameOfCurrentFunc
       )
     logger.debug(
-      s"streamTreeTransaction(${queryRange.startExclusiveOffset}, ${queryRange.endInclusiveOffset}, $requestingParties, $eventProjectionProperties)"
+      s"streamTreeTransaction(${queryRange.startInclusiveOffset}, ${queryRange.endInclusiveOffset}, $requestingParties, $eventProjectionProperties)"
     )
     val sourceOfTreeTransactions = doStreamTreeTransaction(
       queryRange,
@@ -120,7 +120,7 @@ class TransactionsTreeStreamReader(
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(Offset, GetUpdateTreesResponse), NotUsed] = {
+  ): Source[(AbsoluteOffset, GetUpdateTreesResponse), NotUsed] = {
     val createEventIdQueriesLimiter =
       new QueueBasedConcurrencyLimiter(maxParallelIdCreateQueries, executionContext)
     val consumingEventIdQueriesLimiter =
@@ -159,7 +159,7 @@ class TransactionsTreeStreamReader(
       paginatingAsyncStream.streamIdsFromSeekPagination(
         idPageSizing = idPageSizing,
         idPageBufferSize = maxPagesPerIdPagesBuffer,
-        initialFromIdExclusive = queryRange.startExclusiveEventSeqId,
+        initialFromIdExclusive = queryRange.startInclusiveEventSeqId,
       )(
         fetchPage = (state: IdPaginationState) => {
           maxParallelIdQueriesLimiter.execute {
@@ -194,12 +194,13 @@ class TransactionsTreeStreamReader(
             globalPayloadQueriesLimiter.execute {
               dbDispatcher.executeSql(metric) { implicit connection =>
                 queryValidRange.withRangeNotPruned(
-                  minOffsetExclusive = queryRange.startExclusiveOffset,
+                  minOffsetInclusive = queryRange.startInclusiveOffset,
                   maxOffsetInclusive = queryRange.endInclusiveOffset,
-                  errorPruning = (prunedOffset: Offset) =>
-                    s"Transactions request from ${queryRange.startExclusiveOffset.toLong} to ${queryRange.endInclusiveOffset.toLong} precedes pruned offset ${prunedOffset.toLong}",
-                  errorLedgerEnd = (ledgerEndOffset: Offset) =>
-                    s"Transactions request from ${queryRange.startExclusiveOffset.toLong} to ${queryRange.endInclusiveOffset.toLong} is beyond ledger end offset ${ledgerEndOffset.toLong}",
+                  errorPruning = (prunedOffset: AbsoluteOffset) =>
+                    s"Transactions request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} precedes pruned offset ${prunedOffset.unwrap}",
+                  errorLedgerEnd = (ledgerEndOffset: Option[AbsoluteOffset]) =>
+                    s"Transactions request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} is beyond ledger end offset ${ledgerEndOffset
+                        .fold(0L)(_.unwrap)}",
                 ) {
                   eventStorageBackend.transactionStreamingQueries.fetchEventPayloadsTree(
                     target = target
@@ -302,7 +303,7 @@ class TransactionsTreeStreamReader(
       )
       .mapConcat { events =>
         val responses = TransactionConversions.toGetTransactionTreesResponse(events)
-        responses.map { case (offset, response) => Offset.fromLong(offset) -> response }
+        responses.map { case (offset, response) => AbsoluteOffset.tryFromLong(offset) -> response }
       }
 
     val topologyTransactions =
@@ -359,8 +360,12 @@ class TransactionsTreeStreamReader(
         }
 
     sourceOfTreeTransactions
-      .mergeSorted(topologyTransactions)(Ordering.by(_._1))
-      .mergeSorted(reassignments)(Ordering.by(_._1))
+      .mergeSorted(topologyTransactions.map { case (offset, response) =>
+        offset.toAbsoluteOffset -> response
+      })(Ordering.by(_._1))
+      .mergeSorted(reassignments.map { case (offset, response) =>
+        offset.toAbsoluteOffset -> response
+      })(Ordering.by(_._1))
   }
 
   private def mergeSortAndBatch(

@@ -5,13 +5,7 @@ package com.digitalasset.canton.platform.multidomain
 
 import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.participant.state.{
-  DomainIndex,
-  Reassignment,
-  ReassignmentInfo,
-  RequestIndex,
-  Update,
-}
+import com.digitalasset.canton.ledger.participant.state.{Reassignment, ReassignmentInfo, Update}
 import com.digitalasset.canton.platform.IndexComponentTest
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
@@ -39,11 +33,9 @@ class MultiDomainIndexComponentTest extends AsyncFlatSpec with IndexComponentTes
     val updateId = Ref.TransactionId.assertFromString("UpdateId")
     val recordTime = Time.Timestamp.now()
     ingestUpdates(
-      Update.ReassignmentAccepted(
-        optCompletionInfo = None,
+      Update.RepairReassignmentAccepted(
         workflowId = None,
         updateId = updateId,
-        recordTime = recordTime,
         reassignmentInfo = ReassignmentInfo(
           sourceDomain = Source(domain1),
           targetDomain = Target(domain2),
@@ -58,15 +50,8 @@ class MultiDomainIndexComponentTest extends AsyncFlatSpec with IndexComponentTes
           createNode = createNode,
           contractMetadata = Bytes.Empty,
         ),
-        domainIndex = Some(
-          DomainIndex.of(
-            RequestIndex(
-              counter = RequestCounter(0),
-              sequencerCounter = None,
-              timestamp = CantonTimestamp(recordTime),
-            )
-          )
-        ),
+        requestCounter = RequestCounter(0),
+        recordTime = CantonTimestamp(recordTime),
       )
     )
 

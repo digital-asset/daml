@@ -16,7 +16,7 @@ import com.digitalasset.canton.lifecycle.{
 import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
-import com.digitalasset.canton.util.{ErrorUtil, FutureUtil}
+import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil}
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.concurrent.TrieMap
@@ -134,7 +134,7 @@ object BftSender {
     }
 
     operators.foreach { case (operatorId, operator) =>
-      FutureUtil.doNotAwaitUnlessShutdown(
+      FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
         performRequest(operator).value
           .thereafter(addResult(operatorId, _))
           .map(_ => ()),

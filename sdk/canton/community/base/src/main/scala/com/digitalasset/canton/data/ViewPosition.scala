@@ -12,7 +12,7 @@ import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.DeterministicEncoding
 import com.google.protobuf.ByteString
 
-/** A position encodes the path from a view in a transaction tree to its root.
+/** A position encodes the path from a view in a [[GenTransactionTree]] to its root.
   * The encoding must not depend on the hashes of the nodes.
   *
   * @param position The path from the view to the root as a singly-linked list.

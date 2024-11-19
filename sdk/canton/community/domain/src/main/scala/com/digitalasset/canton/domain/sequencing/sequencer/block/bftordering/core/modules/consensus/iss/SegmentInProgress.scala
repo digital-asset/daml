@@ -11,6 +11,9 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   ViewNumber,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.BlockMetadata
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
   NewView,
   PbftNetworkMessage,
@@ -21,31 +24,65 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 
 object SegmentInProgress {
 
-  /** @return a tuple of lists, such that the first list are all prepares that should be restored
-    *         across all views of the segment. There will be one quorum of prepare at most per block in this list,
-    *         not in a specific order.
+  /** This object contains the organized information needed for the crash-recovery of a segment.
     *
-    *         The other list is a list of messages that should be processed in order and are in increasing order
-    *         of view number. First are all restored pre-prepares for the first view. Then all new-view messages
-    *         for which there is at least one quorum of prepares in the same view.
-    *         And then if there is a view-change message (indicating that it intended to start a view change),
-    *         without a corresponding new-view message (indicating that the view change didn't finish), at the
-    *         latest view, it is included in the end.
-    *
-    *         The reason prepares should be processed first in [[SegmentState]], is so that if as part of processing
-    *         pre-prepares or new-views a prepare would be created that is already part of the rehydration messages,
-    *         the rehydrated ones would be taken instead of creating new ones.
+    * @param prepares contains all prepares that should be restored across all views of the segment.
+    *                 In this list there will be at most one quorum of prepares per block, without a specific order.
+    *                 Prepares should be processed first in [[SegmentState]]; in this way, if a prepare is created,
+    *                 as part of processing pre-prepares or new-views, that is already part of the rehydration messages,
+    *                 the rehydrated ones would be taken instead of creating new ones.
+    * @param oldViewsMessages is a list of messages that should be processed in order and are in increasing order
+    *                         of view number, for all views before the latest one.
+    *                         All restored pre-prepares for the first view appear first. Then all new-view messages
+    *                         for which there is at least one quorum of prepares in the same view.
+    * @param currentViewMessages is similar to the previous one, but for the current view only.
+    *                            If at the latest view there is a view-change message (indicating the intent to start a view change),
+    *                            without a corresponding new-view message (i.e., the view change didn't finish),
+    *                            the view-change message will be the only message in this collection.
     */
+  final case class RehydrationMessages(
+      prepares: Seq[SignedMessage[Prepare]],
+      oldViewsMessages: Seq[SignedMessage[PbftNetworkMessage]],
+      currentViewMessages: Seq[SignedMessage[PbftNetworkMessage]],
+  ) {
+
+    private lazy val preparesStores
+        : Map[ViewNumber, Map[BlockMetadata, ConsensusMessage.PreparesStored]] =
+      prepares
+        .groupBy(_.message.viewNumber)
+        .map { case (viewNumber, prepares) =>
+          viewNumber -> prepares.groupBy(_.message.blockMetadata).map { case (blockMetadata, _) =>
+            blockMetadata -> ConsensusSegment.ConsensusMessage
+              .PreparesStored(blockMetadata, viewNumber)
+          }
+        }
+
+    def preparesStoredForViewNumber(viewNumber: ViewNumber): Seq[ConsensusMessage.PreparesStored] =
+      for {
+        map <- preparesStores.get(viewNumber).toList
+        stored <- map.values
+      } yield stored
+
+    def preparesStoredForBlockAtViewNumber(
+        blockMetadata: BlockMetadata,
+        viewNumber: ViewNumber,
+    ): Option[ConsensusMessage.PreparesStored] =
+      preparesStores
+        .get(viewNumber)
+        .flatMap(_.get(blockMetadata))
+  }
+
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   def rehydrationMessages(
       segment: Segment,
       epochInProgress: EpochStore.EpochInProgress,
-  ): (Seq[SignedMessage[Prepare]], Seq[SignedMessage[PbftNetworkMessage]]) = {
-    val completedBlocks = epochInProgress.completedBlocks.map(_.blockNumber)
-    val isSegmentComplete =
+  ): RehydrationMessages = {
+    val isSegmentComplete = {
+      val completedBlocks = epochInProgress.completedBlocks.map(_.blockNumber)
       segment.slotNumbers.forall(blockNumber => completedBlocks.contains(blockNumber))
+    }
 
-    if (isSegmentComplete) (Seq.empty, Seq.empty)
+    if (isSegmentComplete) RehydrationMessages(Seq.empty, Seq.empty, Seq.empty)
     else {
       val segmentInProgressMessages = epochInProgress.pbftMessagesForIncompleteBlocks
         .filter { msg =>
@@ -107,7 +144,7 @@ object SegmentInProgress {
       // no new-view message at that view. before that, the new-view messages are enough.
       val viewChangeAtLatestView: Option[SignedMessage[ViewChange]] = {
         val highestNewViewViewNumber = segmentInProgressMessages
-          .collect { case s @ SignedMessage(newView: NewView, _) => newView.viewNumber }
+          .collect { case SignedMessage(newView: NewView, _) => newView.viewNumber }
           .maxOption
           .getOrElse(ViewNumber.First)
         segmentInProgressMessages
@@ -118,11 +155,13 @@ object SegmentInProgress {
           }
       }
 
-      (
-        preparesPerView.values.flatten.toList,
-        (initialPrePreparesPerBlock: Seq[
-          SignedMessage[PbftNetworkMessage]
-        ]) ++ newViews ++ viewChangeAtLatestView.toList,
+      val messages = (initialPrePreparesPerBlock: Seq[
+        SignedMessage[PbftNetworkMessage]
+      ]) ++ newViews ++ viewChangeAtLatestView.toList
+      RehydrationMessages(
+        prepares = preparesPerView.values.flatten.toList,
+        oldViewsMessages = messages.filter(_.message.viewNumber < highestView),
+        currentViewMessages = messages.filter(_.message.viewNumber == highestView),
       )
     }
   }

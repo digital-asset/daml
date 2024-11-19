@@ -7,7 +7,8 @@ import cats.Eval
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.participant.state.Update
+import com.digitalasset.canton.ledger.participant.state.Update.UnSequencedCommandRejected
+import com.digitalasset.canton.ledger.participant.state.{ParticipantUpdate, Update}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
@@ -91,10 +92,10 @@ class ParticipantEventPublisher(
     * @return A Future which will be only successful if the event is successfully persisted by the indexer
     */
   def publishEventDelayableByRepairOperation(
-      event: Update
+      event: ParticipantUpdate
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     ErrorUtil.requireArgument(
-      event.recordTime == ParticipantEventPublisher.now.toLf,
+      event.recordTime == ParticipantEventPublisher.now,
       show"RecordTime not initialized with 'now' literal. Participant event: $event",
     )
     executionQueue.execute(
@@ -102,7 +103,7 @@ class ParticipantEventPublisher(
       // in case that is not needed anymore (thanks to ledger api party and topology unification),
       // we should be able to plainly fail the rest of the events
       retryIfRepairInProgress()(
-        publishInternal(event.withRecordTime(participantClock.uniqueTime().toLf))
+        publishInternal(event.withRecordTime(participantClock.uniqueTime()))
       ),
       s"publish event ${event.show} with record time ${event.recordTime}",
     )
@@ -114,7 +115,9 @@ class ParticipantEventPublisher(
     * @param events will be published after each other, maintaining the same order on the ledger as well
     * @return A Future which will be only successful if all the event are successfully persisted by the indexer
     */
-  def publishDomainRelatedEvents(events: Seq[Update]): FutureUnlessShutdown[Unit] =
+  def publishDomainRelatedEvents(
+      events: Seq[UnSequencedCommandRejected]
+  ): FutureUnlessShutdown[Unit] =
     MonadUtil.sequentialTraverse_(events) { tracedEvent =>
       implicit val tc: TraceContext = tracedEvent.traceContext
       executionQueue.execute(

@@ -345,7 +345,8 @@ object PbftBlockState {
     override def confirmPrePrepareStored(): Unit =
       if (prePrepared)
         prePrepareStored = true
-      else abort("UnPrePrepared block should not have had pre-prepare stored")
+      else
+        abort("UnPrePrepared block should not have had pre-prepare stored")
 
     override def confirmPreparesStored(): Unit =
       if (prepared)

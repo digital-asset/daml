@@ -11,11 +11,8 @@ import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.Update.CommandRejected.FinalReason
 import com.digitalasset.canton.ledger.participant.state.{
   CompletionInfo,
-  DomainIndex,
   Reassignment,
   ReassignmentInfo,
-  RequestIndex,
-  SequencerIndex,
   TransactionMeta,
   Update,
 }
@@ -52,7 +49,7 @@ import com.digitalasset.canton.{
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
+import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.ledger.EventId
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateTransactionVersion
@@ -714,26 +711,24 @@ object InMemoryStateUpdaterSpec {
     offset ->
       Update.SequencerIndexMoved(
         domainId = DomainId.tryFromString("x::domain"),
-        sequencerIndex = SequencerIndex(SequencerCounter(15L), CantonTimestamp(recordTime)),
+        sequencerCounter = SequencerCounter(15L),
+        recordTime = CantonTimestamp(recordTime),
         requestCounterO = None,
       )
 
   private val metadataChangedUpdate = rawMetadataChangedUpdate(absoluteOffset(12L), Timestamp.Epoch)
   private val update3 = absoluteOffset(13L) ->
-    Update.TransactionAccepted(
+    Update.SequencedTransactionAccepted(
       completionInfoO = None,
       transactionMeta = someTransactionMeta,
       transaction = CommittedTransaction(TransactionBuilder.Empty),
       updateId = txId2,
-      recordTime = Timestamp.Epoch,
       hostedWitnesses = Nil,
       contractMetadata = Map.empty,
       domainId = DomainId.tryFromString("da::default"),
-      Some(
-        DomainIndex.of(
-          RequestIndex(RequestCounter(1), Some(SequencerCounter(1)), CantonTimestamp.MinValue)
-        )
-      ),
+      requestCounter = RequestCounter(1),
+      sequencerCounter = SequencerCounter(1),
+      recordTime = CantonTimestamp.MinValue,
     )
 
   private val update4 = absoluteOffset(14L) ->
@@ -772,7 +767,7 @@ object InMemoryStateUpdaterSpec {
                 domainTimes = lastCheckpointO
                   .map(_.domainTimes)
                   .getOrElse(Map.empty[DomainId, Timestamp])
-                  .updated(update.domainId, update.recordTime),
+                  .updated(update.domainId, update.recordTime.toLf),
               )
             ),
           )
@@ -875,24 +870,17 @@ object InMemoryStateUpdaterSpec {
   }
 
   private def transactionAccepted(t: Long, domainId: DomainId): Update.TransactionAccepted =
-    Update.TransactionAccepted(
+    Update.SequencedTransactionAccepted(
       completionInfoO = None,
       transactionMeta = someTransactionMeta,
       transaction = CommittedTransaction(TransactionBuilder.Empty),
       updateId = txId1,
-      recordTime = Timestamp(t),
       hostedWitnesses = Nil,
       contractMetadata = Map.empty,
       domainId = domainId,
-      domainIndex = Some(
-        DomainIndex.of(
-          RequestIndex(
-            RequestCounter(1),
-            Some(SequencerCounter(1)),
-            CantonTimestamp.MinValue,
-          )
-        )
-      ),
+      requestCounter = RequestCounter(1),
+      sequencerCounter = SequencerCounter(1),
+      recordTime = CantonTimestamp(Timestamp(t)),
     )
 
   private def assignmentAccepted(
@@ -900,11 +888,10 @@ object InMemoryStateUpdaterSpec {
       source: DomainId,
       target: DomainId,
   ): Update.ReassignmentAccepted =
-    Update.ReassignmentAccepted(
+    Update.SequencedReassignmentAccepted(
       optCompletionInfo = None,
       workflowId = Some(workflowId),
       updateId = txId3,
-      recordTime = Timestamp(t),
       reassignmentInfo = ReassignmentInfo(
         sourceDomain = ReassignmentTag.Source(source),
         targetDomain = ReassignmentTag.Target(target),
@@ -919,11 +906,9 @@ object InMemoryStateUpdaterSpec {
         createNode = someCreateNode,
         contractMetadata = someContractMetadataBytes,
       ),
-      Some(
-        DomainIndex.of(
-          RequestIndex(RequestCounter(1), Some(SequencerCounter(1)), CantonTimestamp.MinValue)
-        )
-      ),
+      requestCounter = RequestCounter(1),
+      sequencerCounter = SequencerCounter(1),
+      recordTime = CantonTimestamp(Timestamp(t)),
     )
 
   private def unassignmentAccepted(
@@ -931,11 +916,10 @@ object InMemoryStateUpdaterSpec {
       source: DomainId,
       target: DomainId,
   ): Update.ReassignmentAccepted =
-    Update.ReassignmentAccepted(
+    Update.SequencedReassignmentAccepted(
       optCompletionInfo = None,
       workflowId = Some(workflowId),
       updateId = txId4,
-      recordTime = Timestamp(t),
       reassignmentInfo = ReassignmentInfo(
         sourceDomain = ReassignmentTag.Source(source),
         targetDomain = ReassignmentTag.Target(target),
@@ -952,40 +936,32 @@ object InMemoryStateUpdaterSpec {
         stakeholders = List(party2),
         assignmentExclusivity = Some(Timestamp.assertFromLong(123456L)),
       ),
-      Some(
-        DomainIndex.of(
-          RequestIndex(RequestCounter(1), Some(SequencerCounter(1)), CantonTimestamp.MinValue)
-        )
-      ),
+      requestCounter = RequestCounter(1),
+      sequencerCounter = SequencerCounter(1),
+      recordTime = CantonTimestamp(Timestamp(t)),
     )
 
   private def commandRejected(t: Long, domainId: DomainId): Update.CommandRejected =
-    Update.CommandRejected(
-      recordTime = Time.Timestamp.assertFromLong(t),
+    Update.SequencedCommandRejected(
       completionInfo = CompletionInfo(
         actAs = List.empty,
         applicationId = Ref.ApplicationId.assertFromString("some-app-id"),
         commandId = Ref.CommandId.assertFromString("cmdId"),
         optDeduplicationPeriod = None,
         submissionId = None,
-        None,
       ),
       reasonTemplate = FinalReason(new Status()),
       domainId = domainId,
-      Some(
-        DomainIndex.of(
-          RequestIndex(RequestCounter(1), Some(SequencerCounter(1)), CantonTimestamp.MinValue)
-        )
-      ),
+      requestCounter = RequestCounter(1),
+      sequencerCounter = SequencerCounter(1),
+      recordTime = CantonTimestamp.assertFromLong(t),
     )
 
   private def sequencerIndexMoved(t: Long, domainId: DomainId): Update.SequencerIndexMoved =
     Update.SequencerIndexMoved(
       domainId = domainId,
-      sequencerIndex = SequencerIndex(
-        counter = SequencerCounter(1),
-        timestamp = CantonTimestamp.assertFromLong(t),
-      ),
+      sequencerCounter = SequencerCounter(1),
+      recordTime = CantonTimestamp.assertFromLong(t),
       requestCounterO = None,
     )
 

@@ -53,9 +53,9 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
         logger.info(s"Retrieved blocks $blocks for sequencer snapshot at $snapshotTimestamp")
         val epochNumbers = blocks.map(_.map(_.epochNumber))
         provideWithEpochBasedInfo(epochNumbers, peerFirstKnownAtTimestamps, requester)
-        // We chain several `pipeToSelf` for simplicity, rather than continue via messages to the Output module;
-        //  this is OK, even though the execution context is not the actor's sequential one anymore,
-        //  as we ensure not to change the actor state.
+        // We chain several `pipeToSelf` for simplicity, rather than continue via messages to the Output module.
+        //  Based on Pekko documentation it's ok, as `pipeToSelf` can be called from other threads than the ordinary
+        //  actor message processing thread.
         None
     }
   }

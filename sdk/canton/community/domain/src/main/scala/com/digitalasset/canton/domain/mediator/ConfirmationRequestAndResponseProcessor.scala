@@ -852,7 +852,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
   protected def doNotAwait(requestId: RequestId, f: => FutureUnlessShutdown[Any])(implicit
       tc: TraceContext
   ): Future[Unit] = {
-    FutureUtil.doNotAwaitUnlessShutdown(
+    FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
       performUnlessClosingUSF("send-result-if-done")(f),
       s"send-result-if-done failed for request $requestId",
       level = Level.WARN,

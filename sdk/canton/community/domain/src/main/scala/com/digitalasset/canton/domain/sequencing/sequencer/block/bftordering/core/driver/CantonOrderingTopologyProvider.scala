@@ -43,12 +43,6 @@ private[driver] final class CantonOrderingTopologyProvider(
   ): PekkoFutureUnlessShutdown[Option[(OrderingTopology, CryptoProvider[PekkoEnv])]] = {
     val name = s"get ordering topology at $timestamp"
 
-    // A topology snapshot at effective time `et` includes by definition all topology changes successfully
-    //  sequenced with sequencing time `st <= (et - delay).immediatePredecessor`; this means that a topology change successfully
-    //  sequenced at `st` will only be visible in topology snapshots at effective times strictly greater than `st`, even
-    //  if the delay is 0 (in that case, it will be visible in the topology snapshot at effective time
-    //  `st.immediateSuccessor`).
-
     val maxTimestampF =
       if (!assumePendingTopologyChanges) {
         // To understand if there are (potentially relevant) pending topology changes that have been already
@@ -73,6 +67,10 @@ private[driver] final class CantonOrderingTopologyProvider(
         FutureUnlessShutdown.pure(Left(()))
       }
 
+    // A topology snapshot at time `t` includes by definition all topology changes sequenced at sequencing time `st`,
+    //  with effective times `et` >= `st` + delay, where `et` < `t`. This means that a topology change with effective
+    //  time `et` will only be visible in topology snapshots for `t` strictly greater than `et`, even
+    //  if the delay is 0 (in that case, it will be visible in the topology snapshot at `et.immediateSuccessor`).
     logger.debug(s"Querying topology snapshot at effective time $timestamp")
     val snapshotF = cryptoApi.awaitSnapshotUS(timestamp.value)
 

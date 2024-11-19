@@ -111,7 +111,7 @@ trait ParameterStorageBackend {
     */
   def ledgerEnd(connection: Connection): Option[ParameterStorageBackend.LedgerEnd]
 
-  def domainLedgerEnd(domainId: DomainId)(connection: Connection): DomainIndex
+  def cleanDomainIndex(domainId: DomainId)(connection: Connection): DomainIndex
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
@@ -338,7 +338,7 @@ trait EventStorageBackend {
       contractIds: Iterable[String]
   )(connection: Connection): Vector[Long]
 
-  def maxEventSequentialId(untilInclusiveOffset: Offset)(
+  def maxEventSequentialId(untilInclusiveOffset: Option[AbsoluteOffset])(
       connection: Connection
   ): Long
 

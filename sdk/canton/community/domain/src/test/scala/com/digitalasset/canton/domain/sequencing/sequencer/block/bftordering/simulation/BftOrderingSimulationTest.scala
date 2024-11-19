@@ -15,11 +15,11 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.availability.AvailabilityModuleConfig
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.availability.data.memory.SimulationAvailabilityStore
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.memory.SimulationEpochStore
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.network.data.memory.SimulationP2pEndpointsStore
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.OutputModule.RequestInspector
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.memory.SimulationOutputBlockMetadataStore
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.SimulationBlockSubscription
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.BlockNumber
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.OrderingRequest
@@ -27,22 +27,20 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   FirstKnownAt,
   SequencerSnapshotAdditionalInfo,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.topology.OrderingTopology
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.simulation.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.{
   SimulationEnv,
   SimulationInitializer,
   SimulationP2PNetworkManager,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.simulation.future.SimulationFuture
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.simulation.bftordering.{
   BftOrderingVerifier,
   FirstKnownAtProvider,
   IssClient,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.simulation.topology.{
-  SimulationCryptoProvider,
   SimulationOrderingTopologyProvider,
+  SimulationTopologyHelpers,
 }
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.networking.Endpoint
@@ -107,7 +105,13 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
       val onboardedPeerEndpoints = allPeerEndpoints.drop(numberOfInitialPeers())
       val peerEndpointsToOnboardingTimes =
         (onboardedPeerEndpoints.zip(simSettings.peerOnboardingTimes) ++
-          initialPeerEndpoints.map(_ -> EffectiveTime(CantonTimestamp.MinValue))).toMap
+          initialPeerEndpoints.map(_ -> Genesis.GenesisTopologySnapshotEffectiveTime)).toMap
+
+      val peerEndpointsToOnBoardingInformation =
+        SimulationTopologyHelpers.generateSimulationOnboardingInformation(
+          peerEndpointsToOnboardingTimes,
+          loggerFactory,
+        )
 
       implicit val metricsContext: MetricsContext = MetricsContext.Empty
       val noopMetrics = SequencerMetrics.noop(getClass.getSimpleName).bftOrdering
@@ -136,16 +140,21 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
             outputBlocksReader = outputBlockMetadataStore,
           )
 
+          val thisPeer = SimulationP2PNetworkManager.fakeSequencerId(endpoint)
           val orderingTopologyProvider =
-            new SimulationOrderingTopologyProvider(peerEndpointsToOnboardingTimes)
+            new SimulationOrderingTopologyProvider(
+              thisPeer,
+              peerEndpointsToOnBoardingInformation,
+              loggerFactory,
+            )
 
-          val genesisOrderingTopology = resolveOrderingTopology(
-            orderingTopologyProvider.getOrderingTopologyAt(EffectiveTime(simulationStartTime))
-          )
+          val (genesisOrderingTopology, genesisCryptoProvider) =
+            SimulationTopologyHelpers.resolveOrderingTopology(
+              orderingTopologyProvider.getOrderingTopologyAt(EffectiveTime(simulationStartTime))
+            )
 
           SimulationInitializer(
             (maybeFirstKnownAt: Option[FirstKnownAt]) => {
-              val thisPeer = SimulationP2PNetworkManager.fakeSequencerId(endpoint)
 
               val sequencerSnapshotAdditionalInfo =
                 if (genesisOrderingTopology.contains(thisPeer))
@@ -162,19 +171,22 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
                 s"Sequencer snapshot additional info for $thisPeer: $sequencerSnapshotAdditionalInfo"
               )
 
-              val initialOrderingTopology =
+              val (initialOrderingTopology, initialCryptoProvider) =
                 if (genesisOrderingTopology.contains(thisPeer))
-                  genesisOrderingTopology
+                  (genesisOrderingTopology, genesisCryptoProvider)
                 else {
                   // We keep the onboarding topology after state transfer. See the Output module for details.
                   maybeFirstKnownAt
                     .flatMap(_.timestamp)
                     .map(onboardingTime =>
-                      resolveOrderingTopology(
-                        orderingTopologyProvider.getOrderingTopologyAt(onboardingTime)
+                      SimulationTopologyHelpers.resolveOrderingTopology(
+                        // `immediateSuccessor` because topology snapshots are timestamp-exclusive.
+                        orderingTopologyProvider.getOrderingTopologyAt(
+                          onboardingTime.immediateSuccessor()
+                        )
                       )
                     )
-                    .getOrElse(genesisOrderingTopology)
+                    .getOrElse((genesisOrderingTopology, genesisCryptoProvider))
                 }
 
               // Forces always querying for an up-to-date topology, so that we simulate correctly topology changes.
@@ -185,7 +197,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
                 thisPeer,
                 testedProtocolVersion,
                 initialOrderingTopology,
-                SimulationCryptoProvider,
+                initialCryptoProvider,
                 BftBlockOrderer.Config(),
                 initialApplicationHeight,
                 IssConsensusModule.DefaultEpochLength,
@@ -238,20 +250,6 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
       simulation.run(model)
     }
   }
-
-  private def resolveOrderingTopology(
-      orderingTopology: SimulationFuture[Option[(OrderingTopology, CryptoProvider[SimulationEnv])]]
-  ) =
-    orderingTopology
-      .resolveValue()
-      .toOption
-      .flatten
-      .map { case (topology, _) => topology }
-      .getOrElse(
-        throw new IllegalStateException(
-          "Simulation ordering topology provider should never fail"
-        )
-      )
 }
 
 class BftOrderingSimulationTest1NodeNoFaults extends BftOrderingSimulationTest {

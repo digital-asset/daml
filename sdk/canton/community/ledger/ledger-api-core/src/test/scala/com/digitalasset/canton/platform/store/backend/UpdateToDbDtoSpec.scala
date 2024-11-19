@@ -11,14 +11,7 @@ import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel.*
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.TopologyEvent
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.TopologyEvent.PartyToParticipantAuthorization
-import com.digitalasset.canton.ledger.participant.state.{
-  DomainIndex,
-  Reassignment,
-  ReassignmentInfo,
-  RequestIndex,
-  SequencerIndex,
-  Update,
-}
+import com.digitalasset.canton.ledger.participant.state.{Reassignment, ReassignmentInfo, Update}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
 import com.digitalasset.canton.platform.store.dao.events.{
@@ -80,7 +73,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       dtos should contain theSameElementsInOrderAs List(
         DbDto.PartyEntry(
           ledger_offset = someOffset.toHexString,
-          recorded_at = someRecordTime.micros,
+          recorded_at = someRecordTime.toMicros,
           submission_id = Some(someSubmissionId),
           party = Some(someParty),
           typ = JdbcLedgerDao.acceptType,
@@ -102,7 +95,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       dtos should contain theSameElementsInOrderAs List(
         DbDto.PartyEntry(
           ledger_offset = someOffset.toHexString,
-          recorded_at = someRecordTime.micros,
+          recorded_at = someRecordTime.toMicros,
           submission_id = None,
           party = Some(someParty),
           typ = JdbcLedgerDao.acceptType,
@@ -125,7 +118,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       dtos should contain theSameElementsInOrderAs List(
         DbDto.PartyEntry(
           ledger_offset = someOffset.toHexString,
-          recorded_at = someRecordTime.micros,
+          recorded_at = someRecordTime.toMicros,
           submission_id = Some(someSubmissionId),
           party = None,
           typ = JdbcLedgerDao.rejectType,
@@ -138,27 +131,20 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
     "handle CommandRejected (sequenced rejection)" in {
       val status = StatusProto.of(Status.Code.ABORTED.value(), "test reason", Seq.empty)
       val completionInfo = someCompletionInfo
-      val update = state.Update.CommandRejected(
-        someRecordTime,
+      val update = state.Update.SequencedCommandRejected(
         completionInfo,
         state.Update.CommandRejected.FinalReason(status),
-        domainId = someDomainId1,
-        domainIndex = Some(
-          DomainIndex.of(
-            RequestIndex(
-              counter = RequestCounter(11),
-              sequencerCounter = Some(SequencerCounter(15)),
-              timestamp = CantonTimestamp.ofEpochMicro(1234567),
-            )
-          )
-        ),
+        someDomainId1,
+        RequestCounter(11),
+        SequencerCounter(15),
+        CantonTimestamp.ofEpochMicro(1234567),
       )
       val dtos = updateToDtos(update)
 
       dtos should contain theSameElementsInOrderAs List(
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
-          record_time = someRecordTime.micros,
+          record_time = 1234567L,
           publication_time = 0,
           application_id = someApplicationId,
           submitters = Set(someParty),
@@ -184,20 +170,20 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
     "handle CommandRejected (local rejection)" in {
       val status = StatusProto.of(Status.Code.ABORTED.value(), "test reason", Seq.empty)
       val messageUuid = UUID.randomUUID()
-      val completionInfo = someCompletionInfo.copy(messageUuid = Some(messageUuid))
-      val update = state.Update.CommandRejected(
-        someRecordTime,
+      val completionInfo = someCompletionInfo
+      val update = state.Update.UnSequencedCommandRejected(
         completionInfo,
         state.Update.CommandRejected.FinalReason(status),
-        domainId = someDomainId1,
-        domainIndex = None,
+        someDomainId1,
+        someRecordTime,
+        messageUuid,
       )
       val dtos = updateToDtos(update)
 
       dtos should contain theSameElementsInOrderAs List(
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
-          record_time = someRecordTime.micros,
+          record_time = someRecordTime.toMicros,
           publication_time = 0,
           application_id = someApplicationId,
           submitters = Set(someParty),
@@ -240,16 +226,17 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         )
       val createNodeId = builder.add(createNode)
       val transaction = builder.buildCommitted()
-      val update = state.Update.TransactionAccepted(
+      val update = state.Update.SequencedTransactionAccepted(
         completionInfoO = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
         updateId = updateId,
-        recordTime = someRecordTime,
         contractMetadata = Map(contractId -> someContractDriverMetadata),
         hostedWitnesses = Nil,
         domainId = someDomainId1,
-        domainIndex = someDomainIndex,
+        requestCounter = someRequestCounter,
+        sequencerCounter = someSequencerCounter,
+        recordTime = someRecordTime,
       )
       val dtos = updateToDtos(update)
 
@@ -288,11 +275,11 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         driver_metadata = someContractDriverMetadata.toByteArray,
         domain_id = someDomainId1.toProtoPrimitive,
         trace_context = serializedEmptyTraceContext,
-        record_time = someRecordTime.micros,
+        record_time = someRecordTime.toMicros,
       )
       dtos(5) shouldEqual DbDto.CommandCompletion(
         completion_offset = someOffset.toHexString,
-        record_time = someRecordTime.micros,
+        record_time = someRecordTime.toMicros,
         publication_time = 0,
         application_id = completionInfo.applicationId,
         submitters = completionInfo.actAs.toSet,
@@ -308,7 +295,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         deduplication_start = None,
         domain_id = someDomainId1.toProtoPrimitive,
         message_uuid = None,
-        request_sequencer_counter = None,
+        request_sequencer_counter = Some(10),
         is_transaction = true,
         trace_context = serializedEmptyTraceContext,
       )
@@ -316,7 +303,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         update_id = updateId,
         event_offset = someOffset.toHexString,
         publication_time = 0,
-        record_time = someRecordTime.micros,
+        record_time = someRecordTime.toMicros,
         domain_id = someDomainId1.toProtoPrimitive,
         event_sequential_id_first = 0,
         event_sequential_id_last = 0,
@@ -355,24 +342,17 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       }
       val exerciseNodeId = builder.add(exerciseNode)
       val transaction = builder.buildCommitted()
-      val update = state.Update.TransactionAccepted(
+      val update = state.Update.SequencedTransactionAccepted(
         completionInfoO = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
         updateId = updateId,
-        recordTime = someRecordTime,
         contractMetadata = Map.empty,
         hostedWitnesses = Nil,
         domainId = someDomainId1,
-        domainIndex = Some(
-          DomainIndex.of(
-            RequestIndex(
-              counter = RequestCounter(100),
-              sequencerCounter = Some(SequencerCounter(110)),
-              timestamp = CantonTimestamp.ofEpochMicro(120),
-            )
-          )
-        ),
+        requestCounter = RequestCounter(100),
+        sequencerCounter = SequencerCounter(110),
+        recordTime = CantonTimestamp.ofEpochMicro(120),
       )
       val dtos = updateToDtos(update)
 
@@ -404,7 +384,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_sequential_id = 0,
           domain_id = someDomainId1.toProtoPrimitive,
           trace_context = serializedEmptyTraceContext,
-          record_time = someRecordTime.micros,
+          record_time = 120,
         ),
         DbDto.IdFilterConsumingStakeholder(
           event_sequential_id = 0,
@@ -418,7 +398,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
-          record_time = someRecordTime.micros,
+          record_time = 120,
           publication_time = 0,
           application_id = completionInfo.applicationId,
           submitters = completionInfo.actAs.toSet,
@@ -442,7 +422,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           update_id = updateId,
           event_offset = someOffset.toHexString,
           publication_time = 0,
-          record_time = someRecordTime.micros,
+          record_time = 120,
           domain_id = someDomainId1.toProtoPrimitive,
           event_sequential_id_first = 0,
           event_sequential_id_last = 0,
@@ -475,16 +455,17 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       }
       val exerciseNodeId = builder.add(exerciseNode)
       val transaction = builder.buildCommitted()
-      val update = state.Update.TransactionAccepted(
+      val update = state.Update.SequencedTransactionAccepted(
         completionInfoO = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
         updateId = updateId,
-        recordTime = someRecordTime,
         contractMetadata = Map.empty,
         hostedWitnesses = Nil,
         domainId = someDomainId1,
-        domainIndex = someDomainIndex,
+        requestCounter = someRequestCounter,
+        sequencerCounter = someSequencerCounter,
+        recordTime = someRecordTime,
       )
       val dtos = updateToDtos(update)
 
@@ -516,7 +497,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_sequential_id = 0,
           domain_id = someDomainId1.toProtoPrimitive,
           trace_context = serializedEmptyTraceContext,
-          record_time = someRecordTime.micros,
+          record_time = someRecordTime.toMicros,
         ),
         DbDto.IdFilterNonConsumingInformee(
           event_sequential_id = 0,
@@ -524,7 +505,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
-          record_time = someRecordTime.micros,
+          record_time = someRecordTime.toMicros,
           publication_time = 0,
           application_id = completionInfo.applicationId,
           submitters = completionInfo.actAs.toSet,
@@ -540,7 +521,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_start = None,
           domain_id = someDomainId1.toProtoPrimitive,
           message_uuid = None,
-          request_sequencer_counter = None,
+          request_sequencer_counter = Some(10),
           is_transaction = true,
           trace_context = serializedEmptyTraceContext,
         ),
@@ -548,7 +529,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           update_id = updateId,
           event_offset = someOffset.toHexString,
           publication_time = 0,
-          record_time = someRecordTime.micros,
+          record_time = someRecordTime.toMicros,
           domain_id = someDomainId1.toProtoPrimitive,
           event_sequential_id_first = 0,
           event_sequential_id_last = 0,
@@ -607,16 +588,17 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       val exerciseNodeBId = builder.add(exerciseNodeB, exerciseNodeAId)
       val exerciseNodeCId = builder.add(exerciseNodeC, exerciseNodeAId)
       val transaction = builder.buildCommitted()
-      val update = state.Update.TransactionAccepted(
+      val update = state.Update.SequencedTransactionAccepted(
         completionInfoO = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
         updateId = updateId,
-        recordTime = someRecordTime,
         contractMetadata = Map.empty,
         hostedWitnesses = Nil,
         domainId = someDomainId1,
-        domainIndex = someDomainIndex,
+        requestCounter = someRequestCounter,
+        sequencerCounter = someSequencerCounter,
+        recordTime = someRecordTime,
       )
       val dtos = updateToDtos(update)
 
@@ -651,7 +633,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_sequential_id = 0,
           domain_id = someDomainId1.toProtoPrimitive,
           trace_context = serializedEmptyTraceContext,
-          record_time = someRecordTime.micros,
+          record_time = someRecordTime.toMicros,
         ),
         DbDto.IdFilterNonConsumingInformee(
           event_sequential_id = 0,
@@ -684,7 +666,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_sequential_id = 0,
           domain_id = someDomainId1.toProtoPrimitive,
           trace_context = serializedEmptyTraceContext,
-          record_time = someRecordTime.micros,
+          record_time = someRecordTime.toMicros,
         ),
         DbDto.IdFilterNonConsumingInformee(
           event_sequential_id = 0,
@@ -717,7 +699,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_sequential_id = 0,
           domain_id = someDomainId1.toProtoPrimitive,
           trace_context = serializedEmptyTraceContext,
-          record_time = someRecordTime.micros,
+          record_time = someRecordTime.toMicros,
         ),
         DbDto.IdFilterNonConsumingInformee(
           event_sequential_id = 0,
@@ -725,7 +707,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
-          record_time = someRecordTime.micros,
+          record_time = someRecordTime.toMicros,
           publication_time = 0,
           application_id = completionInfo.applicationId,
           submitters = completionInfo.actAs.toSet,
@@ -741,7 +723,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_start = None,
           domain_id = someDomainId1.toProtoPrimitive,
           message_uuid = None,
-          request_sequencer_counter = None,
+          request_sequencer_counter = Some(10),
           is_transaction = true,
           trace_context = serializedEmptyTraceContext,
         ),
@@ -749,7 +731,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           update_id = updateId,
           event_offset = someOffset.toHexString,
           publication_time = 0,
-          record_time = someRecordTime.micros,
+          record_time = someRecordTime.toMicros,
           domain_id = someDomainId1.toProtoPrimitive,
           event_sequential_id_first = 0,
           event_sequential_id_last = 0,
@@ -790,16 +772,17 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       builder.add(fetchByKeyNode)
       builder.add(lookupByKeyNode)
       val transaction = builder.buildCommitted()
-      val update = state.Update.TransactionAccepted(
+      val update = state.Update.SequencedTransactionAccepted(
         completionInfoO = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
         updateId = updateId,
-        recordTime = someRecordTime,
         hostedWitnesses = Nil,
         contractMetadata = Map.empty,
         domainId = someDomainId1,
-        domainIndex = someDomainIndex,
+        requestCounter = someRequestCounter,
+        sequencerCounter = someSequencerCounter,
+        recordTime = someRecordTime,
       )
       val dtos = updateToDtos(update)
 
@@ -807,7 +790,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       dtos should contain theSameElementsInOrderAs List(
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
-          record_time = someRecordTime.micros,
+          record_time = someRecordTime.toMicros,
           publication_time = 0,
           application_id = completionInfo.applicationId,
           submitters = completionInfo.actAs.toSet,
@@ -823,7 +806,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_start = None,
           domain_id = someDomainId1.toProtoPrimitive,
           message_uuid = None,
-          request_sequencer_counter = None,
+          request_sequencer_counter = Some(10),
           is_transaction = true,
           trace_context = serializedEmptyTraceContext,
         ),
@@ -831,7 +814,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           update_id = updateId,
           event_offset = someOffset.toHexString,
           publication_time = 0,
-          record_time = someRecordTime.micros,
+          record_time = someRecordTime.toMicros,
           domain_id = someDomainId1.toProtoPrimitive,
           event_sequential_id_first = 0,
           event_sequential_id_last = 0,
@@ -866,16 +849,17 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )
       val exerciseNodeId = builder.add(exerciseNode)
       val transaction = builder.buildCommitted()
-      val update = state.Update.TransactionAccepted(
+      val update = state.Update.SequencedTransactionAccepted(
         completionInfoO = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
         updateId = updateId,
-        recordTime = someRecordTime,
         hostedWitnesses = Nil,
         contractMetadata = Map.empty,
         domainId = someDomainId1,
-        domainIndex = someDomainIndex,
+        requestCounter = someRequestCounter,
+        sequencerCounter = someSequencerCounter,
+        recordTime = someRecordTime,
       )
       val dtos = updateToDtos(update)
 
@@ -907,7 +891,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_sequential_id = 0,
           domain_id = someDomainId1.toProtoPrimitive,
           trace_context = serializedEmptyTraceContext,
-          record_time = someRecordTime.micros,
+          record_time = someRecordTime.toMicros,
         ),
         DbDto.IdFilterConsumingStakeholder(
           event_sequential_id = 0,
@@ -925,7 +909,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
-          record_time = someRecordTime.micros,
+          record_time = someRecordTime.toMicros,
           publication_time = 0,
           application_id = completionInfo.applicationId,
           submitters = completionInfo.actAs.toSet,
@@ -941,7 +925,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_start = None,
           domain_id = someDomainId1.toProtoPrimitive,
           message_uuid = None,
-          request_sequencer_counter = None,
+          request_sequencer_counter = Some(10),
           is_transaction = true,
           trace_context = serializedEmptyTraceContext,
         ),
@@ -949,7 +933,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           update_id = updateId,
           event_offset = someOffset.toHexString,
           publication_time = 0,
-          record_time = someRecordTime.micros,
+          record_time = someRecordTime.toMicros,
           domain_id = someDomainId1.toProtoPrimitive,
           event_sequential_id_first = 0,
           event_sequential_id_last = 0,
@@ -985,16 +969,17 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       val createNodeId = builder.add(createNode)
       val exerciseNodeId = builder.add(exerciseNode)
       val transaction = builder.buildCommitted()
-      val update = state.Update.TransactionAccepted(
+      val update = state.Update.SequencedTransactionAccepted(
         completionInfoO = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
         updateId = updateId,
-        recordTime = someRecordTime,
         hostedWitnesses = Nil,
         contractMetadata = Map(contractId -> someContractDriverMetadata),
         domainId = someDomainId1,
-        domainIndex = someDomainIndex,
+        requestCounter = someRequestCounter,
+        sequencerCounter = someSequencerCounter,
+        recordTime = someRecordTime,
       )
       val dtos = updateToDtos(update)
 
@@ -1025,7 +1010,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         driver_metadata = someContractDriverMetadata.toByteArray,
         domain_id = someDomainId1.toProtoPrimitive,
         trace_context = serializedEmptyTraceContext,
-        record_time = someRecordTime.micros,
+        record_time = someRecordTime.toMicros,
       )
       Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
         DbDto.IdFilterCreateStakeholder(0L, createNode.templateId.toString, "signatory"),
@@ -1058,7 +1043,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_sequential_id = 0,
         domain_id = someDomainId1.toProtoPrimitive,
         trace_context = serializedEmptyTraceContext,
-        record_time = someRecordTime.micros,
+        record_time = someRecordTime.toMicros,
       )
       dtos(4) shouldEqual DbDto.IdFilterConsumingStakeholder(
         event_sequential_id = 0,
@@ -1076,7 +1061,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )
       dtos(7) shouldEqual DbDto.CommandCompletion(
         completion_offset = someOffset.toHexString,
-        record_time = someRecordTime.micros,
+        record_time = someRecordTime.toMicros,
         publication_time = 0,
         application_id = completionInfo.applicationId,
         submitters = completionInfo.actAs.toSet,
@@ -1092,7 +1077,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         deduplication_start = None,
         domain_id = someDomainId1.toProtoPrimitive,
         message_uuid = None,
-        request_sequencer_counter = None,
+        request_sequencer_counter = Some(10),
         is_transaction = true,
         trace_context = serializedEmptyTraceContext,
       )
@@ -1100,7 +1085,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         update_id = updateId,
         event_offset = someOffset.toHexString,
         publication_time = 0,
-        record_time = someRecordTime.micros,
+        record_time = someRecordTime.toMicros,
         domain_id = someDomainId1.toProtoPrimitive,
         event_sequential_id_first = 0,
         event_sequential_id_last = 0,
@@ -1139,23 +1124,24 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       builder.add(createNode, rollbackNodeId)
       builder.add(exerciseNode, rollbackNodeId)
       val transaction = builder.buildCommitted()
-      val update = state.Update.TransactionAccepted(
+      val update = state.Update.SequencedTransactionAccepted(
         completionInfoO = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
         updateId = updateId,
-        recordTime = someRecordTime,
         hostedWitnesses = Nil,
         contractMetadata = Map.empty,
         domainId = someDomainId1,
-        domainIndex = someDomainIndex,
+        requestCounter = someRequestCounter,
+        sequencerCounter = someSequencerCounter,
+        recordTime = someRecordTime,
       )
       val dtos = updateToDtos(update)
 
       dtos should contain theSameElementsInOrderAs List(
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
-          record_time = someRecordTime.micros,
+          record_time = someRecordTime.toMicros,
           publication_time = 0,
           application_id = completionInfo.applicationId,
           submitters = completionInfo.actAs.toSet,
@@ -1171,7 +1157,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_start = None,
           domain_id = someDomainId1.toProtoPrimitive,
           message_uuid = None,
-          request_sequencer_counter = None,
+          request_sequencer_counter = Some(10),
           is_transaction = true,
           trace_context = serializedEmptyTraceContext,
         ),
@@ -1179,7 +1165,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           update_id = updateId,
           event_offset = someOffset.toHexString,
           publication_time = 0,
-          record_time = someRecordTime.micros,
+          record_time = someRecordTime.toMicros,
           domain_id = someDomainId1.toProtoPrimitive,
           event_sequential_id_first = 0,
           event_sequential_id_last = 0,
@@ -1202,16 +1188,17 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )
       val createNodeId = builder.add(createNode)
       val transaction = builder.buildCommitted()
-      val update = state.Update.TransactionAccepted(
+      val update = state.Update.SequencedTransactionAccepted(
         completionInfoO = None,
         transactionMeta = transactionMeta,
         transaction = transaction,
         updateId = Ref.TransactionId.assertFromString("UpdateId"),
-        recordTime = someRecordTime,
         hostedWitnesses = Nil,
         contractMetadata = Map(contractId -> someContractDriverMetadata),
         domainId = someDomainId1,
-        domainIndex = someDomainIndex,
+        requestCounter = someRequestCounter,
+        sequencerCounter = someSequencerCounter,
+        recordTime = someRecordTime,
       )
       val dtos = updateToDtos(update)
 
@@ -1242,7 +1229,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         driver_metadata = someContractDriverMetadata.toByteArray,
         domain_id = someDomainId1.toProtoPrimitive,
         trace_context = serializedEmptyTraceContext,
-        record_time = someRecordTime.micros,
+        record_time = someRecordTime.toMicros,
       )
       Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
         DbDto.IdFilterCreateStakeholder(0L, createNode.templateId.toString, "signatory"),
@@ -1283,19 +1270,20 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
               expectedDeduplicationDurationNanos,
             ) =>
           val completionInfo = someCompletionInfo.copy(optDeduplicationPeriod = deduplicationPeriod)
-          val update = state.Update.CommandRejected(
-            someRecordTime,
+          val update = state.Update.SequencedCommandRejected(
             completionInfo,
             state.Update.CommandRejected.FinalReason(status),
-            domainId = someDomainId1,
-            domainIndex = someDomainIndexWithSequencerCounter,
+            someDomainId1,
+            RequestCounter(10),
+            SequencerCounter(10),
+            someRecordTime,
           )
           val dtos = updateToDtos(update)
 
           dtos should contain theSameElementsInOrderAs List(
             DbDto.CommandCompletion(
               completion_offset = someOffset.toHexString,
-              record_time = someRecordTime.micros,
+              record_time = someRecordTime.toMicros,
               publication_time = 0,
               application_id = someApplicationId,
               submitters = Set(someParty),
@@ -1341,16 +1329,17 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
               expectedDeduplicationDurationNanos,
             ) =>
           val completionInfo = someCompletionInfo.copy(optDeduplicationPeriod = deduplicationPeriod)
-          val update = state.Update.TransactionAccepted(
+          val update = state.Update.SequencedTransactionAccepted(
             completionInfoO = Some(completionInfo),
             transactionMeta = transactionMeta,
             transaction = transaction,
             updateId = updateId,
-            recordTime = someRecordTime,
             hostedWitnesses = Nil,
             contractMetadata = Map(contractId -> someContractDriverMetadata),
             domainId = someDomainId1,
-            domainIndex = someDomainIndex,
+            requestCounter = someRequestCounter,
+            sequencerCounter = someSequencerCounter,
+            recordTime = someRecordTime,
           )
           val dtos = updateToDtos(update)
 
@@ -1381,7 +1370,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             driver_metadata = someContractDriverMetadata.toByteArray,
             domain_id = someDomainId1.toProtoPrimitive,
             trace_context = serializedEmptyTraceContext,
-            record_time = someRecordTime.micros,
+            record_time = someRecordTime.toMicros,
           )
           Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
             DbDto.IdFilterCreateStakeholder(0L, createNode.templateId.toString, "signatory"),
@@ -1389,7 +1378,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           )
           dtos(3) shouldEqual DbDto.CommandCompletion(
             completion_offset = someOffset.toHexString,
-            record_time = someRecordTime.micros,
+            record_time = someRecordTime.toMicros,
             publication_time = 0,
             application_id = completionInfo.applicationId,
             submitters = completionInfo.actAs.toSet,
@@ -1405,7 +1394,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             deduplication_start = None,
             domain_id = someDomainId1.toProtoPrimitive,
             message_uuid = None,
-            request_sequencer_counter = None,
+            request_sequencer_counter = Some(10),
             is_transaction = true,
             trace_context = serializedEmptyTraceContext,
           )
@@ -1413,7 +1402,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             update_id = updateId,
             event_offset = someOffset.toHexString,
             publication_time = 0,
-            record_time = someRecordTime.micros,
+            record_time = someRecordTime.toMicros,
             domain_id = someDomainId1.toProtoPrimitive,
             event_sequential_id_first = 0,
             event_sequential_id_last = 0,
@@ -1435,11 +1424,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           observers = Set("observer", "observer2"),
         )
 
-      val update = state.Update.ReassignmentAccepted(
+      val update = state.Update.SequencedReassignmentAccepted(
         optCompletionInfo = Some(completionInfo),
         workflowId = Some(someWorkflowId),
         updateId = updateId,
-        recordTime = someRecordTime,
         reassignmentInfo = ReassignmentInfo(
           sourceDomain = Source(DomainId.tryFromString("x::domain1")),
           targetDomain = Target(DomainId.tryFromString("x::domain2")),
@@ -1454,7 +1442,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           createNode = createNode,
           contractMetadata = someContractDriverMetadata,
         ),
-        domainIndex = someDomainIndex,
+        requestCounter = someRequestCounter,
+        sequencerCounter = someSequencerCounter,
+        recordTime = someRecordTime,
       )
 
       val dtos = updateToDtos(update)
@@ -1486,11 +1476,11 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         unassign_id = "1000000000",
         reassignment_counter = 1500L,
         trace_context = serializedEmptyTraceContext,
-        record_time = someRecordTime.micros,
+        record_time = someRecordTime.toMicros,
       )
       dtos(4) shouldEqual DbDto.CommandCompletion(
         completion_offset = someOffset.toHexString,
-        record_time = someRecordTime.micros,
+        record_time = someRecordTime.toMicros,
         publication_time = 0,
         application_id = completionInfo.applicationId,
         submitters = completionInfo.actAs.toSet,
@@ -1506,7 +1496,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         deduplication_start = None,
         domain_id = "x::domain2",
         message_uuid = None,
-        request_sequencer_counter = None,
+        request_sequencer_counter = Some(10),
         is_transaction = false,
         trace_context = serializedEmptyTraceContext,
       )
@@ -1514,7 +1504,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         update_id = updateId,
         event_offset = someOffset.toHexString,
         publication_time = 0,
-        record_time = someRecordTime.micros,
+        record_time = someRecordTime.toMicros,
         domain_id = "x::domain2",
         event_sequential_id_first = 0,
         event_sequential_id_last = 0,
@@ -1540,11 +1530,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           observers = Set("observer"),
         )
 
-      val update = state.Update.ReassignmentAccepted(
+      val update = state.Update.SequencedReassignmentAccepted(
         optCompletionInfo = Some(completionInfo),
         workflowId = Some(someWorkflowId),
         updateId = updateId,
-        recordTime = someRecordTime,
         reassignmentInfo = ReassignmentInfo(
           sourceDomain = Source(DomainId.tryFromString("x::domain1")),
           targetDomain = Target(DomainId.tryFromString("x::domain2")),
@@ -1562,15 +1551,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             List("signatory12", "observer23", "asdasdasd").map(Ref.Party.assertFromString),
           assignmentExclusivity = Some(Time.Timestamp.assertFromLong(123456)),
         ),
-        domainIndex = Some(
-          DomainIndex.of(
-            RequestIndex(
-              counter = RequestCounter(100),
-              sequencerCounter = Some(SequencerCounter(110)),
-              timestamp = CantonTimestamp.ofEpochMicro(120),
-            )
-          )
-        ),
+        requestCounter = RequestCounter(100),
+        sequencerCounter = SequencerCounter(110),
+        recordTime = CantonTimestamp.ofEpochMicro(120),
       )
 
       val dtos = updateToDtos(update)
@@ -1592,11 +1575,11 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         reassignment_counter = 1500L,
         assignment_exclusivity = Some(123456L),
         trace_context = serializedEmptyTraceContext,
-        record_time = someRecordTime.micros,
+        record_time = 120L,
       )
       dtos(4) shouldEqual DbDto.CommandCompletion(
         completion_offset = someOffset.toHexString,
-        record_time = someRecordTime.micros,
+        record_time = 120L,
         publication_time = 0,
         application_id = completionInfo.applicationId,
         submitters = completionInfo.actAs.toSet,
@@ -1620,7 +1603,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         update_id = updateId,
         event_offset = someOffset.toHexString,
         publication_time = 0,
-        record_time = someRecordTime.micros,
+        record_time = 120L,
         domain_id = "x::domain1",
         event_sequential_id_first = 0,
         event_sequential_id_last = 0,
@@ -1650,9 +1633,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       val update = state.Update.TopologyTransactionEffective(
         updateId = updateId,
         events = events,
-        recordTime = someRecordTime,
         domainId = someDomainId1,
-        domainIndex = domainIndexWithSequencerCounter,
+        sequencerCounter = someSequencerCounter,
+        recordTime = someRecordTime,
       )
 
       val dtos = updateToDtos(update)
@@ -1665,7 +1648,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         participant_id = someParticipantId,
         participant_permission = UpdateToDbDto.authorizationLevelToInt(Submission),
         domain_id = someDomainId1.toProtoPrimitive,
-        record_time = someRecordTime.micros,
+        record_time = someRecordTime.toMicros,
         trace_context = serializedEmptyTraceContext,
       )
       dtos(1) shouldEqual DbDto.EventPartyToParticipant(
@@ -1676,14 +1659,14 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         participant_id = otherParticipantId,
         participant_permission = UpdateToDbDto.authorizationLevelToInt(Revoked),
         domain_id = someDomainId1.toProtoPrimitive,
-        record_time = someRecordTime.micros,
+        record_time = someRecordTime.toMicros,
         trace_context = serializedEmptyTraceContext,
       )
       dtos(2) shouldEqual DbDto.TransactionMeta(
         update_id = updateId,
         event_offset = someOffset.toHexString,
         publication_time = 0,
-        record_time = someRecordTime.micros,
+        record_time = someRecordTime.toMicros,
         domain_id = "x::domain1",
         event_sequential_id_first = 0,
         event_sequential_id_last = 0,
@@ -1694,10 +1677,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
     "handle SequencerIndexMoved" in {
       val update = state.Update.SequencerIndexMoved(
         domainId = someDomainId1,
-        sequencerIndex = SequencerIndex(
-          counter = SequencerCounter(1000),
-          timestamp = CantonTimestamp.ofEpochMicro(2000),
-        ),
+        sequencerCounter = SequencerCounter(1000),
+        recordTime = CantonTimestamp.ofEpochMicro(2000),
         requestCounterO = None,
       )
       val dtos = updateToDtos(update)
@@ -1764,27 +1745,11 @@ object UpdateToDbDtoSpec {
     Ref.ParticipantId.assertFromString("UpdateToDbDtoSpecRemoteParticipant")
   private val someOffset = AbsoluteOffset.tryFromLong(12345678L)
   private val someRecordTime =
-    Time.Timestamp.assertFromInstant(Instant.parse(("2000-01-01T00:00:00.000000Z")))
-  private val someDomainIndex =
-    Some(
-      DomainIndex.of(
-        RequestIndex(
-          counter = RequestCounter(10),
-          sequencerCounter = None,
-          timestamp = CantonTimestamp(someRecordTime),
-        )
-      )
+    CantonTimestamp(
+      Time.Timestamp.assertFromInstant(Instant.parse(("2000-01-01T00:00:00.000000Z")))
     )
-  private val domainIndexWithSequencerCounter =
-    DomainIndex.of(
-      RequestIndex(
-        counter = RequestCounter(10),
-        sequencerCounter = Some(SequencerCounter(10)),
-        timestamp = CantonTimestamp(someRecordTime),
-      )
-    )
-  private val someDomainIndexWithSequencerCounter =
-    Some(domainIndexWithSequencerCounter)
+  private val someRequestCounter = RequestCounter(10)
+  private val someSequencerCounter = SequencerCounter(10)
   private val someApplicationId =
     Ref.ApplicationId.assertFromString("UpdateToDbDtoSpecApplicationId")
   private val someCommandId = Ref.CommandId.assertFromString("UpdateToDbDtoSpecCommandId")
@@ -1800,7 +1765,6 @@ object UpdateToDbDtoSpec {
     commandId = someCommandId,
     optDeduplicationPeriod = None,
     submissionId = Some(someSubmissionId),
-    messageUuid = None,
   )
   private val someDomainId1 = DomainId.tryFromString("x::domain1")
   private val someTransactionMeta = state.TransactionMeta(

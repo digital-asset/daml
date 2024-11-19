@@ -3,8 +3,7 @@
 
 package com.digitalasset.canton.ledger.localstore
 
-import com.digitalasset.canton.caching.CaffeineCache
-import com.digitalasset.canton.caching.CaffeineCache.FutureAsyncCacheLoader
+import com.digitalasset.canton.caching.ScaffeineCache
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, User}
 import com.digitalasset.canton.ledger.localstore.api.{UserManagementStore, UserUpdate}
@@ -12,9 +11,9 @@ import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFact
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.UserId
-import com.github.benmanes.caffeine.cache as caffeine
+import com.github.blemale.scaffeine.Scaffeine
 
-import java.time.Duration
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Try}
 
@@ -26,24 +25,19 @@ class CachedUserManagementStore(
     expiryAfterWriteInSeconds: Int,
     maximumCacheSize: Int,
     metrics: LedgerApiServerMetrics,
-    val loggerFactory: NamedLoggerFactory,
+    override protected val loggerFactory: NamedLoggerFactory,
 )(implicit val executionContext: ExecutionContext, loggingContext: LoggingContextWithTrace)
     extends UserManagementStore
     with NamedLogging {
 
-  private val cache: CaffeineCache.AsyncLoadingCaffeineCache[CacheKey, Result[UserInfo]] =
-    new CaffeineCache.AsyncLoadingCaffeineCache(
-      caffeine.Caffeine
-        .newBuilder()
-        .expireAfterWrite(Duration.ofSeconds(expiryAfterWriteInSeconds.toLong))
-        .maximumSize(maximumCacheSize.toLong)
-        .buildAsync(
-          new FutureAsyncCacheLoader[CacheKey, Result[UserInfo]](key =>
-            delegate.getUserInfo(key.id, key.identityProviderId)
-          )
-        ),
-      metrics.userManagement.cache,
-    )
+  private val cache: ScaffeineCache.TunnelledAsyncLoadingCache[Future, CacheKey, Result[UserInfo]] =
+    ScaffeineCache.buildAsync[Future, CacheKey, Result[UserInfo]](
+      Scaffeine()
+        .expireAfterWrite(expiryAfterWriteInSeconds.seconds)
+        .maximumSize(maximumCacheSize.toLong),
+      loader = key => delegate.getUserInfo(key.id, key.identityProviderId),
+      metrics = Some(metrics.userManagement.cache),
+    )(logger)
 
   override def getUserInfo(id: UserId, identityProviderId: IdentityProviderId)(implicit
       loggingContext: LoggingContextWithTrace

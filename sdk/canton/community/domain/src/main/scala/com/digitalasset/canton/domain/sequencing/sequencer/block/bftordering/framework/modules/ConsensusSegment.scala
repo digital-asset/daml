@@ -157,6 +157,8 @@ object ConsensusSegment {
     ) extends PbftNormalCaseMessage
         with HasProtocolVersionedWrapper[PrePrepare] {
 
+      lazy val stored = PrePrepareStored(blockMetadata, viewNumber)
+
       lazy val hash: Hash = {
         val builder = Hash
           .build(HashPurpose.BftOrderingPbftBlock, HashAlgorithm.Sha256)
@@ -598,6 +600,8 @@ object ConsensusSegment {
       private lazy val sortedViewChanges: Seq[SignedMessage[ViewChange]] = viewChanges.sorted
 
       lazy val computedCertificatePerBlock = computeCertificatePerBlock(viewChanges.map(_.message))
+
+      lazy val stored = NewViewStored(blockMetadata, viewNumber)
 
       override def toProto: v1.ConsensusMessage =
         v1.ConsensusMessage.of(

@@ -79,6 +79,22 @@ object QueryStrategy {
     }
   }
 
+  /** Expression for `(offset <= endInclusive)`
+    *
+    * The offset column must only contain valid offsets (no NULLs)
+    */
+  def offsetIsLessOrEqual(
+      nonNullableColumn: String,
+      endInclusiveO: Option[AbsoluteOffset],
+  ): CompositeSql = {
+    import com.digitalasset.canton.platform.store.backend.Conversions.AbsoluteOffsetToStatement
+    endInclusiveO match {
+      case None => cSQL"#${constBooleanWhere(false)}"
+      case Some(endInclusive) =>
+        cSQL"#$nonNullableColumn <= $endInclusive"
+    }
+  }
+
   /** Expression for `(eventSeqId > limit)`
     *
     * The column must only contain valid integers (no NULLs)

@@ -51,7 +51,6 @@ class TrafficPurchasedManagerTest
 
   private def mkManager = new TrafficPurchasedManager(
     store,
-    clock,
     SequencerTrafficConfig(
       pruningRetentionWindow = NonNegativeFiniteDuration.ofSeconds(2),
       trafficPurchasedCacheSizePerMember = PositiveInt.one,
@@ -149,7 +148,6 @@ class TrafficPurchasedManagerTest
       var reachedMakePromiseForBalance = false
       val manager = new TrafficPurchasedManager(
         store,
-        clock,
         SequencerTrafficConfig(pruningRetentionWindow = NonNegativeFiniteDuration.ofSeconds(2)),
         futureSupervisor,
         SequencerMetrics.noop("traffic-balance-manager"),

@@ -4,6 +4,8 @@
 package com.digitalasset.canton.topology.client
 
 import com.digitalasset.canton.SequencerCounter
+import com.digitalasset.canton.caching.ScaffeineCache
+import com.digitalasset.canton.caching.ScaffeineCache.TracedAsyncLoadingCache
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -24,7 +26,7 @@ import com.digitalasset.canton.topology.store.{
 }
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.tracing.{TraceContext, TracedAsyncLoadingCache, TracedScaffeine}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -65,7 +67,7 @@ final class CachingDomainTopologyClient(
     FutureUnlessShutdown,
     CantonTimestamp,
     Option[(SequencedTime, EffectiveTime)],
-  ] = TracedScaffeine.buildTracedAsync[
+  ] = ScaffeineCache.buildTracedAsync[
     FutureUnlessShutdown,
     CantonTimestamp,
     Option[(SequencedTime, EffectiveTime)],
@@ -377,42 +379,36 @@ class CachingTopologySnapshot(
   override def timestamp: CantonTimestamp = parent.timestamp
 
   private val partyCache: TracedAsyncLoadingCache[Future, PartyId, PartyInfo] =
-    TracedScaffeine.buildTracedAsync[Future, PartyId, PartyInfo](
+    ScaffeineCache.buildTracedAsync[Future, PartyId, PartyInfo](
       cache = cachingConfigs.partyCache.buildScaffeine(),
-      loader = traceContext =>
-        party =>
-          parent
-            .loadActiveParticipantsOf(party, loadParticipantStates(_)(traceContext))(traceContext),
-      allLoader = Some(traceContext =>
-        parties =>
-          parent
-            .loadBatchActiveParticipantsOf(parties.toSeq, loadParticipantStates(_)(traceContext))(
-              traceContext
-            )
+      loader = implicit traceContext =>
+        party => parent.loadActiveParticipantsOf(party, loadParticipantStates(_)),
+      allLoader = Some(implicit traceContext =>
+        parties => parent.loadBatchActiveParticipantsOf(parties.toSeq, loadParticipantStates(_))
       ),
     )(logger)
 
   private val participantCache
       : TracedAsyncLoadingCache[Future, ParticipantId, Option[ParticipantAttributes]] =
-    TracedScaffeine.buildTracedAsync[Future, ParticipantId, Option[ParticipantAttributes]](
+    ScaffeineCache.buildTracedAsync[Future, ParticipantId, Option[ParticipantAttributes]](
       cache = cachingConfigs.participantCache.buildScaffeine(),
-      loader = traceContext => pid => parent.findParticipantState(pid)(traceContext),
-      allLoader = Some(traceContext =>
+      loader = implicit traceContext => pid => parent.findParticipantState(pid),
+      allLoader = Some(implicit traceContext =>
         pids =>
-          parent.loadParticipantStates(pids.toSeq)(traceContext).map { attributes =>
+          parent.loadParticipantStates(pids.toSeq).map { attributes =>
             // make sure that the returned map contains an entry for each input element
             pids.map(pid => pid -> attributes.get(pid)).toMap
           }
       ),
     )(logger)
   private val keyCache: TracedAsyncLoadingCache[Future, Member, KeyCollection] =
-    TracedScaffeine.buildTracedAsync[Future, Member, KeyCollection](
+    ScaffeineCache.buildTracedAsync[Future, Member, KeyCollection](
       cache = cachingConfigs.keyCache.buildScaffeine(),
-      loader = traceContext => member => parent.allKeys(member)(traceContext),
-      allLoader = Some(traceContext =>
+      loader = implicit traceContext => member => parent.allKeys(member),
+      allLoader = Some(implicit traceContext =>
         members =>
           parent
-            .allKeys(members.toSeq)(traceContext)
+            .allKeys(members.toSeq)
             .map(foundKeys =>
               // make sure that the returned map contains an entry for each input element
               members
@@ -426,10 +422,10 @@ class CachingTopologySnapshot(
     FutureUnlessShutdown,
     ParticipantId,
     Map[PackageId, VettedPackage],
-  ] = TracedScaffeine
+  ] = ScaffeineCache
     .buildTracedAsync[FutureUnlessShutdown, ParticipantId, Map[PackageId, VettedPackage]](
       cache = cachingConfigs.packageVettingCache.buildScaffeine(),
-      traceContext => x => parent.loadVettedPackages(x)(traceContext),
+      loader = implicit traceContext => x => parent.loadVettedPackages(x),
     )(logger)
 
   private val mediatorsCache = new AtomicReference[Option[Future[Seq[MediatorGroup]]]](None)
@@ -439,13 +435,13 @@ class CachingTopologySnapshot(
 
   private val allMembersCache = new AtomicReference[Option[Future[Set[Member]]]](None)
   private val memberCache: TracedAsyncLoadingCache[Future, Member, Boolean] =
-    TracedScaffeine.buildTracedAsync[Future, Member, Boolean](
+    ScaffeineCache.buildTracedAsync[Future, Member, Boolean](
       cache = cachingConfigs.memberCache.buildScaffeine(),
-      loader = traceContext => member => parent.isMemberKnown(member)(traceContext),
-      allLoader = Some(traceContext =>
+      loader = implicit traceContext => member => parent.isMemberKnown(member),
+      allLoader = Some(implicit traceContext =>
         members =>
           parent
-            .areMembersKnown(members.toSet)(traceContext)
+            .areMembersKnown(members.toSet)
             .map(knownMembers => members.map(m => m -> knownMembers.contains(m)).toMap)
       ),
     )(logger)
@@ -467,13 +463,13 @@ class CachingTopologySnapshot(
     FutureUnlessShutdown,
     PartyId,
     Option[PartyKeyTopologySnapshotClient.PartyAuthorizationInfo],
-  ] = TracedScaffeine.buildTracedAsync[
+  ] = ScaffeineCache.buildTracedAsync[
     FutureUnlessShutdown,
     PartyId,
     Option[PartyKeyTopologySnapshotClient.PartyAuthorizationInfo],
   ](
     cache = cachingConfigs.partyCache.buildScaffeine(),
-    loader = traceContext => party => parent.partyAuthorization(party)(traceContext),
+    loader = implicit traceContext => party => parent.partyAuthorization(party),
   )(logger)
 
   override def allKeys(owner: Member)(implicit traceContext: TraceContext): Future[KeyCollection] =

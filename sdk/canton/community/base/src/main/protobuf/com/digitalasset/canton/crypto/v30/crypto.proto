@@ -33,11 +33,43 @@ message Signature {
   bytes signature = 2;
 
   // The fingerprint/id of the keypair used to create this signature and needed to verify.
-  // The referenced key provides the context for the used signature scheme.
+  // If a signature delegation is defined, this fingerprint/id is not used to produce the signature, and, instead
+  // is used to sign the delegation.
   string signed_by = 3;
 
-  // The signing algorithm specification used to generate this signature
+  // The signing algorithm specification used to produce this signature
   SigningAlgorithmSpec signing_algorithm_spec = 4;
+
+  // An optional signature delegation where a long-term signing key authorizes a session signing key to sign on its
+  // behalf.
+  optional SignatureDelegation signature_delegation = 5;
+}
+
+message SignatureDelegation {
+  // ASN.1 + DER-encoding of X.509 SubjectPublicKeyInfo structure of the session public key:
+  // https://datatracker.ietf.org/doc/html/rfc5280#section-4.1. This key was used to produce the actual signature.
+  bytes session_key = 1;
+
+  // The signing key spec for the session key.
+  SigningKeySpec session_key_spec = 2;
+
+  // A timestamp in microseconds of UTC time since Unix epoch that indicates when the session key is
+  // considered valid.
+  int64 validity_period_from_inclusive = 3;
+
+  // Duration in seconds indicating how long the session key remains valid, inclusive.
+  // The validity period starts from `validity_period_from_inclusive` above.
+  uint32 validity_period_duration_inclusive = 4;
+
+  // TODO(#22209) remove after format is standardized
+  SignatureFormat format = 5;
+
+  // The signature of the combined hash of the session key fingerprint, validity period, and domain ID, by the
+  // long-term key. This signature authorizes the session key to act on behalf of the long-term key.
+  bytes signature = 6;
+
+  // The signing algorithm specification used to produce this signature
+  SigningAlgorithmSpec signing_algorithm_spec = 7;
 }
 
 enum SignatureFormat {
@@ -325,4 +357,15 @@ message PasswordBasedEncrypted {
 
   // The random salt that was used to derive the symmetric encryption key from the password
   bytes salt = 4;
+}
+
+message AsymmetricEncrypted {
+  // Asymmetrically encrypted data
+  bytes ciphertext = 1;
+
+  // The asymmetric encryption specification used for the encryption
+  EncryptionAlgorithmSpec encryption_algorithm_spec = 2;
+
+  // The fingerprint of the public key that was used for the encryption
+  string fingerprint = 3;
 }

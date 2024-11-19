@@ -260,7 +260,7 @@ private[backend] class ParameterStorageBackendImpl(
         )
       )
 
-  override def domainLedgerEnd(domainId: DomainId)(
+  override def cleanDomainIndex(domainId: DomainId)(
       connection: Connection
   ): DomainIndex =
     // not using stringInterning here to allow broader usage with tricky state inspection integration tests

@@ -13,10 +13,8 @@ import com.digitalasset.canton.data.*
 import com.digitalasset.canton.data.ViewType.UnassignmentViewType
 import com.digitalasset.canton.ledger.participant.state.{
   CompletionInfo,
-  DomainIndex,
   Reassignment,
   ReassignmentInfo,
-  RequestIndex,
   Update,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -699,7 +697,7 @@ class UnassignmentProcessingSteps(
       requestSequencerCounter: SequencerCounter,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ReassignmentProcessorError, Update.ReassignmentAccepted] =
+  ): EitherT[Future, ReassignmentProcessorError, Update.SequencedReassignmentAccepted] =
     for {
       updateId <- EitherT
         .fromEither[Future](rootHash.asLedgerTransactionId)
@@ -715,14 +713,12 @@ class UnassignmentProcessingSteps(
             commandId = submitterMetadata.commandId,
             optDeduplicationPeriod = None,
             submissionId = submitterMetadata.submissionId,
-            messageUuid = None,
           )
         )
-    } yield Update.ReassignmentAccepted(
+    } yield Update.SequencedReassignmentAccepted(
       optCompletionInfo = completionInfo,
       workflowId = submitterMetadata.workflowId,
       updateId = updateId,
-      recordTime = reassignmentId.unassignmentTs.underlying,
       reassignmentInfo = ReassignmentInfo(
         sourceDomain = reassignmentId.sourceDomain,
         targetDomain = targetDomain,
@@ -739,15 +735,9 @@ class UnassignmentProcessingSteps(
         stakeholders = contractStakeholders.toList,
         assignmentExclusivity = assignmentExclusivity.map(_.unwrap.toLf),
       ),
-      domainIndex = Some(
-        DomainIndex.of(
-          RequestIndex(
-            counter = requestCounter,
-            sequencerCounter = Some(requestSequencerCounter),
-            timestamp = reassignmentId.unassignmentTs,
-          )
-        )
-      ),
+      requestCounter = requestCounter,
+      sequencerCounter = requestSequencerCounter,
+      recordTime = reassignmentId.unassignmentTs,
     )
 
   private[this] def triggerAssignmentWhenExclusivityTimeoutExceeded(

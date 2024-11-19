@@ -634,7 +634,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       commandId,
       None,
       Some(submissionId),
-      None,
     )
 
   protected final def storeSync(

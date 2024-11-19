@@ -15,6 +15,9 @@ import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 
+import v30.ConnectToSequencerChannelRequest.Request as v30_ChannelRequest
+import v30.ConnectToSequencerChannelResponse.Response as v30_ChannelResponse
+
 /** The member message handler represents one side/member of a sequencer channel on the sequencer channel service
   * and forwards messages from the member to another "recipient" member message handler.
   *
@@ -52,15 +55,15 @@ private[channel] final class GrpcSequencerChannelMemberMessageHandler(
     new StreamObserver[v30.ConnectToSequencerChannelRequest] {
       override def onNext(requestP: v30.ConnectToSequencerChannelRequest): Unit = {
         val responseE = requestP.request match {
-          case v30.ConnectToSequencerChannelRequest.Request.Payload(payload) =>
-            Right(
-              v30.ConnectToSequencerChannelResponse.Response.Payload(
-                payload
-              ): v30.ConnectToSequencerChannelResponse.Response
-            )
-          case v30.ConnectToSequencerChannelRequest.Request.Metadata(metadataP) =>
+          case v30_ChannelRequest.SessionKey(keyP) =>
+            Right(v30_ChannelResponse.SessionKey(keyP): v30_ChannelResponse)
+          case v30_ChannelRequest.SessionKeyAcknowledgement(ackP) =>
+            Right(v30_ChannelResponse.SessionKeyAcknowledgement(ackP): v30_ChannelResponse)
+          case v30_ChannelRequest.Payload(payloadP) =>
+            Right(v30_ChannelResponse.Payload(payloadP): v30_ChannelResponse)
+          case v30_ChannelRequest.Metadata(metadataP) =>
             Left(s"Unexpectedly asked to forward sequencer channel metadata $metadataP")
-          case v30.ConnectToSequencerChannelRequest.Request.Empty =>
+          case v30_ChannelRequest.Empty =>
             Left("Unexpectedly asked to forward empty request")
         }
         implicit val traceContext: TraceContext = SerializableTraceContext

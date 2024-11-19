@@ -20,7 +20,7 @@ import org.apache.pekko.util
 import sttp.capabilities.pekko.PekkoStreams
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.jsonBody
-import sttp.tapir.{CodecFormat, path, streamBinaryBody}
+import sttp.tapir.{AnyEndpoint, CodecFormat, Schema, path, streamBinaryBody}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.IteratorHasAsScala
@@ -100,7 +100,7 @@ class JsPackageService(
   }
 }
 
-object JsPackageService {
+object JsPackageService extends DocumentationEndpoints {
   import Endpoints.*
   lazy val packages = v2Endpoint.in(sttp.tapir.stringToPath("packages"))
   private val packageIdPath = "package-id"
@@ -132,13 +132,24 @@ object JsPackageService {
       .out(jsonBody[package_service.GetPackageStatusResponse])
       .description("Get package status")
 
+  override def documentation: Seq[AnyEndpoint] =
+    Seq(uploadDar, listPackagesEndpoint, downloadPackageEndpoint, packageStatusEndpoint)
+
 }
 
 object JsPackageCodecs {
   implicit val listPackagesResponse: Codec[package_service.ListPackagesResponse] = deriveCodec
   implicit val getPackageStatusResponse: Codec[package_service.GetPackageStatusResponse] =
     deriveCodec
+
   implicit val uploadDarFileResponseRW: Codec[package_management_service.UploadDarFileResponse] =
     deriveCodec
   implicit val packageStatus: Codec[package_service.PackageStatus] = deriveCodec
+
+  // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
+  implicit val packageStatusRecognizedSchema: Schema[package_service.PackageStatus.Recognized] =
+    Schema.oneOfWrapped
+
+  implicit val packageStatusSchema: Schema[package_service.PackageStatus] = Schema.oneOfWrapped
+
 }

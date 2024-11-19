@@ -35,7 +35,6 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.{CommittedTransaction, VersionedTransaction}
@@ -87,7 +86,7 @@ class ParallelIndexerSubscriptionSpec
   private val somePartyAllocationRejected = state.Update.PartyAllocationRejected(
     submissionId = Ref.SubmissionId.assertFromString("abc"),
     participantId = Ref.ParticipantId.assertFromString("participant"),
-    recordTime = Timestamp.assertFromInstant(someTime),
+    recordTime = CantonTimestamp.assertFromInstant(someTime),
     rejectionReason = "reason",
   )
 
@@ -263,7 +262,6 @@ class ParallelIndexerSubscriptionSpec
         lastStringInterningId = 0,
         lastPublicationTime = CantonTimestamp.MinValue,
       ),
-      lastRecordTime = someTime.plusMillis(2).toEpochMilli,
       lastTraceContext = TraceContext.empty,
       batch = Vector(
         someParty,
@@ -299,7 +297,6 @@ class ParallelIndexerSubscriptionSpec
       commandId = Ref.CommandId.assertFromString("c0"),
       optDeduplicationPeriod = None,
       submissionId = None,
-      messageUuid = None,
     )
     val someTransactionMeta = state.TransactionMeta(
       ledgerEffectiveTime = Time.Timestamp.assertFromLong(2),
@@ -311,22 +308,19 @@ class ParallelIndexerSubscriptionSpec
       optByKeyNodes = None,
     )
 
-    val someTransactionAccepted = state.Update.TransactionAccepted(
+    val someTransactionAccepted = state.Update.SequencedTransactionAccepted(
       completionInfoO = Some(someCompletionInfo),
       transactionMeta = someTransactionMeta,
       transaction = CommittedTransaction(
         VersionedTransaction(LanguageVersion.v2_dev, Map.empty, ImmArray.empty)
       ),
       updateId = Ref.TransactionId.assertFromString("UpdateId"),
-      recordTime = someRecordTime,
       hostedWitnesses = Nil,
       contractMetadata = Map.empty,
       domainId = DomainId.tryFromString("da::default"),
-      Some(
-        DomainIndex.of(
-          RequestIndex(RequestCounter(1), Some(SequencerCounter(1)), CantonTimestamp.now())
-        )
-      ),
+      requestCounter = RequestCounter(1),
+      sequencerCounter = SequencerCounter(1),
+      recordTime = CantonTimestamp(someRecordTime),
     )
 
     val expected: Vector[DbDto.TransactionMetering] = Vector(
@@ -368,7 +362,6 @@ class ParallelIndexerSubscriptionSpec
 
     ParallelIndexerSubscription.seqMapperZero(Some(ledgerEnd)) shouldBe Batch(
       ledgerEnd = ledgerEnd,
-      lastRecordTime = 0,
       lastTraceContext = TraceContext.empty,
       batch = Vector.empty,
       batchSize = 0,
@@ -379,7 +372,6 @@ class ParallelIndexerSubscriptionSpec
   it should "provide required Batch in case starting from scratch" in {
     ParallelIndexerSubscription.seqMapperZero(None) shouldBe Batch(
       ledgerEnd = ZeroLedgerEnd,
-      lastRecordTime = 0,
       lastTraceContext = TraceContext.empty,
       batch = Vector.empty,
       batchSize = 0,
@@ -411,7 +403,6 @@ class ParallelIndexerSubscriptionSpec
       previous = ParallelIndexerSubscription.seqMapperZero(Some(previousLedgerEnd)),
       current = Batch(
         ledgerEnd = ZeroLedgerEnd.copy(lastOffset = offset(2)),
-        lastRecordTime = someTime.toEpochMilli,
         lastTraceContext = TraceContext.empty,
         batch = Vector(
           someParty,
@@ -518,7 +509,6 @@ class ParallelIndexerSubscriptionSpec
       ParallelIndexerSubscription.seqMapperZero(Some(previousLedgerEnd)),
       Batch(
         ledgerEnd = ZeroLedgerEnd.copy(lastOffset = offset(2)),
-        lastRecordTime = someTime.toEpochMilli,
         lastTraceContext = TraceContext.empty,
         batch = Vector(
           someParty,
@@ -553,7 +543,6 @@ class ParallelIndexerSubscriptionSpec
           ParallelIndexerSubscription.seqMapperZero(Some(previousLedgerEnd)),
           Batch(
             ledgerEnd = ZeroLedgerEnd.copy(lastOffset = offset(2)),
-            lastRecordTime = someTime.toEpochMilli,
             lastTraceContext = TraceContext.empty,
             batch = Vector(
               someParty,
@@ -579,7 +568,6 @@ class ParallelIndexerSubscriptionSpec
     )(
       Batch(
         ledgerEnd = ZeroLedgerEnd.copy(lastOffset = offset(2)),
-        lastRecordTime = someTime.toEpochMilli,
         lastTraceContext = TraceContext.empty,
         batch = Vector(
           someParty,
@@ -593,7 +581,6 @@ class ParallelIndexerSubscriptionSpec
     )
     result shouldBe Batch(
       ledgerEnd = ZeroLedgerEnd.copy(lastOffset = offset(2)),
-      lastRecordTime = someTime.toEpochMilli,
       lastTraceContext = TraceContext.empty,
       batch = "bumm",
       batchSize = 3,
@@ -633,7 +620,6 @@ class ParallelIndexerSubscriptionSpec
     )
     val inBatch = Batch(
       ledgerEnd = ledgerEnd,
-      lastRecordTime = someTime.toEpochMilli,
       lastTraceContext = TraceContext.empty,
       batch = batchPayload,
       batchSize = 0,
@@ -666,7 +652,6 @@ class ParallelIndexerSubscriptionSpec
     outBatch shouldBe
       Batch(
         ledgerEnd = ledgerEnd,
-        lastRecordTime = someTime.toEpochMilli,
         lastTraceContext = TraceContext.empty,
         batch = zeroDbBatch,
         batchSize = 0,
@@ -699,7 +684,6 @@ class ParallelIndexerSubscriptionSpec
 
     val batch = Batch(
       ledgerEnd = ledgerEnd,
-      lastRecordTime = someTime.toEpochMilli,
       lastTraceContext = TraceContext.empty,
       batch = "Some batch payload",
       batchSize = 0,
@@ -849,7 +833,6 @@ class ParallelIndexerSubscriptionSpec
         lastStringInterningId = 310,
         lastPublicationTime = CantonTimestamp.ofEpochMicro(15),
       ),
-      lastRecordTime = someTime.toEpochMilli + 10,
       lastTraceContext = TraceContext.empty,
       batch = (),
       batchSize = 0,
@@ -857,13 +840,15 @@ class ParallelIndexerSubscriptionSpec
         offset(9) ->
           Update.SequencerIndexMoved(
             domainId = someDomainId,
-            sequencerIndex = someSequencerIndex1,
+            sequencerCounter = someSequencerIndex1.counter,
+            recordTime = someSequencerIndex1.timestamp,
             requestCounterO = None,
           ),
         offset(10) ->
           Update.SequencerIndexMoved(
             domainId = someDomainId2,
-            sequencerIndex = someSequencerIndex1,
+            sequencerCounter = someSequencerIndex1.counter,
+            recordTime = someSequencerIndex1.timestamp,
             requestCounterO = None,
           ),
       ),
@@ -875,7 +860,6 @@ class ParallelIndexerSubscriptionSpec
         lastStringInterningId = 320,
         lastPublicationTime = CantonTimestamp.ofEpochMicro(25),
       ),
-      lastRecordTime = someTime.toEpochMilli + 20,
       lastTraceContext = TraceContext.empty,
       batch = (),
       batchSize = 0,
@@ -883,13 +867,15 @@ class ParallelIndexerSubscriptionSpec
         offset(19) ->
           Update.SequencerIndexMoved(
             domainId = someDomainId,
-            sequencerIndex = someSequencerIndex2,
+            sequencerCounter = someSequencerIndex2.counter,
+            recordTime = someSequencerIndex2.timestamp,
             requestCounterO = None,
           ),
         offset(20) ->
           Update.SequencerIndexMoved(
             domainId = someDomainId2,
-            sequencerIndex = someSequencerIndex2,
+            sequencerCounter = someSequencerIndex2.counter,
+            recordTime = someSequencerIndex2.timestamp,
             requestCounterO = None,
           ),
       ),
@@ -1063,7 +1049,8 @@ class ParallelIndexerSubscriptionSpec
   def update: Update =
     Update.SequencerIndexMoved(
       domainId = DomainId.tryFromString("x::domain"),
-      sequencerIndex = SequencerIndex(SequencerCounter(15L), CantonTimestamp(Time.Timestamp.now())),
+      sequencerCounter = SequencerCounter(15L),
+      recordTime = CantonTimestamp.now(),
       requestCounterO = None,
     )
 }

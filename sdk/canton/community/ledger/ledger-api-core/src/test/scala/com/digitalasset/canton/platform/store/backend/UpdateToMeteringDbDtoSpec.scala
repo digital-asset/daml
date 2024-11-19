@@ -5,13 +5,12 @@ package com.digitalasset.canton.platform.store.backend
 
 import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
 import com.daml.metrics.api.{HistogramInventory, MetricName, MetricsContext}
-import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex}
 import com.digitalasset.canton.metrics.{IndexerHistograms, IndexerMetrics}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.LanguageVersion
@@ -25,8 +24,6 @@ import com.digitalasset.daml.lf.transaction.{
 }
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.wordspec.AnyWordSpec
-
-import java.time.Instant
 
 class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
 
@@ -52,16 +49,12 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
 
     val someHash = Hash.hashPrivateKey("p0")
 
-    val someRecordTime =
-      Time.Timestamp.assertFromInstant(Instant.parse("2000-01-01T00:00:00.000000Z"))
-
     val someCompletionInfo = state.CompletionInfo(
       actAs = Nil,
       applicationId = applicationId,
       commandId = Ref.CommandId.assertFromString("c0"),
       optDeduplicationPeriod = None,
       submissionId = None,
-      messageUuid = None,
     )
     val someTransactionMeta = state.TransactionMeta(
       ledgerEffectiveTime = Time.Timestamp.assertFromLong(2),
@@ -91,7 +84,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
       argument = Value.ValueUnit,
       byKey = false,
     )
-    val someTransactionAccepted = state.Update.TransactionAccepted(
+    val someTransactionAccepted = state.Update.SequencedTransactionAccepted(
       completionInfoO = Some(someCompletionInfo),
       transactionMeta = someTransactionMeta,
       transaction = TransactionBuilder.justCommitted(
@@ -105,12 +98,12 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
         ),
       ),
       updateId = Ref.TransactionId.assertFromString("UpdateId"),
-      recordTime = someRecordTime,
       hostedWitnesses = Nil,
       Map.empty,
       domainId = DomainId.tryFromString("da::default"),
-      domainIndex =
-        Some(DomainIndex.of(RequestIndex(RequestCounter(10), None, CantonTimestamp.now()))),
+      RequestCounter(10),
+      SequencerCounter(10),
+      CantonTimestamp.now(),
     )
 
     "extract transaction metering" in {

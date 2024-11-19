@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.domain.sequencing.traffic
 
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficConfig
 import com.digitalasset.canton.domain.sequencing.traffic.store.memory.{
@@ -15,7 +14,6 @@ import com.digitalasset.canton.domain.sequencing.traffic.store.{
   TrafficPurchasedStore,
 }
 import com.digitalasset.canton.sequencing.traffic.EventCostCalculator
-import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.{DefaultTestIdentities, TestingTopology}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 
@@ -25,7 +23,6 @@ trait RateLimitManagerTesting { this: BaseTest with HasExecutionContext =>
   lazy val sequencerTrafficConfig = SequencerTrafficConfig()
   def mkTrafficPurchasedManager(store: TrafficPurchasedStore) = new TrafficPurchasedManager(
     store,
-    new SimClock(CantonTimestamp.Epoch, loggerFactory),
     sequencerTrafficConfig,
     futureSupervisor,
     SequencerMetrics.noop("sequencer-rate-limit-manager-test"),

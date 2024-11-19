@@ -7,7 +7,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.participant.state.Update
+import com.digitalasset.canton.ledger.participant.state.{ParticipantUpdate, Update}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.sync.ParticipantEventPublisher
 import com.digitalasset.canton.time.SimClock
@@ -92,7 +92,9 @@ final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
         )
       )
 
-    when(eventPublisher.publishEventDelayableByRepairOperation(any[Update])(anyTraceContext))
+    when(
+      eventPublisher.publishEventDelayableByRepairOperation(any[ParticipantUpdate])(anyTraceContext)
+    )
       .thenAnswer { (update: Update) =>
         observedEvents += update
         FutureUnlessShutdown.unit
