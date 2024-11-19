@@ -37,13 +37,15 @@ canton_scalacopts = ["-Xsource:3"]
 #  once it is exposed in some file.
 genrule(
     name = "community_buildinfo_src",
+    srcs = ["VERSION"],
     outs = ["BuildInfo.scala"],
     cmd = """
+version=$$(< $(location VERSION))
 cat << EOF > $@
 package com.digitalasset.canton.buildinfo
 
 case object BuildInfo {{
-  val version: String = "3.0.0-SNAPSHOT"
+  val version: String = "$$version"
   val scalaVersion: String = "{scala_version}"
   val sbtVersion: String = "bazel"
   val damlLibrariesVersion: String = "{sdk_version}"
@@ -1039,7 +1041,7 @@ genrule(
     srcs = glob(["community/participant/src/main/daml/**/*"]) + [
         "//daml-script/daml3:daml3-script-2.1.dar",
     ],
-    outs = ["AdminWorkflows.dar"],
+    outs = ["community_participant_resources/AdminWorkflows.dar"],
     cmd = """
             set -euo pipefail
             project_dir=$$(dirname $(location community/participant/src/main/daml/daml.yaml))
@@ -1064,7 +1066,7 @@ dar_to_java(
 copy_file(
     name = "ledger-api-version-file",
     src = ":api-version-files",
-    out = "VERSION",
+    out = "community_participant_resources/VERSION",
 )
 
 scala_library(
@@ -1073,7 +1075,7 @@ scala_library(
         ":community_participant_proto_scala",
     ],
     plugins = [kind_projector_plugin],
-    resource_strip_prefix = "canton",
+    resource_strip_prefix = "canton/community_participant_resources",
     resources = [
         ":community_participant_admin-workflows_dar",
         ":ledger-api-version-file",
