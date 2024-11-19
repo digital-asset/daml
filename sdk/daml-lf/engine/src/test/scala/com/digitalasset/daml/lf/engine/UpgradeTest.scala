@@ -997,7 +997,9 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         case _ => Map(clientContractId -> clientContract)
       }
       val lookupContractByKey = contractOrigin match {
-        case Global => Map(globalContractKey -> globalContractId)
+        case Global =>
+          val keyMap = Map(globalContractKey.globalKey -> globalContractId)
+          ((kwm: GlobalKeyWithMaintainers) => keyMap.get(kwm.globalKey)).unlift
         case _ => PartialFunction.empty
       }
 
