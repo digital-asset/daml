@@ -85,6 +85,7 @@ object Blinding {
     )
   }
 
+  // TODO(#21671): Remove once the Canton implementation uses partyPackageRequirements
   private[engine] def partyPackages(
       tx: VersionedTransaction,
       disclosure: Relation[NodeId, Party],
@@ -156,22 +157,24 @@ object Blinding {
       contractPartyPackageRequirements(contractPackages, contractVisibility)
   }.groupMapReduce(_._1)(_._2)(_ |+| _).view.mapValues(_.normalized).toMap
 
-  // These are the package needed for reinterpretation
+  // These are the packages needed for reinterpretation
   private[engine] def disclosedPartyPackageRequirements(
       tx: VersionedTransaction,
       disclosure: Relation[NodeId, Party],
   ): View[(Party, PackageRequirements)] =
     disclosure.view.flatMap { case (nodeId, parties) =>
-      def vetted(tyCon: Ref.TypeConName) =
+      def vettedRequirement(tyCon: Ref.TypeConName) =
         parties.view.map(_ -> PackageRequirements.vetted(tyCon.packageId))
 
       tx.nodes(nodeId) match {
         case fetch: Node.Fetch =>
-          vetted(fetch.templateId) ++ fetch.interfaceId.toList.view.flatMap(vetted)
+          vettedRequirement(fetch.templateId) ++ fetch.interfaceId.toList.view
+            .flatMap(vettedRequirement)
         case action: Node.LeafOnlyAction =>
-          vetted(action.templateId)
+          vettedRequirement(action.templateId)
         case exe: Node.Exercise =>
-          vetted(exe.templateId) ++ exe.interfaceId.toList.view.flatMap(vetted)
+          vettedRequirement(exe.templateId) ++ exe.interfaceId.toList.view
+            .flatMap(vettedRequirement)
         case _: Node.Rollback =>
           Iterable.empty
       }
@@ -191,7 +194,7 @@ object Blinding {
     *
     * This needs to include:
     * - packages used by the Engine for evaluating transaction nodes at reinterpretation time
-    * - originating contract packages needed for contract model conformance checking.
+    * - originating contract packages needed for contract create consistency checking.
     *
     * @param tx               transaction whose packages are required
     * @param contractPackages the contracts used by the transaction together with their creating packages
