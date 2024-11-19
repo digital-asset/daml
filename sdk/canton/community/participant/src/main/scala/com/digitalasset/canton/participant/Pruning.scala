@@ -45,6 +45,7 @@ object Pruning {
       show"Unsafe to prune offset ${UpstreamOffsetConvert.fromGlobalOffset(globalOffset)} due to the event for $domainId with record time $recordTime"
   }
 
+  // TODO(#21220) remove when GlobalOffset is removed
   final case class LedgerPruningOffsetNonCantonFormat(message: String) extends LedgerPruningError
 
   final case class LedgerPruningNotPossibleDuringHardMigration(

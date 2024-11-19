@@ -115,9 +115,9 @@ trait ParameterStorageBackend {
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
-  def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(connection: Connection): Unit
+  def updatePrunedUptoInclusive(prunedUpToInclusive: AbsoluteOffset)(connection: Connection): Unit
 
-  def prunedUpToInclusive(connection: Connection): Option[Offset]
+  def prunedUpToInclusive(connection: Connection): Option[AbsoluteOffset]
 
   def prunedUpToInclusiveAndLedgerEnd(connection: Connection): PruneUptoInclusiveAndLedgerEnd
 
@@ -227,7 +227,7 @@ trait CompletionStorageBackend {
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
   def pruneCompletions(
-      pruneUpToInclusive: Offset
+      pruneUpToInclusive: AbsoluteOffset
   )(connection: Connection, traceContext: TraceContext): Unit
 }
 
@@ -276,9 +276,9 @@ trait EventStorageBackend {
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
   def pruneEvents(
-      pruneUpToInclusive: Offset,
+      pruneUpToInclusive: AbsoluteOffset,
       pruneAllDivulgedContracts: Boolean,
-      incompletReassignmentOffsets: Vector[Offset],
+      incompletReassignmentOffsets: Vector[AbsoluteOffset],
   )(implicit
       connection: Connection,
       traceContext: TraceContext,

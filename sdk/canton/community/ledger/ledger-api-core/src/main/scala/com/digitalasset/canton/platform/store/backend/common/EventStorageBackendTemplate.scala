@@ -870,6 +870,7 @@ abstract class EventStorageBackendTemplate(
     with NamedLogging {
   import EventStorageBackendTemplate.*
   import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
+  import com.digitalasset.canton.platform.store.backend.Conversions.AbsoluteOffsetToStatement
 
   override def transactionPointwiseQueries: TransactionPointwiseQueries =
     new TransactionPointwiseQueries(
@@ -900,9 +901,9 @@ abstract class EventStorageBackendTemplate(
     * 10. transaction meta entries for which there exists at least one create event.
     */
   override def pruneEvents(
-      pruneUpToInclusive: Offset,
+      pruneUpToInclusive: AbsoluteOffset,
       pruneAllDivulgedContracts: Boolean,
-      incompletReassignmentOffsets: Vector[Offset],
+      incompletReassignmentOffsets: Vector[AbsoluteOffset],
   )(implicit connection: Connection, traceContext: TraceContext): Unit = {
     val _ =
       SQL"""
@@ -1029,7 +1030,7 @@ abstract class EventStorageBackendTemplate(
     }
   }
 
-  private def pruneIdFilterTables(pruneUpToInclusive: Offset)(implicit
+  private def pruneIdFilterTables(pruneUpToInclusive: AbsoluteOffset)(implicit
       connection: Connection,
       traceContext: TraceContext,
   ): Unit = {
@@ -1136,7 +1137,7 @@ abstract class EventStorageBackendTemplate(
 
   private def createIsArchivedOrUnassigned(
       createEventTableName: String,
-      pruneUpToInclusive: Offset,
+      pruneUpToInclusive: AbsoluteOffset,
   ): CompositeSql =
     cSQL"""
           ${eventIsArchivedOrUnassigned(createEventTableName, pruneUpToInclusive, "domain_id")}
@@ -1149,7 +1150,7 @@ abstract class EventStorageBackendTemplate(
 
   private def assignIsArchivedOrUnassigned(
       assignEventTableName: String,
-      pruneUpToInclusive: Offset,
+      pruneUpToInclusive: AbsoluteOffset,
   ): CompositeSql =
     cSQL"""
       ${eventIsArchivedOrUnassigned(assignEventTableName, pruneUpToInclusive, "target_domain_id")}
@@ -1162,7 +1163,7 @@ abstract class EventStorageBackendTemplate(
 
   private def eventIsArchivedOrUnassigned(
       eventTableName: String,
-      pruneUpToInclusive: Offset,
+      pruneUpToInclusive: AbsoluteOffset,
       eventDomainName: String,
   ): CompositeSql =
     cSQL"""
@@ -1230,7 +1231,7 @@ abstract class EventStorageBackendTemplate(
   private def activationIsNotDirectlyFollowedByIncompleteUnassign(
       activationTableName: String,
       activationDomainColumnName: String,
-      pruneUpToInclusive: Offset,
+      pruneUpToInclusive: AbsoluteOffset,
   ): CompositeSql =
     cSQL"""
           not exists (

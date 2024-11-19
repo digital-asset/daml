@@ -55,6 +55,9 @@ object UpstreamOffsetConvert {
     }
   }
 
+  def toGlobalOffset(offset: AbsoluteOffset): Either[String, GlobalOffset] =
+    GlobalOffset.fromLong(offset.unwrap)
+
   def tryToLedgerSyncOffset(offset: Long): Offset =
     Offset.fromLong(offset)
 

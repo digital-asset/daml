@@ -20,11 +20,12 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.network.data.memory.SimulationP2pEndpointsStore
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.OutputModule.RequestInspector
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.memory.SimulationOutputBlockMetadataStore
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.SimulationBlockSubscription
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.BlockNumber
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.OrderingRequest
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.snapshot.{
-  FirstKnownAt,
+  PeerActiveAt,
   SequencerSnapshotAdditionalInfo,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.simulation.*
@@ -35,8 +36,8 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.simulation.bftordering.{
   BftOrderingVerifier,
-  FirstKnownAtProvider,
   IssClient,
+  PeerActiveAtProvider,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.simulation.topology.{
   SimulationOrderingTopologyProvider,
@@ -46,7 +47,6 @@ import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.SequencerId
-import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 import org.scalatest.flatspec.AnyFlatSpec
@@ -105,7 +105,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
       val onboardedPeerEndpoints = allPeerEndpoints.drop(numberOfInitialPeers())
       val peerEndpointsToOnboardingTimes =
         (onboardedPeerEndpoints.zip(simSettings.peerOnboardingTimes) ++
-          initialPeerEndpoints.map(_ -> Genesis.GenesisTopologySnapshotEffectiveTime)).toMap
+          initialPeerEndpoints.map(_ -> Genesis.GenesisTopologyActivationTime)).toMap
 
       val peerEndpointsToOnBoardingInformation =
         SimulationTopologyHelpers.generateSimulationOnboardingInformation(
@@ -150,12 +150,13 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
 
           val (genesisOrderingTopology, genesisCryptoProvider) =
             SimulationTopologyHelpers.resolveOrderingTopology(
-              orderingTopologyProvider.getOrderingTopologyAt(EffectiveTime(simulationStartTime))
+              orderingTopologyProvider.getOrderingTopologyAt(
+                TopologyActivationTime(simulationStartTime)
+              )
             )
 
           SimulationInitializer(
-            (maybeFirstKnownAt: Option[FirstKnownAt]) => {
-
+            (maybePeerActiveAt: Option[PeerActiveAt]) => {
               val sequencerSnapshotAdditionalInfo =
                 if (genesisOrderingTopology.contains(thisPeer))
                   None
@@ -163,8 +164,8 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
                   // Non-simulated snapshots contain information about other peers as well.
                   //  We skip it here for simplicity. Fully reflecting the non-simulated logic would be pointless,
                   //  as it would still be totally different code.
-                  maybeFirstKnownAt.map(firstKnownAt =>
-                    SequencerSnapshotAdditionalInfo(Map(thisPeer -> firstKnownAt))
+                  maybePeerActiveAt.map(peerActiveAt =>
+                    SequencerSnapshotAdditionalInfo(Map(thisPeer -> peerActiveAt))
                   )
                 }
               logger.info(
@@ -176,14 +177,11 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
                   (genesisOrderingTopology, genesisCryptoProvider)
                 else {
                   // We keep the onboarding topology after state transfer. See the Output module for details.
-                  maybeFirstKnownAt
+                  maybePeerActiveAt
                     .flatMap(_.timestamp)
                     .map(onboardingTime =>
                       SimulationTopologyHelpers.resolveOrderingTopology(
-                        // `immediateSuccessor` because topology snapshots are timestamp-exclusive.
-                        orderingTopologyProvider.getOrderingTopologyAt(
-                          onboardingTime.immediateSuccessor()
-                        )
+                        orderingTopologyProvider.getOrderingTopologyAt(onboardingTime)
                       )
                     )
                     .getOrElse((genesisOrderingTopology, genesisCryptoProvider))
@@ -233,7 +231,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
       val simulation =
         SimulationModuleSystem(
           topologyInitializers,
-          new FirstKnownAtProvider(peersWithOnboardingTimes, stores),
+          new PeerActiveAtProvider(peersWithOnboardingTimes, stores),
           simSettings,
           clock,
           timeouts,
@@ -299,14 +297,16 @@ class BftOrderingSimulationTest2NodesWithOnboardingNoFaults extends BftOrderingS
       durationOfSecondPhaseWithoutFaults,
       peerOnboardingTimes = LazyList
         .iterate(
-          generatePeerOnboardingTime(EffectiveTime(simulationStartTime)),
+          generatePeerOnboardingTime(TopologyActivationTime(simulationStartTime)),
           numberOfRandomlyOnboardedPeers,
         )(
           generatePeerOnboardingTime
         ),
     )
 
-  private def generatePeerOnboardingTime(initialTime: EffectiveTime): EffectiveTime = {
+  private def generatePeerOnboardingTime(
+      initialTime: TopologyActivationTime
+  ): TopologyActivationTime = {
     val initialTimeEpochMilli = initialTime.value.toEpochMilli
     val simulationEndTimeEpochMilli = simulationStartTime
       .plus(durationOfFirstPhaseWithFaults.toJava)
@@ -316,7 +316,7 @@ class BftOrderingSimulationTest2NodesWithOnboardingNoFaults extends BftOrderingS
       initialTimeEpochMilli + randomSourceToCreateSettings.nextLong(
         simulationEndTimeEpochMilli - initialTimeEpochMilli
       )
-    EffectiveTime(CantonTimestamp.ofEpochMilli(onboardingTimeEpochMilli))
+    TopologyActivationTime(CantonTimestamp.ofEpochMilli(onboardingTimeEpochMilli))
   }
 }
 

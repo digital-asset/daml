@@ -198,7 +198,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     ): Option[ParameterStorageBackend.IdentityParams] =
       throw new UnsupportedOperationException
 
-    override def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(
+    override def updatePrunedUptoInclusive(prunedUpToInclusive: AbsoluteOffset)(
         connection: Connection
     ): Unit =
       throw new UnsupportedOperationException
@@ -208,7 +208,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     ): Unit =
       throw new UnsupportedOperationException
 
-    override def prunedUpToInclusive(connection: Connection): Option[Offset] =
+    override def prunedUpToInclusive(connection: Connection): Option[AbsoluteOffset] =
       throw new UnsupportedOperationException
 
     override def participantAllDivulgedContractsPrunedUpToInclusive(

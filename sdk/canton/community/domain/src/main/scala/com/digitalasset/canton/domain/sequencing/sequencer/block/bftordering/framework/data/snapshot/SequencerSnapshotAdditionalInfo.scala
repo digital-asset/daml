@@ -5,6 +5,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fr
 
 import cats.syntax.traverse.*
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
   EpochNumber,
@@ -13,24 +14,23 @@ import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.SequencerId
-import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.google.protobuf.ByteString
 
 final case class SequencerSnapshotAdditionalInfo(
-    peerFirstKnownAt: Map[SequencerId, FirstKnownAt]
+    peerActiveAt: Map[SequencerId, PeerActiveAt]
 ) {
 
   def toProto: v30.BftSequencerSnapshotAdditionalInfo = {
-    val peerFirstKnownAtEpochNumbersProto = peerFirstKnownAt.view.map { case (peer, firstKnownAt) =>
+    val peerActiveAtEpochNumbersProto = peerActiveAt.view.map { case (peer, activeAt) =>
       peer.toProtoPrimitive ->
-        v30.BftSequencerSnapshotAdditionalInfo.FirstKnownAt.of(
-          firstKnownAt.timestamp.map(_.value.toMicros),
-          firstKnownAt.epochNumber,
-          firstKnownAt.firstBlockNumberInEpoch,
-          firstKnownAt.previousBftTime.map(_.toMicros),
+        v30.BftSequencerSnapshotAdditionalInfo.PeerActiveAt.of(
+          activeAt.timestamp.map(_.value.toMicros),
+          activeAt.epochNumber,
+          activeAt.firstBlockNumberInEpoch,
+          activeAt.previousBftTime.map(_.toMicros),
         )
     }.toMap
-    v30.BftSequencerSnapshotAdditionalInfo.of(peerFirstKnownAtEpochNumbersProto)
+    v30.BftSequencerSnapshotAdditionalInfo.of(peerActiveAtEpochNumbersProto)
   }
 }
 
@@ -43,13 +43,16 @@ object SequencerSnapshotAdditionalInfo {
       proto <- ProtoConverter.protoParser(v30.BftSequencerSnapshotAdditionalInfo.parseFrom)(
         byteString
       )
-      peerFirstKnownAtEpochNumbers <- proto.sequencersFirstKnownAt.view
+      peerFirstKnownAtEpochNumbers <- proto.peersActiveAt.view
         .map { case (sequencerUidProto, firstKnownAtProto) =>
           for {
             sequencerId <- SequencerId.fromProtoPrimitive(sequencerUidProto, "sequencerUid")
             timestamp <- firstKnownAtProto.timestamp
               .map(timestamp =>
-                CantonTimestamp.fromProtoPrimitive(timestamp).map(EffectiveTime(_)).map(Some(_))
+                CantonTimestamp
+                  .fromProtoPrimitive(timestamp)
+                  .map(TopologyActivationTime(_))
+                  .map(Some(_))
               )
               .getOrElse(Right(None))
             epochNumber = firstKnownAtProto.epochNumber.map(EpochNumber(_))
@@ -57,7 +60,7 @@ object SequencerSnapshotAdditionalInfo {
             previousBftTime <- firstKnownAtProto.previousBftTime
               .map(time => CantonTimestamp.fromProtoPrimitive(time).map(Some(_)))
               .getOrElse(Right(None))
-          } yield sequencerId -> FirstKnownAt(
+          } yield sequencerId -> PeerActiveAt(
             timestamp,
             epochNumber,
             firstBlockNumberInEpoch,
@@ -69,8 +72,8 @@ object SequencerSnapshotAdditionalInfo {
     } yield SequencerSnapshotAdditionalInfo(peerFirstKnownAtEpochNumbers.toMap)
 }
 
-final case class FirstKnownAt(
-    timestamp: Option[EffectiveTime],
+final case class PeerActiveAt(
+    timestamp: Option[TopologyActivationTime],
     epochNumber: Option[EpochNumber],
     firstBlockNumberInEpoch: Option[BlockNumber],
     previousBftTime: Option[CantonTimestamp],

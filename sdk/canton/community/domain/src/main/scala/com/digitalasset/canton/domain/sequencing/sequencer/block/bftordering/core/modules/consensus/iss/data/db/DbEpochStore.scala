@@ -22,6 +22,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
   Genesis,
   OrderedBlocksReader,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
   EpochLength,
@@ -53,7 +54,6 @@ import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.SequencerId
-import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf.ByteString
 import slick.dbio.DBIOAction
@@ -80,7 +80,7 @@ class DbEpochStore(
       EpochNumber(r.nextLong()),
       BlockNumber(r.nextLong()),
       EpochLength(r.nextLong()),
-      EffectiveTime(CantonTimestamp.assertFromLong(r.nextLong())),
+      TopologyActivationTime(CantonTimestamp.assertFromLong(r.nextLong())),
     )
   }
 
@@ -139,7 +139,7 @@ class DbEpochStore(
         profile match {
           case _: Postgres =>
             sqlu"""insert into ord_epochs(epoch_number, start_block_number, epoch_length, topology_ts, in_progress)
-                   values (${epoch.number}, ${epoch.startBlockNumber}, ${epoch.length}, ${epoch.topologySnapshotEffectiveTime.value}, true)
+                   values (${epoch.number}, ${epoch.startBlockNumber}, ${epoch.length}, ${epoch.topologyActivationTime.value}, true)
                    on conflict (epoch_number, start_block_number, epoch_length, topology_ts, in_progress) do nothing
                 """
           case _: H2 =>
@@ -148,12 +148,12 @@ class DbEpochStore(
                      ord_epochs.epoch_number = ${epoch.number}
                      and ord_epochs.start_block_number = ${epoch.startBlockNumber}
                      and ord_epochs.epoch_length = ${epoch.length}
-                     and ord_epochs.topology_ts = ${epoch.topologySnapshotEffectiveTime.value}
+                     and ord_epochs.topology_ts = ${epoch.topologyActivationTime.value}
                      and ord_epochs.in_progress = true
                    )
                    when not matched then
                      insert (epoch_number, start_block_number, epoch_length, topology_ts, in_progress)
-                     values (${epoch.number}, ${epoch.startBlockNumber}, ${epoch.length}, ${epoch.topologySnapshotEffectiveTime.value}, true)
+                     values (${epoch.number}, ${epoch.startBlockNumber}, ${epoch.length}, ${epoch.topologyActivationTime.value}, true)
                 """
           case _ => raiseSupportedDbError
         },

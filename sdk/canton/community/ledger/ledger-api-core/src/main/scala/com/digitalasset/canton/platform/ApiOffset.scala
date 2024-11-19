@@ -38,12 +38,4 @@ object ApiOffset {
   // TODO(#18685) remove converter as it should be unused
   def fromLong(l: Long): String =
     Offset.fromLong(l).toHexString
-
-  def toApiType(offset: Offset): Long =
-    offset.toLong
-
-  implicit class ApiOffsetConverter(val offset: Offset) {
-    def toApiType: Long = ApiOffset.toApiType(offset)
-  }
-
 }

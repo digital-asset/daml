@@ -385,7 +385,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
       val clock = new SimClock(loggerFactory = loggerFactory)
 
       val peerEndpointsToOnboardingTimes = peerEndpoints.map { endpoint =>
-        endpoint -> Genesis.GenesisTopologySnapshotEffectiveTime
+        endpoint -> Genesis.GenesisTopologyActivationTime
       }.toMap
 
       val peerEndpointsSimulationOnboardingInformation =
@@ -405,10 +405,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
             loggerFactory,
           )
         val (_, cryptoProvider) = SimulationTopologyHelpers.resolveOrderingTopology(
-          orderingTopologyProvider.getOrderingTopologyAt(
-            // `immediateSuccessor` because topology is timestamp-exclusive.
-            Genesis.GenesisTopologySnapshotEffectiveTime.immediateSuccessor()
-          )
+          orderingTopologyProvider.getOrderingTopologyAt(Genesis.GenesisTopologyActivationTime)
         )
 
         peerEndpoint -> SimulationInitializer.noClient[

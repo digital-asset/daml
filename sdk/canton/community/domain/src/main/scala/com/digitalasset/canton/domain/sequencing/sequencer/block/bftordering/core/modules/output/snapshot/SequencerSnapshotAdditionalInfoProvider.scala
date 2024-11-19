@@ -5,9 +5,10 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.co
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.OutputBlockMetadataStore
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.snapshot.{
-  FirstKnownAt,
+  PeerActiveAt,
   SequencerSnapshotAdditionalInfo,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.topology.OrderingTopology
@@ -37,14 +38,20 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
       requester: ModuleRef[SequencerNode.SnapshotMessage],
   )(implicit actorContext: E#ActorContextT[Output.Message[E]], traceContext: TraceContext): Unit = {
     // TODO(#19661): Consider returning an error if the `snapshotTimestamp` is too high, i.e., above the safe watermark.
-    val peerFirstKnownAtTimestamps =
-      orderingTopology.peersFirstKnownAt.view.filter(_._2.value <= snapshotTimestamp).toSeq
-    val firstKnownAtBlockFutures = peerFirstKnownAtTimestamps.map { case (_, timestamp) =>
+    val peerActiveAtTimestamps =
+      orderingTopology.peersActiveAt.view.filter { case (_, activeAt) =>
+        // Take into account all peers that become active up to the latest activation time, which corresponds to
+        //  the snapshot time.
+        activeAt.value <= TopologyActivationTime
+          .fromEffectiveTime(EffectiveTime(snapshotTimestamp))
+          .value
+      }.toSeq
+    val activeAtBlockFutures = peerActiveAtTimestamps.map { case (_, timestamp) =>
       store.getLatestAtOrBefore(timestamp.value)
     }
-    val firstKnownAtBlocksF = actorContext.sequenceFuture(firstKnownAtBlockFutures)
+    val activeAtBlocksF = actorContext.sequenceFuture(activeAtBlockFutures)
 
-    actorContext.pipeToSelf(firstKnownAtBlocksF) {
+    actorContext.pipeToSelf(activeAtBlocksF) {
       case Failure(exception) =>
         val errorMessage = s"Failed to retrieve block metadata for a snapshot at $snapshotTimestamp"
         logger.error(errorMessage, exception)
@@ -52,7 +59,7 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
       case Success(blocks) =>
         logger.info(s"Retrieved blocks $blocks for sequencer snapshot at $snapshotTimestamp")
         val epochNumbers = blocks.map(_.map(_.epochNumber))
-        provideWithEpochBasedInfo(epochNumbers, peerFirstKnownAtTimestamps, requester)
+        provideWithEpochBasedInfo(epochNumbers, peerActiveAtTimestamps, requester)
         // We chain several `pipeToSelf` for simplicity, rather than continue via messages to the Output module.
         //  Based on Pekko documentation it's ok, as `pipeToSelf` can be called from other threads than the ordinary
         //  actor message processing thread.
@@ -62,7 +69,7 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
 
   private def provideWithEpochBasedInfo(
       epochNumbers: Seq[Option[EpochNumber]],
-      peerFirstKnownAtTimestamps: Seq[(SequencerId, EffectiveTime)],
+      peerActiveAtTimestamps: Seq[(SequencerId, TopologyActivationTime)],
       requester: ModuleRef[SequencerNode.SnapshotMessage],
   )(implicit actorContext: E#ActorContextT[Output.Message[E]], traceContext: TraceContext): Unit = {
     val firstBlockFutures = epochNumbers.map(maybeEpochNumber =>
@@ -92,12 +99,12 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
         Some(Output.SequencerSnapshotMessage.AdditionalInfoRetrievalError(requester, errorMessage))
       case Success(firstBlocksInEpochs -> lastBlocksInPreviousEpochs) =>
         val previousBftTimes = lastBlocksInPreviousEpochs.map(_.map(_.blockBftTime))
-        val peersFirstKnownAt = peerFirstKnownAtTimestamps
+        val peerIdsToActiveAt = peerActiveAtTimestamps
           .lazyZip(firstBlocksInEpochs)
           .lazyZip(previousBftTimes)
           .toList
           .map { case ((peerId, timestamp), blockMetadata, previousBftTime) =>
-            peerId -> FirstKnownAt(
+            peerId -> PeerActiveAt(
               Some(timestamp),
               blockMetadata.map(_.epochNumber),
               firstBlockNumberInEpoch = blockMetadata.map(_.blockNumber),
@@ -105,12 +112,12 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
             )
           }
           .toMap
-        logger.info(s"Providing peers for sequencer snapshot: $peersFirstKnownAt")
+        logger.info(s"Providing peers for sequencer snapshot: $peerIdsToActiveAt")
         Some(
           Output.SequencerSnapshotMessage
             .AdditionalInfo(
               requester,
-              SequencerSnapshotAdditionalInfo(peersFirstKnownAt),
+              SequencerSnapshotAdditionalInfo(peerIdsToActiveAt),
             )
         )
     }

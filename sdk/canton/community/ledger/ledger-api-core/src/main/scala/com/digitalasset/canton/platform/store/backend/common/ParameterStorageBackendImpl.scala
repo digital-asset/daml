@@ -11,7 +11,7 @@ import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex, SequencerIndex}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.platform.indexer.parallel.ParallelIndexerSubscription
-import com.digitalasset.canton.platform.store.backend.Conversions.offset
+import com.digitalasset.canton.platform.store.backend.Conversions.{absoluteOffset, offset}
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.backend.{Conversions, ParameterStorageBackend}
 import com.digitalasset.canton.platform.store.interning.StringInterning
@@ -29,6 +29,7 @@ private[backend] class ParameterStorageBackendImpl(
     stringInterning: StringInterning,
 ) extends ParameterStorageBackend {
   import Conversions.OffsetToStatement
+  import Conversions.AbsoluteOffsetToStatement
 
   override def updateLedgerEnd(
       ledgerEnd: ParameterStorageBackend.LedgerEnd,
@@ -197,7 +198,7 @@ private[backend] class ParameterStorageBackendImpl(
     SQL"select #$ParticipantIdColumnName from #$TableName"
       .as(LedgerIdentityParser.singleOpt)(connection)
 
-  def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(connection: Connection): Unit =
+  def updatePrunedUptoInclusive(prunedUpToInclusive: AbsoluteOffset)(connection: Connection): Unit =
     discard(
       SQL"""
         update lapi_parameters set participant_pruned_up_to_inclusive=$prunedUpToInclusive
@@ -220,9 +221,9 @@ private[backend] class ParameterStorageBackendImpl(
   private val SqlSelectMostRecentPruning =
     SQL"select participant_pruned_up_to_inclusive from lapi_parameters"
 
-  def prunedUpToInclusive(connection: Connection): Option[Offset] =
+  def prunedUpToInclusive(connection: Connection): Option[AbsoluteOffset] =
     SqlSelectMostRecentPruning
-      .as(offset("participant_pruned_up_to_inclusive").?.single)(connection)
+      .as(absoluteOffset("participant_pruned_up_to_inclusive").?.single)(connection)
 
   private val SqlSelectMostRecentPruningAllDivulgedContracts =
     SQL"select participant_all_divulged_contracts_pruned_up_to_inclusive from lapi_parameters"

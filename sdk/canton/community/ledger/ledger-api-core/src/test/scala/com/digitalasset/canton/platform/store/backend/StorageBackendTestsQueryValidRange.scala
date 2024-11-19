@@ -8,7 +8,6 @@ import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, SuppressionRule}
 import com.digitalasset.canton.platform.store.backend.StorageBackendTestValues.{
   absoluteOffset,
-  offset,
   someIdentityParams,
 }
 import com.digitalasset.canton.platform.store.dao.events.QueryValidRangeImpl
@@ -28,7 +27,7 @@ private[backend] trait StorageBackendTestsQueryValidRange extends Matchers with 
 
   it should "allow valid range if no pruning and before ledger end" in {
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(updateLedgerEnd(offset(10), 10L))
+    executeSql(updateLedgerEnd(absoluteOffset(10), 10L))
     executeSql(implicit connection =>
       QueryValidRangeImpl(backend.parameter, this.loggerFactory).withRangeNotPruned(
         minOffsetInclusive = absoluteOffset(3),
@@ -41,7 +40,7 @@ private[backend] trait StorageBackendTestsQueryValidRange extends Matchers with 
 
   it should "allow valid range if no pruning and before ledger end and start from ledger begin" in {
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(updateLedgerEnd(offset(10), 10L))
+    executeSql(updateLedgerEnd(absoluteOffset(10), 10L))
     executeSql(implicit connection =>
       QueryValidRangeImpl(backend.parameter, this.loggerFactory).withRangeNotPruned(
         minOffsetInclusive = AbsoluteOffset.firstOffset,
@@ -54,8 +53,8 @@ private[backend] trait StorageBackendTestsQueryValidRange extends Matchers with 
 
   it should "allow valid range after pruning and before ledger end" in {
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(updateLedgerEnd(offset(10), 10L))
-    executeSql(backend.parameter.updatePrunedUptoInclusive(offset(3)))
+    executeSql(updateLedgerEnd(absoluteOffset(10), 10L))
+    executeSql(backend.parameter.updatePrunedUptoInclusive(absoluteOffset(3)))
     executeSql(implicit connection =>
       QueryValidRangeImpl(backend.parameter, this.loggerFactory).withRangeNotPruned(
         minOffsetInclusive = absoluteOffset(6),
@@ -68,8 +67,8 @@ private[backend] trait StorageBackendTestsQueryValidRange extends Matchers with 
 
   it should "allow valid range boundary case" in {
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(updateLedgerEnd(offset(10), 10L))
-    executeSql(backend.parameter.updatePrunedUptoInclusive(offset(3)))
+    executeSql(updateLedgerEnd(absoluteOffset(10), 10L))
+    executeSql(backend.parameter.updatePrunedUptoInclusive(absoluteOffset(3)))
     executeSql(implicit connection =>
       QueryValidRangeImpl(backend.parameter, this.loggerFactory).withRangeNotPruned(
         minOffsetInclusive = absoluteOffset(4),
@@ -82,8 +81,8 @@ private[backend] trait StorageBackendTestsQueryValidRange extends Matchers with 
 
   it should "deny in-valid range: earlier than pruning" in {
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(updateLedgerEnd(offset(10), 10L))
-    executeSql(backend.parameter.updatePrunedUptoInclusive(offset(3)))
+    executeSql(updateLedgerEnd(absoluteOffset(10), 10L))
+    executeSql(backend.parameter.updatePrunedUptoInclusive(absoluteOffset(3)))
     loggerFactory.assertThrowsAndLogsSuppressing[StatusRuntimeException](
       SuppressionRule.Level(Level.INFO)
     )(
@@ -103,8 +102,8 @@ private[backend] trait StorageBackendTestsQueryValidRange extends Matchers with 
 
   it should "deny in-valid range: later than ledger end when ledger is not empty" in {
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(updateLedgerEnd(offset(10), 10L))
-    executeSql(backend.parameter.updatePrunedUptoInclusive(offset(3)))
+    executeSql(updateLedgerEnd(absoluteOffset(10), 10L))
+    executeSql(backend.parameter.updatePrunedUptoInclusive(absoluteOffset(3)))
     loggerFactory.assertThrowsAndLogsSuppressing[StatusRuntimeException](
       SuppressionRule.Level(Level.INFO)
     )(
@@ -152,7 +151,7 @@ private[backend] trait StorageBackendTestsQueryValidRange extends Matchers with 
         errorLedgerEnd = _ => "",
       ) {
         backend.parameter.initializeParameters(someIdentityParams, loggerFactory)(connection)
-        updateLedgerEnd(offset(10), 10L)(connection)
+        updateLedgerEnd(absoluteOffset(10), 10L)(connection)
       }
     )
   }
@@ -161,8 +160,8 @@ private[backend] trait StorageBackendTestsQueryValidRange extends Matchers with 
 
   it should "allow offset in the valid range" in {
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(updateLedgerEnd(offset(10), 10L))
-    executeSql(backend.parameter.updatePrunedUptoInclusive(offset(3)))
+    executeSql(updateLedgerEnd(absoluteOffset(10), 10L))
+    executeSql(backend.parameter.updatePrunedUptoInclusive(absoluteOffset(3)))
     executeSql(implicit connection =>
       QueryValidRangeImpl(backend.parameter, this.loggerFactory).withOffsetNotBeforePruning(
         offset = absoluteOffset(5),
@@ -174,7 +173,7 @@ private[backend] trait StorageBackendTestsQueryValidRange extends Matchers with 
 
   it should "allow offset in the valid range if no pruning before" in {
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(updateLedgerEnd(offset(10), 10L))
+    executeSql(updateLedgerEnd(absoluteOffset(10), 10L))
     executeSql(implicit connection =>
       QueryValidRangeImpl(backend.parameter, this.loggerFactory).withOffsetNotBeforePruning(
         offset = absoluteOffset(5),
@@ -186,8 +185,8 @@ private[backend] trait StorageBackendTestsQueryValidRange extends Matchers with 
 
   it should "allow offset in the valid range lower boundary" in {
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(updateLedgerEnd(offset(10), 10L))
-    executeSql(backend.parameter.updatePrunedUptoInclusive(offset(3)))
+    executeSql(updateLedgerEnd(absoluteOffset(10), 10L))
+    executeSql(backend.parameter.updatePrunedUptoInclusive(absoluteOffset(3)))
     executeSql(implicit connection =>
       QueryValidRangeImpl(backend.parameter, this.loggerFactory).withOffsetNotBeforePruning(
         offset = absoluteOffset(3),
@@ -199,8 +198,8 @@ private[backend] trait StorageBackendTestsQueryValidRange extends Matchers with 
 
   it should "allow offset in the valid range higher boundary" in {
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(updateLedgerEnd(offset(10), 10L))
-    executeSql(backend.parameter.updatePrunedUptoInclusive(offset(3)))
+    executeSql(updateLedgerEnd(absoluteOffset(10), 10L))
+    executeSql(backend.parameter.updatePrunedUptoInclusive(absoluteOffset(3)))
     executeSql(implicit connection =>
       QueryValidRangeImpl(backend.parameter, this.loggerFactory).withOffsetNotBeforePruning(
         offset = absoluteOffset(10),
@@ -212,8 +211,8 @@ private[backend] trait StorageBackendTestsQueryValidRange extends Matchers with 
 
   it should "deny in-valid range: earlier than pruning" in {
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(updateLedgerEnd(offset(10), 10L))
-    executeSql(backend.parameter.updatePrunedUptoInclusive(offset(3)))
+    executeSql(updateLedgerEnd(absoluteOffset(10), 10L))
+    executeSql(backend.parameter.updatePrunedUptoInclusive(absoluteOffset(3)))
     loggerFactory.assertThrowsAndLogsSuppressing[StatusRuntimeException](
       SuppressionRule.Level(Level.INFO)
     )(
@@ -232,8 +231,8 @@ private[backend] trait StorageBackendTestsQueryValidRange extends Matchers with 
 
   it should "deny in-valid range: later than ledger end" in {
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(updateLedgerEnd(offset(10), 10L))
-    executeSql(backend.parameter.updatePrunedUptoInclusive(offset(3)))
+    executeSql(updateLedgerEnd(absoluteOffset(10), 10L))
+    executeSql(backend.parameter.updatePrunedUptoInclusive(absoluteOffset(3)))
     loggerFactory.assertThrowsAndLogsSuppressing[StatusRuntimeException](
       SuppressionRule.Level(Level.INFO)
     )(

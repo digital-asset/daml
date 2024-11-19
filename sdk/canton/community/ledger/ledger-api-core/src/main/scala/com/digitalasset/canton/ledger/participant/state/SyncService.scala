@@ -60,7 +60,7 @@ trait SyncService
     *
     * @param validAt      The offset of validity in participant offset terms.
     * @param stakeholders Only offsets are returned which have at least one stakeholder from this set.
-    * @return All the offset of assigned/unassigned events which do not have their conterparts visible at
+    * @return All the offset of assigned/unassigned events which do not have their counterparts visible at
     *         the validAt offset, and only for the reassignments for which this participant is reassigning.
     */
   def incompleteReassignmentOffsets(

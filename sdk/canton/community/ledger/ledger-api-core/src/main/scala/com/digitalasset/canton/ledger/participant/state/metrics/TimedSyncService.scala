@@ -6,7 +6,7 @@ package com.digitalasset.canton.ledger.participant.state.metrics
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.metrics.Timed
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.data.{AbsoluteOffset, Offset, ProcessedDisclosedContract}
+import com.digitalasset.canton.data.{AbsoluteOffset, ProcessedDisclosedContract}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.ledger.participant.state.SyncService.{
@@ -104,7 +104,7 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
     )
 
   override def prune(
-      pruneUpToInclusive: Offset,
+      pruneUpToInclusive: AbsoluteOffset,
       submissionId: Ref.SubmissionId,
       pruneAllDivulgedContracts: Boolean,
   ): CompletionStage[PruningResult] =

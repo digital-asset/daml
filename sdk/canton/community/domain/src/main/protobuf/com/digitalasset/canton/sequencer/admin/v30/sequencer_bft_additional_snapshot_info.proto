@@ -7,13 +7,12 @@ package com.digitalasset.canton.sequencer.admin.v30;
 
 message BftSequencerSnapshotAdditionalInfo {
   // State transfer metadata for onboarding
-  map<string, FirstKnownAt> sequencers_first_known_at = 1;
+  map<string, PeerActiveAt> peers_active_at = 1;
 
   // Protobuf does not support optional map values, so each field needs to be optional
   // Introducing another (wrapper) message as an alternative seems like overkill so far
-  message FirstKnownAt {
-    // Onboarding topology effective timestamp, useful for retrieving a crypto provider for onboarding
-    // (in microseconds of UTC time since Unix epoch)
+  message PeerActiveAt {
+    // Onboarding topology activation timestamp (in microseconds of UTC time since Unix epoch)
     optional int64 timestamp = 1;
     // An epoch where the onboarding transaction became effective, used as state transfer start epoch
     optional int64 epoch_number = 2;

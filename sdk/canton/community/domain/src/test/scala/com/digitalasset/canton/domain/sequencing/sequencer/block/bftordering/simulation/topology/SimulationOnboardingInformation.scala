@@ -4,10 +4,10 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.simulation.topology
 
 import com.digitalasset.canton.crypto.{SigningPrivateKey, SigningPublicKey}
-import com.digitalasset.canton.topology.processing.EffectiveTime
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.TopologyActivationTime
 
 final case class SimulationOnboardingInformation(
-    onboardingTime: EffectiveTime,
+    onboardingTime: TopologyActivationTime,
     signingPublicKey: SigningPublicKey,
     signingPrivateKey: SigningPrivateKey,
 )

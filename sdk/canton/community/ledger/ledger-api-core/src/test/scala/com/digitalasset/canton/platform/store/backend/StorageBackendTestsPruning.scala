@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.daml.scalautil.Statement
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.platform.store.backend.PruningDto.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
@@ -29,9 +29,9 @@ private[backend] trait StorageBackendTestsPruning
   private val actorParty = Ref.Party.assertFromString("actor")
 
   def pruneEventsSql(
-      pruneUpToInclusive: Offset,
+      pruneUpToInclusive: AbsoluteOffset,
       pruneAllDivulgedContracts: Boolean,
-      incompleteReassignmentOffsets: Vector[Offset] = Vector.empty,
+      incompleteReassignmentOffsets: Vector[AbsoluteOffset] = Vector.empty,
   )(implicit
       traceContext: TraceContext
   ): Unit =
@@ -50,9 +50,9 @@ private[backend] trait StorageBackendTestsPruning
     }
 
   it should "correctly update the pruning offset" in {
-    val offset_1 = offset(3)
-    val offset_2 = offset(2)
-    val offset_3 = offset(4)
+    val offset_1 = absoluteOffset(3)
+    val offset_2 = absoluteOffset(2)
+    val offset_3 = absoluteOffset(4)
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     val initialPruningOffset = executeSql(backend.parameter.prunedUpToInclusive)
@@ -168,7 +168,7 @@ private[backend] trait StorageBackendTestsPruning
         _,
       )
     )
-    val endOffset = offset(8)
+    val endOffset = absoluteOffset(8)
 
     def assertAllDataPresent(): Assertion = assertIndexDbDataSql(
       consuming = Vector(EventConsuming(6), EventConsuming(9)),
@@ -184,10 +184,10 @@ private[backend] trait StorageBackendTestsPruning
 
     assertAllDataPresent()
     // Prune before the offset at which we ingested any events
-    pruneEventsSql(offset(2), pruneAllDivulgedContracts = true)
+    pruneEventsSql(absoluteOffset(2), pruneAllDivulgedContracts = true)
     assertAllDataPresent()
     // Prune at offset such that there are events ingested before and after
-    pruneEventsSql(offset(5), pruneAllDivulgedContracts = true)
+    pruneEventsSql(absoluteOffset(5), pruneAllDivulgedContracts = true)
     assertIndexDbDataSql(
       consuming = Vector(EventConsuming(9)),
       consumingFilterStakeholder = Vector(FilterConsumingStakeholder(9, 4)),
@@ -198,7 +198,7 @@ private[backend] trait StorageBackendTestsPruning
       unassignFilter = Vector(FilterUnassign(10, 4)),
     )
     // Prune at the ledger end, but setting the unassign incomplete
-    pruneEventsSql(endOffset, pruneAllDivulgedContracts = true, Vector(offset(8)))
+    pruneEventsSql(endOffset, pruneAllDivulgedContracts = true, Vector(absoluteOffset(8)))
     assertIndexDbDataSql(
       unassign = Vector(EventUnassign(10)),
       unassignFilter = Vector(FilterUnassign(10, 4)),
@@ -272,12 +272,12 @@ private[backend] trait StorageBackendTestsPruning
       txMeta = Vector(TxMeta(10), TxMeta(11))
     )
     // Prune at the offset of the create event
-    pruneEventsSql(offset(10), pruneAllDivulgedContracts = true)
+    pruneEventsSql(absoluteOffset(10), pruneAllDivulgedContracts = true)
     assertAllDataPresent(
       txMeta = Vector(TxMeta(11))
     )
     // Prune at the offset of the archive event
-    pruneEventsSql(offset(11), pruneAllDivulgedContracts = true)
+    pruneEventsSql(absoluteOffset(11), pruneAllDivulgedContracts = true)
     assertIndexDbDataSql(
       txMeta = Vector.empty
     )
@@ -341,12 +341,12 @@ private[backend] trait StorageBackendTestsPruning
       txMeta = Vector(TxMeta(10), TxMeta(11))
     )
     // Prune at the offset of the create event
-    pruneEventsSql(offset(10), pruneAllDivulgedContracts = true)
+    pruneEventsSql(absoluteOffset(10), pruneAllDivulgedContracts = true)
     assertAllDataPresent(
       txMeta = Vector(TxMeta(11))
     )
     // Prune at the offset of the unassign event
-    pruneEventsSql(offset(11), pruneAllDivulgedContracts = true)
+    pruneEventsSql(absoluteOffset(11), pruneAllDivulgedContracts = true)
     assertIndexDbDataSql()
   }
 
@@ -474,7 +474,7 @@ private[backend] trait StorageBackendTestsPruning
       )
     )
     // Prune earlier
-    pruneEventsSql(offset(1), pruneAllDivulgedContracts = true)
+    pruneEventsSql(absoluteOffset(1), pruneAllDivulgedContracts = true)
     assertAllDataPresent(
       txMeta = Vector(
         TxMeta(2),
@@ -487,7 +487,7 @@ private[backend] trait StorageBackendTestsPruning
       )
     )
     // Prune at create
-    pruneEventsSql(offset(2), pruneAllDivulgedContracts = true)
+    pruneEventsSql(absoluteOffset(2), pruneAllDivulgedContracts = true)
     assertAllDataPresent(
       txMeta = Vector(
         TxMeta(3),
@@ -499,7 +499,7 @@ private[backend] trait StorageBackendTestsPruning
       )
     )
     // Prune after unrelated archive and reassign events but before related ones
-    pruneEventsSql(offset(6), pruneAllDivulgedContracts = true)
+    pruneEventsSql(absoluteOffset(6), pruneAllDivulgedContracts = true)
     assertIndexDbDataSql(
       create = Vector(EventCreate(1)),
       createFilterStakeholder = Vector(
@@ -520,7 +520,7 @@ private[backend] trait StorageBackendTestsPruning
     )
     // Prune at the end, but following unassign is incomplete
     // (the following archive can be pruned, but the following incomplete unassign and the create cannot, to be able to look up create event for the incomplete unassigned)
-    pruneEventsSql(offset(8), pruneAllDivulgedContracts = true, Vector(offset(8)))
+    pruneEventsSql(absoluteOffset(8), pruneAllDivulgedContracts = true, Vector(absoluteOffset(8)))
     assertIndexDbDataSql(
       create = Vector(EventCreate(1)),
       createFilterStakeholder = Vector(
@@ -532,7 +532,7 @@ private[backend] trait StorageBackendTestsPruning
       unassignFilter = Vector(FilterUnassign(7, 4)),
     )
     // Prune at the end (to verify that additional events are related)
-    pruneEventsSql(offset(8), pruneAllDivulgedContracts = true)
+    pruneEventsSql(absoluteOffset(8), pruneAllDivulgedContracts = true)
     assertIndexDbDataSql()
   }
 
@@ -593,12 +593,12 @@ private[backend] trait StorageBackendTestsPruning
       txMeta = Vector(TxMeta(10), TxMeta(11))
     )
     // Prune at the offset of the assign event
-    pruneEventsSql(offset(10), pruneAllDivulgedContracts = true)
+    pruneEventsSql(absoluteOffset(10), pruneAllDivulgedContracts = true)
     assertAllDataPresent(
       txMeta = Vector(TxMeta(11))
     )
     // Prune at the offset of the archive event
-    pruneEventsSql(offset(11), pruneAllDivulgedContracts = true)
+    pruneEventsSql(absoluteOffset(11), pruneAllDivulgedContracts = true)
     assertIndexDbDataSql()
   }
 
@@ -656,12 +656,12 @@ private[backend] trait StorageBackendTestsPruning
       txMeta = Vector(TxMeta(10), TxMeta(11))
     )
     // Prune at the offset of the assign event
-    pruneEventsSql(offset(10), pruneAllDivulgedContracts = true)
+    pruneEventsSql(absoluteOffset(10), pruneAllDivulgedContracts = true)
     assertAllDataPresent(
       txMeta = Vector(TxMeta(11))
     )
     // Prune at the offset of the unassign event
-    pruneEventsSql(offset(11), pruneAllDivulgedContracts = true)
+    pruneEventsSql(absoluteOffset(11), pruneAllDivulgedContracts = true)
     assertIndexDbDataSql()
   }
 
@@ -827,7 +827,7 @@ private[backend] trait StorageBackendTestsPruning
       )
     )
     // Prune earlier
-    pruneEventsSql(offset(1), pruneAllDivulgedContracts = true)
+    pruneEventsSql(absoluteOffset(1), pruneAllDivulgedContracts = true)
     assertAllDataPresent(
       txMeta = Vector(
         TxMeta(2),
@@ -843,7 +843,7 @@ private[backend] trait StorageBackendTestsPruning
       )
     )
     // Prune at assign
-    pruneEventsSql(offset(5), pruneAllDivulgedContracts = true)
+    pruneEventsSql(absoluteOffset(5), pruneAllDivulgedContracts = true)
     assertIndexDbDataSql(
       assign = Vector(EventAssign(4)),
       assignFilter = Vector(FilterAssign(4, 4)),
@@ -873,7 +873,7 @@ private[backend] trait StorageBackendTestsPruning
       ),
     )
     // Prune after unrelated archive and reassign events but before related ones
-    pruneEventsSql(offset(9), pruneAllDivulgedContracts = true)
+    pruneEventsSql(absoluteOffset(9), pruneAllDivulgedContracts = true)
     assertIndexDbDataSql(
       assign = Vector(EventAssign(4)),
       assignFilter = Vector(FilterAssign(4, 4)),
@@ -895,9 +895,9 @@ private[backend] trait StorageBackendTestsPruning
     // Prune at the end, but with setting the assign incomplete
     // (the archive and the unassing cannot be pruned neither, because they belong to an incomplete activation)
     pruneEventsSql(
-      offset(11),
+      absoluteOffset(11),
       pruneAllDivulgedContracts = true,
-      Vector(offset(5), offset(1000), offset(1001)),
+      Vector(absoluteOffset(5), absoluteOffset(1000), absoluteOffset(1001)),
     )
     assertIndexDbDataSql(
       assign = Vector(EventAssign(4)),
@@ -917,9 +917,9 @@ private[backend] trait StorageBackendTestsPruning
     // Prune at the end, but with setting the following unassign incomplete
     // (the following archive can be pruned, but the following unassign and the assign can't, to be able to look up create event for the incomplete unassigned)
     pruneEventsSql(
-      offset(11),
+      absoluteOffset(11),
       pruneAllDivulgedContracts = true,
-      Vector(offset(11), offset(1000), offset(1001)),
+      Vector(absoluteOffset(11), absoluteOffset(1000), absoluteOffset(1001)),
     )
     assertIndexDbDataSql(
       assign = Vector(EventAssign(4)),
@@ -933,7 +933,7 @@ private[backend] trait StorageBackendTestsPruning
       txMeta = Vector.empty,
     )
     // Prune at the end
-    pruneEventsSql(offset(11), pruneAllDivulgedContracts = true)
+    pruneEventsSql(absoluteOffset(11), pruneAllDivulgedContracts = true)
     assertIndexDbDataSql()
   }
 
@@ -970,7 +970,7 @@ private[backend] trait StorageBackendTestsPruning
     assertIndexDbDataSql(
       create = Vector(EventCreate(1), EventCreate(2))
     )
-    pruneEventsSql(offset(3), pruneAllDivulgedContracts = true)
+    pruneEventsSql(absoluteOffset(3), pruneAllDivulgedContracts = true)
     assertIndexDbDataSql(
       create = Vector(EventCreate(2))
     )
@@ -987,7 +987,7 @@ private[backend] trait StorageBackendTestsPruning
     executeSql(ingest(Vector(completion), _))
     assertIndexDbDataSql(completion = Seq(PruningDto.Completion(1)))
     // Prune
-    executeSql(backend.completion.pruneCompletions(offset(1))(_, TraceContext.empty))
+    executeSql(backend.completion.pruneCompletions(absoluteOffset(1))(_, TraceContext.empty))
     assertIndexDbDataSql(completion = Seq.empty)
   }
 

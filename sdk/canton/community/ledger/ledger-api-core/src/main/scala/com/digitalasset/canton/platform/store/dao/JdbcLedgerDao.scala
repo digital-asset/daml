@@ -268,9 +268,9 @@ private class JdbcLedgerDao(
     *            transaction-local divulgence.
     */
   override def prune(
-      pruneUpToInclusive: Offset,
+      pruneUpToInclusive: AbsoluteOffset,
       pruneAllDivulgedContracts: Boolean,
-      incompleteReassignmentOffsets: Vector[Offset],
+      incompleteReassignmentOffsets: Vector[AbsoluteOffset],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Unit] = {
     val allDivulgencePruningParticle =
       if (pruneAllDivulgedContracts) " (including all divulged contracts)" else ""
@@ -293,10 +293,14 @@ private class JdbcLedgerDao(
           conn,
           loggingContext.traceContext,
         )
-        parameterStorageBackend.updatePrunedUptoInclusive(pruneUpToInclusive)(conn)
+        parameterStorageBackend.updatePrunedUptoInclusive(
+          pruneUpToInclusive
+        )(conn)
 
         if (pruneAllDivulgedContracts) {
-          parameterStorageBackend.updatePrunedAllDivulgedContractsUpToInclusive(pruneUpToInclusive)(
+          parameterStorageBackend.updatePrunedAllDivulgedContractsUpToInclusive(
+            Offset.fromAbsoluteOffset(pruneUpToInclusive)
+          )(
             conn
           )
         }
@@ -315,8 +319,13 @@ private class JdbcLedgerDao(
       loggingContext: LoggingContextWithTrace
   ): Future[(Option[Offset], Option[Offset])] =
     dbDispatcher.executeSql(metrics.index.db.fetchPruningOffsetsMetrics) { conn =>
-      parameterStorageBackend.prunedUpToInclusive(conn) -> parameterStorageBackend
-        .participantAllDivulgedContractsPrunedUpToInclusive(conn)
+      (
+        parameterStorageBackend
+          .prunedUpToInclusive(conn)
+          .map(Offset.fromAbsoluteOffset),
+        parameterStorageBackend
+          .participantAllDivulgedContractsPrunedUpToInclusive(conn),
+      )
     }
 
   private val queryValidRange = QueryValidRangeImpl(parameterStorageBackend, loggerFactory)

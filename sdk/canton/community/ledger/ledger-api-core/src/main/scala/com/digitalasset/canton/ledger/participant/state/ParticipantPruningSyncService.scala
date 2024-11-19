@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.daml.lf.data.Ref
 
 import java.util.concurrent.CompletionStage
@@ -44,7 +44,7 @@ trait ParticipantPruningSyncService {
     * @return The pruning result.
     */
   def prune(
-      pruneUpToInclusive: Offset,
+      pruneUpToInclusive: AbsoluteOffset,
       submissionId: Ref.SubmissionId,
       pruneAllDivulgedContracts: Boolean,
   ): CompletionStage[PruningResult]

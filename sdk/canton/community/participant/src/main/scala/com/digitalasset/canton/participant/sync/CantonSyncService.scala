@@ -444,7 +444,7 @@ class CantonSyncService(
   )
 
   override def prune(
-      pruneUpToInclusive: Offset,
+      pruneUpToInclusive: AbsoluteOffset,
       submissionId: LedgerSubmissionId,
       _pruneAllDivulgedContracts: Boolean, // Canton always prunes divulged contracts ignoring this flag
   ): CompletionStage[PruningResult] =
@@ -461,7 +461,7 @@ class CantonSyncService(
     }).asJava
 
   def pruneInternally(
-      pruneUpToInclusive: Offset
+      pruneUpToInclusive: AbsoluteOffset
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, CantonError, Unit] =
     (for {
       pruneUpToMultiDomainGlobalOffset <- EitherT

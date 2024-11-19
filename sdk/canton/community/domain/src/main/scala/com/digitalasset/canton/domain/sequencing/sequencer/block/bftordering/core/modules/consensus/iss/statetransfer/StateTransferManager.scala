@@ -432,7 +432,7 @@ class StateTransferManager[E <: Env[E]](
         epochLength,
         // TODO(#19661) Not used during state transfer but will likely need to be correctly saved to the DB
         //  to support restarts (or the approach must be changed).
-        GenesisEpoch.info.topologySnapshotEffectiveTime,
+        GenesisEpoch.info.topologyActivationTime,
       )
       val lastEpoch = EpochStore.Epoch(lastEpochInfo, fullResponse.lastBlockCommits)
       val epochState =

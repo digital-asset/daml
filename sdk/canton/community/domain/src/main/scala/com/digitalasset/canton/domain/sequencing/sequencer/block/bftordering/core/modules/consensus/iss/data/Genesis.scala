@@ -6,7 +6,10 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.co
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Epoch
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.OrderingTopologyProvider
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.{
+  OrderingTopologyProvider,
+  TopologyActivationTime,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
   EpochLength,
@@ -21,7 +24,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.Commit
 import com.digitalasset.canton.topology.SequencerId
-import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.google.protobuf.ByteString
 
 object Genesis {
@@ -30,15 +32,15 @@ object Genesis {
   private val GenesisEpochLength = EpochLength(0)
 
   val GenesisEpochNumber: EpochNumber = EpochNumber(-1L)
-  val GenesisTopologySnapshotEffectiveTime: EffectiveTime =
-    OrderingTopologyProvider.InitialOrderingTopologyEffectiveTime
+  val GenesisTopologyActivationTime: TopologyActivationTime =
+    OrderingTopologyProvider.InitialOrderingTopologyActivationTime
 
   val GenesisEpochInfo: EpochInfo =
     EpochInfo(
       GenesisEpochNumber,
       GenesisStartBlockNumber,
       GenesisEpochLength,
-      GenesisTopologySnapshotEffectiveTime,
+      GenesisTopologyActivationTime,
     )
 
   val GenesisEpoch: Epoch =

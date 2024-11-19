@@ -436,13 +436,13 @@ private[index] class IndexServiceImpl(
       }
 
   override def prune(
-      pruneUpToInclusive: Offset,
+      pruneUpToInclusive: AbsoluteOffset,
       pruneAllDivulgedContracts: Boolean,
-      incompletReassignmentOffsets: Vector[Offset],
+      incompletReassignmentOffsets: Vector[AbsoluteOffset],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Unit] = {
-    pruneBuffers(pruneUpToInclusive.toAbsoluteOffset)
+    pruneBuffers(pruneUpToInclusive)
     ledgerDao.prune(pruneUpToInclusive, pruneAllDivulgedContracts, incompletReassignmentOffsets)
   }
 

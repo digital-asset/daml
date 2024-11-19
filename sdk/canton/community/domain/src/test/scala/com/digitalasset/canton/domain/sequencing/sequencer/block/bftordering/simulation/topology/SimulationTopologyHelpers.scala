@@ -5,19 +5,21 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.si
 
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.CryptoProvider
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.{
+  CryptoProvider,
+  TopologyActivationTime,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.topology.OrderingTopology
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.SimulationEnv
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.simulation.future.SimulationFuture
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.Endpoint
-import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 
 object SimulationTopologyHelpers {
 
   def generateSimulationOnboardingInformation(
-      peerEndpointsToOnboardingTimes: Map[Endpoint, EffectiveTime],
+      peerEndpointsToOnboardingTimes: Map[Endpoint, TopologyActivationTime],
       loggerFactory: NamedLoggerFactory,
   ): Map[Endpoint, SimulationOnboardingInformation] = {
     val crypto =

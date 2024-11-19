@@ -192,24 +192,20 @@ final class BftBlockOrderer(
   private val (initialOrderingTopology, initialCryptoProvider) = {
     implicit val traceContext: TraceContext = TraceContext.empty
 
-    val thisPeerOnboardingEffectiveTime = for {
+    // This timestamp is always known by the topology client, even when it is equal to `lastTs` from the onboarding state.
+    val thisPeerActiveAtTimestamp = for {
       snapshotAdditionalInfo <- sequencerSnapshotAdditionalInfo
-      thisPeerFirstKnownAt <- snapshotAdditionalInfo.peerFirstKnownAt.get(sequencerId)
-      thisPeerOnboardingEffectiveTime <- thisPeerFirstKnownAt.timestamp
-    } yield thisPeerOnboardingEffectiveTime
+      thisPeerActiveAt <- snapshotAdditionalInfo.peerActiveAt.get(sequencerId)
+      thisPeerActiveAtTimestamp <- thisPeerActiveAt.timestamp
+    } yield thisPeerActiveAtTimestamp
 
     // We assume that, if a sequencer snapshot has been provided, then we're onboarding; in that case, we use
     //  topology information from the sequencer snapshot, else we fetch the latest topology from the DB.
-    val topologyQueryTimestamp = thisPeerOnboardingEffectiveTime
-      // We need to take `immediateSuccessor` as topology snapshots are timestamp-exclusive.
-      //  This timestamp is always known by the topology client, even when `lastTs` from the onboarding state is equal
-      //  to this timestamp (even if the block containing this timestamp does not contain any topology transactions,
-      //  i.e., there's no tick) because the topology is known up to its head state effective timestamp's `immediateSuccessor`.
-      .map(_.immediateSuccessor())
+    val topologyQueryTimestamp = thisPeerActiveAtTimestamp
       .getOrElse {
         val latestEpoch =
           awaitFuture(epochStore.latestEpoch(includeInProgress = true), "fetch latest epoch")
-        latestEpoch.info.topologySnapshotEffectiveTime
+        latestEpoch.info.topologyActivationTime
       }
 
     awaitFuture(

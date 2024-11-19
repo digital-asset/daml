@@ -137,9 +137,9 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
     * @return
     */
   def prune(
-      pruneUpToInclusive: Offset,
+      pruneUpToInclusive: AbsoluteOffset,
       pruneAllDivulgedContracts: Boolean,
-      incompletReassignmentOffsets: Vector[Offset],
+      incompletReassignmentOffsets: Vector[AbsoluteOffset],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Unit]

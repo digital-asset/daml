@@ -114,7 +114,7 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
   private def ingestDtos(creates: Vector[DbDto.EventCreate]) = {
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(creates, _))
-    executeSql(updateLedgerEnd(offset(1), creates.size.toLong))
+    executeSql(updateLedgerEnd(absoluteOffset(1), creates.size.toLong))
   }
 
   private def fetch(filterParties: Option[Set[Ref.Party]]) = {
