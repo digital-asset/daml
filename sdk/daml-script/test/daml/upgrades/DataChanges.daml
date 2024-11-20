@@ -34,6 +34,7 @@ import DA.Optional (fromSome)
 import PackageIds
 
 import qualified V1.IfaceMod as Iface
+import V1.DataChangesDummy
 
 main : TestTree
 main = tests
@@ -56,7 +57,9 @@ main = tests
   , ("Fails if an optional field is set when downgrading via interface in a choice body", templateOptionalFieldsSetWhenDowngradingViaInterfaceInsideChoiceDisclosure)
   , ("Fails if an optional field is set when downgrading via a key exercise in a choice body", templateOptionalFieldsSetWhenDowngradingViaKeyExercise)
   , ("Fails if an optional field is set when downgrading via a key exercise in a choice body with a local contract", templateOptionalFieldsSetWhenDowngradingViaKeyExerciseLocalContractCommand)
-  , -}("Fails if an optional field is set when downgrading via a disclosed exercise", templateOptionalFieldsSetWhenDowngradingDisclosure)
+  , ("Fails if an optional field is set when downgrading via a disclosed exercise", templateOptionalFieldsSetWhenDowngradingDisclosure)
+  , -}("Fails if an optional field is set when downgrading via a key exercise inside a choice, with a local contract", templateOptionalFieldsSetWhenDowngradingViaKeyExerciseInsideChoiceLocal)
+  , ("Fails if an optional field is set when downgrading via an exercise inside a choice, with a local contract", templateOptionalFieldsSetWhenDowngradingViaExerciseInsideChoiceLocal)
   ]
 
 templateInvalidChange : forall t2 t1 c2. (Template t1, HasEnsure t1, Choice t2 c2 Text) => Bool -> (Party -> t1) -> c2 -> Test
@@ -368,6 +371,52 @@ contents: |
           pure ()
 -}
 
+{- PACKAGE
+name: data-changes-dummy
+versions: 1
+depends: |
+  data-changes-1.0.0
+  data-changes-2.0.0
+-}
+
+{- MODULE
+package: data-changes-dummy
+contents: |
+  module DataChangesDummy where
+
+  import qualified V1.OptionalFieldsAdded as V1
+  import qualified V2.OptionalFieldsAdded as V2
+
+  template TLocalTestDummy
+    with
+      party : Party
+    where
+      signatory party
+      choice TLocalTestDummyChoice : ()
+        controller party
+        do
+          cid <- create
+            (V2.OptionalFieldsAdded
+              party
+              (Some "V1")
+            )
+          let cidV1 = coerceContractId @V2.OptionalFieldsAdded @V1.OptionalFieldsAdded cid
+          exercise cidV1 (V1.OptionalFieldsAddedCallWithCtl party)
+          pure ()
+
+      choice TLocalTestDummyChoiceByKey : ()
+        controller party
+        do
+          cid <- create
+            (V2.OptionalFieldsAdded
+              party
+              (Some "V1")
+            )
+          let cidV1 = coerceContractId @V2.OptionalFieldsAdded @V1.OptionalFieldsAdded cid
+          exerciseByKey @V1.OptionalFieldsAdded (V1.OptionalFieldsAddedKey party) (V1.OptionalFieldsAddedCallWithCtl party)
+          pure ()
+-}
+
 templateOptionalFieldsSetWhenDowngrading : Test
 templateOptionalFieldsSetWhenDowngrading = test $ do
   a <- allocatePartyOn "alice" participant0
@@ -469,12 +518,12 @@ contents: |
         do
           exercise cidI (NoOp ctl)
 
-  template LocalTestDummy
+  template ILocalTestDummy
     with
       party : Party
     where
       signatory party
-      choice LocalTestDummyChoice : ()
+      choice ILocalTestDummyChoice : ()
         controller party
         do
           cid <- create
@@ -512,7 +561,7 @@ templateOptionalFieldsSetWhenDowngradingViaInterfaceInsideChoice = test $ do
 templateOptionalFieldsSetWhenDowngradingViaInterfaceLocalContract : Test
 templateOptionalFieldsSetWhenDowngradingViaInterfaceLocalContract = test $ do
   a <- allocatePartyOn "alice" participant0
-  res <- (actAs a <> packagePreference [dataChangesV1]) `trySubmit` createAndExerciseExactCmd (V2.LocalTestDummy a) V2.LocalTestDummyChoice
+  res <- (actAs a <> packagePreference [dataChangesV1]) `trySubmit` createAndExerciseExactCmd (V2.ILocalTestDummy a) V2.ILocalTestDummyChoice
   case res of
     Left (DevError Upgrade msg) | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg -> pure ()
     _ -> assertFail $ "Expected specific failure but got " <> show res
@@ -607,6 +656,23 @@ templateOptionalFieldsSetWhenDowngradingDisclosure = test $ do
   let cidV1 = coerceContractId @V2.OptionalFieldsAdded @V1.OptionalFieldsAdded cid
   res <- (actAs b <> packagePreference [dataChangesV1] <> disclose disclosure) `trySubmit` exerciseExactCmd cidV1 (V1.OptionalFieldsAddedCallWithCtl b)
 
+  case res of
+    Left (DevError Upgrade msg) | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg -> pure ()
+    _ -> assertFail $ "Expected specific failure but got " <> show res
+
+templateOptionalFieldsSetWhenDowngradingViaExerciseInsideChoiceLocal : Test
+templateOptionalFieldsSetWhenDowngradingViaExerciseInsideChoiceLocal = test $ do
+  a <- allocatePartyOn "alice" participant0
+  res <- (actAs a <> packagePreference [dataChangesV1]) `trySubmit` createAndExerciseExactCmd (TLocalTestDummy a) TLocalTestDummyChoice
+  case res of
+    Left (DevError Upgrade msg) | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg -> pure ()
+    _ -> assertFail $ "Expected specific failure but got " <> show res
+
+templateOptionalFieldsSetWhenDowngradingViaKeyExerciseInsideChoiceLocal : Test
+templateOptionalFieldsSetWhenDowngradingViaKeyExerciseInsideChoiceLocal = test $ do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V1"
+  res <- (actAs a <> packagePreference [dataChangesV1]) `trySubmit` createAndExerciseExactCmd (TLocalTestDummy a) TLocalTestDummyChoiceByKey
   case res of
     Left (DevError Upgrade msg) | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg -> pure ()
     _ -> assertFail $ "Expected specific failure but got " <> show res
