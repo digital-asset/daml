@@ -23,6 +23,8 @@ import org.scalatest.Inside.inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.language.implicitConversions
+
 /** A test suite for smart contract upgrades.
   *
   * It tests many scenarios of the following form in a systematic way:
@@ -58,13 +60,13 @@ import org.scalatest.matchers.should.Matchers
 class UpgradeTest extends AnyFreeSpec with Matchers {
 
   private[this] implicit def parserParameters(implicit
-      pkgId: Ref.PackageId
+      pkgId: PackageId
   ): ParserParameters[this.type] =
     ParserParameters(pkgId, languageVersion = LanguageVersion.Features.smartContractUpgrade)
 
   // A package that defines an interface, a key type, an exception, and a party to be used by
   // the packages defined below.
-  val commonDefsPkgId = Ref.PackageId.assertFromString("-common-defs-id-")
+  val commonDefsPkgId = PackageId.assertFromString("-common-defs-id-")
   val commonDefsPkg =
     p"""metadata ( '-common-defs-' : '1.0.0' )
           module Mod {
@@ -114,6 +116,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
   abstract class TestCase(val templateName: String, val expectedOutcome: ExpectedOutcome) {
     def v1AdditionalRecordArgFields: String = ""
     def v1AdditionalVariantArgCtors: String = ""
+    def v1AdditionalEnumArgCtors: String = ""
     def v1AdditionalFields: String = ""
     def v1AdditionalChoices: String = ""
     def v1Precondition: String = "True"
@@ -136,6 +139,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
 
     def v2AdditionalRecordArgFields: String = ""
     def v2AdditionalVariantArgCtors: String = ""
+    def v2AdditionalEnumArgCtors: String = ""
     def v2AdditionalFields: String = ""
     def v2AdditionalChoices: String = ""
     def v2Precondition: String = v1Precondition
@@ -151,6 +155,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     private def templateDefinition(
         additionalRecordArgFields: String,
         additionalVariantArgCtors: String,
+        additionalEnumArgCtors: String,
         additionalFields: String,
         additionalChoices: String,
         precondition: String,
@@ -173,11 +178,16 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
          |    Ctor1: Int64
          |    $additionalVariantArgCtors;
          |
+         |  enum @serializable ${templateName}EnumArgType =
+         |    Ctor1
+         |    $additionalEnumArgCtors;
+         |
          |  record @serializable $templateName =
          |    { p1: Party
          |    , p2: Party
          |    , r: Mod:${templateName}RecordArgType
          |    , v: Mod:${templateName}VariantArgType
+         |    , e: Mod:${templateName}EnumArgType
          |    $additionalFields
          |    };
          |
@@ -206,6 +216,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     def v1TemplateDefinition: String = templateDefinition(
       v1AdditionalRecordArgFields,
       v1AdditionalVariantArgCtors,
+      v1AdditionalEnumArgCtors,
       v1AdditionalFields,
       v1AdditionalChoices,
       v1Precondition,
@@ -222,6 +233,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     def v2TemplateDefinition: String = templateDefinition(
       v2AdditionalRecordArgFields,
       v2AdditionalVariantArgCtors,
+      v2AdditionalEnumArgCtors,
       v2AdditionalFields,
       v2AdditionalChoices,
       v2Precondition,
@@ -236,9 +248,9 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     )
 
     def clientChoices(
-        clientPkgId: Ref.PackageId,
-        v1PkgId: Ref.PackageId,
-        v2PkgId: Ref.PackageId,
+        clientPkgId: PackageId,
+        v1PkgId: PackageId,
+        v2PkgId: PackageId,
     ): String = {
       val clientTplQualifiedName = s"'$clientPkgId':Mod:Client"
       val v1TplQualifiedName = s"'$v1PkgId':Mod:$templateName"
@@ -247,20 +259,25 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       val viewQualifiedName = s"'$commonDefsPkgId':Mod:MyView"
       val v1RecordArgTypeQualifiedName = s"'$v1PkgId':Mod:${templateName}RecordArgType"
       val v1VariantArgTypeQualifiedName = s"'$v1PkgId':Mod:${templateName}VariantArgType"
+      val v1EnumArgTypeQualifiedName = s"'$v1PkgId':Mod:${templateName}EnumArgType"
+
+      val createV1ContractExpr =
+        s""" create
+           |    @$v1TplQualifiedName
+           |    ($v1TplQualifiedName
+           |        { p1 = '$commonDefsPkgId':Mod:alice
+           |        , p2 = '$commonDefsPkgId':Mod:bob
+           |        , r = $v1RecordArgTypeQualifiedName { n = 0 }
+           |        , v = $v1VariantArgTypeQualifiedName:Ctor1 0
+           |        , e = $v1EnumArgTypeQualifiedName:Ctor1
+           |        })
+           |""".stripMargin
 
       s"""
         |  choice @nonConsuming ExerciseNoCatchLocal${templateName} (self) (u: Unit): Text
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
-        |    to ubind cid: ContractId $v1TplQualifiedName <-
-        |         create
-        |           @$v1TplQualifiedName
-        |           ($v1TplQualifiedName
-        |               { p1 = '$commonDefsPkgId':Mod:alice
-        |               , p2 = '$commonDefsPkgId':Mod:bob
-        |               , r = $v1RecordArgTypeQualifiedName { n = 0 }
-        |               , v = $v1VariantArgTypeQualifiedName:Ctor1 0
-        |               })
+        |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
         |       in exercise
         |            @$v2TplQualifiedName
         |            TemplateChoice
@@ -300,15 +317,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |  choice @nonConsuming ExerciseInterfaceNoCatchLocal${templateName} (self) (u: Unit): Text
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
-        |    to ubind cid: ContractId $v1TplQualifiedName <-
-        |         create
-        |           @$v1TplQualifiedName
-        |           ($v1TplQualifiedName
-        |               { p1 = '$commonDefsPkgId':Mod:alice
-        |               , p2 = '$commonDefsPkgId':Mod:bob
-        |               , r = $v1RecordArgTypeQualifiedName { n = 0 }
-        |               , v = $v1VariantArgTypeQualifiedName:Ctor1 0
-        |               })
+        |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
         |       in exercise_interface
         |            @$ifaceQualifiedName
         |            InterfaceChoice
@@ -351,15 +360,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |  choice @nonConsuming ExerciseByKeyNoCatchLocal${templateName} (self) (u: Unit): Text
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
-        |    to ubind cid: ContractId $v1TplQualifiedName <-
-        |         create
-        |           @$v1TplQualifiedName
-        |           ($v1TplQualifiedName
-        |               { p1 = '$commonDefsPkgId':Mod:alice
-        |               , p2 = '$commonDefsPkgId':Mod:bob
-        |               , r = $v1RecordArgTypeQualifiedName { n = 0 }
-        |               , v = $v1VariantArgTypeQualifiedName:Ctor1 0
-        |               })
+        |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
         |       in exercise_by_key
         |            @$v2TplQualifiedName
         |            TemplateChoice
@@ -400,15 +401,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |  choice @nonConsuming FetchNoCatchLocal${templateName} (self) (u: Unit): $v2TplQualifiedName
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
-        |    to ubind cid: ContractId $v1TplQualifiedName <-
-        |         create
-        |           @$v1TplQualifiedName
-        |           ($v1TplQualifiedName
-        |               { p1 = '$commonDefsPkgId':Mod:alice
-        |               , p2 = '$commonDefsPkgId':Mod:bob
-        |               , r = $v1RecordArgTypeQualifiedName { n = 0 }
-        |               , v = $v1VariantArgTypeQualifiedName:Ctor1 0
-        |               })
+        |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
         |       in fetch_template
         |            @$v2TplQualifiedName
         |            (COERCE_CONTRACT_ID @$v1TplQualifiedName @$v2TplQualifiedName cid);
@@ -444,15 +437,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |  choice @nonConsuming FetchByKeyNoCatchLocal${templateName} (self) (u: Unit): $v2TplQualifiedName
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
-        |    to ubind cid: ContractId $v1TplQualifiedName <-
-        |         create
-        |           @$v1TplQualifiedName
-        |           ($v1TplQualifiedName
-        |               { p1 = '$commonDefsPkgId':Mod:alice
-        |               , p2 = '$commonDefsPkgId':Mod:bob
-        |               , r = $v1RecordArgTypeQualifiedName { n = 0 }
-        |               , v = $v1VariantArgTypeQualifiedName:Ctor1 0
-        |               })
+        |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
         |       in ubind pair:<contract: $v2TplQualifiedName, contractId: ContractId $v2TplQualifiedName> <-
         |              fetch_by_key
         |                @$v2TplQualifiedName
@@ -497,15 +482,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
         |    to ubind
-        |         cid: ContractId $v1TplQualifiedName <-
-        |           create
-        |             @$v1TplQualifiedName
-        |             ($v1TplQualifiedName
-        |                 { p1 = '$commonDefsPkgId':Mod:alice
-        |                 , p2 = '$commonDefsPkgId':Mod:bob
-        |                 , r = $v1RecordArgTypeQualifiedName { n = 0 }
-        |                 , v = $v1VariantArgTypeQualifiedName:Ctor1 0
-        |                 });
+        |         cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr;
         |         iface: $ifaceQualifiedName <- fetch_interface
         |            @$ifaceQualifiedName
         |            (COERCE_CONTRACT_ID @$v1TplQualifiedName @$ifaceQualifiedName cid)
@@ -543,15 +520,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |  choice @nonConsuming LookupByKeyNoCatchLocal${templateName} (self) (u: Unit): Option (ContractId $v2TplQualifiedName)
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
-        |    to ubind cid: ContractId $v1TplQualifiedName <-
-        |         create
-        |           @$v1TplQualifiedName
-        |           ($v1TplQualifiedName
-        |               { p1 = '$commonDefsPkgId':Mod:alice
-        |               , p2 = '$commonDefsPkgId':Mod:bob
-        |               , r = $v1RecordArgTypeQualifiedName { n = 0 }
-        |               , v = $v1VariantArgTypeQualifiedName:Ctor1 0
-        |               })
+        |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
         |       in lookup_by_key
         |            @$v2TplQualifiedName
         |            ('$commonDefsPkgId':Mod:Key {
@@ -754,6 +723,12 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     override def v2AdditionalVariantArgCtors = "| Ctor2: Unit"
   }
 
+  case object AdditionalConstructorInEnumArg
+      extends TestCase("AdditionalConstructorInEnumArg", ExpectSuccess) {
+    override def v1AdditionalEnumArgCtors = ""
+    override def v2AdditionalEnumArgCtors = "| Ctor2"
+  }
+
   case object AdditionalTemplateArg extends TestCase("AdditionalTemplateArg", ExpectSuccess) {
     override def v1AdditionalFields = ""
     override def v2AdditionalFields = ", extra: Option Unit"
@@ -803,6 +778,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     ThrowingMaintainersBody,
     AdditionalFieldInRecordArg,
     AdditionalConstructorInVariantArg,
+    AdditionalConstructorInEnumArg,
     AdditionalTemplateArg,
     AdditionalChoices,
     ThrowingInterfaceChoiceControllers,
@@ -810,12 +786,12 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     ThrowingView,
   )
 
-  val templateDefsPkgName = Ref.PackageName.assertFromString("-template-defs-")
+  val templateDefsPkgName = PackageName.assertFromString("-template-defs-")
 
   /** A package that defines templates called Precondition, Signatories, ... whose metadata should evaluate without
     * throwing exceptions.
     */
-  val templateDefsV1PkgId = Ref.PackageId.assertFromString("-template-defs-v1-id-")
+  val templateDefsV1PkgId = PackageId.assertFromString("-template-defs-v1-id-")
   val templateDefsV1ParserParams = parserParameters(templateDefsV1PkgId)
   val templateDefsV1Pkg =
     p"""metadata ( '$templateDefsPkgName' : '1.0.0' )
@@ -829,7 +805,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     *   - the signatories in the Signatories template is changed to throw an exception
     *   - etc.
     */
-  val templateDefsV2PkgId = Ref.PackageId.assertFromString("-template-defs-v2-id-")
+  val templateDefsV2PkgId = PackageId.assertFromString("-template-defs-v2-id-")
   val templateDefsV2ParserParams = parserParameters(templateDefsV2PkgId)
   val templateDefsV2Pkg =
     p"""metadata ( '$templateDefsPkgName' : '2.0.0' )
@@ -838,7 +814,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
           }
       """ (templateDefsV2ParserParams)
 
-  val clientPkgId = Ref.PackageId.assertFromString("-client-id-")
+  val clientPkgId = PackageId.assertFromString("-client-id-")
   val clientParserParams = parserParameters(clientPkgId)
   val clientPkg = {
     val choices = testCases
@@ -858,14 +834,14 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         """ (clientParserParams)
   }
 
-  val lookupPackage: Map[Ref.PackageId, Ast.Package] = Map(
+  val lookupPackage: Map[PackageId, Ast.Package] = Map(
     commonDefsPkgId -> commonDefsPkg,
     templateDefsV1PkgId -> templateDefsV1Pkg,
     templateDefsV2PkgId -> templateDefsV2Pkg,
     clientPkgId -> clientPkg,
   )
 
-  val packageMap: Map[PackageId, (PackageName, Ref.PackageVersion)] =
+  val packageMap: Map[PackageId, (PackageName, PackageVersion)] =
     lookupPackage.view.mapValues(pkg => (pkg.name.get, pkg.metadata.get.version)).toMap
 
   sealed abstract class Operation(val name: String)
@@ -917,24 +893,22 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
 
     implicit val logContext: LoggingContext = LoggingContext.ForTesting
 
+    // implicit conversions from strings to names and qualified names
+    implicit def toName(s: String): Name = Name.assertFromString(s)
+    implicit def toQualifiedName(s: String): QualifiedName = QualifiedName.assertFromString(s)
+
     val alice: Party = Party.assertFromString("Alice")
     val bob: Party = Party.assertFromString("Bob")
 
-    val clientTplId: Identifier =
-      Identifier(clientPkgId, Ref.QualifiedName.assertFromString("Mod:Client"))
-    val ifaceId: Identifier =
-      Identifier(commonDefsPkgId, Ref.QualifiedName.assertFromString("Mod:Iface"))
-    val tplQualifiedName: QualifiedName = Ref.QualifiedName.assertFromString(s"Mod:$templateName")
+    val clientTplId: Identifier = Identifier(clientPkgId, "Mod:Client")
+    val ifaceId: Identifier = Identifier(commonDefsPkgId, "Mod:Iface")
+    val tplQualifiedName: QualifiedName = s"Mod:$templateName"
     val v1RecordArgTypeId: Identifier =
-      Identifier(
-        templateDefsV1PkgId,
-        Ref.QualifiedName.assertFromString(s"Mod:${templateName}RecordArgType"),
-      )
+      Identifier(templateDefsV1PkgId, s"Mod:${templateName}RecordArgType")
     val v1VariantArgTypeId: Identifier =
-      Identifier(
-        templateDefsV1PkgId,
-        Ref.QualifiedName.assertFromString(s"Mod:${templateName}VariantArgType"),
-      )
+      Identifier(templateDefsV1PkgId, s"Mod:${templateName}VariantArgType")
+    val v1EnumArgTypeId: Identifier =
+      Identifier(templateDefsV1PkgId, s"Mod:${templateName}EnumArgType")
     val v1TplId: Identifier = Identifier(templateDefsV1PkgId, tplQualifiedName)
     val v2TplId: Identifier = Identifier(templateDefsV2PkgId, tplQualifiedName)
 
@@ -948,7 +922,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         ValueRecord(
           Some(clientTplId),
           ImmArray(
-            Some(Name.assertFromString("p")) -> ValueParty(alice)
+            Some("p": Name) -> ValueParty(alice)
           ),
         ),
       )
@@ -957,18 +931,22 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     val globalContractArg: ValueRecord = ValueRecord(
       Some(v1TplId),
       ImmArray(
-        Some(Name.assertFromString("p1")) -> ValueParty(alice),
-        Some(Name.assertFromString("p2")) -> ValueParty(bob),
-        Some(Name.assertFromString("r")) -> ValueRecord(
+        Some("p1": Name) -> ValueParty(alice),
+        Some("p2": Name) -> ValueParty(bob),
+        Some("r": Name) -> ValueRecord(
           Some(v1RecordArgTypeId),
           ImmArray(
-            Some(Name.assertFromString("n")) -> ValueInt64(0)
+            Some("n": Name) -> ValueInt64(0)
           ),
         ),
-        Some(Name.assertFromString("v")) -> ValueVariant(
+        Some("v": Name) -> ValueVariant(
           Some(v1VariantArgTypeId),
-          Name.assertFromString("Ctor1"),
+          "Ctor1",
           ValueInt64(0),
+        ),
+        Some("e": Name) -> ValueEnum(
+          Some(v1EnumArgTypeId),
+          "Ctor1",
         ),
       ),
     )
@@ -982,11 +960,11 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     )
 
     val globalContractSKey: SValue = SValue.SRecord(
-      Ref.Identifier.assertFromString(s"$commonDefsPkgId:Mod:Key"),
+      Identifier.assertFromString(s"$commonDefsPkgId:Mod:Key"),
       ImmArray(
-        Ref.Name.assertFromString("label"),
-        Ref.Name.assertFromString("maintainers1"),
-        Ref.Name.assertFromString("maintainers2"),
+        "label",
+        "maintainers1",
+        "maintainers2",
       ),
       ArrayList(
         SValue.SText("test-key"),
@@ -1052,7 +1030,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
               ApiCommand.Exercise(
                 v2TplId,
                 globalContractId,
-                Ref.ChoiceName.assertFromString("TemplateChoice"),
+                ChoiceName.assertFromString("TemplateChoice"),
                 ValueUnit,
               )
             )
@@ -1063,7 +1041,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
               ApiCommand.Exercise(
                 ifaceId,
                 globalContractId,
-                Ref.ChoiceName.assertFromString("InterfaceChoice"),
+                ChoiceName.assertFromString("InterfaceChoice"),
                 ValueUnit,
               )
             )
@@ -1074,7 +1052,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
               ApiCommand.ExerciseByKey(
                 v2TplId,
                 globalContractSKey.toUnnormalizedValue,
-                Ref.ChoiceName.assertFromString("TemplateChoice"),
+                ChoiceName.assertFromString("TemplateChoice"),
                 ValueUnit,
               )
             )
@@ -1089,7 +1067,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
               ApiCommand.ExerciseByKey(
                 v2TplId,
                 globalContractSKey.toUnnormalizedValue,
-                Ref.ChoiceName.assertFromString("TemplateChoice"),
+                ChoiceName.assertFromString("TemplateChoice"),
                 ValueUnit,
               ),
             )
@@ -1100,7 +1078,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
               ApiCommand.Exercise(
                 clientTplId,
                 clientContractId,
-                Ref.ChoiceName.assertFromString(
+                ChoiceName.assertFromString(
                   s"${operation.name}${catchBehavior.name}Global${templateName}"
                 ),
                 operation match {
@@ -1118,7 +1096,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
               ApiCommand.Exercise(
                 clientTplId,
                 clientContractId,
-                Ref.ChoiceName.assertFromString(
+                ChoiceName.assertFromString(
                   s"${operation.name}${catchBehavior.name}Local${templateName}"
                 ),
                 ValueUnit,
@@ -1139,7 +1117,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         contractOrigin: ContractOrigin,
     ): Either[Error, (SubmittedTransaction, Transaction.Metadata)] = {
 
-      val participant = Ref.ParticipantId.assertFromString("participant")
+      val participant = ParticipantId.assertFromString("participant")
       val submissionSeed = crypto.Hash.hashPrivateKey("command")
       val submitters = Set(alice)
       val readAs = Set.empty[Party]
