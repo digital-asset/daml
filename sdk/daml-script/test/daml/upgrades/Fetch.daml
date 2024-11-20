@@ -9,11 +9,38 @@ import qualified V2.Fetch as V2
 import DA.Text
 
 import V1.FetchLocal
+import V1.FetchIface
 import DA.Optional (fromSome)
+import PackageIds
+
+{- PACKAGE
+name: fetch-iface
+versions: 1
+-}
+
+{- MODULE
+package: fetch-iface
+contents: |
+  module FetchIface where
+
+  data MyUnit = MyUnit {}
+
+  interface FetchIface where
+    viewtype MyUnit
+
+    nonconsuming choice NoOp : ()
+      with
+        ctl : Party
+      controller ctl
+      do
+        assertFail "aaa"
+        pure ()
+-}
 
 {- PACKAGE
 name: fetch
 versions: 2
+depends: fetch-iface-1.0.0
 -}
 
 {- MODULE
@@ -21,12 +48,17 @@ package: fetch
 contents: |
   module Fetch where
 
+  import V1.FetchIface
+
   template FetchTemplate
     with
       party: Party
       newField : Optional Text -- @V 2
     where
       signatory party
+
+      interface instance FetchIface for FetchTemplate where
+        view = MyUnit
 
   template FetchHelper
     with
@@ -37,11 +69,20 @@ contents: |
           cid : ContractId FetchTemplate
         controller party
         do fetch cid
+
       choice DoFetchWithCtl : FetchTemplate with
           cid : ContractId FetchTemplate
           ctl : Party
         controller ctl
         do fetch cid
+
+      choice DoFetchIfaceWithCtl : () with
+          cid : ContractId FetchIface
+          ctl : Party
+        controller ctl
+        do
+          fetch cid
+          pure ()
 -}
 
 {- PACKAGE
@@ -50,6 +91,7 @@ versions: 1
 depends: |
   fetch-1.0.0
   fetch-2.0.0
+  fetch-iface-1.0.0
 -}
 
 {- MODULE
@@ -59,6 +101,8 @@ contents: |
 
   import qualified V1.Fetch as V1
   import qualified V2.Fetch as V2
+
+  import V1.FetchIface
 
   template FetchLocalHelper
     with
@@ -72,6 +116,15 @@ contents: |
           cid <- create contract
           let cidV1 = coerceContractId @V2.FetchTemplate @V1.FetchTemplate cid
           fetch cidV1
+
+      choice IDoCreateAndFetch : () with
+          contract : V2.FetchTemplate
+        controller party
+        do
+          cid <- create contract
+          let cidIface = coerceContractId @V2.FetchTemplate @FetchIface cid
+          fetch cidIface
+          pure ()
 -}
 
 main : TestTree
@@ -81,6 +134,9 @@ main = tests
   , ("Fail to downgrade a contract with Somes when fetching static", fetchDowngradedSome)
   , ("Fail to downgrade a contract with Somes when fetching local static", fetchDowngradedSomeLocal)
   , broken ("Fail to downgrade a contract with Somes when fetching disclosed static", fetchDowngradedSomeDisclosed)
+  , ("Fail to downgrade a contract with Somes when fetching dynamic", fetchDowngradedSomeDynamic)
+  , ("Fail to downgrade a contract with Somes when fetching local dynamic", fetchDowngradedSomeDynamicLocal)
+  , broken ("Fail to downgrade a contract with Somes when fetching disclosed dynamic", fetchDowngradedSomeDynamicDisclosed)
 
   , -- Fetching tests with unvetted sources (IDE ledger doesn't support unvetting)
     broken ("Upgrade a contract when fetching where the source package (V1) is unvetted", fetchUpgradedSourceUnvetted)
@@ -149,6 +205,49 @@ fetchDowngradedSomeDisclosed = test $ do
   disclosure <- fromSome <$> queryDisclosure a cid
   let cidV1 = coerceContractId @V2.FetchTemplate @V1.FetchTemplate cid
   eV1 <- (actAs b <> disclose disclosure) `trySubmit` createAndExerciseCmd (V1.FetchHelper b) (V1.DoFetchWithCtl cidV1 b)
+
+  case eV1 of
+    Left (DevError Upgrade msg)
+      | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg
+      -> pure ()
+    res -> assertFail $ "Expected DevError Upgrade, got " <> show res
+
+fetchV1 : PackageId
+fetchV1 = getPackageId "fetch-1.0.0"
+
+fetchDowngradedSomeDynamic : Test
+fetchDowngradedSomeDynamic = test $ do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createCmd V2.FetchTemplate with party = a, newField = Some "hi"
+  let cidIface = coerceContractId @V2.FetchTemplate @FetchIface cid
+  res <- (actAs a <> packagePreference [fetchV1]) `trySubmit` exerciseCmd cidIface (NoOp a)
+
+  case res of
+    Left (DevError Upgrade msg)
+      | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg
+      -> pure ()
+    res -> assertFail $ "Expected DevError Upgrade, got " <> show res
+
+fetchDowngradedSomeDynamicLocal : Test
+fetchDowngradedSomeDynamicLocal = test $ do
+  a <- allocatePartyOn "alice" participant0
+  eV1 <- (actAs a <> packagePreference [fetchV1]) `trySubmit` createAndExerciseCmd (FetchLocalHelper a) (IDoCreateAndFetch (V2.FetchTemplate with party = a, newField = Some "hi"))
+
+  case eV1 of
+    Left (DevError Upgrade msg)
+      | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg
+      -> pure ()
+    res -> assertFail $ "Expected DevError Upgrade, got " <> show res
+
+fetchDowngradedSomeDynamicDisclosed : Test
+fetchDowngradedSomeDynamicDisclosed = test $ do
+  a <- allocatePartyOn "alice" participant0
+  b <- allocatePartyOn "bob" participant0
+  cid <- a `submit` createCmd V2.FetchTemplate with party = a, newField = Some "hi"
+
+  disclosure <- fromSome <$> queryDisclosure a cid
+  let cidIface = coerceContractId @V2.FetchTemplate @FetchIface cid
+  eV1 <- (actAs b <> disclose disclosure) `trySubmit` createAndExerciseCmd (V1.FetchHelper b) (V1.DoFetchIfaceWithCtl cidIface b)
 
   case eV1 of
     Left (DevError Upgrade msg)
