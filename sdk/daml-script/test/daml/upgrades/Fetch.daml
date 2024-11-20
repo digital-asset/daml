@@ -8,6 +8,9 @@ import qualified V1.Fetch as V1
 import qualified V2.Fetch as V2
 import DA.Text
 
+import V1.FetchLocal
+import DA.Optional (fromSome)
+
 {- PACKAGE
 name: fetch
 versions: 2
@@ -34,13 +37,50 @@ contents: |
           cid : ContractId FetchTemplate
         controller party
         do fetch cid
+      choice DoFetchWithCtl : FetchTemplate with
+          cid : ContractId FetchTemplate
+          ctl : Party
+        controller ctl
+        do fetch cid
+-}
+
+{- PACKAGE
+name: fetch-local
+versions: 1
+depends: |
+  fetch-1.0.0
+  fetch-2.0.0
+-}
+
+{- MODULE
+package: fetch-local
+contents: |
+  module FetchLocal where
+
+  import qualified V1.Fetch as V1
+  import qualified V2.Fetch as V2
+
+  template FetchLocalHelper
+    with
+      party: Party
+    where
+      signatory party
+      choice DoCreateAndFetch : V1.FetchTemplate with
+          contract : V2.FetchTemplate
+        controller party
+        do
+          cid <- create contract
+          let cidV1 = coerceContractId @V2.FetchTemplate @V1.FetchTemplate cid
+          fetch cidV1
 -}
 
 main : TestTree
 main = tests
   [ ("Upgrade a contract when fetching", fetchUpgraded)
   , ("Downgrade a contract with Nones when fetching", fetchDowngradedNone)
-  , ("Fail to downgrade a contract with Somes when fetching", fetchDowngradedSome)
+  , ("Fail to downgrade a contract with Somes when fetching static", fetchDowngradedSome)
+  , ("Fail to downgrade a contract with Somes when fetching local static", fetchDowngradedSomeLocal)
+  , ("Fail to downgrade a contract with Somes when fetching disclosed static", fetchDowngradedSomeDisclosed)
 
   , -- Fetching tests with unvetted sources (IDE ledger doesn't support unvetting)
     broken ("Upgrade a contract when fetching where the source package (V1) is unvetted", fetchUpgradedSourceUnvetted)
@@ -84,6 +124,33 @@ fetchDowngradedSome = test $ do
   eV1Name <- a `tryExerciseV1Util` V1.DoFetch with cid = v1Cid
 
   case eV1Name of
+    Left (DevError Upgrade msg)
+      | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg
+      -> pure ()
+    res -> assertFail $ "Expected DevError Upgrade, got " <> show res
+
+fetchDowngradedSomeLocal : Test
+fetchDowngradedSomeLocal = test $ do
+  a <- allocatePartyOn "alice" participant0
+  eV1 <- a `trySubmit` createAndExerciseCmd (FetchLocalHelper a) (DoCreateAndFetch (V2.FetchTemplate with party = a, newField = Some "hi"))
+
+  case eV1 of
+    Left (DevError Upgrade msg)
+      | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg
+      -> pure ()
+    res -> assertFail $ "Expected DevError Upgrade, got " <> show res
+
+fetchDowngradedSomeDisclosed : Test
+fetchDowngradedSomeDisclosed = test $ do
+  a <- allocatePartyOn "alice" participant0
+  b <- allocatePartyOn "bob" participant0
+  cid <- a `submit` createCmd V2.FetchTemplate with party = a, newField = Some "hi"
+
+  disclosure <- fromSome <$> queryDisclosure a cid
+  let cidV1 = coerceContractId @V2.FetchTemplate @V1.FetchTemplate cid
+  eV1 <- (actAs b <> disclose disclosure) `trySubmit` createAndExerciseCmd (V1.FetchHelper b) (V1.DoFetchWithCtl cidV1 b)
+
+  case eV1 of
     Left (DevError Upgrade msg)
       | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg
       -> pure ()
