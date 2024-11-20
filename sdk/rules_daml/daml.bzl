@@ -29,12 +29,14 @@ def _daml_configure_impl(ctx):
     module_prefixes = ctx.attr.module_prefixes
     upgrades = ctx.attr.upgrades
     typecheck_upgrades = ctx.attr.typecheck_upgrades
+    force_utility_package = ctx.attr.force_utility_package
     daml_source = ctx.attr.daml_source
     daml_yaml = ctx.outputs.daml_yaml
     target = ctx.attr.target
     opts = (
         (["--target={}".format(target)] if target else []) +
-        (["--typecheck-upgrades=no"] if not typecheck_upgrades and using_local_compiler(target) else [])
+        (["--typecheck-upgrades=no"] if not typecheck_upgrades and using_local_compiler(target) else []) +
+        (["--force-utility-package=yes"] if force_utility_package and using_local_compiler(target) else [])
     )
     ctx.actions.write(
         output = daml_yaml,
@@ -97,6 +99,9 @@ _daml_configure = rule(
         ),
         "daml_source": attr.string(
             doc = "Source field in daml.yaml."
+        ),
+        "force_utility_package": attr.bool(
+            doc = "Force a package to be a utility package (no serializable types). Errors if the package contains templates/interfaces/exceptions."
         )
     },
 )
@@ -336,6 +341,7 @@ def daml_compile(
         upgrades = None,
         typecheck_upgrades = False,
         daml_source = None,
+        force_utility_package = False,
         **kwargs):
     "Build a Daml project, with a generated daml.yaml."
     if len(srcs) == 0:
@@ -347,6 +353,7 @@ def daml_compile(
         module_prefixes = module_prefixes,
         upgrades = path_to_dar(upgrades) if upgrades else "",
         typecheck_upgrades = typecheck_upgrades,
+        force_utility_package = force_utility_package,
         name = name + ".configure",
         project_name = project_name or name,
         project_version = version,
