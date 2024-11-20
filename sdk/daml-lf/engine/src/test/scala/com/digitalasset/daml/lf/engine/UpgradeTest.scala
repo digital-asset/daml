@@ -127,9 +127,9 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
          |  }""".stripMargin
     def v1Maintainers: String =
       s"\\(key: '$commonDefsPkgId':Mod:Key) -> ('$commonDefsPkgId':Mod:Key {maintainers1} key)"
-    def v1ChoiceControllers: String =
+    def v1InterfaceChoiceControllers: String =
       s"Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)"
-    def v1ChoiceObservers: String = "Nil @Party"
+    def v1InterfaceChoiceObservers: String = "Nil @Party"
     def v1View: String = s"'$commonDefsPkgId':Mod:MyView { value = 0 }"
 
     def v2AdditionalFields: String = ""
@@ -139,8 +139,8 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     def v2Observers: String = v1Observers
     def v2Agreement: String = v1Agreement
     def v2Key: String = v1Key
-    def v2ChoiceControllers: String = v1ChoiceControllers
-    def v2ChoiceObservers: String = v1ChoiceObservers
+    def v2InterfaceChoiceControllers: String = v1InterfaceChoiceControllers
+    def v2InterfaceChoiceObservers: String = v1InterfaceChoiceObservers
     def v2Maintainers: String = v1Maintainers
     def v2View: String = v1View
 
@@ -153,8 +153,8 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         agreement: String,
         key: String,
         maintainers: String,
-        choiceControllers: String,
-        choiceObservers: String,
+        interfaceChoiceControllers: String,
+        interfaceChoiceObservers: String,
         view: String,
     ): String =
       s"""
@@ -174,8 +174,8 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
          |
          |    implements '$commonDefsPkgId':Mod:Iface {
          |      view = $view;
-         |      method interfaceChoiceControllers = $choiceControllers;
-         |      method interfaceChoiceObservers = $choiceObservers;
+         |      method interfaceChoiceControllers = $interfaceChoiceControllers;
+         |      method interfaceChoiceObservers = $interfaceChoiceObservers;
          |    };
          |
          |    key @'$commonDefsPkgId':Mod:Key ($key) ($maintainers);
@@ -190,8 +190,8 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       v1Agreement,
       v1Key,
       v1Maintainers,
-      v1ChoiceControllers,
-      v1ChoiceObservers,
+      v1InterfaceChoiceControllers,
+      v1InterfaceChoiceObservers,
       v1View,
     )
 
@@ -204,8 +204,8 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       v2Agreement,
       v2Key,
       v2Maintainers,
-      v2ChoiceControllers,
-      v2ChoiceObservers,
+      v2InterfaceChoiceControllers,
+      v2InterfaceChoiceObservers,
       v2View,
     )
 
@@ -704,6 +704,22 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     override def v2AdditionalFields = ", extra: Option Unit"
   }
 
+  case object ThrowingInterfaceChoiceControllers
+      extends TestCase("ThrowingInterfaceChoiceControllers", ExpectUnhandledException) {
+    override def v1InterfaceChoiceControllers =
+      s"Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)"
+    override def v2InterfaceChoiceControllers =
+      s"""throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "InterfaceChoiceControllers"})"""
+  }
+
+  case object ThrowingInterfaceChoiceObservers
+      extends TestCase("ThrowingInterfaceChoiceObservers", ExpectUnhandledException) {
+    override def v1InterfaceChoiceObservers =
+      s"Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)"
+    override def v2InterfaceChoiceObservers =
+      s"""throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "InterfaceChoiceObservers"})"""
+  }
+  
   val testCases: Seq[TestCase] = List(
     UnchangedPrecondition,
     ChangedPrecondition,
@@ -726,6 +742,8 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     ThrowingMaintainersBody,
     AdditionalTemplateArg,
     AdditionalChoices,
+    ThrowingInterfaceChoiceControllers,
+    ThrowingInterfaceChoiceObservers,
   )
 
   val templateDefsPkgName = Ref.PackageName.assertFromString("-template-defs-")
@@ -916,18 +934,27 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), Bytes.assertFromString("00"))
 
     def makeApiCommands(
+        testCase: TestCase,
         operation: Operation,
         catchBehavior: CatchBehavior,
         entryPoint: EntryPoint,
         contractOrigin: ContractOrigin,
     ): Option[ImmArray[ApiCommand]] = {
 
-      (operation, catchBehavior, entryPoint, contractOrigin) match {
-        case (Fetch | FetchInterface | FetchByKey | LookupByKey, _, Command, _) =>
+      (testCase, operation, catchBehavior, entryPoint, contractOrigin) match {
+        case (_, Fetch | FetchInterface | FetchByKey | LookupByKey, _, Command, _) =>
           None // There are no fetch* or lookupByKey commands
-        case (Exercise | ExerciseInterface, _, Command, Local) =>
+        case (_, Exercise | ExerciseInterface, _, Command, Local) =>
           None // Local contracts cannot be exercised by commands, except by key
-        case (Exercise, _, Command, Global | Disclosed) =>
+        case (
+              ThrowingInterfaceChoiceControllers | ThrowingInterfaceChoiceObservers,
+              Fetch | FetchInterface | FetchByKey | LookupByKey | Exercise | ExerciseByKey,
+              _,
+              _,
+              _,
+            ) =>
+          None // ThrowingInterfaceChoice* test cases only makes sense for ExerciseInterface
+        case (_, Exercise, _, Command, Global | Disclosed) =>
           Some(
             ImmArray(
               ApiCommand.Exercise(
@@ -938,7 +965,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
               )
             )
           )
-        case (ExerciseInterface, _, Command, Global | Disclosed) =>
+        case (_, ExerciseInterface, _, Command, Global | Disclosed) =>
           Some(
             ImmArray(
               ApiCommand.Exercise(
@@ -949,7 +976,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
               )
             )
           )
-        case (ExerciseByKey, _, Command, Global | Disclosed) =>
+        case (_, ExerciseByKey, _, Command, Global | Disclosed) =>
           Some(
             ImmArray(
               ApiCommand.ExerciseByKey(
@@ -960,7 +987,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
               )
             )
           )
-        case (ExerciseByKey, _, Command, Local) =>
+        case (_, ExerciseByKey, _, Command, Local) =>
           Some(
             ImmArray(
               ApiCommand.Create(
@@ -975,7 +1002,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
               ),
             )
           )
-        case (_, _, ChoiceBody, Global | Disclosed) =>
+        case (_, _, _, ChoiceBody, Global | Disclosed) =>
           Some(
             ImmArray(
               ApiCommand.Exercise(
@@ -993,7 +1020,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
               )
             )
           )
-        case (_, _, ChoiceBody, Local) =>
+        case (_, _, _, ChoiceBody, Local) =>
           Some(
             ImmArray(
               ApiCommand.Exercise(
@@ -1083,9 +1110,9 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
 
   // This is the main loop of the test: for every combination of test case, operation, catch behavior, entry point, and
   // contract origin, we generate an API command, execute it, and check that the result matches the expected outcome.
-  for (template <- testCases)
-    template.templateName - {
-      val testHelper = new TestHelper(template.templateName)
+  for (testCase <- testCases)
+    testCase.templateName - {
+      val testHelper = new TestHelper(testCase.templateName)
       for (operation <- operations) {
         operation.name - {
           for (catchBehavior <- catchBehaviors)
@@ -1095,12 +1122,18 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
                   for (contractOrigin <- contractOrigins) {
                     contractOrigin.name - {
                       testHelper
-                        .makeApiCommands(operation, catchBehavior, entryPoint, contractOrigin)
+                        .makeApiCommands(
+                          testCase,
+                          operation,
+                          catchBehavior,
+                          entryPoint,
+                          contractOrigin,
+                        )
                         .foreach { apiCommands =>
-                          template.expectedOutcome.description in {
+                          testCase.expectedOutcome.description in {
                             assertResultMatchesExpectedOutcome(
                               testHelper.execute(apiCommands, contractOrigin),
-                              template.expectedOutcome,
+                              testCase.expectedOutcome,
                             )
                           }
                         }
