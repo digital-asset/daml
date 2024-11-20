@@ -275,6 +275,14 @@ enableScenariosOpt = EnableScenarios <$>
             "Enable/disable support for scenarios as a language feature. \
             \If disabled, defining top-level scenarios is a compile-time error"
 
+forceUtilityPackageOpt :: Parser ForceUtilityPackage
+forceUtilityPackageOpt = ForceUtilityPackage <$>
+    flagYesNoAuto "force-utility-package" False desc internal
+    where
+        desc =
+            "Force a given package to compile as a utility package. \
+            \This will make all data types unserializable, and will reject template/exception definitions"
+
 dlintRulesFileParser :: Parser DlintRulesFile
 dlintRulesFileParser =
   lastOr DefaultDlintRulesFile $
@@ -438,6 +446,7 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
     let optHideUnitId = False
     optUpgradeInfo <- optUpgradeInfo
     optDamlWarningFlags <- optDamlWarningFlags
+    optForceUtilityPackage <- forceUtilityPackageOpt
 
     return Options{..}
   where
