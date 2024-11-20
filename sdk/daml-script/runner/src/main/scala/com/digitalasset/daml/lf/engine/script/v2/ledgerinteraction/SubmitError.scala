@@ -398,11 +398,25 @@ object SubmitError {
       )
   }
 
-  final case class UpgradeError(message: String) extends SubmitError {
+  final case class UpgradeError(errorType: String, message: String) extends SubmitError {
     override def toDamlSubmitError(env: Env): SValue = {
+      val upgradeErrorTypeIdentifier =
+        env.scriptIds.damlScriptModule(
+          "Daml.Script.Internal.Questions.Submit.Error",
+          "UpgradeErrorType",
+        )
+      val upgradeErrorType = errorType match {
+        case "ValidationFailed" =>
+          SEnum(upgradeErrorTypeIdentifier, Name.assertFromString("ValidationFailed"), 0)
+        case "DowngradeDropDefinedField" =>
+          SEnum(upgradeErrorTypeIdentifier, Name.assertFromString("DowngradeDropDefinedField"), 1)
+        case "ViewMismatch" =>
+          SEnum(upgradeErrorTypeIdentifier, Name.assertFromString("ViewMismatch"), 2)
+      }
       SubmitErrorConverters(env).damlScriptError(
         "UpgradeError",
         20,
+        ("errorType", upgradeErrorType),
         ("errorMessage", SText(message)),
       )
     }

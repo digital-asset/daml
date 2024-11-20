@@ -34,6 +34,7 @@ object ErrorResource {
   lazy val SynchronizerId: ErrorResource = ErrorResource("SYNCHRONIZER_ID")
   lazy val SynchronizerAlias: ErrorResource = ErrorResource("SYNCHRONIZER_ALIAS")
   lazy val Offset: ErrorResource = ErrorResource("OFFSET")
+  lazy val UpgradeErrorType: ErrorResource = ErrorResource("UPGRADE_ERROR_TYPE")
 
   lazy val all: Seq[ErrorResource] = Seq(
     CommandId,
@@ -49,15 +50,16 @@ object ErrorResource {
     ExceptionValue,
     IdentityProviderConfig,
     InterfaceId,
+    Offset,
     PackageName,
     Parties,
     Party,
+    SynchronizerAlias,
+    SynchronizerId,
     TemplateId,
     TransactionId,
+    UpgradeErrorType,
     User,
-    SynchronizerId,
-    SynchronizerAlias,
-    Offset,
   )
 
   def fromString(str: String): Option[ErrorResource] = all.find(_.asString == str)
