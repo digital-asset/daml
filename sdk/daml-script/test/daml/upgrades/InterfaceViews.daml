@@ -164,7 +164,7 @@ exerciseCommandShouldFail = test $ do
   (alice, icid) <- setupAliceAndInterface
   res <- alice `trySubmit` exerciseCmd icid GetVersion
   case res of
-      Left (UpgradeError _ msg) | "View mismatch" `isInfixOf` msg -> pure ()
+      Left (UpgradeError ViewMismatch msg) | "View mismatch" `isInfixOf` msg -> pure ()
       _ -> assertFail ("Expected fetchFromInterface to fail, got " <> show res)
 
 exerciseInChoiceBodyShouldFail : Test
@@ -172,7 +172,7 @@ exerciseInChoiceBodyShouldFail = test $ do
   (alice, icid) <- setupAliceAndInterface
   res <- alice `trySubmit` createAndExerciseCmd (Caller with party = alice) (CallInterface with icid = icid)
   case res of
-    Left (UpgradeError _ msg) | "View mismatch" `isInfixOf` msg -> pure ()
+    Left (UpgradeError ViewMismatch msg) | "View mismatch" `isInfixOf` msg -> pure ()
     _ -> assertFail ("Expected fetchFromInterface to fail, got " <> show res)
 
 fetchFromInterfaceShouldFail : Test
@@ -180,7 +180,7 @@ fetchFromInterfaceShouldFail = test $ do
   (alice, icid) <- setupAliceAndInterface
   res <- alice `trySubmit` createAndExerciseExactCmd (V2.FITemplate with party = alice) (V2.FetchFromInterface with icid = icid)
   case res of
-    Left (UpgradeError _ msg) | "View mismatch" `isInfixOf` msg -> pure ()
+    Left (UpgradeError ViewMismatch msg) | "View mismatch" `isInfixOf` msg -> pure ()
     _ -> assertFail ("Expected fetchFromInterface to fail, got " <> show res)
 
 queryInterfaceContractIdInView : Test

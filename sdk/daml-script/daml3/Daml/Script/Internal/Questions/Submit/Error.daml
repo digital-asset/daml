@@ -6,6 +6,7 @@ module Daml.Script.Internal.Questions.Submit.Error
   , ContractNotFoundAdditionalInfo -- Don't export constructors, users should not be able to rely on the structure.
   , isNotActive
   , SubmitError (..)
+  , UpgradeErrorType (..)
   ) where
 
 import Daml.Script.Internal.Questions.Util
