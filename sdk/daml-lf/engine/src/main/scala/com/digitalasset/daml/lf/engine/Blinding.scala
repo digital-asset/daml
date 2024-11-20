@@ -3,19 +3,15 @@
 
 package com.daml.lf.engine
 
-import com.daml.lf.data._
+import cats.implicits.catsSyntaxSemigroup
 import com.daml.lf.data.Ref.{PackageId, Party}
-import com.daml.lf.transaction.Node
-import com.daml.lf.transaction.{BlindingInfo, NodeId, Transaction, VersionedTransaction}
+import com.daml.lf.data._
 import com.daml.lf.ledger._
-import com.daml.lf.data.Relation
+import com.daml.lf.transaction._
 import com.daml.lf.value.Value.ContractId
 import com.digitalasset.daml.lf.transaction.PackageRequirements
 
 import scala.annotation.tailrec
-
-import cats.implicits.catsSyntaxSemigroup
-import scala.collection.View
 
 object Blinding {
 
@@ -104,7 +100,7 @@ object Blinding {
       contractVisibility: Relation[ContractId, Party],
   ): Iterable[(Party, PackageId)] = {
     for {
-      (contractId, packageId) <- contractPackages
+      (contractId, packageId) <- contractPackages.view
       party <- contractVisibility.getOrElse(contractId, Set.empty)
     } yield party -> packageId
   }
@@ -153,42 +149,13 @@ object Blinding {
       contractVisibility: Relation[ContractId, Party],
       contractPackages: Map[ContractId, Ref.PackageId],
   ): Map[Party, PackageRequirements] = {
-    disclosedPartyPackageRequirements(tx, disclosure) ++
-      contractPartyPackageRequirements(contractPackages, contractVisibility)
-  }.groupMapReduce(_._1)(_._2)(_ |+| _).view.mapValues(_.normalized).toMap
-
-  // These are the packages needed for reinterpretation
-  private[engine] def disclosedPartyPackageRequirements(
-      tx: VersionedTransaction,
-      disclosure: Relation[NodeId, Party],
-  ): View[(Party, PackageRequirements)] =
-    disclosure.view.flatMap { case (nodeId, parties) =>
-      def vettedRequirement(tyCon: Ref.TypeConName) =
-        parties.view.map(_ -> PackageRequirements.vetted(tyCon.packageId))
-
-      tx.nodes(nodeId) match {
-        case fetch: Node.Fetch =>
-          vettedRequirement(fetch.templateId) ++ fetch.interfaceId.toList.view
-            .flatMap(vettedRequirement)
-        case action: Node.LeafOnlyAction =>
-          vettedRequirement(action.templateId)
-        case exe: Node.Exercise =>
-          vettedRequirement(exe.templateId) ++ exe.interfaceId.toList.view
-            .flatMap(vettedRequirement)
-        case _: Node.Rollback =>
-          Iterable.empty
-      }
+    disclosedPartyPackages(tx, disclosure).view.map { case (party, usedPackage) =>
+      party -> PackageRequirements.vetted(usedPackage)
+    } ++ contractPartyPackages(contractPackages, contractVisibility).view.map {
+      case (party, inputContractPackage) =>
+        party -> PackageRequirements.checkOnly(inputContractPackage)
     }
-
-  // These are the packages needed for input contract validation
-  private def contractPartyPackageRequirements(
-      contractPackages: Map[ContractId, Ref.PackageId],
-      contractVisibility: Relation[ContractId, Party],
-  ): View[(Party, PackageRequirements)] =
-    for {
-      (contractId, packageId) <- contractPackages.view
-      party <- contractVisibility.getOrElse(contractId, Set.empty)
-    } yield party -> PackageRequirements.checkOnly(packageId)
+  }.groupMapReduce(_._1)(_._2)(_ |+| _).view.mapValues(_.normalized).toMap
 
   /** Calculate the package requirements needed by each party in order to reinterpret its projection.
     *
