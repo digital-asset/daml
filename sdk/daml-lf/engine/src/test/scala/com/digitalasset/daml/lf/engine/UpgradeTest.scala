@@ -43,7 +43,7 @@ import org.scalatest.matchers.should.Matchers
   *    [[contractOrigins]].
   *
   * Some combinations of these features don't make sense. For instance, there are no commands for fetching a contract.
-  * These invalid combinations are discarded in [[TestHelper.makeApiCommand]]. For other valid combinations, this method
+  * These invalid combinations are discarded in [[TestHelper.makeApiCommands]]. For other valid combinations, this method
   * produces a command to be run against an engine by the main test loop.
   *
   * In order to test scenarios where the operation is triggered by a choice body, we need a "client" contract whose only
@@ -808,7 +808,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
 
   /** A class that defines all the "global" variables shared by tests for a given template name: the template ID of the
     * v1 template, the template ID of the v2 template, the ID of the v1 contract, etc. It exposes two methods:
-    * - [[makeApiCommand]], which generates an API command for a given operation, catch behavior, entry point,
+    * - [[makeApiCommands]], which generates an API command for a given operation, catch behavior, entry point,
     *   and contract origin.
     * - [[execute]], which executes a command against a fresh engine seeded with the v1 contract.
     */
@@ -896,70 +896,95 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     def toContractId(s: String): ContractId =
       ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), Bytes.assertFromString("00"))
 
-    def makeApiCommand(
+    def makeApiCommands(
         operation: Operation,
         catchBehavior: CatchBehavior,
         entryPoint: EntryPoint,
         contractOrigin: ContractOrigin,
-    ): Option[ApiCommand] = {
+    ): Option[ImmArray[ApiCommand]] = {
 
       (operation, catchBehavior, entryPoint, contractOrigin) match {
-        case (_, _, Command, Local) =>
-          None // Local contracts cannot be exercised by commands
         case (Fetch | FetchInterface | FetchByKey | LookupByKey, _, Command, _) =>
           None // There are no fetch* or lookupByKey commands
+        case (Exercise | ExerciseInterface, _, Command, Local) =>
+          None // Local contracts cannot be exercised by commands, except by key
         case (Exercise, _, Command, Global | Disclosed) =>
           Some(
-            ApiCommand.Exercise(
-              v2TplId,
-              globalContractId,
-              Ref.ChoiceName.assertFromString("TemplateChoice"),
-              ValueUnit,
+            ImmArray(
+              ApiCommand.Exercise(
+                v2TplId,
+                globalContractId,
+                Ref.ChoiceName.assertFromString("TemplateChoice"),
+                ValueUnit,
+              )
             )
           )
         case (ExerciseInterface, _, Command, Global | Disclosed) =>
           Some(
-            ApiCommand.Exercise(
-              ifaceId,
-              globalContractId,
-              Ref.ChoiceName.assertFromString("InterfaceChoice"),
-              ValueUnit,
+            ImmArray(
+              ApiCommand.Exercise(
+                ifaceId,
+                globalContractId,
+                Ref.ChoiceName.assertFromString("InterfaceChoice"),
+                ValueUnit,
+              )
             )
           )
         case (ExerciseByKey, _, Command, Global | Disclosed) =>
           Some(
-            ApiCommand.ExerciseByKey(
-              v2TplId,
-              globalContractSKey.toUnnormalizedValue,
-              Ref.ChoiceName.assertFromString("TemplateChoice"),
-              ValueUnit,
+            ImmArray(
+              ApiCommand.ExerciseByKey(
+                v2TplId,
+                globalContractSKey.toUnnormalizedValue,
+                Ref.ChoiceName.assertFromString("TemplateChoice"),
+                ValueUnit,
+              )
+            )
+          )
+        case (ExerciseByKey, _, Command, Local) =>
+          Some(
+            ImmArray(
+              ApiCommand.Create(
+                v1TplId,
+                globalContractArg,
+              ),
+              ApiCommand.ExerciseByKey(
+                v2TplId,
+                globalContractSKey.toUnnormalizedValue,
+                Ref.ChoiceName.assertFromString("TemplateChoice"),
+                ValueUnit,
+              ),
             )
           )
         case (_, _, ChoiceBody, Global | Disclosed) =>
           Some(
-            ApiCommand.Exercise(
-              clientTplId,
-              clientContractId,
-              Ref.ChoiceName.assertFromString(
-                s"${operation.name}${catchBehavior.name}Global${templateName}"
-              ),
-              operation match {
-                case Fetch | FetchInterface | Exercise | ExerciseInterface =>
-                  ValueContractId(globalContractId)
-                case FetchByKey | LookupByKey | ExerciseByKey =>
-                  globalContractSKey.toUnnormalizedValue
-              },
+            ImmArray(
+              ApiCommand.Exercise(
+                clientTplId,
+                clientContractId,
+                Ref.ChoiceName.assertFromString(
+                  s"${operation.name}${catchBehavior.name}Global${templateName}"
+                ),
+                operation match {
+                  case Fetch | FetchInterface | Exercise | ExerciseInterface =>
+                    ValueContractId(globalContractId)
+                  case FetchByKey | LookupByKey | ExerciseByKey =>
+                    globalContractSKey.toUnnormalizedValue
+                },
+              )
             )
           )
         case (_, _, ChoiceBody, Local) =>
           Some(
-            ApiCommand.Exercise(
-              clientTplId,
-              clientContractId,
-              Ref.ChoiceName.assertFromString(
-                s"${operation.name}${catchBehavior.name}Local${templateName}"
-              ),
-              ValueUnit,
+            ImmArray(
+              ApiCommand.Exercise(
+                clientTplId,
+                clientContractId,
+                Ref.ChoiceName.assertFromString(
+                  s"${operation.name}${catchBehavior.name}Local${templateName}"
+                ),
+                ValueUnit,
+              )
             )
           )
       }
@@ -972,7 +997,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     )
 
     def execute(
-        apiCommand: ApiCommand,
+        apiCommands: ImmArray[ApiCommand],
         contractOrigin: ContractOrigin,
     ): Either[Error, (SubmittedTransaction, Transaction.Metadata)] = {
 
@@ -1002,7 +1027,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
           packagePreference = Set(commonDefsPkgId, templateDefsV2PkgId, clientPkgId),
           submitters = submitters,
           readAs = readAs,
-          cmds = ApiCommands(ImmArray(apiCommand), Time.Timestamp.Epoch, "test"),
+          cmds = ApiCommands(apiCommands, Time.Timestamp.Epoch, "test"),
           disclosures = disclosures,
           participantId = participant,
           submissionSeed = submissionSeed,
@@ -1051,11 +1076,11 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
                   for (contractOrigin <- contractOrigins) {
                     contractOrigin.name - {
                       testHelper
-                        .makeApiCommand(operation, catchBehavior, entryPoint, contractOrigin)
-                        .foreach { apiCommand =>
+                        .makeApiCommands(operation, catchBehavior, entryPoint, contractOrigin)
+                        .foreach { apiCommands =>
                           template.expectedOutcome.description in {
                             assertResultMatchesExpectedOutcome(
-                              testHelper.execute(apiCommand, contractOrigin),
+                              testHelper.execute(apiCommands, contractOrigin),
                               template.expectedOutcome,
                             )
                           }
