@@ -112,6 +112,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     * for instance [[v2Observers]].
     */
   abstract class TestCase(val templateName: String, val expectedOutcome: ExpectedOutcome) {
+    def v1AdditionalRecordArgFields: String = ""
     def v1AdditionalFields: String = ""
     def v1AdditionalChoices: String = ""
     def v1Precondition: String = "True"
@@ -132,6 +133,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     def v1InterfaceChoiceObservers: String = "Nil @Party"
     def v1View: String = s"'$commonDefsPkgId':Mod:MyView { value = 0 }"
 
+    def v2AdditionalRecordArgFields: String = ""
     def v2AdditionalFields: String = ""
     def v2AdditionalChoices: String = ""
     def v2Precondition: String = v1Precondition
@@ -145,6 +147,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     def v2View: String = v1View
 
     private def templateDefinition(
+        additionalRecordArgFields: String,
         additionalFields: String,
         additionalChoices: String,
         precondition: String,
@@ -158,7 +161,18 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         view: String,
     ): String =
       s"""
-         |  record @serializable $templateName = { p1: Party, p2: Party $additionalFields };
+         |  record @serializable ${templateName}RecordArgType =
+         |    { n : Int64
+         |    $additionalRecordArgFields
+         |    };
+         |
+         |  record @serializable $templateName =
+         |    { p1: Party
+         |    , p2: Party
+         |    , r: Mod:${templateName}RecordArgType
+         |    $additionalFields
+         |    };
+         |
          |  template (this: $templateName) = {
          |    precondition $precondition;
          |    signatories $signatories;
@@ -182,6 +196,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
          |  };""".stripMargin
 
     def v1TemplateDefinition: String = templateDefinition(
+      v1AdditionalRecordArgFields,
       v1AdditionalFields,
       v1AdditionalChoices,
       v1Precondition,
@@ -196,6 +211,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     )
 
     def v2TemplateDefinition: String = templateDefinition(
+      v2AdditionalRecordArgFields,
       v2AdditionalFields,
       v2AdditionalChoices,
       v2Precondition,
@@ -219,6 +235,8 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       val v2TplQualifiedName = s"'$v2PkgId':Mod:$templateName"
       val ifaceQualifiedName = s"'$commonDefsPkgId':Mod:Iface"
       val viewQualifiedName = s"'$commonDefsPkgId':Mod:MyView"
+      val v1RecordArgTypeQualifiedName = s"'$v1PkgId':Mod:${templateName}RecordArgType"
+      
       s"""
         |  choice @nonConsuming ExerciseNoCatchLocal${templateName} (self) (u: Unit): Text
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
@@ -229,6 +247,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |           ($v1TplQualifiedName
         |               { p1 = '$commonDefsPkgId':Mod:alice
         |               , p2 = '$commonDefsPkgId':Mod:bob
+        |               , r = $v1RecordArgTypeQualifiedName { n = 0 }
         |               })
         |       in exercise
         |            @$v2TplQualifiedName
@@ -275,6 +294,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |           ($v1TplQualifiedName
         |               { p1 = '$commonDefsPkgId':Mod:alice
         |               , p2 = '$commonDefsPkgId':Mod:bob
+        |               , r = $v1RecordArgTypeQualifiedName { n = 0 }
         |               })
         |       in exercise_interface
         |            @$ifaceQualifiedName
@@ -324,6 +344,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |           ($v1TplQualifiedName
         |               { p1 = '$commonDefsPkgId':Mod:alice
         |               , p2 = '$commonDefsPkgId':Mod:bob
+        |               , r = $v1RecordArgTypeQualifiedName { n = 0 }
         |               })
         |       in exercise_by_key
         |            @$v2TplQualifiedName
@@ -371,6 +392,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |           ($v1TplQualifiedName
         |               { p1 = '$commonDefsPkgId':Mod:alice
         |               , p2 = '$commonDefsPkgId':Mod:bob
+        |               , r = $v1RecordArgTypeQualifiedName { n = 0 }
         |               })
         |       in fetch_template
         |            @$v2TplQualifiedName
@@ -413,6 +435,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |           ($v1TplQualifiedName
         |               { p1 = '$commonDefsPkgId':Mod:alice
         |               , p2 = '$commonDefsPkgId':Mod:bob
+        |               , r = $v1RecordArgTypeQualifiedName { n = 0 }
         |               })
         |       in ubind pair:<contract: $v2TplQualifiedName, contractId: ContractId $v2TplQualifiedName> <-
         |              fetch_by_key
@@ -464,6 +487,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |             ($v1TplQualifiedName
         |                 { p1 = '$commonDefsPkgId':Mod:alice
         |                 , p2 = '$commonDefsPkgId':Mod:bob
+        |                 , r = $v1RecordArgTypeQualifiedName { n = 0 }
         |                 });
         |         iface: $ifaceQualifiedName <- fetch_interface
         |            @$ifaceQualifiedName
@@ -508,6 +532,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |           ($v1TplQualifiedName
         |               { p1 = '$commonDefsPkgId':Mod:alice
         |               , p2 = '$commonDefsPkgId':Mod:bob
+        |               , r = $v1RecordArgTypeQualifiedName { n = 0 }
         |               })
         |       in lookup_by_key
         |            @$v2TplQualifiedName
@@ -699,6 +724,12 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       s"""\\(key: '$commonDefsPkgId':Mod:Key) -> throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "MaintainersBody"})"""
   }
 
+  case object AdditionalFieldInRecordArg
+      extends TestCase("AdditionalFieldInRecordArg", ExpectSuccess) {
+    override def v1AdditionalRecordArgFields = ""
+    override def v2AdditionalRecordArgFields = ", extra: Option Unit"
+  }
+
   case object AdditionalTemplateArg extends TestCase("AdditionalTemplateArg", ExpectSuccess) {
     override def v1AdditionalFields = ""
     override def v2AdditionalFields = ", extra: Option Unit"
@@ -746,6 +777,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     UnchangedMaintainers,
     ThrowingMaintainers,
     ThrowingMaintainersBody,
+    AdditionalFieldInRecordArg,
     AdditionalTemplateArg,
     AdditionalChoices,
     ThrowingInterfaceChoiceControllers,
@@ -868,6 +900,11 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     val ifaceId: Identifier =
       Identifier(commonDefsPkgId, Ref.QualifiedName.assertFromString("Mod:Iface"))
     val tplQualifiedName: QualifiedName = Ref.QualifiedName.assertFromString(s"Mod:$templateName")
+    val v1RecordArgTypeId: Identifier =
+      Identifier(
+        templateDefsV1PkgId,
+        Ref.QualifiedName.assertFromString(s"Mod:${templateName}RecordArgType"),
+      )
     val v1TplId: Identifier = Identifier(templateDefsV1PkgId, tplQualifiedName)
     val v2TplId: Identifier = Identifier(templateDefsV2PkgId, tplQualifiedName)
 
@@ -892,6 +929,12 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       ImmArray(
         Some(Name.assertFromString("p1")) -> ValueParty(alice),
         Some(Name.assertFromString("p2")) -> ValueParty(bob),
+        Some(Name.assertFromString("r")) -> ValueRecord(
+          Some(v1RecordArgTypeId),
+          ImmArray(
+            Some(Name.assertFromString("n")) -> ValueInt64(0)
+          ),
+        ),
       ),
     )
 
