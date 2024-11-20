@@ -209,7 +209,7 @@ contents: |
 -}
 
 assertIsUpgradeError : Either SubmitError a -> Script ()
-assertIsUpgradeError (Left (UpgradeError _)) = pure ()
+assertIsUpgradeError (Left (UpgradeError _ _)) = pure ()
 assertIsUpgradeError (Left e) = fail $ "Expected upgrade error but got " <> show e
 assertIsUpgradeError _ = fail "Expected upgrade error but got success"
 
