@@ -11,16 +11,16 @@ import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFai
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.api.v30.SequencerServiceGrpc.SequencerServiceStub
-import com.digitalasset.canton.lifecycle.Lifecycle.CloseableChannel
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.SequencerClientMetrics
-import com.digitalasset.canton.networking.grpc.GrpcError.{
-  GrpcClientGaveUp,
-  GrpcServerError,
-  GrpcServiceUnavailable,
+import com.digitalasset.canton.networking.grpc.GrpcError.GrpcServiceUnavailable
+import com.digitalasset.canton.networking.grpc.{
+  CantonGrpcUtil,
+  GrpcClient,
+  GrpcError,
+  GrpcManagedChannel,
 }
-import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, GrpcError}
 import com.digitalasset.canton.sequencing.SerializedEventHandler
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.{
@@ -63,8 +63,12 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
   ): EitherT[FutureUnlessShutdown, Status, Unit] =
     clientAuth.logout()
 
-  protected val sequencerServiceClient: SequencerServiceStub = clientAuth(
-    new SequencerServiceStub(channel, options = callOptions)
+  private val managedChannel: GrpcManagedChannel =
+    GrpcManagedChannel("grpc-sequencer-transport", channel, this, logger)
+
+  protected val sequencerServiceClient: GrpcClient[SequencerServiceStub] = GrpcClient.create(
+    managedChannel,
+    channel => clientAuth(new SequencerServiceStub(channel, options = callOptions)),
   )
 
   override def sendAsyncSigned(
@@ -85,8 +89,6 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
       requestDescription = s"$endpoint/$messageId",
       timeout = timeout,
       logger = logger,
-      logPolicy = noLoggingShutdownErrorsLogPolicy,
-      onShutdownRunner = this,
       retryPolicy = sendAtMostOnce,
     )
     response.biflatMap(
@@ -154,8 +156,6 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
         requestDescription = s"get-traffic-state/${request.member}",
         timeout = timeouts.network.duration,
         logger = logger,
-        logPolicy = noLoggingShutdownErrorsLogPolicy,
-        onShutdownRunner = this,
         retryPolicy = retryPolicy(retryOnUnavailable = true),
       )
       .map { res =>
@@ -180,8 +180,6 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
         requestDescription = s"acknowledge-signed/$timestamp",
         timeout = timeouts.network.duration,
         logger = logger,
-        logPolicy = noLoggingShutdownErrorsLogPolicy,
-        onShutdownRunner = this,
         retryPolicy = retryPolicy(retryOnUnavailable = false),
       )
       .map { _ =>
@@ -201,7 +199,10 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
     logger.debug("Downloading topology state for initialization")
 
     ClientAdapter
-      .serverStreaming(request.toProtoV30, sequencerServiceClient.downloadTopologyStateForInit)
+      .serverStreaming(
+        request.toProtoV30,
+        sequencerServiceClient.service.downloadTopologyStateForInit,
+      )
       .map(TopologyStateForInitResponse.fromProtoV30(_))
       .flatMapConcat { parsingResult =>
         parsingResult.fold(
@@ -225,23 +226,12 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
   override protected def onClosed(): Unit =
     Lifecycle.close(
       clientAuth,
-      new CloseableChannel(channel, logger, "grpc-sequencer-transport"),
+      managedChannel,
     )(logger)
 }
 
 trait GrpcClientTransportHelpers {
   this: FlagCloseable & NamedLogging =>
-  protected val noLoggingShutdownErrorsLogPolicy
-      : GrpcError => TracedLogger => TraceContext => Unit =
-    err =>
-      logger =>
-        implicit traceContext =>
-          err match {
-            case _: GrpcClientGaveUp | _: GrpcServerError | _: GrpcServiceUnavailable =>
-              // avoid logging client errors that typically happen during shutdown (such as grpc context cancelled)
-              if (!isClosing) err.log(logger)
-            case _ => err.log(logger)
-          }
 
   /** Retry policy to retry once for authentication failures to allow re-authentication and optionally retry when unavailable. */
   protected def retryPolicy(
@@ -312,7 +302,7 @@ class GrpcSequencerClientTransport(
 
     context.run(() =>
       TraceContextGrpc.withGrpcContext(traceContext) {
-        sequencerServiceClient.subscribeVersioned(
+        sequencerServiceClient.service.subscribeVersioned(
           subscriptionRequest.toProtoV30,
           subscription.observer,
         )

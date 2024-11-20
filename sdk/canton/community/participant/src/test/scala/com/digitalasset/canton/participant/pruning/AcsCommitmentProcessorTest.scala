@@ -864,7 +864,7 @@ class AcsCommitmentProcessorTest
           CantonTimestampSecond,
           Option[PositiveSeconds],
       )
-  ): Future[SignedProtocolMessage[AcsCommitment]] = {
+  ): FutureUnlessShutdown[SignedProtocolMessage[AcsCommitment]] = {
     val (remote, contracts, fromExclusive, toInclusive, reconciliationInterval) = params
 
     val syncCrypto =
@@ -874,7 +874,7 @@ class AcsCommitmentProcessorTest
         .forOwnerAndDomain(remote)
     // we assume that the participant has a single stakeholder group
     val cmt = commitmentsFromStkhdCmts(Seq(stakeholderCommitment(contracts)))
-    val snapshotF = syncCrypto.snapshot(CantonTimestamp.Epoch)
+    val snapshotF = syncCrypto.snapshotUS(CantonTimestamp.Epoch)
     val period =
       CommitmentPeriod
         .create(
@@ -889,7 +889,6 @@ class AcsCommitmentProcessorTest
     snapshotF.flatMap { snapshot =>
       SignedProtocolMessage
         .trySignAndCreate(payload, snapshot, testedProtocolVersion)
-        .failOnShutdown
     }
   }
 
@@ -1272,8 +1271,8 @@ class AcsCommitmentProcessorTest
         (remoteId2, Map((coid(0, 1), initialReassignmentCounter)), ts(5), ts(10), None),
       )
 
-      for {
-        processor <- proc.onShutdown(fail())
+      (for {
+        processor <- proc
         remote <- remoteCommitments.parTraverse(commitmentMsg)
         delivered = remote.map(cmt =>
           (
@@ -1286,7 +1285,6 @@ class AcsCommitmentProcessorTest
           .parTraverse_ { case (ts, batch) =>
             processor.processBatchInternal(ts.forgetRefinement, batch)
           }
-          .onShutdown(fail())
         _ <- processChanges(processor, store, changes)
 
         computed <- store.searchComputedBetween(CantonTimestamp.Epoch, timeProofs.lastOption.value)
@@ -1295,7 +1293,7 @@ class AcsCommitmentProcessorTest
         sequencerClient.requests.size shouldBe 2
         assert(computed.size === 2)
         assert(received.size === 2)
-      }
+      }).failOnShutdown
     }
 
     /*
@@ -1360,8 +1358,8 @@ class AcsCommitmentProcessorTest
       val remoteCommitments =
         List((remoteId1, Map((coid(0, 0), initialReassignmentCounter)), ts(5), ts(10), None))
 
-      for {
-        processor <- proc.onShutdown(fail())
+      (for {
+        processor <- proc
         remote <- remoteCommitments.parTraverse(commitmentMsg)
         delivered = remote.map(cmt =>
           (
@@ -1374,7 +1372,6 @@ class AcsCommitmentProcessorTest
           .parTraverse_ { case (ts, batch) =>
             processor.processBatchInternal(ts.forgetRefinement, batch)
           }
-          .onShutdown(fail())
 
         _ <- processor.flush()
 
@@ -1415,7 +1412,7 @@ class AcsCommitmentProcessorTest
         }
 
         outstanding shouldBe empty
-      }
+      }).failOnShutdown
     }
 
     "prevent pruning when there is no timestamp such that no commitments are outstanding" in {
@@ -1428,7 +1425,7 @@ class AcsCommitmentProcessorTest
           any[TraceContext]
         )
       )
-        .thenReturn(Future.successful(None))
+        .thenReturn(FutureUnlessShutdown.pure(None))
       val inFlightSubmissionStore = new InMemoryInFlightSubmissionStore(loggerFactory)
 
       for {
@@ -1468,7 +1465,7 @@ class AcsCommitmentProcessorTest
         )
       )
         .thenAnswer { (ts: CantonTimestamp) =>
-          Future.successful(Some(ts.min(CantonTimestamp.Epoch)))
+          FutureUnlessShutdown.pure(Some(ts.min(CantonTimestamp.Epoch)))
         }
       val inFlightSubmissionStore = new InMemoryInFlightSubmissionStore(loggerFactory)
 
@@ -1513,7 +1510,7 @@ class AcsCommitmentProcessorTest
         )
       )
         .thenAnswer { (ts: CantonTimestamp) =>
-          Future.successful(
+          FutureUnlessShutdown.pure(
             Some(ts.min(CantonTimestamp.Epoch.plusSeconds(JDuration.ofDays(200).getSeconds)))
           )
         }
@@ -1620,7 +1617,7 @@ class AcsCommitmentProcessorTest
         )
       )
         .thenAnswer { (ts: CantonTimestamp) =>
-          Future.successful(
+          FutureUnlessShutdown.pure(
             Some(ts.min(CantonTimestamp.Epoch.plusSeconds(JDuration.ofDays(200).getSeconds)))
           )
         }
@@ -1685,7 +1682,7 @@ class AcsCommitmentProcessorTest
         )
       )
         .thenAnswer { (ts: CantonTimestamp) =>
-          Future.successful(
+          FutureUnlessShutdown.pure(
             Some(ts.min(CantonTimestamp.Epoch.plusSeconds(JDuration.ofDays(200).getSeconds)))
           )
         }
@@ -2024,9 +2021,9 @@ class AcsCommitmentProcessorTest
           cantonTimestamp: CantonTimestamp,
           nrIntervalsToTriggerCatchUp: PositiveInt = PositiveInt.tryCreate(1),
           catchUpIntervalSkip: PositiveInt = PositiveInt.tryCreate(2),
-      ): Future[Assertion] =
+      ): FutureUnlessShutdown[Assertion] =
         for {
-          config <- processor.catchUpConfig(cantonTimestamp).failOnShutdown
+          config <- processor.catchUpConfig(cantonTimestamp)
         } yield {
           config match {
             case Some(cfg) =>
@@ -2039,9 +2036,9 @@ class AcsCommitmentProcessorTest
       def checkCatchUpModeCfgDisabled(
           processor: pruning.AcsCommitmentProcessor,
           cantonTimestamp: CantonTimestamp,
-      ): Future[Assertion] =
+      ): FutureUnlessShutdown[Assertion] =
         for {
-          config <- processor.catchUpConfig(cantonTimestamp).failOnShutdown
+          config <- processor.catchUpConfig(cantonTimestamp)
         } yield {
           config match {
             case Some(cfg)
@@ -2120,8 +2117,8 @@ class AcsCommitmentProcessorTest
           (remoteId2, Map((coid(1, 0), initialReassignmentCounter)), ts(25), ts(30), None),
         )
 
-        for {
-          processor <- proc.onShutdown(fail())
+        (for {
+          processor <- proc
           _ <- checkCatchUpModeCfgCorrect(processor, timeProofs.head)
           remote <- remoteCommitments.parTraverse(commitmentMsg)
           delivered = remote.map(cmt =>
@@ -2136,7 +2133,6 @@ class AcsCommitmentProcessorTest
             .parTraverse_ { case (ts, batch) =>
               processor.processBatchInternal(ts.forgetRefinement, batch)
             }
-            .onShutdown(fail())
           _ <- processChanges(processor, store, changes)
 
           outstanding <- store.noOutstandingCommitments(timeProofs.lastOption.value)
@@ -2159,7 +2155,7 @@ class AcsCommitmentProcessorTest
           assert(received.size === 5)
           // all local commitments were matched and can be pruned
           assert(outstanding.contains(toc(55).timestamp))
-        }
+        }).failOnShutdown
       }
 
       "catch up parameters overflow causes exception" in {
@@ -2239,8 +2235,8 @@ class AcsCommitmentProcessorTest
                 ),
               )
 
-            for {
-              processor <- proc.onShutdown(fail())
+            (for {
+              processor <- proc
               _ <- checkCatchUpModeCfgCorrect(
                 processor,
                 testSequences.head,
@@ -2266,7 +2262,7 @@ class AcsCommitmentProcessorTest
               )
             } yield {
               succeed
-            }
+            }).failOnShutdown
           },
           // the computed timestamp to catch up to represents an out of bound CantonTimestamp, therefore we log an error
           LogEntry.assertLogSeq(
@@ -2324,8 +2320,8 @@ class AcsCommitmentProcessorTest
             domainParametersUpdates = List(startConfigWithValidity),
           )
 
-        for {
-          processor <- proc.onShutdown(fail())
+        (for {
+          processor <- proc
           _ <- checkCatchUpModeCfgCorrect(
             processor,
             testSequences.head,
@@ -2355,7 +2351,7 @@ class AcsCommitmentProcessorTest
           _ = sequencerClient.requests.size shouldBe 9
         } yield {
           succeed
-        }
+        }).failOnShutdown
       }
 
       "catch up in correct skip steps scenario2" in {
@@ -2402,8 +2398,8 @@ class AcsCommitmentProcessorTest
             domainParametersUpdates = List(startConfigWithValidity),
           )
 
-        for {
-          processor <- proc.onShutdown(fail())
+        (for {
+          processor <- proc
           _ <- checkCatchUpModeCfgCorrect(
             processor,
             testSequences.head,
@@ -2432,7 +2428,7 @@ class AcsCommitmentProcessorTest
           _ = sequencerClient.requests.size shouldBe 10
         } yield {
           succeed
-        }
+        }).failOnShutdown
       }
 
       "pruning works correctly for a participant ahead of a counter-participant that catches up" in {
@@ -2498,8 +2494,8 @@ class AcsCommitmentProcessorTest
           (remoteId2, Map((coid(1, 0), initialReassignmentCounter)), ts(20), ts(30), None),
         )
 
-        for {
-          processor <- proc.onShutdown(fail())
+        (for {
+          processor <- proc
           _ <- checkCatchUpModeCfgCorrect(processor, timeProofs.head)
           remote <- remoteCommitments.parTraverse(commitmentMsg)
           delivered = remote.map(cmt =>
@@ -2516,7 +2512,6 @@ class AcsCommitmentProcessorTest
             .parTraverse_ { case (ts, batch) =>
               processor.processBatchInternal(ts.forgetRefinement, batch)
             }
-            .onShutdown(fail())
           _ <- processor.flush()
           outstanding <- store.noOutstandingCommitments(timeProofs.lastOption.value)
           computed <- store.searchComputedBetween(
@@ -2534,7 +2529,7 @@ class AcsCommitmentProcessorTest
           assert(received.size === 4)
           // all local commitments were matched and can be pruned
           assert(outstanding.contains(toc(30).timestamp))
-        }
+        }).failOnShutdown
       }
 
       "send skipped commitments on mismatch during catch-up" in {
@@ -2606,8 +2601,8 @@ class AcsCommitmentProcessorTest
           (remoteId2, Map((coid(1, 0), initialReassignmentCounter)), ts(25), ts(30), None),
         )
 
-        for {
-          processor <- proc.onShutdown(fail())
+        (for {
+          processor <- proc
           _ <- checkCatchUpModeCfgCorrect(processor, timeProofs.head)
           remote <- remoteCommitments.parTraverse(commitmentMsg)
           delivered = remote.map(cmt =>
@@ -2621,7 +2616,6 @@ class AcsCommitmentProcessorTest
             .parTraverse_ { case (ts, batch) =>
               processor.processBatchInternal(ts.forgetRefinement, batch)
             }
-            .onShutdown(fail())
 
           _ <- loggerFactory.assertLoggedWarningsAndErrorsSeq(
             {
@@ -2667,7 +2661,7 @@ class AcsCommitmentProcessorTest
           assert(received.size === 5)
           // cannot prune past the mismatch
           assert(outstanding.contains(toc(30).timestamp))
-        }
+        }).failOnShutdown
       }
 
       "dynamically change, disable & re-enable catch-up config during a catch-up" in {
@@ -2734,8 +2728,8 @@ class AcsCommitmentProcessorTest
             domainParametersUpdates = List(disabledConfigWithValidity, changedConfigWithValidity),
           )
 
-        for {
-          processor <- proc.onShutdown(fail())
+        (for {
+          processor <- proc
           _ <- checkCatchUpModeCfgCorrect(processor, testSequences.head.head)
           _ <- checkCatchUpModeCfgDisabled(processor, testSequences.apply(1).last)
           _ <- checkCatchUpModeCfgCorrect(
@@ -2783,7 +2777,7 @@ class AcsCommitmentProcessorTest
           _ = sequencerClient.requests.size shouldBe (3 + 5 + 5)
         } yield {
           succeed
-        }
+        }).failOnShutdown
       }
 
       "disable catch-up config during catch-up mode" in {
@@ -2836,8 +2830,8 @@ class AcsCommitmentProcessorTest
             domainParametersUpdates = List(startConfigWithValidity, disabledConfigWithValidity),
           )
 
-        for {
-          processor <- proc.onShutdown(fail())
+        (for {
+          processor <- proc
           _ <- checkCatchUpModeCfgCorrect(
             processor,
             testSequences.head,
@@ -2867,7 +2861,7 @@ class AcsCommitmentProcessorTest
           _ = sequencerClient.requests.size shouldBe 6
         } yield {
           succeed
-        }
+        }).failOnShutdown
       }
 
       "change catch-up config during catch-up mode" in {
@@ -2923,8 +2917,8 @@ class AcsCommitmentProcessorTest
             domainParametersUpdates = List(startConfigWithValidity, changeConfigWithValidity),
           )
 
-        for {
-          processor <- proc.onShutdown(fail())
+        (for {
+          processor <- proc
           _ <- checkCatchUpModeCfgCorrect(
             processor,
             testSequences.head,
@@ -2965,7 +2959,7 @@ class AcsCommitmentProcessorTest
           _ = sequencerClient.requests.size shouldBe 5
         } yield {
           succeed
-        }
+        }).failOnShutdown
       }
 
       "should mark as unhealthy when not caught up" in {
@@ -3009,10 +3003,10 @@ class AcsCommitmentProcessorTest
             acsCommitmentsCatchUpModeEnabled = true,
           )
 
-        for {
-          processor <- proc.onShutdown(fail())
+        (for {
+          processor <- proc
           // we apply any changes (contract deployment) that happens before our windows
-          _ <- Future.successful(
+          _ <- FutureUnlessShutdown.pure(
             changes
               .filter(a => a._1 < testSequences.head)
               .foreach { case (ts, tb, change) =>
@@ -3033,7 +3027,7 @@ class AcsCommitmentProcessorTest
           _ = assert(processor.healthComponent.isDegraded)
         } yield {
           succeed
-        }
+        }).failOnShutdown
       }
 
       def testSequence(
@@ -3045,7 +3039,7 @@ class AcsCommitmentProcessorTest
           expectDegradation: Boolean = false,
           noLogSuppression: Boolean = false,
           justProcessingNoChecks: Boolean = false,
-      ): Future[Assertion] = {
+      ): FutureUnlessShutdown[Assertion] = {
         val remoteCommitments = sequence
           .map(i =>
             (
@@ -3077,7 +3071,7 @@ class AcsCommitmentProcessorTest
             .parTraverse_ { case (ts, batch) =>
               processor.processBatchInternal(ts.forgetRefinement, batch)
             }
-            .onShutdown(fail())
+
           _ <- processChanges(
             processor,
             store,
@@ -3178,8 +3172,8 @@ class AcsCommitmentProcessorTest
           (remoteId2, Map((coid(1, 1), initialReassignmentCounter)), ts(25), ts(30), None),
         )
 
-        for {
-          processor <- proc.onShutdown(fail())
+        (for {
+          processor <- proc
           _ <- checkCatchUpModeCfgCorrect(processor, timeProofs.head)
           remote <- remoteCommitments.parTraverse(commitmentMsg)
           delivered = remote.map(cmt =>
@@ -3194,7 +3188,6 @@ class AcsCommitmentProcessorTest
             .parTraverse_ { case (ts, batch) =>
               processor.processBatchInternal(ts.forgetRefinement, batch)
             }
-            .onShutdown(fail())
 
           _ <- loggerFactory.assertLoggedWarningsAndErrorsSeq(
             {
@@ -3242,7 +3235,7 @@ class AcsCommitmentProcessorTest
           assert(received.size === 5)
           // cannot prune past the mismatch 25-30, because there are no commitments that match past this point
           assert(outstanding.contains(toc(25).timestamp))
-        }
+        }).failOnShutdown
       }
 
       "not report errors about skipped commitments due to catch-up mode" in {
@@ -3342,8 +3335,8 @@ class AcsCommitmentProcessorTest
           ),
         )
 
-        for {
-          processor <- proc.onShutdown(fail())
+        (for {
+          processor <- proc
           _ <- checkCatchUpModeCfgCorrect(processor, timeProofs.head)
           remoteFast <- remoteCommitmentsFast.parTraverse(commitmentMsg)
           deliveredFast = remoteFast.map(cmt =>
@@ -3359,7 +3352,6 @@ class AcsCommitmentProcessorTest
             .parTraverse_ { case (ts, batch) =>
               processor.processBatchInternal(ts.forgetRefinement, batch)
             }
-            .onShutdown(fail())
 
           _ = loggerFactory.assertLogs(
             {
@@ -3388,7 +3380,6 @@ class AcsCommitmentProcessorTest
             .parTraverse_ { case (ts, batch) =>
               processor.processBatchInternal(ts.forgetRefinement, batch)
             }
-            .onShutdown(fail())
           _ <- processor.flush()
 
           outstanding <- store.noOutstandingCommitments(toc(30).timestamp)
@@ -3410,7 +3401,7 @@ class AcsCommitmentProcessorTest
           assert(received.size === 8)
           // cannot prune past the mismatch
           assert(outstanding.contains(toc(25).timestamp))
-        }
+        }).failOnShutdown
       }
 
       "perform match for fine-grained commitments in case of mismatch at catch-up boundary" in {
@@ -3524,8 +3515,8 @@ class AcsCommitmentProcessorTest
         )
 
         loggerFactory.assertLoggedWarningsAndErrorsSeq(
-          for {
-            processor <- proc.onShutdown(fail())
+          (for {
+            processor <- proc
             _ <- checkCatchUpModeCfgCorrect(processor, timeProofs.head)
             remoteFast <- remoteCommitmentsFast.parTraverse(commitmentMsg)
             deliveredFast = remoteFast.map(cmt =>
@@ -3542,7 +3533,6 @@ class AcsCommitmentProcessorTest
               .parTraverse_ { case (ts, batch) =>
                 processor.processBatchInternal(ts.forgetRefinement, batch)
               }
-              .onShutdown(fail())
 
             _ = changes.foreach { case (ts, tb, change) =>
               processor.publish(RecordTime(ts, tb.v), change, Future.unit)
@@ -3566,7 +3556,6 @@ class AcsCommitmentProcessorTest
               .parTraverse_ { case (ts, batch) =>
                 processor.processBatchInternal(ts.forgetRefinement, batch)
               }
-              .onShutdown(fail())
             _ <- processor.flush()
 
             outstanding <- store.noOutstandingCommitments(toc(30).timestamp)
@@ -3588,7 +3577,7 @@ class AcsCommitmentProcessorTest
             assert(received.size === 9)
             // cannot prune past the mismatch
             assert(outstanding.contains(toc(25).timestamp))
-          },
+          }).failOnShutdown,
           LogEntry.assertLogSeq(
             Seq(
               (
@@ -3637,7 +3626,7 @@ class AcsCommitmentProcessorTest
         store: AcsCommitmentStore,
         changes: List[(CantonTimestamp, RequestCounter, AcsChange)],
         noLogSuppression: Boolean = false,
-    ): Future[Unit] = {
+    ): FutureUnlessShutdown[Unit] = {
       lazy val fut = {
         changes.foreach { case (ts, tb, change) =>
           processor.publish(RecordTime(ts, tb.v), change, Future.unit)
@@ -3645,7 +3634,7 @@ class AcsCommitmentProcessorTest
         processor.flush()
       }
       for {
-        config <- processor.catchUpConfig(changes.head._1).failOnShutdown
+        config <- processor.catchUpConfig(changes.head._1)
         remote <- store.searchReceivedBetween(changes.head._1, changes.last._1)
         _ <- config match {
           case _ if remote.isEmpty || noLogSuppression => fut
@@ -3683,7 +3672,7 @@ class AcsCommitmentProcessorTest
         val runningCommitments = initRunningCommitments(inMemoryCommitmentStore)
         val cachedCommitments = new CachedCommitments()
 
-        for {
+        (for {
           // init phase
           rc <- runningCommitments
           _ = rc.update(rt(2, 0), acsChanges(ts(2)))
@@ -3695,7 +3684,6 @@ class AcsCommitmentProcessorTest
               ts(2),
               parallelism,
             )
-            .failOnShutdown
           normalCommitments2 = computeCommitmentsPerParticipant(byParticipant2, cachedCommitments)
           _ = cachedCommitments.setCachedCommitments(
             normalCommitments2,
@@ -3719,7 +3707,6 @@ class AcsCommitmentProcessorTest
               ts(4),
               parallelism,
             )
-            .failOnShutdown
 
           computeFromCachedRemoteId1 = cachedCommitments.computeCmtFromCached(
             remoteId1,
@@ -3737,7 +3724,7 @@ class AcsCommitmentProcessorTest
           // because less than 1/2 of the stakeholder commitments for participant "remoteId2" change, we should
           // use cached commitments for the computation of remoteId2's commitment
           assert(computeFromCachedRemoteId2.isDefined)
-        }
+        }).failOnShutdown
       }
 
       "yields the same commitments as without caching" in {
@@ -3763,7 +3750,7 @@ class AcsCommitmentProcessorTest
         val runningCommitments = initRunningCommitments(inMemoryCommitmentStore)
         val cachedCommitments = new CachedCommitments()
 
-        for {
+        (for {
           rc <- runningCommitments
 
           _ = rc.update(rt(2, 0), acsChanges(ts(2)))
@@ -3778,7 +3765,6 @@ class AcsCommitmentProcessorTest
               // behaves as if we don't use caching, because we don't reuse this object for further computation
               new CachedCommitments(),
             )
-            .failOnShutdown
           cachedCommitments2 <- AcsCommitmentProcessor
             .commitments(
               localId,
@@ -3789,7 +3775,6 @@ class AcsCommitmentProcessorTest
               parallelism,
               cachedCommitments,
             )
-            .failOnShutdown
 
           _ = rc.update(rt(4, 0), acsChanges(ts(4)))
           normalCommitments4 <- AcsCommitmentProcessor
@@ -3803,7 +3788,6 @@ class AcsCommitmentProcessorTest
               // behaves as if we don't use caching, because we don't reuse this object for further computation
               new CachedCommitments(),
             )
-            .failOnShutdown
           cachedCommitments4 <- AcsCommitmentProcessor
             .commitments(
               localId,
@@ -3814,12 +3798,11 @@ class AcsCommitmentProcessorTest
               parallelism,
               cachedCommitments,
             )
-            .failOnShutdown
 
         } yield {
           assert(normalCommitments2 equals cachedCommitments2)
           assert(normalCommitments4 equals cachedCommitments4)
-        }
+        }).failOnShutdown
       }
 
       "handles stakeholder group removal correctly" in {
@@ -3836,7 +3819,7 @@ class AcsCommitmentProcessorTest
         val runningCommitments = initRunningCommitments(inMemoryCommitmentStore)
         val cachedCommitments = new CachedCommitments()
 
-        for {
+        (for {
           // init phase
           // participant "remoteId2" has one stakeholder group in common with "remote1": (alice, bob, charlie) with one contract
           // participant "remoteId2" has three stakeholder group in common with "local": (alice, bob, charlie) with one contract,
@@ -3851,7 +3834,6 @@ class AcsCommitmentProcessorTest
               ts(2),
               parallelism,
             )
-            .failOnShutdown
           normalCommitments2 = computeCommitmentsPerParticipant(byParticipant2, cachedCommitments)
           _ = cachedCommitments.setCachedCommitments(
             normalCommitments2,
@@ -3869,7 +3851,6 @@ class AcsCommitmentProcessorTest
               ts(2),
               parallelism,
             )
-            .failOnShutdown
 
           // simulate offboarding party ed from remoteId2 by replacing the commitment for (alice,ed) with an empty commitment
           byParticipantWithOffboard = byParticipant.updatedWith(localId) {
@@ -3892,7 +3873,7 @@ class AcsCommitmentProcessorTest
           )
         } yield {
           assert(computeFromCachedLocalId1.contains(correctCmts))
-        }
+        }).failOnShutdown
       }
 
       "handles stakeholder group addition correctly" in {
@@ -3909,7 +3890,7 @@ class AcsCommitmentProcessorTest
         val runningCommitments = initRunningCommitments(inMemoryCommitmentStore)
         val cachedCommitments = new CachedCommitments()
 
-        for {
+        (for {
           // init phase
           // participant "remoteId2" has one stakeholder group in common with "remote1": (alice, bob, charlie) with one contract
           // participant "remoteId2" has three stakeholder group in common with "local": (alice, bob, charlie) with one contract,
@@ -3924,7 +3905,6 @@ class AcsCommitmentProcessorTest
               ts(2),
               parallelism,
             )
-            .failOnShutdown
           normalCommitments2 = computeCommitmentsPerParticipant(byParticipant2, cachedCommitments)
           _ = cachedCommitments.setCachedCommitments(
             normalCommitments2,
@@ -3942,7 +3922,6 @@ class AcsCommitmentProcessorTest
               ts(2),
               parallelism,
             )
-            .failOnShutdown
 
           // simulate onboarding party ed to remoteId1 by adding remoteId1 as a participant for group (alice, ed)
           // the commitment for (alice,ed) existed previously, but was not used for remoteId1's commitment
@@ -3968,7 +3947,7 @@ class AcsCommitmentProcessorTest
           )
         } yield {
           assert(computeFromCachedRemoteId1.contains(correctCmts))
-        }
+        }).failOnShutdown
       }
 
     }
@@ -4017,7 +3996,7 @@ class AcsCommitmentProcessorTest
         (remoteId1, Map((coid(0, 0), initialReassignmentCounter)), ts(15), ts(20), None),
       )
 
-      for {
+      (for {
         _ <- configStore
           .createOrUpdateCounterParticipantConfigs(
             Seq(
@@ -4036,11 +4015,11 @@ class AcsCommitmentProcessorTest
               )
             ),
           )
-          .failOnShutdown("Aborted due to shutdown.")
-        processor <- proc.onShutdown(fail())
-        _ <- processor.indicateLocallyProcessed(
-          new CommitmentPeriod(ts(0), PositiveSeconds.tryOfSeconds(20))
-        )
+        processor <- proc
+        _ <- processor
+          .indicateLocallyProcessed(
+            new CommitmentPeriod(ts(0), PositiveSeconds.tryOfSeconds(20))
+          )
         remote <- remoteCommitments.parTraverse(commitmentMsg)
         delivered = remote.map(cmt =>
           (
@@ -4054,7 +4033,6 @@ class AcsCommitmentProcessorTest
           .parTraverse_ { case (ts, batch) =>
             processor.processBatchInternal(ts.forgetRefinement, batch)
           }
-          .onShutdown(fail())
 
       } yield {
         val intervalAsMicros = interval.duration.toMillis * 1000
@@ -4062,7 +4040,7 @@ class AcsCommitmentProcessorTest
         ParticipantTestMetrics.domain.commitments.largestCounterParticipantLatency.getValue shouldBe 3 * intervalAsMicros
         // remoteId3 is 2 intervals behind remoteId1
         ParticipantTestMetrics.domain.commitments.largestDistinguishedCounterParticipantLatency.getValue shouldBe 2 * intervalAsMicros
-      }
+      }).failOnShutdown
     }
 
     "Report latency metrics for the specified counter participants" in {
@@ -4108,7 +4086,7 @@ class AcsCommitmentProcessorTest
         (remoteId1, Map((coid(0, 0), initialReassignmentCounter)), ts(15), ts(20), None),
       )
 
-      for {
+      (for {
         _ <- configStore
           .createOrUpdateCounterParticipantConfigs(
             Seq(
@@ -4133,11 +4111,11 @@ class AcsCommitmentProcessorTest
               )
             ),
           )
-          .failOnShutdown("Aborted due to shutdown.")
-        processor <- proc.onShutdown(fail())
-        _ <- processor.indicateLocallyProcessed(
-          new CommitmentPeriod(ts(0), PositiveSeconds.tryOfSeconds(20))
-        )
+        processor <- proc
+        _ <- processor
+          .indicateLocallyProcessed(
+            new CommitmentPeriod(ts(0), PositiveSeconds.tryOfSeconds(20))
+          )
         remote <- remoteCommitments.parTraverse(commitmentMsg)
         delivered = remote.map(cmt =>
           (
@@ -4151,7 +4129,6 @@ class AcsCommitmentProcessorTest
           .parTraverse_ { case (ts, batch) =>
             processor.processBatchInternal(ts.forgetRefinement, batch)
           }
-          .onShutdown(fail())
 
       } yield {
         val intervalAsMicros = interval.duration.toMillis * 1000
@@ -4163,7 +4140,7 @@ class AcsCommitmentProcessorTest
         ParticipantTestMetrics.domain.commitments
           .counterParticipantLatency(remoteId3)
           .getValue shouldBe 2 * intervalAsMicros
-      }
+      }).failOnShutdown
     }
 
     "Only report latency if above thresholds" in {
@@ -4209,7 +4186,7 @@ class AcsCommitmentProcessorTest
         (remoteId1, Map((coid(0, 0), initialReassignmentCounter)), ts(15), ts(20), None),
       )
 
-      for {
+      (for {
         _ <- configStore
           .createOrUpdateCounterParticipantConfigs(
             Seq(
@@ -4228,9 +4205,8 @@ class AcsCommitmentProcessorTest
               )
             ),
           )
-          .failOnShutdown("Aborted due to shutdown.")
 
-        processor <- proc.onShutdown(fail())
+        processor <- proc
         remote <- remoteCommitments.parTraverse(commitmentMsg)
         delivered = remote.map(cmt =>
           (
@@ -4244,14 +4220,13 @@ class AcsCommitmentProcessorTest
           .parTraverse_ { case (ts, batch) =>
             processor.processBatchInternal(ts.forgetRefinement, batch)
           }
-          .onShutdown(fail())
 
       } yield {
         // remoteId3 is 2 intervals behind remoteId1, but threshold is 5 so nothing should be reported
         ParticipantTestMetrics.domain.commitments.largestDistinguishedCounterParticipantLatency.getValue shouldBe 0
         // remoteId2 is 3 intervals behind remoteId1, but threshold is 5 so nothing should be reported
         ParticipantTestMetrics.domain.commitments.largestCounterParticipantLatency.getValue shouldBe 0
-      }
+      }).failOnShutdown
     }
   }
 }

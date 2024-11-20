@@ -6,12 +6,19 @@ package com.digitalasset.canton.sequencing.protocol
 import com.daml.nonempty.NonEmptyUtil
 import com.digitalasset.canton.config.CantonRequireTypes.String73
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong, PositiveInt}
-import com.digitalasset.canton.crypto.Signature
+import com.digitalasset.canton.crypto.{AsymmetricEncrypted, Signature, SymmetricKey}
 import com.digitalasset.canton.data.{CantonTimestamp, GeneratorsData}
 import com.digitalasset.canton.protocol.messages.{GeneratorsMessages, ProtocolMessage}
 import com.digitalasset.canton.sequencing.channel.{
   ConnectToSequencerChannelRequest,
   ConnectToSequencerChannelResponse,
+}
+import com.digitalasset.canton.sequencing.protocol.channel.{
+  SequencerChannelConnectedToAllEndpoints,
+  SequencerChannelId,
+  SequencerChannelMetadata,
+  SequencerChannelSessionKey,
+  SequencerChannelSessionKeyAck,
 }
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.serialization.{
@@ -152,6 +159,14 @@ final class GeneratorsProtocol(
       )
     )
 
+  implicit val sequencerChannelSessionKeyArb: Arbitrary[SequencerChannelSessionKey] =
+    Arbitrary(for {
+      encrypted <- Arbitrary.arbitrary[AsymmetricEncrypted[SymmetricKey]]
+    } yield SequencerChannelSessionKey.apply(encrypted, protocolVersion))
+
+  implicit val sequencerChannelSessionKeyAckArb: Arbitrary[SequencerChannelSessionKeyAck] =
+    Arbitrary(SequencerChannelSessionKeyAck.apply(protocolVersion))
+
   implicit val connectToSequencerChannelRequestArb: Arbitrary[ConnectToSequencerChannelRequest] =
     Arbitrary(
       for {
@@ -159,7 +174,7 @@ final class GeneratorsProtocol(
           byteStringArb.arbitrary.map(
             ConnectToSequencerChannelRequest.Payload(_): ConnectToSequencerChannelRequest.Request
           ),
-          sequencerChannelMetadataArb.arbitrary.map(ConnectToSequencerChannelRequest.Metadata(_)),
+          sequencerChannelMetadataArb.arbitrary.map(ConnectToSequencerChannelRequest.Metadata.apply),
         )
       } yield ConnectToSequencerChannelRequest.apply(
         request,

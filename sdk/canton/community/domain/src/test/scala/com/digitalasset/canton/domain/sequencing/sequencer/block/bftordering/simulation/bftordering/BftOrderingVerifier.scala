@@ -7,11 +7,11 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.BlockFormat
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.PeanoQueue
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.memory.SimulationOutputBlockMetadataStore
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.BlockNumber
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.simulation.SimulationVerifier
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.simulation.bftordering.BftOrderingVerifier.LivenessState
 import com.digitalasset.canton.topology.SequencerId
-import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.matchers.should.Matchers
 
@@ -23,7 +23,7 @@ import scala.jdk.DurationConverters.ScalaDurationOps
 class BftOrderingVerifier(
     queue: mutable.Queue[(SequencerId, BlockFormat.Block)],
     stores: Map[SequencerId, SimulationOutputBlockMetadataStore],
-    onboardingTimes: Map[SequencerId, EffectiveTime],
+    onboardingTimes: Map[SequencerId, TopologyActivationTime],
     livenessRecoveryTimeout: FiniteDuration,
 ) extends SimulationVerifier
     with Matchers {

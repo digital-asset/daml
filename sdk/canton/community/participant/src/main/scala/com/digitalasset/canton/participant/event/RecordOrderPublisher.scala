@@ -7,8 +7,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.{CantonTimestamp, TaskScheduler, TaskSchedulerMetrics}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.ledger.participant.state.Update.SequencerIndexMoved
-import com.digitalasset.canton.ledger.participant.state.{SequencerIndex, Update}
+import com.digitalasset.canton.ledger.participant.state.{SequencedUpdate, Update}
 import com.digitalasset.canton.lifecycle.{
   AsyncOrSyncCloseable,
   FlagCloseableAsync,
@@ -22,8 +21,6 @@ import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet
 import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot
-import com.digitalasset.canton.store.CursorPrehead
-import com.digitalasset.canton.store.CursorPrehead.SequencerCounterCursorPrehead
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -63,7 +60,7 @@ class RecordOrderPublisher(
     futureSupervisor: FutureSupervisor,
     activeContractSnapshot: ActiveContractSnapshot,
     clock: Clock,
-    onSequencerIndexMovingAhead: Traced[SequencerCounterCursorPrehead] => Unit,
+    onSequencerIndexMovingAhead: Traced[CantonTimestamp] => Unit,
 )(implicit val executionContextForPublishing: ExecutionContext)
     extends NamedLogging
     with FlagCloseableAsync {
@@ -137,11 +134,12 @@ class RecordOrderPublisher(
     currentLastPublishedPersisted.updatePersisted
   }
 
-  private def onlyForTestingRecordAcceptedTransactions(eventO: Option[Update]): Unit =
+  private def onlyForTestingRecordAcceptedTransactions(event: SequencedUpdate): Unit =
     for {
       store <- ledgerApiIndexer.onlyForTestingTransactionInMemoryStore
-      transactionAccepted <- eventO.collect { case txAccepted: Update.TransactionAccepted =>
-        txAccepted
+      transactionAccepted <- event match {
+        case txAccepted: Update.TransactionAccepted => Some(txAccepted)
+        case _ => None
       }
     } {
       store.put(
@@ -154,42 +152,24 @@ class RecordOrderPublisher(
     * Tick must be called exactly once for all sequencer counters higher than initTimestamp.
     *
     * @param eventO The update event to be published, or if absent the SequencerCounterMoved event will be published.
-    * @param requestCounterO The RequestCounter if applicable.
-    *                        For all requests requestCounterO needs to be provided, it is verified internally that
-    *                        the RequestCounter space is continuous.
-    *                        The provided requestCounterO must match the eventO's DomainIndex if provided.
     */
-  def tick(
-      sequencerCounter: SequencerCounter,
-      timestamp: CantonTimestamp,
-      eventO: Option[Update],
-      requestCounterO: Option[RequestCounter],
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    if (timestamp > initTimestamp) {
-      eventO
-        .flatMap(_.domainIndexOpt)
+  def tick(event: SequencedUpdate)(implicit traceContext: TraceContext): Future[Unit] =
+    if (event.recordTime > initTimestamp) {
+      event.domainIndexOpt
         .flatMap(_._2.requestIndex)
         .map(_.counter)
         .foreach(requestCounter =>
           logger.debug(s"Schedule publication for request counter $requestCounter")
         )
-      onlyForTestingRecordAcceptedTransactions(eventO)
-      taskScheduler.scheduleTask(
-        EventPublicationTask(
-          sequencerCounter,
-          timestamp,
-        )(
-          eventO,
-          requestCounterO,
-        )
-      )
+      onlyForTestingRecordAcceptedTransactions(event)
+      taskScheduler.scheduleTask(EventPublicationTask(event))
       logger.debug(
-        s"Observing time $timestamp for sequencer counter $sequencerCounter for publishing (with eventO:$eventO, requestCounterO:$requestCounterO)"
+        s"Observing time ${event.recordTime} for sequencer counter ${event.sequencerCounter} for publishing (with event:$event, requestCounterO:${event.requestCounterO})"
       )
       // Schedule a time observation task that delays the event publication
       // until the InFlightSubmissionTracker has synchronized with submission registration.
-      taskScheduler.scheduleTask(TimeObservationTask(sequencerCounter, timestamp))
-      taskScheduler.addTick(sequencerCounter, timestamp)
+      taskScheduler.scheduleTask(TimeObservationTask(event.sequencerCounter, event.recordTime))
+      taskScheduler.addTick(event.sequencerCounter, event.recordTime)
       // this adds backpressure from indexer queue to protocol processing:
       //   indexer pekko source queue back-pressures via offer Future,
       //   this propagates via in RecoveringQueue,
@@ -198,7 +178,7 @@ class RecordOrderPublisher(
       taskScheduler.flush()
     } else {
       logger.debug(
-        s"Skipping tick at sequencerCounter:$sequencerCounter timestamp:$timestamp (publication of event $eventO)"
+        s"Skipping tick at sequencerCounter:${event.sequencerCounter} timestamp:${event.recordTime} (publication of event $event)"
       )
       Future.unit
     }
@@ -289,49 +269,13 @@ class RecordOrderPublisher(
     override def close(): Unit = ()
   }
 
-  // TODO(i18695): try to remove the Traced[] from the Update here and in protocol processing if possible
   /** Task to publish the event `event` if defined. */
-  private[RecordOrderPublisher] case class EventPublicationTask(
-      override val sequencerCounter: SequencerCounter,
-      override val timestamp: CantonTimestamp,
-  )(
-      val eventO: Option[Update],
-      val requestCounterO: Option[RequestCounter],
-  )(implicit val traceContext: TraceContext)
-      extends PublicationTask {
+  private[RecordOrderPublisher] case class EventPublicationTask(event: SequencedUpdate)(implicit
+      val traceContext: TraceContext
+  ) extends PublicationTask {
 
-    private val event: Update = eventO.getOrElse(
-      SequencerIndexMoved(
-        domainId = domainId,
-        sequencerIndex = SequencerIndex(
-          counter = sequencerCounter,
-          timestamp = timestamp,
-        ),
-        requestCounterO = requestCounterO,
-      )
-    )
-
-    // TODO(i18695): attempt to simplify data structures and data passing, so these assertions can be removed
-    assert(event.domainIndexOpt.isDefined)
-    event.domainIndexOpt.foreach { case (_, domainIndex) =>
-      assert(domainIndex.sequencerIndex.isDefined)
-      domainIndex.sequencerIndex.foreach { sequencerIndex =>
-        assert(sequencerIndex.timestamp == timestamp)
-        assert(sequencerIndex.counter == sequencerCounter)
-      }
-      requestCounterO match {
-        case Some(requestCounter) =>
-          assert(domainIndex.requestIndex.isDefined)
-          domainIndex.requestIndex.foreach { requestIndex =>
-            assert(requestIndex.counter == requestCounter)
-            assert(requestIndex.timestamp == timestamp)
-            assert(requestIndex.sequencerCounter == Some(sequencerCounter))
-          }
-
-        case None =>
-          assert(domainIndex.requestIndex.isEmpty)
-      }
-    }
+    override val timestamp: CantonTimestamp = event.recordTime
+    override val sequencerCounter: SequencerCounter = event.sequencerCounter
 
     override def perform(): FutureUnlessShutdown[Unit] = performUnlessClosingUSF("publish-event") {
       logger.debug(s"Publish event with domain index ${event.domainIndexOpt}")
@@ -343,13 +287,11 @@ class RecordOrderPublisher(
               LastPublishedPersisted(
                 sequencerCounter = sequencerCounter,
                 timestamp = timestamp,
-                requestCounterO = requestCounterO,
+                requestCounterO = event.requestCounterO,
                 updatePersisted = event.persisted.future,
               )
             )
-            onSequencerIndexMovingAhead(
-              Traced(CursorPrehead(sequencerCounter, timestamp))
-            )
+            onSequencerIndexMovingAhead(Traced(timestamp))
           }
       )
     }

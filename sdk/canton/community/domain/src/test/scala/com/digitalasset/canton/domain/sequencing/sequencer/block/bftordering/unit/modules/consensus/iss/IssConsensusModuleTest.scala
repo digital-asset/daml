@@ -15,7 +15,10 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferManager
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.OutputBlocksReader
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.memory.GenericInMemoryOutputBlockMetadataStore
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.CryptoProvider
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.{
+  CryptoProvider,
+  TopologyActivationTime,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.ModuleRef
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
@@ -40,7 +43,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   OrderedBlockForOutput,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.snapshot.{
-  FirstKnownAt,
+  PeerActiveAt,
   SequencerSnapshotAdditionalInfo,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.topology.{
@@ -60,7 +63,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.unit.modules.*
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.SequencerId
-import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.mockito.Mockito
@@ -105,7 +107,12 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
       "start a new epoch when it hasn't been started" in {
         val epochStore = mock[EpochStore[ProgrammableUnitTestEnv]]
         val latestCompletedEpochFromStore = EpochStore.Epoch(
-          EpochInfo(EpochNumber.First, BlockNumber.First, epochLength, EffectiveTime(aTimestamp)),
+          EpochInfo(
+            EpochNumber.First,
+            BlockNumber.First,
+            epochLength,
+            TopologyActivationTime(aTimestamp),
+          ),
           Seq.empty,
         )
         when(epochStore.latestEpoch(anyBoolean)(any[TraceContext])).thenReturn(() =>
@@ -169,7 +176,12 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
       "do nothing if a new epoch is already in progress" in {
         val epochStore = mock[EpochStore[ProgrammableUnitTestEnv]]
         val latestCompletedEpochFromStore = EpochStore.Epoch(
-          EpochInfo(EpochNumber.First, BlockNumber.First, epochLength, EffectiveTime(aTimestamp)),
+          EpochInfo(
+            EpochNumber.First,
+            BlockNumber.First,
+            epochLength,
+            TopologyActivationTime(aTimestamp),
+          ),
           Seq.empty,
         )
         when(epochStore.latestEpoch(includeInProgress = false)).thenReturn(() =>
@@ -210,7 +222,12 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
       "abort if the current epoch state is behind the last completed epoch" in {
         val epochStore = mock[EpochStore[ProgrammableUnitTestEnv]]
         val latestCompletedEpochFromStore = EpochStore.Epoch(
-          EpochInfo(EpochNumber.First, BlockNumber.First, epochLength, EffectiveTime(aTimestamp)),
+          EpochInfo(
+            EpochNumber.First,
+            BlockNumber.First,
+            epochLength,
+            TopologyActivationTime(aTimestamp),
+          ),
           Seq.empty,
         )
         when(epochStore.latestEpoch(anyBoolean)(any[TraceContext])).thenReturn(() =>
@@ -302,7 +319,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
             EpochNumber.First,
             BlockNumber.First,
             EpochLength(0),
-            EffectiveTime(aTimestamp),
+            TopologyActivationTime(aTimestamp),
           ),
           Seq.empty,
         ) // Has length 0, so it's complete (and it's not the genesis)
@@ -422,8 +439,8 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
             sequencerSnapshotAdditionalInfo = Some(
               SequencerSnapshotAdditionalInfo(
                 Map(
-                  selfId -> FirstKnownAt(
-                    Some(EffectiveTime(CantonTimestamp.Epoch)),
+                  selfId -> PeerActiveAt(
+                    Some(TopologyActivationTime(CantonTimestamp.MinValue)),
                     Some(aStartEpoch.number),
                     Some(aStartEpoch.startBlockNumber),
                     previousBftTime = None,

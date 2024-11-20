@@ -10,7 +10,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, HashOps, Signature}
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod, ViewType}
 import com.digitalasset.canton.error.TransactionError
-import com.digitalasset.canton.ledger.participant.state.Update
+import com.digitalasset.canton.ledger.participant.state.SequencedUpdate
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
@@ -154,12 +154,9 @@ trait ProcessingSteps[
 
   def embedNoMediatorError(error: NoMediatorError): SubmissionError
 
-  /** Return the submitter metadata along with the submission data needed by the SubmissionTracker
-    * to decide on transaction validity
+  /** Return the submitter metadata
     */
-  def getSubmitterInformation(
-      views: Seq[DecryptedView]
-  ): (Option[ViewSubmitterMetadata], Option[SubmissionTracker.SubmissionData])
+  def getSubmitterInformation(views: Seq[DecryptedView]): Option[ViewSubmitterMetadata]
 
   sealed trait Submission {
 
@@ -415,7 +412,7 @@ trait ProcessingSteps[
       error: TransactionError,
   )(implicit
       traceContext: TraceContext
-  ): (Option[Update], Option[PendingSubmissionId])
+  ): (Option[SequencedUpdate], Option[PendingSubmissionId])
 
   /** Phase 3, step 2 (rejected submission, e.g. chosen mediator is inactive, invalid recipients)
     *
@@ -484,7 +481,7 @@ trait ProcessingSteps[
     */
   def createRejectionEvent(rejectionArgs: RejectionArgs)(implicit
       traceContext: TraceContext
-  ): Either[ResultError, Option[Update]]
+  ): Either[ResultError, Option[SequencedUpdate]]
 
   // Phase 7: Result processing
 
@@ -519,7 +516,7 @@ trait ProcessingSteps[
   case class CommitAndStoreContractsAndPublishEvent(
       commitSet: Option[Future[CommitSet]],
       contractsToBeStored: Seq[SerializableContract],
-      maybeEvent: Option[Update],
+      maybeEvent: Option[SequencedUpdate],
   )
 
   /** Phase 7, step 4:

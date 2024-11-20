@@ -34,7 +34,7 @@ private[backend] trait StorageBackendTestsContracts
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
     executeSql(
-      updateLedgerEnd(offset(1), 1L)
+      updateLedgerEnd(absoluteOffset(1), 1L)
     )
     val createdContracts = executeSql(
       backend.contract.createdContracts(contractId :: Nil, offset(1))
@@ -70,7 +70,7 @@ private[backend] trait StorageBackendTestsContracts
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
     executeSql(
-      updateLedgerEnd(offset(4), 4L)
+      updateLedgerEnd(absoluteOffset(4), 4L)
     )
     val assignedContracts = executeSql(
       backend.contract.assignedContracts(Seq(contractId1, contractId2, contractId3))
@@ -110,7 +110,7 @@ private[backend] trait StorageBackendTestsContracts
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
     executeSql(
-      updateLedgerEnd(offset(2), 2L)
+      updateLedgerEnd(absoluteOffset(2), 2L)
     )
     val createdContracts1 = executeSql(
       backend.contract.createdContracts(contractId :: Nil, offset(1))
@@ -168,7 +168,7 @@ private[backend] trait StorageBackendTestsContracts
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
     executeSql(
-      updateLedgerEnd(offset(3), 6L)
+      updateLedgerEnd(absoluteOffset(3), 6L)
     )
     val createdContracts = executeSql(
       backend.contract.createdContracts(
@@ -222,7 +222,7 @@ private[backend] trait StorageBackendTestsContracts
   it should "be able to query with 1000 contract ids" in {
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(
-      updateLedgerEnd(offset(3), 6L)
+      updateLedgerEnd(absoluteOffset(3), 6L)
     )
     val createdContracts = executeSql(
       backend.contract.createdContracts(

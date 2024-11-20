@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   DomainOffset,
   RawCreatedEvent,
@@ -56,7 +56,7 @@ private[backend] trait StorageBackendTestsEvents
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
-    executeSql(updateLedgerEnd(offset(2), 2L))
+    executeSql(updateLedgerEnd(absoluteOffset(2), 2L))
     val resultSignatory = executeSql(
       backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholderO = Some(partySignatory),
@@ -128,7 +128,7 @@ private[backend] trait StorageBackendTestsEvents
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
-    executeSql(updateLedgerEnd(offset(2), 2L))
+    executeSql(updateLedgerEnd(absoluteOffset(2), 2L))
     val resultSignatory = executeSql(
       backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholderO = Some(partySignatory),
@@ -201,7 +201,7 @@ private[backend] trait StorageBackendTestsEvents
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
-    executeSql(updateLedgerEnd(offset(2), 2L))
+    executeSql(updateLedgerEnd(absoluteOffset(2), 2L))
     val resultSignatory = executeSql(
       backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholderO = Some(partySignatory),
@@ -259,7 +259,7 @@ private[backend] trait StorageBackendTestsEvents
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
-    executeSql(updateLedgerEnd(offset(1), 1L))
+    executeSql(updateLedgerEnd(absoluteOffset(1), 1L))
     val resultUnknownParty = executeSql(
       backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholderO = Some(partyUnknown),
@@ -331,7 +331,7 @@ private[backend] trait StorageBackendTestsEvents
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
-    executeSql(updateLedgerEnd(offset(2), 2L))
+    executeSql(updateLedgerEnd(absoluteOffset(2), 2L))
     val result01L2 = executeSql(
       backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholderO = Some(partySignatory),
@@ -386,14 +386,14 @@ private[backend] trait StorageBackendTestsEvents
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
-    executeSql(updateLedgerEnd(offset(25), 1115))
+    executeSql(updateLedgerEnd(absoluteOffset(25), 1115))
     val maxEventSequentialId: Long => Long =
       longOffset =>
         executeSql(
-          backend.event.maxEventSequentialId(offset(longOffset))
+          backend.event.maxEventSequentialId(Some(absoluteOffset(longOffset)))
         )
 
-    executeSql(backend.event.maxEventSequentialId(Offset.beforeBegin)) shouldBe 999
+    executeSql(backend.event.maxEventSequentialId(None)) shouldBe 999
     maxEventSequentialId(1) shouldBe 999
     maxEventSequentialId(2) shouldBe 999
     maxEventSequentialId(9) shouldBe 999
@@ -410,7 +410,7 @@ private[backend] trait StorageBackendTestsEvents
     maxEventSequentialId(25) shouldBe 1115
     maxEventSequentialId(26) shouldBe 1115
 
-    executeSql(updateLedgerEnd(offset(20), 1110))
+    executeSql(updateLedgerEnd(absoluteOffset(20), 1110))
     maxEventSequentialId(20) shouldBe 1110
     maxEventSequentialId(21) shouldBe 1110
   }
@@ -465,7 +465,7 @@ private[backend] trait StorageBackendTestsEvents
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dbDtos, _))
-    executeSql(updateLedgerEnd(offset(2), 2L))
+    executeSql(updateLedgerEnd(absoluteOffset(2), 2L))
 
     val transactionTrees = executeSql(
       backend.event.transactionPointwiseQueries.fetchTreeTransactionEvents(1L, 6L, Set.empty)
@@ -504,7 +504,7 @@ private[backend] trait StorageBackendTestsEvents
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dbDtos, _))
-    executeSql(updateLedgerEnd(offset(2), 2L))
+    executeSql(updateLedgerEnd(absoluteOffset(2), 2L))
 
     val transactionTrees = executeSql(
       backend.event.transactionPointwiseQueries.fetchTreeTransactionEvents(1L, 6L, Set.empty)
@@ -609,7 +609,7 @@ private[backend] trait StorageBackendTestsEvents
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dbDtos, _))
     executeSql(
-      updateLedgerEnd(offset(12), 2L, CantonTimestamp(startPublicationTime.addMicros(1000)))
+      updateLedgerEnd(absoluteOffset(12), 2L, CantonTimestamp(startPublicationTime.addMicros(1000)))
     )
 
     Vector(
@@ -1152,7 +1152,7 @@ private[backend] trait StorageBackendTestsEvents
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dbDtos, _))
     executeSql(
-      updateLedgerEnd(offset(25), 220L)
+      updateLedgerEnd(absoluteOffset(25), 220L)
     )
 
     Vector(

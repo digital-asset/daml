@@ -4,7 +4,12 @@
 package com.digitalasset.canton.domain.config
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.{CommunityCryptoConfig, CryptoConfig, ProtocolConfig}
+import com.digitalasset.canton.config.{
+  CommunityCryptoConfig,
+  CryptoConfig,
+  ProtocolConfig,
+  SessionSigningKeysConfig,
+}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.CryptoFactory.{
   selectAllowedEncryptionAlgorithmSpecs,
@@ -41,6 +46,7 @@ final case class DomainParametersConfig(
     requiredSymmetricKeySchemes: Option[NonEmpty[Set[SymmetricKeyScheme]]] = None,
     requiredHashAlgorithms: Option[NonEmpty[Set[HashAlgorithm]]] = None,
     requiredCryptoKeyFormats: Option[NonEmpty[Set[CryptoKeyFormat]]] = None,
+    override val sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
     // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
     override val alphaVersionSupport: Boolean = true,
     override val betaVersionSupport: Boolean = false,
@@ -56,6 +62,7 @@ final case class DomainParametersConfig(
     param("requiredSymmetricKeySchemes", _.requiredSymmetricKeySchemes),
     param("requiredHashAlgorithms", _.requiredHashAlgorithms),
     param("requiredCryptoKeyFormats", _.requiredCryptoKeyFormats),
+    param("sessionSigningKeys", _.sessionSigningKeys),
     param("alphaVersionSupport", _.alphaVersionSupport),
     param("betaVersionSupport", _.betaVersionSupport),
     param("dontWarnOnDeprecatedPV", _.dontWarnOnDeprecatedPV),

@@ -194,6 +194,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
           )(
             new SequencerChannelClientFactory(
               domainId,
+              domainCryptoApi,
               cryptoApiProvider.crypto,
               sequencerClientConfig,
               participantNodeParameters.tracing.propagation,

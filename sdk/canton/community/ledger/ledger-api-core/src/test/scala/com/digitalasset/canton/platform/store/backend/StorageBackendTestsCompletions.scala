@@ -47,7 +47,7 @@ private[backend] trait StorageBackendTestsCompletions
 
       executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
       executeSql(ingest(dtos, _))
-      executeSql(updateLedgerEnd(offset(3), 3L))
+      executeSql(updateLedgerEnd(absoluteOffset(3), 3L))
       val completions0to2 = executeSql(
         backend.completion
           .commandCompletions(
@@ -101,7 +101,7 @@ private[backend] trait StorageBackendTestsCompletions
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
-    executeSql(updateLedgerEnd(offset(1), 1L))
+    executeSql(updateLedgerEnd(absoluteOffset(1), 1L))
 
     val completions = executeSql(
       backend.completion
@@ -132,7 +132,7 @@ private[backend] trait StorageBackendTestsCompletions
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
-    executeSql(updateLedgerEnd(offset(2), 2L))
+    executeSql(updateLedgerEnd(absoluteOffset(2), 2L))
     val completions = executeSql(
       backend.completion
         .commandCompletions(
@@ -174,7 +174,7 @@ private[backend] trait StorageBackendTestsCompletions
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
 
-    executeSql(updateLedgerEnd(offset(2), 2L))
+    executeSql(updateLedgerEnd(absoluteOffset(2), 2L))
     val completions = executeSql(
       backend.completion
         .commandCompletions(
@@ -222,7 +222,7 @@ private[backend] trait StorageBackendTestsCompletions
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
 
-    executeSql(updateLedgerEnd(offset(2), 2L))
+    executeSql(updateLedgerEnd(absoluteOffset(2), 2L))
     val completions = executeSql(
       backend.completion
         .commandCompletions(
@@ -265,7 +265,7 @@ private[backend] trait StorageBackendTestsCompletions
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
 
-    executeSql(updateLedgerEnd(offset(2), 2L))
+    executeSql(updateLedgerEnd(absoluteOffset(2), 2L))
     val completions = executeSql(
       backend.completion
         .commandCompletions(
@@ -310,7 +310,7 @@ private[backend] trait StorageBackendTestsCompletions
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos1, _))
-    executeSql(updateLedgerEnd(offset(1), 1L))
+    executeSql(updateLedgerEnd(absoluteOffset(1), 1L))
     val caught = intercept[IllegalArgumentException](
       executeSql(
         backend.completion.commandCompletions(
@@ -335,7 +335,7 @@ private[backend] trait StorageBackendTestsCompletions
     )
 
     executeSql(ingest(dtos2, _))
-    executeSql(updateLedgerEnd(offset(2), 2L))
+    executeSql(updateLedgerEnd(absoluteOffset(2), 2L))
     val caught2 = intercept[IllegalArgumentException](
       executeSql(
         backend.completion.commandCompletions(

@@ -3,8 +3,7 @@
 
 package com.digitalasset.canton.ledger.localstore
 
-import com.digitalasset.canton.caching.CaffeineCache
-import com.digitalasset.canton.caching.CaffeineCache.FutureAsyncCacheLoader
+import com.digitalasset.canton.caching.ScaffeineCache
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId}
 import com.digitalasset.canton.ledger.localstore.api.{
   IdentityProviderConfigStore,
@@ -12,11 +11,10 @@ import com.digitalasset.canton.ledger.localstore.api.{
 }
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.github.benmanes.caffeine.cache as caffeine
+import com.github.blemale.scaffeine.Scaffeine
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.DurationConverters.*
 import scala.util.{Success, Try}
 
 import IdentityProviderConfigStore.Result
@@ -31,22 +29,15 @@ class CachedIdentityProviderConfigStore(
     extends IdentityProviderConfigStore
     with NamedLogging {
 
-  private val idpByIssuer: CaffeineCache.AsyncLoadingCaffeineCache[
-    String,
-    Result[IdentityProviderConfig],
-  ] =
-    new CaffeineCache.AsyncLoadingCaffeineCache(
-      caffeine.Caffeine
-        .newBuilder()
-        .expireAfterWrite(cacheExpiryAfterWrite.toJava)
-        .maximumSize(maximumCacheSize.toLong)
-        .buildAsync(
-          new FutureAsyncCacheLoader[String, Result[IdentityProviderConfig]](issuer =>
-            delegate.getIdentityProviderConfig(issuer)
-          )
-        ),
-      metrics.identityProviderConfigStore.idpConfigCache,
-    )
+  private val idpByIssuer
+      : ScaffeineCache.TunnelledAsyncLoadingCache[Future, String, Result[IdentityProviderConfig]] =
+    ScaffeineCache.buildAsync[Future, String, Result[IdentityProviderConfig]](
+      Scaffeine()
+        .expireAfterWrite(cacheExpiryAfterWrite)
+        .maximumSize(maximumCacheSize.toLong),
+      loader = issuer => delegate.getIdentityProviderConfig(issuer),
+      metrics = Some(metrics.identityProviderConfigStore.idpConfigCache),
+    )(logger)
 
   override def createIdentityProviderConfig(identityProviderConfig: IdentityProviderConfig)(implicit
       loggingContext: LoggingContextWithTrace

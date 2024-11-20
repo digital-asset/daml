@@ -18,7 +18,7 @@ import com.digitalasset.canton.crypto.{
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.data.ViewPosition.MerkleSeqIndex
 import com.digitalasset.canton.error.TransactionError
-import com.digitalasset.canton.ledger.participant.state.Update
+import com.digitalasset.canton.ledger.participant.state.SequencedUpdate
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
@@ -29,7 +29,6 @@ import com.digitalasset.canton.participant.protocol.ProcessingSteps.{
   WrapsProcessorError,
 }
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.NoMediatorError
-import com.digitalasset.canton.participant.protocol.SubmissionTracker.SubmissionData
 import com.digitalasset.canton.participant.protocol.TestProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.conflictdetection.{
   ActivenessResult,
@@ -64,7 +63,7 @@ class TestProcessingSteps(
     pendingSubmissionMap: concurrent.Map[Int, Unit],
     pendingRequestData: Option[TestPendingRequestData],
     informeesOfView: ViewHash => Set[LfPartyId] = _ => Set.empty,
-    submissionDataForTrackerO: Option[SubmissionData] = None,
+    submissionDataForTrackerO: Option[SubmissionTrackerData] = None,
 )(implicit val ec: ExecutionContext)
     extends ProcessingSteps[
       Int,
@@ -115,10 +114,8 @@ class TestProcessingSteps(
   override def embedNoMediatorError(error: NoMediatorError): TestProcessingError =
     TestProcessorError(error)
 
-  override def getSubmitterInformation(
-      views: Seq[DecryptedView]
-  ): (Option[ViewSubmitterMetadata], Option[SubmissionTracker.SubmissionData]) =
-    (None, submissionDataForTrackerO)
+  override def getSubmitterInformation(views: Seq[DecryptedView]): Option[ViewSubmitterMetadata] =
+    submissionDataForTrackerO
 
   override def createSubmission(
       submissionParam: Int,
@@ -275,12 +272,12 @@ class TestProcessingSteps(
       rootHash: RootHash,
       freshOwnTimelyTx: Boolean,
       error: TransactionError,
-  )(implicit traceContext: TraceContext): (Option[Update], Option[PendingSubmissionId]) =
+  )(implicit traceContext: TraceContext): (Option[SequencedUpdate], Option[PendingSubmissionId]) =
     (None, None)
 
   override def createRejectionEvent(rejectionArgs: Unit)(implicit
       traceContext: TraceContext
-  ): Either[TestProcessingError, Option[Update]] =
+  ): Either[TestProcessingError, Option[SequencedUpdate]] =
     Right(None)
 
   override def getCommitSetAndContractsToBeStoredAndEvent(
@@ -339,6 +336,7 @@ object TestProcessingSteps {
   case object TestViewType extends ViewTypeTest {
     override type View = TestViewTree
     override type FullView = TestViewTree
+    override type ViewSubmitterMetadata = SubmissionTrackerData
 
     override def toProtoEnum: v30.ViewType =
       throw new UnsupportedOperationException("TestViewType cannot be serialized")

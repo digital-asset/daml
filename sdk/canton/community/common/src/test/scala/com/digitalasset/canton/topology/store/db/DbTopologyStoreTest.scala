@@ -29,7 +29,13 @@ trait DbTopologyStoreTest extends TopologyStoreTest with DbTopologyStoreHelper {
       val transactions = (0 to maxItemsInSqlQuery.value * 2 + 3) map { i =>
         val ts = CantonTimestamp.Epoch.plusSeconds(i.toLong)
         // the actual transaction and the consistency is not important for this test
-        StoredTopologyTransaction(SequencedTime(ts), EffectiveTime(ts), None, testData.tx2_OTK)
+        StoredTopologyTransaction(
+          SequencedTime(ts),
+          EffectiveTime(ts),
+          None,
+          testData.tx2_OTK,
+          None,
+        )
       }
       val topologySnapshot = StoredTopologyTransactions(transactions)
 

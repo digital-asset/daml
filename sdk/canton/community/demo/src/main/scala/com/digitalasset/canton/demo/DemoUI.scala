@@ -258,8 +258,9 @@ class ParticipantTab(
   }
 
   private def subscribeToChannel(offset: Long): Unit = {
-    val channel =
-      ClientChannelBuilder.createChannelToTrustedServer(participant.config.clientLedgerApi)
+    val channel = ClientChannelBuilder
+      .createChannelBuilderToTrustedServer(participant.config.clientLedgerApi)
+      .build()
     logger.debug(s"Subscribing ${participant.name} at $offset")
     val current = currentChannel.getAndUpdate { cur =>
       // store channel and set subscribed offset to None unless it has changed in the meantime

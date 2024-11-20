@@ -5,12 +5,13 @@ package com.digitalasset.canton.ledger.participant.state
 
 import com.daml.error.GrpcStatuses
 import com.daml.logging.entries.{LoggingEntry, LoggingValue, ToLoggingValue}
-import com.digitalasset.canton.data.DeduplicationPeriod
+import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
+import com.digitalasset.canton.ledger.participant.state.Update.CommandRejected.RejectionReasonTemplate
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.LfHash
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}
-import com.digitalasset.canton.{RequestCounter, data}
+import com.digitalasset.canton.{RequestCounter, SequencerCounter, data}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.engine.Blinding
@@ -18,6 +19,7 @@ import com.digitalasset.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.digitalasset.daml.lf.value.Value
 import com.google.rpc.status.Status as RpcStatus
 
+import java.util.UUID
 import scala.concurrent.Promise
 
 /** An update to the (abstract) participant state.
@@ -51,18 +53,55 @@ import scala.concurrent.Promise
 sealed trait Update extends Product with Serializable with PrettyPrinting with HasTraceContext {
 
   /** The record time at which the state change was committed. */
-  def recordTime: Timestamp
+  def recordTime: CantonTimestamp
 
   def domainIndexOpt: Option[(DomainId, DomainIndex)]
 
-  // TODO(i20043) this will be moved later to a wrapper object to maintain equality semantics
+  // TODO(i20043) this will be removed later as various needs solved differently
   def persisted: Promise[Unit]
-
-  def withRecordTime(recordTime: Timestamp): Update
 }
 
-sealed trait WithoutDomainIndex extends Update {
-  override def domainIndexOpt: Option[(DomainId, DomainIndex)] = None
+// TODO(i20043) this will be removed later as Topology Event project progresses
+sealed trait ParticipantUpdate extends Update {
+  final override def domainIndexOpt: Option[(DomainId, DomainIndex)] = None
+
+  def withRecordTime(recordTime: CantonTimestamp): Update
+}
+
+sealed trait DomainUpdate extends Update {
+  def domainId: DomainId
+
+  def requestCounterO: Option[RequestCounter]
+
+  def sequencerCounterO: Option[SequencerCounter]
+
+  final def requestIndexO: Option[RequestIndex] =
+    requestCounterO.map(RequestIndex(_, sequencerCounterO, recordTime))
+
+  final def sequencerIndexO: Option[SequencerIndex] =
+    sequencerCounterO.map(SequencerIndex(_, recordTime))
+
+  final def domainIndex: (DomainId, DomainIndex) =
+    domainId -> DomainIndex(requestIndexO, sequencerIndexO)
+
+  final override def domainIndexOpt: Option[(DomainId, DomainIndex)] =
+    Some(domainIndex)
+}
+
+sealed trait SequencedUpdate extends DomainUpdate {
+  def sequencerCounter: SequencerCounter
+
+  final override def sequencerCounterO: Option[SequencerCounter] = Some(sequencerCounter)
+}
+
+sealed trait RequestUpdate extends DomainUpdate {
+  def requestCounter: RequestCounter
+
+  final override def requestCounterO: Option[RequestCounter] = Some(requestCounter)
+}
+
+sealed trait RepairUpdate extends RequestUpdate {
+  final override def sequencerCounterO: Option[SequencerCounter] = None
 }
 
 object Update {
@@ -87,12 +126,11 @@ object Update {
   final case class PartyAddedToParticipant(
       party: Ref.Party,
       participantId: Ref.ParticipantId,
-      recordTime: Timestamp,
+      recordTime: CantonTimestamp,
       submissionId: Option[Ref.SubmissionId],
       persisted: Promise[Unit] = Promise(),
   )(implicit override val traceContext: TraceContext)
-      extends Update
-      with WithoutDomainIndex {
+      extends ParticipantUpdate {
     override protected def pretty: Pretty[PartyAddedToParticipant] =
       prettyOfClass(
         param("recordTime", _.recordTime),
@@ -101,7 +139,8 @@ object Update {
         indicateOmittedFields,
       )
 
-    override def withRecordTime(recordTime: Timestamp): Update = this.copy(recordTime = recordTime)
+    override def withRecordTime(recordTime: CantonTimestamp): Update =
+      this.copy(recordTime = recordTime)
   }
 
   object PartyAddedToParticipant {
@@ -115,7 +154,7 @@ object Update {
             _,
           ) =>
         LoggingValue.Nested.fromEntries(
-          Logging.recordTime(recordTime),
+          Logging.recordTime(recordTime.toLf),
           Logging.submissionIdOpt(submissionId),
           Logging.participantId(participantId),
           Logging.party(party),
@@ -134,12 +173,11 @@ object Update {
   final case class PartyAllocationRejected(
       submissionId: Ref.SubmissionId,
       participantId: Ref.ParticipantId,
-      recordTime: Timestamp,
+      recordTime: CantonTimestamp,
       rejectionReason: String,
       persisted: Promise[Unit] = Promise(),
   )(implicit override val traceContext: TraceContext)
-      extends Update
-      with WithoutDomainIndex {
+      extends ParticipantUpdate {
     override protected def pretty: Pretty[PartyAllocationRejected] =
       prettyOfClass(
         param("recordTime", _.recordTime),
@@ -147,7 +185,8 @@ object Update {
         param("rejectionReason", _.rejectionReason.singleQuoted),
       )
 
-    override def withRecordTime(recordTime: Timestamp): Update = this.copy(recordTime = recordTime)
+    override def withRecordTime(recordTime: CantonTimestamp): Update =
+      this.copy(recordTime = recordTime)
   }
 
   object PartyAllocationRejected {
@@ -155,7 +194,7 @@ object Update {
         : ToLoggingValue[PartyAllocationRejected] = {
       case PartyAllocationRejected(submissionId, participantId, recordTime, rejectionReason, _) =>
         LoggingValue.Nested.fromEntries(
-          Logging.recordTime(recordTime),
+          Logging.recordTime(recordTime.toLf),
           Logging.submissionId(submissionId),
           Logging.participantId(participantId),
           Logging.rejectionReason(rejectionReason),
@@ -166,21 +205,20 @@ object Update {
   final case class TopologyTransactionEffective(
       updateId: Ref.TransactionId,
       events: Set[TopologyTransactionEffective.TopologyEvent],
-      recordTime: Timestamp,
       domainId: DomainId,
-      domainIndex: DomainIndex,
+      sequencerCounter: SequencerCounter,
+      recordTime: CantonTimestamp,
       persisted: Promise[Unit] = Promise(),
   )(implicit override val traceContext: TraceContext)
-      extends Update {
+      extends SequencedUpdate {
     override def pretty: Pretty[TopologyTransactionEffective] =
       prettyOfClass(
         param("recordTime", _.recordTime),
         param("domainId", _.domainId),
         indicateOmittedFields,
       )
-    override def withRecordTime(recordTime: Timestamp): Update = this.copy(recordTime = recordTime)
 
-    override def domainIndexOpt: Option[(DomainId, DomainIndex)] = Some((domainId, domainIndex))
+    override def requestCounterO: Option[RequestCounter] = None
   }
 
   object TopologyTransactionEffective {
@@ -207,63 +245,58 @@ object Update {
         : ToLoggingValue[TopologyTransactionEffective] = { topologyTransactionEffective =>
       LoggingValue.Nested.fromEntries(
         Logging.updateId(topologyTransactionEffective.updateId),
-        Logging.recordTime(topologyTransactionEffective.recordTime),
+        Logging.recordTime(topologyTransactionEffective.recordTime.toLf),
         Logging.domainId(topologyTransactionEffective.domainId),
       )
     }
   }
 
   /** Signal the acceptance of a transaction.
-    *
-    * @param completionInfoO The information provided by the submitter of the command that
-    *                          created this transaction. It must be provided if this participant
-    *                          hosts one of the [[SubmitterInfo.actAs]] parties and shall output a
-    *                          completion event for this transaction. This in particular applies if
-    *                          this participant has submitted the command to the [[SyncService]].
-    *
-    *                          The Offset-order of Updates must ensure that command
-    *                          deduplication guarantees are met.
-    * @param transactionMeta   The metadata of the transaction that was provided by the submitter.
-    *                          It is visible to all parties that can see the transaction.
-    * @param transaction       The view of the transaction that was accepted. This view must
-    *                          include at least the projection of the accepted transaction to the
-    *                          set of all parties hosted at this participant. See
-    *                          https://docs.daml.com/concepts/ledger-model/ledger-privacy.html
-    *                          on how these views are computed.
-    *
-    *                          Note that ledgers with weaker privacy models can decide to forgo
-    *                          projections of transactions and always show the complete
-    *                          transaction.
-    * @param recordTime        The ledger-provided timestamp at which the transaction was recorded.
-    *                          The last [[com.digitalasset.canton.ledger.configuration.Configuration]] set before this [[TransactionAccepted]]
-    *                          determines how this transaction's recordTime relates to its
-    *                          [[TransactionMeta.ledgerEffectiveTime]].
-    * @param contractMetadata  For each contract created in this transaction, this map may contain
-    *                          contract metadata assigned by the ledger implementation.
-    *                          This data is opaque and can only be used in [[com.digitalasset.daml.lf.transaction.FatContractInstance]]s
-    *                          when submitting transactions trough the [[SyncService]].
-    *                          If a contract created by this transaction is not element of this map,
-    *                          its metadata is equal to the empty byte array.
     */
-  final case class TransactionAccepted(
-      completionInfoO: Option[CompletionInfo],
-      transactionMeta: TransactionMeta,
-      transaction: CommittedTransaction,
-      updateId: data.UpdateId,
-      recordTime: Timestamp,
-      hostedWitnesses: List[Ref.Party],
-      contractMetadata: Map[Value.ContractId, Bytes],
-      domainId: DomainId,
-      domainIndex: Option[
-        DomainIndex
-      ], // TODO(i20043) this will be simplified as Update refactoring is unconstrained by serialization
-      persisted: Promise[Unit] = Promise(),
-  )(implicit override val traceContext: TraceContext)
-      extends Update {
-    // TODO(i20043) this will be simplified as Update refactoring is unconstrained by serialization
-    assert(completionInfoO.forall(_.messageUuid.isEmpty))
-    assert(domainIndex.exists(_.requestIndex.isDefined))
-    val blindingInfo: BlindingInfo = Blinding.blind(transaction)
+  trait TransactionAccepted extends RequestUpdate {
+
+    /** The information provided by the submitter of the command that
+      * created this transaction. It must be provided if this participant
+      * hosts one of the [[SubmitterInfo.actAs]] parties and shall output a
+      * completion event for this transaction. This in particular applies if
+      * this participant has submitted the command to the [[SyncService]].
+      *
+      * The Offset-order of Updates must ensure that command
+      * deduplication guarantees are met.
+      */
+    def completionInfoO: Option[CompletionInfo]
+
+    /** The metadata of the transaction that was provided by the submitter.
+      * It is visible to all parties that can see the transaction.
+      */
+    def transactionMeta: TransactionMeta
+
+    /** The view of the transaction that was accepted. This view must
+      * include at least the projection of the accepted transaction to the
+      * set of all parties hosted at this participant. See
+      * https://docs.daml.com/concepts/ledger-model/ledger-privacy.html
+      * on how these views are computed.
+      *
+      * Note that ledgers with weaker privacy models can decide to forgo
+      * projections of transactions and always show the complete
+      * transaction.
+      */
+    def transaction: CommittedTransaction
+
+    def updateId: data.UpdateId
+
+    def hostedWitnesses: List[Ref.Party]
+
+    /** For each contract created in this transaction, this map may contain
+      * contract metadata assigned by the ledger implementation.
+      * This data is opaque and can only be used in [[com.digitalasset.daml.lf.transaction.FatContractInstance]]s
+      * when submitting transactions trough the [[SyncService]].
+      * If a contract created by this transaction is not element of this map,
+      * its metadata is equal to the empty byte array.
+      */
+    def contractMetadata: Map[Value.ContractId, Bytes]
+
+    lazy val blindingInfo: BlindingInfo = Blinding.blind(transaction)
 
     override protected def pretty: Pretty[TransactionAccepted] =
       prettyOfClass(
@@ -275,70 +308,80 @@ object Update {
         param("roots", _.transaction.roots.length),
         indicateOmittedFields,
       )
-
-    override def domainIndexOpt: Option[(DomainId, DomainIndex)] = domainIndex.map(
-      domainId -> _
-    )
-
-    override def withRecordTime(recordTime: Timestamp): Update = throw new IllegalStateException(
-      "Record time is not supposed to be overridden for sequenced events"
-    )
   }
 
   object TransactionAccepted {
     implicit val `TransactionAccepted to LoggingValue`: ToLoggingValue[TransactionAccepted] = {
-      case TransactionAccepted(
-            completionInfoO,
-            transactionMeta,
-            _,
-            updateId,
-            recordTime,
-            _,
-            _,
-            domainId,
-            _,
-            _,
-          ) =>
+      case txAccepted: TransactionAccepted =>
         LoggingValue.Nested.fromEntries(
-          Logging.recordTime(recordTime),
-          Logging.completionInfo(completionInfoO),
-          Logging.updateId(updateId),
-          Logging.ledgerTime(transactionMeta.ledgerEffectiveTime),
-          Logging.workflowIdOpt(transactionMeta.workflowId),
-          Logging.submissionTime(transactionMeta.submissionTime),
-          Logging.domainId(domainId),
+          Logging.recordTime(txAccepted.recordTime.toLf),
+          Logging.completionInfo(txAccepted.completionInfoO),
+          Logging.updateId(txAccepted.updateId),
+          Logging.ledgerTime(txAccepted.transactionMeta.ledgerEffectiveTime),
+          Logging.workflowIdOpt(txAccepted.transactionMeta.workflowId),
+          Logging.submissionTime(txAccepted.transactionMeta.submissionTime),
+          Logging.domainId(txAccepted.domainId),
         )
     }
   }
 
-  /** @param optCompletionInfo The information provided by the submitter of the command that
-    *                          created this reassignment. It must be provided if this participant
-    *                          hosts the submitter and shall output a completion event for this
-    *                          reassignment. This in particular applies if this participant has
-    *                          submitted the command to the [[SyncService]].
-    * @param workflowId        a submitter-provided identifier used for monitoring
-    *                          and to traffic-shape the work handled by Daml applications
-    *                          communicating over the ledger.
-    * @param updateId          A unique identifier for this update assigned by the ledger.
-    * @param recordTime        The ledger-provided timestamp at which the reassignment was recorded.
-    * @param reassignmentInfo  Common part of all type of reassignments.
-    */
-  final case class ReassignmentAccepted(
-      optCompletionInfo: Option[CompletionInfo],
-      workflowId: Option[Ref.WorkflowId],
+  final case class SequencedTransactionAccepted(
+      completionInfoO: Option[CompletionInfo],
+      transactionMeta: TransactionMeta,
+      transaction: CommittedTransaction,
       updateId: data.UpdateId,
-      recordTime: Timestamp,
-      reassignmentInfo: ReassignmentInfo,
-      reassignment: Reassignment,
-      domainIndex: Option[
-        DomainIndex
-      ], // TODO(i20043) this will be simplified as Update refactoring is unconstrained by serialization
+      hostedWitnesses: List[Ref.Party],
+      contractMetadata: Map[Value.ContractId, Bytes],
+      domainId: DomainId,
+      requestCounter: RequestCounter,
+      sequencerCounter: SequencerCounter,
+      recordTime: CantonTimestamp,
       persisted: Promise[Unit] = Promise(),
   )(implicit override val traceContext: TraceContext)
-      extends Update {
-    // TODO(i20043) this will be simplified as Update refactoring is unconstrained by serialization
-    assert(optCompletionInfo.forall(_.messageUuid.isEmpty))
-    assert(domainIndex.exists(_.requestIndex.isDefined))
+      extends TransactionAccepted
+      with SequencedUpdate
+
+  final case class RepairTransactionAccepted(
+      transactionMeta: TransactionMeta,
+      transaction: CommittedTransaction,
+      updateId: data.UpdateId,
+      hostedWitnesses: List[Ref.Party],
+      contractMetadata: Map[Value.ContractId, Bytes],
+      domainId: DomainId,
+      requestCounter: RequestCounter,
+      recordTime: CantonTimestamp,
+      persisted: Promise[Unit] = Promise(),
+  )(implicit override val traceContext: TraceContext)
+      extends TransactionAccepted
+      with RepairUpdate {
+
+    override def completionInfoO: Option[CompletionInfo] = None
+  }
+
+  trait ReassignmentAccepted extends RequestUpdate {
+
+    /** The information provided by the submitter of the command that
+      * created this reassignment. It must be provided if this participant
+      * hosts the submitter and shall output a completion event for this
+      * reassignment. This in particular applies if this participant has
+      * submitted the command to the [[SyncService]].
+      */
+    def optCompletionInfo: Option[CompletionInfo]
+
+    /** A submitter-provided identifier used for monitoring
+      * and to traffic-shape the work handled by Daml applications
+      */
+    def workflowId: Option[Ref.WorkflowId]
+
+    /** A unique identifier for this update assigned by the ledger.
+      */
+    def updateId: data.UpdateId
+
+    /** Common part of all type of reassignments.
+      */
+    def reassignmentInfo: ReassignmentInfo
+
+    def reassignment: Reassignment
 
     override protected def pretty: Pretty[ReassignmentAccepted] =
       prettyOfClass(
@@ -351,66 +394,72 @@ object Update {
         indicateOmittedFields,
       )
 
-    def domainId: DomainId = reassignment match {
+    final override def domainId: DomainId = reassignment match {
       case _: Reassignment.Assign => reassignmentInfo.targetDomain.unwrap
       case _: Reassignment.Unassign => reassignmentInfo.sourceDomain.unwrap
     }
+  }
 
-    override def domainIndexOpt: Option[(DomainId, DomainIndex)] = domainIndex.map(
-      domainId -> _
-    )
+  final case class SequencedReassignmentAccepted(
+      optCompletionInfo: Option[CompletionInfo],
+      workflowId: Option[Ref.WorkflowId],
+      updateId: data.UpdateId,
+      reassignmentInfo: ReassignmentInfo,
+      reassignment: Reassignment,
+      requestCounter: RequestCounter,
+      sequencerCounter: SequencerCounter,
+      recordTime: CantonTimestamp,
+      persisted: Promise[Unit] = Promise(),
+  )(implicit override val traceContext: TraceContext)
+      extends ReassignmentAccepted
+      with SequencedUpdate
 
-    override def withRecordTime(recordTime: Timestamp): Update = throw new IllegalStateException(
-      "Record time is not supposed to be overridden for sequenced events"
-    )
+  final case class RepairReassignmentAccepted(
+      workflowId: Option[Ref.WorkflowId],
+      updateId: data.UpdateId,
+      reassignmentInfo: ReassignmentInfo,
+      reassignment: Reassignment,
+      requestCounter: RequestCounter,
+      recordTime: CantonTimestamp,
+      persisted: Promise[Unit] = Promise(),
+  )(implicit override val traceContext: TraceContext)
+      extends ReassignmentAccepted
+      with RepairUpdate {
+    override def optCompletionInfo: Option[CompletionInfo] = None
   }
 
   object ReassignmentAccepted {
     implicit val `ReassignmentAccepted to LoggingValue`: ToLoggingValue[ReassignmentAccepted] = {
-      case ReassignmentAccepted(
-            optCompletionInfo,
-            workflowId,
-            updateId,
-            recordTime,
-            _,
-            _,
-            _,
-            _,
-          ) =>
+      case reassignmentAccepted: ReassignmentAccepted =>
         LoggingValue.Nested.fromEntries(
-          Logging.recordTime(recordTime),
-          Logging.completionInfo(optCompletionInfo),
-          Logging.updateId(updateId),
-          Logging.workflowIdOpt(workflowId),
+          Logging.recordTime(reassignmentAccepted.recordTime.toLf),
+          Logging.completionInfo(reassignmentAccepted.optCompletionInfo),
+          Logging.updateId(reassignmentAccepted.updateId),
+          Logging.workflowIdOpt(reassignmentAccepted.workflowId),
         )
     }
   }
 
   /** Signal that a command submitted via [[SyncService]] was rejected.
-    *
-    * @param recordTime     The record time of the completion
-    * @param completionInfo The completion information for the submission
-    * @param reasonTemplate A template for generating the gRPC status code with error details.
-    *                       See ``error.proto`` for the status codes of common rejection reasons.
     */
-  final case class CommandRejected(
-      recordTime: Timestamp,
-      completionInfo: CompletionInfo,
-      reasonTemplate: CommandRejected.RejectionReasonTemplate,
-      domainId: DomainId,
-      domainIndex: Option[DomainIndex],
-      persisted: Promise[Unit] = Promise(),
-  )(implicit override val traceContext: TraceContext)
-      extends Update {
-    // TODO(i20043) this will be simplified as Update refactoring is unconstrained by serialization
-    assert(
-      // rejection from sequencer should have the request sequencer counter
-      (completionInfo.messageUuid.isEmpty && domainIndex.exists(
-        _.requestIndex.exists(_.sequencerCounter.isDefined)
-      ))
-      // rejection from participant (timeout, unsequenced) should have the messageUuid, and no domainIndex
-        || (completionInfo.messageUuid.isDefined && domainIndex.isEmpty)
-    )
+  sealed trait CommandRejected extends Update {
+
+    /** The completion information for the submission
+      */
+    def completionInfo: CompletionInfo
+
+    /** A template for generating the gRPC status code with error details.
+      * See ``error.proto`` for the status codes of common rejection reasons.
+      */
+    def reasonTemplate: RejectionReasonTemplate
+
+    def domainId: DomainId
+
+    /** If true, the deduplication guarantees apply to this rejection.
+      * The participant state implementations should strive to set this flag to true as often as
+      * possible so that applications get better guarantees.
+      */
+    final def definiteAnswer: Boolean = reasonTemplate.definiteAnswer
 
     override protected def pretty: Pretty[CommandRejected] =
       prettyOfClass(
@@ -420,35 +469,47 @@ object Update {
         param("reason", _.reasonTemplate.message.singleQuoted),
         param("domainId", _.domainId.uid),
       )
+  }
 
-    /** If true, the deduplication guarantees apply to this rejection.
-      * The participant state implementations should strive to set this flag to true as often as
-      * possible so that applications get better guarantees.
-      */
-    def definiteAnswer: Boolean = reasonTemplate.definiteAnswer
+  final case class SequencedCommandRejected(
+      completionInfo: CompletionInfo,
+      reasonTemplate: RejectionReasonTemplate,
+      domainId: DomainId,
+      requestCounter: RequestCounter,
+      sequencerCounter: SequencerCounter,
+      recordTime: CantonTimestamp,
+      persisted: Promise[Unit] = Promise(),
+  )(implicit override val traceContext: TraceContext)
+      extends CommandRejected
+      with SequencedUpdate
+      with RequestUpdate
 
-    override def domainIndexOpt: Option[(DomainId, DomainIndex)] = domainIndex.map(domainId -> _)
+  final case class UnSequencedCommandRejected(
+      completionInfo: CompletionInfo,
+      reasonTemplate: RejectionReasonTemplate,
+      domainId: DomainId,
+      recordTime: CantonTimestamp,
+      messageUuid: UUID,
+      persisted: Promise[Unit] = Promise(),
+  )(implicit override val traceContext: TraceContext)
+      extends CommandRejected {
 
-    override def withRecordTime(recordTime: Timestamp): Update =
-      if (domainIndex.nonEmpty)
-        throw new IllegalStateException(
-          "Record time is not supposed to be overridden for sequenced events"
-        )
-      else this.copy(recordTime = recordTime)
+    override def domainIndexOpt: Option[(DomainId, DomainIndex)] =
+      None
   }
 
   object CommandRejected {
 
     implicit val `CommandRejected to LoggingValue`: ToLoggingValue[CommandRejected] = {
-      case CommandRejected(recordTime, submitterInfo, reason, domainId, _, _) =>
+      case commandRejected: CommandRejected =>
         LoggingValue.Nested.fromEntries(
-          Logging.recordTime(recordTime),
-          Logging.submitter(submitterInfo.actAs),
-          Logging.applicationId(submitterInfo.applicationId),
-          Logging.commandId(submitterInfo.commandId),
-          Logging.deduplicationPeriod(submitterInfo.optDeduplicationPeriod),
-          Logging.rejectionReason(reason),
-          Logging.domainId(domainId),
+          Logging.recordTime(commandRejected.recordTime.toLf),
+          Logging.submitter(commandRejected.completionInfo.actAs),
+          Logging.applicationId(commandRejected.completionInfo.applicationId),
+          Logging.commandId(commandRejected.completionInfo.commandId),
+          Logging.deduplicationPeriod(commandRejected.completionInfo.optDeduplicationPeriod),
+          Logging.rejectionReason(commandRejected.reasonTemplate),
+          Logging.domainId(commandRejected.domainId),
         )
     }
 
@@ -494,37 +555,19 @@ object Update {
 
   final case class SequencerIndexMoved(
       domainId: DomainId,
-      sequencerIndex: SequencerIndex,
+      sequencerCounter: SequencerCounter,
+      recordTime: CantonTimestamp,
       requestCounterO: Option[RequestCounter],
       persisted: Promise[Unit] = Promise(),
   )(implicit override val traceContext: TraceContext)
-      extends Update {
+      extends SequencedUpdate {
     override protected def pretty: Pretty[SequencerIndexMoved] =
       prettyOfClass(
         param("domainId", _.domainId.uid),
-        param("sequencerCounter", _.sequencerIndex.counter),
-        param("sequencerTimestamp", _.sequencerIndex.timestamp),
+        param("sequencerCounter", _.sequencerCounter),
+        param("sequencerTimestamp", _.recordTime),
         paramIfDefined("requestCounter", _.requestCounterO),
       )
-
-    override def domainIndexOpt: Option[(DomainId, DomainIndex)] = Some(
-      domainId -> DomainIndex(
-        requestIndex = requestCounterO.map(requestCounter =>
-          RequestIndex(
-            counter = requestCounter,
-            sequencerCounter = Some(sequencerIndex.counter),
-            timestamp = sequencerIndex.timestamp,
-          )
-        ),
-        sequencerIndex = Some(sequencerIndex),
-      )
-    )
-
-    override def recordTime: Timestamp = sequencerIndex.timestamp.underlying
-
-    override def withRecordTime(recordTime: Timestamp): Update = throw new IllegalStateException(
-      "Record time is not supposed to be overridden for sequenced events"
-    )
   }
 
   object SequencerIndexMoved {
@@ -532,8 +575,8 @@ object Update {
       seqIndexMoved =>
         LoggingValue.Nested.fromEntries(
           Logging.domainId(seqIndexMoved.domainId),
-          "sequencerCounter" -> seqIndexMoved.sequencerIndex.counter.unwrap,
-          "sequencerTimestamp" -> seqIndexMoved.sequencerIndex.timestamp.underlying.toInstant,
+          "sequencerCounter" -> seqIndexMoved.sequencerCounter.unwrap,
+          "sequencerTimestamp" -> seqIndexMoved.recordTime.toInstant,
         )
   }
 
@@ -544,11 +587,7 @@ object Update {
 
     override protected def pretty: Pretty[CommitRepair] = prettyOfClass()
 
-    override def withRecordTime(recordTime: Timestamp): Update = throw new IllegalStateException(
-      "Record time is not supposed to be overridden for CommitRepair events"
-    )
-
-    override val recordTime: Timestamp = Timestamp.now()
+    override val recordTime: CantonTimestamp = CantonTimestamp.now()
   }
 
   implicit val `Update to LoggingValue`: ToLoggingValue[Update] = {

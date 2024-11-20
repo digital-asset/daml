@@ -140,6 +140,7 @@ class QueueBasedDomainOutboxTest
                 EffectiveTime.MinValue,
                 None,
                 rootCert,
+                None,
               )
             )
           )

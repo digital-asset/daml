@@ -88,18 +88,12 @@ class GrpcInspectionService(
       )
       allDomainIds = request.configs.flatMap(_.domainIds)
 
-      mappedDistinct <- EitherT.fromEither[FutureUnlessShutdown](
-        if (allDomainIds.distinct.lengthIs == allDomainIds.length) Right(mapped)
-        else {
-          println(mapped)
-          println(mapped.distinctBy(_.domainId).length)
-          println(mapped.length)
-          Left(
-            InspectionServiceError.IllegalArgumentError.Error(
-              "DomainIds are not distinct"
-            )
-          )
-        }
+      mappedDistinct <- EitherT.cond[FutureUnlessShutdown](
+        allDomainIds.distinct.lengthIs == allDomainIds.length,
+        mapped,
+        InspectionServiceError.IllegalArgumentError.Error(
+          "DomainIds are not distinct"
+        ),
       )
 
       mappedThreshold <- wrapErrUS(

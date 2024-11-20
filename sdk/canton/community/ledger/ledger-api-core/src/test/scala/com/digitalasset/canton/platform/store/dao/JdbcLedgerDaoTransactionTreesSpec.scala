@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.dao
 
 import com.daml.ledger.api.v2.transaction.TransactionTree
 import com.daml.ledger.api.v2.update_service.GetUpdateTreesResponse
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.platform.store.entries.LedgerEntry
 import com.digitalasset.canton.platform.store.utils.EventOps.TreeEventOps
@@ -57,7 +57,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       inside(result.value.transaction) { case Some(transaction) =>
         inside(tx.transaction.nodes.headOption) { case Some((nodeId, createNode: Node.Create)) =>
           transaction.commandId shouldBe tx.commandId.value
-          transaction.offset shouldBe offset.toLong
+          transaction.offset shouldBe offset.unwrap
           TimestampConversion.toLf(
             transaction.effectiveAt.value,
             TimestampConversion.ConversionMode.Exact,
@@ -91,7 +91,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
         inside(exercise.transaction.nodes.headOption) {
           case Some((nodeId, exerciseNode: Node.Exercise)) =>
             transaction.commandId shouldBe exercise.commandId.value
-            transaction.offset shouldBe offset.toLong
+            transaction.offset shouldBe offset.unwrap
             TimestampConversion.toLf(
               transaction.effectiveAt.value,
               TimestampConversion.ConversionMode.Exact,
@@ -132,7 +132,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           }.value
 
         transaction.commandId shouldBe tx.commandId.value
-        transaction.offset shouldBe offset.toLong
+        transaction.offset shouldBe offset.unwrap
         transaction.updateId shouldBe tx.updateId
         transaction.workflowId shouldBe tx.workflowId.getOrElse("")
         TimestampConversion.toLf(
@@ -215,7 +215,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       result <- transactionsOf(
         ledgerDao.transactionsReader
           .getTransactionTrees(
-            startExclusive = from,
+            startInclusive = from,
             endInclusive = to,
             requestingParties = Some(Set(alice, bob, charlie)),
             eventProjectionProperties = EventProjectionProperties(
@@ -235,7 +235,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       result <- transactionsOf(
         ledgerDao.transactionsReader
           .getTransactionTrees(
-            startExclusive = from,
+            startInclusive = from,
             endInclusive = to,
             requestingParties = Some(Set(alice, bob, charlie)),
             eventProjectionProperties = EventProjectionProperties(
@@ -247,7 +247,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       resultPartyWildcard <- transactionsOf(
         ledgerDao.transactionsReader
           .getTransactionTrees(
-            startExclusive = from,
+            startInclusive = from,
             endInclusive = to,
             requestingParties = None,
             eventProjectionProperties = EventProjectionProperties(
@@ -280,8 +280,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       resultForAlice <- transactionsOf(
         ledgerDao.transactionsReader
           .getTransactionTrees(
-            startExclusive = Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
-            endInclusive = Offset.fromAbsoluteOffset(to.value.lastOffset),
+            startInclusive = from.fold(AbsoluteOffset.firstOffset)(_.lastOffset.increment),
+            endInclusive = to.value.lastOffset,
             requestingParties = Some(Set(alice)),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
@@ -292,8 +292,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       resultForBob <- transactionsOf(
         ledgerDao.transactionsReader
           .getTransactionTrees(
-            startExclusive = Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
-            endInclusive = Offset.fromAbsoluteOffset(to.value.lastOffset),
+            startInclusive = from.fold(AbsoluteOffset.firstOffset)(_.lastOffset.increment),
+            endInclusive = to.value.lastOffset,
             requestingParties = Some(Set(bob)),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
@@ -304,8 +304,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       resultForCharlie <- transactionsOf(
         ledgerDao.transactionsReader
           .getTransactionTrees(
-            startExclusive = Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
-            endInclusive = Offset.fromAbsoluteOffset(to.value.lastOffset),
+            startInclusive = from.fold(AbsoluteOffset.firstOffset)(_.lastOffset.increment),
+            endInclusive = to.value.lastOffset,
             requestingParties = Some(Set(charlie)),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
@@ -320,7 +320,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     }
   }
 
-  private def storeTestFixture(): Future[(Offset, Offset, Seq[LedgerEntry.Transaction])] =
+  private def storeTestFixture()
+      : Future[(AbsoluteOffset, AbsoluteOffset, Seq[LedgerEntry.Transaction])] =
     for {
       from <- ledgerDao.lookupLedgerEnd()
       (_, t1) <- store(singleCreate)
@@ -329,8 +330,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       (_, t4) <- store(fullyTransient())
       to <- ledgerDao.lookupLedgerEnd()
     } yield (
-      Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
-      Offset.fromAbsoluteOffset(to.value.lastOffset),
+      from.fold(AbsoluteOffset.firstOffset)(_.lastOffset.increment),
+      to.value.lastOffset,
       Seq(t1, t2, t3, t4),
     )
 
@@ -348,7 +349,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       .map(_.flatMap(_.toList.flatMap(_.transaction.toList)))
 
   private def transactionsOf(
-      source: Source[(Offset, GetUpdateTreesResponse), NotUsed]
+      source: Source[(AbsoluteOffset, GetUpdateTreesResponse), NotUsed]
   ): Future[Seq[TransactionTree]] =
     source
       .map(_._2)

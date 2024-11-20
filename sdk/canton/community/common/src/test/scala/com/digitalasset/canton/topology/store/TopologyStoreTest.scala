@@ -142,6 +142,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase {
           EffectiveTime(from),
           until.map(EffectiveTime(_)),
           tx,
+          None,
         )
       }
     )
@@ -472,9 +473,11 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase {
             expectTransactions(
               essentialStateTransactions,
               Seq(
+                tx1_NSD_Proposal,
                 tx2_OTK,
                 tx3_IDD_Removal,
                 tx3_NSD,
+                tx3_PTP_Proposal,
                 tx4_DND,
                 tx4_OTK_Proposal,
                 tx5_PTP,

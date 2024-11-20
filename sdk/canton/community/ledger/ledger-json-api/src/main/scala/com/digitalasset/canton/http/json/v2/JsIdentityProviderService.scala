@@ -126,7 +126,7 @@ class JsIdentityProviderService(
 
 }
 
-object JsIdentityProviderService {
+object JsIdentityProviderService extends DocumentationEndpoints {
   import Endpoints.*
   import JsIdentityProviderCodecs.*
 
@@ -162,6 +162,14 @@ object JsIdentityProviderService {
       .in(path[String](identityProviderPath))
       .out(jsonBody[identity_provider_config_service.DeleteIdentityProviderConfigResponse])
       .description("Delete identity provider config")
+
+  override def documentation: Seq[AnyEndpoint] = List(
+    createIdpsEndpoint,
+    updateIdpEndpoint,
+    getIdpEndpoint,
+    deleteIdpEndpoint,
+    listIdpsEndpoint,
+  )
 }
 
 object JsIdentityProviderCodecs {

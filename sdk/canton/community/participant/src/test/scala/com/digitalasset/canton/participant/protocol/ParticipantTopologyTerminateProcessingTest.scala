@@ -5,10 +5,13 @@ package com.digitalasset.canton.participant.protocol
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.participant.state.Update
-import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective
+import com.digitalasset.canton.ledger.participant.state.SequencedUpdate
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.TopologyEvent.PartyToParticipantAuthorization
+import com.digitalasset.canton.ledger.participant.state.Update.{
+  SequencerIndexMoved,
+  TopologyTransactionEffective,
+}
 import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.topology.*
@@ -26,7 +29,7 @@ import com.digitalasset.canton.topology.store.{
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.*
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{BaseTest, HasExecutionContext, RequestCounter, SequencerCounter}
+import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
 import org.mockito.ArgumentCaptor
 import org.scalatest.wordspec.AsyncWordSpec
 import org.slf4j.event.Level
@@ -50,21 +53,16 @@ class ParticipantTopologyTerminateProcessingTest
   ): (
       ParticipantTopologyTerminateProcessing,
       TopologyStore[TopologyStoreId.DomainStore],
-      ArgumentCaptor[Option[Update]],
+      ArgumentCaptor[SequencedUpdate],
       RecordOrderPublisher,
   ) = {
 
-    val eventCaptor: ArgumentCaptor[Option[Update]] =
-      ArgumentCaptor.forClass(classOf[Option[Update]])
+    val eventCaptor: ArgumentCaptor[SequencedUpdate] =
+      ArgumentCaptor.forClass(classOf[SequencedUpdate])
 
     val recordOrderPublisher = mock[RecordOrderPublisher]
     when(
-      recordOrderPublisher.tick(
-        any[SequencerCounter],
-        any[CantonTimestamp],
-        eventCaptor.capture(),
-        any[Option[RequestCounter]],
-      )(any[TraceContext])
+      recordOrderPublisher.tick(eventCaptor.capture())(any[TraceContext])
     )
       .thenReturn(Future.successful(()))
 
@@ -148,16 +146,11 @@ class ParticipantTopologyTerminateProcessingTest
           _ <- add(store, cts, List(party1participant1))
           _ <- proc.terminate(sc, SequencedTime(cts), EffectiveTime(cts))
         } yield {
-          verify(rop, times(1)).tick(
-            any[SequencerCounter],
-            any[CantonTimestamp],
-            any[Option[Update]],
-            any[Option[RequestCounter]],
-          )(any[TraceContext])
+          verify(rop, times(1)).tick(any[SequencedUpdate])(any[TraceContext])
           val events = eventCaptor.getAllValues.asScala
           events.size shouldBe 1
           forAll(events) {
-            case Some(TopologyTransactionEffective(_, events, _, _, _, _)) =>
+            case TopologyTransactionEffective(_, events, _, _, _, _) =>
               forAll(events) {
                 case PartyToParticipantAuthorization(
                       party,
@@ -186,16 +179,11 @@ class ParticipantTopologyTerminateProcessingTest
           _ <- add(store, cts1, List(party1participant1_2))
           _ <- proc.terminate(sc1, SequencedTime(cts1), EffectiveTime(cts1))
         } yield {
-          verify(rop, times(1)).tick(
-            any[SequencerCounter],
-            any[CantonTimestamp],
-            any[Option[Update]],
-            any[Option[RequestCounter]],
-          )(any[TraceContext])
+          verify(rop, times(1)).tick(any[SequencedUpdate])(any[TraceContext])
           val events = eventCaptor.getAllValues.asScala
           events.size shouldBe 1
           forAll(events) {
-            case Some(TopologyTransactionEffective(_, events, _, _, _, _)) =>
+            case TopologyTransactionEffective(_, events, _, _, _, _) =>
               forAll(events) {
                 case PartyToParticipantAuthorization(
                       party,
@@ -224,16 +212,11 @@ class ParticipantTopologyTerminateProcessingTest
           _ <- add(store, cts1, List(party1participant1))
           _ <- proc.terminate(sc1, SequencedTime(cts1), EffectiveTime(cts1))
         } yield {
-          verify(rop, times(1)).tick(
-            any[SequencerCounter],
-            any[CantonTimestamp],
-            any[Option[Update]],
-            any[Option[RequestCounter]],
-          )(any[TraceContext])
+          verify(rop, times(1)).tick(any[SequencedUpdate])(any[TraceContext])
           val events = eventCaptor.getAllValues.asScala
           events.size shouldBe 1
           forAll(events) {
-            case Some(TopologyTransactionEffective(_, events, _, _, _, _)) =>
+            case TopologyTransactionEffective(_, events, _, _, _, _) =>
               forAll(events) {
                 case PartyToParticipantAuthorization(
                       party,
@@ -261,15 +244,13 @@ class ParticipantTopologyTerminateProcessingTest
           _ <- add(store, cts1, List(party1participant1_2_threshold2))
           _ <- proc.terminate(sc1, SequencedTime(cts1), EffectiveTime(cts1))
         } yield {
-          verify(rop, times(1)).tick(
-            any[SequencerCounter],
-            any[CantonTimestamp],
-            any[Option[Update]],
-            any[Option[RequestCounter]],
-          )(any[TraceContext])
+          verify(rop, times(1)).tick(any[SequencedUpdate])(any[TraceContext])
           val events = eventCaptor.getAllValues.asScala
           events.size shouldBe 1
-          events.head shouldBe None
+          events.head match {
+            case _: SequencerIndexMoved => succeed
+            case _ => fail("SequencerIndexMoved expected")
+          }
         }
       }
     }
@@ -285,15 +266,13 @@ class ParticipantTopologyTerminateProcessingTest
           _ <- add(store, cts1, List.empty)
           _ <- proc.terminate(sc1, SequencedTime(cts1), EffectiveTime(cts1))
         } yield {
-          verify(rop, times(1)).tick(
-            any[SequencerCounter],
-            any[CantonTimestamp],
-            any[Option[Update]],
-            any[Option[RequestCounter]],
-          )(any[TraceContext])
+          verify(rop, times(1)).tick(any[SequencedUpdate])(any[TraceContext])
           val events = eventCaptor.getAllValues.asScala
           events.size shouldBe 1
-          events.head shouldBe None
+          events.head match {
+            case _: SequencerIndexMoved => succeed
+            case _ => fail("SequencerIndexMoved expected")
+          }
         }
       }
     }

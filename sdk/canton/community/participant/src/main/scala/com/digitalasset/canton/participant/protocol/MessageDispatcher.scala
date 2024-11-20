@@ -15,6 +15,7 @@ import com.digitalasset.canton.data.ViewType.{
 }
 import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.ledger.participant.state.Update.SequencerIndexMoved
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -622,7 +623,14 @@ trait MessageDispatcher { this: NamedLogging =>
       traceContext: TraceContext
   ): FutureUnlessShutdown[ProcessingResult] = {
     lazy val future = FutureUnlessShutdown.outcomeF {
-      recordOrderPublisher.tick(sc, ts, eventO = None, requestCounterO = None)
+      recordOrderPublisher.tick(
+        SequencerIndexMoved(
+          domainId = domainId,
+          sequencerCounter = sc,
+          recordTime = ts,
+          requestCounterO = None,
+        )
+      )
     }
     doProcess(UnspecifiedMessageKind, future)
   }

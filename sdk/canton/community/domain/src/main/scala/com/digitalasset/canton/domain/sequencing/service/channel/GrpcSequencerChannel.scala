@@ -12,7 +12,10 @@ import com.digitalasset.canton.domain.sequencing.service.CloseNotification
 import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.channel.ConnectToSequencerChannelRequest
-import com.digitalasset.canton.sequencing.protocol.{SequencerChannelId, SequencerChannelMetadata}
+import com.digitalasset.canton.sequencing.protocol.channel.{
+  SequencerChannelId,
+  SequencerChannelMetadata,
+}
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.util.SingleUseCell
@@ -185,6 +188,15 @@ private[channel] abstract class UninitializedGrpcSequencerChannel(
               metadata <- request.request match {
                 case ConnectToSequencerChannelRequest.Metadata(metadata) =>
                   Right(metadata)
+                case ConnectToSequencerChannelRequest.SessionKey(_) =>
+                  Left(("received session key instead of metadata", Status.INVALID_ARGUMENT))
+                case ConnectToSequencerChannelRequest.SessionKeyAck(_) =>
+                  Left(
+                    (
+                      "received session key acknowledgment instead of metadata",
+                      Status.INVALID_ARGUMENT,
+                    )
+                  )
                 case ConnectToSequencerChannelRequest.Payload(_) =>
                   Left(("received payload instead of metadata", Status.INVALID_ARGUMENT))
               }

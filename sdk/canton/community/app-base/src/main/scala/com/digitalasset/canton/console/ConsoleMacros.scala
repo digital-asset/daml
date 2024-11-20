@@ -881,10 +881,11 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       val storedTopologySnapshot = StoredTopologyTransactions[TopologyChangeOp, TopologyMapping](
         merged.map(stored =>
           StoredTopologyTransaction(
-            SequencedTime(SignedTopologyTransaction.InitialTopologySequencingTime),
-            EffectiveTime(SignedTopologyTransaction.InitialTopologySequencingTime),
-            None,
-            stored,
+            sequenced = SequencedTime(SignedTopologyTransaction.InitialTopologySequencingTime),
+            validFrom = EffectiveTime(SignedTopologyTransaction.InitialTopologySequencingTime),
+            validUntil = None,
+            transaction = stored,
+            rejectionReason = None,
           )
         )
       ).toByteString(staticDomainParameters.protocolVersion)

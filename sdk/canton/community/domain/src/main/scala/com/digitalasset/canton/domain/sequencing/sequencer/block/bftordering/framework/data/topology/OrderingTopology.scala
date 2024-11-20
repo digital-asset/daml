@@ -4,6 +4,7 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.topology
 
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.topology.OrderingTopology.{
   isStrongQuorumReached,
   isWeakQuorumReached,
@@ -12,7 +13,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   weakQuorumSize,
 }
 import com.digitalasset.canton.topology.SequencerId
-import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.google.common.annotations.VisibleForTesting
 
 /** The current sequencer topology.
@@ -21,13 +21,13 @@ import com.google.common.annotations.VisibleForTesting
   * deterministic and could introduce nondeterminism in the protocol and/or simulation testing.
   */
 final case class OrderingTopology(
-    peersFirstKnownAt: Map[SequencerId, EffectiveTime],
+    peersActiveAt: Map[SequencerId, TopologyActivationTime],
     sequencingParameters: SequencingParameters,
-    topologySnapshotEffectiveTime: EffectiveTime,
+    activationTime: TopologyActivationTime,
     areTherePendingCantonTopologyChanges: Boolean,
 ) {
 
-  lazy val peers: Set[SequencerId] = peersFirstKnownAt.keySet
+  lazy val peers: Set[SequencerId] = peersActiveAt.keySet
 
   lazy val weakQuorum: Int = weakQuorumSize(peers.size)
 
@@ -201,13 +201,13 @@ object OrderingTopology {
   def apply(
       peers: Set[SequencerId],
       sequencingParameters: SequencingParameters = SequencingParameters.Default,
-      topologySnapshotEffectiveTime: EffectiveTime = EffectiveTime(CantonTimestamp.MinValue),
+      activationTime: TopologyActivationTime = TopologyActivationTime(CantonTimestamp.MinValue),
       areTherePendingCantonTopologyChanges: Boolean = false,
   ): OrderingTopology =
     OrderingTopology(
-      peers.view.map(_ -> EffectiveTime(CantonTimestamp.MinValue)).toMap,
+      peers.view.map(_ -> TopologyActivationTime(CantonTimestamp.MinValue)).toMap,
       sequencingParameters,
-      topologySnapshotEffectiveTime,
+      activationTime,
       areTherePendingCantonTopologyChanges,
     )
 

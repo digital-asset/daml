@@ -4,13 +4,12 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.daml.logging.entries.LoggingEntry
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
-import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.{
   implicitExtractTraceContext,
@@ -65,10 +64,10 @@ private class JdbcLedgerDao(
     tracer: Tracer,
     val loggerFactory: NamedLoggerFactory,
     incompleteOffsets: (
-        Offset,
+        AbsoluteOffset,
         Option[Set[Ref.Party]],
         TraceContext,
-    ) => FutureUnlessShutdown[Vector[Offset]],
+    ) => FutureUnlessShutdown[Vector[AbsoluteOffset]],
     contractLoader: ContractLoader,
     translation: LfValueTranslation,
 ) extends LedgerDao
@@ -114,7 +113,7 @@ private class JdbcLedgerDao(
 
   @SuppressWarnings(Array("org.wartremover.warts.Null"))
   override def storePartyEntry(
-      offset: Offset,
+      offset: AbsoluteOffset,
       partyEntry: PartyLedgerEntry,
   )(implicit
       loggingContext: LoggingContextWithTrace
@@ -135,7 +134,7 @@ private class JdbcLedgerDao(
                 //
                 // This will be properly resolved once we move away from the `sandbox-classic` codebase.
                 participantId = if (partyDetails.isLocal) participantId else NonLocalParticipantId,
-                recordTime = recordTime,
+                recordTime = CantonTimestamp(recordTime),
                 submissionId = submissionIdOpt,
               )
             ),
@@ -150,7 +149,7 @@ private class JdbcLedgerDao(
               state.Update.PartyAllocationRejected(
                 submissionId = submissionId,
                 participantId = participantId,
-                recordTime = recordTime,
+                recordTime = CantonTimestamp(recordTime),
                 rejectionReason = reason,
               )
             ),
@@ -161,17 +160,17 @@ private class JdbcLedgerDao(
   }
 
   override def getPartyEntries(
-      startExclusive: Offset,
-      endInclusive: Offset,
+      startInclusive: AbsoluteOffset,
+      endInclusive: AbsoluteOffset,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(Offset, PartyLedgerEntry), NotUsed] =
+  ): Source[(AbsoluteOffset, PartyLedgerEntry), NotUsed] =
     paginatingAsyncStream.streamFromLimitOffsetPagination(PageSize) { queryOffset =>
       withEnrichedLoggingContext("queryOffset" -> queryOffset: LoggingEntry) {
         implicit loggingContext =>
           dbDispatcher.executeSql(metrics.index.db.loadPartyEntries)(
             readStorageBackend.partyStorageBackend.partyEntries(
-              startExclusive = startExclusive,
+              startInclusive = startInclusive,
               endInclusive = endInclusive,
               pageSize = PageSize,
               queryOffset = queryOffset,
@@ -183,7 +182,7 @@ private class JdbcLedgerDao(
   override def storeRejection(
       completionInfo: Option[state.CompletionInfo],
       recordTime: Timestamp,
-      offset: Offset,
+      offset: AbsoluteOffset,
       reason: state.Update.CommandRejected.RejectionReasonTemplate,
   )(implicit
       loggingContext: LoggingContextWithTrace
@@ -194,20 +193,13 @@ private class JdbcLedgerDao(
           conn,
           offset,
           completionInfo.map(info =>
-            state.Update.CommandRejected(
-              recordTime = recordTime,
+            state.Update.SequencedCommandRejected(
+              recordTime = CantonTimestamp(recordTime),
               completionInfo = info,
               reasonTemplate = reason,
               domainId = DomainId.tryFromString("invalid::deadbeef"),
-              domainIndex = Some(
-                DomainIndex.of(
-                  RequestIndex(
-                    RequestCounter(1),
-                    Some(SequencerCounter(1)),
-                    CantonTimestamp.ofEpochMicro(recordTime.micros),
-                  )
-                )
-              ),
+              requestCounter = RequestCounter(1),
+              sequencerCounter = SequencerCounter(1),
             )
           ),
         )
@@ -276,9 +268,9 @@ private class JdbcLedgerDao(
     *            transaction-local divulgence.
     */
   override def prune(
-      pruneUpToInclusive: Offset,
+      pruneUpToInclusive: AbsoluteOffset,
       pruneAllDivulgedContracts: Boolean,
-      incompleteReassignmentOffsets: Vector[Offset],
+      incompleteReassignmentOffsets: Vector[AbsoluteOffset],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Unit] = {
     val allDivulgencePruningParticle =
       if (pruneAllDivulgedContracts) " (including all divulged contracts)" else ""
@@ -301,10 +293,14 @@ private class JdbcLedgerDao(
           conn,
           loggingContext.traceContext,
         )
-        parameterStorageBackend.updatePrunedUptoInclusive(pruneUpToInclusive)(conn)
+        parameterStorageBackend.updatePrunedUptoInclusive(
+          pruneUpToInclusive
+        )(conn)
 
         if (pruneAllDivulgedContracts) {
-          parameterStorageBackend.updatePrunedAllDivulgedContractsUpToInclusive(pruneUpToInclusive)(
+          parameterStorageBackend.updatePrunedAllDivulgedContractsUpToInclusive(
+            Offset.fromAbsoluteOffset(pruneUpToInclusive)
+          )(
             conn
           )
         }
@@ -323,8 +319,13 @@ private class JdbcLedgerDao(
       loggingContext: LoggingContextWithTrace
   ): Future[(Option[Offset], Option[Offset])] =
     dbDispatcher.executeSql(metrics.index.db.fetchPruningOffsetsMetrics) { conn =>
-      parameterStorageBackend.prunedUpToInclusive(conn) -> parameterStorageBackend
-        .participantAllDivulgedContractsPrunedUpToInclusive(conn)
+      (
+        parameterStorageBackend
+          .prunedUpToInclusive(conn)
+          .map(Offset.fromAbsoluteOffset),
+        parameterStorageBackend
+          .participantAllDivulgedContractsPrunedUpToInclusive(conn),
+      )
     }
 
   private val queryValidRange = QueryValidRangeImpl(parameterStorageBackend, loggerFactory)
@@ -475,7 +476,7 @@ private class JdbcLedgerDao(
       workflowId: Option[WorkflowId],
       updateId: UpdateId,
       ledgerEffectiveTime: Timestamp,
-      offset: Offset,
+      offset: AbsoluteOffset,
       transaction: CommittedTransaction,
       hostedWitnesses: List[Party],
       recordTime: Timestamp,
@@ -489,7 +490,7 @@ private class JdbcLedgerDao(
           conn,
           offset,
           Some(
-            state.Update.TransactionAccepted(
+            state.Update.SequencedTransactionAccepted(
               completionInfoO = completionInfo,
               transactionMeta = state.TransactionMeta(
                 ledgerEffectiveTime = ledgerEffectiveTime,
@@ -502,7 +503,6 @@ private class JdbcLedgerDao(
               ),
               transaction = transaction,
               updateId = updateId,
-              recordTime = recordTime,
               hostedWitnesses = hostedWitnesses,
               contractMetadata = new Map[ContractId, Bytes] {
                 override def removed(key: ContractId): Map[ContractId, Bytes] = this
@@ -517,15 +517,9 @@ private class JdbcLedgerDao(
                 override def iterator: Iterator[(ContractId, Bytes)] = Iterator.empty
               }, // only for tests
               domainId = DomainId.tryFromString("invalid::deadbeef"),
-              domainIndex = Some(
-                DomainIndex.of(
-                  RequestIndex(
-                    RequestCounter(1),
-                    Some(SequencerCounter(1)),
-                    CantonTimestamp.ofEpochMicro(recordTime.micros),
-                  )
-                )
-              ),
+              requestCounter = RequestCounter(1),
+              sequencerCounter = SequencerCounter(1),
+              recordTime = CantonTimestamp(recordTime),
             )
           ),
         )
@@ -571,10 +565,10 @@ private[platform] object JdbcLedgerDao {
       tracer: Tracer,
       loggerFactory: NamedLoggerFactory,
       incompleteOffsets: (
-          Offset,
+          AbsoluteOffset,
           Option[Set[Ref.Party]],
           TraceContext,
-      ) => FutureUnlessShutdown[Vector[Offset]],
+      ) => FutureUnlessShutdown[Vector[AbsoluteOffset]],
       contractLoader: ContractLoader = ContractLoader.dummyLoader,
       lfValueTranslation: LfValueTranslation,
   ): LedgerReadDao =

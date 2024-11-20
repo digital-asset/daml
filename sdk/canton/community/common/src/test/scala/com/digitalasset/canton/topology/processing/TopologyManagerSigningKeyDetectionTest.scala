@@ -39,7 +39,9 @@ class TopologyManagerSigningKeyDetectionTest
 
     def mkStored(ts: CantonTimestamp, transactions: GenericSignedTopologyTransaction*) =
       StoredTopologyTransactions(
-        transactions.map(StoredTopologyTransaction(SequencedTime(ts), EffectiveTime(ts), None, _))
+        transactions.map(
+          StoredTopologyTransaction(SequencedTime(ts), EffectiveTime(ts), None, _, None)
+        )
       )
 
     val dtc_uid1a = TopologyTransaction(

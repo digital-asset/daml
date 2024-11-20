@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
 import com.digitalasset.canton.ledger.participant.state.SyncService.{
   ConnectedDomainRequest,
@@ -60,13 +60,13 @@ trait SyncService
     *
     * @param validAt      The offset of validity in participant offset terms.
     * @param stakeholders Only offsets are returned which have at least one stakeholder from this set.
-    * @return All the offset of assigned/unassigned events which do not have their conterparts visible at
+    * @return All the offset of assigned/unassigned events which do not have their counterparts visible at
     *         the validAt offset, and only for the reassignments for which this participant is reassigning.
     */
   def incompleteReassignmentOffsets(
-      validAt: Offset,
+      validAt: AbsoluteOffset,
       stakeholders: Set[LfPartyId],
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Vector[Offset]] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Vector[AbsoluteOffset]] = {
     val _ = validAt
     val _ = stakeholders
     val _ = traceContext

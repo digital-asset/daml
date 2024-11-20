@@ -77,9 +77,11 @@ class LedgerApiStore(
       integrityStorageBackend.onlyForTestingNumberOfAcceptedTransactionsFor(domainId)
     )
 
-  def domainIndex(domainId: DomainId)(implicit traceContext: TraceContext): Future[DomainIndex] =
-    executeSql(metrics.index.db.getDomainledgerEnd)(
-      parameterStorageBackend.domainLedgerEnd(domainId)
+  def cleanDomainIndex(domainId: DomainId)(implicit
+      traceContext: TraceContext
+  ): Future[DomainIndex] =
+    executeSql(metrics.index.db.getCleanDomainIndex)(
+      parameterStorageBackend.cleanDomainIndex(domainId)
     )
 
   def ledgerEnd(implicit traceContext: TraceContext): Future[Option[LedgerEnd]] =

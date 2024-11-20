@@ -7,8 +7,8 @@ import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.flatMap.*
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.caching.CaffeineCache
-import com.digitalasset.canton.caching.CaffeineCache.FutureAsyncCacheLoader
+import com.digitalasset.canton.caching.ScaffeineCache
+import com.digitalasset.canton.caching.ScaffeineCache.TracedAsyncLoadingCache
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -21,18 +21,16 @@ import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficPurchasedS
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.traffic.TrafficPurchased
-import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.version.ProtocolVersion
-import com.github.benmanes.caffeine.cache as caffeine
+import com.github.blemale.scaffeine.Scaffeine
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
 import scala.collection.immutable.SortedMap
 import scala.collection.mutable
-import scala.compat.java8.FutureConverters.*
 import scala.concurrent.{ExecutionContext, Future, blocking}
 
 /** Manages traffic purchased entries for sequencer members.
@@ -45,7 +43,6 @@ import scala.concurrent.{ExecutionContext, Future, blocking}
   */
 class TrafficPurchasedManager(
     val store: TrafficPurchasedStore,
-    clock: Clock,
     trafficConfig: SequencerTrafficConfig,
     futureSupervisor: FutureSupervisor,
     sequencerMetrics: SequencerMetrics,
@@ -70,34 +67,27 @@ class TrafficPurchasedManager(
   private val autoPruningPromise = new AtomicReference[Option[PromiseUnlessShutdown[Unit]]](None)
 
   // Async caffeine cache holding the last few balance updates for each member
-  private val trafficPurchased
-      : CaffeineCache.AsyncLoadingCaffeineCache[Member, TrafficPurchasedForMember] = {
-    import TraceContext.Implicits.Empty.emptyTraceContext
-    new CaffeineCache.AsyncLoadingCaffeineCache(
-      caffeine.Caffeine
-        .newBuilder()
+  private val trafficPurchased: TracedAsyncLoadingCache[Future, Member, TrafficPurchasedForMember] =
+    ScaffeineCache.buildTracedAsync[Future, Member, TrafficPurchasedForMember](
+      Scaffeine()
         // Automatically cleans up inactive members from the cache
-        .expireAfterAccess(trafficConfig.pruningRetentionWindow.asJava)
-        .maximumSize(trafficConfig.maximumTrafficPurchasedCacheSize.value.toLong)
-        .buildAsync(
-          new FutureAsyncCacheLoader[Member, TrafficPurchasedForMember](
-            store
-              .lookup(_)
-              .map(balances =>
-                TrafficPurchasedForMember(SortedMap(balances.map(b => b.sequencingTimestamp -> b)*))
-              )
-          )
-        ),
-      sequencerMetrics.trafficControl.purchaseCache,
-    )
-  }
+        .expireAfterAccess(trafficConfig.pruningRetentionWindow.asFiniteApproximation)
+        .maximumSize(trafficConfig.maximumTrafficPurchasedCacheSize.value.toLong),
+      loader = implicit traceContext =>
+        store
+          .lookup(_)
+          .map(balances =>
+            TrafficPurchasedForMember(SortedMap(balances.map(b => b.sequencingTimestamp -> b)*))
+          ),
+      metrics = Some(sequencerMetrics.trafficControl.purchaseCache),
+    )(logger)
 
   lazy val subscription = new SequencerTrafficControlSubscriber(this, loggerFactory)
 
   /** Initializes the traffic manager lastUpdateAt with the initial timestamp from the store if it's not already set.
     * Call before using the manager.
     */
-  def initialize(implicit tc: TraceContext) =
+  def initialize(implicit tc: TraceContext): Future[Unit] =
     store.getInitialTimestamp.map {
       case Some(initialTs) =>
         logger.debug(s"Initializing manager with $initialTs from store")
@@ -113,7 +103,7 @@ class TrafficPurchasedManager(
 
   /** Timestamp of the last update made to the manager
     */
-  def maxTsO = lastUpdateAt.get()
+  def maxTsO: Option[CantonTimestamp] = lastUpdateAt.get()
 
   /** Notify this class that the provided timestamp has been observed by the sequencer client.
     * Together with [[addTrafficPurchased]], this method is expected to be called sequentially with increasing timestamps.
@@ -132,67 +122,49 @@ class TrafficPurchasedManager(
       balance: TrafficPurchased
   )(implicit traceContext: TraceContext): Future[Unit] = {
     logger.debug(s"Updating traffic purchased entry: $balance")
-    trafficPurchased.underlying
-      .asMap()
-      .compute(
+    for {
+      balances <- trafficPurchased.compute(
         balance.member,
-        (_, existingTrafficPurchasedO) =>
-          Option(existingTrafficPurchasedO) match {
-            case Some(existingTrafficPurchasedF) =>
-              existingTrafficPurchasedF.toScala
-                .map {
-                  case balanceForMember @ TrafficPurchasedForMember(existingTrafficPurchased, _)
-                      if existingTrafficPurchased.values.maxOption
-                        .forall(_.serial < balance.serial) =>
-                    logger.trace(s"Updating with new balance: $balance")
-                    balanceForMember.copy(
-                      trafficPurchasedMap = existingTrafficPurchased
-                        // Limit how many balances we keep in memory
-                        // trafficPurchasedCacheSizePerMember is a PositiveInt so this will be 0 at the lowest
-                        .takeRight(
-                          checked(trafficConfig.trafficPurchasedCacheSizePerMember.value - 1)
-                        ) + (balance.sequencingTimestamp -> balance)
-                    )
-                  case balanceForMember @ TrafficPurchasedForMember(existingTrafficPurchased, _) =>
-                    logger.debug(
-                      s"Ignoring outdated traffic purchased entry update: $balance, existing balances are ${existingTrafficPurchased.values}"
-                    )
-                    balanceForMember
-                }
-                .toJava
-                .toCompletableFuture
-            case _ =>
-              Future(
-                TrafficPurchasedForMember(SortedMap(balance.sequencingTimestamp -> balance))
-              ).toJava.toCompletableFuture
-          },
+        (_, oldBalanceO) => {
+          val newBalance = oldBalanceO match {
+            case Some(balanceForMember) =>
+              val TrafficPurchasedForMember(existingTrafficPurchased, _) = balanceForMember
+              if (existingTrafficPurchased.values.maxOption.forall(_.serial < balance.serial)) {
+                logger.trace(s"Updating with new balance: $balance")
+                balanceForMember.copy(
+                  trafficPurchasedMap = existingTrafficPurchased
+                    // Limit how many balances we keep in memory
+                    // trafficPurchasedCacheSizePerMember is a PositiveInt so this will be 0 at the lowest
+                    .takeRight(
+                      checked(trafficConfig.trafficPurchasedCacheSizePerMember.value - 1)
+                    ) + (balance.sequencingTimestamp -> balance)
+                )
+              } else {
+                logger.debug(
+                  s"Ignoring outdated traffic purchased entry update: $balance, existing balances are ${existingTrafficPurchased.values}"
+                )
+                balanceForMember
+              }
+            case None =>
+              TrafficPurchasedForMember(SortedMap(balance.sequencingTimestamp -> balance))
+          }
+          Future.successful(newBalance)
+        },
       )
-      .toScala
-      .flatMap {
-        // Only insert in the store if the last balance in the cache is indeed the new one - this allows to reuse whatever
-        // checks the cache logic above performed
-        case balances if balances.trafficPurchasedMap.lastOption.forall { case (_, cachedBalance) =>
-              cachedBalance == balance
-            } =>
-          store
-            .store(balance)
-            .map(_ => balances)
-        case balances => Future.successful(balances)
+      // Only insert in the store if the last balance in the cache is indeed the new one - this allows to reuse whatever
+      // checks the cache logic above performed
+      shouldInsert = balances.trafficPurchasedMap.lastOption.forall { case (_, cachedBalance) =>
+        cachedBalance == balance
       }
+      _ <- if (shouldInsert) store.store(balance) else Future.unit
+    } yield {
       // Increment the metrics
-      .flatTap(_ =>
-        Future.successful {
-          sequencerMetrics.trafficControl.balanceUpdateProcessed.inc()
-          sequencerMetrics.trafficControl.trafficConsumption
-            .extraTrafficPurchased(
-              MetricsContext("member" -> balance.member.toString)
-            )
-            .updateValue(balance.extraTrafficPurchased.value)
-        }
-      )
-      .map { balances =>
-        updateAndCompletePendingUpdates(balance.sequencingTimestamp)
-      }
+      sequencerMetrics.trafficControl.balanceUpdateProcessed.inc()
+      sequencerMetrics.trafficControl.trafficConsumption
+        .extraTrafficPurchased(MetricsContext("member" -> balance.member.toString))
+        .updateValue(balance.extraTrafficPurchased.value)
+      updateAndCompletePendingUpdates(balance.sequencingTimestamp)
+    }
   }
 
   /** Get the balance valid at the given timestamp from the provided sorted map
@@ -300,7 +272,9 @@ class TrafficPurchasedManager(
 
   /** Return the latest known balance for the given member.
     */
-  def getLatestKnownBalance(member: Member): FutureUnlessShutdown[Option[TrafficPurchased]] =
+  def getLatestKnownBalance(member: Member)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[TrafficPurchased]] =
     FutureUnlessShutdown.outcomeF(
       trafficPurchased.get(member).map(_.trafficPurchasedMap.values.lastOption)
     )

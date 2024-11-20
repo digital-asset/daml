@@ -17,7 +17,7 @@ import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond, Off
 import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcUSExtended
 import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.admin.data.ActiveContract
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection.{
@@ -156,7 +156,7 @@ final class SyncStateInspection(
           domain,
         ).acsInspection.activeContractStore.pruningStatus
       )
-      .onShutdown(throw GrpcErrors.AbortedDueToShutdown.Error().asGrpcError)
+      .asGrpcResponse
 
   private def disableJournalCleaningForFilter(
       domains: Map[DomainId, SyncDomainPersistentState],
@@ -392,7 +392,7 @@ final class SyncStateInspection(
     val closed =
       timeouts.inspection
         .awaitUS(s"finding messages from $from to $to on $domain")(messagesF)
-        .onShutdown(throw GrpcErrors.AbortedDueToShutdown.Error().asGrpcError)
+        .asGrpcResponse
     val opener =
       new EnvelopeOpener[PossiblyIgnoredSequencedEvent](
         tryGetProtocolVersion(state, domain),
@@ -426,17 +426,21 @@ final class SyncStateInspection(
   )(implicit
       traceContext: TraceContext
   ): Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.CommitmentType)] =
-    timeouts.inspection.await(s"$functionFullName from $start to $end on $domain")(
-      getOrFail(getPersistentState(domain), domain).acsCommitmentStore
-        .searchComputedBetween(start, end, counterParticipant.toList)
-    )
+    timeouts.inspection
+      .awaitUS(s"$functionFullName from $start to $end on $domain")(
+        getOrFail(getPersistentState(domain), domain).acsCommitmentStore
+          .searchComputedBetween(start, end, counterParticipant.toList)
+      )
+      .asGrpcResponse
 
   def findLastComputedAndSent(
       domain: DomainAlias
   )(implicit traceContext: TraceContext): Option[CantonTimestampSecond] =
-    timeouts.inspection.await(s"$functionFullName on $domain")(
-      getOrFail(getPersistentState(domain), domain).acsCommitmentStore.lastComputedAndSent
-    )
+    timeouts.inspection
+      .awaitUS(s"$functionFullName on $domain")(
+        getOrFail(getPersistentState(domain), domain).acsCommitmentStore.lastComputedAndSent
+      )
+      .asGrpcResponse
 
   def findReceivedCommitments(
       domain: DomainAlias,
@@ -444,10 +448,12 @@ final class SyncStateInspection(
       end: CantonTimestamp,
       counterParticipant: Option[ParticipantId] = None,
   )(implicit traceContext: TraceContext): Iterable[SignedProtocolMessage[AcsCommitment]] =
-    timeouts.inspection.await(s"$functionFullName from $start to $end on $domain")(
-      getOrFail(getPersistentState(domain), domain).acsCommitmentStore
-        .searchReceivedBetween(start, end, counterParticipant.toList)
-    )
+    timeouts.inspection
+      .awaitUS(s"$functionFullName from $start to $end on $domain")(
+        getOrFail(getPersistentState(domain), domain).acsCommitmentStore
+          .searchReceivedBetween(start, end, counterParticipant.toList)
+      )
+      .asGrpcResponse
 
   def crossDomainSentCommitmentMessages(
       domainPeriods: Seq[DomainSearchCommitmentPeriod],
@@ -455,56 +461,60 @@ final class SyncStateInspection(
       states: Seq[CommitmentPeriodState],
       verbose: Boolean,
   )(implicit traceContext: TraceContext): Either[String, Iterable[SentAcsCommitment]] =
-    timeouts.inspection.await(functionFullName) {
-      val searchResult = domainPeriods.map { dp =>
-        for {
-          domain <- syncDomainPersistentStateManager
-            .aliasForDomainId(dp.indexedDomain.domainId)
-            .toRight(s"No domain alias found for ${dp.indexedDomain.domainId}")
+    timeouts.inspection
+      .awaitUS(functionFullName) {
+        val searchResult = domainPeriods.map { dp =>
+          for {
+            domain <- syncDomainPersistentStateManager
+              .aliasForDomainId(dp.indexedDomain.domainId)
+              .toRight(s"No domain alias found for ${dp.indexedDomain.domainId}")
 
-          persistentState <- getPersistentStateE(domain)
+            persistentState <- getPersistentStateE(domain)
 
-          result = for {
-            computed <- persistentState.acsCommitmentStore
-              .searchComputedBetween(dp.fromExclusive, dp.toInclusive, counterParticipants)
-            received <-
-              if (verbose)
-                persistentState.acsCommitmentStore
-                  .searchReceivedBetween(dp.fromExclusive, dp.toInclusive, counterParticipants)
-                  .map(iter => iter.map(rec => rec.message))
-              else Future.successful(Seq.empty)
-            outstanding <- persistentState.acsCommitmentStore
-              .outstanding(
-                dp.fromExclusive,
-                dp.toInclusive,
-                counterParticipants,
-                includeMatchedPeriods = true,
-              )
-              .map { collection =>
-                collection
-                  .collect { case (period, participant, state) =>
-                    val converted = fromIntValidSentPeriodState(state.toInt)
-                    (period, participant, converted)
-                  }
-                  .flatMap {
-                    case (period, participant, Some(state)) => Some((period, participant, state))
-                    case _ => None
-                  }
-              }
-          } yield SentAcsCommitment
-            .compare(dp.indexedDomain.domainId, computed, received, outstanding, verbose)
-            .filter(cmt => states.isEmpty || states.contains(cmt.state))
-        } yield result
+            result = for {
+              computed <- persistentState.acsCommitmentStore
+                .searchComputedBetween(dp.fromExclusive, dp.toInclusive, counterParticipants)
+              received <-
+                if (verbose)
+                  persistentState.acsCommitmentStore
+                    .searchReceivedBetween(dp.fromExclusive, dp.toInclusive, counterParticipants)
+                    .map(iter => iter.map(rec => rec.message))
+                else FutureUnlessShutdown.pure(Seq.empty)
+              outstanding <- persistentState.acsCommitmentStore
+                .outstanding(
+                  dp.fromExclusive,
+                  dp.toInclusive,
+                  counterParticipants,
+                  includeMatchedPeriods = true,
+                )
+                .map { collection =>
+                  collection
+                    .collect { case (period, participant, state) =>
+                      val converted = fromIntValidSentPeriodState(state.toInt)
+                      (period, participant, converted)
+                    }
+                    .flatMap {
+                      case (period, participant, Some(state)) => Some((period, participant, state))
+                      case _ => None
+                    }
+                }
+            } yield SentAcsCommitment
+              .compare(dp.indexedDomain.domainId, computed, received, outstanding, verbose)
+              .filter(cmt => states.isEmpty || states.contains(cmt.state))
+          } yield result
+        }
+
+        val (lefts, rights) = searchResult.partitionMap(identity)
+
+        NonEmpty.from(lefts) match {
+          case Some(leftsNe) => FutureUnlessShutdown.pure(Left(leftsNe.head1))
+          case None =>
+            FutureUnlessShutdown
+              .sequence(rights)
+              .map(seqSentAcsCommitments => Right(seqSentAcsCommitments.flatten))
+        }
       }
-
-      val (lefts, rights) = searchResult.partitionMap(identity)
-
-      NonEmpty.from(lefts) match {
-        case Some(leftsNe) => Future.successful(Left(leftsNe.head1))
-        case None =>
-          Future.sequence(rights).map(seqSentAcsCommitments => Right(seqSentAcsCommitments.flatten))
-      }
-    }
+      .asGrpcResponse
 
   def crossDomainReceivedCommitmentMessages(
       domainPeriods: Seq[DomainSearchCommitmentPeriod],
@@ -524,25 +534,20 @@ final class SyncStateInspection(
             result = for {
               computed <-
                 if (verbose)
-                  FutureUnlessShutdown.outcomeF(
-                    persistentState.acsCommitmentStore
-                      .searchComputedBetween(dp.fromExclusive, dp.toInclusive, counterParticipants)
-                  )
+                  persistentState.acsCommitmentStore
+                    .searchComputedBetween(dp.fromExclusive, dp.toInclusive, counterParticipants)
                 else FutureUnlessShutdown.pure(Seq.empty)
-              received <- FutureUnlessShutdown.outcomeF(
-                persistentState.acsCommitmentStore
-                  .searchReceivedBetween(dp.fromExclusive, dp.toInclusive, counterParticipants)
-                  .map(iter => iter.map(rec => rec.message))
-              )
-              outstanding <- FutureUnlessShutdown.outcomeF(
-                persistentState.acsCommitmentStore
-                  .outstanding(
-                    dp.fromExclusive,
-                    dp.toInclusive,
-                    counterParticipants,
-                    includeMatchedPeriods = true,
-                  )
-              )
+              received <- persistentState.acsCommitmentStore
+                .searchReceivedBetween(dp.fromExclusive, dp.toInclusive, counterParticipants)
+                .map(iter => iter.map(rec => rec.message))
+              outstanding <- persistentState.acsCommitmentStore
+                .outstanding(
+                  dp.fromExclusive,
+                  dp.toInclusive,
+                  counterParticipants,
+                  includeMatchedPeriods = true,
+                )
+
               buffered <- persistentState.acsCommitmentStore.queue
                 .peekThrough(dp.toInclusive) // peekThrough takes an upper bound parameter
                 .map(iter =>
@@ -575,7 +580,7 @@ final class SyncStateInspection(
             ) // toSet is done to avoid duplicates
         }
       }
-      .onShutdown(throw GrpcErrors.AbortedDueToShutdown.Error().asGrpcError)
+      .asGrpcResponse
 
   def outstandingCommitments(
       domain: DomainAlias,
@@ -586,11 +591,11 @@ final class SyncStateInspection(
       traceContext: TraceContext
   ): Iterable[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)] = {
     val persistentState = getPersistentState(domain)
-    timeouts.inspection.await(s"$functionFullName from $start to $end on $domain")(
+    timeouts.inspection.awaitUS(s"$functionFullName from $start to $end on $domain")(
       getOrFail(persistentState, domain).acsCommitmentStore
         .outstanding(start, end, counterParticipant.toList)
     )
-  }
+  }.asGrpcResponse
 
   def bufferedCommitments(
       domain: DomainAlias,
@@ -601,7 +606,7 @@ final class SyncStateInspection(
       .awaitUS(s"$functionFullName to and including $endAtOrBefore on $domain")(
         getOrFail(persistentState, domain).acsCommitmentStore.queue.peekThrough(endAtOrBefore)
       )
-      .onShutdown(throw GrpcErrors.AbortedDueToShutdown.Error().asGrpcError)
+      .asGrpcResponse
   }
 
   def noOutstandingCommitmentsTs(domain: DomainAlias, beforeOrAt: CantonTimestamp)(implicit
@@ -609,28 +614,28 @@ final class SyncStateInspection(
   ): Option[CantonTimestamp] = {
     val persistentState = getPersistentState(domain)
 
-    timeouts.inspection.await(s"$functionFullName on $domain for ts $beforeOrAt")(
+    timeouts.inspection.awaitUS(s"$functionFullName on $domain for ts $beforeOrAt")(
       for {
         result <- getOrFail(persistentState, domain).acsCommitmentStore.noOutstandingCommitments(
           beforeOrAt
         )
       } yield result
     )
-  }
+  }.asGrpcResponse
 
-  def lookupRequestIndex(domain: DomainAlias)(implicit
+  def lookupCleanRequestIndex(domain: DomainAlias)(implicit
       traceContext: TraceContext
   ): Either[String, Future[Option[RequestIndex]]] =
-    lookupDomainLedgerEnd(domain)
+    lookupCleanDomainIndex(domain)
       .map(_.map(_.requestIndex))
 
-  def lookupDomainLedgerEnd(domain: DomainAlias)(implicit
+  def lookupCleanDomainIndex(domain: DomainAlias)(implicit
       traceContext: TraceContext
   ): Either[String, Future[DomainIndex]] =
     getPersistentStateE(domain)
       .map(state =>
         participantNodePersistentState.value.ledgerApiStore
-          .domainIndex(state.indexedDomain.domainId)
+          .cleanDomainIndex(state.indexedDomain.domainId)
       )
 
   def requestStateInJournal(rc: RequestCounter, domain: DomainAlias)(implicit
@@ -685,25 +690,20 @@ final class SyncStateInspection(
         syncDomainPersistentStateManager.getAll
           .filter { case (domain, _) => domains.contains(domain) || domains.isEmpty }
     } yield for {
-      lastSent <- FutureUnlessShutdown.outcomeF(
-        syncDomain.acsCommitmentStore.lastComputedAndSent(traceContext)
-      )
-      lastSentFinal = lastSent.fold(CantonTimestamp.MinValue)(_.forgetRefinement)
-      outstanding <- FutureUnlessShutdown.outcomeF(
-        syncDomain.acsCommitmentStore
-          .outstanding(
-            CantonTimestamp.MinValue,
-            lastSentFinal,
-            participants,
-            includeMatchedPeriods = true,
-          )
-      )
+      lastSent <- syncDomain.acsCommitmentStore.lastComputedAndSent(traceContext)
 
-      upToDate <- FutureUnlessShutdown.outcomeF(
-        syncDomain.acsCommitmentStore.searchReceivedBetween(
+      lastSentFinal = lastSent.fold(CantonTimestamp.MinValue)(_.forgetRefinement)
+      outstanding <- syncDomain.acsCommitmentStore
+        .outstanding(
+          CantonTimestamp.MinValue,
           lastSentFinal,
-          lastSentFinal,
+          participants,
+          includeMatchedPeriods = true,
         )
+
+      upToDate <- syncDomain.acsCommitmentStore.searchReceivedBetween(
+        lastSentFinal,
+        lastSentFinal,
       )
 
       filteredAllParticipants <- findAllKnownParticipants(domains, participants)

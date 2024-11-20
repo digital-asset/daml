@@ -5,16 +5,17 @@ package com.digitalasset.canton.ledger.api.auth
 
 import com.auth0.jwk.UrlJwkProvider
 import com.daml.jwt.{Error as JwtError, JwtTimestampLeeway, JwtVerifier, RSA256Verifier}
-import com.digitalasset.canton.caching.CaffeineCache
-import com.digitalasset.canton.caching.CaffeineCache.FutureAsyncCacheLoader
+import com.digitalasset.canton.caching.ScaffeineCache
 import com.digitalasset.canton.ledger.api.auth.CachedJwtVerifierLoader.CacheKey
 import com.digitalasset.canton.ledger.api.domain.JwksUrl
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.github.benmanes.caffeine.cache as caffeine
+import com.github.blemale.scaffeine.Scaffeine
 import scalaz.\/
 
 import java.security.interfaces.RSAPublicKey
 import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
 /** A JWK verifier loader, where the public keys are automatically fetched from the given JWKS URL.
@@ -36,32 +37,27 @@ class CachedJwtVerifierLoader(
     // Large enough such that malicious users can't cycle through all keys from reasonably sized JWKS,
     // forcing cache eviction and thus introducing additional latency.
     cacheMaxSize: Long = 1000,
-    cacheExpirationTime: Long = 10,
-    cacheExpirationUnit: TimeUnit = TimeUnit.HOURS,
+    cacheExpiration: FiniteDuration = 10.hours,
     connectionTimeout: Long = 10,
     connectionTimeoutUnit: TimeUnit = TimeUnit.SECONDS,
     readTimeout: Long = 10,
     readTimeoutUnit: TimeUnit = TimeUnit.SECONDS,
     jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
     metrics: LedgerApiServerMetrics,
+    override protected val loggerFactory: NamedLoggerFactory,
 )(implicit
     executionContext: ExecutionContext
-) extends JwtVerifierLoader {
+) extends JwtVerifierLoader
+    with NamedLogging {
 
-  private val cache: CaffeineCache.AsyncLoadingCaffeineCache[
-    CacheKey,
-    JwtVerifier,
-  ] =
-    new CaffeineCache.AsyncLoadingCaffeineCache(
-      caffeine.Caffeine
-        .newBuilder()
-        .expireAfterWrite(cacheExpirationTime, cacheExpirationUnit)
-        .maximumSize(cacheMaxSize)
-        .buildAsync(
-          new FutureAsyncCacheLoader[CacheKey, JwtVerifier](key => getVerifier(key))
-        ),
-      metrics.identityProviderConfigStore.verifierCache,
-    )
+  private val cache: ScaffeineCache.TunnelledAsyncLoadingCache[Future, CacheKey, JwtVerifier] =
+    ScaffeineCache.buildAsync[Future, CacheKey, JwtVerifier](
+      Scaffeine()
+        .expireAfterWrite(cacheExpiration)
+        .maximumSize(cacheMaxSize),
+      loader = getVerifier,
+      metrics = Some(metrics.identityProviderConfigStore.verifierCache),
+    )(logger)
 
   override def loadJwtVerifier(jwksUrl: JwksUrl, keyId: Option[String]): Future[JwtVerifier] =
     cache.get(CacheKey(jwksUrl, keyId))

@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.store.db
 
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.store.SlowCounterParticipantConfigTest
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
@@ -28,7 +27,6 @@ trait DbCounterParticipantConfigTest extends SlowCounterParticipantConfigTest { 
   "DbCounterParticipantConfigStore" should {
     behave like AcsCommitmentSlowCounterParticipantConfigStore((ec: ExecutionContext) =>
       new DbAcsCommitmentConfigStore(
-        ParticipantTestMetrics,
         storage,
         timeouts,
         loggerFactory,
@@ -36,7 +34,6 @@ trait DbCounterParticipantConfigTest extends SlowCounterParticipantConfigTest { 
     )
     behave like AcsCommitmentNoWaitParticipantConfigStore((ec: ExecutionContext) =>
       new DbAcsCommitmentConfigStore(
-        ParticipantTestMetrics,
         storage,
         timeouts,
         loggerFactory,

@@ -254,10 +254,10 @@ class CompletionStorageBackendTemplate(
       .getOrElse(Seq.empty)
 
   override def pruneCompletions(
-      pruneUpToInclusive: Offset
+      pruneUpToInclusive: AbsoluteOffset
   )(connection: Connection, traceContext: TraceContext): Unit =
     pruneWithLogging(queryDescription = "Command completions pruning") {
-      import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
+      import com.digitalasset.canton.platform.store.backend.Conversions.AbsoluteOffsetToStatement
       SQL"delete from lapi_command_completions where completion_offset <= $pruneUpToInclusive"
     }(connection, traceContext)
 

@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.cache
 
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer.*
@@ -36,7 +36,7 @@ class InMemoryFanoutBuffer(
     val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
   @volatile private[cache] var _bufferLog =
-    Vector.empty[(Offset, TransactionLogUpdate)]
+    Vector.empty[(AbsoluteOffset, TransactionLogUpdate)]
   @volatile private[cache] var _lookupMap =
     Map.empty[UpdateId, TransactionLogUpdate.TransactionAccepted]
 
@@ -57,8 +57,8 @@ class InMemoryFanoutBuffer(
       blocking(synchronized {
         _bufferLog.lastOption.foreach {
           // Encountering a non-strictly increasing offset is an error condition.
-          case (lastOffset, _) if lastOffset >= entry.offset =>
-            throw UnorderedException(lastOffset, entry.offset)
+          case (lastOffset, _) if lastOffset >= entry.offset.toAbsoluteOffset =>
+            throw UnorderedException(lastOffset, entry.offset.toAbsoluteOffset)
           case _ =>
         }
 
@@ -68,7 +68,7 @@ class InMemoryFanoutBuffer(
         } else {
           ensureSize(maxBufferSize - 1)(entry.traceContext)
 
-          _bufferLog = _bufferLog :+ entry.offset -> entry
+          _bufferLog = _bufferLog :+ entry.offset.toAbsoluteOffset -> entry
           extractEntryFromMap(entry).foreach { case (key, value) =>
             _lookupMap = _lookupMap.updated(key, value)
           }
@@ -78,23 +78,23 @@ class InMemoryFanoutBuffer(
 
   /** Returns a slice of events from the buffer.
     *
-    * @param startExclusive The start exclusive bound of the requested range.
+    * @param startInclusive The start inclusive bound of the requested range.
     * @param endInclusive The end inclusive bound of the requested range.
     * @param filter A lambda function that allows pre-filtering the buffered elements
     *               before assembling `maxBufferedChunkSize`-sized slices.
     * @return A slice of the series of events as an ordered vector satisfying the input bounds.
     */
   def slice[FILTER_RESULT](
-      startExclusive: Offset,
-      endInclusive: Offset,
+      startInclusive: AbsoluteOffset,
+      endInclusive: AbsoluteOffset,
       filter: TransactionLogUpdate => Option[FILTER_RESULT],
-  ): BufferSlice[(Offset, FILTER_RESULT)] = {
+  ): BufferSlice[(AbsoluteOffset, FILTER_RESULT)] = {
     val vectorSnapshot = _bufferLog
 
-    val bufferStartSearchResult = vectorSnapshot.view.map(_._1).search(startExclusive)
+    val bufferStartSearchResult = vectorSnapshot.view.map(_._1).search(startInclusive)
     val bufferEndSearchResult = vectorSnapshot.view.map(_._1).search(endInclusive)
 
-    val bufferStartInclusiveIdx = indexAfter(bufferStartSearchResult)
+    val bufferStartInclusiveIdx = indexAt(bufferStartSearchResult)
     val bufferEndExclusiveIdx = indexAfter(bufferEndSearchResult)
 
     val bufferSlice = vectorSnapshot.slice(bufferStartInclusiveIdx, bufferEndExclusiveIdx)
@@ -123,7 +123,7 @@ class InMemoryFanoutBuffer(
     *
     * @param endInclusive The last inclusive (highest) buffer offset to be pruned.
     */
-  def prune(endInclusive: Offset): Unit =
+  def prune(endInclusive: AbsoluteOffset): Unit =
     Timed.value(
       pruneTimer,
       blocking(synchronized {
@@ -200,7 +200,7 @@ private[platform] object InMemoryFanoutBuffer {
 
     /** A slice of a vector that is a suffix of the requested window (i.e. start index of the slice in the source vector is 0) */
     private[platform] final case class LastBufferChunkSuffix[ELEM](
-        bufferedStartExclusive: Offset,
+        bufferedStartExclusive: AbsoluteOffset,
         slice: Vector[ELEM],
     ) extends BufferSlice[ELEM]
   }
@@ -210,17 +210,23 @@ private[platform] object InMemoryFanoutBuffer {
         s"Elements appended to the buffer should have strictly increasing offsets: $first vs $second"
       )
 
-  private[cache] def indexAfter(bufferStartInclusiveSearchResult: SearchResult): Int =
+  private[cache] def indexAt(bufferStartInclusiveSearchResult: SearchResult): Int =
     bufferStartInclusiveSearchResult match {
+      case InsertionPoint(insertionPoint) => insertionPoint
+      case Found(foundIndex) => foundIndex
+    }
+
+  private[cache] def indexAfter(bufferEndInclusiveSearchResult: SearchResult): Int =
+    bufferEndInclusiveSearchResult match {
       case InsertionPoint(insertionPoint) => insertionPoint
       case Found(foundIndex) => foundIndex + 1
     }
 
   private[cache] def filterAndChunkSlice[FILTER_RESULT](
-      sliceView: View[(Offset, TransactionLogUpdate)],
+      sliceView: View[(AbsoluteOffset, TransactionLogUpdate)],
       filter: TransactionLogUpdate => Option[FILTER_RESULT],
       maxChunkSize: Int,
-  ): Vector[(Offset, FILTER_RESULT)] =
+  ): Vector[(AbsoluteOffset, FILTER_RESULT)] =
     sliceView
       .flatMap { case (offset, entry) => filter(entry).map(offset -> _) }
       .take(maxChunkSize)
@@ -228,10 +234,10 @@ private[platform] object InMemoryFanoutBuffer {
 
   @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
   private[cache] def lastFilteredChunk[FILTER_RESULT](
-      bufferSlice: Vector[(Offset, TransactionLogUpdate)],
+      bufferSlice: Vector[(AbsoluteOffset, TransactionLogUpdate)],
       filter: TransactionLogUpdate => Option[FILTER_RESULT],
       maxChunkSize: Int,
-  ): BufferSlice.LastBufferChunkSuffix[(Offset, FILTER_RESULT)] = {
+  ): BufferSlice.LastBufferChunkSuffix[(AbsoluteOffset, FILTER_RESULT)] = {
     val lastChunk =
       filterAndChunkSlice(bufferSlice.view.reverse, filter, maxChunkSize + 1).reverse
 

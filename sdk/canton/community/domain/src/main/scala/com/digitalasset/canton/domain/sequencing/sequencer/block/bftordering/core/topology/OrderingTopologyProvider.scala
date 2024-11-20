@@ -5,7 +5,6 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.co
 
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.Env
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.topology.OrderingTopology
-import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -13,7 +12,8 @@ trait OrderingTopologyProvider[E <: Env[E]] {
 
   /** Get the sequencer topology effective at a given timestamp.
     *
-    * @param timestamp The timestamp at which to get the topology snapshot.
+    * @param activationTime The timestamp at which to get the topology snapshot.
+    *                       See [[TopologyActivationTime]] for details.
     * @param traceContext The trace context.
     * @param assumePendingTopologyChanges If true, will not check if there are pending topology changes
     *                                     and just assume there are.
@@ -21,7 +21,7 @@ trait OrderingTopologyProvider[E <: Env[E]] {
     *         predecessor has been successfully sequenced and is visible to the sequencer's topology processor.
     */
   def getOrderingTopologyAt(
-      timestamp: EffectiveTime,
+      activationTime: TopologyActivationTime,
       assumePendingTopologyChanges: Boolean = false,
   )(implicit
       traceContext: TraceContext
@@ -30,6 +30,8 @@ trait OrderingTopologyProvider[E <: Env[E]] {
 
 object OrderingTopologyProvider {
 
-  val InitialOrderingTopologyEffectiveTime: EffectiveTime =
-    EffectiveTime(SignedTopologyTransaction.InitialTopologySequencingTime.immediateSuccessor)
+  val InitialOrderingTopologyActivationTime: TopologyActivationTime =
+    TopologyActivationTime(
+      SignedTopologyTransaction.InitialTopologySequencingTime.immediateSuccessor
+    )
 }

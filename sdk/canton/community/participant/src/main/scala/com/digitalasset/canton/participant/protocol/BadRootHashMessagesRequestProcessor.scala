@@ -7,6 +7,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.ledger.participant.state.Update.SequencerIndexMoved
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
@@ -42,6 +43,7 @@ class BadRootHashMessagesRequestProcessor(
       crypto,
       sequencerClient,
       protocolVersion,
+      domainId,
     ) {
 
   /** Sends `reject` for the given `rootHash`.
@@ -78,7 +80,14 @@ class BadRootHashMessagesRequestProcessor(
         )
         _ <- FutureUnlessShutdown.outcomeF(
           ephemeral.recordOrderPublisher
-            .tick(sequencerCounter, timestamp, eventO = None, requestCounterO = None)
+            .tick(
+              SequencerIndexMoved(
+                domainId = domainId,
+                sequencerCounter = sequencerCounter,
+                recordTime = timestamp,
+                requestCounterO = None,
+              )
+            )
         )
       } yield ()
     }

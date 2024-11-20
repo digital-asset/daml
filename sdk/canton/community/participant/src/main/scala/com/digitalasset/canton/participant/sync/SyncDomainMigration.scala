@@ -10,6 +10,7 @@ import cats.syntax.functor.*
 import cats.syntax.traverse.*
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation}
 import com.daml.nameof.NameOf.functionFullName
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -298,19 +299,24 @@ class SyncDomainMigration(
       _ = logger.info(
         s"Found ${acs.size} contracts in the ACS of $sourceAlias that need to be migrated"
       )
-      // move contracts from one domain to the other domain using repair service in batches of batchSize
-      _ <- performUnlessClosingEitherU(functionFullName)(
-        repair.changeAssignation(
-          acs.keys.toSeq,
-          source,
-          target,
-          skipInactive = true,
-          batchSize,
-        )
-      )
-        .leftMap[SyncDomainMigrationError](
-          SyncDomainMigrationError.InternalError.FailedMigratingContracts(sourceAlias.unwrap, _)
-        )
+      _ <- NonEmpty
+        .from(acs.keys.toSeq.distinct) match {
+        case None => EitherT.right[SyncDomainMigrationError](FutureUnlessShutdown.unit)
+        case Some(contractIds) =>
+          // move contracts from one domain to the other domain using repair service in batches of batchSize
+          performUnlessClosingEitherUSF(functionFullName)(
+            repair.changeAssignation(
+              contractIds,
+              source,
+              target,
+              skipInactive = true,
+              batchSize,
+            )
+          )
+            .leftMap[SyncDomainMigrationError](
+              SyncDomainMigrationError.InternalError.FailedMigratingContracts(sourceAlias.unwrap, _)
+            )
+      }
     } yield ()
   }
 

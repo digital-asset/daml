@@ -95,6 +95,7 @@ class GrpcSequencerInitializationService(
                 EffectiveTime(SignedTopologyTransaction.InitialTopologySequencingTime)
               ),
               stored.transaction,
+              stored.rejectionReason,
             )
           )
         )

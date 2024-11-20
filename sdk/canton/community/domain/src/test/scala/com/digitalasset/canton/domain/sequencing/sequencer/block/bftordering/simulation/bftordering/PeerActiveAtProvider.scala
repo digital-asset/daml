@@ -4,26 +4,26 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.simulation.bftordering
 
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.memory.SimulationOutputBlockMetadataStore
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.snapshot.FirstKnownAt
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.snapshot.PeerActiveAt
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.simulation.onboarding.OnboardingDataProvider
 import com.digitalasset.canton.topology.SequencerId
-import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.tracing.TraceContext
 
-class FirstKnownAtProvider(
-    onboardingTimes: Map[SequencerId, EffectiveTime],
+class PeerActiveAtProvider(
+    onboardingTimes: Map[SequencerId, TopologyActivationTime],
     stores: Map[SequencerId, SimulationOutputBlockMetadataStore],
-) extends OnboardingDataProvider[Option[FirstKnownAt]] {
+) extends OnboardingDataProvider[Option[PeerActiveAt]] {
 
   implicit private val traceContext: TraceContext = TraceContext.empty
 
-  override def provide(forSequencerId: SequencerId): Option[FirstKnownAt] = {
+  override def provide(forSequencerId: SequencerId): Option[PeerActiveAt] = {
     val onboardingTime = onboardingTimes(forSequencerId)
     // We could have checked all the stores. But currently, we check only one.
     // It's similar to using a sequencer snapshot only from one peer (which is also not BFT).
     val maybeStore = stores.view.filterNot(_._1 == forSequencerId).values.headOption
-    maybeStore.fold(None: Option[FirstKnownAt]) { store =>
+    maybeStore.fold(None: Option[PeerActiveAt]) { store =>
       val onboardingBlock = store
         .getLatestAtOrBefore(onboardingTime.value)
         .resolveValue()
@@ -60,7 +60,7 @@ class FirstKnownAtProvider(
       Some(
         firstBlockAndPreviousBftTime
           .map { case (startBlockNumber, previousBftTime) =>
-            FirstKnownAt(
+            PeerActiveAt(
               Some(onboardingTime),
               onboardingBlock.map(_.epochNumber),
               Some(startBlockNumber),
@@ -68,7 +68,7 @@ class FirstKnownAtProvider(
             )
           }
           .getOrElse(
-            FirstKnownAt(
+            PeerActiveAt(
               Some(onboardingTime),
               // Present from genesis.
               epochNumber = None,

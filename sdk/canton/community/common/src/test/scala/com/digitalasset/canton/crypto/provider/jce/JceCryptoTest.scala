@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.crypto.provider.jce
 
-import com.digitalasset.canton.config.CommunityCryptoConfig
 import com.digitalasset.canton.config.CommunityCryptoProvider.Jce
+import com.digitalasset.canton.config.{CommunityCryptoConfig, SessionSigningKeysConfig}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.CryptoTestHelper.TestMessage
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
@@ -30,6 +30,7 @@ class JceCryptoTest
         .create(
           CommunityCryptoConfig(provider = Jce),
           new MemoryStorage(loggerFactory, timeouts),
+          SessionSigningKeysConfig.disabled,
           new CommunityCryptoPrivateStoreFactory,
           testedReleaseProtocolVersion,
           timeouts,

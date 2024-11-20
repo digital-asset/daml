@@ -24,6 +24,8 @@ message TopologyTransactions {
        dependency between the proto files. The only proper solution would be to move this into a third separate file
        with "cross version data files", which we might do at some point. */
     bytes transaction = 3;
+
+    optional string rejection_reason = 5;
   }
 
   repeated Item items = 1;

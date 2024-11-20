@@ -196,7 +196,6 @@ abstract class BlockSequencerFactory(
 
     val balanceManager = new TrafficPurchasedManager(
       trafficPurchasedStore,
-      clock,
       trafficConfig,
       futureSupervisor,
       metrics,

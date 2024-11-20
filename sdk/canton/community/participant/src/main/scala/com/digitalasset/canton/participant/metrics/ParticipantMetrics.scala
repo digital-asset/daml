@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.metrics
 
 import cats.Eval
+import com.daml.metrics.HealthMetrics
 import com.daml.metrics.api.HistogramInventory.Item
 import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
 import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Histogram, LabeledMetricsFactory, Meter}
@@ -16,7 +17,6 @@ import com.daml.metrics.api.{
   MetricsContext,
 }
 import com.daml.metrics.grpc.GrpcServerMetrics
-import com.daml.metrics.{CacheMetrics, HealthMetrics}
 import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.data.TaskSchedulerMetrics
 import com.digitalasset.canton.environment.BaseMetrics
@@ -165,9 +165,6 @@ class ParticipantMetrics(
       maxInflightValidationRequestGaugeForDocs.info,
       () => value().getOrElse(-1),
     )
-
-  val slowCounterParticipantCache: CacheMetrics =
-    new CacheMetrics(this.prefix :+ "slow-counter-participants-cache", openTelemetryMetricsFactory)
 }
 
 class SyncDomainHistograms(val parent: MetricName, val sequencerClient: SequencerClientHistograms)(

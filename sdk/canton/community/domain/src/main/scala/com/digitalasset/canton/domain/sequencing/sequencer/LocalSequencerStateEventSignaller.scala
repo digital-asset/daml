@@ -41,14 +41,16 @@ class LocalSequencerStateEventSignaller(
     with FlagCloseableAsync
     with NamedLogging {
 
-  private val (queue, notificationsHubSource) =
+  private val (queue, notificationsHubSource) = {
+    implicit val traceContext: TraceContext = TraceContext.empty
     PekkoUtil.runSupervised(
-      logger.error("LocalStateEventSignaller flow failed", _)(TraceContext.empty),
       Source
         .queue[WriteNotification](1, OverflowStrategy.backpressure)
         .conflate(_ union _)
         .toMat(BroadcastHub.sink(1))(Keep.both),
+      errorLogMessagePrefix = "LocalStateEventSignaller flow failed",
     )
+  }
 
   override def notifyOfLocalWrite(
       notification: WriteNotification

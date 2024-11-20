@@ -28,6 +28,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.{
   CryptoProvider,
   OrderingTopologyProvider,
+  TopologyActivationTime,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
@@ -69,7 +70,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.uni
 }
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.sequencer.admin.v30
-import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, HasActorSystem, HasExecutionContext}
@@ -508,8 +508,7 @@ class OutputModuleTest
       "based on whether pending changes are reported " when {
 
         "at least one block in the just completed epoch has requests to all members of domain" in {
-          val topologySnapshotEffectiveTime =
-            EffectiveTime(anotherTimestamp.immediateSuccessor)
+          val topologyActivationTime = TopologyActivationTime(anotherTimestamp.immediateSuccessor)
 
           Table(
             ("Pending Canton topology changes", "first block mode", "last block mode"),
@@ -586,12 +585,12 @@ class OutputModuleTest
               OrderingTopology(
                 peers = Set.empty,
                 SequencingParameters.Default,
-                topologySnapshotEffectiveTime = topologySnapshotEffectiveTime,
+                topologyActivationTime,
                 areTherePendingCantonTopologyChanges = pendingChanges,
               )
             when(
               topologyProviderMock.getOrderingTopologyAt(
-                topologySnapshotEffectiveTime,
+                topologyActivationTime,
                 assumePendingTopologyChanges = false,
               )
             )
@@ -702,14 +701,14 @@ class OutputModuleTest
 
             if (lastBlockMode.shouldQueryTopology) {
               verify(topologyProviderMock, times(1)).getOrderingTopologyAt(
-                topologySnapshotEffectiveTime,
+                topologyActivationTime,
                 assumePendingTopologyChanges = false,
               )
               topologyFetched shouldBe defined
               output.receive(topologyFetched.getOrElse(fail("Topology message not sent")))
             } else {
               verify(topologyProviderMock, never).getOrderingTopologyAt(
-                any[EffectiveTime],
+                any[TopologyActivationTime],
                 any[Boolean],
               )(any[TraceContext])
             }
@@ -777,9 +776,10 @@ class OutputModuleTest
         output.receive(Output.BlockDataFetched(blockData))
         output.getCurrentEpochCouldAlterSequencingTopology shouldBe false
 
-        verify(topologyProviderSpy, never).getOrderingTopologyAt(any[EffectiveTime], any[Boolean])(
-          any[TraceContext]
-        )
+        verify(topologyProviderSpy, never).getOrderingTopologyAt(
+          any[TopologyActivationTime],
+          any[Boolean],
+        )(any[TraceContext])
         verify(consensusRef, times(1)).asyncSend(
           Consensus.NewEpochTopology(
             secondEpochNumber,
@@ -803,20 +803,20 @@ class OutputModuleTest
       val sequencerNodeRef = mock[ModuleRef[SequencerNode.SnapshotMessage]]
       val peer1 = fakeSequencerId("peer1")
       val peer2 = fakeSequencerId("peer2")
-      val peer2FirstKnownAtTime = EffectiveTime(aTimestamp)
+      val peer2FirstKnownAtTime = TopologyActivationTime(aTimestamp)
       val firstBlockBftTime =
         peer2FirstKnownAtTime.value.minusMillis(1)
-      val peer1FirstKnownAtTime = EffectiveTime(peer2FirstKnownAtTime.value.minusMillis(2))
+      val peer1FirstKnownAtTime = TopologyActivationTime(peer2FirstKnownAtTime.value.minusMillis(2))
       val topology = OrderingTopology(
-        peersFirstKnownAt = Map(
+        peersActiveAt = Map(
           peer1 -> peer1FirstKnownAtTime,
           peer2 -> peer2FirstKnownAtTime,
-          fakeSequencerId("peer from the future") -> EffectiveTime(
+          fakeSequencerId("peer from the future") -> TopologyActivationTime(
             peer2FirstKnownAtTime.value.plusMillis(1)
           ),
         ),
         SequencingParameters.Default,
-        EffectiveTime(CantonTimestamp.MinValue),
+        TopologyActivationTime(CantonTimestamp.MinValue),
         areTherePendingCantonTopologyChanges = false,
       )
       val output =
@@ -876,10 +876,10 @@ class OutputModuleTest
             Map(
               peer1.toProtoPrimitive ->
                 v30.BftSequencerSnapshotAdditionalInfo
-                  .FirstKnownAt(Some(peer1FirstKnownAtTime.value.toMicros), None, None, None),
+                  .PeerActiveAt(Some(peer1FirstKnownAtTime.value.toMicros), None, None, None),
               peer2.toProtoPrimitive ->
                 v30.BftSequencerSnapshotAdditionalInfo
-                  .FirstKnownAt(
+                  .PeerActiveAt(
                     Some(peer2FirstKnownAtTime.value.toMicros),
                     Some(EpochNumber(1L)),
                     firstBlockNumberInEpoch = Some(BlockNumber(1L)),
@@ -1044,7 +1044,7 @@ object OutputModuleTest {
       extends OrderingTopologyProvider[E] {
 
     override def getOrderingTopologyAt(
-        timestamp: EffectiveTime,
+        activationTime: TopologyActivationTime,
         assumePendingTopologyChanges: Boolean = false,
     )(implicit
         traceContext: TraceContext

@@ -6,7 +6,6 @@ package com.digitalasset.canton.participant.store
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.digitalasset.canton.participant.store.db.DbAcsCommitmentConfigStore
 import com.digitalasset.canton.participant.store.memory.InMemoryAcsCommitmentConfigStore
 import com.digitalasset.canton.pruning.{
@@ -81,7 +80,6 @@ trait AcsCounterParticipantConfigStore
 
 object AcsCounterParticipantConfigStore {
   def create(
-      metrics: ParticipantMetrics,
       storage: Storage,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
@@ -91,6 +89,6 @@ object AcsCounterParticipantConfigStore {
     storage match {
       case _: MemoryStorage => new InMemoryAcsCommitmentConfigStore()
       case jdbc: DbStorage =>
-        new DbAcsCommitmentConfigStore(metrics, jdbc, timeouts, loggerFactory)
+        new DbAcsCommitmentConfigStore(jdbc, timeouts, loggerFactory)
     }
 }

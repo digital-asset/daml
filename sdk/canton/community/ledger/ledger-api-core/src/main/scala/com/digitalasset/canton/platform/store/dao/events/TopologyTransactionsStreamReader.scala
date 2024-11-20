@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.dao.events
 
 import com.daml.ledger.api.v2.topology_transaction.TopologyTransaction
 import com.daml.metrics.DatabaseMetrics
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.{AbsoluteOffset, Offset}
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
@@ -70,7 +70,7 @@ class TopologyTransactionsStreamReader(
           paginatingAsyncStream.streamIdsFromSeekPagination(
             idPageSizing = idPageSizing,
             idPageBufferSize = maxPagesPerIdPagesBuffer,
-            initialFromIdExclusive = queryRange.startExclusiveEventSeqId,
+            initialFromIdExclusive = queryRange.startInclusiveEventSeqId,
           )(
             fetchPage = (state: IdPaginationState) => {
               maxParallelIdQueriesLimiter.execute {
@@ -109,12 +109,13 @@ class TopologyTransactionsStreamReader(
             globalPayloadQueriesLimiter.execute {
               dbDispatcher.executeSql(dbMetric) { implicit connection =>
                 queryValidRange.withRangeNotPruned(
-                  minOffsetExclusive = queryRange.startExclusiveOffset,
+                  minOffsetInclusive = queryRange.startInclusiveOffset,
                   maxOffsetInclusive = queryRange.endInclusiveOffset,
-                  errorPruning = (prunedOffset: Offset) =>
-                    s"Topology events request from ${queryRange.startExclusiveOffset.toHexString} to ${queryRange.endInclusiveOffset.toHexString} precedes pruned offset ${prunedOffset.toHexString}",
-                  errorLedgerEnd = (ledgerEndOffset: Offset) =>
-                    s"Topology events request from ${queryRange.startExclusiveOffset.toHexString} to ${queryRange.endInclusiveOffset.toHexString} is beyond ledger end offset ${ledgerEndOffset.toHexString}",
+                  errorPruning = (prunedOffset: AbsoluteOffset) =>
+                    s"Topology events request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} precedes pruned offset ${prunedOffset.unwrap}",
+                  errorLedgerEnd = (ledgerEndOffset: Option[AbsoluteOffset]) =>
+                    s"Topology events request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} is beyond ledger end offset ${ledgerEndOffset
+                        .fold(0L)(_.unwrap)}",
                 ) {
                   payloadDbQuery.fetchPayloads(eventSequentialIds = ids)(connection)
                 }

@@ -20,12 +20,12 @@ object ApiOffset {
       case Right(offset) => Success(offset)
     }
 
-  def fromString(s: String): Either[String, Offset] =
+  private def fromString(s: String): Either[String, Offset] =
     Ref.HexString
       .fromString(s)
       .map(Offset.fromHexString)
 
-  def assertFromString(s: String): Offset = tryFromString(s).fold(throw _, identity)
+  private def assertFromString(s: String): Offset = tryFromString(s).fold(throw _, identity)
 
   // TODO(#18685) remove converter as it should be unused
   def assertFromStringToLongO(s: String): Option[Long] =
@@ -38,12 +38,4 @@ object ApiOffset {
   // TODO(#18685) remove converter as it should be unused
   def fromLong(l: Long): String =
     Offset.fromLong(l).toHexString
-
-  def toApiType(offset: Offset): Long =
-    offset.toLong
-
-  implicit class ApiOffsetConverter(val offset: Offset) {
-    def toApiType: Long = ApiOffset.toApiType(offset)
-  }
-
 }

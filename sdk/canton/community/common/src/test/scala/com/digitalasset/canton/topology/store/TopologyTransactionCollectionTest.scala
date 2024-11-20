@@ -46,6 +46,7 @@ class TopologyTransactionCollectionTest extends AnyWordSpec with BaseTest with H
         serial,
         false,
       ),
+      None,
     )
   }
   private def mkDomainParametersChange(

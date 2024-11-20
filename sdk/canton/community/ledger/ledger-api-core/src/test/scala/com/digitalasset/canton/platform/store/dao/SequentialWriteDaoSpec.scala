@@ -25,7 +25,6 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data.Time.Timestamp
 import org.mockito.MockitoSugar.mock
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -50,16 +49,16 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
       stringInterningView = stringInterningViewFixture,
       dbDtosToStringsForInterning = dbDtoToStringsForInterningFixture,
     )
-    testee.store(someConnection, Offset.fromAbsoluteOffset(offset(2L)), singlePartyFixture)
+    testee.store(someConnection, offset(2L), singlePartyFixture)
     ledgerEndCache().map(_.lastOffset) shouldBe Some(offset(2L))
     ledgerEndCache().map(_.lastEventSeqId) shouldBe Some(5L)
-    testee.store(someConnection, Offset.fromAbsoluteOffset(offset(3L)), allEventsFixture)
+    testee.store(someConnection, offset(3L), allEventsFixture)
     ledgerEndCache().map(_.lastOffset) shouldBe Some(offset(3L))
     ledgerEndCache().map(_.lastEventSeqId) shouldBe Some(7L)
-    testee.store(someConnection, Offset.fromAbsoluteOffset(offset(4L)), None)
+    testee.store(someConnection, offset(4L), None)
     ledgerEndCache().map(_.lastOffset) shouldBe Some(offset(4L))
     ledgerEndCache().map(_.lastEventSeqId) shouldBe Some(7L)
-    testee.store(someConnection, Offset.fromAbsoluteOffset(offset(5L)), partyAndCreateFixture)
+    testee.store(someConnection, offset(5L), partyAndCreateFixture)
     ledgerEndCache().map(_.lastOffset) shouldBe Some(offset(5L))
     ledgerEndCache().map(_.lastEventSeqId) shouldBe Some(8L)
 
@@ -121,10 +120,10 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
       stringInterningView = stringInterningViewFixture,
       dbDtosToStringsForInterning = dbDtoToStringsForInterningFixture,
     )
-    testee.store(someConnection, Offset.fromAbsoluteOffset(offset(3L)), None)
+    testee.store(someConnection, offset(3L), None)
     ledgerEndCache().map(_.lastOffset) shouldBe Some(offset(3L))
     ledgerEndCache().map(_.lastEventSeqId) shouldBe Some(0L)
-    testee.store(someConnection, Offset.fromAbsoluteOffset(offset(4L)), partyAndCreateFixture)
+    testee.store(someConnection, offset(4L), partyAndCreateFixture)
     ledgerEndCache().map(_.lastOffset) shouldBe Some(offset(4L))
     ledgerEndCache().map(_.lastEventSeqId) shouldBe Some(1L)
 
@@ -199,7 +198,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     ): Option[ParameterStorageBackend.IdentityParams] =
       throw new UnsupportedOperationException
 
-    override def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(
+    override def updatePrunedUptoInclusive(prunedUpToInclusive: AbsoluteOffset)(
         connection: Connection
     ): Unit =
       throw new UnsupportedOperationException
@@ -209,7 +208,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     ): Unit =
       throw new UnsupportedOperationException
 
-    override def prunedUpToInclusive(connection: Connection): Option[Offset] =
+    override def prunedUpToInclusive(connection: Connection): Option[AbsoluteOffset] =
       throw new UnsupportedOperationException
 
     override def participantAllDivulgedContractsPrunedUpToInclusive(
@@ -222,7 +221,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     ): ParameterStorageBackend.PruneUptoInclusiveAndLedgerEnd =
       throw new UnsupportedOperationException
 
-    override def domainLedgerEnd(domainId: DomainId)(connection: Connection): DomainIndex =
+    override def cleanDomainIndex(domainId: DomainId)(connection: Connection): DomainIndex =
       throw new UnsupportedOperationException
 
     override def updatePostProcessingEnd(postProcessingEnd: Option[AbsoluteOffset])(
@@ -246,7 +245,7 @@ object SequentialWriteDaoSpec {
     Update.PartyAllocationRejected(
       submissionId = Ref.SubmissionId.assertFromString("abc"),
       participantId = Ref.ParticipantId.assertFromString("participant"),
-      recordTime = Timestamp.now(),
+      recordTime = CantonTimestamp.now(),
       rejectionReason = key,
     )(TraceContext.empty)
   )
@@ -340,7 +339,7 @@ object SequentialWriteDaoSpec {
     ),
   )
 
-  private val updateToDbDtoFixture: Offset => Update => Iterator[DbDto] =
+  private val updateToDbDtoFixture: AbsoluteOffset => Update => Iterator[DbDto] =
     _ => {
       case r: Update.PartyAllocationRejected =>
         someUpdateToDbDtoFixture(r.rejectionReason).iterator

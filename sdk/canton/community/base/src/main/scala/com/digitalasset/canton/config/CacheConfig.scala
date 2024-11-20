@@ -38,8 +38,11 @@ final case class CacheConfigWithTimeout(
     expireAfterTimeout: PositiveFiniteDuration = PositiveFiniteDuration.ofMinutes(10),
 ) {
 
-  def buildScaffeine(): Scaffeine[Any, Any] =
-    Scaffeine().maximumSize(maximumSize.value).expireAfterWrite(expireAfterTimeout.underlying)
+  def buildScaffeine()(implicit executionContext: ExecutionContext): Scaffeine[Any, Any] =
+    Scaffeine()
+      .maximumSize(maximumSize.value)
+      .expireAfterWrite(expireAfterTimeout.underlying)
+      .executor(executionContext.execute(_))
 
 }
 
@@ -52,7 +55,7 @@ final case class CacheConfigWithTimeout(
   * @param senderCache  configuration for the sender's cache that stores the encryptions of the session keys
   * @param receiverCache configuration for the receiver's cache that stores the decryptions of the session keys
   */
-final case class SessionKeyCacheConfig(
+final case class SessionEncryptionKeyCacheConfig(
     enabled: Boolean,
     senderCache: CacheConfigWithTimeout,
     receiverCache: CacheConfigWithTimeout,
@@ -74,7 +77,8 @@ final case class CachingConfigs(
     partyCache: CacheConfig = CachingConfigs.defaultPartyCache,
     participantCache: CacheConfig = CachingConfigs.defaultParticipantCache,
     keyCache: CacheConfig = CachingConfigs.defaultKeyCache,
-    sessionKeyCacheConfig: SessionKeyCacheConfig = CachingConfigs.defaultSessionKeyCacheConfig,
+    sessionEncryptionKeyCache: SessionEncryptionKeyCacheConfig =
+      CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
     packageVettingCache: CacheConfig = CachingConfigs.defaultPackageVettingCache,
     mySigningKeyCache: CacheConfig = CachingConfigs.defaultMySigningKeyCache,
     memberCache: CacheConfig = CachingConfigs.defaultMemberCache,
@@ -97,17 +101,18 @@ object CachingConfigs {
   val defaultParticipantCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))
   val defaultKeyCache: CacheConfig = CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))
-  val defaultSessionKeyCacheConfig: SessionKeyCacheConfig = SessionKeyCacheConfig(
-    enabled = true,
-    senderCache = CacheConfigWithTimeout(
-      maximumSize = PositiveNumeric.tryCreate(10000),
-      expireAfterTimeout = PositiveFiniteDuration.ofSeconds(10),
-    ),
-    receiverCache = CacheConfigWithTimeout(
-      maximumSize = PositiveNumeric.tryCreate(10000),
-      expireAfterTimeout = PositiveFiniteDuration.ofSeconds(10),
-    ),
-  )
+  val defaultSessionEncryptionKeyCacheConfig: SessionEncryptionKeyCacheConfig =
+    SessionEncryptionKeyCacheConfig(
+      enabled = true,
+      senderCache = CacheConfigWithTimeout(
+        maximumSize = PositiveNumeric.tryCreate(10000),
+        expireAfterTimeout = PositiveFiniteDuration.ofSeconds(10),
+      ),
+      receiverCache = CacheConfigWithTimeout(
+        maximumSize = PositiveNumeric.tryCreate(10000),
+        expireAfterTimeout = PositiveFiniteDuration.ofSeconds(10),
+      ),
+    )
   val defaultPackageVettingCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(10000))
   val defaultMySigningKeyCache: CacheConfig =

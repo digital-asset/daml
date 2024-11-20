@@ -104,10 +104,9 @@ message Signature {
   bytes signature = 2;
 
   // The fingerprint/id of the keypair used to create this signature and needed to verify.
-  // The referenced key provides the context for the used signature scheme.
   string signed_by = 3;
 
-  // The signing algorithm specification used to generate this signature
+  // The signing algorithm specification used to produce this signature
   SigningAlgorithmSpec signing_algorithm_spec = 4;
 }
 

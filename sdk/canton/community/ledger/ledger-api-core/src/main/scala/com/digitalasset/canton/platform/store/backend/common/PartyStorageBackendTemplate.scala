@@ -5,12 +5,12 @@ package com.digitalasset.canton.platform.store.backend.common
 
 import anorm.SqlParser.{bool, flatten, str}
 import anorm.{RowParser, ~}
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.platform.store.backend.Conversions.{
+  absoluteOffset,
   ledgerString,
-  offset,
   party,
   timestampFromMicros,
 }
@@ -25,9 +25,9 @@ import java.sql.Connection
 
 class PartyStorageBackendTemplate(ledgerEndCache: LedgerEndCache) extends PartyStorageBackend {
 
-  private val partyEntryParser: RowParser[(Offset, PartyLedgerEntry)] = {
+  private val partyEntryParser: RowParser[(AbsoluteOffset, PartyLedgerEntry)] = {
     import com.digitalasset.canton.platform.store.backend.Conversions.bigDecimalColumnToBoolean
-    (offset("ledger_offset") ~
+    (absoluteOffset("ledger_offset") ~
       timestampFromMicros("recorded_at") ~
       ledgerString("submission_id").? ~
       party("party").? ~
@@ -71,15 +71,15 @@ class PartyStorageBackendTemplate(ledgerEndCache: LedgerEndCache) extends PartyS
   }
 
   override def partyEntries(
-      startExclusive: Offset,
-      endInclusive: Offset,
+      startInclusive: AbsoluteOffset,
+      endInclusive: AbsoluteOffset,
       pageSize: Int,
       queryOffset: Long,
-  )(connection: Connection): Vector[(Offset, PartyLedgerEntry)] =
+  )(connection: Connection): Vector[(AbsoluteOffset, PartyLedgerEntry)] =
     SQL"""select * from lapi_party_entries
-      where ${QueryStrategy.offsetIsBetween(
+      where ${QueryStrategy.offsetIsBetweenInclusive(
         nonNullableColumn = "ledger_offset",
-        startExclusive = startExclusive,
+        startInclusive = startInclusive,
         endInclusive = endInclusive,
       )}
       order by ledger_offset asc

@@ -144,6 +144,7 @@ final case class StoredTopologyTransaction[+Op <: TopologyChangeOp, +M <: Topolo
     validFrom: EffectiveTime,
     validUntil: Option[EffectiveTime],
     transaction: SignedTopologyTransaction[Op, M],
+    rejectionReason: Option[String],
 ) extends DelegatedTopologyTransactionLike[Op, M]
     with PrettyPrinting {
   override protected def transactionLikeDelegate: TopologyTransactionLike[Op, M] = transaction
@@ -389,7 +390,6 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
     * 2. It expires all transactions `tx` with `tx.hash` in `removeTxs`.
     * 3. It adds all transactions in additions. Thereby:
     * 3.1. It sets valid_until to effective, if there is a rejection reason or if `expireImmediately`.
-    * 3.2. FIXME(i20661): It ignore transactions that violate the underlying DB uniqueness constraints.
     */
   def update(
       sequenced: SequencedTime,
@@ -407,7 +407,6 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
   ): Future[GenericStoredTopologyTransactions]
 
   /** Store an initial set of topology transactions as given into the store.
-    * FIXME(i20661): It ignore transactions that violate the underlying DB uniqueness constraints.
     */
   def bootstrap(snapshot: GenericStoredTopologyTransactions)(implicit
       traceContext: TraceContext

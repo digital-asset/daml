@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.simulation
 
-import com.digitalasset.canton.topology.processing.EffectiveTime
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.TopologyActivationTime
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -120,7 +120,7 @@ final case class SimulationSettings(
     durationOfFirstPhaseWithFaults: FiniteDuration,
     durationOfSecondPhaseWithoutFaults: FiniteDuration = 30.seconds,
     clientRequestInterval: Option[FiniteDuration] = Some(1.second),
-    peerOnboardingTimes: Iterable[EffectiveTime] = Iterable.empty,
+    peerOnboardingTimes: Iterable[TopologyActivationTime] = Iterable.empty,
 ) {
   def totalSimulationTime: FiniteDuration =
     durationOfFirstPhaseWithFaults.plus(durationOfSecondPhaseWithoutFaults)

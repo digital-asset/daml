@@ -13,7 +13,7 @@ import com.daml.metrics.Timed
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.tracing
 import com.daml.tracing.{SpanAttribute, Spans}
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.ledger.error.CommonErrors.ServerIsShuttingDown
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
@@ -75,10 +75,10 @@ class ACSReader(
     eventStorageBackend: EventStorageBackend,
     lfValueTranslation: LfValueTranslation,
     incompleteOffsets: (
-        Offset,
+        AbsoluteOffset,
         Option[Set[Ref.Party]],
         TraceContext,
-    ) => FutureUnlessShutdown[Vector[Offset]],
+    ) => FutureUnlessShutdown[Vector[AbsoluteOffset]],
     metrics: LedgerApiServerMetrics,
     tracer: Tracer,
     val loggerFactory: NamedLoggerFactory,
@@ -91,7 +91,7 @@ class ACSReader(
 
   def streamActiveContracts(
       filteringConstraints: TemplatePartiesFilter,
-      activeAt: (Offset, Long),
+      activeAt: (AbsoluteOffset, Long),
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace
@@ -115,7 +115,7 @@ class ACSReader(
 
   private def doStreamActiveContracts(
       filter: TemplatePartiesFilter,
-      activeAt: (Offset, Long),
+      activeAt: (AbsoluteOffset, Long),
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace
@@ -260,7 +260,7 @@ class ACSReader(
       )
 
     def fetchAssignIdsForOffsets(
-        offsets: Iterable[Offset]
+        offsets: Iterable[AbsoluteOffset]
     ): Future[Vector[Long]] =
       globalIdQueriesLimiter.execute(
         dispatcher.executeSql(metrics.index.db.getAssingIdsForOffsets) { connection =>
@@ -277,7 +277,7 @@ class ACSReader(
       )
 
     def fetchUnassignIdsForOffsets(
-        offsets: Iterable[Offset]
+        offsets: Iterable[AbsoluteOffset]
     ): Future[Vector[Long]] =
       globalIdQueriesLimiter.execute(
         dispatcher.executeSql(metrics.index.db.getUnassingIdsForOffsets) { connection =>
@@ -512,7 +512,7 @@ class ACSReader(
             filter.allFilterParties,
             loggingContext.traceContext,
           ).map { offsets =>
-            def incompleteOffsetPages: () => Iterator[Vector[Offset]] =
+            def incompleteOffsetPages: () => Iterator[Vector[AbsoluteOffset]] =
               () => offsets.sliding(config.maxIncompletePageSize, config.maxIncompletePageSize)
 
             val incompleteAssigned: Source[(String, GetActiveContractsResponse), NotUsed] =
@@ -641,10 +641,17 @@ class ACSReader(
 
 object ACSReader {
 
-  def acsBeforePruningErrorReason(acsOffset: Offset, prunedUpToOffset: Offset): String =
-    s"Active contracts request at offset ${acsOffset.toLong} precedes pruned offset ${prunedUpToOffset.toLong}"
+  def acsBeforePruningErrorReason(
+      acsOffset: AbsoluteOffset,
+      prunedUpToOffset: AbsoluteOffset,
+  ): String =
+    s"Active contracts request at offset ${acsOffset.unwrap} precedes pruned offset ${prunedUpToOffset.unwrap}"
 
-  def acsAfterLedgerEndErrorReason(acsOffset: Offset, ledgerEndOffset: Offset): String =
-    s"Active contracts request at offset ${acsOffset.toLong} preceded by ledger end offset ${ledgerEndOffset.toLong}"
+  def acsAfterLedgerEndErrorReason(
+      acsOffset: AbsoluteOffset,
+      ledgerEndOffset: Option[AbsoluteOffset],
+  ): String =
+    s"Active contracts request at offset ${acsOffset.unwrap} preceded by ledger end offset ${ledgerEndOffset
+        .fold(0L)(_.unwrap)}"
 
 }

@@ -298,7 +298,7 @@ object Consensus {
     final case class NetworkMessage(message: StateTransferNetworkMessage)
         extends StateTransferMessage
 
-    final case class SendBlockTransferRequest(
+    final case class ResendBlockTransferRequest(
         blockTransferRequest: SignedMessage[BlockTransferRequest],
         to: SequencerId,
     ) extends StateTransferMessage

@@ -21,7 +21,8 @@ import com.digitalasset.canton.crypto.{
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.TransactionError
-import com.digitalasset.canton.ledger.participant.state.Update
+import com.digitalasset.canton.ledger.participant.state.SequencedUpdate
+import com.digitalasset.canton.ledger.participant.state.Update.SequencerIndexMoved
 import com.digitalasset.canton.lifecycle.{
   FutureUnlessShutdown,
   PromiseUnlessShutdownFactory,
@@ -110,6 +111,7 @@ abstract class ProtocolProcessor[
       crypto,
       sequencerClient,
       protocolVersion,
+      domainId,
     )
     with RequestProcessor[RequestViewType] {
 
@@ -575,7 +577,7 @@ abstract class ProtocolProcessor[
       }
     }
 
-    FutureUtil.doNotAwaitUnlessShutdown(
+    FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
       removeF,
       s"Failed to remove the pending submission $submissionId",
     )
@@ -768,9 +770,10 @@ abstract class ProtocolProcessor[
           logger.warn(s"Request $rc: Found malformed payload: $incorrectRootHash")
         }
 
-        (submitterMetadataO, submissionDataForTrackerO) = steps.getSubmitterInformation(
+        submitterMetadataO = steps.getSubmitterInformation(
           viewsWithCorrectRootHash.map { case (view, _) => view.unwrap }
         )
+        submissionDataForTrackerO = submitterMetadataO.flatMap(_.submissionTrackerData)
 
         submissionTopologyTimestamp = rootHashMessage.submissionTopologyTimestamp
         submissionTopologySnapshotO <- EitherT.right(
@@ -1093,7 +1096,7 @@ abstract class ProtocolProcessor[
           val responses = EitherT.pure[FutureUnlessShutdown, steps.RequestError](
             Seq.empty[(ConfirmationResponse, Recipients)]
           )
-          val timeoutEvent = Either.right(Option.empty[Update])
+          val timeoutEvent = Either.right(Option.empty[SequencedUpdate])
           EitherT.pure[FutureUnlessShutdown, steps.RequestError](
             (pendingData, responses, () => timeoutEvent)
           )
@@ -1305,7 +1308,14 @@ abstract class ProtocolProcessor[
 
     for {
       _ <- EitherT.right(
-        ephemeral.recordOrderPublisher.tick(sc, resultTs, eventO = None, requestCounterO = None)
+        ephemeral.recordOrderPublisher.tick(
+          SequencerIndexMoved(
+            domainId = domainId,
+            sequencerCounter = sc,
+            recordTime = resultTs,
+            requestCounterO = None,
+          )
+        )
       )
 
       snapshot <- EitherT.right(
@@ -1746,7 +1756,7 @@ abstract class ProtocolProcessor[
       parsedRequest: steps.ParsedRequestType,
       sequencerCounter: SequencerCounter,
       decisionTime: CantonTimestamp,
-      timeoutEvent: => Either[steps.ResultError, Option[Update]],
+      timeoutEvent: => Either[steps.ResultError, Option[SequencedUpdate]],
   )(
       result: TimeoutResult
   )(implicit

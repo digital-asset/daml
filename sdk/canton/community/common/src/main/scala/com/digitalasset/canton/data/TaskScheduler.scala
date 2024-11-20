@@ -23,7 +23,12 @@ import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory,
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, SimpleExecutionQueue}
+import com.digitalasset.canton.util.{
+  ErrorUtil,
+  FutureUnlessShutdownUtil,
+  FutureUtil,
+  SimpleExecutionQueue,
+}
 import com.digitalasset.canton.{SequencerCounter, SequencerCounterDiscriminator}
 import com.google.common.annotations.VisibleForTesting
 
@@ -138,7 +143,7 @@ class TaskScheduler[Task <: TaskScheduler.TimedTask](
   scheduleNextCheck(alertAfter)
 
   private def scheduleNextCheck(after: JDuration): Unit =
-    FutureUtil.doNotAwaitUnlessShutdown(
+    FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
       clock.scheduleAfter(_ => checkIfBlocked(), after),
       "The check for missing ticks has failed unexpectedly",
     )(errorLoggingContext(TraceContext.empty))

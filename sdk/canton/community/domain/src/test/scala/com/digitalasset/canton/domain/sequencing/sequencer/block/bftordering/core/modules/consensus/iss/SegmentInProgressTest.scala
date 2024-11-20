@@ -6,6 +6,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.co
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Segment
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.SegmentInProgress.RehydrationMessages
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
@@ -38,6 +39,7 @@ class SegmentInProgressTest extends AsyncWordSpec with BftSequencerBaseTest {
     val v3 = v2 + 1
 
     val ppView0 = createPrePrepare(blockNumber = 0L, view = v0, from = myId)
+    val ppBlock2View0 = createPrePrepare(blockNumber = 2L, view = v0, from = myId)
     val p1View0 = createPrepare(blockNumber = 0L, view = v0, from = myId, ppView0.message.hash)
     val p2View0 =
       createPrepare(blockNumber = 0L, view = v0, from = otherPeers(0), ppView0.message.hash)
@@ -70,32 +72,39 @@ class SegmentInProgressTest extends AsyncWordSpec with BftSequencerBaseTest {
 
     "rehydrate all messages if no view-change involved" in {
       rehydrationMessages(
-        Seq[SignedMessage[PbftNetworkMessage]](ppView0, p1View0, p2View0)
+        Seq[SignedMessage[PbftNetworkMessage]](ppView0, ppBlock2View0, p1View0, p2View0)
       ) shouldBe
-        (Seq(p1View0, p2View0), Seq(ppView0))
+        RehydrationMessages(
+          prepares = Seq(p1View0, p2View0),
+          oldViewsMessages = Seq.empty,
+          currentViewMessages = Seq(ppView0, ppBlock2View0),
+        )
     }
 
     "include view-change message to indicate start of view change" in {
       rehydrationMessages(
-        Seq[SignedMessage[PbftNetworkMessage]](ppView0, p1View0, p2View0, viewChange1)
-      ) shouldBe (Seq[SignedMessage[PbftNetworkMessage]](
-        p1View0,
-        p2View0,
-      ), Seq[SignedMessage[PbftNetworkMessage]](
-        ppView0,
-        viewChange1,
-      ))
+        Seq[SignedMessage[PbftNetworkMessage]](
+          ppView0,
+          ppBlock2View0,
+          p1View0,
+          p2View0,
+          viewChange1,
+        )
+      ) shouldBe RehydrationMessages(
+        prepares = Seq(p1View0, p2View0),
+        oldViewsMessages = Seq(ppView0, ppBlock2View0),
+        currentViewMessages = Seq(viewChange1),
+      )
     }
 
     "exclude view-change messages for a view if new-view is already present" in {
       rehydrationMessages(
         Seq[SignedMessage[PbftNetworkMessage]](ppView0, p1View0, p2View0, viewChange1, newView1)
-      ) shouldBe (Seq[SignedMessage[PbftNetworkMessage]](p1View0, p2View0), Seq[SignedMessage[
-        PbftNetworkMessage
-      ]](
-        ppView0,
-        newView1,
-      ))
+      ) shouldBe RehydrationMessages(
+        prepares = Seq(p1View0, p2View0),
+        oldViewsMessages = Seq(ppView0),
+        currentViewMessages = Seq(newView1),
+      )
     }
 
     "exclude pre-prepare for a view if new-view is already included" in {
@@ -108,12 +117,11 @@ class SegmentInProgressTest extends AsyncWordSpec with BftSequencerBaseTest {
           newView1,
           ppView1,
         )
-      ) shouldBe (Seq[SignedMessage[PbftNetworkMessage]](p1View0, p2View0), Seq[SignedMessage[
-        PbftNetworkMessage
-      ]](
-        ppView0,
-        newView1,
-      ))
+      ) shouldBe RehydrationMessages(
+        prepares = Seq(p1View0, p2View0),
+        oldViewsMessages = Seq(ppView0),
+        currentViewMessages = Seq(newView1),
+      )
     }
 
     "only include prepares from highest view for a block" in {
@@ -128,12 +136,11 @@ class SegmentInProgressTest extends AsyncWordSpec with BftSequencerBaseTest {
           p1View1,
           p2View1,
         )
-      ) shouldBe (Seq[SignedMessage[PbftNetworkMessage]](p1View1, p2View1), Seq[SignedMessage[
-        PbftNetworkMessage
-      ]](
-        ppView0,
-        newView1,
-      ))
+      ) shouldBe RehydrationMessages(
+        prepares = Seq(p1View1, p2View1),
+        oldViewsMessages = Seq(ppView0),
+        currentViewMessages = Seq(newView1),
+      )
     }
 
     "include view-change after the latest new-view" in {
@@ -149,13 +156,14 @@ class SegmentInProgressTest extends AsyncWordSpec with BftSequencerBaseTest {
           p2View1,
           viewChange2,
         )
-      ) shouldBe (Seq[SignedMessage[PbftNetworkMessage]](p1View1, p2View1), Seq[SignedMessage[
-        PbftNetworkMessage
-      ]](
-        ppView0,
-        newView1,
-        viewChange2,
-      ))
+      ) shouldBe RehydrationMessages(
+        prepares = Seq(p1View1, p2View1),
+        oldViewsMessages = Seq[SignedMessage[PbftNetworkMessage]](
+          ppView0,
+          newView1,
+        ),
+        currentViewMessages = Seq(viewChange2),
+      )
     }
 
     "only include the highest view-change after the latest new-view" in {
@@ -172,13 +180,16 @@ class SegmentInProgressTest extends AsyncWordSpec with BftSequencerBaseTest {
           viewChange2,
           viewChange3,
         )
-      ) shouldBe (Seq[SignedMessage[PbftNetworkMessage]](p1View1, p2View1), Seq[SignedMessage[
-        PbftNetworkMessage
-      ]](
-        ppView0,
-        newView1,
-        viewChange3,
-      ))
+      ) shouldBe RehydrationMessages(
+        prepares = Seq(p1View1, p2View1),
+        oldViewsMessages = Seq[SignedMessage[PbftNetworkMessage]](
+          ppView0,
+          newView1,
+        ),
+        currentViewMessages = Seq(
+          viewChange3
+        ),
+      )
     }
 
     "messages for other segments are filtered out" in {
@@ -188,7 +199,7 @@ class SegmentInProgressTest extends AsyncWordSpec with BftSequencerBaseTest {
           p1View0AnotherSegment,
           p2View0AnotherSegment,
         )
-      ) shouldBe (Seq(), Seq())
+      ) shouldBe RehydrationMessages(Seq(), Seq(), Seq())
     }
   }
 }

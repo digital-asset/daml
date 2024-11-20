@@ -10,7 +10,7 @@ import com.digitalasset.canton.logging
 import com.digitalasset.canton.logging.TracedLogger
 import org.slf4j.LoggerFactory
 
-import java.net.URL
+import java.net.URI
 import java.security.MessageDigest
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
@@ -33,10 +33,10 @@ object Notify {
       .minOption // sort so that we get the same user
       .getOrElse("unknown")
 
-    val url = new URL(
+    val url = new URI(
       s"""http://www.google-analytics.com/collect?v=1&t=event&cid=$uid&tid=UA-64532708-4&ec=demo&ea=feedback&el=start"""
         .stripMargin('|')
-    )
+    ).toURL
     // try to post the notification, but don't really care if we fail
     Try(url.openStream()) match {
       case Success(is) =>

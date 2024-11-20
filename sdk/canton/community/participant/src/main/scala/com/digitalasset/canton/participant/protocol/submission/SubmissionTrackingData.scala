@@ -7,6 +7,7 @@ import cats.syntax.option.*
 import com.digitalasset.canton.ProtoDeserializationError.FieldNotSet
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.TransactionError
+import com.digitalasset.canton.ledger.participant.state.Update.UnSequencedCommandRejected
 import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Update}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, HasLoggerName, NamedLoggingContext}
@@ -54,7 +55,7 @@ trait SubmissionTrackingData
   def rejectionEvent(recordTime: CantonTimestamp, messageUuid: UUID)(implicit
       loggingContext: NamedLoggingContext,
       traceContext: TraceContext,
-  ): Update
+  ): UnSequencedCommandRejected
 
   /** Update the tracking data so that the deliver error [[com.google.rpc.status.Status]]
     * can be taken into account by [[rejectionEvent]].
@@ -109,15 +110,18 @@ final case class TransactionSubmissionTrackingData(
   override def rejectionEvent(
       recordTime: CantonTimestamp,
       messageUuid: UUID,
-  )(implicit loggingContext: NamedLoggingContext, traceContext: TraceContext): Update = {
+  )(implicit
+      loggingContext: NamedLoggingContext,
+      traceContext: TraceContext,
+  ): UnSequencedCommandRejected = {
     val reasonTemplate = rejectionCause.asFinalReason(recordTime)
-    Update.CommandRejected(
-      recordTime.toLf,
+    Update.UnSequencedCommandRejected(
       // notification will be tracked based on this as a non-sequenced in-flight reference
-      completionInfo.copy(messageUuid = Some(messageUuid)),
+      completionInfo,
       reasonTemplate,
       domainId,
-      domainIndex = None,
+      recordTime,
+      messageUuid,
     )
   }
 

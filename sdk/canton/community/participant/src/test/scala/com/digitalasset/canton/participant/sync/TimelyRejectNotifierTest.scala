@@ -5,10 +5,9 @@ package com.digitalasset.canton.participant.sync
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
-import com.digitalasset.canton.store.CursorPrehead
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.SingleUseCell
-import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
+import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.util.concurrent.atomic.AtomicReference
@@ -31,7 +30,7 @@ class TimelyRejectNotifierTest extends AnyWordSpec with BaseTest with HasExecuti
           val firstNotification = callsAndReturns.getAndUpdate(_ :+ (upToInclusive -> true)).isEmpty
           if (firstNotification) {
             cell.get.value.notifyAsync(
-              Traced(CursorPrehead(SequencerCounter.Genesis, upToInclusive.immediateSuccessor))
+              Traced(upToInclusive.immediateSuccessor)
             )
           }
           callsAndReturns.getAndUpdate(_ :+ (upToInclusive -> false))
@@ -44,7 +43,7 @@ class TimelyRejectNotifierTest extends AnyWordSpec with BaseTest with HasExecuti
       }
       val notifier = new TimelyRejectNotifier(rejecter, CantonTimestamp.MinValue, loggerFactory)
       cell.putIfAbsent(notifier)
-      notifier.notifyAsync(Traced(CursorPrehead(SequencerCounter.MinValue, CantonTimestamp.Epoch)))
+      notifier.notifyAsync(Traced(CantonTimestamp.Epoch))
       eventually() {
         callsAndReturns.get() shouldBe Seq(
           (CantonTimestamp.Epoch, true),
@@ -69,10 +68,10 @@ class TimelyRejectNotifierTest extends AnyWordSpec with BaseTest with HasExecuti
           val length = calls.getAndUpdate(_ :+ upToInclusive).size
           if (length == 0) {
             cell.get.value.notifyAsync(
-              Traced(CursorPrehead(SequencerCounter.Genesis, upToInclusive.immediateSuccessor))
+              Traced(upToInclusive.immediateSuccessor)
             )
             cell.get.value.notifyAsync(
-              Traced(CursorPrehead(SequencerCounter.MaxValue, upToInclusive.plusSeconds(1)))
+              Traced(upToInclusive.plusSeconds(1))
             )
           }
           FutureUnlessShutdown.unit
@@ -84,7 +83,7 @@ class TimelyRejectNotifierTest extends AnyWordSpec with BaseTest with HasExecuti
       }
       val notifier = new TimelyRejectNotifier(rejecter, CantonTimestamp.MinValue, loggerFactory)
       cell.putIfAbsent(notifier)
-      notifier.notifyAsync(Traced(CursorPrehead(SequencerCounter.MinValue, CantonTimestamp.Epoch)))
+      notifier.notifyAsync(Traced(CantonTimestamp.Epoch))
       eventually() {
         calls.get() shouldBe Seq(
           CantonTimestamp.Epoch,
@@ -108,14 +107,14 @@ class TimelyRejectNotifierTest extends AnyWordSpec with BaseTest with HasExecuti
         rejecter.invocations shouldBe Seq.empty
       }
 
-      notifier.notifyAsync(Traced(CursorPrehead(SequencerCounter.MinValue, CantonTimestamp.Epoch)))
+      notifier.notifyAsync(Traced(CantonTimestamp.Epoch))
       eventually(timeout) {
         rejecter.invocations shouldBe Seq(CantonTimestamp.Epoch -> Notify)
       }
       rejecter.clearInvocations()
 
       notifier.notifyAsync(
-        Traced(CursorPrehead(SequencerCounter.MinValue, CantonTimestamp.ofEpochSecond(-2)))
+        Traced(CantonTimestamp.ofEpochSecond(-2))
       )
       always(timeout) {
         rejecter.invocations shouldBe Seq.empty
@@ -133,7 +132,7 @@ class TimelyRejectNotifierTest extends AnyWordSpec with BaseTest with HasExecuti
       }
 
       notifier.notifyAsync(
-        Traced(CursorPrehead(SequencerCounter.Genesis, CantonTimestamp.ofEpochMilli(10)))
+        Traced(CantonTimestamp.ofEpochMilli(10))
       )
       eventually(timeout) {
         rejecter.invocations shouldBe Seq(CantonTimestamp.ofEpochMilli(10) -> Notify)
@@ -178,7 +177,7 @@ class TimelyRejectNotifierTest extends AnyWordSpec with BaseTest with HasExecuti
       val notifier = new TimelyRejectNotifier(rejecter, CantonTimestamp.MinValue, loggerFactory)
       cell.putIfAbsent(notifier)
 
-      notifier.notifyAsync(Traced(CursorPrehead(SequencerCounter.MinValue, CantonTimestamp.Epoch)))
+      notifier.notifyAsync(Traced(CantonTimestamp.Epoch))
       eventually() {
         calls.get() shouldBe Seq(
           (CantonTimestamp.Epoch, Notify),
@@ -193,14 +192,14 @@ class TimelyRejectNotifierTest extends AnyWordSpec with BaseTest with HasExecuti
       val rejecter = new MockTimelyRejecter(abort = true)
       val notifier = new TimelyRejectNotifier(rejecter, CantonTimestamp.MinValue, loggerFactory)
 
-      notifier.notifyAsync(Traced(CursorPrehead(SequencerCounter.Genesis, CantonTimestamp.Epoch)))
+      notifier.notifyAsync(Traced(CantonTimestamp.Epoch))
       eventually(timeout) {
         rejecter.invocations shouldBe Seq(CantonTimestamp.Epoch -> Notify)
       }
       rejecter.clearInvocations()
 
       notifier.notifyAsync(
-        Traced(CursorPrehead(SequencerCounter.MaxValue, CantonTimestamp.MaxValue))
+        Traced(CantonTimestamp.MaxValue)
       )
       notifier.notifyIfInPastAsync(CantonTimestamp.MinValue)
       eventually(timeout) {
@@ -218,7 +217,7 @@ class TimelyRejectNotifierTest extends AnyWordSpec with BaseTest with HasExecuti
 
       for (i <- 1 to 100) {
         notifier.notifyAsync(
-          Traced(CursorPrehead(SequencerCounter(i), CantonTimestamp.ofEpochSecond(i.toLong)))
+          Traced(CantonTimestamp.ofEpochSecond(i.toLong))
         )
       }
       eventually(timeout) {
@@ -234,7 +233,7 @@ class TimelyRejectNotifierTest extends AnyWordSpec with BaseTest with HasExecuti
       val notifier =
         new TimelyRejectNotifier(rejecter, CantonTimestamp.ofEpochSecond(1), loggerFactory)
 
-      notifier.notifyAsync(Traced(CursorPrehead(SequencerCounter.Genesis, CantonTimestamp.Epoch)))
+      notifier.notifyAsync(Traced(CantonTimestamp.Epoch))
       always(timeout) {
         rejecter.invocations shouldBe Seq.empty
       }

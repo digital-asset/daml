@@ -33,7 +33,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       )
       result <- contractsReader.lookupContractState(
         nonTransient(tx).loneElement,
-        offset,
+        Offset.fromAbsoluteOffset(offset),
       )
     } yield {
       result.collect { case active: LedgerDaoContractsReader.ActiveContract =>
@@ -61,7 +61,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       )
       result <- contractsReader.lookupContractState(
         nonTransient(tx).loneElement,
-        offset,
+        Offset.fromAbsoluteOffset(offset),
       )
     } yield {
       result.collect { case active: LedgerDaoContractsReader.ActiveContract =>

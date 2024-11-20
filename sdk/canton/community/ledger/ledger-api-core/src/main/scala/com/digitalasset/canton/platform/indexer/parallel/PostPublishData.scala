@@ -6,10 +6,11 @@ package com.digitalasset.canton.platform.indexer.parallel
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.Update.{
-  CommandRejected,
-  TransactionAccepted,
+  SequencedCommandRejected,
+  SequencedTransactionAccepted,
+  UnSequencedCommandRejected,
 }
-import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, DomainIndex, Update}
+import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Update}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
@@ -37,33 +38,13 @@ object PostPublishData {
   ): Option[PostPublishData] = {
     def from(
         domainId: DomainId,
-        domainIndex: Option[DomainIndex],
+        publishSource: PublishSource,
+        completionInfo: CompletionInfo,
         accepted: Boolean,
-    )(completionInfo: CompletionInfo): PostPublishData =
+    ): PostPublishData =
       PostPublishData(
         submissionDomainId = domainId,
-        publishSource = completionInfo.messageUuid
-          .map(PublishSource.Local(_): PublishSource)
-          .getOrElse(
-            PublishSource.Sequencer(
-              requestSequencerCounter = domainIndex
-                .flatMap(_.requestIndex)
-                .flatMap(_.sequencerCounter)
-                .getOrElse(
-                  throw new IllegalStateException(
-                    "If no messageUuid, then sequencer counter in request index should be present"
-                  )
-                ),
-              sequencerTimestamp = domainIndex
-                .flatMap(_.requestIndex)
-                .map(_.timestamp)
-                .getOrElse(
-                  throw new IllegalStateException(
-                    "If no messageUuid, then sequencer timestamp in request index should be present"
-                  )
-                ),
-            )
-          ),
+        publishSource = publishSource,
         applicationId = completionInfo.applicationId,
         commandId = completionInfo.commandId,
         actAs = completionInfo.actAs.toSet,
@@ -76,11 +57,45 @@ object PostPublishData {
 
     update match {
       // please note: we pass into deduplication and inflight tracking only the transactions and not the reassignments at acceptance
-      case u: TransactionAccepted =>
-        u.completionInfoO.map(from(u.domainId, u.domainIndex, accepted = true))
+      case u: SequencedTransactionAccepted =>
+        u.completionInfoO.map(completionInfo =>
+          from(
+            domainId = u.domainId,
+            publishSource = PublishSource.Sequencer(
+              requestSequencerCounter = u.sequencerCounter,
+              sequencerTimestamp = u.recordTime,
+            ),
+            completionInfo = completionInfo,
+            accepted = true,
+          )
+        )
+
       // but: we pass into deduplication and inflight tracking both the transactions and the reassignments upon rejection
-      case u: CommandRejected =>
-        Some(from(u.domainId, u.domainIndex, accepted = false)(u.completionInfo))
+      case u: SequencedCommandRejected =>
+        Some(
+          from(
+            domainId = u.domainId,
+            publishSource = PublishSource.Sequencer(
+              requestSequencerCounter = u.sequencerCounter,
+              sequencerTimestamp = u.recordTime,
+            ),
+            completionInfo = u.completionInfo,
+            accepted = false,
+          )
+        )
+
+      case u: UnSequencedCommandRejected =>
+        Some(
+          from(
+            domainId = u.domainId,
+            publishSource = PublishSource.Local(
+              messageUuid = u.messageUuid
+            ),
+            completionInfo = u.completionInfo,
+            accepted = false,
+          )
+        )
+
       case _ => None
     }
   }

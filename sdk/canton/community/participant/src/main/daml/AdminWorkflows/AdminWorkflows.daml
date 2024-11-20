@@ -5,4 +5,3 @@ module AdminWorkflows where
 
 import Canton.Internal.Ping()
 import Canton.Internal.Bong()
-import Canton.Internal.PartyReplication()

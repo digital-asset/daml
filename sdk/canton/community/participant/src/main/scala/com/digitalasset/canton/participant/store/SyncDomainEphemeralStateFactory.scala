@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.store
 
 import cats.Eval
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{ProcessingTimeout, SessionKeyCacheConfig}
+import com.digitalasset.canton.config.{ProcessingTimeout, SessionEncryptionKeyCacheConfig}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.DomainIndex
 import com.digitalasset.canton.lifecycle.CloseContext
@@ -31,7 +31,7 @@ trait SyncDomainEphemeralStateFactory {
       participantNodeEphemeralState: ParticipantNodeEphemeralState,
       createTimeTracker: () => DomainTimeTracker,
       metrics: SyncDomainMetrics,
-      sessionKeyCacheConfig: SessionKeyCacheConfig,
+      sessionKeyCacheConfig: SessionEncryptionKeyCacheConfig,
       participantId: ParticipantId,
   )(implicit
       traceContext: TraceContext,
@@ -55,7 +55,7 @@ class SyncDomainEphemeralStateFactoryImpl(
       participantNodeEphemeralState: ParticipantNodeEphemeralState,
       createTimeTracker: () => DomainTimeTracker,
       metrics: SyncDomainMetrics,
-      sessionKeyCacheConfig: SessionKeyCacheConfig,
+      sessionKeyCacheConfig: SessionEncryptionKeyCacheConfig,
       participantId: ParticipantId,
   )(implicit
       traceContext: TraceContext,
@@ -65,12 +65,12 @@ class SyncDomainEphemeralStateFactoryImpl(
       _ <- ledgerApiIndexer.value.ensureNoProcessingForDomain(
         persistentState.indexedDomain.domainId
       )
+      domainIndex <- ledgerApiIndexer.value.ledgerApiStore.value
+        .cleanDomainIndex(persistentState.indexedDomain.domainId)
       startingPoints <- SyncDomainEphemeralStateFactory.startingPoints(
         persistentState.requestJournalStore,
         persistentState.sequencedEventStore,
-        tc =>
-          ledgerApiIndexer.value.ledgerApiStore.value
-            .domainIndex(persistentState.indexedDomain.domainId)(tc),
+        domainIndex,
       )
       _ <- SyncDomainEphemeralStateFactory.cleanupPersistentState(persistentState, startingPoints)
     } yield {
@@ -122,26 +122,24 @@ object SyncDomainEphemeralStateFactory {
   def startingPoints(
       requestJournalStore: RequestJournalStore,
       sequencedEventStore: SequencedEventStore,
-      domainIndexF: TraceContext => Future[DomainIndex],
+      domainIndex: DomainIndex,
   )(implicit
       ec: ExecutionContext,
       loggingContext: ErrorLoggingContext,
   ): Future[ProcessingStartingPoints] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
-
+    val messageProcessingStartingPoint = MessageProcessingStartingPoint(
+      nextRequestCounter = domainIndex.requestIndex
+        .map(_.counter + 1)
+        .getOrElse(RequestCounter.Genesis),
+      nextSequencerCounter = domainIndex.sequencerIndex
+        .map(_.counter + 1)
+        .getOrElse(SequencerCounter.Genesis),
+      prenextTimestamp = domainIndex.sequencerIndex
+        .map(_.timestamp)
+        .getOrElse(CantonTimestamp.MinValue),
+    )
     for {
-      domainIndex <- domainIndexF(traceContext)
-      messageProcessingStartingPoint = MessageProcessingStartingPoint(
-        nextRequestCounter = domainIndex.requestIndex
-          .map(_.counter + 1)
-          .getOrElse(RequestCounter.Genesis),
-        nextSequencerCounter = domainIndex.sequencerIndex
-          .map(_.counter + 1)
-          .getOrElse(SequencerCounter.Genesis),
-        prenextTimestamp = domainIndex.sequencerIndex
-          .map(_.timestamp)
-          .getOrElse(CantonTimestamp.MinValue),
-      )
       replayOpt <- requestJournalStore
         .firstRequestWithCommitTimeAfter(
           messageProcessingStartingPoint.prenextTimestamp
@@ -190,7 +188,7 @@ object SyncDomainEphemeralStateFactory {
     */
   def crashRecoveryPruningBoundInclusive(
       requestJournalStore: RequestJournalStore,
-      domainIndex: DomainIndex,
+      cleanDomainIndex: DomainIndex,
   )(implicit ec: ExecutionContext, traceContext: TraceContext): Future[CantonTimestamp] =
     // Crash recovery cleans up the stores before replay starts,
     // however we may have used some of the deleted information to determine the starting points for the replay.
@@ -200,10 +198,10 @@ object SyncDomainEphemeralStateFactory {
     // the computation of starting points and crash recovery clean-ups.
     //
     // The earliest possible starting point is the earlier of the following:
-    // * The first request whose commit time is after the clean request prehead timestamp
+    // * The first request whose commit time is after the clean domain index timestamp
     // * The clean sequencer counter prehead timestamp
     for {
-      requestReplayTs <- domainIndex.requestIndex match {
+      requestReplayTs <- cleanDomainIndex.requestIndex match {
         case None =>
           // No request is known to be clean, nothing can be pruned
           Future.successful(CantonTimestamp.MinValue)
@@ -216,9 +214,9 @@ object SyncDomainEphemeralStateFactory {
           }
       }
       // TODO(i21246): Note for unifying crashRecoveryPruningBoundInclusive and startingPoints: This minimum building is not needed anymore, as the request timestamp is also smaller than the sequencer timestamp.
-      preheadSequencerCounterTs = domainIndex.sequencerIndex
+      cleanSequencerIndexTs = cleanDomainIndex.sequencerIndex
         .fold(CantonTimestamp.MinValue)(_.timestamp.immediatePredecessor)
-    } yield requestReplayTs.min(preheadSequencerCounterTs)
+    } yield requestReplayTs.min(cleanSequencerIndexTs)
 
   def cleanupPersistentState(
       persistentState: SyncDomainPersistentState,

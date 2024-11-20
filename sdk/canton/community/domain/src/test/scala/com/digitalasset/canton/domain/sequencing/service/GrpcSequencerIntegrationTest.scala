@@ -199,27 +199,17 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
           .signingKeys(participant, SigningKeyUsage.All)
           .map(_.map(_.fingerprint).toList)
       } yield v30.SequencerAuthentication.ChallengeResponse(
-        v30.SequencerAuthentication.ChallengeResponse.Value
-          .Success(
-            v30.SequencerAuthentication.ChallengeResponse.Success(
-              ReleaseVersion.current.toProtoPrimitive,
-              Nonce.generate(cryptoApi.pureCrypto).toProtoPrimitive,
-              fingerprints.map(_.unwrap),
-            )
-          )
+        ReleaseVersion.current.toProtoPrimitive,
+        Nonce.generate(cryptoApi.pureCrypto).toProtoPrimitive,
+        fingerprints.map(_.unwrap),
       )
     override def authenticate(
         request: v30.SequencerAuthentication.AuthenticateRequest
     ): Future[v30.SequencerAuthentication.AuthenticateResponse] =
       Future.successful(
         v30.SequencerAuthentication.AuthenticateResponse(
-          v30.SequencerAuthentication.AuthenticateResponse.Value
-            .Success(
-              v30.SequencerAuthentication.AuthenticateResponse.Success(
-                AuthenticationToken.generate(cryptoApi.pureCrypto).toProtoPrimitive,
-                Some(clock.now.plusSeconds(100000).toProtoTimestamp),
-              )
-            )
+          AuthenticationToken.generate(cryptoApi.pureCrypto).toProtoPrimitive,
+          Some(clock.now.plusSeconds(100000).toProtoTimestamp),
         )
       )
     override def logout(

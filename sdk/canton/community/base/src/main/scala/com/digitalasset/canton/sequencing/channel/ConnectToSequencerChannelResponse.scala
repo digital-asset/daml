@@ -5,11 +5,17 @@ package com.digitalasset.canton.sequencing.channel
 
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.domain.api.v30
-import com.digitalasset.canton.sequencing.protocol.SequencerChannelConnectedToAllEndpoints
+import com.digitalasset.canton.sequencing.protocol.channel.{
+  SequencerChannelConnectedToAllEndpoints,
+  SequencerChannelSessionKey,
+  SequencerChannelSessionKeyAck,
+}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
+
+import v30.ConnectToSequencerChannelResponse.Response as v30_ChannelResponse
 
 final case class ConnectToSequencerChannelResponse(
     response: ConnectToSequencerChannelResponse.Response,
@@ -44,31 +50,46 @@ object ConnectToSequencerChannelResponse
   )
 
   sealed trait Response {
-    def toProtoV30: v30.ConnectToSequencerChannelResponse.Response
+    def toProtoV30: v30_ChannelResponse
   }
   final case object Connected extends Response {
-    def toProtoV30: v30.ConnectToSequencerChannelResponse.Response =
-      v30.ConnectToSequencerChannelResponse.Response.Connected(
+    def toProtoV30: v30_ChannelResponse =
+      v30_ChannelResponse.Connected(
         v30.SequencerChannelConnectedToAllEndpoints()
       )
   }
+  final case class SessionKey(sessionKey: SequencerChannelSessionKey) extends Response {
+    def toProtoV30: v30_ChannelResponse =
+      v30_ChannelResponse.SessionKey(sessionKey.toProtoV30)
+
+  }
+  final case object SessionKeyAck extends Response {
+    def toProtoV30: v30_ChannelResponse =
+      v30_ChannelResponse.SessionKeyAcknowledgement(
+        v30.SequencerChannelSessionKeyAck()
+      )
+  }
   final case class Payload(payload: ByteString) extends Response {
-    def toProtoV30: v30.ConnectToSequencerChannelResponse.Response =
-      v30.ConnectToSequencerChannelResponse.Response.Payload(
+    def toProtoV30: v30_ChannelResponse =
+      v30_ChannelResponse.Payload(
         payload
       )
   }
   object Response {
     def fromProtoV30(
-        response: v30.ConnectToSequencerChannelResponse.Response
+        response: v30_ChannelResponse
     ): ParsingResult[Response] =
       response match {
-        case v30.ConnectToSequencerChannelResponse.Response.Empty =>
+        case v30_ChannelResponse.Empty =>
           Left(ProtoDeserializationError.FieldNotSet("response"))
-        case v30.ConnectToSequencerChannelResponse.Response.Connected(connected) =>
-          SequencerChannelConnectedToAllEndpoints.fromProtoV30(connected).map(_ => Connected)
-        case v30.ConnectToSequencerChannelResponse.Response.Payload(payload) =>
-          Right(Payload(payload))
+        case v30_ChannelResponse.Connected(connectedP) =>
+          SequencerChannelConnectedToAllEndpoints.fromProtoV30(connectedP).map(_ => Connected)
+        case v30_ChannelResponse.SessionKey(keyP) =>
+          SequencerChannelSessionKey.fromProtoV30(keyP).map(SessionKey.apply)
+        case v30_ChannelResponse.SessionKeyAcknowledgement(keyAckP) =>
+          SequencerChannelSessionKeyAck.fromProtoV30(keyAckP).map(_ => SessionKeyAck)
+        case v30_ChannelResponse.Payload(payloadP) =>
+          Right(Payload(payloadP))
       }
   }
 

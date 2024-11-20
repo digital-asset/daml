@@ -176,7 +176,7 @@ object RepairServiceError extends RepairServiceErrorGroup {
       elc: ErrorLoggingContext,
   ): RepairServiceError =
     acsError match {
-      case AcsInspectionError.TimestampAfterPrehead(domainId, requested, clean) =>
+      case AcsInspectionError.TimestampAfterCleanRequestIndex(domainId, requested, clean) =>
         RepairServiceError.InvalidAcsSnapshotTimestamp.Error(
           requested,
           clean,

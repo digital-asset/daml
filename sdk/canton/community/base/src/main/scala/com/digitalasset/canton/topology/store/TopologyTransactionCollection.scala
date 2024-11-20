@@ -41,6 +41,7 @@ final case class StoredTopologyTransactions[+Op <: TopologyChangeOp, +M <: Topol
         validUntil = item.validUntil.map(_.toProtoPrimitive),
         // these transactions are serialized as versioned topology transactions
         transaction = item.transaction.toByteString,
+        rejectionReason = item.rejectionReason,
       )
     }
   )
@@ -86,15 +87,6 @@ final case class StoredTopologyTransactions[+Op <: TopologyChangeOp, +M <: Topol
         })
       }
       .getOrElse(this) // this case is triggered by `result` being empty
-
-  def retainAuthorizedHistoryAndEffectiveProposals: StoredTopologyTransactions[Op, M] =
-    // only retain transactions that are:
-    filter(tx =>
-      // * fully authorized
-      !tx.transaction.isProposal ||
-        // * proposals that are still effective
-        tx.validUntil.isEmpty
-    )
 }
 
 object StoredTopologyTransactions
@@ -139,6 +131,7 @@ object StoredTopologyTransactions
         validFrom,
         validUntil,
         transaction,
+        item.rejectionReason,
       )
     value.items
       .traverse(parseItem)

@@ -21,7 +21,7 @@ import com.digitalasset.canton.crypto.{
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.MediatorError
-import com.digitalasset.canton.ledger.participant.state.Update
+import com.digitalasset.canton.ledger.participant.state.SequencedUpdate
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.PrettyUtil
 import com.digitalasset.canton.logging.{LogEntry, NamedLoggerFactory}
@@ -200,12 +200,7 @@ trait MessageDispatcherTest {
         new RequestCounterAllocatorImpl(initRc, cleanReplaySequencerCounter, loggerFactory)
       val recordOrderPublisher = mock[RecordOrderPublisher]
       when(
-        recordOrderPublisher.tick(
-          any[SequencerCounter],
-          any[CantonTimestamp],
-          any[Option[Update]],
-          any[Option[RequestCounter]],
-        )(any[TraceContext])
+        recordOrderPublisher.tick(any[SequencedUpdate])(any[TraceContext])
       )
         .thenAnswer(Future.unit)
 
@@ -468,9 +463,13 @@ trait MessageDispatcherTest {
         sc: SequencerCounter,
         ts: CantonTimestamp,
     ): Assertion = {
-      verify(sut.recordOrderPublisher).tick(isEq(sc), isEq(ts), isEq(None), isEq(None))(
-        anyTraceContext
-      )
+      verify(sut.recordOrderPublisher).tick(
+        argThat[SequencedUpdate](event =>
+          event.sequencerCounter == sc &&
+            event.recordTime == ts &&
+            event.requestCounterO == None
+        )
+      )(anyTraceContext)
       succeed
     }
 

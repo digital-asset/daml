@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.store
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{ProcessingTimeout, SessionKeyCacheConfig}
+import com.digitalasset.canton.config.{ProcessingTimeout, SessionEncryptionKeyCacheConfig}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.health.{
   AtomicHealthComponent,
@@ -50,7 +50,7 @@ class SyncDomainEphemeralState(
     createTimeTracker: () => DomainTimeTracker,
     metrics: SyncDomainMetrics,
     exitOnFatalFailures: Boolean,
-    sessionKeyCacheConfig: SessionKeyCacheConfig,
+    sessionKeyCacheConfig: SessionEncryptionKeyCacheConfig,
     override val timeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,

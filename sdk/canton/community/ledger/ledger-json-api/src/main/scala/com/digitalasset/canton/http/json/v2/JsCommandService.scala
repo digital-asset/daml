@@ -31,7 +31,7 @@ import org.apache.pekko.stream.scaladsl.Flow
 import sttp.capabilities.pekko.PekkoStreams
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.*
-import sttp.tapir.{CodecFormat, webSocketBody}
+import sttp.tapir.{AnyEndpoint, CodecFormat, Schema, webSocketBody}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -247,7 +247,7 @@ final case class JsDisclosedContract(
     domain_id: Option[String],
 )
 
-object JsCommandService {
+object JsCommandService extends DocumentationEndpoints {
   import JsCommandServiceCodecs.*
   private lazy val commands = v2Endpoint.in(sttp.tapir.stringToPath("commands"))
 
@@ -297,11 +297,21 @@ object JsCommandService {
         ](PekkoStreams)
       )
       .description("Get completions stream")
+
+  override def documentation: Seq[AnyEndpoint] = Seq(
+    submitAndWait,
+    submitAndWaitForTransactionEndpoint,
+    submitAndWaitForTransactionTree,
+    submitAsyncEndpoint,
+    submitReassignmentAsyncEndpoint,
+    completionStreamEndpoint,
+  )
 }
 
 object JsCommandServiceCodecs {
 
   implicit val deduplicationPeriodRW: Codec[DeduplicationPeriod] = deriveCodec
+
   implicit val deduplicationPeriodDeduplicationDurationRW
       : Codec[DeduplicationPeriod.DeduplicationDuration] = deriveCodec
   implicit val deduplicationPeriodDeduplicationOffsetRW
@@ -375,5 +385,23 @@ object JsCommandServiceCodecs {
   implicit val completionDeduplicationPeriodRW: Codec[
     completion.Completion.DeduplicationPeriod
   ] = deriveCodec
+
+  // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
+  implicit val reassignmentCommandCommandSchema
+      : Schema[reassignment_command.ReassignmentCommand.Command] = Schema.oneOfWrapped
+
+  implicit val deduplicationPeriodSchema: Schema[DeduplicationPeriod] =
+    Schema.oneOfWrapped
+
+  implicit val completionDeduplicationPeriodSchema
+      : Schema[completion.Completion.DeduplicationPeriod] =
+    Schema.oneOfWrapped
+
+  implicit val jsCommandSchema: Schema[JsCommand.Command] =
+    Schema.oneOfWrapped
+
+  implicit val completionStreamResponseSchema
+      : Schema[command_completion_service.CompletionStreamResponse.CompletionResponse] =
+    Schema.oneOfWrapped
 
 }

@@ -104,7 +104,7 @@ object ParticipantNodePersistentState extends HasLoggerName {
     val logger = loggingContext.tracedLogger
     val flagCloseable = FlagCloseable(logger, timeouts)
     val acsCounterParticipantConfigStore =
-      AcsCounterParticipantConfigStore.create(metrics, storage, timeouts, loggerFactory)
+      AcsCounterParticipantConfigStore.create(storage, timeouts, loggerFactory)
     def waitForSettingsStoreUpdate[A](
         lens: ParticipantSettingsStore.Settings => Option[A],
         settingName: String,

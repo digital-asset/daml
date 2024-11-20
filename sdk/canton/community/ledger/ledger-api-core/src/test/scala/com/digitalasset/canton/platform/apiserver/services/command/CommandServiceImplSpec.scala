@@ -16,13 +16,10 @@ import com.digitalasset.canton.ledger.api.validation.{
   CommandsValidator,
   ValidateUpgradingPackageResolutions,
 }
-import com.digitalasset.canton.logging.{ErrorLoggingContext, LoggingContextWithTrace}
+import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.apiserver.services.command.CommandServiceImplSpec.*
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker.SubmissionKey
-import com.digitalasset.canton.platform.apiserver.services.tracking.{
-  CompletionResponse,
-  SubmissionTracker,
-}
+import com.digitalasset.canton.platform.apiserver.services.tracking.{Errors, SubmissionTracker}
 import com.digitalasset.canton.platform.apiserver.services.{ApiCommandService, tracking}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.Thereafter.syntax.*
@@ -169,14 +166,7 @@ class CommandServiceImplSpec
           any[TraceContext],
         )
       ).thenReturn(
-        Future.fromTry(
-          CompletionResponse.timeout("some-cmd-id", "some-submission-id")(
-            ErrorLoggingContext(
-              loggerFactory.getTracedLogger(this.getClass),
-              LoggingContextWithTrace.ForTesting,
-            )
-          )
-        )
+        Future.failed(Errors.timedOut(expectedSubmissionKey))
       )
 
       val service = new CommandServiceImpl(

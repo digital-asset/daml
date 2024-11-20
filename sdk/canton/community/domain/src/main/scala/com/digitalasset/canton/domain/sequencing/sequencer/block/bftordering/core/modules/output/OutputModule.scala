@@ -26,6 +26,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.{
   CryptoProvider,
   OrderingTopologyProvider,
+  TopologyActivationTime,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
@@ -64,7 +65,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.sequencing.protocol.AllMembersOfDomain
-import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
@@ -480,7 +480,7 @@ class OutputModule[E <: Env[E]](
       //  (and successfully processed and applied by the topology processor).
       pipeToSelf(
         orderingTopologyProvider.getOrderingTopologyAt(
-          EffectiveTime(epochEndBftTime.immediateSuccessor)
+          TopologyActivationTime(epochEndBftTime.immediateSuccessor)
         ),
         metrics.topology.queryLatency,
       ) {

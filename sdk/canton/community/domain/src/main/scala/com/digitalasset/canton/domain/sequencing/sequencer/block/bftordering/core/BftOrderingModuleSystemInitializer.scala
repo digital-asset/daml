@@ -97,7 +97,7 @@ object BftOrderingModuleSystemInitializer {
   ): SystemInitializer[E, BftOrderingServiceReceiveRequest, Mempool.Message] = {
     val initialMembership = Membership(thisPeer, initialOrderingTopology)
     val thisPeerFirstKnownAt =
-      sequencerSnapshotAdditionalInfo.flatMap(_.peerFirstKnownAt.get(thisPeer))
+      sequencerSnapshotAdditionalInfo.flatMap(_.peerActiveAt.get(thisPeer))
     val firstBlockNumberInOnboardingEpoch = thisPeerFirstKnownAt.flatMap(_.firstBlockNumberInEpoch)
     val previousBftTimeForOnboarding = thisPeerFirstKnownAt.flatMap(_.previousBftTime)
     OrderingModuleSystemInitializer(

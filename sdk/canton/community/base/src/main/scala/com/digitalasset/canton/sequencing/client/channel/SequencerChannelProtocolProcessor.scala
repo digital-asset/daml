@@ -8,6 +8,7 @@ import cats.syntax.either.*
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.sequencing.client.SubscriptionCloseReason
+import com.digitalasset.canton.sequencing.client.channel.endpoint.SequencerChannelClientEndpoint
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{LoggerUtil, SingleUseCell}
 import com.digitalasset.canton.version.ProtocolVersion

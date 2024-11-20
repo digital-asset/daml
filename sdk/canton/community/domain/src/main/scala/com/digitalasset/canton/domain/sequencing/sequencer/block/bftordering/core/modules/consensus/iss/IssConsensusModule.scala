@@ -144,7 +144,7 @@ final class IssConsensusModule[E <: Env[E]](
           case Some(snapshotAdditionalInfo)
               if latestCompletedEpoch == GenesisEpoch && activeMembership.otherPeers.sizeIs > 0 =>
             stateTransferManager.clearStateTransferState()
-            val startEpoch = snapshotAdditionalInfo.peerFirstKnownAt
+            val startEpoch = snapshotAdditionalInfo.peerActiveAt
               .get(activeMembership.myId)
               .flatMap(_.epochNumber)
               .getOrElse(

@@ -453,6 +453,7 @@ abstract class TopologyTransactionProcessorTest
                 EffectiveTime(CantonTimestamp.MinValue.immediateSuccessor),
                 None,
                 _,
+                None,
               )
             )
           )
@@ -722,6 +723,7 @@ abstract class TopologyTransactionProcessorTest
             validFrom = EffectiveTime(CantonTimestamp.MinValue.immediateSuccessor),
             validUntil = None,
             transaction = transaction,
+            rejectionReason = None,
           )
         )
       )

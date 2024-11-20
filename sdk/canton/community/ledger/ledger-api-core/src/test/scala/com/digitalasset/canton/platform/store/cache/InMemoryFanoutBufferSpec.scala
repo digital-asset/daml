@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store.cache
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.completion.Completion
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.{AbsoluteOffset, Offset}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer.BufferSlice.LastBufferChunkSuffix
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer.{
@@ -34,7 +34,7 @@ class InMemoryFanoutBufferSpec
     with ScalaCheckDrivenPropertyChecks
     with BaseTest {
   private val offsetIdx = Vector(2, 4, 6, 8, 10)
-  private val BeginOffset = offset(0L)
+  private val firstOffset = offset(1L)
   private val offsets = offsetIdx.map(i => offset(i.toLong))
   private val someDomainId = DomainId.tryFromString("some::domain-id")
 
@@ -59,7 +59,7 @@ class InMemoryFanoutBufferSpec
             buffer._bufferLog.size shouldBe 3
             buffer._lookupMap.size shouldBe 3
 
-            buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
+            buffer.slice(firstOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
               bufferedStartExclusive = offset2,
               slice = Vector(entry3, entry4),
             )
@@ -72,7 +72,7 @@ class InMemoryFanoutBufferSpec
             buffer._bufferLog.size shouldBe 3
             buffer._lookupMap.size shouldBe 3
 
-            buffer.slice(BeginOffset, offset5, IdentityFilter) shouldBe LastBufferChunkSuffix(
+            buffer.slice(firstOffset, offset5, IdentityFilter) shouldBe LastBufferChunkSuffix(
               bufferedStartExclusive = offset3,
               slice = Vector(entry4, offset5 -> txAccepted5),
             )
@@ -103,7 +103,7 @@ class InMemoryFanoutBufferSpec
         "maxBufferSize is 0" should {
           "not enqueue the update" in withBuffer(0) { buffer =>
             buffer.push(txAccepted5)
-            buffer.slice(BeginOffset, offset5, IdentityFilter) shouldBe LastBufferChunkSuffix(
+            buffer.slice(firstOffset, offset5, IdentityFilter) shouldBe LastBufferChunkSuffix(
               bufferedStartExclusive = offset5,
               slice = Vector.empty,
             )
@@ -114,7 +114,7 @@ class InMemoryFanoutBufferSpec
         "maxBufferSize is -1" should {
           "not enqueue the update" in withBuffer(-1) { buffer =>
             buffer.push(txAccepted5)
-            buffer.slice(BeginOffset, offset5, IdentityFilter) shouldBe LastBufferChunkSuffix(
+            buffer.slice(firstOffset, offset5, IdentityFilter) shouldBe LastBufferChunkSuffix(
               bufferedStartExclusive = offset5,
               slice = Vector.empty,
             )
@@ -145,18 +145,21 @@ class InMemoryFanoutBufferSpec
 
       "slice" when {
         "filters" in withBuffer() { buffer =>
-          buffer.slice(offset1, offset4, Some(_).filterNot(_ == entry3._2)) shouldBe BufferSlice
+          buffer.slice(offset2, offset4, Some(_).filterNot(_ == entry3._2)) shouldBe BufferSlice
             .Inclusive(
               Vector(entry2, entry4)
             )
         }
 
-        "called with startExclusive gteq than the buffer start" should {
+        "called with startInclusive gteq than the buffer start" should {
           "return an Inclusive slice" in withBuffer() { buffer =>
             buffer.slice(offset1, succ(offset3), IdentityFilter) shouldBe BufferSlice.Inclusive(
+              Vector(entry1, entry2, entry3)
+            )
+            buffer.slice(offset2, succ(offset3), IdentityFilter) shouldBe BufferSlice.Inclusive(
               Vector(entry2, entry3)
             )
-            buffer.slice(offset1, offset4, IdentityFilter) shouldBe BufferSlice.Inclusive(
+            buffer.slice(offset2, offset4, IdentityFilter) shouldBe BufferSlice.Inclusive(
               Vector(entry2, entry3, entry4)
             )
             buffer.slice(succ(offset1), offset4, IdentityFilter) shouldBe BufferSlice.Inclusive(
@@ -167,20 +170,23 @@ class InMemoryFanoutBufferSpec
           "return an Inclusive chunk result if resulting slice is bigger than maxFetchSize" in withBuffer(
             maxFetchSize = 2
           ) { buffer =>
-            buffer.slice(offset1, offset4, IdentityFilter) shouldBe BufferSlice.Inclusive(
+            buffer.slice(offset2, offset4, IdentityFilter) shouldBe BufferSlice.Inclusive(
               Vector(entry2, entry3)
             )
           }
         }
 
-        "called with endInclusive lteq startExclusive" should {
-          "return an empty Inclusive slice if startExclusive is gteq buffer start" in withBuffer() {
+        "called with endInclusive lteq startInclusive" should {
+          "return an empty Inclusive slice if startInclusive is greater than buffer start and endInclusive" in withBuffer() {
             buffer =>
-              buffer.slice(offset1, offset1, IdentityFilter) shouldBe BufferSlice.Inclusive(
-                Vector.empty
-              )
               buffer.slice(offset2, offset1, IdentityFilter) shouldBe BufferSlice.Inclusive(
                 Vector.empty
+              )
+          }
+          "return an Inclusive slice if startInclusive is greater than buffer start and equal to endInclusive" in withBuffer() {
+            buffer =>
+              buffer.slice(offset2, offset2, IdentityFilter) shouldBe BufferSlice.Inclusive(
+                Vector(entry2)
               )
           }
           "return an empty LastBufferChunkSuffix slice if startExclusive is before buffer start" in withBuffer(
@@ -196,11 +202,10 @@ class InMemoryFanoutBufferSpec
             )
           }
         }
-
-        "called with startExclusive before the buffer start" should {
+        "called with startInclusive before the buffer start" should {
           "return a LastBufferChunkSuffix slice" in withBuffer() { buffer =>
             buffer.slice(
-              Offset.beforeBegin,
+              firstOffset,
               offset3,
               IdentityFilter,
             ) shouldBe LastBufferChunkSuffix(
@@ -208,7 +213,7 @@ class InMemoryFanoutBufferSpec
               Vector(entry2, entry3),
             )
             buffer.slice(
-              Offset.beforeBegin,
+              firstOffset,
               succ(offset3),
               IdentityFilter,
             ) shouldBe LastBufferChunkSuffix(
@@ -217,11 +222,11 @@ class InMemoryFanoutBufferSpec
             )
           }
 
-          "return a the last filtered chunk as LastBufferChunkSuffix slice if resulting slice is bigger than maxFetchSize" in withBuffer(
+          "return the last filtered chunk as LastBufferChunkSuffix slice if resulting slice is bigger than maxFetchSize" in withBuffer(
             maxFetchSize = 2
           ) { buffer =>
             buffer.slice(
-              Offset.beforeBegin,
+              firstOffset,
               offset4,
               IdentityFilter,
             ) shouldBe LastBufferChunkSuffix(
@@ -266,7 +271,7 @@ class InMemoryFanoutBufferSpec
                     )
                     _ <- Future(
                       buffer.slice(
-                        offset((900 + idx).toLong),
+                        offset((901 + idx).toLong),
                         offset(lastInsertedIdx),
                         IdentityFilter,
                       )
@@ -291,7 +296,7 @@ class InMemoryFanoutBufferSpec
 
             buffer.prune(offset3)
 
-            buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
+            buffer.slice(firstOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
               offset4,
               bufferElements.drop(4),
             )
@@ -311,7 +316,7 @@ class InMemoryFanoutBufferSpec
             verifyLookupPresent(buffer, txAccepted1, txAccepted2, txAccepted3, txAccepted4)
 
             buffer.prune(offset(6))
-            buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
+            buffer.slice(firstOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
               offset4,
               bufferElements.drop(4),
             )
@@ -330,7 +335,7 @@ class InMemoryFanoutBufferSpec
             verifyLookupPresent(buffer, txAccepted1, txAccepted2, txAccepted3, txAccepted4)
 
             buffer.prune(offset(1))
-            buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
+            buffer.slice(firstOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
               offset1,
               bufferElements.drop(1),
             )
@@ -344,7 +349,7 @@ class InMemoryFanoutBufferSpec
             verifyLookupPresent(buffer, txAccepted1, txAccepted2, txAccepted3, txAccepted4)
 
             buffer.prune(offset5)
-            buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
+            buffer.slice(firstOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
               LastOffset,
               Vector.empty,
             )
@@ -360,17 +365,22 @@ class InMemoryFanoutBufferSpec
         }
 
         "one element in buffer" should {
-          "prune all" in withBuffer(1, Vector(offset(1) -> txAccepted2.copy(offset = offset(1)))) {
-            buffer =>
-              verifyLookupPresent(buffer, txAccepted2.copy(offset = offset(1)))
+          "prune all" in withBuffer(
+            1,
+            Vector(offset(1) -> txAccepted2.copy(offset = Offset.fromAbsoluteOffset(offset(1)))),
+          ) { buffer =>
+            verifyLookupPresent(
+              buffer,
+              txAccepted2.copy(offset = Offset.fromAbsoluteOffset(offset(1))),
+            )
 
-              buffer.prune(offset(1))
-              buffer.slice(BeginOffset, offset(1), IdentityFilter) shouldBe LastBufferChunkSuffix(
-                offset(1),
-                Vector.empty,
-              )
+            buffer.prune(offset(1))
+            buffer.slice(firstOffset, offset(1), IdentityFilter) shouldBe LastBufferChunkSuffix(
+              offset(1),
+              Vector.empty,
+            )
 
-              verifyLookupAbsent(buffer, txAccepted2)
+            verifyLookupAbsent(buffer, txAccepted2)
           }
         }
       }
@@ -379,7 +389,7 @@ class InMemoryFanoutBufferSpec
         "remove all entries from the buffer" in withBuffer(3) { buffer =>
           verifyLookupPresent(buffer, txAccepted2, txAccepted3, txAccepted4)
 
-          buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
+          buffer.slice(firstOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
             bufferedStartExclusive = offset2,
             slice = Vector(entry3, entry4),
           )
@@ -388,7 +398,7 @@ class InMemoryFanoutBufferSpec
 
           buffer._bufferLog shouldBe Vector.empty[(Offset, Int)]
           buffer._lookupMap shouldBe Map.empty
-          buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
+          buffer.slice(firstOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
             bufferedStartExclusive = LastOffset,
             slice = Vector.empty,
           )
@@ -467,7 +477,7 @@ class InMemoryFanoutBufferSpec
 
     def withBuffer(
         maxBufferSize: Int = 5,
-        elems: immutable.Vector[(Offset, TransactionLogUpdate)] = bufferElements,
+        elems: immutable.Vector[(AbsoluteOffset, TransactionLogUpdate)] = bufferElements,
         maxFetchSize: Int = 10,
     )(test: InMemoryFanoutBuffer => Assertion): Assertion = {
       val buffer = new InMemoryFanoutBuffer(
@@ -481,22 +491,19 @@ class InMemoryFanoutBufferSpec
     }
   }
 
-  private def offset(idx: Long): Offset = {
-    val base = BigInt(1L) << 32
-    Offset.fromByteArray((base + idx).toByteArray)
+  private def offset(idx: Long): AbsoluteOffset = {
+    val base = 1000000000L
+    AbsoluteOffset.tryFromLong(base + idx)
   }
 
-  private def succ(offset: Offset): Offset = {
-    val bigInt = BigInt(offset.toByteArray)
-    Offset.fromByteArray((bigInt + 1).toByteArray)
-  }
+  private def succ(offset: AbsoluteOffset): AbsoluteOffset = offset.increment
 
-  private def txAccepted(idx: Long, offset: Offset) =
+  private def txAccepted(idx: Long, offset: AbsoluteOffset) =
     TransactionLogUpdate.TransactionAccepted(
       updateId = s"tx-$idx",
       workflowId = s"workflow-$idx",
       effectiveAt = Time.Timestamp.Epoch,
-      offset = offset,
+      offset = Offset.fromAbsoluteOffset(offset),
       events = Vector.empty,
       completionStreamResponse = None,
       commandId = "",
@@ -504,9 +511,9 @@ class InMemoryFanoutBufferSpec
       recordTime = Time.Timestamp.Epoch,
     )
 
-  private def txRejected(idx: Long, offset: Offset) =
+  private def txRejected(idx: Long, offset: AbsoluteOffset) =
     TransactionLogUpdate.TransactionRejected(
-      offset = offset,
+      offset = Offset.fromAbsoluteOffset(offset),
       completionStreamResponse = CompletionStreamResponse.defaultInstance.withCompletion(
         Completion(
           actAs = Seq(s"submitter-$idx")

@@ -5,12 +5,12 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fr
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
   EpochNumber,
 }
-import com.digitalasset.canton.topology.processing.EffectiveTime
 import org.scalatest.wordspec.AnyWordSpec
 
 class SequencerSnapshotAdditionalInfoTest extends AnyWordSpec with BftSequencerBaseTest {
@@ -19,12 +19,12 @@ class SequencerSnapshotAdditionalInfoTest extends AnyWordSpec with BftSequencerB
     "successfully deserialize what we write" in {
       val snapshotAdditionalInfo = SequencerSnapshotAdditionalInfo(
         Map(
-          fakeSequencerId("sequencer1") -> FirstKnownAt(None, None, None, None),
-          fakeSequencerId("sequencer2") -> FirstKnownAt(
-            Some(EffectiveTime(CantonTimestamp.Epoch)),
+          fakeSequencerId("sequencer1") -> PeerActiveAt(None, None, None, None),
+          fakeSequencerId("sequencer2") -> PeerActiveAt(
+            Some(TopologyActivationTime(CantonTimestamp.Epoch)),
             Some(EpochNumber(7L)),
             Some(BlockNumber(70L)),
-            Some(CantonTimestamp.MaxValue),
+            Some(CantonTimestamp.MinValue),
           ),
         )
       )

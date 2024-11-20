@@ -102,6 +102,7 @@ abstract class MediatorNodeConfigCommon(
   * @param dontWarnOnDeprecatedPV if true, then this mediator will not emit a warning when connecting to a sequencer using a deprecated protocol version.
   */
 final case class MediatorNodeParameterConfig(
+    override val sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
     // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
     override val alphaVersionSupport: Boolean = true,
     override val betaVersionSupport: Boolean = false,
@@ -571,6 +572,7 @@ class MediatorNodeBootstrap(
         domainId,
         topologyClient,
         crypto,
+        arguments.parameterConfig.sessionSigningKeys,
         parameters.cachingConfigs,
         staticDomainParameters,
         timeouts,

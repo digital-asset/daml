@@ -10,6 +10,7 @@ import com.digitalasset.canton.config.{
   CachingConfigs,
   DefaultProcessingTimeouts,
   ProcessingTimeout,
+  SessionSigningKeysConfig,
 }
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
@@ -134,6 +135,7 @@ class BlockSequencerTest
       domainId,
       topologyClient,
       topologyTransactionFactory.cryptoApi.crypto,
+      SessionSigningKeysConfig.disabled,
       CachingConfigs.testing,
       defaultStaticDomainParameters,
       DefaultProcessingTimeouts.testing,
@@ -181,7 +183,6 @@ class BlockSequencerTest
         protocolVersion = testedProtocolVersion,
         blockRateLimitManager = defaultRateLimiter,
         orderingTimeFixMode = OrderingTimeFixMode.MakeStrictlyIncreasing,
-        cachingConfigs = CachingConfigs(),
         processingTimeouts = BlockSequencerTest.this.timeouts,
         logEventDetails = true,
         prettyPrinter = new CantonPrettyPrinter(

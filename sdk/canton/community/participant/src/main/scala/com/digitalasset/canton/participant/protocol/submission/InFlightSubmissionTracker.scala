@@ -11,7 +11,7 @@ import com.daml.error.utils.DecodedCantonError
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
-import com.digitalasset.canton.ledger.participant.state.Update
+import com.digitalasset.canton.ledger.participant.state.Update.UnSequencedCommandRejected
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.submission.CommandDeduplicator.DeduplicationFailed
@@ -284,7 +284,7 @@ class InFlightSubmissionTracker(
 
   private[this] def timelyRejectionEventFor(
       inFlight: InFlightSubmission[UnsequencedSubmission]
-  ): Update = {
+  ): UnSequencedCommandRejected = {
     implicit val traceContext: TraceContext = inFlight.submissionTraceContext
     // Use the trace context from the submission for the rejection
     // because we don't have any other later trace context available

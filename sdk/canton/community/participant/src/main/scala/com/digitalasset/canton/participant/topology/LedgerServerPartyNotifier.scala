@@ -22,7 +22,7 @@ import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
+import com.digitalasset.canton.util.{FutureUnlessShutdownUtil, FutureUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.{LedgerSubmissionId, SequencerCounter}
 
 import scala.collection.concurrent.TrieMap
@@ -96,19 +96,6 @@ class LedgerServerPartyNotifier(
           transactions: Seq[GenericSignedTopologyTransaction],
       )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
         observeTopologyTransactions(sequencerTimestamp, effectiveTimestamp, transactions)
-    }
-
-  def attachToIdentityManager(): TopologyManagerObserver =
-    new TopologyManagerObserver {
-      override def addedNewTransactions(
-          timestamp: CantonTimestamp,
-          transactions: Seq[GenericSignedTopologyTransaction],
-      )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-        observeTopologyTransactions(
-          SequencedTime(timestamp),
-          EffectiveTime(timestamp),
-          transactions,
-        )
     }
 
   def observeTopologyTransactions(
@@ -276,7 +263,7 @@ class LedgerServerPartyNotifier(
           Update.PartyAddedToParticipant(
             metadata.partyId.toLf,
             hostingParticipant.toLf,
-            ParticipantEventPublisher.now.toLf,
+            ParticipantEventPublisher.now,
             LedgerSubmissionId.fromString(metadata.submissionId.unwrap).toOption,
           )
         )
@@ -319,7 +306,7 @@ class LedgerServerPartyNotifier(
     // note, that if this fails, we have an issue as ledger server will not have
     // received the event. this is generally an issue with everything we send to the
     // index server
-    FutureUtil.logOnFailureUnlessShutdown(
+    FutureUnlessShutdownUtil.logOnFailureUnlessShutdown(
       sequentialQueue.execute(
         updateAndNotify(
           party,

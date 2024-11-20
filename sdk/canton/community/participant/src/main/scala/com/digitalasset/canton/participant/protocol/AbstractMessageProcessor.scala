@@ -9,7 +9,8 @@ import com.daml.metrics.api.MetricsContext
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, DomainSyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.participant.state.Update
+import com.digitalasset.canton.ledger.participant.state.SequencedUpdate
+import com.digitalasset.canton.ledger.participant.state.Update.SequencerIndexMoved
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.participant.protocol.conflictdetection.ActivenessSet
@@ -22,9 +23,10 @@ import com.digitalasset.canton.protocol.messages.{
 }
 import com.digitalasset.canton.sequencing.client.{SendCallback, SequencerClientSend}
 import com.digitalasset.canton.sequencing.protocol.{Batch, MessageId, Recipients}
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{ErrorUtil, FutureUtil}
+import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 
@@ -36,6 +38,7 @@ abstract class AbstractMessageProcessor(
     crypto: DomainSyncCryptoClient,
     sequencerClient: SequencerClientSend,
     protocolVersion: ProtocolVersion,
+    domainId: DomainId,
 )(implicit ec: ExecutionContext)
     extends NamedLogging
     with FlagCloseable
@@ -46,7 +49,7 @@ abstract class AbstractMessageProcessor(
       requestSequencerCounter: SequencerCounter,
       requestTimestamp: CantonTimestamp,
       commitTime: CantonTimestamp,
-      eventO: Option[Update],
+      eventO: Option[SequencedUpdate],
   )(implicit traceContext: TraceContext): Future[Unit] =
     for {
       _ <- ephemeral.requestJournal.terminate(
@@ -55,10 +58,15 @@ abstract class AbstractMessageProcessor(
         commitTime,
       )
       _ <- ephemeral.recordOrderPublisher.tick(
-        requestSequencerCounter,
-        requestTimestamp,
-        eventO,
-        Some(requestCounter),
+        // providing directly a SequencerIndexMoved with RequestCounter for the non-submitting participant rejections
+        eventO.getOrElse(
+          SequencerIndexMoved(
+            domainId = domainId,
+            requestCounterO = Some(requestCounter),
+            sequencerCounter = requestSequencerCounter,
+            recordTime = requestTimestamp,
+          )
+        )
       )
     } yield ()
 
@@ -200,7 +208,7 @@ abstract class AbstractMessageProcessor(
               if (timeoutResult.timedOut) FutureUnlessShutdown.outcomeF(onTimeout)
               else FutureUnlessShutdown.unit
             }
-          FutureUtil.doNotAwaitUnlessShutdown(timeoutF, "Handling timeout failed")
+          FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(timeoutF, "Handling timeout failed")
         }
     } yield ()
 
@@ -209,7 +217,7 @@ abstract class AbstractMessageProcessor(
       requestCounter: RequestCounter,
       sequencerCounter: SequencerCounter,
       timestamp: CantonTimestamp,
-      eventO: Option[Update],
+      eventO: Option[SequencedUpdate],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     // Let the request immediately timeout (upon the next message) rather than explicitly adding an empty commit set
     // because we don't have a sequencer counter to associate the commit set with.

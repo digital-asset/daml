@@ -49,7 +49,7 @@ class JsMeteringService(
 
 }
 
-object JsMeteringService {
+object JsMeteringService extends DocumentationEndpoints {
   import Endpoints.*
   import JsMeteringServiceCodecs.*
 
@@ -65,6 +65,7 @@ object JsMeteringService {
         "Metering report that provides information necessary for billing participant and application operators."
       )
 
+  override def documentation: Seq[AnyEndpoint] = Seq(reportEndpoint)
 }
 object JsMeteringServiceCodecs {
   implicit val getMeteringReportRequest: Codec[metering_report_service.GetMeteringReportRequest] =
