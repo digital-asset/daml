@@ -113,6 +113,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     */
   abstract class TestCase(val templateName: String, val expectedOutcome: ExpectedOutcome) {
     def v1AdditionalRecordArgFields: String = ""
+    def v1AdditionalVariantArgCtors: String = ""
     def v1AdditionalFields: String = ""
     def v1AdditionalChoices: String = ""
     def v1Precondition: String = "True"
@@ -134,6 +135,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     def v1View: String = s"'$commonDefsPkgId':Mod:MyView { value = 0 }"
 
     def v2AdditionalRecordArgFields: String = ""
+    def v2AdditionalVariantArgCtors: String = ""
     def v2AdditionalFields: String = ""
     def v2AdditionalChoices: String = ""
     def v2Precondition: String = v1Precondition
@@ -148,6 +150,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
 
     private def templateDefinition(
         additionalRecordArgFields: String,
+        additionalVariantArgCtors: String,
         additionalFields: String,
         additionalChoices: String,
         precondition: String,
@@ -166,10 +169,15 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
          |    $additionalRecordArgFields
          |    };
          |
+         |  variant @serializable ${templateName}VariantArgType =
+         |    Ctor1: Int64
+         |    $additionalVariantArgCtors;
+         |
          |  record @serializable $templateName =
          |    { p1: Party
          |    , p2: Party
          |    , r: Mod:${templateName}RecordArgType
+         |    , v: Mod:${templateName}VariantArgType
          |    $additionalFields
          |    };
          |
@@ -197,6 +205,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
 
     def v1TemplateDefinition: String = templateDefinition(
       v1AdditionalRecordArgFields,
+      v1AdditionalVariantArgCtors,
       v1AdditionalFields,
       v1AdditionalChoices,
       v1Precondition,
@@ -212,6 +221,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
 
     def v2TemplateDefinition: String = templateDefinition(
       v2AdditionalRecordArgFields,
+      v2AdditionalVariantArgCtors,
       v2AdditionalFields,
       v2AdditionalChoices,
       v2Precondition,
@@ -236,7 +246,8 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       val ifaceQualifiedName = s"'$commonDefsPkgId':Mod:Iface"
       val viewQualifiedName = s"'$commonDefsPkgId':Mod:MyView"
       val v1RecordArgTypeQualifiedName = s"'$v1PkgId':Mod:${templateName}RecordArgType"
-      
+      val v1VariantArgTypeQualifiedName = s"'$v1PkgId':Mod:${templateName}VariantArgType"
+
       s"""
         |  choice @nonConsuming ExerciseNoCatchLocal${templateName} (self) (u: Unit): Text
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
@@ -248,6 +259,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |               { p1 = '$commonDefsPkgId':Mod:alice
         |               , p2 = '$commonDefsPkgId':Mod:bob
         |               , r = $v1RecordArgTypeQualifiedName { n = 0 }
+        |               , v = $v1VariantArgTypeQualifiedName:Ctor1 0
         |               })
         |       in exercise
         |            @$v2TplQualifiedName
@@ -295,6 +307,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |               { p1 = '$commonDefsPkgId':Mod:alice
         |               , p2 = '$commonDefsPkgId':Mod:bob
         |               , r = $v1RecordArgTypeQualifiedName { n = 0 }
+        |               , v = $v1VariantArgTypeQualifiedName:Ctor1 0
         |               })
         |       in exercise_interface
         |            @$ifaceQualifiedName
@@ -345,6 +358,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |               { p1 = '$commonDefsPkgId':Mod:alice
         |               , p2 = '$commonDefsPkgId':Mod:bob
         |               , r = $v1RecordArgTypeQualifiedName { n = 0 }
+        |               , v = $v1VariantArgTypeQualifiedName:Ctor1 0
         |               })
         |       in exercise_by_key
         |            @$v2TplQualifiedName
@@ -393,6 +407,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |               { p1 = '$commonDefsPkgId':Mod:alice
         |               , p2 = '$commonDefsPkgId':Mod:bob
         |               , r = $v1RecordArgTypeQualifiedName { n = 0 }
+        |               , v = $v1VariantArgTypeQualifiedName:Ctor1 0
         |               })
         |       in fetch_template
         |            @$v2TplQualifiedName
@@ -436,6 +451,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |               { p1 = '$commonDefsPkgId':Mod:alice
         |               , p2 = '$commonDefsPkgId':Mod:bob
         |               , r = $v1RecordArgTypeQualifiedName { n = 0 }
+        |               , v = $v1VariantArgTypeQualifiedName:Ctor1 0
         |               })
         |       in ubind pair:<contract: $v2TplQualifiedName, contractId: ContractId $v2TplQualifiedName> <-
         |              fetch_by_key
@@ -488,6 +504,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |                 { p1 = '$commonDefsPkgId':Mod:alice
         |                 , p2 = '$commonDefsPkgId':Mod:bob
         |                 , r = $v1RecordArgTypeQualifiedName { n = 0 }
+        |                 , v = $v1VariantArgTypeQualifiedName:Ctor1 0
         |                 });
         |         iface: $ifaceQualifiedName <- fetch_interface
         |            @$ifaceQualifiedName
@@ -533,6 +550,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |               { p1 = '$commonDefsPkgId':Mod:alice
         |               , p2 = '$commonDefsPkgId':Mod:bob
         |               , r = $v1RecordArgTypeQualifiedName { n = 0 }
+        |               , v = $v1VariantArgTypeQualifiedName:Ctor1 0
         |               })
         |       in lookup_by_key
         |            @$v2TplQualifiedName
@@ -730,6 +748,12 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     override def v2AdditionalRecordArgFields = ", extra: Option Unit"
   }
 
+  case object AdditionalConstructorInVariantArg
+      extends TestCase("AdditionalConstructorInVariantArg", ExpectSuccess) {
+    override def v1AdditionalVariantArgCtors = ""
+    override def v2AdditionalVariantArgCtors = "| Ctor2: Unit"
+  }
+
   case object AdditionalTemplateArg extends TestCase("AdditionalTemplateArg", ExpectSuccess) {
     override def v1AdditionalFields = ""
     override def v2AdditionalFields = ", extra: Option Unit"
@@ -778,6 +802,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     ThrowingMaintainers,
     ThrowingMaintainersBody,
     AdditionalFieldInRecordArg,
+    AdditionalConstructorInVariantArg,
     AdditionalTemplateArg,
     AdditionalChoices,
     ThrowingInterfaceChoiceControllers,
@@ -905,6 +930,11 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         templateDefsV1PkgId,
         Ref.QualifiedName.assertFromString(s"Mod:${templateName}RecordArgType"),
       )
+    val v1VariantArgTypeId: Identifier =
+      Identifier(
+        templateDefsV1PkgId,
+        Ref.QualifiedName.assertFromString(s"Mod:${templateName}VariantArgType"),
+      )
     val v1TplId: Identifier = Identifier(templateDefsV1PkgId, tplQualifiedName)
     val v2TplId: Identifier = Identifier(templateDefsV2PkgId, tplQualifiedName)
 
@@ -934,6 +964,11 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
           ImmArray(
             Some(Name.assertFromString("n")) -> ValueInt64(0)
           ),
+        ),
+        Some(Name.assertFromString("v")) -> ValueVariant(
+          Some(v1VariantArgTypeId),
+          Name.assertFromString("Ctor1"),
+          ValueInt64(0),
         ),
       ),
     )
