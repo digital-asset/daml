@@ -16,6 +16,7 @@ import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.lf.transaction.{GlobalKeyWithMaintainers, SubmittedTransaction, Transaction}
+import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
 import com.daml.logging.LoggingContext
 import org.scalatest.Assertion
@@ -108,6 +109,11 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
   case object ExpectUnhandledException
       extends ExpectedOutcome("should fail with an unhandled exception")
 
+  /** Represents an LF value specified both as some string we can splice into the textual representation of LF, and as a
+    * scala value we can splice into an [[ApiCommand]].
+    */
+  case class TestCaseValue[A](inChoiceBodyLfCode: String, inApiCommand: A)
+
   /** An abstract class whose [[v1TemplateDefinition]], [[v2TemplateDefinition]] and [[clientChoices]] methods generate
     * LF code that define a template named [[templateName]] and test choices for that template.
     * The class is meant to be extended by concrete case objects which override some aspect of the default template,
@@ -118,6 +124,10 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     def v1AdditionalVariantArgCtors: String = ""
     def v1AdditionalEnumArgCtors: String = ""
     def v1AdditionalFields: String = ""
+    def v1AdditionalFieldsForChoiceArgRecordFieldType: String = ""
+    def v1AdditionalCtorsForChoiceArgVariantFieldType: String = ""
+    def v1AdditionalCtorsForChoiceArgEnumFieldType: String = ""
+    def v1AdditionalFieldsForChoiceArgType: String = ""
     def v1AdditionalChoices: String = ""
     def v1Precondition: String = "True"
     def v1Signatories: String = s"Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)"
@@ -141,6 +151,10 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     def v2AdditionalVariantArgCtors: String = ""
     def v2AdditionalEnumArgCtors: String = ""
     def v2AdditionalFields: String = ""
+    def v2AdditionalFieldsForChoiceArgRecordFieldType: String = ""
+    def v2AdditionalCtorsForChoiceArgVariantFieldType: String = ""
+    def v2AdditionalCtorsForChoiceArgEnumFieldType: String = ""
+    def v2AdditionalFieldsForChoiceArgType: String = ""
     def v2AdditionalChoices: String = ""
     def v2Precondition: String = v1Precondition
     def v2Signatories: String = v1Signatories
@@ -152,11 +166,38 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     def v2Maintainers: String = v1Maintainers
     def v2View: String = v1View
 
+    def additionalFieldsToPassToChoiceArgRecordField
+        : TestCaseValue[ImmArray[(Option[Name], Value)]] =
+      TestCaseValue(
+        inChoiceBodyLfCode = "",
+        inApiCommand = ImmArray.empty,
+      )
+    def constructorCallToUseInChoiceArgVariantField: TestCaseValue[(Name, Value)] = {
+      TestCaseValue(
+        inChoiceBodyLfCode = "Ctor1 0",
+        inApiCommand = (Name.assertFromString("Ctor1"), ValueInt64(0)),
+      )
+    }
+    def constructorToUseInChoiceArgEnumField: TestCaseValue[Name] =
+      TestCaseValue(
+        inChoiceBodyLfCode = "Ctor1",
+        inApiCommand = Name.assertFromString("Ctor1"),
+      )
+    def additionalFieldsToPassToChoiceArg: TestCaseValue[ImmArray[(Option[Name], Value)]] =
+      TestCaseValue(
+        inChoiceBodyLfCode = "",
+        inApiCommand = ImmArray.empty,
+      )
+
     private def templateDefinition(
         additionalRecordArgFields: String,
         additionalVariantArgCtors: String,
         additionalEnumArgCtors: String,
         additionalFields: String,
+        additionalFieldsForChoiceArgRecordFieldType: String,
+        additionalCtorsForChoiceArgVariantFieldType: String,
+        additionalCtorsForChoiceArgEnumFieldType: String,
+        additionalFieldsForChoiceArgType: String,
         additionalChoices: String,
         precondition: String,
         signatories: String,
@@ -169,6 +210,26 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         view: String,
     ): String =
       s"""
+         |  record @serializable ${templateName}ChoiceArgRecordFieldType =
+         |    { n : Int64
+         |    $additionalFieldsForChoiceArgRecordFieldType
+         |    };
+         |
+         |  variant @serializable ${templateName}ChoiceArgVariantFieldType =
+         |    Ctor1: Int64
+         |    $additionalCtorsForChoiceArgVariantFieldType;
+         |
+         |  enum @serializable ${templateName}ChoiceArgEnumFieldType =
+         |    Ctor1
+         |    $additionalCtorsForChoiceArgEnumFieldType;
+         |
+         |  record @serializable ${templateName}ChoiceArgType =
+         |    { r: Mod:${templateName}ChoiceArgRecordFieldType
+         |    , v: Mod:${templateName}ChoiceArgVariantFieldType
+         |    , e: Mod:${templateName}ChoiceArgEnumFieldType
+         |    $additionalFieldsForChoiceArgType
+         |    };
+         |
          |  record @serializable ${templateName}RecordArgType =
          |    { n : Int64
          |    $additionalRecordArgFields
@@ -197,7 +258,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
          |    observers $observers;
          |    agreement $agreement;
          |
-         |    choice @nonConsuming TemplateChoice (self) (u: Unit): Text
+         |    choice @nonConsuming TemplateChoice (self) (u: Mod:${templateName}ChoiceArgType): Text
          |      , controllers (Cons @Party [Mod:${templateName} {p1} this] (Nil @Party))
          |      , observers (Nil @Party)
          |      to upure @Text "TemplateChoice was called";
@@ -218,6 +279,10 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       v1AdditionalVariantArgCtors,
       v1AdditionalEnumArgCtors,
       v1AdditionalFields,
+      v1AdditionalFieldsForChoiceArgRecordFieldType,
+      v1AdditionalCtorsForChoiceArgVariantFieldType,
+      v1AdditionalCtorsForChoiceArgEnumFieldType,
+      v1AdditionalFieldsForChoiceArgType,
       v1AdditionalChoices,
       v1Precondition,
       v1Signatories,
@@ -235,6 +300,10 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       v2AdditionalVariantArgCtors,
       v2AdditionalEnumArgCtors,
       v2AdditionalFields,
+      v2AdditionalFieldsForChoiceArgRecordFieldType,
+      v2AdditionalCtorsForChoiceArgVariantFieldType,
+      v2AdditionalCtorsForChoiceArgEnumFieldType,
+      v2AdditionalFieldsForChoiceArgType,
       v2AdditionalChoices,
       v2Precondition,
       v2Signatories,
@@ -257,9 +326,18 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       val v2TplQualifiedName = s"'$v2PkgId':Mod:$templateName"
       val ifaceQualifiedName = s"'$commonDefsPkgId':Mod:Iface"
       val viewQualifiedName = s"'$commonDefsPkgId':Mod:MyView"
+
       val v1RecordArgTypeQualifiedName = s"'$v1PkgId':Mod:${templateName}RecordArgType"
       val v1VariantArgTypeQualifiedName = s"'$v1PkgId':Mod:${templateName}VariantArgType"
       val v1EnumArgTypeQualifiedName = s"'$v1PkgId':Mod:${templateName}EnumArgType"
+
+      val v2ChoiceArgTypeQualifiedName = s"'$v2PkgId':Mod:${templateName}ChoiceArgType"
+      val v2ChoiceArgRecordFieldTypeQualifiedName =
+        s"'$v2PkgId':Mod:${templateName}ChoiceArgRecordFieldType"
+      val v2ChoiceArgVariantFieldTypeQualifiedName =
+        s"'$v2PkgId':Mod:${templateName}ChoiceArgVariantFieldType"
+      val v2ChoiceArgEnumFieldTypeQualifiedName =
+        s"'$v2PkgId':Mod:${templateName}ChoiceArgEnumFieldType"
 
       val createV1ContractExpr =
         s""" create
@@ -273,6 +351,15 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
            |        })
            |""".stripMargin
 
+      val choiceArgExpr =
+        s""" ($v2ChoiceArgTypeQualifiedName
+           |      { r = $v2ChoiceArgRecordFieldTypeQualifiedName { n = 0 ${additionalFieldsToPassToChoiceArgRecordField.inChoiceBodyLfCode} }
+           |      , v = $v2ChoiceArgVariantFieldTypeQualifiedName:${constructorCallToUseInChoiceArgVariantField.inChoiceBodyLfCode}
+           |      , e = $v2ChoiceArgEnumFieldTypeQualifiedName:${constructorToUseInChoiceArgEnumField.inChoiceBodyLfCode}
+           |      ${additionalFieldsToPassToChoiceArg.inChoiceBodyLfCode}
+           |      })
+           |""".stripMargin
+
       s"""
         |  choice @nonConsuming ExerciseNoCatchLocal${templateName} (self) (u: Unit): Text
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
@@ -282,7 +369,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |            @$v2TplQualifiedName
         |            TemplateChoice
         |            (COERCE_CONTRACT_ID @$v1TplQualifiedName @$v2TplQualifiedName cid)
-        |            ();
+        |            $choiceArgExpr;
         |
         |  choice @nonConsuming ExerciseAttemptCatchLocal${templateName} (self) (u: Unit): Text
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
@@ -300,7 +387,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |         @$v2TplQualifiedName
         |         TemplateChoice
         |         (COERCE_CONTRACT_ID @$v1TplQualifiedName @$v2TplQualifiedName cid)
-        |         ();
+        |         $choiceArgExpr;
         |
         |  choice @nonConsuming ExerciseAttemptCatchGlobal${templateName}
         |        (self)
@@ -368,7 +455,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |                 label = "test-key",
         |                 maintainers1 = (Cons @Party ['$commonDefsPkgId':Mod:alice] (Nil @Party)),
         |                 maintainers2 = (Cons @Party ['$commonDefsPkgId':Mod:bob] (Nil @Party)) })
-        |            ();
+        |            $choiceArgExpr;
         |
         |  choice @nonConsuming ExerciseByKeyAttemptCatchLocal${templateName} (self) (u: Unit): Text
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
@@ -386,7 +473,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |         @$v2TplQualifiedName
         |         TemplateChoice
         |         key
-        |         ();
+        |         $choiceArgExpr;
         |
         |  choice @nonConsuming ExerciseByKeyAttemptCatchGlobal${templateName} (self) (key: '$commonDefsPkgId':Mod:Key)
         |        : Text
@@ -711,6 +798,49 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       s"""\\(key: '$commonDefsPkgId':Mod:Key) -> throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "MaintainersBody"})"""
   }
 
+  case object AdditionalFieldInChoiceArgRecordField
+      extends TestCase("AdditionalFieldInChoiceArgRecordField", ExpectSuccess) {
+    override def v1AdditionalFieldsForChoiceArgRecordFieldType = ""
+    override def v2AdditionalFieldsForChoiceArgRecordFieldType = ", extra: Option Unit"
+    override def additionalFieldsToPassToChoiceArgRecordField =
+      TestCaseValue(
+        inChoiceBodyLfCode = ", extra = Some @Unit ()",
+        inApiCommand =
+          ImmArray(Some(Name.assertFromString("extra")) -> ValueOptional(Some(ValueUnit))),
+      )
+  }
+
+  case object AdditionalConstructorInChoiceArgVariantField
+      extends TestCase("AdditionalConstructorInChoiceArgVariantField", ExpectSuccess) {
+    override def v1AdditionalCtorsForChoiceArgVariantFieldType = ""
+    override def v2AdditionalCtorsForChoiceArgVariantFieldType = "| Ctor2: Unit"
+    override def constructorCallToUseInChoiceArgVariantField = TestCaseValue(
+      inChoiceBodyLfCode = "Ctor2 ()",
+      inApiCommand = (Name.assertFromString("Ctor2"), ValueUnit),
+    )
+  }
+
+  case object AdditionalConstructorInChoiceArgEnumField
+      extends TestCase("AdditionalConstructorInChoiceArgEnumField", ExpectSuccess) {
+    override def v1AdditionalCtorsForChoiceArgEnumFieldType = ""
+    override def v2AdditionalCtorsForChoiceArgEnumFieldType = "| Ctor2"
+    override def constructorToUseInChoiceArgEnumField = TestCaseValue(
+      inChoiceBodyLfCode = "Ctor2",
+      inApiCommand = Name.assertFromString("Ctor2"),
+    )
+  }
+
+  case object AdditionalTemplateChoiceArg
+      extends TestCase("AdditionalTemplateChoiceArg", ExpectSuccess) {
+    override def v1AdditionalFieldsForChoiceArgType = ""
+    override def v2AdditionalFieldsForChoiceArgType = ", extra: Option Unit"
+    override def additionalFieldsToPassToChoiceArg = TestCaseValue(
+      inChoiceBodyLfCode = ", extra = Some @Unit ()",
+      inApiCommand =
+        ImmArray(Some(Name.assertFromString("extra")) -> ValueOptional(Some(ValueUnit))),
+    )
+  }
+
   case object AdditionalFieldInRecordArg
       extends TestCase("AdditionalFieldInRecordArg", ExpectSuccess) {
     override def v1AdditionalRecordArgFields = ""
@@ -776,6 +906,10 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     UnchangedMaintainers,
     ThrowingMaintainers,
     ThrowingMaintainersBody,
+    AdditionalFieldInChoiceArgRecordField,
+    AdditionalConstructorInChoiceArgVariantField,
+    AdditionalConstructorInChoiceArgEnumField,
+    AdditionalTemplateChoiceArg,
     AdditionalFieldInRecordArg,
     AdditionalConstructorInVariantArg,
     AdditionalConstructorInEnumArg,
@@ -889,7 +1023,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     *   and contract origin.
     * - [[execute]], which executes a command against a fresh engine seeded with the v1 contract.
     */
-  class TestHelper(templateName: String) {
+  class TestHelper(testCase: TestCase) {
 
     implicit val logContext: LoggingContext = LoggingContext.ForTesting
 
@@ -897,19 +1031,32 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     implicit def toName(s: String): Name = Name.assertFromString(s)
     implicit def toQualifiedName(s: String): QualifiedName = QualifiedName.assertFromString(s)
 
+    val templateName = testCase.templateName
+
     val alice: Party = Party.assertFromString("Alice")
     val bob: Party = Party.assertFromString("Bob")
 
     val clientTplId: Identifier = Identifier(clientPkgId, "Mod:Client")
     val ifaceId: Identifier = Identifier(commonDefsPkgId, "Mod:Iface")
     val tplQualifiedName: QualifiedName = s"Mod:$templateName"
+
+    val v1TplId: Identifier = Identifier(templateDefsV1PkgId, tplQualifiedName)
     val v1RecordArgTypeId: Identifier =
       Identifier(templateDefsV1PkgId, s"Mod:${templateName}RecordArgType")
     val v1VariantArgTypeId: Identifier =
       Identifier(templateDefsV1PkgId, s"Mod:${templateName}VariantArgType")
     val v1EnumArgTypeId: Identifier =
       Identifier(templateDefsV1PkgId, s"Mod:${templateName}EnumArgType")
-    val v1TplId: Identifier = Identifier(templateDefsV1PkgId, tplQualifiedName)
+
+    val v2ChoiceArgTypeId: Identifier =
+      Identifier(templateDefsV2PkgId, s"Mod:${templateName}ChoiceArgType")
+    val v2ChoiceArgRecordFieldTypeId: Identifier =
+      Identifier(templateDefsV2PkgId, s"Mod:${templateName}ChoiceArgRecordFieldType")
+    val v2ChoiceArgVariantFieldTypeId: Identifier =
+      Identifier(templateDefsV2PkgId, s"Mod:${templateName}ChoiceArgVariantFieldType")
+    val v2ChoiceArgEnumFieldTypeId: Identifier =
+      Identifier(templateDefsV2PkgId, s"Mod:${templateName}ChoiceArgEnumFieldType")
+
     val v2TplId: Identifier = Identifier(templateDefsV2PkgId, tplQualifiedName)
 
     val clientContractId: ContractId = toContractId("client")
@@ -997,12 +1144,32 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), Bytes.assertFromString("00"))
 
     def makeApiCommands(
-        testCase: TestCase,
         operation: Operation,
         catchBehavior: CatchBehavior,
         entryPoint: EntryPoint,
         contractOrigin: ContractOrigin,
     ): Option[ImmArray[ApiCommand]] = {
+
+      val choiceArg = ValueRecord(
+        Some(v2ChoiceArgTypeId),
+        ImmArray(
+          Some("r": Name) -> ValueRecord(
+            Some(v2ChoiceArgRecordFieldTypeId),
+            ImmArray(
+              Some("n": Name) -> ValueInt64(0)
+            ).slowAppend(testCase.additionalFieldsToPassToChoiceArgRecordField.inApiCommand),
+          ),
+          Some("v": Name) -> ValueVariant(
+            Some(v2ChoiceArgVariantFieldTypeId),
+            testCase.constructorCallToUseInChoiceArgVariantField.inApiCommand._1,
+            testCase.constructorCallToUseInChoiceArgVariantField.inApiCommand._2,
+          ),
+          Some("e": Name) -> ValueEnum(
+            Some(v2ChoiceArgEnumFieldTypeId),
+            testCase.constructorToUseInChoiceArgEnumField.inApiCommand,
+          ),
+        ).slowAppend(testCase.additionalFieldsToPassToChoiceArg.inApiCommand),
+      )
 
       // We first rule out all non-sensical cases, and then proceed to create a command in the most generic way
       // possible. The good thing about this approach compared to a whitelist is that we won't accidentally forget
@@ -1031,7 +1198,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
                 v2TplId,
                 globalContractId,
                 ChoiceName.assertFromString("TemplateChoice"),
-                ValueUnit,
+                choiceArg,
               )
             )
           )
@@ -1053,7 +1220,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
                 v2TplId,
                 globalContractSKey.toUnnormalizedValue,
                 ChoiceName.assertFromString("TemplateChoice"),
-                ValueUnit,
+                choiceArg,
               )
             )
           )
@@ -1068,7 +1235,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
                 v2TplId,
                 globalContractSKey.toUnnormalizedValue,
                 ChoiceName.assertFromString("TemplateChoice"),
-                ValueUnit,
+                choiceArg,
               ),
             )
           )
@@ -1182,7 +1349,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
   // contract origin, we generate an API command, execute it, and check that the result matches the expected outcome.
   for (testCase <- testCases)
     testCase.templateName - {
-      val testHelper = new TestHelper(testCase.templateName)
+      val testHelper = new TestHelper(testCase)
       for (operation <- operations) {
         operation.name - {
           for (catchBehavior <- catchBehaviors)
@@ -1193,7 +1360,6 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
                     contractOrigin.name - {
                       testHelper
                         .makeApiCommands(
-                          testCase,
                           operation,
                           catchBehavior,
                           entryPoint,
