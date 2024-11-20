@@ -719,7 +719,13 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     override def v2InterfaceChoiceObservers =
       s"""throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "InterfaceChoiceObservers"})"""
   }
-  
+
+  case object ThrowingView extends TestCase("ThrowingView", ExpectUnhandledException) {
+    override def v1View = s"'$commonDefsPkgId':Mod:MyView { value = 0 }"
+    override def v2View =
+      s"""throw @'$commonDefsPkgId':Mod:MyView @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "View"})"""
+  }
+
   val testCases: Seq[TestCase] = List(
     UnchangedPrecondition,
     ChangedPrecondition,
@@ -744,6 +750,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     AdditionalChoices,
     ThrowingInterfaceChoiceControllers,
     ThrowingInterfaceChoiceObservers,
+    ThrowingView,
   )
 
   val templateDefsPkgName = Ref.PackageName.assertFromString("-template-defs-")
@@ -941,6 +948,11 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         contractOrigin: ContractOrigin,
     ): Option[ImmArray[ApiCommand]] = {
 
+      // We first rule out all non-sensical cases, and then proceed to create a command in the most generic way
+      // possible. The good thing about this approach compared to a whitelist is that we won't accidentally forget
+      // some cases. If we forget to blacklist some case, the test will simply fail.
+      // Some of the patterns below are verbose and could be simplified with a pattern guard, but we favor this style
+      // because it is compatible exhaustivness checker.
       (testCase, operation, catchBehavior, entryPoint, contractOrigin) match {
         case (_, Fetch | FetchInterface | FetchByKey | LookupByKey, _, Command, _) =>
           None // There are no fetch* or lookupByKey commands
@@ -954,6 +966,8 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
               _,
             ) =>
           None // ThrowingInterfaceChoice* test cases only makes sense for ExerciseInterface
+        case (ThrowingView, Fetch | FetchByKey | LookupByKey | Exercise | ExerciseByKey, _, _, _) =>
+          None // ThrowingView only makes sense for *Interface operations
         case (_, Exercise, _, Command, Global | Disclosed) =>
           Some(
             ImmArray(
