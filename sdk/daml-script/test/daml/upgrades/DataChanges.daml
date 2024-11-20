@@ -54,6 +54,7 @@ main = tests
   , -}("Fails if an optional field is set when downgrading via interface local contract", templateOptionalFieldsSetWhenDowngradingViaInterfaceLocalContract)
   , ("Fails if an optional field is set when downgrading via interface", templateOptionalFieldsSetWhenDowngradingViaInterfaceDisclosure)
   , ("Fails if an optional field is set when downgrading via interface in a choice body", templateOptionalFieldsSetWhenDowngradingViaInterfaceInsideChoiceDisclosure)
+  , ("Fails if an optional field is set when downgrading via a key exercise in a choice body ", templateOptionalFieldsSetWhenDowngradingViaKeyExercise)
   ]
 
 templateInvalidChange : forall t2 t1 c2. (Template t1, HasEnsure t1, Choice t2 c2 Text) => Bool -> (Party -> t1) -> c2 -> Test
@@ -309,16 +310,52 @@ package: data-changes
 contents: |
   module OptionalFieldsAdded where
 
+  data OptionalFieldsAddedKey = OptionalFieldsAddedKey
+    { party : Party
+    }
+    deriving (Eq, Show)
+
   template OptionalFieldsAdded
     with
       party : Party
       newField : Optional Text                 -- @V  2
     where
       signatory party
+      key (OptionalFieldsAddedKey party) : OptionalFieldsAddedKey
+      maintainer key.party
       choice OptionalFieldsAddedCall : Text
         controller party
         do pure "V1"                           -- @V 1
         do pure "V2"                           -- @V  2
+      choice OptionalFieldsAddedCallWithCtl : Text
+        with
+          ctl: Party
+        controller ctl
+        do pure "V1"                           -- @V 1
+        do pure "V2"                           -- @V  2
+
+  template OptionalFieldsAddedCallHelper
+    with
+      party : Party
+    where
+      signatory party
+      choice OptionalFieldsAddedCallHelperCall : ()
+        with
+          cid : ContractId OptionalFieldsAdded
+          ctl : Party
+        controller ctl
+        do
+          exercise cid (OptionalFieldsAddedCallWithCtl ctl)
+          pure ()
+
+      choice OptionalFieldsAddedCallHelperCallViaKey : ()
+        with
+          k : OptionalFieldsAddedKey
+          ctl : Party
+        controller ctl
+        do
+          exerciseByKey @OptionalFieldsAdded k (OptionalFieldsAddedCallWithCtl ctl)
+          pure ()
 -}
 
 templateOptionalFieldsSetWhenDowngrading : Test
@@ -494,6 +531,36 @@ templateOptionalFieldsSetWhenDowngradingViaInterfaceInsideChoiceDisclosure = tes
 
   disclosure <- fromSome <$> queryDisclosure a cid
   res <- (actAs b <> packagePreference [dataChangesV1] <> disclose disclosure) `trySubmit` createAndExerciseExactCmd (V2.IChoiceBodyCall b) (V2.IChoiceBodyCallChoice cidIface b)
+  case res of
+    Left (DevError Upgrade msg) | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg -> pure ()
+    _ -> assertFail $ "Expected specific failure but got " <> show res
+
+templateOptionalFieldsSetWhenDowngradingViaKeyExercise : Test
+templateOptionalFieldsSetWhenDowngradingViaKeyExercise = test $ do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V1"
+
+  -- Ensure we can only call the V1 choice
+  res <- a `trySubmit` exerciseByKeyExactCmd @V1.OptionalFieldsAdded (V1.OptionalFieldsAddedKey a) V1.OptionalFieldsAddedCall
+
+  case res of
+    Left (DevError Upgrade msg) | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg -> pure ()
+    _ -> assertFail $ "Expected specific failure but got " <> show res
+
+templateOptionalFieldsSetWhenDowngradingViaExerciseInsideChoice : Test
+templateOptionalFieldsSetWhenDowngradingViaExerciseInsideChoice = test $ do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V1"
+  res <- (actAs a <> packagePreference [dataChangesV1]) `trySubmit` createAndExerciseExactCmd (V2.OptionalFieldsAddedCallHelper a) (V2.OptionalFieldsAddedCallHelperCall cid a)
+  case res of
+    Left (DevError Upgrade msg) | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg -> pure ()
+    _ -> assertFail $ "Expected specific failure but got " <> show res
+
+templateOptionalFieldsSetWhenDowngradingViaKeyExerciseInsideChoice : Test
+templateOptionalFieldsSetWhenDowngradingViaKeyExerciseInsideChoice = test $ do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V1"
+  res <- (actAs a <> packagePreference [dataChangesV1]) `trySubmit` createAndExerciseExactCmd (V2.OptionalFieldsAddedCallHelper a) (V2.OptionalFieldsAddedCallHelperCallViaKey (V2.OptionalFieldsAddedKey a) a)
   case res of
     Left (DevError Upgrade msg) | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg -> pure ()
     _ -> assertFail $ "Expected specific failure but got " <> show res
