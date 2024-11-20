@@ -60,7 +60,7 @@ build-options: [{opts}]
             data_dependencies = ", ".join(data_dependencies),
             module_prefixes = "\n".join(["  {}: {}".format(k, v) for k, v in module_prefixes.items()]),
             upgrades = "upgrades: " + upgrades if upgrades and using_local_compiler(target) else "",
-            daml_source = daml_source if daml_source else "."
+            daml_source = daml_source if daml_source else ".",
         ),
     )
 
@@ -98,11 +98,11 @@ _daml_configure = rule(
             doc = "Whether or not to typecheck against the upgraded package.",
         ),
         "daml_source": attr.string(
-            doc = "Source field in daml.yaml."
+            doc = "Source field in daml.yaml.",
         ),
         "force_utility_package": attr.bool(
-            doc = "Force a package to be a utility package (no serializable types). Errors if the package contains templates/interfaces/exceptions."
-        )
+            doc = "Force a package to be a utility package (no serializable types). Errors if the package contains templates/interfaces/exceptions.",
+        ),
     },
 )
 
@@ -196,7 +196,7 @@ _daml_build = rule(
             default = ["--ghc-option=-Werror", "--log-level=WARNING"],
         ),
         "daml_source": attr.string(
-            doc = "Source field in daml.yaml."
+            doc = "Source field in daml.yaml.",
         ),
         "damlc": _damlc,
     },
