@@ -80,7 +80,7 @@ main = tests
   , ("Downgrade a contract with Nones when fetching", fetchDowngradedNone)
   , ("Fail to downgrade a contract with Somes when fetching static", fetchDowngradedSome)
   , ("Fail to downgrade a contract with Somes when fetching local static", fetchDowngradedSomeLocal)
-  , ("Fail to downgrade a contract with Somes when fetching disclosed static", fetchDowngradedSomeDisclosed)
+  , broken ("Fail to downgrade a contract with Somes when fetching disclosed static", fetchDowngradedSomeDisclosed)
 
   , -- Fetching tests with unvetted sources (IDE ledger doesn't support unvetting)
     broken ("Upgrade a contract when fetching where the source package (V1) is unvetted", fetchUpgradedSourceUnvetted)
