@@ -317,7 +317,9 @@ class GrpcErrorParser(majorVersion: LanguageMajorVersion) {
           submitErrors.ContractIdComparability(cid)
         }
       case "INTERPRETATION_UPGRADE_ERROR" =>
-        submitErrors.UpgradeError(message)
+        caseErr { case Seq((ErrorResource.UpgradeErrorType, errorType)) =>
+          submitErrors.UpgradeError(errorType, message)
+        }
       case "INTERPRETATION_DEV_ERROR" =>
         caseErr { case Seq((ErrorResource.DevErrorType, errorType)) =>
           submitErrors.DevError(errorType, message)
