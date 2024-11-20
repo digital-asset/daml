@@ -17,6 +17,7 @@ class SequencerMemberCache(populate: Traced[Member] => Future[Option[RegisteredM
 ) {
   // Using a AsyncLoadingCache seemed to be problematic with ScalaTest and it would rarely not read-through even if empty
   private val cache: Cache[Member, RegisteredMember] = Scaffeine()
+    .executor(executionContext.execute(_))
     .recordStats()
     .build()
 

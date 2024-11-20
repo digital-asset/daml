@@ -848,6 +848,7 @@ class GrpcTopologyManagerReadService(
                   EffectiveTime(SignedTopologyTransaction.InitialTopologySequencingTime)
                 ),
                 stored.transaction,
+                stored.rejectionReason,
               )
             )
           )

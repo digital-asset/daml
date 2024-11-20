@@ -33,6 +33,7 @@ trait CryptoFactory {
   def create(
       config: CryptoConfig,
       storage: Storage,
+      sessionSigningKeysConfig: SessionSigningKeysConfig,
       cryptoPrivateStoreFactory: CryptoPrivateStoreFactory,
       releaseProtocolVersion: ReleaseProtocolVersion,
       timeouts: ProcessingTimeout,
@@ -221,6 +222,7 @@ class CommunityCryptoFactory extends CryptoFactory {
   def create(
       config: CryptoConfig,
       storage: Storage,
+      sessionSigningKeysConfig: SessionSigningKeysConfig,
       cryptoPrivateStoreFactory: CryptoPrivateStoreFactory,
       releaseProtocolVersion: ReleaseProtocolVersion,
       timeouts: ProcessingTimeout,

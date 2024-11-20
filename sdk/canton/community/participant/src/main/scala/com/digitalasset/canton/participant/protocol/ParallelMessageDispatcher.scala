@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.protocol
 import cats.Monoid
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
+import com.digitalasset.canton.ledger.participant.state.Update.SequencerIndexMoved
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
@@ -212,7 +213,14 @@ class ParallelMessageDispatcher(
       }
       // ticking the RecordOrderPublisher asynchronously
       recordOrderPublisherTickF = FutureUnlessShutdown.outcomeF(
-        recordOrderPublisher.tick(sc, ts, eventO = None, requestCounterO = None)
+        recordOrderPublisher.tick(
+          SequencerIndexMoved(
+            domainId = domainId,
+            sequencerCounter = sc,
+            recordTime = ts,
+            requestCounterO = None,
+          )
+        )
       )
     } yield topologyAsync.andThenF(_ => recordOrderPublisherTickF)
 

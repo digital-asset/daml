@@ -261,7 +261,7 @@ class TopologyTransactionAuthorizationValidatorTest
         // we intentionally bootstrap with 2 transactions for the same mapping unique key being effective at the same time,
         // so that we can test that authorization validator can handle such faulty situations and not just break
         val bootstrapTransactions = Seq(ns1k1_k1, ns2k2_k2, dnd1, dnd2).map(
-          StoredTopologyTransaction(SequencedTime.MinValue, EffectiveTime.MinValue, None, _)
+          StoredTopologyTransaction(SequencedTime.MinValue, EffectiveTime.MinValue, None, _, None)
         )
 
         val dnd3 = mkAddMultiKey(

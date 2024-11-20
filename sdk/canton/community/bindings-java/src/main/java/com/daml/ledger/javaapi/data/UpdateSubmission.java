@@ -40,6 +40,8 @@ public final class UpdateSubmission<U> {
   @NonNull private final Optional<Duration> deduplicationDuration;
   @NonNull private final Optional<Long> deduplicationOffset;
   @NonNull private final Optional<String> accessToken;
+  @NonNull private final List<DisclosedContract> disclosedContracts;
+  @NonNull private final List<@NonNull String> packageIdSelectionPreference;
 
   @NonNull private final String domainId;
 
@@ -55,7 +57,9 @@ public final class UpdateSubmission<U> {
       @NonNull Optional<Duration> deduplicationDuration,
       @NonNull Optional<Long> deduplicationOffset,
       @NonNull Optional<String> accessToken,
-      @NonNull String domainId) {
+      @NonNull String domainId,
+      @NonNull List<DisclosedContract> disclosedContracts,
+      @NonNull List<@NonNull String> packageIdSelectionPreference) {
     this.workflowId = workflowId;
     this.applicationId = applicationId;
     this.commandId = commandId;
@@ -68,6 +72,8 @@ public final class UpdateSubmission<U> {
     this.update = update;
     this.accessToken = accessToken;
     this.domainId = domainId;
+    this.disclosedContracts = disclosedContracts;
+    this.packageIdSelectionPreference = packageIdSelectionPreference;
   }
 
   public static <U> UpdateSubmission<U> create(
@@ -84,7 +90,9 @@ public final class UpdateSubmission<U> {
         empty(),
         empty(),
         empty(),
-        "");
+        "",
+        emptyList(),
+        emptyList());
   }
 
   public Optional<String> getWorkflowId() {
@@ -135,6 +143,14 @@ public final class UpdateSubmission<U> {
     return domainId;
   }
 
+  public @NonNull List<DisclosedContract> getDisclosedContracts() {
+    return unmodifiableList(disclosedContracts);
+  }
+
+  public List<String> getPackageIdSelectionPreference() {
+    return unmodifiableList(packageIdSelectionPreference);
+  }
+
   public UpdateSubmission<U> withWorkflowId(String workflowId) {
     return new UpdateSubmission<U>(
         applicationId,
@@ -148,7 +164,9 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId);
+        domainId,
+        disclosedContracts,
+        packageIdSelectionPreference);
   }
 
   public UpdateSubmission<U> withActAs(String actAs) {
@@ -164,7 +182,9 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId);
+        domainId,
+        disclosedContracts,
+        packageIdSelectionPreference);
   }
 
   public UpdateSubmission<U> withActAs(List<@NonNull String> actAs) {
@@ -180,7 +200,9 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId);
+        domainId,
+        disclosedContracts,
+        packageIdSelectionPreference);
   }
 
   public UpdateSubmission<U> withReadAs(List<@NonNull String> readAs) {
@@ -196,7 +218,9 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId);
+        domainId,
+        disclosedContracts,
+        packageIdSelectionPreference);
   }
 
   public UpdateSubmission<U> withMinLedgerTimeAbs(Optional<Instant> minLedgerTimeAbs) {
@@ -212,7 +236,9 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId);
+        domainId,
+        disclosedContracts,
+        packageIdSelectionPreference);
   }
 
   public UpdateSubmission<U> withMinLedgerTimeRel(Optional<Duration> minLedgerTimeRel) {
@@ -228,7 +254,9 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId);
+        domainId,
+        disclosedContracts,
+        packageIdSelectionPreference);
   }
 
   public UpdateSubmission<U> withDeduplicationDuration(Optional<Duration> deduplicationDuration) {
@@ -244,7 +272,9 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId);
+        domainId,
+        disclosedContracts,
+        packageIdSelectionPreference);
   }
 
   public UpdateSubmission<U> withDeduplicationOffset(Optional<Long> deduplicationOffset) {
@@ -260,7 +290,9 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId);
+        domainId,
+        disclosedContracts,
+        packageIdSelectionPreference);
   }
 
   public UpdateSubmission<U> withAccessToken(Optional<String> accessToken) {
@@ -276,7 +308,9 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId);
+        domainId,
+        disclosedContracts,
+        packageIdSelectionPreference);
   }
 
   public UpdateSubmission<U> withDomainId(String domanId) {
@@ -292,7 +326,47 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId);
+        domainId,
+        disclosedContracts,
+        packageIdSelectionPreference);
+  }
+
+  public UpdateSubmission<U> withDisclosedContracts(
+      List<@NonNull DisclosedContract> disclosedContracts) {
+    return new UpdateSubmission<U>(
+        applicationId,
+        commandId,
+        update,
+        actAs,
+        readAs,
+        workflowId,
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationDuration,
+        deduplicationOffset,
+        accessToken,
+        domainId,
+        disclosedContracts,
+        packageIdSelectionPreference);
+  }
+
+  public UpdateSubmission<U> withPackageIdSelectionPreference(
+      List<@NonNull String> packageIdSelectionPreference) {
+    return new UpdateSubmission<U>(
+        applicationId,
+        commandId,
+        update,
+        actAs,
+        readAs,
+        workflowId,
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationDuration,
+        deduplicationOffset,
+        accessToken,
+        domainId,
+        disclosedContracts,
+        packageIdSelectionPreference);
   }
 
   public CommandsSubmission toCommandsSubmission() {
@@ -310,6 +384,7 @@ public final class UpdateSubmission<U> {
         empty(),
         emptyList(),
         domainId,
-        accessToken);
+        accessToken,
+        packageIdSelectionPreference);
   }
 }

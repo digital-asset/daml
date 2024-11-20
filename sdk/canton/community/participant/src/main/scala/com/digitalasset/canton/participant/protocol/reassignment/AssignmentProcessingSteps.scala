@@ -13,10 +13,9 @@ import com.digitalasset.canton.data.*
 import com.digitalasset.canton.data.ViewType.AssignmentViewType
 import com.digitalasset.canton.ledger.participant.state.{
   CompletionInfo,
-  DomainIndex,
   Reassignment,
   ReassignmentInfo,
-  RequestIndex,
+  SequencedUpdate,
   Update,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -682,7 +681,9 @@ private[reassignment] class AssignmentProcessingSteps(
       hostedStakeholders: List[LfPartyId],
       requestCounter: RequestCounter,
       requestSequencerCounter: SequencerCounter,
-  )(implicit traceContext: TraceContext): EitherT[Future, ReassignmentProcessorError, Update] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, ReassignmentProcessorError, SequencedUpdate] = {
     val targetDomain = domainId
     val contractInst = contract.contractInstance.unversioned
     val createNode: LfNodeCreate =
@@ -716,14 +717,12 @@ private[reassignment] class AssignmentProcessingSteps(
             commandId = submitterMetadata.commandId,
             optDeduplicationPeriod = None,
             submissionId = submitterMetadata.submissionId,
-            messageUuid = None,
           )
         )
-    } yield Update.ReassignmentAccepted(
+    } yield Update.SequencedReassignmentAccepted(
       optCompletionInfo = completionInfo,
       workflowId = submitterMetadata.workflowId,
       updateId = updateId,
-      recordTime = recordTime.toLf,
       reassignmentInfo = ReassignmentInfo(
         sourceDomain = reassignmentId.sourceDomain,
         targetDomain = targetDomain,
@@ -738,15 +737,9 @@ private[reassignment] class AssignmentProcessingSteps(
         createNode = createNode,
         contractMetadata = driverContractMetadata,
       ),
-      domainIndex = Some(
-        DomainIndex.of(
-          RequestIndex(
-            counter = requestCounter,
-            sequencerCounter = Some(requestSequencerCounter),
-            timestamp = recordTime,
-          )
-        )
-      ),
+      requestCounter = requestCounter,
+      sequencerCounter = requestSequencerCounter,
+      recordTime = recordTime,
     )
   }
 

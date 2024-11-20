@@ -240,6 +240,7 @@ final case class RetentionPeriodDefaults(
   * @param manualStart  If set to true, the nodes have to be manually started via console (default false)
   * @param startupParallelism Start up to N nodes in parallel (default is num-threads)
   * @param nonStandardConfig don't fail config validation on non-standard configuration settings
+  * @param sessionSigningKeys Configure the use of session signing keys in the protocol
   * @param alphaVersionSupport If true, allow domain nodes to use alpha protocol versions and participant nodes to connect to such domains
   * @param betaVersionSupport If true, allow domain nodes to use beta protocol versions and participant nodes to connect to such domains
   * @param timeouts Sets the timeouts used for processing and console
@@ -253,6 +254,7 @@ final case class CantonParameters(
     startupParallelism: Option[PositiveInt] = None,
     // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
     nonStandardConfig: Boolean = true,
+    sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
     // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
     alphaVersionSupport: Boolean = true,
     betaVersionSupport: Boolean = false,
@@ -373,7 +375,6 @@ trait CantonConfig {
       val participantParameters = participantConfig.parameters
       ParticipantNodeParameters(
         general = CantonNodeParameterConverter.general(this, participantConfig),
-        partyChangeNotification = participantParameters.partyChangeNotification,
         adminWorkflow = participantParameters.adminWorkflow,
         maxUnzippedDarSize = participantParameters.maxUnzippedDarSize,
         stores = participantParameters.stores,
@@ -381,6 +382,7 @@ trait CantonConfig {
           participantParameters.reassignmentTimeProofFreshnessProportion,
         protocolConfig = ParticipantProtocolConfig(
           minimumProtocolVersion = participantParameters.minimumProtocolVersion.map(_.unwrap),
+          sessionSigningKeys = participantParameters.sessionSigningKeys,
           alphaVersionSupport = participantParameters.alphaVersionSupport,
           betaVersionSupport = participantParameters.betaVersionSupport,
           dontWarnOnDeprecatedPV = participantParameters.dontWarnOnDeprecatedPV,
@@ -526,6 +528,7 @@ private[canton] object CantonNodeParameterConverter {
 
   def protocol(parent: CantonConfig, config: ProtocolConfig): CantonNodeParameters.Protocol =
     CantonNodeParameters.Protocol.Impl(
+      sessionSigningKeys = config.sessionSigningKeys,
       alphaVersionSupport = parent.parameters.alphaVersionSupport || config.alphaVersionSupport,
       betaVersionSupport = parent.parameters.betaVersionSupport || config.betaVersionSupport,
       dontWarnOnDeprecatedPV = config.dontWarnOnDeprecatedPV,
@@ -974,22 +977,15 @@ object CantonConfig {
       deriveReader[ProcessingTimeout]
     lazy implicit val timeoutSettingsReader: ConfigReader[TimeoutSettings] =
       deriveReader[TimeoutSettings]
-
-    lazy implicit val partyNotificationConfigReader: ConfigReader[PartyNotificationConfig] = {
-      implicit val partyNotificationConfigViaDomainReader
-          : ConfigReader[PartyNotificationConfig.ViaDomain.type] =
-        deriveReader[PartyNotificationConfig.ViaDomain.type]
-      implicit val partyNotificationConfigEagerReader
-          : ConfigReader[PartyNotificationConfig.Eager.type] =
-        deriveReader[PartyNotificationConfig.Eager.type]
-      deriveReader[PartyNotificationConfig]
-    }
     lazy implicit val cacheConfigReader: ConfigReader[CacheConfig] =
       deriveReader[CacheConfig]
     lazy implicit val cacheConfigWithTimeoutReader: ConfigReader[CacheConfigWithTimeout] =
       deriveReader[CacheConfigWithTimeout]
-    lazy implicit val sessionKeyCacheConfigReader: ConfigReader[SessionKeyCacheConfig] =
-      deriveReader[SessionKeyCacheConfig]
+    lazy implicit val sessionSigningKeysConfigReader: ConfigReader[SessionSigningKeysConfig] =
+      deriveReader[SessionSigningKeysConfig]
+    lazy implicit val sessionEncryptionKeyCacheConfigReader
+        : ConfigReader[SessionEncryptionKeyCacheConfig] =
+      deriveReader[SessionEncryptionKeyCacheConfig]
     lazy implicit val cachingConfigsReader: ConfigReader[CachingConfigs] =
       deriveReader[CachingConfigs]
     lazy implicit val adminWorkflowConfigReader: ConfigReader[AdminWorkflowConfig] =
@@ -1419,20 +1415,15 @@ object CantonConfig {
       deriveWriter[ProcessingTimeout]
     lazy implicit val timeoutSettingsWriter: ConfigWriter[TimeoutSettings] =
       deriveWriter[TimeoutSettings]
-    lazy implicit val partyNotificationConfigViaDomainWriter
-        : ConfigWriter[PartyNotificationConfig.ViaDomain.type] =
-      deriveWriter[PartyNotificationConfig.ViaDomain.type]
-    lazy implicit val partyNotificationConfigEagerWriter
-        : ConfigWriter[PartyNotificationConfig.Eager.type] =
-      deriveWriter[PartyNotificationConfig.Eager.type]
-    lazy implicit val partyNotificationConfigWriter: ConfigWriter[PartyNotificationConfig] =
-      deriveWriter[PartyNotificationConfig]
     lazy implicit val cacheConfigWriter: ConfigWriter[CacheConfig] =
       deriveWriter[CacheConfig]
     lazy implicit val cacheConfigWithTimeoutWriter: ConfigWriter[CacheConfigWithTimeout] =
       deriveWriter[CacheConfigWithTimeout]
-    lazy implicit val sessionKeyCacheConfigWriter: ConfigWriter[SessionKeyCacheConfig] =
-      deriveWriter[SessionKeyCacheConfig]
+    lazy implicit val sessionSigningKeysConfigWriter: ConfigWriter[SessionSigningKeysConfig] =
+      deriveWriter[SessionSigningKeysConfig]
+    lazy implicit val sessionEncryptionKeyCacheConfigWriter
+        : ConfigWriter[SessionEncryptionKeyCacheConfig] =
+      deriveWriter[SessionEncryptionKeyCacheConfig]
     lazy implicit val cachingConfigsWriter: ConfigWriter[CachingConfigs] =
       deriveWriter[CachingConfigs]
     lazy implicit val adminWorkflowConfigWriter: ConfigWriter[AdminWorkflowConfig] =

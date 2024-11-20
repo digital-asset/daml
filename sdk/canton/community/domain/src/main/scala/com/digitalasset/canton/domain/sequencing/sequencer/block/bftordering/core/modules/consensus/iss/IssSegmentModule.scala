@@ -101,20 +101,47 @@ class IssSegmentModule[E <: Env[E]](
 
     consensusMessage match {
       case ConsensusSegment.Start =>
-        val (prepares, viewMessages) = SegmentInProgress.rehydrationMessages(
-          segmentState.segment,
-          epochInProgress,
-        )
-        (prepares ++ viewMessages.dropRight(1)).foreach { prepare =>
-          segmentState.processEvent(PbftSignedNetworkMessage(prepare)).discard
-        }
-        viewMessages.lastOption.foreach { msg =>
-          processPbftEvent(
-            PbftSignedNetworkMessage(msg),
-            storeMessages =
-              false, // we don't want to store again messages as part of rehydration (but we do want to potentially resend)
-          )
-        }
+        val rehydrationMessages =
+          SegmentInProgress.rehydrationMessages(segmentState.segment, epochInProgress)
+
+        def processOldViewEvent(event: ConsensusSegment.ConsensusMessage.PbftEvent): Unit =
+          // we don't want to send or store any messages as part of rehydrating old views
+          // the main purpose here is simply to populate prepare certificates that may be used in future view changes
+          segmentState.processEvent(event).discard
+
+        def processCurrentViewMessages(
+            pbftEvent: ConsensusSegment.ConsensusMessage.PbftEvent
+        ): Unit =
+          // for the latest view, we don't want to store again messages as part of rehydration,
+          // but we do want to make sure we send (this could potentially resend but that's OK)
+          processPbftEvent(pbftEvent, storeMessages = false)
+
+        def rehydrateMessages(
+            messages: Seq[SignedMessage[ConsensusSegment.ConsensusMessage.PbftNetworkMessage]],
+            process: ConsensusSegment.ConsensusMessage.PbftEvent => Unit,
+        ): Unit =
+          messages.foreach { msg =>
+            process(PbftSignedNetworkMessage(msg))
+
+            // Restore the in-memory state about these messages having already been stored (since they come from storage in the first place)
+            msg match {
+              case SignedMessage(pp: ConsensusSegment.ConsensusMessage.PrePrepare, _) =>
+                process(pp.stored)
+                rehydrationMessages
+                  .preparesStoredForBlockAtViewNumber(pp.blockMetadata, pp.viewNumber)
+                  .foreach(process)
+              case SignedMessage(nv: ConsensusSegment.ConsensusMessage.NewView, _) =>
+                process(nv.stored)
+                rehydrationMessages
+                  .preparesStoredForViewNumber(nv.viewNumber)
+                  .foreach(process)
+              case _ => ()
+            }
+          }
+
+        rehydrateMessages(rehydrationMessages.prepares, processOldViewEvent)
+        rehydrateMessages(rehydrationMessages.oldViewsMessages, processOldViewEvent)
+        rehydrateMessages(rehydrationMessages.currentViewMessages, processCurrentViewMessages)
 
         logger.info(
           s"Received `Start` message, segment ${segmentState.segment} is complete = ${segmentState.isSegmentComplete}, " +
@@ -289,10 +316,7 @@ class IssSegmentModule[E <: Env[E]](
                   .map(_.batchId)}"
             )
             sendMsg()
-            Some(
-              ConsensusSegment.ConsensusMessage
-                .PrePrepareStored(prePrepare.message.blockMetadata, prePrepare.message.viewNumber)
-            )
+            Some(prePrepare.message.stored)
         }
       case StorePrepares(prepares) =>
         context.pipeToSelf(epochStore.addPrepares(prepares)) {
@@ -369,7 +393,8 @@ class IssSegmentModule[E <: Env[E]](
       case ViewChangeCompleted(blockMetadata, viewNumber, storeOption) =>
         logger.debug(s"View change completed; metadata: $blockMetadata, view: $viewNumber")
         viewChangeTimeoutManager.scheduleTimeout(PbftNormalTimeout(blockMetadata, viewNumber))
-        storeOption.foreach(storeResult => handleStore(storeResult, () => ()))
+        if (storeMessages)
+          storeOption.foreach(storeResult => handleStore(storeResult, () => ()))
     }
   }
 

@@ -60,7 +60,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
         : TopologyTransactionLike[TopologyChangeOp, TopologyMapping] = transaction
 
     def toStoredTransaction: StoredTopologyTransaction[TopologyChangeOp, TopologyMapping] =
-      StoredTopologyTransaction(sequenced, from, until, transaction)
+      StoredTopologyTransaction(sequenced, from, until, transaction, rejected)
   }
 
   private val topologyTransactionStore = ArrayBuffer[TopologyStoreEntry]()
@@ -201,7 +201,9 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
     }
     Future.successful(
       StoredTopologyTransactions(
-        entries.map(e => StoredTopologyTransaction(e.sequenced, e.from, e.until, e.transaction))
+        entries.map(e =>
+          StoredTopologyTransaction(e.sequenced, e.from, e.until, e.transaction, e.rejected)
+        )
       )
     )
   }
@@ -448,11 +450,10 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
         topologyTransactionStore.toSeq
       }),
       entry => entry.sequenced <= asOfInclusive,
+      includeRejected = true,
     ).map(
       // 2. transform the result such that the validUntil fields are set as they were at maxEffective time of the snapshot
       _.asSnapshotAtMaxEffectiveTime
-        // and remove proposals that have been superseded by full authorized transactions
-        .retainAuthorizedHistoryAndEffectiveProposals
     )
 
   /** store an initial set of topology transactions as given into the store */

@@ -5,7 +5,7 @@ package com.digitalasset.canton.ledger.participant.state
 
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.tracing.TraceContext
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicReference
 trait InternalStateService {
   def activeContracts(
       partyIds: Set[LfPartyId],
-      validAt: Offset,
+      validAt: Option[AbsoluteOffset],
   )(implicit traceContext: TraceContext): Source[GetActiveContractsResponse, NotUsed]
 }
 

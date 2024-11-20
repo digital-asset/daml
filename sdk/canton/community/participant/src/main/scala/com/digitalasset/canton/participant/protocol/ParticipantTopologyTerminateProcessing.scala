@@ -6,7 +6,8 @@ package com.digitalasset.canton.participant.protocol
 import com.digitalasset.canton.config.RequireTypes.NegativeLong
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.participant.state.{DomainIndex, SequencerIndex, Update}
+import com.digitalasset.canton.ledger.participant.state.Update
+import com.digitalasset.canton.ledger.participant.state.Update.SequencerIndexMoved
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.topology.DomainId
@@ -51,10 +52,16 @@ class ParticipantTopologyTerminateProcessing(
       _ <-
         // TODO(i21243) This is a rudimentary first approach, and only proper if epsilon is 0
         recordOrderPublisher.tick(
-          sc,
-          sequencedTime.value,
-          events.events.headOption.map(_ => events),
-          requestCounterO = None,
+          Option
+            .when(events.events.nonEmpty)(events)
+            .getOrElse(
+              SequencerIndexMoved(
+                domainId = domainId,
+                sequencerCounter = sc,
+                recordTime = sequencedTime.value,
+                requestCounterO = None,
+              )
+            )
         )
     } yield ()
 
@@ -90,11 +97,10 @@ class ParticipantTopologyTerminateProcessing(
     } yield Update.TopologyTransactionEffective(
       updateId = randomUpdateId,
       events = TopologyTransactionDiff(before.signedTransactions, after.signedTransactions),
-      // TODO(i21243) Use effective time when emitting with delay
-      recordTime = sequencedTime.toLf,
       domainId = domainId,
+      sequencerCounter = sc,
       // TODO(i21243) Use effective time when emitting with delay
-      domainIndex = DomainIndex.of(SequencerIndex(sc, sequencedTime.value)),
+      recordTime = sequencedTime.value,
     )
   }
 

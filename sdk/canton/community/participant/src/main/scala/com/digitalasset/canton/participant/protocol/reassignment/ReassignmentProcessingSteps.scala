@@ -19,12 +19,7 @@ import com.digitalasset.canton.data.{
   ViewType,
 }
 import com.digitalasset.canton.error.TransactionError
-import com.digitalasset.canton.ledger.participant.state.{
-  CompletionInfo,
-  DomainIndex,
-  RequestIndex,
-  Update,
-}
+import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, SequencedUpdate, Update}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLogging, TracedLogger}
@@ -40,11 +35,7 @@ import com.digitalasset.canton.participant.protocol.ProtocolProcessor.{
 }
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.EncryptedViewMessageCreationError
-import com.digitalasset.canton.participant.protocol.{
-  ProcessingSteps,
-  ProtocolProcessor,
-  SubmissionTracker,
-}
+import com.digitalasset.canton.participant.protocol.{ProcessingSteps, ProtocolProcessor}
 import com.digitalasset.canton.participant.store.ReassignmentStore.ReassignmentStoreError
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.participant.util.DAMLe
@@ -268,7 +259,7 @@ trait ReassignmentProcessingSteps[
       error: TransactionError,
   )(implicit
       traceContext: TraceContext
-  ): (Option[Update], Option[PendingSubmissionId]) = {
+  ): (Option[SequencedUpdate], Option[PendingSubmissionId]) = {
     val rejection = Update.CommandRejected.FinalReason(error.rpcStatus())
     val isSubmittingParticipant = submitterMetadata.submittingParticipant == participantId
 
@@ -278,23 +269,15 @@ trait ReassignmentProcessingSteps[
       commandId = submitterMetadata.commandId,
       optDeduplicationPeriod = None,
       submissionId = None,
-      messageUuid = None,
     )
     val updateO = Option.when(isSubmittingParticipant)(
-      Update.CommandRejected(
-        ts.toLf,
+      Update.SequencedCommandRejected(
         completionInfo,
         rejection,
         domainId.unwrap,
-        Some(
-          DomainIndex.of(
-            RequestIndex(
-              counter = rc,
-              sequencerCounter = Some(sc),
-              timestamp = ts,
-            )
-          )
-        ),
+        rc,
+        sc,
+        ts,
       )
     )
     (updateO, rootHash.some)
@@ -302,7 +285,7 @@ trait ReassignmentProcessingSteps[
 
   override def createRejectionEvent(rejectionArgs: RejectionArgs)(implicit
       traceContext: TraceContext
-  ): Either[ReassignmentProcessorError, Option[Update]] = {
+  ): Either[ReassignmentProcessorError, Option[SequencedUpdate]] = {
 
     val RejectionArgs(pendingReassignment, rejectionReason) = rejectionArgs
     val isSubmittingParticipant =
@@ -315,40 +298,26 @@ trait ReassignmentProcessingSteps[
         commandId = pendingReassignment.submitterMetadata.commandId,
         optDeduplicationPeriod = None,
         submissionId = pendingReassignment.submitterMetadata.submissionId,
-        messageUuid = None,
       )
     )
 
     rejectionReason.logWithContext(Map("requestId" -> pendingReassignment.requestId.toString))
     val rejection = Update.CommandRejected.FinalReason(rejectionReason.reason())
     val updateO = completionInfoO.map(info =>
-      Update.CommandRejected(
-        pendingReassignment.requestId.unwrap.toLf,
+      Update.SequencedCommandRejected(
         info,
         rejection,
         domainId.unwrap,
-        Some(
-          DomainIndex.of(
-            RequestIndex(
-              counter = pendingReassignment.requestCounter,
-              sequencerCounter = Some(pendingReassignment.requestSequencerCounter),
-              timestamp = pendingReassignment.requestId.unwrap,
-            )
-          )
-        ),
+        pendingReassignment.requestCounter,
+        pendingReassignment.requestSequencerCounter,
+        pendingReassignment.requestId.unwrap,
       )
     )
     Right(updateO)
   }
 
-  override def getSubmitterInformation(
-      views: Seq[DecryptedView]
-  ): (Option[ViewSubmitterMetadata], Option[SubmissionTracker.SubmissionData]) = {
-    val submitterMetadataO = views.map(_.submitterMetadata).headOption
-    val submissionDataForTrackerO = None // Currently not used for reassignments
-
-    (submitterMetadataO, submissionDataForTrackerO)
-  }
+  override def getSubmitterInformation(views: Seq[DecryptedView]): Option[ViewSubmitterMetadata] =
+    views.map(_.submitterMetadata).headOption
 
   case class ReassignmentsSubmission(
       override val batch: Batch[DefaultOpenEnvelope],

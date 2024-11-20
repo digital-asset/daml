@@ -4,6 +4,8 @@
 package com.digitalasset.canton.store
 
 import cats.data.{EitherT, OptionT}
+import com.digitalasset.canton.caching.ScaffeineCache
+import com.digitalasset.canton.caching.ScaffeineCache.TracedAsyncLoadingCache
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.{CacheConfig, ProcessingTimeout}
@@ -13,8 +15,7 @@ import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.store.db.DbIndexedStringStore
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.canton.tracing.{TraceContext, TracedAsyncLoadingCache, TracedScaffeine}
-import com.github.blemale.scaffeine.Scaffeine
+import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 import slick.jdbc.{PositionedParameters, SetParameter}
 
@@ -165,10 +166,8 @@ class IndexedStringCache(
 
   private val str2Index
       : TracedAsyncLoadingCache[FutureUnlessShutdown, (String300, IndexedStringType), Int] =
-    TracedScaffeine.buildTracedAsync[FutureUnlessShutdown, (String300, IndexedStringType), Int](
-      cache = Scaffeine()
-        .maximumSize(config.maximumSize.value)
-        .expireAfterAccess(config.expireAfterAccess.underlying),
+    ScaffeineCache.buildTracedAsync[FutureUnlessShutdown, (String300, IndexedStringType), Int](
+      cache = config.buildScaffeine(),
       loader = implicit tc => { case (str, typ) =>
         parent
           .getOrCreateIndex(typ, str)
@@ -182,11 +181,9 @@ class IndexedStringCache(
   // (index,typ)
   private val index2strFUS
       : TracedAsyncLoadingCache[FutureUnlessShutdown, (Int, IndexedStringType), Option[String300]] =
-    TracedScaffeine
+    ScaffeineCache
       .buildTracedAsync[FutureUnlessShutdown, (Int, IndexedStringType), Option[String300]](
-        cache = Scaffeine()
-          .maximumSize(config.maximumSize.value)
-          .expireAfterAccess(config.expireAfterAccess.underlying),
+        cache = config.buildScaffeine(),
         loader = implicit tc => { case (idx, typ) =>
           parent
             .getForIndex(typ, idx)

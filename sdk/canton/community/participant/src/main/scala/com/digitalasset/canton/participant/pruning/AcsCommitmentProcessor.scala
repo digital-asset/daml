@@ -597,20 +597,19 @@ class AcsCommitmentProcessor private (
               _ = logger.debug(
                 show"Commitment messages for $completedPeriod: ${msgs.fmap(_.commitment)}"
               )
-              _ <- FutureUnlessShutdown.outcomeF(storeCommitments(msgs))
+              _ <- storeCommitments(msgs)
               _ = logger.debug(
                 s"Computed and stored ${msgs.size} commitment messages for period $completedPeriod"
               )
-              _ <- FutureUnlessShutdown.outcomeF(
-                store.markOutstanding(completedPeriod, msgs.keySet)
-              )
-              _ <- FutureUnlessShutdown.outcomeF(persistRunningCommitments(snapshotRes))
+              _ <- store.markOutstanding(completedPeriod, msgs.keySet)
+
+              _ <- persistRunningCommitments(snapshotRes)
             } yield {
               sendCommitmentMessages(completedPeriod, msgs)
             }
           } else FutureUnlessShutdown.unit
 
-        _ <- FutureUnlessShutdown.outcomeF {
+        _ <-
           if (catchingUpInProgress) {
             for {
               _ <-
@@ -624,12 +623,11 @@ class AcsCommitmentProcessor private (
                     // if a mismatch appears after catch-up
                     runningCmtSnapshotsForCatchUp += completedPeriod -> snapshotRes.active
                   }
-                } else Future.unit
+                } else FutureUnlessShutdown.unit
               // mark the period as processed during catch-up
               _ = endOfLastProcessedPeriodDuringCatchUp = Some(completedPeriod.toInclusive)
             } yield ()
-          } else Future.unit
-        }
+          } else FutureUnlessShutdown.unit
 
         _ <-
           if (!catchingUpInProgress) {
@@ -637,7 +635,7 @@ class AcsCommitmentProcessor private (
             indicateReadyForRemote(completedPeriod.toInclusive)
             for {
               _ <- processBuffered(completedPeriod.toInclusive, endExclusive = false)
-              _ <- FutureUnlessShutdown.outcomeF(indicateLocallyProcessed(completedPeriod))
+              _ <- indicateLocallyProcessed(completedPeriod)
             } yield ()
           } else FutureUnlessShutdown.unit
 
@@ -658,7 +656,7 @@ class AcsCommitmentProcessor private (
               // Ignore the buffered commitment at the boundary
               _ <- processBuffered(completedPeriod.toInclusive, endExclusive = true)
               // *After the above check* (the order matters), mark all reconciliation intervals as locally processed.
-              _ <- FutureUnlessShutdown.outcomeF(indicateLocallyProcessed(completedPeriod))
+              _ <- indicateLocallyProcessed(completedPeriod)
               // clear the commitment snapshot in memory once we caught up
               _ = runningCmtSnapshotsForCatchUp.clear()
               _ = cachedCommitmentsForRetroactiveSends.clear()
@@ -839,7 +837,7 @@ class AcsCommitmentProcessor private (
       )
     } yield ()
 
-    FutureUtil.logOnFailureUnlessShutdown(
+    FutureUnlessShutdownUtil.logOnFailureUnlessShutdown(
       future,
       failureMessage = s"Failed to process incoming commitment.",
       onFailure = _ => {
@@ -991,7 +989,7 @@ class AcsCommitmentProcessor private (
 
   private def persistRunningCommitments(
       res: CommitmentSnapshot
-  )(implicit traceContext: TraceContext): Future[Unit] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     store.runningCommitments
       .update(res.recordTime, res.delta, res.deleted)
       .map(_ => logger.debug(s"Persisted ACS commitments at ${res.recordTime}"))
@@ -1003,7 +1001,7 @@ class AcsCommitmentProcessor private (
     */
   private def persistCatchUpPeriod(period: CommitmentPeriod)(implicit
       traceContext: TraceContext
-  ): Future[Unit] = {
+  ): FutureUnlessShutdown[Unit] = {
     val catchUpCmt = mkCommitment(participantId, AcsCommitmentProcessor.emptyCommitment, period)
     storeCommitments(Map(participantId -> catchUpCmt))
   }
@@ -1036,7 +1034,7 @@ class AcsCommitmentProcessor private (
   @VisibleForTesting
   private[pruning] def indicateLocallyProcessed(
       period: CommitmentPeriod
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     endOfLastProcessedPeriod = Some(period.toInclusive)
     for {
       // mark that we're done with processing this period; safe to do at any point after the commitment has been sent
@@ -1226,7 +1224,7 @@ class AcsCommitmentProcessor private (
         // check if we were in a catch-up phase
         possibleCatchUp <- isCatchUpPeriod(cmt.period)
         lastPruningTime <- store.pruningStatus
-        _ <- FutureUnlessShutdown.outcomeF {
+        _ <-
           if (matches(cmt, commitments, lastPruningTime.map(_.timestamp), possibleCatchUp)) {
             store.markSafe(
               cmt.sender,
@@ -1240,7 +1238,7 @@ class AcsCommitmentProcessor private (
               sortedReconciliationIntervalsProvider,
             )
           }
-        }
+
       } yield ()
     }
   }
@@ -1264,11 +1262,9 @@ class AcsCommitmentProcessor private (
     )
     for {
       // retrieve commitments computed at catch-up boundary
-      computed <- FutureUnlessShutdown.outcomeF(
-        store.searchComputedBetween(
-          completedPeriod.fromExclusive.forgetRefinement,
-          completedPeriod.toInclusive.forgetRefinement,
-        )
+      computed <- store.searchComputedBetween(
+        completedPeriod.fromExclusive.forgetRefinement,
+        completedPeriod.toInclusive.forgetRefinement,
       )
 
       intervals <- sortedReconciliationIntervalsProvider.computeReconciliationIntervalsCovering(
@@ -1282,12 +1278,10 @@ class AcsCommitmentProcessor private (
             s"Processing own commitment $cmt for period $period and counter-participant $counterParticipant"
           )
           for {
-            counterCommitmentList <- FutureUnlessShutdown.outcomeF(
-              store.queue.peekOverlapsForCounterParticipant(
-                period,
-                counterParticipant,
-              )(traceContext)
-            )
+            counterCommitmentList <- store.queue.peekOverlapsForCounterParticipant(
+              period,
+              counterParticipant,
+            )(traceContext)
 
             lastPruningTime <- store.pruningStatus
 
@@ -1315,17 +1309,15 @@ class AcsCommitmentProcessor private (
             )
 
             // we mark safe all matching counter-commitments
-            _ <- FutureUnlessShutdown.outcomeF {
-              matching.parTraverse_ { counterCommitment =>
-                logger.debug(
-                  s"Marked as safe commitment $cmt against counterComm $counterCommitment"
-                )
-                store.markSafe(
-                  counterCommitment.sender,
-                  counterCommitment.period,
-                  sortedReconciliationIntervalsProvider,
-                )
-              }
+            _ <- matching.parTraverse_ { counterCommitment =>
+              logger.debug(
+                s"Marked as safe commitment $cmt against counterComm $counterCommitment"
+              )
+              store.markSafe(
+                counterCommitment.sender,
+                counterCommitment.period,
+                sortedReconciliationIntervalsProvider,
+              )
             }
 
             // if there is a mismatch, send all fine-grained commitments between `lastSentCatchUpCommitmentTimestamp`
@@ -1443,7 +1435,7 @@ class AcsCommitmentProcessor private (
               }
             case None => completedPeriodTimestamp
           }
-          comm <- FutureUnlessShutdown.outcomeF(store.queue.peekThroughAtOrAfter(catchUpTimestamp))
+          comm <- store.queue.peekThroughAtOrAfter(catchUpTimestamp)
         } yield {
           if (comm.nonEmpty) catchUpTimestamp
           else completedPeriodTimestamp
@@ -1454,11 +1446,11 @@ class AcsCommitmentProcessor private (
   /** Store the computed commitments of the commitment messages */
   private def storeCommitments(
       msgs: Map[ParticipantId, AcsCommitment]
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val items = msgs.map { case (pid, msg) =>
       AcsCommitmentStore.CommitmentData(pid, msg.period, msg.commitment)
     }
-    NonEmpty.from(items.toList).fold(Future.unit)(store.storeComputed(_))
+    NonEmpty.from(items.toList).fold(FutureUnlessShutdown.unit)(store.storeComputed(_))
   }
 
   /** Send the computed commitment messages */
@@ -1484,7 +1476,7 @@ class AcsCommitmentProcessor private (
       performUnlessClosingUSF(functionFullName) {
         def message = s"Failed to send commitment message batch for period $period"
         val cryptoSnapshot = domainCrypto.currentSnapshotApproximation
-        FutureUtil.logOnFailureUnlessShutdown(
+        FutureUnlessShutdownUtil.logOnFailureUnlessShutdown(
           for {
             batchForm <- msgs.toSeq.parTraverse { case (participant, commitment) =>
               SignedProtocolMessage
@@ -1522,7 +1514,7 @@ class AcsCommitmentProcessor private (
     }
 
     if (msgs.nonEmpty) {
-      FutureUtil
+      FutureUnlessShutdownUtil
         .logOnFailureUnlessShutdown(
           clock
             .scheduleAfter(
@@ -1633,7 +1625,7 @@ class AcsCommitmentProcessor private (
               case (counterParticipant, cmt) if LtHash16.isNonEmptyCommitment(cmt) =>
                 counterParticipant -> mkCommitment(counterParticipant, cmt, period)
             }
-          _ <- FutureUnlessShutdown.outcomeF(storeCommitments(msgs))
+          _ <- storeCommitments(msgs)
           // TODO(i15333) batch more commitments and handle the case when we reach the maximum message limit.
           _ = sendCommitmentMessages(period, msgs)
         } yield ()
@@ -1646,10 +1638,10 @@ class AcsCommitmentProcessor private (
     Lifecycle.close(dbQueue, publishQueue)(logger)
 
   @VisibleForTesting
-  private[pruning] def flush(): Future[Unit] =
+  private[pruning] def flush(): FutureUnlessShutdown[Unit] =
     // flatMap instead of zip because the `publishQueue` pushes tasks into the `queue`,
     // so we must call `queue.flush()` only after everything in the `publishQueue` has been flushed.
-    publishQueue.flush().flatMap(_ => dbQueue.flush())
+    FutureUnlessShutdown.outcomeF(publishQueue.flush().flatMap(_ => dbQueue.flush()))
 
   private[canton] class AcsCommitmentProcessorHealth(
       override val name: String,
@@ -1719,8 +1711,8 @@ object AcsCommitmentProcessor extends HasLoggerName {
           s"Initialized from stored snapshot at ${runningCommitments.watermark} (might be incomplete)."
         )
       } yield (lastComputed, runningCommitments)
-      FutureUtil.logOnFailureUnlessShutdown(
-        FutureUnlessShutdown.outcomeF(executed),
+      FutureUnlessShutdownUtil.logOnFailureUnlessShutdown(
+        executed,
         "Failed to initialize the ACS commitment processor.",
         logPassiveInstanceAtInfo = true,
       )
@@ -1771,7 +1763,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
   @VisibleForTesting
   private[pruning] def initRunningCommitments(
       store: AcsCommitmentStore
-  )(implicit ec: ExecutionContext): Future[RunningCommitments] =
+  )(implicit ec: ExecutionContext): FutureUnlessShutdown[RunningCommitments] =
     store.runningCommitments.get()(TraceContext.empty).map { case (rt, snapshot) =>
       new RunningCommitments(
         rt,

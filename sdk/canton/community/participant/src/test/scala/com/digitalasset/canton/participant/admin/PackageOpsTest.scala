@@ -322,6 +322,7 @@ class PackageOpsTest extends PackageOpsTestBase {
             validFrom = EffectiveTime(CantonTimestamp.MinValue),
             validUntil = None,
             transaction = signedTopologyTransaction(vettedPackages),
+            rejectionReason = None,
           )
         )
       )

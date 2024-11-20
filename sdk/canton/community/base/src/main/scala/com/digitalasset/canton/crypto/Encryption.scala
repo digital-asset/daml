@@ -22,15 +22,7 @@ import com.digitalasset.canton.serialization.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
-import com.digitalasset.canton.version.{
-  HasToByteString,
-  HasVersionedMessageCompanion,
-  HasVersionedMessageCompanionDbHelpers,
-  HasVersionedToByteString,
-  HasVersionedWrapper,
-  ProtoVersion,
-  ProtocolVersion,
-}
+import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
 import slick.jdbc.GetResult
 
@@ -215,8 +207,41 @@ final case class AsymmetricEncrypted[+M](
     ciphertext: ByteString,
     encryptionAlgorithmSpec: EncryptionAlgorithmSpec,
     encryptedFor: Fingerprint,
-) extends NoCopy {
+) extends NoCopy
+    with HasVersionedWrapper[AsymmetricEncrypted[?]] {
   def encrypted: Encrypted[M] = new Encrypted(ciphertext)
+
+  override protected def companionObj: AsymmetricEncrypted.type = AsymmetricEncrypted
+
+  def toProtoV30 = v30.AsymmetricEncrypted(
+    ciphertext,
+    encryptionAlgorithmSpec.toProtoEnum,
+    fingerprint = encryptedFor.toProtoPrimitive,
+  )
+}
+
+object AsymmetricEncrypted extends HasVersionedMessageCompanion[AsymmetricEncrypted[?]] {
+  override val name: String = "AsymmetricEncrypted"
+
+  val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
+    ProtoVersion(30) -> ProtoCodec(
+      ProtocolVersion.v33,
+      supportedProtoVersion(v30.AsymmetricEncrypted)(fromProtoV30),
+      _.toProtoV30.toByteString,
+    )
+  )
+
+  def fromProtoV30[T](
+      encryptedP: v30.AsymmetricEncrypted
+  ): ParsingResult[AsymmetricEncrypted[T]] =
+    for {
+      fingerprint <- Fingerprint.fromProtoPrimitive(encryptedP.fingerprint)
+      encryptionAlgorithmSpec <- EncryptionAlgorithmSpec.fromProtoEnum(
+        "encryption_algorithm_spec",
+        encryptedP.encryptionAlgorithmSpec,
+      )
+      ciphertext = encryptedP.ciphertext
+    } yield AsymmetricEncrypted(ciphertext, encryptionAlgorithmSpec, fingerprint)
 }
 
 /** An encryption key specification. */

@@ -111,13 +111,13 @@ trait ParameterStorageBackend {
     */
   def ledgerEnd(connection: Connection): Option[ParameterStorageBackend.LedgerEnd]
 
-  def domainLedgerEnd(domainId: DomainId)(connection: Connection): DomainIndex
+  def cleanDomainIndex(domainId: DomainId)(connection: Connection): DomainIndex
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
-  def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(connection: Connection): Unit
+  def updatePrunedUptoInclusive(prunedUpToInclusive: AbsoluteOffset)(connection: Connection): Unit
 
-  def prunedUpToInclusive(connection: Connection): Option[Offset]
+  def prunedUpToInclusive(connection: Connection): Option[AbsoluteOffset]
 
   def prunedUpToInclusiveAndLedgerEnd(connection: Connection): PruneUptoInclusiveAndLedgerEnd
 
@@ -199,11 +199,11 @@ object ParameterStorageBackend {
 
 trait PartyStorageBackend {
   def partyEntries(
-      startExclusive: Offset,
-      endInclusive: Offset,
+      startInclusive: AbsoluteOffset,
+      endInclusive: AbsoluteOffset,
       pageSize: Int,
       queryOffset: Long,
-  )(connection: Connection): Vector[(Offset, PartyLedgerEntry)]
+  )(connection: Connection): Vector[(AbsoluteOffset, PartyLedgerEntry)]
   def parties(parties: Seq[Party])(connection: Connection): List[IndexerPartyDetails]
   def knownParties(fromExcl: Option[Party], maxResults: Int)(
       connection: Connection
@@ -227,7 +227,7 @@ trait CompletionStorageBackend {
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
   def pruneCompletions(
-      pruneUpToInclusive: Offset
+      pruneUpToInclusive: AbsoluteOffset
   )(connection: Connection, traceContext: TraceContext): Unit
 }
 
@@ -276,9 +276,9 @@ trait EventStorageBackend {
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
   def pruneEvents(
-      pruneUpToInclusive: Offset,
+      pruneUpToInclusive: AbsoluteOffset,
       pruneAllDivulgedContracts: Boolean,
-      incompletReassignmentOffsets: Vector[Offset],
+      incompletReassignmentOffsets: Vector[AbsoluteOffset],
   )(implicit
       connection: Connection,
       traceContext: TraceContext,
@@ -338,7 +338,7 @@ trait EventStorageBackend {
       contractIds: Iterable[String]
   )(connection: Connection): Vector[Long]
 
-  def maxEventSequentialId(untilInclusiveOffset: Offset)(
+  def maxEventSequentialId(untilInclusiveOffset: Option[AbsoluteOffset])(
       connection: Connection
   ): Long
 

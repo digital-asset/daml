@@ -14,7 +14,7 @@ import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.*
-import sttp.tapir.{path, query}
+import sttp.tapir.{AnyEndpoint, path, query}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -74,7 +74,7 @@ case class JsGetEventsByContractIdResponse(
     archived: Option[JsArchived],
 )
 
-object JsEventService {
+object JsEventService extends DocumentationEndpoints {
   import Endpoints.*
   import JsEventServiceCodecs.*
 
@@ -85,6 +85,10 @@ object JsEventService {
     .in(query[List[String]]("parties"))
     .out(jsonBody[JsGetEventsByContractIdResponse])
     .description("Get events by contract Id")
+
+  override def documentation: Seq[AnyEndpoint] = Seq(
+    getEventsByContractIdEndpoint
+  )
 }
 object JsEventServiceCodecs {
   implicit val jsCreatedRW: Codec[JsCreated] = deriveCodec

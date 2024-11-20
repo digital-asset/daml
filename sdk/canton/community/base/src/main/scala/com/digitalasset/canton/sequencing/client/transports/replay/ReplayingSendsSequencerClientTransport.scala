@@ -235,7 +235,10 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
         .mapAsyncUnordered(sendParallelism)(replaySubmit(_).unwrap)
         .toMat(Sink.fold(SendReplayReport()(sendDuration))(_.update(_)))(Keep.right)
 
-      PekkoUtil.runSupervised(logger.error("Failed to run submission replay", _), submissionReplay)
+      PekkoUtil.runSupervised(
+        submissionReplay,
+        errorLogMessagePrefix = "Failed to run submission replay",
+      )
     }
 
   override def waitForIdle(

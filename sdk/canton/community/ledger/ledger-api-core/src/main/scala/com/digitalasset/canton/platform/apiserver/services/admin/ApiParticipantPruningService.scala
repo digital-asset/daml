@@ -13,7 +13,7 @@ import com.daml.metrics.Tracked
 import com.daml.metrics.api.MetricsContext
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.tracing.Telemetry
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.ledger.api.ValidationLogger
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.*
@@ -39,7 +39,6 @@ import com.digitalasset.canton.logging.{
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.ApiOffset
-import com.digitalasset.canton.platform.ApiOffset.ApiOffsetConverter
 import com.digitalasset.canton.platform.apiserver.ApiException
 import com.digitalasset.canton.platform.apiserver.services.logging
 import com.digitalasset.canton.tracing.TraceContext
@@ -136,7 +135,7 @@ final class ApiParticipantPruningService private (
   )(implicit
       loggingContext: LoggingContextWithTrace,
       errorLoggingContext: ContextualizedErrorLogger,
-  ): Future[Offset] =
+  ): Future[AbsoluteOffset] =
     (for {
       pruneUpToLong <- checkOffsetIsSpecified(request.pruneUpTo)
       pruneUpTo <- checkOffsetIsPositive(request.pruneUpTo)
@@ -147,13 +146,13 @@ final class ApiParticipantPruningService private (
       )
 
   private def pruneSyncService(
-      pruneUpTo: Offset,
+      pruneUpTo: AbsoluteOffset,
       submissionId: Ref.SubmissionId,
       pruneAllDivulgedContracts: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Unit] = {
     import state.PruningResult.*
     logger.info(
-      s"About to prune participant ledger up to ${pruneUpTo.toApiType} inclusively starting with the write service."
+      s"About to prune participant ledger up to ${pruneUpTo.unwrap} inclusively starting with the write service."
     )
     syncService
       .prune(pruneUpTo, submissionId, pruneAllDivulgedContracts)
@@ -162,21 +161,21 @@ final class ApiParticipantPruningService private (
         case NotPruned(status) =>
           Future.failed(new ApiException(StatusProto.toStatusRuntimeException(status)))
         case ParticipantPruned =>
-          logger.info(s"Pruned participant ledger up to ${pruneUpTo.toApiType} inclusively.")
+          logger.info(s"Pruned participant ledger up to ${pruneUpTo.unwrap} inclusively.")
           Future.successful(())
       }
   }
 
   private def pruneLedgerApiServerIndex(
-      pruneUpTo: Offset,
+      pruneUpTo: AbsoluteOffset,
       pruneAllDivulgedContracts: Boolean,
-      incompletReassignmentOffsets: Vector[Offset],
+      incompletReassignmentOffsets: Vector[AbsoluteOffset],
   )(implicit loggingContext: LoggingContextWithTrace): Future[PruneResponse] = {
-    logger.info(s"About to prune ledger api server index to ${pruneUpTo.toApiType} inclusively.")
+    logger.info(s"About to prune ledger api server index to ${pruneUpTo.unwrap} inclusively.")
     readBackend
       .prune(pruneUpTo, pruneAllDivulgedContracts, incompletReassignmentOffsets)
       .map { _ =>
-        logger.info(s"Pruned ledger api server index up to ${pruneUpTo.toApiType} inclusively.")
+        logger.info(s"Pruned ledger api server index up to ${pruneUpTo.unwrap} inclusively.")
         PruneResponse()
       }
   }
@@ -192,32 +191,32 @@ final class ApiParticipantPruningService private (
 
   private def checkOffsetIsPositive(
       pruneUpTo: Long
-  )(implicit errorLogger: ContextualizedErrorLogger): Either[StatusRuntimeException, Offset] =
-    if (pruneUpTo <= 0)
-      Left(
-        RequestValidationErrors.NonPositiveOffset
-          .Error(
-            fieldName = "prune_up_to",
-            offsetValue = pruneUpTo,
-            message = s"prune_up_to needs to be a positive integer and not $pruneUpTo",
-          )
-          .asGrpcError
-      )
-    else {
-      try {
-        Right(Offset.fromLong(pruneUpTo))
-      } catch {
-        case err: Throwable =>
-          Left(InvalidField.Reject(fieldName = "prune_up_to", err.getMessage).asGrpcError)
-      }
+  )(implicit
+      errorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, AbsoluteOffset] =
+    try {
+      Right(AbsoluteOffset.tryFromLong(pruneUpTo))
+    } catch {
+      case illegalArg: IllegalArgumentException =>
+        Left(
+          RequestValidationErrors.NonPositiveOffset
+            .Error(
+              fieldName = "prune_up_to",
+              offsetValue = pruneUpTo,
+              message = illegalArg.getMessage,
+            )
+            .asGrpcError
+        )
+      case err: Throwable =>
+        Left(InvalidField.Reject(fieldName = "prune_up_to", err.getMessage).asGrpcError)
     }
 
   private def checkOffsetIsBeforeLedgerEnd(
-      pruneUpToProto: Offset,
+      pruneUpToProto: AbsoluteOffset,
       pruneUpToLong: Long,
   )(implicit
       errorLogger: ContextualizedErrorLogger
-  ): Future[Offset] =
+  ): Future[AbsoluteOffset] =
     for {
       ledgerEnd <- readBackend.currentLedgerEnd()
       _ <-

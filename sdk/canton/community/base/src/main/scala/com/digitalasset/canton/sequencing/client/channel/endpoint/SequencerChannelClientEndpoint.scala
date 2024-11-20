@@ -1,37 +1,48 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.sequencing.client.channel
+package com.digitalasset.canton.sequencing.client.channel.endpoint
 
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.api.v30
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.{AsyncOrSyncCloseable, FutureUnlessShutdown, SyncCloseable}
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.sequencing.channel.ConnectToSequencerChannelRequest
+import com.digitalasset.canton.sequencing.channel.ConnectToSequencerChannelRequest.Payload
 import com.digitalasset.canton.sequencing.client.SubscriptionCloseReason
-import com.digitalasset.canton.sequencing.client.channel.SequencerChannelClientEndpoint.versionedResponseTraceContext
+import com.digitalasset.canton.sequencing.client.channel.SequencerChannelProtocolProcessor
+import com.digitalasset.canton.sequencing.client.channel.endpoint.SequencerChannelClientEndpoint.versionedResponseTraceContext
 import com.digitalasset.canton.sequencing.client.transports.{
   ConsumesCancellableGrpcStreamObserver,
   HasProtoTraceContext,
 }
-import com.digitalasset.canton.sequencing.protocol.SequencerChannelId
+import com.digitalasset.canton.sequencing.protocol.channel.SequencerChannelId
 import com.digitalasset.canton.topology.{Member, SequencerId}
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, Traced}
-import com.digitalasset.canton.util.{EitherTUtil, SingleUseCell}
+import com.digitalasset.canton.util.{EitherTUtil, MonadUtil, SingleUseCell}
+import com.digitalasset.canton.version.{HasToByteString, ProtocolVersion}
 import com.google.protobuf.ByteString
 import io.grpc.Context.CancellableContext
 import io.grpc.stub.StreamObserver
 
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
 
 /** The sequencer channel client endpoint encapsulates all client-side state needed for the lifetime of a
   * sequencer channel and handles the interaction with:
-  * 1. the sequencer channel service to set up the channel by exchanging metadata and
-  * 2. the SequencerChannelProtocolProcessor provided by the SequencerChannelClient caller
+  * 1. the sequencer channel service to set up the channel by exchanging metadata,
+  * 2. the sequencer channel client (connectTo) member endpoint to establish a secure channel, and
+  * 3. the SequencerChannelProtocolProcessor provided by the SequencerChannelClient caller
+  *
+  * To that end, this channel endpoint transitions through several stages:
+  * Bootstrapping the channel which establishes unsecured member-to-member communication (the connected stage),
+  * followed by setting up a session key to secure it (the securely connected stage). Next, the sequencer channel
+  * client user such as the Online Party Replication can start exchanging their messages transparently and securely
+  * through the sequencer channel protocol processor.
   *
   * @param sequencerId SequencerId of the sequencer hosting the channel.
   * @param channelId   Unique channel identifier known to both channel endpoints.
@@ -39,6 +50,10 @@ import scala.concurrent.{ExecutionContext, Future}
   * @param connectTo   The member to interact with via the channel.
   * @param processor   The processor provided by the SequencerChannelClient caller that interacts with the channel
   *                    once this channel endpoint has finished setting up the channel.
+  * @param isSessionKeyOwner Whether this endpoint is responsible for generating the session key.
+  *                    @param domainCryptoApi Provides the crypto API for symmetric and asymmetric encryption operations.
+  *                    @param protocolVersion Used for the proto messages versioning.
+  *                    @param timestamp   Determines the public key for asymmetric encryption.
   */
 private[channel] final class SequencerChannelClientEndpoint(
     val sequencerId: SequencerId,
@@ -46,7 +61,10 @@ private[channel] final class SequencerChannelClientEndpoint(
     member: Member,
     connectTo: Member,
     processor: SequencerChannelProtocolProcessor,
-    domainParameters: StaticDomainParameters,
+    domainCryptoApi: DomainSyncCryptoClient,
+    isSessionKeyOwner: Boolean,
+    timestamp: CantonTimestamp,
+    protocolVersion: ProtocolVersion,
     context: CancellableContext,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
@@ -55,7 +73,20 @@ private[channel] final class SequencerChannelClientEndpoint(
       String,
       v30.ConnectToSequencerChannelResponse,
     ](context, timeouts) {
-  private val areAllEndpointsConnected = new AtomicBoolean(false)
+
+  private val security: SequencerChannelSecurity =
+    new SequencerChannelSecurity(domainCryptoApi, protocolVersion, timestamp)
+
+  // Keeps track of this endpoint's channel stage
+  private val stage = {
+    val initialStage: ChannelStage = new ChannelStageBootstrap(
+      isSessionKeyOwner,
+      connectTo,
+      ChannelStage.InternalData(security, protocolVersion, processor, loggerFactory, timeouts),
+    )
+    new AtomicReference[ChannelStage](initialStage)
+  }
+
   private val requestObserver =
     new SingleUseCell[StreamObserver[v30.ConnectToSequencerChannelRequest]]
 
@@ -107,12 +138,20 @@ private[channel] final class SequencerChannelClientEndpoint(
     // so that it can connect the two channel endpoints.
     val metadataRequest =
       ConnectToSequencerChannelRequest
-        .metadata(channelId, member, connectTo, domainParameters.protocolVersion)
+        .metadata(channelId, member, connectTo, protocolVersion)
         .toProtoV30
     observerRecordingCompletion.onNext(metadataRequest)
   }
 
-  /** Forwards responses received via the channel to the processor, once the channel is connected to all endpoints.
+  /** This endpoint's receiving end of the channel – it handles response messages.
+    *
+    * Forwards responses received via the channel to the processor, once the channel is connected and secured
+    * between the member endpoints.
+    *
+    * The actual message handling depends on this endpoint's channel stage.
+    *
+    * This method is assumed to be thread-safe, meaning it is invoked once per message and completes fully.
+    * State that gets mutated through this method alone is supposed to be safe.
     */
   override protected def callHandler: Traced[v30.ConnectToSequencerChannelResponse] => Future[
     Either[String, Unit]
@@ -121,53 +160,75 @@ private[channel] final class SequencerChannelClientEndpoint(
       traceContext <- EitherT.fromEither[FutureUnlessShutdown](
         SerializableTraceContext.fromProtoV30Opt(traceContextO).bimap(_.message, _.unwrap)
       )
-      _ <- response match {
-        case v30.ConnectToSequencerChannelResponse.Response.Connected(
-              v30.SequencerChannelConnectedToAllEndpoints()
-            ) =>
-          if (areAllEndpointsConnected.getAndSet(true)) {
-            val err = "Received unexpected second SequencerChannelConnectedToMembers message"
-            logger.warn(err)(traceContext)
-            EitherT.leftT[FutureUnlessShutdown, Unit](err)
-          } else {
-            processOnChannelReadyForProcessor()(traceContext)
-          }
-        case v30.ConnectToSequencerChannelResponse.Response.Payload(payload) =>
-          if (!areAllEndpointsConnected.get()) {
-            val err = "Received unexpected payload before members connected"
-            logger.warn(err)(traceContext)
-            EitherT.leftT[FutureUnlessShutdown, Unit](err)
-          } else {
-            processor.handlePayload(payload)(traceContext)
-          }
-        case v30.ConnectToSequencerChannelResponse.Response.Empty =>
-          val err = "Received unexpected empty connected or payload message"
-          logger.warn(err)(traceContext)
-          EitherT.leftT[FutureUnlessShutdown, Unit](err)
+
+      currentStage = stage.get()
+
+      result <- currentStage.handleMessage(response)(traceContext)
+      (messages, newStage) = result
+
+      _ <- MonadUtil.sequentialTraverse_(messages) { case (operation, message) =>
+        sendMessage(operation, message)(traceContext)
       }
+
+      _ = stage.set(newStage)
+      _ = newStage.initialization()(traceContext)
+
     } yield ()).value.onShutdown(Right(()))
   }
 
-  /** Sends payloads to channel */
-  private[channel] def sendPayload(operation: String, payload: ByteString)(implicit
+  /** This endpoint's sending end of the channel.
+    */
+  private def sendMessage(operation: String, message: => ConnectToSequencerChannelRequest)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] =
-    requestObserver.get match {
-      case None =>
+    (requestObserver.get, stage.get()) match {
+      case (None, _) =>
         val err = s"Attempt to send $operation before request observer set"
         logger.warn(err)
         EitherT.leftT[FutureUnlessShutdown, Unit](err)
-      case Some(_) if !areAllEndpointsConnected.get() =>
-        val err = s"Attempt to send $operation before channel is ready to send payloads"
+
+      case (Some(_), _: ChannelStageConnected) if message.request.isInstanceOf[Payload] =>
+        val err =
+          s"Attempt to send $operation before channel is ready while in stage ${stage.get()}"
         logger.warn(err)
         EitherT.leftT[FutureUnlessShutdown, Unit](err)
-      case Some(payloadObserver) =>
+
+      case (Some(payloadObserver), _) =>
         logger.debug(s"Sending $operation")
-        val request =
-          ConnectToSequencerChannelRequest.payload(payload, domainParameters.protocolVersion)
-        payloadObserver.onNext(request.toProtoV30)
+
+        payloadObserver.onNext(message.toProtoV30)
         logger.debug(s"Sent $operation")
         EitherTUtil.unitUS[String]
+    }
+
+  /** Sends payloads to channel.
+    *
+    * This method is intended to be used by the sequencer channel client user through the processor.
+    */
+  private[channel] def sendPayload(operation: String, payload: ByteString)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, Unit] =
+    stage.get match {
+      case _: ChannelStageSecurelyConnected =>
+        val message = new HasToByteString {
+          override def toByteString: ByteString = payload
+        }
+        for {
+          encrypted <- security.encrypt(message).leftMap(_.toString)
+          _ <- sendMessage(
+            operation,
+            ConnectToSequencerChannelRequest.payload(
+              encrypted.ciphertext,
+              protocolVersion,
+            ),
+          )
+        } yield ()
+
+      case _ =>
+        val err =
+          s"Attempt to send payload with $operation before members have been securely connected"
+        logger.warn(err)
+        EitherT.leftT[FutureUnlessShutdown, Unit](err)
     }
 
   /** Sends channel completion */
@@ -200,24 +261,17 @@ private[channel] final class SequencerChannelClientEndpoint(
       EitherTUtil.unitUS
     }
 
-  /** Notify the processor that the channel is ready for use, in particular for sending payloads.
-    */
-  private def processOnChannelReadyForProcessor()(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, Unit] = {
-    processor.hasConnected.set(true)
-    processor.onConnected()
-  }
-
   // Channel subscriptions legitimately close when the server closes the channel.
   override protected lazy val onCompleteCloseReason: SubscriptionCloseReason[String] =
     SubscriptionCloseReason.Closed
+
+  override def closeAsync(): Seq[AsyncOrSyncCloseable] =
+    SyncCloseable("channel stage", stage.get().close()) +: super.closeAsync()
+
 }
 
 object SequencerChannelClientEndpoint {
   implicit val versionedResponseTraceContext
       : HasProtoTraceContext[v30.ConnectToSequencerChannelResponse] =
-    new HasProtoTraceContext[v30.ConnectToSequencerChannelResponse] {
-      override def traceContext(value: v30.ConnectToSequencerChannelResponse) = value.traceContext
-    }
+    (value: v30.ConnectToSequencerChannelResponse) => value.traceContext
 }

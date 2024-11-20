@@ -135,7 +135,8 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
         )
         .fakeSign
       stateTransferManager.handleStateTransferMessage(
-        StateTransferMessage.SendBlockTransferRequest(blockTransferRequest, to = otherSequencerId),
+        StateTransferMessage
+          .ResendBlockTransferRequest(blockTransferRequest, to = otherSequencerId),
         membership,
         latestCompletedEpoch,
       )(completeInit = () => (), abort = fail(_)) shouldBe NoEpochStateUpdates
@@ -352,7 +353,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
   )(implicit context: ContextType): Unit = {
     // Should have scheduled a retry.
     context.lastDelayedMessage shouldBe Some(
-      numberOfTimes -> StateTransferMessage.SendBlockTransferRequest(
+      numberOfTimes -> StateTransferMessage.ResendBlockTransferRequest(
         blockTransferRequest,
         to = otherSequencerId,
       )

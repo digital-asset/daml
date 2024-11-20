@@ -4,13 +4,21 @@
 package com.digitalasset.canton.sequencing.channel
 
 import com.digitalasset.canton.ProtoDeserializationError
+import com.digitalasset.canton.crypto.{AsymmetricEncrypted, SymmetricKey}
 import com.digitalasset.canton.domain.api.v30
-import com.digitalasset.canton.sequencing.protocol.{SequencerChannelId, SequencerChannelMetadata}
+import com.digitalasset.canton.sequencing.protocol.channel.{
+  SequencerChannelId,
+  SequencerChannelMetadata,
+  SequencerChannelSessionKey,
+  SequencerChannelSessionKeyAck,
+}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
+
+import v30.ConnectToSequencerChannelRequest.Request as v30_ChannelRequest
 
 final case class ConnectToSequencerChannelRequest(
     request: ConnectToSequencerChannelRequest.Request,
@@ -45,30 +53,45 @@ object ConnectToSequencerChannelRequest
   )
 
   sealed trait Request {
-    def toProtoV30: v30.ConnectToSequencerChannelRequest.Request
+    def toProtoV30: v30_ChannelRequest
   }
   final case class Metadata(metadata: SequencerChannelMetadata) extends Request {
-    def toProtoV30: v30.ConnectToSequencerChannelRequest.Request =
-      v30.ConnectToSequencerChannelRequest.Request.Metadata(
+    def toProtoV30: v30_ChannelRequest =
+      v30_ChannelRequest.Metadata(
         metadata.toProtoV30
       )
   }
+  final case class SessionKey(sessionKey: SequencerChannelSessionKey) extends Request {
+    def toProtoV30: v30_ChannelRequest =
+      v30_ChannelRequest.SessionKey(sessionKey.toProtoV30)
+
+  }
+  final case class SessionKeyAck(ack: SequencerChannelSessionKeyAck) extends Request {
+    def toProtoV30: v30_ChannelRequest =
+      v30_ChannelRequest.SessionKeyAcknowledgement(
+        ack.toProtoV30
+      )
+  }
   final case class Payload(payload: ByteString) extends Request {
-    def toProtoV30: v30.ConnectToSequencerChannelRequest.Request =
-      v30.ConnectToSequencerChannelRequest.Request.Payload(
+    def toProtoV30: v30_ChannelRequest =
+      v30_ChannelRequest.Payload(
         payload
       )
   }
   object Request {
     def fromProtoV30(
-        request: v30.ConnectToSequencerChannelRequest.Request
+        request: v30_ChannelRequest
     ): ParsingResult[Request] =
       request match {
-        case v30.ConnectToSequencerChannelRequest.Request.Empty =>
+        case v30_ChannelRequest.Empty =>
           Left(ProtoDeserializationError.FieldNotSet("request"))
-        case v30.ConnectToSequencerChannelRequest.Request.Metadata(metadataP) =>
-          SequencerChannelMetadata.fromProtoV30(metadataP).map(Metadata(_))
-        case v30.ConnectToSequencerChannelRequest.Request.Payload(payload) =>
+        case v30_ChannelRequest.Metadata(metadataP) =>
+          SequencerChannelMetadata.fromProtoV30(metadataP).map(Metadata.apply)
+        case v30_ChannelRequest.SessionKey(keyP) =>
+          SequencerChannelSessionKey.fromProtoV30(keyP).map(SessionKey.apply)
+        case v30_ChannelRequest.SessionKeyAcknowledgement(encrypted) =>
+          SequencerChannelSessionKeyAck.fromProtoV30(encrypted).map(SessionKeyAck.apply)
+        case v30_ChannelRequest.Payload(payload) =>
           Right(Payload(payload))
       }
   }
@@ -105,6 +128,22 @@ object ConnectToSequencerChannelRequest
     ConnectToSequencerChannelRequest(Payload(payload), traceContext)(
       ConnectToSequencerChannelRequest.protocolVersionRepresentativeFor(protocolVersion)
     )
+
+  def sessionKey(key: AsymmetricEncrypted[SymmetricKey], protocolVersion: ProtocolVersion)(implicit
+      traceContext: TraceContext
+  ): ConnectToSequencerChannelRequest =
+    ConnectToSequencerChannelRequest(
+      SessionKey(SequencerChannelSessionKey(key, protocolVersion)),
+      traceContext,
+    )(ConnectToSequencerChannelRequest.protocolVersionRepresentativeFor(protocolVersion))
+
+  def sessionKeyAck(protocolVersion: ProtocolVersion)(implicit
+      traceContext: TraceContext
+  ): ConnectToSequencerChannelRequest =
+    ConnectToSequencerChannelRequest(
+      SessionKeyAck(SequencerChannelSessionKeyAck(protocolVersion)),
+      traceContext,
+    )(ConnectToSequencerChannelRequest.protocolVersionRepresentativeFor(protocolVersion))
 
   def fromProtoV30(
       connectRequest: v30.ConnectToSequencerChannelRequest

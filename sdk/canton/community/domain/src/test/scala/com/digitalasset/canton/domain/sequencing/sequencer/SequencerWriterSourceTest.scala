@@ -133,7 +133,6 @@ class SequencerWriterSourceTest
     // explicitly pass a real execution context so shutdowns don't deadlock while Await'ing completion of the done
     // future while still finishing up running tasks that require an execution context
     val (writer, doneF) = PekkoUtil.runSupervised(
-      logger.error("Writer flow failed", _),
       SequencerWriterSource(
         testWriterConfig,
         totalNodeCount = PositiveInt.tryCreate(1),
@@ -148,6 +147,7 @@ class SequencerWriterSourceTest
         blockSequencerMode = true,
       )(executorService, implicitly[TraceContext])
         .toMat(Sink.ignore)(Keep.both),
+      errorLogMessagePrefix = "Writer flow failed",
     )
 
     def completeFlow(): Future[Unit] = {

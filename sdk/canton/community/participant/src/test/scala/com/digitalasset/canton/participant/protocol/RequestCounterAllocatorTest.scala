@@ -15,7 +15,7 @@ trait RequestCounterAllocatorTest extends PathAnyFunSpec with BaseTest {
     describe("when created starting from 0") {
       val rca = mk(RequestCounter(0), SequencerCounter(0))
 
-      describe("skip sequencer counters below the clean replay prehead") {
+      describe("skip sequencer counters below the clean replay index") {
         forEvery(Seq(SequencerCounter(Long.MinValue), SequencerCounter(-1))) { sc =>
           rca.allocateFor(sc) shouldBe None
         }

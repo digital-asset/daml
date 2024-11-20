@@ -16,7 +16,6 @@ import com.digitalasset.canton.version.ProtocolVersion
 
 final case class ParticipantNodeParameters(
     general: CantonNodeParameters.General,
-    partyChangeNotification: PartyNotificationConfig,
     adminWorkflow: AdminWorkflowConfig,
     maxUnzippedDarSize: Int,
     stores: ParticipantStoreConfig,
@@ -33,6 +32,8 @@ final case class ParticipantNodeParameters(
     enableExternalAuthorization: Boolean,
 ) extends CantonNodeParameters
     with HasGeneralCantonNodeParameters {
+  override def sessionSigningKeys: SessionSigningKeysConfig =
+    protocolConfig.sessionSigningKeys
   override def dontWarnOnDeprecatedPV: Boolean = protocolConfig.dontWarnOnDeprecatedPV
   override def alphaVersionSupport: Boolean = protocolConfig.alphaVersionSupport
   override def betaVersionSupport: Boolean = protocolConfig.betaVersionSupport
@@ -60,7 +61,6 @@ object ParticipantNodeParameters {
       exitOnFatalFailures = true,
       watchdog = None,
     ),
-    partyChangeNotification = PartyNotificationConfig.Eager,
     adminWorkflow = AdminWorkflowConfig(
       bongTestMaxLevel = NonNegativeInt.tryCreate(10)
     ),
@@ -69,6 +69,7 @@ object ParticipantNodeParameters {
     reassignmentTimeProofFreshnessProportion = NonNegativeInt.tryCreate(3),
     protocolConfig = ParticipantProtocolConfig(
       Some(testedProtocolVersion),
+      sessionSigningKeys = SessionSigningKeysConfig.disabled,
       // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
       alphaVersionSupport = true,
       betaVersionSupport = true,

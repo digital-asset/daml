@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.tracing
+package com.digitalasset.canton.caching
 
 import cats.arrow.FunctionK
 import cats.data.EitherT
@@ -18,7 +18,7 @@ import scala.util.control.NoStackTrace
   *
   * For example, let `F` be [[com.digitalasset.canton.lifecycle.FutureUnlessShutdown]],
   * and `G` be [[scala.concurrent.Future]] (see
-  * [[com.digitalasset.canton.tracing.EffectTunnel.effectTunnelFutureUnlessShutdown]]).
+  * [[caching.EffectTunnel.effectTunnelFutureUnlessShutdown]]).
   * Then we can enter the tunnel `G` by converting
   * [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]]s
   * into a dedicated exception in a failed [[scala.concurrent.Future]] and exit the tunnel

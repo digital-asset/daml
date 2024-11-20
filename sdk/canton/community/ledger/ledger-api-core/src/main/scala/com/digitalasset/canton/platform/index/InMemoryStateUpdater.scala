@@ -143,8 +143,8 @@ private[platform] object InMemoryStateUpdaterFlow {
                       case _: Reassignment.Assign =>
                         Some((reassignment.reassignmentInfo.targetDomain.unwrap, update.recordTime))
                     }
-                  case Update.CommandRejected(recordTime, _, _, domainId, _, _) =>
-                    Some((domainId, recordTime))
+                  case commandRejected: Update.CommandRejected =>
+                    Some((commandRejected.domainId, commandRejected.recordTime))
                   case sim: Update.SequencerIndexMoved => Some((sim.domainId, sim.recordTime))
                   case _: Update.CommitRepair => None
                   case tt: Update.TopologyTransactionEffective => Some((tt.domainId, tt.recordTime))
@@ -154,7 +154,7 @@ private[platform] object InMemoryStateUpdaterFlow {
                 val newDomainTimes =
                   domainTimeO match {
                     case Some((domainId, recordTime)) =>
-                      lastDomainTimes.updated(domainId, recordTime)
+                      lastDomainTimes.updated(domainId, recordTime.toLf)
                     case None => lastDomainTimes
                   }
                 val newOffsetCheckpoint = OffsetCheckpoint(off, newDomainTimes)
@@ -451,7 +451,7 @@ private[platform] object InMemoryStateUpdater {
 
         CompletionFromTransaction.acceptedCompletion(
           submitters = completionInfo.actAs.toSet,
-          recordTime = txAccepted.recordTime,
+          recordTime = txAccepted.recordTime.toLf,
           offset = Offset.fromAbsoluteOffset(offset),
           commandId = completionInfo.commandId,
           updateId = txAccepted.updateId,
@@ -474,7 +474,7 @@ private[platform] object InMemoryStateUpdater {
       events = events.toVector,
       completionStreamResponse = completionStreamResponse,
       domainId = txAccepted.domainId.toProtoPrimitive,
-      recordTime = txAccepted.recordTime,
+      recordTime = txAccepted.recordTime.toLf,
     )(txAccepted.traceContext)
   }
 
@@ -489,7 +489,7 @@ private[platform] object InMemoryStateUpdater {
       offset = Offset.fromAbsoluteOffset(offset),
       completionStreamResponse = CompletionFromTransaction.rejectedCompletion(
         submitters = u.completionInfo.actAs.toSet,
-        recordTime = u.recordTime,
+        recordTime = u.recordTime.toLf,
         offset = Offset.fromAbsoluteOffset(offset),
         commandId = u.completionInfo.commandId,
         status = u.reasonTemplate.status,
@@ -515,7 +515,7 @@ private[platform] object InMemoryStateUpdater {
 
         CompletionFromTransaction.acceptedCompletion(
           submitters = completionInfo.actAs.toSet,
-          recordTime = u.recordTime,
+          recordTime = u.recordTime.toLf,
           offset = Offset.fromAbsoluteOffset(offset),
           commandId = completionInfo.commandId,
           updateId = u.updateId,
@@ -538,7 +538,7 @@ private[platform] object InMemoryStateUpdater {
       commandId = u.optCompletionInfo.map(_.commandId).getOrElse(""),
       workflowId = u.workflowId.getOrElse(""),
       offset = Offset.fromAbsoluteOffset(offset),
-      recordTime = u.recordTime,
+      recordTime = u.recordTime.toLf,
       completionStreamResponse = completionStreamResponse,
       reassignmentInfo = u.reassignmentInfo,
       reassignment = u.reassignment match {

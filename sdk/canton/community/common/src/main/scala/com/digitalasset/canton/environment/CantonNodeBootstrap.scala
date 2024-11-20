@@ -90,7 +90,7 @@ import com.digitalasset.canton.topology.transaction.{
   TopologyMapping,
 }
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext, TracerProvider}
-import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
+import com.digitalasset.canton.util.{FutureUnlessShutdownUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseProtocolVersion}
 import com.digitalasset.canton.watchdog.WatchdogService
 import io.grpc.ServerServiceDefinition
@@ -449,6 +449,7 @@ abstract class CantonNodeBootstrapImpl[
           .create(
             cryptoConfig,
             storage,
+            arguments.parameterConfig.sessionSigningKeys,
             arguments.cryptoPrivateStoreFactory,
             ReleaseProtocolVersion.latest,
             bootstrapStageCallback.timeouts,
@@ -685,7 +686,7 @@ abstract class CantonNodeBootstrapImpl[
         //   because all stages run on a sequential queue.
         // - Topology transactions added during the resumption do not deadlock
         //   because the topology processor runs all notifications and topology additions on a sequential queue.
-        FutureUtil.doNotAwaitUnlessShutdown(
+        FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
           resumeIfCompleteStage().value,
           s"Checking whether new topology transactions completed stage $description failed ",
         )

@@ -5,6 +5,7 @@ syntax = "proto3";
 
 package com.digitalasset.canton.domain.api.v30;
 
+import "com/digitalasset/canton/crypto/v30/crypto.proto";
 import "com/digitalasset/canton/v30/trace_context.proto";
 import "scalapb/scalapb.proto";
 
@@ -19,45 +20,67 @@ service SequencerChannelService {
   rpc Ping(PingRequest) returns (PingResponse);
 }
 
-// The request/response payload represents the lowest of multiple protocol layers in which the sequencer channel service
-// forwards opaque payload between channel member endpoints.
+// The sequencer channel service protocol consists of several messages which are sent as a request or a response
+// (that is as a ConnectToSequencerChannelRequest or a ConnectToSequencerChannelResponse).
 //
-// The middle protocol layer consist of initialization messages between the sequencer channel client and service
-// (e.g. SequencerChannelMetadata and SequencerChannelConnectedToAllEndpoints) and between sequencer channel clients
-// of different member endpoints (to exchange security keys).
+// The protocol transitions through several stages.
+// - To bootstrap the channel, initialization messages between the sequencer channel client and service need to be
+//   exchanged, that are SequencerChannelMetadata and SequencerChannelConnectedToAllEndpoints messages.
+// - To secure the channel, sequencer channel client member endpoints setup a session key with the
+//   SequencerChannelSessionKey and SequencerChannelSessionKeyAck messages.
+// - To transfer data through the channel, members use opaque (encrypted) payload messages which the sequencer channel
+//   service forwards between channel member endpoints.
 //
-// Finally the highest protocol layer exchanges messages among channel client users (e.g. for Online Party Replication).
+// Using payload messages channel client users can implement their own application protocol such as the
+// Online Party Replication.
+//
+// Note that both, request and response need to implement SequencerChannelSessionKey and SequencerChannelSessionKeyAck
+// messages because of the bidirectional gRPC streams. For example, when the sequencer channel service receives a
+// SequencerChannelSessionKeyAck request message from a sequencer channel client, it needs to forward it as a
+// SequencerChannelSessionKeyAck response message to the destination sequencer channel client.
 //
 message ConnectToSequencerChannelRequest {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
-  // Exactly the first message of the channel request stream must be SequencerChannelMetadata
-  // for use by the sequencer channel service to match channel endpoint members.
-  // Payload from the second message onward is opaque to the sequencer channel service and client.
+  // Required
   oneof request {
+    // Exactly the first message of the channel request stream must be SequencerChannelMetadata
+    // for use by the sequencer channel service to match channel endpoint members.
     SequencerChannelMetadata metadata = 1;
-    bytes payload = 2;
+    // SequencerChannelSessionKey and SequencerChannelSessionKeyAck are used to send and acknowledge an asymmetrically
+    // encrypted session key between the sequencer channel client endpoints. The SequencerChannelSessionKey is opaque to
+    // sequencer channel service.
+    SequencerChannelSessionKey session_key = 2;
+    SequencerChannelSessionKeyAck session_key_acknowledgement = 3;
+    // Payload is opaque to the sequencer channel service and client.
+    bytes payload = 4;
   }
 
   // Canton trace context
   // Required
-  com.digitalasset.canton.v30.TraceContext trace_context = 3;
+  com.digitalasset.canton.v30.TraceContext trace_context = 5;
 }
 
 message ConnectToSequencerChannelResponse {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
-  // Exactly the first message of the channel response stream must be SequencerChannelConnectedToMembers
-  // for use by the sequencer channel client to notify the request initiator that the channel is ready for use.
-  // Payload from the second message onward is opaque to the sequencer channel service and client.
+
   // Required
   oneof response {
+    // Exactly the first message of the channel response stream must be SequencerChannelConnectedToAllEndpoints
+    // for use by the sequencer channel client to notify the request initiator that the channel is ready for use.
     SequencerChannelConnectedToAllEndpoints connected = 1;
-    bytes payload = 2;
+    // SequencerChannelSessionKey and SequencerChannelSessionKeyAck are used to send and acknowledge an asymmetrically
+    // encrypted session key between the sequencer channel client endpoints. The SequencerChannelSessionKey is opaque to
+    // sequencer channel service.
+    SequencerChannelSessionKey session_key = 2;
+    SequencerChannelSessionKeyAck session_key_acknowledgement = 3;
+    // Payload is opaque to the sequencer channel service and client.
+    bytes payload = 4;
   }
 
   // Canton trace context
   // Required
-  com.digitalasset.canton.v30.TraceContext trace_context = 3;
+  com.digitalasset.canton.v30.TraceContext trace_context = 5;
 }
 
 message PingRequest {
@@ -86,5 +109,21 @@ message SequencerChannelMetadata {
 
 // Notification that a sequencer channel has been connected to the members specified in the SequencerChannelMetadata.
 message SequencerChannelConnectedToAllEndpoints {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+}
+
+// Public key encrypted session key to secure the communication between two members.
+message SequencerChannelSessionKey {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+
+  // The public key is determined by the timestamp as agreed by the connecting members beforehand.
+  // The timestamp is expected to originate from a recent topology transaction that has already taken effect;
+  // meaning it's not a future timestamp.
+  // Required
+  com.digitalasset.canton.crypto.v30.AsymmetricEncrypted encrypted_session_key = 1;
+}
+
+// Acknowledgement that the session key has been received
+message SequencerChannelSessionKeyAck {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 }

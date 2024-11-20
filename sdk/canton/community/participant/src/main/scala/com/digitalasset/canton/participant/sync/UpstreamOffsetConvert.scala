@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.sync
 
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.{AbsoluteOffset, Offset}
 import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.daml.lf.data.Bytes as LfBytes
 import com.google.protobuf.ByteString
@@ -20,6 +20,9 @@ object UpstreamOffsetConvert {
 
   def fromGlobalOffset(offset: GlobalOffset): Offset =
     fromGlobalOffset(offset.toLong)
+
+  def fromGlobalOffsetToAbsoluteOffset(offset: GlobalOffset): AbsoluteOffset =
+    AbsoluteOffset.tryFromLong(offset.toLong)
 
   def fromGlobalOffset(i: Long) = Offset(
     LfBytes.fromByteString(
@@ -51,6 +54,9 @@ object UpstreamOffsetConvert {
       GlobalOffset.fromLong(rawOffset)
     }
   }
+
+  def toGlobalOffset(offset: AbsoluteOffset): Either[String, GlobalOffset] =
+    GlobalOffset.fromLong(offset.unwrap)
 
   def tryToLedgerSyncOffset(offset: Long): Offset =
     Offset.fromLong(offset)

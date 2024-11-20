@@ -40,6 +40,8 @@ object MockedNodeParameters {
 
     override def loggingConfig: LoggingConfig = _loggingConfig
 
+    override def sessionSigningKeys: SessionSigningKeysConfig = ???
+
     override def alphaVersionSupport: Boolean = ???
 
     override def betaVersionSupport: Boolean = ???

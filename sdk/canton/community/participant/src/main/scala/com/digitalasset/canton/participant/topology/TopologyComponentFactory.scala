@@ -62,6 +62,7 @@ class TopologyComponentFactory(
         } else {
           new ParticipantTopologyTerminateProcessingTicker(
             recordOrderPublisher,
+            domainId,
             loggerFactory,
           )
         }

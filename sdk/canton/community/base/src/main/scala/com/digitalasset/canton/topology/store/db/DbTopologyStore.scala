@@ -237,7 +237,9 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
           .mkString("Topology Store Content[", ", ", "]")
       )
       StoredTopologyTransactions(
-        entries.map(e => StoredTopologyTransaction(e.sequenced, e.from, e.until, e.transaction))
+        entries.map(e =>
+          StoredTopologyTransaction(e.sequenced, e.from, e.until, e.transaction, e.rejected)
+        )
       )
     }
   }
@@ -451,9 +453,8 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
     val timeFilter = sql" AND sequenced <= ${asOfInclusive.value}"
     logger.debug(s"Querying essential state as of $asOfInclusive")
 
-    queryForTransactions(timeFilter, "essentialState").map(
-      _.asSnapshotAtMaxEffectiveTime.retainAuthorizedHistoryAndEffectiveProposals
-    )
+    queryForTransactions(timeFilter, "essentialState", includeRejected = true)
+      .map(_.asSnapshotAtMaxEffectiveTime)
   }
 
   override def bootstrap(snapshot: GenericStoredTopologyTransactions)(implicit
@@ -772,7 +773,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       traceContext: TraceContext
   ): Future[GenericStoredTopologyTransactions] = {
     val query =
-      sql"SELECT instance, sequenced, valid_from, valid_until FROM common_topology_transactions WHERE store_id = $transactionStoreIdName" ++
+      sql"SELECT instance, sequenced, valid_from, valid_until, rejection_reason FROM common_topology_transactions WHERE store_id = $transactionStoreIdName" ++
         subQuery ++ (if (!includeRejected) sql" AND rejection_reason IS NULL"
                      else sql"") ++ sql" #$orderBy #$limit"
 
@@ -784,16 +785,18 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
               CantonTimestamp,
               CantonTimestamp,
               Option[CantonTimestamp],
+              Option[String],
           )
         ],
         s"$functionFullName-$operation",
       )
-      .map(_.map { case (tx, sequencedTs, validFrom, validUntil) =>
+      .map(_.map { case (tx, sequencedTs, validFrom, validUntil, rejectionReason) =>
         StoredTopologyTransaction(
           SequencedTime(sequencedTs),
           EffectiveTime(validFrom),
           validUntil.map(EffectiveTime(_)),
           tx,
+          rejectionReason,
         )
       })
       .map(StoredTopologyTransactions(_))

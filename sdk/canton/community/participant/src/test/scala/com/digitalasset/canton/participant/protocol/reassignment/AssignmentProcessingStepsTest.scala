@@ -201,7 +201,7 @@ class AssignmentProcessingStepsTest
         () => mock[DomainTimeTracker],
         ParticipantTestMetrics.domain,
         exitOnFatalFailures = true,
-        CachingConfigs.defaultSessionKeyCacheConfig,
+        CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
         DefaultProcessingTimeouts.testing,
         loggerFactory = loggerFactory,
         FutureSupervisor.Noop,
@@ -438,7 +438,7 @@ class AssignmentProcessingStepsTest
 
     "succeed without errors" in {
       val sessionKeyStore =
-        new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionKeyCacheConfig)
+        new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionEncryptionKeyCacheConfig)
       for {
         assignmentRequest <- encryptFullAssignmentTree(
           assignmentTree,

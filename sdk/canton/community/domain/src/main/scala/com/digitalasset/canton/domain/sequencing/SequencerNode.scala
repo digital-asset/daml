@@ -571,6 +571,7 @@ class SequencerNodeBootstrap(
             domainId,
             topologyClient,
             crypto,
+            arguments.parameterConfig.sessionSigningKeys,
             parameters.cachingConfigs,
             staticDomainParameters,
             parameters.processingTimeouts,

@@ -15,7 +15,7 @@ import com.digitalasset.canton.admin.pruning.v30.{
   ResetNoWaitCommitmentsFrom,
   SetNoWaitCommitmentsFrom,
 }
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.PruningServiceErrorGroup
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidArgument
@@ -64,8 +64,8 @@ class GrpcPruningService(
         for {
           ledgerSyncOffset <-
             EitherT.fromEither[Future](
-              UpstreamOffsetConvert
-                .toLedgerSyncOffset(request.pruneUpTo)
+              AbsoluteOffset
+                .fromLong(request.pruneUpTo)
                 .leftMap(err =>
                   InvalidArgument
                     .Reject(s"The prune_up_to field (${request.pruneUpTo}) is invalid: $err")

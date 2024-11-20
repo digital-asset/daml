@@ -182,7 +182,7 @@ final class UnassignmentProcessingStepsTest
       () => mock[DomainTimeTracker],
       ParticipantTestMetrics.domain,
       exitOnFatalFailures = true,
-      CachingConfigs.defaultSessionKeyCacheConfig,
+      CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
       DefaultProcessingTimeouts.testing,
       loggerFactory,
       FutureSupervisor.Noop,
@@ -707,7 +707,7 @@ final class UnassignmentProcessingStepsTest
     val unassignmentTree = makeFullUnassignmentTree(unassignmentRequest)
     "succeed without errors" in {
       val sessionKeyStore =
-        new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionKeyCacheConfig)
+        new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionEncryptionKeyCacheConfig)
       for {
         encryptedOutRequest <- encryptUnassignmentTree(
           unassignmentTree,

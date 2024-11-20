@@ -18,7 +18,7 @@ import com.daml.tracing.{Event, SpanAttribute, Spans}
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
-import com.digitalasset.canton.data.{AbsoluteOffset, Offset}
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.ledger.api.domain.types.ParticipantOffset
 import com.digitalasset.canton.ledger.api.domain.{CumulativeFilter, TransactionFilter, UpdateId}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
@@ -133,12 +133,11 @@ private[index] class IndexServiceImpl(
                   .flatMapConcat { case (templateFilter, eventProjectionProperties) =>
                     transactionsReader
                       .getFlatTransactions(
-                        Offset.fromAbsoluteOffsetO(startInclusive.decrement),
-                        Offset.fromAbsoluteOffset(endInclusive),
-                        templateFilter,
-                        eventProjectionProperties,
+                        startInclusive = startInclusive,
+                        endInclusive = endInclusive,
+                        filter = templateFilter,
+                        eventProjectionProperties = eventProjectionProperties,
                       )
-                      .map { case (offset, response) => (offset.toAbsoluteOffset, response) }
                   }
                   .via(
                     rangeDecorator(
@@ -235,14 +234,13 @@ private[index] class IndexServiceImpl(
                   .flatMapConcat { case (_, eventProjectionProperties) =>
                     transactionsReader
                       .getTransactionTrees(
-                        startExclusive = Offset.fromAbsoluteOffsetO(startInclusive.decrement),
-                        endInclusive = Offset.fromAbsoluteOffset(endInclusive),
+                        startInclusive = startInclusive,
+                        endInclusive = endInclusive,
                         // on the query filter side we treat every party as template-wildcard party,
                         // if the party-wildcard is given then the transactions for all the templates and all the parties are fetched
                         requestingParties = parties,
                         eventProjectionProperties = eventProjectionProperties,
                       )
-                      .map { case (offset, response) => (offset.toAbsoluteOffset, response) }
                       .via(rangeDecorator(startInclusive, endInclusive))
                   }
             },
@@ -314,7 +312,7 @@ private[index] class IndexServiceImpl(
   override def getActiveContracts(
       transactionFilter: TransactionFilter,
       verbose: Boolean,
-      activeAt: Offset,
+      activeAt: Option[AbsoluteOffset],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[GetActiveContractsResponse, NotUsed] = {
@@ -327,7 +325,7 @@ private[index] class IndexServiceImpl(
         endOffset = ledgerEnd()
         _ <- validatedAcsActiveAtOffset(
           activeAt = activeAt,
-          ledgerEnd = Offset.fromAbsoluteOffsetO(endOffset),
+          ledgerEnd = endOffset,
         )
       } yield {
         val activeContractsSource =
@@ -418,14 +416,10 @@ private[index] class IndexServiceImpl(
       .future(concreteOffset(startExclusive))
       .flatMapConcat(offset =>
         dispatcher().startingAt(
-          startExclusive = offset.toAbsoluteOffsetO,
+          startExclusive = offset,
           subSource = RangeSource { case (startInclusive, endInclusive) =>
             ledgerDao
-              .getPartyEntries(
-                Offset.fromAbsoluteOffsetO(startInclusive.decrement),
-                Offset.fromAbsoluteOffset(endInclusive),
-              )
-              .map { case (offset, entry) => (offset.toAbsoluteOffset, entry) }
+              .getPartyEntries(startInclusive, endInclusive)
           },
         )
       )
@@ -438,9 +432,9 @@ private[index] class IndexServiceImpl(
       }
 
   override def prune(
-      pruneUpToInclusive: Offset,
+      pruneUpToInclusive: AbsoluteOffset,
       pruneAllDivulgedContracts: Boolean,
-      incompletReassignmentOffsets: Vector[Offset],
+      incompletReassignmentOffsets: Vector[AbsoluteOffset],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Unit] = {
@@ -518,8 +512,8 @@ private[index] class IndexServiceImpl(
     }
   }
 
-  private def concreteOffset(startExclusive: ParticipantOffset): Future[Offset] =
-    Future.fromTry(ApiOffset.tryFromString(startExclusive))
+  private def concreteOffset(startExclusive: ParticipantOffset): Future[Option[AbsoluteOffset]] =
+    Future.fromTry(ApiOffset.tryFromString(startExclusive).map(_.toAbsoluteOffsetO))
 
   private def shutdownError(implicit
       loggingContext: LoggingContextWithTrace
@@ -677,8 +671,8 @@ object IndexServiceImpl {
     )
 
   private[index] def validatedAcsActiveAtOffset[T](
-      activeAt: Offset,
-      ledgerEnd: Offset,
+      activeAt: Option[AbsoluteOffset],
+      ledgerEnd: Option[AbsoluteOffset],
   )(implicit errorLogger: ContextualizedErrorLogger): Either[StatusRuntimeException, Unit] =
     Either.cond(
       activeAt <= ledgerEnd,
@@ -686,8 +680,8 @@ object IndexServiceImpl {
       RequestValidationErrors.OffsetAfterLedgerEnd
         .Reject(
           offsetType = "active_at_offset",
-          requestedOffset = activeAt.toLong,
-          ledgerEnd = ledgerEnd.toLong,
+          requestedOffset = activeAt.fold(0L)(_.unwrap),
+          ledgerEnd = ledgerEnd.fold(0L)(_.unwrap),
         )
         .asGrpcError,
     )

@@ -10,7 +10,7 @@ import com.digitalasset.canton.LedgerParticipantId
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.{ProcessingTimeout, StorageConfig}
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, Healthy, ReportsHealth, Unhealthy}
-import com.digitalasset.canton.ledger.participant.state.Update
+import com.digitalasset.canton.ledger.participant.state.{RepairUpdate, Update}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
@@ -64,7 +64,7 @@ class LedgerApiIndexer(
     val onlyForTestingTransactionInMemoryStore: Option[OnlyForTestingTransactionInMemoryStore],
 ) extends ResourceCloseable {
   def withRepairIndexer(
-      repairOperation: FutureQueue[Update] => EitherT[Future, String, Unit]
+      repairOperation: FutureQueue[RepairUpdate] => EitherT[Future, String, Unit]
   )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] =
     indexerState.withRepairIndexer(repairOperation)
 

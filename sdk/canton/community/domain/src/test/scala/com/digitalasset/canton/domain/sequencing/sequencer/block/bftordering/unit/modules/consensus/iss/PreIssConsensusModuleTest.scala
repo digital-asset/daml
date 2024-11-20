@@ -12,7 +12,10 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.EpochInProgress
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisEpoch
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.OutputBlocksReader
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.CryptoProvider
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.{
+  CryptoProvider,
+  TopologyActivationTime,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
@@ -30,7 +33,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.unit.modules.*
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -54,7 +56,7 @@ class PreIssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExec
             EpochNumber.First,
             BlockNumber.First,
             EpochLength(0),
-            EffectiveTime(aTimestamp),
+            TopologyActivationTime(aTimestamp),
           ),
           Seq.empty,
         )

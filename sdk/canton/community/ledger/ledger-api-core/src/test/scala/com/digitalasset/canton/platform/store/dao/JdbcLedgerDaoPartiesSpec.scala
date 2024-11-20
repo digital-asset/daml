@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry
 import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry.AllocationAccepted
@@ -83,7 +83,6 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
     val rejectedRecordTime = Timestamp.now()
     val rejected1 =
       PartyLedgerEntry.AllocationRejected(rejectedSubmissionId, rejectedRecordTime, rejectionReason)
-    val originalOffset = previousOffset.get().value
     val offset1 = nextOffset()
     for {
       response1 <- storePartyEntry(
@@ -103,7 +102,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
       _ = response2 should be(PersistenceResponse.Ok)
       parties <- ledgerDao.getParties(Seq(acceptedParty, nonExistentParty))
       partyEntries <- ledgerDao
-        .getPartyEntries(originalOffset, nextOffset())
+        .getPartyEntries(offset1, nextOffset())
         .take(4)
         .runWith(Sink.seq)
     } yield {
@@ -170,7 +169,6 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
     val dan2 = dan
     val dan3 = dan
     val dan4 = dan.copy(isLocal = false)
-    val beforeStartOffset = nextOffset()
     val firstOffset = nextOffset()
     for {
       response <- storePartyEntry(dan, firstOffset)
@@ -190,7 +188,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
       _ = response should be(PersistenceResponse.Ok)
       parties <- ledgerDao.getParties(Seq(danParty))
       partyEntries <- ledgerDao
-        .getPartyEntries(beforeStartOffset, nextOffset())
+        .getPartyEntries(firstOffset, nextOffset())
         .runWith(Sink.collection)
     } yield {
       parties shouldBe List(dan4.copy(isLocal = true)) // once local stays local
@@ -214,7 +212,6 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
     val dan2 = dan
     val dan3 = dan
     val dan4 = dan
-    val beforeStartOffset = nextOffset()
     val firstOffset = nextOffset()
     for {
       response <- storePartyEntry(dan, firstOffset)
@@ -234,7 +231,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
       _ = response should be(PersistenceResponse.Ok)
       parties <- ledgerDao.getParties(Seq(danParty))
       partyEntries <- ledgerDao
-        .getPartyEntries(beforeStartOffset, nextOffset())
+        .getPartyEntries(firstOffset, nextOffset())
         .runWith(Sink.collection)
     } yield {
       parties shouldBe List(dan4)
@@ -251,7 +248,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
 
   private def storePartyEntry(
       partyDetails: IndexerPartyDetails,
-      offset: Offset,
+      offset: AbsoluteOffset,
       submissionIdOpt: Option[Ref.SubmissionId] = Some(UUID.randomUUID().toString),
       recordTime: Timestamp = Timestamp.now(),
   ) =
@@ -267,7 +264,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
 
   private def storeRejectedPartyEntry(
       reason: String,
-      offset: Offset,
+      offset: AbsoluteOffset,
       submissionIdOpt: Ref.SubmissionId,
       recordTime: Timestamp,
   ): Future[PersistenceResponse] =

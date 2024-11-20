@@ -15,7 +15,7 @@ import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.jsonBody
-import sttp.tapir.{Endpoint, path, query}
+import sttp.tapir.{AnyEndpoint, Endpoint, path, query}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -116,7 +116,7 @@ class JsPartyManagementService(
         }
 }
 
-object JsPartyManagementService {
+object JsPartyManagementService extends DocumentationEndpoints {
   import Endpoints.*
   import JsPartyManagementCodecs.*
 
@@ -158,6 +158,13 @@ object JsPartyManagementService {
     .in(jsonBody[party_management_service.UpdatePartyDetailsRequest])
     .out(jsonBody[party_management_service.UpdatePartyDetailsResponse])
     .description("Allocate a new party to the participant node")
+  override def documentation: Seq[AnyEndpoint] = Seq(
+    listKnownPartiesEndpoint,
+    allocatePartyEndpoint,
+    getParticipantIdEndpoint,
+    getPartyEndpoint,
+    updatePartyEndpoint,
+  )
 }
 
 object JsPartyManagementCodecs {

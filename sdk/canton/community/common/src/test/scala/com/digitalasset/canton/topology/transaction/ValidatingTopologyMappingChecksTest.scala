@@ -1058,7 +1058,13 @@ class ValidatingTopologyMappingChecksTest
       .bootstrap(
         StoredTopologyTransactions(
           transactions.map(tx =>
-            StoredTopologyTransaction(SequencedTime.MinValue, EffectiveTime.MinValue, None, tx)
+            StoredTopologyTransaction(
+              SequencedTime.MinValue,
+              EffectiveTime.MinValue,
+              None,
+              tx,
+              None,
+            )
           )
         )
       )

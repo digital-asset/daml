@@ -10,7 +10,7 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdateTreesResponse,
   GetUpdatesResponse,
 }
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer
@@ -54,16 +54,16 @@ private[events] class BufferedTransactionsReader(
     extends LedgerDaoTransactionsReader {
 
   override def getFlatTransactions(
-      startExclusive: Offset,
-      endInclusive: Offset,
+      startInclusive: AbsoluteOffset,
+      endInclusive: AbsoluteOffset,
       filter: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(Offset, GetUpdatesResponse), NotUsed] =
+  ): Source[(AbsoluteOffset, GetUpdatesResponse), NotUsed] =
     bufferedFlatTransactionsReader
       .stream(
-        startExclusive = startExclusive,
+        startInclusive = startInclusive,
         endInclusive = endInclusive,
         persistenceFetchArgs = (filter, eventProjectionProperties),
         bufferFilter = ToFlatTransaction
@@ -84,16 +84,16 @@ private[events] class BufferedTransactionsReader(
       )
 
   override def getTransactionTrees(
-      startExclusive: Offset,
-      endInclusive: Offset,
+      startInclusive: AbsoluteOffset,
+      endInclusive: AbsoluteOffset,
       requestingParties: Option[Set[Party]],
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(Offset, GetUpdateTreesResponse), NotUsed] =
+  ): Source[(AbsoluteOffset, GetUpdateTreesResponse), NotUsed] =
     bufferedTransactionTreesReader
       .stream(
-        startExclusive = startExclusive,
+        startInclusive = startInclusive,
         endInclusive = endInclusive,
         persistenceFetchArgs = (requestingParties, eventProjectionProperties),
         bufferFilter = ToTransactionTree.filter(requestingParties),
@@ -121,7 +121,7 @@ private[events] class BufferedTransactionsReader(
     bufferedTransactionTreeByIdReader.fetch(updateId, requestingParties)
 
   override def getActiveContracts(
-      activeAt: Offset,
+      activeAt: Option[AbsoluteOffset],
       filter: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
@@ -152,19 +152,20 @@ private[platform] object BufferedTransactionsReader {
           GetUpdatesResponse,
         ] {
           override def apply(
-              startExclusive: Offset,
-              endInclusive: Offset,
+              startInclusive: AbsoluteOffset,
+              endInclusive: AbsoluteOffset,
               filter: (TemplatePartiesFilter, EventProjectionProperties),
           )(implicit
               loggingContext: LoggingContextWithTrace
-          ): Source[(Offset, GetUpdatesResponse), NotUsed] = {
+          ): Source[(AbsoluteOffset, GetUpdatesResponse), NotUsed] = {
             val (partyTemplateFilter, eventProjectionProperties) = filter
-            delegate.getFlatTransactions(
-              startExclusive,
-              endInclusive,
-              partyTemplateFilter,
-              eventProjectionProperties,
-            )
+            delegate
+              .getFlatTransactions(
+                startInclusive = startInclusive,
+                endInclusive = endInclusive,
+                filter = partyTemplateFilter,
+                eventProjectionProperties = eventProjectionProperties,
+              )
           }
         },
         bufferedStreamEventsProcessingParallelism = eventProcessingParallelism,
@@ -184,19 +185,20 @@ private[platform] object BufferedTransactionsReader {
           GetUpdateTreesResponse,
         ] {
           override def apply(
-              startExclusive: Offset,
-              endInclusive: Offset,
+              startInclusive: AbsoluteOffset,
+              endInclusive: AbsoluteOffset,
               filter: (Option[Set[Party]], EventProjectionProperties),
           )(implicit
               loggingContext: LoggingContextWithTrace
-          ): Source[(Offset, GetUpdateTreesResponse), NotUsed] = {
+          ): Source[(AbsoluteOffset, GetUpdateTreesResponse), NotUsed] = {
             val (requestingParties, eventProjectionProperties) = filter
-            delegate.getTransactionTrees(
-              startExclusive,
-              endInclusive,
-              requestingParties,
-              eventProjectionProperties,
-            )
+            delegate
+              .getTransactionTrees(
+                startInclusive = startInclusive,
+                endInclusive = endInclusive,
+                requestingParties = requestingParties,
+                eventProjectionProperties = eventProjectionProperties,
+              )
           }
         },
         bufferedStreamEventsProcessingParallelism = eventProcessingParallelism,

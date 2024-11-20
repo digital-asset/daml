@@ -6,11 +6,14 @@ package com.digitalasset.canton.sequencing.client.channel
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.crypto.DomainSyncCryptoClient
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.sequencing.client.SubscriptionCloseReason
-import com.digitalasset.canton.sequencing.protocol.SequencerChannelId
+import com.digitalasset.canton.sequencing.client.channel.endpoint.SequencerChannelClientEndpoint
+import com.digitalasset.canton.sequencing.protocol.channel.SequencerChannelId
 import com.digitalasset.canton.topology.{Member, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.Context
@@ -28,6 +31,7 @@ import scala.util.Try
 final class SequencerChannelClient(
     member: Member,
     clientState: SequencerChannelClientState,
+    domainCryptoApi: DomainSyncCryptoClient,
     domainParameters: StaticDomainParameters,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
@@ -41,16 +45,28 @@ final class SequencerChannelClient(
     * This method creates the channel asynchronously and relies on the provided [[SequencerChannelProtocolProcessor]]
     * to perform the bidirectional interaction with the channel.
     *
+    * One of the connecting members is responsible for generating a session key to secure the communication between
+    * them, that member "owns" the session key. The decision which member owns the session key is taken by the client
+    * of the sequencer channel.
+    *
+    * The session key is transferred to another member through public key encryption. The public key is determined by
+    * a timestamp that been agreed upon by the connecting members beforehand.
+    * This timestamp is expected to originate from a recent topology transaction that has already taken effect.
+    *
     * @param sequencerId [[com.digitalasset.canton.topology.SequencerId]] of the sequencer to create the channel on
     * @param channelId   Unique channel identifier known to both channel endpoints
     * @param connectTo   Member id of the other member to communicate with via the channel
     * @param processor   Sequencer channel protocol processor for handling incoming messages and sending messages
+    * @param isSessionKeyOwner Whether this member owns the session key
+    * @param topologyTs Timestamp that determines the public key encryption of the session key
     */
   def connectToSequencerChannel(
       sequencerId: SequencerId,
       channelId: SequencerChannelId,
       connectTo: Member,
       processor: SequencerChannelProtocolProcessor,
+      isSessionKeyOwner: Boolean,
+      topologyTs: CantonTimestamp,
   )(implicit traceContext: TraceContext): EitherT[UnlessShutdown, String, Unit] = {
 
     // Callback to remove channel tracking state and notify the processor of the channel close
@@ -70,7 +86,10 @@ final class SequencerChannelClient(
           member,
           connectTo,
           processor,
-          domainParameters,
+          domainCryptoApi,
+          isSessionKeyOwner = isSessionKeyOwner,
+          topologyTs,
+          domainParameters.protocolVersion,
           Context.ROOT.withCancellation(),
           timeouts,
           loggerFactory

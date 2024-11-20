@@ -13,10 +13,17 @@ import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.caching.ScaffeineCache
+import com.digitalasset.canton.caching.ScaffeineCache.TracedAsyncLoadingCache
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.concurrent.{FutureSupervisor, HasFutureSupervision}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{CacheConfig, CachingConfigs, ProcessingTimeout}
+import com.digitalasset.canton.config.{
+  CacheConfig,
+  CachingConfigs,
+  ProcessingTimeout,
+  SessionSigningKeysConfig,
+}
 import com.digitalasset.canton.crypto.SignatureCheckError.{
   SignatureWithWrongKey,
   SignerHasNoValidKeys,
@@ -42,7 +49,7 @@ import com.digitalasset.canton.topology.client.{
   TopologySnapshot,
 }
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
-import com.digitalasset.canton.tracing.{TraceContext, TracedAsyncLoadingCache, TracedScaffeine}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.LoggerUtil
 import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
@@ -62,6 +69,7 @@ class SyncCryptoApiProvider(
     val member: Member,
     val ips: IdentityProvidingServiceClient,
     val crypto: Crypto,
+    sessionSigningKeysConfig: SessionSigningKeysConfig,
     cachingConfigs: CachingConfigs,
     timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
@@ -81,6 +89,7 @@ class SyncCryptoApiProvider(
       domain,
       ips.tryForDomain(domain),
       crypto,
+      sessionSigningKeysConfig,
       cachingConfigs,
       staticDomainParameters,
       timeouts,
@@ -99,6 +108,7 @@ class SyncCryptoApiProvider(
       domain,
       dips,
       crypto,
+      sessionSigningKeysConfig,
       cachingConfigs,
       staticDomainParameters,
       timeouts,
@@ -318,6 +328,7 @@ class DomainSyncCryptoClient(
     val domainId: DomainId,
     val ips: DomainTopologyClient,
     val crypto: Crypto,
+    sessionSigningKeysConfig: SessionSigningKeysConfig,
     cacheConfigs: CachingConfigs,
     val staticDomainParameters: StaticDomainParameters,
     override val timeouts: ProcessingTimeout,
@@ -376,7 +387,7 @@ class DomainSyncCryptoClient(
     EitherT[FutureUnlessShutdown, SyncCryptoError, *],
     (CantonTimestamp, NonEmpty[Set[SigningKeyUsage]]),
     Fingerprint,
-  ] = TracedScaffeine.buildTracedAsync[
+  ] = ScaffeineCache.buildTracedAsync[
     EitherT[FutureUnlessShutdown, SyncCryptoError, *],
     (CantonTimestamp, NonEmpty[Set[SigningKeyUsage]]),
     Fingerprint,
@@ -475,17 +486,15 @@ class DomainSnapshotSyncCryptoApi(
 
   override val pureCrypto: CryptoPureApi =
     new DomainCryptoPureApi(staticDomainParameters, crypto.pureCrypto)
-  private val validKeysCache =
-    TracedScaffeine
-      .buildTracedAsync[Future, Member, Map[Fingerprint, SigningPublicKey]](
-        cache = validKeysCacheConfig.buildScaffeine(),
-        loader = traceContext =>
-          member =>
-            loadSigningKeysForMembers(Seq(member))(traceContext)
-              .map(membersWithKeys => membersWithKeys(member)),
-        allLoader =
-          Some(traceContext => members => loadSigningKeysForMembers(members.toSeq)(traceContext)),
-      )(logger)
+  private val validKeysCache
+      : TracedAsyncLoadingCache[Future, Member, Map[Fingerprint, SigningPublicKey]] =
+    ScaffeineCache.buildTracedAsync[Future, Member, Map[Fingerprint, SigningPublicKey]](
+      cache = validKeysCacheConfig.buildScaffeine(),
+      loader = implicit traceContext =>
+        member =>
+          loadSigningKeysForMembers(Seq(member)).map(membersWithKeys => membersWithKeys(member)),
+      allLoader = Some(implicit traceContext => members => loadSigningKeysForMembers(members.toSeq)),
+    )(logger)
 
   private def loadSigningKeysForMembers(
       members: Seq[Member]

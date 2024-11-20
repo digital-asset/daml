@@ -10,7 +10,10 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.sequencing.protocol.{SequencerChannelId, SequencerChannelMetadata}
+import com.digitalasset.canton.sequencing.protocol.channel.{
+  SequencerChannelId,
+  SequencerChannelMetadata,
+}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext

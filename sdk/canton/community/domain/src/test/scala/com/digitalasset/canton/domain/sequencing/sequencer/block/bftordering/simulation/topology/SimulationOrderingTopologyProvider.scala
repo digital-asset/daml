@@ -6,6 +6,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.si
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.{
   CryptoProvider,
   OrderingTopologyProvider,
+  TopologyActivationTime,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.topology.{
   OrderingTopology,
@@ -16,39 +17,52 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   SimulationP2PNetworkManager,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.simulation.future.SimulationFuture
+import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.Endpoint
-import com.digitalasset.canton.topology.processing.EffectiveTime
+import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.util.Success
 
 class SimulationOrderingTopologyProvider(
-    peerEndpointsToOnboardingTimes: Map[Endpoint, EffectiveTime]
+    thisPeer: SequencerId,
+    peerEndpointsToOnboardingInformation: Map[Endpoint, SimulationOnboardingInformation],
+    loggerFactory: NamedLoggerFactory,
 ) extends OrderingTopologyProvider[SimulationEnv] {
 
   override def getOrderingTopologyAt(
-      timestamp: EffectiveTime,
+      activationTime: TopologyActivationTime,
       assumePendingTopologyChanges: Boolean = false,
   )(implicit
       traceContext: TraceContext
   ): SimulationFuture[Option[(OrderingTopology, CryptoProvider[SimulationEnv])]] =
     SimulationFuture { () =>
-      val peerIdsToOnboardingTimes = peerEndpointsToOnboardingTimes.view
-        .filter { case (_, onboardingTime) =>
-          timestamp.value >= onboardingTime.value
-        }
-        .map { case (endpoint, timestamp) =>
-          SimulationP2PNetworkManager.fakeSequencerId(endpoint) -> timestamp
-        }
-        .toMap
+      val activeSequencerOnboardInformation =
+        peerEndpointsToOnboardingInformation.view
+          .filter { case (_, onboardingInformation) =>
+            onboardingInformation.onboardingTime.value <= activationTime.value
+          }
+          .map { case (endpoint, onboardInformation) =>
+            SimulationP2PNetworkManager.fakeSequencerId(endpoint) -> onboardInformation
+          }
+          .toMap
 
       val topology =
         OrderingTopology(
-          peerIdsToOnboardingTimes,
+          activeSequencerOnboardInformation.view.mapValues(_.onboardingTime).toMap,
           SequencingParameters.Default,
-          timestamp,
+          activationTime,
           areTherePendingCantonTopologyChanges = assumePendingTopologyChanges,
         )
-      Success(Some(topology -> SimulationCryptoProvider))
+      Success(
+        Some(
+          topology -> SimulationCryptoProvider.create(
+            thisPeer,
+            activeSequencerOnboardInformation,
+            activationTime.value,
+            loggerFactory,
+          )
+        )
+      )
     }
 }

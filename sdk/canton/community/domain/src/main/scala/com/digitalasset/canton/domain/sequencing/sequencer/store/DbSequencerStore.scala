@@ -15,6 +15,8 @@ import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.catsinstances.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.SequencerCounter
+import com.digitalasset.canton.caching.ScaffeineCache
+import com.digitalasset.canton.caching.ScaffeineCache.TracedAsyncLoadingCache
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong}
 import com.digitalasset.canton.config.{CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -37,12 +39,7 @@ import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.store.db.RequiredTypesCodec.*
 import com.digitalasset.canton.topology.Member
-import com.digitalasset.canton.tracing.{
-  SerializableTraceContext,
-  TraceContext,
-  TracedAsyncLoadingCache,
-  TracedScaffeine,
-}
+import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -382,12 +379,12 @@ class DbSequencerStore(
   }
 
   private val payloadCache: TracedAsyncLoadingCache[Future, PayloadId, Payload] =
-    TracedScaffeine.buildTracedAsync[Future, PayloadId, Payload](
+    ScaffeineCache.buildTracedAsync[Future, PayloadId, Payload](
       cache = cachingConfigs.sequencerPayloadCache.buildScaffeine(),
-      loader = traceContext =>
-        payloadId => readPayloadsFromStore(Seq(payloadId))(traceContext).map(_(payloadId)),
+      loader = implicit traceContext =>
+        payloadId => readPayloadsFromStore(Seq(payloadId)).map(_(payloadId)),
       allLoader =
-        Some(traceContext => payloadIds => readPayloadsFromStore(payloadIds.toSeq)(traceContext)),
+        Some(implicit traceContext => payloadIds => readPayloadsFromStore(payloadIds.toSeq)),
     )(logger)
 
   override def registerMember(member: Member, timestamp: CantonTimestamp)(implicit

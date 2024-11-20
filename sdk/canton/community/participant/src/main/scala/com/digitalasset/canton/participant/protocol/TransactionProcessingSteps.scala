@@ -212,15 +212,8 @@ class TransactionProcessingSteps(
 
   override def getSubmitterInformation(
       views: Seq[DecryptedView]
-  ): (Option[ViewSubmitterMetadata], Option[SubmissionTracker.SubmissionData]) = {
-    val submitterMetadataO =
-      views.map(_.tree.submitterMetadata.unwrap).collectFirst { case Right(meta) => meta }
-    val submissionDataForTrackerO = submitterMetadataO.map(meta =>
-      SubmissionTracker.SubmissionData(meta.submittingParticipant, meta.maxSequencingTime)
-    )
-
-    (submitterMetadataO, submissionDataForTrackerO)
-  }
+  ): Option[ViewSubmitterMetadata] =
+    views.map(_.tree.submitterMetadata.unwrap).collectFirst { case Right(meta) => meta }
 
   private class TrackedTransactionSubmission(
       submitterInfo: SubmitterInfo,
@@ -1096,24 +1089,17 @@ class TransactionProcessingSteps(
       error: TransactionError,
   )(implicit
       traceContext: TraceContext
-  ): (Option[Update], Option[PendingSubmissionId]) = {
+  ): (Option[SequencedUpdate], Option[PendingSubmissionId]) = {
     val rejection = Update.CommandRejected.FinalReason(error.rpcStatus())
     completionInfoFromSubmitterMetadataO(submitterMetadata, freshOwnTimelyTx).map {
       completionInfo =>
-        Update.CommandRejected(
-          ts.toLf,
+        Update.SequencedCommandRejected(
           completionInfo,
           rejection,
           domainId,
-          Some(
-            DomainIndex.of(
-              RequestIndex(
-                counter = rc,
-                sequencerCounter = Some(sc),
-                timestamp = ts,
-              )
-            )
-          ),
+          rc,
+          sc,
+          ts,
         )
     } -> None // Transaction processing doesn't use pending submissions
   }
@@ -1127,7 +1113,7 @@ class TransactionProcessingSteps(
 
   override def createRejectionEvent(rejectionArgs: TransactionProcessingSteps.RejectionArgs)(
       implicit traceContext: TraceContext
-  ): Either[TransactionProcessorError, Option[Update]] = {
+  ): Either[TransactionProcessorError, Option[SequencedUpdate]] = {
 
     val RejectionArgs(pendingTransaction, rejectionReason) = rejectionArgs
     val PendingTransaction(
@@ -1150,20 +1136,13 @@ class TransactionProcessingSteps(
     val rejection = Update.CommandRejected.FinalReason(rejectionReason.reason())
 
     val updateO = completionInfoO.map(info =>
-      Update.CommandRejected(
-        requestTime.toLf,
+      Update.SequencedCommandRejected(
         info,
         rejection,
         domainId,
-        Some(
-          DomainIndex.of(
-            RequestIndex(
-              counter = requestCounter,
-              sequencerCounter = Some(requestSequencerCounter),
-              timestamp = requestTime,
-            )
-          )
-        ),
+        requestCounter,
+        requestSequencerCounter,
+        requestTime,
       )
     )
     Right(updateO)
@@ -1194,7 +1173,6 @@ class TransactionProcessingSteps(
       meta.commandId.unwrap,
       Some(meta.dedupPeriod),
       meta.submissionId,
-      messageUuid = None,
     )
 
     Option.when(freshOwnTimelyTx)(completionInfo)
@@ -1305,7 +1283,7 @@ class TransactionProcessingSteps(
         }.toMap
 
       acceptedEvent =
-        Update.TransactionAccepted(
+        Update.SequencedTransactionAccepted(
           completionInfoO = completionInfoO,
           transactionMeta = TransactionMeta(
             ledgerEffectiveTime = lfTx.metadata.ledgerTime.toLf,
@@ -1320,19 +1298,12 @@ class TransactionProcessingSteps(
           ),
           transaction = LfCommittedTransaction(lfTx.unwrap),
           updateId = lfTxId,
-          recordTime = requestTime.toLf,
           hostedWitnesses = hostedWitnesses.toList,
           contractMetadata = contractMetadata,
           domainId = domainId,
-          domainIndex = Some(
-            DomainIndex.of(
-              RequestIndex(
-                counter = requestCounter,
-                sequencerCounter = Some(requestSequencerCounter),
-                timestamp = requestTime,
-              )
-            )
-          ),
+          requestCounter = requestCounter,
+          sequencerCounter = requestSequencerCounter,
+          recordTime = requestTime,
         )
     } yield CommitAndStoreContractsAndPublishEvent(
       Some(commitSetF),

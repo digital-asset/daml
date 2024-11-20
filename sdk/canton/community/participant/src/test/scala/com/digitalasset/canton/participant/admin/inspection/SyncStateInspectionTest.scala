@@ -46,7 +46,13 @@ import com.digitalasset.canton.store.IndexedDomain
 import com.digitalasset.canton.store.db.{DbTest, PostgresTest}
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
-import com.digitalasset.canton.{BaseTest, CloseableTest, DomainAlias, HasExecutionContext}
+import com.digitalasset.canton.{
+  BaseTest,
+  CloseableTest,
+  DomainAlias,
+  FailOnShutdown,
+  HasExecutionContext,
+}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -58,6 +64,7 @@ sealed trait SyncStateInspectionTest
     with BaseTest
     with CloseableTest
     with SortedReconciliationIntervalsHelpers
+    with FailOnShutdown
     with HasExecutionContext {
   this: DbTest =>
 
@@ -297,7 +304,7 @@ sealed trait SyncStateInspectionTest
       createDummyReceivedCommitment(domainId, remoteId, testPeriod)
     for {
       _ <- store.markOutstanding(testPeriod, Set(remoteId))
-      _ <- store.storeReceived(dummyCommitment).failOnShutdown
+      _ <- store.storeReceived(dummyCommitment)
 
       crossDomainReceived = syncStateInspection.crossDomainReceivedCommitmentMessages(
         Seq(domainSearchPeriod),
@@ -305,7 +312,9 @@ sealed trait SyncStateInspectionTest
         Seq.empty,
         verbose = false,
       )
-    } yield crossDomainReceived.valueOrFail("crossDomainReceived").toSet shouldBe Set(received)
+    } yield crossDomainReceived.valueOrFail("crossDomainReceived").toSet shouldBe Set(
+      received
+    )
   }
 
   "fetch a computed commitment if it has been computed" in {
@@ -320,11 +329,11 @@ sealed trait SyncStateInspectionTest
 
     val (sent, dummyCommitment) = createDummyComputedCommitment(domainId, remoteId, testPeriod)
     for {
-      _ <- store.markOutstanding(testPeriod, Set(remoteId))
+      _ <- store.markOutstanding(testPeriod, Set(remoteId)).failOnShutdown
       nonEmpty = NonEmpty
         .from(Seq(dummyCommitment))
         .getOrElse(throw new IllegalStateException("How is this empty?"))
-      _ <- store.storeComputed(nonEmpty)
+      _ <- store.storeComputed(nonEmpty).failOnShutdown
 
       crossDomainSent = syncStateInspection.crossDomainSentCommitmentMessages(
         Seq(domainSearchPeriod),
@@ -369,7 +378,7 @@ sealed trait SyncStateInspectionTest
         .from(Seq(dummySentCommitment))
         .getOrElse(throw new IllegalStateException("How is this empty?"))
       _ <- store.storeComputed(nonEmpty)
-      _ <- store.storeReceived(dummyRecCommitment).failOnShutdown
+      _ <- store.storeReceived(dummyRecCommitment)
       _ <- store.markSafe(remoteId, testPeriod, srip)
 
       crossDomainSent = syncStateInspection.crossDomainSentCommitmentMessages(
@@ -466,7 +475,7 @@ sealed trait SyncStateInspectionTest
         .from(Seq(dummySentCommitment))
         .getOrElse(throw new IllegalStateException("How is this empty?"))
       _ <- store.storeComputed(nonEmpty)
-      _ <- store.storeReceived(dummyRecCommitment).failOnShutdown
+      _ <- store.storeReceived(dummyRecCommitment)
       _ <- store.markSafe(remoteId, testPeriod, srip)
 
       // same thing, but for the second store
@@ -475,7 +484,7 @@ sealed trait SyncStateInspectionTest
         .from(Seq(dummySentCommitment2))
         .getOrElse(throw new IllegalStateException("How is this empty?"))
       _ <- store2.storeComputed(nonEmpty2)
-      _ <- store2.storeReceived(dummyRecCommitment2).failOnShutdown
+      _ <- store2.storeReceived(dummyRecCommitment2)
       _ <- store2.markSafe(remoteId, testPeriod, srip)
 
       crossDomainSent = syncStateInspection.crossDomainSentCommitmentMessages(
@@ -562,7 +571,7 @@ sealed trait SyncStateInspectionTest
         .from(Seq(dummySentCommitment))
         .getOrElse(throw new IllegalStateException("How is this empty?"))
       _ <- store.storeComputed(nonEmpty)
-      _ <- store.storeReceived(dummyRecCommitment).failOnShutdown
+      _ <- store.storeReceived(dummyRecCommitment)
       _ <- store.markSafe(remoteId, testPeriod, srip)
 
       // same thing, but for the second store
@@ -571,7 +580,7 @@ sealed trait SyncStateInspectionTest
         .from(Seq(dummySentCommitment2))
         .getOrElse(throw new IllegalStateException("How is this empty?"))
       _ <- store2.storeComputed(nonEmpty2)
-      _ <- store2.storeReceived(dummyRecCommitment2).failOnShutdown
+      _ <- store2.storeReceived(dummyRecCommitment2)
       _ <- store2.markSafe(remoteId, testPeriod, srip)
 
       // introduce commitments for remoteId2, since we filter by remoteId then these should not appear
@@ -580,7 +589,7 @@ sealed trait SyncStateInspectionTest
         .from(Seq(dummySentCommitmentTrap))
         .getOrElse(throw new IllegalStateException("How is this empty?"))
       _ <- store2.storeComputed(nonEmptyTrap)
-      _ <- store2.storeReceived(dummyRecCommitmentTrap).failOnShutdown
+      _ <- store2.storeReceived(dummyRecCommitmentTrap)
       _ <- store2.markSafe(remoteId2, testPeriod, srip)
 
       crossDomainSent = syncStateInspection.crossDomainSentCommitmentMessages(
@@ -654,8 +663,8 @@ sealed trait SyncStateInspectionTest
         .from(Seq(dummySentCommitment, dummySentCommitment2, dummySentCommitment3))
         .getOrElse(throw new IllegalStateException("How is this empty?"))
       _ <- store.storeComputed(nonEmpty)
-      _ <- store.storeReceived(dummyRecCommitment).failOnShutdown
-      _ <- store.storeReceived(dummyRecCommitment2).failOnShutdown
+      _ <- store.storeReceived(dummyRecCommitment)
+      _ <- store.storeReceived(dummyRecCommitment2)
 
       // test period 1 is matched
       _ <- store.markSafe(remoteId, testPeriod, srip)
@@ -786,7 +795,7 @@ sealed trait SyncStateInspectionTest
       createDummyReceivedCommitment(domainId, remoteId, testPeriod)
     for {
       _ <- store.markOutstanding(testPeriod, Set(remoteId))
-      _ <- store.storeReceived(dummyCommitment).failOnShutdown
+      _ <- store.storeReceived(dummyCommitment)
 
       crossDomainReceived = syncStateInspection.crossDomainReceivedCommitmentMessages(
         Seq(domainSearchPeriod, domainSearchPeriod),

@@ -6,7 +6,7 @@ package com.digitalasset.canton.ledger.api.validation
 import cats.implicits.toBifunctorOps
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.value.Identifier
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, JwksUrl}
 import com.digitalasset.canton.ledger.api.validation.ResourceAnnotationValidator.{
@@ -245,10 +245,10 @@ object FieldValidator {
 
   def requireNonNegativeOffset(offset: Long, fieldName: String)(implicit
       errorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Offset] =
+  ): Either[StatusRuntimeException, Option[AbsoluteOffset]] =
     Either.cond(
       offset >= 0,
-      Offset.fromLong(offset),
+      Option.unless(offset == 0)(AbsoluteOffset.tryFromLong(offset)),
       RequestValidationErrors.NegativeOffset
         .Error(
           fieldName = fieldName,

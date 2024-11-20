@@ -279,7 +279,7 @@ class SubmissionTrackerSpec
       assertError(
         actual = actualStatusRuntimeException,
         expected = LedgerApiErrors.ParticipantBackpressure
-          .Rejection("Maximum number of commands in-flight reached")
+          .Rejection("Maximum number of in-flight requests reached")
           .asGrpcError,
       )
       succeed
@@ -352,6 +352,8 @@ class SubmissionTrackerSpec
     private def concurrentSubmissionKeys =
       (1 to noConcurrentSubmissions).map(id => submissionKey.copy(commandId = s"cmd-$id"))
 
+    override def maxInFlight = 100
+
     /*
     Nested inside lead to
     Name defaultCase$ is already introduced in an enclosing scope as value defaultCase$
@@ -361,12 +363,6 @@ class SubmissionTrackerSpec
     )
     override def run: Future[Assertion] = for {
       _ <- Future.unit
-      submissionTracker = new SubmissionTrackerImpl(
-        timeoutSupport,
-        maxCommandsInFlight = 100,
-        LedgerApiServerMetrics.ForTesting,
-        loggerFactory,
-      )
       // Track concurrent submissions
       submissions = concurrentSubmissionKeys.map(sk =>
         sk -> submissionTracker.track(sk, `1 day timeout`, submitSucceeds)
@@ -418,12 +414,23 @@ class SubmissionTrackerSpec
     private val timer = new Timer("test-timer")
     def timeoutSupport: CancellableTimeoutSupport =
       new CancellableTimeoutSupportImpl(timer, loggerFactory)
+
+    def maxInFlight = 3
+
+    val streamTracker = new StreamTrackerImpl(
+      timeoutSupport,
+      SubmissionKey.fromCompletion,
+      maxInFlight,
+      LedgerApiServerMetrics.ForTesting.commands.maxInFlightLength,
+      loggerFactory,
+    )
+
     val submissionTracker =
       new SubmissionTrackerImpl(
-        timeoutSupport,
-        maxCommandsInFlight = 3,
-        LedgerApiServerMetrics.ForTesting,
-        loggerFactory,
+        streamTracker,
+        maxCommandsInFlight = maxInFlight,
+        metrics = LedgerApiServerMetrics.ForTesting,
+        loggerFactory = loggerFactory,
       )
 
     val zeroTimeout: config.NonNegativeFiniteDuration = config.NonNegativeFiniteDuration.Zero
@@ -473,7 +480,7 @@ class SubmissionTrackerSpec
     // We want to assert this for each test
     // Completion of futures might race with removal of the entries from the map
     eventually {
-      submissionTracker.pending shouldBe empty
+      streamTracker.pending shouldBe empty
     }
     // Stop the timer
     timer.purge()

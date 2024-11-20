@@ -33,7 +33,6 @@ final case class SerializableCompletionInfo(completionInfo: CompletionInfo) {
       commandId,
       deduplicateUntil,
       submissionId,
-      _,
     ) =
       completionInfo
     v30.CompletionInfo(
@@ -64,7 +63,6 @@ object SerializableCompletionInfo {
       commandId,
       deduplicateUntil,
       submissionId,
-      None,
     )
   }
 }

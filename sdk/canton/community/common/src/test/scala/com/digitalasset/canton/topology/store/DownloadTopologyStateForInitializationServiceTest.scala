@@ -38,6 +38,7 @@ trait DownloadTopologyStateForInitializationServiceTest
         EffectiveTime(from),
         until.map(EffectiveTime(_)),
         tx,
+        None,
       )
     }
   )
@@ -59,6 +60,7 @@ trait DownloadTopologyStateForInitializationServiceTest
         EffectiveTime(from),
         until.map(EffectiveTime(_)),
         tx,
+        None,
       )
     }
   )
@@ -84,45 +86,82 @@ trait DownloadTopologyStateForInitializationServiceTest
           result.map(_.transaction) shouldBe Seq(tx4_DND, tx5_PTP, tx5_DTC)
         }
       }
-    }
-    "the first DomainTrustCertificate is superseded by another one" in {
-      for {
-        store <- initializeStore(bootstrapTransactionsWithUpdates)
-        service = new StoreBasedTopologyStateForInitializationService(store, loggerFactory)
-        storedTxs <- service.initialSnapshot(tx5_DTC.mapping.participantId)
-      } yield {
-        import storedTxs.result
-        // all transactions should be valid and not expired
-        result.foreach(_.validUntil shouldBe empty)
-        result.map(_.transaction) shouldBe Seq(tx4_DND, tx5_PTP, tx5_DTC)
-        result.last.validUntil shouldBe None
+      "the first DomainTrustCertificate is superseded by another one" in {
+        for {
+          store <- initializeStore(bootstrapTransactionsWithUpdates)
+          service = new StoreBasedTopologyStateForInitializationService(store, loggerFactory)
+          storedTxs <- service.initialSnapshot(tx5_DTC.mapping.participantId)
+        } yield {
+          import storedTxs.result
+          // all transactions should be valid and not expired
+          result.foreach(_.validUntil shouldBe empty)
+          result.map(_.transaction) shouldBe Seq(tx4_DND, tx5_PTP, tx5_DTC)
+          result.last.validUntil shouldBe None
+        }
+      }
+
+      "there's only one MediatorDomainState" in {
+        for {
+          store <- initializeStore(bootstrapTransactions)
+          service = new StoreBasedTopologyStateForInitializationService(store, loggerFactory)
+          storedTxs <- service.initialSnapshot(mediatorId1)
+        } yield {
+          import storedTxs.result
+          // all transactions should be valid and not expired
+          result.foreach(_.validUntil shouldBe empty)
+          result.map(_.transaction) shouldBe Seq(tx4_DND, tx5_PTP, tx5_DTC, tx6_MDS)
+        }
+      }
+
+      "the first MediatorDomainState is superseded by another one" in {
+        for {
+          store <- initializeStore(bootstrapTransactionsWithUpdates)
+          service = new StoreBasedTopologyStateForInitializationService(store, loggerFactory)
+          storedTxs <- service.initialSnapshot(mediatorId1)
+        } yield {
+          import storedTxs.result
+          // all transactions should be valid and not validUntil capped at ts6
+          result.foreach(_.validUntil.foreach(_.value should be <= ts6))
+          result.map(_.transaction) shouldBe Seq(tx4_DND, tx5_PTP, tx5_DTC, tx6_DTC_Update, tx6_MDS)
+          result.last.validUntil shouldBe None
+        }
       }
     }
-
-    "there's only one MediatorDomainState" in {
+    "provide the snapshot with all rejected transactions and all proposals" in {
+      val snapshot = StoredTopologyTransactions(
+        Seq[
+          (
+              CantonTimestamp,
+              (GenericSignedTopologyTransaction, Option[CantonTimestamp], Option[String]),
+          )
+        ](
+          ts4 -> (tx4_DND, None, None),
+          // expiring the proposal at ts6. the snapshot itself is inconsistent, but that's not what we're testing here
+          ts4 -> (tx4_OTK_Proposal, ts6.some, None),
+          // expiring the transaction immediately
+          ts5 -> (tx5_PTP, ts5.some, Some("rejection")),
+          ts5 -> (tx5_DTC, ts6.some, None),
+          ts6 -> (tx6_DTC_Update, None, None),
+        ).map { case (from, (tx, until, rejection)) =>
+          StoredTopologyTransaction(
+            SequencedTime(from),
+            EffectiveTime(from),
+            until.map(EffectiveTime(_)),
+            tx,
+            rejection,
+          )
+        }
+      )
       for {
-        store <- initializeStore(bootstrapTransactions)
+        store <- initializeStore(snapshot)
         service = new StoreBasedTopologyStateForInitializationService(store, loggerFactory)
-        storedTxs <- service.initialSnapshot(mediatorId1)
+        storedTxs <- service.initialSnapshot(participantId2)
       } yield {
         import storedTxs.result
         // all transactions should be valid and not expired
-        result.foreach(_.validUntil shouldBe empty)
-        result.map(_.transaction) shouldBe Seq(tx4_DND, tx5_PTP, tx5_DTC, tx6_MDS)
-      }
-    }
-
-    "the first MediatorDomainState is superseded by another one" in {
-      for {
-        store <- initializeStore(bootstrapTransactionsWithUpdates)
-        service = new StoreBasedTopologyStateForInitializationService(store, loggerFactory)
-        storedTxs <- service.initialSnapshot(mediatorId1)
-      } yield {
-        import storedTxs.result
-        // all transactions should be valid and not expired
-        result.foreach(_.validUntil.foreach(_.value should be < ts7))
-        result.map(_.transaction) shouldBe Seq(tx4_DND, tx5_PTP, tx5_DTC, tx6_DTC_Update, tx6_MDS)
-        result.last.validUntil shouldBe None
+        result.foreach(_.validUntil.foreach(_.value should be < ts6))
+        result.map(_.transaction) shouldBe Seq(tx4_DND, tx4_OTK_Proposal, tx5_PTP, tx5_DTC)
+        succeed
       }
     }
 

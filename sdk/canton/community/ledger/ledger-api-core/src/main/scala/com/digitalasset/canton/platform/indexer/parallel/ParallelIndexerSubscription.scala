@@ -260,14 +260,12 @@ object ParallelIndexerSubscription {
   /** Batch wraps around a T-typed batch, enriching it with processing relevant information.
     *
     * @param ledgerEnd The LedgerEnd for the batch. Needed for tail ingestion.
-    * @param lastRecordTime The latest record time in the batch, in milliseconds since Epoch. Needed for metrics population.
     * @param lastTraceContext The latest trace context contained in the batch. Needed for logging.
     * @param batch The batch of variable type.
     * @param batchSize Size of the batch measured in number of updates. Needed for metrics population.
     */
   final case class Batch[+T](
       ledgerEnd: LedgerEnd,
-      lastRecordTime: Long,
       lastTraceContext: TraceContext,
       batch: T,
       batchSize: Int,
@@ -330,7 +328,6 @@ object ParallelIndexerSubscription {
         lastOffset = last._1
         // the rest will be filled later in the sequential step
       ),
-      lastRecordTime = last._2.recordTime.toInstant.toEpochMilli,
       lastTraceContext = last._2.traceContext,
       batch = batch,
       batchSize = input.size,
@@ -343,7 +340,6 @@ object ParallelIndexerSubscription {
   ): Batch[Vector[DbDto]] =
     Batch(
       ledgerEnd = initialLedgerEndO.getOrElse(ZeroLedgerEnd),
-      lastRecordTime = 0,
       lastTraceContext = TraceContext.empty,
       batch = Vector.empty,
       batchSize = 0,

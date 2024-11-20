@@ -5,13 +5,10 @@ package com.digitalasset.canton.participant.store.db
 
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.caching.CaffeineCache
-import com.digitalasset.canton.caching.CaffeineCache.FutureAsyncCacheLoaderUS
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.digitalasset.canton.participant.store.AcsCounterParticipantConfigStore
 import com.digitalasset.canton.pruning.{
   ConfigForDomainThresholds,
@@ -23,12 +20,11 @@ import com.digitalasset.canton.resource.DbStorage.SQLActionBuilderChain
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.github.benmanes.caffeine.cache as caffeine
 
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.concurrent.ExecutionContext
 
 class DbAcsCommitmentConfigStore(
-    metrics: ParticipantMetrics,
     override protected val storage: DbStorage,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -36,29 +32,17 @@ class DbAcsCommitmentConfigStore(
     extends AcsCounterParticipantConfigStore
     with DbStore {
 
-  private val cacheKey = "CommitmentConfigKey"
-  private val cache = new CaffeineCache.AsyncLoadingCaffeineCache[
-    String,
-    (Seq[ConfigForSlowCounterParticipants], Seq[ConfigForDomainThresholds]),
-  ](
-    caffeine.Caffeine
-      .newBuilder()
-      .buildAsync(
-        new FutureAsyncCacheLoaderUS[
-          String,
-          (Seq[ConfigForSlowCounterParticipants], Seq[ConfigForDomainThresholds]),
-        ](_ => fetchSlowCounterParticipantConfigsForCache()(TraceContext.empty))
-      ),
-    metrics.slowCounterParticipantCache,
-  )
+  private val firstFetch = new AtomicBoolean(true)
+  private val slowCounterParticipantConfigs =
+    new AtomicReference[(Seq[ConfigForSlowCounterParticipants], Seq[ConfigForDomainThresholds])](
+      (Seq.empty, Seq.empty)
+    )
 
   import storage.api.*
 
-  private def fetchSlowCounterParticipantConfigsForCache()(implicit
+  private def refreshSlowCounterParticipantConfigsCache()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[
-    (Seq[ConfigForSlowCounterParticipants], Seq[ConfigForDomainThresholds])
-  ] = {
+  ): FutureUnlessShutdown[Unit] = {
     val query =
       sql"""select participant.domain_id, participant.participant_id, participant.is_distinguished, participant.is_added_to_metrics
                from acs_slow_counter_participants participant
@@ -99,14 +83,21 @@ class DbAcsCommitmentConfigStore(
     for {
       configs <- storage.queryUnlessShutdown(mapped, functionFullName)
       thresholds <- storage.queryUnlessShutdown(mappedThreshold, functionFullName)
-    } yield (configs, thresholds)
+    } yield slowCounterParticipantConfigs.set((configs, thresholds))
   }
 
   override def fetchAllSlowCounterParticipantConfig()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[
     (Seq[ConfigForSlowCounterParticipants], Seq[ConfigForDomainThresholds])
-  ] = FutureUnlessShutdown.outcomeF(cache.get(cacheKey))
+  ] =
+    for {
+      _ <-
+        if (firstFetch.get()) {
+          firstFetch.set(false)
+          refreshSlowCounterParticipantConfigsCache()
+        } else FutureUnlessShutdown.unit
+    } yield slowCounterParticipantConfigs.get()
 
   override def createOrUpdateCounterParticipantConfigs(
       configs: Seq[ConfigForSlowCounterParticipants],
@@ -133,51 +124,53 @@ class DbAcsCommitmentConfigStore(
                  values (?, ?, ?) on conflict (domain_id) do update set threshold_distinguished = excluded.threshold_distinguished, threshold_default = excluded.threshold_default"""
       }
 
-    storage.queryAndUpdateUnlessShutdown(
-      DBIO.seq(
-        clearSlowCounterParticipantsDBIO(configs.collect(_.domainId)),
-        DbStorage.bulkOperation_(
-          updateSlowParticipantConfig,
-          configs,
-          storage.profile,
-        ) { pp => config =>
-          pp >> config.domainId
-          pp >> config.participantId
-          pp >> config.isDistinguished
-          pp >> config.isAddedToMetrics
-        },
-        DbStorage.bulkOperation_(
-          updateDomainConfig,
-          thresholds,
-          storage.profile,
-        ) { pp => config =>
-          pp >> config.domainId
-          pp >> config.thresholdDistinguished
-          pp >> config.thresholdDefault
-        },
-      ),
-      functionFullName,
-    )
+    for {
+      _ <- storage.queryAndUpdateUnlessShutdown(
+        DBIO.seq(
+          clearSlowCounterParticipantsDBIO(configs.collect(_.domainId)),
+          DbStorage.bulkOperation_(
+            updateSlowParticipantConfig,
+            configs,
+            storage.profile,
+          ) { pp => config =>
+            pp >> config.domainId
+            pp >> config.participantId
+            pp >> config.isDistinguished
+            pp >> config.isAddedToMetrics
+          },
+          DbStorage.bulkOperation_(
+            updateDomainConfig,
+            thresholds,
+            storage.profile,
+          ) { pp => config =>
+            pp >> config.domainId
+            pp >> config.thresholdDistinguished
+            pp >> config.thresholdDefault
+          },
+        ),
+        functionFullName,
+      )
+      // we fetch from the DB to make this concurrently safe and also to ensure we have the entire set,
+      // since configs might only hold a subset
+      _ <- refreshSlowCounterParticipantConfigsCache()
+    } yield ()
   }
 
   private def clearSlowCounterParticipantsDBIO(
       domainIds: Seq[DomainId]
   )(implicit traceContext: TraceContext): DBIOAction[Unit, NoStream, Effect.All] =
     DBIO.seq(
-      {
-        cache.invalidateAll()
-        if (domainIds.isEmpty) {
-          sqlu"""DELETE FROM acs_slow_counter_participants"""
-        } else {
-          DbStorage.bulkOperation_(
-            """DELETE FROM acs_slow_counter_participants
+      if (domainIds.isEmpty) {
+        sqlu"""DELETE FROM acs_slow_counter_participants"""
+      } else {
+        DbStorage.bulkOperation_(
+          """DELETE FROM acs_slow_counter_participants
                 WHERE domain_id = ?
              """,
-            domainIds,
-            storage.profile,
-          ) { pp => domain =>
-            pp >> domain
-          }
+          domainIds,
+          storage.profile,
+        ) { pp => domain =>
+          pp >> domain
         }
       },
       if (domainIds.isEmpty) {
@@ -198,10 +191,13 @@ class DbAcsCommitmentConfigStore(
   override def clearSlowCounterParticipants(
       domainIds: Seq[DomainId]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    storage.queryAndUpdateUnlessShutdown(
-      clearSlowCounterParticipantsDBIO(domainIds),
-      functionFullName,
-    )
+    for {
+      _ <- storage.queryAndUpdateUnlessShutdown(
+        clearSlowCounterParticipantsDBIO(domainIds),
+        functionFullName,
+      )
+      _ <- refreshSlowCounterParticipantConfigsCache()
+    } yield ()
 
   override def addNoWaitCounterParticipant(
       configs: Seq[ConfigForNoWaitCounterParticipants]

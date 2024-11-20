@@ -9,7 +9,7 @@ import com.digitalasset.daml.lf.value.Value as Lf
 import scalaz.syntax.tag.*
 import scalaz.{@@, Tag}
 
-import java.net.URL
+import java.net.URI
 import scala.util.Try
 
 package object domain {
@@ -45,12 +45,12 @@ package domain {
   sealed trait SubmissionIdTag
 
   final case class JwksUrl(value: String) extends AnyVal {
-    def toURL = new URL(value)
+    def toURL = new URI(value).toURL
   }
 
   object JwksUrl {
     def fromString(value: String): Either[String, JwksUrl] =
-      Try(new URL(value)).toEither.left
+      Try(new URI(value).toURL).toEither.left
         .map(_.getMessage)
         .map(_ => JwksUrl(value))
 

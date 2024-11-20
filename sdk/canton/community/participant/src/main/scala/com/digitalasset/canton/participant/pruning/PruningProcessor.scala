@@ -238,7 +238,7 @@ class PruningProcessor(
         domainIndex <- EitherT
           .right(
             participantNodePersistentState.value.ledgerApiStore
-              .domainIndex(domainId)
+              .cleanDomainIndex(domainId)
           )
           .mapK(FutureUnlessShutdown.outcomeK)
         sortedReconciliationIntervalsProvider <- sortedReconciliationIntervalsProviderFactory
@@ -780,16 +780,10 @@ private[pruning] object PruningProcessor extends HasLoggerName {
 
     val commitmentsPruningBound =
       if (checkForOutstandingCommitments)
-        CommitmentsPruningBound.Outstanding(ts =>
-          FutureUnlessShutdown.outcomeF {
-            acsCommitmentStore.noOutstandingCommitments(ts)
-          }
-        )
+        CommitmentsPruningBound.Outstanding(ts => acsCommitmentStore.noOutstandingCommitments(ts))
       else
         CommitmentsPruningBound.LastComputedAndSent(
-          FutureUnlessShutdown.outcomeF {
-            acsCommitmentStore.lastComputedAndSent.map(_.map(_.forgetRefinement))
-          }
+          acsCommitmentStore.lastComputedAndSent.map(_.map(_.forgetRefinement))
         )
 
     val earliestInFlightF = inFlightSubmissionStore.lookupEarliest(domainId)

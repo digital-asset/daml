@@ -105,6 +105,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       nonStandardConfig: Boolean = false,
       dbMigrateAndStart: Boolean = false,
       disableUpgradeValidation: Boolean = false,
+      sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
       alphaVersionSupport: Boolean = false,
       betaVersionSupport: Boolean = false,
       dontWarnOnDeprecatedPV: Boolean = false,

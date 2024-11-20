@@ -148,6 +148,7 @@ class GrpcSequencerServiceTest
                   EffectiveTime.MinValue,
                   None,
                   _,
+                  None,
                 )
               )
           )

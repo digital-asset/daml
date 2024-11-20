@@ -72,7 +72,7 @@ class AcsInspection(
       ec: ExecutionContext,
   ): Future[Option[AcsSnapshot[SortedMap[LfContractId, (CantonTimestamp, ReassignmentCounter)]]]] =
     for {
-      requestIndex <- ledgerApiStore.value.domainIndex(domainId).map(_.requestIndex)
+      requestIndex <- ledgerApiStore.value.cleanDomainIndex(domainId).map(_.requestIndex)
       snapshot <- requestIndex
         .traverse { cursorHead =>
           val ts = cursorHead.timestamp
@@ -103,7 +103,7 @@ class AcsInspection(
           TimestampValidation
             .beforeRequestIndex(
               domainId,
-              ledgerApiStore.value.domainIndex(domainId).map(_.requestIndex),
+              ledgerApiStore.value.cleanDomainIndex(domainId).map(_.requestIndex),
               timestamp,
             )
             .mapK(FutureUnlessShutdown.outcomeK)
@@ -296,7 +296,7 @@ object AcsInspection {
         timestamp: CantonTimestamp,
     )(implicit ec: ExecutionContext): EitherT[Future, AcsInspectionError, Unit] =
       validate(requestIndex)(timestamp < _.timestamp)(cp =>
-        AcsInspectionError.TimestampAfterPrehead(domainId, timestamp, cp.timestamp)
+        AcsInspectionError.TimestampAfterCleanRequestIndex(domainId, timestamp, cp.timestamp)
       )
 
     def afterPruning(
@@ -316,7 +316,7 @@ object AcsInspection {
 sealed abstract class AcsInspectionError extends Product with Serializable with HasDomainId
 
 object AcsInspectionError {
-  final case class TimestampAfterPrehead(
+  final case class TimestampAfterCleanRequestIndex(
       override val domainId: DomainId,
       requestedTimestamp: CantonTimestamp,
       cleanTimestamp: CantonTimestamp,

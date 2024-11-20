@@ -6,8 +6,8 @@ package com.digitalasset.canton.platform.indexer
 import cats.data.EitherT
 import com.daml.timer.RetryStrategy
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.ledger.participant.state.Update.CommitRepair
+import com.digitalasset.canton.ledger.participant.state.{RepairUpdate, Update}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
@@ -50,7 +50,7 @@ class IndexerState(
   //  13 - the resulting Future finishes
   // The client needs to ensure that the provided repair indexer is not used after the resulting Future terminates, also: CommitRepair should not be used directly.
   def withRepairIndexer(
-      repairOperation: FutureQueue[Update] => EitherT[Future, String, Unit]
+      repairOperation: FutureQueue[RepairUpdate] => EitherT[Future, String, Unit]
   )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] = EitherT(
     withStateUnlessShutdown {
       case Repair(_, repairDone, _) =>
@@ -117,7 +117,7 @@ class IndexerState(
 
   private def executeRepairOperation(
       repairIndexer: RepairQueueProxy,
-      repairOperation: PekkoUtil.FutureQueue[Update] => EitherT[Future, String, Unit],
+      repairOperation: PekkoUtil.FutureQueue[RepairUpdate] => EitherT[Future, String, Unit],
   ): Future[Either[String, Unit]] = withStateUnlessShutdown { _ =>
     def waitForRepairIndexerToTerminateAndThenReturnUnlessShutdown[T](result: Try[T]): Future[T] =
       withStateUnlessShutdown(_ => repairIndexer.done.transform(_ => result))
@@ -272,16 +272,12 @@ class RepairQueueProxy(
     onRepairFinished: () => Future[Unit],
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
-    extends FutureQueue[Update]
+    extends FutureQueue[RepairUpdate]
     with NamedLogging {
   private implicit val traceContext: TraceContext = TraceContext.empty
 
-  override def offer(elem: Update): Future[Done] =
-    elem match {
-      case _: CommitRepair =>
-        Future.failed(new IllegalStateException("CommitRepair should not be used"))
-      case _ => repairQueue.offer(elem)
-    }
+  override def offer(elem: RepairUpdate): Future[Done] =
+    repairQueue.offer(elem)
 
   override def shutdown(): Unit = repairQueue.shutdown()
 
@@ -311,7 +307,7 @@ object IndexerState {
       extends State
 
   final case class Repair(
-      queue: Future[FutureQueue[Update]],
+      queue: Future[FutureQueue[RepairUpdate]],
       repairDone: Future[Unit],
       shutdownInitiated: Boolean,
   ) extends State

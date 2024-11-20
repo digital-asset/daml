@@ -9,6 +9,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.{
   CryptoProvider,
   OrderingTopologyProvider,
+  TopologyActivationTime,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.topology.{
   OrderingTopology,
@@ -36,51 +37,42 @@ private[driver] final class CantonOrderingTopologyProvider(
     with NamedLogging {
 
   override def getOrderingTopologyAt(
-      timestamp: EffectiveTime,
+      activationTime: TopologyActivationTime,
       assumePendingTopologyChanges: Boolean = false,
   )(implicit
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Option[(OrderingTopology, CryptoProvider[PekkoEnv])]] = {
-    val name = s"get ordering topology at $timestamp"
-
-    // A topology snapshot at effective time `et` includes by definition all topology changes successfully
-    //  sequenced with sequencing time `st <= (et - delay).immediatePredecessor`; this means that a topology change successfully
-    //  sequenced at `st` will only be visible in topology snapshots at effective times strictly greater than `st`, even
-    //  if the delay is 0 (in that case, it will be visible in the topology snapshot at effective time
-    //  `st.immediateSuccessor`).
+    val name = s"get ordering topology at activation time $activationTime"
 
     val maxTimestampF =
       if (!assumePendingTopologyChanges) {
         // To understand if there are (potentially relevant) pending topology changes that have been already
-        //  sequenced but only will become effective after observed time advances through the sequencing
-        //  of further events, we are interested in retrieving the maximum effective timestamp
-        //  after the topology processor processed everything sequenced up to and including the predecessor
-        //  of the requested effective timestamp (we can assume the predecessor has been sequenced as it
-        //  is a documented prerequisite for the returned future to complete).
-        //
-        //  We still query using the requested effective timestamp, rather than its predecessor, as topology
-        //  client methods are exclusive on the upper bound to align with the effective time semantics.
-
-        logger.debug(s"Awaiting max timestamp for snapshot effective time $timestamp")
-        cryptoApi.awaitMaxTimestampUS(timestamp.value).map { maxTimestamp =>
+        //  sequenced but will only become visible after observed time advances through the sequencing
+        //  of further events, we need to retrieve the maximum effective timestamp after the topology processor
+        //  processed everything sequenced up to and including the predecessor of the requested activation timestamp
+        //  (note that `awaitMaxTimestampUS` is exclusive on its input).
+        logger.debug(s"Awaiting max timestamp for snapshot at activation time $activationTime")
+        cryptoApi.awaitMaxTimestampUS(activationTime.value).map { maxTimestamp =>
           logger.debug(
-            s"Max timestamp awaited successfully for snapshot effective time $timestamp: $maxTimestamp"
+            s"Max timestamp $maxTimestamp awaited successfully for snapshot at activation time $activationTime"
           )
           Right(maxTimestamp)
         }
       } else {
-        logger.debug(s"Skipping awaiting max timestamp for snapshot effective time $timestamp")
+        logger.debug(
+          s"Skipping awaiting max timestamp for snapshot at activation time $activationTime"
+        )
         FutureUnlessShutdown.pure(Left(()))
       }
 
-    logger.debug(s"Querying topology snapshot at effective time $timestamp")
-    val snapshotF = cryptoApi.awaitSnapshotUS(timestamp.value)
+    logger.debug(s"Querying topology snapshot for activation time $activationTime")
+    val snapshotF = cryptoApi.awaitSnapshotUS(activationTime.value)
 
     val topologyWithCryptoProvider = for {
       snapshot <- snapshotF
       snapshotTimestamp = snapshot.ipsSnapshot.timestamp
       _ = logger.debug(
-        s"Topology snapshot queried successfully at effective time $timestamp, snapshot timestamp: $snapshotTimestamp"
+        s"Topology snapshot queried successfully at activation time: $activationTime, snapshot timestamp: $snapshotTimestamp"
       )
 
       maxTimestamp <- maxTimestampF
@@ -107,29 +99,26 @@ private[driver] final class CantonOrderingTopologyProvider(
         s"Dynamic sequencing parameters queried successfully on snapshot at $snapshotTimestamp: $sequencingDynamicParameters"
       )
     } yield maybePeersFirstKnownAt.map { peersFirstKnownAt =>
-      val peersFirstKnownAtEffective = peersFirstKnownAt.view
+      val peersActiveAt = peersFirstKnownAt.view
         .mapValues(
           // We first get all the peers from the domain client, so the default value should never be needed.
-          _.fold(EffectiveTime(CantonTimestamp.MaxValue)) { case (_, effectiveTime) =>
-            effectiveTime
+          _.fold(TopologyActivationTime(CantonTimestamp.MaxValue)) { case (_, effectiveTime) =>
+            TopologyActivationTime.fromEffectiveTime(effectiveTime)
           }
         )
         .toMap
       val topology =
         OrderingTopology(
-          peersFirstKnownAtEffective,
+          peersActiveAt,
           sequencingDynamicParameters,
-          timestamp,
+          activationTime,
           areTherePendingCantonTopologyChanges = maxTimestamp match {
             case Left(_) =>
               true // We skip awaiting the max timestamp, so we assume there are pending changes
             case Right(result) =>
               result.exists { case (_maxSequencedTime, EffectiveTime(maxEffectiveTime)) =>
-                // The comparison is strict to avoid considering the current effective time as pending; else,
-                //  if the topology effective delay is 0 and a topology transaction was successfully sequenced
-                //  at the predecessor of the current effective time, it would be considered pending even
-                //  though it is already effective and part of the queried snapshot.
-                maxEffectiveTime > timestamp.value
+                // The comparison is strict to avoid considering the activation time as pending.
+                maxEffectiveTime > activationTime.value
               }
           },
         )

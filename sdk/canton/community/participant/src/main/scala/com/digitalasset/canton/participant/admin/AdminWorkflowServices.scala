@@ -48,7 +48,7 @@ import java.io.InputStream
 import scala.concurrent.{ExecutionContextExecutor, Future}
 
 /** Manages our admin workflow applications (ping, party management).
-  * Currently each is an individual application with their own ledger connection and acting independently.
+  * Currently, each is an individual application with their own ledger connection and acting independently.
   */
 class AdminWorkflowServices(
     config: LocalParticipantConfig,
@@ -187,24 +187,37 @@ class AdminWorkflowServices(
   private def loadDamlArchiveUnlessRegistered()(implicit traceContext: TraceContext): Unit =
     withResource(createLedgerClient("admin-checkStatus")) { conn =>
       parameters.processingTimeouts.unbounded.awaitUS_(s"Load Daml packages") {
-        FutureUnlessShutdown
-          .outcomeF(checkPackagesStatus(AdminWorkflowServices.AdminWorkflowPackages, conn))
-          .flatMap { isAlreadyLoaded =>
-            if (!isAlreadyLoaded) EitherTUtil.toFutureUnlessShutdown(loadDamlArchiveResource())
-            else {
-              logger.debug("Admin workflow packages are already present. Skipping loading.")
-              // vet any packages that have not yet been vetted
-              EitherTUtil.toFutureUnlessShutdown(
-                handleDamlErrorDuringPackageLoading(
-                  packageService
-                    .vetPackages(
-                      AdminWorkflowServices.AdminWorkflowPackages.keys.toSeq,
-                      synchronizeVetting = PackageVettingSynchronization.NoSync,
-                    )
+        def load(darName: String): FutureUnlessShutdown[Unit] = {
+          logger.debug(s"Loading dar `$darName` if not already loaded")
+          val packages = AdminWorkflowServices.getDarPackages(darName)
+          FutureUnlessShutdown
+            .outcomeF(checkPackagesStatus(packages, conn))
+            .flatMap { isAlreadyLoaded =>
+              if (!isAlreadyLoaded)
+                EitherTUtil.toFutureUnlessShutdown(loadDamlArchiveResource(darName))
+              else {
+                logger.debug("Admin workflow packages are already present. Skipping loading.")
+                // vet any packages that have not yet been vetted
+                EitherTUtil.toFutureUnlessShutdown(
+                  handleDamlErrorDuringPackageLoading(
+                    packageService
+                      .vetPackages(
+                        packages.keys.toSeq,
+                        synchronizeVetting = PackageVettingSynchronization.NoSync,
+                      )
+                  )
                 )
-              )
+              }
             }
-          }
+        }
+
+        for {
+          _ <- load(AdminWorkflowServices.AdminWorkflowDarResourceName)
+          _ <-
+            if (config.parameters.unsafeEnableOnlinePartyReplication)
+              load(AdminWorkflowServices.PartyReplicationDarResourceName)
+            else FutureUnlessShutdown.pure(())
+        } yield ()
       }
     }
 
@@ -214,16 +227,16 @@ class AdminWorkflowServices(
     * @return Future that contains an IllegalStateException or a Unit
     * @throws RuntimeException if the daml archive cannot be found on the classpath
     */
-  private def loadDamlArchiveResource()(implicit
+  private def loadDamlArchiveResource(darName: String)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, IllegalStateException, Unit] = {
     val bytes =
-      withResource(AdminWorkflowServices.adminWorkflowDarInputStream())(ByteString.readFrom)
+      withResource(AdminWorkflowServices.getDarInputStream(darName))(ByteString.readFrom)
     handleDamlErrorDuringPackageLoading(
       packageService
         .upload(
           darBytes = bytes,
-          fileNameO = Some(AdminWorkflowServices.AdminWorkflowDarResourceName),
+          fileNameO = Some(darName),
           submissionIdO = None,
           vetAllPackages = true,
           synchronizeVetting = PackageVettingSynchronization.NoSync,
@@ -298,9 +311,7 @@ class AdminWorkflowServices(
 object AdminWorkflowServices extends AdminWorkflowServicesErrorGroup {
 
   private val AdminWorkflowDarResourceName: String = "AdminWorkflows.dar"
-  private def adminWorkflowDarInputStream(): InputStream = getDarInputStream(
-    AdminWorkflowDarResourceName
-  )
+  private val PartyReplicationDarResourceName: String = "PartyReplication.dar"
 
   private def getDarInputStream(resourceName: String): InputStream =
     Option(
@@ -313,12 +324,15 @@ object AdminWorkflowServices extends AdminWorkflowServicesErrorGroup {
         )
     }
 
-  val AdminWorkflowPackages: Map[PackageId, Ast.Package] =
+  private def getDarPackages(darName: String): Map[PackageId, Ast.Package] =
     DamlPackageLoader
-      .getPackagesFromInputStream("AdminWorkflows", adminWorkflowDarInputStream())
+      .getPackagesFromInputStream(darName, getDarInputStream(darName))
       .valueOr(err =>
         throw new IllegalStateException(s"Unable to load admin workflow packages: $err")
       )
+
+  lazy val AdminWorkflowPackages: Map[PackageId, Ast.Package] =
+    getDarPackages(AdminWorkflowDarResourceName) ++ getDarPackages(PartyReplicationDarResourceName)
 
   @Explanation(
     """This error indicates that the admin workflow package could not be vetted. The admin workflows is

@@ -6,13 +6,12 @@ package com.digitalasset.canton.platform.indexer
 import cats.data.EitherT
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.participant.state.{SequencerIndex, Update}
+import com.digitalasset.canton.ledger.participant.state.{RepairUpdate, Update}
 import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.platform.indexer.IndexerState.RepairInProgress
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.util.PekkoUtil.{FutureQueue, RecoveringFutureQueue}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
-import com.digitalasset.daml.lf.data.Time
 import org.apache.pekko.Done
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AnyFlatSpec
@@ -80,12 +79,7 @@ class IndexerStateSpec extends AnyFlatSpec with BaseTest with HasExecutionContex
     val repairOperationStartedPromise = Promise[Unit]()
     val repairOperationFinishedPromise = Promise[Unit]()
     val repairOperationF = indexerState.withRepairIndexer { repairQueue =>
-      repairQueue.offer(update).futureValue shouldBe Done
-      repairQueue
-        .offer(Update.CommitRepair())
-        .failed
-        .futureValue
-        .getMessage shouldBe "CommitRepair should not be used"
+      repairQueue.offer(repairUpdate).futureValue shouldBe Done
       repairOperationStartedPromise.trySuccess(())
       EitherT.right[String](repairOperationFinishedPromise.future)
     }.value
@@ -1282,10 +1276,6 @@ class IndexerStateSpec extends AnyFlatSpec with BaseTest with HasExecutionContex
     val domain1 = DomainId.tryFromString("x::domain1")
     val domain2 = DomainId.tryFromString("x::domain2")
     val domain3 = DomainId.tryFromString("x::domain3")
-    val sequencerIndex = SequencerIndex(
-      SequencerCounter(10),
-      CantonTimestamp.now(),
-    )
 
     val initialIndexer = new TestRecoveringIndexer
     val afterRepairIndexer = new TestRecoveringIndexer
@@ -1312,12 +1302,12 @@ class IndexerStateSpec extends AnyFlatSpec with BaseTest with HasExecutionContex
       Vector(
         1L -> update,
         2L -> update,
-        3L -> Update.SequencerIndexMoved(domain1, sequencerIndex, None),
-        4L -> Update.SequencerIndexMoved(domain1, sequencerIndex, None),
-        5L -> Update.SequencerIndexMoved(domain2, sequencerIndex, None),
-        6L -> Update.SequencerIndexMoved(domain2, sequencerIndex, None),
-        7L -> Update.SequencerIndexMoved(domain3, sequencerIndex, None),
-        8L -> Update.SequencerIndexMoved(domain3, sequencerIndex, None),
+        3L -> update.copy(domainId = domain1),
+        4L -> update.copy(domainId = domain1),
+        5L -> update.copy(domainId = domain2),
+        6L -> update.copy(domainId = domain2),
+        7L -> update.copy(domainId = domain3),
+        8L -> update.copy(domainId = domain3),
       )
     )
     val ensureDomain1 = indexerState.ensureNoProcessingForDomain(domain1)
@@ -1332,9 +1322,9 @@ class IndexerStateSpec extends AnyFlatSpec with BaseTest with HasExecutionContex
       Vector(
         1L -> update,
         2L -> update,
-        6L -> Update.SequencerIndexMoved(domain2, sequencerIndex, None),
-        7L -> Update.SequencerIndexMoved(domain3, sequencerIndex, None),
-        8L -> Update.SequencerIndexMoved(domain3, sequencerIndex, None),
+        6L -> update.copy(domainId = domain2),
+        7L -> update.copy(domainId = domain3),
+        8L -> update.copy(domainId = domain3),
       )
     )
     Threading.sleep(110)
@@ -1345,8 +1335,8 @@ class IndexerStateSpec extends AnyFlatSpec with BaseTest with HasExecutionContex
     initialIndexer.uncommittedQueueSnapshotRef.set(
       Vector(
         1L -> update,
-        7L -> Update.SequencerIndexMoved(domain3, sequencerIndex, None),
-        8L -> Update.SequencerIndexMoved(domain3, sequencerIndex, None),
+        7L -> update.copy(domainId = domain3),
+        8L -> update.copy(domainId = domain3),
       )
     )
     Threading.sleep(110)
@@ -1363,12 +1353,7 @@ class IndexerStateSpec extends AnyFlatSpec with BaseTest with HasExecutionContex
     val repairOperationStartedPromise = Promise[Unit]()
     val repairOperationFinishedPromise = Promise[Unit]()
     val repairOperationF = indexerState.withRepairIndexer { repairQueue =>
-      repairQueue.offer(update).futureValue shouldBe Done
-      repairQueue
-        .offer(Update.CommitRepair())
-        .failed
-        .futureValue
-        .getMessage shouldBe "CommitRepair should not be used"
+      repairQueue.offer(repairUpdate).futureValue shouldBe Done
       repairOperationStartedPromise.trySuccess(())
       EitherT.right[String](repairOperationFinishedPromise.future)
     }.value
@@ -1541,10 +1526,14 @@ class IndexerStateSpec extends AnyFlatSpec with BaseTest with HasExecutionContex
     }
   }
 
-  def update: Update =
+  def update: Update.SequencerIndexMoved =
     Update.SequencerIndexMoved(
       domainId = DomainId.tryFromString("x::domain"),
-      sequencerIndex = SequencerIndex(SequencerCounter(15L), CantonTimestamp(Time.Timestamp.now())),
+      sequencerCounter = SequencerCounter(15L),
+      recordTime = CantonTimestamp.now(),
       requestCounterO = None,
     )
+
+  def repairUpdate: RepairUpdate = mock[RepairUpdate]
+
 }

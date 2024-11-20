@@ -16,7 +16,11 @@ import com.digitalasset.canton.concurrent.{
   HasFutureSupervision,
 }
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
+import com.digitalasset.canton.config.{
+  CachingConfigs,
+  DefaultProcessingTimeouts,
+  SessionSigningKeysConfig,
+}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
@@ -302,6 +306,7 @@ class TestingIdentityFactory(
       owner,
       ips(availableUpToInclusive, currentSnapshotApproximationTimestamp),
       crypto,
+      SessionSigningKeysConfig.disabled,
       CachingConfigs.testing,
       DefaultProcessingTimeouts.testing,
       FutureSupervisor.Noop,
