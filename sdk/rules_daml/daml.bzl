@@ -29,6 +29,7 @@ def _daml_configure_impl(ctx):
     module_prefixes = ctx.attr.module_prefixes
     upgrades = ctx.attr.upgrades
     typecheck_upgrades = ctx.attr.typecheck_upgrades
+    daml_source = ctx.attr.daml_source
     daml_yaml = ctx.outputs.daml_yaml
     target = ctx.attr.target
     opts = (
@@ -41,7 +42,7 @@ def _daml_configure_impl(ctx):
 sdk-version: {sdk}
 name: {name}
 version: {version}
-source: .
+source: {daml_source}
 data-dependencies: [{data_dependencies}]
 dependencies: [{dependencies}]
 module-prefixes:
@@ -57,6 +58,7 @@ build-options: [{opts}]
             data_dependencies = ", ".join(data_dependencies),
             module_prefixes = "\n".join(["  {}: {}".format(k, v) for k, v in module_prefixes.items()]),
             upgrades = "upgrades: " + upgrades if upgrades and using_local_compiler(target) else "",
+            daml_source = daml_source if daml_source else "."
         ),
     )
 
@@ -93,6 +95,9 @@ _daml_configure = rule(
         "typecheck_upgrades": attr.bool(
             doc = "Whether or not to typecheck against the upgraded package.",
         ),
+        "daml_source": attr.string(
+            doc = "Source field in daml.yaml."
+        )
     },
 )
 
@@ -110,6 +115,7 @@ def _daml_build_impl(ctx):
     name = ctx.label.name
     daml_yaml = ctx.file.daml_yaml
     srcs = ctx.files.srcs
+    daml_source = ctx.attr.daml_source + "/" if ctx.attr.daml_source else ""
     dar_dict = ctx.attr.dar_dict
     damlc = ctx.executable.damlc
     input_dars = [file_of_target(k) for k in dar_dict.keys()]
@@ -138,7 +144,7 @@ def _daml_build_impl(ctx):
             cp_srcs = "\n".join([
                 make_cp_command(
                     src = src.path,
-                    dest = "$tmpdir/" + src.path,
+                    dest = "$tmpdir/" + daml_source + src.path.removeprefix(ctx.label.package + "/"),
                 )
                 for src in srcs
             ]),
@@ -183,6 +189,9 @@ _daml_build = rule(
         "ghc_options": attr.string_list(
             doc = "Options passed to GHC.",
             default = ["--ghc-option=-Werror", "--log-level=WARNING"],
+        ),
+        "daml_source": attr.string(
+            doc = "Source field in daml.yaml."
         ),
         "damlc": _damlc,
     },
@@ -326,6 +335,7 @@ def daml_compile(
         module_prefixes = None,
         upgrades = None,
         typecheck_upgrades = False,
+        daml_source = None,
         **kwargs):
     "Build a Daml project, with a generated daml.yaml."
     if len(srcs) == 0:
@@ -342,6 +352,7 @@ def daml_compile(
         project_version = version,
         daml_yaml = daml_yaml,
         target = target,
+        daml_source = daml_source,
         **kwargs
     )
     _daml_build(
@@ -355,6 +366,7 @@ def daml_compile(
             ghc_options +
             (["--enable-scenarios=yes"] if enable_scenarios and (target == None or _supports_scenarios(target)) else []),
         damlc = damlc_for_target(target),
+        daml_source = daml_source,
         **kwargs
     )
     _inspect_dar(

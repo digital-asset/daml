@@ -5,41 +5,11 @@ module Daml.Script.Internal.Questions.UserManagement where
 
 import Daml.Script.Internal.LowLevel
 import Daml.Script.Internal.Questions.Commands
-import Daml.Script.Internal.Questions.PartyManagement
 import Daml.Script.Internal.Questions.Submit
 import DA.Stack
 import DA.Exception
 import Daml.Script.Internal.Questions.Exceptions ()
-
--- | Identifier for a user in the user management service.
-newtype UserId = UserId Text deriving (Eq, Ord)
-
-instance Show UserId where show (UserId text) = "'" <> text <> "'"
-
--- | Extract the name-text from a user identitifer.
-userIdToText : UserId -> Text
-userIdToText (UserId text) = text
-
--- | User-info record for a user in the user management service.
-data User = User
-  with
-    userId : UserId
-    primaryParty : Optional Party
-  deriving (Show, Eq, Ord)
-
--- | The rights of a user.
-data UserRight
-  = ParticipantAdmin
-  | CanActAs Party
-  | CanReadAs Party
-  deriving (Show, Eq)
-
--- | Thrown if text for a user identifier does not conform to the format restriction.
-exception InvalidUserId
-  with
-    m : Text
-  where
-    message m
+import Daml.Script.Stable
 
 mkUserId : Text -> Script (Optional Text) -> Script UserId
 mkUserId name validateScript = do
@@ -47,25 +17,11 @@ mkUserId name validateScript = do
     None -> pure (UserId name)
     Some msg -> throw (InvalidUserId msg)
 
--- | Thrown if a user to be created already exists.
-exception UserAlreadyExists
-  with
-    userId : UserId
-  where
-    message (userIdToText userId)
-
 checkUserAlreadyExists : UserId -> Script (Optional ()) -> Script ()
 checkUserAlreadyExists userId script = do
   script >>= \case
     None -> throw (UserAlreadyExists userId)
     Some x -> pure x
-
--- | Thrown if a user cannot be located for a given user identifier.
-exception UserNotFound
-  with
-    userId : UserId
-  where
-    message (userIdToText userId)
 
 checkUserNotFound : UserId -> Script (Optional a) -> Script a
 checkUserNotFound userId script = do

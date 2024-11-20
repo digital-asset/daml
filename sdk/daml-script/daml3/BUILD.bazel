@@ -1,46 +1,21 @@
 # Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-# TODO Once daml_compile uses build instead of package we should use
-# daml_compile instead of a genrule.
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
 load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "lf_version_default_or_latest")
+load("//rules_daml:daml.bzl", "daml_compile")
 
+# Note that daml3-script is split into 2 packages, daml3-script and daml3-script-stable
+# See the internal and stable subdirectories respectively for these packages and their purpose.
+
+# Copy the internal library over to top level, to keep a nice bazel path
 [
-    genrule(
-        name = "daml-script-{}-dar".format(lf_version),
-        srcs = glob(["**/*.daml"]),
-        outs = ["daml3-script-{}.dar".format(lf_version)],
-        cmd = """
-            set -eou pipefail
-            TMP_DIR=$$(mktemp -d)
-            mkdir -p $$TMP_DIR/daml/Daml
-            cp -rL $$(dirname $(location Daml/Script.daml)) $$TMP_DIR/daml
-            cat << EOF > $$TMP_DIR/daml.yaml
-sdk-version: {sdk}
-name: daml3-script
-source: daml
-version: {ghc}
-dependencies:
-  - daml-stdlib
-  - daml-prim
-build-options: {build_options}
-EOF
-            $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$@
-            rm -rf $$TMP_DIR
-    """.format(
-            build_options = str([
-                "--ghc-option",
-                "-Werror",
-                "--log-level=WARNING",
-                "--target",
-                lf_version,
-            ]),
-            ghc = ghc_version,
-            sdk = sdk_version,
-        ),
-        tools = ["//compiler/damlc"],
+    copy_file(
+        name = "daml3-script-{}".format(lf_version),
+        src = "//daml-script/daml3/internal:daml3-script-{}.dar".format(lf_version),
+        out = "daml3-script-{}.dar".format(lf_version),
+        allow_symlink = True,
         visibility = ["//visibility:public"],
     )
     for lf_version in COMPILER_LF_VERSIONS
@@ -68,7 +43,7 @@ filegroup(
 genrule(
     name = "daml-script-docs",
     srcs = [
-        ":daml-script.json",
+        "//daml-script/daml3/internal:daml-script.json",
         ":daml-script-rst-template.rst",
         ":daml-script-index-template.rst",
         ":daml-script-hoogle-template.txt",
@@ -94,24 +69,6 @@ genrule(
     """,
     tools = [
         "//bazel_tools/sh:mktgz",
-        "//compiler/damlc",
-    ],
-    visibility = ["//visibility:public"],
-)
-
-genrule(
-    name = "daml-script-json-docs",
-    srcs = glob(["**/*.daml"]),
-    outs = ["daml-script.json"],
-    cmd = """
-        $(location //compiler/damlc) -- docs \
-            --output=$(OUTS) \
-            --package-name=daml3-script \
-            --format=Json \
-            --target=1.dev \
-            $(location Daml/Script.daml)
-    """,
-    tools = [
         "//compiler/damlc",
     ],
     visibility = ["//visibility:public"],

@@ -4,6 +4,7 @@
 module Daml.Script.Internal.Questions.PartyManagement where
 
 import Daml.Script.Internal.LowLevel
+import Daml.Script.Stable (PartyDetails (..), PartyIdHint (..), ParticipantName (..))
 import DA.Stack
 
 data AllocateParty = AllocateParty with
@@ -11,12 +12,6 @@ data AllocateParty = AllocateParty with
   idHint : Text
   participant : Optional Text
 instance IsQuestion AllocateParty Party where command = "AllocateParty"
-
--- | A hint to the backing participant what party id to allocate.
--- Must be a valid PartyIdString (as described in @value.proto@).
-newtype PartyIdHint = PartyIdHint { partyIdHint : Text }
-
-newtype ParticipantName = ParticipantName { participantName : Text }
 
 -- | Allocate a party with the given display name
 -- using the party management service.
@@ -49,14 +44,6 @@ allocatePartyWithHintOn displayName (PartyIdHint idHint) (ParticipantName partic
   displayName
   idHint = idHint
   participant = Some participant
-
--- | The party details returned by the party management service.
-data PartyDetails = PartyDetails
-  with
-    party : Party -- ^ Party id
-    displayName : Optional Text -- ^ Optional display name
-    isLocal : Bool -- ^ True if party is hosted by the backing participant.
-  deriving (Eq, Ord, Show)
 
 data ListKnownParties = ListKnownParties with
   participant : Optional Text
