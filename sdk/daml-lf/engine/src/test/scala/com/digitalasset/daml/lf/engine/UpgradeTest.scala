@@ -113,6 +113,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     */
   abstract class TestCase(val templateName: String, val expectedOutcome: ExpectedOutcome) {
     def v1AdditionalFields: String = ""
+    def v1AdditionalChoices: String = ""
     def v1Precondition: String = "True"
     def v1Signatories: String = s"Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)"
     def v1Observers: String = "Nil @Party"
@@ -132,6 +133,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     def v1View: String = s"'$commonDefsPkgId':Mod:MyView { value = 0 }"
 
     def v2AdditionalFields: String = ""
+    def v2AdditionalChoices: String = ""
     def v2Precondition: String = v1Precondition
     def v2Signatories: String = v1Signatories
     def v2Observers: String = v1Observers
@@ -144,6 +146,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
 
     private def templateDefinition(
         additionalFields: String,
+        additionalChoices: String,
         precondition: String,
         signatories: String,
         observers: String,
@@ -167,6 +170,8 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
          |      , observers (Nil @Party)
          |      to upure @Text "TemplateChoice was called";
          |
+         |    $additionalChoices
+         |
          |    implements '$commonDefsPkgId':Mod:Iface {
          |      view = $view;
          |      method interfaceChoiceControllers = $choiceControllers;
@@ -178,6 +183,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
 
     def v1TemplateDefinition: String = templateDefinition(
       v1AdditionalFields,
+      v1AdditionalChoices,
       v1Precondition,
       v1Signatories,
       v1Observers,
@@ -191,6 +197,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
 
     def v2TemplateDefinition: String = templateDefinition(
       v2AdditionalFields,
+      v2AdditionalChoices,
       v2Precondition,
       v2Signatories,
       v2Observers,
@@ -610,6 +617,17 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       s"""throw @Text @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "Agreement"})"""
   }
 
+  case object AdditionalChoices extends TestCase("AdditionalChoices", ExpectSuccess) {
+    override def v1AdditionalChoices: String = ""
+    override def v2AdditionalChoices: String =
+      s"""
+        | choice @nonConsuming AdditionalChoice (self) (u: Unit): Text
+        |   , controllers (Cons @Party [Mod:${templateName} {p1} this] (Nil @Party))
+        |   , observers (Nil @Party)
+        |   to upure @Text "AdditionalChoice was called";
+        |""".stripMargin
+  }
+
   case object UnchangedKey extends TestCase("UnchangedKey", ExpectSuccess) {
     override def v1Key = s"""
                             |  '$commonDefsPkgId':Mod:Key {
@@ -682,8 +700,8 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
   }
 
   case object AdditionalTemplateArg extends TestCase("AdditionalTemplateArg", ExpectSuccess) {
-    override def v1AdditionalFields: String = ""
-    override def v2AdditionalFields: String = ", extra: Option Unit"
+    override def v1AdditionalFields = ""
+    override def v2AdditionalFields = ", extra: Option Unit"
   }
 
   val testCases: Seq[TestCase] = List(
@@ -707,6 +725,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     ThrowingMaintainers,
     ThrowingMaintainersBody,
     AdditionalTemplateArg,
+    AdditionalChoices,
   )
 
   val templateDefsPkgName = Ref.PackageName.assertFromString("-template-defs-")
