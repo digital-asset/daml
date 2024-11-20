@@ -38,7 +38,7 @@ import V1.DataChangesDummy
 
 main : TestTree
 main = tests
-  [ {-("Fails if the template name changes", templateNameChanges)
+  [ ("Fails if the template name changes", templateNameChanges)
   , ("Fails if fields are removed", templateFieldsRemoved)
   , ("Fails if non-optional fields are added", templateNonOptionalFieldsAdded)
   , ("Fails if nested fields are removed", templateFieldsRemovedNested)
@@ -58,7 +58,8 @@ main = tests
   , ("Fails if an optional field is set when downgrading via a key exercise in a choice body", templateOptionalFieldsSetWhenDowngradingViaKeyExercise)
   , ("Fails if an optional field is set when downgrading via a key exercise in a choice body with a local contract", templateOptionalFieldsSetWhenDowngradingViaKeyExerciseLocalContractCommand)
   , ("Fails if an optional field is set when downgrading via a disclosed exercise", templateOptionalFieldsSetWhenDowngradingDisclosure)
-  , -}("Fails if an optional field is set when downgrading via a key exercise inside a choice, with a local contract", templateOptionalFieldsSetWhenDowngradingViaKeyExerciseInsideChoiceLocal)
+  , ("Fails if an optional field is set when downgrading via a disclosed key exercise", templateOptionalFieldsSetWhenDowngradingViaKeyExerciseDisclosure)
+  , ("Fails if an optional field is set when downgrading via a key exercise inside a choice, with a local contract", templateOptionalFieldsSetWhenDowngradingViaKeyExerciseInsideChoiceLocal)
   , ("Fails if an optional field is set when downgrading via an exercise inside a choice, with a local contract", templateOptionalFieldsSetWhenDowngradingViaExerciseInsideChoiceLocal)
   ]
 
@@ -660,6 +661,21 @@ templateOptionalFieldsSetWhenDowngradingDisclosure = test $ do
     Left (DevError Upgrade msg) | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg -> pure ()
     _ -> assertFail $ "Expected specific failure but got " <> show res
 
+templateOptionalFieldsSetWhenDowngradingViaKeyExerciseDisclosure : Test
+templateOptionalFieldsSetWhenDowngradingViaKeyExerciseDisclosure = test $ do
+  a <- allocatePartyOn "alice" participant0
+  b <- allocatePartyOn "bob" participant0
+  cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V1"
+
+  disclosure <- fromSome <$> queryDisclosure a cid
+
+  let cidV1 = coerceContractId @V2.OptionalFieldsAdded @V1.OptionalFieldsAdded cid
+  res <- (actAs b <> packagePreference [dataChangesV1] <> disclose disclosure) `trySubmit` exerciseByKeyExactCmd @V1.OptionalFieldsAdded (V1.OptionalFieldsAddedKey a) (V1.OptionalFieldsAddedCallWithCtl b)
+
+  case res of
+    Left (DevError Upgrade msg) | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg -> pure ()
+    _ -> assertFail $ "Expected specific failure but got " <> show res
+
 templateOptionalFieldsSetWhenDowngradingViaExerciseInsideChoiceLocal : Test
 templateOptionalFieldsSetWhenDowngradingViaExerciseInsideChoiceLocal = test $ do
   a <- allocatePartyOn "alice" participant0
@@ -671,9 +687,7 @@ templateOptionalFieldsSetWhenDowngradingViaExerciseInsideChoiceLocal = test $ do
 templateOptionalFieldsSetWhenDowngradingViaKeyExerciseInsideChoiceLocal : Test
 templateOptionalFieldsSetWhenDowngradingViaKeyExerciseInsideChoiceLocal = test $ do
   a <- allocatePartyOn "alice" participant0
-  cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V1"
   res <- (actAs a <> packagePreference [dataChangesV1]) `trySubmit` createAndExerciseExactCmd (TLocalTestDummy a) TLocalTestDummyChoiceByKey
   case res of
     Left (DevError Upgrade msg) | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg -> pure ()
     _ -> assertFail $ "Expected specific failure but got " <> show res
-
