@@ -6,7 +6,6 @@ package com.digitalasset.canton.auth
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.logging.LoggingContextWithTrace
 import io.grpc.{Status, StatusRuntimeException}
 import org.mockito.MockitoSugar
 import org.scalatest.Assertion
@@ -23,8 +22,6 @@ class AuthorizerSpec
     with Matchers
     with MockitoSugar
     with PekkoBeforeAndAfterAll {
-
-  private implicit val loggingContext: LoggingContextWithTrace = LoggingContextWithTrace.ForTesting
 
   private val className = classOf[Authorizer].getSimpleName
   private val dummyRequest = 1337L

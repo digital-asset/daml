@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.participant.store.memory
 
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.store.ParticipantPruningStore
 import com.digitalasset.canton.participant.store.ParticipantPruningStore.ParticipantPruningStatus
 import com.digitalasset.canton.tracing.TraceContext
@@ -20,7 +20,7 @@ class InMemoryParticipantPruningStore(protected val loggerFactory: NamedLoggerFa
     new AtomicReference(ParticipantPruningStatus(None, None))
 
   override def markPruningStarted(
-      upToInclusive: GlobalOffset
+      upToInclusive: AbsoluteOffset
   )(implicit traceContext: TraceContext): Future[Unit] = {
     status.updateAndGet {
       case oldStatus if oldStatus.startedO.forall(_ < upToInclusive) =>
@@ -31,7 +31,7 @@ class InMemoryParticipantPruningStore(protected val loggerFactory: NamedLoggerFa
   }
 
   override def markPruningDone(
-      upToInclusive: GlobalOffset
+      upToInclusive: AbsoluteOffset
   )(implicit traceContext: TraceContext): Future[Unit] = {
     status.updateAndGet {
       case oldStatus if oldStatus.completedO.forall(_ < upToInclusive) =>

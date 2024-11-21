@@ -12,6 +12,8 @@ import com.google.protobuf.ByteString
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.annotation.unused
+
 class HasProtocolVersionedWrapperTest extends AnyWordSpec with BaseTest {
 
   import HasProtocolVersionedWrapperTest.*
@@ -122,7 +124,9 @@ class HasProtocolVersionedWrapperTest extends AnyWordSpec with BaseTest {
         import com.digitalasset.canton.version.HasProtocolVersionedWrapperTest.Message.*
 
         // Used by the compiled string below
+        @unused
         val stablePV = ProtocolVersion.createStable(10)
+        @unused
         val alphaPV = ProtocolVersion.createAlpha(11)
 
         def name: String = "message"

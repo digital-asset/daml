@@ -15,6 +15,8 @@ import com.daml.metrics.http.{
   DamlWebSocketsHistograms,
 }
 
+import scala.annotation.unused
+
 object HttpApiMetrics {
   lazy val ForTesting =
     new HttpApiMetrics(
@@ -29,7 +31,9 @@ class HttpApiHistograms(parent: MetricName)(implicit
     inventory: HistogramInventory
 ) {
 
+  @unused
   private val _http: DamlHttpHistograms = new DamlHttpHistograms()
+  @unused
   private val _webSockets: DamlWebSocketsHistograms = new DamlWebSocketsHistograms()
 
   val prefix: MetricName = parent :+ "http_json_api"

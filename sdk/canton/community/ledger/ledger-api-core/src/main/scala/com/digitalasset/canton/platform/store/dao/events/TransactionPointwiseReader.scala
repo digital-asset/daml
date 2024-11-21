@@ -7,8 +7,9 @@ import com.daml.ledger.api.v2.event.Event
 import com.daml.ledger.api.v2.transaction.TreeEvent
 import com.daml.ledger.api.v2.update_service.{GetTransactionResponse, GetTransactionTreeResponse}
 import com.daml.metrics.{DatabaseMetrics, Timed}
+import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.data
-import com.digitalasset.canton.logging.LoggingContextWithTrace
+import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
@@ -35,6 +36,7 @@ sealed trait TransactionPointwiseReader {
   def lfValueTranslation: LfValueTranslation
   val metrics: LedgerApiServerMetrics
   val dbMetric: DatabaseMetrics
+  val directEC: DirectExecutionContext
   implicit def ec: ExecutionContext
 
   protected val dbMetrics: metrics.index.db.type = metrics.index.db
@@ -92,9 +94,13 @@ sealed trait TransactionPointwiseReader {
             // Deserialization of lf values
             deserialized <- Timed.value(
               timer = dbMetric.translationTimer,
-              value = MonadUtil.sequentialTraverse(filteredRawEvents)(
-                deserializeEntry(eventProjectionProperties, lfValueTranslation)
-              ),
+              value = Future.delegate {
+                implicit val ec: ExecutionContext =
+                  directEC // Scala 2 implicit scope override: shadow the outer scope's implicit by name
+                MonadUtil.sequentialTraverse(filteredRawEvents)(
+                  deserializeEntry(eventProjectionProperties, lfValueTranslation)
+                )
+              },
             )
           } yield {
             // Conversion to API response type
@@ -111,14 +117,17 @@ final class TransactionTreePointwiseReader(
     override val eventStorageBackend: EventStorageBackend,
     override val metrics: LedgerApiServerMetrics,
     override val lfValueTranslation: LfValueTranslation,
+    override val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
-    extends TransactionPointwiseReader {
+    extends TransactionPointwiseReader
+    with NamedLogging {
 
   override type EventT = TreeEvent
   override type RawEventT = RawTreeEvent
   override type RespT = GetTransactionTreeResponse
 
   override val dbMetric: DatabaseMetrics = dbMetrics.lookupTransactionTreeById
+  override val directEC: DirectExecutionContext = DirectExecutionContext(logger)
 
   override protected def fetchTransaction(
       firstEventSequentialId: Long,
@@ -150,14 +159,17 @@ final class TransactionFlatPointwiseReader(
     override val eventStorageBackend: EventStorageBackend,
     override val metrics: LedgerApiServerMetrics,
     override val lfValueTranslation: LfValueTranslation,
+    override val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
-    extends TransactionPointwiseReader {
+    extends TransactionPointwiseReader
+    with NamedLogging {
 
   override type EventT = Event
   override type RawEventT = RawFlatEvent
   override type RespT = GetTransactionResponse
 
   override val dbMetric: DatabaseMetrics = dbMetrics.lookupFlatTransactionById
+  override val directEC: DirectExecutionContext = DirectExecutionContext(logger)
 
   override protected def fetchTransaction(
       firstEventSequentialId: Long,

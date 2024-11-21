@@ -196,9 +196,4 @@ class DbSequencerBlockStore(
     s"Removed ${if (pruningFromBeginning) count else Math.max(0, count - 1)} blocks"
   }
 
-  private[this] def readLatestBlockInfo(): DBIOAction[Option[BlockInfo], NoStream, Effect.Read] =
-    (sql"select height, latest_event_ts, latest_sequencer_event_ts from seq_block_height order by height desc " ++ topRow)
-      .as[BlockInfo]
-      .headOption
-
 }

@@ -1100,11 +1100,6 @@ package domain {
     final def fromLedgerApi(in: lav2.value.Identifier): RequiredPkgId =
       apply(Ref.PackageId.assertFromString(in.packageId), in.moduleName, in.entityName)
 
-    private[this] def qualifiedName(a: CtId[_]): Ref.QualifiedName =
-      Ref.QualifiedName(
-        Ref.DottedName.assertFromString(a.moduleName),
-        Ref.DottedName.assertFromString(a.entityName),
-      )
   }
 
   // Represents information about a contract type id that may use a name as the package reference.

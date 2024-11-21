@@ -44,7 +44,7 @@ final case class SignedContent[+A <: HasCryptographicEvidence] private (
     timestampOfSigningKey: Option[CantonTimestamp],
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[SignedContent.type],
-    override val deserializedFrom: Option[ByteString] = None,
+    override val deserializedFrom: Option[ByteString],
 ) extends HasProtocolVersionedWrapper[SignedContent[HasCryptographicEvidence]]
     with ProtocolVersionedMemoizedEvidence
     with Serializable

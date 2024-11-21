@@ -86,7 +86,7 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
       args: List[
         (SequencerAlias, Endpoint, Either[SequencerInfoLoaderError, DomainClientBootstrapInfo])
       ],
-      activeOnly: Boolean = false,
+      activeOnly: Boolean,
   ) = SequencerInfoLoader
     .validateNewSequencerConnectionResults(
       expectDomainId,
@@ -337,7 +337,7 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
       .getOrElse(throw new IllegalArgumentException("n must be positive"))
 
   private def loadSequencerInfoFactory(
-      m: Map[Int, FutureUnlessShutdown[LoadSequencerEndpointInformationResult]] = Map.empty
+      m: Map[Int, FutureUnlessShutdown[LoadSequencerEndpointInformationResult]]
   ): SequencerConnection => FutureUnlessShutdown[LoadSequencerEndpointInformationResult] = sc =>
     m.getOrElse(
       sc.sequencerAlias.unwrap.drop("sequencer".length).toInt,

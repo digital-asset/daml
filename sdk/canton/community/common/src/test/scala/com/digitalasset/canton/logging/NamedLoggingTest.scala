@@ -4,6 +4,7 @@
 package com.digitalasset.canton.logging
 
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.typesafe.scalalogging.Logger
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -72,7 +73,7 @@ class NamedLoggingTest extends AnyWordSpec with BaseTest {
 
     class InstanceWithNamedLogging(val loggerFactory: MockNamedLoggerFactory) extends NamedLogging {
       // eagerly create a logger instance
-      private val _logger = logger
+      logger.discard
     }
 
     object InstanceWithNamedLogging {

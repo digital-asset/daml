@@ -6,6 +6,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.co
 import cats.data.Validated
 import cats.syntax.either.*
 import cats.syntax.foldable.*
+import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
@@ -20,12 +21,20 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.ViewChange
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
+  NewView,
+  ViewChange,
+}
 
 class ViewChangeMessageValidator(
     membership: Membership,
     segmentBlockNumbers: Seq[BlockNumber],
 ) {
+
+  private val valid: Validated[NonEmpty[Seq[String]], Unit] = Validated.valid(())
+  private def invalid(msg: String): Validated[NonEmpty[Seq[String]], Unit] =
+    Validated.invalid(NonEmpty(Seq, msg))
+
   def validateViewChangeMessage(viewChange: ViewChange): Either[String, Unit] = {
     val certs = viewChange.consensusCerts
 
@@ -110,10 +119,6 @@ class ViewChangeMessageValidator(
         )
     }
 
-    val valid: Validated[NonEmpty[Seq[String]], Unit] = Validated.valid(())
-    def invalid(msg: String): Validated[NonEmpty[Seq[String]], Unit] =
-      Validated.invalid(NonEmpty(Seq, msg))
-
     (NonEmpty.from(messages) match {
       case Some(nonEmptyMessages) =>
         val messagesViewNumberValidation = {
@@ -189,5 +194,127 @@ class ViewChangeMessageValidator(
         s"$messageName certificate for block $blockNumber has the following errors: ${errors.mkString(", ")}",
       )
     )
+  }
+
+  def validateNewViewMessage(newView: NewView): Either[String, Unit] = {
+    val currentViewNumber = newView.viewNumber
+    val segmentNumber = newView.blockMetadata.blockNumber
+    val epochNumber = newView.blockMetadata.epochNumber
+    val strongQuorum = membership.orderingTopology.strongQuorum
+
+    for {
+      _ <- {
+        val wrongEpochs = newView.viewChanges
+          .map(_.message.blockMetadata.epochNumber)
+          .filter(_ != epochNumber)
+          .toSet
+        Either.cond(
+          wrongEpochs.isEmpty,
+          (),
+          s"there are view change messages for the wrong epoch (${wrongEpochs.mkString(", ")} instead of $epochNumber)",
+        )
+      }
+      _ <- {
+        val wrongSegments = newView.viewChanges
+          .map(_.message.blockMetadata.blockNumber)
+          .filter(_ != segmentNumber)
+          .toSet
+        Either.cond(
+          wrongSegments.isEmpty,
+          (),
+          s"there are view change messages for the wrong segment identifier (${wrongSegments
+              .mkString(", ")} instead of $segmentNumber)",
+        )
+      }
+      _ <- {
+        val wrongViewNumbers = newView.viewChanges
+          .map(_.message.viewNumber)
+          .filter(_ != currentViewNumber)
+          .toSet
+        Either.cond(
+          wrongViewNumbers.isEmpty,
+          (),
+          s"there are view change messages for the wrong view (${wrongViewNumbers
+              .mkString(", ")} instead of $currentViewNumber)",
+        )
+      }
+      _ <- {
+        val viewChangesWithRepeatedSender = newView.viewChanges
+          .groupBy(_.message.from)
+          .collect {
+            case (from, viewChangesFromSameSender) if viewChangesFromSameSender.sizeIs > 1 =>
+              from
+          }
+          .toSet
+        Either.cond(
+          viewChangesWithRepeatedSender.isEmpty,
+          (),
+          s"there are more than one view change messages from the same sender for the following nodes: ${viewChangesWithRepeatedSender
+              .mkString(", ")}",
+        )
+      }
+      _ <- {
+        val quorumSize = newView.viewChanges.size
+        Either.cond(
+          quorumSize == strongQuorum,
+          (),
+          s"expected $strongQuorum view-change messages, but got $quorumSize",
+        )
+      }
+      _ <- newView.viewChanges
+        .map(_.message)
+        .traverse_(viewChange =>
+          validateViewChangeMessage(viewChange)
+            .leftMap(e => s"view change message from ${viewChange.from} is invalid: $e")
+        )
+      _ <- {
+        val blockNumbers = newView.prePrepares.map(_.message.blockMetadata.blockNumber)
+        Either.cond(
+          blockNumbers == segmentBlockNumbers,
+          (),
+          s"expected pre-prepares to be for blocks (in-order) ${segmentBlockNumbers
+              .mkString(", ")} but instead they were for ${blockNumbers.mkString(", ")}",
+        )
+      }
+      _ <- {
+        val wrongEpochs = newView.prePrepares
+          .map(_.message.blockMetadata.epochNumber)
+          .filter(_ != epochNumber)
+          .toSet
+        Either.cond(
+          wrongEpochs.isEmpty,
+          (),
+          s"there are pre-prepares for the wrong epoch (${wrongEpochs.mkString(", ")} instead of $epochNumber)",
+        )
+      }
+      _ <- {
+        val definedPrePrepares = newView.computedCertificatePerBlock.fmap(_.prePrepare.message)
+        newView.prePrepares
+          .map(_.message)
+          .map { prePrepare =>
+            definedPrePrepares.get(prePrepare.blockMetadata.blockNumber) match {
+              case Some(expectedPrePrepare) =>
+                if (expectedPrePrepare == prePrepare) valid
+                else
+                  invalid(
+                    s"pre-prepare for block ${prePrepare.blockMetadata.blockNumber} does not match the one expected from consensus certificate"
+                  )
+              case None =>
+                if (prePrepare.block.proofs.nonEmpty)
+                  invalid(
+                    s"pre-prepare for block ${prePrepare.blockMetadata.blockNumber} should be for bottom block, but it contains proofs of availability"
+                  )
+                else if (prePrepare.viewNumber != currentViewNumber)
+                  invalid(
+                    s"pre-prepare for bottom block ${prePrepare.blockMetadata.blockNumber} should be for view $currentViewNumber but it is for ${prePrepare.viewNumber}"
+                  )
+                else valid
+            }
+          }
+          .sequence_
+          .toEither
+          .leftMap(_.mkString(", "))
+      }
+    } yield ()
   }
 }

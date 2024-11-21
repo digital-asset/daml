@@ -87,8 +87,6 @@ trait MessageDispatcherTest {
   private val otherParticipant = ParticipantId.tryFromProtoPrimitive("PAR::other::participant")
   private val mediatorGroup = MediatorGroupRecipient(MediatorGroupIndex.zero)
   private val mediatorGroup2 = MediatorGroupRecipient(MediatorGroupIndex.one)
-  private val partyId = PartyId.tryFromProtoPrimitive("party::default")
-  private val otherPartyId = PartyId.tryFromProtoPrimitive("party::other")
 
   private val sessionKeyMapTest = NonEmpty(
     Seq,

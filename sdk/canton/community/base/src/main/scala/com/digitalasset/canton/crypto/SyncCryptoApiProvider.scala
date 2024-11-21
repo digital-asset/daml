@@ -225,7 +225,7 @@ object SyncCryptoClient {
       client: SyncCryptoClient[SyncCryptoApi],
       desiredTimestamp: CantonTimestamp,
       previousTimestampO: Option[CantonTimestamp],
-      warnIfApproximate: Boolean = true,
+      warnIfApproximate: Boolean,
   )(
       getSnapshot: (CantonTimestamp, TraceContext) => F[SyncCryptoApi],
       awaitSnapshotSupervised: (String, CantonTimestamp, TraceContext) => F[SyncCryptoApi],

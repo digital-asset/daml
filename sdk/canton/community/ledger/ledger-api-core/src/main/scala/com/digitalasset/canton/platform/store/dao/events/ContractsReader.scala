@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.dao.events
 
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricHandle.Timer
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend
@@ -39,10 +39,10 @@ private[dao] sealed class ContractsReader(
   /** Lookup a contract key state at a specific ledger offset.
     *
     * @param key the contract key
-    * @param validAt the event_sequential_id of the ledger at which to query for the key state
+    * @param validAt the offset of the ledger at which to query for the key state
     * @return the key state.
     */
-  override def lookupKeyState(key: Key, validAt: Offset)(implicit
+  override def lookupKeyState(key: Key, validAt: AbsoluteOffset)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[KeyState] =
     Timed.future(
@@ -52,7 +52,7 @@ private[dao] sealed class ContractsReader(
       ),
     )
 
-  override def lookupContractState(contractId: ContractId, before: Offset)(implicit
+  override def lookupContractState(contractId: ContractId, before: Option[AbsoluteOffset])(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Option[ContractState]] =
     Timed.future(

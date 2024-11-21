@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.cache
 
 import cats.data.NonEmptyVector
-import com.digitalasset.canton.data.{AbsoluteOffset, Offset}
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.{HasExecutionContext, TestEssentials}
@@ -33,15 +33,15 @@ class ContractStateCachesSpec
     val cacheInitializationOffset = offset(1337)
     @SuppressWarnings(Array("com.digitalasset.canton.GlobalExecutionContext"))
     val contractStateCaches = ContractStateCaches.build(
-      cacheInitializationOffset.toAbsoluteOffsetO,
+      Some(cacheInitializationOffset),
       maxContractsCacheSize = 1L,
       maxKeyCacheSize = 1L,
       metrics = LedgerApiServerMetrics.ForTesting,
       loggerFactory,
     )
 
-    contractStateCaches.keyState.cacheIndex shouldBe cacheInitializationOffset.toAbsoluteOffsetO
-    contractStateCaches.contractState.cacheIndex shouldBe cacheInitializationOffset.toAbsoluteOffsetO
+    contractStateCaches.keyState.cacheIndex shouldBe Some(cacheInitializationOffset)
+    contractStateCaches.contractState.cacheIndex shouldBe Some(cacheInitializationOffset)
   }
 
   "push" should "update the caches with a batch of events" in new TestScope {
@@ -104,7 +104,7 @@ class ContractStateCachesSpec
     )
 
     def createEvent(
-        offset: Offset,
+        offset: AbsoluteOffset,
         eventSequentialId: Long,
         withKey: Boolean,
     ): ContractStateEvent.Created = {
@@ -124,7 +124,7 @@ class ContractStateCachesSpec
 
     def archiveEvent(
         create: ContractStateEvent.Created,
-        offset: Offset,
+        offset: AbsoluteOffset,
         eventSequentialId: Long,
     ): ContractStateEvent.Archived =
       ContractStateEvent.Archived(
@@ -177,5 +177,5 @@ class ContractStateCachesSpec
     Versioned(LanguageVersion.StableVersions(LanguageVersion.Major.V2).max, contractInstance)
   }
 
-  private def offset(idx: Int) = Offset.fromLong(idx.toLong)
+  private def offset(idx: Int) = AbsoluteOffset.tryFromLong(idx.toLong)
 }

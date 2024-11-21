@@ -9,6 +9,7 @@ import com.daml.metrics.{DatabaseMetrics, Timed}
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.tracing
 import com.daml.tracing.Spans
+import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.ledger.api.TraceIdentifiers
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
@@ -70,6 +71,8 @@ class TransactionsTreeStreamReader(
     Ordering.by[Entry[RawTreeEvent], Long](_.eventSequentialId)
 
   private val paginatingAsyncStream = new PaginatingAsyncStream(loggerFactory)
+
+  private val directEC = DirectExecutionContext(logger)
 
   def streamTreeTransaction(
       queryRange: EventsRange,
@@ -361,10 +364,10 @@ class TransactionsTreeStreamReader(
 
     sourceOfTreeTransactions
       .mergeSorted(topologyTransactions.map { case (offset, response) =>
-        offset.toAbsoluteOffset -> response
+        offset -> response
       })(Ordering.by(_._1))
       .mergeSorted(reassignments.map { case (offset, response) =>
-        offset.toAbsoluteOffset -> response
+        offset -> response
       })(Ordering.by(_._1))
   }
 
@@ -384,9 +387,13 @@ class TransactionsTreeStreamReader(
       eventProjectionProperties: EventProjectionProperties,
   )(implicit lc: LoggingContextWithTrace): Future[Seq[Entry[TreeEvent]]] =
     Timed.future(
-      future = MonadUtil.sequentialTraverse(rawEvents)(
-        TransactionsReader.deserializeTreeEvent(eventProjectionProperties, lfValueTranslation)
-      ),
+      future = Future.delegate {
+        implicit val executionContext: ExecutionContext =
+          directEC // Scala 2 implicit scope override: shadow the outer scope's implicit by name
+        MonadUtil.sequentialTraverse(rawEvents)(
+          TransactionsReader.deserializeTreeEvent(eventProjectionProperties, lfValueTranslation)
+        )
+      },
       timer = dbMetrics.treeTxStream.translationTimer,
     )
 

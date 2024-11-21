@@ -399,7 +399,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
   private def isActive(
       domainAlias: DomainAlias,
       client: SequencerConnectClient,
-      waitForActive: Boolean = true,
+      waitForActive: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, DomainRegistryError, Boolean] =

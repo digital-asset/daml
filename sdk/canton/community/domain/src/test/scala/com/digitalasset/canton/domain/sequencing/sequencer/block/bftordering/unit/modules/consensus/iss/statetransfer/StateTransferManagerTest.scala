@@ -323,7 +323,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
   private def createStateTransferManager[E <: BaseIgnoringUnitTestEnv[E]](
       outputModuleRef: ModuleRef[Output.Message[E]] = fakeModuleExpectingSilence,
-      p2pNetworkOutModuleRef: ModuleRef[P2PNetworkOut.Message] = fakeModuleExpectingSilence,
+      p2pNetworkOutModuleRef: ModuleRef[P2PNetworkOut.Message],
       epochLength: Long = 1L,
       epochStore: EpochStore[E] = new InMemoryUnitTestEpochStore[E],
       outputBlocksMetadataStore: OutputBlockMetadataStore[E] & OutputBlocksReader[E] =

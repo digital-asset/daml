@@ -23,6 +23,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.{GrpcETFUSExtended, wrapErrUS}
+import com.digitalasset.canton.participant.Pruning
 import com.digitalasset.canton.participant.scheduler.{
   ParticipantPruningSchedule,
   ParticipantPruningScheduler,
@@ -30,9 +31,7 @@ import com.digitalasset.canton.participant.scheduler.{
 import com.digitalasset.canton.participant.sync.{
   CantonSyncService,
   SyncDomainPersistentStateManager,
-  UpstreamOffsetConvert,
 }
-import com.digitalasset.canton.participant.{GlobalOffset, Pruning}
 import com.digitalasset.canton.pruning.ConfigForNoWaitCounterParticipants
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -81,7 +80,7 @@ class GrpcPruningService(
       request: GetSafePruningOffsetRequest
   ): Future[GetSafePruningOffsetResponse] = TraceContextGrpc.withGrpcTraceContext {
     implicit traceContext =>
-      val validatedRequestE: ParsingResult[(CantonTimestamp, GlobalOffset)] = for {
+      val validatedRequestE: ParsingResult[(CantonTimestamp, AbsoluteOffset)] = for {
         beforeOrAt <-
           ProtoConverter.parseRequired(
             CantonTimestamp.fromProtoTimestamp,
@@ -89,9 +88,8 @@ class GrpcPruningService(
             request.beforeOrAt,
           )
 
-        ledgerEndOffset <- UpstreamOffsetConvert
-          .toLedgerSyncOffset(request.ledgerEnd)
-          .flatMap(UpstreamOffsetConvert.toGlobalOffset)
+        ledgerEndOffset <- AbsoluteOffset
+          .fromLong(request.ledgerEnd)
           .leftMap(err => ProtoDeserializationError.ValueConversionError("ledger_end", err))
       } yield (beforeOrAt, ledgerEndOffset)
 
@@ -108,7 +106,7 @@ class GrpcPruningService(
 
         safeOffsetO <- sync.pruningProcessor
           .safeToPrune(beforeOrAt, ledgerEndOffset)
-          .leftFlatMap[Option[GlobalOffset], StatusRuntimeException] {
+          .leftFlatMap[Option[AbsoluteOffset], StatusRuntimeException] {
             case e @ Pruning.LedgerPruningNothingToPrune =>
               // Let the user know that no internal canton data exists prior to the specified
               // time and offset. Return this condition as an error instead of None, so that
@@ -162,7 +160,7 @@ class GrpcPruningService(
     } yield v30.GetParticipantSchedule.Response(schedule.map(_.toProtoV30))
   }
 
-  private def toProtoResponse(safeOffsetO: Option[GlobalOffset]): GetSafePruningOffsetResponse = {
+  private def toProtoResponse(safeOffsetO: Option[AbsoluteOffset]): GetSafePruningOffsetResponse = {
 
     val response = safeOffsetO
       .fold[GetSafePruningOffsetResponse.Response](
@@ -170,7 +168,7 @@ class GrpcPruningService(
           .NoSafePruningOffset(GetSafePruningOffsetResponse.NoSafePruningOffset())
       )(offset =>
         GetSafePruningOffsetResponse.Response
-          .SafePruningOffset(UpstreamOffsetConvert.fromGlobalOffset(offset).toLong)
+          .SafePruningOffset(offset.unwrap)
       )
 
     GetSafePruningOffsetResponse(response)
@@ -328,19 +326,6 @@ class GrpcPruningService(
 sealed trait PruningServiceError extends CantonError
 object PruningServiceError extends PruningServiceErrorGroup {
 
-  @Explanation("""The supplied offset has an unexpected lengths.""")
-  @Resolution(
-    "Ensure the offset has originated from this participant and is 9 bytes in length."
-  )
-  object NonCantonOffset
-      extends ErrorCode(id = "NON_CANTON_OFFSET", ErrorCategory.InvalidIndependentOfSystemState) {
-    final case class Error(reason: String)(implicit val loggingContext: ErrorLoggingContext)
-        extends CantonError.Impl(
-          cause = "Offset length does not match ledger standard of 9 bytes"
-        )
-        with PruningServiceError
-  }
-
   @Explanation(
     """Pruning is not possible at the specified offset at the current time."""
   )
@@ -377,11 +362,11 @@ object PruningServiceError extends PruningServiceErrorGroup {
         id = "NO_INTERNAL_PARTICIPANT_DATA_BEFORE",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
-    final case class Error(beforeOrAt: CantonTimestamp, boundInclusive: GlobalOffset)(implicit
+    final case class Error(beforeOrAt: CantonTimestamp, boundInclusive: AbsoluteOffset)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = "No internal participant data to prune up to time " +
-            s"$beforeOrAt and offset ${boundInclusive.unwrap.value}."
+            s"$beforeOrAt and offset ${boundInclusive.unwrap}."
         )
         with PruningServiceError
   }

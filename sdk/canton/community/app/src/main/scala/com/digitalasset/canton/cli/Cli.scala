@@ -144,7 +144,7 @@ object Cli {
   private def parser(printVersion: => Unit): OptionParser[Cli] =
     new scopt.OptionParser[Cli]("canton") {
 
-      private def inColumns(first: String = "", second: String = ""): String =
+      private def inColumns(first: String = "", second: String): String =
         f"  $first%-25s$second"
 
       head("Canton", s"v${BuildInfo.version}")

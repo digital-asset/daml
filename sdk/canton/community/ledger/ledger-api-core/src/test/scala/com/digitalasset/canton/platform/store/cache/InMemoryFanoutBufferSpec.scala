@@ -367,11 +367,11 @@ class InMemoryFanoutBufferSpec
         "one element in buffer" should {
           "prune all" in withBuffer(
             1,
-            Vector(offset(1) -> txAccepted2.copy(offset = Offset.fromAbsoluteOffset(offset(1)))),
+            Vector(offset(1) -> txAccepted2.copy(offset = offset(1))),
           ) { buffer =>
             verifyLookupPresent(
               buffer,
-              txAccepted2.copy(offset = Offset.fromAbsoluteOffset(offset(1))),
+              txAccepted2.copy(offset = offset(1)),
             )
 
             buffer.prune(offset(1))
@@ -503,7 +503,7 @@ class InMemoryFanoutBufferSpec
       updateId = s"tx-$idx",
       workflowId = s"workflow-$idx",
       effectiveAt = Time.Timestamp.Epoch,
-      offset = Offset.fromAbsoluteOffset(offset),
+      offset = offset,
       events = Vector.empty,
       completionStreamResponse = None,
       commandId = "",
@@ -513,7 +513,7 @@ class InMemoryFanoutBufferSpec
 
   private def txRejected(idx: Long, offset: AbsoluteOffset) =
     TransactionLogUpdate.TransactionRejected(
-      offset = Offset.fromAbsoluteOffset(offset),
+      offset = offset,
       completionStreamResponse = CompletionStreamResponse.defaultInstance.withCompletion(
         Completion(
           actAs = Seq(s"submitter-$idx")

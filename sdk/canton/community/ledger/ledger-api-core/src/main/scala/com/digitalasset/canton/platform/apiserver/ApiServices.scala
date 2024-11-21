@@ -91,7 +91,8 @@ object ApiServices {
       commandProgressTracker: CommandProgressTracker,
       commandConfig: CommandServiceConfig,
       optTimeServiceBackend: Option[TimeServiceBackend],
-      servicesExecutionContext: ExecutionContext,
+      readApiServicesExecutionContext: ExecutionContext,
+      writeApiServicesExecutionContext: ExecutionContext,
       metrics: LedgerApiServerMetrics,
       healthChecks: HealthChecks,
       seedService: SeedService,
@@ -126,11 +127,8 @@ object ApiServices {
     val partyManagementService: IndexPartyManagementService = indexService
     val meteringStore: MeteringStore = indexService
 
-    def createServices(
-        checkOverloaded: TraceContext => Option[state.SubmissionResult]
-    )(implicit
-        executionContext: ExecutionContext
-    ): List[BindableService] = {
+    val (readServices, ledgerApiUpdateService) = {
+      implicit val ec: ExecutionContext = readApiServicesExecutionContext
 
       val transactionServiceRequestValidator =
         new UpdateServiceRequestValidator(
@@ -150,7 +148,7 @@ object ApiServices {
             )
           )
 
-      val (ledgerApiV2Services, ledgerApiUpdateService) = {
+      val (ledgerApiServices, ledgerApiUpdateService) = {
         val apiTimeServiceOpt =
           optTimeServiceBackend.map(tsb =>
             new TimeServiceAuthorization(
@@ -193,7 +191,7 @@ object ApiServices {
             loggerFactory,
           )
 
-        val v2Services = apiTimeServiceOpt.toList :::
+        val services = apiTimeServiceOpt.toList :::
           List(
             new CommandCompletionServiceAuthorization(apiCommandCompletionService, authorizer),
             new EventQueryServiceAuthorization(apiEventQueryService, authorizer),
@@ -203,14 +201,8 @@ object ApiServices {
             apiVersionService,
           )
 
-        v2Services -> Some(apiUpdateService)
+        services -> apiUpdateService
       }
-
-      val syncServiceBackedApiServices =
-        intitializeSyncServiceBackedApiServices(
-          ledgerApiUpdateService,
-          checkOverloaded,
-        )
 
       val apiReflectionService = ProtoReflectionService.newInstance()
 
@@ -256,22 +248,18 @@ object ApiServices {
           loggerFactory,
         )
 
-      ledgerApiV2Services :::
+      val readServices = ledgerApiServices :::
         apiInspectionServiceOpt.toList :::
-        syncServiceBackedApiServices :::
         List(
           apiReflectionService,
           apiHealthService,
           new MeteringReportServiceAuthorization(apiMeteringReportService, authorizer),
         ) ::: userManagementServices
+      readServices -> ledgerApiUpdateService
     }
 
-    def intitializeSyncServiceBackedApiServices(
-        ledgerApiV2Enabled: Option[ApiUpdateService],
-        checkOverloaded: TraceContext => Option[state.SubmissionResult],
-    )(implicit
-        executionContext: ExecutionContext
-    ): List[BindableService] = {
+    val writeServices = {
+      implicit val ec: ExecutionContext = writeApiServicesExecutionContext
       val commandExecutor = new TimedCommandExecutor(
         new LedgerTimeAwareCommandExecutor(
           new StoreBackedCommandExecutor(
@@ -340,80 +328,75 @@ object ApiServices {
         loggerFactory,
       )
 
-      val ledgerApiV2Services = ledgerApiV2Enabled.toList.flatMap { apiUpdateService =>
-        val apiSubmissionService = new ApiCommandSubmissionService(
-          commandsValidator = commandsValidator,
-          commandSubmissionService = commandSubmissionService,
-          submissionSyncService = syncService,
-          currentLedgerTime = () => timeProvider.getCurrentTime,
-          currentUtcTime = () => Instant.now,
-          maxDeduplicationDuration = maxDeduplicationDuration.asJava,
-          submissionIdGenerator = SubmissionIdGenerator.Random,
-          tracker = commandProgressTracker,
-          metrics = metrics,
-          telemetry = telemetry,
-          loggerFactory = loggerFactory,
-        )
-        val apiCommandService = CommandServiceImpl.createApiService(
-          commandsValidator = commandsValidator,
-          submissionTracker = submissionTracker,
-          // Using local services skips the gRPC layer, improving performance.
-          submit = apiSubmissionService.submitWithTraceContext,
-          defaultTrackingTimeout = commandConfig.defaultTrackingTimeout,
-          transactionServices = new CommandServiceImpl.TransactionServices(
-            getTransactionTreeById = apiUpdateService.getTransactionTreeById,
-            getTransactionById = apiUpdateService.getTransactionById,
-          ),
-          timeProvider = timeProvider,
-          maxDeduplicationDuration = maxDeduplicationDuration,
-          telemetry = telemetry,
-          loggerFactory = loggerFactory,
-        )
+      val apiSubmissionService = new ApiCommandSubmissionService(
+        commandsValidator = commandsValidator,
+        commandSubmissionService = commandSubmissionService,
+        submissionSyncService = syncService,
+        currentLedgerTime = () => timeProvider.getCurrentTime,
+        currentUtcTime = () => Instant.now,
+        maxDeduplicationDuration = maxDeduplicationDuration.asJava,
+        submissionIdGenerator = SubmissionIdGenerator.Random,
+        tracker = commandProgressTracker,
+        metrics = metrics,
+        telemetry = telemetry,
+        loggerFactory = loggerFactory,
+      )
+      val apiCommandService = CommandServiceImpl.createApiService(
+        commandsValidator = commandsValidator,
+        submissionTracker = submissionTracker,
+        // Using local services skips the gRPC layer, improving performance.
+        submit = apiSubmissionService.submitWithTraceContext,
+        defaultTrackingTimeout = commandConfig.defaultTrackingTimeout,
+        transactionServices = new CommandServiceImpl.TransactionServices(
+          getTransactionTreeById = ledgerApiUpdateService.getTransactionTreeById,
+          getTransactionById = ledgerApiUpdateService.getTransactionById,
+        ),
+        timeProvider = timeProvider,
+        maxDeduplicationDuration = maxDeduplicationDuration,
+        telemetry = telemetry,
+        loggerFactory = loggerFactory,
+      )
 
-        val apiInteractiveSubmissionService =
-          Option.when(interactiveSubmissionServiceConfig.enabled) {
-            val interactiveSubmissionService =
-              InteractiveSubmissionServiceImpl.createApiService(
-                syncService,
-                timeProvider,
-                timeProviderType,
-                seedService,
-                commandExecutor,
-                metrics,
-                checkOverloaded,
-                lfValueTranslation,
-                loggerFactory,
-              )
-
-            new ApiInteractiveSubmissionService(
-              commandsValidator = commandsValidator,
-              interactiveSubmissionService = interactiveSubmissionService,
-              currentLedgerTime = () => timeProvider.getCurrentTime,
-              currentUtcTime = () => Instant.now,
-              maxDeduplicationDuration = maxDeduplicationDuration.asJava,
-              submissionIdGenerator = SubmissionIdGenerator.Random,
-              metrics = metrics,
-              telemetry = telemetry,
-              loggerFactory = loggerFactory,
+      val apiInteractiveSubmissionService =
+        Option.when(interactiveSubmissionServiceConfig.enabled) {
+          val interactiveSubmissionService =
+            InteractiveSubmissionServiceImpl.createApiService(
+              syncService,
+              timeProvider,
+              timeProviderType,
+              seedService,
+              commandExecutor,
+              metrics,
+              checkOverloaded,
+              lfValueTranslation,
+              loggerFactory,
             )
-          }
 
-        List(
-          new CommandSubmissionServiceAuthorization(apiSubmissionService, authorizer),
-          new CommandServiceAuthorization(apiCommandService, authorizer),
-        ) ++ apiInteractiveSubmissionService.toList.map(
-          new InteractiveSubmissionServiceAuthorization(_, authorizer)
-        )
-      }
+          new ApiInteractiveSubmissionService(
+            commandsValidator = commandsValidator,
+            interactiveSubmissionService = interactiveSubmissionService,
+            currentLedgerTime = () => timeProvider.getCurrentTime,
+            currentUtcTime = () => Instant.now,
+            maxDeduplicationDuration = maxDeduplicationDuration.asJava,
+            submissionIdGenerator = SubmissionIdGenerator.Random,
+            metrics = metrics,
+            telemetry = telemetry,
+            loggerFactory = loggerFactory,
+          )
+        }
 
       List(
+        new CommandSubmissionServiceAuthorization(apiSubmissionService, authorizer),
+        new CommandServiceAuthorization(apiCommandService, authorizer),
         new PartyManagementServiceAuthorization(apiPartyManagementService, authorizer),
         new PackageManagementServiceAuthorization(apiPackageManagementService, authorizer),
         new ParticipantPruningServiceAuthorization(participantPruningService, authorizer),
-      ) ::: ledgerApiV2Services
+      ) ::: apiInteractiveSubmissionService.toList.map(
+        new InteractiveSubmissionServiceAuthorization(_, authorizer)
+      )
     }
 
     logger.info(engine.info.toString)
-    ApiServicesBundle(createServices(checkOverloaded)(servicesExecutionContext))
+    ApiServicesBundle(readServices ::: writeServices)
   }
 }

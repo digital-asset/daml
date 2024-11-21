@@ -7,7 +7,7 @@ import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRespons
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse.CompletionResponse
 import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.api.v2.offset_checkpoint.DomainTime
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.ledger.api.util.TimestampConversion.fromInstant
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -23,7 +23,7 @@ object CompletionFromTransaction {
   def acceptedCompletion(
       submitters: Set[String],
       recordTime: Timestamp,
-      offset: Offset,
+      offset: AbsoluteOffset,
       commandId: String,
       updateId: String,
       applicationId: String,
@@ -47,7 +47,7 @@ object CompletionFromTransaction {
           optDeduplicationOffset = optDeduplicationOffset,
           optDeduplicationDurationSeconds = optDeduplicationDurationSeconds,
           optDeduplicationDurationNanos = optDeduplicationDurationNanos,
-          offset = offset.toLong,
+          offset = offset.unwrap,
           domainTime = Some(toApiDomainTime(domainId, recordTime)),
         )
       )
@@ -56,7 +56,7 @@ object CompletionFromTransaction {
   def rejectedCompletion(
       submitters: Set[String],
       recordTime: Timestamp,
-      offset: Offset,
+      offset: AbsoluteOffset,
       commandId: String,
       status: StatusProto,
       applicationId: String,
@@ -80,7 +80,7 @@ object CompletionFromTransaction {
           optDeduplicationOffset = optDeduplicationOffset,
           optDeduplicationDurationSeconds = optDeduplicationDurationSeconds,
           optDeduplicationDurationNanos = optDeduplicationDurationNanos,
-          offset = offset.toLong,
+          offset = offset.unwrap,
           domainTime = Some(toApiDomainTime(domainId, recordTime)),
         )
       )

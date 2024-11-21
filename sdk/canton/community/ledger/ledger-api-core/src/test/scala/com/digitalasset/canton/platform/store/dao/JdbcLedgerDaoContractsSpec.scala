@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import com.digitalasset.daml.lf.data.Ref.PackageVersion
 import com.digitalasset.daml.lf.language.LanguageVersion
@@ -33,7 +32,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       )
       result <- contractsReader.lookupContractState(
         nonTransient(tx).loneElement,
-        Offset.fromAbsoluteOffset(offset),
+        Some(offset),
       )
     } yield {
       result.collect { case active: LedgerDaoContractsReader.ActiveContract =>
@@ -61,7 +60,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       )
       result <- contractsReader.lookupContractState(
         nonTransient(tx).loneElement,
-        Offset.fromAbsoluteOffset(offset),
+        Some(offset),
       )
     } yield {
       result.collect { case active: LedgerDaoContractsReader.ActiveContract =>
@@ -113,11 +112,11 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       ledgerEndAfterArchive <- ledgerDao.lookupLedgerEnd()
       queryAfterCreate <- contractsReader.lookupContractState(
         contractId,
-        Offset.fromAbsoluteOffset(ledgerEndAtCreate.value.lastOffset),
+        ledgerEndAtCreate.map(_.lastOffset),
       )
       queryAfterArchive <- contractsReader.lookupContractState(
         contractId,
-        Offset.fromAbsoluteOffset(ledgerEndAfterArchive.value.lastOffset),
+        ledgerEndAfterArchive.map(_.lastOffset),
       )
     } yield {
       queryAfterCreate.value match {
@@ -160,11 +159,11 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       ledgerEndAfterArchive <- ledgerDao.lookupLedgerEnd()
       queryAfterCreate <- contractsReader.lookupKeyState(
         key.globalKey,
-        Offset.fromAbsoluteOffset(ledgerEndAtCreate.value.lastOffset),
+        ledgerEndAtCreate.value.lastOffset,
       )
       queryAfterArchive <- contractsReader.lookupKeyState(
         key.globalKey,
-        Offset.fromAbsoluteOffset(ledgerEndAfterArchive.value.lastOffset),
+        ledgerEndAfterArchive.value.lastOffset,
       )
     } yield {
       queryAfterCreate match {

@@ -586,7 +586,7 @@ object ParallelIndexerSubscription {
       val postPublishData = batch.offsetsUpdates.flatMap { case (offset, update) =>
         PostPublishData.from(
           update,
-          Offset.fromAbsoluteOffsetO(Some(offset)),
+          offset,
           batch.ledgerEnd.lastPublicationTime,
         )
       }

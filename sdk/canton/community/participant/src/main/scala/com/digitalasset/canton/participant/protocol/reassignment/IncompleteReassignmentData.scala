@@ -5,8 +5,7 @@ package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.syntax.either.*
 import com.digitalasset.canton.RequestCounter
-import com.digitalasset.canton.data.{CantonTimestamp, FullUnassignmentTree}
-import com.digitalasset.canton.participant.GlobalOffset
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, FullUnassignmentTree}
 import com.digitalasset.canton.participant.protocol.reassignment.IncompleteReassignmentData.ReassignmentEventGlobalOffset
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
@@ -32,16 +31,16 @@ final case class IncompleteReassignmentData private (
     contract: SerializableContract,
     unassignmentResult: Option[DeliveredUnassignmentResult],
     reassignmentEventGlobalOffset: ReassignmentEventGlobalOffset,
-    queryOffset: GlobalOffset,
+    queryOffset: AbsoluteOffset,
 ) {
 
   def sourceDomain: Source[DomainId] = unassignmentRequest.sourceDomain
   def targetDomain: Target[DomainId] = unassignmentRequest.targetDomain
 
-  def unassignmentGlobalOffset: Option[GlobalOffset] =
+  def unassignmentGlobalOffset: Option[AbsoluteOffset] =
     reassignmentEventGlobalOffset.unassignmentGlobalOffset
 
-  def assignmentGlobalOffset: Option[GlobalOffset] =
+  def assignmentGlobalOffset: Option[AbsoluteOffset] =
     reassignmentEventGlobalOffset.assignmentGlobalOffset
 
   require(
@@ -66,7 +65,7 @@ final case class IncompleteReassignmentData private (
 object IncompleteReassignmentData {
   def create(
       reassignmentData: ReassignmentData,
-      queryOffset: GlobalOffset,
+      queryOffset: AbsoluteOffset,
   ): Either[String, IncompleteReassignmentData] = {
     val reassignmentEventGlobalOffsetE: Either[String, ReassignmentEventGlobalOffset] =
       ReassignmentEventGlobalOffset.create(
@@ -87,37 +86,37 @@ object IncompleteReassignmentData {
 
   def tryCreate(
       reassignmentData: ReassignmentData,
-      queryOffset: GlobalOffset,
+      queryOffset: AbsoluteOffset,
   ): IncompleteReassignmentData =
     create(reassignmentData, queryOffset).valueOr(err =>
       throw new IllegalArgumentException(s"Unable to create IncompleteReassignmentData: $err")
     )
 
   sealed trait ReassignmentEventGlobalOffset {
-    def globalOffset: GlobalOffset
-    def unassignmentGlobalOffset: Option[GlobalOffset]
-    def assignmentGlobalOffset: Option[GlobalOffset]
+    def globalOffset: AbsoluteOffset
+    def unassignmentGlobalOffset: Option[AbsoluteOffset]
+    def assignmentGlobalOffset: Option[AbsoluteOffset]
   }
 
-  final case class AssignmentEventGlobalOffset(globalOffset: GlobalOffset)
+  final case class AssignmentEventGlobalOffset(globalOffset: AbsoluteOffset)
       extends ReassignmentEventGlobalOffset {
-    override def unassignmentGlobalOffset: Option[GlobalOffset] = None
+    override def unassignmentGlobalOffset: Option[AbsoluteOffset] = None
 
-    override def assignmentGlobalOffset: Option[GlobalOffset] = Some(globalOffset)
+    override def assignmentGlobalOffset: Option[AbsoluteOffset] = Some(globalOffset)
   }
 
-  final case class UnassignmentEventGlobalOffset(globalOffset: GlobalOffset)
+  final case class UnassignmentEventGlobalOffset(globalOffset: AbsoluteOffset)
       extends ReassignmentEventGlobalOffset {
-    override def unassignmentGlobalOffset: Option[GlobalOffset] = Some(globalOffset)
+    override def unassignmentGlobalOffset: Option[AbsoluteOffset] = Some(globalOffset)
 
-    override def assignmentGlobalOffset: Option[GlobalOffset] = None
+    override def assignmentGlobalOffset: Option[AbsoluteOffset] = None
   }
 
   object ReassignmentEventGlobalOffset {
     private[reassignment] def create(
-        queryOffset: GlobalOffset,
-        unassignmentGlobalOffset: Option[GlobalOffset],
-        assignmentGlobalOffset: Option[GlobalOffset],
+        queryOffset: AbsoluteOffset,
+        unassignmentGlobalOffset: Option[AbsoluteOffset],
+        assignmentGlobalOffset: Option[AbsoluteOffset],
     ): Either[String, ReassignmentEventGlobalOffset] =
       (unassignmentGlobalOffset, assignmentGlobalOffset) match {
         case (Some(unassignment), None) if unassignment <= queryOffset =>

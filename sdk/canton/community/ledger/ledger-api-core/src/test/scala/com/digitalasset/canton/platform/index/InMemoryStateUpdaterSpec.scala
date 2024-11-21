@@ -7,7 +7,7 @@ import cats.data.NonEmptyVector
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.completion.Completion
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
 import com.digitalasset.canton.ledger.participant.state.Update.CommandRejected.FinalReason
 import com.digitalasset.canton.ledger.participant.state.{
   CompletionInfo,
@@ -528,14 +528,11 @@ object InMemoryStateUpdaterSpec {
         )
       )
 
-    val tx_accepted_withCompletionStreamResponse_offset: Offset =
-      Offset.fromHexString(Ref.HexString.assertFromString("aaaa"))
+    val tx_accepted_withCompletionStreamResponse_offset: AbsoluteOffset =
+      AbsoluteOffset.tryFromLong(1111L)
 
-    val tx_accepted_withoutCompletionStreamResponse_offset: Offset =
-      Offset.fromHexString(Ref.HexString.assertFromString("bbbb"))
-
-    val tx_rejected_offset_old: Offset =
-      Offset.fromLong(3333L)
+    val tx_accepted_withoutCompletionStreamResponse_offset: AbsoluteOffset =
+      AbsoluteOffset.tryFromLong(2222L)
 
     val tx_rejected_offset: AbsoluteOffset = AbsoluteOffset.tryFromLong(3333L)
 
@@ -569,7 +566,7 @@ object InMemoryStateUpdaterSpec {
 
     val tx_rejected: TransactionLogUpdate.TransactionRejected =
       TransactionLogUpdate.TransactionRejected(
-        offset = tx_rejected_offset_old,
+        offset = tx_rejected_offset,
         completionStreamResponse = tx_rejected_completionStreamResponse,
       )(emptyTraceContext)
 
@@ -646,7 +643,7 @@ object InMemoryStateUpdaterSpec {
 
   private def toCreatedEvent(
       createdNode: Node.Create,
-      txOffset: Offset,
+      txOffset: AbsoluteOffset,
       updateId: data.UpdateId,
       nodeId: NodeId,
   ) =
@@ -685,7 +682,7 @@ object InMemoryStateUpdaterSpec {
           InMemoryStateUpdater.convertLogToStateEvent(
             toCreatedEvent(
               genCreateNode,
-              Offset.firstOffset,
+              AbsoluteOffset.firstOffset,
               Ref.TransactionId.assertFromString("yolo"),
               NodeId(0),
             )
@@ -706,7 +703,7 @@ object InMemoryStateUpdaterSpec {
     optByKeyNodes = None,
   )
 
-  private val update1 = absoluteOffset(11L) -> transactionAccepted(t = 0L, domainId = domainId1)
+  private val update1 = offset(11L) -> transactionAccepted(t = 0L, domainId = domainId1)
   private def rawMetadataChangedUpdate(offset: AbsoluteOffset, recordTime: Timestamp) =
     offset ->
       Update.SequencerIndexMoved(
@@ -716,8 +713,8 @@ object InMemoryStateUpdaterSpec {
         requestCounterO = None,
       )
 
-  private val metadataChangedUpdate = rawMetadataChangedUpdate(absoluteOffset(12L), Timestamp.Epoch)
-  private val update3 = absoluteOffset(13L) ->
+  private val metadataChangedUpdate = rawMetadataChangedUpdate(offset(12L), Timestamp.Epoch)
+  private val update3 = offset(13L) ->
     Update.SequencedTransactionAccepted(
       completionInfoO = None,
       transactionMeta = someTransactionMeta,
@@ -731,24 +728,19 @@ object InMemoryStateUpdaterSpec {
       recordTime = CantonTimestamp.MinValue,
     )
 
-  private val update4 = absoluteOffset(14L) ->
+  private val update4 = offset(14L) ->
     commandRejected(t = 1337L, domainId = DomainId.tryFromString("da::default"))
 
-  private val update7 = absoluteOffset(17L) ->
+  private val update7 = offset(17L) ->
     assignmentAccepted(t = 0, source = domainId1, target = domainId2)
 
-  private val update8 = absoluteOffset(18L) ->
+  private val update8 = offset(18L) ->
     unassignmentAccepted(t = 0, source = domainId2, target = domainId1)
 
   private val anotherMetadataChangedUpdate =
-    rawMetadataChangedUpdate(absoluteOffset(15L), Timestamp.assertFromLong(1337L))
+    rawMetadataChangedUpdate(offset(15L), Timestamp.assertFromLong(1337L))
 
-  private def offset(idx: Long): Offset = {
-    val base = 1000000000L
-    Offset.fromLong(base + idx)
-  }
-
-  private def absoluteOffset(idx: Long): AbsoluteOffset =
+  private def offset(idx: Long): AbsoluteOffset =
     AbsoluteOffset.tryFromLong(1000000000L + idx)
 
   // traverse the list from left to right and if a None is found add the exact previous checkpoint in the result

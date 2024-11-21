@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
-import com.digitalasset.canton.data.{AbsoluteOffset, Offset}
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer
@@ -476,7 +476,7 @@ object BufferedStreamsReaderSpec {
       commandId = "",
       workflowId = "",
       effectiveAt = Timestamp.Epoch,
-      offset = Offset.fromAbsoluteOffset(absoluteOffset(i)),
+      offset = absoluteOffset(i),
       events = Vector(null),
       completionStreamResponse = None,
       domainId = someDomainId.toProtoPrimitive,

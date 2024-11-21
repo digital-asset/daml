@@ -77,7 +77,7 @@ class PartyStorageBackendTemplate(ledgerEndCache: LedgerEndCache) extends PartyS
       queryOffset: Long,
   )(connection: Connection): Vector[(AbsoluteOffset, PartyLedgerEntry)] =
     SQL"""select * from lapi_party_entries
-      where ${QueryStrategy.offsetIsBetweenInclusive(
+      where ${QueryStrategy.offsetIsBetween(
         nonNullableColumn = "ledger_offset",
         startInclusive = startInclusive,
         endInclusive = endInclusive,

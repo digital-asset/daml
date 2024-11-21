@@ -57,8 +57,8 @@ class InMemoryFanoutBuffer(
       blocking(synchronized {
         _bufferLog.lastOption.foreach {
           // Encountering a non-strictly increasing offset is an error condition.
-          case (lastOffset, _) if lastOffset >= entry.offset.toAbsoluteOffset =>
-            throw UnorderedException(lastOffset, entry.offset.toAbsoluteOffset)
+          case (lastOffset, _) if lastOffset >= entry.offset =>
+            throw UnorderedException(lastOffset, entry.offset)
           case _ =>
         }
 
@@ -68,7 +68,7 @@ class InMemoryFanoutBuffer(
         } else {
           ensureSize(maxBufferSize - 1)(entry.traceContext)
 
-          _bufferLog = _bufferLog :+ entry.offset.toAbsoluteOffset -> entry
+          _bufferLog = _bufferLog :+ entry.offset -> entry
           extractEntryFromMap(entry).foreach { case (key, value) =>
             _lookupMap = _lookupMap.updated(key, value)
           }

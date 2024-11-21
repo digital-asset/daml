@@ -11,7 +11,11 @@ import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex, SequencerIndex}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.platform.indexer.parallel.ParallelIndexerSubscription
-import com.digitalasset.canton.platform.store.backend.Conversions.{absoluteOffset, offset}
+import com.digitalasset.canton.platform.store.backend.Conversions.{
+  absoluteOffset,
+  absoluteOffsetO,
+  offset,
+}
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.backend.{Conversions, ParameterStorageBackend}
 import com.digitalasset.canton.platform.store.interning.StringInterning
@@ -208,7 +212,7 @@ private[backend] class ParameterStorageBackendImpl(
     )
 
   def updatePrunedAllDivulgedContractsUpToInclusive(
-      prunedUpToInclusive: Offset
+      prunedUpToInclusive: AbsoluteOffset
   )(connection: Connection): Unit =
     discard(
       SQL"""
@@ -230,9 +234,9 @@ private[backend] class ParameterStorageBackendImpl(
 
   def participantAllDivulgedContractsPrunedUpToInclusive(
       connection: Connection
-  ): Option[Offset] =
+  ): Option[AbsoluteOffset] =
     SqlSelectMostRecentPruningAllDivulgedContracts
-      .as(offset("participant_all_divulged_contracts_pruned_up_to_inclusive").?.single)(
+      .as(absoluteOffset("participant_all_divulged_contracts_pruned_up_to_inclusive").?.single)(
         connection
       )
 
@@ -357,9 +361,11 @@ private[backend] class ParameterStorageBackendImpl(
       ),
     )(connection)
 
-  override def postProcessingEnd(connection: Connection): Option[Offset] =
+  override def postProcessingEnd(connection: Connection): Option[AbsoluteOffset] =
     SQL"select post_processing_end from lapi_post_processing_end"
-      .asSingleOpt(offset("post_processing_end"))(connection)
+      // TODO(#22143) do not store zero as an offset in lapi_post_processing_end
+      .asSingleOpt(absoluteOffsetO("post_processing_end"))(connection)
+      .flatten
 
   private def batchSql(
       sqlWithNamedParams: String,

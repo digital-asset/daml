@@ -7,8 +7,8 @@ import cats.data.NonEmptyVector
 import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.timer.FutureCheck.*
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
-import com.digitalasset.canton.data.{AbsoluteOffset, Offset}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Reassignment, Update}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
@@ -376,7 +376,7 @@ private[platform] object InMemoryStateUpdater {
     val events = rawEvents.collect {
       case (nodeId, create: Create) =>
         TransactionLogUpdate.CreatedEvent(
-          eventOffset = Offset.fromAbsoluteOffset(offset),
+          eventOffset = offset,
           updateId = txAccepted.updateId,
           nodeIndex = nodeId.index,
           eventSequentialId = 0L,
@@ -413,7 +413,7 @@ private[platform] object InMemoryStateUpdater {
         )
       case (nodeId, exercise: Exercise) =>
         TransactionLogUpdate.ExercisedEvent(
-          eventOffset = Offset.fromAbsoluteOffset(offset),
+          eventOffset = offset,
           updateId = txAccepted.updateId,
           nodeIndex = nodeId.index,
           eventSequentialId = 0L,
@@ -452,7 +452,7 @@ private[platform] object InMemoryStateUpdater {
         CompletionFromTransaction.acceptedCompletion(
           submitters = completionInfo.actAs.toSet,
           recordTime = txAccepted.recordTime.toLf,
-          offset = Offset.fromAbsoluteOffset(offset),
+          offset = offset,
           commandId = completionInfo.commandId,
           updateId = txAccepted.updateId,
           applicationId = completionInfo.applicationId,
@@ -470,7 +470,7 @@ private[platform] object InMemoryStateUpdater {
       commandId = txAccepted.completionInfoO.map(_.commandId).getOrElse(""),
       workflowId = txAccepted.transactionMeta.workflowId.getOrElse(""),
       effectiveAt = txAccepted.transactionMeta.ledgerEffectiveTime,
-      offset = Offset.fromAbsoluteOffset(offset),
+      offset = offset,
       events = events.toVector,
       completionStreamResponse = completionStreamResponse,
       domainId = txAccepted.domainId.toProtoPrimitive,
@@ -486,11 +486,11 @@ private[platform] object InMemoryStateUpdater {
       deduplicationInfo(u.completionInfo)
 
     TransactionLogUpdate.TransactionRejected(
-      offset = Offset.fromAbsoluteOffset(offset),
+      offset = offset,
       completionStreamResponse = CompletionFromTransaction.rejectedCompletion(
         submitters = u.completionInfo.actAs.toSet,
         recordTime = u.recordTime.toLf,
-        offset = Offset.fromAbsoluteOffset(offset),
+        offset = offset,
         commandId = u.completionInfo.commandId,
         status = u.reasonTemplate.status,
         applicationId = u.completionInfo.applicationId,
@@ -516,7 +516,7 @@ private[platform] object InMemoryStateUpdater {
         CompletionFromTransaction.acceptedCompletion(
           submitters = completionInfo.actAs.toSet,
           recordTime = u.recordTime.toLf,
-          offset = Offset.fromAbsoluteOffset(offset),
+          offset = offset,
           commandId = completionInfo.commandId,
           updateId = u.updateId,
           applicationId = completionInfo.applicationId,
@@ -537,7 +537,7 @@ private[platform] object InMemoryStateUpdater {
       updateId = u.updateId,
       commandId = u.optCompletionInfo.map(_.commandId).getOrElse(""),
       workflowId = u.workflowId.getOrElse(""),
-      offset = Offset.fromAbsoluteOffset(offset),
+      offset = offset,
       recordTime = u.recordTime.toLf,
       completionStreamResponse = completionStreamResponse,
       reassignmentInfo = u.reassignmentInfo,
@@ -546,7 +546,7 @@ private[platform] object InMemoryStateUpdater {
           val create = assign.createNode
           TransactionLogUpdate.ReassignmentAccepted.Assigned(
             TransactionLogUpdate.CreatedEvent(
-              eventOffset = Offset.fromAbsoluteOffset(offset),
+              eventOffset = offset,
               updateId = u.updateId,
               nodeIndex = 0, // set 0 for assign-created
               eventSequentialId = 0L,

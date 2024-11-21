@@ -49,7 +49,7 @@ final case class SubmissionRequest private (
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
       SubmissionRequest.type
     ],
-    override val deserializedFrom: Option[ByteString] = None,
+    override val deserializedFrom: Option[ByteString],
 ) extends HasProtocolVersionedWrapper[SubmissionRequest]
     with ProtocolVersionedMemoizedEvidence {
   // Ensures the invariants related to default values hold

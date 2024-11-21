@@ -169,11 +169,11 @@ object RefinedNonNegativeDuration {
   private def noisyAwaitResult[T](
       future: Future[T],
       description: => String,
-      timeout: Duration = Duration.Inf,
+      timeout: Duration,
       warnAfter: Duration = 1.minute,
       killAwait: Unit => Boolean = _ => false,
-      stackTraceFilter: Thread => Boolean = defaultStackTraceFilter,
-      onTimeout: TimeoutException => Unit = _ => (),
+      stackTraceFilter: Thread => Boolean,
+      onTimeout: TimeoutException => Unit,
   )(implicit loggingContext: ErrorLoggingContext): T = {
     val warnAfterAdjusted =
       // if warnAfter is larger than timeout, make a sensible choice

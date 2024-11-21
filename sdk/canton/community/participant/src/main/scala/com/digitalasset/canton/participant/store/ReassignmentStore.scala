@@ -8,11 +8,10 @@ import cats.implicits.catsSyntaxParallelTraverse_
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.{Reassignment, Update}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.TracedLogger
-import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentData.*
 import com.digitalasset.canton.participant.protocol.reassignment.{
   IncompleteReassignmentData,
@@ -73,10 +72,10 @@ trait ReassignmentStore extends ReassignmentLookup {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit]
 
-  /** Adds the given [[com.digitalasset.canton.participant.GlobalOffset]] for the reassignment events to the reassignment data in
+  /** Adds the given [[com.digitalasset.canton.data.AbsoluteOffset]] for the reassignment events to the reassignment data in
     * the store, provided that the reassignment data has previously been stored.
     *
-    * The same [[com.digitalasset.canton.participant.GlobalOffset]] can be added any number of times.
+    * The same [[com.digitalasset.canton.data.AbsoluteOffset]] can be added any number of times.
     */
   def addReassignmentsOffsets(
       events: Seq[(ReassignmentId, ReassignmentGlobalOffset)]
@@ -158,7 +157,7 @@ object ReassignmentStore {
                 reassignmentStoreFor(syncDomainPersistentStates)(targetDomain)
               )
             offsets = eventsForDomain.map { case (reassignmentEvent, offset) =>
-              val globalOffset = GlobalOffset.tryFromLong(offset.toLong)
+              val globalOffset = offset.toAbsoluteOffset
               val reassignmentGlobal = reassignmentEvent.reassignment match {
                 case _: Reassignment.Assign => AssignmentGlobalOffset(globalOffset)
                 case _: Reassignment.Unassign => UnassignmentGlobalOffset(globalOffset)
@@ -411,7 +410,7 @@ trait ReassignmentLookup {
     */
   def findIncomplete(
       sourceDomain: Option[Source[DomainId]],
-      validAt: GlobalOffset,
+      validAt: AbsoluteOffset,
       stakeholders: Option[NonEmpty[Set[LfPartyId]]],
       limit: NonNegativeInt,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[IncompleteReassignmentData]]
@@ -424,5 +423,5 @@ trait ReassignmentLookup {
     */
   def findEarliestIncomplete()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[(GlobalOffset, ReassignmentId, Target[DomainId])]]
+  ): FutureUnlessShutdown[Option[(AbsoluteOffset, ReassignmentId, Target[DomainId])]]
 }

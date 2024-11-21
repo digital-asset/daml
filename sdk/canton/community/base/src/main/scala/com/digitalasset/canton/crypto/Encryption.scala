@@ -187,11 +187,9 @@ trait EncryptionPrivateStoreOps extends EncryptionPrivateOps {
 }
 
 /** A tag to denote encrypted data. */
-final case class Encrypted[+M] private[crypto] (ciphertext: ByteString) extends NoCopy
+final case class Encrypted[+M] private[crypto] (ciphertext: ByteString)
 
 object Encrypted {
-  private[this] def apply[M](ciphertext: ByteString): Encrypted[M] =
-    throw new UnsupportedOperationException("Use encryption methods instead")
 
   def fromByteString[M](byteString: ByteString): Encrypted[M] =
     new Encrypted[M](byteString)
@@ -514,9 +512,10 @@ object SymmetricKey extends HasVersionedMessageCompanion[SymmetricKey] {
     } yield new SymmetricKey(format, keyP.key, scheme)
 }
 
-final case class EncryptionKeyPair(publicKey: EncryptionPublicKey, privateKey: EncryptionPrivateKey)
-    extends CryptoKeyPair[EncryptionPublicKey, EncryptionPrivateKey]
-    with NoCopy {
+final case class EncryptionKeyPair(
+    publicKey: EncryptionPublicKey,
+    privateKey: EncryptionPrivateKey,
+) extends CryptoKeyPair[EncryptionPublicKey, EncryptionPrivateKey] {
 
   def toProtoV30: v30.EncryptionKeyPair =
     v30.EncryptionKeyPair(Some(publicKey.toProtoV30), Some(privateKey.toProtoV30))
@@ -526,12 +525,6 @@ final case class EncryptionKeyPair(publicKey: EncryptionPublicKey, privateKey: E
 }
 
 object EncryptionKeyPair {
-
-  private[this] def apply(
-      publicKey: EncryptionPublicKey,
-      privateKey: EncryptionPrivateKey,
-  ): EncryptionKeyPair =
-    throw new UnsupportedOperationException("Use generate or deserialization methods")
 
   private[crypto] def create(
       format: CryptoKeyFormat,

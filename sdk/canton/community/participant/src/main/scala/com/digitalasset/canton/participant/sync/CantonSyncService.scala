@@ -20,7 +20,6 @@ import com.digitalasset.canton.crypto.{CryptoPureApi, SyncCryptoApiProvider}
 import com.digitalasset.canton.data.{
   AbsoluteOffset,
   CantonTimestamp,
-  Offset,
   ProcessedDisclosedContract,
   ReassignmentSubmitterMetadata,
 }
@@ -107,7 +106,6 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.jdk.FutureConverters.*
-import scala.util.chaining.scalaUtilChainingOps
 import scala.util.{Failure, Right, Success}
 
 /** The Canton-based synchronization service.
@@ -464,14 +462,7 @@ class CantonSyncService(
       pruneUpToInclusive: AbsoluteOffset
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, CantonError, Unit] =
     (for {
-      pruneUpToMultiDomainGlobalOffset <- EitherT
-        .fromEither[FutureUnlessShutdown](UpstreamOffsetConvert.toGlobalOffset(pruneUpToInclusive))
-        .leftMap { message =>
-          LedgerPruningOffsetNonCantonFormat(
-            s"Specified offset does not convert to a canton multi domain event log global offset: $message"
-          )
-        }
-      _pruned <- pruningProcessor.pruneLedgerEvents(pruneUpToMultiDomainGlobalOffset)
+      _pruned <- pruningProcessor.pruneLedgerEvents(pruneUpToInclusive)
     } yield ()).transform(pruningErrorToCantonError)
 
   private def pruningErrorToCantonError(pruningResult: Either[LedgerPruningError, Unit])(implicit
@@ -482,16 +473,13 @@ class CantonSyncService(
         s"Could not locate pruning point: ${err.message}. Considering success for idempotency"
       )
       Either.unit
-    case Left(err: LedgerPruningOffsetNonCantonFormat) =>
-      logger.info(err.message)
-      Left(PruningServiceError.NonCantonOffset.Error(err.message))
     case Left(err: LedgerPruningOffsetUnsafeToPrune) =>
       logger.info(s"Unsafe to prune: ${err.message}")
       Left(
         PruningServiceError.UnsafeToPrune.Error(
           err.cause,
           err.message,
-          err.lastSafeOffset.fold("")(UpstreamOffsetConvert.fromGlobalOffset(_).toLong.toString),
+          err.lastSafeOffset.fold("")(_.toDecimalString),
         )
       )
     case Left(err: LedgerPruningOffsetUnsafeDomain) =>
@@ -1152,7 +1140,7 @@ class CantonSyncService(
   /** Perform handshake with the given domain. */
   private def performDomainHandshake(
       domainAlias: DomainAlias,
-      skipStatusCheck: Boolean = false,
+      skipStatusCheck: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
@@ -1190,7 +1178,7 @@ class CantonSyncService(
   private def performDomainConnection(
       domainAlias: DomainAlias,
       startSyncDomain: Boolean,
-      skipStatusCheck: Boolean = false,
+      skipStatusCheck: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] = {
@@ -1718,28 +1706,19 @@ class CantonSyncService(
       validAt: AbsoluteOffset,
       stakeholders: Set[LfPartyId],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Vector[AbsoluteOffset]] =
-    UpstreamOffsetConvert
-      .toGlobalOffset(Offset.fromAbsoluteOffset(validAt))
-      .fold(
-        error => FutureUnlessShutdown.failed(new IllegalArgumentException(error)),
-        globalOffset =>
-          syncDomainPersistentStateManager.getAll.values.toList
-            .parTraverse {
-              _.reassignmentStore.findIncomplete(
-                sourceDomain = None,
-                validAt = globalOffset,
-                stakeholders = NonEmpty.from(stakeholders),
-                limit = NonNegativeInt.maxValue,
-              )
-            }
-            .map(
-              _.flatten
-                .map(
-                  _.reassignmentEventGlobalOffset.globalOffset
-                    .pipe(UpstreamOffsetConvert.fromGlobalOffsetToAbsoluteOffset)
-                )
-                .toVector
-            ),
+    syncDomainPersistentStateManager.getAll.values.toList
+      .parTraverse {
+        _.reassignmentStore.findIncomplete(
+          sourceDomain = None,
+          validAt = validAt,
+          stakeholders = NonEmpty.from(stakeholders),
+          limit = NonNegativeInt.maxValue,
+        )
+      }
+      .map(
+        _.flatten
+          .map(_.reassignmentEventGlobalOffset.globalOffset)
+          .toVector
       )
 }
 

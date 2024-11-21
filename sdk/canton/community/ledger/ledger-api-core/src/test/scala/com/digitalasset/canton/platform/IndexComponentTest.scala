@@ -5,7 +5,6 @@ package com.digitalasset.canton.platform
 
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.Update
@@ -29,6 +28,7 @@ import com.digitalasset.canton.platform.store.{DbSupport, FlywayMigrations}
 import com.digitalasset.canton.time.WallClock
 import com.digitalasset.canton.tracing.NoReportingTracerProvider
 import com.digitalasset.canton.util.PekkoUtil.{FutureQueue, IndexingFutureQueue}
+import com.digitalasset.canton.{BaseTest, HasExecutorService}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.{Engine, EngineConfig}
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
@@ -39,12 +39,11 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
-trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
+trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasExecutorService {
   self: Suite =>
 
   private val clock = new WallClock(ProcessingTimeout(), loggerFactory)
 
-  // AsyncFlatSpec is with serial execution context
   private implicit val ec: ExecutionContext = system.dispatcher
 
   protected implicit val loggingContextWithTrace: LoggingContextWithTrace =
@@ -151,7 +150,6 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
           config = IndexServiceConfig(),
           participantId = Ref.ParticipantId.assertFromString(IndexComponentTest.TestParticipantId),
           metrics = LedgerApiServerMetrics.ForTesting,
-          servicesExecutionContext = ec,
           engine = new Engine(
             EngineConfig(LanguageVersion.StableVersions(LanguageMajorVersion.V2))
           ),
@@ -168,6 +166,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
             loadPackage = (_packageId, _loggingContext) => Future(None),
             loggerFactory = loggerFactory,
           ),
+          readApiServiceExecutionContext = executorService,
         )
       } yield indexService -> indexer
 
@@ -183,7 +182,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
     )
   }
 
-  override protected def afterAll(): Unit = {
+  override def afterAll(): Unit = {
     testServices.indexResource.release().futureValue
     super.afterAll()
   }

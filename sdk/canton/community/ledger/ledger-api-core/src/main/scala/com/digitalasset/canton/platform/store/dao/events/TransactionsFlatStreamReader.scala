@@ -9,6 +9,7 @@ import com.daml.metrics.{DatabaseMetrics, Timed}
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.tracing
 import com.daml.tracing.Spans
+import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.ledger.api.TraceIdentifiers
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
@@ -70,6 +71,8 @@ class TransactionsFlatStreamReader(
     Ordering.by[Entry[RawFlatEvent], Long](_.eventSequentialId)
 
   private val paginatingAsyncStream = new PaginatingAsyncStream(loggerFactory)
+
+  private val directEC = DirectExecutionContext(logger)
 
   def streamFlatTransactions(
       queryRange: EventsRange,
@@ -304,10 +307,10 @@ class TransactionsFlatStreamReader(
 
     sourceOfTransactions
       .mergeSorted(topologyTransactions.map { case (offset, response) =>
-        offset.toAbsoluteOffset -> response
+        offset -> response
       })(Ordering.by(_._1))
       .mergeSorted(reassignments.map { case (offset, response) =>
-        offset.toAbsoluteOffset -> response
+        offset -> response
       })(Ordering.by(_._1))
   }
 
@@ -316,9 +319,13 @@ class TransactionsFlatStreamReader(
       eventProjectionProperties: EventProjectionProperties,
   )(implicit lc: LoggingContextWithTrace): Future[Seq[Entry[Event]]] =
     Timed.future(
-      future = MonadUtil.sequentialTraverse(rawEvents)(
-        TransactionsReader.deserializeFlatEvent(eventProjectionProperties, lfValueTranslation)
-      ),
+      future = Future.delegate {
+        implicit val executionContext: ExecutionContext =
+          directEC // Scala 2 implicit scope override: shadow the outer scope's implicit by name
+        MonadUtil.sequentialTraverse(rawEvents)(
+          TransactionsReader.deserializeFlatEvent(eventProjectionProperties, lfValueTranslation)
+        )
+      },
       timer = dbMetrics.flatTxStream.translationTimer,
     )
 

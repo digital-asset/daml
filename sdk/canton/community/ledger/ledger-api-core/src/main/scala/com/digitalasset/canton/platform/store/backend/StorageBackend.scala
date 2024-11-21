@@ -122,12 +122,12 @@ trait ParameterStorageBackend {
   def prunedUpToInclusiveAndLedgerEnd(connection: Connection): PruneUptoInclusiveAndLedgerEnd
 
   def updatePrunedAllDivulgedContractsUpToInclusive(
-      prunedUpToInclusive: Offset
+      prunedUpToInclusive: AbsoluteOffset
   )(connection: Connection): Unit
 
   def participantAllDivulgedContractsPrunedUpToInclusive(
       connection: Connection
-  ): Option[Offset]
+  ): Option[AbsoluteOffset]
 
   def updatePostProcessingEnd(
       postProcessingEnd: Option[AbsoluteOffset]
@@ -135,7 +135,7 @@ trait ParameterStorageBackend {
 
   def postProcessingEnd(
       connection: Connection
-  ): Option[Offset]
+  ): Option[AbsoluteOffset]
 
   /** Initializes the parameters table and verifies or updates ledger identity parameters.
     * This method is idempotent:
@@ -220,8 +220,8 @@ trait CompletionStorageBackend {
   )(connection: Connection): Vector[CompletionStreamResponse]
 
   def commandCompletionsForRecovery(
-      startExclusive: Offset,
-      endInclusive: Offset,
+      startInclusive: AbsoluteOffset,
+      endInclusive: AbsoluteOffset,
   )(connection: Connection): Vector[PostPublishData]
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
@@ -232,11 +232,11 @@ trait CompletionStorageBackend {
 }
 
 trait ContractStorageBackend {
-  def keyState(key: Key, validAt: Offset)(connection: Connection): KeyState
-  def archivedContracts(contractIds: Seq[ContractId], before: Offset)(
+  def keyState(key: Key, validAt: AbsoluteOffset)(connection: Connection): KeyState
+  def archivedContracts(contractIds: Seq[ContractId], before: AbsoluteOffset)(
       connection: Connection
   ): Map[ContractId, ContractStorageBackend.RawArchivedContract]
-  def createdContracts(contractIds: Seq[ContractId], before: Offset)(
+  def createdContracts(contractIds: Seq[ContractId], before: AbsoluteOffset)(
       connection: Connection
   ): Map[ContractId, ContractStorageBackend.RawCreatedContract]
   def assignedContracts(contractIds: Seq[ContractId])(
@@ -349,10 +349,10 @@ trait EventStorageBackend {
 
   def lastDomainOffsetBeforeOrAt(
       domainIdO: Option[DomainId],
-      beforeOrAtOffsetInclusive: Offset,
+      beforeOrAtOffsetInclusive: AbsoluteOffset,
   )(connection: Connection): Option[DomainOffset]
 
-  def domainOffset(offset: Offset)(connection: Connection): Option[DomainOffset]
+  def domainOffset(offset: AbsoluteOffset)(connection: Connection): Option[DomainOffset]
 
   def firstDomainOffsetAfterOrAtPublicationTime(
       afterOrAtPublicationTimeInclusive: Timestamp
@@ -362,7 +362,7 @@ trait EventStorageBackend {
       beforeOrAtPublicationTimeInclusive: Timestamp
   )(connection: Connection): Option[DomainOffset]
 
-  def archivals(fromExclusive: Option[Offset], toInclusive: Offset)(
+  def archivals(fromExclusive: Option[AbsoluteOffset], toInclusive: AbsoluteOffset)(
       connection: Connection
   ): Set[ContractId]
 
@@ -476,14 +476,14 @@ object EventStorageBackend {
   )
 
   final case class DomainOffset(
-      offset: Offset,
+      offset: AbsoluteOffset,
       domainId: DomainId,
       recordTime: Timestamp,
       publicationTime: Timestamp,
   )
 
   final case class RawParticipantAuthorization(
-      offset: Offset,
+      offset: AbsoluteOffset,
       updateId: String,
       partyId: String,
       participantId: String,

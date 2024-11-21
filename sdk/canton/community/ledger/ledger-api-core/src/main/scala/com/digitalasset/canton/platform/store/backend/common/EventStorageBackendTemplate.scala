@@ -5,12 +5,12 @@ package com.digitalasset.canton.platform.store.backend.common
 
 import anorm.SqlParser.*
 import anorm.{Row, RowParser, SimpleSql, ~}
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.store.backend.Conversions.{
+  absoluteOffset,
   contractId,
   hashFromHexString,
-  offset,
   timestampFromMicros,
 }
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
@@ -432,7 +432,7 @@ object EventStorageBackendTemplate {
 
   val partyToParticipantEventRow =
     long("event_sequential_id") ~
-      offset("event_offset") ~
+      absoluteOffset("event_offset") ~
       str("update_id") ~
       int("party_id") ~
       str("participant_id") ~
@@ -837,7 +837,7 @@ object EventStorageBackendTemplate {
       offsetColumnName: String,
       stringInterning: StringInterning,
   ): RowParser[DomainOffset] =
-    offset(offsetColumnName) ~
+    absoluteOffset(offsetColumnName) ~
       int("domain_id") ~
       timestampFromMicros("record_time") ~
       timestampFromMicros("publication_time") map {
@@ -864,12 +864,11 @@ abstract class EventStorageBackendTemplate(
     ledgerEndCache: LedgerEndCache,
     stringInterning: StringInterning,
     // This method is needed in pruneEvents, but belongs to [[ParameterStorageBackend]].
-    participantAllDivulgedContractsPrunedUpToInclusive: Connection => Option[Offset],
+    participantAllDivulgedContractsPrunedUpToInclusive: Connection => Option[AbsoluteOffset],
     val loggerFactory: NamedLoggerFactory,
 ) extends EventStorageBackend
     with NamedLogging {
   import EventStorageBackendTemplate.*
-  import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
   import com.digitalasset.canton.platform.store.backend.Conversions.AbsoluteOffsetToStatement
 
   override def transactionPointwiseQueries: TransactionPointwiseQueries =
@@ -1515,18 +1514,18 @@ abstract class EventStorageBackendTemplate(
           """.asSingleOpt(metaDomainOffsetParser(stringInterning))(connection),
     ).flatten
       .minByOption(_.recordTime)
-      .filter(
-        _.offset <= Offset.fromAbsoluteOffsetO(ledgerEndCache().map(_.lastOffset))
+      .filter(domainOffset =>
+        Option(domainOffset.offset) <= ledgerEndCache().map(_.lastOffset)
       ) // if the first is after LedgerEnd, then we have none
 
   def lastDomainOffsetBeforeOrAt(
       domainIdO: Option[DomainId],
-      beforeOrAtOffsetInclusive: Offset,
+      beforeOrAtOffsetInclusive: AbsoluteOffset,
   )(connection: Connection): Option[DomainOffset] = {
-    val ledgerEndOffset = Offset.fromAbsoluteOffsetO(ledgerEndCache().map(_.lastOffset))
+    val ledgerEndOffset = ledgerEndCache().map(_.lastOffset)
     val safeBeforeOrAtOffset =
-      if (beforeOrAtOffsetInclusive > ledgerEndOffset) ledgerEndOffset
-      else beforeOrAtOffsetInclusive
+      if (Option(beforeOrAtOffsetInclusive) > ledgerEndOffset) ledgerEndOffset
+      else Some(beforeOrAtOffsetInclusive)
     val (domainIdFilter, domainIdOrdering) = domainIdO match {
       case Some(domainId) =>
         (
@@ -1546,7 +1545,7 @@ abstract class EventStorageBackendTemplate(
           FROM lapi_command_completions
           WHERE
             $domainIdFilter
-            ${QueryStrategy.offsetIsSmallerOrEqual("completion_offset", safeBeforeOrAtOffset)}
+            ${QueryStrategy.offsetIsLessOrEqual("completion_offset", safeBeforeOrAtOffset)}
           ORDER BY $domainIdOrdering completion_offset DESC
           ${QueryStrategy.limitClause(Some(1))}
           """.asSingleOpt(completionDomainOffsetParser(stringInterning))(connection),
@@ -1555,7 +1554,7 @@ abstract class EventStorageBackendTemplate(
           FROM lapi_transaction_meta
           WHERE
             $domainIdFilter
-            ${QueryStrategy.offsetIsSmallerOrEqual("event_offset", safeBeforeOrAtOffset)}
+            ${QueryStrategy.offsetIsLessOrEqual("event_offset", safeBeforeOrAtOffset)}
           ORDER BY $domainIdOrdering event_offset DESC
           ${QueryStrategy.limitClause(Some(1))}
           """.asSingleOpt(metaDomainOffsetParser(stringInterning))(connection),
@@ -1565,7 +1564,7 @@ abstract class EventStorageBackendTemplate(
       .headOption
   }
 
-  def domainOffset(offset: Offset)(connection: Connection): Option[DomainOffset] =
+  def domainOffset(offset: AbsoluteOffset)(connection: Connection): Option[DomainOffset] =
     List(
       SQL"""
           SELECT completion_offset, record_time, publication_time, domain_id
@@ -1580,8 +1579,8 @@ abstract class EventStorageBackendTemplate(
             event_offset = $offset
           """.asSingleOpt(metaDomainOffsetParser(stringInterning))(connection),
     ).flatten.headOption // if both present they should be the same
-      .filter(
-        _.offset <= Offset.fromAbsoluteOffsetO(ledgerEndCache().map(_.lastOffset))
+      .filter(domainOffset =>
+        Option(domainOffset.offset) <= ledgerEndCache().map(_.lastOffset)
       ) // only offset allow before or at ledger end
 
   def firstDomainOffsetAfterOrAtPublicationTime(
@@ -1606,8 +1605,8 @@ abstract class EventStorageBackendTemplate(
           """.asSingleOpt(metaDomainOffsetParser(stringInterning))(connection),
     ).flatten
       .minByOption(_.offset)
-      .filter(
-        _.offset <= Offset.fromAbsoluteOffsetO(ledgerEndCache().map(_.lastOffset))
+      .filter(domainOffset =>
+        Option(domainOffset.offset) <= ledgerEndCache().map(_.lastOffset)
       ) // if first offset is beyond the ledger-end then we have no such
 
   def lastDomainOffsetBeforeOrAtPublicationTime(
@@ -1643,14 +1642,14 @@ abstract class EventStorageBackendTemplate(
       .headOption
   }
 
-  def archivals(fromExclusive: Option[Offset], toInclusive: Offset)(
+  def archivals(fromExclusive: Option[AbsoluteOffset], toInclusive: AbsoluteOffset)(
       connection: Connection
   ): Set[ContractId] = {
     val fromExclusiveSeqId =
       fromExclusive
-        .map(from => maxEventSequentialId(from.toAbsoluteOffsetO)(connection))
+        .map(from => maxEventSequentialId(Some(from))(connection))
         .getOrElse(-1L)
-    val toInclusiveSeqId = maxEventSequentialId(toInclusive.toAbsoluteOffsetO)(connection)
+    val toInclusiveSeqId = maxEventSequentialId(Some(toInclusive))(connection)
     SQL"""
         SELECT contract_id
         FROM lapi_events_consuming_exercise

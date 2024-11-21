@@ -248,14 +248,14 @@ class TransactionProcessingSteps(
         case CommandDeduplicator.AlreadyExists(completionOffset, accepted, submissionId) =>
           CommandDeduplicationError.DuplicateCommandReject(
             changeId,
-            UpstreamOffsetConvert.fromGlobalOffset(completionOffset).toLong,
+            completionOffset.unwrap,
             accepted,
             submissionId,
           ) ->
             DeduplicationPeriod.DeduplicationOffset(
               // Extend the reported deduplication period to include the conflicting submission,
               // as deduplication offsets are exclusive
-              UpstreamOffsetConvert.fromGlobalOffset(completionOffset.toLong - 1L)
+              Offset.fromLong(completionOffset.unwrap - 1L)
             )
         case CommandDeduplicator.DeduplicationPeriodTooEarly(requested, supported) =>
           val error: TransactionError = supported match {

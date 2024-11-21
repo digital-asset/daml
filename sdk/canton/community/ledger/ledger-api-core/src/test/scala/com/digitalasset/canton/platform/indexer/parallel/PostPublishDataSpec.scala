@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.indexer.parallel
 
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
 import com.digitalasset.canton.ledger.participant.state.Update.CommandRejected.FinalReason
 import com.digitalasset.canton.ledger.participant.state.Update.{
   RepairTransactionAccepted,
@@ -35,7 +35,7 @@ class PostPublishDataSpec extends AnyFlatSpec with Matchers with NamedLogging {
   private val cantonTime1 = CantonTimestamp.now()
   private val cantonTime2 = CantonTimestamp.now()
   private val commandId = Ref.CommandId.assertFromString(UUID.randomUUID().toString)
-  private val offset = Offset.fromLong(15)
+  private val offset = AbsoluteOffset.tryFromLong(15)
   private val submissionId = Some(Ref.SubmissionId.assertFromString(UUID.randomUUID().toString))
   private val updateId = Ref.TransactionId.fromLong(15000)
   private val someHash =

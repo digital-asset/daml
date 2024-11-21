@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.protocol
 
-import com.digitalasset.canton.config.RequireTypes.NegativeLong
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.Update
@@ -25,8 +24,6 @@ object ParticipantTopologyTerminateProcessing {
 
   private[canton] val enabledWarningMessage =
     "Topology events are enabled. This is an experimental feature, unsafe for production use."
-
-  private val minTopologyTieBreaker = NegativeLong.tryCreate(Long.MinValue + 1)
 
 }
 

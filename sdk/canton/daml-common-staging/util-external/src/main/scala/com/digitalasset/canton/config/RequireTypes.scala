@@ -16,8 +16,9 @@ import java.io.File
 object RequireTypes {
   final case class InvariantViolation(message: String)
 
-  sealed abstract case class Port(private val n: Int) extends Ordered[Port] {
+  final case class Port private (private val n: Int) extends Ordered[Port] {
     def unwrap: Int = n
+
     require(
       n >= Port.minValidPort && n <= Port.maxValidPort,
       s"Unable to create Port as value $n was given, but only values between ${Port.minValidPort} and ${Port.maxValidPort} (inclusive) are allowed.",
@@ -31,20 +32,18 @@ object RequireTypes {
 
   object Port {
     val (minValidPort, maxValidPort) = (0, scala.math.pow(2, 16).toInt - 1)
-    private[this] def apply(n: Int): Port =
-      throw new UnsupportedOperationException("Use create or tryCreate methods")
 
     def create(n: Int): Either[InvariantViolation, Port] =
       Either.cond(
         n >= Port.minValidPort && n <= Port.maxValidPort,
-        new Port(n) {},
+        new Port(n),
         InvariantViolation(
           s"Unable to create Port as value $n was given, but only values between ${Port.minValidPort} and ${Port.maxValidPort} are allowed."
         ),
       )
 
     def tryCreate(n: Int): Port =
-      new Port(n) {}
+      new Port(n)
 
     lazy implicit val portReader: ConfigReader[Port] =
       ConfigReader.fromString[Port] { str =>
@@ -312,45 +311,27 @@ object RequireTypes {
     }
   }
 
-  final case class NegativeNumeric[T] private (value: T)(implicit val num: Numeric[T])
-      extends RefinedNumeric[T]
-
-  object NegativeNumeric {
-    def tryCreate[T: Numeric](t: T): NegativeNumeric[T] = NegativeNumeric(t)
-  }
-
-  type NegativeLong = NegativeNumeric[Long]
-
-  object NegativeLong {
-    val MinValue: NegativeLong = NegativeNumeric.tryCreate(Long.MinValue)
-
-    def tryCreate(v: Long): NegativeLong = NegativeNumeric.tryCreate(v)
-    def create(n: Long): Either[InvariantViolation, NonNegativeLong] = NonNegativeNumeric.create(n)
-  }
-
-  sealed abstract case class ExistingFile(private val file: File) {
+  final case class ExistingFile private (private val file: File) {
     def unwrap: File = file
     require(file.exists(), s"Unable to create ExistingFile as non-existing file $file was given.")
   }
 
   object ExistingFile {
-    private[this] def apply(file: File): ExistingFile =
-      throw new UnsupportedOperationException("Use create or tryCreate methods")
 
     def create(file: File): Either[InvariantViolation, ExistingFile] =
       Either.cond(
         file.exists,
-        new ExistingFile(file) {},
+        new ExistingFile(file),
         InvariantViolation(
           s"The specified file $file does not exist/was not found. Please specify an existing file"
         ),
       )
 
     def tryCreate(file: File): ExistingFile =
-      new ExistingFile(file) {}
+      new ExistingFile(file)
 
     def tryCreate(path: String): ExistingFile =
-      new ExistingFile(new File(path)) {}
+      new ExistingFile(new File(path))
 
     lazy implicit val existingFileReader: ConfigReader[ExistingFile] =
       ConfigReader.fromString[ExistingFile] { str =>

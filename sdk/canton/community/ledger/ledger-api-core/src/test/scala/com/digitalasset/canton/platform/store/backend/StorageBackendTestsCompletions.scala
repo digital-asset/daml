@@ -415,7 +415,7 @@ private[backend] trait StorageBackendTestsCompletions
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
     executeSql(
-      backend.completion.commandCompletionsForRecovery(offset(1), offset(10))
+      backend.completion.commandCompletionsForRecovery(absoluteOffset(2), absoluteOffset(10))
     ) shouldBe Vector(
       PostPublishData(
         submissionDomainId = DomainId.tryFromString("x::domain1"),
@@ -423,7 +423,7 @@ private[backend] trait StorageBackendTestsCompletions
         applicationId = Ref.ApplicationId.assertFromString("applicationid1"),
         commandId = Ref.CommandId.assertFromString(commandId),
         actAs = Set(someParty),
-        offset = offset(2),
+        offset = absoluteOffset(2),
         publicationTime = CantonTimestamp(publicationTime),
         submissionId = Some(Ref.SubmissionId.assertFromString(submissionId)),
         accepted = true,
@@ -438,7 +438,7 @@ private[backend] trait StorageBackendTestsCompletions
         applicationId = Ref.ApplicationId.assertFromString("applicationid1"),
         commandId = Ref.CommandId.assertFromString(commandId),
         actAs = Set(someParty),
-        offset = offset(9),
+        offset = absoluteOffset(9),
         publicationTime = CantonTimestamp(publicationTime),
         submissionId = Some(Ref.SubmissionId.assertFromString(submissionId)),
         accepted = false,
@@ -448,7 +448,9 @@ private[backend] trait StorageBackendTestsCompletions
 
     // this tries to deserialize the last dto which has an invalid combination of message_uuid and request_sequencer_counter
     intercept[IllegalStateException](
-      executeSql(backend.completion.commandCompletionsForRecovery(offset(2), offset(11)))
+      executeSql(
+        backend.completion.commandCompletionsForRecovery(absoluteOffset(3), absoluteOffset(11))
+      )
     ).getMessage should include("if message_uuid is empty, this field should be populated")
   }
 }

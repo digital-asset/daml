@@ -102,9 +102,6 @@ final class PreparedTransactionEncoder(
   private implicit val hashTransformer: Transformer[lf.crypto.Hash, ByteString] =
     _.bytes.toByteString
 
-  private implicit val packageVersionTransformer: Transformer[lf.data.Ref.PackageVersion, String] =
-    _.toString()
-
   private implicit val partyVersionTransformer: Transformer[lf.data.Ref.Party, String] =
     Transformer.derive
 

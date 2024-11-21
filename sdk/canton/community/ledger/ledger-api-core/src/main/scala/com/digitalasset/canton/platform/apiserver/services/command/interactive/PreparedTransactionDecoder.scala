@@ -135,10 +135,6 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
       lf.crypto.Hash.fromBytes(Bytes.fromByteString(src)).toResult
     }
 
-  private implicit val packageVersionTransformer
-      : PartialTransformer[String, lf.data.Ref.PackageVersion] =
-    PartialTransformer(src => lf.data.Ref.PackageVersion.fromString(src).toResult)
-
   private implicit val packageIdTransformer: PartialTransformer[String, lf.data.Ref.PackageId] =
     PartialTransformer(src => lf.data.Ref.PackageId.fromString(src).toResult)
 
@@ -167,9 +163,6 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
 
   private implicit val partyTransformer: PartialTransformer[String, lf.data.Ref.Party] =
     PartialTransformer(src => lf.data.Ref.Party.fromString(src).toResult)
-
-  private implicit val domainIdTransformer: PartialTransformer[String, DomainId] =
-    PartialTransformer(src => DomainId.fromString(src).toResult)
 
   private implicit val mediatorGroupIndexDecoder: PartialTransformer[Int, MediatorGroupIndex] =
     PartialTransformer(src => MediatorGroupIndex.create(src).leftMap(_.message).toResult)

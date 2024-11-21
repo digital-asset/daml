@@ -96,7 +96,6 @@ object PbftBlockState {
     // In-memory storage for block's PBFT votes in this view
     private var prePrepare: Option[SignedMessage[PrePrepare]] = None
     private var sentPrePrepare: Boolean = false
-    private var myPrepare: Option[SignedMessage[Prepare]] = None
     private val prepareMap = mutable.HashMap[SequencerId, SignedMessage[Prepare]]()
     private var myCommit: Option[Commit] = None
     private val commitMap = mutable.HashMap[SequencerId, SignedMessage[Commit]]()
@@ -172,7 +171,6 @@ object PbftBlockState {
                     p
                   },
                 )
-              myPrepare = Some(prepare)
               Seq(
                 SendPbftMessage(
                   prepare,

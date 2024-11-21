@@ -603,8 +603,7 @@ object IssConsensusModuleTest {
   private val oneRequestOrderingBlock = OrderingBlock(Seq(ProofOfAvailability(aBatchId, Seq.empty)))
 
   private def createSegmentModuleRefFactory(
-      segmentModuleFactoryFunction: () => ModuleRef[ConsensusSegment.Message] = () =>
-        fakeIgnoringModule
+      segmentModuleFactoryFunction: () => ModuleRef[ConsensusSegment.Message]
   ) =
     new SegmentModuleRefFactory[ProgrammableUnitTestEnv] {
       override def apply(

@@ -3,14 +3,12 @@
 
 package com.digitalasset.canton.participant
 
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
 import com.digitalasset.canton.participant.store.DomainConnectionConfigStore
-import com.digitalasset.canton.participant.sync.UpstreamOffsetConvert
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.util.ShowUtil.*
 
 object Pruning {
-  import com.digitalasset.canton.participant.pretty.Implicits.*
 
   trait LedgerPruningError extends Product with Serializable { def message: String }
 
@@ -35,18 +33,15 @@ object Pruning {
   }
 
   final case class LedgerPruningOffsetUnsafeToPrune(
-      globalOffset: GlobalOffset,
+      offset: AbsoluteOffset,
       domainId: DomainId,
       recordTime: CantonTimestamp,
       cause: String,
-      lastSafeOffset: Option[GlobalOffset],
+      lastSafeOffset: Option[AbsoluteOffset],
   ) extends LedgerPruningError {
     override def message =
-      show"Unsafe to prune offset ${UpstreamOffsetConvert.fromGlobalOffset(globalOffset)} due to the event for $domainId with record time $recordTime"
+      show"Unsafe to prune offset $offset due to the event for $domainId with record time $recordTime"
   }
-
-  // TODO(#21220) remove when GlobalOffset is removed
-  final case class LedgerPruningOffsetNonCantonFormat(message: String) extends LedgerPruningError
 
   final case class LedgerPruningNotPossibleDuringHardMigration(
       domainId: DomainId,

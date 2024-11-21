@@ -63,9 +63,6 @@ object Fingerprint {
   implicit val fingerprintEncoder: Encoder[Fingerprint] =
     Encoder.encodeString.contramap[Fingerprint](_.unwrap)
 
-  private[this] def apply(hash: Hash): Fingerprint =
-    throw new UnsupportedOperationException("Use create/deserialization methods instead.")
-
   /** create fingerprint from a human readable string */
   def fromProtoPrimitive(str: String): ParsingResult[Fingerprint] =
     UniqueIdentifier

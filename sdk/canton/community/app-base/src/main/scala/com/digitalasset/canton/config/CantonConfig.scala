@@ -19,10 +19,6 @@ import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.auth.AccessLevel
 import com.digitalasset.canton.config.CantonRequireTypes.*
-import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.{
-  InvalidLengthString,
-  defaultMaxLength,
-}
 import com.digitalasset.canton.config.ConfigErrors.{
   CannotParseFilesError,
   CannotReadFilesError,
@@ -556,15 +552,6 @@ object CantonConfig {
 
   object ConfigReaders {
     import CantonConfigUtil.*
-
-    lazy implicit val lengthLimitedStringReader: ConfigReader[LengthLimitedString] =
-      ConfigReader.fromString[LengthLimitedString] { str =>
-        Either.cond(
-          str.nonEmpty && str.length <= defaultMaxLength.unwrap,
-          new LengthLimitedStringVar(str, defaultMaxLength)(),
-          InvalidLengthString(str),
-        )
-      }
 
     implicit val nonNegativeDurationReader: ConfigReader[NonNegativeDuration] =
       ConfigReader.fromString[NonNegativeDuration] { str =>

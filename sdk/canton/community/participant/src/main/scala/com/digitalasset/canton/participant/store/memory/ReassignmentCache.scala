@@ -9,7 +9,7 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
@@ -17,7 +17,6 @@ import com.digitalasset.canton.lifecycle.{
   UnlessShutdown,
 }
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.reassignment.{
   IncompleteReassignmentData,
   ReassignmentData,
@@ -170,7 +169,7 @@ class ReassignmentCache(
     */
   override def findIncomplete(
       sourceDomain: Option[Source[DomainId]],
-      validAt: GlobalOffset,
+      validAt: AbsoluteOffset,
       stakeholders: Option[NonEmpty[Set[LfPartyId]]],
       limit: NonNegativeInt,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[IncompleteReassignmentData]] =
@@ -178,7 +177,7 @@ class ReassignmentCache(
 
   def findEarliestIncomplete()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[(GlobalOffset, ReassignmentId, Target[DomainId])]] =
+  ): FutureUnlessShutdown[Option[(AbsoluteOffset, ReassignmentId, Target[DomainId])]] =
     reassignmentStore.findEarliestIncomplete()
 
   override def onClosed(): Unit =

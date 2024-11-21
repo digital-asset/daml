@@ -6,8 +6,8 @@ package com.digitalasset.canton.participant.store.db
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.CantonRequireTypes.String36
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.store.ParticipantPruningStore
 import com.digitalasset.canton.participant.store.ParticipantPruningStore.ParticipantPruningStatus
 import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Postgres}
@@ -29,7 +29,7 @@ class DbParticipantPruningStore(
   import storage.api.*
 
   override def markPruningStarted(
-      upToInclusive: GlobalOffset
+      upToInclusive: AbsoluteOffset
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val upsertQuery = storage.profile match {
       case _: Postgres =>
@@ -51,7 +51,7 @@ class DbParticipantPruningStore(
   }
 
   override def markPruningDone(
-      upToInclusive: GlobalOffset
+      upToInclusive: AbsoluteOffset
   )(implicit traceContext: TraceContext): Future[Unit] =
     storage.update_(
       sqlu"""update par_pruning_operation set completed_up_to_inclusive = $upToInclusive
@@ -61,8 +61,8 @@ class DbParticipantPruningStore(
 
   private implicit val readParticipantPruningStatus: GetResult[ParticipantPruningStatus] =
     GetResult { r =>
-      val started = r.<<[Option[GlobalOffset]]
-      val completed = r.<<[Option[GlobalOffset]]
+      val started = r.<<[Option[AbsoluteOffset]]
+      val completed = r.<<[Option[AbsoluteOffset]]
       ParticipantPruningStatus(started, completed)
     }
 

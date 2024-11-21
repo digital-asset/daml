@@ -298,9 +298,7 @@ private class JdbcLedgerDao(
         )(conn)
 
         if (pruneAllDivulgedContracts) {
-          parameterStorageBackend.updatePrunedAllDivulgedContractsUpToInclusive(
-            Offset.fromAbsoluteOffset(pruneUpToInclusive)
-          )(
+          parameterStorageBackend.updatePrunedAllDivulgedContractsUpToInclusive(pruneUpToInclusive)(
             conn
           )
         }
@@ -324,7 +322,8 @@ private class JdbcLedgerDao(
           .prunedUpToInclusive(conn)
           .map(Offset.fromAbsoluteOffset),
         parameterStorageBackend
-          .participantAllDivulgedContractsPrunedUpToInclusive(conn),
+          .participantAllDivulgedContractsPrunedUpToInclusive(conn)
+          .map(Offset.fromAbsoluteOffset),
       )
     }
 
@@ -410,6 +409,7 @@ private class JdbcLedgerDao(
     eventStorageBackend = readStorageBackend.eventStorageBackend,
     metrics = metrics,
     lfValueTranslation = translation,
+    loggerFactory = loggerFactory,
   )(servicesExecutionContext)
 
   private val treeTransactionPointwiseReader = new TransactionTreePointwiseReader(
@@ -417,6 +417,7 @@ private class JdbcLedgerDao(
     eventStorageBackend = readStorageBackend.eventStorageBackend,
     metrics = metrics,
     lfValueTranslation = translation,
+    loggerFactory = loggerFactory,
   )(servicesExecutionContext)
 
   override val transactionsReader: TransactionsReader =
@@ -453,6 +454,7 @@ private class JdbcLedgerDao(
       metrics,
       translation,
       ledgerEndCache,
+      loggerFactory,
     )(
       servicesExecutionContext
     )

@@ -42,6 +42,12 @@ final case class TimeProof private (
     private val deliver: Deliver[Nothing],
 ) extends PrettyPrinting
     with HasCryptographicEvidence {
+
+  require(
+    event.signedEvent.content eq deliver,
+    "Time proof event must be the content of the provided signed sequencer event",
+  )
+
   def timestamp: CantonTimestamp = deliver.timestamp
 
   def traceContext: TraceContext = event.traceContext
@@ -56,17 +62,6 @@ final case class TimeProof private (
 }
 
 object TimeProof {
-
-  private def apply(
-      event: OrdinarySequencedEvent[Envelope[?]],
-      deliver: Deliver[Nothing],
-  ): TimeProof = {
-    require(
-      event.signedEvent.content eq deliver,
-      "Time proof event must be the content of the provided signed sequencer event",
-    )
-    new TimeProof(event, deliver)
-  }
 
   def fromProtoV30(
       protocolVersion: ProtocolVersion,
@@ -162,6 +157,9 @@ object TimeProof {
   @VisibleForTesting
   def mkTimeProofRequestMessageId: MessageId =
     MessageId(
-      String73(s"$timeEventMessageIdPrefix${UUID.randomUUID()}")("time-proof-message-id".some)
+      String73.tryCreate(
+        s"$timeEventMessageIdPrefix${UUID.randomUUID()}",
+        "time-proof-message-id".some,
+      )
     )
 }

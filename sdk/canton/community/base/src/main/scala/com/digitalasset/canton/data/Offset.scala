@@ -7,9 +7,12 @@ import cats.syntax.either.*
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import com.digitalasset.canton.data.AbsoluteOffset.{firstOffset, tryFromLong}
 import com.digitalasset.canton.data.Offset.beforeBegin
+import com.digitalasset.canton.logging.pretty.Pretty
+import com.digitalasset.canton.logging.pretty.Pretty.prettyOfString
 import com.digitalasset.canton.pekkostreams.dispatcher.DispatcherImpl.Incrementable
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.google.protobuf.ByteString
+import slick.jdbc.{GetResult, SetParameter}
 
 import java.io.InputStream
 import java.nio.{ByteBuffer, ByteOrder}
@@ -66,6 +69,10 @@ class AbsoluteOffset private (val positive: Long)
 
   def increment: AbsoluteOffset = tryFromLong(positive + 1L)
 
+  def min(other: AbsoluteOffset): AbsoluteOffset = new AbsoluteOffset(positive.min(other.unwrap))
+
+  def max(other: AbsoluteOffset): AbsoluteOffset = new AbsoluteOffset(positive.max(other.unwrap))
+
   // TODO(#21220) remove after db operations use inclusive start
   def decrement: Option[AbsoluteOffset] =
     Option.unless(this == firstOffset)(tryFromLong(positive - 1L))
@@ -105,6 +112,18 @@ object AbsoluteOffset {
       case None => ""
     }
   }
+
+  implicit val prettyOffset: Pretty[AbsoluteOffset] = prettyOfString(_.toDecimalString)
+
+  implicit val getResultOffset: GetResult[AbsoluteOffset] =
+    GetResult(_.nextLong()).andThen(AbsoluteOffset.tryFromLong)
+  implicit val getResultOffsetO: GetResult[Option[AbsoluteOffset]] =
+    GetResult(_.nextLongOption().map(AbsoluteOffset.tryFromLong))
+
+  implicit val setParameterOffset: SetParameter[AbsoluteOffset] = (off, pp) => pp >> off.unwrap
+  implicit val setParameterOffsetO: SetParameter[Option[AbsoluteOffset]] = (off, pp) =>
+    pp >> off.map(_.unwrap)
+
 }
 
 object Offset {

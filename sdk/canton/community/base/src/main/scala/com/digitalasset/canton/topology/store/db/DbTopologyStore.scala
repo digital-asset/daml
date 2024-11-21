@@ -724,13 +724,6 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
         .map(t => sql"$t")
         .intercalate(sql", ") ++ sql")"
 
-  private def excludeMapping(types: Set[TopologyMapping.Code]): SQLActionBuilderChain =
-    if (types.isEmpty) sql""
-    else
-      sql" AND transaction_type NOT IN (" ++ types.toSeq
-        .map(t => sql"$t")
-        .intercalate(sql", ") ++ sql")"
-
   private def findAsOfExclusive(
       effective: EffectiveTime,
       subQuery: SQLActionBuilder,
