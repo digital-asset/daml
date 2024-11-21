@@ -16,12 +16,15 @@ import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.lf.transaction.{GlobalKeyWithMaintainers, SubmittedTransaction, Transaction}
+import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
 import com.daml.logging.LoggingContext
 import org.scalatest.Assertion
 import org.scalatest.Inside.inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
+
+import scala.language.implicitConversions
 
 /** A test suite for smart contract upgrades.
   *
@@ -43,7 +46,7 @@ import org.scalatest.matchers.should.Matchers
   *    [[contractOrigins]].
   *
   * Some combinations of these features don't make sense. For instance, there are no commands for fetching a contract.
-  * These invalid combinations are discarded in [[TestHelper.makeApiCommand]]. For other valid combinations, this method
+  * These invalid combinations are discarded in [[TestHelper.makeApiCommands]]. For other valid combinations, this method
   * produces a command to be run against an engine by the main test loop.
   *
   * In order to test scenarios where the operation is triggered by a choice body, we need a "client" contract whose only
@@ -58,13 +61,13 @@ import org.scalatest.matchers.should.Matchers
 class UpgradeTest extends AnyFreeSpec with Matchers {
 
   private[this] implicit def parserParameters(implicit
-      pkgId: Ref.PackageId
+      pkgId: PackageId
   ): ParserParameters[this.type] =
     ParserParameters(pkgId, languageVersion = LanguageVersion.Features.smartContractUpgrade)
 
   // A package that defines an interface, a key type, an exception, and a party to be used by
   // the packages defined below.
-  val commonDefsPkgId = Ref.PackageId.assertFromString("-common-defs-id-")
+  val commonDefsPkgId = PackageId.assertFromString("-common-defs-id-")
   val commonDefsPkg =
     p"""metadata ( '-common-defs-' : '1.0.0' )
           module Mod {
@@ -106,13 +109,26 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
   case object ExpectUnhandledException
       extends ExpectedOutcome("should fail with an unhandled exception")
 
+  /** Represents an LF value specified both as some string we can splice into the textual representation of LF, and as a
+    * scala value we can splice into an [[ApiCommand]].
+    */
+  case class TestCaseValue[A](inChoiceBodyLfCode: String, inApiCommand: A)
+
   /** An abstract class whose [[v1TemplateDefinition]], [[v2TemplateDefinition]] and [[clientChoices]] methods generate
     * LF code that define a template named [[templateName]] and test choices for that template.
     * The class is meant to be extended by concrete case objects which override some aspect of the default template,
     * for instance [[v2Observers]].
     */
   abstract class TestCase(val templateName: String, val expectedOutcome: ExpectedOutcome) {
+    def v1AdditionalRecordArgFields: String = ""
+    def v1AdditionalVariantArgCtors: String = ""
+    def v1AdditionalEnumArgCtors: String = ""
     def v1AdditionalFields: String = ""
+    def v1AdditionalFieldsForChoiceArgRecordFieldType: String = ""
+    def v1AdditionalCtorsForChoiceArgVariantFieldType: String = ""
+    def v1AdditionalCtorsForChoiceArgEnumFieldType: String = ""
+    def v1AdditionalFieldsForChoiceArgType: String = ""
+    def v1AdditionalChoices: String = ""
     def v1Precondition: String = "True"
     def v1Signatories: String = s"Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)"
     def v1Observers: String = "Nil @Party"
@@ -126,108 +142,234 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
          |  }""".stripMargin
     def v1Maintainers: String =
       s"\\(key: '$commonDefsPkgId':Mod:Key) -> ('$commonDefsPkgId':Mod:Key {maintainers1} key)"
-    def v1ChoiceControllers: String =
+    def v1InterfaceChoiceControllers: String =
       s"Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)"
-    def v1ChoiceObservers: String = "Nil @Party"
+    def v1InterfaceChoiceObservers: String = "Nil @Party"
     def v1View: String = s"'$commonDefsPkgId':Mod:MyView { value = 0 }"
 
+    def v2AdditionalRecordArgFields: String = ""
+    def v2AdditionalVariantArgCtors: String = ""
+    def v2AdditionalEnumArgCtors: String = ""
     def v2AdditionalFields: String = ""
+    def v2AdditionalFieldsForChoiceArgRecordFieldType: String = ""
+    def v2AdditionalCtorsForChoiceArgVariantFieldType: String = ""
+    def v2AdditionalCtorsForChoiceArgEnumFieldType: String = ""
+    def v2AdditionalFieldsForChoiceArgType: String = ""
+    def v2AdditionalChoices: String = ""
     def v2Precondition: String = v1Precondition
     def v2Signatories: String = v1Signatories
     def v2Observers: String = v1Observers
     def v2Agreement: String = v1Agreement
     def v2Key: String = v1Key
-    def v2ChoiceControllers: String = v1ChoiceControllers
-    def v2ChoiceObservers: String = v1ChoiceObservers
+    def v2InterfaceChoiceControllers: String = v1InterfaceChoiceControllers
+    def v2InterfaceChoiceObservers: String = v1InterfaceChoiceObservers
     def v2Maintainers: String = v1Maintainers
     def v2View: String = v1View
 
+    def additionalFieldsToPassToChoiceArgRecordField
+        : TestCaseValue[ImmArray[(Option[Name], Value)]] =
+      TestCaseValue(
+        inChoiceBodyLfCode = "",
+        inApiCommand = ImmArray.empty,
+      )
+    def constructorCallToUseInChoiceArgVariantField: TestCaseValue[(Name, Value)] = {
+      TestCaseValue(
+        inChoiceBodyLfCode = "Ctor1 0",
+        inApiCommand = (Name.assertFromString("Ctor1"), ValueInt64(0)),
+      )
+    }
+    def constructorToUseInChoiceArgEnumField: TestCaseValue[Name] =
+      TestCaseValue(
+        inChoiceBodyLfCode = "Ctor1",
+        inApiCommand = Name.assertFromString("Ctor1"),
+      )
+    def additionalFieldsToPassToChoiceArg: TestCaseValue[ImmArray[(Option[Name], Value)]] =
+      TestCaseValue(
+        inChoiceBodyLfCode = "",
+        inApiCommand = ImmArray.empty,
+      )
+
     private def templateDefinition(
+        additionalRecordArgFields: String,
+        additionalVariantArgCtors: String,
+        additionalEnumArgCtors: String,
         additionalFields: String,
+        additionalFieldsForChoiceArgRecordFieldType: String,
+        additionalCtorsForChoiceArgVariantFieldType: String,
+        additionalCtorsForChoiceArgEnumFieldType: String,
+        additionalFieldsForChoiceArgType: String,
+        additionalChoices: String,
         precondition: String,
         signatories: String,
         observers: String,
         agreement: String,
         key: String,
         maintainers: String,
-        choiceControllers: String,
-        choiceObservers: String,
+        interfaceChoiceControllers: String,
+        interfaceChoiceObservers: String,
         view: String,
     ): String =
       s"""
-         |  record @serializable $templateName = { p1: Party, p2: Party $additionalFields };
+         |  record @serializable ${templateName}ChoiceArgRecordFieldType =
+         |    { n : Int64
+         |    $additionalFieldsForChoiceArgRecordFieldType
+         |    };
+         |
+         |  variant @serializable ${templateName}ChoiceArgVariantFieldType =
+         |    Ctor1: Int64
+         |    $additionalCtorsForChoiceArgVariantFieldType;
+         |
+         |  enum @serializable ${templateName}ChoiceArgEnumFieldType =
+         |    Ctor1
+         |    $additionalCtorsForChoiceArgEnumFieldType;
+         |
+         |  record @serializable ${templateName}ChoiceArgType =
+         |    { r: Mod:${templateName}ChoiceArgRecordFieldType
+         |    , v: Mod:${templateName}ChoiceArgVariantFieldType
+         |    , e: Mod:${templateName}ChoiceArgEnumFieldType
+         |    $additionalFieldsForChoiceArgType
+         |    };
+         |
+         |  record @serializable ${templateName}RecordArgType =
+         |    { n : Int64
+         |    $additionalRecordArgFields
+         |    };
+         |
+         |  variant @serializable ${templateName}VariantArgType =
+         |    Ctor1: Int64
+         |    $additionalVariantArgCtors;
+         |
+         |  enum @serializable ${templateName}EnumArgType =
+         |    Ctor1
+         |    $additionalEnumArgCtors;
+         |
+         |  record @serializable $templateName =
+         |    { p1: Party
+         |    , p2: Party
+         |    , r: Mod:${templateName}RecordArgType
+         |    , v: Mod:${templateName}VariantArgType
+         |    , e: Mod:${templateName}EnumArgType
+         |    $additionalFields
+         |    };
+         |
          |  template (this: $templateName) = {
          |    precondition $precondition;
          |    signatories $signatories;
          |    observers $observers;
          |    agreement $agreement;
          |
-         |    choice @nonConsuming TemplateChoice (self) (u: Unit): Text
+         |    choice @nonConsuming TemplateChoice (self) (u: Mod:${templateName}ChoiceArgType): Text
          |      , controllers (Cons @Party [Mod:${templateName} {p1} this] (Nil @Party))
          |      , observers (Nil @Party)
          |      to upure @Text "TemplateChoice was called";
          |
+         |    $additionalChoices
+         |
          |    implements '$commonDefsPkgId':Mod:Iface {
          |      view = $view;
-         |      method interfaceChoiceControllers = $choiceControllers;
-         |      method interfaceChoiceObservers = $choiceObservers;
+         |      method interfaceChoiceControllers = $interfaceChoiceControllers;
+         |      method interfaceChoiceObservers = $interfaceChoiceObservers;
          |    };
          |
          |    key @'$commonDefsPkgId':Mod:Key ($key) ($maintainers);
          |  };""".stripMargin
 
     def v1TemplateDefinition: String = templateDefinition(
+      v1AdditionalRecordArgFields,
+      v1AdditionalVariantArgCtors,
+      v1AdditionalEnumArgCtors,
       v1AdditionalFields,
+      v1AdditionalFieldsForChoiceArgRecordFieldType,
+      v1AdditionalCtorsForChoiceArgVariantFieldType,
+      v1AdditionalCtorsForChoiceArgEnumFieldType,
+      v1AdditionalFieldsForChoiceArgType,
+      v1AdditionalChoices,
       v1Precondition,
       v1Signatories,
       v1Observers,
       v1Agreement,
       v1Key,
       v1Maintainers,
-      v1ChoiceControllers,
-      v1ChoiceObservers,
+      v1InterfaceChoiceControllers,
+      v1InterfaceChoiceObservers,
       v1View,
     )
 
     def v2TemplateDefinition: String = templateDefinition(
+      v2AdditionalRecordArgFields,
+      v2AdditionalVariantArgCtors,
+      v2AdditionalEnumArgCtors,
       v2AdditionalFields,
+      v2AdditionalFieldsForChoiceArgRecordFieldType,
+      v2AdditionalCtorsForChoiceArgVariantFieldType,
+      v2AdditionalCtorsForChoiceArgEnumFieldType,
+      v2AdditionalFieldsForChoiceArgType,
+      v2AdditionalChoices,
       v2Precondition,
       v2Signatories,
       v2Observers,
       v2Agreement,
       v2Key,
       v2Maintainers,
-      v2ChoiceControllers,
-      v2ChoiceObservers,
+      v2InterfaceChoiceControllers,
+      v2InterfaceChoiceObservers,
       v2View,
     )
 
     def clientChoices(
-        clientPkgId: Ref.PackageId,
-        v1PkgId: Ref.PackageId,
-        v2PkgId: Ref.PackageId,
+        clientPkgId: PackageId,
+        v1PkgId: PackageId,
+        v2PkgId: PackageId,
     ): String = {
       val clientTplQualifiedName = s"'$clientPkgId':Mod:Client"
       val v1TplQualifiedName = s"'$v1PkgId':Mod:$templateName"
       val v2TplQualifiedName = s"'$v2PkgId':Mod:$templateName"
       val ifaceQualifiedName = s"'$commonDefsPkgId':Mod:Iface"
       val viewQualifiedName = s"'$commonDefsPkgId':Mod:MyView"
+
+      val v1RecordArgTypeQualifiedName = s"'$v1PkgId':Mod:${templateName}RecordArgType"
+      val v1VariantArgTypeQualifiedName = s"'$v1PkgId':Mod:${templateName}VariantArgType"
+      val v1EnumArgTypeQualifiedName = s"'$v1PkgId':Mod:${templateName}EnumArgType"
+
+      val v2ChoiceArgTypeQualifiedName = s"'$v2PkgId':Mod:${templateName}ChoiceArgType"
+      val v2ChoiceArgRecordFieldTypeQualifiedName =
+        s"'$v2PkgId':Mod:${templateName}ChoiceArgRecordFieldType"
+      val v2ChoiceArgVariantFieldTypeQualifiedName =
+        s"'$v2PkgId':Mod:${templateName}ChoiceArgVariantFieldType"
+      val v2ChoiceArgEnumFieldTypeQualifiedName =
+        s"'$v2PkgId':Mod:${templateName}ChoiceArgEnumFieldType"
+
+      val createV1ContractExpr =
+        s""" create
+           |    @$v1TplQualifiedName
+           |    ($v1TplQualifiedName
+           |        { p1 = '$commonDefsPkgId':Mod:alice
+           |        , p2 = '$commonDefsPkgId':Mod:bob
+           |        , r = $v1RecordArgTypeQualifiedName { n = 0 }
+           |        , v = $v1VariantArgTypeQualifiedName:Ctor1 0
+           |        , e = $v1EnumArgTypeQualifiedName:Ctor1
+           |        })
+           |""".stripMargin
+
+      val choiceArgExpr =
+        s""" ($v2ChoiceArgTypeQualifiedName
+           |      { r = $v2ChoiceArgRecordFieldTypeQualifiedName { n = 0 ${additionalFieldsToPassToChoiceArgRecordField.inChoiceBodyLfCode} }
+           |      , v = $v2ChoiceArgVariantFieldTypeQualifiedName:${constructorCallToUseInChoiceArgVariantField.inChoiceBodyLfCode}
+           |      , e = $v2ChoiceArgEnumFieldTypeQualifiedName:${constructorToUseInChoiceArgEnumField.inChoiceBodyLfCode}
+           |      ${additionalFieldsToPassToChoiceArg.inChoiceBodyLfCode}
+           |      })
+           |""".stripMargin
+
       s"""
         |  choice @nonConsuming ExerciseNoCatchLocal${templateName} (self) (u: Unit): Text
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
-        |    to ubind cid: ContractId $v1TplQualifiedName <-
-        |         create
-        |           @$v1TplQualifiedName
-        |           ($v1TplQualifiedName
-        |               { p1 = '$commonDefsPkgId':Mod:alice
-        |               , p2 = '$commonDefsPkgId':Mod:bob
-        |               })
+        |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
         |       in exercise
         |            @$v2TplQualifiedName
         |            TemplateChoice
         |            (COERCE_CONTRACT_ID @$v1TplQualifiedName @$v2TplQualifiedName cid)
-        |            ();
+        |            $choiceArgExpr;
         |
         |  choice @nonConsuming ExerciseAttemptCatchLocal${templateName} (self) (u: Unit): Text
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
@@ -245,7 +387,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |         @$v2TplQualifiedName
         |         TemplateChoice
         |         (COERCE_CONTRACT_ID @$v1TplQualifiedName @$v2TplQualifiedName cid)
-        |         ();
+        |         $choiceArgExpr;
         |
         |  choice @nonConsuming ExerciseAttemptCatchGlobal${templateName}
         |        (self)
@@ -262,13 +404,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |  choice @nonConsuming ExerciseInterfaceNoCatchLocal${templateName} (self) (u: Unit): Text
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
-        |    to ubind cid: ContractId $v1TplQualifiedName <-
-        |         create
-        |           @$v1TplQualifiedName
-        |           ($v1TplQualifiedName
-        |               { p1 = '$commonDefsPkgId':Mod:alice
-        |               , p2 = '$commonDefsPkgId':Mod:bob
-        |               })
+        |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
         |       in exercise_interface
         |            @$ifaceQualifiedName
         |            InterfaceChoice
@@ -311,13 +447,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |  choice @nonConsuming ExerciseByKeyNoCatchLocal${templateName} (self) (u: Unit): Text
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
-        |    to ubind cid: ContractId $v1TplQualifiedName <-
-        |         create
-        |           @$v1TplQualifiedName
-        |           ($v1TplQualifiedName
-        |               { p1 = '$commonDefsPkgId':Mod:alice
-        |               , p2 = '$commonDefsPkgId':Mod:bob
-        |               })
+        |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
         |       in exercise_by_key
         |            @$v2TplQualifiedName
         |            TemplateChoice
@@ -325,7 +455,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |                 label = "test-key",
         |                 maintainers1 = (Cons @Party ['$commonDefsPkgId':Mod:alice] (Nil @Party)),
         |                 maintainers2 = (Cons @Party ['$commonDefsPkgId':Mod:bob] (Nil @Party)) })
-        |            ();
+        |            $choiceArgExpr;
         |
         |  choice @nonConsuming ExerciseByKeyAttemptCatchLocal${templateName} (self) (u: Unit): Text
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
@@ -343,7 +473,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |         @$v2TplQualifiedName
         |         TemplateChoice
         |         key
-        |         ();
+        |         $choiceArgExpr;
         |
         |  choice @nonConsuming ExerciseByKeyAttemptCatchGlobal${templateName} (self) (key: '$commonDefsPkgId':Mod:Key)
         |        : Text
@@ -358,13 +488,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |  choice @nonConsuming FetchNoCatchLocal${templateName} (self) (u: Unit): $v2TplQualifiedName
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
-        |    to ubind cid: ContractId $v1TplQualifiedName <-
-        |         create
-        |           @$v1TplQualifiedName
-        |           ($v1TplQualifiedName
-        |               { p1 = '$commonDefsPkgId':Mod:alice
-        |               , p2 = '$commonDefsPkgId':Mod:bob
-        |               })
+        |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
         |       in fetch_template
         |            @$v2TplQualifiedName
         |            (COERCE_CONTRACT_ID @$v1TplQualifiedName @$v2TplQualifiedName cid);
@@ -400,13 +524,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |  choice @nonConsuming FetchByKeyNoCatchLocal${templateName} (self) (u: Unit): $v2TplQualifiedName
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
-        |    to ubind cid: ContractId $v1TplQualifiedName <-
-        |         create
-        |           @$v1TplQualifiedName
-        |           ($v1TplQualifiedName
-        |               { p1 = '$commonDefsPkgId':Mod:alice
-        |               , p2 = '$commonDefsPkgId':Mod:bob
-        |               })
+        |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
         |       in ubind pair:<contract: $v2TplQualifiedName, contractId: ContractId $v2TplQualifiedName> <-
         |              fetch_by_key
         |                @$v2TplQualifiedName
@@ -451,13 +569,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
         |    to ubind
-        |         cid: ContractId $v1TplQualifiedName <-
-        |           create
-        |             @$v1TplQualifiedName
-        |             ($v1TplQualifiedName
-        |                 { p1 = '$commonDefsPkgId':Mod:alice
-        |                 , p2 = '$commonDefsPkgId':Mod:bob
-        |                 });
+        |         cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr;
         |         iface: $ifaceQualifiedName <- fetch_interface
         |            @$ifaceQualifiedName
         |            (COERCE_CONTRACT_ID @$v1TplQualifiedName @$ifaceQualifiedName cid)
@@ -495,13 +607,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |  choice @nonConsuming LookupByKeyNoCatchLocal${templateName} (self) (u: Unit): Option (ContractId $v2TplQualifiedName)
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
-        |    to ubind cid: ContractId $v1TplQualifiedName <-
-        |         create
-        |           @$v1TplQualifiedName
-        |           ($v1TplQualifiedName
-        |               { p1 = '$commonDefsPkgId':Mod:alice
-        |               , p2 = '$commonDefsPkgId':Mod:bob
-        |               })
+        |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
         |       in lookup_by_key
         |            @$v2TplQualifiedName
         |            ('$commonDefsPkgId':Mod:Key {
@@ -610,6 +716,17 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       s"""throw @Text @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "Agreement"})"""
   }
 
+  case object AdditionalChoices extends TestCase("AdditionalChoices", ExpectSuccess) {
+    override def v1AdditionalChoices: String = ""
+    override def v2AdditionalChoices: String =
+      s"""
+        | choice @nonConsuming AdditionalChoice (self) (u: Unit): Text
+        |   , controllers (Cons @Party [Mod:${templateName} {p1} this] (Nil @Party))
+        |   , observers (Nil @Party)
+        |   to upure @Text "AdditionalChoice was called";
+        |""".stripMargin
+  }
+
   case object UnchangedKey extends TestCase("UnchangedKey", ExpectSuccess) {
     override def v1Key = s"""
                             |  '$commonDefsPkgId':Mod:Key {
@@ -681,9 +798,92 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       s"""\\(key: '$commonDefsPkgId':Mod:Key) -> throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "MaintainersBody"})"""
   }
 
+  case object AdditionalFieldInChoiceArgRecordField
+      extends TestCase("AdditionalFieldInChoiceArgRecordField", ExpectSuccess) {
+    override def v1AdditionalFieldsForChoiceArgRecordFieldType = ""
+    override def v2AdditionalFieldsForChoiceArgRecordFieldType = ", extra: Option Unit"
+    override def additionalFieldsToPassToChoiceArgRecordField =
+      TestCaseValue(
+        inChoiceBodyLfCode = ", extra = Some @Unit ()",
+        inApiCommand =
+          ImmArray(Some(Name.assertFromString("extra")) -> ValueOptional(Some(ValueUnit))),
+      )
+  }
+
+  case object AdditionalConstructorInChoiceArgVariantField
+      extends TestCase("AdditionalConstructorInChoiceArgVariantField", ExpectSuccess) {
+    override def v1AdditionalCtorsForChoiceArgVariantFieldType = ""
+    override def v2AdditionalCtorsForChoiceArgVariantFieldType = "| Ctor2: Unit"
+    override def constructorCallToUseInChoiceArgVariantField = TestCaseValue(
+      inChoiceBodyLfCode = "Ctor2 ()",
+      inApiCommand = (Name.assertFromString("Ctor2"), ValueUnit),
+    )
+  }
+
+  case object AdditionalConstructorInChoiceArgEnumField
+      extends TestCase("AdditionalConstructorInChoiceArgEnumField", ExpectSuccess) {
+    override def v1AdditionalCtorsForChoiceArgEnumFieldType = ""
+    override def v2AdditionalCtorsForChoiceArgEnumFieldType = "| Ctor2"
+    override def constructorToUseInChoiceArgEnumField = TestCaseValue(
+      inChoiceBodyLfCode = "Ctor2",
+      inApiCommand = Name.assertFromString("Ctor2"),
+    )
+  }
+
+  case object AdditionalTemplateChoiceArg
+      extends TestCase("AdditionalTemplateChoiceArg", ExpectSuccess) {
+    override def v1AdditionalFieldsForChoiceArgType = ""
+    override def v2AdditionalFieldsForChoiceArgType = ", extra: Option Unit"
+    override def additionalFieldsToPassToChoiceArg = TestCaseValue(
+      inChoiceBodyLfCode = ", extra = Some @Unit ()",
+      inApiCommand =
+        ImmArray(Some(Name.assertFromString("extra")) -> ValueOptional(Some(ValueUnit))),
+    )
+  }
+
+  case object AdditionalFieldInRecordArg
+      extends TestCase("AdditionalFieldInRecordArg", ExpectSuccess) {
+    override def v1AdditionalRecordArgFields = ""
+    override def v2AdditionalRecordArgFields = ", extra: Option Unit"
+  }
+
+  case object AdditionalConstructorInVariantArg
+      extends TestCase("AdditionalConstructorInVariantArg", ExpectSuccess) {
+    override def v1AdditionalVariantArgCtors = ""
+    override def v2AdditionalVariantArgCtors = "| Ctor2: Unit"
+  }
+
+  case object AdditionalConstructorInEnumArg
+      extends TestCase("AdditionalConstructorInEnumArg", ExpectSuccess) {
+    override def v1AdditionalEnumArgCtors = ""
+    override def v2AdditionalEnumArgCtors = "| Ctor2"
+  }
+
   case object AdditionalTemplateArg extends TestCase("AdditionalTemplateArg", ExpectSuccess) {
-    override def v1AdditionalFields: String = ""
-    override def v2AdditionalFields: String = ", extra: Option Unit"
+    override def v1AdditionalFields = ""
+    override def v2AdditionalFields = ", extra: Option Unit"
+  }
+
+  case object ThrowingInterfaceChoiceControllers
+      extends TestCase("ThrowingInterfaceChoiceControllers", ExpectUnhandledException) {
+    override def v1InterfaceChoiceControllers =
+      s"Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)"
+    override def v2InterfaceChoiceControllers =
+      s"""throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "InterfaceChoiceControllers"})"""
+  }
+
+  case object ThrowingInterfaceChoiceObservers
+      extends TestCase("ThrowingInterfaceChoiceObservers", ExpectUnhandledException) {
+    override def v1InterfaceChoiceObservers =
+      s"Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)"
+    override def v2InterfaceChoiceObservers =
+      s"""throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "InterfaceChoiceObservers"})"""
+  }
+
+  case object ThrowingView extends TestCase("ThrowingView", ExpectUnhandledException) {
+    override def v1View = s"'$commonDefsPkgId':Mod:MyView { value = 0 }"
+    override def v2View =
+      s"""throw @'$commonDefsPkgId':Mod:MyView @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "View"})"""
   }
 
   val testCases: Seq[TestCase] = List(
@@ -706,15 +906,26 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     UnchangedMaintainers,
     ThrowingMaintainers,
     ThrowingMaintainersBody,
+    AdditionalFieldInChoiceArgRecordField,
+    AdditionalConstructorInChoiceArgVariantField,
+    AdditionalConstructorInChoiceArgEnumField,
+    AdditionalTemplateChoiceArg,
+    AdditionalFieldInRecordArg,
+    AdditionalConstructorInVariantArg,
+    AdditionalConstructorInEnumArg,
     AdditionalTemplateArg,
+    AdditionalChoices,
+    ThrowingInterfaceChoiceControllers,
+    ThrowingInterfaceChoiceObservers,
+    ThrowingView,
   )
 
-  val templateDefsPkgName = Ref.PackageName.assertFromString("-template-defs-")
+  val templateDefsPkgName = PackageName.assertFromString("-template-defs-")
 
   /** A package that defines templates called Precondition, Signatories, ... whose metadata should evaluate without
     * throwing exceptions.
     */
-  val templateDefsV1PkgId = Ref.PackageId.assertFromString("-template-defs-v1-id-")
+  val templateDefsV1PkgId = PackageId.assertFromString("-template-defs-v1-id-")
   val templateDefsV1ParserParams = parserParameters(templateDefsV1PkgId)
   val templateDefsV1Pkg =
     p"""metadata ( '$templateDefsPkgName' : '1.0.0' )
@@ -728,7 +939,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     *   - the signatories in the Signatories template is changed to throw an exception
     *   - etc.
     */
-  val templateDefsV2PkgId = Ref.PackageId.assertFromString("-template-defs-v2-id-")
+  val templateDefsV2PkgId = PackageId.assertFromString("-template-defs-v2-id-")
   val templateDefsV2ParserParams = parserParameters(templateDefsV2PkgId)
   val templateDefsV2Pkg =
     p"""metadata ( '$templateDefsPkgName' : '2.0.0' )
@@ -737,7 +948,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
           }
       """ (templateDefsV2ParserParams)
 
-  val clientPkgId = Ref.PackageId.assertFromString("-client-id-")
+  val clientPkgId = PackageId.assertFromString("-client-id-")
   val clientParserParams = parserParameters(clientPkgId)
   val clientPkg = {
     val choices = testCases
@@ -757,14 +968,14 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         """ (clientParserParams)
   }
 
-  val lookupPackage: Map[Ref.PackageId, Ast.Package] = Map(
+  val lookupPackage: Map[PackageId, Ast.Package] = Map(
     commonDefsPkgId -> commonDefsPkg,
     templateDefsV1PkgId -> templateDefsV1Pkg,
     templateDefsV2PkgId -> templateDefsV2Pkg,
     clientPkgId -> clientPkg,
   )
 
-  val packageMap: Map[PackageId, (PackageName, Ref.PackageVersion)] =
+  val packageMap: Map[PackageId, (PackageName, PackageVersion)] =
     lookupPackage.view.mapValues(pkg => (pkg.name.get, pkg.metadata.get.version)).toMap
 
   sealed abstract class Operation(val name: String)
@@ -808,23 +1019,44 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
 
   /** A class that defines all the "global" variables shared by tests for a given template name: the template ID of the
     * v1 template, the template ID of the v2 template, the ID of the v1 contract, etc. It exposes two methods:
-    * - [[makeApiCommand]], which generates an API command for a given operation, catch behavior, entry point,
+    * - [[makeApiCommands]], which generates an API command for a given operation, catch behavior, entry point,
     *   and contract origin.
     * - [[execute]], which executes a command against a fresh engine seeded with the v1 contract.
     */
-  class TestHelper(templateName: String) {
+  class TestHelper(testCase: TestCase) {
 
     implicit val logContext: LoggingContext = LoggingContext.ForTesting
+
+    // implicit conversions from strings to names and qualified names
+    implicit def toName(s: String): Name = Name.assertFromString(s)
+    implicit def toQualifiedName(s: String): QualifiedName = QualifiedName.assertFromString(s)
+
+    val templateName = testCase.templateName
 
     val alice: Party = Party.assertFromString("Alice")
     val bob: Party = Party.assertFromString("Bob")
 
-    val clientTplId: Identifier =
-      Identifier(clientPkgId, Ref.QualifiedName.assertFromString("Mod:Client"))
-    val ifaceId: Identifier =
-      Identifier(commonDefsPkgId, Ref.QualifiedName.assertFromString("Mod:Iface"))
-    val tplQualifiedName: QualifiedName = Ref.QualifiedName.assertFromString(s"Mod:$templateName")
+    val clientTplId: Identifier = Identifier(clientPkgId, "Mod:Client")
+    val ifaceId: Identifier = Identifier(commonDefsPkgId, "Mod:Iface")
+    val tplQualifiedName: QualifiedName = s"Mod:$templateName"
+
     val v1TplId: Identifier = Identifier(templateDefsV1PkgId, tplQualifiedName)
+    val v1RecordArgTypeId: Identifier =
+      Identifier(templateDefsV1PkgId, s"Mod:${templateName}RecordArgType")
+    val v1VariantArgTypeId: Identifier =
+      Identifier(templateDefsV1PkgId, s"Mod:${templateName}VariantArgType")
+    val v1EnumArgTypeId: Identifier =
+      Identifier(templateDefsV1PkgId, s"Mod:${templateName}EnumArgType")
+
+    val v2ChoiceArgTypeId: Identifier =
+      Identifier(templateDefsV2PkgId, s"Mod:${templateName}ChoiceArgType")
+    val v2ChoiceArgRecordFieldTypeId: Identifier =
+      Identifier(templateDefsV2PkgId, s"Mod:${templateName}ChoiceArgRecordFieldType")
+    val v2ChoiceArgVariantFieldTypeId: Identifier =
+      Identifier(templateDefsV2PkgId, s"Mod:${templateName}ChoiceArgVariantFieldType")
+    val v2ChoiceArgEnumFieldTypeId: Identifier =
+      Identifier(templateDefsV2PkgId, s"Mod:${templateName}ChoiceArgEnumFieldType")
+
     val v2TplId: Identifier = Identifier(templateDefsV2PkgId, tplQualifiedName)
 
     val clientContractId: ContractId = toContractId("client")
@@ -837,7 +1069,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         ValueRecord(
           Some(clientTplId),
           ImmArray(
-            Some(Name.assertFromString("p")) -> ValueParty(alice)
+            Some("p": Name) -> ValueParty(alice)
           ),
         ),
       )
@@ -846,8 +1078,23 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     val globalContractArg: ValueRecord = ValueRecord(
       Some(v1TplId),
       ImmArray(
-        Some(Name.assertFromString("p1")) -> ValueParty(alice),
-        Some(Name.assertFromString("p2")) -> ValueParty(bob),
+        Some("p1": Name) -> ValueParty(alice),
+        Some("p2": Name) -> ValueParty(bob),
+        Some("r": Name) -> ValueRecord(
+          Some(v1RecordArgTypeId),
+          ImmArray(
+            Some("n": Name) -> ValueInt64(0)
+          ),
+        ),
+        Some("v": Name) -> ValueVariant(
+          Some(v1VariantArgTypeId),
+          "Ctor1",
+          ValueInt64(0),
+        ),
+        Some("e": Name) -> ValueEnum(
+          Some(v1EnumArgTypeId),
+          "Ctor1",
+        ),
       ),
     )
 
@@ -860,11 +1107,11 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     )
 
     val globalContractSKey: SValue = SValue.SRecord(
-      Ref.Identifier.assertFromString(s"$commonDefsPkgId:Mod:Key"),
+      Identifier.assertFromString(s"$commonDefsPkgId:Mod:Key"),
       ImmArray(
-        Ref.Name.assertFromString("label"),
-        Ref.Name.assertFromString("maintainers1"),
-        Ref.Name.assertFromString("maintainers2"),
+        "label",
+        "maintainers1",
+        "maintainers2",
       ),
       ArrayList(
         SValue.SText("test-key"),
@@ -896,70 +1143,131 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     def toContractId(s: String): ContractId =
       ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), Bytes.assertFromString("00"))
 
-    def makeApiCommand(
+    def makeApiCommands(
         operation: Operation,
         catchBehavior: CatchBehavior,
         entryPoint: EntryPoint,
         contractOrigin: ContractOrigin,
-    ): Option[ApiCommand] = {
+    ): Option[ImmArray[ApiCommand]] = {
 
-      (operation, catchBehavior, entryPoint, contractOrigin) match {
-        case (_, _, Command, Local) =>
-          None // Local contracts cannot be exercised by commands
-        case (Fetch | FetchInterface | FetchByKey | LookupByKey, _, Command, _) =>
+      val choiceArg = ValueRecord(
+        Some(v2ChoiceArgTypeId),
+        ImmArray(
+          Some("r": Name) -> ValueRecord(
+            Some(v2ChoiceArgRecordFieldTypeId),
+            ImmArray(
+              Some("n": Name) -> ValueInt64(0)
+            ).slowAppend(testCase.additionalFieldsToPassToChoiceArgRecordField.inApiCommand),
+          ),
+          Some("v": Name) -> ValueVariant(
+            Some(v2ChoiceArgVariantFieldTypeId),
+            testCase.constructorCallToUseInChoiceArgVariantField.inApiCommand._1,
+            testCase.constructorCallToUseInChoiceArgVariantField.inApiCommand._2,
+          ),
+          Some("e": Name) -> ValueEnum(
+            Some(v2ChoiceArgEnumFieldTypeId),
+            testCase.constructorToUseInChoiceArgEnumField.inApiCommand,
+          ),
+        ).slowAppend(testCase.additionalFieldsToPassToChoiceArg.inApiCommand),
+      )
+
+      // We first rule out all non-sensical cases, and then proceed to create a command in the most generic way
+      // possible. The good thing about this approach compared to a whitelist is that we won't accidentally forget
+      // some cases. If we forget to blacklist some case, the test will simply fail.
+      // Some of the patterns below are verbose and could be simplified with a pattern guard, but we favor this style
+      // because it is compatible exhaustivness checker.
+      (testCase, operation, catchBehavior, entryPoint, contractOrigin) match {
+        case (_, Fetch | FetchInterface | FetchByKey | LookupByKey, _, Command, _) =>
           None // There are no fetch* or lookupByKey commands
-        case (Exercise, _, Command, Global | Disclosed) =>
+        case (_, Exercise | ExerciseInterface, _, Command, Local) =>
+          None // Local contracts cannot be exercised by commands, except by key
+        case (
+              ThrowingInterfaceChoiceControllers | ThrowingInterfaceChoiceObservers,
+              Fetch | FetchInterface | FetchByKey | LookupByKey | Exercise | ExerciseByKey,
+              _,
+              _,
+              _,
+            ) =>
+          None // ThrowingInterfaceChoice* test cases only makes sense for ExerciseInterface
+        case (ThrowingView, Fetch | FetchByKey | LookupByKey | Exercise | ExerciseByKey, _, _, _) =>
+          None // ThrowingView only makes sense for *Interface operations
+        case (_, Exercise, _, Command, Global | Disclosed) =>
           Some(
-            ApiCommand.Exercise(
-              v2TplId,
-              globalContractId,
-              Ref.ChoiceName.assertFromString("TemplateChoice"),
-              ValueUnit,
+            ImmArray(
+              ApiCommand.Exercise(
+                v2TplId,
+                globalContractId,
+                ChoiceName.assertFromString("TemplateChoice"),
+                choiceArg,
+              )
             )
           )
-        case (ExerciseInterface, _, Command, Global | Disclosed) =>
+        case (_, ExerciseInterface, _, Command, Global | Disclosed) =>
           Some(
-            ApiCommand.Exercise(
-              ifaceId,
-              globalContractId,
-              Ref.ChoiceName.assertFromString("InterfaceChoice"),
-              ValueUnit,
+            ImmArray(
+              ApiCommand.Exercise(
+                ifaceId,
+                globalContractId,
+                ChoiceName.assertFromString("InterfaceChoice"),
+                ValueUnit,
+              )
             )
           )
-        case (ExerciseByKey, _, Command, Global | Disclosed) =>
+        case (_, ExerciseByKey, _, Command, Global | Disclosed) =>
           Some(
-            ApiCommand.ExerciseByKey(
-              v2TplId,
-              globalContractSKey.toUnnormalizedValue,
-              Ref.ChoiceName.assertFromString("TemplateChoice"),
-              ValueUnit,
+            ImmArray(
+              ApiCommand.ExerciseByKey(
+                v2TplId,
+                globalContractSKey.toUnnormalizedValue,
+                ChoiceName.assertFromString("TemplateChoice"),
+                choiceArg,
+              )
             )
           )
-        case (_, _, ChoiceBody, Global | Disclosed) =>
+        case (_, ExerciseByKey, _, Command, Local) =>
           Some(
-            ApiCommand.Exercise(
-              clientTplId,
-              clientContractId,
-              Ref.ChoiceName.assertFromString(
-                s"${operation.name}${catchBehavior.name}Global${templateName}"
+            ImmArray(
+              ApiCommand.Create(
+                v1TplId,
+                globalContractArg,
               ),
-              operation match {
-                case Fetch | FetchInterface | Exercise | ExerciseInterface =>
-                  ValueContractId(globalContractId)
-                case FetchByKey | LookupByKey | ExerciseByKey =>
-                  globalContractSKey.toUnnormalizedValue
-              },
+              ApiCommand.ExerciseByKey(
+                v2TplId,
+                globalContractSKey.toUnnormalizedValue,
+                ChoiceName.assertFromString("TemplateChoice"),
+                choiceArg,
+              ),
             )
           )
-        case (_, _, ChoiceBody, Local) =>
+        case (_, _, _, ChoiceBody, Global | Disclosed) =>
           Some(
-            ApiCommand.Exercise(
-              clientTplId,
-              clientContractId,
-              Ref.ChoiceName.assertFromString(
-                s"${operation.name}${catchBehavior.name}Local${templateName}"
-              ),
-              ValueUnit,
+            ImmArray(
+              ApiCommand.Exercise(
+                clientTplId,
+                clientContractId,
+                ChoiceName.assertFromString(
+                  s"${operation.name}${catchBehavior.name}Global${templateName}"
+                ),
+                operation match {
+                  case Fetch | FetchInterface | Exercise | ExerciseInterface =>
+                    ValueContractId(globalContractId)
+                  case FetchByKey | LookupByKey | ExerciseByKey =>
+                    globalContractSKey.toUnnormalizedValue
+                },
+              )
+            )
+          )
+        case (_, _, _, ChoiceBody, Local) =>
+          Some(
+            ImmArray(
+              ApiCommand.Exercise(
+                clientTplId,
+                clientContractId,
+                ChoiceName.assertFromString(
+                  s"${operation.name}${catchBehavior.name}Local${templateName}"
+                ),
+                ValueUnit,
+              )
             )
           )
       }
@@ -972,11 +1280,11 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     )
 
     def execute(
-        apiCommand: ApiCommand,
+        apiCommands: ImmArray[ApiCommand],
         contractOrigin: ContractOrigin,
     ): Either[Error, (SubmittedTransaction, Transaction.Metadata)] = {
 
-      val participant = Ref.ParticipantId.assertFromString("participant")
+      val participant = ParticipantId.assertFromString("participant")
       val submissionSeed = crypto.Hash.hashPrivateKey("command")
       val submitters = Set(alice)
       val readAs = Set.empty[Party]
@@ -1002,7 +1310,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
           packagePreference = Set(commonDefsPkgId, templateDefsV2PkgId, clientPkgId),
           submitters = submitters,
           readAs = readAs,
-          cmds = ApiCommands(ImmArray(apiCommand), Time.Timestamp.Epoch, "test"),
+          cmds = ApiCommands(apiCommands, Time.Timestamp.Epoch, "test"),
           disclosures = disclosures,
           participantId = participant,
           submissionSeed = submissionSeed,
@@ -1039,9 +1347,9 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
 
   // This is the main loop of the test: for every combination of test case, operation, catch behavior, entry point, and
   // contract origin, we generate an API command, execute it, and check that the result matches the expected outcome.
-  for (template <- testCases)
-    template.templateName - {
-      val testHelper = new TestHelper(template.templateName)
+  for (testCase <- testCases)
+    testCase.templateName - {
+      val testHelper = new TestHelper(testCase)
       for (operation <- operations) {
         operation.name - {
           for (catchBehavior <- catchBehaviors)
@@ -1051,12 +1359,17 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
                   for (contractOrigin <- contractOrigins) {
                     contractOrigin.name - {
                       testHelper
-                        .makeApiCommand(operation, catchBehavior, entryPoint, contractOrigin)
-                        .foreach { apiCommand =>
-                          template.expectedOutcome.description in {
+                        .makeApiCommands(
+                          operation,
+                          catchBehavior,
+                          entryPoint,
+                          contractOrigin,
+                        )
+                        .foreach { apiCommands =>
+                          testCase.expectedOutcome.description in {
                             assertResultMatchesExpectedOutcome(
-                              testHelper.execute(apiCommand, contractOrigin),
-                              template.expectedOutcome,
+                              testHelper.execute(apiCommands, contractOrigin),
+                              testCase.expectedOutcome,
                             )
                           }
                         }

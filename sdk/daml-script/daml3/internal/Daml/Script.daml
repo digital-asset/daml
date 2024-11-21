@@ -17,6 +17,7 @@ module Daml.Script
   -- Error types
   , SubmitError (..)
   , DevErrorType (..)
+  , UpgradeErrorType (..)
   -- Submit options
   , actAs
   , readAs
