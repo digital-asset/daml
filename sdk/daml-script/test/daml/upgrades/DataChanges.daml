@@ -625,7 +625,7 @@ templateOptionalFieldsSetWhenDowngradingViaKeyExerciseInChoiceGlobal : Test
 templateOptionalFieldsSetWhenDowngradingViaKeyExerciseInChoiceGlobal = test $ do
   a <- allocatePartyOn "alice" participant0
   cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V1"
-  res <- (actAs a <> packagePreference [dataChangesV1]) `trySubmit` createAndExerciseExactCmd (V2.OptionalFieldsAddedCallHelper a) (V2.OptionalFieldsAddedCallHelperCallViaKey (V2.OptionalFieldsAddedKey a) a)
+  res <- (actAs a <> packagePreference [dataChangesV1]) `trySubmit` createAndExerciseExactCmd (V1.OptionalFieldsAddedCallHelper a) (V1.OptionalFieldsAddedCallHelperCallViaKey (V1.OptionalFieldsAddedKey a) a)
   case res of
     Left (DevError Upgrade msg) | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg -> pure ()
     _ -> assertFail $ "Expected specific failure but got " <> show res
