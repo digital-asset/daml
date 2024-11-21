@@ -43,13 +43,13 @@ copy_file(
 filegroup(
     name = "daml3-script-dars",
     srcs = [
-        "daml3-script-{}.dar".format(lf_version)
-        for lf_version in COMPILER_LF_VERSIONS
-    ] +
-    [
-        "daml3-script-stable-{}.dar".format(lf_version)
-        for lf_version in COMPILER_LF_VERSIONS
-    ],
+               "daml3-script-{}.dar".format(lf_version)
+               for lf_version in COMPILER_LF_VERSIONS
+           ] +
+           [
+               "daml3-script-stable-{}.dar".format(lf_version)
+               for lf_version in COMPILER_LF_VERSIONS
+           ],
     visibility = ["//visibility:public"],
 )
 
