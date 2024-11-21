@@ -49,6 +49,7 @@ contents: |
   module Fetch where
 
   import V1.FetchIface
+  import DA.Optional (optionalToList)
 
   template FetchTemplate
     with
@@ -63,8 +64,10 @@ contents: |
   template FetchHelper
     with
       party: Party
+      obs: Optional Party
     where
       signatory party
+      observer (optionalToList obs)
       choice DoFetch : FetchTemplate with
           cid : ContractId FetchTemplate
         controller party
@@ -131,12 +134,14 @@ main : TestTree
 main = tests
   [ ("Upgrade a contract when fetching", fetchUpgraded)
   , ("Downgrade a contract with Nones when fetching", fetchDowngradedNone)
-  , ("Fail to downgrade a contract with Somes when fetching static", fetchDowngradedSome)
-  , ("Fail to downgrade a contract with Somes when fetching local static", fetchDowngradedSomeLocal)
-  , broken ("Fail to downgrade a contract with Somes when fetching disclosed static", fetchDowngradedSomeDisclosed)
-  , ("Fail to downgrade a contract with Somes when fetching dynamic", fetchDowngradedSomeDynamic)
-  , ("Fail to downgrade a contract with Somes when fetching local dynamic", fetchDowngradedSomeDynamicLocal)
-  , broken ("Fail to downgrade a contract with Somes when fetching disclosed dynamic", fetchDowngradedSomeDynamicDisclosed)
+
+  -- Fetching contract to downgrade it with an optional field still set should fail
+  , ("Fail to downgrade a contract with Somes when fetching static global",     fetchDowngradedSomeGlobal)
+  , ("Fail to downgrade a contract with Somes when fetching static local",      fetchDowngradedSomeLocal)
+  , ("Fail to downgrade a contract with Somes when fetching static disclosed",  fetchDowngradedSomeDisclosed)
+  , ("Fail to downgrade a contract with Somes when fetching dynamic global",    fetchDowngradedSomeDynamicGlobal)
+  , ("Fail to downgrade a contract with Somes when fetching dynamic local",     fetchDowngradedSomeDynamicLocal)
+  , ("Fail to downgrade a contract with Somes when fetching dynamic disclosed", fetchDowngradedSomeDynamicDisclosed)
 
   , -- Fetching tests with unvetted sources (IDE ledger doesn't support unvetting)
     broken ("Upgrade a contract when fetching where the source package (V1) is unvetted", fetchUpgradedSourceUnvetted)
@@ -144,16 +149,16 @@ main = tests
   ]
 
 exerciseV1Util : Choice V1.FetchHelper c r => Party -> c -> Script r
-exerciseV1Util p c = p `submit` createAndExerciseExactCmd (V1.FetchHelper with party = p) c
+exerciseV1Util p c = p `submit` createAndExerciseExactCmd (V1.FetchHelper with party = p, obs = None) c
 
 exerciseV2Util : Choice V2.FetchHelper c r => Party -> c -> Script r
-exerciseV2Util p c = p `submit` createAndExerciseExactCmd (V2.FetchHelper with party = p) c
+exerciseV2Util p c = p `submit` createAndExerciseExactCmd (V2.FetchHelper with party = p, obs = None) c
 
 tryExerciseV1Util : Choice V1.FetchHelper c r => Party -> c -> Script (Either SubmitError r)
-tryExerciseV1Util p c = p `trySubmit` createAndExerciseExactCmd (V1.FetchHelper with party = p) c
+tryExerciseV1Util p c = p `trySubmit` createAndExerciseExactCmd (V1.FetchHelper with party = p, obs = None) c
 
 tryExerciseV2Util : Choice V2.FetchHelper c r => Party -> c -> Script (Either SubmitError r)
-tryExerciseV2Util p c = p `trySubmit` createAndExerciseExactCmd (V2.FetchHelper with party = p) c
+tryExerciseV2Util p c = p `trySubmit` createAndExerciseExactCmd (V2.FetchHelper with party = p, obs = None) c
 
 fetchUpgraded : Test
 fetchUpgraded = test $ do
@@ -172,8 +177,8 @@ fetchDowngradedNone = test $ do
   v1Name <- a `exerciseV1Util` V1.DoFetch with cid = v1Cid
   v1Name === V1.FetchTemplate with party = a
 
-fetchDowngradedSome : Test
-fetchDowngradedSome = test $ do
+fetchDowngradedSomeGlobal : Test
+fetchDowngradedSomeGlobal = test $ do
   a <- allocatePartyOn "alice" participant0
   cid <- a `submit` createCmd V2.FetchTemplate with party = a, newField = Some "hi"
   let v1Cid = coerceContractId @V2.FetchTemplate @V1.FetchTemplate cid
@@ -200,11 +205,14 @@ fetchDowngradedSomeDisclosed : Test
 fetchDowngradedSomeDisclosed = test $ do
   a <- allocatePartyOn "alice" participant0
   b <- allocatePartyOn "bob" participant0
-  cid <- a `submit` createCmd V2.FetchTemplate with party = a, newField = Some "hi"
 
-  disclosure <- fromSome <$> queryDisclosure a cid
+  cid <- a `submit` createCmd V2.FetchTemplate with party = a, newField = Some "hi"
+  helperCid <- a `submit` createCmd V1.FetchHelper with party = a, obs = Some b
+
+  disclosureCid <- fromSome <$> queryDisclosure a cid
+
   let cidV1 = coerceContractId @V2.FetchTemplate @V1.FetchTemplate cid
-  eV1 <- (actAs b <> disclose disclosure) `trySubmit` createAndExerciseCmd (V1.FetchHelper b) (V1.DoFetchWithCtl cidV1 b)
+  eV1 <- (actAs b <> disclose disclosureCid) `trySubmit` exerciseExactCmd helperCid (V1.DoFetchWithCtl cidV1 b)
 
   case eV1 of
     Left (DevError Upgrade msg)
@@ -215,8 +223,8 @@ fetchDowngradedSomeDisclosed = test $ do
 fetchV1 : PackageId
 fetchV1 = getPackageId "fetch-1.0.0"
 
-fetchDowngradedSomeDynamic : Test
-fetchDowngradedSomeDynamic = test $ do
+fetchDowngradedSomeDynamicGlobal : Test
+fetchDowngradedSomeDynamicGlobal = test $ do
   a <- allocatePartyOn "alice" participant0
   cid <- a `submit` createCmd V2.FetchTemplate with party = a, newField = Some "hi"
   let cidIface = coerceContractId @V2.FetchTemplate @FetchIface cid
@@ -243,11 +251,14 @@ fetchDowngradedSomeDynamicDisclosed : Test
 fetchDowngradedSomeDynamicDisclosed = test $ do
   a <- allocatePartyOn "alice" participant0
   b <- allocatePartyOn "bob" participant0
-  cid <- a `submit` createCmd V2.FetchTemplate with party = a, newField = Some "hi"
 
-  disclosure <- fromSome <$> queryDisclosure a cid
+  cid <- a `submit` createCmd V2.FetchTemplate with party = a, newField = Some "hi"
+  helperCid <- a `submit` createCmd V1.FetchHelper with party = a, obs = Some b
+
+  disclosureCid <- fromSome <$> queryDisclosure a cid
+
   let cidIface = coerceContractId @V2.FetchTemplate @FetchIface cid
-  eV1 <- (actAs b <> disclose disclosure) `trySubmit` createAndExerciseCmd (V1.FetchHelper b) (V1.DoFetchIfaceWithCtl cidIface b)
+  eV1 <- (actAs b <> packagePreference [fetchV1] <> disclose disclosureCid) `trySubmit` exerciseExactCmd helperCid (V1.DoFetchIfaceWithCtl cidIface b)
 
   case eV1 of
     Left (DevError Upgrade msg)
