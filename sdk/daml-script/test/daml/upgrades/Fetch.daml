@@ -8,15 +8,48 @@ import qualified V1.Fetch as V1
 import qualified V2.Fetch as V2
 import DA.Text
 
+import V1.FetchLocal
+import V1.FetchIface
+import DA.Optional (fromSome)
+import PackageIds
+
+{- PACKAGE
+name: fetch-iface
+versions: 1
+-}
+
+{- MODULE
+package: fetch-iface
+contents: |
+  module FetchIface where
+
+  data MyUnit = MyUnit {}
+
+  interface FetchIface where
+    viewtype MyUnit
+
+    nonconsuming choice NoOp : ()
+      with
+        ctl : Party
+      controller ctl
+      do
+        assertFail "aaa"
+        pure ()
+-}
+
 {- PACKAGE
 name: fetch
 versions: 2
+depends: fetch-iface-1.0.0
 -}
 
 {- MODULE
 package: fetch
 contents: |
   module Fetch where
+
+  import V1.FetchIface
+  import DA.Optional (optionalToList)
 
   template FetchTemplate
     with
@@ -25,22 +58,90 @@ contents: |
     where
       signatory party
 
+      interface instance FetchIface for FetchTemplate where
+        view = MyUnit
+
   template FetchHelper
     with
       party: Party
+      obs: Optional Party
     where
       signatory party
+      observer (optionalToList obs)
       choice DoFetch : FetchTemplate with
           cid : ContractId FetchTemplate
         controller party
         do fetch cid
+
+      choice DoFetchWithCtl : FetchTemplate with
+          cid : ContractId FetchTemplate
+          ctl : Party
+        controller ctl
+        do fetch cid
+
+      choice DoFetchIfaceWithCtl : () with
+          cid : ContractId FetchIface
+          ctl : Party
+        controller ctl
+        do
+          fetch cid
+          pure ()
+-}
+
+{- PACKAGE
+name: fetch-local
+versions: 1
+depends: |
+  fetch-1.0.0
+  fetch-2.0.0
+  fetch-iface-1.0.0
+-}
+
+{- MODULE
+package: fetch-local
+contents: |
+  module FetchLocal where
+
+  import qualified V1.Fetch as V1
+  import qualified V2.Fetch as V2
+
+  import V1.FetchIface
+
+  template FetchLocalHelper
+    with
+      party: Party
+    where
+      signatory party
+      choice DoCreateAndFetch : V1.FetchTemplate with
+          contract : V2.FetchTemplate
+        controller party
+        do
+          cid <- create contract
+          let cidV1 = coerceContractId @V2.FetchTemplate @V1.FetchTemplate cid
+          fetch cidV1
+
+      choice IDoCreateAndFetch : () with
+          contract : V2.FetchTemplate
+        controller party
+        do
+          cid <- create contract
+          let cidIface = coerceContractId @V2.FetchTemplate @FetchIface cid
+          fetch cidIface
+          pure ()
 -}
 
 main : TestTree
 main = tests
   [ ("Upgrade a contract when fetching", fetchUpgraded)
   , ("Downgrade a contract with Nones when fetching", fetchDowngradedNone)
-  , ("Fail to downgrade a contract with Somes when fetching", fetchDowngradedSome)
+
+  -- Fetching contract to downgrade it with an optional field still set should fail
+  , fetchDowngradedSomeGlobal
+  , fetchDowngradedSomeLocal
+  , fetchDowngradedSomeDisclosed
+  , fetchDowngradedSomeDynamicGlobal
+  , fetchDowngradedSomeDynamicLocal
+  , fetchDowngradedSomeDynamicDisclosed
 
   , -- Fetching tests with unvetted sources
     broken ("Upgrade a contract when fetching where the source package (V1) is unvetted", fetchUpgradedSourceUnvetted)
@@ -48,16 +149,16 @@ main = tests
   ]
 
 exerciseV1Util : Choice V1.FetchHelper c r => Party -> c -> Script r
-exerciseV1Util p c = p `submit` createAndExerciseExactCmd (V1.FetchHelper with party = p) c
+exerciseV1Util p c = p `submit` createAndExerciseExactCmd (V1.FetchHelper with party = p, obs = None) c
 
 exerciseV2Util : Choice V2.FetchHelper c r => Party -> c -> Script r
-exerciseV2Util p c = p `submit` createAndExerciseExactCmd (V2.FetchHelper with party = p) c
+exerciseV2Util p c = p `submit` createAndExerciseExactCmd (V2.FetchHelper with party = p, obs = None) c
 
 tryExerciseV1Util : Choice V1.FetchHelper c r => Party -> c -> Script (Either SubmitError r)
-tryExerciseV1Util p c = p `trySubmit` createAndExerciseExactCmd (V1.FetchHelper with party = p) c
+tryExerciseV1Util p c = p `trySubmit` createAndExerciseExactCmd (V1.FetchHelper with party = p, obs = None) c
 
 tryExerciseV2Util : Choice V2.FetchHelper c r => Party -> c -> Script (Either SubmitError r)
-tryExerciseV2Util p c = p `trySubmit` createAndExerciseExactCmd (V2.FetchHelper with party = p) c
+tryExerciseV2Util p c = p `trySubmit` createAndExerciseExactCmd (V2.FetchHelper with party = p, obs = None) c
 
 fetchUpgraded : Test
 fetchUpgraded = test $ do
@@ -76,18 +177,61 @@ fetchDowngradedNone = test $ do
   v1Name <- a `exerciseV1Util` V1.DoFetch with cid = v1Cid
   v1Name === V1.FetchTemplate with party = a
 
-fetchDowngradedSome : Test
-fetchDowngradedSome = test $ do
-  a <- allocatePartyOn "alice" participant0
+mkFetchDowngradedSome : Show b => Text -> (Party -> Party -> Script (Either SubmitError b)) -> (Text, Test)
+mkFetchDowngradedSome trailer f = ("Fail to downgrade a contract with Somes when fetching (" <> trailer <> ")", s)
+  where
+  s = test $ do
+    a <- allocatePartyOn "alice" participant0
+    b <- allocatePartyOn "bob" participant0
+    res <- f a b
+    case res of
+      Left (UpgradeError msg)
+        | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg
+        -> pure ()
+      res -> assertFail $ "Expected UpgradeError, got " <> show res
+
+fetchDowngradedSomeGlobal : (Text, Test)
+fetchDowngradedSomeGlobal = mkFetchDowngradedSome "static global" $ \a b -> do
   cid <- a `submit` createCmd V2.FetchTemplate with party = a, newField = Some "hi"
   let v1Cid = coerceContractId @V2.FetchTemplate @V1.FetchTemplate cid
-  eV1Name <- a `tryExerciseV1Util` V1.DoFetch with cid = v1Cid
+  a `tryExerciseV1Util` V1.DoFetch with cid = v1Cid
 
-  case eV1Name of
-    Left (UpgradeError DowngradeDropDefinedField msg)
-      | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg
-      -> pure ()
-    res -> assertFail $ "Expected DevError Upgrade, got " <> show res
+fetchDowngradedSomeLocal : (Text, Test)
+fetchDowngradedSomeLocal = mkFetchDowngradedSome "static local" $ \a b -> do
+  a `trySubmit` createAndExerciseCmd (FetchLocalHelper a) (DoCreateAndFetch (V2.FetchTemplate with party = a, newField = Some "hi"))
+
+fetchDowngradedSomeDisclosed : (Text, Test)
+fetchDowngradedSomeDisclosed = mkFetchDowngradedSome "static disclosed" $ \a b -> do
+  cid <- a `submit` createCmd V2.FetchTemplate with party = a, newField = Some "hi"
+  helperCid <- a `submit` createCmd V1.FetchHelper with party = a, obs = Some b
+
+  disclosureCid <- fromSome <$> queryDisclosure a cid
+
+  let cidV1 = coerceContractId @V2.FetchTemplate @V1.FetchTemplate cid
+  (actAs b <> disclose disclosureCid) `trySubmit` exerciseExactCmd helperCid (V1.DoFetchWithCtl cidV1 b)
+
+fetchV1 : PackageId
+fetchV1 = getPackageId "fetch-1.0.0"
+
+fetchDowngradedSomeDynamicGlobal : (Text, Test)
+fetchDowngradedSomeDynamicGlobal = mkFetchDowngradedSome "dynamic global" $ \a b -> do
+  cid <- a `submit` createCmd V2.FetchTemplate with party = a, newField = Some "hi"
+  let cidIface = coerceContractId @V2.FetchTemplate @FetchIface cid
+  (actAs a <> packagePreference [fetchV1]) `trySubmit` exerciseCmd cidIface (NoOp a)
+
+fetchDowngradedSomeDynamicLocal : (Text, Test)
+fetchDowngradedSomeDynamicLocal = mkFetchDowngradedSome "dynamic local" $ \a b -> do
+  (actAs a <> packagePreference [fetchV1]) `trySubmit` createAndExerciseCmd (FetchLocalHelper a) (IDoCreateAndFetch (V2.FetchTemplate with party = a, newField = Some "hi"))
+
+fetchDowngradedSomeDynamicDisclosed : (Text, Test)
+fetchDowngradedSomeDynamicDisclosed = mkFetchDowngradedSome "dynamic disclosed" $ \a b -> do
+  cid <- a `submit` createCmd V2.FetchTemplate with party = a, newField = Some "hi"
+  helperCid <- a `submit` createCmd V1.FetchHelper with party = a, obs = Some b
+
+  disclosureCid <- fromSome <$> queryDisclosure a cid
+
+  let cidIface = coerceContractId @V2.FetchTemplate @FetchIface cid
+  (actAs b <> packagePreference [fetchV1] <> disclose disclosureCid) `trySubmit` exerciseExactCmd helperCid (V1.DoFetchIfaceWithCtl cidIface b)
 
 fetchUpgradedSourceUnvetted : Test
 fetchUpgradedSourceUnvetted = test $ do
