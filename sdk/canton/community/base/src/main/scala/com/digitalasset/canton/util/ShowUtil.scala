@@ -88,7 +88,7 @@ trait ShowUtil extends cats.syntax.ShowSyntax {
 
   implicit class ShowStringSyntax(s: String) extends StringOperators(s)
   implicit class ShowLengthLimitedStringSyntax(s: LengthLimitedString)
-      extends StringOperators(s.str)
+      extends StringOperators(s.unwrap)
   implicit class ShowLengthLimitedStringWrapperSyntax(s: LengthLimitedStringWrapper)
       extends StringOperators(s.unwrap)
 

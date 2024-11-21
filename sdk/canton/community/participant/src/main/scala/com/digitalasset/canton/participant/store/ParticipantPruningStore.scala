@@ -5,9 +5,9 @@ package com.digitalasset.canton.participant.store
 
 import com.digitalasset.canton.config.CantonRequireTypes.String36
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.store.ParticipantPruningStore.ParticipantPruningStatus
 import com.digitalasset.canton.participant.store.db.DbParticipantPruningStore
 import com.digitalasset.canton.participant.store.memory.InMemoryParticipantPruningStore
@@ -22,11 +22,11 @@ trait ParticipantPruningStore extends AutoCloseable {
 
   protected implicit def ec: ExecutionContext
 
-  def markPruningStarted(upToInclusive: GlobalOffset)(implicit
+  def markPruningStarted(upToInclusive: AbsoluteOffset)(implicit
       traceContext: TraceContext
   ): Future[Unit]
 
-  def markPruningDone(upToInclusive: GlobalOffset)(implicit
+  def markPruningDone(upToInclusive: AbsoluteOffset)(implicit
       traceContext: TraceContext
   ): Future[Unit]
 
@@ -46,8 +46,8 @@ object ParticipantPruningStore {
   private val dbStoreName = String36.tryCreate("DbParticipantPruningStore")
 
   final case class ParticipantPruningStatus(
-      startedO: Option[GlobalOffset],
-      completedO: Option[GlobalOffset],
+      startedO: Option[AbsoluteOffset],
+      completedO: Option[AbsoluteOffset],
   ) extends PrettyPrinting {
     def isInProgress: Boolean =
       startedO.exists(started => completedO.forall(completed => started > completed))

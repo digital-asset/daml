@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.indexer.parallel
 
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
@@ -73,14 +73,19 @@ private[platform] final case class InitializeParallelIngestion(
       postProcessingEndOffset <- dbDispatcher.executeSql(metrics.index.db.getPostProcessingEnd)(
         parameterStorageBackend.postProcessingEnd
       )
-      potentiallyNonPostProcessedCompletions <- dbDispatcher.executeSql(
-        metrics.index.db.getPostProcessingEnd
-      )(
-        completionStorageBackend.commandCompletionsForRecovery(
-          startExclusive = postProcessingEndOffset.getOrElse(Offset.beforeBegin),
-          endInclusive = Offset.fromAbsoluteOffsetO(ledgerEnd.map(_.lastOffset)),
-        )
-      )
+      potentiallyNonPostProcessedCompletions <- ledgerEnd.map(_.lastOffset) match {
+        case Some(lastOffset) =>
+          dbDispatcher.executeSql(
+            metrics.index.db.getPostProcessingEnd
+          )(
+            completionStorageBackend.commandCompletionsForRecovery(
+              startInclusive =
+                postProcessingEndOffset.fold(AbsoluteOffset.firstOffset)(_.increment),
+              endInclusive = lastOffset,
+            )
+          )
+        case None => Future.successful(Vector.empty)
+      }
       _ <- postProcessor(potentiallyNonPostProcessedCompletions, loggingContext.traceContext)
       _ <- dbDispatcher.executeSql(metrics.indexer.postProcessingEndIngestion)(
         parameterStorageBackend.updatePostProcessingEnd(ledgerEnd.map(_.lastOffset))

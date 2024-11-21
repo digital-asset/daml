@@ -119,6 +119,11 @@ private[backend] object Conversions {
       .get[String](name)
       .map(v => Offset.fromHexString(Ref.HexString.assertFromString(v)).toAbsoluteOffset)
 
+  def absoluteOffsetO(name: String): RowParser[Option[AbsoluteOffset]] =
+    SqlParser
+      .get[String](name)
+      .map(v => Offset.fromHexString(Ref.HexString.assertFromString(v)).toAbsoluteOffsetO)
+
   // Timestamp
 
   implicit def TimestampParamMeta: ParameterMetaData[Timestamp] = new ParameterMetaData[Timestamp] {

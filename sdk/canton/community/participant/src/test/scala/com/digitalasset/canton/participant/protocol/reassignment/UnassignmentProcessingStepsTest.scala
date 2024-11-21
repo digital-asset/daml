@@ -210,7 +210,7 @@ final class UnassignmentProcessingStepsTest
 
   private def createTestingIdentityFactory(
       topology: Map[ParticipantId, Map[LfPartyId, ParticipantPermission]],
-      packages: Map[ParticipantId, Seq[LfPackageId]] = Map.empty,
+      packages: Map[ParticipantId, Seq[LfPackageId]],
       domains: Set[DomainId] = Set(DefaultTestIdentities.domainId),
   ) =
     TestingTopology(domains)
@@ -321,8 +321,8 @@ final class UnassignmentProcessingStepsTest
 
   private def mkParsedRequest(
       view: FullUnassignmentTree,
-      recipients: Recipients = RecipientsTest.testInstance,
-      signatureO: Option[Signature] = None,
+      recipients: Recipients,
+      signatureO: Option[Signature],
   ): ParsedReassignmentRequest[FullUnassignmentTree] = ParsedReassignmentRequest(
     RequestCounter(1),
     CantonTimestamp.Epoch,

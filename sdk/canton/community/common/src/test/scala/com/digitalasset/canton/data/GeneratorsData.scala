@@ -32,7 +32,6 @@ import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.EitherValues.*
 
-import scala.concurrent.ExecutionContext
 import scala.util.Random
 
 final class GeneratorsData(
@@ -482,13 +481,6 @@ final class GeneratorsData(
         submitterMetadataSeq <- Gen.listOf(submitterMetadataArb.arbitrary)
       } yield MerkleSeq.fromSeq(TestHash, protocolVersion)(submitterMetadataSeq)
     )
-
-  @SuppressWarnings(Array("com.digitalasset.canton.GlobalExecutionContext"))
-  /*
-   Execution context is needed for crypto operations. Since wiring a proper ec would be
-   too complex here, using the global one.
-   */
-  private implicit val ec: ExecutionContext = ExecutionContext.global
 
   private val sourceProtocolVersion = Source(protocolVersion)
   private val targetProtocolVersion = Target(protocolVersion)

@@ -148,8 +148,8 @@ private[backend] trait StorageBackendTestsParameters
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(backend.parameter.postProcessingEnd) shouldBe None
     executeSql(backend.parameter.updatePostProcessingEnd(Some(absoluteOffset(10))))
-    executeSql(backend.parameter.postProcessingEnd) shouldBe Some(offset(10))
+    executeSql(backend.parameter.postProcessingEnd) shouldBe Some(absoluteOffset(10))
     executeSql(backend.parameter.updatePostProcessingEnd(Some(absoluteOffset(20))))
-    executeSql(backend.parameter.postProcessingEnd) shouldBe Some(offset(20))
+    executeSql(backend.parameter.postProcessingEnd) shouldBe Some(absoluteOffset(20))
   }
 }

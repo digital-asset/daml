@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.dao.events
 
 import com.daml.ledger.api.v2.topology_transaction.TopologyTransaction
 import com.daml.metrics.DatabaseMetrics
-import com.digitalasset.canton.data.{AbsoluteOffset, Offset}
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
@@ -51,7 +51,7 @@ class TopologyTransactionsStreamReader(
       topologyTransactionsStreamQueryParams: TopologyTransactionsStreamQueryParams
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(Offset, TopologyTransaction), NotUsed] = {
+  ): Source[(AbsoluteOffset, TopologyTransaction), NotUsed] = {
     import topologyTransactionsStreamQueryParams.*
 
     val assignedEventIdQueriesLimiter =

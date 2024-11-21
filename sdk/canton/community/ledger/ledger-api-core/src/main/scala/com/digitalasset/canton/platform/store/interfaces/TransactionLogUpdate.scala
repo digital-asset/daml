@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.interfaces
 
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.ledger.participant.state.ReassignmentInfo
 import com.digitalasset.canton.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.digitalasset.canton.platform.{ContractId, Identifier}
@@ -22,7 +22,7 @@ import com.digitalasset.daml.lf.value.Value as LfValue
   * Used as data source template for in-memory fan-out buffers for Ledger API streams serving.
   */
 sealed trait TransactionLogUpdate extends Product with Serializable with HasTraceContext {
-  def offset: Offset
+  def offset: AbsoluteOffset
 }
 
 object TransactionLogUpdate {
@@ -42,7 +42,7 @@ object TransactionLogUpdate {
       commandId: String,
       workflowId: String,
       effectiveAt: Timestamp,
-      offset: Offset,
+      offset: AbsoluteOffset,
       events: Vector[Event],
       completionStreamResponse: Option[CompletionStreamResponse],
       domainId: String,
@@ -56,7 +56,7 @@ object TransactionLogUpdate {
     * @param completionStreamResponse The rejected submission's completion details.
     */
   final case class TransactionRejected(
-      offset: Offset,
+      offset: AbsoluteOffset,
       completionStreamResponse: CompletionStreamResponse,
   )(implicit override val traceContext: TraceContext)
       extends TransactionLogUpdate
@@ -65,7 +65,7 @@ object TransactionLogUpdate {
       updateId: String,
       commandId: String,
       workflowId: String,
-      offset: Offset,
+      offset: AbsoluteOffset,
       recordTime: Timestamp,
       completionStreamResponse: Option[CompletionStreamResponse],
       reassignmentInfo: ReassignmentInfo,
@@ -83,7 +83,7 @@ object TransactionLogUpdate {
 
   /* Models all but divulgence events */
   sealed trait Event extends Product with Serializable {
-    def eventOffset: Offset
+    def eventOffset: AbsoluteOffset
     def eventSequentialId: EventSequentialId
     def updateId: String
     def eventId: EventId
@@ -98,7 +98,7 @@ object TransactionLogUpdate {
   }
 
   final case class CreatedEvent(
-      eventOffset: Offset,
+      eventOffset: AbsoluteOffset,
       updateId: String,
       nodeIndex: Int,
       eventSequentialId: Long,
@@ -124,7 +124,7 @@ object TransactionLogUpdate {
   ) extends Event
 
   final case class ExercisedEvent(
-      eventOffset: Offset,
+      eventOffset: AbsoluteOffset,
       updateId: String,
       nodeIndex: Int,
       eventSequentialId: Long,

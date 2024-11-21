@@ -1202,25 +1202,37 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
             from = otherPeers(0),
           )
 
+        val emptyViewChanges = (0 until 2).map(i =>
+          ViewChange
+            .create(
+              blockMetadata,
+              segmentIndex = blockOrder4Nodes.indexOf(selfId),
+              viewNumber = NextViewNumber,
+              clock.now,
+              consensusCerts = Seq.empty,
+              from = otherPeers(i),
+            )
+            .fakeSign
+        )
+
         val newView =
           NewView.create(
             blockMetadata,
             segmentIndex = blockOrder4Nodes.indexOf(selfId),
             viewNumber = NextViewNumber,
             clock.now,
-            Seq(
-              ViewChange
-                .create(
-                  blockMetadata,
-                  segmentIndex = blockOrder4Nodes.indexOf(selfId),
-                  viewNumber = NextViewNumber,
-                  clock.now,
-                  consensusCerts =
-                    Seq[ConsensusCertificate](PrepareCertificate(prePrepare.fakeSign, prepares)),
-                  from = selfId,
-                )
-                .fakeSign
-            ),
+            ViewChange
+              .create(
+                blockMetadata,
+                segmentIndex = blockOrder4Nodes.indexOf(selfId),
+                viewNumber = NextViewNumber,
+                clock.now,
+                consensusCerts =
+                  Seq[ConsensusCertificate](PrepareCertificate(prePrepare.fakeSign, prepares)),
+                from = selfId,
+              )
+              .fakeSign
+              +: emptyViewChanges,
             Seq(prePrepare.fakeSign, bottomBlock1),
             from = otherPeers(0),
           )

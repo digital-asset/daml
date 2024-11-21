@@ -10,6 +10,7 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdateTreesResponse,
   GetUpdatesResponse,
 }
+import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -50,6 +51,7 @@ private[events] class BufferedTransactionsReader(
       GetTransactionTreeResponse,
     ],
     lfValueTranslation: LfValueTranslation,
+    directEC: DirectExecutionContext,
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
 
@@ -79,7 +81,7 @@ private[events] class BufferedTransactionsReader(
             lfValueTranslation,
           )(
             loggingContext,
-            executionContext,
+            directEC,
           ),
       )
 
@@ -104,7 +106,7 @@ private[events] class BufferedTransactionsReader(
             lfValueTranslation,
           )(
             loggingContext,
-            executionContext,
+            directEC,
           ),
       )
 
@@ -112,13 +114,17 @@ private[events] class BufferedTransactionsReader(
       updateId: data.UpdateId,
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] =
-    bufferedFlatTransactionByIdReader.fetch(updateId, requestingParties)
+    Future.delegate(
+      bufferedFlatTransactionByIdReader.fetch(updateId, requestingParties)
+    )
 
   override def lookupTransactionTreeById(
       updateId: data.UpdateId,
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]] =
-    bufferedTransactionTreeByIdReader.fetch(updateId, requestingParties)
+    Future.delegate(
+      bufferedTransactionTreeByIdReader.fetch(updateId, requestingParties)
+    )
 
   override def getActiveContracts(
       activeAt: Option[AbsoluteOffset],
@@ -141,6 +147,10 @@ private[platform] object BufferedTransactionsReader {
   )(implicit
       executionContext: ExecutionContext
   ): BufferedTransactionsReader = {
+    val directEC = DirectExecutionContext(
+      loggerFactory.getLogger(BufferedTransactionsReader.getClass)
+    )
+
     val flatTransactionsStreamReader =
       new BufferedStreamsReader[
         (TemplatePartiesFilter, EventProjectionProperties),
@@ -228,7 +238,7 @@ private[platform] object BufferedTransactionsReader {
             transactionAccepted,
             requestingParties,
             lfValueTranslation,
-          )(loggingContext, executionContext),
+          )(loggingContext, directEC),
       )
 
     val bufferedTransactionTreeByIdReader =
@@ -252,7 +262,7 @@ private[platform] object BufferedTransactionsReader {
             transactionAccepted,
             requestingParties,
             lfValueTranslation,
-          )(loggingContext, executionContext),
+          )(loggingContext, directEC),
       )
 
     new BufferedTransactionsReader(
@@ -262,6 +272,7 @@ private[platform] object BufferedTransactionsReader {
       lfValueTranslation = lfValueTranslation,
       bufferedFlatTransactionByIdReader = bufferedFlatTransactionByIdReader,
       bufferedTransactionTreeByIdReader = bufferedTransactionTreeByIdReader,
+      directEC = directEC,
     )
   }
 }

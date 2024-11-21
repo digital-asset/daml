@@ -52,7 +52,7 @@ final case class SerializableRawContractInstance private (
 
   @unused // needed for lenses
   private def copy(
-      contractInstance: LfContractInst = this.contractInstance
+      contractInstance: LfContractInst
   ): SerializableRawContractInstance =
     SerializableRawContractInstance(contractInstance)(None)
 }

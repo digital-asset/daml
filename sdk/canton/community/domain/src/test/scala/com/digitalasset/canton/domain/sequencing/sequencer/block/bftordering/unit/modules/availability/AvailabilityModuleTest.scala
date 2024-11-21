@@ -251,7 +251,6 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       .copy(remainingPeersToTry = Seq.empty)
   private val ABatchMissingBatchStatusNode1And2AcksWithNoAttemptsLeft =
     ABatchId -> AMissingBatchStatusNode1And2AcksWithNode1ToTry
-  private val AByteString = ByteString.copyFromUtf8("some text")
 
   private implicit val fakeTimerIgnoringUnitTestContext
       : IgnoringUnitTestContext[Availability.Message[IgnoringUnitTestEnv]] =

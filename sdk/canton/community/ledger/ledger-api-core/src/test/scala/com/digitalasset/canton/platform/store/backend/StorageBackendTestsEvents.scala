@@ -615,7 +615,7 @@ private[backend] trait StorageBackendTestsEvents
     Vector(
       someDomainId -> startRecordTimeDomain -> Some(
         DomainOffset(
-          offset = offset(1),
+          offset = absoluteOffset(1),
           domainId = someDomainId,
           recordTime = startRecordTimeDomain.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
@@ -623,7 +623,7 @@ private[backend] trait StorageBackendTestsEvents
       ),
       someDomainId -> startRecordTimeDomain.addMicros(500) -> Some(
         DomainOffset(
-          offset = offset(1),
+          offset = absoluteOffset(1),
           domainId = someDomainId,
           recordTime = startRecordTimeDomain.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
@@ -631,7 +631,7 @@ private[backend] trait StorageBackendTestsEvents
       ),
       someDomainId -> startRecordTimeDomain.addMicros(501) -> Some(
         DomainOffset(
-          offset = offset(5),
+          offset = absoluteOffset(5),
           domainId = someDomainId,
           recordTime = startRecordTimeDomain.addMicros(1000),
           publicationTime = startPublicationTime.addMicros(1000),
@@ -639,7 +639,7 @@ private[backend] trait StorageBackendTestsEvents
       ),
       someDomainId -> startRecordTimeDomain.addMicros(1000) -> Some(
         DomainOffset(
-          offset = offset(5),
+          offset = absoluteOffset(5),
           domainId = someDomainId,
           recordTime = startRecordTimeDomain.addMicros(1000),
           publicationTime = startPublicationTime.addMicros(1000),
@@ -647,7 +647,7 @@ private[backend] trait StorageBackendTestsEvents
       ),
       someDomainId -> startRecordTimeDomain.addMicros(1500) -> Some(
         DomainOffset(
-          offset = offset(9),
+          offset = absoluteOffset(9),
           domainId = someDomainId,
           recordTime = startRecordTimeDomain.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
@@ -655,7 +655,7 @@ private[backend] trait StorageBackendTestsEvents
       ),
       someDomainId -> startRecordTimeDomain.addMicros(2000) -> Some(
         DomainOffset(
-          offset = offset(9),
+          offset = absoluteOffset(9),
           domainId = someDomainId,
           recordTime = startRecordTimeDomain.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
@@ -664,7 +664,7 @@ private[backend] trait StorageBackendTestsEvents
       someDomainId -> startRecordTimeDomain.addMicros(2001) -> None,
       someDomainId2 -> startRecordTimeDomain2 -> Some(
         DomainOffset(
-          offset = offset(3),
+          offset = absoluteOffset(3),
           domainId = someDomainId2,
           recordTime = startRecordTimeDomain2.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
@@ -672,7 +672,7 @@ private[backend] trait StorageBackendTestsEvents
       ),
       someDomainId2 -> startRecordTimeDomain2.addMicros(500) -> Some(
         DomainOffset(
-          offset = offset(3),
+          offset = absoluteOffset(3),
           domainId = someDomainId2,
           recordTime = startRecordTimeDomain2.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
@@ -680,7 +680,7 @@ private[backend] trait StorageBackendTestsEvents
       ),
       someDomainId2 -> startRecordTimeDomain2.addMicros(700) -> Some(
         DomainOffset(
-          offset = offset(7),
+          offset = absoluteOffset(7),
           domainId = someDomainId2,
           recordTime = startRecordTimeDomain2.addMicros(1000),
           publicationTime = startPublicationTime.addMicros(1000),
@@ -688,7 +688,7 @@ private[backend] trait StorageBackendTestsEvents
       ),
       someDomainId2 -> startRecordTimeDomain2.addMicros(1000) -> Some(
         DomainOffset(
-          offset = offset(7),
+          offset = absoluteOffset(7),
           domainId = someDomainId2,
           recordTime = startRecordTimeDomain2.addMicros(1000),
           publicationTime = startPublicationTime.addMicros(1000),
@@ -696,7 +696,7 @@ private[backend] trait StorageBackendTestsEvents
       ),
       someDomainId2 -> startRecordTimeDomain2.addMicros(1001) -> Some(
         DomainOffset(
-          offset = offset(11),
+          offset = absoluteOffset(11),
           domainId = someDomainId2,
           recordTime = startRecordTimeDomain2.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
@@ -704,7 +704,7 @@ private[backend] trait StorageBackendTestsEvents
       ),
       someDomainId2 -> startRecordTimeDomain2.addMicros(2000) -> Some(
         DomainOffset(
-          offset = offset(11),
+          offset = absoluteOffset(11),
           domainId = someDomainId2,
           recordTime = startRecordTimeDomain2.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
@@ -726,188 +726,185 @@ private[backend] trait StorageBackendTestsEvents
     }
 
     Vector(
-      Some(someDomainId) -> offset(0) -> None,
-      Some(someDomainId) -> offset(1) -> Some(
+      Some(someDomainId) -> absoluteOffset(1) -> Some(
         DomainOffset(
-          offset = offset(1),
+          offset = absoluteOffset(1),
           domainId = someDomainId,
           recordTime = startRecordTimeDomain.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
-      Some(someDomainId) -> offset(2) -> Some(
+      Some(someDomainId) -> absoluteOffset(2) -> Some(
         DomainOffset(
-          offset = offset(1),
+          offset = absoluteOffset(1),
           domainId = someDomainId,
           recordTime = startRecordTimeDomain.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
-      Some(someDomainId) -> offset(4) -> Some(
+      Some(someDomainId) -> absoluteOffset(4) -> Some(
         DomainOffset(
-          offset = offset(1),
+          offset = absoluteOffset(1),
           domainId = someDomainId,
           recordTime = startRecordTimeDomain.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
-      Some(someDomainId) -> offset(5) -> Some(
+      Some(someDomainId) -> absoluteOffset(5) -> Some(
         DomainOffset(
-          offset = offset(5),
+          offset = absoluteOffset(5),
           domainId = someDomainId,
           recordTime = startRecordTimeDomain.addMicros(1000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
-      Some(someDomainId) -> offset(7) -> Some(
+      Some(someDomainId) -> absoluteOffset(7) -> Some(
         DomainOffset(
-          offset = offset(5),
+          offset = absoluteOffset(5),
           domainId = someDomainId,
           recordTime = startRecordTimeDomain.addMicros(1000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
-      Some(someDomainId) -> offset(9) -> Some(
+      Some(someDomainId) -> absoluteOffset(9) -> Some(
         DomainOffset(
-          offset = offset(9),
+          offset = absoluteOffset(9),
           domainId = someDomainId,
           recordTime = startRecordTimeDomain.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
-      Some(someDomainId) -> offset(10) -> Some(
+      Some(someDomainId) -> absoluteOffset(10) -> Some(
         DomainOffset(
-          offset = offset(9),
+          offset = absoluteOffset(9),
           domainId = someDomainId,
           recordTime = startRecordTimeDomain.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
-      Some(someDomainId) -> offset(12) -> Some(
+      Some(someDomainId) -> absoluteOffset(12) -> Some(
         DomainOffset(
-          offset = offset(9),
+          offset = absoluteOffset(9),
           domainId = someDomainId,
           recordTime = startRecordTimeDomain.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
-      Some(someDomainId) -> offset(20) -> Some(
+      Some(someDomainId) -> absoluteOffset(20) -> Some(
         DomainOffset(
-          offset = offset(9),
+          offset = absoluteOffset(9),
           domainId = someDomainId,
           recordTime = startRecordTimeDomain.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
-      Some(someDomainId2) -> offset(0) -> None,
-      Some(someDomainId2) -> offset(3) -> Some(
+      Some(someDomainId2) -> absoluteOffset(3) -> Some(
         DomainOffset(
-          offset = offset(3),
+          offset = absoluteOffset(3),
           domainId = someDomainId2,
           recordTime = startRecordTimeDomain2.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
-      Some(someDomainId2) -> offset(6) -> Some(
+      Some(someDomainId2) -> absoluteOffset(6) -> Some(
         DomainOffset(
-          offset = offset(3),
+          offset = absoluteOffset(3),
           domainId = someDomainId2,
           recordTime = startRecordTimeDomain2.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
-      Some(someDomainId2) -> offset(7) -> Some(
+      Some(someDomainId2) -> absoluteOffset(7) -> Some(
         DomainOffset(
-          offset = offset(7),
+          offset = absoluteOffset(7),
           domainId = someDomainId2,
           recordTime = startRecordTimeDomain2.addMicros(1000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
-      Some(someDomainId2) -> offset(9) -> Some(
+      Some(someDomainId2) -> absoluteOffset(9) -> Some(
         DomainOffset(
-          offset = offset(7),
+          offset = absoluteOffset(7),
           domainId = someDomainId2,
           recordTime = startRecordTimeDomain2.addMicros(1000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
-      Some(someDomainId2) -> offset(11) -> Some(
+      Some(someDomainId2) -> absoluteOffset(11) -> Some(
         DomainOffset(
-          offset = offset(11),
+          offset = absoluteOffset(11),
           domainId = someDomainId2,
           recordTime = startRecordTimeDomain2.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
-      Some(someDomainId2) -> offset(12) -> Some(
+      Some(someDomainId2) -> absoluteOffset(12) -> Some(
         DomainOffset(
-          offset = offset(11),
+          offset = absoluteOffset(11),
           domainId = someDomainId2,
           recordTime = startRecordTimeDomain2.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
-      Some(someDomainId2) -> offset(20) -> Some(
+      Some(someDomainId2) -> absoluteOffset(20) -> Some(
         DomainOffset(
-          offset = offset(11),
+          offset = absoluteOffset(11),
           domainId = someDomainId2,
           recordTime = startRecordTimeDomain2.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
-      None -> offset(0) -> None,
-      None -> offset(1) -> Some(
+      None -> absoluteOffset(1) -> Some(
         DomainOffset(
-          offset = offset(1),
+          offset = absoluteOffset(1),
           domainId = someDomainId,
           recordTime = startRecordTimeDomain.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
-      None -> offset(2) -> Some(
+      None -> absoluteOffset(2) -> Some(
         DomainOffset(
-          offset = offset(1),
+          offset = absoluteOffset(1),
           domainId = someDomainId,
           recordTime = startRecordTimeDomain.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
-      None -> offset(3) -> Some(
+      None -> absoluteOffset(3) -> Some(
         DomainOffset(
-          offset = offset(3),
+          offset = absoluteOffset(3),
           domainId = someDomainId2,
           recordTime = startRecordTimeDomain2.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
-      None -> offset(4) -> Some(
+      None -> absoluteOffset(4) -> Some(
         DomainOffset(
-          offset = offset(3),
+          offset = absoluteOffset(3),
           domainId = someDomainId2,
           recordTime = startRecordTimeDomain2.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
-      None -> offset(5) -> Some(
+      None -> absoluteOffset(5) -> Some(
         DomainOffset(
-          offset = offset(5),
+          offset = absoluteOffset(5),
           domainId = someDomainId,
           recordTime = startRecordTimeDomain.addMicros(1000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
-      None -> offset(12) -> Some(
+      None -> absoluteOffset(12) -> Some(
         DomainOffset(
-          offset = offset(11),
+          offset = absoluteOffset(11),
           domainId = someDomainId2,
           recordTime = startRecordTimeDomain2.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
-      None -> offset(20) -> Some(
+      None -> absoluteOffset(20) -> Some(
         DomainOffset(
-          offset = offset(11),
+          offset = absoluteOffset(11),
           domainId = someDomainId2,
           recordTime = startRecordTimeDomain2.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
@@ -925,34 +922,33 @@ private[backend] trait StorageBackendTestsEvents
     }
 
     Vector(
-      offset(0) -> None,
-      offset(1) -> Some(
+      absoluteOffset(1) -> Some(
         DomainOffset(
-          offset = offset(1),
+          offset = absoluteOffset(1),
           domainId = someDomainId,
           recordTime = startRecordTimeDomain.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
-      offset(2) -> None,
-      offset(3) -> Some(
+      absoluteOffset(2) -> None,
+      absoluteOffset(3) -> Some(
         DomainOffset(
-          offset = offset(3),
+          offset = absoluteOffset(3),
           domainId = someDomainId2,
           recordTime = startRecordTimeDomain2.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
-      offset(5) -> Some(
+      absoluteOffset(5) -> Some(
         DomainOffset(
-          offset = offset(5),
+          offset = absoluteOffset(5),
           domainId = someDomainId,
           recordTime = startRecordTimeDomain.addMicros(1000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
-      offset(13) -> None,
-      offset(15) -> None,
+      absoluteOffset(13) -> None,
+      absoluteOffset(15) -> None,
     ).zipWithIndex.foreach { case ((offset, expectation), index) =>
       withClue(s"test $index domainOffset($offset)") {
         executeSql(
@@ -966,7 +962,7 @@ private[backend] trait StorageBackendTestsEvents
     Vector(
       startPublicationTime -> Some(
         DomainOffset(
-          offset = offset(1),
+          offset = absoluteOffset(1),
           domainId = someDomainId,
           recordTime = startRecordTimeDomain.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
@@ -974,7 +970,7 @@ private[backend] trait StorageBackendTestsEvents
       ),
       startPublicationTime.addMicros(500) -> Some(
         DomainOffset(
-          offset = offset(1),
+          offset = absoluteOffset(1),
           domainId = someDomainId,
           recordTime = startRecordTimeDomain.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
@@ -982,7 +978,7 @@ private[backend] trait StorageBackendTestsEvents
       ),
       startPublicationTime.addMicros(501) -> Some(
         DomainOffset(
-          offset = offset(5),
+          offset = absoluteOffset(5),
           domainId = someDomainId,
           recordTime = startRecordTimeDomain.addMicros(1000),
           publicationTime = startPublicationTime.addMicros(1000),
@@ -990,7 +986,7 @@ private[backend] trait StorageBackendTestsEvents
       ),
       startPublicationTime.addMicros(1000) -> Some(
         DomainOffset(
-          offset = offset(5),
+          offset = absoluteOffset(5),
           domainId = someDomainId,
           recordTime = startRecordTimeDomain.addMicros(1000),
           publicationTime = startPublicationTime.addMicros(1000),
@@ -1014,7 +1010,7 @@ private[backend] trait StorageBackendTestsEvents
       startPublicationTime.addMicros(499) -> None,
       startPublicationTime.addMicros(500) -> Some(
         DomainOffset(
-          offset = offset(3),
+          offset = absoluteOffset(3),
           domainId = someDomainId2,
           recordTime = startRecordTimeDomain2.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
@@ -1022,7 +1018,7 @@ private[backend] trait StorageBackendTestsEvents
       ),
       startPublicationTime.addMicros(501) -> Some(
         DomainOffset(
-          offset = offset(3),
+          offset = absoluteOffset(3),
           domainId = someDomainId2,
           recordTime = startRecordTimeDomain2.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
@@ -1030,7 +1026,7 @@ private[backend] trait StorageBackendTestsEvents
       ),
       startPublicationTime.addMicros(1000) -> Some(
         DomainOffset(
-          offset = offset(11),
+          offset = absoluteOffset(11),
           domainId = someDomainId2,
           recordTime = startRecordTimeDomain2.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
@@ -1038,7 +1034,7 @@ private[backend] trait StorageBackendTestsEvents
       ),
       startPublicationTime.addMicros(1001) -> Some(
         DomainOffset(
-          offset = offset(11),
+          offset = absoluteOffset(11),
           domainId = someDomainId2,
           recordTime = startRecordTimeDomain2.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
@@ -1046,7 +1042,7 @@ private[backend] trait StorageBackendTestsEvents
       ),
       startPublicationTime.addMicros(2000) -> Some(
         DomainOffset(
-          offset = offset(11),
+          offset = absoluteOffset(11),
           domainId = someDomainId2,
           recordTime = startRecordTimeDomain2.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
@@ -1054,7 +1050,7 @@ private[backend] trait StorageBackendTestsEvents
       ),
       startPublicationTime.addMicros(4000) -> Some(
         DomainOffset(
-          offset = offset(11),
+          offset = absoluteOffset(11),
           domainId = someDomainId2,
           recordTime = startRecordTimeDomain2.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
@@ -1156,30 +1152,22 @@ private[backend] trait StorageBackendTestsEvents
     )
 
     Vector(
-      None -> offset(4) -> Set(),
-      None -> offset(5) -> Set(
+      None -> absoluteOffset(4) -> Set(),
+      None -> absoluteOffset(5) -> Set(
         hashCid("#1"),
         hashCid("#2"),
       ),
-      None -> offset(10) -> Set(
+      None -> absoluteOffset(10) -> Set(
         hashCid("#1"),
         hashCid("#2"),
       ),
-      None -> offset(15) -> Set(
-        hashCid("#1"),
-        hashCid("#2"),
-        hashCid("#3"),
-        hashCid("#4"),
-      ),
-      None -> offset(25) -> Set(
+      None -> absoluteOffset(15) -> Set(
         hashCid("#1"),
         hashCid("#2"),
         hashCid("#3"),
         hashCid("#4"),
-        hashCid("#5"),
-        hashCid("#6"),
       ),
-      None -> offset(1000) -> Set(
+      None -> absoluteOffset(25) -> Set(
         hashCid("#1"),
         hashCid("#2"),
         hashCid("#3"),
@@ -1187,7 +1175,7 @@ private[backend] trait StorageBackendTestsEvents
         hashCid("#5"),
         hashCid("#6"),
       ),
-      Some(offset(4)) -> offset(1000) -> Set(
+      None -> absoluteOffset(1000) -> Set(
         hashCid("#1"),
         hashCid("#2"),
         hashCid("#3"),
@@ -1195,31 +1183,39 @@ private[backend] trait StorageBackendTestsEvents
         hashCid("#5"),
         hashCid("#6"),
       ),
-      Some(offset(5)) -> offset(1000) -> Set(
+      Some(absoluteOffset(4)) -> absoluteOffset(1000) -> Set(
+        hashCid("#1"),
+        hashCid("#2"),
         hashCid("#3"),
         hashCid("#4"),
         hashCid("#5"),
         hashCid("#6"),
       ),
-      Some(offset(6)) -> offset(1000) -> Set(
+      Some(absoluteOffset(5)) -> absoluteOffset(1000) -> Set(
         hashCid("#3"),
         hashCid("#4"),
         hashCid("#5"),
         hashCid("#6"),
       ),
-      Some(offset(15)) -> offset(1000) -> Set(
-        hashCid("#5"),
-        hashCid("#6"),
-      ),
-      Some(offset(15)) -> offset(15) -> Set(
-      ),
-      Some(offset(6)) -> offset(25) -> Set(
+      Some(absoluteOffset(6)) -> absoluteOffset(1000) -> Set(
         hashCid("#3"),
         hashCid("#4"),
         hashCid("#5"),
         hashCid("#6"),
       ),
-      Some(offset(6)) -> offset(24) -> Set(
+      Some(absoluteOffset(15)) -> absoluteOffset(1000) -> Set(
+        hashCid("#5"),
+        hashCid("#6"),
+      ),
+      Some(absoluteOffset(15)) -> absoluteOffset(15) -> Set(
+      ),
+      Some(absoluteOffset(6)) -> absoluteOffset(25) -> Set(
+        hashCid("#3"),
+        hashCid("#4"),
+        hashCid("#5"),
+        hashCid("#6"),
+      ),
+      Some(absoluteOffset(6)) -> absoluteOffset(24) -> Set(
         hashCid("#3"),
         hashCid("#4"),
       ),

@@ -241,7 +241,7 @@ private[channel] abstract class UninitializedGrpcSequencerChannel(
 
   private def propagateRequestStreamErrorToResponseStream(
       error: String,
-      errorStatus: Status = io.grpc.Status.INVALID_ARGUMENT,
+      errorStatus: Status,
   )(implicit traceContext: TraceContext): Unit = {
     logger.warn(error)
     complete(_.onError(new StatusRuntimeException(errorStatus.withDescription(error))))

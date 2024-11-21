@@ -12,6 +12,7 @@ import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.util.concurrent.atomic.AtomicInteger
+import scala.annotation.unused
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future, Promise, blocking}
 import scala.util.{Failure, Success, Try}
@@ -238,6 +239,7 @@ object ThereafterTest {
   }
 
   /** Test that the scala compiler finds the [[Thereafter]] implicits */
+  @unused
   private def implicitResolutionTest(): Unit = {
     import Thereafter.syntax.*
 
@@ -269,6 +271,7 @@ object ThereafterAsyncTest {
   }
 
   /** Test that the scala compiler finds the [[ThereafterAsync]] implicits */
+  @unused
   private def implicitResolutionTest(): Unit = {
     import Thereafter.syntax.*
 

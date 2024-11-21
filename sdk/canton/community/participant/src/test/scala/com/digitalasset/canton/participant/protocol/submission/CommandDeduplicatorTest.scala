@@ -5,22 +5,20 @@ package com.digitalasset.canton.participant.protocol.submission
 
 import cats.Eval
 import cats.syntax.option.*
-import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, DeduplicationPeriod, Offset}
 import com.digitalasset.canton.ledger.participant.state.CompletionInfo
+import com.digitalasset.canton.participant.DefaultParticipantStateValues
 import com.digitalasset.canton.participant.protocol.submission.CommandDeduplicator.{
   AlreadyExists,
   DeduplicationPeriodTooEarly,
-  MalformedOffset,
 }
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.memory.InMemoryCommandDeduplicationStore
-import com.digitalasset.canton.participant.{DefaultParticipantStateValues, GlobalOffset}
 import com.digitalasset.canton.platform.indexer.parallel.{PostPublishData, PublishSource}
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, DefaultDamlValues}
-import com.digitalasset.daml.lf.data.Ref
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.UUID
@@ -46,7 +44,7 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
       val store: CommandDeduplicationStore,
   )
 
-  private implicit def toGlobalOffset(i: Long): GlobalOffset = GlobalOffset.tryFromLong(i)
+  private implicit def toOffset(i: Long): AbsoluteOffset = AbsoluteOffset.tryFromLong(i)
 
   private def mk(lowerBound: CantonTimestamp = CantonTimestamp.MinValue): Fixture = {
     val store = new InMemoryCommandDeduplicationStore(loggerFactory)
@@ -70,7 +68,7 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
       applicationId = completionInfo.applicationId,
       commandId = completionInfo.commandId,
       actAs = completionInfo.actAs.toSet,
-      offset = Offset.fromLong(longOffset),
+      offset = AbsoluteOffset.tryFromLong(longOffset),
       publicationTime = publicationTime,
       submissionId = completionInfo.submissionId,
       accepted = accepted,
@@ -111,19 +109,6 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
         offset1 shouldBe dedupOffset(Offset.firstOffset.toLong)
         offset3 shouldBe dedupOffset(Offset.firstOffset.toLong)
       }
-    }.failOnShutdown
-
-    "complain about malformed offsets" in {
-      val fix = mk()
-      val malformedOffset =
-        DeduplicationPeriod.DeduplicationOffset(
-          Offset.fromHexString(Ref.HexString.assertFromString("0123456789abcdef00"))
-        )
-      for {
-        error <- fix.dedup
-          .checkDuplication(changeId1Hash, malformedOffset)
-          .leftOrFail("malformed offset")
-      } yield error shouldBe a[MalformedOffset]
     }.failOnShutdown
 
     "complain about time underflow" in {

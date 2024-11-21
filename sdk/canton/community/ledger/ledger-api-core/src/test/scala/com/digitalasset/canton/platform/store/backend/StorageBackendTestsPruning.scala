@@ -74,9 +74,9 @@ private[backend] trait StorageBackendTestsPruning
   }
 
   it should "correctly update the pruning offset of all divulged contracts" in {
-    val offset_1 = offset(3)
-    val offset_2 = offset(2)
-    val offset_3 = offset(4)
+    val offset_1 = absoluteOffset(3)
+    val offset_2 = absoluteOffset(2)
+    val offset_3 = absoluteOffset(4)
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     val initialPruningOffset = executeSql(
       backend.parameter.participantAllDivulgedContractsPrunedUpToInclusive

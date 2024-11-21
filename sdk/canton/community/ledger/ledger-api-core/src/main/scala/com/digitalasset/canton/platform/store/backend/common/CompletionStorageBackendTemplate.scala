@@ -8,13 +8,13 @@ import anorm.{Row, RowParser, SimpleSql, ~}
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.platform.v1.index.StatusDetails
 import com.digitalasset.canton.SequencerCounter
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.indexer.parallel.{PostPublishData, PublishSource}
 import com.digitalasset.canton.platform.store.CompletionFromTransaction
 import com.digitalasset.canton.platform.store.backend.CompletionStorageBackend
 import com.digitalasset.canton.platform.store.backend.Conversions.{
-  offset,
+  absoluteOffset,
   timestampFromMicros,
   traceContextOption,
 }
@@ -72,7 +72,7 @@ class CompletionStorageBackendTemplate(
         FROM
           lapi_command_completions
         WHERE
-          ${QueryStrategy.offsetIsBetweenInclusive(
+          ${QueryStrategy.offsetIsBetween(
           nonNullableColumn = "completion_offset",
           startInclusive = startInclusive,
           endInclusive = endInclusive,
@@ -88,10 +88,10 @@ class CompletionStorageBackendTemplate(
   }
 
   private val sharedColumns: RowParser[
-    Array[Int] ~ Offset ~ Timestamp ~ String ~ String ~ Option[String] ~ Int ~ TraceContext
+    Array[Int] ~ AbsoluteOffset ~ Timestamp ~ String ~ String ~ Option[String] ~ Int ~ TraceContext
   ] =
     array[Int]("submitters") ~
-      offset("completion_offset") ~
+      absoluteOffset("completion_offset") ~
       timestampFromMicros("record_time") ~
       str("command_id") ~
       str("application_id") ~
@@ -100,7 +100,9 @@ class CompletionStorageBackendTemplate(
       traceContextOption("trace_context")(noTracingLogger)
 
   private val acceptedCommandSharedColumns: RowParser[
-    Array[Int] ~ Offset ~ Timestamp ~ String ~ String ~ Option[String] ~ Int ~ TraceContext ~ String
+    Array[Int] ~ AbsoluteOffset ~ Timestamp ~ String ~ String ~ Option[
+      String
+    ] ~ Int ~ TraceContext ~ String
   ] =
     sharedColumns ~ str("update_id")
 
@@ -193,7 +195,7 @@ class CompletionStorageBackendTemplate(
       str("application_id") ~
       str("command_id") ~
       array[Int]("submitters") ~
-      offset("completion_offset") ~
+      absoluteOffset("completion_offset") ~
       long("publication_time") ~
       str("submission_id").? ~
       str("update_id").? ~
@@ -272,8 +274,8 @@ class CompletionStorageBackendTemplate(
   }
 
   override def commandCompletionsForRecovery(
-      startExclusive: Offset,
-      endInclusive: Offset,
+      startInclusive: AbsoluteOffset,
+      endInclusive: AbsoluteOffset,
   )(connection: Connection): Vector[PostPublishData] = {
     import ComposableQuery.*
     import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
@@ -297,7 +299,7 @@ class CompletionStorageBackendTemplate(
       WHERE
         ${QueryStrategy.offsetIsBetween(
         nonNullableColumn = "completion_offset",
-        startExclusive = startExclusive,
+        startInclusive = startInclusive,
         endInclusive = endInclusive,
       )}
       ORDER BY completion_offset ASC"""

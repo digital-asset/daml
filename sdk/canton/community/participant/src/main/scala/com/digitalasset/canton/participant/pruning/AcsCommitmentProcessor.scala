@@ -206,7 +206,7 @@ class AcsCommitmentProcessor private (
     testingConfig: TestingConfigInternal,
     clock: Clock,
     exitOnFatalFailures: Boolean,
-    maxCommitmentSendDelayMillis: Option[NonNegativeInt] = None,
+    maxCommitmentSendDelayMillis: Option[NonNegativeInt],
 )(implicit ec: ExecutionContext)
     extends AcsChangeListener
     with FlagCloseable
@@ -1164,7 +1164,7 @@ class AcsCommitmentProcessor private (
       remote: AcsCommitment,
       local: Iterable[(CommitmentPeriod, AcsCommitment.CommitmentType)],
       lastPruningTime: Option[CantonTimestamp],
-      possibleCatchUp: Boolean = false,
+      possibleCatchUp: Boolean,
   )(implicit traceContext: TraceContext): Boolean =
     if (local.isEmpty) {
       if (
@@ -1543,7 +1543,7 @@ class AcsCommitmentProcessor private (
       fromExclusive: Option[CantonTimestampSecond],
       toInclusive: Option[CantonTimestampSecond],
       filterInParticipantId: Seq[ParticipantId] = Seq.empty,
-      filterOutParticipantId: Seq[ParticipantId] = Seq.empty,
+      filterOutParticipantId: Seq[ParticipantId],
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {

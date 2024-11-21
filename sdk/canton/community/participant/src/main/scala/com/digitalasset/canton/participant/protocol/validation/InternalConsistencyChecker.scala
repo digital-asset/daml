@@ -108,16 +108,6 @@ class InternalConsistencyChecker(
       case Some(ne) => Left(ErrorWithInternalConsistencyCheck(UsedAfterArchive(ne)))
       case None => Either.unit
     }
-
-  /** @param inconsistent - the set of inconsistent keys or the empty set if no inconsistencies have been found,
-    *                     see [[KeyState.inconsistentKeys]] to see how inconsistency is detected.
-    * @return - returns a failed result if there are inconsistent keys
-    */
-  private def checkConsistentKeyUse(inconsistent: Set[LfGlobalKey]): Result[Unit] =
-    NonEmpty.from(inconsistent) match {
-      case Some(ne) => Left(ErrorWithInternalConsistencyCheck(InconsistentKeyUse(ne)))
-      case None => Either.unit
-    }
 }
 
 object InternalConsistencyChecker {

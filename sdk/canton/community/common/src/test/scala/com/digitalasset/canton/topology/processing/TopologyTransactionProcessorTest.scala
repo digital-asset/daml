@@ -734,7 +734,7 @@ abstract class TopologyTransactionProcessorTest
             OpenEnvelope(
               TopologyTransactionsBroadcast.create(
                 domainId,
-                Seq(Broadcast(String255("topology request id")(), List(transactions))),
+                Seq(Broadcast(String255.tryCreate("topology request id"), List(transactions))),
                 testedProtocolVersion,
               ),
               recipients = Recipients.cc(AllMembersOfDomain),

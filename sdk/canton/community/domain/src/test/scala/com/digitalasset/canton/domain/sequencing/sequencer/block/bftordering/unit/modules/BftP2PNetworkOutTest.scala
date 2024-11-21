@@ -515,12 +515,12 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
         new InMemoryUnitTestP2pEndpointsStore(
           otherInitialEndpoints.toSet
         ),
-      p2pNetworkIn: ModuleRef[BftOrderingServiceReceiveRequest] = fakeIgnoringModule,
+      p2pNetworkIn: ModuleRef[BftOrderingServiceReceiveRequest],
       mempool: ModuleRef[Mempool.Message] = fakeIgnoringModule,
-      availability: ModuleRef[Availability.Message[ProgrammableUnitTestEnv]] = fakeIgnoringModule,
-      consensus: ModuleRef[Consensus.Message[ProgrammableUnitTestEnv]] = fakeIgnoringModule,
-      output: ModuleRef[Output.Message[ProgrammableUnitTestEnv]] = fakeIgnoringModule,
-      state: BftP2PNetworkOut.State = new BftP2PNetworkOut.State(),
+      availability: ModuleRef[Availability.Message[ProgrammableUnitTestEnv]],
+      consensus: ModuleRef[Consensus.Message[ProgrammableUnitTestEnv]],
+      output: ModuleRef[Output.Message[ProgrammableUnitTestEnv]],
+      state: BftP2PNetworkOut.State,
   ): BftP2PNetworkOut[ProgrammableUnitTestEnv] = {
     val dependencies = P2PNetworkOutModuleDependencies(
       clientP2PNetworkManager,

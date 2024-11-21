@@ -23,7 +23,6 @@ import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.NoCopy
 import com.digitalasset.canton.version.{
   HasVersionedMessageCompanion,
   HasVersionedMessageCompanionDbHelpers,
@@ -166,8 +165,7 @@ final case class Signature private[crypto] (
     signingAlgorithmSpec: Option[SigningAlgorithmSpec],
     signatureDelegation: Option[SignatureDelegation] = None,
 ) extends HasVersionedWrapper[Signature]
-    with PrettyPrinting
-    with NoCopy {
+    with PrettyPrinting {
 
   override protected def companionObj: Signature.type = Signature
 
@@ -208,15 +206,6 @@ object Signature
   )
 
   override def name: String = "signature"
-
-  private[this] def apply(
-      format: SignatureFormat,
-      signature: ByteString,
-      signedBy: Fingerprint,
-      signingAlgorithmSpec: SigningAlgorithmSpec,
-      signatureDelegation: Option[SignatureDelegation],
-  ): Signature =
-    throw new UnsupportedOperationException("Use deserialization method instead")
 
   def fromProtoV30(signatureP: v30.Signature): ParsingResult[Signature] =
     for {
@@ -752,8 +741,7 @@ object RequiredSigningSpecs {
 }
 
 final case class SigningKeyPair(publicKey: SigningPublicKey, privateKey: SigningPrivateKey)
-    extends CryptoKeyPair[SigningPublicKey, SigningPrivateKey]
-    with NoCopy {
+    extends CryptoKeyPair[SigningPublicKey, SigningPrivateKey] {
 
   protected def toProtoV30: v30.SigningKeyPair =
     v30.SigningKeyPair(Some(publicKey.toProtoV30), Some(privateKey.toProtoV30))
@@ -763,12 +751,6 @@ final case class SigningKeyPair(publicKey: SigningPublicKey, privateKey: Signing
 }
 
 object SigningKeyPair {
-
-  private[this] def apply(
-      publicKey: SigningPublicKey,
-      privateKey: SigningPrivateKey,
-  ): SigningKeyPair =
-    throw new UnsupportedOperationException("Use generate or deserialization methods")
 
   private[crypto] def create(
       publicFormat: CryptoKeyFormat,
@@ -783,7 +765,7 @@ object SigningKeyPair {
       .valueOr(err => throw new IllegalStateException(s"Failed to create public signing key: $err"))
     val privateKey =
       SigningPrivateKey.create(publicKey.id, privateFormat, privateKeyBytes, keySpec, usage)
-    new SigningKeyPair(publicKey, privateKey)
+    SigningKeyPair(publicKey, privateKey)
   }
 
   def fromProtoV30(
@@ -800,7 +782,7 @@ object SigningKeyPair {
         "private_key",
         signingKeyPairP.privateKey,
       )
-    } yield new SigningKeyPair(publicKey, privateKey)
+    } yield SigningKeyPair(publicKey, privateKey)
 }
 
 final case class SigningPublicKey private[crypto] (

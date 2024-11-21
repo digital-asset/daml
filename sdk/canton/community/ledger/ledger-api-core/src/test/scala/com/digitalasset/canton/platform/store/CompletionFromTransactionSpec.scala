@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store
 
 import com.daml.ledger.api.v2.completion.Completion.DeduplicationPeriod
 import com.digitalasset.canton.TestEssentials
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.daml.lf.data.Time
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.timestamp.Timestamp
@@ -71,7 +71,7 @@ class CompletionFromTransactionSpec
           val completionStream = CompletionFromTransaction.acceptedCompletion(
             Set("party1", "party2"),
             Time.Timestamp.Epoch,
-            Offset.beforeBegin,
+            AbsoluteOffset.firstOffset,
             "commandId",
             "transactionId",
             "applicationId",
@@ -85,7 +85,7 @@ class CompletionFromTransactionSpec
 
           val completion = completionStream.completionResponse.completion.value
           completion.domainTime.value.recordTime shouldBe Some(Timestamp(Instant.EPOCH))
-          completion.offset shouldBe 0L
+          completion.offset shouldBe 1L
 
           completion.commandId shouldBe "commandId"
           completion.updateId shouldBe "transactionId"
@@ -108,7 +108,7 @@ class CompletionFromTransactionSpec
           CompletionFromTransaction.acceptedCompletion(
             Set.empty,
             Time.Timestamp.Epoch,
-            Offset.beforeBegin,
+            AbsoluteOffset.firstOffset,
             "commandId",
             "transactionId",
             "applicationId",
@@ -128,7 +128,7 @@ class CompletionFromTransactionSpec
       val completionStream = CompletionFromTransaction.rejectedCompletion(
         Set("party"),
         Time.Timestamp.Epoch,
-        Offset.fromLong(2L),
+        AbsoluteOffset.tryFromLong(2L),
         "commandId",
         status,
         "applicationId",

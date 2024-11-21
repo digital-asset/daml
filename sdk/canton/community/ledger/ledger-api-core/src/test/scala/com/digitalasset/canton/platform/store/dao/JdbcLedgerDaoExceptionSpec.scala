@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import com.digitalasset.daml.lf.transaction.test.TreeTransactionBuilder.*
 import com.digitalasset.daml.lf.transaction.test.{
@@ -47,8 +46,8 @@ private[dao] trait JdbcLedgerDaoExceptionSpec
 
     for {
       (offset, _) <- store(offsetAndEntry)
-      result1 <- contractsReader.lookupContractState(cid1, Offset.fromAbsoluteOffset(offset))
-      result2 <- contractsReader.lookupContractState(cid2, Offset.fromAbsoluteOffset(offset))
+      result1 <- contractsReader.lookupContractState(cid1, Some(offset))
+      result2 <- contractsReader.lookupContractState(cid2, Some(offset))
     } yield {
       result1 shouldBe None
       result2.value shouldBe a[LedgerDaoContractsReader.ActiveContract]

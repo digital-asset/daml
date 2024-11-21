@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.store
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.CantonRequireTypes.String36
-import com.digitalasset.canton.participant.GlobalOffset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.participant.store.ParticipantPruningStore.ParticipantPruningStatus
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -17,7 +17,7 @@ trait ParticipantPruningStoreTest extends AsyncWordSpec with BaseTest {
 
   protected val name: String36 = String36.tryCreate("ParticipantPruningStoreTest")
 
-  private implicit def toGlobalOffset(i: Long): GlobalOffset = GlobalOffset.tryFromLong(i)
+  private implicit def toOffset(i: Long): AbsoluteOffset = AbsoluteOffset.tryFromLong(i)
 
   "be not pruning in the beginning" in {
     val store = mk()

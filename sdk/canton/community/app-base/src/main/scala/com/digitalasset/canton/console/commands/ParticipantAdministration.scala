@@ -1357,7 +1357,6 @@ class CommitmentsAdministrationGroup(
 
 object CommitmentsAdministrationGroup {
   private val ExportMismatchDefaultBinaryFile = "canton-acs-mismatch-export.gz"
-  private val ExportMismatchDefaultReadableFile = "canton-acs-mismatch-export.json"
 }
 
 class ParticipantReplicationAdministrationGroup(

@@ -156,7 +156,7 @@ class LedgerServerPartyNotifier(
       targetParticipantId: Option[ParticipantId],
       sequencerTimestamp: SequencedTime,
       effectiveTimestamp: EffectiveTime,
-      submissionIdRaw: String255 = LengthLimitedString.getUuid.asString255,
+      submissionIdRaw: String255,
   )(implicit traceContext: TraceContext): Future[Unit] = {
 
     // Compare the inputs of `updateAndNotify` with the party metadata retrieved from the store

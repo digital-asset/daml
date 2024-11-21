@@ -214,7 +214,7 @@ trait LocalInstanceReference extends InstanceReference with NoTracing {
 
     private def getOne(
         metricName: String,
-        attributes: Map[String, String] = Map(),
+        attributes: Map[String, String],
     ): Either[String, MetricValue] = check(FeatureFlag.Testing) {
       val candidates = consoleEnvironment.environment.configuredOpenTelemetry.onDemandMetricsReader
         .read()

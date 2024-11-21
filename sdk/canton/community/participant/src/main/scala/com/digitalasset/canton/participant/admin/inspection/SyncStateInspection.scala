@@ -13,12 +13,11 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong}
 import com.digitalasset.canton.crypto.SyncCryptoApiProvider
-import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcUSExtended
-import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.admin.data.ActiveContract
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection.{
   InFlightCount,
@@ -30,7 +29,6 @@ import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.{
   ConnectedDomainsLookup,
   SyncDomainPersistentStateManager,
-  UpstreamOffsetConvert,
 }
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.DomainOffset
 import com.digitalasset.canton.protocol.messages.*
@@ -658,14 +656,14 @@ final class SyncStateInspection(
     participantNodePersistentState.value.ledgerApiStore
       .lastDomainOffsetBeforeOrAtPublicationTime(pruneUpTo)
       .map(
-        _.map(_.offset.toLong)
+        _.map(_.offset.unwrap)
       )
 
   def lookupPublicationTime(
       ledgerOffset: Long
   )(implicit traceContext: TraceContext): EitherT[Future, String, CantonTimestamp] = for {
     offset <- EitherT.fromEither[Future](
-      UpstreamOffsetConvert.toLedgerSyncOffset(ledgerOffset)
+      AbsoluteOffset.fromLong(ledgerOffset)
     )
     domainOffset <- EitherT(
       participantNodePersistentState.value.ledgerApiStore
@@ -836,16 +834,19 @@ final class SyncStateInspection(
   def lastDomainOffset(
       domainId: DomainId
   )(implicit traceContext: TraceContext): Option[DomainOffset] =
-    timeouts.inspection.await(s"$functionFullName")(
-      participantNodePersistentState.value.ledgerApiStore.lastDomainOffsetBeforeOrAt(
-        domainId,
-        Offset.fromAbsoluteOffsetO(
-          participantNodePersistentState.value.ledgerApiStore.ledgerEndCache().map(_.lastOffset)
-        ),
+    participantNodePersistentState.value.ledgerApiStore
+      .ledgerEndCache()
+      .map(_.lastOffset)
+      .flatMap(ledgerEnd =>
+        timeouts.inspection.await(s"$functionFullName")(
+          participantNodePersistentState.value.ledgerApiStore.lastDomainOffsetBeforeOrAt(
+            domainId,
+            ledgerEnd,
+          )
+        )
       )
-    )
 
-  def prunedUptoOffset(implicit traceContext: TraceContext): Option[GlobalOffset] =
+  def prunedUptoOffset(implicit traceContext: TraceContext): Option[AbsoluteOffset] =
     timeouts.inspection.await(functionFullName)(
       participantNodePersistentState.value.pruningStore.pruningStatus().map(_.completedO)
     )

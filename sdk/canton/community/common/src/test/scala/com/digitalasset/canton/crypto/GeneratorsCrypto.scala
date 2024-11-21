@@ -175,7 +175,7 @@ object GeneratorsCrypto {
         encryptionAlgorithmSpec <- Arbitrary.arbitrary[EncryptionAlgorithmSpec]
         fingerprint <- Gen
           .stringOfN(68, Gen.alphaChar)
-          .map(str => Fingerprint.tryCreate(String68(str)()))
+          .map(str => Fingerprint.tryCreate(String68.tryCreate(str)))
       } yield AsymmetricEncrypted.apply(ciphertext, encryptionAlgorithmSpec, fingerprint)
     )
 }

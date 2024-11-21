@@ -123,7 +123,6 @@ class ParticipantTab(
           tv: javafx.scene.control.TableColumn[TxData, String]
       ): javafx.scene.control.TableCell[TxData, String] =
         new javafx.scene.control.TableCell[TxData, String] {
-          val sfxThis = new TableCell(this)
           override def updateItem(item: String, empty: Boolean): Unit = {
             super.updateItem(item, empty)
             setText(if (empty) "" else item)
@@ -452,8 +451,6 @@ class ParticipantTab(
     }
     service.start()
 
-    // Note: 1,000 ms = 1 sec
-    private val timer = new PauseTransition()
     content = new GridPane {
       add(
         new VBox {
@@ -722,9 +719,6 @@ class DemoUI(script: BaseScript, val loggerFactory: NamedLoggerFactory)
   }
 
   import javafx.stage.Screen
-
-  private lazy val dwidth = Screen.getPrimary.getBounds.getWidth
-  private lazy val dheight = Screen.getPrimary.getBounds.getHeight
 
   private lazy val adjustedWidth = Screen.getPrimary.getBounds.getWidth * 0.8
   private lazy val adjustedHeight = Screen.getPrimary.getBounds.getHeight * 0.8

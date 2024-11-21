@@ -802,7 +802,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       // for reassignments are available over the Ladger API.
       private def submitReassignment(
           submitter: PartyId,
-          waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
+          waitForParticipants: Map[ParticipantReference, PartyId],
           timeout: config.NonNegativeDuration,
       )(submit: String => Unit): ReassignmentWrapper = {
         val commandId = UUID.randomUUID().toString

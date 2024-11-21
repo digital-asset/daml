@@ -92,7 +92,8 @@ object ApiServiceOwner {
       otherServices: immutable.Seq[BindableService] = immutable.Seq.empty,
       otherInterceptors: List[ServerInterceptor] = List.empty,
       engine: Engine,
-      servicesExecutionContext: ExecutionContextExecutor,
+      readApiServicesExecutionContext: ExecutionContextExecutor,
+      writeApiServicesExecutionContext: ExecutionContextExecutor,
       checkOverloaded: TraceContext => Option[state.SubmissionResult] =
         _ => None, // Used for Canton rate-limiting,
       authService: AuthService,
@@ -127,7 +128,7 @@ object ApiServiceOwner {
         tokenExpiryGracePeriodForStreams =
           tokenExpiryGracePeriodForStreams.map(_.asJavaApproximation),
         loggerFactory = loggerFactory,
-      )(servicesExecutionContext, traceContext),
+      )(writeApiServicesExecutionContext, traceContext),
       jwtTimestampLeeway = jwtTimestampLeeway,
       telemetry = telemetry,
       loggerFactory = loggerFactory,
@@ -140,7 +141,7 @@ object ApiServiceOwner {
       ): Future[domain.IdentityProviderConfig] =
         identityProviderConfigStore.getActiveIdentityProviderByIssuer(issuer)(
           loggingContext,
-          servicesExecutionContext,
+          writeApiServicesExecutionContext,
         )
     }
 
@@ -161,7 +162,8 @@ object ApiServiceOwner {
         commandProgressTracker = commandProgressTracker,
         commandConfig = command,
         optTimeServiceBackend = timeServiceBackend,
-        servicesExecutionContext = servicesExecutionContext,
+        readApiServicesExecutionContext = readApiServicesExecutionContext,
+        writeApiServicesExecutionContext = writeApiServicesExecutionContext,
         metrics = metrics,
         healthChecks = healthChecksWithIndexService,
         seedService = SeedService(seeding),
@@ -184,6 +186,7 @@ object ApiServiceOwner {
         lfValueTranslation = lfValueTranslation,
         logger = loggerFactory.getTracedLogger(this.getClass),
       )(materializer, executionSequencerFactory, tracer).withServices(otherServices)
+      // for all the top level gRPC servicing apparatus we use the writeApiServicesExecutionContext
       apiService <- LedgerApiService(
         apiServicesOwner,
         port,
@@ -197,12 +200,12 @@ object ApiServiceOwner {
             identityProviderConfigLoader = identityProviderConfigLoader,
             jwtVerifierLoader = jwtVerifierLoader,
             loggerFactory = loggerFactory,
-          )(servicesExecutionContext),
+          )(writeApiServicesExecutionContext),
           telemetry,
           loggerFactory,
-          servicesExecutionContext,
+          writeApiServicesExecutionContext,
         ) :: otherInterceptors,
-        servicesExecutionContext,
+        writeApiServicesExecutionContext,
         metrics,
         keepAlive,
         loggerFactory,

@@ -43,7 +43,7 @@ class BatchAggregatorTest
 
   private def aggregatorWithDefaults(
       maximumInFlight: Int = defaultMaximumInFlight,
-      batchGetter: BatchGetterType = defaultBatchGetter,
+      batchGetter: BatchGetterType,
   ): BatchAggregator[K, V] = {
     val processor = new BatchAggregator.Processor[K, V] {
       override def kind: String = "item"
@@ -69,7 +69,7 @@ class BatchAggregatorTest
     */
   private def batchGetterWithCounter(
       requestsCountPerSize: TrieMap[Int, Int],
-      blocker: Future[Unit] = Future.unit,
+      blocker: Future[Unit],
   ): BatchGetterType =
     keys => {
       requestsCountPerSize.updateWith(keys.size)(_.map(count => count + 1).orElse(Some(1)))

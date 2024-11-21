@@ -596,7 +596,7 @@ class JcePureCrypto(
   private def encryptWithInternal[M](
       bytes: ByteString,
       publicKey: EncryptionPublicKey,
-      encryptionAlgorithmSpec: EncryptionAlgorithmSpec = defaultEncryptionAlgorithmSpec,
+      encryptionAlgorithmSpec: EncryptionAlgorithmSpec,
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
     CryptoKeyValidation
       .selectEncryptionAlgorithmSpec(

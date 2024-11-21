@@ -12,6 +12,8 @@ import com.daml.metrics.{DatabaseMetricsHistograms, HealthMetrics}
 import com.typesafe.scalalogging.LazyLogging
 import io.opentelemetry.api.metrics.Meter
 
+import scala.annotation.unused
+
 object LedgerApiServerMetrics extends LazyLogging {
 
   def apply(prefix: MetricName, otelMeter: Meter) = {
@@ -102,9 +104,11 @@ class LedgerApiServerHistograms(val prefix: MetricName)(implicit
   private[metrics] val index = new IndexHistograms(prefix :+ "index")
   private[metrics] val indexer = new IndexerHistograms(prefix :+ "indexer")
 
+  @unused
   private val _grpc = new DamlGrpcServerHistograms()
   // the ledger api server creates these metrics all over the place, but their prefix
   // is anyway hardcoded
+  @unused
   private val _db = new DatabaseMetricsHistograms()
 
 }

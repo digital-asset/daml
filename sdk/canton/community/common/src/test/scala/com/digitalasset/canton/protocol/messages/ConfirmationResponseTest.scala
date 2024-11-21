@@ -14,8 +14,6 @@ import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec
 
 class ConfirmationResponseTest extends AnyWordSpec with BaseTest with HasCryptographicEvidenceTest {
-  private lazy val localVerdictProtocolVersion =
-    LocalVerdict.protocolVersionRepresentativeFor(testedProtocolVersion)
 
   private lazy val response1: ConfirmationResponse = ConfirmationResponse.tryCreate(
     RequestId(CantonTimestamp.now()),

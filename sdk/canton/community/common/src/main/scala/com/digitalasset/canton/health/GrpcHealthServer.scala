@@ -12,7 +12,6 @@ import com.digitalasset.canton.lifecycle.Lifecycle.toCloseableServer
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.tracing.TracingConfig
-import io.grpc.health.v1.HealthCheckResponse.ServingStatus
 import io.grpc.protobuf.services.ProtoReflectionService
 
 import java.util.concurrent.ExecutorService
@@ -46,12 +45,6 @@ class GrpcHealthServer(
     .start()
 
   private val closeable = toCloseableServer(server, logger, "HealthServer")
-
-  private def setStatus(serviceName: String, status: ServingStatus): Unit =
-    healthManager.setStatus(
-      serviceName,
-      status,
-    )
 
   override def onClosed(): Unit = {
     healthManager.enterTerminalState()

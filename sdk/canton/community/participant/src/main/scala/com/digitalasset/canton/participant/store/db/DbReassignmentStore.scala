@@ -15,10 +15,9 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.CryptoPureApi
-import com.digitalasset.canton.data.{CantonTimestamp, FullUnassignmentTree}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, FullUnassignmentTree}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentData.ReassignmentGlobalOffset
 import com.digitalasset.canton.participant.protocol.reassignment.{
   IncompleteReassignmentData,
@@ -183,8 +182,8 @@ class DbReassignmentStore(
       unassignmentResult = getResultDeliveredUnassignmentResult(sourceProtocolVersion).apply(r),
       reassignmentGlobalOffset = ReassignmentGlobalOffset
         .create(
-          r.nextLongOption().map(GlobalOffset.tryFromLong),
-          r.nextLongOption().map(GlobalOffset.tryFromLong),
+          r.nextLongOption().map(AbsoluteOffset.tryFromLong),
+          r.nextLongOption().map(AbsoluteOffset.tryFromLong),
         )
         .valueOr(err => throw new DbDeserializationException(err)),
     )
@@ -398,7 +397,7 @@ class DbReassignmentStore(
               target_domain_idx=$indexedTargetDomain and (""" ++ reassignmentIdsFilter ++ sql")"
 
       storage.query(
-        query.as[(Int, CantonTimestamp, Option[GlobalOffset], Option[GlobalOffset])],
+        query.as[(Int, CantonTimestamp, Option[AbsoluteOffset], Option[AbsoluteOffset])],
         functionFullName,
       )
     }
@@ -618,7 +617,7 @@ class DbReassignmentStore(
 
   private def findIncomplete(
       sourceDomain: Option[Source[DomainId]],
-      validAt: GlobalOffset,
+      validAt: AbsoluteOffset,
       start: Long,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[ReassignmentData]] = for {
     indexedSourceDomainO <- sourceDomain.fold(
@@ -688,7 +687,7 @@ class DbReassignmentStore(
 
   override def findIncomplete(
       sourceDomain: Option[Source[DomainId]],
-      validAt: GlobalOffset,
+      validAt: AbsoluteOffset,
       stakeholders: Option[NonEmpty[Set[LfPartyId]]],
       limit: NonNegativeInt,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[IncompleteReassignmentData]] = {
@@ -712,14 +711,14 @@ class DbReassignmentStore(
 
   override def findEarliestIncomplete()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[(GlobalOffset, ReassignmentId, Target[DomainId])]] =
+  ): FutureUnlessShutdown[Option[(AbsoluteOffset, ReassignmentId, Target[DomainId])]] =
     for {
       queryResult <- storage
         .queryUnlessShutdown(
           {
             val maxCompletedOffset: SQLActionBuilder =
-              sql"""select min(coalesce(assignment_global_offset,${GlobalOffset.MaxValue})),
-                  min(coalesce(unassignment_global_offset,${GlobalOffset.MaxValue})),
+              sql"""select min(coalesce(assignment_global_offset,${AbsoluteOffset.MaxValue})),
+                  min(coalesce(unassignment_global_offset,${AbsoluteOffset.MaxValue})),
                   source_domain_idx, unassignment_timestamp
                   from par_reassignments
                   where target_domain_idx=$indexedTargetDomain and (unassignment_global_offset is null or assignment_global_offset is null)
@@ -727,7 +726,7 @@ class DbReassignmentStore(
                   """
 
             maxCompletedOffset
-              .as[(Option[GlobalOffset], Option[GlobalOffset], Int, CantonTimestamp)]
+              .as[(Option[AbsoluteOffset], Option[AbsoluteOffset], Int, CantonTimestamp)]
           },
           functionFullName,
         )
@@ -753,20 +752,20 @@ class DbReassignmentStore(
         }
         .foldLeft(
           (
-            GlobalOffset.MaxValue,
+            AbsoluteOffset.MaxValue,
             ReassignmentId(
               Source(targetDomainId.unwrap),
               CantonTimestamp.MaxValue,
             ),
           )
-        )((acc: (GlobalOffset, ReassignmentId), n) =>
+        )((acc: (AbsoluteOffset, ReassignmentId), n) =>
           n match {
             case (Some(o), tid) => if (acc._1 > o) (o, tid) else acc
             case (None, _) => acc
           }
         ) match {
         case (offset, reassignmentId) =>
-          if (offset == GlobalOffset.MaxValue) None
+          if (offset == AbsoluteOffset.MaxValue) None
           else Some((offset, reassignmentId, targetDomainId))
       }
     } yield res

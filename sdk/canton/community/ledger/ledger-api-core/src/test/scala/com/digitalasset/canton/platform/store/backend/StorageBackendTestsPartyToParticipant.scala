@@ -42,7 +42,8 @@ private[backend] trait StorageBackendTestsPartyToParticipant
 
   def toRaw(dbDto: DbDto.EventPartyToParticipant): RawParticipantAuthorization =
     RawParticipantAuthorization(
-      offset = Offset.fromHexString(Ref.HexString.assertFromString(dbDto.event_offset)),
+      offset =
+        Offset.fromHexString(Ref.HexString.assertFromString(dbDto.event_offset)).toAbsoluteOffset,
       updateId = dbDto.update_id,
       partyId = dbDto.party_id,
       participantId = dbDto.participant_id,

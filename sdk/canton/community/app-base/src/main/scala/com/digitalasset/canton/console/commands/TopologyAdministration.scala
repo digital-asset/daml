@@ -1082,9 +1082,7 @@ class TopologyAdministrationGroup(
         purpose: KeyPurpose,
         keyOwner: Member,
         signedBy: Seq[Fingerprint],
-        synchronize: Option[config.NonNegativeDuration] = Some(
-          consoleEnvironment.commandTimeouts.bounded
-        ),
+        synchronize: Option[config.NonNegativeDuration],
         add: Boolean,
         mustFullyAuthorize: Boolean = true,
         force: ForceFlags = ForceFlags.none,

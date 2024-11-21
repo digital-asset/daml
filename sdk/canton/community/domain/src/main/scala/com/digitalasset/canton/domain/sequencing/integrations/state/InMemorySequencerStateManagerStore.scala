@@ -92,19 +92,4 @@ class InMemorySequencerStateManagerStore(
   ): InFlightAggregations =
     state.updateAndGet(_.pruneExpiredInFlightAggregations(upToInclusive)).inFlightAggregations
 
-  private def update[E](update: State => Either[E, State]): Either[E, Unit] = {
-    @SuppressWarnings(Array("org.wartremover.warts.Var"))
-    var error: Option[E] = None
-    state.getAndUpdate { state =>
-      update(state)
-        .fold(
-          err => {
-            error = Some(err)
-            state
-          },
-          identity,
-        )
-    }
-    error.toLeft(())
-  }
 }

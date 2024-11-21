@@ -10,10 +10,9 @@ import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
-import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, ViewType}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentData.*
 import com.digitalasset.canton.participant.protocol.reassignment.{
   IncompleteReassignmentData,
@@ -50,6 +49,7 @@ import monocle.macros.syntax.lens.*
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.{Assertion, EitherValues}
 
+import scala.annotation.unused
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.implicitConversions
 
@@ -57,9 +57,11 @@ trait ReassignmentStoreTest {
   this: AsyncWordSpec & BaseTest =>
 
   import ReassignmentStoreTest.*
+
+  @unused
   private implicit val _ec: ExecutionContext = ec
 
-  private implicit def toGlobalOffset(i: Long): GlobalOffset = GlobalOffset.tryFromLong(i)
+  private implicit def toOffset(i: Long): AbsoluteOffset = AbsoluteOffset.tryFromLong(i)
 
   protected def reassignmentStore(mk: IndexedDomain => ReassignmentStore): Unit = {
     val reassignmentData = mkReassignmentData(reassignment10, mediator1)
@@ -69,7 +71,7 @@ trait ReassignmentStoreTest {
     def reassignmentDataFor(
         reassignmentId: ReassignmentId,
         contract: SerializableContract,
-        unassignmentGlobalOffset: Option[GlobalOffset] = None,
+        unassignmentGlobalOffset: Option[AbsoluteOffset] = None,
     ): ReassignmentData = mkReassignmentData(
       reassignmentId,
       mediator1,
@@ -565,7 +567,7 @@ trait ReassignmentStoreTest {
             .addReassignmentsOffsets(
               Map(
                 reassignmentId -> UnassignmentGlobalOffset(
-                  GlobalOffset.tryFromLong(unassignmentOffset.offset.toLong - 1)
+                  AbsoluteOffset.tryFromLong(unassignmentOffset.offset.unwrap - 1)
                 )
               )
             )
@@ -580,7 +582,7 @@ trait ReassignmentStoreTest {
             .addReassignmentsOffsets(
               Map(
                 reassignmentId -> AssignmentGlobalOffset(
-                  GlobalOffset.tryFromLong(assignmentOffset.offset.toLong - 1)
+                  AbsoluteOffset.tryFromLong(assignmentOffset.offset.unwrap - 1)
                 )
               )
             )
@@ -913,7 +915,7 @@ trait ReassignmentStoreTest {
           lookupAfterAssignment <- store.findEarliestIncomplete().failOnShutdown
         } yield {
           inside(lookupAfterUnassignment) { case Some((offset, _, _)) =>
-            offset shouldBe GlobalOffset.tryFromLong(unassignmentOffset)
+            offset shouldBe AbsoluteOffset.tryFromLong(unassignmentOffset)
           }
           lookupAfterAssignment shouldBe None
         }
@@ -949,7 +951,7 @@ trait ReassignmentStoreTest {
 
         } yield {
           inside(lookupAfterAssignment) { case Some((offset, _, _)) =>
-            offset shouldBe GlobalOffset.tryFromLong(assignmentOffset)
+            offset shouldBe AbsoluteOffset.tryFromLong(assignmentOffset)
           }
           lookupAfterUnassignment shouldBe None
         }
@@ -1080,7 +1082,7 @@ trait ReassignmentStoreTest {
 
         } yield {
           inside(lookupEnd) { case Some((offset, _, _)) =>
-            offset shouldBe GlobalOffset.tryFromLong(unassignmentOffset2)
+            offset shouldBe AbsoluteOffset.tryFromLong(unassignmentOffset2)
           }
         }
       }
@@ -1528,7 +1530,7 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
       submittingParty: LfPartyId = LfPartyId.assertFromString("submitter"),
       targetDomainId: Target[DomainId],
       contract: SerializableContract = contract,
-      unassignmentGlobalOffset: Option[GlobalOffset] = None,
+      unassignmentGlobalOffset: Option[AbsoluteOffset] = None,
   ): ReassignmentData = {
 
     val identityFactory = TestingTopology()
@@ -1556,7 +1558,7 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
       sourceMediator: MediatorGroupRecipient,
       submitter: LfPartyId = LfPartyId.assertFromString("submitter"),
       contract: SerializableContract = contract,
-      unassignmentGlobalOffset: Option[GlobalOffset] = None,
+      unassignmentGlobalOffset: Option[AbsoluteOffset] = None,
   ): ReassignmentData =
     mkReassignmentDataForDomain(
       reassignmentId,

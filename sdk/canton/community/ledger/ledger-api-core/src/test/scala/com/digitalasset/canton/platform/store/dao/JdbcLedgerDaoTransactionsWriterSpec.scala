@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.canton.data.{AbsoluteOffset, Offset}
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -67,7 +67,7 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement with 
       (offset, tx) <- store(offsetAndTx = singleCreate)
       result <- ledgerDao.contractsReader.lookupContractState(
         nonTransient(tx).loneElement,
-        Offset.fromAbsoluteOffset(offset),
+        Some(offset),
       )
     } yield {
       result.collect { case active: LedgerDaoContractsReader.ActiveContract =>

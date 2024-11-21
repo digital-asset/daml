@@ -137,7 +137,7 @@ class PbftViewChangeState(
       case Some(_) =>
         logger.info(s"View change from ${vc.from} already exists; ignoring new vote")
       case None =>
-        validateViewChangeMessage(vc.message) match {
+        messageValidator.validateViewChangeMessage(vc.message) match {
           case Right(()) =>
             viewChangeMap.put(vc.from, vc).discard
             stateChanged = true
@@ -157,20 +157,11 @@ class PbftViewChangeState(
     stateChanged
   }
 
-  // TODO(#16820): add View Change validation logic
-  // For each prepare cert in the View Change message:
-  // - Validate signatures on each Prepare and PrePrepare TODO(i18194)
-  // - Validate Prepares all have matching hash and are from enough distinct peers
-  // - Is there some extra validation that should be done on the PrePrepare?
-  //     - e.g., ensuring that blocks are ⊥ when they need to be
-  private def validateViewChangeMessage(vc: ViewChange): Either[String, Unit] =
-    messageValidator.validateViewChangeMessage(vc)
-
   private def setNewView(
       nv: SignedMessage[NewView]
   )(implicit traceContext: TraceContext): Boolean = {
     var stateChange = false
-    if (nv.from != leader) {
+    if (nv.from != leader) { // Ensure the message is from the current primary (leader) of the new view
       emitNonCompliance(metrics)(
         nv.from,
         epoch,
@@ -184,16 +175,23 @@ class PbftViewChangeState(
         s"New view message for segment=${nv.message.segmentIndex} and view=$view already exists; ignoring new one from ${nv.from}"
       )
     } else {
-      newView = Some(nv)
-      stateChange = true
+      messageValidator.validateNewViewMessage(nv.message) match {
+        case Right(()) =>
+          newView = Some(nv)
+          stateChange = true
+        case Left(error) =>
+          emitNonCompliance(metrics)(
+            nv.from,
+            epoch,
+            view,
+            nv.message.blockMetadata.blockNumber,
+            metrics.security.noncompliant.labels.violationType.values.ConsensusInvalidMessage,
+          )
+          logger.warn(
+            s"Invalid new view message from ${nv.from}, ignoring it. Reason: $error"
+          )
+      }
     }
     stateChange
   }
-
-  // TODO(#16820): add New View validation logic
-  // TODO(i18194) potentially check signatures
-  // Ensure the message is from the current primary (leader) of the new view
-  // Ensure there are enough View Change messages (strong quorum) from distinct peers
-  // For each view change messages, call the validate view change function (above)
-  private def isValidNewViewMessage(nv: NewView): Boolean = true
 }

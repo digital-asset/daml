@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.dao.events
 
 import com.daml.ledger.api.v2.reassignment.Reassignment
 import com.daml.metrics.{DatabaseMetrics, Timed}
-import com.digitalasset.canton.data.{AbsoluteOffset, Offset}
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
@@ -61,7 +61,7 @@ class ReassignmentStreamReader(
 
   def streamReassignments(reassignmentStreamQueryParams: ReassignmentStreamQueryParams)(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(Offset, Reassignment), NotUsed] = {
+  ): Source[(AbsoluteOffset, Reassignment), NotUsed] = {
     import reassignmentStreamQueryParams.*
     logger.debug(
       s"streamReassignments(${queryRange.startInclusiveOffset}, ${queryRange.endInclusiveOffset}, $filteringConstraints, $eventProjectionProperties)"
@@ -183,7 +183,7 @@ class ReassignmentStreamReader(
 
     payloadsAssign
       .mergeSorted(payloadsUnassign)(Ordering.by(_.offset))
-      .map(response => Offset.fromLong(response.offset) -> response)
+      .map(response => AbsoluteOffset.tryFromLong(response.offset) -> response)
   }
 
   private def toApiUnassigned(rawUnassignEntry: Entry[RawUnassignEvent]): Future[Reassignment] =

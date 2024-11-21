@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.indexer.parallel
 
 import com.digitalasset.canton.SequencerCounter
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
 import com.digitalasset.canton.ledger.participant.state.Update.{
   SequencedCommandRejected,
   SequencedTransactionAccepted,
@@ -23,7 +23,7 @@ final case class PostPublishData(
     applicationId: Ref.ApplicationId,
     commandId: Ref.CommandId,
     actAs: Set[Ref.Party],
-    offset: Offset,
+    offset: AbsoluteOffset,
     publicationTime: CantonTimestamp,
     submissionId: Option[Ref.SubmissionId],
     accepted: Boolean,
@@ -33,7 +33,7 @@ final case class PostPublishData(
 object PostPublishData {
   def from(
       update: Update,
-      offset: Offset,
+      offset: AbsoluteOffset,
       publicationTime: CantonTimestamp,
   ): Option[PostPublishData] = {
     def from(

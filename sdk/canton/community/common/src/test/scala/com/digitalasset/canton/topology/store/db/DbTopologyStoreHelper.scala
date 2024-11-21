@@ -22,7 +22,7 @@ trait DbTopologyStoreHelper {
 
   // Using test name as discriminator to avoid db-unit-test clashes such as non-X DbTopologyStoreTest.
   // We reuse the `topology_dispatching` table from non-X topology management.
-  private val discriminator = String68(getClass.getSimpleName.takeRight(40))()
+  private val discriminator = String68.tryCreate(getClass.getSimpleName.takeRight(40))
   override def cleanDb(storage: DbStorage): Future[Unit] = {
     import storage.api.*
     storage.update(

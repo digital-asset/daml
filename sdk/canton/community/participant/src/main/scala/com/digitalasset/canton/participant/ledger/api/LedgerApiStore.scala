@@ -7,7 +7,7 @@ import com.daml.logging.entries.LoggingEntries
 import com.daml.metrics.DatabaseMetrics
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.{MemoryStorageConfig, ProcessingTimeout, StorageConfig}
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
 import com.digitalasset.canton.ledger.participant.state.DomainIndex
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -102,20 +102,20 @@ class LedgerApiStore(
 
   def lastDomainOffsetBeforeOrAt(
       domainId: DomainId,
-      beforeOrAtOffsetInclusive: Offset,
+      beforeOrAtOffsetInclusive: AbsoluteOffset,
   )(implicit traceContext: TraceContext): Future[Option[DomainOffset]] =
     executeSql(metrics.index.db.lastDomainOffsetBeforeOrAt)(
       eventStorageBackend.lastDomainOffsetBeforeOrAt(Some(domainId), beforeOrAtOffsetInclusive)
     )
 
   def lastDomainOffsetBeforeOrAt(
-      beforeOrAtOffsetInclusive: Offset
+      beforeOrAtOffsetInclusive: AbsoluteOffset
   )(implicit traceContext: TraceContext): Future[Option[DomainOffset]] =
     executeSql(metrics.index.db.lastDomainOffsetBeforeOrAt)(
       eventStorageBackend.lastDomainOffsetBeforeOrAt(None, beforeOrAtOffsetInclusive)
     )
 
-  def domainOffset(offset: Offset)(implicit
+  def domainOffset(offset: AbsoluteOffset)(implicit
       traceContext: TraceContext
   ): Future[Option[DomainOffset]] =
     executeSql(metrics.index.db.domainOffset)(
@@ -140,7 +140,7 @@ class LedgerApiStore(
       )
     )
 
-  def archivals(fromExclusive: Option[Offset], toInclusive: Offset)(implicit
+  def archivals(fromExclusive: Option[AbsoluteOffset], toInclusive: AbsoluteOffset)(implicit
       traceContext: TraceContext
   ): Future[Set[LfContractId]] =
     executeSql(metrics.index.db.archivals)(

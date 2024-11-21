@@ -9,11 +9,10 @@ import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.reassignment
 import com.digitalasset.canton.participant.protocol.reassignment.{
   IncompleteReassignmentData,
@@ -236,7 +235,7 @@ class InMemoryReassignmentStore(
 
   override def findIncomplete(
       sourceDomain: Option[Source[DomainId]],
-      validAt: GlobalOffset,
+      validAt: AbsoluteOffset,
       stakeholders: Option[NonEmpty[Set[LfPartyId]]],
       limit: NonNegativeInt,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[IncompleteReassignmentData]] = {
@@ -270,7 +269,7 @@ class InMemoryReassignmentStore(
 
   override def findEarliestIncomplete()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[(GlobalOffset, ReassignmentId, Target[DomainId])]] =
+  ): FutureUnlessShutdown[Option[(AbsoluteOffset, ReassignmentId, Target[DomainId])]] =
     // empty table: there are no reassignments
     if (reassignmentDataMap.isEmpty) FutureUnlessShutdown.pure(None)
     else {
@@ -299,7 +298,7 @@ class InMemoryReassignmentStore(
         if (incompleteReassignmentOffsets.isEmpty) FutureUnlessShutdown.pure(None)
         else {
           val default = (
-            GlobalOffset.MaxValue,
+            AbsoluteOffset.MaxValue,
             ReassignmentId(Source(domain.unwrap), CantonTimestamp.MaxValue),
           )
           val minIncompleteTransferOffset =

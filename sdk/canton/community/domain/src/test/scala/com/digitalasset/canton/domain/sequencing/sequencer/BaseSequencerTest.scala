@@ -41,8 +41,8 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, SequencerCounter}
 import com.google.protobuf.ByteString
 import org.apache.pekko.Done
+import org.apache.pekko.stream.KillSwitches
 import org.apache.pekko.stream.scaladsl.{Keep, Source}
-import org.apache.pekko.stream.{KillSwitches, Materializer}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.mutable
@@ -71,8 +71,6 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
       None,
       testedProtocolVersion,
     )
-
-  private implicit val materializer: Materializer = mock[Materializer] // not used
 
   class StubSequencer(existingMembers: Set[Member])
       extends BaseSequencer(

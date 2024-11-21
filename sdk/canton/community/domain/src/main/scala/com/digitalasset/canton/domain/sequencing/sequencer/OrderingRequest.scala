@@ -25,7 +25,7 @@ final case class OrderingRequest[+A <: HasCryptographicEvidence] private (
     content: A,
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[OrderingRequest.type],
-    override val deserializedFrom: Option[ByteString] = None,
+    override val deserializedFrom: Option[ByteString],
 ) extends HasProtocolVersionedWrapper[OrderingRequest[HasCryptographicEvidence]]
     with ProtocolVersionedMemoizedEvidence {
 

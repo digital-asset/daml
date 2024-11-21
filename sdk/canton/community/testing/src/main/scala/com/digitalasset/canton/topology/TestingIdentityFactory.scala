@@ -326,7 +326,7 @@ class TestingIdentityFactory(
 
   private def ips(
       upToInclusive: CantonTimestamp,
-      currentSnapshotApproximationTimestamp: CantonTimestamp = CantonTimestamp.Epoch,
+      currentSnapshotApproximationTimestamp: CantonTimestamp,
   ): IdentityProvidingServiceClient = {
     val ips = new IdentityProvidingServiceClient()
     domains.foreach(dId =>
@@ -663,7 +663,6 @@ class TestingOwnerWithKeys(
   }
 
   object EncryptionKeys {
-    private implicit val ec: ExecutionContext = initEc
     val key1 = genEncKey("enc-key1")
     val key2 = genEncKey("enc-key2")
     val key3 = genEncKey("enc-key3")

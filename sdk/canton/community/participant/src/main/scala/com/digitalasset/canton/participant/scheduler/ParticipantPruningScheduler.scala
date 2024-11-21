@@ -20,7 +20,6 @@ import com.digitalasset.canton.ledger.client.configuration.{
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.MetricsHelper
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
-import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.config.ParticipantStoreConfig
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.digitalasset.canton.participant.pruning.PruningProcessor
@@ -95,7 +94,7 @@ final class ParticipantPruningScheduler(
       offsetByRetention <- EitherT.right[ScheduledRunResult](
         participantNodePersistentState.value.ledgerApiStore
           .lastDomainOffsetBeforeOrAtPublicationTime(timestampByRetention)
-          .map(_.map(_.offset).map(GlobalOffset.tryFromLedgerOffset))
+          .map(_.map(_.offset))
       )
       _ = logger.debug(
         s"Calculating safe-to-prune offset by [offset-by-retention: $offsetByRetention, timestamp-by-retention: $timestampByRetention]"
@@ -133,7 +132,7 @@ final class ParticipantPruningScheduler(
           )
           EitherT.pure[Future, ScheduledRunResult](Done: ScheduledRunResult)
         } { offsetToPruneUpTo =>
-          val pruneUpTo = offsetToPruneUpTo.toLong
+          val pruneUpTo = offsetToPruneUpTo.unwrap
           val submissionId = UUID.randomUUID().toString
           val internally = if (pruneInternallyOnly) "internally" else ""
           logger.info(

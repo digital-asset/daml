@@ -4,7 +4,6 @@
 package com.digitalasset.canton.platform.index
 
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
@@ -46,7 +45,6 @@ import scala.util.control.NoStackTrace
 final class IndexServiceOwner(
     config: IndexServiceConfig,
     dbSupport: DbSupport,
-    servicesExecutionContext: ExecutionContext,
     metrics: LedgerApiServerMetrics,
     engine: Engine,
     participantId: Ref.ParticipantId,
@@ -61,6 +59,7 @@ final class IndexServiceOwner(
     contractLoader: ContractLoader,
     getPackageMetadataSnapshot: ContextualizedErrorLogger => PackageMetadata,
     lfValueTranslation: LfValueTranslation,
+    readApiServiceExecutionContext: ExecutionContextExecutorService,
 ) extends ResourceOwner[IndexService]
     with NamedLogging {
   private val initializationRetryDelay = 100.millis
@@ -72,8 +71,8 @@ final class IndexServiceOwner(
       stringInterning = inMemoryState.stringInterningView,
       contractLoader = contractLoader,
       lfValueTranslation = lfValueTranslation,
+      servicesExecutionContext = readApiServiceExecutionContext,
     )
-
     for {
       _ <- Resource.fromFuture(verifyParticipantId(ledgerDao))
       _ <- Resource.fromFuture(waitForInMemoryStateInitialization())
@@ -83,14 +82,7 @@ final class IndexServiceOwner(
         ledgerDao.contractsReader,
         contractStateCaches = inMemoryState.contractStateCaches,
         loggerFactory = loggerFactory,
-      )(servicesExecutionContext)
-
-      inMemoryFanOutExecutionContext <- buildInMemoryFanOutExecutionContext(
-        metrics = metrics,
-        threadPoolSize = config.inMemoryFanOutThreadPoolSize.getOrElse(
-          IndexServiceConfig.DefaultInMemoryFanOutThreadPoolSize(noTracingLogger)
-        ),
-      ).acquire()
+      )(readApiServiceExecutionContext)
 
       bufferedTransactionsReader = BufferedTransactionsReader(
         delegate = ledgerDao.transactionsReader,
@@ -99,14 +91,14 @@ final class IndexServiceOwner(
         metrics = metrics,
         eventProcessingParallelism = config.bufferedEventsProcessingParallelism,
         loggerFactory = loggerFactory,
-      )(inMemoryFanOutExecutionContext)
+      )(readApiServiceExecutionContext)
 
       bufferedCommandCompletionsReader = BufferedCommandCompletionsReader(
         inMemoryFanoutBuffer = inMemoryState.inMemoryFanoutBuffer,
         delegate = ledgerDao.completions,
         metrics = metrics,
         loggerFactory = loggerFactory,
-      )(inMemoryFanOutExecutionContext)
+      )(readApiServiceExecutionContext)
 
       indexService = new IndexServiceImpl(
         participantId = participantId,
@@ -190,6 +182,7 @@ final class IndexServiceOwner(
       stringInterning: StringInterning,
       contractLoader: ContractLoader,
       lfValueTranslation: LfValueTranslation,
+      servicesExecutionContext: ExecutionContext,
   ): LedgerReadDao =
     JdbcLedgerDao.read(
       dbSupport = dbSupport,
@@ -211,18 +204,6 @@ final class IndexServiceOwner(
       contractLoader = contractLoader,
       lfValueTranslation = lfValueTranslation,
     )
-
-  private def buildInMemoryFanOutExecutionContext(
-      metrics: LedgerApiServerMetrics,
-      threadPoolSize: Int,
-  ): ResourceOwner[ExecutionContextExecutorService] =
-    ResourceOwner
-      .forExecutorService(() =>
-        InstrumentedExecutors.newWorkStealingExecutor(
-          metrics.lapi.threadpool.inMemoryFanOut.toString,
-          threadPoolSize,
-        )
-      )
 
   private object InMemoryStateNotInitialized extends NoStackTrace
 }

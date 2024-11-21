@@ -5,7 +5,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.co
 
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
+import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest
@@ -46,7 +46,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 }
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.SequencerId
-import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 import org.slf4j.event.Level.INFO
 
@@ -374,7 +373,9 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           view2,
           clock.now,
           Seq(
-            viewChangeMessage
+            viewChangeMessage,
+            createViewChange(view2, otherPeer2),
+            createViewChange(view2, otherPeer3),
           ),
           Vector(
             pp1,
@@ -651,7 +652,7 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         originalLeader,
         Seq(
           viewChangeMessage(from = myId),
-          viewChangeMessage(),
+          viewChangeMessage(from = otherPeer3),
           viewChangeMessage(from = otherPeer2),
         ),
         Seq(ppBottom1, ppBottom2, ppBottom3),
@@ -1053,18 +1054,20 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         ViewChangeStartNestedTimer(BlockMetadata(epochInfo.number, block1), view3)
       )
       segment.isViewChangeInProgress shouldBe true
-      segment.processEvent(
-        PbftSignedNetworkMessage(
-          createNewView(
-            view3,
-            otherPeer2,
-            originalLeader,
-            Seq(
-              viewChangeMsgForView3(from = myId),
-              viewChangeMsgForView3(),
-              viewChangeMsgForView3(from = otherPeer2),
-            ),
-            Seq(pp1, ppBottom2, createBottomPrePrepare(block3, view3, otherPeer2)),
+      assertNoLogs(
+        segment.processEvent(
+          PbftSignedNetworkMessage(
+            createNewView(
+              view3,
+              otherPeer2,
+              originalLeader,
+              Seq(
+                viewChangeMsgForView3(from = myId),
+                viewChangeMsgForView3(from = otherPeer1),
+                viewChangeMsgForView3(from = otherPeer2),
+              ),
+              Seq(pp1, ppBottom2, createBottomPrePrepare(block3, view3, otherPeer2)),
+            )
           )
         )
       )
@@ -1253,16 +1256,6 @@ object SegmentStateTest {
   val epochInfo: EpochInfo =
     EpochInfo.mk(number = EpochNumber.First, startBlockNumber = BlockNumber.First, length = 12)
   val blockMetaData: BlockMetadata = BlockMetadata.mk(epochInfo.number, BlockNumber.First)
-  val canonicalCommitSet: CanonicalCommitSet = CanonicalCommitSet(
-    Set(
-      createCommit(
-        epochInfo.startBlockNumber,
-        ViewNumber.First,
-        myId,
-        Hash.digest(HashPurpose.BftOrderingPbftBlock, ByteString.EMPTY, HashAlgorithm.Sha256),
-      )
-    )
-  )
 
   def createBottomPrePrepare(
       blockNumber: BlockNumber,
@@ -1291,7 +1284,7 @@ object SegmentStateTest {
         ViewNumber(view),
         CantonTimestamp.Epoch,
         OrderingBlock(Seq.empty),
-        canonicalCommitSet,
+        CanonicalCommitSet(Set.empty),
         from,
       )
       .fakeSign
@@ -1357,8 +1350,8 @@ object SegmentStateTest {
   def createViewChange(
       viewNumber: Long,
       from: SequencerId,
-      originalLeader: SequencerId,
-      slotsAndViewNumbers: Seq[(Long, Long)],
+      originalLeader: SequencerId = myId,
+      slotsAndViewNumbers: Seq[(Long, Long)] = Seq.empty,
   ): SignedMessage[ViewChange] = {
     val originalLeaderIndex = allPeers.indexOf(originalLeader)
     val certs = slotsAndViewNumbers.map { case (slot, view) =>

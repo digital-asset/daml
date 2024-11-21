@@ -75,7 +75,9 @@ class BufferedStreamsReader[PERSISTENCE_FETCH_ARGS, API_RESPONSE](
             bufferReaderMetrics.fetchedBuffered.inc()
             Timed.future(
               bufferReaderMetrics.conversion,
-              toApiResponse(payload).map(offset -> _)(directEc),
+              Future.delegate {
+                toApiResponse(payload).map(offset -> _)(directEc)
+              },
             )
           }
 

@@ -17,7 +17,7 @@ import io.scalaland.chimney.Transformer
   *
   * Unlike [[Salt]] this seed will not be shipped to another participant.
   */
-abstract sealed case class SaltSeed(unwrap: ByteString)
+final case class SaltSeed private (unwrap: ByteString)
 
 object SaltSeed {
 
@@ -25,7 +25,7 @@ object SaltSeed {
   val defaultLength = 16
 
   private[crypto] def apply(bytes: ByteString): SaltSeed =
-    new SaltSeed(bytes) {}
+    new SaltSeed(bytes)
 
   def generate(length: Int = defaultLength)(randomOps: RandomOps): SaltSeed =
     SaltSeed(randomOps.generateRandomByteString(length))

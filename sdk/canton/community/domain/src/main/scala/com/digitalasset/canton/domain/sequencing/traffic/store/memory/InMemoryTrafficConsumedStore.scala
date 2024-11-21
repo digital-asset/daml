@@ -12,7 +12,6 @@ import com.digitalasset.canton.sequencing.traffic.TrafficConsumed
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 
-import java.util.concurrent.atomic.AtomicReference
 import scala.collection.concurrent.TrieMap
 import scala.collection.immutable.SortedSet
 import scala.concurrent.{Future, blocking}
@@ -25,7 +24,6 @@ class InMemoryTrafficConsumedStore(override protected val loggerFactory: NamedLo
   implicit private val trafficConsumedOrdering: Ordering[TrafficConsumed] =
     Ordering.by(_.sequencingTimestamp)
   private val trafficConsumedMap = TrieMap.empty[Member, NonEmpty[SortedSet[TrafficConsumed]]]
-  private val initTimestamp: AtomicReference[Option[CantonTimestamp]] = new AtomicReference(None)
   // Clearing the table can prevent memory leaks
   override def close(): Unit = trafficConsumedMap.clear()
   override def store(trafficUpdates: Seq[TrafficConsumed])(implicit

@@ -14,7 +14,12 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   EpochNumber,
   ViewNumber,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.availability.OrderingBlock
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.availability.{
+  BatchId,
+  OrderingBlock,
+  ProofOfAvailability,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.bfttime.CanonicalCommitSet
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.BlockMetadata
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.{
@@ -25,6 +30,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
   Commit,
+  NewView,
   PrePrepare,
   Prepare,
   ViewChange,
@@ -52,13 +58,14 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
   private def prePrepare(
       epochNumber: Long,
       blockNumber: Long,
-      viewNumber: Long = ViewNumber.First,
+      viewNumber: Long,
+      block: OrderingBlock = OrderingBlock(Seq.empty),
   ) = PrePrepare
     .create(
       BlockMetadata.mk(epochNumber, blockNumber),
       ViewNumber(viewNumber),
       CantonTimestamp.Epoch,
-      OrderingBlock(Seq.empty),
+      block,
       CanonicalCommitSet(Set.empty),
       from = myId,
     )
@@ -98,17 +105,38 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
       )
       .fakeSign
 
-  private def viewChangeMsg(viewNumber: ViewNumber, consensusCerts: Seq[ConsensusCertificate]) =
+  private def viewChangeMsg(
+      viewNumber: ViewNumber,
+      consensusCerts: Seq[ConsensusCertificate],
+      epochNumber: Long = 0L,
+      segment: Long = 0L,
+      from: SequencerId = myId,
+  ) =
     ViewChange.create(
-      BlockMetadata(EpochNumber(0), BlockNumber(0)),
+      BlockMetadata(EpochNumber(epochNumber), BlockNumber(segment)),
       0,
       viewNumber,
       CantonTimestamp.Epoch,
       consensusCerts,
-      myId,
+      from,
     )
 
-  "ViewChangeMessageValidator" should {
+  private def newViewMessage(
+      viewNumber: ViewNumber,
+      viewChanges: Seq[SignedMessage[ViewChange]],
+      prePrepares: Seq[SignedMessage[PrePrepare]],
+      from: SequencerId = myId,
+  ): NewView = NewView.create(
+    BlockMetadata(EpochNumber(0), BlockNumber(0)),
+    0,
+    viewNumber,
+    CantonTimestamp.Epoch,
+    viewChanges,
+    prePrepares,
+    from,
+  )
+
+  "ViewChangeMessageValidator.validateViewChangeMessage" should {
     "successfully validate view-change message with no certificates" in {
       val validator = new ViewChangeMessageValidator(membership, blockNumbers)
 
@@ -318,4 +346,267 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
     }
   }
 
+  "ViewChangeMessageValidator.validateNewViewMessage" should {
+    "successfully validate new-view message with empty view-change messages" in {
+      val validator = new ViewChangeMessageValidator(membership, blockNumbers)
+
+      val newView = newViewMessage(
+        view1,
+        Seq(
+          viewChangeMsg(view1, Seq.empty).fakeSign,
+          viewChangeMsg(view1, Seq.empty, from = otherId).fakeSign,
+        ),
+        Seq(
+          prePrepare(epochNumber, 1L, view1),
+          prePrepare(epochNumber, 3L, view1),
+          prePrepare(epochNumber, 5L, view1),
+        ),
+      )
+
+      val result = validator.validateNewViewMessage(newView)
+
+      result shouldBe Right(())
+    }
+
+    "error when there are view changes are for wrong epoch" in {
+      val validator = new ViewChangeMessageValidator(membership, blockNumbers)
+
+      val newView = newViewMessage(
+        view1,
+        Seq(
+          viewChangeMsg(view1, Seq.empty, epochNumber = 3).fakeSign,
+          viewChangeMsg(view1, Seq.empty, epochNumber = 2).fakeSign,
+        ),
+        Seq.empty,
+      )
+
+      val result = validator.validateNewViewMessage(newView)
+
+      result shouldBe Left("there are view change messages for the wrong epoch (3, 2 instead of 0)")
+    }
+
+    "error when there are view changes are for wrong segment" in {
+      val validator = new ViewChangeMessageValidator(membership, blockNumbers)
+
+      val newView = newViewMessage(
+        view1,
+        Seq(
+          viewChangeMsg(view1, Seq.empty, segment = 3).fakeSign,
+          viewChangeMsg(view1, Seq.empty, segment = 2).fakeSign,
+        ),
+        Seq.empty,
+      )
+
+      val result = validator.validateNewViewMessage(newView)
+
+      result shouldBe Left(
+        "there are view change messages for the wrong segment identifier (3, 2 instead of 0)"
+      )
+    }
+
+    "error when there are view changes are for wrong view" in {
+      val validator = new ViewChangeMessageValidator(membership, blockNumbers)
+
+      val newView = newViewMessage(
+        view1,
+        Seq(
+          viewChangeMsg(view0, Seq.empty).fakeSign,
+          viewChangeMsg(view2, Seq.empty).fakeSign,
+        ),
+        Seq.empty,
+      )
+
+      val result = validator.validateNewViewMessage(newView)
+
+      result shouldBe Left(
+        "there are view change messages for the wrong view (0, 2 instead of 1)"
+      )
+    }
+
+    "error when there are multiple view changes from the same sender" in {
+      val validator = new ViewChangeMessageValidator(membership, blockNumbers)
+
+      val newView = newViewMessage(
+        view1,
+        Seq(
+          viewChangeMsg(view1, Seq.empty).fakeSign,
+          viewChangeMsg(view1, Seq.empty).fakeSign,
+        ),
+        Seq.empty,
+      )
+
+      val result = validator.validateNewViewMessage(newView)
+
+      result shouldBe Left(
+        "there are more than one view change messages from the same sender for the following nodes: SEQ::ns::fake_self"
+      )
+    }
+
+    "error when there is not exactly a quorum of view change messages" in {
+      val validator = new ViewChangeMessageValidator(membership, blockNumbers)
+
+      val newView = newViewMessage(
+        view1,
+        Seq(
+          viewChangeMsg(view1, Seq.empty).fakeSign
+        ),
+        Seq.empty,
+      )
+
+      val result = validator.validateNewViewMessage(newView)
+
+      result shouldBe Left(
+        "expected 2 view-change messages, but got 1"
+      )
+    }
+
+    "error when there is an invalid view change" in {
+      val validator = new ViewChangeMessageValidator(membership, blockNumbers)
+
+      val invalidViewChangeMessage = viewChangeMsg(
+        view1,
+        // prepare certificate with wrong epoch
+        Seq(PrepareCertificate(prePrepare(epochNumber + 1, 1L, view0), Seq.empty)),
+        from = otherId,
+      ).fakeSign
+
+      val newView = newViewMessage(
+        view1,
+        Seq(
+          viewChangeMsg(view1, Seq.empty).fakeSign,
+          invalidViewChangeMessage,
+        ),
+        Seq.empty,
+      )
+
+      val result = validator.validateNewViewMessage(newView)
+
+      result shouldBe Left(
+        "view change message from SEQ::ns::fake_otherId is invalid: there are consensus certs for the wrong epoch (1)"
+      )
+    }
+
+    "error when pre-prepares are not exactly for the blocks in the segment" in {
+      val validator = new ViewChangeMessageValidator(membership, blockNumbers)
+
+      val newView = newViewMessage(
+        view1,
+        Seq(
+          viewChangeMsg(view1, Seq.empty).fakeSign,
+          viewChangeMsg(view1, Seq.empty, from = otherId).fakeSign,
+        ),
+        Seq(
+          prePrepare(epochNumber, 1L, view1),
+          prePrepare(epochNumber, 2L, view1),
+          prePrepare(epochNumber, 5L, view1),
+        ),
+      )
+
+      val result = validator.validateNewViewMessage(newView)
+
+      result shouldBe Left(
+        "expected pre-prepares to be for blocks (in-order) 1, 3, 5 but instead they were for 1, 2, 5"
+      )
+    }
+    "error when there are pre-prepares for the wrong epoch" in {
+      val validator = new ViewChangeMessageValidator(membership, blockNumbers)
+
+      val newView = newViewMessage(
+        view1,
+        Seq(
+          viewChangeMsg(view1, Seq.empty).fakeSign,
+          viewChangeMsg(view1, Seq.empty, from = otherId).fakeSign,
+        ),
+        Seq(
+          prePrepare(epochNumber, 1L, view1),
+          prePrepare(epochNumber + 1, 3L, view1),
+          prePrepare(epochNumber + 2, 5L, view1),
+        ),
+      )
+
+      val result = validator.validateNewViewMessage(newView)
+
+      result shouldBe Left(
+        "there are pre-prepares for the wrong epoch (1, 2 instead of 0)"
+      )
+    }
+
+    "successfully validate new-view with correctly picked pre-prepares from certificates" in {
+      val validator = new ViewChangeMessageValidator(Membership(myId), blockNumbers)
+
+      val pp1 = prePrepare(epochNumber, 1L, view0)
+      val pp3 = prePrepare(epochNumber, 3L, view0)
+
+      val pc = PrepareCertificate(pp1, Seq(prepare(epochNumber, 1L, pp1.message.hash)))
+      val cc = CommitCertificate(pp3, Seq(commit(epochNumber, 3L, pp3.message.hash)))
+
+      val newView = newViewMessage(
+        view1,
+        Seq(
+          viewChangeMsg(view1, Seq[ConsensusCertificate](pc, cc)).fakeSign
+        ),
+        Seq(pp1, pp3, prePrepare(epochNumber, 5L, view1)),
+      )
+
+      val result = validator.validateNewViewMessage(newView)
+
+      result shouldBe Right(())
+    }
+  }
+
+  "error when pre-prepares don't match the ones from the certificates" in {
+    val validator = new ViewChangeMessageValidator(Membership(myId), blockNumbers)
+
+    val pp1 = prePrepare(epochNumber, 1L, view0)
+    val pp3 = prePrepare(epochNumber, 3L, view0)
+
+    val pc = PrepareCertificate(pp1, Seq(prepare(epochNumber, 1L, pp1.message.hash)))
+    val cc = CommitCertificate(pp3, Seq(commit(epochNumber, 3L, pp3.message.hash)))
+
+    val newView = newViewMessage(
+      view1,
+      Seq(
+        viewChangeMsg(view1, Seq[ConsensusCertificate](pc, cc)).fakeSign
+      ),
+      Seq(
+        prePrepare(epochNumber, 1L, view1),
+        prePrepare(epochNumber, 3L, view1),
+        prePrepare(epochNumber, 5L, view1),
+      ),
+    )
+
+    val result = validator.validateNewViewMessage(newView)
+
+    result shouldBe Left(
+      "pre-prepare for block 1 does not match the one expected from consensus certificate, pre-prepare for block 3 does not match the one expected from consensus certificate"
+    )
+  }
+
+  "error when bottom pre-prepares don't match expectations of what they should look like" in {
+    val validator = new ViewChangeMessageValidator(Membership(myId), blockNumbers)
+
+    val newView = newViewMessage(
+      view1,
+      Seq(
+        viewChangeMsg(view1, Seq.empty).fakeSign
+      ),
+      Seq(
+        prePrepare(epochNumber, 1L, view1 + 1),
+        prePrepare(
+          epochNumber,
+          3L,
+          view1,
+          block =
+            OrderingBlock(Seq(ProofOfAvailability(BatchId.createForTesting("hash"), Seq.empty))),
+        ),
+        prePrepare(epochNumber, 5L, view1),
+      ),
+    )
+
+    val result = validator.validateNewViewMessage(newView)
+
+    result shouldBe Left(
+      "pre-prepare for bottom block 1 should be for view 1 but it is for 2, pre-prepare for block 3 should be for bottom block, but it contains proofs of availability"
+    )
+  }
 }
