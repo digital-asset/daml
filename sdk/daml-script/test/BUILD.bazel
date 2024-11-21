@@ -224,7 +224,7 @@ da_scala_library(
 daml_compile(
     name = "try-submit-test-1.15",
     srcs = [":daml/Daml3ScriptTrySubmit15.daml"],
-    dependencies = [
+    data_dependencies = [
         "//daml-script/daml3:daml3-script-1.15.dar",
     ],
     project_name = "try-submit-test",
@@ -235,7 +235,7 @@ daml_compile(
 daml_compile(
     name = "upgrade-test-lib",
     srcs = [":daml/UpgradeTestLib.daml"],
-    dependencies = [
+    data_dependencies = [
         "//daml-script/daml3:daml3-script-1.dev.dar",
     ],
     project_name = "upgrade-test-lib",

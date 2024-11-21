@@ -11,13 +11,22 @@ load("//rules_daml:daml.bzl", "daml_compile")
 
 # Copy the internal library over to top level, to keep a nice bazel path
 [
-    copy_file(
-        name = "daml3-script-{}".format(lf_version),
-        src = "//daml-script/daml3/internal:daml3-script-{}.dar".format(lf_version),
-        out = "daml3-script-{}.dar".format(lf_version),
-        allow_symlink = True,
-        visibility = ["//visibility:public"],
-    )
+    [
+        copy_file(
+            name = "daml3-script-{}".format(lf_version),
+            src = "//daml-script/daml3/internal:daml3-script-{}.dar".format(lf_version),
+            out = "daml3-script-{}.dar".format(lf_version),
+            allow_symlink = True,
+            visibility = ["//visibility:public"],
+        ),
+        copy_file(
+            name = "daml3-script-stable-{}".format(lf_version),
+            src = "//daml-script/daml3/stable:daml3-script-stable-{}.dar".format(lf_version),
+            out = "daml3-script-stable-{}.dar".format(lf_version),
+            allow_symlink = True,
+            visibility = ["//visibility:public"],
+        ),
+    ]
     for lf_version in COMPILER_LF_VERSIONS
 ]
 
@@ -35,6 +44,10 @@ filegroup(
     name = "daml3-script-dars",
     srcs = [
         "daml3-script-{}.dar".format(lf_version)
+        for lf_version in COMPILER_LF_VERSIONS
+    ] +
+    [
+        "daml3-script-stable-{}.dar".format(lf_version)
         for lf_version in COMPILER_LF_VERSIONS
     ],
     visibility = ["//visibility:public"],

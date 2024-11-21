@@ -72,7 +72,7 @@ data TestArgs = TestArgs
 
 data DataDependenciesTestOptions = DataDependenciesTestOptions
   { buildOptions :: [String]
-  , extraDeps :: [FilePath]
+  , dataDeps :: [FilePath]
   }
 
 darPackageIds :: FilePath -> IO [LF.PackageId]
@@ -696,8 +696,8 @@ tests TestArgs{..} =
           , "name: proj"
           , "version: 0.1.0"
           , "source: ."
-          , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDevDar <> "]"
-          , "data-dependencies: [simple-dalf-1.0.0.dalf]"
+          , "dependencies: [daml-prim, daml-stdlib]"
+          , "data-dependencies: [simple-dalf-1.0.0.dalf, " <> show scriptDevDar <> "]"
           , "build-options: [--package=simple-dalf-1.0.0]"
           ]
         writeFileUTF8 (projDir </> "A.daml") $ unlines
@@ -2384,10 +2384,11 @@ tests TestArgs{..} =
 
         step mainProj >> do
           createDirectoryIfMissing True (path mainProj)
-          writeFileUTF8 (damlYaml mainProj) $ damlYamlBody mainProj [scriptDevDar]
+          writeFileUTF8 (damlYaml mainProj) $ damlYamlBody mainProj []
             [ tokenProj
             , fancyTokenProj
             , assetProj
+            , scriptDevDar
             ]
           writeFileUTF8 (damlMod mainProj "Main") $ unlines
             [ "{-# LANGUAGE ApplicativeDo #-}"
@@ -2684,8 +2685,9 @@ tests TestArgs{..} =
             , "name: main"
             , "source: ."
             , "version: 0.1.0"
-            , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDevDar <> "]"
+            , "dependencies: [daml-prim, daml-stdlib]"
             , "data-dependencies: "
+            , "  - " <> show scriptDevDar
             , "  - " <> (tmpDir </> "lib" </> "lib.dar")
             ]
         writeFileUTF8 (tmpDir </> "main" </> "Main.daml") $ unlines
@@ -2766,7 +2768,7 @@ tests TestArgs{..} =
     optionsDevScript :: DataDependenciesTestOptions
     optionsDevScript = defTestOptions
         { buildOptions = ["--target=" <> LF.renderVersion targetDevVersion, "-Wupgrade-interfaces"]
-        , extraDeps = [scriptDevDar]
+        , dataDeps = [scriptDevDar]
         }
 
     simpleImportTest :: String -> [String] -> [String] -> TestTree
@@ -2780,11 +2782,11 @@ tests TestArgs{..} =
     dataDependenciesTest title = dataDependenciesTestOptions title defTestOptions
 
     dataDependenciesTestOptions :: String -> DataDependenciesTestOptions -> [(FilePath, [String])] -> [(FilePath, [String])] -> TestTree
-    dataDependenciesTestOptions title (DataDependenciesTestOptions buildOptions extraDeps) libModules mainModules =
+    dataDependenciesTestOptions title (DataDependenciesTestOptions buildOptions dataDeps) libModules mainModules =
         testCaseSteps title $ \step -> withTempDir $ \tmpDir -> do
             step "building project to be imported via data-dependencies"
             createDirectoryIfMissing True (tmpDir </> "lib")
-            let deps = ["daml-prim", "daml-stdlib"] <> fmap show extraDeps
+            let deps = ["daml-prim", "daml-stdlib"]
             writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
                 [ "sdk-version: " <> sdkVersion
                 , "name: lib"
@@ -2792,6 +2794,7 @@ tests TestArgs{..} =
                 , "source: ."
                 , "version: 0.1.0"
                 , "dependencies: [" <> intercalate ", " deps <> "]"
+                , "data-dependencies: [" <> intercalate ", " (fmap show dataDeps) <> "]"
                 ]
             forM_ libModules $ \(path, contents) ->
                 writeFileUTF8 (tmpDir </> "lib" </> path) $ unlines contents

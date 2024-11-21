@@ -1466,7 +1466,7 @@ daml_compile(
 daml_compile(
     name = "try-submit-test",
     srcs = ["daml-test-files/Daml3ScriptTrySubmit.daml"],
-    dependencies = [
+    data_dependencies = [
         "//daml-script/daml3:daml3-script-1.dev.dar",
     ],
     project_name = "try-submit-test",
@@ -1477,7 +1477,7 @@ daml_compile(
 daml_compile(
     name = "try-submit-concurrently-test",
     srcs = ["daml-test-files/Daml3ScriptTrySubmitConcurrently.daml"],
-    dependencies = [
+    data_dependencies = [
         "//daml-script/daml3:daml3-script-1.dev.dar",
     ],
     project_name = "try-submit-concurrently-test",
@@ -1488,7 +1488,7 @@ daml_compile(
 daml_compile(
     name = "query-test",
     srcs = ["daml-test-files/Query.daml"],
-    dependencies = [
+    data_dependencies = [
         "//daml-script/daml3:daml3-script-1.dev.dar",
     ],
     target = "1.dev",
