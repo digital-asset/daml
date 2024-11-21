@@ -113,6 +113,8 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
   case object ExpectUpgradeError extends ExpectedOutcome("should fail with an upgrade error")
   case object ExpectUnhandledException
       extends ExpectedOutcome("should fail with an unhandled exception")
+  case object ExpectInternalInterpretationError
+      extends ExpectedOutcome("should fail with an internal interpretation error")
 
   /** Represents an LF value specified both as some string we can splice into the textual representation of LF, and as a
     * scala value we can splice into an [[ApiCommand]].
@@ -726,7 +728,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
 
     override def choiceArgLf(v2PkgId: PackageId) = {
       val qualifiedRecordName = s"'$v2PkgId':Mod:$recordName"
-      s"{ r = $qualifiedRecordName { n = 0, extra = None @Unit } }"
+      s"{ r = $qualifiedRecordName { n = 0, extra = Some @Unit () } }"
     }
     override def choiceArgValue(v2PkgId: PackageId) = {
       val v2RecordId =
@@ -802,13 +804,12 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     }
   }
 
-  case object AdditionalTemplateChoiceArg
-      extends TestCase("AdditionalTemplateChoiceArg", ExpectSuccess) {
+  case object AdditionalChoiceArg extends TestCase("AdditionalChoiceArg", ExpectSuccess) {
 
     override def v1ChoiceArgTypeDef = s"{ n : Int64 }"
     override def v2ChoiceArgTypeDef = s"{ n : Int64, extra: Option Unit }"
 
-    override def choiceArgLf(v2PkgId: PackageId) = s"{ n = 0, extra = None @Unit }"
+    override def choiceArgLf(v2PkgId: PackageId) = s"{ n = 0, extra = Some @Unit () }"
     override def choiceArgValue(v2PkgId: PackageId) = {
       ImmArray(
         Some("n": Name) -> ValueInt64(0),
@@ -936,6 +937,230 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       s"""throw @'$commonDefsPkgId':Mod:MyView @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "View"})"""
   }
 
+  case object ValidDowngradeAdditionalTemplateArg
+      extends TestCase("ValidDowngradeAdditionalTemplateArg", ExpectSuccess) {
+    override def v1AdditionalFields = ", extra: Option Unit"
+    override def v2AdditionalFields = ""
+
+    override def additionalCreateArgsLf(v1PkgId: PackageId): String =
+      s", extra = None @Unit"
+
+    override def additionalCreateArgsValue(v1PkgId: PackageId) = {
+      ImmArray(
+        Some("extra": Name) -> ValueOptional(None)
+      )
+    }
+  }
+
+  case object InvalidDowngradeAdditionalTemplateArg
+      extends TestCase("InvalidDowngradeAdditionalTemplateArg", ExpectUpgradeError) {
+    override def v1AdditionalFields = ", extra: Option Unit"
+    override def v2AdditionalFields = ""
+
+    override def additionalCreateArgsLf(v1PkgId: PackageId): String =
+      s", extra = Some @Unit ()"
+
+    override def additionalCreateArgsValue(v1PkgId: PackageId) = {
+      ImmArray(
+        Some("extra": Name) -> ValueOptional(Some(ValueUnit))
+      )
+    }
+  }
+
+  case object ValidDowngradeAdditionalFieldInRecordArg
+      extends TestCase("ValidDowngradeAdditionalFieldInRecordArg", ExpectSuccess) {
+
+    val recordName = s"${templateName}Record"
+
+    override def v1AdditionalDefinitions: String =
+      s"record @serializable $recordName = { n : Int64, extra: Option Unit };"
+    override def v2AdditionalDefinitions: String =
+      s"record @serializable $recordName = { n : Int64 };"
+
+    override def v1AdditionalFields = s", r: Mod:$recordName"
+    override def v2AdditionalFields = v1AdditionalFields
+
+    override def additionalCreateArgsLf(v1PkgId: PackageId): String = {
+      val qualifiedRecordName = s"'$v1PkgId':Mod:$recordName"
+      s", r = $qualifiedRecordName { n = 0, extra = None @Unit }"
+    }
+
+    override def additionalCreateArgsValue(v1PkgId: PackageId) = {
+      val v1RecordId =
+        Identifier(v1PkgId, s"Mod:$recordName")
+      ImmArray(
+        Some("r": Name) -> ValueRecord(
+          Some(v1RecordId),
+          ImmArray(
+            Some("n": Name) -> ValueInt64(0),
+            Some("extra": Name) -> ValueOptional(None),
+          ),
+        )
+      )
+    }
+  }
+
+  case object InvalidDowngradeAdditionalFieldInRecordArg
+      extends TestCase("InvalidDowngradeAdditionalFieldInRecordArg", ExpectUpgradeError) {
+
+    val recordName = s"${templateName}Record"
+
+    override def v1AdditionalDefinitions: String =
+      s"record @serializable $recordName = { n : Int64, extra: Option Unit };"
+    override def v2AdditionalDefinitions: String =
+      s"record @serializable $recordName = { n : Int64 };"
+
+    override def v1AdditionalFields = s", r: Mod:$recordName"
+    override def v2AdditionalFields = v1AdditionalFields
+
+    override def additionalCreateArgsLf(v1PkgId: PackageId): String = {
+      val qualifiedRecordName = s"'$v1PkgId':Mod:$recordName"
+      s", r = $qualifiedRecordName { n = 0, extra = Some @Unit () }"
+    }
+
+    override def additionalCreateArgsValue(v1PkgId: PackageId) = {
+      val v1RecordId =
+        Identifier(v1PkgId, s"Mod:$recordName")
+      ImmArray(
+        Some("r": Name) -> ValueRecord(
+          Some(v1RecordId),
+          ImmArray(
+            Some("n": Name) -> ValueInt64(0),
+            Some("extra": Name) -> ValueOptional(Some(ValueUnit)),
+          ),
+        )
+      )
+    }
+  }
+
+  case object ValidDowngradeAdditionalConstructorInVariantArg
+      extends TestCase("ValidDowngradeAdditionalConstructorInVariantArg", ExpectSuccess) {
+
+    val variantName = s"${templateName}Variant"
+
+    override def v1AdditionalDefinitions: String =
+      s"variant @serializable $variantName = Ctor1: Int64 | Ctor2: Unit;"
+    override def v2AdditionalDefinitions: String =
+      s"variant @serializable $variantName = Ctor1: Int64;"
+
+    override def v1AdditionalFields = s", v: Mod:$variantName"
+    override def v2AdditionalFields = v1AdditionalFields
+
+    override def additionalCreateArgsLf(v1PkgId: PackageId): String = {
+      val qualifiedVariantName = s"'$v1PkgId':Mod:$variantName"
+      s", v = $qualifiedVariantName:Ctor1 0"
+    }
+
+    override def additionalCreateArgsValue(v1PkgId: PackageId) = {
+      val v1VariantId =
+        Identifier(v1PkgId, s"Mod:$variantName")
+      ImmArray(
+        Some("v": Name) -> ValueVariant(
+          Some(v1VariantId),
+          "Ctor1",
+          ValueInt64(0),
+        )
+      )
+    }
+  }
+
+  // TODO(https://github.com/digital-asset/daml/issues/17647): This should be an upgrade or lookup error.
+  case object InvalidDowngradeAdditionalConstructorInVariantArg
+      extends TestCase(
+        "InvalidDowngradeAdditionalConstructorInVariantArg",
+        ExpectInternalInterpretationError,
+      ) {
+
+    val variantName = s"${templateName}Variant"
+
+    override def v1AdditionalDefinitions: String =
+      s"variant @serializable $variantName = Ctor1: Int64 | Ctor2: Unit;"
+    override def v2AdditionalDefinitions: String =
+      s"variant @serializable $variantName = Ctor1: Int64;"
+
+    override def v1AdditionalFields = s", v: Mod:$variantName"
+    override def v2AdditionalFields = v1AdditionalFields
+
+    override def additionalCreateArgsLf(v1PkgId: PackageId): String = {
+      val qualifiedVariantName = s"'$v1PkgId':Mod:$variantName"
+      s", v = $qualifiedVariantName:Ctor2 ()"
+    }
+
+    override def additionalCreateArgsValue(v1PkgId: PackageId) = {
+      val v1VariantId =
+        Identifier(v1PkgId, s"Mod:$variantName")
+      ImmArray(
+        Some("v": Name) -> ValueVariant(
+          Some(v1VariantId),
+          "Ctor2",
+          ValueUnit,
+        )
+      )
+    }
+  }
+
+  case object ValidDowngradeAdditionalConstructorInEnumArg
+      extends TestCase("ValidDowngradeAdditionalConstructorInEnumArg", ExpectSuccess) {
+
+    val enumName = s"${templateName}Enum"
+
+    override def v1AdditionalDefinitions: String =
+      s"enum @serializable $enumName = Ctor1 | Ctor2;"
+    override def v2AdditionalDefinitions: String =
+      s"enum @serializable $enumName = Ctor1;"
+
+    override def v1AdditionalFields = s", e: Mod:$enumName"
+    override def v2AdditionalFields = v1AdditionalFields
+
+    override def additionalCreateArgsLf(v1PkgId: PackageId): String = {
+      val qualifiedEnumName = s"'$v1PkgId':Mod:$enumName"
+      s", e = $qualifiedEnumName:Ctor1"
+    }
+
+    override def additionalCreateArgsValue(v1PkgId: PackageId) = {
+      val v1EnumId = Identifier(v1PkgId, s"Mod:$enumName")
+      ImmArray(
+        Some("e": Name) -> ValueEnum(
+          Some(v1EnumId),
+          "Ctor1",
+        )
+      )
+    }
+  }
+
+  // TODO(https://github.com/digital-asset/daml/issues/17647): This should be an upgrade or lookup error.
+  case object InvalidDowngradeAdditionalConstructorInEnumArg
+      extends TestCase(
+        "InvalidDowngradeAdditionalConstructorInEnumArg",
+        ExpectInternalInterpretationError,
+      ) {
+
+    val enumName = s"${templateName}Enum"
+
+    override def v1AdditionalDefinitions: String =
+      s"enum @serializable $enumName = Ctor1 | Ctor2;"
+    override def v2AdditionalDefinitions: String =
+      s"enum @serializable $enumName = Ctor1;"
+
+    override def v1AdditionalFields = s", e: Mod:$enumName"
+    override def v2AdditionalFields = v1AdditionalFields
+
+    override def additionalCreateArgsLf(v1PkgId: PackageId): String = {
+      val qualifiedEnumName = s"'$v1PkgId':Mod:$enumName"
+      s", e = $qualifiedEnumName:Ctor2"
+    }
+
+    override def additionalCreateArgsValue(v1PkgId: PackageId) = {
+      val v1EnumId = Identifier(v1PkgId, s"Mod:$enumName")
+      ImmArray(
+        Some("e": Name) -> ValueEnum(
+          Some(v1EnumId),
+          "Ctor2",
+        )
+      )
+    }
+  }
+
   val testCases: Seq[TestCase] = List(
     UnchangedPrecondition,
     ChangedPrecondition,
@@ -959,7 +1184,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     AdditionalFieldInChoiceArgRecordField,
     AdditionalConstructorInChoiceArgVariantField,
     AdditionalConstructorInChoiceArgEnumField,
-    AdditionalTemplateChoiceArg,
+    AdditionalChoiceArg,
     AdditionalFieldInRecordArg,
     AdditionalConstructorInVariantArg,
     AdditionalConstructorInEnumArg,
@@ -968,6 +1193,14 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     ThrowingInterfaceChoiceControllers,
     ThrowingInterfaceChoiceObservers,
     ThrowingView,
+    ValidDowngradeAdditionalTemplateArg,
+    InvalidDowngradeAdditionalTemplateArg,
+    ValidDowngradeAdditionalFieldInRecordArg,
+    InvalidDowngradeAdditionalFieldInRecordArg,
+    ValidDowngradeAdditionalConstructorInVariantArg,
+    InvalidDowngradeAdditionalConstructorInVariantArg,
+    ValidDowngradeAdditionalConstructorInEnumArg,
+    InvalidDowngradeAdditionalConstructorInEnumArg,
   )
 
   val templateDefsPkgName = PackageName.assertFromString("-template-defs-")
@@ -1342,6 +1575,10 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       case ExpectUnhandledException =>
         inside(result) { case Left(EE.Interpretation(EE.Interpretation.DamlException(error), _)) =>
           error shouldBe a[IE.UnhandledException]
+        }
+      case ExpectInternalInterpretationError =>
+        inside(result) { case Left(EE.Interpretation(error, _)) =>
+          error shouldBe a[EE.Interpretation.Internal]
         }
     }
   }
