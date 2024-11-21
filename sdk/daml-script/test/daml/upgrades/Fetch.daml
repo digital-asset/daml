@@ -177,7 +177,7 @@ fetchDowngradedNone = test $ do
   v1Name <- a `exerciseV1Util` V1.DoFetch with cid = v1Cid
   v1Name === V1.FetchTemplate with party = a
 
-mkFetchDowngradedSome : Show b => Text -> (Party -> Party -> Script (Either UpgradeError b)) -> (Text, Test)
+mkFetchDowngradedSome : Show b => Text -> (Party -> Party -> Script (Either SubmitError b)) -> (Text, Test)
 mkFetchDowngradedSome trailer f = ("Fail to downgrade a contract with Somes when fetching (" <> description <> ")", s)
   where
   s = test $ do
