@@ -640,17 +640,6 @@ templateOptionalFieldsSetWhenDowngradingViaKeyExerciseInCommandLocal = test $ do
     Left (DevError Upgrade msg) | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg -> pure ()
     _ -> assertFail $ "Expected specific failure but got " <> show res
 
--- Not sure how to implement this
---templateOptionalFieldsSetWhenDowngradingViaExerciseLocalContractCommand : Test
---templateOptionalFieldsSetWhenDowngradingViaExerciseLocalContractCommand = test $ do
---  a <- allocatePartyOn "alice" participant0
---  res <- trySubmit (actAs a) $ (,) <$>
---    createAndExerciseExactCmd (V2.OptionalFieldsAddedCallHelper a) (V2.OptionalFieldsAddedCallHelperMake (V2.OptionalFieldsAdded a (Some "V1")) a) <*>
---    createAndExerciseExactCmd (V1.OptionalFieldsAddedCallHelper a) (V1.OptionalFieldsAddedCallHelperCall (V1.OptionalFieldsAddedKey a) a)
---  case res of
---    Left (DevError Upgrade msg) | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg -> pure ()
---    _ -> assertFail $ "Expected specific failure but got " <> show res
-
 templateOptionalFieldsSetWhenDowngradingViaCIDExerciseInCommandDisclosed : Test
 templateOptionalFieldsSetWhenDowngradingViaCIDExerciseInCommandDisclosed = test $ do
   a <- allocatePartyOn "alice" participant0
