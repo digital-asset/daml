@@ -178,7 +178,7 @@ fetchDowngradedNone = test $ do
   v1Name === V1.FetchTemplate with party = a
 
 mkFetchDowngradedSome : Show b => Text -> (Party -> Party -> Script (Either SubmitError b)) -> (Text, Test)
-mkFetchDowngradedSome trailer f = ("Fail to downgrade a contract with Somes when fetching (" <> description <> ")", s)
+mkFetchDowngradedSome trailer f = ("Fail to downgrade a contract with Somes when fetching (" <> trailer <> ")", s)
   where
   s = test $ do
     a <- allocatePartyOn "alice" participant0
@@ -191,17 +191,17 @@ mkFetchDowngradedSome trailer f = ("Fail to downgrade a contract with Somes when
       res -> assertFail $ "Expected DevError Upgrade, got " <> show res
 
 fetchDowngradedSomeGlobal : (Text, Test)
-fetchDowngradedSomeGlobal = mkFetchDowngradedSome "static global" $ do
+fetchDowngradedSomeGlobal = mkFetchDowngradedSome "static global" $ \a b -> do
   cid <- a `submit` createCmd V2.FetchTemplate with party = a, newField = Some "hi"
   let v1Cid = coerceContractId @V2.FetchTemplate @V1.FetchTemplate cid
   a `tryExerciseV1Util` V1.DoFetch with cid = v1Cid
 
 fetchDowngradedSomeLocal : (Text, Test)
-fetchDowngradedSomeLocal = mkFetchDowngradedSome "static local" $ do
+fetchDowngradedSomeLocal = mkFetchDowngradedSome "static local" $ \a b -> do
   a `trySubmit` createAndExerciseCmd (FetchLocalHelper a) (DoCreateAndFetch (V2.FetchTemplate with party = a, newField = Some "hi"))
 
 fetchDowngradedSomeDisclosed : (Text, Test)
-fetchDowngradedSomeDisclosed = mkFetchDowngradedSome "static disclosed" $ do
+fetchDowngradedSomeDisclosed = mkFetchDowngradedSome "static disclosed" $ \a b -> do
   cid <- a `submit` createCmd V2.FetchTemplate with party = a, newField = Some "hi"
   helperCid <- a `submit` createCmd V1.FetchHelper with party = a, obs = Some b
 
@@ -214,17 +214,17 @@ fetchV1 : PackageId
 fetchV1 = getPackageId "fetch-1.0.0"
 
 fetchDowngradedSomeDynamicGlobal : (Text, Test)
-fetchDowngradedSomeDynamicGlobal = mkFetchDowngradedSome "dynamic global" $ do
+fetchDowngradedSomeDynamicGlobal = mkFetchDowngradedSome "dynamic global" $ \a b -> do
   cid <- a `submit` createCmd V2.FetchTemplate with party = a, newField = Some "hi"
   let cidIface = coerceContractId @V2.FetchTemplate @FetchIface cid
   (actAs a <> packagePreference [fetchV1]) `trySubmit` exerciseCmd cidIface (NoOp a)
 
 fetchDowngradedSomeDynamicLocal : (Text, Test)
-fetchDowngradedSomeDynamicLocal = mkFetchDowngradedSome "dynamic local" $ do
+fetchDowngradedSomeDynamicLocal = mkFetchDowngradedSome "dynamic local" $ \a b -> do
   (actAs a <> packagePreference [fetchV1]) `trySubmit` createAndExerciseCmd (FetchLocalHelper a) (IDoCreateAndFetch (V2.FetchTemplate with party = a, newField = Some "hi"))
 
 fetchDowngradedSomeDynamicDisclosed : (Text, Test)
-fetchDowngradedSomeDynamicDisclosed = mkFetchDowngradedSome "dynamic disclosed" $ do
+fetchDowngradedSomeDynamicDisclosed = mkFetchDowngradedSome "dynamic disclosed" $ \a b -> do
   cid <- a `submit` createCmd V2.FetchTemplate with party = a, newField = Some "hi"
   helperCid <- a `submit` createCmd V1.FetchHelper with party = a, obs = Some b
 
