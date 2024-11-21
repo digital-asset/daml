@@ -136,12 +136,12 @@ main = tests
   , ("Downgrade a contract with Nones when fetching", fetchDowngradedNone)
 
   -- Fetching contract to downgrade it with an optional field still set should fail
-  , ("Fail to downgrade a contract with Somes when fetching static global",     fetchDowngradedSomeGlobal)
-  , ("Fail to downgrade a contract with Somes when fetching static local",      fetchDowngradedSomeLocal)
-  , ("Fail to downgrade a contract with Somes when fetching static disclosed",  fetchDowngradedSomeDisclosed)
-  , ("Fail to downgrade a contract with Somes when fetching dynamic global",    fetchDowngradedSomeDynamicGlobal)
-  , ("Fail to downgrade a contract with Somes when fetching dynamic local",     fetchDowngradedSomeDynamicLocal)
-  , ("Fail to downgrade a contract with Somes when fetching dynamic disclosed", fetchDowngradedSomeDynamicDisclosed)
+  , fetchDowngradedSomeGlobal
+  , fetchDowngradedSomeLocal
+  , fetchDowngradedSomeDisclosed
+  , fetchDowngradedSomeDynamicGlobal
+  , fetchDowngradedSomeDynamicLocal
+  , fetchDowngradedSomeDynamicDisclosed
 
   , -- Fetching tests with unvetted sources (IDE ledger doesn't support unvetting)
     broken ("Upgrade a contract when fetching where the source package (V1) is unvetted", fetchUpgradedSourceUnvetted)
@@ -177,94 +177,61 @@ fetchDowngradedNone = test $ do
   v1Name <- a `exerciseV1Util` V1.DoFetch with cid = v1Cid
   v1Name === V1.FetchTemplate with party = a
 
-fetchDowngradedSomeGlobal : Test
-fetchDowngradedSomeGlobal = test $ do
-  a <- allocatePartyOn "alice" participant0
+mkFetchDowngradedSome : Show b => Text -> (Party -> Party -> Script (Either UpgradeError b)) -> (Text, Test)
+mkFetchDowngradedSome trailer f = ("Fail to downgrade a contract with Somes when fetching (" <> description <> ")", s)
+  where
+  s = test $ do
+    a <- allocatePartyOn "alice" participant0
+    b <- allocatePartyOn "bob" participant0
+    res <- f a b
+    case res of
+      Left (DevError Upgrade msg)
+        | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg
+        -> pure ()
+      res -> assertFail $ "Expected DevError Upgrade, got " <> show res
+
+fetchDowngradedSomeGlobal : (Text, Test)
+fetchDowngradedSomeGlobal = mkFetchDowngradedSome "static global" $ do
   cid <- a `submit` createCmd V2.FetchTemplate with party = a, newField = Some "hi"
   let v1Cid = coerceContractId @V2.FetchTemplate @V1.FetchTemplate cid
-  eV1Name <- a `tryExerciseV1Util` V1.DoFetch with cid = v1Cid
+  a `tryExerciseV1Util` V1.DoFetch with cid = v1Cid
 
-  case eV1Name of
-    Left (DevError Upgrade msg)
-      | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg
-      -> pure ()
-    res -> assertFail $ "Expected DevError Upgrade, got " <> show res
+fetchDowngradedSomeLocal : (Text, Test)
+fetchDowngradedSomeLocal = mkFetchDowngradedSome "static local" $ do
+  a `trySubmit` createAndExerciseCmd (FetchLocalHelper a) (DoCreateAndFetch (V2.FetchTemplate with party = a, newField = Some "hi"))
 
-fetchDowngradedSomeLocal : Test
-fetchDowngradedSomeLocal = test $ do
-  a <- allocatePartyOn "alice" participant0
-  eV1 <- a `trySubmit` createAndExerciseCmd (FetchLocalHelper a) (DoCreateAndFetch (V2.FetchTemplate with party = a, newField = Some "hi"))
-
-  case eV1 of
-    Left (DevError Upgrade msg)
-      | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg
-      -> pure ()
-    res -> assertFail $ "Expected DevError Upgrade, got " <> show res
-
-fetchDowngradedSomeDisclosed : Test
-fetchDowngradedSomeDisclosed = test $ do
-  a <- allocatePartyOn "alice" participant0
-  b <- allocatePartyOn "bob" participant0
-
+fetchDowngradedSomeDisclosed : (Text, Test)
+fetchDowngradedSomeDisclosed = mkFetchDowngradedSome "static disclosed" $ do
   cid <- a `submit` createCmd V2.FetchTemplate with party = a, newField = Some "hi"
   helperCid <- a `submit` createCmd V1.FetchHelper with party = a, obs = Some b
 
   disclosureCid <- fromSome <$> queryDisclosure a cid
 
   let cidV1 = coerceContractId @V2.FetchTemplate @V1.FetchTemplate cid
-  eV1 <- (actAs b <> disclose disclosureCid) `trySubmit` exerciseExactCmd helperCid (V1.DoFetchWithCtl cidV1 b)
-
-  case eV1 of
-    Left (DevError Upgrade msg)
-      | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg
-      -> pure ()
-    res -> assertFail $ "Expected DevError Upgrade, got " <> show res
+  (actAs b <> disclose disclosureCid) `trySubmit` exerciseExactCmd helperCid (V1.DoFetchWithCtl cidV1 b)
 
 fetchV1 : PackageId
 fetchV1 = getPackageId "fetch-1.0.0"
 
-fetchDowngradedSomeDynamicGlobal : Test
-fetchDowngradedSomeDynamicGlobal = test $ do
-  a <- allocatePartyOn "alice" participant0
+fetchDowngradedSomeDynamicGlobal : (Text, Test)
+fetchDowngradedSomeDynamicGlobal = mkFetchDowngradedSome "dynamic global" $ do
   cid <- a `submit` createCmd V2.FetchTemplate with party = a, newField = Some "hi"
   let cidIface = coerceContractId @V2.FetchTemplate @FetchIface cid
-  res <- (actAs a <> packagePreference [fetchV1]) `trySubmit` exerciseCmd cidIface (NoOp a)
+  (actAs a <> packagePreference [fetchV1]) `trySubmit` exerciseCmd cidIface (NoOp a)
 
-  case res of
-    Left (DevError Upgrade msg)
-      | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg
-      -> pure ()
-    res -> assertFail $ "Expected DevError Upgrade, got " <> show res
+fetchDowngradedSomeDynamicLocal : (Text, Test)
+fetchDowngradedSomeDynamicLocal = mkFetchDowngradedSome "dynamic local" $ do
+  (actAs a <> packagePreference [fetchV1]) `trySubmit` createAndExerciseCmd (FetchLocalHelper a) (IDoCreateAndFetch (V2.FetchTemplate with party = a, newField = Some "hi"))
 
-fetchDowngradedSomeDynamicLocal : Test
-fetchDowngradedSomeDynamicLocal = test $ do
-  a <- allocatePartyOn "alice" participant0
-  eV1 <- (actAs a <> packagePreference [fetchV1]) `trySubmit` createAndExerciseCmd (FetchLocalHelper a) (IDoCreateAndFetch (V2.FetchTemplate with party = a, newField = Some "hi"))
-
-  case eV1 of
-    Left (DevError Upgrade msg)
-      | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg
-      -> pure ()
-    res -> assertFail $ "Expected DevError Upgrade, got " <> show res
-
-fetchDowngradedSomeDynamicDisclosed : Test
-fetchDowngradedSomeDynamicDisclosed = test $ do
-  a <- allocatePartyOn "alice" participant0
-  b <- allocatePartyOn "bob" participant0
-
+fetchDowngradedSomeDynamicDisclosed : (Text, Test)
+fetchDowngradedSomeDynamicDisclosed = mkFetchDowngradedSome "dynamic disclosed" $ do
   cid <- a `submit` createCmd V2.FetchTemplate with party = a, newField = Some "hi"
   helperCid <- a `submit` createCmd V1.FetchHelper with party = a, obs = Some b
 
   disclosureCid <- fromSome <$> queryDisclosure a cid
 
   let cidIface = coerceContractId @V2.FetchTemplate @FetchIface cid
-  eV1 <- (actAs b <> packagePreference [fetchV1] <> disclose disclosureCid) `trySubmit` exerciseExactCmd helperCid (V1.DoFetchIfaceWithCtl cidIface b)
-
-  case eV1 of
-    Left (DevError Upgrade msg)
-      | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg
-      -> pure ()
-    res -> assertFail $ "Expected DevError Upgrade, got " <> show res
+  (actAs b <> packagePreference [fetchV1] <> disclose disclosureCid) `trySubmit` exerciseExactCmd helperCid (V1.DoFetchIfaceWithCtl cidIface b)
 
 fetchUpgradedSourceUnvetted : Test
 fetchUpgradedSourceUnvetted = test $ do
