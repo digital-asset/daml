@@ -595,12 +595,12 @@ tofswdViaCIDExerciseInChoiceGlobal : (Text, Test)
 tofswdViaCIDExerciseInChoiceGlobal = templateOptionalFieldsSetWhenDowngradingTest "static,  global,    in choice,  cid" $ \a b -> do
   cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V1"
   let cidV1 = coerceContractId @V2.OptionalFieldsAdded @V1.OptionalFieldsAdded cid
-  (actAs a <> packagePreference [dataChangesV1]) `trySubmit` createAndExerciseExactCmd (V1.OptionalFieldsAddedCallHelper a) (V1.OptionalFieldsAddedCallHelperCall cidV1 a)
+  (actAs a) `trySubmit` createAndExerciseExactCmd (V1.OptionalFieldsAddedCallHelper a) (V1.OptionalFieldsAddedCallHelperCall cidV1 a)
 
 tofswdViaKeyExerciseInChoiceGlobal : (Text, Test)
 tofswdViaKeyExerciseInChoiceGlobal = templateOptionalFieldsSetWhenDowngradingTest "static,  global,    in choice,  key" $ \a b -> do
   cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V1"
-  (actAs a <> packagePreference [dataChangesV1]) `trySubmit` createAndExerciseExactCmd (V1.OptionalFieldsAddedCallHelper a) (V1.OptionalFieldsAddedCallHelperCallViaKey (V1.OptionalFieldsAddedKey a) a)
+  (actAs a) `trySubmit` createAndExerciseExactCmd (V1.OptionalFieldsAddedCallHelper a) (V1.OptionalFieldsAddedCallHelperCallViaKey (V1.OptionalFieldsAddedKey a) a)
 
 tofswdViaKeyExerciseInCommandLocal : (Text, Test)
 tofswdViaKeyExerciseInCommandLocal = templateOptionalFieldsSetWhenDowngradingTest "static,  local,     in command, key" $ \a b -> do
@@ -615,7 +615,7 @@ tofswdViaCIDExerciseInCommandDisclosed = templateOptionalFieldsSetWhenDowngradin
   disclosure <- fromSome <$> queryDisclosure a cid
 
   let cidV1 = coerceContractId @V2.OptionalFieldsAdded @V1.OptionalFieldsAdded cid
-  (actAs b <> packagePreference [dataChangesV1] <> disclose disclosure) `trySubmit` exerciseExactCmd cidV1 (V1.OptionalFieldsAddedCallWithCtl b)
+  (actAs b <> disclose disclosure) `trySubmit` exerciseExactCmd cidV1 (V1.OptionalFieldsAddedCallWithCtl b)
 
 tofswdViaKeyExerciseInCommandDisclosed : (Text, Test)
 tofswdViaKeyExerciseInCommandDisclosed = templateOptionalFieldsSetWhenDowngradingTest "static,  disclosed, in command, key" $ \a b -> do
@@ -624,15 +624,15 @@ tofswdViaKeyExerciseInCommandDisclosed = templateOptionalFieldsSetWhenDowngradin
   disclosure <- fromSome <$> queryDisclosure a cid
 
   let cidV1 = coerceContractId @V2.OptionalFieldsAdded @V1.OptionalFieldsAdded cid
-  (actAs b <> packagePreference [dataChangesV1] <> disclose disclosure) `trySubmit` exerciseByKeyExactCmd @V1.OptionalFieldsAdded (V1.OptionalFieldsAddedKey a) (V1.OptionalFieldsAddedCallWithCtl b)
+  (actAs b <> disclose disclosure) `trySubmit` exerciseByKeyExactCmd @V1.OptionalFieldsAdded (V1.OptionalFieldsAddedKey a) (V1.OptionalFieldsAddedCallWithCtl b)
 
 tofswdViaCIDExerciseInChoiceLocal : (Text, Test)
 tofswdViaCIDExerciseInChoiceLocal = templateOptionalFieldsSetWhenDowngradingTest "static,  local,     in choice,  cid" $ \a b -> do
-  (actAs a <> packagePreference [dataChangesV1]) `trySubmit` createAndExerciseExactCmd (TLocalTestDummy a) TLocalTestDummyChoice
+  (actAs a) `trySubmit` createAndExerciseExactCmd (TLocalTestDummy a) TLocalTestDummyChoice
 
 tofswdViaKeyExerciseInChoiceLocal : (Text, Test)
 tofswdViaKeyExerciseInChoiceLocal = templateOptionalFieldsSetWhenDowngradingTest "static,  local,     in choice,  key" $ \a b -> do
-  (actAs a <> packagePreference [dataChangesV1]) `trySubmit` createAndExerciseExactCmd (TLocalTestDummy a) TLocalTestDummyChoiceByKey
+  (actAs a) `trySubmit` createAndExerciseExactCmd (TLocalTestDummy a) TLocalTestDummyChoiceByKey
 
 tofswdViaCIDExerciseInChoiceDisclosed : (Text, Test)
 tofswdViaCIDExerciseInChoiceDisclosed = templateOptionalFieldsSetWhenDowngradingTest "static,  disclosed, in choice,  cid" $ \a b -> do
@@ -641,7 +641,7 @@ tofswdViaCIDExerciseInChoiceDisclosed = templateOptionalFieldsSetWhenDowngrading
   disclosure <- fromSome <$> queryDisclosure a cid
 
   let cidV1 = coerceContractId @V2.OptionalFieldsAdded @V1.OptionalFieldsAdded cid
-  (actAs b <> packagePreference [dataChangesV1] <> disclose disclosure) `trySubmit` createAndExerciseExactCmd (V1.OptionalFieldsAddedCallHelper b) (V1.OptionalFieldsAddedCallHelperCall cidV1 b)
+  (actAs b <> disclose disclosure) `trySubmit` createAndExerciseExactCmd (V1.OptionalFieldsAddedCallHelper b) (V1.OptionalFieldsAddedCallHelperCall cidV1 b)
 
 tofswdViaKeyExerciseInChoiceDisclosed : (Text, Test)
 tofswdViaKeyExerciseInChoiceDisclosed = templateOptionalFieldsSetWhenDowngradingTest "static,  disclosed, in choice,  key" $ \a b -> do
@@ -649,4 +649,4 @@ tofswdViaKeyExerciseInChoiceDisclosed = templateOptionalFieldsSetWhenDowngrading
 
   disclosure <- fromSome <$> queryDisclosure a cid
 
-  (actAs b <> packagePreference [dataChangesV1] <> disclose disclosure) `trySubmit` createAndExerciseExactCmd (V1.OptionalFieldsAddedCallHelper b) (V1.OptionalFieldsAddedCallHelperCallViaKey (V1.OptionalFieldsAddedKey a) b)
+  (actAs b <> disclose disclosure) `trySubmit` createAndExerciseExactCmd (V1.OptionalFieldsAddedCallHelper b) (V1.OptionalFieldsAddedCallHelperCallViaKey (V1.OptionalFieldsAddedKey a) b)
