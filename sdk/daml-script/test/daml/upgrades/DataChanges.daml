@@ -31,7 +31,7 @@ import DA.Text
 import DA.Optional (fromSome)
 import PackageIds
 
-import qualified V1.IfaceMod as Iface
+import V1.OptionalFieldsAddedIface
 import V1.DataChangesDummy
 
 main : TestTree
@@ -354,14 +354,14 @@ versions: 1
 {- MODULE
 package: data-changes-iface
 contents: |
-  module IfaceMod where
+  module OptionalFieldsAddedIface where
 
   data MyUnit = MyUnit {}
 
-  interface I where
+  interface OptionalFieldsAddedIface where
     viewtype MyUnit
 
-    nonconsuming choice NoOp : ()
+    nonconsuming choice OptionalFieldsAddedIfaceChoice : ()
       with
         ctl : Party
       controller ctl
@@ -375,7 +375,7 @@ package: data-changes
 contents: |
   module OptionalFieldsAdded where
 
-  import IfaceMod
+  import OptionalFieldsAddedIface
 
   data OptionalFieldsAddedKey = OptionalFieldsAddedKey
     { party : Party
@@ -400,7 +400,7 @@ contents: |
         controller ctl
         do pure "V1"                           -- @V 1
         do pure "V2"                           -- @V  2
-      interface instance I for OptionalFieldsAdded where
+      interface instance OptionalFieldsAddedIface for OptionalFieldsAdded where
         view = MyUnit {}
 
   template OptionalFieldsAddedCallHelper
@@ -441,11 +441,11 @@ contents: |
       signatory party
       choice IChoiceBodyCallChoice : ()
         with
-          cidI : ContractId I
+          cidI : ContractId OptionalFieldsAddedIface
           ctl : Party
         controller ctl
         do
-          exercise cidI (NoOp ctl)
+          exercise cidI (OptionalFieldsAddedIfaceChoice ctl)
 -}
 
 {- PACKAGE
@@ -462,7 +462,7 @@ package: data-changes-dummy
 contents: |
   module DataChangesDummy where
 
-  import IfaceMod
+  import OptionalFieldsAddedIface
   import qualified V1.OptionalFieldsAdded as V1
   import qualified V2.OptionalFieldsAdded as V2
 
@@ -499,8 +499,8 @@ contents: |
         controller party
         do
           cid <- create (V2.OptionalFieldsAdded party (Some "V2"))
-          let cidIface = coerceContractId @V2.OptionalFieldsAdded @I cid
-          exercise cidIface (NoOp party)
+          let cidIface = coerceContractId @V2.OptionalFieldsAdded @OptionalFieldsAddedIface cid
+          exercise cidIface (OptionalFieldsAddedIfaceChoice party)
 -}
 
 dataChangesV1 : PackageId
@@ -527,13 +527,13 @@ tofswdViaCIDExerciseInCommandGlobal = templateOptionalFieldsSetWhenDowngradingTe
 tofswdViaInterfaceInCommandGlobal : (Text, Test)
 tofswdViaInterfaceInCommandGlobal = templateOptionalFieldsSetWhenDowngradingTest "dynamic, global,    in command" $ \a b -> do
   cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V2"
-  let cidIface = coerceContractId @V2.OptionalFieldsAdded @Iface.I cid
-  (actAs a <> packagePreference [dataChangesV1]) `trySubmit` exerciseExactCmd cidIface (Iface.NoOp a)
+  let cidIface = coerceContractId @V2.OptionalFieldsAdded @OptionalFieldsAddedIface cid
+  (actAs a <> packagePreference [dataChangesV1]) `trySubmit` exerciseExactCmd cidIface (OptionalFieldsAddedIfaceChoice a)
 
 tofswdViaInterfaceInChoiceGlobal : (Text, Test)
 tofswdViaInterfaceInChoiceGlobal = templateOptionalFieldsSetWhenDowngradingTest "dynamic, global,    in choice" $ \a b -> do
   cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V2"
-  let cidIface = coerceContractId @V2.OptionalFieldsAdded @Iface.I cid
+  let cidIface = coerceContractId @V2.OptionalFieldsAdded @OptionalFieldsAddedIface cid
   (actAs a <> packagePreference [dataChangesV1]) `trySubmit` createAndExerciseExactCmd (V2.IChoiceBodyCall a) (V2.IChoiceBodyCallChoice cidIface a)
 
 tofswdViaInterfaceInCommandLocal : (Text, Test)
@@ -543,15 +543,15 @@ tofswdViaInterfaceInCommandLocal = templateOptionalFieldsSetWhenDowngradingTest 
 tofswdViaInterfaceInCommandDisclosed : (Text, Test)
 tofswdViaInterfaceInCommandDisclosed = templateOptionalFieldsSetWhenDowngradingTest "dynamic, disclosed, in command" $ \a b -> do
   cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V2"
-  let cidIface = coerceContractId @V2.OptionalFieldsAdded @Iface.I cid
+  let cidIface = coerceContractId @V2.OptionalFieldsAdded @OptionalFieldsAddedIface cid
 
   disclosure <- fromSome <$> queryDisclosure a cid
-  (actAs b <> packagePreference [dataChangesV1] <> disclose disclosure) `trySubmit` exerciseExactCmd cidIface (Iface.NoOp b)
+  (actAs b <> packagePreference [dataChangesV1] <> disclose disclosure) `trySubmit` exerciseExactCmd cidIface (OptionalFieldsAddedIfaceChoice b)
 
 tofswdViaInterfaceInChoiceDisclosed : (Text, Test)
 tofswdViaInterfaceInChoiceDisclosed = templateOptionalFieldsSetWhenDowngradingTest "dynamic, disclosed, in choice" $ \a b -> do
   cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V2"
-  let cidIface = coerceContractId @V2.OptionalFieldsAdded @Iface.I cid
+  let cidIface = coerceContractId @V2.OptionalFieldsAdded @OptionalFieldsAddedIface cid
 
   disclosure <- fromSome <$> queryDisclosure a cid
   (actAs b <> packagePreference [dataChangesV1] <> disclose disclosure) `trySubmit` createAndExerciseExactCmd (V2.IChoiceBodyCall b) (V2.IChoiceBodyCallChoice cidIface b)
