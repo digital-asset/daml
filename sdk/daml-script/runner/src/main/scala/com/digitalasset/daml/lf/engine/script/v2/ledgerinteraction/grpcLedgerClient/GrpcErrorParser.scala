@@ -316,9 +316,66 @@ class GrpcErrorParser(majorVersion: LanguageMajorVersion) {
         caseErr { case Seq((ErrorResource.ContractId, cid)) =>
           submitErrors.ContractIdComparability(cid)
         }
-      case "INTERPRETATION_UPGRADE_ERROR" =>
-        caseErr { case Seq((ErrorResource.UpgradeErrorType, errorType)) =>
-          submitErrors.UpgradeError(errorType, message)
+      case "INTERPRETATION_UPGRADE_ERROR_VALIDATION_FAILED" =>
+        caseErr {
+          case Seq(
+                (ErrorResource.ContractId, coid),
+                (ErrorResource.TemplateId, srcTemplateId),
+                (ErrorResource.TemplateId, dstTemplateId),
+                (ErrorResource.Parties, signatories),
+                (ErrorResource.Parties, observers),
+                (ErrorResource.ExceptionText, msg),
+              ) =>
+            submitErrors.UpgradeError.ValidationFailed(
+              ContractId.assertFromString(coid),
+              Identifier.assertFromString(srcTemplateId),
+              Identifier.assertFromString(dstTemplateId),
+              signatories,
+              observers,
+              None,
+              msg,
+              message,
+            )
+          case Seq(
+                (ErrorResource.ContractId, coid),
+                (ErrorResource.TemplateId, srcTemplateId),
+                (ErrorResource.TemplateId, dstTemplateId),
+                (ErrorResource.Parties, signatories),
+                (ErrorResource.Parties, observers),
+                (ErrorResource.ExceptionText, msg),
+                (ErrorResource.ContractKey, globalKey),
+                (ErrorResource.Parties, maintainers),
+              ) =>
+            submitErrors.UpgradeError.ValidationFailed(
+              ContractId.assertFromString(coid),
+              Identifier.assertFromString(srcTemplateId),
+              Identifier.assertFromString(dstTemplateId),
+              signatories,
+              observers,
+              Some((globalKey, maintainers)),
+              msg,
+              message,
+            )
+        }
+      case "INTERPRETATION_UPGRADE_ERROR_DOWNGRADE_DROP_DEFINED_FIELD" =>
+        caseErr { case Seq() =>
+          submitErrors.UpgradeError.DowngradeDropDefinedField(message)
+        }
+      case "INTERPRETATION_UPGRADE_ERROR_VIEW_MISMATCH" =>
+        caseErr {
+          case Seq(
+                (ErrorResource.ContractId, coid),
+                (ErrorResource.InterfaceId, iterfaceId),
+                (ErrorResource.TemplateId, srcTemplateId),
+                (ErrorResource.TemplateId, dstTemplateId),
+              ) =>
+            submitErrors.UpgradeError.ViewMismatch(
+              ContractId.assertFromString(coid),
+              Identifier.assertFromString(iterfaceId),
+              Identifier.assertFromString(srcTemplateId),
+              Identifier.assertFromString(dstTemplateId),
+              message,
+            )
         }
       case "INTERPRETATION_DEV_ERROR" =>
         caseErr { case Seq((ErrorResource.DevErrorType, errorType)) =>

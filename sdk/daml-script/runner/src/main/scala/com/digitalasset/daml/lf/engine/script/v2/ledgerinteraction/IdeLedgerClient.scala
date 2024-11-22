@@ -361,9 +361,27 @@ class IdeLedgerClient(
       case ContractIdInContractKey(_) => submitErrors.ContractIdInContractKey()
       case ContractIdComparability(cid) => submitErrors.ContractIdComparability(cid.toString)
       case ValueNesting(limit) => submitErrors.ValueNesting(limit)
-      case e @ Upgrade(innerError) =>
-        submitErrors.UpgradeError(
-          innerError.getClass.getSimpleName,
+      case e @ Upgrade(innerError: Upgrade.ValidationFailed) =>
+        submitErrors.UpgradeError.ValidationFailed(
+          innerError.coid,
+          innerError.srcTemplateId,
+          innerError.dstTemplateId,
+          innerError.signatories.toString,
+          innerError.observers.toString,
+          innerError.keyOpt.map(key => (key.globalKey.toString, key.maintainers.toString)),
+          innerError.msg,
+          Pretty.prettyDamlException(e).renderWideStream.mkString,
+        )
+      case e @ Upgrade(_: Upgrade.DowngradeDropDefinedField) =>
+        submitErrors.UpgradeError.DowngradeDropDefinedField(
+          Pretty.prettyDamlException(e).renderWideStream.mkString
+        )
+      case e @ Upgrade(innerError: Upgrade.ViewMismatch) =>
+        submitErrors.UpgradeError.ViewMismatch(
+          innerError.coid,
+          innerError.iterfaceId,
+          innerError.srcTemplateId,
+          innerError.dstTemplateId,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
       case e @ Dev(_, innerError) =>
