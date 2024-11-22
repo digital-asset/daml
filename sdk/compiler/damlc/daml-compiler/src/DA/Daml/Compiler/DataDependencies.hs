@@ -330,7 +330,7 @@ generateSrcFromLf env = noLoc mod
 
     genExports :: Gen [LIE GhcPs]
     genExports = (++)
-        <$> (sequence $ selfReexport : classReexports)
+        <$> (sequence $ selfReexport <> classReexports)
         <*> allExports
 
     genDecls :: Gen [LHsDecl GhcPs]
@@ -355,6 +355,11 @@ generateSrcFromLf env = noLoc mod
         , (fieldName, _) <- fields
         , Just methodName <- [getClassMethodName fieldName]
         ]
+
+    usesExplicitExports :: Bool
+    usesExplicitExports = not $ null $ do
+        LF.DefValue {dvalBinder=(name, _)} <- NM.toList . LF.moduleValues $ envMod env
+        guard $ name == LFC.explicitExportsTag
 
     allExports :: Gen [LIE GhcPs]
     allExports = sequence $ do
@@ -389,9 +394,12 @@ generateSrcFromLf env = noLoc mod
             mkFieldLblRdrName :: FieldLbl LFC.QualName -> Gen (Located (FieldLbl RdrName))
             mkFieldLblRdrName = fmap noLoc . traverse mkRdrName
 
-    selfReexport :: Gen (LIE GhcPs)
-    selfReexport = pure . noLoc $
-        IEModuleContents noExt (noLoc ghcModName)
+    -- We only reexport self (i.e. module Self) when not using explicit exports
+    selfReexport :: [Gen (LIE GhcPs)]
+    selfReexport =
+      [ pure . noLoc $ IEModuleContents noExt (noLoc ghcModName)
+      | not usesExplicitExports
+      ]
 
     classReexports :: [Gen (LIE GhcPs)]
     classReexports = map snd3 (MS.elems classReexportMap)

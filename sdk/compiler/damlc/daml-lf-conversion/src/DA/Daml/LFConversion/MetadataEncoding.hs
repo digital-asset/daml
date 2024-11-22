@@ -29,6 +29,7 @@ module DA.Daml.LFConversion.MetadataEncoding
     -- * Exports
     , exportName
     , unExportName
+    , explicitExportsTag
     , ExportInfo (..)
     , QualName (..)
     , encodeExportInfo
@@ -240,6 +241,9 @@ unExportName :: LF.ExprValName -> Maybe Integer
 unExportName (LF.ExprValName name) = do
     suffix <- T.stripPrefix "$$export" name
     readMay (T.unpack suffix)
+
+explicitExportsTag :: LF.ExprValName
+explicitExportsTag = LF.ExprValName "$$exportExplicit"
 
 newtype QualName = QualName (LF.Qualified GHC.OccName)
     deriving (Eq)

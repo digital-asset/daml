@@ -87,7 +87,6 @@ import           DA.Daml.LFConversion.MetadataEncoding
 import           DA.Daml.LFConversion.ConvertM
 import           DA.Daml.LFConversion.ExternalWarnings (topLevelWarnings)
 import           DA.Daml.LFConversion.Utils
-import           DA.Daml.Preprocessor (isInternal)
 import           DA.Daml.UtilGHC
 import           DA.Daml.UtilLF
 
@@ -987,18 +986,15 @@ convertExports :: Env -> ModuleContents -> ConvertM [Definition]
 convertExports env mc = do
     let externalExportInfos = filter isExternalAvailInfo (mcExports mc)
     exportInfos <- mapM availInfoToExportInfo externalExportInfos
-    pure $ zipWith mkExportDef [0..] exportInfos
+    pure $ explicitExportsDef : zipWith mkExportDef [0..] exportInfos
     where
         isExternalAvailInfo :: GHC.AvailInfo -> Bool
         isExternalAvailInfo = isExternalName . GHC.availName
             where
                 isExternalName name =
                     not $
-                        nameIsLocalOrFrom thisModule name
-                        || isSystemName name
+                        isSystemName name
                         || isWiredInName name
-                        || maybe False (isInternal . GHC.moduleName) (nameModule_maybe name)
-                thisModule = GHC.Module (envModuleUnitId env) (envGHCModuleName env)
 
         availInfoToExportInfo :: GHC.AvailInfo -> ConvertM ExportInfo
         availInfoToExportInfo = \case
@@ -1030,6 +1026,10 @@ convertExports env mc = do
         mkExportDef i info =
             let exportType = encodeExportInfo info
             in DValue (mkMetadataStub (exportName i) exportType)
+
+        -- Tag for explicit exports, so we can differentiate between no exports and old-style exports
+        explicitExportsDef :: Definition
+        explicitExportsDef = DValue (mkMetadataStub explicitExportsTag (LF.TBuiltin LF.BTUnit))
 
 defNewtypeWorker :: NamedThing a => Env -> a -> TypeConName -> DataCon
     -> [(TypeVarName, LF.Kind)] -> [(FieldName, LF.Type)] -> Definition
