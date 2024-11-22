@@ -11,7 +11,8 @@ import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.version.*
 
 final case class ExternalAuthorization(
-    signatures: Map[PartyId, Seq[Signature]]
+    signatures: Map[PartyId, Seq[Signature]],
+    hashingSchemeVersion: HashingSchemeVersion,
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
       ExternalAuthorization.type
@@ -28,8 +29,7 @@ final case class ExternalAuthorization(
       authentications = signatures.map { case (party, partySignatures) =>
         v30.ExternalPartyAuthorization(party.toProtoPrimitive, partySignatures.map(_.toProtoV30))
       }.toSeq,
-      // TODO (#22250) - Support HashingSchemeVersion
-      v30.ExternalAuthorization.HashingSchemeVersion.HASHING_SCHEME_VERSION_UNSPECIFIED,
+      hashingSchemeVersion.toProtoV30,
     )
 
   @transient override protected lazy val companionObj: ExternalAuthorization.type =
@@ -43,9 +43,10 @@ object ExternalAuthorization
 
   def create(
       signatures: Map[PartyId, Seq[Signature]],
+      hashingSchemeVersion: HashingSchemeVersion,
       protocolVersion: ProtocolVersion,
   ): ExternalAuthorization =
-    ExternalAuthorization(signatures)(
+    ExternalAuthorization(signatures, hashingSchemeVersion)(
       protocolVersionRepresentativeFor(protocolVersion)
     )
 
@@ -73,8 +74,9 @@ object ExternalAuthorization
     val v30.ExternalAuthorization(signaturesP, _) = proto
     for {
       signatures <- signaturesP.traverse(fromProtoV30)
+      hashingSchemeVersion <- HashingSchemeVersion.fromProtoV30(proto.hashingSchemeVersion)
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield create(signatures.toMap, rpv.representative)
+    } yield create(signatures.toMap, hashingSchemeVersion, rpv.representative)
   }
 
 }

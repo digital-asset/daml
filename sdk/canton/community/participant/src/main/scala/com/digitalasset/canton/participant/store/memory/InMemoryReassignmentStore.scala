@@ -20,8 +20,8 @@ import com.digitalasset.canton.participant.protocol.reassignment.{
 }
 import com.digitalasset.canton.participant.store.ReassignmentStore
 import com.digitalasset.canton.participant.util.TimeOfChange
-import com.digitalasset.canton.protocol.ReassignmentId
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
+import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
@@ -309,4 +309,33 @@ class InMemoryReassignmentStore(
         }
       }
     }
+
+  override def findContractReassignmentId(
+      contractIds: Seq[LfContractId],
+      sourceDomain: Option[Source[DomainId]],
+      unassignmentTs: Option[CantonTimestamp],
+      completionTs: Option[CantonTimestamp],
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[LfContractId, Seq[ReassignmentId]]] =
+    FutureUnlessShutdown.outcomeF(
+      Future.successful(
+        reassignmentDataMap
+          .filter { case (_reassignmentId, transferData) =>
+            contractIds.contains(transferData.reassignmentData.contract.contractId) &&
+            sourceDomain.forall(_ == transferData.reassignmentData.sourceDomain) &&
+            unassignmentTs.forall(
+              _ == transferData.reassignmentData.reassignmentId.unassignmentTs
+            ) &&
+            completionTs.forall(ts =>
+              transferData.timeOfCompletion.forall(toc => ts == toc.timestamp)
+            )
+          }
+          .map { case (reassignmentId, entry) =>
+            (entry.reassignmentData.contract.contractId, reassignmentId)
+          }
+          .groupBy(_._1)
+          .map { case (cid, value) => (cid, value.values.toSeq) }
+      )
+    )
 }

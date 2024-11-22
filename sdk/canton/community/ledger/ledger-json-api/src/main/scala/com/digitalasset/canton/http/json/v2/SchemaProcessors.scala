@@ -174,6 +174,7 @@ class SchemaProcessors(
         Future.failed(invalidField("package reference", error))
     }
 
+  @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
   private def loadTemplate(
       packageName: String,
       template: Identifier,

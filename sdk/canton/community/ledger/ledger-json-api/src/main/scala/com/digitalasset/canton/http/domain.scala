@@ -142,9 +142,12 @@ package domain {
       }
   }
 
-  case class Contract[LfV](value: ArchivedContract \/ ActiveContract.ResolvedCtTyId[LfV])
+  final case class Contract[LfV](value: ArchivedContract \/ ActiveContract.ResolvedCtTyId[LfV])
 
-  case class ArchivedContract(contractId: ContractId, templateId: ContractTypeId.RequiredPkgId)
+  final case class ArchivedContract(
+      contractId: ContractId,
+      templateId: ContractTypeId.RequiredPkgId,
+  )
 
   final case class FetchRequest[+LfV](
       locator: ContractLocator[LfV],
@@ -1112,6 +1115,7 @@ package domain {
       val name: Option[Ref.PackageName],
   ) {
     def allPkgIds: NonEmpty[Set[_ <: ContractTypeId.ResolvedPkgIdOf[CtTyId]]] = ids.toSet
+    @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
     def latestPkgId: ContractTypeId.ResolvedPkgIdOf[CtTyId] = ids.head
     def original: ContractTypeId.ResolvedOf[CtTyId] = orig
   }
@@ -1126,6 +1130,7 @@ package domain {
       apply[CtTyId](idWithRef, NonEmpty(Seq, id.packageId), None)
     }
 
+    @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
     def apply[CtId[T] <: ContractTypeId[T]](
         id: ContractTypeId.ResolvedOf[CtId], // The original template/interface id.
         pkgIds: NonEmpty[Seq[Ref.PackageId]], // Package ids with same name, by version, descending

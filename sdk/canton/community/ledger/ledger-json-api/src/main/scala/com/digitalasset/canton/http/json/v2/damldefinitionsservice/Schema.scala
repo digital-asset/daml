@@ -16,7 +16,7 @@ import scala.collection.immutable.VectorMap
 object Schema {
   val Empty: TypeSig = TypeSig(Map.empty, Map.empty, Map.empty, Map.empty, Map.empty)
 
-  case class TypeSig(
+  final case class TypeSig(
       enumDefs: Map[Ref.TypeConName, EnumSig],
       variantDefs: Map[Ref.TypeConName, VariantSig],
       recordDefs: Map[Ref.TypeConName, RecordSig],

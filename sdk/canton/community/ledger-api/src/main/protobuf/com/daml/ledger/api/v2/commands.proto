@@ -141,13 +141,11 @@ message Commands {
   repeated Command commands = 4;
 
   // Specifies the deduplication period for the change ID.
-  // If omitted, the participant will assume the configured maximum deduplication time (see
-  // ``ledger_configuration_service.proto``).
+  // If omitted, the participant will assume the configured maximum deduplication time.
   oneof deduplication_period {
     // Specifies the length of the deduplication period.
     // It is interpreted relative to the local clock at some point during the submission's processing.
-    // Must be non-negative. Must not exceed the maximum deduplication time (see
-    // ``ledger_configuration_service.proto``).
+    // Must be non-negative. Must not exceed the maximum deduplication time.
     google.protobuf.Duration deduplication_duration = 5;
 
     // Specifies the start of the deduplication period by a completion stream offset (exclusive).

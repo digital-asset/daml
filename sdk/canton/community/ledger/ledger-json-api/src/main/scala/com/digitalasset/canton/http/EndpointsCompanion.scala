@@ -136,6 +136,7 @@ object EndpointsCompanion extends NoTracing {
         res <- either(fromUser(userId, actAs.toList, readAs.toList))
       } yield res
 
+    @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
     implicit def jwtWritePayloadFromUserToken(implicit
         mf: Monad[Future]
     ): CreateFromUserToken[JwtWritePayload] =

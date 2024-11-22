@@ -36,6 +36,7 @@ import com.digitalasset.canton.platform.apiserver.execution.{
   CommandResultHandle,
 }
 import com.digitalasset.canton.tracing.Traced
+import com.digitalasset.canton.util.Thereafter.syntax.*
 
 import java.time.{Duration, Instant}
 import scala.concurrent.{ExecutionContext, Future}
@@ -181,7 +182,7 @@ final class ApiCommandSubmissionService(
             )
             .toScalaUnwrapped
             .transform(handleSubmissionResult)
-            .andThen(logger.logErrorsOnCall[SubmitReassignmentResponse]),
+            .thereafter(logger.logErrorsOnCall[SubmitReassignmentResponse]),
       )
   }
 

@@ -45,7 +45,7 @@ class MeteringReportEndpointTest extends AnyFreeSpec with Matchers {
       val expected = metering_report_service.GetMeteringReportRequest(
         Some(toPbTimestamp(toTimestamp(from))),
         to.map(toTimestamp).map(toPbTimestamp),
-        application.get,
+        application.getOrElse(""),
       )
       val actual = MeteringReportEndpoint.toPbRequest(request)
       actual shouldBe expected

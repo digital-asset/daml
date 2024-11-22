@@ -448,7 +448,6 @@ class ParticipantNodeBootstrap(
         inFlightSubmissionTracker = new InFlightSubmissionTracker(
           persistentState.map(_.inFlightSubmissionStore),
           commandDeduplicator,
-          timeouts,
           loggerFactory,
         )
 
@@ -823,14 +822,12 @@ class ParticipantNodeBootstrap(
         addCloseable(domainAliasManager)
         addCloseable(syncDomainPersistentStateManager)
         addCloseable(domainRegistry)
-        addCloseable(inFlightSubmissionTracker)
         addCloseable(partyMetadataStore)
         persistentState.map(addCloseable).discard
         addCloseable((() => packageServiceContainer.closeCurrent()): AutoCloseable)
         addCloseable(indexedStringStore)
         addCloseable(partyNotifier)
         addCloseable(ephemeralState.participantEventPublisher)
-        addCloseable(ephemeralState.inFlightSubmissionTracker)
         addCloseable(topologyDispatcher)
         addCloseable(schedulers)
         addCloseable(ledgerApiServer)

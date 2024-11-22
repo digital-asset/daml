@@ -48,17 +48,17 @@ class JsCommandService(
 
   import JsCommandServiceCodecs.*
 
-  private def commandServiceClient(token: Option[String] = None)(implicit
+  private def commandServiceClient(token: Option[String])(implicit
       traceContext: TraceContext
   ): CommandServiceGrpc.CommandServiceStub =
     ledgerClient.serviceClient(CommandServiceGrpc.stub, token)
 
-  private def commandSubmissionServiceClient(token: Option[String] = None)(implicit
+  private def commandSubmissionServiceClient(token: Option[String])(implicit
       traceContext: TraceContext
   ): command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionServiceStub =
     ledgerClient.serviceClient(command_submission_service.CommandSubmissionServiceGrpc.stub, token)
 
-  private def commandCompletionServiceClient(token: Option[String] = None)(implicit
+  private def commandCompletionServiceClient(token: Option[String])(implicit
       traceContext: TraceContext
   ): command_completion_service.CommandCompletionServiceGrpc.CommandCompletionServiceStub =
     ledgerClient.serviceClient(command_completion_service.CommandCompletionServiceGrpc.stub, token)
@@ -397,6 +397,7 @@ object JsCommandServiceCodecs {
       : Schema[completion.Completion.DeduplicationPeriod] =
     Schema.oneOfWrapped
 
+  @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
   implicit val jsCommandSchema: Schema[JsCommand.Command] =
     Schema.oneOfWrapped
 

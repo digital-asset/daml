@@ -27,6 +27,7 @@ import com.digitalasset.canton.platform.config.{
   PartyManagementServiceConfig,
   UserManagementServiceConfig,
 }
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -93,7 +94,7 @@ private[apiserver] final class ApiVersionService(
     Future
       .fromTry(apiVersion)
       .map(apiVersionResponse)
-      .andThen(logger.logErrorsOnCall[GetLedgerApiVersionResponse])
+      .thereafter(logger.logErrorsOnCall[GetLedgerApiVersionResponse])
       .recoverWith { case NonFatal(_) =>
         Future.failed(
           LedgerApiErrors.InternalError

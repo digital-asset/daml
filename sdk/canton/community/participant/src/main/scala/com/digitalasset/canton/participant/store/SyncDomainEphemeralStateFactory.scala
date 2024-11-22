@@ -8,8 +8,9 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{ProcessingTimeout, SessionEncryptionKeyCacheConfig}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.DomainIndex
-import com.digitalasset.canton.lifecycle.CloseContext
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
 import com.digitalasset.canton.participant.protocol.*
@@ -36,7 +37,7 @@ trait SyncDomainEphemeralStateFactory {
   )(implicit
       traceContext: TraceContext,
       closeContext: CloseContext,
-  ): Future[SyncDomainEphemeralState]
+  ): FutureUnlessShutdown[SyncDomainEphemeralState]
 }
 
 class SyncDomainEphemeralStateFactoryImpl(
@@ -60,28 +61,62 @@ class SyncDomainEphemeralStateFactoryImpl(
   )(implicit
       traceContext: TraceContext,
       closeContext: CloseContext,
-  ): Future[SyncDomainEphemeralState] =
+  ): FutureUnlessShutdown[SyncDomainEphemeralState] =
     for {
-      _ <- ledgerApiIndexer.value.ensureNoProcessingForDomain(
-        persistentState.indexedDomain.domainId
+      _ <- FutureUnlessShutdown.outcomeF(
+        ledgerApiIndexer.value.ensureNoProcessingForDomain(
+          persistentState.indexedDomain.domainId
+        )
       )
-      domainIndex <- ledgerApiIndexer.value.ledgerApiStore.value
-        .cleanDomainIndex(persistentState.indexedDomain.domainId)
-      startingPoints <- SyncDomainEphemeralStateFactory.startingPoints(
-        persistentState.requestJournalStore,
-        persistentState.sequencedEventStore,
-        domainIndex,
+      domainIndex <- FutureUnlessShutdown.outcomeF(
+        ledgerApiIndexer.value.ledgerApiStore.value
+          .cleanDomainIndex(persistentState.indexedDomain.domainId)
       )
-      _ <- SyncDomainEphemeralStateFactory.cleanupPersistentState(persistentState, startingPoints)
+      startingPoints <- FutureUnlessShutdown.outcomeF(
+        SyncDomainEphemeralStateFactory.startingPoints(
+          persistentState.requestJournalStore,
+          persistentState.sequencedEventStore,
+          domainIndex,
+        )
+      )
+      _ <- FutureUnlessShutdown.outcomeF(
+        SyncDomainEphemeralStateFactory.cleanupPersistentState(persistentState, startingPoints)
+      )
+
+      recordOrderPublisher = new RecordOrderPublisher(
+        startingPoints.processing.nextSequencerCounter,
+        startingPoints.processing.prenextTimestamp,
+        ledgerApiIndexer.value,
+        metrics.recordOrderPublisher,
+        exitOnFatalFailures = exitOnFatalFailures,
+        timeouts,
+        loggerFactory,
+        futureSupervisor,
+        persistentState.activeContractStore,
+        clock,
+      )
+
+      // the time tracker, note, must be shutdown in sync domain as it is using the sequencer client to
+      // request time proofs.
+      timeTracker = createTimeTracker()
+
+      inFlightSubmissionDomainTracker <- participantNodeEphemeralState.inFlightSubmissionTracker
+        .inFlightSubmissionDomainTracker(
+          domainId = persistentState.indexedDomain.domainId,
+          recordOrderPublisher = recordOrderPublisher,
+          timeTracker = timeTracker,
+          metrics = metrics,
+        )
     } yield {
       logger.debug("Created SyncDomainEphemeralState")
       new SyncDomainEphemeralState(
         participantId,
-        participantNodeEphemeralState,
+        recordOrderPublisher,
+        timeTracker,
+        inFlightSubmissionDomainTracker,
         persistentState,
         ledgerApiIndexer.value,
         startingPoints,
-        createTimeTracker,
         metrics,
         exitOnFatalFailures = exitOnFatalFailures,
         sessionKeyCacheConfig,

@@ -212,14 +212,14 @@ trait Endpoints extends NamedLogging {
 }
 
 object Endpoints {
-  case class Jwt(token: String)
+  final case class Jwt(token: String)
 
   // added to ease burden if we change what is included in SECURITY_INPUT
-  case class CallerContext(jwt: Option[Jwt]) {
+  final case class CallerContext(jwt: Option[Jwt]) {
     def token(): Option[String] = jwt.map(_.token)
   }
 
-  case class TracedInput[A](in: A, traceContext: TraceContext)
+  final case class TracedInput[A](in: A, traceContext: TraceContext)
 
   val wsSubprotocol: Header =
     sttp.model.Header("Sec-WebSocket-Protocol", "daml.ws.auth")

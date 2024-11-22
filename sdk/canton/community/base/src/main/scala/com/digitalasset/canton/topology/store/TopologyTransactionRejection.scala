@@ -16,7 +16,7 @@ import com.digitalasset.canton.topology.transaction.TopologyMapping
 
 sealed trait TopologyTransactionRejection extends PrettyPrinting with Product with Serializable {
   def asString: String
-  def asString1GB: String256M =
+  def asString256M: String256M =
     String256M.tryCreate(asString, Some("topology transaction rejection"))
 
   def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError

@@ -411,7 +411,7 @@ class ContractsService(
                   )
                 )
                 .createdEvent
-              Acs(createdEvent.toVector)
+              Acs(createdEvent.toList.toVector)
             } else LiveBegin(AbsoluteBookmark(domain.Offset(offset)))
           }
           .concat(Source.single(LiveBegin(AbsoluteBookmark(domain.Offset(offset)))))

@@ -25,6 +25,7 @@ import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.{DomainId, PartyId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils, ResourceUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DomainAlias, LfPartyId, SequencerCounter, protocol}
@@ -286,7 +287,7 @@ final class GrpcParticipantRepairService(
               io.grpc.Status.CANCELLED.withDescription(err).asRuntimeException()
             )
           )
-          .andThen { _ =>
+          .thereafter { _ =>
             domainMigrationInProgress.set(false)
           }
       } else

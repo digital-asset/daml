@@ -28,6 +28,7 @@ class JsUserManagementService(
     with NamedLogging {
   import JsUserManagementService.*
 
+  @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
   def endpoints() = List(
     withServerLogic(
       JsUserManagementService.listUsersEndpoint,

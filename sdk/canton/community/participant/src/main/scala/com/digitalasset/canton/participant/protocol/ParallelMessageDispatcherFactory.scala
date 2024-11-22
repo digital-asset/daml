@@ -13,7 +13,7 @@ import com.digitalasset.canton.participant.protocol.MessageDispatcher.{
   RequestProcessors,
 }
 import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTracker
-import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker
+import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionDomainTracker
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor
 import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
@@ -40,7 +40,7 @@ object ParallelMessageDispatcherFactory
       recordOrderPublisher: RecordOrderPublisher,
       badRootHashMessagesRequestProcessor: BadRootHashMessagesRequestProcessor,
       repairProcessor: RepairProcessor,
-      inFlightSubmissionTracker: InFlightSubmissionTracker,
+      inFlightSubmissionDomainTracker: InFlightSubmissionDomainTracker,
       loggerFactory: NamedLoggerFactory,
       metrics: SyncDomainMetrics,
   )(implicit ec: ExecutionContext, tracer: Tracer): ParallelMessageDispatcher =
@@ -57,7 +57,7 @@ object ParallelMessageDispatcherFactory
       recordOrderPublisher,
       badRootHashMessagesRequestProcessor,
       repairProcessor,
-      inFlightSubmissionTracker,
+      inFlightSubmissionDomainTracker,
       processAsynchronously,
       loggerFactory,
       metrics,

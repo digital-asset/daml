@@ -405,7 +405,7 @@ object TaskSchedulerTest {
       kind: Int = Activeness,
       waitFor: Future[Unit] = Future.unit,
   )(implicit val ec: ExecutionContext, val traceContext: TraceContext)
-      extends TaskScheduler.TimedTask {
+      extends TaskScheduler.TimedTaskWithSequencerCounter {
 
     private val donePromise: Promise[Unit] = Promise[Unit]()
 

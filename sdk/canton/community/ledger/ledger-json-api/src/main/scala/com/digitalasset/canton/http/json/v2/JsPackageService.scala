@@ -35,6 +35,7 @@ class JsPackageService(
     extends Endpoints {
   import JsPackageService.*
 
+  @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
   def endpoints() =
     List(
       withServerLogic(

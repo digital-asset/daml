@@ -20,8 +20,8 @@ import com.digitalasset.canton.participant.protocol.reassignment.{
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateLookup
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.platform.indexer.parallel.ReassignmentOffsetPersistence
-import com.digitalasset.canton.protocol.ReassignmentId
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
+import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
@@ -424,4 +424,16 @@ trait ReassignmentLookup {
   def findEarliestIncomplete()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(AbsoluteOffset, ReassignmentId, Target[DomainId])]]
+
+  /** Queries the reassignment ids for the given contract ids. Optional filtering by unassignment and
+    * completion (assignment) timestamps, and by source domain.
+    */
+  def findContractReassignmentId(
+      contractIds: Seq[LfContractId],
+      sourceDomain: Option[Source[DomainId]],
+      unassignmentTs: Option[CantonTimestamp],
+      completionTs: Option[CantonTimestamp],
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[LfContractId, Seq[ReassignmentId]]]
 }

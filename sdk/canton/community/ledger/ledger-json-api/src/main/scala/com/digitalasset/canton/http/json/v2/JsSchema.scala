@@ -54,6 +54,15 @@ object JsSchema {
       record_time: protobuf.timestamp.Timestamp,
   )
 
+  final case class JsTopologyTransaction(
+      update_id: String,
+      events: Seq[JsTopologyEvent.Event],
+      offset: Long,
+      domain_id: String,
+      trace_context: Option[TraceContext],
+      record_time: com.google.protobuf.timestamp.Timestamp,
+  )
+
   final case class JsStatus(
       code: Int,
       message: String,
@@ -90,6 +99,21 @@ object JsSchema {
         template_id: String,
         witness_parties: Seq[String],
         package_name: String,
+    ) extends Event
+  }
+
+  object JsTopologyEvent {
+    sealed trait Event
+
+    final case class ParticipantAuthorizationChanged(
+        party_id: String,
+        participant_id: String,
+        particiant_permission: Int,
+    ) extends Event
+
+    final case class ParticipantAuthorizationRevoked(
+        party_id: String,
+        participant_id: String,
     ) extends Event
   }
 
@@ -276,11 +300,17 @@ object JsSchema {
     implicit val jsInterfaceView: Codec[JsInterfaceView] = deriveCodec
 
     implicit val jsTransactionTree: Codec[JsTransactionTree] = deriveCodec
+    implicit val jsTopologyTransaction: Codec[JsTopologyTransaction] = deriveCodec
     implicit val jsSubmitAndWaitForTransactionTreeResponse
         : Codec[JsSubmitAndWaitForTransactionTreeResponse] = deriveCodec
     implicit val jsTreeEvent: Codec[JsTreeEvent.TreeEvent] = deriveCodec
     implicit val jsExercisedTreeEvent: Codec[JsTreeEvent.ExercisedTreeEvent] = deriveCodec
     implicit val jsCreatedTreeEvent: Codec[JsTreeEvent.CreatedTreeEvent] = deriveCodec
+    implicit val jsTopologyEvent: Codec[JsTopologyEvent.Event] = deriveCodec
+    implicit val jsParticipantAuthorizationChanged
+        : Codec[JsTopologyEvent.ParticipantAuthorizationChanged] = deriveCodec
+    implicit val jsParticipantAuthorizationRevoked
+        : Codec[JsTopologyEvent.ParticipantAuthorizationRevoked] = deriveCodec
 
     implicit val offsetCheckpoint: Codec[offset_checkpoint.OffsetCheckpoint] = deriveCodec
     implicit val offsetCheckpointDomainTime: Codec[offset_checkpoint.DomainTime] = deriveCodec
@@ -290,9 +320,11 @@ object JsSchema {
     ] = deriveCodec
 
     // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
+    @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
     implicit val jsEventSchema: Schema[JsEvent.Event] =
       Schema.oneOfWrapped
 
+    @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
     implicit val jsTreeEventSchema: Schema[JsTreeEvent.TreeEvent] =
       Schema.oneOfWrapped
 

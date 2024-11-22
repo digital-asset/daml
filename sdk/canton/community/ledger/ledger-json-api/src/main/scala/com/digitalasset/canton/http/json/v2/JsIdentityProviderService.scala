@@ -18,6 +18,7 @@ import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.jsonBody
 
 import scala.concurrent.Future
+import scala.language.existentials
 
 class JsIdentityProviderService(
     identityProviderConfigClient: IdentityProviderConfigClient,

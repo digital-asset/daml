@@ -72,7 +72,8 @@ class PackageService(
 
   }
 
-  private class StateCache private () {
+  @SuppressWarnings(Array("org.wartremover.warts.Var"))
+  private class StateCache private {
     // volatile, reading threads don't need synchronization
     @volatile private var _state: State =
       State(
@@ -399,7 +400,7 @@ object PackageService {
 
   type KeyTypeMap = Map[ContractTypeId.Template.ResolvedPkgId, typesig.Type]
 
-  case class PackageNameMap(
+  final case class PackageNameMap(
       private val mapView: MapView[Ref.PackageRef, (Ref.PackageName, Ref.PackageVersion)]
   ) {
     def get(pkgId: Ref.PackageRef) = mapView.get(pkgId)

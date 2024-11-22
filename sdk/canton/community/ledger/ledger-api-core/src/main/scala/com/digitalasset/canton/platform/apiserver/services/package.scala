@@ -43,4 +43,21 @@ package object services {
     TraceContext.fromDamlTelemetryContext(telemetry.contextFromGrpcThreadLocalContext())
   }
 
+  def getExecuteRequestTraceContext(
+      applicationId: String,
+      commandId: Option[String],
+      actAs: Seq[String],
+      telemetry: Telemetry,
+  ): TraceContext = {
+    val telemetryContext: TelemetryContext =
+      telemetry.contextFromGrpcThreadLocalContext()
+    telemetryContext
+      .setAttribute(SpanAttribute.ApplicationId, applicationId)
+      .setAttribute(SpanAttribute.CommandId, commandId.getOrElse(""))
+      .setAttribute(SpanAttribute.Submitter, actAs.headOption.getOrElse(""))
+      .discard[TelemetryContext]
+
+    TraceContext.fromDamlTelemetryContext(telemetry.contextFromGrpcThreadLocalContext())
+  }
+
 }

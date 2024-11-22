@@ -43,7 +43,7 @@ class JsStateService(
   import JsStateServiceCodecs.*
   import JsStateService.*
 
-  private def stateServiceClient(token: Option[String] = None)(implicit
+  private def stateServiceClient(token: Option[String])(implicit
       traceContext: TraceContext
   ): state_service.StateServiceGrpc.StateServiceStub =
     ledgerClient.serviceClient(state_service.StateServiceGrpc.stub, token)
@@ -160,13 +160,13 @@ object JsContractEntry {
   sealed trait JsContractEntry
 
   case object JsEmpty extends JsContractEntry
-  case class JsIncompleteAssigned(assigned_event: JsAssignedEvent) extends JsContractEntry
-  case class JsIncompleteUnassigned(
+  final case class JsIncompleteAssigned(assigned_event: JsAssignedEvent) extends JsContractEntry
+  final case class JsIncompleteUnassigned(
       created_event: JsEvent.CreatedEvent,
       unassigned_event: reassignment.UnassignedEvent,
   ) extends JsContractEntry
 
-  case class JsActiveContract(
+  final case class JsActiveContract(
       created_event: JsEvent.CreatedEvent,
       domain_id: String,
       reassignment_counter: Long,
@@ -226,6 +226,7 @@ object JsStateServiceCodecs {
   implicit val jsGetActiveContractsResponseRW: Codec[JsGetActiveContractsResponse] = deriveCodec
 
   implicit val jsContractEntryRW: Codec[JsContractEntry] = deriveCodec
+  @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
   implicit val jsContractEntrySchema: Schema[JsContractEntry] = Schema.oneOfWrapped
 
   implicit val jsIncompleteUnassignedRW: Codec[JsIncompleteUnassigned] = deriveCodec

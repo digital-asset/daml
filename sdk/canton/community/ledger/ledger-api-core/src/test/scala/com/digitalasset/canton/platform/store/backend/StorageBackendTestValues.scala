@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.data
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.TransactionMetering
@@ -30,11 +30,10 @@ private[store] object StorageBackendTestValues {
   def hashCid(key: String): ContractId = ContractId.V1(Hash.hashPrivateKey(key))
 
   /** Produces offsets that are ordered the same as the input value */
-  def offset(x: Long): Offset = Offset.fromLong(x)
-  def absoluteOffset(x: Long): AbsoluteOffset = AbsoluteOffset.tryFromLong(x)
+  def offset(x: Long): AbsoluteOffset = AbsoluteOffset.tryFromLong(x)
   def ledgerEnd(o: Long, e: Long): ParameterStorageBackend.LedgerEnd =
-    ParameterStorageBackend.LedgerEnd(absoluteOffset(o), e, 0, CantonTimestamp.now())
-  def updateIdFromOffset(x: Offset): Ref.LedgerString =
+    ParameterStorageBackend.LedgerEnd(offset(o), e, 0, CantonTimestamp.now())
+  def updateIdFromOffset(x: AbsoluteOffset): Ref.LedgerString =
     Ref.LedgerString.assertFromString(x.toHexString)
 
   def timestampFromInstant(i: Instant): Timestamp = Timestamp.assertFromInstant(i)
@@ -55,7 +54,7 @@ private[store] object StorageBackendTestValues {
   val someParty3: Ref.Party = Ref.Party.assertFromString("party3")
   val someApplicationId: Ref.ApplicationId = Ref.ApplicationId.assertFromString("application_id")
   val someSubmissionId: Ref.SubmissionId = Ref.SubmissionId.assertFromString("submission_id")
-  val someLedgerMeteringEnd: LedgerMeteringEnd = LedgerMeteringEnd(Offset.beforeBegin, someTime)
+  val someLedgerMeteringEnd: LedgerMeteringEnd = LedgerMeteringEnd(None, someTime)
   val someDriverMetadata = Bytes.assertFromString("00abcd")
   val someDriverMetadataBytes = someDriverMetadata.toByteArray
 
@@ -73,7 +72,7 @@ private[store] object StorageBackendTestValues {
     SerializableTraceContext(TraceContext.empty).toDamlProto.toByteArray
 
   def dtoPartyEntry(
-      offset: Offset,
+      offset: AbsoluteOffset,
       party: String = someParty,
       isLocal: Boolean = true,
       reject: Boolean = false,
@@ -92,7 +91,7 @@ private[store] object StorageBackendTestValues {
     * Corresponds to a transaction with a single create node.
     */
   def dtoCreate(
-      offset: Offset,
+      offset: AbsoluteOffset,
       eventSequentialId: Long,
       contractId: ContractId,
       signatory: String = "signatory",
@@ -149,7 +148,7 @@ private[store] object StorageBackendTestValues {
     * @param actor The choice actor, who is also the submitter
     */
   def dtoExercise(
-      offset: Offset,
+      offset: AbsoluteOffset,
       eventSequentialId: Long,
       consuming: Boolean,
       contractId: ContractId,
@@ -193,7 +192,7 @@ private[store] object StorageBackendTestValues {
   }
 
   def dtoAssign(
-      offset: Offset,
+      offset: AbsoluteOffset,
       eventSequentialId: Long,
       contractId: ContractId,
       signatory: String = "signatory",
@@ -238,7 +237,7 @@ private[store] object StorageBackendTestValues {
   }
 
   def dtoUnassign(
-      offset: Offset,
+      offset: AbsoluteOffset,
       eventSequentialId: Long,
       contractId: ContractId,
       signatory: String = "signatory",
@@ -272,7 +271,7 @@ private[store] object StorageBackendTestValues {
   }
 
   def dtoPartyToParticipant(
-      offset: Offset,
+      offset: AbsoluteOffset,
       eventSequentialId: Long,
       party: String = someParty,
       participant: String = someParticipantId.toString,
@@ -297,7 +296,7 @@ private[store] object StorageBackendTestValues {
   }
 
   def dtoCompletion(
-      offset: Offset,
+      offset: AbsoluteOffset,
       submitters: Set[String] = Set("signatory"),
       commandId: String = UUID.randomUUID().toString,
       applicationId: String = someApplicationId,
@@ -339,7 +338,7 @@ private[store] object StorageBackendTestValues {
     )
 
   def dtoTransactionMeta(
-      offset: Offset,
+      offset: AbsoluteOffset,
       event_sequential_id_first: Long,
       event_sequential_id_last: Long,
       recordTime: Timestamp = someTime,

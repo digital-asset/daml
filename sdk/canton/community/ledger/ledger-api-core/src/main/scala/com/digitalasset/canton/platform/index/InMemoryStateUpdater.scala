@@ -588,7 +588,7 @@ private[platform] object InMemoryStateUpdater {
     completionInfo.optDeduplicationPeriod
       .map {
         case DeduplicationOffset(offset) =>
-          (Some(offset.toLong), None, None)
+          (Some(offset.fold(0L)(_.unwrap)), None, None)
         case DeduplicationDuration(duration) =>
           (None, Some(duration.getSeconds), Some(duration.getNano))
       }

@@ -20,8 +20,8 @@ import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.
 import com.digitalasset.canton.ledger.api.validation.StricterValueValidator
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.SubmitterInfo
 import com.digitalasset.canton.ledger.participant.state.SubmitterInfo.ExternallySignedSubmission
+import com.digitalasset.canton.ledger.participant.state.{SubmitterInfo, Update}
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.apiserver.execution.CommandExecutionResult
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.PreparedTransactionCodec.*
@@ -38,10 +38,12 @@ import com.digitalasset.daml.lf.transaction.NodeId
 import com.digitalasset.daml.lf.value.Value
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
-import io.scalaland.chimney.dsl.*
 import io.scalaland.chimney.dsl.TransformerConfiguration.UpdateFlag
+import io.scalaland.chimney.dsl.{TransformedNamesComparison, TransformerConfiguration}
+import io.scalaland.chimney.inlined.*
 import io.scalaland.chimney.internal.runtime.TransformerFlags
 import io.scalaland.chimney.partial.Result
+import io.scalaland.chimney.syntax.*
 import io.scalaland.chimney.{PartialTransformer, Transformer}
 
 import java.util.UUID
@@ -135,9 +137,6 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
       lf.crypto.Hash.fromBytes(Bytes.fromByteString(src)).toResult
     }
 
-  private implicit val packageIdTransformer: PartialTransformer[String, lf.data.Ref.PackageId] =
-    PartialTransformer(src => lf.data.Ref.PackageId.fromString(src).toResult)
-
   private implicit val commandIdTransformer: PartialTransformer[String, lf.data.Ref.CommandId] =
     PartialTransformer(src => lf.data.Ref.CommandId.fromString(src).toResult)
 
@@ -209,8 +208,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
   object v1 {
     // Make the create transformer visible to the package because some objects require explicitly decoding to a create node
     private[interactive] implicit def createNodeTransformer(implicit
-        nodeVersion: Result[LanguageVersion],
-        contextualizedErrorLogger: ContextualizedErrorLogger,
+        contextualizedErrorLogger: ContextualizedErrorLogger
     ): PartialTransformer[isdv1.Create, lf.transaction.Node.Create] = Transformer
       .definePartial[isdv1.Create, lf.transaction.Node.Create]
       .withFieldRenamed(_.contractId, _.coid)
@@ -221,19 +219,18 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
           .flatMap(_.toRight("Missing argument value").toResult),
       )
       .withFieldConst(_.agreementText, "") // Agreement text will be removed
-      .withFieldConstPartial(_.version, nodeVersion)
+      .withFieldComputedPartial(_.version, _.lfVersion.transformIntoPartial[LanguageVersion])
       // Fields not supported in V1
       .withFieldConst(_.keyOpt, None)
       .withFieldConst(_.packageVersion, None)
       .buildTransformer
 
     private implicit def fetchTransformer(implicit
-        nodeVersion: Result[LanguageVersion],
-        contextualizedErrorLogger: ContextualizedErrorLogger,
+        contextualizedErrorLogger: ContextualizedErrorLogger
     ): PartialTransformer[isdv1.Fetch, lf.transaction.Node.Fetch] = Transformer
       .definePartial[isdv1.Fetch, lf.transaction.Node.Fetch]
       .withFieldRenamed(_.contractId, _.coid)
-      .withFieldConstPartial(_.version, nodeVersion)
+      .withFieldComputedPartial(_.version, _.lfVersion.transformIntoPartial[LanguageVersion])
       // Not supported in V1
       .withFieldConst(_.keyOpt, None)
       .withFieldConst(_.byKey, false)
@@ -241,8 +238,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
       .buildTransformer
 
     private implicit def exerciseTransformer(implicit
-        nodeVersion: Result[LanguageVersion],
-        contextualizedErrorLogger: ContextualizedErrorLogger,
+        contextualizedErrorLogger: ContextualizedErrorLogger
     ): PartialTransformer[isdv1.Exercise, lf.transaction.Node.Exercise] =
       Transformer
         .definePartial[isdv1.Exercise, lf.transaction.Node.Exercise]
@@ -251,16 +247,19 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
           _.choiceObservers,
           _.choiceObservers.traverse(_.transformIntoPartial[lf.data.Ref.Party]).map(_.toSet),
         )
-        .withFieldConstPartial(_.version, nodeVersion)
+        .withFieldComputedPartial(_.version, _.lfVersion.transformIntoPartial[LanguageVersion])
         // Fields not supported in V1
         .withFieldConst(_.keyOpt, None)
         .withFieldConst(_.byKey, false)
         .withFieldConst(_.choiceAuthorizers, None)
         .buildTransformer
 
+    private implicit val rollbackTransformer
+        : PartialTransformer[isdv1.Rollback, lf.transaction.Node.Rollback] =
+      PartialTransformer.derive[isdv1.Rollback, lf.transaction.Node.Rollback]
+
     private[interactive] def nodeTransformer(implicit
-        nodeVersion: Result[LanguageVersion],
-        contextualizedErrorLogger: ContextualizedErrorLogger,
+        contextualizedErrorLogger: ContextualizedErrorLogger
     ): PartialTransformer[isdv1.Node, lf.transaction.Node] = PartialTransformer {
       case isdv1.Node(create: isdv1.Node.NodeType.Create) =>
         create.value.transformIntoPartial[lf.transaction.Node.Create]
@@ -281,10 +280,6 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
   ): PartialTransformer[iss.DamlTransaction.Node, (lf.transaction.NodeId, lf.transaction.Node)] =
     PartialTransformer { node =>
       val versionedNode = node.versionedNode
-      implicit lazy val lfNodeVersion = node.lfVersion
-        .toRight("Missing lfVersion in node")
-        .toResult
-        .flatMap(_.transformIntoPartial[LanguageVersion])
 
       val decodedNodeResult = versionedNode match {
         case VersionedNode.V1(v1Node) => v1.nodeTransformer.transform(v1Node)
@@ -356,8 +351,6 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): PartialTransformer[iss.Metadata.ProcessedDisclosedContract, ProcessedDisclosedContract] =
     PartialTransformer { src =>
-      implicit val contractVersion = src.version.transformIntoPartial[LanguageVersion]
-
       src
         .intoPartial[ProcessedDisclosedContract]
         .withFieldComputedPartial(
@@ -415,6 +408,8 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
         .toFutureWithLoggedFailures("Failed to deserialize transaction UUID", logger)
       submitterInfo <- submitterInfoProto
         .intoPartial[SubmitterInfo]
+        // Read as is unused for the execution as the transaction has already been run through Daml engine at this point
+        .withFieldConst(_.readAs, List.empty)
         .withFieldConst(_.submissionId, Some(executeRequest.submissionId))
         .withFieldConst(_.applicationId, executeRequest.applicationId)
         .withFieldConstPartial(
@@ -422,17 +417,17 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
           submitterInfoProto.commandId.transformIntoPartial[lf.data.Ref.CommandId],
         )
         .withFieldConst(_.deduplicationPeriod, executeRequest.deduplicationPeriod)
-        .withFieldConst(_.transactionUUID, Some(transactionUUID))
         .withFieldConstPartial(
-          _.mediatorGroup,
-          metadataProto.mediatorGroup.transformIntoPartial[MediatorGroupIndex].map(Some(_)),
-        )
-        .withFieldConst(
           _.externallySignedSubmission,
-          Some(
+          for {
+            mediatorGroup <- metadataProto.mediatorGroup.transformIntoPartial[MediatorGroupIndex]
+          } yield Some(
             ExternallySignedSubmission(
               executeRequest.serializationVersion,
               executeRequest.signatures,
+              transactionUUID = transactionUUID,
+              mediatorGroup = mediatorGroup,
+              usesLedgerEffectiveTime = metadataProto.ledgerEffectiveTime.isDefined,
             )
           ),
         )
@@ -452,18 +447,21 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
       transactionMeta <-
         metadataProto
           .intoPartial[state.TransactionMeta]
-          .withFieldRenamed(_.usedPackages, _.optUsedPackages)
+          // Unused field
+          .withFieldConst(_.optUsedPackages, None)
+          // Submission seed is irrelevant at this point, as we already have the individual node seeds, which are signed
+          // and shipped to the participants
+          .withFieldConst(_.submissionSeed, Update.noOpSeed)
           .withFieldConstPartial(
             _.optNodeSeeds,
             transactionProto.nodeSeeds
-              .transformIntoPartial[Option[ImmArray[(NodeId, lf.crypto.Hash)]]],
+              .transformIntoPartial[ImmArray[(NodeId, lf.crypto.Hash)]]
+              .map(Some(_)),
           )
-          .withFieldRenamed(_.byKeyNodes, _.optByKeyNodes)
+          // Unused field
+          .withFieldConst(_.optByKeyNodes, None)
           // Workflow ID is not supported for interactive submissions
           .withFieldConst(_.workflowId, None)
-          // If the ledger effective time is already set in the request, it means the transaction uses
-          // time. We keep it as is. If it doesn't, the LET will be empty in the request and we can override it now
-          // at submission time.
           .withFieldConst(
             _.ledgerEffectiveTime,
             ledgerEffectiveTime,
@@ -486,7 +484,8 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
         transactionMeta = transactionMeta,
         transaction = lf.transaction.SubmittedTransaction(transaction),
         dependsOnLedgerTime = metadataProto.ledgerEffectiveTime.isDefined,
-        interpretationTimeNanos = metadataProto.interpretationTimeNanos,
+        // Unused
+        interpretationTimeNanos = 0L,
         globalKeyMapping = globalKeyMapping,
         processedDisclosedContracts = processedDisclosedContracts,
       )

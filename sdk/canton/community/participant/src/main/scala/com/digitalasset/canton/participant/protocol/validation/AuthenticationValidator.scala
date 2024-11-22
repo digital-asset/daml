@@ -5,42 +5,80 @@ package com.digitalasset.canton.participant.protocol.validation
 
 import cats.data.EitherT
 import cats.syntax.parallel.*
-import com.digitalasset.canton.CommandId
+import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.{
   DomainSnapshotSyncCryptoApi,
+  Hash,
   InteractiveSubmission,
   Signature,
 }
-import com.digitalasset.canton.data.{FullReassignmentViewTree, ViewPosition, ViewTree}
+import com.digitalasset.canton.data.{
+  FullReassignmentViewTree,
+  FullTransactionViewTree,
+  SubmitterMetadata,
+  ViewPosition,
+  ViewTree,
+}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.participant.protocol.TransactionProcessingSteps.ParsedTransactionRequest
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ParsedReassignmentRequest
+import com.digitalasset.canton.participant.protocol.validation.AuthenticationError.{
+  FailedToComputeExternallySignedHash,
+  InvalidSignature,
+  MissingTopLevelView,
+  MultipleExternallySignedRootViews,
+}
+import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.LazyAsyncReInterpretation
+import com.digitalasset.canton.participant.util.DAMLe.TransactionEnricher
 import com.digitalasset.canton.protocol.{ExternalAuthorization, RequestId}
-import com.digitalasset.canton.topology.ParticipantId
+import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.version.ProtocolVersion
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 private[protocol] object AuthenticationValidator {
   def verifyViewSignatures(
-      parsedRequest: ParsedTransactionRequest
+      parsedRequest: ParsedTransactionRequest,
+      reInterpretedTopLevelViewsEval: LazyAsyncReInterpretation,
+      domainId: DomainId,
+      protocolVersion: ProtocolVersion,
+      transactionEnricher: TransactionEnricher,
+      logger: TracedLogger,
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
-  ): Future[Map[ViewPosition, AuthenticationError]] =
+  ): FutureUnlessShutdown[Map[ViewPosition, AuthenticationError]] =
     parsedRequest.rootViewTreesWithSignatures.forgetNE
       .parTraverseFilter { case (rootView, signatureO) =>
-        verifySignature(
-          requestId = parsedRequest.requestId,
-          snapshot = parsedRequest.snapshot,
-          view = rootView,
-          signatureO = signatureO,
-          submittingParticipantO = rootView.submitterMetadataO.map(_.submittingParticipant),
-          externalAuthorizationO = rootView.submitterMetadataO.flatMap(submitterMetadata =>
-            submitterMetadata.externalAuthorization.map(_ -> submitterMetadata.commandId)
-          ),
-        )
+        rootView.submitterMetadataO match {
+          // RootHash -> is a blinded tree
+          case None => FutureUnlessShutdown.pure(None)
+          case Some(submitterMetadata) =>
+            for {
+              participantSignatureError <- verifyParticipantSignature(
+                requestId = parsedRequest.requestId,
+                snapshot = parsedRequest.snapshot,
+                view = rootView,
+                signatureO = signatureO,
+                submittingParticipant = submitterMetadata.submittingParticipant,
+              )
+              externalSignatureError <- verifyExternalPartySignature(
+                viewTree = rootView,
+                submitterMetadata = submitterMetadata,
+                topology = parsedRequest.snapshot,
+                protocolVersion = protocolVersion,
+                reInterpretedTopLevelViews = reInterpretedTopLevelViewsEval,
+                requestId = parsedRequest.requestId,
+                domainId = domainId,
+                transactionEnricher = transactionEnricher,
+                logger = logger,
+              )
+            } yield participantSignatureError.orElse(externalSignatureError)
+        }
       }
       .map(_.toMap)
 
@@ -48,81 +86,195 @@ private[protocol] object AuthenticationValidator {
       implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
-  ): Future[Option[AuthenticationError]] =
-    verifySignature(
+  ): FutureUnlessShutdown[Option[AuthenticationError]] =
+    verifyParticipantSignature(
       parsed.requestId,
       parsed.snapshot,
       parsed.fullViewTree,
       parsed.signatureO,
-      Some(parsed.fullViewTree.submitterMetadata.submittingParticipant),
-      externalAuthorizationO = None,
+      parsed.fullViewTree.submitterMetadata.submittingParticipant,
     ).map(_.map { case (_, error) => error })
 
-  private def verifySignature(
+  private def verifyParticipantSignature(
       requestId: RequestId,
       snapshot: DomainSnapshotSyncCryptoApi,
       view: ViewTree,
       signatureO: Option[Signature],
-      submittingParticipantO: Option[ParticipantId],
-      externalAuthorizationO: Option[(ExternalAuthorization, CommandId)],
+      submittingParticipant: ParticipantId,
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
-  ): Future[Option[(ViewPosition, AuthenticationError)]] =
-    submittingParticipantO match {
-      case None => Future(None)
-      case Some(submittingParticipant) =>
-        signatureO match {
-          case Some(signature) =>
-            (for {
-              // check for an invalid signature
-              _ <- snapshot
-                .verifySignature(
-                  view.rootHash.unwrap,
-                  submittingParticipant,
-                  signature,
-                )
-                .leftMap(_.show)
-
-              // Verify the signature of any externally signed parties
-              _ <- externalAuthorizationO
-                .fold(EitherT.pure[Future, String](())) { case (e, commandId) =>
-                  val hash = InteractiveSubmission.computeHashV1(commandId)
-                  InteractiveSubmission
-                    .verifySignatures(hash, e.signatures, snapshot)
-                    .map(_ => ())
-                    .failOnShutdownToAbortException("verifySignature")
-                }
-            } yield ()).fold(
-              cause =>
-                Some(
-                  (
-                    view.viewPosition,
-                    AuthenticationError.InvalidSignature(
-                      requestId,
-                      view.viewPosition,
-                      cause,
-                    ),
-                  )
-                ),
-              _ => None,
+  ): FutureUnlessShutdown[Option[(ViewPosition, AuthenticationError)]] =
+    signatureO match {
+      case Some(signature) =>
+        (for {
+          // check for an invalid signature
+          _ <- snapshot
+            .verifySignature(
+              view.rootHash.unwrap,
+              submittingParticipant,
+              signature,
             )
-
-          case None =>
-            // the signature is missing
-            Future(
-              Some(
-                (
+            .leftMap(_.show)
+            .mapK(FutureUnlessShutdown.outcomeK)
+        } yield ()).fold(
+          cause =>
+            Some(
+              (
+                view.viewPosition,
+                AuthenticationError.InvalidSignature(
+                  requestId,
                   view.viewPosition,
-                  AuthenticationError.MissingSignature(
+                  cause,
+                ),
+              )
+            ),
+          _ => None,
+        )
+
+      case None =>
+        // the signature is missing
+        FutureUnlessShutdown.pure(
+          Some(
+            (
+              view.viewPosition,
+              AuthenticationError.MissingSignature(
+                requestId,
+                view.viewPosition,
+              ),
+            )
+          )
+        )
+    }
+
+  // Checks that the provided external signatures are valid for the transaction
+  def verifyExternalPartySignature(
+      viewTree: FullTransactionViewTree,
+      submitterMetadata: SubmitterMetadata,
+      topology: DomainSnapshotSyncCryptoApi,
+      protocolVersion: ProtocolVersion,
+      reInterpretedTopLevelViews: LazyAsyncReInterpretation,
+      domainId: DomainId,
+      transactionEnricher: TransactionEnricher,
+      requestId: RequestId,
+      logger: TracedLogger,
+  )(implicit
+      traceContext: TraceContext,
+      executionContext: ExecutionContext,
+  ): FutureUnlessShutdown[Option[(ViewPosition, AuthenticationError)]] = {
+    // Re-compute the hash from the re-interpreted transaction and necessary metadata, and verify the signature
+    def computeHashAndVerifyExternalSignature(
+        externalAuthorization: ExternalAuthorization
+    ): FutureUnlessShutdown[Option[(ViewPosition, AuthenticationError)]] =
+      reInterpretedTopLevelViews.get(viewTree.view.viewHash) match {
+        case Some(reInterpretationET) =>
+          // At this point we have to run interpretation on the view to get the necessary data to re-compute the hash
+          reInterpretationET.value.value.flatMap {
+            case Left(error) =>
+              FutureUnlessShutdown.pure(
+                Some(
+                  viewTree.viewPosition -> FailedToComputeExternallySignedHash(
                     requestId,
-                    view.viewPosition,
-                  ),
+                    s"Failed to re-interpret transaction in order to compute externally signed hash: $error",
+                  )
                 )
               )
+            case Right(reInterpretedTopLevelView) =>
+              reInterpretedTopLevelView
+                .computeHash(
+                  externalAuthorization.hashingSchemeVersion,
+                  submitterMetadata.actAs,
+                  submitterMetadata.commandId.unwrap,
+                  viewTree.transactionUuid,
+                  viewTree.mediator.group.value,
+                  domainId,
+                  protocolVersion,
+                  transactionEnricher,
+                )
+                // If Hash computation is successful, verify the signature is valid
+                .flatMap { hash =>
+                  EitherT.liftF[FutureUnlessShutdown, String, Option[String]](
+                    verifyExternalSignaturesForActAs(
+                      hash,
+                      externalAuthorization,
+                      submitterMetadata.actAs,
+                    )
+                  )
+                }
+                .map(
+                  _.map[(ViewPosition, AuthenticationError)](signatureError =>
+                    viewTree.viewPosition -> InvalidSignature(
+                      requestId,
+                      viewTree.viewPosition,
+                      signatureError,
+                    )
+                  )
+                )
+                // If we couldn't compute the hash, fail
+                .valueOr(error =>
+                  Some(
+                    viewTree.viewPosition -> FailedToComputeExternallySignedHash(
+                      requestId,
+                      error,
+                    ): (ViewPosition, AuthenticationError)
+                  )
+                )
+          }
+        case None =>
+          // If we don't have the re-interpreted transaction for this view it's either a programming error
+          // (we didn't interpret all available roots in reInterpretedTopLevelViews, or we're missing the top level view entirely
+          // despite having the submitterMetadata, which is also wrong
+          FutureUnlessShutdown.pure(
+            Some(
+              viewTree.viewPosition -> MissingTopLevelView(requestId)
             )
+          )
+      }
+
+    // Verify the signatures provided by the act as parties are valid.
+    // This proves the request really comes from the actAs parties.
+    // Returns signature validation errors in the form of Some(errorString)
+    def verifyExternalSignaturesForActAs(
+        hash: Hash,
+        externalAuthorization: ExternalAuthorization,
+        actAs: NonEmpty[Set[LfPartyId]],
+    ): FutureUnlessShutdown[Option[String]] =
+      InteractiveSubmission
+        .verifySignatures(
+          hash,
+          externalAuthorization.signatures,
+          topology,
+          actAs.forgetNE,
+          logger,
+        )
+        .value
+        .map {
+          // Convert signature validation errors to a Some, as this is how we indicate failures
+          case Left(error) => Some(error)
+          // A valid signature verification translates to a None (absence of error)
+          case Right(_) => None
         }
+
+    submitterMetadata.externalAuthorization match {
+      case Some(_) if reInterpretedTopLevelViews.sizeIs > 1 =>
+        FutureUnlessShutdown.pure(
+          Some(
+            viewTree.viewPosition -> MultipleExternallySignedRootViews(
+              requestId,
+              reInterpretedTopLevelViews.size,
+            )
+          )
+        )
+      case Some(externalAuthorization) =>
+        // If external signatures are provided, we verify they are valid and cover all the actAs parties
+        computeHashAndVerifyExternalSignature(externalAuthorization)
+      // If no external signatures are provided, there's nothing to verify here, and it means
+      // this is a classic submission. The classic submission requirements then apply and will be checked
+      // in the AuthorizationValidator (typically that the submitting participant must have submission rights
+      // for the actAs parties)
+      case None => FutureUnlessShutdown.pure(None)
     }
+  }
 }
 
 sealed trait AuthenticationError {
@@ -144,6 +296,29 @@ object AuthenticationError {
   ) extends AuthenticationError {
     override def message: String =
       err(requestId, s"View $viewPosition is missing a signature.")
+  }
+  final case class MultipleExternallySignedRootViews(
+      requestId: RequestId,
+      numberOfViews: Int,
+  ) extends AuthenticationError {
+    override def message: String =
+      err(
+        requestId,
+        s"Only single root transactions can currently be externally signed. Got $numberOfViews",
+      )
+  }
+  final case class FailedToComputeExternallySignedHash(
+      requestId: RequestId,
+      cause: String,
+  ) extends AuthenticationError {
+    override def message: String =
+      err(requestId, s"Failed to compute externally signed hash: $cause")
+  }
+  final case class MissingTopLevelView(
+      requestId: RequestId
+  ) extends AuthenticationError {
+    override def message: String =
+      err(requestId, "Missing top level view to validate external signature")
   }
 
   private def err(requestId: RequestId, details: String): String =

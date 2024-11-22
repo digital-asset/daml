@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.store.memory
 
 import cats.Id
 import cats.data.{EitherT, OptionT}
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
@@ -59,6 +60,20 @@ class InMemoryContractStore(protected val loggerFactory: NamedLoggerFactory)(
       contracts.values.filter(conjunctiveFilter).take(limit).map(_.contract).toList
     )
   }
+
+  def findWithPayload(
+      contractIds: NonEmpty[Seq[LfContractId]],
+      limit: Int,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[LfContractId, SerializableContract]] =
+    FutureUnlessShutdown.pure(
+      contractIds
+        .map(cid => cid -> contracts.get(cid))
+        .collect { case (cid, Some(contract)) => cid -> contract.contract }
+        .take(limit)
+        .toMap
+    )
 
   override def lookup(
       id: LfContractId

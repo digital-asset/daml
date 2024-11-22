@@ -526,7 +526,7 @@ private[conflictdetection] object NaiveRequestTracker {
       override val sequencerCounter: SequencerCounter,
       val kind: Kind,
   )(implicit val traceContext: TraceContext)
-      extends TaskScheduler.TimedTask
+      extends TaskScheduler.TimedTaskWithSequencerCounter
 
   object TimedTask {
     def unapply(timedTask: TimedTask): Option[(CantonTimestamp, SequencerCounter, Kind)] =

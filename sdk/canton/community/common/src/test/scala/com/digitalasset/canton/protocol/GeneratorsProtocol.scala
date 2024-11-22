@@ -17,7 +17,7 @@ import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, PositiveSeconds}
 import com.digitalasset.canton.topology.transaction.ParticipantDomainLimits
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
 import com.digitalasset.daml.lf.transaction.Versioned
 import com.google.protobuf.ByteString
 import magnolify.scalacheck.auto.*
@@ -285,6 +285,7 @@ final class GeneratorsProtocol(
   implicit val externalAuthorizationArb: Arbitrary[ExternalAuthorization] = Arbitrary(
     for {
       signatures <- Arbitrary.arbitrary[Map[PartyId, Seq[Signature]]]
-    } yield ExternalAuthorization.create(signatures, protocolVersion)
+      hashingSchemeVersion <- Arbitrary.arbitrary[HashingSchemeVersion]
+    } yield ExternalAuthorization.create(signatures, hashingSchemeVersion, protocolVersion)
   )
 }

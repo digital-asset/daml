@@ -45,7 +45,6 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentPro
   ReassignmentProcessorError,
 }
 import com.digitalasset.canton.participant.protocol.submission.{
-  InFlightSubmissionTracker,
   SeedGenerator,
   TransactionConfirmationRequestFactory,
 }
@@ -93,7 +92,7 @@ import io.grpc.Status
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
 /** A connected domain from the synchronization service.
   *
@@ -120,7 +119,6 @@ class SyncDomain(
     topologyProcessorFactory: TopologyTransactionProcessor.Factory,
     missingKeysAlerter: MissingKeysAlerter,
     reassignmentCoordination: ReassignmentCoordination,
-    inFlightSubmissionTracker: InFlightSubmissionTracker,
     commandProgressTracker: CommandProgressTracker,
     messageDispatcherFactory: MessageDispatcher.Factory[MessageDispatcher],
     clock: Clock,
@@ -186,7 +184,7 @@ class SyncDomain(
     parameters,
     domainCrypto,
     sequencerClient,
-    inFlightSubmissionTracker,
+    ephemeral.inFlightSubmissionDomainTracker,
     ephemeral,
     commandProgressTracker,
     metrics.transactionProcessing,
@@ -204,7 +202,7 @@ class SyncDomain(
     damle,
     Source(staticDomainParameters),
     reassignmentCoordination,
-    inFlightSubmissionTracker,
+    ephemeral.inFlightSubmissionDomainTracker,
     ephemeral,
     domainCrypto,
     seedGenerator,
@@ -223,7 +221,7 @@ class SyncDomain(
     damle,
     Target(staticDomainParameters),
     reassignmentCoordination,
-    inFlightSubmissionTracker,
+    ephemeral.inFlightSubmissionDomainTracker,
     ephemeral,
     domainCrypto,
     seedGenerator,
@@ -355,7 +353,7 @@ class SyncDomain(
         ephemeral.recordOrderPublisher,
         badRootHashMessagesRequestProcessor,
         repairProcessor,
-        inFlightSubmissionTracker,
+        ephemeral.inFlightSubmissionDomainTracker,
         loggerFactory,
         metrics,
       )
@@ -542,17 +540,6 @@ class SyncDomain(
 
       // Phase 0: Initialise topology client at current clean head
       _ <- EitherT.right(initializeClientAtCleanHead())
-
-      // Phase 1: remove in-flight submissions that have been sequenced and published,
-      // but not yet removed from the in-flight submission store
-      //
-      // Remove and complete all in-flight submissions that have been published at the multi-domain event log.
-      _ <- EitherT.right(
-        inFlightSubmissionTracker.recoverDomain(
-          domainId,
-          startingPoints.processing.prenextTimestamp,
-        )
-      )
 
       // Phase 2: Initialize the repair processor
       repairs <- EitherT
@@ -829,6 +816,34 @@ class SyncDomain(
   def readyForSubmission: SubmissionReady =
     SubmissionReady(ready && !isFailed && !sequencerClient.healthComponent.isFailed)
 
+  /** Helper method to perform the submission (unless shutting down), but track the inner FUS completion as well:
+    * on shutdown wait for the inner FUS to complete before closing the child-services.
+    */
+  private def performSubmissionUnlessClosing[ERROR, RESULT](
+      name: String,
+      onClosing: => ERROR,
+  )(
+      f: => EitherT[Future, ERROR, FutureUnlessShutdown[RESULT]]
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, ERROR, FutureUnlessShutdown[RESULT]] = {
+    val resultPromise = Promise[Either[ERROR, FutureUnlessShutdown[RESULT]]]()
+    performUnlessClosingF[Unit](name) {
+      val result = f.value
+      // try to complete the Promise with result of f (performUnlessClosingF on a non-closed SyncDomain)
+      resultPromise.completeWith(result)
+      result.flatMap {
+        case Right(fusResult) =>
+          fusResult.unwrap.map(_ => ()) // tracking the completion of the inner FUS
+        case Left(_) => Future.unit
+      }
+    }.tapOnShutdown(
+      // try to complete the Promise with the onClosing error (performUnlessClosingF on a closed SyncDomain)
+      resultPromise.trySuccess(Left(onClosing)).discard
+    ).discard // only needed to track the inner FUS too
+    EitherT(resultPromise.future)
+  }
+
   /** @return The outer future completes after the submission has been registered as in-flight.
     *          The inner future completes after the submission has been sequenced or if it will never be sequenced.
     */
@@ -843,9 +858,9 @@ class SyncDomain(
   ): EitherT[Future, TransactionSubmissionError, FutureUnlessShutdown[
     TransactionSubmissionResult
   ]] =
-    performUnlessClosingEitherT[
+    performSubmissionUnlessClosing[
       TransactionSubmissionError,
-      FutureUnlessShutdown[TransactionSubmissionResult],
+      TransactionSubmissionResult,
     ](functionFullName, SubmissionDuringShutdown.Rejection()) {
       ErrorUtil.requireState(ready, "Cannot submit transaction before recovery")
       transactionProcessor
@@ -863,9 +878,9 @@ class SyncDomain(
   ): EitherT[Future, ReassignmentProcessorError, FutureUnlessShutdown[
     UnassignmentProcessingSteps.SubmissionResult
   ]] =
-    performUnlessClosingEitherT[
+    performSubmissionUnlessClosing[
       ReassignmentProcessorError,
-      FutureUnlessShutdown[UnassignmentProcessingSteps.SubmissionResult],
+      UnassignmentProcessingSteps.SubmissionResult,
     ](functionFullName, DomainNotReady(domainId, "The domain is shutting down.")) {
       logger.debug(s"Submitting unassignment of `$contractId` from `$domainId` to `$targetDomain`")
 
@@ -892,9 +907,10 @@ class SyncDomain(
   ): EitherT[Future, ReassignmentProcessorError, FutureUnlessShutdown[
     AssignmentProcessingSteps.SubmissionResult
   ]] =
-    performUnlessClosingEitherT[ReassignmentProcessorError, FutureUnlessShutdown[
-      AssignmentProcessingSteps.SubmissionResult
-    ]](
+    performSubmissionUnlessClosing[
+      ReassignmentProcessorError,
+      AssignmentProcessingSteps.SubmissionResult,
+    ](
       functionFullName,
       DomainNotReady(domainId, "The domain is shutting down."),
     ) {
@@ -1019,7 +1035,6 @@ object SyncDomain {
         topologyProcessorFactory: TopologyTransactionProcessor.Factory,
         missingKeysAlerter: MissingKeysAlerter,
         reassignmentCoordination: ReassignmentCoordination,
-        inFlightSubmissionTracker: InFlightSubmissionTracker,
         commandProgressTracker: CommandProgressTracker,
         clock: Clock,
         syncDomainMetrics: SyncDomainMetrics,
@@ -1045,7 +1060,6 @@ object SyncDomain {
         topologyProcessorFactory: TopologyTransactionProcessor.Factory,
         missingKeysAlerter: MissingKeysAlerter,
         reassignmentCoordination: ReassignmentCoordination,
-        inFlightSubmissionTracker: InFlightSubmissionTracker,
         commandProgressTracker: CommandProgressTracker,
         clock: Clock,
         syncDomainMetrics: SyncDomainMetrics,
@@ -1068,7 +1082,6 @@ object SyncDomain {
         topologyProcessorFactory,
         missingKeysAlerter,
         reassignmentCoordination,
-        inFlightSubmissionTracker,
         commandProgressTracker,
         ParallelMessageDispatcherFactory,
         clock,

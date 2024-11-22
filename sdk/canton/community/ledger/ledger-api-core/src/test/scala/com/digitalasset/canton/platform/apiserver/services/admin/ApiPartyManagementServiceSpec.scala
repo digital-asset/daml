@@ -30,6 +30,7 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiPartyManagementService.blindAndConvertToProto
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiPartyManagementServiceSpec.*
 import com.digitalasset.canton.tracing.{TestTelemetrySetup, TraceContext}
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.data.Ref
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
@@ -142,7 +143,7 @@ class ApiPartyManagementServiceSpec
       val scope = span.makeCurrent()
       apiService
         .allocateParty(AllocatePartyRequest("aParty"))
-        .andThen { case _ =>
+        .thereafter { _ =>
           scope.close()
           span.end()
         }

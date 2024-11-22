@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.console.commands
 
-import better.files.File
 import cats.syntax.either.*
 import cats.syntax.option.*
 import cats.syntax.traverse.*
@@ -73,7 +72,7 @@ import com.digitalasset.canton.console.{
 import com.digitalasset.canton.crypto.SyncCryptoApiProvider
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.grpc.{ByteStringStreamObserver, FileStreamObserver}
+import com.digitalasset.canton.grpc.ByteStringStreamObserver
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.participant.ParticipantNode
 import com.digitalasset.canton.participant.admin.ResourceLimits
@@ -83,7 +82,10 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.{
   ReceivedCmtState,
   SentCmtState,
 }
-import com.digitalasset.canton.participant.pruning.{CommitmentContractMetadata, MismatchReason}
+import com.digitalasset.canton.participant.pruning.{
+  CommitmentContractMetadata,
+  CommitmentInspectContract,
+}
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
   CommitmentPeriod,
@@ -726,7 +728,7 @@ class LocalCommitmentsAdministrationGroup(
 }
 
 class CommitmentsAdministrationGroup(
-    runner: AdminCommandRunner,
+    runner: AdminCommandRunner with BaseInspection[ParticipantNode],
     val consoleEnvironment: ConsoleEnvironment,
     val loggerFactory: NamedLoggerFactory,
 ) extends FeatureFlagFilter
@@ -797,76 +799,68 @@ class CommitmentsAdministrationGroup(
       counterContractsMetadata
     }
 
-  // TODO(#9557) R2. We'll either reuse the existing export ACS mechanism or, if that doesn't work, we'll introduce a
-  //  new gRPC download endpoint, and filter by parties hosted on the counter-participant. The output will be contracts
-  //  for parties hosted by both the counter-participant and the local participant, as the local participant doesn't have
-  //  access to contracts of parties that it doesn't host.
   @Help.Summary(
-    "From a given set of contract ids and reassignment counters, identify the contracts that are either not active, or have" +
-      "a different reassignment counter, or are not shared with the given counter-participant.",
+    "Download states of contracts and contract payloads necessary for commitment inspection and reconciliation",
     FeatureFlag.Preview,
   )
   @Help.Description(
-    """ Returns the contract ids and the mismatch reason.
-      | Returns an error if the participant cannot anymore retrieve the data for the given contracts.
+    """ Returns the contract states (created, assigned, unassigned, archived, unknown) of the given contracts on
+      | all domains the participant knows from the beginning of time until the present time on each domain.
+      | The command returns best-effort the contract changes available. Specifically, it does not fail if the ACS
+      | and/or reassignment state has been pruned during the time interval, or if parts of the time interval
+      | are ahead of the clean ACS state.
+      | Optionally returns the contract payload if requested and available.
       | The arguments are:
-      | - counterParticipantContracts: The contract ids and reassignment counters that we check against our ACS
-      | - expectedDomain: The domain that the counterParticipant believes the given contracts reside on
-      | - timestamp: The timestamp when the given contracts are active on the counter-participant
-      | - counterParticipant: The counter participant with whom the contracts should be shared
+      | - contracts: The contract ids whose state and payload we want to fetch
+      | - timestamp: The timestamp when some counter-participants reported the given contracts as active on the
+      | expected domain.
+      | - expectedDomain: The domain that the contracts are expected to be active on
+      | - downloadPayload: If true, the payload of the contracts is also downloaded
       | - timeout: Time limit for the grpc call to complete
       """.stripMargin
   )
-  def active_contracts_mismatches(
-      counterParticipantContracts: Seq[CommitmentContractMetadata],
-      expectedDomain: DomainId,
-      timestamp: CantonTimestamp,
-      counterParticipant: ParticipantId,
-      timeout: NonNegativeDuration = timeouts.unbounded,
-  ): Map[LfContractId, MismatchReason] =
-    check(FeatureFlag.Preview) {
-      Map.empty[LfContractId, MismatchReason]
-    }
-
-  @Help.Summary(
-    "Download the contract payloads from the counter participant necessary for reconciliation",
-    FeatureFlag.Preview,
-  )
-  @Help.Description(
-    """ Returns the contract ids and the mismatch reason.
-      | Returns an error if the participant cannot retrieve the data for the given commitment anymore.
-      | The arguments are:
-      | - contracts: The contract ids whose payload we want to download from the counterParticipant
-      | - timeout: Time limit for the grpc call to complete
-      | - binaryOutputFile: The file where to write the payload and mismatch information for the given mismatching
-      """.stripMargin
-  )
-  def download_contract_reconciliation_payloads(
+  def inspect_commitment_contracts(
       contracts: Seq[LfContractId],
+      timestamp: CantonTimestamp,
+      expectedDomain: DomainId,
+      downloadPayload: Boolean = false,
       timeout: NonNegativeDuration = timeouts.unbounded,
-      binaryOutputFile: String = CommitmentsAdministrationGroup.ExportMismatchDefaultBinaryFile,
-  ): Unit = check(FeatureFlag.Preview) {
-    val file = File(binaryOutputFile)
-    consoleEnvironment.run {
+  ): Seq[CommitmentInspectContract] = {
+
+    val contractsData = consoleEnvironment.run {
       val responseObserver =
-        new FileStreamObserver[InspectCommitmentContracts.Response](file, _.chunk)
+        new ByteStringStreamObserver[InspectCommitmentContracts.Response](_.chunk)
 
       def call: ConsoleCommandResult[Context.CancellableContext] =
         adminCommand(
           ParticipantAdminCommands.Inspection.CommitmentContracts(
             responseObserver,
             contracts,
+            expectedDomain,
+            timestamp,
+            downloadPayload,
           )
         )
 
       processResult(
         call,
-        responseObserver.result,
+        responseObserver.resultBytes,
         timeout,
-        request = "Downloading contract from counter-participant that cause mismatch",
-        cleanupOnError = () => file.delete(),
+        "Retrieving the shared contract metadata",
       )
     }
+
+    val parsedContractsData =
+      GrpcStreamingUtils
+        .parseDelimitedFromTrusted[CommitmentInspectContract](
+          contractsData.newInput(),
+          CommitmentInspectContract,
+        )
+        .valueOr(msg => throw DeserializationException(msg))
+    logger.debug(
+      s"Requested data for ${contracts.size}, retrieved data for ${parsedContractsData.size} contracts at time $timestamp on any domain"
+    )
+    parsedContractsData
   }
 
   @Help.Summary(
@@ -1353,10 +1347,6 @@ class CommitmentsAdministrationGroup(
 
   private def timeouts: ConsoleCommandTimeout = consoleEnvironment.commandTimeouts
   private implicit val ec: ExecutionContext = consoleEnvironment.environment.executionContext
-}
-
-object CommitmentsAdministrationGroup {
-  private val ExportMismatchDefaultBinaryFile = "canton-acs-mismatch-export.gz"
 }
 
 class ParticipantReplicationAdministrationGroup(

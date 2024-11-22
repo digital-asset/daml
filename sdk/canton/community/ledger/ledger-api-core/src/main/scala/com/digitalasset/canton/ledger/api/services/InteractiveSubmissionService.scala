@@ -23,7 +23,7 @@ import com.digitalasset.daml.lf.data.Ref.{ApplicationId, SubmissionId}
 import scala.concurrent.Future
 
 object InteractiveSubmissionService {
-  final case class PrepareRequest(commands: domain.Commands)
+  final case class PrepareRequest(commands: domain.Commands, verboseHashing: Boolean)
 
   final case class ExecuteRequest(
       applicationId: ApplicationId,

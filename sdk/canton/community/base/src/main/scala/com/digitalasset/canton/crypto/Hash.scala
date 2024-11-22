@@ -151,7 +151,7 @@ object Hash {
     )
 
   def build(purpose: HashPurpose, algorithm: HashAlgorithm): HashBuilder =
-    new HashBuilderFromMessageDigest(algorithm, purpose)
+    HashBuilderFromMessageDigest(algorithm, purpose)
 
   def digest(purpose: HashPurpose, bytes: ByteString, algorithm: HashAlgorithm): Hash =
     // It's safe to use `addWithoutLengthPrefix` because there cannot be hash collisions due to concatenation
@@ -189,6 +189,35 @@ object Hash {
       .toRight(DefaultDeserializationError(s"Failed to parse hex string: $hexString"))
       .map(ByteString.copyFrom)
       .flatMap(fromByteString)
+
+  /** Use ONLY when the ByteString represents a raw bytearray of the algorithm specified.
+    * i.e. when it has NOT be serialized for multi-hash support using [[Hash.getCryptographicEvidence]]
+    */
+  private[canton] def tryFromByteStringRaw(
+      byteString: ByteString,
+      algorithm: HashAlgorithm = HashAlgorithm.Sha256,
+  ): Hash =
+    create(byteString, algorithm).valueOr(err =>
+      throw new IllegalArgumentException(s"Invalid hash: $err")
+    )
+
+  /** Use ONLY when the hexString represents a raw hexadecimal value for the algorithm specified.
+    * i.e. when it has NOT be serialized for multi-hash support using [[Hash.getCryptographicEvidence]]
+    */
+  private[canton] def fromHexStringRaw(
+      hexString: String,
+      algorithm: HashAlgorithm = HashAlgorithm.Sha256,
+  ): Either[DeserializationError, Hash] =
+    HexString
+      .parse(hexString)
+      .toRight(DefaultDeserializationError(s"Failed to parse hex string: $hexString"))
+      .map(ByteString.copyFrom)
+      .flatMap(
+        create(_, algorithm)
+          .leftMap(err =>
+            DefaultDeserializationError(s"Failed to create hash with algorithm $algorithm: $err")
+          )
+      )
 
   def tryFromHexString(hexString: String): Hash =
     fromHexString(hexString).valueOr(err =>

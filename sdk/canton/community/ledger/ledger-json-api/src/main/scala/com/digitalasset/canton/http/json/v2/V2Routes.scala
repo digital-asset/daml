@@ -36,6 +36,7 @@ class V2Routes(
 )(implicit ec: ExecutionContext)
     extends Endpoints
     with NamedLogging {
+  @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
   private val serverEndpoints =
     commandService.endpoints() ++ eventService.endpoints() ++ versionService
       .endpoints() ++ packageService.endpoints() ++ partyManagementService

@@ -317,6 +317,8 @@ object HttpService {
     buildSSLContext(keyStore)
   }
 
+  // TODO(i22574): Remove OptionPartial and Null warts in HttpService
+  @SuppressWarnings(Array("org.wartremover.warts.Null"))
   def buildSSLContext(keyStore: KeyStore): SSLContext = {
     import java.security.SecureRandom
     import javax.net.ssl.{KeyManagerFactory, SSLContext, TrustManagerFactory}
@@ -339,18 +341,24 @@ object HttpService {
   private def httpsConnectionContext(config: TlsServerConfig): HttpsConnectionContext =
     ConnectionContext.httpsServer(buildSSLContext(config))
 
+  // TODO(i22574): Remove OptionPartial and Null warts in HttpService
+  @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
   private def buildKeyStore(config: TlsServerConfig): KeyStore = buildKeyStore(
     config.certChainFile.unwrap.toPath,
     config.privateKeyFile.unwrap.toPath,
     config.trustCollectionFile.get.unwrap.toPath,
   )
 
+  // TODO(i22574): Remove OptionPartial and Null warts in HttpService
+  @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
   private def buildKeyStore(config: TlsClientConfig): KeyStore = buildKeyStore(
     config.clientCert.get.certChainFile.toPath,
     config.clientCert.get.privateKeyFile.toPath,
     config.trustCollectionFile.get.unwrap.toPath,
   )
 
+  // TODO(i22574): Remove OptionPartial and Null warts in HttpService
+  @SuppressWarnings(Array("org.wartremover.warts.Null"))
   private def buildKeyStore(certFile: Path, privateKeyFile: Path, caCertFile: Path): KeyStore = {
     import java.security.cert.CertificateFactory
     val alias = "key" // This can be anything as long as it's consistent.

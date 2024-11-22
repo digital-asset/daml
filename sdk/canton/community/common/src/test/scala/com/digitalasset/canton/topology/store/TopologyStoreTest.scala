@@ -5,7 +5,7 @@ package com.digitalasset.canton.topology.store
 
 import cats.syntax.option.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.CantonRequireTypes.String255
+import com.digitalasset.canton.config.CantonRequireTypes.{String255, String256M}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.topology.DefaultTestIdentities
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
@@ -374,6 +374,42 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase {
             neitherParty shouldBe Set.empty
           }
         }
+
+        "handle rejected transactions" in {
+          val store = mk()
+
+          val bootstrapTransactions = StoredTopologyTransactions(
+            Seq[
+              (
+                  CantonTimestamp,
+                  (GenericSignedTopologyTransaction, Option[CantonTimestamp], Option[String256M]),
+              )
+            ](
+              ts1 -> (tx2_OTK, None, None),
+              ts2 -> (tx3_NSD, None, Some(String256M.tryCreate("rejection_reason"))),
+              ts3 -> (tx6_MDS, None, None),
+            ).map { case (from, (tx, until, rejectionReason)) =>
+              StoredTopologyTransaction(
+                SequencedTime(from),
+                EffectiveTime(from),
+                until.map(EffectiveTime(_)),
+                tx,
+                rejectionReason,
+              )
+            }
+          )
+
+          for {
+            _ <- store.bootstrap(bootstrapTransactions)
+            headStateTransactions <- inspect(store, TimeQuery.HeadState)
+          } yield {
+            expectTransactions(
+              headStateTransactions,
+              Seq(tx2_OTK, tx6_MDS), // tx3_NSD was rejected
+            )
+          }
+        }
+
         "able to findEssentialStateAtSequencedTime" in {
           val store = mk()
           for {

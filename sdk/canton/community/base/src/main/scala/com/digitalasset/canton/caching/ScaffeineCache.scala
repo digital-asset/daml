@@ -15,8 +15,8 @@ import com.github.blemale.scaffeine.{AsyncLoadingCache, Scaffeine}
 
 import java.util.concurrent.CompletableFuture
 import java.util.function.BiFunction
-import scala.compat.java8.FutureConverters.*
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.javaapi.FutureConverters
 
 object ScaffeineCache {
 
@@ -115,15 +115,19 @@ object ScaffeineCache {
               case None => remapper(k, None)
               case Some(oldValueTunnelled) =>
                 val oldValueF =
-                  tunnel.exit(FutureUtil.unwrapCompletionException(oldValueTunnelled.toScala))
+                  tunnel.exit(
+                    FutureUtil.unwrapCompletionException(
+                      FutureConverters.asScala(oldValueTunnelled)
+                    )
+                  )
                 oldValueF.flatMap(oldValue => remapper(k, Some(oldValue)))
             }
             val remappedTunnel = tunnel.enter(remapped)
-            remappedTunnel.toJava.toCompletableFuture
+            FutureConverters.asJava(remappedTunnel).toCompletableFuture
           }
         }
       val remappedValueF = underlying.underlying.asMap().compute(key, tunnelledRemapper)
-      tunnel.exit(FutureUtil.unwrapCompletionException(remappedValueF.toScala))
+      tunnel.exit(FutureUtil.unwrapCompletionException(FutureConverters.asScala(remappedValueF)))
     }
 
     override def toString = s"TunnelledAsyncLoadingCache($underlying)"

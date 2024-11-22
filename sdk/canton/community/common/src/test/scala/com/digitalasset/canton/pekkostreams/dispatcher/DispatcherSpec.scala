@@ -10,6 +10,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.pekkostreams.FutureTimeouts
 import com.digitalasset.canton.pekkostreams.dispatcher.DispatcherImpl.Incrementable
 import com.digitalasset.canton.pekkostreams.dispatcher.SubSource.RangeSource
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import org.apache.pekko.stream.DelayOverflowStrategy
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScaledTimeSpans}
@@ -354,7 +355,7 @@ class DispatcherSpec
       expectTimeout(
         collect(Some(Index(startIndex)), i25, dispatcher, rangeQuerySteppingMode),
         1.second,
-      ).andThen { case _ =>
+      ).thereafterF { _ =>
         dispatcher.shutdown()
       }
     }
@@ -367,7 +368,7 @@ class DispatcherSpec
       val random = new Random()
       1.to(updateCount).foreach(_ => dispatcher.signalNewHead(Index(random.nextInt(100))))
       dispatcher.signalNewHead(Index(100))
-      out.map(_ shouldEqual pairs).andThen { case _ =>
+      out.map(_ shouldEqual pairs).thereafterF { _ =>
         dispatcher.shutdown()
       }
     }

@@ -85,7 +85,14 @@ message CommitmentContractMeta {
 // The participant needs to be authorized to see the requested contracts, for example using JWT authorization
 message InspectCommitmentContracts {
   message Request {
+    // the contracts whose state and payload we want to retrieve
     repeated bytes cids = 1;
+    // the domain on which we expect the contracts to be active
+    string expected_domain_id = 2;
+    // timestamp at which we retrieve the state of the contracts on the expected domain
+    google.protobuf.Timestamp timestamp = 3;
+    // whether to retrieve the payload of the contracts
+    bool download_payload = 4;
   }
 
   message Response {
@@ -96,8 +103,59 @@ message InspectCommitmentContracts {
 
 message CommitmentContract {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
-  Contract serialized_contract = 1;
-  bytes creating_tx_id = 2;
+  bytes cid = 1;
+  bool active_on_expected_domain = 2;
+  Contract serialized_contract = 3;
+  repeated ContractState.DomainState states = 4;
+}
+
+message ContractState {
+
+  message DomainState {
+    option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+    string domain_id = 1;
+    // The Canton ACS has a few more states, e.g., "purged". However, we do not include them because they will likely
+    // not be accessible over the ledger API when we switch to that.
+    oneof state {
+      ContractState.Created created = 2;
+      ContractState.Archived archived = 3;
+      ContractState.Unassigned unassigned = 4;
+      ContractState.Assigned assigned = 5;
+      ContractState.Unknown unknown = 6;
+    }
+  }
+
+  message Created {
+    option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  }
+
+  message Assigned {
+    option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+    int64 reassignment_counter_target = 1;
+    ReassignmentId reassignment_id = 2;
+  }
+
+  message Archived {
+    option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  }
+
+  message Unassigned {
+    option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+    string target_domain_id = 1;
+    int64 reassignment_counter_src = 2;
+    ReassignmentId reassignment_id = 3;
+  }
+
+  // the contract is unknown to the domain, but may have existed in the past and have been pruned meanwhile
+  message Unknown {
+    option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  }
+
+  message ReassignmentId {
+    option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+    string source_domain_id = 1;
+    google.protobuf.Timestamp unassign_timestamp = 2;
+  }
 }
 
 

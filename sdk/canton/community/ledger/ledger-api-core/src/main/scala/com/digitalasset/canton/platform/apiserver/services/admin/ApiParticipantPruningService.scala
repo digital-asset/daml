@@ -42,6 +42,7 @@ import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.platform.apiserver.ApiException
 import com.digitalasset.canton.platform.apiserver.services.logging
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.data.Ref
 import io.grpc.protobuf.StatusProto
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
@@ -125,7 +126,7 @@ final class ApiParticipantPruningService private (
             )(MetricsContext(("phase", "ledgerApiServerIndex")))
 
           } yield pruneResponse)
-            .andThen(logger.logErrorsOnCall[PruneResponse](loggingContext.traceContext))
+            .thereafter(logger.logErrorsOnCall[PruneResponse](loggingContext.traceContext))
         },
     )
   }

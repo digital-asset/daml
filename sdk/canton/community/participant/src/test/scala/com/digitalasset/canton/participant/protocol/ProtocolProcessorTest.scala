@@ -12,15 +12,8 @@ import com.daml.test.evidence.scalatest.ScalaTestSupport.TagContainer
 import com.daml.test.evidence.tag.EvidenceTag
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
 import com.digitalasset.canton.concurrent.FutureSupervisor
+import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.config.{
-  BatchingConfig,
-  CachingConfigs,
-  CommunityStorageConfig,
-  DefaultProcessingTimeouts,
-  ProcessingTimeout,
-  TestingConfigInternal,
-}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationDuration
 import com.digitalasset.canton.data.PeanoQueue.{BeforeHead, NotInserted}
@@ -32,6 +25,7 @@ import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.participant.DefaultParticipantStateValues
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
+import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
@@ -47,10 +41,9 @@ import com.digitalasset.canton.participant.protocol.TestProcessingSteps.{
 }
 import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDetectionHelpers.*
 import com.digitalasset.canton.participant.protocol.submission.*
-import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker.InFlightSubmissionTrackerDomainState
+import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker.UnsequencedSubmissionMap
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.memory.*
-import com.digitalasset.canton.participant.sync.ParticipantEventPublisher
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
@@ -73,7 +66,7 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.PekkoUtil.FutureQueue
-import com.digitalasset.canton.version.HasTestCloseContext
+import com.digitalasset.canton.version.{HasTestCloseContext, ProtocolVersion}
 import com.digitalasset.canton.{
   BaseTest,
   DefaultDamlValues,
@@ -180,9 +173,9 @@ class ProtocolProcessorTest
         EitherTUtil.unitUS
     }
 
-  private val mockInFlightSubmissionTracker = mock[InFlightSubmissionTracker]
+  private val mockInFlightSubmissionDomainTracker = mock[InFlightSubmissionDomainTracker]
   when(
-    mockInFlightSubmissionTracker.observeSequencedRootHash(
+    mockInFlightSubmissionDomainTracker.observeSequencedRootHash(
       any[RootHash],
       any[SequencedSubmission],
     )(anyTraceContext)
@@ -231,7 +224,7 @@ class ProtocolProcessorTest
       pendingSubmissionMap: concurrent.Map[Int, Unit] = TrieMap[Int, Unit](),
       sequencerClient: SequencerClientSend = mockSequencerClient,
       crypto: DomainSyncCryptoClient = crypto,
-      overrideInFlightSubmissionTrackerO: Option[InFlightSubmissionTracker] = None,
+      overrideInFlightSubmissionDomainTrackerO: Option[InFlightSubmissionDomainTracker] = None,
       submissionDataForTrackerO: Option[SubmissionTrackerData] = None,
       overrideInFlightSubmissionStoreO: Option[InFlightSubmissionStore] = None,
   ): (
@@ -295,42 +288,49 @@ class ProtocolProcessorTest
     )
     when(ledgerApiIndexer.onlyForTestingTransactionInMemoryStore).thenAnswer(None)
 
-    val eventPublisher = new ParticipantEventPublisher(
-      participant,
-      Eval.now(ledgerApiIndexer),
-      clock,
+    val timeTracker = mock[DomainTimeTracker]
+    val recordOrderPublisher = new RecordOrderPublisher(
+      initSc = SequencerCounter.Genesis,
+      initTimestamp = CantonTimestamp.MinValue,
+      ledgerApiIndexer = ledgerApiIndexer,
+      metrics = ParticipantTestMetrics.domain.recordOrderPublisher,
       exitOnFatalFailures = true,
-      timeouts,
-      futureSupervisor,
+      timeouts = ProcessingTimeout(),
+      loggerFactory = loggerFactory,
+      futureSupervisor = futureSupervisor,
+      activeContractSnapshot = persistentState.activeContractStore,
+      clock = clock,
+    )
+    val unseqeuncedSubmissionMap = new UnsequencedSubmissionMap(
+      domain,
+      1000,
+      ParticipantTestMetrics.domain.inFlightSubmissionDomainTracker.unsequencedInFlight,
       loggerFactory,
     )
-    val inFlightSubmissionTracker = overrideInFlightSubmissionTrackerO.getOrElse {
-      val tracker = new InFlightSubmissionTracker(
+    val inFlightSubmissionDomainTracker = overrideInFlightSubmissionDomainTrackerO.getOrElse {
+      new InFlightSubmissionDomainTracker(
+        domain,
         Eval.now(
           overrideInFlightSubmissionStoreO.getOrElse(nodePersistentState.inFlightSubmissionStore)
         ),
         new NoCommandDeduplicator(),
-        DefaultProcessingTimeouts.testing,
+        recordOrderPublisher,
+        timeTracker,
+        unseqeuncedSubmissionMap,
         loggerFactory,
       )
-      tracker.registerDomainStateLookup(_ =>
-        Option(ephemeralState.get())
-          .map(InFlightSubmissionTrackerDomainState.fromSyncDomainState)
-      )
-      tracker
     }
-    val participantNodeEphemeralState =
-      new ParticipantNodeEphemeralState(eventPublisher, inFlightSubmissionTracker)
-    val timeTracker = mock[DomainTimeTracker]
+    val participantNodeEphemeralState = mock[ParticipantNodeEphemeralState]
 
     ephemeralState.set(
       new SyncDomainEphemeralState(
         participant,
-        participantNodeEphemeralState,
+        recordOrderPublisher,
+        timeTracker,
+        inFlightSubmissionDomainTracker,
         persistentState,
         ledgerApiIndexer,
         startingPoints,
-        () => timeTracker,
         ParticipantTestMetrics.domain,
         exitOnFatalFailures = true,
         CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
@@ -356,7 +356,7 @@ class ProtocolProcessorTest
     ] =
       new ProtocolProcessor(
         steps,
-        inFlightSubmissionTracker,
+        inFlightSubmissionDomainTracker,
         ephemeralState.get(),
         crypto,
         sequencerClient,
@@ -375,6 +375,15 @@ class ProtocolProcessorTest
         override protected def metricsContextForSubmissionParam(
             submissionParam: Int
         ): MetricsContext = MetricsContext.Empty
+
+        override protected def preSubmissionValidations(
+            params: Int,
+            cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+            protocolVersion: ProtocolVersion,
+        )(implicit
+            traceContext: TraceContext
+        ): EitherT[FutureUnlessShutdown, TestProcessingSteps.TestProcessingError, Unit] =
+          EitherT.pure(())
       }
 
     (sut, persistentState, ephemeralState.get(), participantNodeEphemeralState)
@@ -779,7 +788,7 @@ class ProtocolProcessorTest
     "notify the in-flight submission tracker with the root hash when necessary" in {
       val (sut, _persistent, _ephemeral, _) =
         testProcessingSteps(
-          overrideInFlightSubmissionTrackerO = Some(mockInFlightSubmissionTracker),
+          overrideInFlightSubmissionDomainTrackerO = Some(mockInFlightSubmissionDomainTracker),
           submissionDataForTrackerO = Some(
             SubmissionTrackerData(
               submittingParticipant = participant,
@@ -794,7 +803,7 @@ class ProtocolProcessorTest
         .futureValue
       waitForAsyncResult(asyncRes)
 
-      verify(mockInFlightSubmissionTracker).observeSequencedRootHash(
+      verify(mockInFlightSubmissionDomainTracker).observeSequencedRootHash(
         isEq(someRequestBatch.rootHashMessage.rootHash),
         isEq(SequencedSubmission(requestSc, requestId.unwrap)),
       )(anyTraceContext)
@@ -803,7 +812,7 @@ class ProtocolProcessorTest
     "not notify the in-flight submission tracker when the message is a receipt" in {
       val (sut, _persistent, _ephemeral, _) =
         testProcessingSteps(
-          overrideInFlightSubmissionTrackerO = Some(mockInFlightSubmissionTracker),
+          overrideInFlightSubmissionDomainTrackerO = Some(mockInFlightSubmissionDomainTracker),
           submissionDataForTrackerO = Some(
             SubmissionTrackerData(
               submittingParticipant = participant,
@@ -818,13 +827,13 @@ class ProtocolProcessorTest
         .futureValue
       waitForAsyncResult(asyncRes)
 
-      verifyZeroInteractions(mockInFlightSubmissionTracker)
+      verifyZeroInteractions(mockInFlightSubmissionDomainTracker)
     }
 
     "not notify the in-flight submission tracker when not submitting participant" in {
       val (sut, _persistent, _ephemeral, _) =
         testProcessingSteps(
-          overrideInFlightSubmissionTrackerO = Some(mockInFlightSubmissionTracker),
+          overrideInFlightSubmissionDomainTrackerO = Some(mockInFlightSubmissionDomainTracker),
           submissionDataForTrackerO = Some(
             SubmissionTrackerData(
               submittingParticipant = otherParticipant,
@@ -839,7 +848,7 @@ class ProtocolProcessorTest
         .futureValue
       waitForAsyncResult(asyncRes)
 
-      verifyZeroInteractions(mockInFlightSubmissionTracker)
+      verifyZeroInteractions(mockInFlightSubmissionDomainTracker)
     }
 
     "override the sequencing time when a preplay loses the race with the normal notification" in {
@@ -872,7 +881,7 @@ class ProtocolProcessorTest
         overrideInFlightSubmissionStoreO = Some(inFlightSubmissionStore),
       )
 
-      val ifst = nodeEphemeral.inFlightSubmissionTracker
+      val ifst = ephemeral.inFlightSubmissionDomainTracker
       val subF = for {
         // The participant registers the submission in the in-flight submission tracker
         _ <- ifst
@@ -882,13 +891,12 @@ class ProtocolProcessorTest
         // Even though sequenced later, the normal notification wins the race
         _ <- ifst
           .observeSequencing(
-            domain,
             Map(
               unsequencedSubmission.messageId -> SequencedSubmission(
                 SequencerCounter(1),
                 requestId.unwrap.plusSeconds(1),
               )
-            ),
+            )
           )
           .failOnShutdown
 

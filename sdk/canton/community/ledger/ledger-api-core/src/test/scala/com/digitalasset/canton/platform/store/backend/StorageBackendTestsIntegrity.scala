@@ -31,7 +31,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(absoluteOffset(7), 7L))
+    executeSql(updateLedgerEnd(offset(7), 7L))
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
 
@@ -47,7 +47,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(absoluteOffset(7), 7L))
+    executeSql(updateLedgerEnd(offset(7), 7L))
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
 
@@ -63,7 +63,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(absoluteOffset(3), 3L))
+    executeSql(updateLedgerEnd(offset(3), 3L))
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
 
@@ -74,14 +74,18 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
   it should "not find non-consecutive event ids if those gaps are before the pruning offset" in {
     val updates = Vector(
       dtoCreate(offset(1), 1L, hashCid("#1")),
-      dtoCreate(offset(3), 3L, hashCid("#3")), // non-consecutive id but after pruning offset
+      dtoCreate(
+        offset(3),
+        3L,
+        hashCid("#3"),
+      ), // non-consecutive id but after pruning offset
       dtoCreate(offset(4), 4L, hashCid("#4")),
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(backend.parameter.updatePrunedUptoInclusive(absoluteOffset(2)))
+    executeSql(backend.parameter.updatePrunedUptoInclusive(offset(2)))
     executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(absoluteOffset(4), 4L))
+    executeSql(updateLedgerEnd(offset(4), 4L))
     executeSql(backend.integrity.onlyForTestingVerifyIntegrity())
   }
 
@@ -126,7 +130,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(absoluteOffset(5), 5L))
+    executeSql(updateLedgerEnd(offset(5), 5L))
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
@@ -176,7 +180,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(absoluteOffset(5), 5L))
+    executeSql(updateLedgerEnd(offset(5), 5L))
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
@@ -226,7 +230,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(absoluteOffset(5), 5L))
+    executeSql(updateLedgerEnd(offset(5), 5L))
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
@@ -275,7 +279,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(absoluteOffset(5), 5L))
+    executeSql(updateLedgerEnd(offset(5), 5L))
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
@@ -324,7 +328,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(absoluteOffset(5), 5L))
+    executeSql(updateLedgerEnd(offset(5), 5L))
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
@@ -371,7 +375,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(absoluteOffset(5), 4L))
+    executeSql(updateLedgerEnd(offset(5), 4L))
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
@@ -379,7 +383,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     )
   }
 
-  it should "not detect monotonicity violation of record times for one domain in completions table, if it is a timely-reject" in {
+  it should "detect monotonicity violation of record times for one domain in completions table, if it is a timely-reject going backwards" in {
     val updates = Vector(
       dtoCreate(
         offset(1),
@@ -419,8 +423,12 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(absoluteOffset(5), 4L))
-    executeSql(backend.integrity.onlyForTestingVerifyIntegrity())
+    executeSql(updateLedgerEnd(offset(5), 4L))
+    val failure =
+      intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
+    failure.getMessage should include(
+      "occurrence of decreasing record time found within one domain: offsets Offset(Bytes(000000000000000003)),Offset(Bytes(000000000000000005))"
+    )
   }
 
   it should "detect monotonicity violation of record times for one domain in party to participant table" in {
@@ -474,7 +482,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(absoluteOffset(5), 5L))
+    executeSql(updateLedgerEnd(offset(5), 5L))
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
@@ -512,7 +520,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(absoluteOffset(5), 4L))
+    executeSql(updateLedgerEnd(offset(5), 4L))
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
@@ -535,7 +543,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(absoluteOffset(5), 4L))
+    executeSql(updateLedgerEnd(offset(5), 4L))
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
@@ -564,7 +572,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(absoluteOffset(5), 4L))
+    executeSql(updateLedgerEnd(offset(5), 4L))
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
@@ -594,7 +602,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(absoluteOffset(5), 4L))
+    executeSql(updateLedgerEnd(offset(5), 4L))
     executeSql(backend.integrity.onlyForTestingVerifyIntegrity())
   }
 
@@ -609,7 +617,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(absoluteOffset(2), 2L))
+    executeSql(updateLedgerEnd(offset(2), 2L))
     executeSql(backend.integrity.onlyForTestingVerifyIntegrity())
 
     // Succeeds if verifyIntegrity() doesn't throw

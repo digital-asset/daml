@@ -95,7 +95,7 @@ object AcsTxStreams extends NoTracing {
       val acs = b add (Flow fromFunction ((_: Either[Long, GACR]).toSeq.flatMap(
         _.contractEntry.activeContract
           .flatMap(_.createdEvent)
-          .toSeq
+          .toList
       )))
       val off = b add Flow[Either[Long, GACR]]
         .collect { case Left(offset) =>

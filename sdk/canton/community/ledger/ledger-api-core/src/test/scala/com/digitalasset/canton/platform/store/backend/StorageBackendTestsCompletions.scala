@@ -47,12 +47,12 @@ private[backend] trait StorageBackendTestsCompletions
 
       executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
       executeSql(ingest(dtos, _))
-      executeSql(updateLedgerEnd(absoluteOffset(3), 3L))
+      executeSql(updateLedgerEnd(offset(3), 3L))
       val completions0to2 = executeSql(
         backend.completion
           .commandCompletions(
             AbsoluteOffset.firstOffset,
-            absoluteOffset(2),
+            offset(2),
             applicationId,
             Set(party),
             limit = 10,
@@ -61,8 +61,8 @@ private[backend] trait StorageBackendTestsCompletions
       val completions1to2 = executeSql(
         backend.completion
           .commandCompletions(
-            absoluteOffset(2),
-            absoluteOffset(2),
+            offset(2),
+            offset(2),
             applicationId,
             Set(party),
             limit = 10,
@@ -72,7 +72,7 @@ private[backend] trait StorageBackendTestsCompletions
         backend.completion
           .commandCompletions(
             AbsoluteOffset.firstOffset,
-            absoluteOffset(9),
+            offset(9),
             applicationId,
             Set(party),
             limit = 10,
@@ -101,13 +101,13 @@ private[backend] trait StorageBackendTestsCompletions
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
-    executeSql(updateLedgerEnd(absoluteOffset(1), 1L))
+    executeSql(updateLedgerEnd(offset(1), 1L))
 
     val completions = executeSql(
       backend.completion
         .commandCompletions(
           AbsoluteOffset.firstOffset,
-          absoluteOffset(1),
+          offset(1),
           applicationId,
           Set(party),
           limit = 10,
@@ -132,12 +132,12 @@ private[backend] trait StorageBackendTestsCompletions
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
-    executeSql(updateLedgerEnd(absoluteOffset(2), 2L))
+    executeSql(updateLedgerEnd(offset(2), 2L))
     val completions = executeSql(
       backend.completion
         .commandCompletions(
           AbsoluteOffset.firstOffset,
-          absoluteOffset(2),
+          offset(2),
           someApplicationId,
           Set(party),
           limit = 10,
@@ -174,12 +174,12 @@ private[backend] trait StorageBackendTestsCompletions
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
 
-    executeSql(updateLedgerEnd(absoluteOffset(2), 2L))
+    executeSql(updateLedgerEnd(offset(2), 2L))
     val completions = executeSql(
       backend.completion
         .commandCompletions(
           AbsoluteOffset.firstOffset,
-          absoluteOffset(2),
+          offset(2),
           someApplicationId,
           Set(party),
           limit = 10,
@@ -222,12 +222,12 @@ private[backend] trait StorageBackendTestsCompletions
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
 
-    executeSql(updateLedgerEnd(absoluteOffset(2), 2L))
+    executeSql(updateLedgerEnd(offset(2), 2L))
     val completions = executeSql(
       backend.completion
         .commandCompletions(
           AbsoluteOffset.firstOffset,
-          absoluteOffset(2),
+          offset(2),
           someApplicationId,
           Set(party),
           limit = 10,
@@ -265,12 +265,12 @@ private[backend] trait StorageBackendTestsCompletions
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
 
-    executeSql(updateLedgerEnd(absoluteOffset(2), 2L))
+    executeSql(updateLedgerEnd(offset(2), 2L))
     val completions = executeSql(
       backend.completion
         .commandCompletions(
           AbsoluteOffset.firstOffset,
-          absoluteOffset(2),
+          offset(2),
           someApplicationId,
           Set(party, party2),
           limit = 10,
@@ -310,12 +310,12 @@ private[backend] trait StorageBackendTestsCompletions
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos1, _))
-    executeSql(updateLedgerEnd(absoluteOffset(1), 1L))
+    executeSql(updateLedgerEnd(offset(1), 1L))
     val caught = intercept[IllegalArgumentException](
       executeSql(
         backend.completion.commandCompletions(
           AbsoluteOffset.firstOffset,
-          absoluteOffset(1),
+          offset(1),
           someApplicationId,
           Set(party),
           limit = 10,
@@ -335,12 +335,12 @@ private[backend] trait StorageBackendTestsCompletions
     )
 
     executeSql(ingest(dtos2, _))
-    executeSql(updateLedgerEnd(absoluteOffset(2), 2L))
+    executeSql(updateLedgerEnd(offset(2), 2L))
     val caught2 = intercept[IllegalArgumentException](
       executeSql(
         backend.completion.commandCompletions(
-          absoluteOffset(2),
-          absoluteOffset(2),
+          offset(2),
+          offset(2),
           someApplicationId,
           Set(party),
           limit = 10,
@@ -415,7 +415,7 @@ private[backend] trait StorageBackendTestsCompletions
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
     executeSql(
-      backend.completion.commandCompletionsForRecovery(absoluteOffset(2), absoluteOffset(10))
+      backend.completion.commandCompletionsForRecovery(offset(2), offset(10))
     ) shouldBe Vector(
       PostPublishData(
         submissionDomainId = DomainId.tryFromString("x::domain1"),
@@ -423,7 +423,7 @@ private[backend] trait StorageBackendTestsCompletions
         applicationId = Ref.ApplicationId.assertFromString("applicationid1"),
         commandId = Ref.CommandId.assertFromString(commandId),
         actAs = Set(someParty),
-        offset = absoluteOffset(2),
+        offset = offset(2),
         publicationTime = CantonTimestamp(publicationTime),
         submissionId = Some(Ref.SubmissionId.assertFromString(submissionId)),
         accepted = true,
@@ -438,7 +438,7 @@ private[backend] trait StorageBackendTestsCompletions
         applicationId = Ref.ApplicationId.assertFromString("applicationid1"),
         commandId = Ref.CommandId.assertFromString(commandId),
         actAs = Set(someParty),
-        offset = absoluteOffset(9),
+        offset = offset(9),
         publicationTime = CantonTimestamp(publicationTime),
         submissionId = Some(Ref.SubmissionId.assertFromString(submissionId)),
         accepted = false,
@@ -449,7 +449,7 @@ private[backend] trait StorageBackendTestsCompletions
     // this tries to deserialize the last dto which has an invalid combination of message_uuid and request_sequencer_counter
     intercept[IllegalStateException](
       executeSql(
-        backend.completion.commandCompletionsForRecovery(absoluteOffset(3), absoluteOffset(11))
+        backend.completion.commandCompletionsForRecovery(offset(3), offset(11))
       )
     ).getMessage should include("if message_uuid is empty, this field should be populated")
   }

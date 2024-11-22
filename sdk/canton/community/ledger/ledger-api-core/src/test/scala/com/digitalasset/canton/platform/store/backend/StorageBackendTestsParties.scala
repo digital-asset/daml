@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.{HasExecutionContext, LfPartyId}
 import org.scalatest.flatspec.AnyFlatSpec
@@ -22,9 +21,9 @@ private[backend] trait StorageBackendTestsParties
   import StorageBackendTestValues.*
 
   it should "ingest a single party update" in {
-    val someOffset = absoluteOffset(1)
+    val someOffset = offset(1)
     val dtos = Vector(
-      dtoPartyEntry(Offset.fromAbsoluteOffset(someOffset))
+      dtoPartyEntry(someOffset)
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
@@ -77,7 +76,7 @@ private[backend] trait StorageBackendTestsParties
     executeSql(ingest(dtos, _))
     // ledger end deliberately omitting the last test entries
     executeSql(
-      updateLedgerEnd(absoluteOffset(16), ledgerEndSequentialId = 0)
+      updateLedgerEnd(offset(16), ledgerEndSequentialId = 0)
     )
 
     def validateEntries(entry: IndexerPartyDetails): Unit =
@@ -119,7 +118,7 @@ private[backend] trait StorageBackendTestsParties
     executeSql(ingest(dtos, _))
     // ledger end deliberately omitting the last test entries
     executeSql(
-      updateLedgerEnd(absoluteOffset(6), ledgerEndSequentialId = 0)
+      updateLedgerEnd(offset(6), ledgerEndSequentialId = 0)
     )
 
     val allKnownParties = executeSql(backend.party.knownParties(None, 10))

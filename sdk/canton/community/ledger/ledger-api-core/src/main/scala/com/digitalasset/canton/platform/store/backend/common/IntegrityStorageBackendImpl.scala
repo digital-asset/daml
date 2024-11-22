@@ -146,7 +146,6 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
        SELECT event_offset as _offset, record_time, target_domain_id as domain_id FROM lapi_events_assign
        UNION ALL
        SELECT completion_offset as _offset, record_time, domain_id FROM lapi_command_completions
-         WHERE message_uuid is null -- it is not a timely reject (the record time there can be a source of violation: in corner cases it can move backwards)
        UNION ALL
        SELECT event_offset as _offset, record_time, domain_id FROM lapi_events_party_to_participant
        """.asVectorOf(

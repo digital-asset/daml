@@ -73,7 +73,7 @@ object UsableDomain {
       ec: ExecutionContext
   ): EitherT[Future, UnsupportedMinimumProtocolVersionForInteractiveSubmission, Unit] = versionO
     .map { version =>
-      val minProtocolVersion = HashingSchemeVersion.minProtocolVersionForISV(version)
+      val minProtocolVersion = HashingSchemeVersion.minProtocolVersionForHSV(version)
       EitherT.cond[Future](
         minProtocolVersion.exists(protocolVersion >= _),
         (),

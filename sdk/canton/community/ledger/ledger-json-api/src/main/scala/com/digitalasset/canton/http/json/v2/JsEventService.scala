@@ -27,7 +27,7 @@ class JsEventService(
 ) extends Endpoints
     with NamedLogging {
 
-  private def eventServiceClient(token: Option[String] = None)(implicit
+  private def eventServiceClient(token: Option[String])(implicit
       traceContext: TraceContext
   ): event_query_service.EventQueryServiceGrpc.EventQueryServiceStub =
     ledgerClient.serviceClient(event_query_service.EventQueryServiceGrpc.stub, token)
@@ -60,16 +60,16 @@ class JsEventService(
   }
 }
 
-case class JsCreated(
+final case class JsCreated(
     created_event: JsEvent.CreatedEvent,
     domain_id: String,
 )
-case class JsArchived(
+final case class JsArchived(
     archived_event: JsEvent.ArchivedEvent,
     domain_id: String,
 )
 
-case class JsGetEventsByContractIdResponse(
+final case class JsGetEventsByContractIdResponse(
     created: Option[JsCreated],
     archived: Option[JsArchived],
 )

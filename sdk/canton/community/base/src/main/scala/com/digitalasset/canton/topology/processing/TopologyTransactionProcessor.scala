@@ -25,6 +25,10 @@ import com.digitalasset.canton.protocol.messages.{
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.protocol.{AllMembersOfDomain, Deliver, DeliverError}
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
+import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit.{
+  DefaultHeadStateInitializer,
+  HeadStateInitializer,
+}
 import com.digitalasset.canton.topology.client.{
   CachingDomainTopologyClient,
   DomainTopologyClientWithInit,
@@ -547,6 +551,7 @@ object TopologyTransactionProcessor {
       clock: Clock,
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
+      headStateInitializer: HeadStateInitializer = DefaultHeadStateInitializer,
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
@@ -575,6 +580,7 @@ object TopologyTransactionProcessor {
       parameters.processingTimeouts,
       futureSupervisor,
       loggerFactory,
+      headStateInitializer,
     )
 
     cachingClientF.map { client =>

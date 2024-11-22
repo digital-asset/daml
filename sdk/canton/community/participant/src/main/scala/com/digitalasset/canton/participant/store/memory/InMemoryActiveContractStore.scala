@@ -176,6 +176,22 @@ class InMemoryActiveContractStore(
     snapshot.result()
   }
 
+  override def activenessOf(contracts: Seq[LfContractId])(implicit
+      traceContext: TraceContext
+  ): Future[SortedMap[LfContractId, Seq[(CantonTimestamp, ActivenessChangeDetail)]]] =
+    Future.successful {
+      val snapshot =
+        SortedMap.newBuilder[LfContractId, Seq[(CantonTimestamp, ActivenessChangeDetail)]]
+      if (contracts.nonEmpty)
+        table.view.filterKeys(contracts.toSet).foreach { case (contractId, contractStatus) =>
+          snapshot += (contractId ->
+            contractStatus.changes.map { case (activenessChange, state) =>
+              (activenessChange.toc.timestamp, state)
+            }.toSeq)
+        }
+      snapshot.result()
+    }
+
   override def contractSnapshot(contractIds: Set[LfContractId], timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): Future[Map[LfContractId, CantonTimestamp]] =

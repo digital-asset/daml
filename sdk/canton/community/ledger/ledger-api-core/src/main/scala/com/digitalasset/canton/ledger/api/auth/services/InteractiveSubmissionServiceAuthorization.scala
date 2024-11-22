@@ -34,8 +34,10 @@ final class InteractiveSubmissionServiceAuthorization(
       request: PrepareSubmissionRequest
   ): Future[PrepareSubmissionResponse] = {
     val effectiveSubmitters = CommandsValidator.effectiveSubmitters(request)
-    authorizer.requireReadClaimsForAllParties(
-      parties = effectiveSubmitters.readAs,
+    authorizer.requireActAndReadClaimsForParties(
+      actAs = Set.empty, // At preparation time the actAs parties are only reading
+      readAs = effectiveSubmitters.readAs ++ effectiveSubmitters.actAs,
+      applicationIdL = Lens.unit[PrepareSubmissionRequest].applicationId,
       call = service.prepareSubmission,
     )(request)
   }
@@ -43,17 +45,17 @@ final class InteractiveSubmissionServiceAuthorization(
   override def executeSubmission(
       request: ExecuteSubmissionRequest
   ): Future[ExecuteSubmissionResponse] = {
-    val readAndActAsO = for {
+    val actAsO = for {
       preparedTx <- request.preparedTransaction
       metadata <- preparedTx.metadata
       submitterInfo <- metadata.submitterInfo
-    } yield (submitterInfo.readAs, submitterInfo.actAs)
+    } yield submitterInfo.actAs
 
-    val (readAs, actAs) = readAndActAsO.getOrElse((Seq.empty, Seq.empty))
+    val actAs = actAsO.getOrElse(Seq.empty)
 
     authorizer.requireActAndReadClaimsForParties(
       actAs = actAs.toSet[String],
-      readAs = readAs.toSet[String],
+      readAs = Set.empty[String],
       applicationIdL = Lens.unit[ExecuteSubmissionRequest].applicationId,
       call = service.executeSubmission,
     )(request)

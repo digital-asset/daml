@@ -466,9 +466,7 @@ class UnassignmentProcessingSteps(
       )
 
       authenticationErrors <- EitherT.right(
-        FutureUnlessShutdown.outcomeF(
-          AuthenticationValidator.verifyViewSignature(parsedRequestType)
-        )
+        AuthenticationValidator.verifyViewSignature(parsedRequestType)
       )
 
       requestId = RequestId(ts)

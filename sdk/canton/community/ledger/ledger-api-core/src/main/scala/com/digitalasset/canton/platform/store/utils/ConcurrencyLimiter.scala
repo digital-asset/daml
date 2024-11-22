@@ -4,6 +4,7 @@
 package com.digitalasset.canton.platform.store.utils
 
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.util.Thereafter.syntax.*
 
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
@@ -26,13 +27,14 @@ class QueueBasedConcurrencyLimiter(
   override def execute[T](task: => Future[T]): Future[T] = {
     val promise = Promise[T]()
     val waitingTask = () => {
-      task.andThen { case result =>
+      implicit val ec: ExecutionContext = executionContext
+      task.thereafter { result =>
         blocking(synchronized {
           running = running - 1
           promise.tryComplete(result).discard
           startTasks()
         })
-      }(executionContext).discard
+      }.discard
     }
 
     blocking(synchronized {

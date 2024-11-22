@@ -5,12 +5,17 @@ package com.digitalasset.canton.version
 
 import com.daml.ledger.api.v2.interactive.interactive_submission_service as iss
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.ProtoDeserializationError.{FieldNotSet, UnrecognizedEnum}
+import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 
 import scala.collection.immutable.{SortedMap, SortedSet}
 
 sealed abstract class HashingSchemeVersion(val index: Int) {
   def toLAPIProto: iss.HashingSchemeVersion =
     iss.HashingSchemeVersion.fromValue(index)
+  def toProtoV30: v30.ExternalAuthorization.HashingSchemeVersion =
+    v30.ExternalAuthorization.HashingSchemeVersion.fromValue(index)
 }
 
 object HashingSchemeVersion {
@@ -24,12 +29,12 @@ object HashingSchemeVersion {
       ProtocolVersion.dev -> NonEmpty.mk(SortedSet, V1),
     )
 
-  def minProtocolVersionForISV(version: HashingSchemeVersion): Option[ProtocolVersion] =
+  def minProtocolVersionForHSV(version: HashingSchemeVersion): Option[ProtocolVersion] =
     ProtocolVersionToHashingVersion.iterator.collectFirst {
       case (pv, isVersions) if isVersions.contains(version) => pv
     }
 
-  def getVersionedHashConstructorFor(
+  def getHashingSchemeVersionsForProtocolVersion(
       protocolVersion: ProtocolVersion
   ): NonEmpty[SortedSet[HashingSchemeVersion]] = {
     assert(
@@ -37,5 +42,15 @@ object HashingSchemeVersion {
       s"Canton only supports external signing from ProtocolVersions >= ${ProtocolVersion.v33}",
     )
     ProtocolVersionToHashingVersion(protocolVersion)
+  }
+
+  def fromProtoV30(
+      version: v30.ExternalAuthorization.HashingSchemeVersion
+  ): ParsingResult[HashingSchemeVersion] = version match {
+    case v30.ExternalAuthorization.HashingSchemeVersion.HASHING_SCHEME_VERSION_V1 => Right(V1)
+    case v30.ExternalAuthorization.HashingSchemeVersion.HASHING_SCHEME_VERSION_UNSPECIFIED =>
+      Left(FieldNotSet("hashing_scheme_version"))
+    case v30.ExternalAuthorization.HashingSchemeVersion.Unrecognized(unrecognizedValue) =>
+      Left(UnrecognizedEnum("hashing_scheme_version", unrecognizedValue))
   }
 }

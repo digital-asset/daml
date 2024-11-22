@@ -205,5 +205,10 @@ object RepairServiceError extends RepairServiceErrorGroup {
         RepairServiceError.SerializationError.Error(domainId, contractId)
       case AcsInspectionError.OffboardingParty(domainId, error) =>
         RepairServiceError.InvalidArgument.Error(s"Parties offboarding on domain $domainId: $error")
+      case AcsInspectionError.ContractLookupIssue(domainId, contractId, errorMessage) =>
+        logger.debug(
+          s"Contract $contractId for domain $domainId cannot be found due to: $errorMessage"
+        )
+        RepairServiceError.InvalidArgument.Error(errorMessage)
     }
 }

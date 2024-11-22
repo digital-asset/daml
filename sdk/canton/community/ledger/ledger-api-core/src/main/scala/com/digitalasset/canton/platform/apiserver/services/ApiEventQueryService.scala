@@ -18,6 +18,7 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace.{
 }
 import com.digitalasset.canton.logging.TracedLoggerOps.TracedLoggerOps
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import io.grpc.*
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -55,7 +56,7 @@ final class ApiEventQueryService(
               request.contractId,
               request.requestingParties,
             )
-            .andThen(logger.logErrorsOnCall[GetEventsByContractIdResponse])
+            .thereafter(logger.logErrorsOnCall[GetEventsByContractIdResponse])
         },
       )
   }

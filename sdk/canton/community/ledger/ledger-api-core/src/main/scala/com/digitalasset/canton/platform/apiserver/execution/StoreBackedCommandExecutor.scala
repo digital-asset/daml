@@ -33,6 +33,7 @@ import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Checked
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.*
@@ -159,8 +160,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
             commands.commandId.unwrap,
             commands.deduplicationPeriod,
             commands.submissionId.map(_.unwrap),
-            transactionUUID = None,
-            mediatorGroup = None,
             externallySignedSubmission = None,
           ),
           optDomainId = prescribedDomainIdO,
@@ -349,7 +348,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
             }
       }
 
-    resolveStep(result).andThen { case _ =>
+    resolveStep(result).thereafter { _ =>
       metrics.execution.lookupActiveContractPerExecution
         .update(lookupActiveContractTime.get(), TimeUnit.NANOSECONDS)
       metrics.execution.lookupActiveContractCountPerExecution

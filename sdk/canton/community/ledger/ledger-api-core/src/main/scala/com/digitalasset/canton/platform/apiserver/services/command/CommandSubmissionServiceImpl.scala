@@ -38,6 +38,7 @@ import com.digitalasset.canton.platform.apiserver.services.{
 }
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.crypto
 import io.opentelemetry.api.trace.Tracer
@@ -123,7 +124,7 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
       val evaluatedCommand =
         evaluateAndSubmit(seedService.nextSeed(), request.commands)
           .transform(handleSubmissionResult)
-      evaluatedCommand.andThen(logger.logErrorsOnCall[Unit])
+      evaluatedCommand.thereafter(logger.logErrorsOnCall[Unit])
     }
 
   private def handleSubmissionResult(result: Try[state.SubmissionResult])(implicit

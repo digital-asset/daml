@@ -18,6 +18,7 @@ import sttp.tapir.json.circe.jsonBody
 import sttp.tapir.{AnyEndpoint, Endpoint, path, query}
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.language.existentials
 
 class JsPartyManagementService(
     partyManagementClient: PartyManagementClient,

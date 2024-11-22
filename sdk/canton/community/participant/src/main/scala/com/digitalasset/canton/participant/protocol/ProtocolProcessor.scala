@@ -95,7 +95,7 @@ abstract class ProtocolProcessor[
       RequestViewType,
       SubmissionError,
     ],
-    inFlightSubmissionTracker: InFlightSubmissionTracker,
+    inFlightSubmissionDomainTracker: InFlightSubmissionDomainTracker,
     ephemeral: SyncDomainEphemeralState,
     crypto: DomainSyncCryptoClient,
     sequencerClient: SequencerClientSend,
@@ -138,6 +138,17 @@ abstract class ProtocolProcessor[
     */
   private val submissionCounter: AtomicInteger = new AtomicInteger(0)
 
+  /** Validations run at the start of the submission. This can be overridden to provide early stage
+    * validations that should fail _synchronously_ the submission.
+    */
+  protected def preSubmissionValidations(
+      params: SubmissionParam,
+      cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      protocolVersion: ProtocolVersion,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SubmissionError, Unit]
+
   /** Submits the request to the sequencer, using a recent topology snapshot and the current persisted state
     * as an approximation to the future state at the assigned request timestamp.
     *
@@ -156,6 +167,7 @@ abstract class ProtocolProcessor[
     val recentSnapshot = crypto.currentSnapshotApproximation
     val explicitMediatorGroupIndex = steps.explicitMediatorGroup(submissionParam)
     for {
+      _ <- preSubmissionValidations(submissionParam, recentSnapshot, protocolVersion)
       mediator <- chooseMediator(recentSnapshot.ipsSnapshot, explicitMediatorGroupIndex)
         .leftMap(steps.embedNoMediatorError)
         .mapK(FutureUnlessShutdown.outcomeK)
@@ -299,7 +311,7 @@ abstract class ProtocolProcessor[
     val specifiedDeduplicationPeriod = tracked.specifiedDeduplicationPeriod
     logger.debug(s"Registering the submission as in-flight")
 
-    val registeredF = inFlightSubmissionTracker
+    val registeredF = inFlightSubmissionDomainTracker
       .register(inFlightSubmission, specifiedDeduplicationPeriod)
       .leftMap(tracked.embedInFlightSubmissionTrackerError)
       .onShutdown {
@@ -313,39 +325,14 @@ abstract class ProtocolProcessor[
 
     def observeSubmissionError(
         newTrackingData: SubmissionTrackingData
-    ): FutureUnlessShutdown[SubmissionResult] = {
-      // Assign the currently observed domain timestamp so that the error will be published soon.
-      // Cap it by the max sequencing time so that the timeout field can move only backwards.
-      val timestamp = ephemeral.observedTimestampLookup.highWatermark min maxSequencingTime
-      val newUnsequencedSubmission = UnsequencedSubmission(timestamp, newTrackingData)
-      for {
-        _unit <- inFlightSubmissionTracker.observeSubmissionError(
+    ): FutureUnlessShutdown[SubmissionResult] =
+      inFlightSubmissionDomainTracker
+        .observeSubmissionError(
           tracked.changeIdHash,
-          domainId,
-          messageId,
-          newUnsequencedSubmission,
+          inFlightSubmission.messageId,
+          newTrackingData,
         )
-        // The new timestamp is the sequencing timestamp of the most recently received sequencer message.
-        // If this message has already been fully processed and triggered the timely rejections
-        // before we updated the UnsequencedSubmission,
-        // then the rejection will be emitted only upon the next sequencer message that triggers such a timely rejection.
-        // However, it may be an arbitrary long time until this happens.
-        // Therefore, we notify the in-flight submission tracker again
-        // if it had already been notified for the chosen timestamp or a later one.
-        // This should happen only if the domain is idle and no messages are in-flight between time observation
-        // and notification of the in-flight submission tracker (via the clean sequencer counter tracking).
-        // Because the domain is idle, another DB access does not hurt much.
-        //
-        // There is no point in notifying the in-flight submission tracker if we did not change the timestamp,
-        // because the regular timely rejection mechanism has already emitted the command timeout
-        // or ongoing processing of the message that triggers the timeout will anyway pick up the old or the updated
-        // tracking data.
-        _ = if (maxSequencingTime > timestamp) {
-          logger.debug(s"Renotifying the in-flight submission tracker for timestamp $timestamp")
-          ephemeral.timelyRejectNotifier.notifyIfInPastAsync(timestamp)
-        }
-      } yield tracked.onDefinitiveFailure
-    }
+        .map(_ => tracked.onDefinitiveFailure)
 
     // After in-flight registration, Make sure that all errors get a chance to update the tracking data and
     // instead return a `SubmissionResult` so that the submission will be acknowledged over the ledger API.
@@ -419,29 +406,18 @@ abstract class ProtocolProcessor[
           }
         }
 
-        // There's no point to attempt to send the submission to the sequencer
-        // if we've already observed the max sequencing time or something later
-        // Rather, we notify the timely rejection mechanism so that the timeout completion
-        // is emitted. This should only happen if the max sequencing time was observed
-        // after the high watermark check in the InFlightSubmissionTracker.
-        val maxSequencingTimeHasElapsed =
-          ephemeral.timelyRejectNotifier.notifyIfInPastAsync(maxSequencingTime)
-        if (maxSequencingTimeHasElapsed) {
-          FutureUnlessShutdown.pure(tracked.onDefinitiveFailure)
-        } else {
-          val batchF = for {
-            batch <- tracked.prepareBatch(
-              actualDeduplicationOffset,
-              maxSequencingTime,
-              ephemeral.sessionKeyStore,
+        val batchF = for {
+          batch <- tracked.prepareBatch(
+            actualDeduplicationOffset,
+            maxSequencingTime,
+            ephemeral.sessionKeyStore,
+          )
+          _ <- EitherT
+            .right[SubmissionTrackingData](
+              inFlightSubmissionDomainTracker.updateRegistration(inFlightSubmission, batch.rootHash)
             )
-            _ <- EitherT
-              .right[SubmissionTrackingData](
-                inFlightSubmissionTracker.updateRegistration(inFlightSubmission, batch.rootHash)
-              )
-          } yield batch
-          unlessError(batchF, mayHaveBeenSent = false)(sendBatch)
-        }
+        } yield batch
+        unlessError(batchF, mayHaveBeenSent = false)(sendBatch)
     }
 
     registeredF.mapK(FutureUnlessShutdown.outcomeK).map(afterRegistration)
@@ -718,7 +694,7 @@ abstract class ProtocolProcessor[
         // submission tracker to avoid the situation that our original submission never gets sequenced
         // and gets picked up by a timely rejection, which would emit a duplicate command completion.
         val sequenced = SequencedSubmission(sc, ts)
-        inFlightSubmissionTracker.observeSequencedRootHash(
+        inFlightSubmissionDomainTracker.observeSequencedRootHash(
           rootHash,
           sequenced,
         )
