@@ -995,6 +995,7 @@ convertExports env mc = do
                     not $
                         isSystemName name
                         || isWiredInName name
+                        || isGeneratedName name
 
         availInfoToExportInfo :: GHC.AvailInfo -> ConvertM ExportInfo
         availInfoToExportInfo = \case
@@ -1030,6 +1031,11 @@ convertExports env mc = do
         -- Tag for explicit exports, so we can differentiate between no exports and old-style exports
         explicitExportsDef :: Definition
         explicitExportsDef = DValue (mkMetadataStub explicitExportsTag (LF.TBuiltin LF.BTUnit))
+
+        -- Need to also remove generated names from exports, such as `_choice$_T$...`
+        -- as these will fail to parse in the export list.
+        isGeneratedName :: Name -> Bool
+        isGeneratedName (GHC.getOccString -> n) = '$' `elem` n
 
 defNewtypeWorker :: NamedThing a => Env -> a -> TypeConName -> DataCon
     -> [(TypeVarName, LF.Kind)] -> [(FieldName, LF.Type)] -> Definition
