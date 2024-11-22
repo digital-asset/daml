@@ -16,9 +16,19 @@ import DA.Foldable (foldMap)
 import DA.Exception
 
 data UpgradeErrorType
-  = ValidationFailed
+  = ValidationFailed with
+        coid : AnyContractId
+        srcTemplateId : TemplateTypeRep
+        dstTemplateId : TemplateTypeRep
+        signatories : [Party]
+        observers : [Party]
+        keyOpt : Optional (AnyContractKey, [Party])
   | DowngradeDropDefinedField
-  | ViewMismatch
+  | ViewMismatch with
+        coid : AnyContractId
+        iterfaceId : TemplateTypeRep
+        srcTemplateId : TemplateTypeRep
+        dstTemplateId : TemplateTypeRep
   deriving Show
 
 -- | Errors that will be promoted to SubmitError once stable - code needs to be kept in sync with SubmitError.scala
@@ -134,7 +144,7 @@ data SubmitError
       localVerdictLockedKeys : [AnyContractKey]
           -- ^ Locked contract keys
   | -- | Upgrade exception
-    UpgradeError with -- We just give the error's simple class name and the prettied message it generates. Scripts doesn't need anything more right now.
+    UpgradeError with
       errorType : UpgradeErrorType
       errorMessage : Text
   | -- | Development feature exceptions

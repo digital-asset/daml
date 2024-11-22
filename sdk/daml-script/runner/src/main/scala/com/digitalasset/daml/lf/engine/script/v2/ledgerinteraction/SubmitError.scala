@@ -420,7 +420,7 @@ class SubmitErrors(majorLanguageVersion: LanguageMajorVersion) {
         message: String,
     ) extends SubmitError {
       override def toDamlSubmitError(env: Env): SValue = {
-        // TODO: future PR will push upgrade error changes through to Daml
+        // FIXME
         val upgradeErrorType =
           SEnum(upgradeErrorTypeIdentifier(env), Name.assertFromString("ValidationFailed"), 0)
         SubmitErrorConverters(env).damlScriptError(
@@ -434,7 +434,6 @@ class SubmitErrors(majorLanguageVersion: LanguageMajorVersion) {
 
     sealed case class DowngradeDropDefinedField(message: String) extends SubmitError {
       override def toDamlSubmitError(env: Env): SValue = {
-        // TODO: future PR will push upgrade error changes through to Daml
         val upgradeErrorType = SEnum(
           upgradeErrorTypeIdentifier(env),
           Name.assertFromString("DowngradeDropDefinedField"),
@@ -457,7 +456,7 @@ class SubmitErrors(majorLanguageVersion: LanguageMajorVersion) {
         message: String,
     ) extends SubmitError {
       override def toDamlSubmitError(env: Env): SValue = {
-        // TODO: future PR will push upgrade error changes through to Daml
+        // FIXME
         val upgradeErrorType =
           SEnum(upgradeErrorTypeIdentifier(env), Name.assertFromString("ViewMismatch"), 2)
         SubmitErrorConverters(env).damlScriptError(
