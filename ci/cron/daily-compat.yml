@@ -314,7 +314,7 @@ jobs:
         export GH_REPO=digital-asset/daml
         pr_list=$(gh pr list --search "is:open author:app/azure-pipelines" --json title,url,createdAt --template \
         '{{range .}}{{slice .createdAt 0 10}} <{{.url}}|{{.title}}>
-        {{end}}')
+        {{end}}' | grep -v 'rotate release duty')
         message="Open daml repo PRs to address:
 
         $pr_list"
