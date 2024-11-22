@@ -347,8 +347,6 @@ templateOptionalFieldOnChoiceSetWhenDowngrading = test $ do
   cid <- a `submit` createExactCmd V1.OptionalFieldOnChoiceAdded with party = a
 
   let cidV2 = coerceContractId @V1.OptionalFieldOnChoiceAdded @V2.OptionalFieldOnChoiceAdded cid
-
-  -- Ensure we can only call the V1 choice
   res <- (actAs a <> packagePreference [dataChangesV1]) `trySubmit` exerciseCmd cidV2 V2.OptionalFieldOnChoiceAddedCall { existingField = "V2", newField = Some "V2" }
 
   case res of
@@ -531,8 +529,6 @@ tofswdViaCIDExerciseInCommandGlobal = templateOptionalFieldsSetWhenDowngradingTe
   cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V2"
 
   let cidV1 = coerceContractId @V2.OptionalFieldsAdded @V1.OptionalFieldsAdded cid
-
-  -- Ensure we can only call the V1 choice
   a `trySubmit` exerciseExactCmd cidV1 V1.OptionalFieldsAddedCall
 
 tofswdViaInterfaceInCommandGlobal : (Text, Test)
