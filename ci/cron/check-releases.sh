@@ -193,7 +193,9 @@ matches_record() (
   release=$2
   remote=$(mktemp)
   gcloud storage cat $(remote_record_location $release) > $remote
-  diff $remote $listing
+  diff \
+    <(cat $remote | jq 'del(.gcloud[].metadata.timeFinalized)') \
+    <(cat $listing | jq 'del(.gcloud[].metadata.timeFinalized)')
 )
 
 record_success() (
