@@ -11,17 +11,11 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.{SymbolicCrypto, SymbolicPureCrypto}
+import com.digitalasset.canton.data.*
 import com.digitalasset.canton.data.ViewType.AssignmentViewType
-import com.digitalasset.canton.data.{
-  AssignmentViewTree,
-  CantonTimestamp,
-  FullAssignmentTree,
-  ReassignmentRef,
-  ReassignmentSubmitterMetadata,
-  ViewPosition,
-}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
+import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.ledger.api.{LedgerApiIndexer, LedgerApiStore}
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
@@ -31,19 +25,14 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDe
 }
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidation.*
-import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
-  ContractMetadataMismatch,
-  NotHostedOnParticipant,
-  ParsedReassignmentRequest,
-  StakeholdersMismatch,
-  SubmitterMustBeStakeholder,
-}
+import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.{
   ViewHashAndRecipients,
   ViewKeyData,
 }
 import com.digitalasset.canton.participant.protocol.submission.{
   EncryptedViewMessageFactory,
+  InFlightSubmissionDomainTracker,
   SeedGenerator,
 }
 import com.digitalasset.canton.participant.protocol.validation.{
@@ -59,7 +48,6 @@ import com.digitalasset.canton.participant.store.ReassignmentStoreTest.coidAbs1
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.store.{
   AcsCounterParticipantConfigStore,
-  ParticipantNodeEphemeralState,
   ReassignmentStoreTest,
   SyncDomainEphemeralState,
   SyncDomainPersistentState,
@@ -194,11 +182,12 @@ class AssignmentProcessingStepsTest
     } yield {
       val state = new SyncDomainEphemeralState(
         participant,
-        mock[ParticipantNodeEphemeralState],
+        mock[RecordOrderPublisher],
+        mock[DomainTimeTracker],
+        mock[InFlightSubmissionDomainTracker],
         persistentState,
         ledgerApiIndexer,
         ProcessingStartingPoints.default,
-        () => mock[DomainTimeTracker],
         ParticipantTestMetrics.domain,
         exitOnFatalFailures = true,
         CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
@@ -783,7 +772,7 @@ class AssignmentProcessingStepsTest
           signatureO = Some(signature),
         )
         authenticationError <-
-          AuthenticationValidator.verifyViewSignature(parsed)
+          AuthenticationValidator.verifyViewSignature(parsed).failOnShutdown
       } yield authenticationError shouldBe None
     }
 
@@ -794,7 +783,7 @@ class AssignmentProcessingStepsTest
       )
       for {
         authenticationError <-
-          AuthenticationValidator.verifyViewSignature(parsed)
+          AuthenticationValidator.verifyViewSignature(parsed).failOnShutdown
       } yield authenticationError shouldBe Some(
         AuthenticationError.MissingSignature(parsed.requestId, ViewPosition(List()))
       )
@@ -811,7 +800,7 @@ class AssignmentProcessingStepsTest
           signatureO = Some(signature),
         )
         authenticationError <-
-          AuthenticationValidator.verifyViewSignature(parsed)
+          AuthenticationValidator.verifyViewSignature(parsed).failOnShutdown
       } yield {
         parsed.requestId
         authenticationError.value should matchPattern {

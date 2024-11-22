@@ -94,7 +94,7 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
       case (Some(k), v) => Some((k, v))
       case (_, V.ValueOptional(None)) => None
     }
-    if (namedOrNoneFields.length == value.fields.length)
+    if (namedOrNoneFields.lengthIs == value.fields.length)
       JsObject(namedOrNoneFields.iterator.collect { case Some((flabel, fvalue)) =>
         (flabel: String) -> apiValueToJsValue(fvalue)
       }.toMap)
@@ -126,6 +126,7 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
   private[this] final def jsValueToApiContractId(value: JsValue): ContractId =
     value.convertTo[ContractId]
 
+  @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
   private[this] def jsValueToApiPrimitive(
       value: JsValue,
       prim: Model.DamlLfTypePrim,

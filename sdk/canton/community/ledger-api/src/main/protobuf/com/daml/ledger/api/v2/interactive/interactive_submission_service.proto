@@ -77,6 +77,10 @@ message PrepareSubmissionRequest {
   // The package-id selection preference of the client for resolving
   // package names and interface instances in command submission and interpretation
   repeated string package_id_selection_preference = 9;
+
+  // When true, the response will contain additional details on how the transaction was encoded and hashed
+  // This can be useful for troubleshooting of hash mismatches. Should only be used for debugging.
+  bool verbose_hashing = 10;
 }
 
 // The hashing scheme version used when building the hash of the PreparedTransaction
@@ -86,16 +90,21 @@ enum HashingSchemeVersion {
 }
 
 message PrepareSubmissionResponse {
-  // the interpreted transaction, it represents the ledger changes necessary to execute the commands specified in the request
+  // The interpreted transaction, it represents the ledger changes necessary to execute the commands specified in the request.
+  // Clients MUST display the content of the transaction to the user for them to validate before signing the hash if the preparing participant is not trusted.
   PreparedTransaction prepared_transaction = 1;
-  // hash of the transaction, this is what needs to be signed by the party to authorize the transaction
-  // Only provided for convenience, clients should recompute the hash from the raw transaction
+  // Hash of the transaction, this is what needs to be signed by the party to authorize the transaction.
+  // Only provided for convenience, clients MUST recompute the hash from the raw transaction if the preparing participant is not trusted.
   // May be removed in future versions
-  // TODO(i20660): Document hashing algorithm
   bytes prepared_transaction_hash = 2;
 
   // The hashing scheme version used when building the hash
   HashingSchemeVersion hashing_scheme_version = 3;
+
+  // Optional additional details on how the transaction was encoded and hashed. Only set if verbose_hashing = true in the request
+  // Note that there are no guarantees on the stability of the format or content of this field.
+  // Its content should NOT be parsed and should only be used for troubleshooting purposes.
+  optional string hashing_details = 4;
 }
 
 message Signature {
@@ -156,13 +165,11 @@ message ExecuteSubmissionRequest {
   PartySignatures party_signatures = 2;
 
   // Specifies the deduplication period for the change ID (See PrepareSubmissionRequest).
-  // If omitted, the participant will assume the configured maximum deduplication time (see
-  // ``ledger_configuration_service.proto``).
+  // If omitted, the participant will assume the configured maximum deduplication time.
   oneof deduplication_period {
     // Specifies the length of the deduplication period.
     // It is interpreted relative to the local clock at some point during the submission's processing.
-    // Must be non-negative. Must not exceed the maximum deduplication time (see
-    // ``ledger_configuration_service.proto``).
+    // Must be non-negative. Must not exceed the maximum deduplication time.
     google.protobuf.Duration deduplication_duration = 3;
 
     // Specifies the start of the deduplication period by a completion stream offset (exclusive).
@@ -223,8 +230,7 @@ message PreparedTransaction {
 message Metadata {
   message SubmitterInfo {
     repeated string act_as = 1;
-    repeated string read_as = 2;
-    string command_id = 3;
+    string command_id = 2;
   }
 
   message GlobalKeyMappingEntry {
@@ -239,7 +245,6 @@ message Metadata {
     }
     uint64 created_at = 1000;
     bytes driver_metadata = 1001;
-    string version = 1002;
   }
 
   /* ******************************************************** */
@@ -255,12 +260,12 @@ message Metadata {
    * time to perform the signature and submit the transaction. The time window allowed is a configuration of the ledger
    * and usually is counted in minutes.
    */
-  optional uint64 ledger_effective_time = 8;
-  SubmitterInfo submitter_info = 1;
-  string domain_id = 10;
-  uint32 mediator_group = 11;
-  string transaction_uuid = 12;
-  uint64 submission_time = 3;
+  optional uint64 ledger_effective_time = 1;
+  SubmitterInfo submitter_info = 2;
+  string domain_id = 3;
+  uint32 mediator_group = 4;
+  string transaction_uuid = 5;
+  uint64 submission_time = 6;
   repeated ProcessedDisclosedContract disclosed_events = 7;
 
   /* **************************************************************** */
@@ -268,11 +273,7 @@ message Metadata {
   /* **************************************************************** */
   // Contextual information needed to process the transaction but not signed, either because it's already indirectly
   // signed by signing the transaction, or because it doesn't impact the ledger state
-  repeated string used_packages = 4;
-  repeated string by_key_nodes = 5;
-  repeated GlobalKeyMappingEntry global_key_mapping = 6;
-  bytes submission_seed = 2;
-  uint64 interpretation_time_nanos = 9;
+  repeated GlobalKeyMappingEntry global_key_mapping = 8;
 }
 
 /*
@@ -289,11 +290,6 @@ message DamlTransaction {
   // Each node must be hashed using the hashing algorithm corresponding to its specific version.
   message Node {
     string node_id = 1;
-    // Specific LF version of the node.
-    // Multiple LF versions can be encoded with the same proto version to decouple changes to the LF format
-    // However in order to deserialize the node back to LF, we need to know the exact original LF version
-    // Optional because Rollback nodes are not versioned
-    optional string lf_version = 2;
 
     // Versioned node
     oneof versioned_node {

@@ -1223,7 +1223,7 @@ object LedgerApiCommands {
           )
         case DeduplicationPeriod.DeduplicationOffset(offset) =>
           Commands.DeduplicationPeriod.DeduplicationOffset(
-            offset.toLong
+            offset.fold(0L)(_.unwrap)
           )
       },
       minLedgerTimeAbs = minLedgerTimeAbs.map(ProtoConverter.InstantConverter.toProtoPrimitive),
@@ -1390,6 +1390,7 @@ object LedgerApiCommands {
         domainId: Option[DomainId],
         applicationId: String,
         packageIdSelectionPreference: Seq[LfPackageId],
+        verboseHashing: Boolean,
     ) extends BaseCommand[
           PrepareSubmissionRequest,
           PrepareSubmissionResponse,
@@ -1411,6 +1412,7 @@ object LedgerApiCommands {
             disclosedContracts = disclosedContracts,
             domainId = domainId.map(_.toProtoPrimitive).getOrElse(""),
             packageIdSelectionPreference = packageIdSelectionPreference,
+            verboseHashing = verboseHashing,
           )
         )
 
@@ -1467,7 +1469,7 @@ object LedgerApiCommands {
           )
         case DeduplicationPeriod.DeduplicationOffset(offset) =>
           ExecuteSubmissionRequest.DeduplicationPeriod.DeduplicationOffset(
-            offset.toLong
+            offset.fold(0L)(_.unwrap)
           )
       }
 

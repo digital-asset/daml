@@ -124,8 +124,7 @@ class PartyOps(
             TopologyChangeOp.Replace,
             updatedPTP,
             serial = nextSerial,
-            // TODO(#12390) auto-determine signing keys
-            signingKeys = Seq(partyId.uid.namespace.fingerprint),
+            signingKeys = Seq.empty,
             protocolVersion,
             expectFullAuthorization = true,
           )

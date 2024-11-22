@@ -13,6 +13,7 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil
 import com.digitalasset.canton.util.PekkoUtil.{FutureQueue, RecoveringFutureQueue}
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import org.apache.pekko.Done
 
 import scala.concurrent.duration.Duration
@@ -106,7 +107,7 @@ class IndexerState(
       logger.info("Switched to Normal Mode")
       val normalIndexer = recoveringIndexerFactory()
       state = Normal(normalIndexer, shutdownInitiated = false)
-      normalIndexer.firstSuccessfulConsumerInitialization.andThen {
+      normalIndexer.firstSuccessfulConsumerInitialization.thereafter {
         case Success(_) =>
           logger.info("Normal indexing successfully initialized")
 

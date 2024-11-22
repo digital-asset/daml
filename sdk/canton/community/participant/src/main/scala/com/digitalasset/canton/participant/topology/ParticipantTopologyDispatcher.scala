@@ -186,8 +186,7 @@ class ParticipantTopologyDispatcher(
                 domainId,
               ),
               serial = None,
-              // TODO(#12390) auto-determine signing keys
-              signingKeys = Seq(participantId.fingerprint),
+              signingKeys = Seq.empty,
               protocolVersion = state.staticDomainParameters.protocolVersion,
               expectFullAuthorization = true,
             )

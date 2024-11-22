@@ -17,7 +17,7 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   ExecuteSubmissionRequest,
   PrepareSubmissionRequest,
 }
-import com.digitalasset.canton.data.{DeduplicationPeriod, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, DeduplicationPeriod}
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampConversion}
 import com.digitalasset.canton.ledger.api.validation.CommandsValidator.{
@@ -85,7 +85,7 @@ final class CommandsValidator(
         prepareRequest.packageIdSelectionPreference
       )
     } yield domain.Commands(
-      // Will be provided in "execute"
+      // Not used for external submissions
       workflowId = None,
       applicationId = appId,
       commandId = commandId,
@@ -334,7 +334,11 @@ final class CommandsValidator(
               .asGrpcError
           )
         else
-          Right(DeduplicationPeriod.DeduplicationOffset(Offset.fromLong(offset)))
+          Right(
+            DeduplicationPeriod.DeduplicationOffset(
+              Option(AbsoluteOffset.tryFromLong(offset))
+            )
+          )
     }
 }
 

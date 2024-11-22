@@ -7,7 +7,7 @@ import cats.Eval
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.LedgerSubmissionId
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, DeduplicationPeriod, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.ledger.participant.state.ChangeId
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -116,7 +116,7 @@ class CommandDeduplicatorImpl(
         deduplicationPeriod,
         DeduplicationPeriod.DeduplicationOffset(
           // We may hand out the latest pruned offset because deduplication offsets are exclusive
-          Offset.fromAbsoluteOffset(prunedOffset)
+          Some(prunedOffset)
         ),
       )
 
@@ -198,7 +198,7 @@ class CommandDeduplicatorImpl(
     }
 
     def dedupOffset(
-        offset: Offset
+        offset: Option[AbsoluteOffset]
     ): EitherT[FutureUnlessShutdown, DeduplicationFailed, AbsoluteOffset] = {
       def checkAgainstPruning(
           dedupOffset: AbsoluteOffset
@@ -215,7 +215,7 @@ class CommandDeduplicatorImpl(
       for {
         dedupOffset <- EitherT.fromEither[FutureUnlessShutdown](
           AbsoluteOffset
-            .fromLong(offset.toLong)
+            .fromLong(offset.fold(0L)(_.unwrap))
             .leftMap[DeduplicationFailed](err => MalformedOffset(err))
         )
         dedupEntryO <- EitherT.right(store.value.lookup(changeIdHash).value)
@@ -245,8 +245,6 @@ class CommandDeduplicatorImpl(
       case DeduplicationPeriod.DeduplicationDuration(duration) => dedupDuration(duration)
       case DeduplicationPeriod.DeduplicationOffset(offset) => dedupOffset(offset)
     }
-    dedupOffsetE.map(dedupOffset =>
-      DeduplicationPeriod.DeduplicationOffset(Offset.fromAbsoluteOffset(dedupOffset))
-    )
+    dedupOffsetE.map(dedupOffset => DeduplicationPeriod.DeduplicationOffset(Some(dedupOffset)))
   }
 }

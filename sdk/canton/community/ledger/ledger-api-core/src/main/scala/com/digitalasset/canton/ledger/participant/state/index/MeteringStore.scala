@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.participant.state.index
 
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.daml.lf.data.Ref
@@ -30,7 +30,7 @@ object MeteringStore {
       applicationId: Ref.ApplicationId,
       actionCount: Int,
       meteringTimestamp: Timestamp,
-      ledgerOffset: Offset,
+      ledgerOffset: AbsoluteOffset,
   )
 
   final case class ParticipantMetering(
@@ -38,7 +38,7 @@ object MeteringStore {
       from: Timestamp,
       to: Timestamp,
       actionCount: Int,
-      ledgerOffset: Offset,
+      ledgerOffset: Option[AbsoluteOffset],
   )
 
 }

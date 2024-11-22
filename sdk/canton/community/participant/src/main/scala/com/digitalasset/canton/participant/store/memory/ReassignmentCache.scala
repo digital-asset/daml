@@ -29,7 +29,7 @@ import com.digitalasset.canton.participant.store.ReassignmentStore.{
 import com.digitalasset.canton.participant.store.memory.ReassignmentCache.PendingReassignmentCompletion
 import com.digitalasset.canton.participant.store.{ReassignmentLookup, ReassignmentStore}
 import com.digitalasset.canton.participant.util.TimeOfChange
-import com.digitalasset.canton.protocol.ReassignmentId
+import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
@@ -184,6 +184,21 @@ class ReassignmentCache(
     pendingCompletions.foreach { case (_, promise) =>
       promise.completion.shutdown()
     }
+
+  override def findContractReassignmentId(
+      contractIds: Seq[LfContractId],
+      sourceDomain: Option[Source[DomainId]],
+      unassignmentTs: Option[CantonTimestamp],
+      completionTs: Option[CantonTimestamp],
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[LfContractId, Seq[ReassignmentId]]] =
+    reassignmentStore.findContractReassignmentId(
+      contractIds,
+      sourceDomain,
+      unassignmentTs,
+      completionTs,
+    )
 }
 
 object ReassignmentCache {

@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store.backend
 import com.daml.metrics.api.MetricsContext
 import com.daml.platform.v1.index.StatusDetails
 import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel.*
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.TopologyEvent
@@ -1247,8 +1247,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       ),
       (None, None, None, None),
       (
-        Some(DeduplicationOffset(Offset.beforeBegin)),
-        Some(Offset.beforeBegin.toHexString),
+        Some(DeduplicationOffset(None)),
+        Some((None: Option[AbsoluteOffset]).toHexString),
         None,
         None,
       ),

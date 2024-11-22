@@ -156,7 +156,7 @@ trait ParameterStorageBackend {
 }
 
 object MeteringParameterStorageBackend {
-  final case class LedgerMeteringEnd(offset: Offset, timestamp: Timestamp)
+  final case class LedgerMeteringEnd(offset: Option[AbsoluteOffset], timestamp: Timestamp)
 }
 
 trait MeteringParameterStorageBackend {
@@ -588,21 +588,23 @@ trait MeteringStorageWriteBackend {
     * Note that the offset returned may not have been fully ingested. This is to allow the metering to wait if there
     * are still un-fully ingested records withing the time window.
     */
-  def transactionMeteringMaxOffset(from: Offset, to: Timestamp)(
+  def transactionMeteringMaxOffset(from: Option[AbsoluteOffset], to: Timestamp)(
       connection: Connection
-  ): Option[Offset]
+  ): Option[AbsoluteOffset]
 
   /** This method will return all transaction metering records between the from offset (exclusive)
     * and the to offset (inclusive).  It is called prior to aggregation.
     */
-  def selectTransactionMetering(from: Offset, to: Offset)(
+  def selectTransactionMetering(from: Option[AbsoluteOffset], to: AbsoluteOffset)(
       connection: Connection
   ): Map[ApplicationId, Int]
 
   /** This method will delete transaction metering records between the from offset (exclusive)
     * and the to offset (inclusive).  It is called following aggregation.
     */
-  def deleteTransactionMetering(from: Offset, to: Offset)(connection: Connection): Unit
+  def deleteTransactionMetering(from: Option[AbsoluteOffset], to: AbsoluteOffset)(
+      connection: Connection
+  ): Unit
 
   def insertParticipantMetering(metering: Vector[ParticipantMetering])(connection: Connection): Unit
 

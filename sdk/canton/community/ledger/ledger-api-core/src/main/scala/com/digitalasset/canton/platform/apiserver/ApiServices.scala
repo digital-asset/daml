@@ -369,6 +369,7 @@ object ApiServices {
               metrics,
               checkOverloaded,
               lfValueTranslation,
+              interactiveSubmissionServiceConfig,
               loggerFactory,
             )
 

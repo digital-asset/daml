@@ -54,7 +54,7 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
   }
 
   private def dedupOffset(longOffset: Long): DeduplicationPeriod.DeduplicationOffset =
-    DeduplicationPeriod.DeduplicationOffset(Offset.fromLong(longOffset))
+    DeduplicationPeriod.DeduplicationOffset(Option(AbsoluteOffset.tryFromLong(longOffset)))
 
   private def mkPublicationInternal(
       longOffset: Long,

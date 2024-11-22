@@ -11,11 +11,12 @@ import com.digitalasset.canton.ledger.localstore.api.{
 }
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.github.blemale.scaffeine.Scaffeine
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Success, Try}
+import scala.util.Try
 
 import IdentityProviderConfigStore.Result
 
@@ -44,7 +45,7 @@ class CachedIdentityProviderConfigStore(
   ): Future[Result[IdentityProviderConfig]] =
     delegate
       .createIdentityProviderConfig(identityProviderConfig)
-      .andThen(invalidateByIssuerOnSuccess(identityProviderConfig.issuer))
+      .thereafter(invalidateByIssuerOnSuccess(identityProviderConfig.issuer))
 
   override def getIdentityProviderConfig(id: IdentityProviderId.Id)(implicit
       loggingContext: LoggingContextWithTrace
@@ -53,7 +54,7 @@ class CachedIdentityProviderConfigStore(
   override def deleteIdentityProviderConfig(id: IdentityProviderId.Id)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Result[Unit]] =
-    delegate.deleteIdentityProviderConfig(id).andThen(invalidateAllEntriesOnSuccess())
+    delegate.deleteIdentityProviderConfig(id).thereafter(invalidateAllEntriesOnSuccess())
 
   override def listIdentityProviderConfigs()(implicit
       loggingContext: LoggingContextWithTrace
@@ -63,7 +64,7 @@ class CachedIdentityProviderConfigStore(
       loggingContext: LoggingContextWithTrace
   ): Future[Result[IdentityProviderConfig]] = delegate
     .updateIdentityProviderConfig(update)
-    .andThen(invalidateAllEntriesOnSuccess())
+    .thereafter(invalidateAllEntriesOnSuccess())
 
   override def getIdentityProviderConfig(issuer: String)(implicit
       loggingContext: LoggingContextWithTrace
@@ -75,14 +76,11 @@ class CachedIdentityProviderConfigStore(
   ): Future[Boolean] =
     delegate.identityProviderConfigExists(id)
 
-  private def invalidateAllEntriesOnSuccess(): PartialFunction[Try[Result[Any]], Unit] = {
-    case Success(Right(_)) =>
-      idpByIssuer.invalidateAll()
-  }
+  private def invalidateAllEntriesOnSuccess(): Try[Result[Any]] => Unit =
+    _.foreach(_.foreach(_ => idpByIssuer.invalidateAll()))
 
   private def invalidateByIssuerOnSuccess(
       issuer: String
-  ): PartialFunction[Try[Result[Any]], Unit] = { case Success(Right(_)) =>
-    idpByIssuer.invalidate(issuer)
-  }
+  ): Try[Result[Any]] => Unit =
+    _.foreach(_.foreach(_ => idpByIssuer.invalidate(issuer)))
 }

@@ -36,6 +36,7 @@ import com.digitalasset.canton.domain.sequencing.service.{
   GrpcSequencerInitializationService,
   GrpcSequencerStatusService,
 }
+import com.digitalasset.canton.domain.sequencing.topology.SequencerSnapshotBasedTopologyHeadInitializer
 import com.digitalasset.canton.domain.server.DynamicGrpcServer
 import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.health.*
@@ -354,7 +355,7 @@ class SequencerNodeBootstrap(
             .collect { case SequencerDomainState(domain, _, _, _) => domain }
             .toSet
           for {
-            // TODO(#12390) validate initalisation request, as from here on, it must succeed
+            // TODO(#12390) validate initialisation request, as from here on, it must succeed
             //    - authorization validation etc is done during manager.add
             //    - so we need:
             //        - there must be a dynamic domain parameter
@@ -493,6 +494,7 @@ class SequencerNodeBootstrap(
                 clock,
                 futureSupervisor,
                 domainLoggerFactory,
+                new SequencerSnapshotBasedTopologyHeadInitializer(sequencerSnapshot),
               )
             )
             .mapK(FutureUnlessShutdown.outcomeK)

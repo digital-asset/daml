@@ -201,6 +201,19 @@ class DbContractStore(
       .map(_.map(_.contract).toList)
   }
 
+  override def findWithPayload(
+      contractIds: NonEmpty[Seq[LfContractId]],
+      limit: Int,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[LfContractId, SerializableContract]] =
+    storage
+      .queryUnlessShutdown(
+        bulkLookupQuery(contractIds),
+        functionFullName,
+      )
+      .map(_.map(c => c.contractId -> c.contract).toMap)
+
   override def storeCreatedContracts(
       creations: Seq[(SerializableContract, RequestCounter)]
   )(implicit traceContext: TraceContext): Future[Unit] =

@@ -9,6 +9,7 @@ import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveCo
 import com.digitalasset.canton.participant.store.ActiveContractStore.{
   AcsError,
   AcsWarning,
+  ActivenessChangeDetail,
   ContractState,
 }
 import com.digitalasset.canton.participant.util.{StateChange, TimeOfChange}
@@ -149,4 +150,11 @@ class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: Exe
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[LfContractId]] =
     FutureUnlessShutdown.failed(mk(s"packageUnused for $pkg"))
+
+  override def activenessOf(contracts: Seq[LfContractId])(implicit
+      traceContext: TraceContext
+  ): Future[
+    SortedMap[LfContractId, Seq[(CantonTimestamp, ActivenessChangeDetail)]]
+  ] =
+    Future.failed(mk(s"activenessOf for $contracts"))
 }

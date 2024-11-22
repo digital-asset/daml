@@ -8,7 +8,6 @@ import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
-import com.digitalasset.canton
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.LoggingConfig
 import com.digitalasset.canton.crypto.*
@@ -95,13 +94,17 @@ class TransactionConfirmationRequestFactory(
   ] = {
     // For externally signed transaction, the transactionUUID is generated during "prepare" and is part of the hash,
     // so we use that one.
-    val transactionUuid = submitterInfo.transactionUUID
+    val transactionUuid = submitterInfo.externallySignedSubmission
+      .map(_.transactionUUID)
       .getOrElse(seedGenerator.generateUuid())
     val ledgerTime = wfTransaction.metadata.ledgerTime
 
     for {
 
-      _ <- assertPartiesCanSubmit(submitterInfo, cryptoSnapshot)
+      _ <- assertPartiesCanSubmit(
+        submitterInfo,
+        cryptoSnapshot,
+      )
 
       transactionSeed = seedGenerator.generateSaltSeed()
 
@@ -178,12 +181,14 @@ class TransactionConfirmationRequestFactory(
 
   private def assertNonLocalPartiesCanSubmit(
       submitterInfo: SubmitterInfo,
-      signedTx: ExternallySignedSubmission,
+      externallySignedSubmission: ExternallySignedSubmission,
       cryptoSnapshot: DomainSnapshotSyncCryptoApi,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ParticipantAuthorizationError, Unit] = {
-    val signedAs = signedTx.signatures.keySet.map(_.toLf)
+    // Signatures have been validated synchronously in the TransactionProcessor before the submission
+    // makes it here. Therefore we only do authorization checks at this point
+    val signedAs = externallySignedSubmission.signatures.keySet.map(_.toLf)
     val unauthorized = submitterInfo.actAs.toSet -- signedAs
     for {
       _ <- EitherT.cond[FutureUnlessShutdown](
@@ -193,15 +198,16 @@ class TransactionConfirmationRequestFactory(
           s"External authorization has not been provided for: $unauthorized"
         ),
       )
-      commandId <- EitherT
-        .fromEither[FutureUnlessShutdown](
-          canton.CommandId.fromProtoPrimitive(submitterInfo.commandId)
-        )
-        .leftMap(ParticipantAuthorizationError.apply)
-      hash = InteractiveSubmission.computeHashV1(commandId)
-      _ <- InteractiveSubmission
-        .verifySignatures(hash, signedTx.signatures, cryptoSnapshot)
-        .leftMap(ParticipantAuthorizationError.apply)
+      notHosted <- EitherT
+        .liftF(cryptoSnapshot.ipsSnapshot.hasNoConfirmer(signedAs))
+        .mapK(FutureUnlessShutdown.outcomeK)
+      _ <- EitherT.cond[FutureUnlessShutdown](
+        notHosted.isEmpty,
+        (),
+        ParticipantAuthorizationError(
+          s"The following parties are not hosted with confirmation rights on the domain: $notHosted"
+        ),
+      )
     } yield ()
   }
 
@@ -212,7 +218,12 @@ class TransactionConfirmationRequestFactory(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ParticipantAuthorizationError, Unit] =
     submitterInfo.externallySignedSubmission match {
-      case Some(e) => assertNonLocalPartiesCanSubmit(submitterInfo, e, cryptoSnapshot)
+      case Some(e) =>
+        assertNonLocalPartiesCanSubmit(
+          submitterInfo,
+          e,
+          cryptoSnapshot,
+        )
       case None => assertLocalPartiesCanSubmit(submitterInfo.actAs, cryptoSnapshot.ipsSnapshot)
     }
 

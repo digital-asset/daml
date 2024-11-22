@@ -86,7 +86,7 @@ class ApiInteractiveSubmissionService(
           )(errorLogger),
         )
         .map { case SubmitRequest(commands) =>
-          PrepareRequest(commands)
+          PrepareRequest(commands, request.value.verboseHashing)
         }
         .fold(
           t => Future.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
@@ -98,10 +98,13 @@ class ApiInteractiveSubmissionService(
   override def executeSubmission(
       request: ExecuteSubmissionRequest
   ): Future[ExecuteSubmissionResponse] = {
-    // TODO(i20660) Extract command id and actAs from serialized transaction once serialization is in place
-    // and get a better trace context
-    val traceContext =
-      TraceContext.fromDamlTelemetryContext(telemetry.contextFromGrpcThreadLocalContext())
+    val submitterInfo = request.preparedTransaction.flatMap(_.metadata.flatMap(_.submitterInfo))
+    implicit val traceContext: TraceContext = getExecuteRequestTraceContext(
+      request.applicationId,
+      submitterInfo.map(_.commandId),
+      submitterInfo.map(_.actAs).toList.flatten,
+      telemetry,
+    )
     implicit val loggingContextWithTrace: LoggingContextWithTrace =
       LoggingContextWithTrace(loggerFactory)(traceContext)
     val errorLogger: ContextualizedErrorLogger =

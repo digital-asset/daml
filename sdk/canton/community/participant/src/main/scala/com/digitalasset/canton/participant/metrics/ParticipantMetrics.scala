@@ -267,4 +267,22 @@ class SyncDomainMetrics(
     def taskQueue(size: () => Int): CloseableGauge =
       factory.gaugeWithSupplier(taskQueueForDoc.info, size)
   }
+
+  object inFlightSubmissionDomainTracker {
+
+    private val prefix = histograms.prefix :+ "in-flight-submission-domain-tracker"
+
+    val unsequencedInFlight: Gauge[Int] =
+      factory.gauge(
+        MetricInfo(
+          prefix :+ "unsequenced-in-flight-submissions",
+          summary = "Number of unsequenced submissions in-flight.",
+          description = """Number of unsequenced submissions in-flight.
+                          |Unsequenced in-flight submissions are tracked in-memory, so high amount here will boil down to memory pressure.
+                          |""",
+          qualification = MetricQualification.Saturation,
+        ),
+        0,
+      )
+  }
 }

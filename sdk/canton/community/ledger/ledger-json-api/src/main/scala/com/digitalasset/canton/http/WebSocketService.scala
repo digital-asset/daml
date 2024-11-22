@@ -175,7 +175,7 @@ object WebSocketService extends NoTracing {
       )(_ append _)
   }
 
-  case class ResolvedQueryRequest[R](q: R, alg: StreamQuery[R])
+  final case class ResolvedQueryRequest[R](q: R, alg: StreamQuery[R])
 
   sealed abstract class StreamRequestParser[A] {
     case class QueryRequest[Q](request: Q, resolver: RequestResolver[Q])
@@ -464,7 +464,7 @@ object WebSocketService extends NoTracing {
 
     }
 
-  case class ResolvedContractKeyStreamRequest[C, V](
+  final case class ResolvedContractKeyStreamRequest[C, V](
       resolvedQuery: ResolvedQuery,
       list: NonEmptyList[domain.ContractKeyStreamRequest[C, V]],
       q: NonEmpty[Map[domain.ContractTypeRef.Resolved, NonEmpty[Set[V]]]],

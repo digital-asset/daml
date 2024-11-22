@@ -127,7 +127,7 @@ object LedgerReader {
 
   type Error = String
 
-  case class Signatures(typesig: PackageSignature, pack: Ast.PackageSignature)
+  final case class Signatures(typesig: PackageSignature, pack: Ast.PackageSignature)
   // PackageId -> PackageSignature
   type PackageStore = Map[String, Signatures]
 

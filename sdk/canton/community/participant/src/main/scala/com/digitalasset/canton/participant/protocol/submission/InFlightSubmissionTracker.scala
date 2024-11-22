@@ -5,22 +5,30 @@ package com.digitalasset.canton.participant.protocol.submission
 
 import cats.Eval
 import cats.data.EitherT
-import cats.syntax.bifunctor.*
+import cats.implicits.toBifunctorOps
+import cats.syntax.either.*
 import cats.syntax.foldable.*
 import com.daml.error.utils.DecodedCantonError
-import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.daml.metrics.api.MetricHandle.Gauge
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
-import com.digitalasset.canton.ledger.participant.state.Update.UnSequencedCommandRejected
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.ledger.participant.state.Update
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.event.RecordOrderPublisher
+import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
 import com.digitalasset.canton.participant.protocol.submission.CommandDeduplicator.DeduplicationFailed
+import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker.{
+  InFlightSubmissionTrackerError,
+  SubmissionAlreadyInFlight,
+  TimeoutTooLow,
+  UnsequencedSubmissionMap,
+}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.InFlightSubmissionStore.{
   InFlightByMessageId,
   InFlightBySequencingInfo,
 }
-import com.digitalasset.canton.participant.sync.ParticipantEventPublisher
 import com.digitalasset.canton.platform.indexer.parallel.{PostPublishData, PublishSource}
 import com.digitalasset.canton.protocol.RootHash
 import com.digitalasset.canton.sequencing.protocol.SequencerErrors.AggregateSubmissionAlreadySent
@@ -28,9 +36,10 @@ import com.digitalasset.canton.sequencing.protocol.{DeliverError, MessageId}
 import com.digitalasset.canton.time.DomainTimeTracker
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{ErrorUtil, SingleUseCell}
 
-import scala.concurrent.{ExecutionContext, Future}
+import java.util.UUID
+import scala.collection.mutable
+import scala.concurrent.{ExecutionContext, blocking}
 
 /** Tracker for in-flight submissions backed by the [[com.digitalasset.canton.participant.store.InFlightSubmissionStore]].
   *
@@ -50,247 +59,9 @@ import scala.concurrent.{ExecutionContext, Future}
 class InFlightSubmissionTracker(
     store: Eval[InFlightSubmissionStore],
     deduplicator: CommandDeduplicator,
-    override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
-    extends FlagCloseable
-    with NamedLogging {
-  import InFlightSubmissionTracker.*
-
-  private val domainStateLookupCell
-      : SingleUseCell[DomainId => Option[InFlightSubmissionTrackerDomainState]] =
-    new SingleUseCell
-
-  private def domainStates(domainId: DomainId): Option[InFlightSubmissionTrackerDomainState] =
-    domainStateLookupCell.get.getOrElse(throw new IllegalStateException)(domainId)
-
-  def registerDomainStateLookup(
-      domainStates: DomainId => Option[InFlightSubmissionTrackerDomainState]
-  ): Unit =
-    domainStateLookupCell
-      .putIfAbsent(domainStates)
-      .foreach(_ => throw new IllegalStateException("RegisterDomainStateLookup already defined"))
-
-  /** Registers the given submission as being in flight and unsequenced
-    * unless there already is an in-flight submission for the same change ID
-    * or the timeout has already elapsed.
-    *
-    * @return The actual deduplication offset that is being used for deduplication for this submission
-    */
-  def register(
-      submission: InFlightSubmission[UnsequencedSubmission],
-      deduplicationPeriod: DeduplicationPeriod,
-  ): EitherT[FutureUnlessShutdown, InFlightSubmissionTrackerError, Either[
-    DeduplicationFailed,
-    DeduplicationPeriod.DeduplicationOffset,
-  ]] = {
-    implicit val traceContext: TraceContext = submission.submissionTraceContext
-
-    for {
-      domainState <- domainStateFor(submission.submissionDomain).mapK(FutureUnlessShutdown.outcomeK)
-      _result <- domainState.observedTimestampTracker
-        .runIfAboveWatermark(
-          submission.sequencingInfo.timeout,
-          store.value.register(submission),
-        ) match {
-        case Left(markTooLow) =>
-          EitherT.leftT[FutureUnlessShutdown, Unit](
-            TimeoutTooLow(submission, markTooLow.highWatermark): InFlightSubmissionTrackerError
-          )
-        case Right(eitherT) =>
-          eitherT
-            .leftMap(SubmissionAlreadyInFlight(submission, _))
-            .leftWiden[InFlightSubmissionTrackerError]
-      }
-      // It is safe to request a tick only after persisting the in-flight submission
-      // because if we crash in between, crash recovery will request the tick.
-      _ = domainState.domainTimeTracker.requestTick(submission.sequencingInfo.timeout)
-      // After the registration of the in-flight submission, we want to deduplicate the command.
-      // A command deduplication failure must be reported via a completion event
-      // because we do not know whether we have already produced a timely rejection concurrently.
-      deduplicationResult <- EitherT
-        .right(deduplicator.checkDuplication(submission.changeIdHash, deduplicationPeriod).value)
-    } yield deduplicationResult
-  }
-
-  /** @see com.digitalasset.canton.participant.store.InFlightSubmissionStore.updateRegistration */
-  def updateRegistration(
-      submission: InFlightSubmission[UnsequencedSubmission],
-      rootHash: RootHash,
-  ): FutureUnlessShutdown[Unit] = {
-    implicit val traceContext: TraceContext = submission.submissionTraceContext
-
-    store.value.updateRegistration(submission, rootHash)
-  }
-
-  /** @see com.digitalasset.canton.participant.store.InFlightSubmissionStore.observeSequencing */
-  def observeSequencing(domainId: DomainId, sequenceds: Map[MessageId, SequencedSubmission])(
-      implicit traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] =
-    store.value.observeSequencing(domainId, sequenceds)
-
-  /** @see com.digitalasset.canton.participant.store.InFlightSubmissionStore.observeSequencedRootHash */
-  def observeSequencedRootHash(
-      rootHash: RootHash,
-      submission: SequencedSubmission,
-  )(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] =
-    store.value.observeSequencedRootHash(rootHash, submission)
-
-  /** @see com.digitalasset.canton.participant.store.InFlightSubmissionStore.updateUnsequenced */
-  def observeSubmissionError(
-      changeIdHash: ChangeIdHash,
-      domainId: DomainId,
-      messageId: MessageId,
-      newTrackingData: UnsequencedSubmission,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    store.value.updateUnsequenced(changeIdHash, domainId, messageId, newTrackingData).map {
-      (_: Unit) =>
-        // Request a tick for the new timestamp if we're still connected to the domain
-        domainStates(domainId) match {
-          case Some(domainState) =>
-            domainState.domainTimeTracker.requestTick(newTrackingData.timeout)
-          case None =>
-            logger.debug(
-              s"Skipping to request tick at ${newTrackingData.timeout} on $domainId as the domain is not available"
-            )
-        }
-    }
-
-  /** Updates the unsequenced submission corresponding to the [[com.digitalasset.canton.sequencing.protocol.DeliverError]],
-    * if any, using [[com.digitalasset.canton.participant.protocol.submission.SubmissionTrackingData.updateOnNotSequenced]].
-    */
-  def observeDeliverError(
-      deliverError: DeliverError
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    def updatedTrackingData(
-        inFlightO: Option[InFlightSubmission[SubmissionSequencingInfo]]
-    ): Option[(ChangeIdHash, UnsequencedSubmission)] =
-      for {
-        inFlight <- inFlightO
-        unsequencedO = inFlight.sequencingInfo.asUnsequenced
-        _ = if (unsequencedO.isEmpty) {
-          logger.warn(
-            s"Received a deliver error for the sequenced submission $inFlight. Deliver error $deliverError"
-          )
-        }
-        unsequenced <- unsequencedO
-        newTrackingData <- unsequenced.trackingData.updateOnNotSequenced(
-          deliverError.timestamp,
-          deliverError.reason,
-        )
-      } yield (inFlight.changeIdHash, newTrackingData)
-
-    val domainId = deliverError.domainId
-    val messageId = deliverError.messageId
-
-    // Ignore already sequenced errors here to deal with submission request amplification
-    val isAlreadySequencedError = DecodedCantonError
-      .fromGrpcStatus(deliverError.reason)
-      .exists(_.code.id == AggregateSubmissionAlreadySent.id)
-    if (isAlreadySequencedError) {
-      logger.debug(
-        s"Ignoring deliver error $deliverError for $domainId and $messageId because the message was already sequenced."
-      )
-      FutureUnlessShutdown.unit
-    } else
-      for {
-        inFlightO <- store.value.lookupSomeMessageId(domainId, messageId)
-        toUpdateO = updatedTrackingData(inFlightO)
-        _ <- toUpdateO.traverse_ { case (changeIdHash, newTrackingData) =>
-          store.value.updateUnsequenced(changeIdHash, domainId, messageId, newTrackingData)
-        }
-      } yield ()
-  }
-
-  /** Marks the timestamp as having been observed on the domain. */
-  // We could timely reject up to the `timestamp` here,
-  // but we would have to implement our own batching.
-  // Instead, we piggy-back on when the clean sequencer counter is advanced.
-  def observeTimestamp(
-      domainId: DomainId,
-      timestamp: CantonTimestamp,
-  )(implicit traceContext: TraceContext): EitherT[Future, UnknownDomain, Unit] =
-    domainStateFor(domainId).semiflatMap { domainState =>
-      domainState.observedTimestampTracker.increaseWatermark(timestamp)
-    }
-
-  /** Publishes the rejection events for all unsequenced submissions on `domainId` up to the given timestamp.
-    * Does not remove the submissions from the in-flight table as this will happen by the
-    * [[processPublications]] called by the indexer towards the end of the processing pipeline (post processing stage).
-    */
-  def timelyReject(
-      domainId: DomainId,
-      upToInclusive: CantonTimestamp,
-      participantEventPublisher: ParticipantEventPublisher,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, UnknownDomain, Unit] =
-    performUnlessClosingEitherUSF(functionFullName) {
-      domainStateFor(domainId).mapK(FutureUnlessShutdown.outcomeK).semiflatMap { domainState =>
-        for {
-          // Increase the watermark for two reasons:
-          // 1. Below, we publish an event via the ParticipantEventPublisher. This will then call the
-          //    processPublications, which deletes the entry from the store. So we must make sure that the deletion
-          //    cannot interfere with a concurrent insertion.
-          // 2. Timestamps are also observed via the RecordOrderPublisher. If the RecordOrderPublisher
-          //    does not advance due to a long-running request-response-result cycle, we get here
-          //    a second chance of observing the timestamp when the sequencer counter becomes clean.
-          _ <- FutureUnlessShutdown
-            .outcomeF(domainState.observedTimestampTracker.increaseWatermark(upToInclusive))
-          reject <- doTimelyReject(domainId, upToInclusive, participantEventPublisher)
-        } yield reject
-      }
-    }
-
-  /** Same as [[timelyReject]] except that this method may only be called if [[timelyReject]] has already been called
-    * previously with the same or a later timestamp for the same domain.
-    */
-  def timelyRejectAgain(
-      domainId: DomainId,
-      upToInclusive: CantonTimestamp,
-      participantEventPublisher: ParticipantEventPublisher,
-  )(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] = {
-    // No need to bump the watermark like `timelyReject` does because it had been bumped previously.
-    // This method therefore can run even if the domain is not connected.
-    //
-    // Sanity check that the watermark is sufficiently high. If the domain is not available, we skip the sanity check.
-    domainStates(domainId).foreach { state =>
-      val highWaterMark = state.observedTimestampTracker.highWatermark
-      ErrorUtil.requireState(
-        upToInclusive <= highWaterMark,
-        s"Bound $upToInclusive is above high watermark $highWaterMark despite this being a re-notification",
-      )
-    }
-
-    doTimelyReject(domainId, upToInclusive, participantEventPublisher)
-  }
-
-  private def doTimelyReject(
-      domainId: DomainId,
-      upToInclusive: CantonTimestamp,
-      participantEventPublisher: ParticipantEventPublisher,
-  )(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] =
-    for {
-      timelyRejects <- store.value.lookupUnsequencedUptoUnordered(domainId, upToInclusive)
-      events = timelyRejects.map(timelyRejectionEventFor)
-      _skippedE <- participantEventPublisher.publishDomainRelatedEvents(events)
-    } yield ()
-
-  private[this] def timelyRejectionEventFor(
-      inFlight: InFlightSubmission[UnsequencedSubmission]
-  ): UnSequencedCommandRejected = {
-    implicit val traceContext: TraceContext = inFlight.submissionTraceContext
-    // Use the trace context from the submission for the rejection
-    // because we don't have any other later trace context available
-    inFlight.sequencingInfo.trackingData
-      .rejectionEvent(inFlight.associatedTimestamp, inFlight.messageUuid)
-  }
+    extends NamedLogging {
 
   def processPublications(
       publications: Seq[PostPublishData]
@@ -319,74 +90,296 @@ class InFlightSubmissionTracker(
         .delete(trackedReferences)
     } yield ()
 
-  /** Deletes the published, sequenced in-flight submissions with sequencing timestamps up to the given bound
-    * and informs the [[CommandDeduplicator]] about the published events.
+  /** Create and initialize an InFlightSubmissionDomainTracker for domainId.
     *
-    * @param upToInclusive Upper bound on the sequencing time of the submissions to be recovered.
-    *                      The [[com.digitalasset.canton.ledger.participant.state.Update]]s for all sequenced submissions
-    *                      up to this bound must have been published to the indexer.
-    *                      The [[com.digitalasset.canton.ledger.participant.state.Update]]s for all sequenced submissions
-    *                      in the [[com.digitalasset.canton.participant.store.InFlightSubmissionStore]] must not yet
-    *                      have been pruned from the index store.
+    * Steps of initialization:
+    * Deletes the published, sequenced in-flight submissions with sequencing timestamps up to the given bound
+    * and informs the [[CommandDeduplicator]] about the published events.
+    * Prepares the unsequencedSubmissionMap with all the in-flight, unsequenced entries
+    * and schedules for them potential publication at the retrieved timeout (or immediately if already in the past).
     */
-  def recoverDomain(domainId: DomainId, upToInclusive: CantonTimestamp)(implicit
+  def inFlightSubmissionDomainTracker(
+      domainId: DomainId,
+      recordOrderPublisher: RecordOrderPublisher,
+      timeTracker: DomainTimeTracker,
+      metrics: SyncDomainMetrics,
+  )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] = {
-    val domainState = domainStates(domainId).getOrElse(
-      ErrorUtil.internalError(
-        new IllegalStateException(s"Domain state for $domainId not found during crash recovery.")
-      )
+  ): FutureUnlessShutdown[InFlightSubmissionDomainTracker] = {
+    val unsequencedSubmissionMap: UnsequencedSubmissionMap = new UnsequencedSubmissionMap(
+      domainId = domainId,
+      sizeWarnThreshold = 1000000,
+      unsequencedInFlightGauge = metrics.inFlightSubmissionDomainTracker.unsequencedInFlight,
+      loggerFactory = loggerFactory,
     )
+
     for {
-      // Re-request ticks for all remaining unsequenced timestamps
       unsequencedInFlights <- store.value.lookupUnsequencedUptoUnordered(
         domainId,
         CantonTimestamp.MaxValue,
       )
+      // Re-request ticks for all remaining unsequenced timestamps
       _ = if (unsequencedInFlights.nonEmpty) {
-        domainState.domainTimeTracker.requestTicks(
+        timeTracker.requestTicks(
           unsequencedInFlights.map(_.sequencingInfo.timeout)
         )
       }
-    } yield ()
+      // Recover internal state: store unseqeuncedInFlights in unsequencedSubmissionMap, and schedule the rejection
+      _ = unsequencedInFlights.foreach { unsequencedInFlight =>
+        val submissionTraceContext = unsequencedInFlight.submissionTraceContext
+        unsequencedSubmissionMap.pushIfNotExists(
+          unsequencedInFlight.messageUuid,
+          unsequencedInFlight.sequencingInfo.trackingData,
+          submissionTraceContext,
+          unsequencedInFlight.rootHashO,
+        )
+        recordOrderPublisher
+          .scheduleFloatingEventPublication( // first try to schedule with the recovered timeout
+            timestamp = unsequencedInFlight.sequencingInfo.timeout,
+            eventFactory =
+              unsequencedSubmissionMap.pullTimelyRejectEvent(unsequencedInFlight.messageId, _),
+          )(submissionTraceContext)
+          .valueOr { ropIsAlreadyAt =>
+            logger.debug(
+              s"Unsequenced Inflight Submission's sequencing timeout ${unsequencedInFlight.sequencingInfo.timeout} is expired: sequencer index is already at $ropIsAlreadyAt, scheduling timely rejection as soon as possible at domain startup. [message ID: ${unsequencedInFlight.messageId}]"
+            )
+            recordOrderPublisher
+              .scheduleFloatingEventPublicationImmediately( // if the first try fails (timeout already expired), scheduling immediately
+                eventFactory = unsequencedSubmissionMap
+                  .pullTimelyRejectEvent(unsequencedInFlight.messageId, _)
+              )(submissionTraceContext)
+              .discard
+          }
+      }
+    } yield new InFlightSubmissionDomainTracker(
+      domainId = domainId,
+      store = store,
+      deduplicator = deduplicator,
+      recordOrderPublisher = recordOrderPublisher,
+      timeTracker = timeTracker,
+      unsequencedSubmissionMap = unsequencedSubmissionMap,
+      loggerFactory = loggerFactory,
+    )
+  }
+}
+
+class InFlightSubmissionDomainTracker(
+    domainId: DomainId,
+    store: Eval[InFlightSubmissionStore],
+    deduplicator: CommandDeduplicator,
+    recordOrderPublisher: RecordOrderPublisher,
+    timeTracker: DomainTimeTracker,
+    unsequencedSubmissionMap: UnsequencedSubmissionMap,
+    override protected val loggerFactory: NamedLoggerFactory,
+)(implicit val ec: ExecutionContext)
+    extends NamedLogging {
+
+  /** Registers the given submission as being in flight and unsequenced
+    * unless there already is an in-flight submission for the same change ID
+    * or the timeout has already elapsed.
+    * It is expected that client always calls this function with a unique messageUuid
+    *
+    * @return The actual deduplication offset that is being used for deduplication for this submission
+    */
+  def register(
+      submission: InFlightSubmission[UnsequencedSubmission],
+      deduplicationPeriod: DeduplicationPeriod,
+  ): EitherT[FutureUnlessShutdown, InFlightSubmissionTrackerError, Either[
+    DeduplicationFailed,
+    DeduplicationPeriod.DeduplicationOffset,
+  ]] = {
+    implicit val traceContext: TraceContext = submission.submissionTraceContext
+    for {
+      _ <- recordOrderPublisher.scheduleFloatingEventPublication(
+        timestamp = submission.sequencingInfo.timeout,
+        eventFactory = unsequencedSubmissionMap.pullTimelyRejectEvent(submission.messageId, _),
+        onScheduled = { () =>
+          store.value
+            .register(submission)
+            .map(_ =>
+              // if the submission successfully registered, we also add the entry in the unsequencedSubmissionMap
+              // - without this entry nothing will happen if the scheduled task is executing, as pullTimelyRejectEvent
+              //   will be empty
+              // - we are waiting for this to happen before executing the scheduled task, because onScheduled will complete
+              //   after this, and scheduleFloatingEventPublication ensures that the onScheduled task is waited for
+              //   before executing.
+              //   This is important to not have a race between the persistent .register and the publishing of the timeout
+              //   CommandRejected event - which at post-processing will try to remove the registered event from persistence
+              unsequencedSubmissionMap.pushIfNotExists(
+                submission.messageUuid,
+                submission.sequencingInfo.trackingData,
+                submission.submissionTraceContext,
+                None,
+              )
+            )
+            .value
+        },
+      ) match {
+        case Left(markTooLow) =>
+          EitherT.leftT[FutureUnlessShutdown, Unit](
+            TimeoutTooLow(submission, markTooLow): InFlightSubmissionTrackerError
+          )
+
+        case Right(eitherTValue) =>
+          EitherT(eitherTValue)
+            .leftMap(SubmissionAlreadyInFlight(submission, _))
+            .leftWiden[InFlightSubmissionTrackerError]
+      }
+      // It is safe to request a tick only after persisting the in-flight submission
+      // because if we crash in between, crash recovery will request the tick.
+      _ = timeTracker.requestTick(submission.sequencingInfo.timeout)
+      // After the registration of the in-flight submission, we want to deduplicate the command.
+      // A command deduplication failure must be reported via a completion event
+      // because we do not know whether we have already produced a timely rejection concurrently.
+      deduplicationResult <- EitherT
+        .right(deduplicator.checkDuplication(submission.changeIdHash, deduplicationPeriod).value)
+    } yield deduplicationResult
   }
 
-  private def domainStateFor(
-      domainId: DomainId
-  ): EitherT[Future, UnknownDomain, InFlightSubmissionTrackerDomainState] =
-    EitherT(Future.successful {
-      domainStates(domainId).toRight(UnknownDomain(domainId))
-    })
+  /** @see com.digitalasset.canton.participant.store.InFlightSubmissionStore.updateRegistration */
+  def updateRegistration(
+      submission: InFlightSubmission[UnsequencedSubmission],
+      rootHash: RootHash,
+  ): FutureUnlessShutdown[Unit] = {
+    implicit val traceContext: TraceContext = submission.submissionTraceContext
+    store.value
+      .updateRegistration(submission, rootHash)
+      .map(_ =>
+        unsequencedSubmissionMap.addRootHashIfNotSpecifiedYet(
+          submission.messageId,
+          rootHash,
+        )
+      )
+  }
+
+  /** @see com.digitalasset.canton.participant.store.InFlightSubmissionStore.observeSequencing */
+  def observeSequencing(sequenceds: Map[MessageId, SequencedSubmission])(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] =
+    store.value
+      .observeSequencing(domainId, sequenceds)
+      .map(_ =>
+        sequenceds.keysIterator
+          .foreach(unsequencedSubmissionMap.pull)
+      )
+  // nothing else to do: the scheduled task will execute in ROP, and will produce no event
+
+  /** @see com.digitalasset.canton.participant.store.InFlightSubmissionStore.observeSequencedRootHash */
+  def observeSequencedRootHash(
+      rootHash: RootHash,
+      submission: SequencedSubmission,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] =
+    store.value
+      .observeSequencedRootHash(rootHash, submission)
+      .map(_ => unsequencedSubmissionMap.pullByHash(rootHash))
+
+  /** @see com.digitalasset.canton.participant.store.InFlightSubmissionStore.updateUnsequenced */
+  def observeSubmissionError(
+      changeIdHash: ChangeIdHash,
+      messageId: MessageId,
+      newTrackingData: SubmissionTrackingData,
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    store.value
+      .updateUnsequenced(
+        changeIdHash,
+        domainId,
+        messageId,
+        UnsequencedSubmission(
+          // This timeout has relevance only for crash recovery (will be used there to publish the rejection).
+          // We try to approximate it as precision is not paramount (this approximation is likely too low, resulting in an immediate delivery on crash recovery).
+          // In theory we could pipe the realized immediate-domain time back to the persistence, but then we would need to wait for persisting before letting
+          // the domain go, which would have the undesirable effect of submission errors are slowing down the domain.
+          // Please note: as this data is also used in a heuristic for journal garbage collection, we must use here realistic values.
+
+          // first approximation is by domain-time-tracker
+          timeTracker.latestTime
+            .getOrElse(
+              // if no domain-time yet, then approximating with the initial time of the domain
+              recordOrderPublisher.initTimestamp
+            ),
+          newTrackingData,
+        ),
+      )
+      .map { _ =>
+        unsequencedSubmissionMap.changeIfExists(
+          key = messageId,
+          submissionTrackingData = newTrackingData,
+        )
+        recordOrderPublisher
+          .scheduleFloatingEventPublicationImmediately(
+            eventFactory = unsequencedSubmissionMap.pullTimelyRejectEvent(messageId, _)
+          )
+          .discard
+      }
+
+  /** Updates the unsequenced submission corresponding to the [[com.digitalasset.canton.sequencing.protocol.DeliverError]],
+    * if any, using [[com.digitalasset.canton.participant.protocol.submission.SubmissionTrackingData.updateOnNotSequenced]].
+    */
+  def observeDeliverError(
+      deliverError: DeliverError
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+    def updatedTrackingData(
+        inFlightO: Option[InFlightSubmission[SubmissionSequencingInfo]]
+    ): Option[(ChangeIdHash, UnsequencedSubmission, TraceContext)] =
+      for {
+        inFlight <- inFlightO
+        unsequencedO = inFlight.sequencingInfo.asUnsequenced
+        _ = if (unsequencedO.isEmpty) {
+          logger.warn(
+            s"Received a deliver error for the sequenced submission $inFlight. Deliver error $deliverError"
+          )
+        }
+        unsequenced <- unsequencedO
+        newTrackingData <- unsequenced.trackingData.updateOnNotSequenced(
+          deliverError.timestamp,
+          deliverError.reason,
+        )
+      } yield (inFlight.changeIdHash, newTrackingData, inFlight.submissionTraceContext)
+
+    val messageId = deliverError.messageId
+
+    // Ignore already sequenced errors here to deal with submission request amplification
+    val isAlreadySequencedError = DecodedCantonError
+      .fromGrpcStatus(deliverError.reason)
+      .exists(_.code.id == AggregateSubmissionAlreadySent.id)
+    if (isAlreadySequencedError) {
+      logger.debug(
+        s"Ignoring deliver error $deliverError for $domainId and $messageId because the message was already sequenced."
+      )
+      FutureUnlessShutdown.unit
+    } else
+      for {
+        inFlightO <- store.value.lookupSomeMessageId(domainId, messageId)
+        toUpdateO = updatedTrackingData(inFlightO)
+        _ <- toUpdateO.traverse_ { case (changeIdHash, newTrackingData, submissionTraceContext) =>
+          store.value.updateUnsequenced(changeIdHash, domainId, messageId, newTrackingData).map {
+            _ =>
+              unsequencedSubmissionMap.changeIfExists(
+                key = messageId,
+                submissionTrackingData = newTrackingData.trackingData,
+              )
+              recordOrderPublisher
+                .scheduleFloatingEventPublication(
+                  timestamp =
+                    newTrackingData.timeout, // this is the delivery error's timeout, we publish before ticking this sequencer counter + timestamp (no need to request a tick)
+                  eventFactory = unsequencedSubmissionMap.pullTimelyRejectEvent(messageId, _),
+                )(submissionTraceContext)
+                .leftMap(ropIsAlreadyAt =>
+                  throw new IllegalStateException(
+                    s"RecordOrderPublisher is already at $ropIsAlreadyAt, cannot schedule rejection event (at ${newTrackingData.timeout})"
+                  )
+                )
+                .merge
+          }
+        }
+      } yield ()
+  }
+
 }
 
 object InFlightSubmissionTracker {
-
-  /** The portion of the [[com.digitalasset.canton.participant.store.SyncDomainEphemeralState]]
-    * that is used by the [[InFlightSubmissionTracker]].
-    *
-    * @param observedTimestampTracker
-    *   Tracks the observed timestamps per domain to synchronize submission registration with submission deletion.
-    *   We track them per domain so that clock skew between different domains does not cause interferences.
-    * @param domainTimeTracker
-    *   Used to request a timestamp observation for the
-    *   [[com.digitalasset.canton.participant.protocol.submission.UnsequencedSubmission.timeout]]s of
-    *   [[com.digitalasset.canton.participant.protocol.submission.UnsequencedSubmission]]s.
-    */
-  final case class InFlightSubmissionTrackerDomainState(
-      observedTimestampTracker: WatermarkTracker[CantonTimestamp],
-      domainTimeTracker: DomainTimeTracker,
-  )
-
-  object InFlightSubmissionTrackerDomainState {
-
-    def fromSyncDomainState(
-        ephemeral: SyncDomainEphemeralState
-    ): InFlightSubmissionTrackerDomainState =
-      InFlightSubmissionTrackerDomainState(
-        ephemeral.observedTimestampTracker,
-        ephemeral.timeTracker,
-      )
-  }
 
   sealed trait InFlightSubmissionTrackerError extends Product with Serializable
 
@@ -400,5 +393,130 @@ object InFlightSubmissionTracker {
       lowerBound: CantonTimestamp,
   ) extends InFlightSubmissionTrackerError
 
-  final case class UnknownDomain(domainId: DomainId) extends InFlightSubmissionTrackerError
+  /** For in-memory tracking the unsequenced submissions.
+    * If submission is sequenced, the entry is removed.
+    * If submission is rejected before sequencing, the entry will be removed and a corresponding floating rejection update will be published.
+    * On crash recovery the internal state of this map needs to be recovered from persistence, which should be preceded by post-publish
+    * part of the crash recovery (getting the InFlightSubmissionStore uptodate with the ledger-end)
+    *
+    * @param sizeWarnThreshold defines an upper size-limit for the in-memory storage which above WARN messages will be emitted
+    * @param unsequencedInFlightGauge for tracking the size of the in-memory storage
+    */
+  final class UnsequencedSubmissionMap(
+      domainId: DomainId,
+      sizeWarnThreshold: Int,
+      unsequencedInFlightGauge: Gauge[Int],
+      override val loggerFactory: NamedLoggerFactory,
+  ) extends NamedLogging {
+
+    private val mutableUnsequencedMap: mutable.Map[MessageId, Entry] =
+      mutable.Map()
+    private val rootHashMap: mutable.Map[RootHash, MessageId] =
+      mutable.Map()
+
+    // only change if exists, if not exists do nothing
+    def changeIfExists(
+        key: MessageId,
+        submissionTrackingData: SubmissionTrackingData,
+    ): Unit = blocking(
+      synchronized(
+        mutableUnsequencedMap
+          .updateWith(key) {
+            case Some(entry) =>
+              Some(entry.copy(submissionTrackingData = submissionTrackingData))
+
+            case None => None
+          }
+          .discard
+      )
+    )
+
+    // only change if exists, and hash is empty, if not exist or hash is defined do nothing
+    def addRootHashIfNotSpecifiedYet(
+        key: MessageId,
+        rootHash: RootHash,
+    ): Unit = blocking(
+      synchronized(
+        mutableUnsequencedMap
+          .updateWith(key) {
+            case Some(entry @ Entry(_, _, _, None)) =>
+              rootHashMap += rootHash -> key
+              Some(entry.copy(rootHashO = Some(rootHash)))
+
+            case noChange => noChange
+          }
+          .discard
+      )
+    )
+
+    // only add if not exists, if exists do nothing
+    def pushIfNotExists(
+        messageUuid: UUID,
+        submissionTrackingData: SubmissionTrackingData,
+        submissionTraceContext: TraceContext,
+        rootHash: Option[RootHash],
+    )(implicit traceContext: TraceContext): Unit = blocking(synchronized {
+      val messageId = MessageId.fromUuid(messageUuid)
+      if (!mutableUnsequencedMap.contains(MessageId.fromUuid(messageUuid))) {
+        mutableUnsequencedMap += messageId -> Entry(
+          submissionTrackingData,
+          messageUuid,
+          submissionTraceContext,
+          rootHash,
+        )
+        rootHash.map(_ -> messageId).foreach(rootHashMap += _)
+        unsequencedInFlightGauge.updateValue(mutableUnsequencedMap.size)
+        if (mutableUnsequencedMap.sizeIs > sizeWarnThreshold)
+          logger.warn(
+            s"UnsequencedSubmissionMap for domain $domainId is growing too large (threshold with $sizeWarnThreshold breached: ${mutableUnsequencedMap.size})"
+          )
+      }
+    })
+
+    // Only the first call returns an event, further calls result in None (meaning: timely rejected event was already pulled).
+    // This is needed as corresponding scheduled tasks are not getting removed, but rather those task will do nothing on perform()
+    // if an earlier task already emitted the corresponding event.
+    def pullTimelyRejectEvent(
+        key: MessageId,
+        recordTime: CantonTimestamp,
+    ): Option[Update] =
+      remove(key)
+        .map { entry =>
+          implicit val traceContext: TraceContext = entry.traceContext
+          entry.submissionTrackingData.rejectionEvent(recordTime, entry.messageUuid)
+        }
+
+    def pull(key: MessageId): Unit =
+      remove(key).discard
+
+    def pullByHash(rootHash: RootHash): Unit =
+      blocking(
+        synchronized(
+          rootHashMap
+            .get(rootHash)
+            .foreach(remove)
+        )
+      )
+
+    private def remove(key: MessageId): Option[Entry] =
+      blocking(
+        synchronized(
+          mutableUnsequencedMap
+            .remove(key)
+            .map { result =>
+              result.rootHashO.foreach(rootHashMap.remove)
+              unsequencedInFlightGauge.updateValue(mutableUnsequencedMap.size)
+              result
+            }
+        )
+      )
+  }
+
+  private final case class Entry(
+      submissionTrackingData: SubmissionTrackingData,
+      messageUuid: UUID,
+      traceContext: TraceContext,
+      rootHashO: Option[RootHash],
+  )
+
 }

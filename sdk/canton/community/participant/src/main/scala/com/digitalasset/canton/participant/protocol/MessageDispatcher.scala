@@ -27,7 +27,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.{
   UnassignmentProcessor,
 }
 import com.digitalasset.canton.participant.protocol.submission.{
-  InFlightSubmissionTracker,
+  InFlightSubmissionDomainTracker,
   SequencedSubmission,
 }
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor
@@ -87,7 +87,7 @@ trait MessageDispatcher { this: NamedLogging =>
   protected def recordOrderPublisher: RecordOrderPublisher
   protected def badRootHashMessagesRequestProcessor: BadRootHashMessagesRequestProcessor
   protected def repairProcessor: RepairProcessor
-  protected def inFlightSubmissionTracker: InFlightSubmissionTracker
+  protected def inFlightSubmissionDomainTracker: InFlightSubmissionDomainTracker
   protected def metrics: SyncDomainMetrics
 
   implicit protected val ec: ExecutionContext
@@ -607,7 +607,7 @@ trait MessageDispatcher { this: NamedLogging =>
     }
     doProcess(
       DeliveryMessageKind,
-      inFlightSubmissionTracker.observeSequencing(domainId, receiptsMap),
+      inFlightSubmissionDomainTracker.observeSequencing(receiptsMap),
     )
   }
 
@@ -616,7 +616,7 @@ trait MessageDispatcher { this: NamedLogging =>
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[ProcessingResult] =
     doProcess(
       DeliveryMessageKind,
-      inFlightSubmissionTracker.observeDeliverError(error),
+      inFlightSubmissionDomainTracker.observeDeliverError(error),
     )
 
   private def tickRecordOrderPublisher(sc: SequencerCounter, ts: CantonTimestamp)(implicit
@@ -792,7 +792,7 @@ private[participant] object MessageDispatcher {
         recordOrderPublisher: RecordOrderPublisher,
         badRootHashMessagesRequestProcessor: BadRootHashMessagesRequestProcessor,
         repairProcessor: RepairProcessor,
-        inFlightSubmissionTracker: InFlightSubmissionTracker,
+        inFlightSubmissionDomainTracker: InFlightSubmissionDomainTracker,
         loggerFactory: NamedLoggerFactory,
         metrics: SyncDomainMetrics,
     )(implicit ec: ExecutionContext, tracer: Tracer): T
@@ -812,7 +812,7 @@ private[participant] object MessageDispatcher {
         recordOrderPublisher: RecordOrderPublisher,
         badRootHashMessagesRequestProcessor: BadRootHashMessagesRequestProcessor,
         repairProcessor: RepairProcessor,
-        inFlightSubmissionTracker: InFlightSubmissionTracker,
+        inFlightSubmissionDomainTracker: InFlightSubmissionDomainTracker,
         loggerFactory: NamedLoggerFactory,
         metrics: SyncDomainMetrics,
     )(implicit ec: ExecutionContext, tracer: Tracer): T = {
@@ -839,7 +839,7 @@ private[participant] object MessageDispatcher {
         recordOrderPublisher,
         badRootHashMessagesRequestProcessor,
         repairProcessor,
-        inFlightSubmissionTracker,
+        inFlightSubmissionDomainTracker,
         loggerFactory,
         metrics,
       )

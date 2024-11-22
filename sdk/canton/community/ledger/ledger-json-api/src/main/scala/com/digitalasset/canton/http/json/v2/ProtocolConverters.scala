@@ -11,6 +11,8 @@ import com.digitalasset.canton.http.json.v2.JsSchema.{
   JsEvent,
   JsInterfaceView,
   JsStatus,
+  JsTopologyEvent,
+  JsTopologyTransaction,
   JsTransaction,
   JsTransactionTree,
   JsTreeEvent,
@@ -251,8 +253,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     }
   }
 
-  object InterfaceView
-      extends ProtocolConverter[com.daml.ledger.api.v2.event.InterfaceView, JsInterfaceView] {
+  object InterfaceView extends ProtocolConverter[lapi.event.InterfaceView, JsInterfaceView] {
 
     def fromJson(
         iview: JsInterfaceView
@@ -278,7 +279,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     )
 
     def toJson(
-        obj: com.daml.ledger.api.v2.event.InterfaceView
+        obj: lapi.event.InterfaceView
     )(implicit
         token: Option[String],
         contextualizedErrorLogger: ContextualizedErrorLogger,
@@ -295,8 +296,8 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       )
   }
 
-  object Event extends ProtocolConverter[com.daml.ledger.api.v2.event.Event.Event, JsEvent.Event] {
-    def toJson(event: com.daml.ledger.api.v2.event.Event.Event)(implicit
+  object Event extends ProtocolConverter[lapi.event.Event.Event, JsEvent.Event] {
+    def toJson(event: lapi.event.Event.Event)(implicit
         token: Option[String],
         contextualizedErrorLogger: ContextualizedErrorLogger,
     ): Future[JsEvent.Event] =
@@ -316,6 +317,38 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         CreatedEvent.fromJson(createdEvent).map(lapi.event.Event.Event.Created.apply)
       case archivedEvent: JsEvent.ArchivedEvent =>
         Future.successful(lapi.event.Event.Event.Archived(ArchivedEvent.fromJson(archivedEvent)))
+    }
+  }
+
+  object TopologyEvent
+      extends ProtocolConverter[
+        lapi.topology_transaction.TopologyEvent,
+        JsTopologyEvent.Event,
+      ] {
+    def toJson(
+        event: lapi.topology_transaction.TopologyEvent.Event
+    ): Future[JsTopologyEvent.Event] =
+      event match {
+        case lapi.topology_transaction.TopologyEvent.Event.Empty => jsFail("Invalid value")
+        case lapi.topology_transaction.TopologyEvent.Event.ParticipantAuthorizationChanged(value) =>
+          Future(ParticipantAuthorizationChanged.toJson(value))
+        case lapi.topology_transaction.TopologyEvent.Event.ParticipantAuthorizationRevoked(value) =>
+          Future(ParticipantAuthorizationRevoked.toJson(value))
+      }
+
+    def fromJson(
+        event: JsTopologyEvent.Event
+    ): Future[lapi.topology_transaction.TopologyEvent.Event] = event match {
+      case changed: JsTopologyEvent.ParticipantAuthorizationChanged =>
+        Future(
+          lapi.topology_transaction.TopologyEvent.Event
+            .ParticipantAuthorizationChanged(ParticipantAuthorizationChanged.fromJson(changed))
+        )
+      case revoked: JsTopologyEvent.ParticipantAuthorizationRevoked =>
+        Future(
+          lapi.topology_transaction.TopologyEvent.Event
+            .ParticipantAuthorizationRevoked(ParticipantAuthorizationRevoked.fromJson(revoked))
+        )
     }
   }
 
@@ -361,6 +394,41 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       }
   }
 
+  object TopologyTransaction
+      extends ProtocolConverter[
+        lapi.topology_transaction.TopologyTransaction,
+        JsTopologyTransaction,
+      ] {
+
+    def toJson(v: lapi.topology_transaction.TopologyTransaction): Future[JsTopologyTransaction] =
+      Future
+        .sequence(v.events.map(e => TopologyEvent.toJson(e.event)))
+        .map(ev =>
+          JsTopologyTransaction(
+            update_id = v.updateId,
+            events = ev,
+            offset = v.offset,
+            domain_id = v.domainId,
+            trace_context = v.traceContext,
+            record_time = v.getRecordTime,
+          )
+        )
+
+    def fromJson(v: JsTopologyTransaction): Future[lapi.topology_transaction.TopologyTransaction] =
+      Future
+        .sequence(v.events.map(e => TopologyEvent.fromJson(e)))
+        .map { ev =>
+          lapi.topology_transaction.TopologyTransaction(
+            updateId = v.update_id,
+            events = ev.map(lapi.topology_transaction.TopologyEvent(_)),
+            offset = v.offset,
+            domainId = v.domain_id,
+            traceContext = v.trace_context,
+            recordTime = Some(v.record_time),
+          )
+        }
+  }
+
   object TransactionTree
       extends ProtocolConverter[lapi.transaction.TransactionTree, JsTransactionTree] {
     def toJson(
@@ -371,7 +439,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     ): Future[JsTransactionTree] = {
       val jsEventsById = lapiTransactionTree.eventsById.view
         .mapValues(_.kind)
-        .mapValues {
+        .mapValues[Future[JsTreeEvent.TreeEvent]] {
           case lapi.transaction.TreeEvent.Kind.Empty => jsFail("Empty event")
           case lapi.transaction.TreeEvent.Kind.Created(created) =>
             CreatedEvent.toJson(created).map(JsTreeEvent.CreatedTreeEvent(_))
@@ -766,6 +834,53 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         )
   }
 
+  object ParticipantAuthorizationChanged
+      extends ProtocolConverter[
+        lapi.topology_transaction.ParticipantAuthorizationChanged,
+        JsTopologyEvent.ParticipantAuthorizationChanged,
+      ] {
+    def toJson(
+        e: lapi.topology_transaction.ParticipantAuthorizationChanged
+    ): JsTopologyEvent.ParticipantAuthorizationChanged =
+      JsTopologyEvent.ParticipantAuthorizationChanged(
+        party_id = e.partyId,
+        participant_id = e.participantId,
+        particiant_permission = e.particiantPermission.value,
+      )
+
+    def fromJson(
+        ev: JsTopologyEvent.ParticipantAuthorizationChanged
+    ): lapi.topology_transaction.ParticipantAuthorizationChanged =
+      lapi.topology_transaction.ParticipantAuthorizationChanged(
+        partyId = ev.party_id,
+        participantId = ev.participant_id,
+        particiantPermission =
+          lapi.state_service.ParticipantPermission.fromValue(ev.particiant_permission),
+      )
+  }
+
+  object ParticipantAuthorizationRevoked
+      extends ProtocolConverter[
+        lapi.topology_transaction.ParticipantAuthorizationRevoked,
+        JsTopologyEvent.ParticipantAuthorizationRevoked,
+      ] {
+    def toJson(
+        e: lapi.topology_transaction.ParticipantAuthorizationRevoked
+    ): JsTopologyEvent.ParticipantAuthorizationRevoked =
+      JsTopologyEvent.ParticipantAuthorizationRevoked(
+        party_id = e.partyId,
+        participant_id = e.participantId,
+      )
+
+    def fromJson(
+        ev: JsTopologyEvent.ParticipantAuthorizationRevoked
+    ): lapi.topology_transaction.ParticipantAuthorizationRevoked =
+      lapi.topology_transaction.ParticipantAuthorizationRevoked(
+        partyId = ev.party_id,
+        participantId = ev.participant_id,
+      )
+  }
+
   object ContractEntry
       extends ProtocolConverter[
         lapi.state_service.GetActiveContractsResponse.ContractEntry,
@@ -934,7 +1049,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
             .fromJson(event.created_event)
             .map(ce =>
               lapi.reassignment.Reassignment.Event.AssignedEvent(
-                value = com.daml.ledger.api.v2.reassignment.AssignedEvent(
+                value = lapi.reassignment.AssignedEvent(
                   source = event.source,
                   target = event.target,
                   unassignId = event.unassign_id,
@@ -994,7 +1109,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         token: Option[String],
         contextualizedErrorLogger: ContextualizedErrorLogger,
     ): Future[JsGetUpdatesResponse] =
-      (obj.update match {
+      ((obj.update match {
         case lapi.update_service.GetUpdatesResponse.Update.Empty => jsFail("Invalid value")
         case lapi.update_service.GetUpdatesResponse.Update.Transaction(value) =>
           Transaction.toJson(value).map(JsUpdate.Transaction.apply)
@@ -1002,7 +1117,9 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
           Reassignment.toJson(value).map(JsUpdate.Reassignment.apply)
         case lapi.update_service.GetUpdatesResponse.Update.OffsetCheckpoint(value) =>
           Future(JsUpdate.OffsetCheckpoint(value))
-      }).map(update => JsGetUpdatesResponse(update))
+        case lapi.update_service.GetUpdatesResponse.Update.TopologyTransaction(value) =>
+          TopologyTransaction.toJson(value).map(JsUpdate.TopologyTransaction.apply)
+      }): Future[JsUpdate.Update]).map(update => JsGetUpdatesResponse(update))
 
     def fromJson(obj: JsGetUpdatesResponse)(implicit
         token: Option[String],
@@ -1025,6 +1142,10 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
           Transaction.fromJson(value).map { tr =>
             lapi.update_service.GetUpdatesResponse.Update.Transaction(tr)
           }
+        case JsUpdate.TopologyTransaction(value) =>
+          TopologyTransaction
+            .fromJson(value)
+            .map(lapi.update_service.GetUpdatesResponse.Update.TopologyTransaction.apply)
       }).map(lapi.update_service.GetUpdatesResponse(_))
   }
 
@@ -1039,7 +1160,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         token: Option[String],
         contextualizedErrorLogger: ContextualizedErrorLogger,
     ): Future[JsGetUpdateTreesResponse] =
-      (value.update match {
+      ((value.update match {
         case lapi.update_service.GetUpdateTreesResponse.Update.Empty => jsFail("Invalid value")
         case lapi.update_service.GetUpdateTreesResponse.Update.OffsetCheckpoint(value) =>
           Future(JsUpdateTree.OffsetCheckpoint(value))
@@ -1047,7 +1168,9 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
           TransactionTree.toJson(value).map(JsUpdateTree.TransactionTree.apply)
         case lapi.update_service.GetUpdateTreesResponse.Update.Reassignment(value) =>
           Reassignment.toJson(value).map(JsUpdateTree.Reassignment.apply)
-      }).map(update => JsGetUpdateTreesResponse(update))
+        case lapi.update_service.GetUpdateTreesResponse.Update.TopologyTransaction(value) =>
+          TopologyTransaction.toJson(value).map(JsUpdateTree.TopologyTransaction.apply)
+      }): Future[JsUpdateTree.Update]).map(update => JsGetUpdateTreesResponse(update))
 
     def fromJson(
         jsObj: JsGetUpdateTreesResponse
@@ -1068,6 +1191,10 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
           TransactionTree
             .fromJson(value)
             .map(lapi.update_service.GetUpdateTreesResponse.Update.TransactionTree.apply)
+        case JsUpdateTree.TopologyTransaction(value) =>
+          TopologyTransaction
+            .fromJson(value)
+            .map(lapi.update_service.GetUpdateTreesResponse.Update.TopologyTransaction.apply)
       }).map(lapi.update_service.GetUpdateTreesResponse(_))
   }
 

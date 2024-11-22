@@ -9,6 +9,7 @@ import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveCo
 import com.digitalasset.canton.participant.store.ActiveContractStore.{
   AcsError,
   AcsWarning,
+  ActivenessChangeDetail,
   ContractState,
 }
 import com.digitalasset.canton.participant.store.HookedAcs.noFetchAction
@@ -197,6 +198,13 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
   override def packageUsage(pkg: PackageId, contractStore: ContractStore)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[LfContractId]] = acs.packageUsage(pkg, contractStore)
+
+  override def activenessOf(contracts: Seq[LfContractId])(implicit
+      traceContext: TraceContext
+  ): Future[
+    SortedMap[LfContractId, Seq[(CantonTimestamp, ActivenessChangeDetail)]]
+  ] =
+    acs.activenessOf(contracts)
 }
 
 object HookedAcs {

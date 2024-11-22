@@ -6,6 +6,7 @@ package com.digitalasset.canton.domain.sequencing
 import com.digitalasset.canton.domain.block.RawLedgerBlock
 import com.digitalasset.canton.domain.block.RawLedgerBlock.RawBlockEvent.Send
 import com.digitalasset.canton.domain.sequencing.BaseSequencerDriverApiTest.CompletionTimeout
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.google.protobuf.ByteString
 import org.apache.pekko.stream.scaladsl.Sink
 
@@ -38,7 +39,7 @@ abstract class SequencerDriverApiConformanceTest[ConfigType]
           }
           .completionTimeout(CompletionTimeout)
           .runWith(Sink.head)
-          .andThen(_ => driver.close())
+          .thereafter(_ => driver.close())
       } yield succeed
     }
 
@@ -58,14 +59,14 @@ abstract class SequencerDriverApiConformanceTest[ConfigType]
           .filter(blockContainsSendEvent)
           .completionTimeout(CompletionTimeout)
           .runWith(Sink.head)
-          .andThen(_ => driver.close())
+          .thereafter(_ => driver.close())
         driver2 = createDriver(firstBlockHeight = Some(block.blockHeight))
         block2 <- driver2
           .subscribe()
           .filter(blockContainsSendEvent)
           .completionTimeout(CompletionTimeout)
           .runWith(Sink.head)
-          .andThen(_ => driver2.close())
+          .thereafter(_ => driver2.close())
       } yield block shouldBe (block2)
     }
 
@@ -74,13 +75,13 @@ abstract class SequencerDriverApiConformanceTest[ConfigType]
       // acknowledge is unsupported for some drivers
       driver
         .acknowledge(ByteString.copyFromUtf8("ack"))
-        .andThen(_ => driver.close())
+        .thereafter(_ => driver.close())
         .map(_ => succeed)
     }
 
     "get health" in {
       val driver = createDriver()
-      driver.health.andThen(_ => driver.close()).map(_.isActive shouldBe true)
+      driver.health.thereafter(_ => driver.close()).map(_.isActive shouldBe true)
     }
   }
 }

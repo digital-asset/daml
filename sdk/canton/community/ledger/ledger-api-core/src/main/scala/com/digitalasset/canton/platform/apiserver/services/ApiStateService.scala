@@ -24,6 +24,7 @@ import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.topology.transaction.ParticipantPermission as TopologyParticipantPermission
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
 import org.apache.pekko.stream.Materializer
@@ -143,7 +144,7 @@ final class ApiStateService(
           ApiOffset.assertFromStringToLong(offset)
         )
       )
-      .andThen(logger.logErrorsOnCall[GetLedgerEndResponse])
+      .thereafter(logger.logErrorsOnCall[GetLedgerEndResponse])
   }
 
   override def getLatestPrunedOffsets(
@@ -159,7 +160,7 @@ final class ApiStateService(
           allDivulgedContractsPrunedUpToInclusive = divulgencePrunedUptoInclusive,
         )
       }
-      .andThen(logger.logErrorsOnCall[GetLatestPrunedOffsetsResponse])
+      .thereafter(logger.logErrorsOnCall[GetLatestPrunedOffsetsResponse])
   }
 
   override def bindService(): ServerServiceDefinition =

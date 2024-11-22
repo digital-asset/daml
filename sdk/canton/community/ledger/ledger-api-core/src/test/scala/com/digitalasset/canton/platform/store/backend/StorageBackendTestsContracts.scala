@@ -34,13 +34,13 @@ private[backend] trait StorageBackendTestsContracts
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
     executeSql(
-      updateLedgerEnd(absoluteOffset(1), 1L)
+      updateLedgerEnd(offset(1), 1L)
     )
     val createdContracts = executeSql(
-      backend.contract.createdContracts(contractId :: Nil, absoluteOffset(1))
+      backend.contract.createdContracts(contractId :: Nil, offset(1))
     )
     val archivedContracts = executeSql(
-      backend.contract.archivedContracts(contractId :: Nil, absoluteOffset(1))
+      backend.contract.archivedContracts(contractId :: Nil, offset(1))
     )
 
     createdContracts.get(contractId).isDefined shouldBe true
@@ -70,7 +70,7 @@ private[backend] trait StorageBackendTestsContracts
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
     executeSql(
-      updateLedgerEnd(absoluteOffset(4), 4L)
+      updateLedgerEnd(offset(4), 4L)
     )
     val assignedContracts = executeSql(
       backend.contract.assignedContracts(Seq(contractId1, contractId2, contractId3))
@@ -110,19 +110,19 @@ private[backend] trait StorageBackendTestsContracts
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
     executeSql(
-      updateLedgerEnd(absoluteOffset(2), 2L)
+      updateLedgerEnd(offset(2), 2L)
     )
     val createdContracts1 = executeSql(
-      backend.contract.createdContracts(contractId :: Nil, absoluteOffset(1))
+      backend.contract.createdContracts(contractId :: Nil, offset(1))
     )
     val archivedContracts1 = executeSql(
-      backend.contract.archivedContracts(contractId :: Nil, absoluteOffset(1))
+      backend.contract.archivedContracts(contractId :: Nil, offset(1))
     )
     val createdContracts2 = executeSql(
-      backend.contract.createdContracts(contractId :: Nil, absoluteOffset(2))
+      backend.contract.createdContracts(contractId :: Nil, offset(2))
     )
     val archivedContracts2 = executeSql(
-      backend.contract.archivedContracts(contractId :: Nil, absoluteOffset(2))
+      backend.contract.archivedContracts(contractId :: Nil, offset(2))
     )
 
     createdContracts1.get(contractId).isDefined shouldBe true
@@ -168,7 +168,7 @@ private[backend] trait StorageBackendTestsContracts
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
     executeSql(
-      updateLedgerEnd(absoluteOffset(3), 6L)
+      updateLedgerEnd(offset(3), 6L)
     )
     val createdContracts = executeSql(
       backend.contract.createdContracts(
@@ -179,7 +179,7 @@ private[backend] trait StorageBackendTestsContracts
           contractId4,
           contractId5,
         ),
-        absoluteOffset(2),
+        offset(2),
       )
     )
     val archivedContracts = executeSql(
@@ -191,7 +191,7 @@ private[backend] trait StorageBackendTestsContracts
           contractId4,
           contractId5,
         ),
-        absoluteOffset(2),
+        offset(2),
       )
     )
 
@@ -222,18 +222,18 @@ private[backend] trait StorageBackendTestsContracts
   it should "be able to query with 1000 contract ids" in {
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(
-      updateLedgerEnd(absoluteOffset(3), 6L)
+      updateLedgerEnd(offset(3), 6L)
     )
     val createdContracts = executeSql(
       backend.contract.createdContracts(
         1.to(1000).map(n => hashCid(s"#$n")),
-        absoluteOffset(2),
+        offset(2),
       )
     )
     val archivedContracts = executeSql(
       backend.contract.archivedContracts(
         1.to(1000).map(n => hashCid(s"#$n")),
-        absoluteOffset(2),
+        offset(2),
       )
     )
 

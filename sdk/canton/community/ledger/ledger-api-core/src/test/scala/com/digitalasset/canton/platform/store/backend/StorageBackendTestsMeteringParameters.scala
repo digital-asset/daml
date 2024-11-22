@@ -3,10 +3,9 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.logging.SuppressingLogger
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import org.scalatest.Inside
 import org.scalatest.flatspec.AnyFlatSpec
@@ -21,7 +20,7 @@ private[backend] trait StorageBackendTestsMeteringParameters
   {
     behavior of "StorageBackend (metering parameters)"
 
-    val initLedgerMeteringEnd = LedgerMeteringEnd(Offset.beforeBegin, Timestamp.Epoch)
+    val initLedgerMeteringEnd = LedgerMeteringEnd(None, Timestamp.Epoch)
     val loggerFactory = SuppressingLogger(getClass)
 
     it should "fetch un-initialized ledger metering end" in {
@@ -29,7 +28,7 @@ private[backend] trait StorageBackendTestsMeteringParameters
     }
 
     it should "initialized ledger metering end" in {
-      val expected = LedgerMeteringEnd(Offset.beforeBegin, Timestamp.Epoch)
+      val expected = LedgerMeteringEnd(None, Timestamp.Epoch)
       executeSql(backend.meteringParameter.initializeLedgerMeteringEnd(expected, loggerFactory))
       executeSql(backend.meteringParameter.ledgerMeteringEnd) shouldBe Some(expected)
     }
@@ -38,7 +37,7 @@ private[backend] trait StorageBackendTestsMeteringParameters
       executeSql(
         backend.meteringParameter.initializeLedgerMeteringEnd(initLedgerMeteringEnd, loggerFactory)
       )
-      val expected = LedgerMeteringEnd(Offset.beforeBegin, Timestamp.now())
+      val expected = LedgerMeteringEnd(None, Timestamp.now())
       executeSql(backend.meteringParameter.updateLedgerMeteringEnd(expected))
       executeSql(backend.meteringParameter.ledgerMeteringEnd) shouldBe Some(expected)
     }
@@ -48,7 +47,7 @@ private[backend] trait StorageBackendTestsMeteringParameters
         backend.meteringParameter.initializeLedgerMeteringEnd(initLedgerMeteringEnd, loggerFactory)
       )
       val expected = LedgerMeteringEnd(
-        Offset.fromHexString(Ref.HexString.assertFromString("07")),
+        Some(AbsoluteOffset.tryFromLong(7L)),
         Timestamp.now(),
       )
       executeSql(backend.meteringParameter.updateLedgerMeteringEnd(expected))

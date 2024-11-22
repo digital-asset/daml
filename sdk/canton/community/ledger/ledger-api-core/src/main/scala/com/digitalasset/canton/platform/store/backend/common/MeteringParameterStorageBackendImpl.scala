@@ -5,9 +5,12 @@ package com.digitalasset.canton.platform.store.backend.common
 
 import anorm.{RowParser, ~}
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
-import com.digitalasset.canton.platform.store.backend.Conversions.{offset, timestampFromMicros}
+import com.digitalasset.canton.platform.store.backend.Conversions.{
+  AbsoluteOffsetOToStatement,
+  absoluteOffsetO,
+  timestampFromMicros,
+}
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
@@ -23,7 +26,6 @@ private[backend] object MeteringParameterStorageBackendImpl
       loggerFactory: NamedLoggerFactory,
   )(connection: Connection)(implicit traceContext: TraceContext): Unit = {
     val logger = TracedLogger(loggerFactory.getLogger(getClass))
-    import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
     import com.digitalasset.canton.platform.store.backend.Conversions.TimestampToStatement
     ledgerMeteringEnd(connection) match {
       case None =>
@@ -46,7 +48,7 @@ private[backend] object MeteringParameterStorageBackendImpl
   def ledgerMeteringEnd(connection: Connection): Option[LedgerMeteringEnd] = {
 
     val LedgerMeteringEndParser: RowParser[LedgerMeteringEnd] = (
-      offset("ledger_metering_end").?.map(_.getOrElse(Offset.beforeBegin)) ~
+      absoluteOffsetO("ledger_metering_end").?.map(_.flatten) ~
         timestampFromMicros("ledger_metering_timestamp")
     ) map { case ledgerMeteringEnd ~ ledgerMeteringTimestamp =>
       LedgerMeteringEnd(ledgerMeteringEnd, ledgerMeteringTimestamp)
@@ -65,7 +67,6 @@ private[backend] object MeteringParameterStorageBackendImpl
   def updateLedgerMeteringEnd(
       ledgerMeteringEnd: LedgerMeteringEnd
   )(connection: Connection): Unit = {
-    import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
     import com.digitalasset.canton.platform.store.backend.Conversions.TimestampToStatement
     discard(
       SQL"""

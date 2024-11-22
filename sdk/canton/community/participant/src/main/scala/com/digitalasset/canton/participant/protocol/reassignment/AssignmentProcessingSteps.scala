@@ -413,7 +413,6 @@ private[reassignment] class AssignmentProcessingSteps(
 
       authenticationErrorO <- EitherT
         .right(AuthenticationValidator.verifyViewSignature(parsedRequest))
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       confirmingSignatories <- EitherTUtil.rightUS(
         targetCrypto.ipsSnapshot.canConfirm(

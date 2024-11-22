@@ -11,6 +11,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
+import com.digitalasset.canton.participant.store.ActiveContractStore.ActivenessChangeDetail
 import com.digitalasset.canton.participant.util.{StateChange, TimeOfChange}
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.store.db.DbDeserializationException
@@ -350,7 +351,7 @@ object ActiveContractStore {
     )
   }
 
-  sealed trait ActivenessChangeDetail extends Product with Serializable {
+  sealed trait ActivenessChangeDetail extends Product with Serializable with PrettyPrinting {
     def name: LengthLimitedString
 
     def reassignmentCounterO: Option[ReassignmentCounter]
@@ -396,6 +397,9 @@ object ActiveContractStore {
       override def contractChange: ContractChange = ContractChange.Created
 
       override def isReassignment: Boolean = false
+      override protected def pretty: Pretty[Create.this.type] = prettyOfClass(
+        param("reassignment counter", _.reassignmentCounter)
+      )
     }
 
     final case class Add(reassignmentCounter: ReassignmentCounter) extends HasReassignmentCounter {
@@ -407,6 +411,10 @@ object ActiveContractStore {
       override def contractChange: ContractChange = ContractChange.Created
 
       override def isReassignment: Boolean = false
+
+      override protected def pretty: Pretty[Add.this.type] = prettyOfClass(
+        param("reassignment counter", _.reassignmentCounter)
+      )
     }
 
     /** The reassignment counter for archivals stored in the acs is always None, because we cannot
@@ -423,6 +431,8 @@ object ActiveContractStore {
       override def contractChange: ContractChange = ContractChange.Archived
 
       override def isReassignment: Boolean = false
+
+      override protected def pretty: Pretty[Archive.this.type] = prettyOfObject[Archive.this.type]
     }
 
     case object Purge extends ActivenessChangeDetail {
@@ -433,9 +443,11 @@ object ActiveContractStore {
 
       override def changeType: ChangeType = ChangeType.Deactivation
 
-      override def contractChange: ContractChange = ContractChange.Created
+      override def contractChange: ContractChange = ContractChange.Purged
 
       override def isReassignment: Boolean = false
+
+      override protected def pretty: Pretty[Purge.this.type] = prettyOfObject[Purge.this.type]
     }
 
     final case class Assignment(reassignmentCounter: ReassignmentCounter, remoteDomainIdx: Int)
@@ -447,6 +459,12 @@ object ActiveContractStore {
         ActiveContractStore.ReassignmentType.Assignment
 
       override def contractChange: ContractChange = ContractChange.Assigned
+
+      override protected def pretty: Pretty[Assignment.this.type] = prettyOfClass(
+        param("contract change", _.contractChange),
+        param("reassignment counter", _.reassignmentCounter),
+        param("remote domain index", _.remoteDomainIdx),
+      )
     }
 
     final case class Unassignment(reassignmentCounter: ReassignmentCounter, remoteDomainIdx: Int)
@@ -458,6 +476,12 @@ object ActiveContractStore {
         ActiveContractStore.ReassignmentType.Unassignment
 
       override def contractChange: ContractChange = ContractChange.Unassigned
+
+      override protected def pretty: Pretty[Unassignment.this.type] = prettyOfClass(
+        param("contract change", _.contractChange),
+        param("reassignment counter", _.reassignmentCounter),
+        param("remote domain index", _.remoteDomainIdx),
+      )
     }
 
     implicit val setParameterActivenessChangeDetail: SetParameter[ActivenessChangeDetail] =
@@ -662,10 +686,10 @@ object ActiveContractStore {
     )
   }
 
-  private[store] sealed trait ReassignmentType extends Product with Serializable {
+  sealed trait ReassignmentType extends Product with Serializable {
     def name: String
   }
-  private[store] object ReassignmentType {
+  object ReassignmentType {
     case object Unassignment extends ReassignmentType {
       override def name: String = "unassignment"
     }
@@ -779,6 +803,17 @@ trait ActiveContractSnapshot {
   def snapshot(rc: RequestCounter)(implicit
       traceContext: TraceContext
   ): Future[SortedMap[LfContractId, (RequestCounter, ReassignmentCounter)]]
+
+  /** Returns the states of contracts at the given timestamp.
+    *
+    * @param contracts The contracts whose state we return. If empty, we return an empty map.
+    *                  Omits from the response contracts that do not have an activeness state.
+    * @return A map from contracts to the timestamp when the state changed, and the activeness change detail.
+    *         The map is sorted by [[cats.kernel.Order]]`[`[[com.digitalasset.canton.protocol.LfContractId]]`]`.
+    */
+  def activenessOf(contracts: Seq[LfContractId])(implicit
+      traceContext: TraceContext
+  ): Future[SortedMap[LfContractId, Seq[(CantonTimestamp, ActivenessChangeDetail)]]]
 
   /** Returns Some(contractId) if an active contract belonging to package `pkg` exists, otherwise returns None.
     * The returned contractId may be any active contract from package `pkg`.

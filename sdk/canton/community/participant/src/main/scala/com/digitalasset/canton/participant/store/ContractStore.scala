@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.store
 import cats.data.EitherT
 import cats.instances.list.*
 import cats.syntax.foldable.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -64,6 +65,15 @@ trait ContractStore extends ContractLookup with Purgeable {
       filterTemplate: Option[String],
       limit: Int,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[List[SerializableContract]]
+
+  /** Debug find utility to search pcs. Omits contracts that are not found.
+    */
+  def findWithPayload(
+      contractIds: NonEmpty[Seq[LfContractId]],
+      limit: Int,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[LfContractId, SerializableContract]]
 
   /** Deletes multiple contracts from the contract store.
     *

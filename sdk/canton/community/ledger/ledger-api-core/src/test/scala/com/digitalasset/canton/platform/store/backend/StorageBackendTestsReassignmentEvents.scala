@@ -34,7 +34,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dbDtos, _))
-    executeSql(updateLedgerEnd(absoluteOffset(2), 2L))
+    executeSql(updateLedgerEnd(offset(2), 2L))
 
     executeSql(
       backend.event.fetchAssignEventIdsForStakeholder(
@@ -137,7 +137,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dbDtos, _))
-    executeSql(updateLedgerEnd(absoluteOffset(2), 2L))
+    executeSql(updateLedgerEnd(offset(2), 2L))
 
     executeSql(
       backend.event.fetchUnassignEventIdsForStakeholder(
@@ -270,7 +270,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dbDtos, _))
-    executeSql(updateLedgerEnd(absoluteOffset(2), 2L))
+    executeSql(updateLedgerEnd(offset(2), 2L))
 
     val result = executeSql(
       backend.event.assignEventBatch(
@@ -390,7 +390,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dbDtos, _))
-    executeSql(updateLedgerEnd(absoluteOffset(2), 2L))
+    executeSql(updateLedgerEnd(offset(2), 2L))
 
     executeSql(
       backend.event.unassignEventBatch(
@@ -474,7 +474,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
 
       executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
       executeSql(ingest(dbDtos, _))
-      executeSql(updateLedgerEnd(absoluteOffset(2), 2L))
+      executeSql(updateLedgerEnd(offset(2), 2L))
 
       val assignments = executeSql(
         backend.event.assignEventBatch(
@@ -509,7 +509,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
 
       executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
       executeSql(ingest(dbDtos, _))
-      executeSql(updateLedgerEnd(absoluteOffset(2), 2L))
+      executeSql(updateLedgerEnd(offset(2), 2L))
 
       val unassignments = executeSql(
         backend.event.unassignEventBatch(
@@ -572,7 +572,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dbDtos, _))
-    executeSql(updateLedgerEnd(absoluteOffset(11), 11L))
+    executeSql(updateLedgerEnd(offset(11), 11L))
 
     executeSql(
       backend.event.activeContractCreateEventBatch(
@@ -721,7 +721,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dbDtos, _))
-    executeSql(updateLedgerEnd(absoluteOffset(11), 11L))
+    executeSql(updateLedgerEnd(offset(11), 11L))
 
     executeSql(
       backend.event.activeContractAssignEventBatch(
@@ -880,7 +880,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dbDtos, _))
-    executeSql(updateLedgerEnd(absoluteOffset(11), 11L))
+    executeSql(updateLedgerEnd(offset(11), 11L))
 
     executeSql(
       backend.event.lookupAssignSequentialIdByOffset(

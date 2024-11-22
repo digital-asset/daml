@@ -31,7 +31,7 @@ import com.digitalasset.canton.participant.store.db.DbReassignmentStore.{
 }
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.protocol.{ReassignmentId, SerializableContract}
+import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId, SerializableContract}
 import com.digitalasset.canton.resource.DbStorage.DbAction
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.sequencing.protocol.{NoOpeningErrors, SequencedEvent, SignedContent}
@@ -769,6 +769,61 @@ class DbReassignmentStore(
           else Some((offset, reassignmentId, targetDomainId))
       }
     } yield res
+
+  override def findContractReassignmentId(
+      contractIds: Seq[LfContractId],
+      sourceDomain: Option[Source[DomainId]],
+      unassignmentTs: Option[CantonTimestamp],
+      completionTs: Option[CantonTimestamp],
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[LfContractId, Seq[ReassignmentId]]] = {
+
+    import DbStorage.Implicits.BuilderChain.*
+
+    for {
+      indexedSourceDomainO <- sourceDomain.fold(
+        FutureUnlessShutdown.pure(Option.empty[Source[IndexedDomain]])
+      )(sd => indexedDomainF(sd).map(Some(_)))
+
+      filterDomains = indexedSourceDomainO match {
+        case Some(source) => Some(sql"source_domain_idx=$source")
+        case None => None
+      }
+
+      filterUnassignmentTs = unassignmentTs match {
+        case Some(ts) => Some(sql"unassignment_timestamp=$ts")
+        case None => None
+      }
+
+      filterCompletionTs = completionTs match {
+        case Some(ts) => Some(sql"time_of_completion_timestamp=$ts")
+        case None => None
+      }
+
+      filter =
+        Seq(filterDomains, filterUnassignmentTs, filterCompletionTs)
+          .filter(_.nonEmpty)
+          .collect { case Some(i) => i }
+          .intercalate(sql" and ")
+          .toActionBuilder
+
+      query =
+        sql"select source_domain_idx, unassignment_timestamp, contract from par_reassignments where 1=1 and (" ++ filter ++ sql")"
+
+      res <- storage
+        .queryUnlessShutdown(
+          query.as[(Int, CantonTimestamp, SerializableContract)],
+          functionFullName,
+        )
+        .map(_.collect {
+          case (sDomainIdx, unassignTs, contract) if contractIds.contains(contract.contractId) =>
+            indexedDomainF(sDomainIdx, "source_domain_idx").map(sourceDomain =>
+              contract.contractId -> ReassignmentId(Source(sourceDomain.domainId), unassignTs)
+            )
+        }.sequence.map(_.groupBy(_._1).map { case (id, value) => id -> value.map(_._2) }))
+    } yield res
+  }.flatten
 
   private def insertDependentDeprecated[E, W, A, R](
       dbReassignmentId: DbReassignmentId,

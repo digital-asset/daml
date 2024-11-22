@@ -53,7 +53,6 @@ import com.digitalasset.canton.participant.protocol.submission.CommandDeduplicat
 import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker.{
   SubmissionAlreadyInFlight,
   TimeoutTooLow,
-  UnknownDomain,
 }
 import com.digitalasset.canton.participant.protocol.submission.TransactionConfirmationRequestFactory.*
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.{
@@ -66,12 +65,16 @@ import com.digitalasset.canton.participant.protocol.validation.InternalConsisten
   ErrorWithInternalConsistencyCheck,
   alertingPartyLookup,
 }
-import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.ErrorWithSubTransaction
+import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.{
+  ErrorWithSubTransaction,
+  LazyAsyncReInterpretation,
+}
 import com.digitalasset.canton.participant.protocol.validation.TimeValidator.TimeCheckFailure
 import com.digitalasset.canton.participant.protocol.validation.{AuthenticationError, *}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.*
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
+import com.digitalasset.canton.participant.util.DAMLe.TransactionEnricher
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.WellFormedTransaction.{
@@ -128,6 +131,7 @@ class TransactionProcessingSteps(
     contractStore: ContractStore,
     metrics: TransactionProcessingMetrics,
     serializableContractAuthenticator: SerializableContractAuthenticator,
+    transactionEnricher: TransactionEnricher,
     authorizationValidator: AuthorizationValidator,
     internalConsistencyChecker: InternalConsistencyChecker,
     tracker: CommandProgressTracker,
@@ -168,7 +172,7 @@ class TransactionProcessingSteps(
     show"submitters ${param.submitterInfo.actAs}, command-id ${param.submitterInfo.commandId}"
 
   override def explicitMediatorGroup(param: SubmissionParam): Option[MediatorGroupIndex] =
-    param.submitterInfo.mediatorGroup
+    param.submitterInfo.externallySignedSubmission.map(_.mediatorGroup)
 
   override def submissionIdOfPendingRequest(pendingData: PendingTransaction): Unit = ()
 
@@ -255,7 +259,9 @@ class TransactionProcessingSteps(
             DeduplicationPeriod.DeduplicationOffset(
               // Extend the reported deduplication period to include the conflicting submission,
               // as deduplication offsets are exclusive
-              Offset.fromLong(completionOffset.unwrap - 1L)
+              Option.unless(completionOffset.unwrap - 1L == 0)(
+                AbsoluteOffset.tryFromLong(completionOffset.unwrap - 1L)
+              )
             )
         case CommandDeduplicator.DeduplicationPeriodTooEarly(requested, supported) =>
           val error: TransactionError = supported match {
@@ -269,7 +275,7 @@ class TransactionProcessingSteps(
               CommandDeduplicationError.DeduplicationPeriodStartsTooEarlyErrorWithOffset(
                 changeId,
                 requested,
-                earliestOffset.toLong,
+                earliestOffset.fold(0L)(_.unwrap),
               )
           }
           error -> emptyDeduplicationPeriod
@@ -497,8 +503,6 @@ class TransactionProcessingSteps(
           existingSubmission.submissionId,
           existingSubmission.submissionDomain,
         )
-      case UnknownDomain(domainId) =>
-        TransactionRoutingError.ConfigurationErrors.SubmissionDomainNotReady.Error(domainId)
       case TimeoutTooLow(_submission, lowerBound) =>
         TransactionProcessor.SubmissionErrors.TimeoutError.Error(lowerBound)
     }
@@ -872,11 +876,43 @@ class TransactionProcessingSteps(
     def checkReplayedTransaction: Option[String] =
       Option.when(!freshOwnTimelyTx)("View %s belongs to a replayed transaction")
 
-    def doParallelChecks(): Future[ParallelChecksResult] = {
+    def doParallelChecks(): FutureUnlessShutdown[ParallelChecksResult] = {
       val ledgerTime = parsedRequest.ledgerTime
 
+      // Asynchronous and lazy Re-interpretation of top level views
+      // This may be used by the authentication checks in case of external submissions to re-compute the externally signed
+      // transaction hash.
+      // Either way we also pass the result to the model conformance checker to avoid interpreting again the same transactions
+      // and save us some work.
+      // Note that we keep this asynchronous and lazy on purpose here, such that the authentication checks will only access the result
+      // if they need to (for external submissions). For classic submissions the behavior remains the same.
+      val reInterpretedTopLevelViews: LazyAsyncReInterpretation =
+        parsedRequest.rootViewTrees.forgetNE
+          .filter(_.isTopLevel)
+          .map { viewTree =>
+            viewTree.view.viewHash -> cats.Eval.later {
+              modelConformanceChecker
+                .reInterpret(
+                  viewTree.view,
+                  keyResolverFor(viewTree.view),
+                  rc,
+                  ledgerTime,
+                  parsedRequest.submissionTime,
+                  () => engineController.abortStatus,
+                )
+            }
+          }
+          .toMap
+
       for {
-        authenticationResult <- AuthenticationValidator.verifyViewSignatures(parsedRequest)
+        authenticationResult <- AuthenticationValidator.verifyViewSignatures(
+          parsedRequest,
+          reInterpretedTopLevelViews,
+          domainId,
+          protocolVersion,
+          transactionEnricher,
+          logger,
+        )
 
         consistencyResultE = ContractConsistencyChecker
           .assertInputContractsInPast(
@@ -884,7 +920,9 @@ class TransactionProcessingSteps(
             ledgerTime,
           )
 
-        domainParameters <- ipsSnapshot.findDynamicDomainParametersOrDefault(protocolVersion)
+        domainParameters <- FutureUnlessShutdown.outcomeF(
+          ipsSnapshot.findDynamicDomainParametersOrDefault(protocolVersion)
+        )
 
         // `tryCommonData` should never throw here because all views have the same root hash
         // which already commits to the ParticipantMetadata and CommonMetadata
@@ -916,12 +954,15 @@ class TransactionProcessingSteps(
             ipsSnapshot,
             commonData,
             getEngineAbortStatus = () => engineController.abortStatus,
+            reInterpretedTopLevelViews,
           )
 
-        globalKeyHostedParties <- InternalConsistencyChecker.hostedGlobalKeyParties(
-          parsedRequest.rootViewTrees,
-          participantId,
-          snapshot.ipsSnapshot,
+        globalKeyHostedParties <- FutureUnlessShutdown.outcomeF(
+          InternalConsistencyChecker.hostedGlobalKeyParties(
+            parsedRequest.rootViewTrees,
+            participantId,
+            snapshot.ipsSnapshot,
+          )
         )
 
         internalConsistencyResultE = internalConsistencyChecker.check(
@@ -1024,7 +1065,7 @@ class TransactionProcessingSteps(
 
     val result =
       for {
-        parallelChecksResult <- FutureUnlessShutdown.outcomeF(doParallelChecks())
+        parallelChecksResult <- doParallelChecks()
         activenessResult <- awaitActivenessResult
       } yield {
         val transactionValidationResult = computeValidationResult(
@@ -1584,6 +1625,8 @@ object TransactionProcessingSteps {
     def transactionId: TransactionId = rootViewTrees.head1.transactionId
 
     def ledgerTime: CantonTimestamp = rootViewTrees.head1.ledgerTime
+
+    def submissionTime: CantonTimestamp = rootViewTrees.head1.submissionTime
   }
 
   private final case class ParallelChecksResult(

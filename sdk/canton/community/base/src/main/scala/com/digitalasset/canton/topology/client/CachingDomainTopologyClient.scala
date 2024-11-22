@@ -17,6 +17,10 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit.{
+  DefaultHeadStateInitializer,
+  HeadStateInitializer,
+}
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.PartyInfo
 import com.digitalasset.canton.topology.processing.*
 import com.digitalasset.canton.topology.store.{
@@ -54,7 +58,7 @@ final class CachingDomainTopologyClient(
       potentialTopologyChange: Boolean,
   )(implicit traceContext: TraceContext): Unit = {
     if (potentialTopologyChange)
-      appendSnapshot(effectiveTimestamp.value)
+      appendSnapshotForInclusive(effectiveTimestamp)
     delegate.updateHead(
       sequencedTimestamp,
       effectiveTimestamp,
@@ -76,18 +80,18 @@ final class CachingDomainTopologyClient(
     loader = traceContext => delegate.awaitMaxTimestampUS(_)(traceContext),
   )(logger)
 
-  /** An entry with a given `timestamp` refers to the snapshot at timestamp `timestamp.immediateSuccessor`.
-    * This is the snapshot that covers all committed topology transactions
-    * with `validFrom <= timestamp` and `validUntil.forall(timestamp < _)`.
+  /** An entry with a given `timestamp` refers to the topology snapshot at the same `timestamp`.
+    *  This is the snapshot that covers all committed topology transactions with `validFrom < timestamp` and
+    *  `validUntil.forall(timestamp <= _)`, following the topology snapshot and effective time semantics.
     */
   protected class SnapshotEntry(val timestamp: CantonTimestamp) {
-    def get(): CachingTopologySnapshot = pointwise.get(timestamp.immediateSuccessor)
+    def get(): CachingTopologySnapshot = pointwise.get(timestamp)
   }
 
-  /** List of timestamps for which snapshots are cached.
+  /** List of snapshot timestamps for which snapshots are cached.
     * Invariants:
     * - Entries are sorted descending by timestamp.
-    * - For every entry, the snapshot at `entry.timestamp.immediateSuccessor` must be available.
+    * - For every entry, a snapshot at `entry.timestamp` must be available.
     * - If it contains entries with timestamps `ts1` and `ts3`,
     *   if there is a valid topology transaction at timestamp `ts2`,
     *   if `ts1 < ts2 < ts3`,
@@ -114,17 +118,23 @@ final class CachingDomainTopologyClient(
       )
     }
 
-  protected def appendSnapshot(timestamp: CantonTimestamp): Unit = {
-    val item = new SnapshotEntry(timestamp)
+  // note that this function is inclusive on effective time as opposed to other topology client (and snapshot) functions
+  private def appendSnapshotForInclusive(effectiveTime: EffectiveTime): Unit = {
+    // topology snapshots are exclusive on effective time, the below "emulates" inclusivity for the given effective time,
+    // as we want to make topology changes observable as part of the topology snapshot for the given time
+    val snapshotTimestamp = effectiveTime.value.immediateSuccessor
     val _ = snapshots.updateAndGet { cur =>
-      if (cur.headOption.exists(_.timestamp > timestamp))
+      if (cur.headOption.exists(_.timestamp >= snapshotTimestamp))
         cur
-      else
-        item :: cur.filter(
+      else {
+        val entry = new SnapshotEntry(snapshotTimestamp)
+        val unexpiredEntries = cur.filter(
           _.timestamp.plusMillis(
             cachingConfigs.topologySnapshot.expireAfterAccess.duration.toMillis
-          ) > timestamp
+          ) >= snapshotTimestamp
         )
+        entry :: unexpiredEntries
+      }
     }
   }
 
@@ -136,8 +146,9 @@ final class CachingDomainTopologyClient(
       s"requested snapshot=$timestamp, available snapshot=$topologyKnownUntilTimestamp",
     )
     // find a matching existing snapshot
-    val cur =
-      snapshots.get().find(_.timestamp < timestamp) // Using <, as timestamps are asOf exclusive
+    // including `<` is safe as it's guarded by the `topologyKnownUntilTimestamp` check,
+    //  i.e., there will be no other snapshots in between, and the snapshot timestamp can be safely "overridden"
+    val cur = snapshots.get().find(_.timestamp <= timestamp)
     cur match {
       // we'll use the cached snapshot client which defines the time-period this timestamp is in
       case Some(snapshotEntry) =>
@@ -147,7 +158,6 @@ final class CachingDomainTopologyClient(
       case None =>
         pointwise.get(timestamp)
     }
-
   }
 
   override def domainId: DomainId = delegate.domainId
@@ -195,10 +205,10 @@ final class CachingDomainTopologyClient(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     if (transactions.nonEmpty) {
       // if there is a transaction, we insert the effective timestamp as a snapshot
-      appendSnapshot(effectiveTimestamp.value)
+      appendSnapshotForInclusive(effectiveTimestamp)
     } else if (snapshots.get().isEmpty) {
       // if we haven't seen any snapshot yet, we use the sequencer time to seed the first snapshot
-      appendSnapshot(sequencedTimestamp.value)
+      appendSnapshotForInclusive(EffectiveTime(sequencedTimestamp.value))
     }
     delegate.observed(sequencedTimestamp, effectiveTimestamp, sequencerCounter, transactions)
   }
@@ -227,10 +237,11 @@ object CachingDomainTopologyClient {
       timeouts: ProcessingTimeout,
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
+      headStateInitializer: HeadStateInitializer = DefaultHeadStateInitializer,
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[CachingDomainTopologyClient] = {
+  ): Future[DomainTopologyClientWithInit] = {
     val dbClient =
       new StoreBasedDomainTopologyClient(
         clock,
@@ -251,17 +262,11 @@ object CachingDomainTopologyClient {
         futureSupervisor,
         loggerFactory,
       )
-    store.maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true).map { x =>
-      x.foreach { case (sequenced, effective) =>
-        caching
-          .updateHead(sequenced, effective, effective.toApproximate, potentialTopologyChange = true)
-      }
-      caching
-    }
+    headStateInitializer.initialize(caching, store)
   }
 }
 
-/** simple wrapper class in order to "override" the timestamp we are returning here */
+/** A simple wrapper class in order to "override" the timestamp we are returning here when caching. */
 private class ForwardingTopologySnapshotClient(
     override val timestamp: CantonTimestamp,
     parent: TopologySnapshotLoader,

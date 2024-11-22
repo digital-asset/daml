@@ -36,6 +36,7 @@ import org.scalatest.wordspec.AsyncWordSpecLike
 
 import java.time.Instant
 import scala.annotation.nowarn
+import scala.collection.immutable.SortedMap
 import scala.concurrent.{ExecutionContext, Future}
 
 @nowarn("msg=match may not be exhaustive")
@@ -1674,6 +1675,79 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         fetch003 shouldBe Some(ContractState(Archived, toc2.rc, toc2.timestamp))
         fetch002 shouldBe Some(ContractState(active, toc1.rc, toc1.timestamp))
         fetch001 shouldBe Some(ContractState(active, toc0.rc, toc0.timestamp))
+      }
+    }
+
+    "activeness at" in {
+      val acs = mk()
+
+      val toc1 = TimeOfChange(rc, ts)
+      val toc2 = TimeOfChange(rc2, ts2)
+      val toc3 = TimeOfChange(rc3, ts3)
+      val toc4 = TimeOfChange(rc4, ts4)
+      for {
+        activenessOfBegin <- acs.activenessOf(Seq(coid00, coid01, coid11))
+        _ <- valueOrFail(
+          acs.markContractsCreated(
+            Seq(coid00 -> initialReassignmentCounter, coid01 -> reassignmentCounter2),
+            toc1,
+          )
+        )(
+          s"create contracts at $toc1"
+        )
+        activenessOfMid <- acs.activenessOf(Seq(coid00, coid01, coid11))
+        _ <- valueOrFail(
+          acs.assignContracts(
+            Seq(
+              (coid11, sourceDomain1, reassignmentCounter3, toc2)
+            )
+          )
+        )(
+          s"assign contracts at $toc2"
+        ).failOnShutdown
+        _ <- valueOrFail(
+          acs.unassignContracts(
+            Seq(
+              (coid00, targetDomain2, reassignmentCounter1, toc3)
+            )
+          )
+        )(
+          s"unassigns contracts at $toc3"
+        ).failOnShutdown
+        _ <- valueOrFail(acs.archiveContracts(Seq(coid11), toc4))(
+          s"create contracts at $toc4"
+        )
+        activenessOfEnd <- acs.activenessOf(Seq(coid00, coid01, coid11))
+
+      } yield {
+        activenessOfBegin shouldBe SortedMap.empty
+        activenessOfMid shouldBe
+          SortedMap(
+            coid00 -> Seq(
+              (toc1.timestamp, ActivenessChangeDetail.Create(initialReassignmentCounter))
+            ),
+            coid01 -> Seq((toc1.timestamp, ActivenessChangeDetail.Create(reassignmentCounter2))),
+          )
+        activenessOfEnd shouldBe
+          SortedMap(
+            coid00 -> Seq(
+              (toc1.timestamp, ActivenessChangeDetail.Create(initialReassignmentCounter)),
+              (
+                toc3.timestamp,
+                ActivenessChangeDetail
+                  .Unassignment(reassignmentCounter1, domain2Idx),
+              ),
+            ),
+            coid01 -> Seq((toc1.timestamp, ActivenessChangeDetail.Create(reassignmentCounter2))),
+            coid11 -> Seq(
+              (
+                toc2.timestamp,
+                ActivenessChangeDetail
+                  .Assignment(reassignmentCounter3, domain1Idx),
+              ),
+              (toc4.timestamp, ActivenessChangeDetail.Archive),
+            ),
+          )
       }
     }
 

@@ -33,6 +33,7 @@ import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.platform.store.utils.QueueBasedConcurrencyLimiter
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
@@ -278,6 +279,8 @@ private class JdbcLedgerDao(
       s"Pruning the ledger api server index db$allDivulgencePruningParticle up to ${pruneUpToInclusive.toHexString}."
     )
 
+    implicit val ec: ExecutionContext = servicesExecutionContext
+
     dbDispatcher
       .executeSql(metrics.index.db.pruneDbMetrics) { conn =>
         readStorageBackend.eventStorageBackend.pruneEvents(
@@ -303,14 +306,14 @@ private class JdbcLedgerDao(
           )
         }
       }
-      .andThen {
+      .thereafter {
         case Success(_) =>
           logger.info(
             s"Completed pruning of the ledger api server index db$allDivulgencePruningParticle"
           )
         case Failure(ex) =>
           logger.warn("Pruning failed", ex)
-      }(servicesExecutionContext)
+      }
   }
 
   override def pruningOffsets(implicit

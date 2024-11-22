@@ -4,15 +4,11 @@
 package com.digitalasset.canton.platform.apiserver.services.command.interactive
 
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.PreparedTransactionCodec.*
-import com.digitalasset.canton.platform.store.dao.events.LfValueTranslation
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.engine.{Engine, EngineConfig}
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.transaction.{Node, NodeId, VersionedTransaction}
 import com.digitalasset.daml.lf.value.test.ValueGenerators
 import com.digitalasset.daml.lf.value.test.ValueGenerators.*
@@ -21,8 +17,6 @@ import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
-
-import scala.concurrent.Future
 
 class PreparedTransactionCodecSpec
     extends AnyWordSpec
@@ -33,20 +27,7 @@ class PreparedTransactionCodecSpec
 
   private implicit val loggingContext: LoggingContextWithTrace = LoggingContextWithTrace.ForTesting
 
-  private val encoder = {
-    val engine = new Engine(
-      EngineConfig(LanguageVersion.StableVersions(LanguageMajorVersion.V2))
-    )
-    val lfValueTranslation = new LfValueTranslation(
-      metrics = LedgerApiServerMetrics.ForTesting,
-      engineO = Some(engine),
-      // Not used
-      loadPackage = (_packageId, _loggingContext) => Future(None),
-      loggerFactory = loggerFactory,
-    )
-    new PreparedTransactionEncoder(loggerFactory, lfValueTranslation)
-  }
-
+  private val encoder = new PreparedTransactionEncoder(loggerFactory)
   private val decoder = new PreparedTransactionDecoder(loggerFactory)
 
   // Node generators that filter out fields not supported in LF 2.1

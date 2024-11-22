@@ -114,6 +114,11 @@ private[backend] object Conversions {
       s.setString(index, v.toHexString)
   }
 
+  implicit object AbsoluteOffsetOToStatement extends ToStatement[Option[AbsoluteOffset]] {
+    override def set(s: PreparedStatement, index: Int, v: Option[AbsoluteOffset]): Unit =
+      s.setString(index, v.toHexString)
+  }
+
   def absoluteOffset(name: String): RowParser[AbsoluteOffset] =
     SqlParser
       .get[String](name)
@@ -122,6 +127,11 @@ private[backend] object Conversions {
   def absoluteOffsetO(name: String): RowParser[Option[AbsoluteOffset]] =
     SqlParser
       .get[String](name)
+      .map(v => Offset.fromHexString(Ref.HexString.assertFromString(v)).toAbsoluteOffsetO)
+
+  def absoluteOffsetO(position: Int): RowParser[Option[AbsoluteOffset]] =
+    SqlParser
+      .get[String](position)
       .map(v => Offset.fromHexString(Ref.HexString.assertFromString(v)).toAbsoluteOffsetO)
 
   // Timestamp

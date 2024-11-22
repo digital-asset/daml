@@ -9,6 +9,7 @@ import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, User}
 import com.digitalasset.canton.ledger.localstore.api.{UserManagementStore, UserUpdate}
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.UserId
 import com.github.blemale.scaffeine.Scaffeine
@@ -49,14 +50,14 @@ class CachedUserManagementStore(
   ): Future[Result[User]] =
     delegate
       .createUser(user, rights)
-      .andThen(invalidateOnSuccess(CacheKey(user.id, user.identityProviderId)))
+      .thereafter(invalidateOnSuccess(CacheKey(user.id, user.identityProviderId)))
 
   override def updateUser(
       userUpdate: UserUpdate
   )(implicit loggingContext: LoggingContextWithTrace): Future[Result[User]] =
     delegate
       .updateUser(userUpdate)
-      .andThen(invalidateOnSuccess(CacheKey(userUpdate.id, userUpdate.identityProviderId)))
+      .thereafter(invalidateOnSuccess(CacheKey(userUpdate.id, userUpdate.identityProviderId)))
 
   override def deleteUser(
       id: UserId,
@@ -64,7 +65,7 @@ class CachedUserManagementStore(
   )(implicit loggingContext: LoggingContextWithTrace): Future[Result[Unit]] =
     delegate
       .deleteUser(id, identityProviderId)
-      .andThen(invalidateOnSuccess(CacheKey(id, identityProviderId)))
+      .thereafter(invalidateOnSuccess(CacheKey(id, identityProviderId)))
 
   override def grantRights(
       id: UserId,
@@ -73,7 +74,7 @@ class CachedUserManagementStore(
   )(implicit loggingContext: LoggingContextWithTrace): Future[Result[Set[domain.UserRight]]] =
     delegate
       .grantRights(id, rights, identityProviderId)
-      .andThen(invalidateOnSuccess(CacheKey(id, identityProviderId)))
+      .thereafter(invalidateOnSuccess(CacheKey(id, identityProviderId)))
 
   override def revokeRights(
       id: UserId,
@@ -82,7 +83,7 @@ class CachedUserManagementStore(
   )(implicit loggingContext: LoggingContextWithTrace): Future[Result[Set[domain.UserRight]]] =
     delegate
       .revokeRights(id, rights, identityProviderId)
-      .andThen(invalidateOnSuccess(CacheKey(id, identityProviderId)))
+      .thereafter(invalidateOnSuccess(CacheKey(id, identityProviderId)))
 
   override def listUsers(
       fromExcl: Option[Ref.UserId],
@@ -101,11 +102,12 @@ class CachedUserManagementStore(
     val keyToInvalidate = CacheKey(id, sourceIdp)
     delegate
       .updateUserIdp(id, sourceIdp = sourceIdp, targetIdp = targetIdp)
-      .andThen(invalidateOnSuccess(keyToInvalidate))
+      .thereafter(invalidateOnSuccess(keyToInvalidate))
   }
 
-  private def invalidateOnSuccess(key: CacheKey): PartialFunction[Try[Result[Any]], Unit] = {
+  private def invalidateOnSuccess(key: CacheKey): Try[Result[Any]] => Unit = {
     case Success(Right(_)) => cache.invalidate(key)
+    case _ =>
   }
 
 }

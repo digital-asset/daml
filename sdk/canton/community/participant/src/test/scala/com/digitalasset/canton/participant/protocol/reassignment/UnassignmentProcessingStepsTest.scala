@@ -10,16 +10,11 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, Signature, TestHash}
+import com.digitalasset.canton.data.*
 import com.digitalasset.canton.data.ViewType.UnassignmentViewType
-import com.digitalasset.canton.data.{
-  CantonTimestamp,
-  FullUnassignmentTree,
-  ReassignmentRef,
-  ReassignmentSubmitterMetadata,
-  ViewPosition,
-}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
+import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.ledger.api.{LedgerApiIndexer, LedgerApiStore}
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
@@ -27,13 +22,7 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDe
   mkActivenessResult,
   mkActivenessSet,
 }
-import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
-  NotHostedOnParticipant,
-  ParsedReassignmentRequest,
-  ReassignmentProcessorError,
-  StakeholderHostingErrors,
-  SubmitterMustBeStakeholder,
-}
+import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessingSteps.PendingUnassignment
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.*
 import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.{
@@ -43,6 +32,7 @@ import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMess
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.PackageUnknownTo
 import com.digitalasset.canton.participant.protocol.submission.{
   EncryptedViewMessageFactory,
+  InFlightSubmissionDomainTracker,
   SeedGenerator,
 }
 import com.digitalasset.canton.participant.protocol.validation.{
@@ -57,7 +47,6 @@ import com.digitalasset.canton.participant.protocol.{
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.store.{
   AcsCounterParticipantConfigStore,
-  ParticipantNodeEphemeralState,
   SyncDomainEphemeralState,
 }
 import com.digitalasset.canton.participant.util.TimeOfChange
@@ -175,11 +164,12 @@ final class UnassignmentProcessingStepsTest
   private def mkState: SyncDomainEphemeralState =
     new SyncDomainEphemeralState(
       submittingParticipant,
-      mock[ParticipantNodeEphemeralState],
+      mock[RecordOrderPublisher],
+      mock[DomainTimeTracker],
+      mock[InFlightSubmissionDomainTracker],
       persistentState,
       ledgerApiIndexer,
       ProcessingStartingPoints.default,
-      () => mock[DomainTimeTracker],
       ParticipantTestMetrics.domain,
       exitOnFatalFailures = true,
       CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
@@ -917,7 +907,7 @@ final class UnassignmentProcessingStepsTest
           signatureO = Some(signature),
         )
         authenticationError <-
-          AuthenticationValidator.verifyViewSignature(parsed)
+          AuthenticationValidator.verifyViewSignature(parsed).failOnShutdown
       } yield authenticationError shouldBe None
     }
 
@@ -929,7 +919,7 @@ final class UnassignmentProcessingStepsTest
       )
       for {
         authenticationError <-
-          AuthenticationValidator.verifyViewSignature(parsed)
+          AuthenticationValidator.verifyViewSignature(parsed).failOnShutdown
       } yield authenticationError shouldBe Some(
         AuthenticationError.MissingSignature(parsed.requestId, ViewPosition(List()))
       )
@@ -947,7 +937,7 @@ final class UnassignmentProcessingStepsTest
           signatureO = Some(signature),
         )
         authenticationError <-
-          AuthenticationValidator.verifyViewSignature(parsed)
+          AuthenticationValidator.verifyViewSignature(parsed).failOnShutdown
       } yield {
         parsed.requestId
         authenticationError.value should matchPattern {

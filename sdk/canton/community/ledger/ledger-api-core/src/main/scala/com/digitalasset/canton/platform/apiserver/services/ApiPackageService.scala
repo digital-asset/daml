@@ -36,6 +36,7 @@ import com.digitalasset.canton.logging.{
   NamedLoggerFactory,
   NamedLogging,
 }
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.archive.DamlLf.{Archive, HashFunction}
 import com.digitalasset.daml.lf.data.Ref
 import io.grpc.ServerServiceDefinition
@@ -65,7 +66,7 @@ private[apiserver] final class ApiPackageService(
     packageSyncService
       .listLfPackages()
       .map(p => ListPackagesResponse(p.map(_.packageId)))
-      .andThen(logger.logErrorsOnCall[ListPackagesResponse])
+      .thereafter(logger.logErrorsOnCall[ListPackagesResponse])
   }
 
   override def getPackage(request: GetPackageRequest): Future[GetPackageResponse] =
@@ -88,7 +89,7 @@ private[apiserver] final class ApiPackageService(
               )
             case Some(archive) => Future.successful(toGetPackageResponse(archive))
           }
-          .andThen(logger.logErrorsOnCall[GetPackageResponse])
+          .thereafter(logger.logErrorsOnCall[GetPackageResponse])
       }
     }
 
@@ -113,7 +114,7 @@ private[apiserver] final class ApiPackageService(
             }
           GetPackageStatusResponse(result)
         }
-          .andThen(logger.logErrorsOnCall[GetPackageStatusResponse])
+          .thereafter(logger.logErrorsOnCall[GetPackageStatusResponse])
       }
     }
 

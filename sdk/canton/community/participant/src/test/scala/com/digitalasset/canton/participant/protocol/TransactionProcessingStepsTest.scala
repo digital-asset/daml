@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.protocol
 
+import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -47,6 +48,7 @@ class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
           metadata: ContractMetadata,
       ): Either[String, Unit] = Either.unit
     },
+    transactionEnricher = { case tx => _traceContext => EitherT.pure(tx) },
     new AuthorizationValidator(participantId, true),
     new InternalConsistencyChecker(
       defaultStaticDomainParameters.protocolVersion,

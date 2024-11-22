@@ -11,6 +11,7 @@ import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.JsEvent.CreatedEvent
 import com.digitalasset.canton.http.json.v2.JsSchema.{
   JsCantonError,
+  JsTopologyTransaction,
   JsTransaction,
   JsTransactionTree,
 }
@@ -40,7 +41,7 @@ class JsUpdateService(
     with NamedLogging {
   import JsUpdateServiceCodecs.*
 
-  private def updateServiceClient(token: Option[String] = None)(implicit
+  private def updateServiceClient(token: Option[String])(implicit
       traceContext: TraceContext
   ): update_service.UpdateServiceGrpc.UpdateServiceStub =
     ledgerClient.serviceClient(update_service.UpdateServiceGrpc.stub, token)
@@ -259,7 +260,7 @@ object JsUpdateService extends DocumentationEndpoints {
 object JsReassignmentEvent {
   sealed trait JsReassignmentEvent
 
-  case class JsAssignmentEvent(
+  final case class JsAssignmentEvent(
       source: String,
       target: String,
       unassign_id: String,
@@ -268,11 +269,12 @@ object JsReassignmentEvent {
       created_event: CreatedEvent,
   ) extends JsReassignmentEvent
 
-  case class JsUnassignedEvent(value: reassignment.UnassignedEvent) extends JsReassignmentEvent
+  final case class JsUnassignedEvent(value: reassignment.UnassignedEvent)
+      extends JsReassignmentEvent
 
 }
 
-case class JsReassignment(
+final case class JsReassignment(
     update_id: String,
     command_id: String,
     workflow_id: String,
@@ -284,27 +286,29 @@ case class JsReassignment(
 
 object JsUpdate {
   sealed trait Update
-  case class OffsetCheckpoint(value: offset_checkpoint.OffsetCheckpoint) extends Update
-  case class Reassignment(value: JsReassignment) extends Update
-  case class Transaction(value: JsTransaction) extends Update
+  final case class OffsetCheckpoint(value: offset_checkpoint.OffsetCheckpoint) extends Update
+  final case class Reassignment(value: JsReassignment) extends Update
+  final case class Transaction(value: JsTransaction) extends Update
+  final case class TopologyTransaction(value: JsTopologyTransaction) extends Update
 }
 
-case class JsGetTransactionTreeResponse(transaction: JsTransactionTree)
+final case class JsGetTransactionTreeResponse(transaction: JsTransactionTree)
 
-case class JsGetTransactionResponse(transaction: JsTransaction)
+final case class JsGetTransactionResponse(transaction: JsTransaction)
 
-case class JsGetUpdatesResponse(
+final case class JsGetUpdatesResponse(
     update: JsUpdate.Update
 )
 
 object JsUpdateTree {
   sealed trait Update
-  case class OffsetCheckpoint(value: offset_checkpoint.OffsetCheckpoint) extends Update
-  case class Reassignment(value: JsReassignment) extends Update
-  case class TransactionTree(value: JsTransactionTree) extends Update
+  final case class OffsetCheckpoint(value: offset_checkpoint.OffsetCheckpoint) extends Update
+  final case class Reassignment(value: JsReassignment) extends Update
+  final case class TransactionTree(value: JsTransactionTree) extends Update
+  final case class TopologyTransaction(value: JsTopologyTransaction) extends Update
 }
 
-case class JsGetUpdateTreesResponse(
+final case class JsGetUpdateTreesResponse(
     update: JsUpdateTree.Update
 )
 
@@ -321,6 +325,7 @@ object JsUpdateServiceCodecs {
   implicit val jsUpdateOffsetCheckpoint: Codec[JsUpdate.OffsetCheckpoint] = deriveCodec
   implicit val jsUpdateReassignment: Codec[JsUpdate.Reassignment] = deriveCodec
   implicit val jsUpdateTransaction: Codec[JsUpdate.Transaction] = deriveCodec
+  implicit val jsUpdateTopologyTransaction: Codec[JsUpdate.TopologyTransaction] = deriveCodec
   implicit val jsReassignment: Codec[JsReassignment] = deriveCodec
 
   implicit val jsReassignmentEventRW: Codec[JsReassignmentEvent.JsReassignmentEvent] = deriveCodec
@@ -340,12 +345,17 @@ object JsUpdateServiceCodecs {
   implicit val jsUpdateTree: Codec[JsUpdateTree.Update] = deriveCodec
   implicit val jsUpdateTreeReassignment: Codec[JsUpdateTree.Reassignment] = deriveCodec
   implicit val jsUpdateTreeTransaction: Codec[JsUpdateTree.TransactionTree] = deriveCodec
+  implicit val jsUpdateTreeTopologyTransaction: Codec[JsUpdateTree.TopologyTransaction] =
+    deriveCodec
 
   // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
+  @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
   implicit val jsReassignmentEventSchema: Schema[JsReassignmentEvent.JsReassignmentEvent] =
     Schema.oneOfWrapped
 
+  @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
   implicit val jsUpdateSchema: Schema[JsUpdate.Update] = Schema.oneOfWrapped
 
+  @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
   implicit val jsUpdateTreeSchema: Schema[JsUpdateTree.Update] = Schema.oneOfWrapped
 }

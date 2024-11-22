@@ -29,7 +29,7 @@ import scala.util.Try
 
 object MeteringReportEndpoint {
 
-  case class MeteringReportDateRequest(
+  final case class MeteringReportDateRequest(
       from: LocalDate,
       to: Option[LocalDate],
       application: Option[ApplicationId],

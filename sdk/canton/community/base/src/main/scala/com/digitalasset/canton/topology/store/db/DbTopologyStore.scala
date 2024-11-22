@@ -7,7 +7,11 @@ import cats.syntax.functorFilter.*
 import cats.syntax.option.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, String185}
+import com.digitalasset.canton.config.CantonRequireTypes.{
+  LengthLimitedString,
+  String185,
+  String256M,
+}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
@@ -172,7 +176,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
             vtx.rejectionReason.nonEmpty || vtx.expireImmediately
           )(effective),
           vtx.transaction,
-          vtx.rejectionReason,
+          vtx.rejectionReason.map(_.asString256M),
         )
       )(additions)
 
@@ -200,7 +204,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
         sequenced: SequencedTime,
         from: EffectiveTime,
         until: Option[EffectiveTime],
-        rejected: Option[String],
+        rejected: Option[String256M],
     )
 
     val query =
@@ -215,7 +219,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
                 CantonTimestamp,
                 CantonTimestamp,
                 Option[CantonTimestamp],
-                Option[String],
+                Option[String256M],
             )
           ],
           functionFullName,
@@ -612,7 +616,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       val identifier = mapping.maybeUid.map(_.identifier).getOrElse(String185.empty)
       val serial = signedTx.serial
       val mappingHash = mapping.uniqueKey.hash.toLengthLimitedHexString
-      val reason = txEntry.rejectionReason.map(_.asString1GB)
+      val reason = txEntry.rejectionReason
       val txHash = signedTx.hash.hash.toLengthLimitedHexString
       val isProposal = signedTx.isProposal
       val representativeProtocolVersion = signedTx.transaction.representativeProtocolVersion
@@ -778,7 +782,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
               CantonTimestamp,
               CantonTimestamp,
               Option[CantonTimestamp],
-              Option[String],
+              Option[String256M],
           )
         ],
         s"$functionFullName-$operation",
@@ -869,7 +873,7 @@ private[db] final case class TransactionEntry(
     validFrom: EffectiveTime,
     validUntil: Option[EffectiveTime],
     signedTx: GenericSignedTopologyTransaction,
-    rejectionReason: Option[TopologyTransactionRejection] = None,
+    rejectionReason: Option[String256M] = None,
 )
 
 private[db] object TransactionEntry {
@@ -878,6 +882,6 @@ private[db] object TransactionEntry {
     stx.validFrom,
     stx.validUntil,
     stx.transaction,
-    rejectionReason = None,
+    rejectionReason = stx.rejectionReason,
   )
 }

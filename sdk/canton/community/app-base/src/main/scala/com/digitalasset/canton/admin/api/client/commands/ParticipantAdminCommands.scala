@@ -1052,6 +1052,9 @@ object ParticipantAdminCommands {
     final case class CommitmentContracts(
         observer: StreamObserver[v30.InspectCommitmentContracts.Response],
         contracts: Seq[LfContractId],
+        expectedDomain: DomainId,
+        timestamp: CantonTimestamp,
+        downloadPayload: Boolean,
     ) extends Base[
           v30.InspectCommitmentContracts.Request,
           CancellableContext,
@@ -1059,7 +1062,10 @@ object ParticipantAdminCommands {
         ] {
       override protected def createRequest() = Right(
         v30.InspectCommitmentContracts.Request(
-          contracts.map(_.toBytes.toByteString)
+          contracts.map(_.toBytes.toByteString),
+          expectedDomain.toProtoPrimitive,
+          Some(timestamp.toProtoTimestamp),
+          downloadPayload,
         )
       )
 

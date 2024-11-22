@@ -28,6 +28,7 @@ import com.digitalasset.canton.ledger.participant.state.{
 import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TestTelemetrySetup, TraceContext}
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.data.Ref.{ApplicationId, CommandId, Party, SubmissionId, WorkflowId}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
@@ -74,7 +75,7 @@ class ApiPackageManagementServiceSpec
       val scope = span.makeCurrent()
       apiService
         .uploadDarFile(UploadDarFileRequest(ByteString.EMPTY, aSubmissionId))
-        .andThen { case _ =>
+        .thereafter { _ =>
           scope.close()
           span.end()
         }

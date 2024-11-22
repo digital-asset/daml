@@ -29,8 +29,8 @@ final class HealthService(
 }
 
 object HealthService {
-  case class Check(name: String, result: Boolean, details: Option[String])
-  case class ReadyResponse(checks: Seq[Check]) {
+  final case class Check(name: String, result: Boolean, details: Option[String])
+  final case class ReadyResponse(checks: Seq[Check]) {
     val ok = checks.forall(_.result)
     private def check(c: Check) = {
       val (checkBox, result) = if (c.result) { ("+", "ok") }

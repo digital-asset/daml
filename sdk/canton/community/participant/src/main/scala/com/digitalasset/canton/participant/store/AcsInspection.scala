@@ -8,6 +8,7 @@ import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.traverse.*
 import cats.{Eval, Foldable}
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.RequestIndex
@@ -51,6 +52,15 @@ class AcsInspection(
           .map(_.map(sc => (acs.snapshot.contains(sc.contractId), sc)))
       })
       .map(_.getOrElse(Nil))
+
+  def findContractPayloads(
+      contractIds: NonEmpty[Seq[LfContractId]],
+      limit: Int,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[
+    Map[LfContractId, SerializableContract]
+  ] = contractStore.findWithPayload(contractIds, limit)
 
   def hasActiveContracts(partyId: PartyId)(implicit
       traceContext: TraceContext,
@@ -343,6 +353,12 @@ object AcsInspectionError {
   final case class SerializationIssue(
       override val domainId: DomainId,
       contract: LfContractId,
+      errorMessage: String,
+  ) extends AcsInspectionError
+
+  final case class ContractLookupIssue(
+      domainId: DomainId,
+      contracts: Seq[LfContractId],
       errorMessage: String,
   ) extends AcsInspectionError
 }

@@ -8,7 +8,11 @@ import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
-import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, String255}
+import com.digitalasset.canton.config.CantonRequireTypes.{
+  LengthLimitedString,
+  String255,
+  String256M,
+}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -144,7 +148,7 @@ final case class StoredTopologyTransaction[+Op <: TopologyChangeOp, +M <: Topolo
     validFrom: EffectiveTime,
     validUntil: Option[EffectiveTime],
     transaction: SignedTopologyTransaction[Op, M],
-    rejectionReason: Option[String],
+    rejectionReason: Option[String256M],
 ) extends DelegatedTopologyTransactionLike[Op, M]
     with PrettyPrinting {
   override protected def transactionLikeDelegate: TopologyTransactionLike[Op, M] = transaction

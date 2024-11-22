@@ -6,6 +6,7 @@ package com.digitalasset.canton.topology.store
 import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmptyReturningOps.*
+import com.digitalasset.canton.config.CantonRequireTypes.String256M
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -41,7 +42,7 @@ final case class StoredTopologyTransactions[+Op <: TopologyChangeOp, +M <: Topol
         validUntil = item.validUntil.map(_.toProtoPrimitive),
         // these transactions are serialized as versioned topology transactions
         transaction = item.transaction.toByteString,
-        rejectionReason = item.rejectionReason,
+        rejectionReason = item.rejectionReason.map(_.unwrap),
       )
     }
   )
@@ -125,13 +126,16 @@ object StoredTopologyTransactions
           item.validFrom,
         )
         validUntil <- item.validUntil.traverse(EffectiveTime.fromProtoPrimitive)
+        rejectionReason <- item.rejectionReason.traverse(
+          String256M.fromProtoPrimitive(_, "rejection_reason")
+        )
         transaction <- SignedTopologyTransaction.fromTrustedByteString(item.transaction)
       } yield StoredTopologyTransaction(
         sequenced,
         validFrom,
         validUntil,
         transaction,
-        item.rejectionReason,
+        rejectionReason,
       )
     value.items
       .traverse(parseItem)

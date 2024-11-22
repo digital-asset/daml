@@ -4,6 +4,7 @@
 package com.digitalasset.canton.util
 
 import cats.data.{EitherT, OptionT}
+import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.util.Thereafter.EitherTThereafterContent
 import com.digitalasset.canton.util.TryUtil.*
 
@@ -25,6 +26,9 @@ import scala.util.{Failure, Success, Try}
   * myAsyncComputation.thereafter(result => ...)
   * </pre>
   *
+  * It is preferred to similar functions such as [[scala.concurrent.Future.andThen]]
+  * because it properly chains exceptions from the side-effecting computation back into the original computation.
+  *
   * @tparam F The computation's type functor.
   */
 trait Thereafter[F[_]] {
@@ -38,6 +42,9 @@ trait Thereafter[F[_]] {
     *         If `body` throws, the result includes the thrown exception.
     */
   def thereafter[A](f: F[A])(body: Content[A] => Unit): F[A]
+
+  def thereafterP[A](f: F[A])(body: PartialFunction[Content[A], Unit]): F[A] =
+    thereafter(f)(body.lift(_).discard[Option[Unit]])
 
   /** Returns the single `A` in `content` if any. */
   def maybeContent[A](content: Content[A]): Option[A]
@@ -83,6 +90,8 @@ object Thereafter {
     protected val typeClassInstance: Thereafter.Aux[F, C]
     def thereafter(body: C[A] => Unit): F[A] =
       typeClassInstance.thereafter(self)(body)
+    def thereafterP(body: PartialFunction[C[A], Unit]): F[A] =
+      typeClassInstance.thereafterP(self)(body)
     def thereafterSuccessOrFailure(success: A => Unit, failure: => Unit): F[A] =
       typeClassInstance.thereafterSuccessOrFailure(self)(success, failure)
   }

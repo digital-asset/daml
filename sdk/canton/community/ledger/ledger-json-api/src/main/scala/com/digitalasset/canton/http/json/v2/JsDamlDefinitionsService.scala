@@ -26,6 +26,7 @@ class JsDamlDefinitionsService(
 
   // TODO(#21695): Enrich endpoints with more dimensions on which we can query the definitions
   //               e.g. all templates by package-id; interface definitions; etc.
+  @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
   def endpoints() =
     List(
       json(

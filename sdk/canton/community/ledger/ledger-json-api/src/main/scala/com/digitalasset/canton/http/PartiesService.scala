@@ -101,7 +101,7 @@ class PartiesService(
       found: Set[domain.PartyDetails],
       requested: domain.PartySet,
   ): Set[domain.Party] =
-    if (found.size == requested.size) Set.empty
+    if (found.sizeIs == requested.size) Set.empty
     else requested -- found.map(_.identifier)
 }
 

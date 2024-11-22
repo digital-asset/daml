@@ -618,7 +618,7 @@ class TestingIdentityFactory(
         packages
           .get(participantId)
           .map(packages => mkAdd(VettedPackages.tryCreate(participantId, packages)))
-          .toSeq
+          .toList
       pkgs ++ genKeyCollection(participantId) :+ mkAdd(
         DomainTrustCertificate(
           participantId,

@@ -214,8 +214,7 @@ class PackageOpsImpl(
               op = TopologyChangeOp.Replace,
               mapping = mapping,
               serial = nextSerial,
-              // TODO(#12390) auto-determine signing keys
-              signingKeys = Seq(participantId.fingerprint),
+              signingKeys = Seq.empty,
               protocolVersion = initialProtocolVersion,
               expectFullAuthorization = true,
               forceChanges = ForceFlags(ForceFlag.AllowUnvetPackage),

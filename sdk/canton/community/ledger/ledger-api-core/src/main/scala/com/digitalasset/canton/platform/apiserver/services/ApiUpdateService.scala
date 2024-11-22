@@ -27,6 +27,7 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.ledger.EventId
 import io.grpc.stub.StreamObserver
@@ -199,7 +200,7 @@ final class ApiUpdateService(
                 ValidationErrors.invalidArgument(s"invalid eventId: ${request.eventId}")
               }
             }
-            .andThen(
+            .thereafter(
               logger
                 .logErrorsOnCall[GetTransactionTreeResponse](loggingContextWithTrace.traceContext)
             )
@@ -242,7 +243,7 @@ final class ApiUpdateService(
               case Some(transactionTree) =>
                 Future.successful(transactionTree)
             }
-            .andThen(
+            .thereafter(
               logger
                 .logErrorsOnCall[GetTransactionTreeResponse](loggingContextWithTrace.traceContext)
             )
@@ -283,7 +284,7 @@ final class ApiUpdateService(
                 ValidationErrors.invalidArgument(s"invalid eventId: ${request.eventId}")
               }
             }
-            .andThen(
+            .thereafter(
               logger.logErrorsOnCall[GetTransactionResponse](loggingContextWithTrace.traceContext)
             )
         },
@@ -313,7 +314,7 @@ final class ApiUpdateService(
           logger.trace(s"Transaction by ID request: $request")(loggingContextWithTrace.traceContext)
 
           internalGetTransactionById(request.updateId, request.requestingParties)
-            .andThen(
+            .thereafter(
               logger.logErrorsOnCall[GetTransactionResponse](loggingContextWithTrace.traceContext)
             )
         },

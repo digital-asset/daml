@@ -12,11 +12,11 @@ import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Flow
 
 import scala.util.control.NonFatal
-import scala.util.{Failure, Try}
+import scala.util.{Failure, Success, Try}
 
 object TracedLoggerOps {
   implicit class TracedLoggerOps(val logger: TracedLogger) extends AnyVal {
-    def logErrorsOnCall[Out](implicit traceContext: TraceContext): PartialFunction[Try[Out], Unit] =
+    def logErrorsOnCall[Out](implicit traceContext: TraceContext): Try[Out] => Unit =
       logErrorsOnCallImpl(logger)
 
     def logErrorsOnStream[Out](implicit traceContext: TraceContext): Flow[Out, Out, NotUsed] =
@@ -54,13 +54,15 @@ object TracedLoggerOps {
 
   private def logErrorsOnCallImpl[Out](logger: TracedLogger)(implicit
       traceContext: TraceContext
-  ): PartialFunction[Try[Out], Unit] = {
+  ): Try[Out] => Unit = {
+    case Success(_) =>
     case Failure(e @ GrpcException(s, _)) =>
       if (internalOrUnknown(s.getCode)) {
         logError(logger, e)
       }
     case Failure(NonFatal(e)) =>
       logError(logger, e)
+    case _ =>
   }
 
   private def enrichedDebugStreamImpl[Out](logger: TracedLogger)(

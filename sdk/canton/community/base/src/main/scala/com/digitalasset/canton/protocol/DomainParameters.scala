@@ -454,6 +454,7 @@ final case class DynamicDomainParameters private (
       paramIfDefined("traffic control config", _.trafficControlParameters),
       paramIfDefined("ACS commitment catchup config", _.acsCommitmentsCatchUpConfig),
       param("participant domain limits", _.participantDomainLimits),
+      param("submission time record time tolerance", _.submissionTimeRecordTimeTolerance),
     )
 }
 

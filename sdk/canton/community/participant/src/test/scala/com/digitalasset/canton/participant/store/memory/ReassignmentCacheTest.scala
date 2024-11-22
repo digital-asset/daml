@@ -17,8 +17,8 @@ import com.digitalasset.canton.participant.store.ReassignmentStore.*
 import com.digitalasset.canton.participant.store.memory.ReassignmentCacheTest.HookReassignmentStore
 import com.digitalasset.canton.participant.store.{ReassignmentStore, ReassignmentStoreTest}
 import com.digitalasset.canton.participant.util.TimeOfChange
-import com.digitalasset.canton.protocol.ReassignmentId
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
+import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
@@ -348,6 +348,21 @@ object ReassignmentCacheTest extends BaseTest {
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, ReassignmentLookupError, ReassignmentData] =
       baseStore.lookup(reassignmentId)
+
+    override def findContractReassignmentId(
+        contractIds: Seq[LfContractId],
+        sourceDomain: Option[Source[DomainId]],
+        unassignmentTs: Option[CantonTimestamp],
+        completionTs: Option[CantonTimestamp],
+    )(implicit
+        traceContext: TraceContext
+    ): FutureUnlessShutdown[Map[LfContractId, Seq[ReassignmentId]]] =
+      baseStore.findContractReassignmentId(
+        contractIds,
+        sourceDomain,
+        unassignmentTs,
+        completionTs,
+      )
   }
 
   object HookReassignmentStore {

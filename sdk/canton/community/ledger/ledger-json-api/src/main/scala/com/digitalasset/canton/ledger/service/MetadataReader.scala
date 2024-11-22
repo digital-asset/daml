@@ -16,7 +16,7 @@ import java.io.File
 
 object MetadataReader {
 
-  case class Error(id: Symbol, message: String)
+  final case class Error(id: Symbol, message: String)
 
   object Error {
     implicit val errorShow: Show[Error] = Show shows { e =>

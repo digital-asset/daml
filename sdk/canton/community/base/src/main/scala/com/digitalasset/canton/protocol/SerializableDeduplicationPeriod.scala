@@ -18,7 +18,9 @@ final case class SerializableDeduplicationPeriod(deduplicationPeriod: Deduplicat
       )
     case offset: DeduplicationPeriod.DeduplicationOffset =>
       v30.DeduplicationPeriod(
-        v30.DeduplicationPeriod.Period.Offset(offset.offset.bytes.toByteString)
+        v30.DeduplicationPeriod.Period.Offset(
+          Offset.fromAbsoluteOffsetO(offset.offset).bytes.toByteString
+        )
       )
   }
 }
@@ -34,7 +36,11 @@ object SerializableDeduplicationPeriod {
           .fromProtoPrimitive(duration)
           .map(DeduplicationPeriod.DeduplicationDuration.apply)
       case dedupP.Offset(offset) =>
-        Right(DeduplicationPeriod.DeduplicationOffset(Offset(LfBytes.fromByteString(offset))))
+        Right(
+          DeduplicationPeriod.DeduplicationOffset(
+            Offset(LfBytes.fromByteString(offset)).toAbsoluteOffsetO
+          )
+        )
     }
   }
 }

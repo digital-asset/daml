@@ -5,6 +5,7 @@ package com.digitalasset.canton.topology.store.memory
 
 import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.CantonRequireTypes.String256M
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.Hash
@@ -52,7 +53,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       transaction: GenericSignedTopologyTransaction,
       sequenced: SequencedTime,
       from: EffectiveTime,
-      rejected: Option[String],
+      rejected: Option[String256M],
       until: Option[EffectiveTime],
   ) extends DelegatedTopologyTransactionLike[TopologyChangeOp, TopologyMapping] {
 
@@ -171,7 +172,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
                 tx.transaction,
                 sequenced,
                 from = effective,
-                rejected = tx.rejectionReason.map(_.toString),
+                rejected = tx.rejectionReason.map(_.asString256M),
                 until = Option.when(
                   tx.rejectionReason.nonEmpty || tx.expireImmediately
                 )(effective),
@@ -469,7 +470,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
                 tx.transaction,
                 tx.sequenced,
                 tx.validFrom,
-                rejected = None,
+                rejected = tx.rejectionReason,
                 until = tx.validUntil,
               )
             }

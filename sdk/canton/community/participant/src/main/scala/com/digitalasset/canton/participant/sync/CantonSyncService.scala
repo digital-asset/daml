@@ -294,10 +294,6 @@ class CantonSyncService(
   override def getProtocolVersionForDomain(domainId: Traced[DomainId]): Option[ProtocolVersion] =
     protocolVersionGetter(domainId)
 
-  participantNodeEphemeralState.inFlightSubmissionTracker.registerDomainStateLookup(domainId =>
-    connectedDomainsMap.get(domainId).map(_.ephemeral.inFlightSubmissionTrackerDomainState)
-  )
-
   if (isActive()) {
     TraceContext.withNewTraceContext { implicit traceContext =>
       initializeState()
@@ -1231,29 +1227,27 @@ class CantonSyncService(
         domainCrypto = syncCrypto.tryForDomain(domainId, domainHandle.staticParameters)
 
         ephemeral <- EitherT.right[SyncServiceError](
-          FutureUnlessShutdown.outcomeF(
-            syncDomainStateFactory
-              .createFromPersistent(
-                persistent,
-                ledgerApiIndexer.asEval,
-                participantNodeEphemeralState,
-                () => {
-                  val tracker = DomainTimeTracker(
-                    domainConnectionConfig.config.timeTracker,
-                    clock,
-                    domainHandle.sequencerClient,
-                    domainHandle.staticParameters.protocolVersion,
-                    timeouts,
-                    domainLoggerFactory,
-                  )
-                  domainHandle.topologyClient.setDomainTimeTracker(tracker)
-                  tracker
-                },
-                domainMetrics,
-                parameters.cachingConfigs.sessionEncryptionKeyCache,
-                participantId,
-              )
-          )
+          syncDomainStateFactory
+            .createFromPersistent(
+              persistent,
+              ledgerApiIndexer.asEval,
+              participantNodeEphemeralState,
+              () => {
+                val tracker = DomainTimeTracker(
+                  domainConnectionConfig.config.timeTracker,
+                  clock,
+                  domainHandle.sequencerClient,
+                  domainHandle.staticParameters.protocolVersion,
+                  timeouts,
+                  domainLoggerFactory,
+                )
+                domainHandle.topologyClient.setDomainTimeTracker(tracker)
+                tracker
+              },
+              domainMetrics,
+              parameters.cachingConfigs.sessionEncryptionKeyCache,
+              participantId,
+            )
         )
 
         missingKeysAlerter = new MissingKeysAlerter(
@@ -1287,7 +1281,6 @@ class CantonSyncService(
             ),
           missingKeysAlerter,
           reassignmentCoordination,
-          participantNodeEphemeralState.inFlightSubmissionTracker,
           commandProgressTracker,
           clock,
           domainMetrics,
@@ -1545,7 +1538,6 @@ class CantonSyncService(
     ) ++ syncCrypto.ips.allDomains.toSeq ++ connectedDomainsMap.values.toSeq ++ Seq(
       domainRouter,
       domainRegistry,
-      participantNodeEphemeralState.inFlightSubmissionTracker,
       domainConnectionConfigStore,
       syncDomainPersistentStateManager,
       // As currently we stop the persistent state in here as a next step,

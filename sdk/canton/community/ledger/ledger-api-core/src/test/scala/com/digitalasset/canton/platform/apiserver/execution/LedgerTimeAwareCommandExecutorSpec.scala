@@ -89,8 +89,6 @@ class LedgerTimeAwareCommandExecutorSpec
         DeduplicationDuration(Duration.ofMinutes(1)),
         None,
         None,
-        None,
-        None,
       ),
       None,
       TransactionMeta(
@@ -169,8 +167,6 @@ class LedgerTimeAwareCommandExecutorSpec
             Ref.ApplicationId.assertFromString("foobar"),
             Ref.CommandId.assertFromString("foobar"),
             DeduplicationDuration(Duration.ofMinutes(1)),
-            None,
-            None,
             None,
             None,
           ),

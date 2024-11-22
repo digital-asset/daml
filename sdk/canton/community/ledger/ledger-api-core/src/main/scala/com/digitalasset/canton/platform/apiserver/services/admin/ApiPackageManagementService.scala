@@ -16,6 +16,7 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTr
 import com.digitalasset.canton.logging.TracedLoggerOps.TracedLoggerOps
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.apiserver.services.logging
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.data.Ref
 import io.grpc.ServerServiceDefinition
 
@@ -62,7 +63,7 @@ private[apiserver] final class ApiPackageManagementService private (
           )
         })
       }
-      .andThen(logger.logErrorsOnCall[ListKnownPackagesResponse])
+      .thereafter(logger.logErrorsOnCall[ListKnownPackagesResponse])
   }
 
   override def validateDarFile(request: ValidateDarFileRequest): Future[ValidateDarFileResponse] =
@@ -91,7 +92,7 @@ private[apiserver] final class ApiPackageManagementService private (
           case SubmissionResult.Acknowledged => Future.successful(UploadDarFileResponse())
           case err: SubmissionResult.SynchronousError => Future.failed(err.exception)
         }
-        .andThen(logger.logErrorsOnCall[UploadDarFileResponse])
+        .thereafter(logger.logErrorsOnCall[UploadDarFileResponse])
     }
   }
 }
