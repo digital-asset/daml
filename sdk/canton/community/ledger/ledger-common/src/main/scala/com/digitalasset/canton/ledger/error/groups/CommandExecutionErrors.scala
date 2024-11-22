@@ -649,9 +649,9 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
       ) extends DamlErrorWithDefiniteAnswer(cause = cause) {}
     }
 
-    @Explanation("Errors that ocur when trying to upgrade a contract")
+    @Explanation("Errors that occur when trying to upgrade a contract")
     object UpgradeError {
-      @Explanation("Upgrade validation fails when trying to upgrade the contract")
+      @Explanation("Validation fails when trying to upgrade the contract")
       @Resolution(
         "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed"
       )
@@ -676,14 +676,13 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
               (ErrorResource.TemplateId, err.dstTemplateId.toString),
               (ErrorResource.Parties, err.signatories.toString),
               (ErrorResource.Parties, err.observers.toString),
-              (ErrorResource.ExceptionText, err.msg),
             ) ++ err.keyOpt.fold(Seq.empty[(ErrorResource, String)])(key => Seq((ErrorResource.ContractKey, key.globalKey.toString), (ErrorResource.Parties, key.maintainers.toString)))
         }
       }
 
-      @Explanation("Upgrade fails when trying to upgrade the contract")
+      @Explanation("An optional contract field with a value of Some may not be dropped during downgrading")
       @Resolution(
-        "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed"
+        "Ensure optional contract fields with a value of Some are not dropped"
       )
       object DowngradeDropDefinedField
         extends ErrorCode(
@@ -700,9 +699,9 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
         )
       }
 
-      @Explanation("Upgrade fails when trying to upgrade the contract")
+      @Explanation("View mismatch when trying to upgrade the contract")
       @Resolution(
-        "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed"
+        "Verify that the views of the contract have not changed"
       )
       object ViewMismatch
         extends ErrorCode(

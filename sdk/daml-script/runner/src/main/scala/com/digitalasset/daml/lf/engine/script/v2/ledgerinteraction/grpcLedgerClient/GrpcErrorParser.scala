@@ -324,7 +324,6 @@ class GrpcErrorParser(majorVersion: LanguageMajorVersion) {
                 (ErrorResource.TemplateId, dstTemplateId),
                 (ErrorResource.Parties, signatories),
                 (ErrorResource.Parties, observers),
-                (ErrorResource.ExceptionText, msg),
               ) =>
             submitErrors.UpgradeError.ValidationFailed(
               ContractId.assertFromString(coid),
@@ -333,7 +332,6 @@ class GrpcErrorParser(majorVersion: LanguageMajorVersion) {
               signatories,
               observers,
               None,
-              msg,
               message,
             )
           case Seq(
@@ -342,7 +340,6 @@ class GrpcErrorParser(majorVersion: LanguageMajorVersion) {
                 (ErrorResource.TemplateId, dstTemplateId),
                 (ErrorResource.Parties, signatories),
                 (ErrorResource.Parties, observers),
-                (ErrorResource.ExceptionText, msg),
                 (ErrorResource.ContractKey, globalKey),
                 (ErrorResource.Parties, maintainers),
               ) =>
@@ -353,7 +350,6 @@ class GrpcErrorParser(majorVersion: LanguageMajorVersion) {
               signatories,
               observers,
               Some((globalKey, maintainers)),
-              msg,
               message,
             )
         }

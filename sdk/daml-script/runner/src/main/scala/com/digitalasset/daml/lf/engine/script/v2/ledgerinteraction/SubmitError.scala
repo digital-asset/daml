@@ -417,7 +417,6 @@ class SubmitErrors(majorLanguageVersion: LanguageMajorVersion) {
         signatories: String,
         observers: String,
         optKey: Option[(String, String)],
-        msg: String,
         message: String,
     ) extends SubmitError {
       override def toDamlSubmitError(env: Env): SValue = {
