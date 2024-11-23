@@ -435,7 +435,7 @@ class GrpcTopologyManagerReadService(
     val ret = for {
       res <- collectFromStores(
         request.baseQuery,
-        DomainTopologyTransactionType.PackageUse,
+        DomainTopologyTransactionType.VettedPackage,
         request.filterParticipant,
         namespaceOnly = false,
       )
@@ -448,6 +448,30 @@ class GrpcTopologyManagerReadService(
           )
         }
       adminProto.ListVettedPackagesResult(results = results)
+    }
+    CantonGrpcUtil.mapErrNew(ret)
+  }
+
+  override def listCheckOnlyPackages(
+      request: adminProto.ListCheckOnlyPackagesRequest
+  ): Future[adminProto.ListCheckOnlyPackagesResult] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    val ret = for {
+      res <- collectFromStores(
+        request.baseQuery,
+        DomainTopologyTransactionType.CheckOnlyPackage,
+        request.filterParticipant,
+        namespaceOnly = false,
+      )
+    } yield {
+      val results = res
+        .collect { case (context, checkOnlyPackages: CheckOnlyPackages) =>
+          new adminProto.ListCheckOnlyPackagesResult.Result(
+            context = Some(createBaseResult(context)),
+            item = Some(checkOnlyPackages.toProtoV0),
+          )
+        }
+      adminProto.ListCheckOnlyPackagesResult(results = results)
     }
     CantonGrpcUtil.mapErrNew(ret)
   }

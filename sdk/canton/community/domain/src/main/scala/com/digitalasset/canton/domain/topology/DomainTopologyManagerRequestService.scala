@@ -76,7 +76,7 @@ private[domain] object RequestProcessingStrategy {
     private val allowedOnboardingSet =
       TopologyStore.initialParticipantDispatchingSet + DomainTopologyTransactionType.NamespaceDelegation + DomainTopologyTransactionType.IdentifierDelegation
     private val allowedSet =
-      allowedOnboardingSet + DomainTopologyTransactionType.PackageUse + DomainTopologyTransactionType.PartyToParticipant
+      allowedOnboardingSet + DomainTopologyTransactionType.VettedPackage + DomainTopologyTransactionType.CheckOnlyPackage + DomainTopologyTransactionType.PartyToParticipant
 
     protected def awaitParticipantIsActive(participantId: ParticipantId)(implicit
         traceContext: TraceContext

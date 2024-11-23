@@ -95,6 +95,12 @@ final class GeneratorsTransaction(
     Arbitrary(for {
       op <- Arbitrary.arbitrary[AddRemoveChangeOp]
       element <- Arbitrary.arbitrary[TopologyStateUpdateElement]
+      checkOnlyPackagesAllowed = protocolVersion >= ProtocolVersion.v7
+      element <- Arbitrary
+        .arbitrary[TopologyStateUpdateElement]
+        .suchThat(
+          _.mapping.dbType != DomainTopologyTransactionType.CheckOnlyPackage || checkOnlyPackagesAllowed
+        )
     } yield TopologyStateUpdate(op, element, protocolVersion))
 
   implicit val domainGovernanceTransactionArb: Arbitrary[DomainGovernanceTransaction] = {

@@ -521,6 +521,12 @@ abstract class ParticipantReference(
     .flatMap(_.item.packageIds)
     .toSet
 
+  override protected def checkOnlyPackagesOfParticipant(): Set[PackageId] =
+    topology.check_only_packages
+      .list(filterStore = "Authorized", filterParticipant = id.filterString)
+      .flatMap(_.item.packageIds)
+      .toSet
+
   override protected def participantIsActiveOnDomain(
       domainId: DomainId,
       participantId: ParticipantId,

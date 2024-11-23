@@ -55,12 +55,18 @@ final class GrpcTopologyManagerWriteService[T <: CantonError](
       )
       element <- EitherT.fromEither[FutureUnlessShutdown](elementE)
       (op, fingerprint, replace, force) = authData
+      targetProtocolVersion = element match {
+        case _: CheckOnlyPackages =>
+          // Check-only packages are introduced with PV 7
+          Ordering[ProtocolVersion].max(protocolVersion, ProtocolVersion.v7)
+        case _ => protocolVersion
+      }
       tx <- manager
-        .genTransaction(op, element, protocolVersion)
+        .genTransaction(op, element, targetProtocolVersion)
         .leftWiden[CantonError]
         .mapK(FutureUnlessShutdown.outcomeK)
       success <- manager
-        .authorize(tx, fingerprint, protocolVersion, force = force, replaceExisting = replace)
+        .authorize(tx, fingerprint, targetProtocolVersion, force = force, replaceExisting = replace)
         .leftWiden[CantonError]
     } yield new AuthorizationSuccess(success.getCryptographicEvidence)
 
@@ -206,22 +212,24 @@ final class GrpcTopologyManagerWriteService[T <: CantonError](
   /** Authorizes a new package vetting transaction */
   override def authorizeVettedPackages(
       request: VettedPackagesAuthorization
-  ): Future[AuthorizationSuccess] = {
-    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val item = for {
-      uid <- UniqueIdentifier
-        .fromProtoPrimitive(request.participant, "participant")
-        .leftMap(ProtoDeserializationFailure.Wrap(_))
-      packageIds <- request.packageIds
-        .traverse(LfPackageId.fromString)
-        .leftMap(err =>
-          ProtoDeserializationFailure.Wrap(
-            ProtoDeserializationError.ValueConversionError("package_ids", err)
-          )
-        )
-    } yield VettedPackages(ParticipantId(uid), packageIds)
-    process(request.authorization, item)
-  }
+  ): Future[AuthorizationSuccess] =
+    authorizePackagesTopologyTx(
+      rawParticipantStr = request.participant,
+      rawPackagesList = request.packageIds,
+      authorization = request.authorization,
+      buildItem = VettedPackages(_, _),
+    )
+
+  /** Authorizes a new check-only package transaction */
+  override def authorizeCheckOnlyPackages(
+      request: CheckOnlyPackagesAuthorization
+  ): Future[AuthorizationSuccess] =
+    authorizePackagesTopologyTx(
+      rawParticipantStr = request.participant,
+      rawPackagesList = request.packageIds,
+      authorization = request.authorization,
+      buildItem = CheckOnlyPackages(_, _),
+    )
 
   /** Authorizes a new domain parameters change transaction */
   override def authorizeDomainParametersChange(
@@ -247,4 +255,25 @@ final class GrpcTopologyManagerWriteService[T <: CantonError](
     process(request.authorization, item.leftMap(ProtoDeserializationFailure.Wrap(_)))
   }
 
+  private def authorizePackagesTopologyTx[TM <: TopologyMapping](
+      rawParticipantStr: String,
+      rawPackagesList: Seq[String],
+      authorization: Option[AuthorizationData],
+      buildItem: (ParticipantId, Seq[LfPackageId]) => TM,
+  ) = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    val item = for {
+      uid <- UniqueIdentifier
+        .fromProtoPrimitive(rawParticipantStr, "participant")
+        .leftMap(ProtoDeserializationFailure.Wrap(_))
+      packageIds <- rawPackagesList
+        .traverse(LfPackageId.fromString)
+        .leftMap(err =>
+          ProtoDeserializationFailure.Wrap(
+            ProtoDeserializationError.ValueConversionError("package_ids", err)
+          )
+        )
+    } yield buildItem(ParticipantId(uid), packageIds)
+    process(authorization, item)
+  }
 }

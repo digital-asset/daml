@@ -232,6 +232,22 @@ object ListVettedPackagesResult {
   }
 }
 
+final case class ListCheckOnlyPackagesResult(context: BaseResult, item: CheckOnlyPackages)
+
+object ListCheckOnlyPackagesResult {
+  def fromProtoV0(
+      value: v0.ListCheckOnlyPackagesResult.Result
+  ): ParsingResult[ListCheckOnlyPackagesResult] = {
+    val v0.ListCheckOnlyPackagesResult.Result(contextPO, itemPO) = value
+    for {
+      contextProto <- ProtoConverter.required("context", contextPO)
+      context <- BaseResult.fromProtoV0(contextProto)
+      itemProto <- ProtoConverter.required("item", itemPO)
+      item <- CheckOnlyPackages.fromProtoV0(itemProto)
+    } yield ListCheckOnlyPackagesResult(context, item)
+  }
+}
+
 final case class ListDomainParametersChangeResult(
     context: BaseResult,
     item: DynamicDomainParameters,
