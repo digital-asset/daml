@@ -8,7 +8,7 @@ import cats.data.EitherT
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.crypto.{Crypto, CryptoPureApi}
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
@@ -192,7 +192,7 @@ class DbSyncDomainPersistentState(
   }
 
   override def close(): Unit =
-    Lifecycle.close(
+    LifeCycle.close(
       topologyStore,
       topologyManager,
       contractStore,

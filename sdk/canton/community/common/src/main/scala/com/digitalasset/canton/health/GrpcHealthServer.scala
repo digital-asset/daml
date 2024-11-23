@@ -8,7 +8,7 @@ import com.daml.metrics.grpc.GrpcServerMetrics
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.lifecycle.FlagCloseable
-import com.digitalasset.canton.lifecycle.Lifecycle.toCloseableServer
+import com.digitalasset.canton.lifecycle.LifeCycle.toCloseableServer
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.tracing.TracingConfig

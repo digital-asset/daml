@@ -9,7 +9,7 @@ import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.crypto.HashPurpose
 import com.digitalasset.canton.domain.sequencing.admin.data.SequencerHealthStatus
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.*
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
@@ -156,6 +156,6 @@ abstract class BaseSequencer(
   ): EitherT[Future, CreateSubscriptionError, Sequencer.EventSource]
 
   override def onClosed(): Unit =
-    periodicHealthCheck.foreach(Lifecycle.close(_)(logger))
+    periodicHealthCheck.foreach(LifeCycle.close(_)(logger))
 
 }

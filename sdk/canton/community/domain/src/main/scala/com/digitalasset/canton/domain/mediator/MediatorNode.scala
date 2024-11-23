@@ -42,7 +42,7 @@ import com.digitalasset.canton.domain.service.GrpcSequencerConnectionService
 import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.health.*
 import com.digitalasset.canton.health.admin.data.{WaitingForExternalInput, WaitingForInitialization}
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.mediator.admin.v30.MediatorInitializationServiceGrpc
 import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, CantonMutableHandlerRegistry}
@@ -772,7 +772,7 @@ class MediatorNode(
   }
 
   override def close(): Unit =
-    Lifecycle.close(
+    LifeCycle.close(
       replicaManager,
       storage,
     )(logger)

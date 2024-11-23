@@ -35,7 +35,7 @@ import com.digitalasset.canton.lifecycle.{
   CloseContext,
   FlagCloseable,
   FutureUnlessShutdown,
-  Lifecycle,
+  LifeCycle,
 }
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.{DynamicDomainParameters, StaticDomainParameters}
@@ -458,7 +458,7 @@ class DomainSyncCryptoClient(
 
   override def approximateTimestamp: CantonTimestamp = ips.approximateTimestamp
 
-  override def onClosed(): Unit = Lifecycle.close(ips)(logger)
+  override def onClosed(): Unit = LifeCycle.close(ips)(logger)
 
   override def awaitMaxTimestampUS(sequencedTime: CantonTimestamp)(implicit
       traceContext: TraceContext

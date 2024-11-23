@@ -184,7 +184,7 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
 
   override def latestPrunedOffsets()(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[(Long, Long)] =
+  ): Future[(Option[AbsoluteOffset], Option[AbsoluteOffset])] =
     Timed.future(metrics.services.index.latestPrunedOffsets, delegate.latestPrunedOffsets())
 
   override def getEventsByContractId(

@@ -26,7 +26,7 @@ import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   HasCloseContext,
-  Lifecycle,
+  LifeCycle,
   PromiseUnlessShutdownFactory,
 }
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -111,7 +111,7 @@ class PingService(
     // Note that we can not time out pings nicely here on shutdown as the admin
     // server is closed first, which means that our ping requests will never
     // return proper on shutdown abort
-    Lifecycle.close(retrySubmitter, connection)(logger)
+    LifeCycle.close(retrySubmitter, connection)(logger)
 
   private val retrySubmitter = new CommandSubmitterWithRetry(
     connection.commandService,

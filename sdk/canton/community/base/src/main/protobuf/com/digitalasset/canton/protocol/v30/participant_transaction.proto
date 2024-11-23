@@ -138,20 +138,6 @@ message SubmitterMetadata {
   ExternalAuthorization external_authorization = 9; // optional
 }
 
-// Messages sent by a participant as part of the transaction protocol
-
-message SessionKeyLookup {
-  // An asymmetrically encrypted randomness, used to generate the session key. This session key decrypts the
-  // underlying view.
-  bytes session_key_encrypted = 1;
-
-  // The asymmetric encryption specification used to encrypt the session key randomness
-  com.digitalasset.canton.crypto.v30.EncryptionAlgorithmSpec encryption_algorithm_spec = 2;
-
-  // The fingerprint of the public key that was used to encrypt the session key randomness
-  string fingerprint = 3;
-}
-
 message EncryptedViewMessage {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
@@ -162,7 +148,7 @@ message EncryptedViewMessage {
 
   com.digitalasset.canton.crypto.v30.Signature submitting_participant_signature = 3; // optional
   bytes view_hash = 4;
-  repeated SessionKeyLookup session_key_lookup = 5;
+  repeated com.digitalasset.canton.crypto.v30.AsymmetricEncrypted session_key_lookup = 5;
   string domain_id = 6;
   v30.ViewType view_type = 7;
 }

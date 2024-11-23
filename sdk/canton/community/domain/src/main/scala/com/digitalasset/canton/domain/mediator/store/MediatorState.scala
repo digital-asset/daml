@@ -19,7 +19,7 @@ import com.digitalasset.canton.lifecycle.{
   CloseContext,
   FlagCloseable,
   FutureUnlessShutdown,
-  Lifecycle,
+  LifeCycle,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.MetricsHelper
@@ -216,7 +216,7 @@ private[mediator] class MediatorState(
     MetricsHelper.updateAgeInHoursGauge(clock, metrics.maxEventAge, oldestResponseTimestamp)
 
   override def onClosed(): Unit =
-    Lifecycle.close(
+    LifeCycle.close(
       // deduplicationStore, Not closed on purpose, because the deduplication store methods all receive their close context directly from the caller
       finalizedResponseStore
     )(logger)

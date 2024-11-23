@@ -25,7 +25,7 @@ import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.Environment
-import com.digitalasset.canton.lifecycle.{FlagCloseable, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.protocol.SerializableContract
@@ -494,7 +494,7 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
   protected def selfAlias(): Bind[_] = Bind(ConsoleEnvironmentBinding.BindingName, this)
 
   override def onClosed(): Unit =
-    Lifecycle.close(
+    LifeCycle.close(
       grpcAdminCommandRunner,
       grpcLedgerCommandRunner,
       grpcDomainCommandRunner,

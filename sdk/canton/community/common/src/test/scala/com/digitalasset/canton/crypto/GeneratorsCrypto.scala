@@ -168,7 +168,7 @@ object GeneratorsCrypto {
       } yield new SymmetricKey(format, key, scheme)
     )
 
-  implicit val asymmetricEncryptedArb: Arbitrary[AsymmetricEncrypted[SymmetricKey]] =
+  implicit def asymmetricEncryptedArb[T]: Arbitrary[AsymmetricEncrypted[T]] =
     Arbitrary(
       for {
         ciphertext <- Arbitrary.arbitrary[ByteString]

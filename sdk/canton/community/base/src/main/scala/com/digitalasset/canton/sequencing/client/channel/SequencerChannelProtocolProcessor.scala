@@ -37,9 +37,9 @@ trait SequencerChannelProtocolProcessor extends FlagCloseable with NamedLogging 
       .putIfAbsent(endpoint)
       .fold(Either.unit[String])(endpointAlreadySet =>
         Either.cond(
-          endpointAlreadySet != endpoint,
+          endpointAlreadySet == endpoint,
           (),
-          "Channel endpoint already set to a different channel endpoint - coding bug",
+          "Channel protocol processor previously connected to a different channel endpoint",
         )
       )
 

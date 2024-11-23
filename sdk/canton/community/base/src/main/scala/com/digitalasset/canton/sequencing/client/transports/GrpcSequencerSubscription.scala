@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.sequencing.client.transports
 
+import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -73,7 +74,7 @@ abstract class ConsumesCancellableGrpcStreamObserver[
     Promise.successful(Outcome(Either.unit))
   )
 
-  protected def callHandler: Traced[R] => Future[Either[E, Unit]]
+  protected def callHandler: Traced[R] => EitherT[FutureUnlessShutdown, E, Unit]
   protected def onCompleteCloseReason: SubscriptionCloseReason[E]
 
   runOnShutdown_(new RunOnShutdown {
@@ -169,7 +170,7 @@ abstract class ConsumesCancellableGrpcStreamObserver[
           val handlerResult = Try {
             val cancelableAwait = Promise[UnlessShutdown[Either[E, Unit]]]()
             currentAwaitOnNext.set(cancelableAwait)
-            cancelableAwait.completeWith(callHandler(Traced(value)).map(Outcome(_)))
+            cancelableAwait.completeWith(callHandler(Traced(value)).value.unwrap)
             timeouts.unbounded
               .await(s"${this.getClass}: Blocking processing of further items")(
                 cancelableAwait.future
@@ -249,7 +250,7 @@ abstract class ConsumesCancellableGrpcStreamObserver[
 @VisibleForTesting
 class GrpcSequencerSubscription[E, R: HasProtoTraceContext] private[transports] (
     context: CancellableContext,
-    override protected val callHandler: Traced[R] => Future[Either[E, Unit]],
+    override protected val callHandler: Traced[R] => EitherT[FutureUnlessShutdown, E, Unit],
     override val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -294,22 +295,28 @@ object GrpcSequencerSubscription {
   private def deserializingSubscriptionHandler[E, R](
       handler: SerializedEventHandler[E],
       fromProto: (R, TraceContext) => ParsingResult[SubscriptionResponse],
-  ): Traced[R] => Future[Either[E, Unit]] =
+  )(implicit
+      executionContext: ExecutionContext
+  ): Traced[R] => EitherT[FutureUnlessShutdown, E, Unit] =
     withTraceContext { implicit traceContext => responseP =>
-      fromProto(responseP, traceContext)
-        .fold(
-          err =>
-            Future.failed(
-              new RuntimeException(
-                s"Unable to parse response from sequencer. Discarding message. Reason: $err"
-              )
-            ),
-          response => {
-            val signedEvent = response.signedSequencedEvent
-            val ordinaryEvent =
-              OrdinarySequencedEvent(signedEvent)(response.traceContext)
-            handler(ordinaryEvent)
-          },
+      EitherT(
+        FutureUnlessShutdown(
+          fromProto(responseP, traceContext)
+            .fold(
+              err =>
+                Future.failed(
+                  new RuntimeException(
+                    s"Unable to parse response from sequencer. Discarding message. Reason: $err"
+                  )
+                ),
+              response => {
+                val signedEvent = response.signedSequencedEvent
+                val ordinaryEvent =
+                  OrdinarySequencedEvent(signedEvent)(response.traceContext)
+                handler(ordinaryEvent).map(Outcome(_))
+              },
+            )
         )
+      )
     }
 }

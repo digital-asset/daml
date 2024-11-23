@@ -20,7 +20,7 @@ import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
   HasCloseContext,
-  Lifecycle,
+  LifeCycle,
 }
 import com.digitalasset.canton.logging.{
   HasLoggerName,
@@ -617,7 +617,7 @@ class PruningProcessor(
       .prune(globalOffset, publicationTime)
   }
 
-  override protected def onClosed(): Unit = Lifecycle.close(executionQueue)(logger)
+  override protected def onClosed(): Unit = LifeCycle.close(executionQueue)(logger)
 
   def acsSetNoWaitCommitmentsFrom(
       configs: Seq[ConfigForNoWaitCounterParticipants]

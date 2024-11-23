@@ -8,7 +8,7 @@ import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricsContext
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
 import com.digitalasset.canton.ledger.participant.state.Update.CommitRepair
 import com.digitalasset.canton.ledger.participant.state.{DomainIndex, Update}
 import com.digitalasset.canton.logging.{
@@ -479,9 +479,7 @@ object ParallelIndexerSubscription {
         )(logger)
         reassignmentOffsetPersistence
           .persist(
-            batch.offsetsUpdates.map { case (offset, tracedUpdate) =>
-              tracedUpdate -> Offset.fromAbsoluteOffset(offset)
-            },
+            batch.offsetsUpdates,
             logger,
           )(batchTraceContext)
           .flatMap(_ =>
@@ -534,25 +532,24 @@ object ParallelIndexerSubscription {
       traceContext: TraceContext
   ): (LedgerEnd, Map[DomainId, DomainIndex]) => Future[Unit] =
     (ledgerEnd, ledgerEndDomainIndexes) =>
-      LoggingContextWithTrace.withNewLoggingContext(
-        "updateOffset" -> Offset.fromAbsoluteOffset(ledgerEnd.lastOffset)
-      ) { implicit loggingContext =>
-        def domainIndexesLog: String = ledgerEndDomainIndexes.toVector
-          .sortBy(_._1.toProtoPrimitive)
-          .map { case (domainId, domainIndex) =>
-            s"${domainId.toProtoPrimitive.take(20).mkString} -> $domainIndex"
-          }
-          .mkString("domain-indexes: [", ", ", "]")
+      LoggingContextWithTrace.withNewLoggingContext("updateOffset" -> ledgerEnd.lastOffset) {
+        implicit loggingContext =>
+          def domainIndexesLog: String = ledgerEndDomainIndexes.toVector
+            .sortBy(_._1.toProtoPrimitive)
+            .map { case (domainId, domainIndex) =>
+              s"${domainId.toProtoPrimitive.take(20).mkString} -> $domainIndex"
+            }
+            .mkString("domain-indexes: [", ", ", "]")
 
-        dbDispatcher.executeSql(metrics.indexer.tailIngestion) { connection =>
-          storeTailFunction(ledgerEnd, ledgerEndDomainIndexes)(connection)
-          metrics.indexer.ledgerEndSequentialId
-            .updateValue(ledgerEnd.lastEventSeqId)
-          logger.debug(
-            s"Ledger end updated in IndexDB $domainIndexesLog ${loggingContext
-                .serializeFiltered("updateOffset")}."
-          )(loggingContext.traceContext)
-        }
+          dbDispatcher.executeSql(metrics.indexer.tailIngestion) { connection =>
+            storeTailFunction(ledgerEnd, ledgerEndDomainIndexes)(connection)
+            metrics.indexer.ledgerEndSequentialId
+              .updateValue(ledgerEnd.lastEventSeqId)
+            logger.debug(
+              s"Ledger end updated in IndexDB $domainIndexesLog ${loggingContext
+                  .serializeFiltered("updateOffset")}."
+            )(loggingContext.traceContext)
+          }
       }
 
   def aggregateLedgerEndForRepair[DB_BATCH](
@@ -619,15 +616,14 @@ object ParallelIndexerSubscription {
       metrics: LedgerApiServerMetrics,
       logger: TracedLogger,
   )(implicit traceContext: TraceContext): AbsoluteOffset => Future[Unit] = offset =>
-    LoggingContextWithTrace.withNewLoggingContext(
-      "updateOffset" -> Offset.fromAbsoluteOffset(offset)
-    ) { implicit loggingContext =>
-      dbDispatcher.executeSql(metrics.indexer.postProcessingEndIngestion) { connection =>
-        storePostProcessEndFunction(offset)(connection)
-        logger.debug(
-          s"Post Processing end updated in IndexDB, ${loggingContext.serializeFiltered("updateOffset")}."
-        )(loggingContext.traceContext)
-      }
+    LoggingContextWithTrace.withNewLoggingContext("updateOffset" -> offset) {
+      implicit loggingContext =>
+        dbDispatcher.executeSql(metrics.indexer.postProcessingEndIngestion) { connection =>
+          storePostProcessEndFunction(offset)(connection)
+          logger.debug(
+            s"Post Processing end updated in IndexDB, ${loggingContext.serializeFiltered("updateOffset")}."
+          )(loggingContext.traceContext)
+        }
     }
 
   def commitRepair[DB_BATCH](
@@ -683,14 +679,14 @@ object ParallelIndexerSubscription {
 
 trait ReassignmentOffsetPersistence {
   def persist(
-      updates: Seq[(Update, Offset)],
+      updates: Seq[(AbsoluteOffset, Update)],
       tracedLogger: TracedLogger,
   )(implicit traceContext: TraceContext): Future[Unit]
 }
 
 object NoOpReassignmentOffsetPersistence extends ReassignmentOffsetPersistence {
   override def persist(
-      updates: Seq[(Update, Offset)],
+      updates: Seq[(AbsoluteOffset, Update)],
       tracedLogger: TracedLogger,
   )(implicit traceContext: TraceContext): Future[Unit] = Future.successful(())
 }

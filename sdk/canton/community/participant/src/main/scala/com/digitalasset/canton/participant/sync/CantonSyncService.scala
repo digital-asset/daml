@@ -1551,7 +1551,7 @@ class CantonSyncService(
       acsCommitmentProcessorHealth,
     )
 
-    Lifecycle.close(instances*)(logger)
+    LifeCycle.close(instances*)(logger)
   }
 
   override def toString: String = s"CantonSyncService($participantId)"

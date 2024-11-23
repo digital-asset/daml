@@ -28,7 +28,7 @@ import com.digitalasset.canton.health.{
   GrpcHealthReporter,
   LivenessHealthService,
 }
-import com.digitalasset.canton.lifecycle.{Lifecycle, ShutdownFailedException}
+import com.digitalasset.canton.lifecycle.{LifeCycle, ShutdownFailedException}
 import com.digitalasset.canton.metrics.{
   CommonMockMetrics,
   DbStorageMetrics,
@@ -156,7 +156,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
     PekkoUtil.createActorSystem(loggerFactory.threadName)(parallelExecutionContext)
 
   override def afterAll(): Unit = {
-    Lifecycle.toCloseableActorSystem(actorSystem, logger, timeouts).close()
+    LifeCycle.toCloseableActorSystem(actorSystem, logger, timeouts).close()
     super.afterAll()
   }
 

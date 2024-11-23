@@ -61,6 +61,7 @@ class AssignmentValidationTest
   private val submittingParticipant = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("bothdomains::participant")
   )
+  private val submittingAdminParty = submittingParticipant.adminParty.toLf
   private val observingParticipant = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("bothdomains::observingParticipant")
   )
@@ -148,7 +149,7 @@ class AssignmentValidationTest
           assignmentRequest,
           reassignmentDataO = None,
           Target(cryptoSnapshot),
-          isSignatoryAssigning = false,
+          isConfirming = false,
         )
         .futureValue shouldBe None
     }
@@ -162,12 +163,12 @@ class AssignmentValidationTest
           assignmentRequest,
           reassignmentDataO = Some(reassignmentData),
           Target(cryptoSnapshot),
-          isSignatoryAssigning = isConfirmingReassigningParticipant,
+          isConfirming = isConfirmingReassigningParticipant,
         )
         .futureValue
 
       validate(isConfirmingReassigningParticipant = true).value.confirmingParties shouldBe
-        Set(signatory)
+        Set(signatory, submittingAdminParty)
 
       validate(isConfirmingReassigningParticipant = false) shouldBe None
     }
@@ -187,7 +188,7 @@ class AssignmentValidationTest
           assignmentRequest,
           Some(reassignmentData),
           Target(cryptoSnapshot),
-          isSignatoryAssigning = true,
+          isConfirming = true,
         )
         .value
 
@@ -214,7 +215,7 @@ class AssignmentValidationTest
           assignmentTreeWrongCounter,
           Some(reassignmentData),
           Target(cryptoSnapshot),
-          isSignatoryAssigning = true,
+          isConfirming = true,
         )
         .value
         .futureValue
@@ -241,7 +242,7 @@ class AssignmentValidationTest
             assignmentRequest,
             Some(reassignmentData),
             Target(cryptoSnapshot),
-            isSignatoryAssigning = true,
+            isConfirming = true,
           )
           .value
           .futureValue
@@ -300,7 +301,7 @@ class AssignmentValidationTest
             assignmentRequest,
             reassignmentDataO = Option.when(reassignmentDataDefined)(reassignmentData),
             Target(cryptoSnapshot),
-            isSignatoryAssigning = true,
+            isConfirming = true,
           )
           .value
           .futureValue
@@ -345,14 +346,17 @@ class AssignmentValidationTest
             assignmentTree,
             Some(reassignmentData),
             Target(cryptoSnapshot),
-            isSignatoryAssigning = true,
+            isConfirming = true,
           )
           .value
           .futureValue
       }
 
       // Happy path / control
-      validate(reassigningParticipants).value.value.confirmingParties shouldBe Set(signatory)
+      validate(reassigningParticipants).value.value.confirmingParties shouldBe Set(
+        signatory,
+        submittingAdminParty,
+      )
 
       // Additional observing participant
       val additionalObservingParticipant = reassigningParticipants + otherParticipant
@@ -398,14 +402,17 @@ class AssignmentValidationTest
             assignmentRequest,
             Some(reassignmentData),
             Target(cryptoSnapshot),
-            isSignatoryAssigning = true,
+            isConfirming = true,
           )
           .value
           .futureValue
       }
 
       // Happy path / control
-      validate(signatory).value.value.confirmingParties shouldBe Set(signatory)
+      validate(signatory).value.value.confirmingParties shouldBe Set(
+        signatory,
+        submittingAdminParty,
+      )
 
       validate(otherParty).left.value shouldBe SubmitterMustBeStakeholder(
         ReassignmentRef(unassignmentResult.reassignmentId),

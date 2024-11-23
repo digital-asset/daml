@@ -17,9 +17,9 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.*
 import scala.util.Try
 
-/** Utilities for working with instances that support our lifecycle pattern.
+/** Utilities for working with instances that support our life cycle pattern.
   */
-object Lifecycle extends NoTracing {
+object LifeCycle extends NoTracing {
 
   /** How long will we wait for a graceful shutdown to complete
     */

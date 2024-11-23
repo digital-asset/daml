@@ -9,7 +9,7 @@ import com.digitalasset.canton.caching.ScaffeineCache.TracedAsyncLoadingCache
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.{
   DynamicDomainParametersWithValidity,
@@ -193,7 +193,7 @@ final class CachingDomainTopologyClient(
     delegate.scheduleAwait(condition, timeout)
 
   override def close(): Unit =
-    Lifecycle.close(delegate)(logger)
+    LifeCycle.close(delegate)(logger)
 
   override def numPendingChanges: Int = delegate.numPendingChanges
 

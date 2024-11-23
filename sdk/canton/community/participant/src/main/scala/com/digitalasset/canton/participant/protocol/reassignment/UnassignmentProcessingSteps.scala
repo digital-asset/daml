@@ -256,6 +256,7 @@ class UnassignmentProcessingSteps(
             )
           )
         )
+
       // Each member gets a message sent to itself and to the mediator
       val messages = Seq[(ProtocolMessage, Recipients)](
         mediatorMessage -> Recipients.cc(mediator),
@@ -493,11 +494,11 @@ class UnassignmentProcessingSteps(
         FutureUnlessShutdown.outcomeF(
           sourceSnapshot.ipsSnapshot.canConfirm(
             participantId,
-            contract.metadata.signatories,
+            fullTree.confirmingParties,
           )
         )
       )
-      isSignatoryUnassigning = confirmingSignatories.nonEmpty &&
+      isConfirming = confirmingSignatories.nonEmpty &&
         fullTree.isReassigningParticipant(participantId)
 
     } yield {
@@ -506,7 +507,7 @@ class UnassignmentProcessingSteps(
       ]] = metadataCheckF.map { _ =>
         createConfirmationResponses(
           requestId,
-          isSignatoryUnassigning = isSignatoryUnassigning,
+          isConfirming = isConfirming,
           activenessResult,
           contract.contractId,
           fullTree.reassignmentCounter,
@@ -779,7 +780,7 @@ class UnassignmentProcessingSteps(
   // TODO(i22372): Share code with AssignmentProcessingSteps
   private[this] def createConfirmationResponses(
       requestId: RequestId,
-      isSignatoryUnassigning: Boolean,
+      isConfirming: Boolean,
       activenessResult: ActivenessResult,
       contractId: LfContractId,
       declaredReassignmentCounter: ReassignmentCounter,
@@ -790,7 +791,7 @@ class UnassignmentProcessingSteps(
   )(implicit
       traceContext: TraceContext
   ): Option[(ConfirmationResponse, Recipients)] =
-    if (isSignatoryUnassigning) {
+    if (isConfirming) {
       val expectedPriorReassignmentCounter = Map[LfContractId, Option[ActiveContractStore.Status]](
         contractId -> Some(ActiveContractStore.Active(declaredReassignmentCounter - 1))
       )

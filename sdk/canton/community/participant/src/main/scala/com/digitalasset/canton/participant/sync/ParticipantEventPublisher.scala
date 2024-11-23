@@ -8,7 +8,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.{ParticipantUpdate, Update}
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.platform.indexer.IndexerState.RepairInProgress
@@ -108,7 +108,7 @@ class ParticipantEventPublisher(
     )
   }
 
-  override protected def onClosed(): Unit = Lifecycle.close(executionQueue)(logger)
+  override protected def onClosed(): Unit = LifeCycle.close(executionQueue)(logger)
 }
 
 object ParticipantEventPublisher {

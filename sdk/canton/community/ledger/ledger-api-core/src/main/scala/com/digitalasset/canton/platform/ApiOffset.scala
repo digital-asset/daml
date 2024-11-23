@@ -12,8 +12,6 @@ import scala.util.{Failure, Success, Try}
 // offsets sent over the API and received from the API.
 object ApiOffset {
 
-  val begin: Offset = Offset.beforeBegin
-
   def tryFromString(s: String): Try[Offset] =
     fromString(s) match {
       case Left(msg) => Failure(new IllegalArgumentException(msg))

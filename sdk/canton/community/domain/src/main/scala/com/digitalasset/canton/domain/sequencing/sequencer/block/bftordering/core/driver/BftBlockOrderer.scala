@@ -340,7 +340,7 @@ final class BftBlockOrderer(
 
   private def createServer(
       endpoint: Endpoint
-  ): UnlessShutdown[Lifecycle.CloseableServer] = {
+  ): UnlessShutdown[LifeCycle.CloseableServer] = {
     implicit val traceContext: TraceContext = TraceContext.empty
     performUnlessClosing("start-P2P-server") {
 
@@ -367,7 +367,7 @@ final class BftBlockOrderer(
         .build
       logger
         .info(s"successfully bound P2P endpoint $endpoint")
-      Lifecycle.toCloseableServer(activeServer, logger, "P2PServer")
+      LifeCycle.toCloseableServer(activeServer, logger, "P2PServer")
     }
   }
 
@@ -452,7 +452,7 @@ final class BftBlockOrderer(
     logger.info(
       s"shutting down the actor system"
     )(TraceContext.empty)
-    Lifecycle.close(
+    LifeCycle.close(
       new CloseableActorSystem(
         actorSystem,
         logger,

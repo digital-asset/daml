@@ -11,7 +11,7 @@ import com.digitalasset.canton.concurrent.{
   FutureSupervisor,
 }
 import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout, StorageConfig}
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{
   HasLoggerName,
   NamedLoggerFactory,
@@ -47,7 +47,7 @@ class ParticipantNodePersistentState private (
 ) extends FlagCloseable
     with NamedLogging {
   override def onClosed(): Unit =
-    Lifecycle.close(
+    LifeCycle.close(
       settingsStore,
       inFlightSubmissionStore,
       commandDeduplicationStore,

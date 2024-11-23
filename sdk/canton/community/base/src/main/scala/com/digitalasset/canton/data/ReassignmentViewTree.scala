@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.data
 
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{HashOps, Salt}
 import com.digitalasset.canton.protocol.{LfTemplateId, SerializableContract, Stakeholders}
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
@@ -37,8 +36,9 @@ trait ReassignmentCommonData extends ProtocolVersionedMemoizedEvidence {
 
   def hashOps: HashOps
 
-  def confirmingParties: Map[LfPartyId, PositiveInt] =
-    stakeholders.signatories.map(_ -> PositiveInt.one).toMap
+  // The admin party of the submitting participant is passed as an extra confirming party to guarantee proper authorization.
+  def confirmingParties: Set[LfPartyId] =
+    stakeholders.signatories + submitterMetadata.submittingAdminParty
 }
 
 trait ReassignmentView extends ProtocolVersionedMemoizedEvidence {

@@ -91,7 +91,6 @@ class SerializationDeserializationTest
     s"Serialization and deserialization methods using protocol version $version" should {
       "compose to the identity" in {
         testVersioned(SymmetricKey)
-//        testVersioned(AsymmetricEncrypted[SymmetricKey])
 
         testProtocolVersioned(StaticDomainParameters, version)
         testProtocolVersioned(DynamicDomainParameters, version)

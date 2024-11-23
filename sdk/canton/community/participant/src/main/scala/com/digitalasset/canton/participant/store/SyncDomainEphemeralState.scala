@@ -10,7 +10,7 @@ import com.digitalasset.canton.health.{
   CloseableHealthComponent,
   ComponentHealthState,
 }
-import com.digitalasset.canton.lifecycle.Lifecycle
+import com.digitalasset.canton.lifecycle.LifeCycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
@@ -140,7 +140,7 @@ class SyncDomainEphemeralState(
     resolveUnhealthy()
 
   override def onClosed(): Unit =
-    Lifecycle.close(
+    LifeCycle.close(
       requestTracker,
       recordOrderPublisher,
       submissionTracker,

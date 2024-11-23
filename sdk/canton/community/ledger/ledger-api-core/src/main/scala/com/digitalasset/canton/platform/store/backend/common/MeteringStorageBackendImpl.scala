@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store.backend.common
 import anorm.SqlParser.{int, long}
 import anorm.{ParameterMetaData, RowParser, ToStatement, ~}
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.canton.data.{AbsoluteOffset, Offset}
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.{
   ParticipantMetering,
@@ -154,8 +154,6 @@ private[backend] object MeteringStorageBackendReadTemplate extends MeteringStora
 }
 private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStorageWriteBackend {
 
-  implicit val offsetToStatement: ToStatement[Offset] =
-    Conversions.OffsetToStatement
   implicit val absoluteOffsetToStatement: ToStatement[AbsoluteOffset] =
     Conversions.AbsoluteOffsetToStatement
   implicit val absoluteOffsetOToStatement: ToStatement[Option[AbsoluteOffset]] =

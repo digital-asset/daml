@@ -20,7 +20,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.ledger.client.{LedgerClient, LedgerClientUtils}
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.PartyReplicationCoordinator.*
 import com.digitalasset.canton.participant.admin.workflows.java.canton.internal as M
@@ -421,7 +421,7 @@ class PartyReplicationCoordinator(
     // Note that we can not time out requests nicely here on shutdown as the admin
     // server is closed first, which means that our requests will never
     // return properly on shutdown abort.
-    Lifecycle.close(retrySubmitter, ledgerClient)(logger)
+    LifeCycle.close(retrySubmitter, ledgerClient)(logger)
 
   private val retrySubmitter = new CommandSubmitterWithRetry(
     ledgerClient.commandService,

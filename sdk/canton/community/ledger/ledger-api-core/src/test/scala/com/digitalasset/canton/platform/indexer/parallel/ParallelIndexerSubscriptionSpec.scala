@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.indexer.parallel
 
 import com.daml.executors.executors.{NamedExecutor, QueueAwareExecutor}
 import com.daml.metrics.DatabaseMetrics
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.{
   DomainIndex,
@@ -632,8 +632,8 @@ class ParallelIndexerSubscriptionSpec
       ParallelIndexerSubscription.ingester(
         ingestFunction,
         new ReassignmentOffsetPersistence {
-          override def persist(updates: Seq[(Update, Offset)], tracedLogger: TracedLogger)(implicit
-              traceContext: TraceContext
+          override def persist(updates: Seq[(AbsoluteOffset, Update)], tracedLogger: TracedLogger)(
+              implicit traceContext: TraceContext
           ): Future[Unit] = {
             persistedTransferOffsets.set(true)
             Future.unit

@@ -138,12 +138,12 @@ class AdminWorkflowServices(
       Seq[AsyncOrSyncCloseable](
         AsyncCloseable(
           s"$name-subscription",
-          subscription.map(sub => Lifecycle.close(sub)(logger)).recover { err =>
+          subscription.map(sub => LifeCycle.close(sub)(logger)).recover { err =>
             logger.warn(s"Skipping closing of defunct $name subscription due to ${err.getMessage}")
           },
           timeouts.unbounded,
         ),
-        SyncCloseable(s"$name-service", Lifecycle.close(service)(logger)),
+        SyncCloseable(s"$name-service", LifeCycle.close(service)(logger)),
       )
 
     adminServiceCloseables("ping", pingSubscription, ping) ++ partyManagementO

@@ -15,7 +15,7 @@ import com.digitalasset.canton.environment.{
   DomainTopologyInitializationCallback,
   StoreBasedDomainTopologyInitializationCallback,
 }
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
@@ -272,5 +272,5 @@ class SyncDomainPersistentStateManager(
     }
 
   override def close(): Unit =
-    Lifecycle.close(domainStates.values.toSeq :+ aliasResolution: _*)(logger)
+    LifeCycle.close(domainStates.values.toSeq :+ aliasResolution: _*)(logger)
 }

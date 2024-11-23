@@ -16,7 +16,7 @@ import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
-  Lifecycle,
+  LifeCycle,
   SyncCloseable,
   UnlessShutdown,
 }
@@ -212,7 +212,8 @@ object Clock extends ClockErrorGroup {
 
   @Explanation("""This error is emitted if the unique time generation detects that the host system clock is lagging behind
       |the unique time source by more than a second. This can occur if the system processes more than 2e6 events per second (unlikely)
-      |or when the underlying host system clock is running backwards.""")
+      |or when the underlying host system clock is running backwards. For example, a host system clock runs backwards when a clock
+      |synchronization method like the Network Time Protocol (NTP) adjusts the clock backwards.""")
   @Resolution(
     """Inspect your host system. Generally, the unique time source is not negatively affected by a clock moving backwards
       |and will keep functioning. Therefore, this message is just a warning about something strange being detected."""
@@ -295,7 +296,7 @@ class WallClock(
   override def close(): Unit = {
     import com.digitalasset.canton.concurrent.*
     if (running.getAndSet(false)) {
-      Lifecycle.close(
+      LifeCycle.close(
         () => failTasks(),
         () => ExecutorServiceExtensions(scheduler)(logger, timeouts).close("clock"),
       )(logger)
@@ -529,7 +530,7 @@ class RemoteClock(
   }
 
   override protected def onClosed(): Unit =
-    Lifecycle.close(
+    LifeCycle.close(
       // stopping the scheduler before the channel, so we don't get a failed call on shutdown
       SyncCloseable("remote clock scheduler", scheduler.shutdown()),
       managedChannel,

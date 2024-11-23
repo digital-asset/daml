@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.backend.common
 
 import anorm.SqlParser.{array, int, long, str}
 import anorm.{RowParser, ~}
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.platform.store.backend.IntegrityStorageBackend
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
@@ -149,9 +149,9 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
        UNION ALL
        SELECT event_offset as _offset, record_time, domain_id FROM lapi_events_party_to_participant
        """.asVectorOf(
-      offset("_offset") ~ long("record_time") ~ int("domain_id") map {
+      absoluteOffset("_offset") ~ long("record_time") ~ int("domain_id") map {
         case offset ~ recordTimeMicros ~ internedDomainId =>
-          (offset.toLong, internedDomainId, recordTimeMicros)
+          (offset.unwrap, internedDomainId, recordTimeMicros)
       }
     )(connection)
     offsetDomainRecordTime.groupBy(_._2).foreach { case (_, offsetRecordTimePerDomain) =>
@@ -160,8 +160,8 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
         case ((firstOffset, _, firstRecordTime), (secondOffset, _, secondRecordTime)) =>
           if (firstRecordTime > secondRecordTime) {
             throw new RuntimeException(
-              s"occurrence of decreasing record time found within one domain: offsets ${Offset
-                  .fromLong(firstOffset)},${Offset.fromLong(secondOffset)} record times: ${CantonTimestamp
+              s"occurrence of decreasing record time found within one domain: offsets ${AbsoluteOffset
+                  .tryFromLong(firstOffset)},${AbsoluteOffset.tryFromLong(secondOffset)} record times: ${CantonTimestamp
                   .assertFromLong(firstRecordTime)},${CantonTimestamp.assertFromLong(secondRecordTime)}"
             )
           }
@@ -176,7 +176,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
                 meta1.event_offset != meta2.event_offset
           FETCH NEXT 1 ROWS ONLY
       """
-      .asSingleOpt(str("uId") ~ offset("offset1") ~ offset("offset2"))(connection)
+      .asSingleOpt(str("uId") ~ absoluteOffset("offset1") ~ absoluteOffset("offset2"))(connection)
       .foreach { case uId ~ offset1 ~ offset2 =>
         throw new RuntimeException(
           s"occurrence of duplicate update ID [$uId] found for offsets $offset1, $offset2"
@@ -191,7 +191,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
           HAVING count(*) > 1
           FETCH NEXT 1 ROWS ONLY
       """
-      .asSingleOpt(offset("completion_offset") ~ int("offset_count"))(connection)
+      .asSingleOpt(absoluteOffset("completion_offset") ~ int("offset_count"))(connection)
       .foreach { case offset ~ count =>
         throw new RuntimeException(
           s"occurrence of duplicate offset found for lapi_command_completions: for offset $offset $count rows found"
@@ -206,8 +206,9 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
            SELECT completion_offset as _offset, publication_time FROM lapi_command_completions
            """
         .asVectorOf(
-          offset("_offset") ~ long("publication_time") map { case offset ~ publicationTime =>
-            (offset.toLong, publicationTime)
+          absoluteOffset("_offset") ~ long("publication_time") map {
+            case offset ~ publicationTime =>
+              (offset.unwrap, publicationTime)
           }
         )(connection)
         .sortBy(_._1)
@@ -226,7 +227,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
     }
 
     // Verify no duplicate completion entry
-    SQL"""
+    val completions = SQL"""
           SELECT
             completion_offset,
             application_id,
@@ -240,7 +241,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
           FROM lapi_command_completions
       """
       .asVectorOf(
-        offset("completion_offset") ~
+        absoluteOffset("completion_offset") ~
           str("application_id") ~
           array[Int]("submitters") ~
           str("command_id") ~
@@ -250,7 +251,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
           long("request_sequencer_counter").? ~
           long("domain_id") map {
             case offset ~ applicationId ~ submitters ~ commandId ~ updateId ~ submissionId ~ messageUuid ~ requestSequencerCounter ~ domainId =>
-              (
+              CompletionEntry(
                 applicationId,
                 submitters.toList,
                 commandId,
@@ -262,6 +263,9 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
               ) -> offset
           }
       )(connection)
+
+    // duplicate completions by many fields
+    completions
       .groupMapReduce(_._1)(entry => List(entry._2))(_ ::: _)
       .find(_._2.sizeIs > 1)
       .map(_._2)
@@ -270,6 +274,25 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
           s"duplicate entries found in lapi_command_completions at offsets (first 10 shown) ${offsets.take(10)}"
         )
       )
+
+    // duplicate completions by messageUuid
+    completions
+      .map { case (entry, offset) =>
+        (entry.messageUuid, offset)
+      }
+      .collect { case (Some(messageUuid), offset) =>
+        (messageUuid, offset)
+      }
+      .groupMapReduce(_._1)(entry => List(entry._2))(_ ::: _)
+      .find(_._2.sizeIs > 1)
+      .map(_._2)
+      .foreach(offsets =>
+        throw new RuntimeException(
+          s"duplicate entries found by messageUuid in lapi_command_completions at offsets (first 10 shown) ${offsets
+              .take(10)}"
+        )
+      )
+
   } catch {
     case t: Throwable if !failForEmptyDB =>
       val failure = t.getMessage
@@ -313,4 +336,15 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
     SQL"DELETE FROM par_command_deduplication".executeUpdate()(connection).discard
     SQL"DELETE FROM par_in_flight_submission".executeUpdate()(connection).discard
   }
+
+  private final case class CompletionEntry(
+      applicationId: String,
+      submitters: List[Int],
+      commandId: String,
+      updateId: Option[String],
+      submissionId: Option[String],
+      messageUuid: Option[String],
+      requestSequencerCounter: Option[Long],
+      domainId: Long,
+  )
 }

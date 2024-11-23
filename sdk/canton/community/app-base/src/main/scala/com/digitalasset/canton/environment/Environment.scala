@@ -24,7 +24,7 @@ import com.digitalasset.canton.domain.metrics.MediatorMetrics
 import com.digitalasset.canton.domain.sequencing.SequencerNodeBootstrap
 import com.digitalasset.canton.environment.CantonNodeBootstrap.HealthDumpFunction
 import com.digitalasset.canton.environment.Environment.*
-import com.digitalasset.canton.lifecycle.Lifecycle
+import com.digitalasset.canton.lifecycle.LifeCycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.MetricsConfig.JvmMetrics
 import com.digitalasset.canton.metrics.{CantonHistograms, MetricsRegistry}
@@ -515,7 +515,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
 
   override def close(): Unit = blocking(this.synchronized {
     val closeActorSystem: AutoCloseable =
-      Lifecycle.toCloseableActorSystem(actorSystem, logger, timeouts)
+      LifeCycle.toCloseableActorSystem(actorSystem, logger, timeouts)
 
     val closeExecutionContext: AutoCloseable =
       ExecutorServiceExtensions(executionContext)(logger, timeouts)
@@ -530,7 +530,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
         closeHeadlessHealthAdministration :+ executionSequencerFactory :+ closeActorSystem :+ closeExecutionContext :+
         closeScheduler
     logger.info("Closing environment...")
-    Lifecycle.close((instances.toSeq)*)(logger)
+    LifeCycle.close((instances.toSeq)*)(logger)
   })
 }
 

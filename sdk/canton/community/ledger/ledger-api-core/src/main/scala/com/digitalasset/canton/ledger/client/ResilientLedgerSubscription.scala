@@ -72,7 +72,7 @@ class ResilientLedgerSubscription[S, T](
       isClosing && ledgerSubscriptionRef.get().forall(_.completed.isCompleted)
 
     override def run(): Unit =
-      ledgerSubscriptionRef.getAndSet(None).foreach(Lifecycle.close(_)(logger))
+      ledgerSubscriptionRef.getAndSet(None).foreach(LifeCycle.close(_)(logger))
   })
 
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {

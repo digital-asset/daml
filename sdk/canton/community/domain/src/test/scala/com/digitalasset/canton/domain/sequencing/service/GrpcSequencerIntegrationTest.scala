@@ -30,7 +30,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscrip
 import com.digitalasset.canton.lifecycle.{
   AsyncOrSyncCloseable,
   FutureUnlessShutdown,
-  Lifecycle,
+  LifeCycle,
   SyncCloseable,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -293,12 +293,12 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
     .fold(fail(_), Predef.identity)
 
   override def close(): Unit =
-    Lifecycle.close(
+    LifeCycle.close(
       client,
       service,
-      Lifecycle.toCloseableServer(server, logger, "test"),
+      LifeCycle.toCloseableServer(server, logger, "test"),
       executionSequencerFactory,
-      Lifecycle.toCloseableActorSystem(actorSystem, logger, timeouts),
+      LifeCycle.toCloseableActorSystem(actorSystem, logger, timeouts),
     )(logger)
 
   def mockSubscription(
