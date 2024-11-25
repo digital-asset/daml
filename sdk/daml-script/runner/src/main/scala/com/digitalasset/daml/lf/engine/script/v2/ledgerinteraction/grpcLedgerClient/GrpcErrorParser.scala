@@ -354,8 +354,11 @@ class GrpcErrorParser(majorVersion: LanguageMajorVersion) {
             )
         }
       case "INTERPRETATION_UPGRADE_ERROR_DOWNGRADE_DROP_DEFINED_FIELD" =>
-        caseErr { case Seq() =>
-          submitErrors.UpgradeError.DowngradeDropDefinedField(message)
+        caseErr {
+          case Seq(
+                (ErrorResource.FieldType, expectedType)
+              ) =>
+            submitErrors.UpgradeError.DowngradeDropDefinedField(expectedType, message)
         }
       case "INTERPRETATION_UPGRADE_ERROR_VIEW_MISMATCH" =>
         caseErr {
