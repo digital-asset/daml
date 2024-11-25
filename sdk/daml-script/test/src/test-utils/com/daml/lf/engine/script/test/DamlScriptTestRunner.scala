@@ -48,7 +48,7 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
     val actual = builder
       .toString()
       .linesIterator
-      .filter(s => List("SUCCESS", "FAILURE", "    in ").exists(s.contains))
+      .filter(s => s.endsWith("SUCCESS") || s.contains("FAILURE") || s.startsWith("    in "))
       .mkString("", f"%n", f"%n")
       // ignore partial transactions as parties, cids, and package Ids are pretty unpredictable
       .replaceAll(
