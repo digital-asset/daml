@@ -696,7 +696,12 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
                                  loggingContext: ContextualizedErrorLogger
                                ) extends DamlErrorWithDefiniteAnswer(
           cause = cause
-        )
+        ) {
+          override def resources: Seq[(ErrorResource, String)] =
+            Seq(
+              (ErrorResource.FieldType, err.expectedType.pretty),
+            )
+        }
       }
 
       @Explanation("View mismatch when trying to upgrade the contract")

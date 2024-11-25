@@ -432,7 +432,8 @@ class SubmitErrors(majorLanguageVersion: LanguageMajorVersion) {
       }
     }
 
-    sealed case class DowngradeDropDefinedField(message: String) extends SubmitError {
+    sealed case class DowngradeDropDefinedField(expectedType: String, message: String)
+        extends SubmitError {
       override def toDamlSubmitError(env: Env): SValue = {
         // TODO: future PR will push upgrade error changes through to Daml
         val upgradeErrorType = SEnum(
