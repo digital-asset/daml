@@ -243,7 +243,7 @@ unExportName (LF.ExprValName name) = do
     readMay (T.unpack suffix)
 
 explicitExportsTag :: LF.ExprValName
-explicitExportsTag = LF.ExprValName "$$exportExplicit"
+explicitExportsTag = LF.ExprValName "$$explicitExports"
 
 newtype QualName = QualName (LF.Qualified GHC.OccName)
     deriving (Eq)
