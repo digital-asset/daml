@@ -416,32 +416,31 @@ private[lf] object Speedy {
       * producing a text message.
       */
     private[speedy] override def handleException(excep: SValue.SAny): Control[Nothing] = {
-      @tailrec def unwind(): Option[KTryCatchHandler] =
+      @tailrec
+      def unwind(ptx: PartialTransaction): Option[KTryCatchHandler] =
         if (kontDepth() == 0) {
           None
         } else {
           popKont() match {
             case handler: KTryCatchHandler =>
-              ptx = ptx.rollbackTry
+              this.ptx = ptx.rollbackTry
               Some(handler)
             case _: KCloseExercise =>
-              ptx = ptx.abortExercises
-              unwind()
+              unwind(ptx.abortExercises)
             case k: KCheckChoiceGuard =>
               // We must abort, because the transaction has failed in a way that is
               // unrecoverable (it depends on the state of an input contract that
               // we may not have the authority to fetch).
-              clearKontStack()
-              clearEnv()
+              abort()
               k.abort()
             case KPreventException() =>
               None
             case _ =>
-              unwind()
+              unwind(ptx)
           }
         }
 
-      unwind() match {
+      unwind(ptx) match {
         case Some(kh) =>
           kh.restore()
           popTempStackToBase()
@@ -730,6 +729,46 @@ private[lf] object Speedy {
         }
       }
     }
+
+    private[speedy] var lastCommand: Option[Command] = None
+
+    def transactionTrace: String = {
+      def prettyTypeId(typeId: TypeConName): String =
+        s"${typeId.packageId.take(8)}:${typeId.qualifiedName}"
+      def prettyCoid(coid: ContractId): String = coid.coid.take(10)
+      def prettyValue(v: SValue) = Pretty.prettyValue(false)(v.toUnnormalizedValue)
+
+      val rawTrace = ptx.transactionTrace.view
+
+      val nodeTrace = rawTrace.take(10).map { case (NodeId(nid), exe) =>
+        val typeId = prettyTypeId(exe.interfaceId.getOrElse(exe.templateId))
+        s"in choice $typeId:${exe.choiceId} on contract ${exe.targetCoid.coid.take(10)} (#$nid)"
+      }
+
+      val commandTrace = lastCommand.toList.map {
+        case Command.Create(tmplId, _) =>
+          s"in create command ${prettyTypeId(tmplId)}"
+        case Command.ExerciseTemplate(tmplId, coid, choiceId, _) =>
+          s"in exercise command ${prettyTypeId(tmplId)}:$choiceId on contract ${prettyCoid(coid.value)}"
+        case Command.ExerciseInterface(ifaceId, coid, choiceId, _) =>
+          s"in exercise command ${prettyTypeId(ifaceId)}:$choiceId on contract ${prettyCoid(coid.value)}"
+        case Command.ExerciseByKey(tmplId, key, choiceId, _) =>
+          s"in exercise-by-key command ${prettyTypeId(tmplId)}:$choiceId on key ${prettyValue(key)}"
+        case Command.FetchTemplate(tmplId, coid) =>
+          s"in fetch command ${prettyTypeId(tmplId)} on contract ${prettyCoid(coid.value)}"
+        case Command.FetchInterface(ifaceId, coid) =>
+          s"in fecth-by-interface command ${prettyTypeId(ifaceId)} on contract ${prettyCoid(coid.value)}"
+        case Command.FetchByKey(tmplId, key) =>
+          s"in fetch-by-key command ${prettyTypeId(tmplId)} on key ${prettyValue(key)}"
+        case Command.CreateAndExercise(tmplId, _, choiceId, _) =>
+          s"in create-and-exercise command ${prettyTypeId(tmplId)}:$choiceId"
+        case Command.LookupByKey(tmplId, key) =>
+          s"in lookup-by-key command ${prettyTypeId(tmplId)} on key ${prettyValue(key)}"
+      }
+
+      (nodeTrace ++ (if (rawTrace.size > 10) List("...") else Nil) ++ commandTrace)
+        .mkString("    ", "\n    ", "")
+    }
   }
 
   object UpdateMachine {
@@ -888,8 +927,7 @@ private[lf] object Speedy {
     private[speedy] def handleException(excep: SValue.SAny): Control[Nothing]
 
     protected final def unhandledException(excep: SValue.SAny): Control.Error = {
-      clearKontStack()
-      clearEnv()
+      abort()
       Control.Error(IError.UnhandledException(excep.ty, excep.value.toUnnormalizedValue))
     }
 
@@ -956,6 +994,14 @@ private[lf] object Speedy {
               s"unexpected ${version.pretty} package without metadata",
             )
         }
+    }
+
+    private[lf] def abort(): Unit = {
+      // We make sure the interpretation cannot be continued
+      // For update machine, this preserves the partial transaction
+      clearKontStack()
+      clearEnv()
+      setControl(Control.WeAreUnset)
     }
 
     /* kont manipulation... */
@@ -1132,6 +1178,7 @@ private[lf] object Speedy {
                 if (enableInstrumentation) track.print()
                 SResultFinal(value)
               case Control.Error(ie) =>
+                abort()
                 SResultError(SErrorDamlException(ie))
               case Control.WeAreUnset =>
                 sys.error("**attempt to run a machine with unset control")

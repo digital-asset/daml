@@ -685,4 +685,17 @@ private[speedy] case class PartialTransaction(
     go(this)
   }
 
+  def transactionTrace: List[(NodeId, Node.Exercise)] = {
+    def go(context: Context): List[(NodeId, Node.Exercise)] =
+      context.info match {
+        case exeC: PartialTransaction.ExercisesContextInfo =>
+          (exeC.nodeId, makeExNode(exeC)) :: go(exeC.parent)
+        case tryC: PartialTransaction.TryContextInfo =>
+          go(tryC.parent)
+        case _: PartialTransaction.RootContextInfo =>
+          Nil
+      }
+    go(context)
+  }
+
 }
