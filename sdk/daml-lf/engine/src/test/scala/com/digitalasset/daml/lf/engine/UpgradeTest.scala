@@ -165,11 +165,14 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     def additionalCreateArgsValue(@nowarn v1PkgId: PackageId): ImmArray[(Option[Name], Value)] =
       ImmArray.empty
 
-    // Used for looking up contracts by key in choice bodies
-    def additionalKeyArgsLf(v2PkgId: PackageId): String = ""
-    // Used for looking up contracts by key in commands
-    def additionalKeyArgsValue(@nowarn v2PkgId: PackageId): ImmArray[(Option[Name], Value)] =
+    // Used for creating disclosures of v1 contracts and the "lookup contract by key" map passed to the engine.
+    def additionalv1KeyArgsValue(@nowarn v1PkgId: PackageId): ImmArray[(Option[Name], Value)] =
       ImmArray.empty
+    // Used for creating *ByKey commands
+    def additionalv2KeyArgsValue(@nowarn v2PkgId: PackageId): ImmArray[(Option[Name], Value)] =
+      ImmArray.empty
+    // Used for looking up contracts by key in choice bodies
+    def additionalv2KeyArgsLf(v2PkgId: PackageId): String = ""
 
     // Used for choice args in commands
     def choiceArgValue: ImmArray[(Option[Name], Value)] = ImmArray.empty
@@ -290,7 +293,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         s""" ($v2KeyTypeQualifiedName
            |     { label = "test-key"
            |     , maintainers = (Cons @Party ['$commonDefsPkgId':Mod:alice] (Nil @Party))
-           |     ${additionalKeyArgsLf(v2PkgId)}
+           |     ${additionalv2KeyArgsLf(v2PkgId)}
            |     })""".stripMargin
 
       val choiceArgExpr = s"($v2ChoiceArgTypeQualifiedName {})"
@@ -708,14 +711,19 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
                             |  }""".stripMargin
     override def v2Key = v1Key
 
-    override def additionalKeyArgsLf(v2PkgId: PackageId) =
-      s", maintainers2 = (Cons @Party ['$commonDefsPkgId':Mod:bob] (Nil @Party))"
-    override def additionalKeyArgsValue(v2PkgId: PackageId) =
+    // Used for creating disclosures of v1 contracts and the "lookup contract by key" map passed to the engine.
+    override def additionalv1KeyArgsValue(pkgId: PackageId) =
       ImmArray(
         Some("maintainers2": Name) -> ValueList(
           FrontStack(ValueParty(Party.assertFromString("Bob")))
         )
       )
+    // Used for creating *ByKey commands
+    override def additionalv2KeyArgsValue(pkgId: PackageId) =
+      additionalv1KeyArgsValue(pkgId)
+    // Used for looking up contracts by key in choice bodies
+    override def additionalv2KeyArgsLf(v2PkgId: PackageId) =
+      s", maintainers2 = (Cons @Party ['$commonDefsPkgId':Mod:bob] (Nil @Party))"
 
     override def v1Maintainers =
       s"\\(key: Mod:${templateName}Key) -> (Mod:${templateName}Key {maintainers} key)"
@@ -1320,6 +1328,98 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     }
   }
 
+  case object ValidKeyUpgradeAdditionalField
+      extends TestCase("ValidKeyUpgradeAdditionalField", ExpectSuccess) {
+    override def v1AdditionalKeyFields: String = ""
+    override def v2AdditionalKeyFields: String = ", extra: Option Unit"
+
+    override def additionalv2KeyArgsLf(v2PkgId: PackageId) =
+      s", extra = None @Unit"
+    override def additionalv2KeyArgsValue(v2PkgId: PackageId) =
+      ImmArray(
+        Some("extra": Name) -> ValueOptional(None)
+      )
+
+    override def v1Key = s"""
+                            |  Mod:${templateName}Key {
+                            |    label = "test-key",
+                            |    maintainers = (Cons @Party [Mod:${templateName} {p1} this] (Nil @Party))
+                            |  }""".stripMargin
+    override def v2Key = s"""
+                            |  Mod:${templateName}Key {
+                            |    label = "test-key",
+                            |    maintainers = (Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)),
+                            |    extra = None @Unit
+                            |  }""".stripMargin
+  }
+
+  case object InvalidKeyUpgradeAdditionalField
+      extends TestCase("InvalidKeyUpgradeAdditionalField", ExpectUpgradeError) {
+    override def v1AdditionalKeyFields: String = ""
+    override def v2AdditionalKeyFields: String = ", extra: Option Unit"
+
+    override def additionalv2KeyArgsLf(v2PkgId: PackageId) =
+      s", extra = None @Unit"
+    override def additionalv2KeyArgsValue(v2PkgId: PackageId) =
+      ImmArray(
+        Some("extra": Name) -> ValueOptional(None)
+      )
+
+    override def v1Key = s"""
+                            |  Mod:${templateName}Key {
+                            |    label = "test-key",
+                            |    maintainers = (Cons @Party [Mod:${templateName} {p1} this] (Nil @Party))
+                            |  }""".stripMargin
+    override def v2Key = s"""
+                            |  Mod:${templateName}Key {
+                            |    label = "test-key",
+                            |    maintainers = (Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)),
+                            |    extra = Some @Unit ()
+                            |  }""".stripMargin
+  }
+
+  case object ValidKeyDowngradeAdditionalField
+      extends TestCase("ValidKeyDowngradeAdditionalField", ExpectSuccess) {
+    override def v1AdditionalKeyFields: String = ", extra: Option Unit"
+    override def v2AdditionalKeyFields: String = ""
+
+    override def v1Key = s"""
+                            |  Mod:${templateName}Key {
+                            |    label = "test-key",
+                            |    maintainers = (Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)),
+                            |    extra = None @Unit
+                            |  }""".stripMargin
+    override def v2Key = s"""
+                            |  Mod:${templateName}Key {
+                            |    label = "test-key",
+                            |    maintainers = (Cons @Party [Mod:${templateName} {p1} this] (Nil @Party))
+                            |  }""".stripMargin
+  }
+
+  case object InvalidKeyDowngradeAdditionalField
+      extends TestCase("InvalidKeyDowngradeAdditionalField", ExpectUpgradeError) {
+    override def v1AdditionalKeyFields: String = ", extra: Option Unit"
+    override def v2AdditionalKeyFields: String = ""
+
+    // Used for creating disclosures of v1 contracts and the "lookup contract by key" map passed to the engine.
+    override def additionalv1KeyArgsValue(v1PkgId: PackageId): ImmArray[(Option[Name], Value)] =
+      ImmArray(
+        Some("extra": Name) -> ValueOptional(Some(ValueUnit))
+      )
+
+    override def v1Key = s"""
+                            |  Mod:${templateName}Key {
+                            |    label = "test-key",
+                            |    maintainers = (Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)),
+                            |    extra = Some @Unit ()
+                            |  }""".stripMargin
+    override def v2Key = s"""
+                            |  Mod:${templateName}Key {
+                            |    label = "test-key",
+                            |    maintainers = (Cons @Party [Mod:${templateName} {p1} this] (Nil @Party))
+                            |  }""".stripMargin
+  }
+
   // Test cases that apply to both commands and "in choice body" operations.
   val commandAndChoiceTestCases: Seq[TestCase] = List(
     // metadata
@@ -1343,6 +1443,12 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     UnchangedMaintainers,
     ThrowingMaintainers,
     ThrowingMaintainersBody,
+    // key upgrades
+    ValidKeyUpgradeAdditionalField,
+    InvalidKeyUpgradeAdditionalField,
+    // key downgrades
+    ValidKeyDowngradeAdditionalField,
+    InvalidKeyDowngradeAdditionalField,
     // template arg
     AdditionalFieldInRecordArg,
     AdditionalConstructorInVariantArg,
@@ -1535,18 +1641,26 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       )
     )
 
-    val globalContractKey: ValueRecord = ValueRecord(
+    val globalContractv1Key: ValueRecord = ValueRecord(
       None,
       ImmArray(
         Some("label": Name) -> ValueText("test-key"),
         Some("maintainers": Name) -> ValueList(FrontStack(ValueParty(alice))),
-      ).slowAppend(testCase.additionalKeyArgsValue(templateDefsV2PkgId)),
+      ).slowAppend(testCase.additionalv1KeyArgsValue(templateDefsV1PkgId)),
+    )
+
+    val globalContractv2Key: ValueRecord = ValueRecord(
+      None,
+      ImmArray(
+        Some("label": Name) -> ValueText("test-key"),
+        Some("maintainers": Name) -> ValueList(FrontStack(ValueParty(alice))),
+      ).slowAppend(testCase.additionalv2KeyArgsValue(templateDefsV2PkgId)),
     )
 
     val globalContractKeyWithMaintainers: GlobalKeyWithMaintainers =
       GlobalKeyWithMaintainers.assertBuild(
         v1TplId,
-        globalContractKey,
+        globalContractv1Key,
         Set(alice),
         KeyPackageName(Some(templateDefsPkgName), templateDefsV1Pkg.languageVersion),
       )
@@ -1558,7 +1672,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       keyHash = Some(
         crypto.Hash.assertHashContractKey(
           v1TplId,
-          globalContractKey,
+          globalContractv1Key,
           KeyPackageName(Some(templateDefsPkgName), templateDefsV1Pkg.languageVersion),
         )
       ),
@@ -1614,6 +1728,14 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
               _,
             ) =>
           None // ThrowingInterfaceChoice* test cases only makes sense for ExerciseInterface
+        case (
+              InvalidKeyDowngradeAdditionalField,
+              ExerciseByKey | FetchByKey | LookupByKey,
+              _,
+              _,
+              _,
+            ) =>
+          None // InvalidKeyDowngradeAdditionalField does not make sense for *ByKey operations
         case (ThrowingView, Fetch | FetchByKey | LookupByKey | Exercise | ExerciseByKey, _, _, _) =>
           None // ThrowingView only makes sense for *Interface operations
         case (_, Exercise, _, Command, Global | Disclosed) =>
@@ -1643,7 +1765,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
             ImmArray(
               ApiCommand.ExerciseByKey(
                 tplRef, // we let package preference select v2
-                globalContractKey,
+                globalContractv2Key,
                 ChoiceName.assertFromString("TemplateChoice"),
                 choiceArg,
               )
@@ -1658,7 +1780,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
               ),
               ApiCommand.ExerciseByKey(
                 tplRef, // we let package preference select v2
-                globalContractKey,
+                globalContractv2Key,
                 ChoiceName.assertFromString("TemplateChoice"),
                 choiceArg,
               ),
@@ -1677,7 +1799,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
                   case Fetch | FetchInterface | Exercise | ExerciseInterface =>
                     ValueContractId(globalContractId)
                   case FetchByKey | LookupByKey | ExerciseByKey =>
-                    globalContractKey
+                    globalContractv2Key
                 },
               )
             )
