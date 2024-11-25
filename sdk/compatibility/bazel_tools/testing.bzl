@@ -765,8 +765,8 @@ excluded_test_tool_tests = [
             {
                 "start": "2.10.0-snapshot.20240821.12933.1",
                 "exclusions": [
-                   "MultiPartySubmissionIT:MPSLookupOtherByKeyInvisible",
-                   "CommandServiceIT:CSReturnStackTrace",
+                    "MultiPartySubmissionIT:MPSLookupOtherByKeyInvisible",
+                    "CommandServiceIT:CSReturnStackTrace",
                 ],
             },
         ],
