@@ -5,7 +5,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.{FlagCloseable, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, LifeCycle}
 import com.digitalasset.canton.util.{MonadUtil, PekkoUtil}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.apache.pekko.actor.ActorSystem
@@ -98,8 +98,8 @@ class FetchLatestEventsFlowTest
       }
 
     override protected def onClosed(): Unit =
-      Lifecycle.close(
-        Lifecycle.toCloseableActorSystem(system, logger, timeouts)
+      LifeCycle.close(
+        LifeCycle.toCloseableActorSystem(system, logger, timeouts)
       )(logger)
   }
 

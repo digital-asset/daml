@@ -12,7 +12,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
-  Lifecycle,
+  LifeCycle,
   UnlessShutdown,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -325,7 +325,7 @@ class StoreBasedDomainTopologyClient(
     effectiveTimeAwaiter.awaitKnownTimestamp(timestamp)
 
   override protected def onClosed(): Unit = {
-    Lifecycle.close(
+    LifeCycle.close(
       sequencedTimeAwaiter,
       effectiveTimeAwaiter,
     )(logger)

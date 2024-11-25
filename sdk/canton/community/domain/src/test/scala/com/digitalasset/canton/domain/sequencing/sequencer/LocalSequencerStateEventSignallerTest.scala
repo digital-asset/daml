@@ -6,7 +6,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer
 import cats.syntax.parallel.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerMemberId
-import com.digitalasset.canton.lifecycle.{FlagCloseable, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, LifeCycle}
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.topology.{Member, ParticipantId}
 import com.digitalasset.canton.util.FutureInstances.*
@@ -61,9 +61,9 @@ class LocalSequencerStateEventSignallerTest
       }
 
     override protected def onClosed(): Unit =
-      Lifecycle.close(
+      LifeCycle.close(
         signaller,
-        Lifecycle.toCloseableActorSystem(actorSystem, logger, timeouts),
+        LifeCycle.toCloseableActorSystem(actorSystem, logger, timeouts),
       )(logger)
   }
 

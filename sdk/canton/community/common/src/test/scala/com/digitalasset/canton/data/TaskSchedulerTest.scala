@@ -9,6 +9,7 @@ import com.daml.metrics.api.MetricHandle.Gauge
 import com.daml.metrics.api.MetricHandle.Gauge.SimpleCloseableGauge
 import com.daml.metrics.api.noop.NoOpCounter
 import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification}
+import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{NamedEventCapturingLogger, NamedLoggerFactory}
@@ -310,6 +311,150 @@ class TaskSchedulerTest extends AsyncWordSpec with BaseTest {
         taskScheduler.scheduleTask(TestTask(ofEpochMilli(4), SequencerCounter(10), queue, 3)),
         _.getMessage should fullyMatch regex "Timestamp .* of new task TestTask.* lies before current time .*\\.",
       )
+    }
+
+    "scheduleIfLater should work properly" in {
+      val taskScheduler = mkTaskScheduler(
+        SequencerCounter(10),
+        ofEpochMilli(2),
+      )
+      val queue = mutable.Queue.empty[Int]
+
+      taskScheduler.scheduleTaskIfLater(
+        ofEpochMilli(1),
+        _ => fail(),
+      ) shouldBe Left(ofEpochMilli(2))
+      taskScheduler.scheduleTaskIfLater(
+        ofEpochMilli(2),
+        _ => fail(),
+      ) shouldBe Left(ofEpochMilli(2))
+      val task1 = taskScheduler
+        .scheduleTaskIfLater(
+          ofEpochMilli(3),
+          TestTask(
+            _,
+            SequencerCounter(10),
+            queue,
+            1,
+          ),
+        )
+        .value
+      task1.timestamp shouldBe ofEpochMilli(3)
+
+      val task2 = taskScheduler
+        .scheduleTaskIfLater(
+          ofEpochMilli(7),
+          TestTask(
+            _,
+            SequencerCounter(10),
+            queue,
+            2,
+          ),
+        )
+        .value
+      task2.timestamp shouldBe ofEpochMilli(7)
+
+      val task3 = taskScheduler
+        .scheduleTaskIfLater(
+          ofEpochMilli(15),
+          TestTask(
+            _,
+            SequencerCounter(10),
+            queue,
+            3,
+          ),
+        )
+        .value
+      task3.timestamp shouldBe ofEpochMilli(15)
+
+      queue.toList shouldBe Nil
+      taskScheduler.addTick(SequencerCounter(11), ofEpochMilli(10))
+      queue.toList shouldBe Nil
+      taskScheduler.addTick(SequencerCounter(10), ofEpochMilli(5))
+      for {
+        _ <- task1.done()
+        _ <- task2.done()
+      } yield {
+        queue.toList shouldBe List(1, 2)
+      }
+    }
+
+    "scheduleImmediately should work properly" in {
+      val taskScheduler = mkTaskScheduler(
+        SequencerCounter(10),
+        ofEpochMilli(2),
+      )
+      val queue = mutable.Queue.empty[Int]
+
+      val task1 = taskScheduler
+        .scheduleTaskIfLater(
+          ofEpochMilli(3),
+          TestTask(
+            _,
+            SequencerCounter(10),
+            queue,
+            2,
+          ),
+        )
+        .value
+      task1.timestamp shouldBe ofEpochMilli(3)
+
+      val task2Waiting = Promise[Unit]()
+      val task2 = taskScheduler
+        .scheduleTaskIfLater(
+          ofEpochMilli(7),
+          TestTask(
+            _,
+            SequencerCounter(10),
+            queue,
+            3,
+            waitFor = task2Waiting.future,
+          ),
+        )
+        .value
+      task2.timestamp shouldBe ofEpochMilli(7)
+
+      val immediate1Executed = Promise[Unit]()
+      taskScheduler.scheduleTaskImmediately(
+        ts => {
+          queue.enqueue(1)
+          immediate1Executed.trySuccess(())
+          ts shouldBe ofEpochMilli(2)
+          FutureUnlessShutdown.pure(())
+        },
+        implicitly,
+      ) shouldBe ofEpochMilli(2)
+
+      for {
+        _ <- immediate1Executed.future
+        immediate2Executed = Promise[Unit]()
+        _ = {
+          queue.toList shouldBe List(1)
+          taskScheduler.addTick(SequencerCounter(11), ofEpochMilli(10))
+          taskScheduler.addTick(SequencerCounter(10), ofEpochMilli(5))
+          taskScheduler.scheduleTaskImmediately(
+            ts => {
+              queue.enqueue(4)
+              immediate2Executed.trySuccess(())
+              ts shouldBe ofEpochMilli(10)
+              FutureUnlessShutdown.pure(())
+            },
+            implicitly,
+          ) shouldBe ofEpochMilli(10)
+        }
+        _ <- task1.done()
+        _ = {
+          queue.toList shouldBe List(1, 2)
+          Threading.sleep(50)
+          task2.done().isCompleted shouldBe false
+          immediate2Executed.future.isCompleted shouldBe false
+          task2Waiting.trySuccess(())
+        }
+        _ <- task2.done()
+        _ <- immediate2Executed.future
+      } yield {
+        queue.toList shouldBe List(1, 2, 3, 4)
+      }
     }
 
     "log INFO in case of missing ticks" in {

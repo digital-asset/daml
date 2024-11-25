@@ -211,26 +211,6 @@ object ViewConfirmationParameters {
       ),
     )
 
-  /** Creates a [[ViewConfirmationParameters]] where all informees are confirmers and
-    * includes a single quorum consisting of all confirming parties and a given threshold.
-    *
-    * Confirmers must have a positive weight (with a recommended value of 1). Currently,
-    * only thresholds equal to the sum of all confirmers' weights are supported.
-    */
-  def createOnlyWithConfirmers(
-      confirmers: Map[LfPartyId, PositiveInt],
-      viewThreshold: NonNegativeInt,
-  ): ViewConfirmationParameters =
-    ViewConfirmationParameters(
-      confirmers.keySet,
-      Seq(
-        Quorum(
-          confirmers,
-          viewThreshold,
-        )
-      ),
-    )
-
   /** There can be multiple quorums/threshold. Therefore, we need to make sure those quorums confirmers
     * are present in the list of informees.
     */

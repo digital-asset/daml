@@ -13,7 +13,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
-  Lifecycle,
+  LifeCycle,
   UnlessShutdown,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -404,7 +404,7 @@ class DomainTimeTracker(
     Seq(timeProofRef, timestampRef).foreach { ref =>
       ref.get().next.foreach(_.trySuccess(UnlessShutdown.AbortedDueToShutdown))
     }
-    Lifecycle.close(timeRequestSubmitter)(logger)
+    LifeCycle.close(timeRequestSubmitter)(logger)
   }
 
   /** In the absence of any real activity on the domain we will infrequently request a time.

@@ -7,7 +7,7 @@ import cats.instances.future.catsStdInstancesForFuture
 import com.digitalasset.canton.concurrent.{ExecutorServiceExtensions, Threading}
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.Lifecycle
+import com.digitalasset.canton.lifecycle.LifeCycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.pruning.{PruningPhase, PruningStatus}
 import com.digitalasset.canton.store.memory.InMemoryPrunableByTime
@@ -106,7 +106,7 @@ trait PrunableByTimeTest {
         )
       }
       testF.thereafter { _ =>
-        Lifecycle.close(
+        LifeCycle.close(
           ExecutorServiceExtensions(parallelEc)(logger, DefaultProcessingTimeouts.testing)
         )(logger)
       }

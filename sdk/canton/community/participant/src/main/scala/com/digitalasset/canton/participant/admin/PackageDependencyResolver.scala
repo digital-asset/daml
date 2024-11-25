@@ -10,7 +10,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.caching.ScaffeineCache
 import com.digitalasset.canton.caching.ScaffeineCache.TracedAsyncLoadingCache
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.DamlPackageStore
 import com.digitalasset.canton.protocol.PackageDescription
@@ -113,5 +113,5 @@ class PackageDependencyResolver(
 
   }
 
-  override def onClosed(): Unit = Lifecycle.close(damlPackageStore)(logger)
+  override def onClosed(): Unit = LifeCycle.close(damlPackageStore)(logger)
 }

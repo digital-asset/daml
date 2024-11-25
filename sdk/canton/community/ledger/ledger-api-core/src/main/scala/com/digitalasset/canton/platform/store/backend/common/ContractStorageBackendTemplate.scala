@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.backend.common
 
 import anorm.SqlParser.{array, byteArray, int, str}
 import anorm.{RowParser, ~}
-import com.digitalasset.canton.data.{AbsoluteOffset, Offset}
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend.{
   RawArchivedContract,
@@ -158,9 +158,11 @@ class ContractStorageBackendTemplate(
   ): Map[ContractId, RawCreatedContract] =
     if (contractIds.isEmpty) Map.empty
     else {
-      import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
-      val ledgerEndOffset = Offset.fromAbsoluteOffsetO(ledgerEndCache().map(_.lastOffset))
-      SQL"""
+      import com.digitalasset.canton.platform.store.backend.Conversions.AbsoluteOffsetToStatement
+      val ledgerEndOffsetO = ledgerEndCache().map(_.lastOffset)
+      ledgerEndOffsetO match {
+        case Some(ledgerEndOffset) =>
+          SQL"""
          WITH min_event_sequential_ids_of_assign AS (
              SELECT MIN(event_sequential_id) min_event_sequential_id
              FROM lapi_events_assign
@@ -186,7 +188,9 @@ class ContractStorageBackendTemplate(
          FROM lapi_events_assign, min_event_sequential_ids_of_assign
          WHERE
            event_sequential_id = min_event_sequential_ids_of_assign.min_event_sequential_id"""
-        .as(rawCreatedContractRowParser.*)(connection)
-        .toMap
+            .as(rawCreatedContractRowParser.*)(connection)
+            .toMap
+        case None => Map.empty
+      }
     }
 }

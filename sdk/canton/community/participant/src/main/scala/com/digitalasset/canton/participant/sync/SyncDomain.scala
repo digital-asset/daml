@@ -940,7 +940,7 @@ class SyncDomain(
     Seq(
       SyncCloseable(
         "sync-domain",
-        Lifecycle.close(
+        LifeCycle.close(
           // Close the domain crypto client first to stop waiting for snapshots that may block the sequencer subscription
           domainCrypto,
           // Close the sequencer client so that the processors won't receive or handle events when

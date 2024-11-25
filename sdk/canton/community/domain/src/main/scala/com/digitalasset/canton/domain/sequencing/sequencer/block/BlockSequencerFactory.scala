@@ -27,7 +27,7 @@ import com.digitalasset.canton.domain.sequencing.traffic.{
   TrafficPurchasedManager,
 }
 import com.digitalasset.canton.environment.CantonNodeParameters
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.sequencing.traffic.EventCostCalculator
@@ -253,7 +253,7 @@ abstract class BlockSequencerFactory(
   }
 
   override def onClosed(): Unit =
-    Lifecycle.close(store)(logger)
+    LifeCycle.close(store)(logger)
 }
 
 object BlockSequencerFactory {

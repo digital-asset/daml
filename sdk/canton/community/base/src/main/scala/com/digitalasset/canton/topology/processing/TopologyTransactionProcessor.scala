@@ -15,7 +15,7 @@ import com.digitalasset.canton.crypto.DomainCryptoPureApi
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.CantonNodeParameters
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.messages.{
   DefaultOpenEnvelope,
@@ -394,7 +394,7 @@ class TopologyTransactionProcessor(
   }
 
   override def onClosed(): Unit =
-    Lifecycle.close(serializer)(logger)
+    LifeCycle.close(serializer)(logger)
 
   private val maxSequencedTimeAtInitializationF =
     TraceContext.withNewTraceContext(implicit traceContext =>

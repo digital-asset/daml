@@ -44,7 +44,7 @@ import com.digitalasset.canton.health.admin.data.{WaitingForExternalInput, Waiti
 import com.digitalasset.canton.lifecycle.{
   FutureUnlessShutdown,
   HasCloseContext,
-  Lifecycle,
+  LifeCycle,
   PromiseUnlessShutdown,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -867,7 +867,7 @@ class SequencerNode(
   }
 
   override def close(): Unit =
-    Lifecycle.close(
+    LifeCycle.close(
       sequencer,
       sequencerNodeServer.publicServer,
     )(logger)

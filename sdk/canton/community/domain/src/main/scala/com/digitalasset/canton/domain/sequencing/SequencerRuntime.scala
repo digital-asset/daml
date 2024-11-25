@@ -37,7 +37,7 @@ import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
   HasCloseContext,
-  Lifecycle,
+  LifeCycle,
   PromiseUnlessShutdown,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -467,8 +467,8 @@ class SequencerRuntime(
     }
 
   override def onClosed(): Unit =
-    Lifecycle.close(
-      Lifecycle.toCloseableOption(sequencer.rateLimitManager),
+    LifeCycle.close(
+      LifeCycle.toCloseableOption(sequencer.rateLimitManager),
       timeTracker,
       syncCrypto,
       topologyClient,
@@ -476,7 +476,7 @@ class SequencerRuntime(
       topologyProcessor,
       topologyManagerSequencerCounterTrackerStore,
       sequencerService,
-      Lifecycle.toCloseableOption(sequencerChannelServiceO),
+      LifeCycle.toCloseableOption(sequencerChannelServiceO),
       authenticationServices.memberAuthenticationService,
       sequencer,
     )(logger)

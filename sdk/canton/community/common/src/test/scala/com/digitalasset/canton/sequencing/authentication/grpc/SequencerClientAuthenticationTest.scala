@@ -12,7 +12,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.api.v0
 import com.digitalasset.canton.domain.api.v0.{Hello, HelloServiceGrpc}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.lifecycle.Lifecycle.CloseableChannel
+import com.digitalasset.canton.lifecycle.LifeCycle.CloseableChannel
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.sequencing.authentication.{
   AuthenticationToken,

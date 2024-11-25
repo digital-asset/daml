@@ -6,7 +6,7 @@ package com.digitalasset.canton.sequencing.client.channel
 import cats.data.EitherT
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.domain.api.v30
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, GrpcClient, GrpcManagedChannel}
 import com.digitalasset.canton.sequencing.client.channel.endpoint.SequencerChannelClientEndpoint
@@ -83,7 +83,7 @@ private[channel] final class SequencerChannelClientTransport(
   }
 
   override protected def onClosed(): Unit =
-    Lifecycle.close(
+    LifeCycle.close(
       clientAuth,
       managedChannel,
     )(logger)

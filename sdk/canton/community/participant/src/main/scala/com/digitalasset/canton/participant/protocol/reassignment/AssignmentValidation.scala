@@ -58,7 +58,7 @@ private[reassignment] class AssignmentValidation(
       assignmentRequest: FullAssignmentTree,
       reassignmentDataO: Option[ReassignmentData],
       targetCrypto: Target[DomainSnapshotSyncCryptoApi],
-      isSignatoryAssigning: Boolean,
+      isConfirming: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, ReassignmentProcessorError, Option[AssignmentValidationResult]] = {
@@ -66,7 +66,7 @@ private[reassignment] class AssignmentValidation(
     val targetSnapshot = targetCrypto.map(_.ipsSnapshot)
 
     reassignmentDataO match {
-      case Some(reassignmentData) if isSignatoryAssigning =>
+      case Some(reassignmentData) if isConfirming =>
         val sourceDomain = reassignmentData.unassignmentRequest.sourceDomain
         val unassignmentTs = reassignmentData.unassignmentTs
         for {
@@ -159,12 +159,11 @@ private[reassignment] class AssignmentValidation(
 
           sourceIps = sourceCrypto.map(_.ipsSnapshot)
 
-          stakeholders = assignmentRequest.stakeholders
           sourceConfirmingParties <- EitherT.right(
-            sourceIps.unwrap.canConfirm(participantId, stakeholders.signatories)
+            sourceIps.unwrap.canConfirm(participantId, assignmentRequest.confirmingParties)
           )
           targetConfirmingParties <- EitherT.right(
-            targetSnapshot.unwrap.canConfirm(participantId, stakeholders.signatories)
+            targetSnapshot.unwrap.canConfirm(participantId, assignmentRequest.confirmingParties)
           )
           confirmingParties = sourceConfirmingParties.intersect(targetConfirmingParties)
 
@@ -208,7 +207,7 @@ private[reassignment] class AssignmentValidation(
             .liftF[Future, ReassignmentProcessorError, Set[LfPartyId]](confirmingPartiesF)
 
           res <-
-            if (isSignatoryAssigning) {
+            if (isConfirming) {
               // This happens either in case of malicious assignments (incorrectly declared confirming reassigning participants)
               // OR if the reassignment data has been pruned.
               // The assignment should be rejected due to other validations (e.g. conflict detection), but

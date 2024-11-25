@@ -352,7 +352,7 @@ class StoreBasedDomainOutbox(
 
   override protected def onClosed(): Unit = {
     val closeables = maybeObserverCloseable.toList ++ List(handle)
-    Lifecycle.close(closeables*)(logger)
+    LifeCycle.close(closeables*)(logger)
     super.onClosed()
   }
 }
@@ -511,7 +511,7 @@ class DomainOutboxFactory(
         storeBasedDomainOutbox.queueSize + queueBasedDomainOutbox.queueSize
 
       override protected def onClosed(): Unit =
-        Lifecycle.close(storeBasedDomainOutbox, queueBasedDomainOutbox)(
+        LifeCycle.close(storeBasedDomainOutbox, queueBasedDomainOutbox)(
           DomainOutboxFactory.this.logger
         )
 
@@ -575,7 +575,7 @@ class DomainOutboxFactorySingleCreate(
   }
 
   override protected def onClosed(): Unit =
-    Lifecycle.close(outboxRef.get.toList*)(logger)
+    LifeCycle.close(outboxRef.get.toList*)(logger)
 }
 
 final case class PendingTransactions(

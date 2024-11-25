@@ -13,6 +13,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.sequencing.client.SubscriptionCloseReason
 import com.digitalasset.canton.sequencing.client.channel.endpoint.SequencerChannelClientEndpoint
+import com.digitalasset.canton.sequencing.client.channel.endpoint.SequencerChannelClientEndpoint.OnSentMessageForTesting
 import com.digitalasset.canton.sequencing.protocol.channel.SequencerChannelId
 import com.digitalasset.canton.topology.{Member, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -59,6 +60,7 @@ final class SequencerChannelClient(
     * @param processor   Sequencer channel protocol processor for handling incoming messages and sending messages
     * @param isSessionKeyOwner Whether this member owns the session key
     * @param topologyTs Timestamp that determines the public key encryption of the session key
+    * @param onSentMessage Message notification for testing only! None for production.
     */
   def connectToSequencerChannel(
       sequencerId: SequencerId,
@@ -67,6 +69,7 @@ final class SequencerChannelClient(
       processor: SequencerChannelProtocolProcessor,
       isSessionKeyOwner: Boolean,
       topologyTs: CantonTimestamp,
+      onSentMessage: Option[OnSentMessageForTesting] = None,
   )(implicit traceContext: TraceContext): EitherT[UnlessShutdown, String, Unit] = {
 
     // Callback to remove channel tracking state and notify the processor of the channel close
@@ -87,7 +90,7 @@ final class SequencerChannelClient(
           connectTo,
           processor,
           domainCryptoApi,
-          isSessionKeyOwner = isSessionKeyOwner,
+          isSessionKeyOwner,
           topologyTs,
           domainParameters.protocolVersion,
           Context.ROOT.withCancellation(),
@@ -95,6 +98,7 @@ final class SequencerChannelClient(
           loggerFactory
             .append("sequencerId", sequencerId.uid.toString)
             .append("channel", channelId.unwrap),
+          onSentMessage,
         )
         _ <- processor.setChannelEndpoint(endpoint)
         _ <- clientState.addChannelEndpoint(endpoint)

@@ -11,7 +11,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.Update
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.sync.ParticipantEventPublisher
 import com.digitalasset.canton.time.{Clock, PositiveFiniteDuration}
@@ -322,7 +322,7 @@ class LedgerServerPartyNotifier(
   }
 
   override protected def onClosed(): Unit = {
-    Lifecycle.close(sequentialQueue)(logger)
+    LifeCycle.close(sequentialQueue)(logger)
     super.onClosed()
   }
 

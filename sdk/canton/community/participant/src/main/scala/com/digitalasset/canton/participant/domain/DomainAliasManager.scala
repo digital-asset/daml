@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.domain
 
 import cats.data.EitherT
 import com.digitalasset.canton.DomainAlias
-import com.digitalasset.canton.lifecycle.Lifecycle
+import com.digitalasset.canton.lifecycle.LifeCycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.{
   DomainAliasAndIdStore,
@@ -98,7 +98,7 @@ class DomainAliasManager private (
       )
     } yield ()
 
-  override def close(): Unit = Lifecycle.close(domainAliasAndIdStore)(logger)
+  override def close(): Unit = LifeCycle.close(domainAliasAndIdStore)(logger)
 }
 
 object DomainAliasManager {

@@ -294,16 +294,17 @@ class DeliveredUnassignmentResultValidationTest
     }
 
     "detect incorrect informees" in {
+      val expectedInformees = stakeholders + submittingParticipant.adminParty.toLf
       val missingParty = Set(signatory)
-      val tooManyParties = stakeholders + otherParty
+      val tooManyParties = expectedInformees + otherParty
 
-      updateAndValidate(_.copy(informees = stakeholders)).value shouldBe ()
+      updateAndValidate(_.copy(informees = expectedInformees)).value shouldBe ()
       updateAndValidate(_.copy(informees = missingParty)).left.value shouldBe IncorrectInformees(
-        stakeholders,
+        expectedInformees,
         missingParty,
       )
       updateAndValidate(_.copy(informees = tooManyParties)).left.value shouldBe IncorrectInformees(
-        stakeholders,
+        expectedInformees,
         tooManyParties,
       )
     }

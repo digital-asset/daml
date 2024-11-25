@@ -122,11 +122,13 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
       }
     } yield res
 
+    val expectedInformees =
+      unassignmentRequest.stakeholders.all + unassignmentRequest.submitterMetadata.submittingAdminParty
     for {
       _ <- EitherT(stakeholdersHostedReassigningParticipants)
       _ <- EitherTUtil.condUnitET[Future][Error](
-        result.informees == stakeholders.all,
-        IncorrectInformees(stakeholders.all, result.informees),
+        result.informees == expectedInformees,
+        IncorrectInformees(expectedInformees, result.informees),
       )
     } yield ()
   }

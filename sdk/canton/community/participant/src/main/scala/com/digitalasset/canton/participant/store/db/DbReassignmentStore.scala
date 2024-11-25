@@ -471,17 +471,19 @@ class DbReassignmentStore(
     sequentialQueue.executeEUS(task, "addReassignmentsOffsets")
   }
 
-  override def completeReassignment(reassignmentId: ReassignmentId, timeOfCompletion: TimeOfChange)(
-      implicit traceContext: TraceContext
+  override def completeReassignment(reassignmentId: ReassignmentId, toc: TimeOfChange)(implicit
+      traceContext: TraceContext
   ): CheckedT[FutureUnlessShutdown, Nothing, ReassignmentStoreError, Unit] = {
+    logger.debug(s"Marking reassignment $reassignmentId as completed at $toc")
+
     def updateSameOrUnset(indexedSourceDomain: Source[IndexedDomain]) =
       sqlu"""
         update par_reassignments
-          set time_of_completion_request_counter=${timeOfCompletion.rc}, time_of_completion_timestamp=${timeOfCompletion.timestamp}
+          set time_of_completion_request_counter=${toc.rc}, time_of_completion_timestamp=${toc.timestamp}
         where
           target_domain_idx=$indexedTargetDomain and source_domain_idx=$indexedSourceDomain and unassignment_timestamp=${reassignmentId.unassignmentTs}
           and (time_of_completion_request_counter is NULL
-            or (time_of_completion_request_counter = ${timeOfCompletion.rc} and time_of_completion_timestamp = ${timeOfCompletion.timestamp}))
+            or (time_of_completion_request_counter = ${toc.rc} and time_of_completion_timestamp = ${toc.timestamp}))
       """
 
     val doneE: EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] = for {
@@ -503,7 +505,7 @@ class DbReassignmentStore(
               Left(
                 ReassignmentAlreadyCompleted(
                   reassignmentId,
-                  timeOfCompletion,
+                  toc,
                 ): ReassignmentStoreError
               )
             }

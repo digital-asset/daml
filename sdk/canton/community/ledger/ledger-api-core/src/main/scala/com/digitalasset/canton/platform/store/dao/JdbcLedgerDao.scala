@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.daml.logging.entries.LoggingEntry
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.digitalasset.canton.ledger.participant.state
@@ -318,15 +318,13 @@ private class JdbcLedgerDao(
 
   override def pruningOffsets(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[(Option[Offset], Option[Offset])] =
+  ): Future[(Option[AbsoluteOffset], Option[AbsoluteOffset])] =
     dbDispatcher.executeSql(metrics.index.db.fetchPruningOffsetsMetrics) { conn =>
       (
         parameterStorageBackend
-          .prunedUpToInclusive(conn)
-          .map(Offset.fromAbsoluteOffset),
+          .prunedUpToInclusive(conn),
         parameterStorageBackend
-          .participantAllDivulgedContractsPrunedUpToInclusive(conn)
-          .map(Offset.fromAbsoluteOffset),
+          .participantAllDivulgedContractsPrunedUpToInclusive(conn),
       )
     }
 

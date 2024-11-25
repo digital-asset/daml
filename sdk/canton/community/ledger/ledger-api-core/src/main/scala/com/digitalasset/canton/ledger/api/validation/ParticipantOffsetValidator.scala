@@ -5,7 +5,7 @@ package com.digitalasset.canton.ledger.api.validation
 
 import cats.syntax.either.*
 import com.daml.error.ContextualizedErrorLogger
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.ledger.api.domain.types.ParticipantOffset
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.platform.ApiOffset
@@ -46,7 +46,7 @@ object ParticipantOffsetValidator {
           .asGrpcError
       )
     else
-      Right(Offset.fromLong(ledgerOffset).toHexString)
+      Right(AbsoluteOffset.tryFromLong(ledgerOffset).toHexString)
 
   def validateNonNegative(ledgerOffset: Long, fieldName: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -62,7 +62,7 @@ object ParticipantOffsetValidator {
           .asGrpcError
       )
     else
-      Right(Offset.fromLong(ledgerOffset).toHexString)
+      Right(Option.unless(ledgerOffset == 0)(AbsoluteOffset.tryFromLong(ledgerOffset)).toHexString)
 
   def offsetIsBeforeEnd(
       offsetType: String,

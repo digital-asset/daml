@@ -15,7 +15,10 @@ import com.digitalasset.canton.sequencing.channel.ConnectToSequencerChannelReque
 import com.digitalasset.canton.sequencing.channel.ConnectToSequencerChannelRequest.Payload
 import com.digitalasset.canton.sequencing.client.SubscriptionCloseReason
 import com.digitalasset.canton.sequencing.client.channel.SequencerChannelProtocolProcessor
-import com.digitalasset.canton.sequencing.client.channel.endpoint.SequencerChannelClientEndpoint.versionedResponseTraceContext
+import com.digitalasset.canton.sequencing.client.channel.endpoint.SequencerChannelClientEndpoint.{
+  OnSentMessageForTesting,
+  versionedResponseTraceContext,
+}
 import com.digitalasset.canton.sequencing.client.transports.{
   ConsumesCancellableGrpcStreamObserver,
   HasProtoTraceContext,
@@ -30,7 +33,7 @@ import io.grpc.Context.CancellableContext
 import io.grpc.stub.StreamObserver
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** The sequencer channel client endpoint encapsulates all client-side state needed for the lifetime of a
   * sequencer channel and handles the interaction with:
@@ -51,9 +54,10 @@ import scala.concurrent.{ExecutionContext, Future}
   * @param processor   The processor provided by the SequencerChannelClient caller that interacts with the channel
   *                    once this channel endpoint has finished setting up the channel.
   * @param isSessionKeyOwner Whether this endpoint is responsible for generating the session key.
-  *                    @param domainCryptoApi Provides the crypto API for symmetric and asymmetric encryption operations.
-  *                    @param protocolVersion Used for the proto messages versioning.
-  *                    @param timestamp   Determines the public key for asymmetric encryption.
+  * @param domainCryptoApi Provides the crypto API for symmetric and asymmetric encryption operations.
+  * @param protocolVersion Used for the proto messages versioning.
+  * @param timestamp   Determines the public key for asymmetric encryption.
+  * @param onSentMessage Message notification for testing purposes only; None for production.
   */
 private[channel] final class SequencerChannelClientEndpoint(
     val sequencerId: SequencerId,
@@ -68,6 +72,7 @@ private[channel] final class SequencerChannelClientEndpoint(
     context: CancellableContext,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
+    onSentMessage: Option[OnSentMessageForTesting] = None,
 )(implicit executionContext: ExecutionContext)
     extends ConsumesCancellableGrpcStreamObserver[
       String,
@@ -153,10 +158,12 @@ private[channel] final class SequencerChannelClientEndpoint(
     * This method is assumed to be thread-safe, meaning it is invoked once per message and completes fully.
     * State that gets mutated through this method alone is supposed to be safe.
     */
-  override protected def callHandler: Traced[v30.ConnectToSequencerChannelResponse] => Future[
-    Either[String, Unit]
+  override protected def callHandler: Traced[v30.ConnectToSequencerChannelResponse] => EitherT[
+    FutureUnlessShutdown,
+    String,
+    Unit,
   ] = { case Traced(v30.ConnectToSequencerChannelResponse(response, traceContextO)) =>
-    (for {
+    for {
       traceContext <- EitherT.fromEither[FutureUnlessShutdown](
         SerializableTraceContext.fromProtoV30Opt(traceContextO).bimap(_.message, _.unwrap)
       )
@@ -171,9 +178,8 @@ private[channel] final class SequencerChannelClientEndpoint(
       }
 
       _ = stage.set(newStage)
-      _ = newStage.initialization()(traceContext)
-
-    } yield ()).value.onShutdown(Right(()))
+      _ <- newStage.initialization()(traceContext)
+    } yield ()
   }
 
   /** This endpoint's sending end of the channel.
@@ -196,6 +202,7 @@ private[channel] final class SequencerChannelClientEndpoint(
       case (Some(payloadObserver), _) =>
         logger.debug(s"Sending $operation")
 
+        onSentMessage.foreach(_(message)) // optional, for testing purposes only!
         payloadObserver.onNext(message.toProtoV30)
         logger.debug(s"Sent $operation")
         EitherTUtil.unitUS[String]
@@ -270,8 +277,10 @@ private[channel] final class SequencerChannelClientEndpoint(
 
 }
 
-object SequencerChannelClientEndpoint {
+private[channel] object SequencerChannelClientEndpoint {
   implicit val versionedResponseTraceContext
       : HasProtoTraceContext[v30.ConnectToSequencerChannelResponse] =
     (value: v30.ConnectToSequencerChannelResponse) => value.traceContext
+
+  type OnSentMessageForTesting = ConnectToSequencerChannelRequest => Unit
 }

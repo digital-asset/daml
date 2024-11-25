@@ -156,8 +156,8 @@ final class ApiStateService(
       .latestPrunedOffsets()
       .map { case (prunedUptoInclusive, divulgencePrunedUptoInclusive) =>
         GetLatestPrunedOffsetsResponse(
-          participantPrunedUpToInclusive = prunedUptoInclusive,
-          allDivulgedContractsPrunedUpToInclusive = divulgencePrunedUptoInclusive,
+          participantPrunedUpToInclusive = prunedUptoInclusive.fold(0L)(_.unwrap),
+          allDivulgedContractsPrunedUpToInclusive = divulgencePrunedUptoInclusive.fold(0L)(_.unwrap),
         )
       }
       .thereafter(logger.logErrorsOnCall[GetLatestPrunedOffsetsResponse])

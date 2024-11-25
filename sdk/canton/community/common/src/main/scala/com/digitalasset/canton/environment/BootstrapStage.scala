@@ -14,7 +14,7 @@ import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
   HasCloseContext,
-  Lifecycle,
+  LifeCycle,
   UnlessShutdown,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -133,7 +133,7 @@ abstract class BootstrapStage[T <: CantonNode, StageResult <: BootstrapStageOrLe
         case Some(stage) =>
           logger.debug(s"Succeeded startup stage: $description")
           def closeOnFailure() = {
-            Lifecycle.close(this)(logger)
+            LifeCycle.close(this)(logger)
             bootstrap.abortThisNodeOnStartupFailure()
           }
           stage
@@ -166,7 +166,7 @@ abstract class BootstrapStage[T <: CantonNode, StageResult <: BootstrapStageOrLe
     val stageResultCloseables = stageResult.getAndSet(None).toList
     val thisStageCloseables = closeables.getAndSet(Seq.empty).reverse
     val allCloseables = stageResultCloseables ++ thisStageCloseables
-    Lifecycle.close(allCloseables*)(logger)
+    LifeCycle.close(allCloseables*)(logger)
   }
 
 }

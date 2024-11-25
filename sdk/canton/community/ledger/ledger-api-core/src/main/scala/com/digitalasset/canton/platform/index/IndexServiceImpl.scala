@@ -15,7 +15,6 @@ import com.daml.ledger.api.v2.update_service.{
 }
 import com.daml.metrics.InstrumentedGraph.*
 import com.daml.tracing.{Event, SpanAttribute, Spans}
-import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.data.AbsoluteOffset
@@ -49,7 +48,7 @@ import com.digitalasset.canton.platform.store.dao.{
 import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.PackageResolution
-import com.digitalasset.canton.platform.{ApiOffset, Party, PruneBuffers, TemplatePartiesFilter}
+import com.digitalasset.canton.platform.{Party, PruneBuffers, TemplatePartiesFilter}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{ApplicationId, Identifier, PackageRef, TypeConRef}
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -77,8 +76,6 @@ private[index] class IndexServiceImpl(
     override protected val loggerFactory: NamedLoggerFactory,
 ) extends IndexService
     with NamedLogging {
-
-  private val directEc = DirectExecutionContext(noTracingLogger)
 
   // A Pekko stream buffer is added at the end of all streaming queries,
   // allowing to absorb temporary downstream backpressure.
@@ -459,10 +456,7 @@ private[index] class IndexServiceImpl(
   }
 
   private def toApiOffset(ledgerDomainOffsetO: Option[AbsoluteOffset]): ParticipantOffset =
-    ledgerDomainOffsetO match {
-      case Some(ledgerDomainOffset) => ledgerDomainOffset.toHexString
-      case None => ApiOffset.begin.toHexString
-    }
+    ledgerDomainOffsetO.toHexString
 
   private def ledgerEnd(): Option[AbsoluteOffset] = dispatcher().getHead()
 
@@ -470,17 +464,15 @@ private[index] class IndexServiceImpl(
   // Can be used directly or shared throughout a request processing
   private def convertOffset: ParticipantOffset => Source[Option[AbsoluteOffset], NotUsed] = {
     ledgerOffset =>
-      ApiOffset
-        .tryFromString(ledgerOffset)
-        .fold(Source.failed, off => Source.single(off.toAbsoluteOffsetO))
+      AbsoluteOffset.tryFromString(ledgerOffset).fold(Source.failed, off => Source.single(off))
   }
 
   // TODO(#22293) when participant offset is replaced by an optional type, deduplicate with the above convertOffset
   private def convertOffsetInclusive: ParticipantOffset => Source[AbsoluteOffset, NotUsed] = {
     ledgerOffset =>
-      ApiOffset
+      AbsoluteOffset
         .tryFromString(ledgerOffset)
-        .map(_.toAbsoluteOffset)
+        .map(_.getOrElse(throw new IllegalArgumentException("Inclusive offset was not positive")))
         .fold(Source.failed, off => Source.single(off))
   }
 
@@ -513,7 +505,7 @@ private[index] class IndexServiceImpl(
   }
 
   private def concreteOffset(startExclusive: ParticipantOffset): Future[Option[AbsoluteOffset]] =
-    Future.fromTry(ApiOffset.tryFromString(startExclusive).map(_.toAbsoluteOffsetO))
+    Future.fromTry(AbsoluteOffset.tryFromString(startExclusive))
 
   private def shutdownError(implicit
       loggingContext: LoggingContextWithTrace
@@ -540,12 +532,8 @@ private[index] class IndexServiceImpl(
 
   override def latestPrunedOffsets()(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[(Long, Long)] =
+  ): Future[(Option[AbsoluteOffset], Option[AbsoluteOffset])] =
     ledgerDao.pruningOffsets
-      .map { case (prunedUpToInclusiveO, divulgencePrunedUpToO) =>
-        prunedUpToInclusiveO.map(_.toLong).getOrElse(0L) ->
-          divulgencePrunedUpToO.map(_.toLong).getOrElse(0L)
-      }(directEc)
 }
 
 object IndexServiceImpl {

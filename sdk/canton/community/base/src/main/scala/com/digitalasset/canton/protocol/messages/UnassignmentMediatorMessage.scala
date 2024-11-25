@@ -3,17 +3,9 @@
 
 package com.digitalasset.canton.protocol.messages
 
-import cats.syntax.functor.*
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{HashOps, Signature}
-import com.digitalasset.canton.data.{
-  UnassignmentCommonData,
-  UnassignmentViewTree,
-  ViewConfirmationParameters,
-  ViewPosition,
-  ViewType,
-}
+import com.digitalasset.canton.data.{UnassignmentCommonData, UnassignmentViewTree, ViewType}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
@@ -57,17 +49,6 @@ final case class UnassignmentMediatorMessage(
   override def mediator: MediatorGroupRecipient = commonData.sourceMediatorGroup
 
   override def requestUuid: UUID = commonData.uuid
-
-  override def informeesAndConfirmationParamsByViewPosition
-      : Map[ViewPosition, ViewConfirmationParameters] = {
-    val confirmingParties = commonData.confirmingParties.fmap(_.toNonNegative)
-    val nonConfirmingParties = commonData.stakeholders.nonConfirming.map(_ -> NonNegativeInt.zero)
-
-    val informees = confirmingParties ++ nonConfirmingParties
-    val threshold = NonNegativeInt.tryCreate(confirmingParties.size)
-
-    Map(tree.viewPosition -> ViewConfirmationParameters.create(informees, threshold))
-  }
 
   def toProtoV30: v30.UnassignmentMediatorMessage =
     v30.UnassignmentMediatorMessage(

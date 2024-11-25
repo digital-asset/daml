@@ -268,7 +268,7 @@ class ManagedNodes[
         nodes.remove(name).foreach {
           // if there were other processes messing with the node, we won't shutdown
           case Running(current) if node == current =>
-            Lifecycle.close(node)(logger)
+            LifeCycle.close(node)(logger)
           case _ =>
             logger.info(s"Node $name has already disappeared.")
         }

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.participant.state.DomainIndex
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel
@@ -192,8 +192,8 @@ object ParameterStorageBackend {
   final case class IdentityParams(participantId: ParticipantId)
 
   final case class PruneUptoInclusiveAndLedgerEnd(
-      pruneUptoInclusive: Option[Offset],
-      ledgerEnd: Offset,
+      pruneUptoInclusive: Option[AbsoluteOffset],
+      ledgerEnd: Option[AbsoluteOffset],
   )
 }
 
