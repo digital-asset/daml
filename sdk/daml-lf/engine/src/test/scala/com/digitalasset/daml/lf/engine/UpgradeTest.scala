@@ -11,7 +11,6 @@ import com.daml.lf.data._
 import com.daml.lf.engine.{Error => EE}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
-import com.daml.lf.speedy.{ArrayList, SValue}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
@@ -89,12 +88,6 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
                   to upure @Text "InterfaceChoice was called";
             };
 
-            record @serializable Key =
-              { label: Text
-              , maintainers1: List Party
-              , maintainers2: List Party
-              };
-
             record @serializable Ex = { message: Text } ;
             exception Ex = {
               message \(e: Mod:Ex) -> Mod:Ex {message} e
@@ -139,13 +132,13 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     def v1Agreement: String = """ "agreement" """
     def v1Key: String =
       s"""
-         |  '$commonDefsPkgId':Mod:Key {
+         |  Mod:${templateName}Key {
          |    label = "test-key",
          |    maintainers1 = (Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)),
          |    maintainers2 = (Cons @Party [Mod:${templateName} {p2} this] (Nil @Party))
          |  }""".stripMargin
     def v1Maintainers: String =
-      s"\\(key: '$commonDefsPkgId':Mod:Key) -> ('$commonDefsPkgId':Mod:Key {maintainers1} key)"
+      s"\\(key: Mod:${templateName}Key) -> (Mod:${templateName}Key {maintainers1} key)"
     def v1InterfaceChoiceControllers: String =
       s"Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)"
     def v1InterfaceChoiceObservers: String = "Nil @Party"
@@ -189,6 +182,12 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       s"""
          |  $additionalDefinitions
          |
+         |  record @serializable ${templateName}Key =
+         |    { label: Text
+         |    , maintainers1: List Party
+         |    , maintainers2: List Party
+         |    };
+         |
          |  record @serializable ${templateName}ChoiceArgType = $choiceArgTypeDef;
          |
          |  record @serializable $templateName =
@@ -216,7 +215,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
          |      method interfaceChoiceObservers = $interfaceChoiceObservers;
          |    };
          |
-         |    key @'$commonDefsPkgId':Mod:Key ($key) ($maintainers);
+         |    key @Mod:${templateName}Key ($key) ($maintainers);
          |  };""".stripMargin
 
     def v1TemplateDefinition: String = templateDefinition(
@@ -261,6 +260,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       val v2TplQualifiedName = s"'$v2PkgId':Mod:$templateName"
       val ifaceQualifiedName = s"'$commonDefsPkgId':Mod:Iface"
       val viewQualifiedName = s"'$commonDefsPkgId':Mod:MyView"
+      val v2KeyTypeQualifiedName = s"'$v2PkgId':Mod:${templateName}Key"
       val v2ChoiceArgTypeQualifiedName = s"'$v2PkgId':Mod:${templateName}ChoiceArgType"
 
       val createV1ContractExpr =
@@ -366,7 +366,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |       in exercise_by_key
         |            @$v2TplQualifiedName
         |            TemplateChoice
-        |            ('$commonDefsPkgId':Mod:Key {
+        |            ($v2KeyTypeQualifiedName {
         |                 label = "test-key",
         |                 maintainers1 = (Cons @Party ['$commonDefsPkgId':Mod:alice] (Nil @Party)),
         |                 maintainers2 = (Cons @Party ['$commonDefsPkgId':Mod:bob] (Nil @Party)) })
@@ -381,7 +381,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |       catch
         |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
         |
-        |  choice @nonConsuming ExerciseByKeyNoCatchGlobal${templateName} (self) (key: '$commonDefsPkgId':Mod:Key): Text
+        |  choice @nonConsuming ExerciseByKeyNoCatchGlobal${templateName} (self) (key: $v2KeyTypeQualifiedName): Text
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
         |    to exercise_by_key
@@ -390,7 +390,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |         key
         |         $choiceArgExpr;
         |
-        |  choice @nonConsuming ExerciseByKeyAttemptCatchGlobal${templateName} (self) (key: '$commonDefsPkgId':Mod:Key)
+        |  choice @nonConsuming ExerciseByKeyAttemptCatchGlobal${templateName} (self) (key: $v2KeyTypeQualifiedName)
         |        : Text
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
@@ -443,7 +443,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |       in ubind pair:<contract: $v2TplQualifiedName, contractId: ContractId $v2TplQualifiedName> <-
         |              fetch_by_key
         |                @$v2TplQualifiedName
-        |                ('$commonDefsPkgId':Mod:Key {
+        |                ($v2KeyTypeQualifiedName {
         |                     label = "test-key",
         |                     maintainers1 = (Cons @Party ['$commonDefsPkgId':Mod:alice] (Nil @Party)),
         |                     maintainers2 = (Cons @Party ['$commonDefsPkgId':Mod:bob] (Nil @Party)) })
@@ -459,7 +459,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |       catch
         |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
         |
-        |  choice @nonConsuming FetchByKeyNoCatchGlobal${templateName} (self) (key: '$commonDefsPkgId':Mod:Key)
+        |  choice @nonConsuming FetchByKeyNoCatchGlobal${templateName} (self) (key: $v2KeyTypeQualifiedName)
         |        : $v2TplQualifiedName
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
@@ -469,7 +469,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |            key
         |       in upure @$v2TplQualifiedName (pair).contract;
         |
-        |  choice @nonConsuming FetchByKeyAttemptCatchGlobal${templateName} (self) (key: '$commonDefsPkgId':Mod:Key)
+        |  choice @nonConsuming FetchByKeyAttemptCatchGlobal${templateName} (self) (key: $v2KeyTypeQualifiedName)
         |        : Text
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
@@ -525,7 +525,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
         |       in lookup_by_key
         |            @$v2TplQualifiedName
-        |            ('$commonDefsPkgId':Mod:Key {
+        |            ($v2KeyTypeQualifiedName {
         |                 label = "test-key",
         |                 maintainers1 = (Cons @Party ['$commonDefsPkgId':Mod:alice] (Nil @Party)),
         |                 maintainers2 = (Cons @Party ['$commonDefsPkgId':Mod:bob] (Nil @Party)) });
@@ -540,7 +540,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |       catch
         |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
         |
-        |  choice @nonConsuming LookupByKeyNoCatchGlobal${templateName} (self) (key: '$commonDefsPkgId':Mod:Key)
+        |  choice @nonConsuming LookupByKeyNoCatchGlobal${templateName} (self) (key: $v2KeyTypeQualifiedName)
         |        : Option (ContractId $v2TplQualifiedName)
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
@@ -548,7 +548,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         |         @$v2TplQualifiedName
         |         key;
         |
-        |  choice @nonConsuming LookupByKeyAttemptCatchGlobal${templateName} (self) (key: '$commonDefsPkgId':Mod:Key)
+        |  choice @nonConsuming LookupByKeyAttemptCatchGlobal${templateName} (self) (key: $v2KeyTypeQualifiedName)
         |        : Text
         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
         |    , observers (Nil @Party)
@@ -644,13 +644,13 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
 
   case object UnchangedKey extends TestCase("UnchangedKey", ExpectSuccess) {
     override def v1Key = s"""
-                            |  '$commonDefsPkgId':Mod:Key {
+                            |  Mod:${templateName}Key {
                             |    label = "test-key",
                             |    maintainers1 = (Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)),
                             |    maintainers2 = (Cons @Party [Mod:${templateName} {p2} this] (Nil @Party))
                             |  }""".stripMargin
     override def v2Key = s""" case () of () ->
-                            |    '$commonDefsPkgId':Mod:Key {
+                            |    Mod:${templateName}Key {
                             |      label = "test-key",
                             |      maintainers1 = (Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)),
                             |      maintainers2 = (Cons @Party [Mod:${templateName} {p2} this] (Nil @Party))
@@ -659,13 +659,13 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
 
   case object ChangedKey extends TestCase("ChangedKey", ExpectUpgradeError) {
     override def v1Key = s"""
-                            |  '$commonDefsPkgId':Mod:Key {
+                            |  Mod:${templateName}Key {
                             |    label = "test-key",
                             |    maintainers1 = (Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)),
                             |    maintainers2 = (Cons @Party [Mod:${templateName} {p2} this] (Nil @Party))
                             |  }""".stripMargin
     override def v2Key = s""" case () of () ->
-                            |    '$commonDefsPkgId':Mod:Key {
+                            |    Mod:${templateName}Key {
                             |      label = "test-key-2",
                             |      maintainers1 = (Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)),
                             |      maintainers2 = (Cons @Party [Mod:${templateName} {p2} this] (Nil @Party))
@@ -674,43 +674,43 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
 
   case object ThrowingKey extends TestCase("ThrowingKey", ExpectUnhandledException) {
     override def v1Key = s"""
-                            |  '$commonDefsPkgId':Mod:Key {
+                            |  Mod:${templateName}Key {
                             |    label = "test-key",
                             |    maintainers1 = (Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)),
                             |    maintainers2 = (Cons @Party [Mod:${templateName} {p2} this] (Nil @Party))
                             |  }""".stripMargin
     override def v2Key =
-      s"""throw @'$commonDefsPkgId':Mod:Key @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "Key"})"""
+      s"""throw @Mod:${templateName}Key @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "Key"})"""
   }
 
   case object UnchangedMaintainers extends TestCase("UnchangedMaintainers", ExpectSuccess) {
     override def v1Maintainers =
-      s"\\(key: '$commonDefsPkgId':Mod:Key) -> ('$commonDefsPkgId':Mod:Key {maintainers1} key)"
+      s"\\(key: Mod:${templateName}Key) -> (Mod:${templateName}Key {maintainers1} key)"
     override def v2Maintainers =
-      s"\\(key: '$commonDefsPkgId':Mod:Key) -> case () of () -> ('$commonDefsPkgId':Mod:Key {maintainers1} key)"
+      s"\\(key: Mod:${templateName}Key) -> case () of () -> (Mod:${templateName}Key {maintainers1} key)"
   }
 
   case object ChangedMaintainers extends TestCase("ChangedMaintainers", ExpectUpgradeError) {
     override def v1Maintainers =
-      s"\\(key: '$commonDefsPkgId':Mod:Key) -> ('$commonDefsPkgId':Mod:Key {maintainers1} key)"
+      s"\\(key: Mod:${templateName}Key) -> (Mod:${templateName}Key {maintainers1} key)"
     override def v2Maintainers =
-      s"\\(key: '$commonDefsPkgId':Mod:Key) -> ('$commonDefsPkgId':Mod:Key {maintainers2} key)"
+      s"\\(key: Mod:${templateName}Key) -> (Mod:${templateName}Key {maintainers2} key)"
   }
 
   case object ThrowingMaintainers
       extends TestCase("ThrowingMaintainers", ExpectUnhandledException) {
     override def v1Maintainers =
-      s"\\(key: '$commonDefsPkgId':Mod:Key) -> ('$commonDefsPkgId':Mod:Key {maintainers1} key)"
+      s"\\(key: Mod:${templateName}Key) -> (Mod:${templateName}Key {maintainers1} key)"
     override def v2Maintainers =
-      s"""throw @('$commonDefsPkgId':Mod:Key -> List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "Maintainers"})"""
+      s"""throw @(Mod:${templateName}Key -> List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "Maintainers"})"""
   }
 
   case object ThrowingMaintainersBody
       extends TestCase("ThrowingMaintainersBody", ExpectUnhandledException) {
     override def v1Maintainers =
-      s"\\(key: '$commonDefsPkgId':Mod:Key) -> ('$commonDefsPkgId':Mod:Key {maintainers1} key)"
+      s"\\(key: Mod:${templateName}Key) -> (Mod:${templateName}Key {maintainers1} key)"
     override def v2Maintainers =
-      s"""\\(key: '$commonDefsPkgId':Mod:Key) -> throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "MaintainersBody"})"""
+      s"""\\(key: Mod:${templateName}Key) -> throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "MaintainersBody"})"""
   }
 
   case object AdditionalFieldInChoiceArgRecordField
@@ -1509,26 +1509,22 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       )
     )
 
-    val globalContractSKey: SValue = SValue.SRecord(
-      Identifier.assertFromString(s"$commonDefsPkgId:Mod:Key"),
+    val globalContractKey: ValueRecord = ValueRecord(
+      None,
       ImmArray(
-        "label",
-        "maintainers1",
-        "maintainers2",
-      ),
-      ArrayList(
-        SValue.SText("test-key"),
-        SValue.SList(FrontStack(SValue.SParty(alice))),
-        SValue.SList(FrontStack(SValue.SParty(bob))),
+        Some("label": Name) -> ValueText("test-key"),
+        Some("maintainers1": Name) -> ValueList(FrontStack(ValueParty(alice))),
+        Some("maintainers2": Name) -> ValueList(FrontStack(ValueParty(bob))),
       ),
     )
 
-    val globalContractKey: GlobalKeyWithMaintainers = GlobalKeyWithMaintainers.assertBuild(
-      v1TplId,
-      globalContractSKey.toUnnormalizedValue,
-      Set(alice),
-      KeyPackageName(Some(templateDefsPkgName), templateDefsV1Pkg.languageVersion),
-    )
+    val globalContractKeyWithMaintainers: GlobalKeyWithMaintainers =
+      GlobalKeyWithMaintainers.assertBuild(
+        v1TplId,
+        globalContractKey,
+        Set(alice),
+        KeyPackageName(Some(templateDefsPkgName), templateDefsV1Pkg.languageVersion),
+      )
 
     val globalContractDisclosure: DisclosedContract = DisclosedContract(
       templateId = v1TplId,
@@ -1537,7 +1533,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       keyHash = Some(
         crypto.Hash.assertHashContractKey(
           v1TplId,
-          globalContractSKey.toUnnormalizedValue.asInstanceOf[ValueRecord],
+          globalContractKey,
           KeyPackageName(Some(templateDefsPkgName), templateDefsV1Pkg.languageVersion),
         )
       ),
@@ -1622,7 +1618,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
             ImmArray(
               ApiCommand.ExerciseByKey(
                 tplRef, // we let package preference select v2
-                globalContractSKey.toUnnormalizedValue,
+                globalContractKey,
                 ChoiceName.assertFromString("TemplateChoice"),
                 choiceArg,
               )
@@ -1637,7 +1633,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
               ),
               ApiCommand.ExerciseByKey(
                 tplRef, // we let package preference select v2
-                globalContractSKey.toUnnormalizedValue,
+                globalContractKey,
                 ChoiceName.assertFromString("TemplateChoice"),
                 choiceArg,
               ),
@@ -1656,7 +1652,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
                   case Fetch | FetchInterface | Exercise | ExerciseInterface =>
                     ValueContractId(globalContractId)
                   case FetchByKey | LookupByKey | ExerciseByKey =>
-                    globalContractSKey.toUnnormalizedValue
+                    globalContractKey
                 },
               )
             )
@@ -1703,7 +1699,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       }
       val lookupContractByKey = contractOrigin match {
         case Global =>
-          val keyMap = Map(globalContractKey.globalKey -> globalContractId)
+          val keyMap = Map(globalContractKeyWithMaintainers.globalKey -> globalContractId)
           ((kwm: GlobalKeyWithMaintainers) => keyMap.get(kwm.globalKey)).unlift
         case _ => PartialFunction.empty
       }
