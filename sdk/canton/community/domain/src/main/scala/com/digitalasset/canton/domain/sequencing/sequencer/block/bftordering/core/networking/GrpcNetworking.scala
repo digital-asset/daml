@@ -22,7 +22,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.p2p
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
-  Lifecycle,
+  LifeCycle,
   UnlessShutdown,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -45,7 +45,7 @@ import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 final class GrpcNetworking(
-    servers: List[UnlessShutdown[Lifecycle.CloseableServer]],
+    servers: List[UnlessShutdown[LifeCycle.CloseableServer]],
     override val timeouts: ProcessingTimeout,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -279,7 +279,7 @@ final class GrpcNetworking(
       grpcServers.foreach(_.foreach(shutdownGrpcServer))
     }
 
-    private def shutdownGrpcServer(server: Lifecycle.CloseableServer): Unit = {
+    private def shutdownGrpcServer(server: LifeCycle.CloseableServer): Unit = {
       // https://github.com/grpc/grpc-java/issues/8770
       val serverPort = server.server.getPort
       logger.debug(s"Terminating gRPC server on port $serverPort")

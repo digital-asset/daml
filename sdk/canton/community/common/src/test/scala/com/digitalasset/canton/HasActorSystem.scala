@@ -4,7 +4,7 @@
 package com.digitalasset.canton
 
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.lifecycle.Lifecycle
+import com.digitalasset.canton.lifecycle.LifeCycle
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.util.PekkoUtil
 import org.apache.pekko.actor.ActorSystem
@@ -20,6 +20,6 @@ trait HasActorSystem extends BeforeAndAfterAll {
   protected def timeouts: ProcessingTimeout
 
   override def afterAll(): Unit =
-    try Lifecycle.close(Lifecycle.toCloseableActorSystem(actorSystem, logger, timeouts))(logger)
+    try LifeCycle.close(LifeCycle.toCloseableActorSystem(actorSystem, logger, timeouts))(logger)
     finally super.afterAll()
 }

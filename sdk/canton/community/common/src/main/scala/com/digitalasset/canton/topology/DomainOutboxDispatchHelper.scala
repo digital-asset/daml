@@ -12,7 +12,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
-  Lifecycle,
+  LifeCycle,
   RunOnShutdown,
 }
 import com.digitalasset.canton.logging.NamedLogging
@@ -141,7 +141,7 @@ trait DomainOutboxDispatch extends NamedLogging with FlagCloseable {
   runOnShutdown_(new RunOnShutdown {
     override def name: String = "close-handle"
     override def done: Boolean = handle.isClosing
-    override def run(): Unit = Lifecycle.close(handle)(logger)
+    override def run(): Unit = LifeCycle.close(handle)(logger)
   })(TraceContext.empty)
 
   protected def notAlreadyPresent(

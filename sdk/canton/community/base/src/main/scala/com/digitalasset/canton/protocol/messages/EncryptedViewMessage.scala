@@ -14,6 +14,7 @@ import com.digitalasset.canton.crypto.DecryptionError.InvariantViolation
 import com.digitalasset.canton.crypto.SyncCryptoError.SyncCryptoDecryptionError
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError.FailedToReadKey
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPublicStore}
+import com.digitalasset.canton.crypto.v30 as V30Crypto
 import com.digitalasset.canton.data.ViewType
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -298,24 +299,17 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
 
   private def serializeSessionKeyEntry(
       encryptedSessionKey: AsymmetricEncrypted[SecureRandomness]
-  ): v30.SessionKeyLookup =
-    v30.SessionKeyLookup(
-      sessionKeyEncrypted = encryptedSessionKey.ciphertext,
-      encryptionAlgorithmSpec = encryptedSessionKey.encryptionAlgorithmSpec.toProtoEnum,
-      fingerprint = encryptedSessionKey.encryptedFor.toProtoPrimitive,
-    )
+  ): V30Crypto.AsymmetricEncrypted =
+    AsymmetricEncrypted(
+      encryptedSessionKey.ciphertext,
+      encryptedSessionKey.encryptionAlgorithmSpec,
+      encryptedSessionKey.encryptedFor,
+    ).toProtoV30
 
   private def deserializeSessionKeyEntry(
-      sessionKeyLookup: v30.SessionKeyLookup
+      sessionKeyLookup: V30Crypto.AsymmetricEncrypted
   ): ParsingResult[AsymmetricEncrypted[SecureRandomness]] =
-    for {
-      fingerprint <- Fingerprint.fromProtoPrimitive(sessionKeyLookup.fingerprint)
-      encryptionAlgorithmSpec <- EncryptionAlgorithmSpec.fromProtoEnum(
-        "encryptionAlgorithmSpec",
-        sessionKeyLookup.encryptionAlgorithmSpec,
-      )
-      sessionKeyEncrypted = sessionKeyLookup.sessionKeyEncrypted
-    } yield AsymmetricEncrypted(sessionKeyEncrypted, encryptionAlgorithmSpec, fingerprint)
+    AsymmetricEncrypted.fromProtoV30(sessionKeyLookup)
 
   def fromProto(
       encryptedViewMessageP: v30.EncryptedViewMessage

@@ -138,7 +138,7 @@ final case class ReassignmentDataHelpers(
         requestId = RequestId(reassignmentData.unassignmentTs),
         rootHash = reassignmentData.unassignmentRequest.rootHash,
         verdict = Verdict.Approve(protocolVersion),
-        informees = reassignmentData.unassignmentRequest.stakeholders.all,
+        informees = reassignmentData.unassignmentRequest.informees,
         protocolVersion,
       )
 

@@ -10,7 +10,7 @@ import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
-  Lifecycle,
+  LifeCycle,
   PerformUnlessClosing,
   UnlessShutdown,
 }
@@ -754,7 +754,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
         logger.debug("About to close the FlagCloseable")
         closeable.close()
       } finally {
-        Lifecycle.close(ExecutorServiceExtensions(closeableEc)(logger, timeouts))(logger)
+        LifeCycle.close(ExecutorServiceExtensions(closeableEc)(logger, timeouts))(logger)
       }
       succeed
     }

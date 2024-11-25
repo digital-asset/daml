@@ -9,7 +9,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.domain.api.v30.SequencerAuthenticationServiceGrpc.SequencerAuthenticationServiceStub
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.{GrpcClient, GrpcManagedChannel}
@@ -90,7 +90,7 @@ class GrpcSequencerClientAuth(
   }
 
   override protected def onClosed(): Unit =
-    Lifecycle.close(
+    LifeCycle.close(
       (tokenProvider +:
         grpcChannelPerEndpoint.toSeq.map { case (endpoint, channel) =>
           channel

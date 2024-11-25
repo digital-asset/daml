@@ -14,7 +14,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer as CantonSequencer
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError.ExceededMaxSequencingTime
-import com.digitalasset.canton.lifecycle.Lifecycle
+import com.digitalasset.canton.lifecycle.LifeCycle
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
@@ -103,7 +103,7 @@ abstract class SequencerApiTest
 
     def close(): Unit = {
       sequencer.close()
-      Lifecycle.toCloseableActorSystem(actorSystem, logger, timeouts).close()
+      LifeCycle.toCloseableActorSystem(actorSystem, logger, timeouts).close()
     }
   }
 

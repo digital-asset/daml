@@ -64,7 +64,7 @@ class QueueBasedDomainOutbox(
 
   override protected def onClosed(): Unit = {
     val closeables = maybeObserverCloseable.toList ++ List(handle)
-    Lifecycle.close(closeables*)(logger)
+    LifeCycle.close(closeables*)(logger)
     super.onClosed()
   }
 

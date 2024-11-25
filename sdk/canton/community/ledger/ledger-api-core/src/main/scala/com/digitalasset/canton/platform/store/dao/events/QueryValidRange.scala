@@ -74,23 +74,23 @@ final case class QueryValidRangeImpl(
     val params = storageBackend.prunedUpToInclusiveAndLedgerEnd(conn)
 
     params.pruneUptoInclusive
-      .filter(_.toAbsoluteOffset >= minOffsetInclusive)
+      .filter(_ >= minOffsetInclusive)
       .foreach(pruningOffsetUpToInclusive =>
         throw RequestValidationErrors.ParticipantPrunedDataAccessed
           .Reject(
-            cause = errorPruning(pruningOffsetUpToInclusive.toAbsoluteOffset),
-            earliestOffset = pruningOffsetUpToInclusive.toLong,
+            cause = errorPruning(pruningOffsetUpToInclusive),
+            earliestOffset = pruningOffsetUpToInclusive.unwrap,
           )(
             ErrorLoggingContext(logger, loggingContext)
           )
           .asGrpcError
       )
 
-    if (Option(maxOffsetInclusive) > params.ledgerEnd.toAbsoluteOffsetO) {
+    if (Option(maxOffsetInclusive) > params.ledgerEnd) {
       throw RequestValidationErrors.ParticipantDataAccessedAfterLedgerEnd
         .Reject(
-          cause = errorLedgerEnd(params.ledgerEnd.toAbsoluteOffsetO),
-          latestOffset = params.ledgerEnd.toLong,
+          cause = errorLedgerEnd(params.ledgerEnd),
+          latestOffset = params.ledgerEnd.fold(0L)(_.unwrap),
         )(
           ErrorLoggingContext(logger, loggingContext)
         )

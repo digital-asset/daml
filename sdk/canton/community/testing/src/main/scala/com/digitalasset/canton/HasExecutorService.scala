@@ -10,7 +10,7 @@ import com.digitalasset.canton.concurrent.{
   Threading,
 }
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
-import com.digitalasset.canton.lifecycle.Lifecycle
+import com.digitalasset.canton.lifecycle.LifeCycle
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import org.scalatest.{BeforeAndAfterAll, Suite}
@@ -115,6 +115,6 @@ trait HasExecutorServiceGeneric extends NamedLogging {
         None
       }
     }
-    Lifecycle.close(executorStateClose)(logger)
+    LifeCycle.close(executorStateClose)(logger)
   }
 }

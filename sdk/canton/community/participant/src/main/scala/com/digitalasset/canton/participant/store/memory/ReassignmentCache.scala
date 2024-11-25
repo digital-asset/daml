@@ -66,68 +66,63 @@ class ReassignmentCache(
     * @return The future completes when this completion or a completion of the same reassignment by an earlier request
     *         has been written to the underlying [[store.ReassignmentStore]].
     */
-  def completeReassignment(reassignmentId: ReassignmentId, timeOfCompletion: TimeOfChange)(implicit
+  def completeReassignment(reassignmentId: ReassignmentId, toc: TimeOfChange)(implicit
       traceContext: TraceContext
   ): CheckedT[FutureUnlessShutdown, Nothing, ReassignmentStoreError, Unit] = CheckedT {
     logger.trace(
-      s"Request ${timeOfCompletion.rc}: Marking reassignment $reassignmentId as completed in cache"
+      s"Request ${toc.rc}: Marking reassignment $reassignmentId as completed in cache"
     )
     pendingCompletions.putIfAbsent(
       reassignmentId,
-      PendingReassignmentCompletion(timeOfCompletion, futureSupervisor),
+      PendingReassignmentCompletion(toc, futureSupervisor),
     ) match {
       case None =>
-        reassignmentStore.completeReassignment(reassignmentId, timeOfCompletion).value.map {
-          result =>
-            logger
-              .trace(
-                s"Request ${timeOfCompletion.rc}: Marked reassignment $reassignmentId as completed"
+        reassignmentStore.completeReassignment(reassignmentId, toc).value.map { result =>
+          val pendingReassignmentCompletion = pendingCompletions
+            .remove(reassignmentId)
+            .getOrElse(
+              throw new IllegalStateException(
+                s"Unable to find reassignment `$reassignmentId` in pending completions"
               )
-            val pendingReassignmentCompletion = pendingCompletions
-              .remove(reassignmentId)
-              .getOrElse(
-                throw new IllegalStateException(
-                  s"Unable to find reassignment `$reassignmentId` in pending completions"
-                )
-              )
-            pendingReassignmentCompletion.completion.success(UnlessShutdown.Outcome(result))
-            result
+            )
+          pendingReassignmentCompletion.completion.success(UnlessShutdown.Outcome(result))
+          result
         }
 
       case Some(
-            pendingReassignmentCompletion @ PendingReassignmentCompletion(previousTimeOfCompletion)
+            pendingReassignmentCompletion @ PendingReassignmentCompletion(previousToc)
           ) =>
-        if (previousTimeOfCompletion.rc <= timeOfCompletion.rc) {
+        if (previousToc.rc <= toc.rc) {
           /* An earlier request (or the same) is already writing to the reassignment store.
            * Therefore, there is no point in trying to store this later request, too.
            * It suffices to piggy-back on the earlier write and forward the result.
            */
-          logger.trace(
-            s"Request ${timeOfCompletion.rc}: Omitting the reassignment completion write because the earlier request ${previousTimeOfCompletion.rc} is writing already."
+          logger.debug(
+            s"Request ${toc.rc}: Omitting the reassignment completion write because the earlier request ${previousToc.rc} is writing already."
           )
           pendingReassignmentCompletion.completion.futureUS.map { result =>
             for {
               _ <- result
               _ <-
-                if (previousTimeOfCompletion == timeOfCompletion) Checked.result(())
+                if (previousToc == toc) Checked.result(())
                 else
-                  Checked.continue(ReassignmentAlreadyCompleted(reassignmentId, timeOfCompletion))
+                  Checked.continue(ReassignmentAlreadyCompleted(reassignmentId, toc))
             } yield ()
           }
 
         } else {
           /* A later request is already writing to the reassignment store.
-           * To ensure that the earliest assignment request is recorded, we write the request to the store.`
+           * To ensure that the earliest assignment request is recorded, we write the request to the store.
            * This write happens only after the ongoing write to not disturb the error reporting for the ongoing write.
            * However, it is not necessary to add this request to the cache
            * because the cache has already marked the reassignment as having been completed.
            */
           for {
             _ <- pendingReassignmentCompletion.completion.futureUS
-            _ = logger.trace(
-              s"Request ${timeOfCompletion.rc}: Overwriting the reassignment completion of the later request ${previousTimeOfCompletion.rc}"
+            _ = logger.debug(
+              s"Request ${toc.rc}: Overwriting the reassignment completion of the later request ${previousToc.rc}"
             )
-            result <- reassignmentStore.completeReassignment(reassignmentId, timeOfCompletion).value
+            result <- reassignmentStore.completeReassignment(reassignmentId, toc).value
           } yield result
         }
     }

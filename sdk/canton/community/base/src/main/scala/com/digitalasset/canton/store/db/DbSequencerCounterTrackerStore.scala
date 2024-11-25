@@ -5,7 +5,7 @@ package com.digitalasset.canton.store.db
 
 import com.digitalasset.canton.SequencerCounterDiscriminator
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.lifecycle.Lifecycle
+import com.digitalasset.canton.lifecycle.LifeCycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.{IndexedDomain, SequencerCounterTrackerStore}
@@ -29,7 +29,7 @@ class DbSequencerCounterTrackerStore(
       loggerFactory,
     )
 
-  override def onClosed(): Unit = Lifecycle.close(cursorStore)(logger)
+  override def onClosed(): Unit = LifeCycle.close(cursorStore)(logger)
 }
 
 object DbSequencerCounterTrackerStore {

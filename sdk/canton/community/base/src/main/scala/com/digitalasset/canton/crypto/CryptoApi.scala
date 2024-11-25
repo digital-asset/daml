@@ -20,7 +20,7 @@ import com.digitalasset.canton.health.{
   HealthComponent,
   HealthQuasiComponent,
 }
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.serialization.DeserializationError
@@ -73,7 +73,7 @@ class Crypto(
     } yield publicKey
 
   override def onClosed(): Unit =
-    Lifecycle.close(privateCrypto, cryptoPrivateStore, cryptoPublicStore)(logger)
+    LifeCycle.close(privateCrypto, cryptoPrivateStore, cryptoPublicStore)(logger)
 
   override def name: String = "crypto"
 

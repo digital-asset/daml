@@ -12,7 +12,7 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdateTreesResponse,
   GetUpdatesResponse,
 }
-import com.digitalasset.canton.data.{AbsoluteOffset, Offset}
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
 import com.digitalasset.canton.ledger.participant.state
@@ -151,7 +151,7 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
     */
   def pruningOffsets(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[(Option[Offset], Option[Offset])]
+  ): Future[(Option[AbsoluteOffset], Option[AbsoluteOffset])]
 
   /** Returns all TransactionMetering records matching given criteria */
   def meteringReportData(

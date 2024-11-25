@@ -44,6 +44,8 @@ final case class ReassignmentSubmitterMetadata(
     param("application id", _.applicationId),
     param("workflow id", _.workflowId),
   )
+
+  def submittingAdminParty: LfPartyId = submittingParticipant.adminParty.toLf
 }
 
 object ReassignmentSubmitterMetadata {

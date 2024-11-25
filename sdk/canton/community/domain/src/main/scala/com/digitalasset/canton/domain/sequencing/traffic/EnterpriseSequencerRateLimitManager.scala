@@ -31,7 +31,7 @@ import com.digitalasset.canton.lifecycle.{
   CloseContext,
   FlagCloseable,
   FutureUnlessShutdown,
-  Lifecycle,
+  LifeCycle,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.client.SequencedEventValidator
@@ -146,7 +146,7 @@ class EnterpriseSequencerRateLimitManager(
     trafficPurchasedManager.getLatestKnownBalance(member)
 
   override def onClosed(): Unit =
-    Lifecycle.close(trafficPurchasedManager)(logger)
+    LifeCycle.close(trafficPurchasedManager)(logger)
   override def balanceUpdateSubscriber: SequencerTrafficControlSubscriber =
     trafficPurchasedManager.subscription
 

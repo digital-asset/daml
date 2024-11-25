@@ -15,7 +15,7 @@ import com.digitalasset.canton.ledger.error.PackageServiceErrors
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
-  Lifecycle,
+  LifeCycle,
   UnlessShutdown,
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
@@ -241,7 +241,7 @@ class PackageUploader(
     ).thereafter(_ => zipInputStream.close())
   }
 
-  override protected def onClosed(): Unit = Lifecycle.close(uploadDarExecutionQueue)(logger)
+  override protected def onClosed(): Unit = LifeCycle.close(uploadDarExecutionQueue)(logger)
 }
 
 object PackageUploader {

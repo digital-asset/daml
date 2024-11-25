@@ -14,7 +14,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
-  Lifecycle,
+  LifeCycle,
   UnlessShutdown,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -381,7 +381,7 @@ class SequencersTransportState(
 
     def complete(reason: Try[SequencerClient.CloseReason]): Unit = {
       closeReasonPromise.tryComplete(reason).discard
-      Lifecycle.close(this)(logger)
+      LifeCycle.close(this)(logger)
     }
 
     lazy val closeReason: Try[SequencerClient.CloseReason] = maybeCloseReason.collect {

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.networking.grpc
 
-import com.digitalasset.canton.lifecycle.{Lifecycle, OnShutdownRunner}
+import com.digitalasset.canton.lifecycle.{LifeCycle, OnShutdownRunner}
 import com.digitalasset.canton.logging.TracedLogger
 import io.grpc.ManagedChannel
 
@@ -18,7 +18,7 @@ final case class GrpcManagedChannel(
 
   // TODO(#21278): Change this so that the channel is force-closed immediately
   override protected def onFirstClose(): Unit =
-    Lifecycle.close(Lifecycle.toCloseableChannel(channel, logger, name))(logger)
+    LifeCycle.close(LifeCycle.toCloseableChannel(channel, logger, name))(logger)
 
   override def close(): Unit = super.close()
 

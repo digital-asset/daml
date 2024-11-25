@@ -29,7 +29,7 @@ import com.digitalasset.canton.health.{
   HealthComponent,
 }
 import com.digitalasset.canton.lifecycle.*
-import com.digitalasset.canton.lifecycle.Lifecycle.toCloseableOption
+import com.digitalasset.canton.lifecycle.LifeCycle.toCloseableOption
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.logging.pretty.{CantonPrettyPrinter, Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}

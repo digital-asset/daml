@@ -32,7 +32,7 @@ import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, O
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
-  Lifecycle,
+  LifeCycle,
   OnShutdownRunner,
   UnlessShutdown,
 }
@@ -1635,7 +1635,7 @@ class AcsCommitmentProcessor private (
   }
 
   override protected def onClosed(): Unit =
-    Lifecycle.close(dbQueue, publishQueue)(logger)
+    LifeCycle.close(dbQueue, publishQueue)(logger)
 
   @VisibleForTesting
   private[pruning] def flush(): FutureUnlessShutdown[Unit] =

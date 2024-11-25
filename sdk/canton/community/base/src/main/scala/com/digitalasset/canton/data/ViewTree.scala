@@ -68,8 +68,10 @@ trait FullReassignmentViewTree extends ViewTree {
   def workflowId: Option[LfWorkflowId] = submitterMetadata.workflowId
 
   // Parties and participants
-  override def informees: Set[LfPartyId] = view.contract.metadata.stakeholders
+  override def informees: Set[LfPartyId] =
+    view.contract.metadata.stakeholders + commonData.submitterMetadata.submittingAdminParty
   def stakeholders: Stakeholders = commonData.stakeholders
+  def confirmingParties: Set[LfPartyId] = commonData.confirmingParties
 
   def reassigningParticipants: Set[ParticipantId] = commonData.reassigningParticipants
   def isReassigningParticipant(participantId: ParticipantId): Boolean =

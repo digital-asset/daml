@@ -14,7 +14,7 @@ import com.digitalasset.canton.health.{
   GrpcHealthReporter,
   ServiceHealthStatusManager,
 }
-import com.digitalasset.canton.lifecycle.Lifecycle.{CloseableServer, toCloseableServer}
+import com.digitalasset.canton.lifecycle.LifeCycle.{CloseableServer, toCloseableServer}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize

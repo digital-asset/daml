@@ -8,7 +8,7 @@ import cats.implicits.catsSyntaxParallelTraverse_
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
 import com.digitalasset.canton.ledger.participant.state.{Reassignment, Update}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.TracedLogger
@@ -133,12 +133,12 @@ object ReassignmentStore {
       executionContext: ExecutionContext
   ): ReassignmentOffsetPersistence = new ReassignmentOffsetPersistence {
     override def persist(
-        updates: Seq[(Update, Offset)],
+        updates: Seq[(AbsoluteOffset, Update)],
         tracedLogger: TracedLogger,
     )(implicit traceContext: TraceContext): Future[Unit] =
       updates
         .collect {
-          case (reassignmentAccepted: Update.ReassignmentAccepted, offset)
+          case (offset, reassignmentAccepted: Update.ReassignmentAccepted)
               if reassignmentAccepted.reassignmentInfo.isReassigningParticipant =>
             (reassignmentAccepted, offset)
         }
@@ -156,8 +156,7 @@ object ReassignmentStore {
               .fromEither[FutureUnlessShutdown](
                 reassignmentStoreFor(syncDomainPersistentStates)(targetDomain)
               )
-            offsets = eventsForDomain.map { case (reassignmentEvent, offset) =>
-              val globalOffset = offset.toAbsoluteOffset
+            offsets = eventsForDomain.map { case (reassignmentEvent, globalOffset) =>
               val reassignmentGlobal = reassignmentEvent.reassignment match {
                 case _: Reassignment.Assign => AssignmentGlobalOffset(globalOffset)
                 case _: Reassignment.Unassign => UnassignmentGlobalOffset(globalOffset)

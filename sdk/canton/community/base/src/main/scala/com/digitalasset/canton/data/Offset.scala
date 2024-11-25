@@ -16,6 +16,7 @@ import slick.jdbc.{GetResult, SetParameter}
 
 import java.io.InputStream
 import java.nio.{ByteBuffer, ByteOrder}
+import scala.util.{Failure, Success, Try}
 
 /** Offsets into streams with hierarchical addressing.
   *
@@ -102,14 +103,33 @@ object AbsoluteOffset {
       s"Expecting positive value for offset, found $num.",
     )
 
+  def fromHexString(s: Ref.HexString): AbsoluteOffset = {
+    val bytes = Bytes.fromHexString(s)
+    AbsoluteOffset.tryFromLong(ByteBuffer.wrap(bytes.toByteArray).getLong(1))
+  }
+
+  def fromHexStringO(s: Ref.HexString): Option[AbsoluteOffset] =
+    if (s.isEmpty) None else Some(fromHexString(s))
+
+  def tryFromString(s: String): Try[Option[AbsoluteOffset]] =
+    fromString(s) match {
+      case Left(msg) => Failure(new IllegalArgumentException(msg))
+      case Right(offset) => Success(offset)
+    }
+
+  private def fromString(s: String): Either[String, Option[AbsoluteOffset]] =
+    Ref.HexString
+      .fromString(s)
+      .map(AbsoluteOffset.fromHexStringO)
+
   implicit val `AbsoluteOffset to LoggingValue`: ToLoggingValue[AbsoluteOffset] = value =>
     LoggingValue.OfLong(value.unwrap)
 
   implicit class AbsoluteOffsetOptionToHexString(val offsetO: Option[AbsoluteOffset])
       extends AnyVal {
-    def toHexString: String = offsetO match {
+    def toHexString: Ref.HexString = offsetO match {
       case Some(offset) => offset.toHexString
-      case None => ""
+      case None => Bytes.Empty.toHexString
     }
   }
 
@@ -130,8 +150,6 @@ object Offset {
   val beforeBegin: Offset = new Offset(Bytes.Empty)
   private val longBasedByteLength: Int = 9 // One byte for the version plus 8 bytes for Long
   private val versionUpstreamOffsetsAsLong: Byte = 0
-  val firstOffset: Offset = Offset.fromLong(1)
-
   def fromByteString(bytes: ByteString) = new Offset(Bytes.fromByteString(bytes))
 
   def fromByteArray(bytes: Array[Byte]) = new Offset(Bytes.fromByteArray(bytes))
@@ -161,10 +179,4 @@ object Offset {
       case None => beforeBegin
       case Some(value) => fromLong(value.unwrap)
     }
-
-  // TODO(#21220) remove after the unification of Offsets
-  def fromAbsoluteOffset(value: AbsoluteOffset): Offset = fromLong(value.unwrap)
-
-  implicit val `Offset to LoggingValue`: ToLoggingValue[Offset] = value =>
-    LoggingValue.OfLong(value.toLong)
 }

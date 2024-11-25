@@ -16,7 +16,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, S
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.PackageService
 import com.digitalasset.canton.participant.admin.PackageService.{Dar, DarDescriptor}
@@ -298,7 +298,7 @@ class DbDamlPackageStore(
     )
 
   override def onClosed(): Unit =
-    Lifecycle.close(writeQueue)(logger)
+    LifeCycle.close(writeQueue)(logger)
 
 }
 

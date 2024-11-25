@@ -56,7 +56,7 @@ import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
   HasCloseContext,
-  Lifecycle,
+  LifeCycle,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.DbStorageMetrics
@@ -434,7 +434,7 @@ abstract class CantonNodeBootstrapImpl[
 
       val server = builder.build
         .start()
-      addCloseable(Lifecycle.toCloseableServer(server, logger, "AdminServer"))
+      addCloseable(LifeCycle.toCloseableServer(server, logger, "AdminServer"))
       addCloseable(registry)
       registry
     }
@@ -827,7 +827,7 @@ abstract class CantonNodeBootstrapImpl[
   }
 
   override protected def onClosed(): Unit = {
-    Lifecycle.close(clock, initQueue, startupStage)(
+    LifeCycle.close(clock, initQueue, startupStage)(
       logger
     )
     super.onClosed()

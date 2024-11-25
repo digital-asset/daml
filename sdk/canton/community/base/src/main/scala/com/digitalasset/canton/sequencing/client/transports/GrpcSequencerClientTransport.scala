@@ -11,7 +11,7 @@ import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFai
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.api.v30.SequencerServiceGrpc.SequencerServiceStub
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.SequencerClientMetrics
 import com.digitalasset.canton.networking.grpc.GrpcError.GrpcServiceUnavailable
@@ -224,7 +224,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
   }
 
   override protected def onClosed(): Unit =
-    Lifecycle.close(
+    LifeCycle.close(
       clientAuth,
       managedChannel,
     )(logger)

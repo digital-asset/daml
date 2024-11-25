@@ -17,7 +17,7 @@ import com.digitalasset.canton.config.{PackageMetadataViewConfig, ProcessingTime
 import com.digitalasset.canton.crypto.{Hash, HashOps}
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.ledger.error.PackageServiceErrors
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageRemovalErrorCode
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageRemovalErrorCode.{
@@ -361,7 +361,7 @@ class PackageService(
         CantonPackageServiceError.IdentityManagerParentError(err)
       }
 
-  override def onClosed(): Unit = Lifecycle.close(packageUploader, packageMetadataView)(logger)
+  override def onClosed(): Unit = LifeCycle.close(packageUploader, packageMetadataView)(logger)
 
 }
 

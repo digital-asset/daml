@@ -337,7 +337,7 @@ private[mediator] class Mediator(
     Seq(
       SyncCloseable(
         "mediator",
-        Lifecycle.close(
+        LifeCycle.close(
           topologyTransactionProcessor,
           syncCrypto.ips,
           timeTracker,

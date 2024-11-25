@@ -13,7 +13,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.String68
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.event.RecordTime
 import com.digitalasset.canton.participant.pruning.{
@@ -524,7 +524,7 @@ class DbAcsCommitmentStore(
     new DbCommitmentQueue(storage, indexedDomain, protocolVersion, timeouts, loggerFactory)
 
   override def onClosed(): Unit =
-    Lifecycle.close(
+    LifeCycle.close(
       runningCommitments,
       queue,
       markSafeQueue,

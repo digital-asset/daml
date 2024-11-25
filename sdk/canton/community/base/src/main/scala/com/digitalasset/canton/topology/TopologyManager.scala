@@ -14,7 +14,7 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.{DynamicDomainParameters, StaticDomainParameters}
 import com.digitalasset.canton.time.Clock
@@ -807,7 +807,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
     )
     .map(_ => ())
 
-  override protected def onClosed(): Unit = Lifecycle.close(store, sequentialQueue)(logger)
+  override protected def onClosed(): Unit = LifeCycle.close(store, sequentialQueue)(logger)
 
   override def toString: String = s"TopologyManager[${store.storeId}]"
 }

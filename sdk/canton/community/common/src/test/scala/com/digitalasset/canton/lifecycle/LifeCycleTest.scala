@@ -4,14 +4,14 @@
 package com.digitalasset.canton.lifecycle
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.lifecycle.Lifecycle.close
+import com.digitalasset.canton.lifecycle.LifeCycle.close
 import com.digitalasset.canton.logging.LogEntry
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.mutable
 
-class LifecycleTest extends AnyWordSpec with BaseTest {
+class LifeCycleTest extends AnyWordSpec with BaseTest {
 
   case class FailingAutoCloseable(t: Throwable, description: String) extends AutoCloseable {
     override def close(): Unit = throw t

@@ -121,9 +121,7 @@ private[endpoint] class ChannelStageBootstrap(
       executionContext: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, String, AsymmetricEncrypted[SymmetricKey]] =
-    performUnlessClosingEitherU("create session key") {
-      data.security.generateSessionKey(connectTo)
-    }
+    data.security.generateSessionKey(connectTo).mapK(FutureUnlessShutdown.outcomeK)
 }
 
 private[endpoint] class ChannelStageConnected(data: InternalData)(implicit
@@ -215,7 +213,7 @@ private[endpoint] class ChannelStageSecurelyConnected(data: InternalData)(implic
       encryptedMessage: Encrypted[M]
   )(
       deserialize: ByteString => Either[DeserializationError, M]
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, M] =
-    performUnlessClosingEitherU("decrypt")(data.security.decrypt(encryptedMessage)(deserialize))
+  ): EitherT[FutureUnlessShutdown, String, M] =
+    data.security.decrypt(encryptedMessage)(deserialize).mapK(FutureUnlessShutdown.outcomeK)
 
 }
