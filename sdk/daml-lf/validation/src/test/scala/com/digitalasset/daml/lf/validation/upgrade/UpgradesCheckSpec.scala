@@ -676,7 +676,7 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
         ),
       )
     }
-    s"Succeeds when template choice input argument has changed" in {
+    s"Succeeds when template choice input argument template has changed" in {
       testPackages(
         Seq(
           "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentTemplateHasChanged-v1.dar",
@@ -686,6 +686,51 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           (
             "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentTemplateHasChanged-v1.dar",
             "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentTemplateHasChanged-v2.dar",
+            None,
+          )
+        ),
+      )
+    }
+    s"Succeeds when template choice input argument enum has changed" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentEnumHasChanged-v1.dar",
+          "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentEnumHasChanged-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentEnumHasChanged-v1.dar",
+            "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentEnumHasChanged-v2.dar",
+            None,
+          )
+        ),
+      )
+    }
+    s"Succeeds when template choice input argument struct has changed" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentStructHasChanged-v1.dar",
+          "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentStructHasChanged-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentStructHasChanged-v1.dar",
+            "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentStructHasChanged-v2.dar",
+            None,
+          )
+        ),
+      )
+    }
+    s"Succeeds when template choice input argument variant has changed" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentVariantHasChanged-v1.dar",
+          "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentVariantHasChanged-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentVariantHasChanged-v1.dar",
+            "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentVariantHasChanged-v2.dar",
             None,
           )
         ),
