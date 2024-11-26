@@ -493,6 +493,7 @@ da_scala_dar_resources_library(
         ("FailsWhenMakingTypeUnserializable", {}, {}),
         ("FailsWithSynonymReturnTypeChange", {}, {}),
         ("SucceedWhenATopLevelEnumAddsAField", {}, {}),
+        ("FailsWhenAnEnumDropsAConstructor", {}, {}),
         ("SucceedsWhenATopLevelEnumChanges", {}, {}),
         ("SucceedsWhenATopLevelVariantAddsAConstructor", {}, {}),
         ("SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAConstructorsType", {}, {}),

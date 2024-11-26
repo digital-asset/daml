@@ -544,6 +544,8 @@ da_haskell_test(
         "//test-common:upgrades-RecordFieldsNewNonOptional-v2.dar",
         "//test-common:upgrades-SucceedWhenATopLevelEnumAddsAField-v1.dar",
         "//test-common:upgrades-SucceedWhenATopLevelEnumAddsAField-v2.dar",
+        "//test-common:upgrades-FailsWhenAnEnumDropsAConstructor-v1.dar",
+        "//test-common:upgrades-FailsWhenAnEnumDropsAConstructor-v2.dar",
         "//test-common:upgrades-SucceedWhenParamNameChanges-v1.dar",
         "//test-common:upgrades-SucceedWhenParamNameChanges-v2.dar",
         "//test-common:upgrades-SucceedWhenPhantomParamBecomesUsed-v1.dar",

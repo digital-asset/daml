@@ -1,0 +1,7 @@
+module Main where
+
+data MyEnum
+  = MyEnumCon1
+  | MyEnumCon2
+  | MyEnumCon3
+  deriving (Show, Eq)

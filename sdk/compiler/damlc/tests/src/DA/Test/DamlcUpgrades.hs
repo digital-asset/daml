@@ -216,6 +216,9 @@ tests damlc =
                   "SucceedWhenATopLevelEnumAddsAField"
                   Succeed
             , testUpgradeCheck
+                  "FailsWhenAnEnumDropsAConstructor"
+                  (FailWithError "error type checking data type Main.MyEnum:\n  The upgraded data type MyEnum is missing some of its original constructors: MyEnumCon3")
+            , testUpgradeCheck
                   "FailWhenATopLevelEnumChangesChangesTheOrderOfItsConstructors"
                   (FailWithError "error type checking data type Main.A:\n  The upgraded data type A has changed the order of its constructors - any new enum constructor must be added at the end of the enum.")
             , testUpgradeCheck

@@ -903,6 +903,22 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
       )
     }
 
+    "Fails when a top-level enum drops a constructor" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-FailsWhenAnEnumDropsAConstructor-v1.dar",
+          "test-common/upgrades-FailsWhenAnEnumDropsAConstructor-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-FailsWhenAnEnumDropsAConstructor-v1.dar",
+            "test-common/upgrades-FailsWhenAnEnumDropsAConstructor-v2.dar",
+            Some("The upgraded data type MyEnum has removed an existing variant."),
+          )
+        ),
+      )
+    }
+
     "Succeeds when a top-level enum changes" in {
       testPackages(
         Seq(
