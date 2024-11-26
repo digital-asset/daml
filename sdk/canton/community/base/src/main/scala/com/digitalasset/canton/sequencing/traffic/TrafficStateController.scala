@@ -5,8 +5,6 @@ package com.digitalasset.canton.sequencing.traffic
 
 import cats.data.OptionT
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.{SyncCryptoApi, SyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -39,8 +37,6 @@ class TrafficStateController(
     initialTrafficState: TrafficState,
     protocolVersion: ProtocolVersion,
     eventCostCalculator: EventCostCalculator,
-    futureSupervisor: FutureSupervisor,
-    timeouts: ProcessingTimeout,
     metrics: TrafficConsumptionMetrics,
     domainId: DomainId,
 ) extends NamedLogging {

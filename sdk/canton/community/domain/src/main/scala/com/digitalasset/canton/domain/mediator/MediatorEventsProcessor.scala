@@ -7,7 +7,6 @@ import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.metrics.MediatorMetrics
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.messages.{DefaultOpenEnvelope, *}
@@ -16,7 +15,6 @@ import com.digitalasset.canton.sequencing.{TracedProtocolEvent, *}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.MonadUtil
 
-import scala.collection.immutable.Seq
 import scala.concurrent.ExecutionContext
 
 /** We process a sequence of sequential events from the sequencer for the mediator in an optimal manner.
@@ -31,7 +29,6 @@ private[mediator] class MediatorEventsProcessor(
         TraceContext,
     ) => HandlerResult,
     deduplicator: MediatorEventDeduplicator,
-    metrics: MediatorMetrics,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
@@ -170,14 +167,12 @@ private[mediator] object MediatorEventsProcessor {
       identityClientEventHandler: UnsignedProtocolEventHandler,
       processor: ConfirmationRequestAndResponseProcessor,
       mediatorEventDeduplicator: MediatorEventDeduplicator,
-      metrics: MediatorMetrics,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): MediatorEventsProcessor =
     new MediatorEventsProcessor(
       identityClientEventHandler,
       processor.handleRequestEvents,
       mediatorEventDeduplicator,
-      metrics,
       loggerFactory,
     )
 }

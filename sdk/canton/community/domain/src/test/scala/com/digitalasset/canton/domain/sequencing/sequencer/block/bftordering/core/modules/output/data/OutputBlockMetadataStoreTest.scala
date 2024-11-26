@@ -20,7 +20,7 @@ trait OutputBlockMetadataStoreTest extends AsyncWordSpec {
   this: AsyncWordSpec & BftSequencerBaseTest =>
 
   private[bftordering] def outputBlockMetadataStore(
-      createStore: () => OutputBlockMetadataStore[PekkoEnv] & OutputBlocksReader[PekkoEnv]
+      createStore: () => OutputBlockMetadataStore[PekkoEnv]
   ): Unit =
     "OutputBlockMetadataStore" should {
 
@@ -253,57 +253,6 @@ trait OutputBlockMetadataStoreTest extends AsyncWordSpec {
             epochCouldAlterSequencingTopology = true,
             pendingTopologyChangesInNextEpoch = true,
           )
-        }
-      }
-
-      "load output block metadata" in {
-        val store = createStore()
-        val block1 = createBlock(BlockNumber.First, EpochNumber.First)
-        val block2 = createBlock(BlockNumber(1L), EpochNumber(1L))
-        val storeInit: Future[Unit] = for {
-          _ <- store.insertIfMissing(block1)
-          _ <- store.insertIfMissing(block2)
-        } yield ()
-
-        for {
-          _ <- storeInit
-          r1 <- store.loadOutputBlockMetadata(
-            EpochNumber.First,
-            EpochNumber.First,
-          )
-          r2 <- store.loadOutputBlockMetadata(
-            EpochNumber.First,
-            EpochNumber(1L),
-          )
-          r3 <- store.loadOutputBlockMetadata(
-            EpochNumber(1L),
-            EpochNumber(1L),
-          )
-          r4 <- store.loadOutputBlockMetadata(
-            EpochNumber(2L),
-            EpochNumber(2L),
-          )
-        } yield {
-          val expectedB1 =
-            OutputBlockMetadata(
-              epochNumber = EpochNumber.First,
-              blockNumber = BlockNumber.First,
-              blockBftTime = CantonTimestamp.Epoch,
-              epochCouldAlterSequencingTopology = true,
-              pendingTopologyChangesInNextEpoch = true,
-            )
-          val expectedB2 =
-            OutputBlockMetadata(
-              epochNumber = EpochNumber(1L),
-              blockNumber = BlockNumber(1L),
-              blockBftTime = CantonTimestamp.Epoch,
-              epochCouldAlterSequencingTopology = true,
-              pendingTopologyChangesInNextEpoch = true,
-            )
-          r1 should contain only expectedB1
-          r2 should contain theSameElementsInOrderAs Seq(expectedB1, expectedB2)
-          r3 should contain only expectedB2
-          r4 shouldBe empty
         }
       }
     }

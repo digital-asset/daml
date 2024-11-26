@@ -36,34 +36,25 @@ private[driver] final class CantonOrderingTopologyProvider(
 ) extends OrderingTopologyProvider[PekkoEnv]
     with NamedLogging {
 
-  override def getOrderingTopologyAt(
-      activationTime: TopologyActivationTime,
-      assumePendingTopologyChanges: Boolean = false,
-  )(implicit
+  override def getOrderingTopologyAt(activationTime: TopologyActivationTime)(implicit
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Option[(OrderingTopology, CryptoProvider[PekkoEnv])]] = {
     val name = s"get ordering topology at activation time $activationTime"
 
-    val maxTimestampF =
-      if (!assumePendingTopologyChanges) {
-        // To understand if there are (potentially relevant) pending topology changes that have been already
-        //  sequenced but will only become visible after observed time advances through the sequencing
-        //  of further events, we need to retrieve the maximum effective timestamp after the topology processor
-        //  processed everything sequenced up to and including the predecessor of the requested activation timestamp
-        //  (note that `awaitMaxTimestampUS` is exclusive on its input).
-        logger.debug(s"Awaiting max timestamp for snapshot at activation time $activationTime")
-        cryptoApi.awaitMaxTimestampUS(activationTime.value).map { maxTimestamp =>
-          logger.debug(
-            s"Max timestamp $maxTimestamp awaited successfully for snapshot at activation time $activationTime"
-          )
-          Right(maxTimestamp)
-        }
-      } else {
+    val maxTimestampF = {
+      // To understand if there are (potentially relevant) pending topology changes that have been already
+      //  sequenced but will only become visible after observed time advances through the sequencing
+      //  of further events, we need to retrieve the maximum effective timestamp after the topology processor
+      //  processed everything sequenced up to and including the predecessor of the requested activation timestamp
+      //  (note that `awaitMaxTimestampUS` is exclusive on its input).
+      logger.debug(s"Awaiting max timestamp for snapshot at activation time $activationTime")
+      cryptoApi.awaitMaxTimestampUS(activationTime.value).map { maxTimestamp =>
         logger.debug(
-          s"Skipping awaiting max timestamp for snapshot at activation time $activationTime"
+          s"Max timestamp $maxTimestamp awaited successfully for snapshot at activation time $activationTime"
         )
-        FutureUnlessShutdown.pure(Left(()))
+        maxTimestamp
       }
+    }
 
     logger.debug(s"Querying topology snapshot for activation time $activationTime")
     val snapshotF = cryptoApi.awaitSnapshotUS(activationTime.value)
@@ -112,14 +103,10 @@ private[driver] final class CantonOrderingTopologyProvider(
           peersActiveAt,
           sequencingDynamicParameters,
           activationTime,
-          areTherePendingCantonTopologyChanges = maxTimestamp match {
-            case Left(_) =>
-              true // We skip awaiting the max timestamp, so we assume there are pending changes
-            case Right(result) =>
-              result.exists { case (_maxSequencedTime, EffectiveTime(maxEffectiveTime)) =>
-                // The comparison is strict to avoid considering the activation time as pending.
-                maxEffectiveTime > activationTime.value
-              }
+          areTherePendingCantonTopologyChanges = maxTimestamp.exists {
+            case (_, EffectiveTime(maxEffectiveTime)) =>
+              // The comparison is strict to avoid considering the activation time as pending.
+              maxEffectiveTime > activationTime.value
           },
         )
       topology -> new CantonCryptoProvider(snapshot)

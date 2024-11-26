@@ -90,6 +90,7 @@ class DbInitializationStore(
     sql"select identifier, namespace from common_node_id"
       .as[(String, Fingerprint)]
 
+  @SuppressWarnings(Array("org.wartremover.warts.AnyVal"))
   override def setUid(id: UniqueIdentifier)(implicit traceContext: TraceContext): Future[Unit] =
     storage.queryAndUpdate(
       {

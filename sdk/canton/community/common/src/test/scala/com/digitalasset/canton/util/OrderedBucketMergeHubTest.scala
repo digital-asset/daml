@@ -85,7 +85,7 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
 
       val sourceCompletesPromise = Promise[Done]()
 
-      val ops = mkOps(100) { (name, _config, _offset, _prior) =>
+      val ops = mkOps(100) { (name, _, _, _) =>
         Source(1 to 10).map(mkElem).watchTermination() { (_, doneF) =>
           sourceCompletesPromise.completeWith(doneF)
           (noOpKillSwitch, doneF, matFor(name))
@@ -123,7 +123,7 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
       }
       val killSwitchPulledAt = new AtomicInteger()
 
-      val ops = mkOps(100) { (name, _config, _offset, _prior) =>
+      val ops = mkOps(100) { (name, _, _, _) =>
         val completableSource = Source.queue[Int](11)
         completableSource.map(observeElem).map(mkElem).watchTermination() {
           (boundedSourceQueue, doneF) =>
@@ -179,7 +179,7 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
       tertiary -> tertiarySourceRef,
     )
 
-    val ops = mkOps(100) { (name, _config, _offset, _prior) =>
+    val ops = mkOps(100) { (name, _, _, _) =>
       TestSource.probe[Elem].viaMat(KillSwitches.single)(Keep.both).watchTermination() {
         case ((probe, killSwitch), doneF) =>
           sources(name).set(probe)
@@ -290,7 +290,7 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
       i
     }
 
-    val ops = mkOps(0) { (name, config, _offset, _prior) =>
+    val ops = mkOps(0) { (name, config, _, _) =>
       Source(1 to 100)
         .map(observeElem(name, _))
         .viaMat(KillSwitches.single)(Keep.right)
@@ -344,7 +344,7 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
   "complete only after draining the source" in assertAllStagesStopped {
     val promise = Promise[Elem]()
 
-    val ops = mkOps(0) { (name, _config, _offset, _prior) =>
+    val ops = mkOps(0) { (name, _, _, _) =>
       Source
         .single(())
         .viaMat(KillSwitches.single)(Keep.right)
@@ -378,7 +378,7 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
   "complete only after the completion future of the source" in assertAllStagesStopped {
     val promise = Promise[Done]()
 
-    val ops = mkOps(0) { (name, _config, _offset, _prior) =>
+    val ops = mkOps(0) { (name, _, _, _) =>
       Source.empty.mapMaterializedValue(_ => (noOpKillSwitch, promise.future, matFor(name)))
     }
     val ((configQueue, doneF), sink) =
@@ -413,7 +413,7 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
 
     val probes = TrieMap.empty[String, TestPublisher.Probe[Elem]]
 
-    val ops = mkOps(0) { (name, config, _offset, _prior) =>
+    val ops = mkOps(0) { (name, config, _, _) =>
       TestSource.probe[Elem].viaMat(KillSwitches.single)(Keep.both).watchTermination() {
         case ((probe, killSwitch), doneF) =>
           probes.put(s"$name-$config", probe)
@@ -580,7 +580,7 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
   "reconfiguration synchronizes with the completion future" in assertAllStagesStopped {
     val promise = Promise[Done]()
 
-    val ops = mkOps(0) { (name, _config, offset, _prior) =>
+    val ops = mkOps(0) { (name, _, offset, _) =>
       if (name == "slow-doneF-source") {
         Source.single(Elem(Bucket(offset + 1, 0), "")).viaMat(KillSwitches.single) {
           (_, killSwitch) => (killSwitch, promise.future, matFor(name))
@@ -629,7 +629,7 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
   "propagate failures" in assertAllStagesStopped {
     val promise = Promise[Done]()
     val sourceEx = new Exception("Source failed")
-    val ops = mkOps(0) { (name, _config, _offset, _prior) =>
+    val ops = mkOps(0) { (name, _, _, _) =>
       Source
         .single(())
         .map(_ => throw sourceEx)
@@ -666,7 +666,7 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
       i
     }
 
-    val ops = mkOps(0) { (name, _config, _offset, _prior) =>
+    val ops = mkOps(0) { (name, _, _, _) =>
       Source(1 to 10).map(observeElem).map(mkElem).watchTermination() { (_, doneF) =>
         (noOpKillSwitch, doneF, matFor(name))
       }
@@ -693,7 +693,7 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
     def mkElem(name: Name, i: Int): Elem = Elem(Bucket(i, 0), s"$name-$i")
     val priors = new AtomicReference[Seq[(Name, Option[Elem])]](Seq.empty)
 
-    val ops = mkOps(10) { (name, _config, offset, prior) =>
+    val ops = mkOps(10) { (name, _, offset, prior) =>
       priors.updateAndGet(_ :+ (name -> prior)).discard
       Source(offset + 1 to offset + 2)
         .map(mkElem(name, _))
@@ -799,7 +799,7 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
   "logs an error when Ops throws" in assertAllStagesStopped {
     class SourceCreationException(msg: String) extends Exception(msg)
 
-    val ops = mkOps(10) { (name, _config, offset, _prior) =>
+    val ops = mkOps(10) { (name, _, offset, _) =>
       throw new SourceCreationException(s"Source creation failed for $name at $offset")
     }
     val ((configQueue, doneF), sink) =
@@ -831,7 +831,7 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
 
     val probes = TrieMap.empty[String, TestPublisher.Probe[Elem]]
 
-    val ops = mkOps(0) { (name, config, _offset, _prior) =>
+    val ops = mkOps(0) { (name, config, _, _) =>
       TestSource.probe[Elem].viaMat(KillSwitches.single)(Keep.both).watchTermination() {
         case ((probe, killSwitch), doneF) =>
           probes.put(s"$name-$config", probe)

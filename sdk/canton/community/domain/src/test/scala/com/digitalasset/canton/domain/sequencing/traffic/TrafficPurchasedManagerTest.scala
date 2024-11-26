@@ -57,7 +57,6 @@ class TrafficPurchasedManagerTest
     ),
     futureSupervisor,
     sequencerMetrics,
-    protocolVersion = testedProtocolVersion,
     timeouts,
     loggerFactory,
   )
@@ -151,7 +150,6 @@ class TrafficPurchasedManagerTest
         SequencerTrafficConfig(pruningRetentionWindow = NonNegativeFiniteDuration.ofSeconds(2)),
         futureSupervisor,
         SequencerMetrics.noop("traffic-balance-manager"),
-        testedProtocolVersion,
         timeouts,
         loggerFactory,
       ) {

@@ -26,7 +26,6 @@ trait RateLimitManagerTesting { this: BaseTest with HasExecutionContext =>
     sequencerTrafficConfig,
     futureSupervisor,
     SequencerMetrics.noop("sequencer-rate-limit-manager-test"),
-    testedProtocolVersion,
     timeouts,
     loggerFactory,
   )

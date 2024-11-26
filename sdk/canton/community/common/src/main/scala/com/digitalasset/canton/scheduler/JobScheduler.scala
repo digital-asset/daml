@@ -171,7 +171,7 @@ abstract class JobScheduler(
       implicit traceContext: TraceContext =>
         val future =
           runIfActive(
-            state => {
+            _ => {
               logger.debug(s"Starting scheduler job")
               job(traceContext)
             },

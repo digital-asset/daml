@@ -118,7 +118,6 @@ private[mediator] class Mediator(
     topologyTransactionProcessor.createHandler(domain),
     processor,
     deduplicator,
-    metrics,
     loggerFactory,
   )
 

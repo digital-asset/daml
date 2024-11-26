@@ -27,7 +27,7 @@ class InternalConsistencyCheckerTest extends AnyWordSpec with BaseTest {
       icc: InternalConsistencyChecker,
       views: Seq[FullTransactionViewTree],
   ): Either[ErrorWithInternalConsistencyCheck, Unit] =
-    icc.check(NonEmptyUtil.fromUnsafe(views), _ => false)
+    icc.check(NonEmptyUtil.fromUnsafe(views))
 
   "Rollback scope ordering" when {
 
@@ -62,7 +62,7 @@ class InternalConsistencyCheckerTest extends AnyWordSpec with BaseTest {
     forEvery(relevantExamples) { example =>
       s"checking $example" must {
 
-        val sut = new InternalConsistencyChecker(testedProtocolVersion, loggerFactory)
+        val sut = new InternalConsistencyChecker(loggerFactory)
 
         "yield the correct result" in {
           check(sut, example.rootTransactionViewTrees).isRight shouldBe true

@@ -198,7 +198,6 @@ final class GeneratorsProtocol(
           ledgerCreateTime = ledgerCreateTime,
           metadata = metadata,
           suffixedContractInstance = rawContractInstance,
-          contractIdVersion = contractIdVersion,
         )
 
         index <- Gen.posNum[Int]

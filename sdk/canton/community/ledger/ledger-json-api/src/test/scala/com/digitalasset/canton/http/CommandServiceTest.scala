@@ -152,7 +152,11 @@ object CommandServiceTest extends BaseTest {
                     )
                   )
                 )
-                \/-(SubmitAndWaitForTransactionResponse(Some(Transaction(events = Seq(creation)))))
+                \/-(
+                  SubmitAndWaitForTransactionResponse(
+                    Some(Transaction(events = Seq(creation), offset = 1))
+                  )
+                )
               },
         submitAndWaitForTransactionTree = (_, req) =>
           _ =>

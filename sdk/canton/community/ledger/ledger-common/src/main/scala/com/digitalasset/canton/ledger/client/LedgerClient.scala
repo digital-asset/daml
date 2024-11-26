@@ -37,6 +37,7 @@ import io.grpc.netty.NettyChannelBuilder
 import io.grpc.stub.AbstractStub
 
 import java.io.Closeable
+import scala.annotation.unused
 import scala.concurrent.{ExecutionContext, Future}
 
 /** GRPC client for the Canton Ledger API.
@@ -47,6 +48,7 @@ import scala.concurrent.{ExecutionContext, Future}
 final class LedgerClient private (
     val channel: Channel,
     config: LedgerClientConfiguration,
+    @unused
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory)
     extends Closeable {

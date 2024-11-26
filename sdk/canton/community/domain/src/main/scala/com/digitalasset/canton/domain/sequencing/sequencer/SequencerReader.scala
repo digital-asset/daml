@@ -15,7 +15,6 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerReader.ReadState
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.domain.sequencing.sequencer.store.*
-import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficConsumedStore
 import com.digitalasset.canton.lifecycle.{
   CloseContext,
   FlagCloseable,
@@ -97,7 +96,6 @@ class SequencerReader(
     syncCryptoApi: SyncCryptoClient[SyncCryptoApi],
     eventSignaller: EventSignaller,
     topologyClientMember: Member,
-    trafficConsumedStoreO: Option[TrafficConsumedStore],
     protocolVersion: ProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
@@ -197,7 +195,7 @@ class SequencerReader(
           FetchLatestEventsFlow[(SequencerCounter, Sequenced[IdOrPayload]), ReadState](
             initialReadState,
             state => fetchUnvalidatedEventsBatchFromCheckpoint(state)(traceContext),
-            (state, _events) => !state.lastBatchWasFull,
+            (state, _) => !state.lastBatchWasFull,
           )
         )
 
@@ -348,8 +346,8 @@ class SequencerReader(
           .value
           .map { snapshotOrError =>
             val topologyClientTimestampAfter = snapshotOrError.fold(
-              _error => topologyClientTimestampBefore,
-              _snapshot =>
+              _ => topologyClientTimestampBefore,
+              _ =>
                 latestTopologyClientTimestampAfter(topologyClientTimestampBefore, unvalidatedEvent),
             )
 

@@ -182,12 +182,16 @@ object CryptoPrivateStoreError extends CantonErrorGroups.CommandErrorGroup {
       prettyOfClass(param("keyId", _.keyId), param("reason", _.reason.unquoted))
   }
 
-  final case class KeyAlreadyExists(keyId: Fingerprint, existingKeyName: Option[String])
-      extends CryptoPrivateStoreError {
+  final case class KeyAlreadyExists(
+      keyId: Fingerprint,
+      existingKeyName: Option[String],
+      newKeyName: Option[String],
+  ) extends CryptoPrivateStoreError {
     override protected def pretty: Pretty[KeyAlreadyExists] =
       prettyOfClass(
         param("keyId", _.keyId),
         param("existingKeyName", _.existingKeyName.getOrElse("").unquoted),
+        param("newKeyName", _.newKeyName.getOrElse("").unquoted),
       )
   }
 

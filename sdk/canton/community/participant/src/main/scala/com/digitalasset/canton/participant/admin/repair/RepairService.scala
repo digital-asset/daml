@@ -206,13 +206,11 @@ final class RepairService(
   }
 
   /** Prepare contract for add, including re-computing metadata
-    * @param domain Domain data of the repair request
     * @param repairContract Contract to be added
     * @param acsState If the contract is known, its status
     * @param storedContract If the contract already exist in the ContractStore, the stored copy
     */
   private def readRepairContractCurrentState(
-      domain: RepairRequest.DomainData,
       repairContract: RepairContract,
       acsState: Option[ActiveContractStore.Status],
       storedContract: Option[SerializableContract],
@@ -367,7 +365,6 @@ final class RepairService(
             filteredContracts <- contracts.zip(contractStates).parTraverseFilter {
               case (contract, acsState) =>
                 readRepairContractCurrentState(
-                  domain,
                   repairContract = contract,
                   acsState = acsState,
                   storedContract = storedContracts.get(contract.contract.contractId),

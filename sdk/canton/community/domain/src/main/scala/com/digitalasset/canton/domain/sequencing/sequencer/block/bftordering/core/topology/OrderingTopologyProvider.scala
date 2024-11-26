@@ -15,14 +15,11 @@ trait OrderingTopologyProvider[E <: Env[E]] {
     * @param activationTime The timestamp at which to get the topology snapshot.
     *                       See [[TopologyActivationTime]] for details.
     * @param traceContext The trace context.
-    * @param assumePendingTopologyChanges If true, will not check if there are pending topology changes
-    *                                     and just assume there are.
     * @return A future that completes and yields the requested topology only if at least the immediate
     *         predecessor has been successfully sequenced and is visible to the sequencer's topology processor.
     */
   def getOrderingTopologyAt(
-      activationTime: TopologyActivationTime,
-      assumePendingTopologyChanges: Boolean = false,
+      activationTime: TopologyActivationTime
   )(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Option[(OrderingTopology, CryptoProvider[E])]]

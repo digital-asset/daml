@@ -32,7 +32,6 @@ private[participant] class JournalGarbageCollector(
     domainIndexF: TraceContext => Future[DomainIndex],
     sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
     acsCommitmentStore: AcsCommitmentStore,
-    acsCounterParticipantConfigStore: AcsCounterParticipantConfigStore,
     acs: ActiveContractStore,
     submissionTrackerStore: SubmissionTrackerStore,
     inFlightSubmissionStore: Eval[InFlightSubmissionStore],

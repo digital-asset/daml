@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.HasExecutionContext
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel.Revoked
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.RawParticipantAuthorization
@@ -42,8 +42,7 @@ private[backend] trait StorageBackendTestsPartyToParticipant
 
   def toRaw(dbDto: DbDto.EventPartyToParticipant): RawParticipantAuthorization =
     RawParticipantAuthorization(
-      offset =
-        Offset.fromHexString(Ref.HexString.assertFromString(dbDto.event_offset)).toAbsoluteOffset,
+      offset = AbsoluteOffset.fromHexString(Ref.HexString.assertFromString(dbDto.event_offset)),
       updateId = dbDto.update_id,
       partyId = dbDto.party_id,
       participantId = dbDto.participant_id,

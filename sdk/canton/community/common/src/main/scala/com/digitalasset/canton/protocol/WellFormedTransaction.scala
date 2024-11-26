@@ -322,10 +322,10 @@ object WellFormedTransaction {
             .map(value => LfTransactionUtil.referencedContractIds(value))
             .getOrElse(Set.empty)
         addReferencesByLfValue(nodeId, resultRefs.to(LazyList))
-      } { (_nodeId, _nr, _unit) =>
+      } { (_, _, _) =>
         rbContext = rbContext.enterRollback
         Checked.unit
-      } { (_nodeId, _nr, _unit) =>
+      } { (_, _, _) =>
         rbContext = rbContext.exitRollback
         Checked.unit
       }

@@ -42,6 +42,7 @@ object Output {
 
   final case class TopologyFetched[E <: Env[E]](
       lastCompletedBlockNumber: BlockNumber,
+      lastCompletedBlockMode: OrderedBlockForOutput.Mode,
       newEpochNumber: EpochNumber,
       orderingTopology: OrderingTopology,
       cryptoProvider: CryptoProvider[E],
@@ -49,6 +50,7 @@ object Output {
 
   final case class LastBlockUpdated[E <: Env[E]](
       lastCompletedBlockNumber: BlockNumber,
+      lastCompletedBlockMode: OrderedBlockForOutput.Mode,
       newEpochNumber: EpochNumber,
       orderingTopology: OrderingTopology,
       cryptoProvider: CryptoProvider[E],

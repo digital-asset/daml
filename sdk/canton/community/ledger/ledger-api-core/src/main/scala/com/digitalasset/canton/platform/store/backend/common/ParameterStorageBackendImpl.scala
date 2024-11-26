@@ -155,7 +155,7 @@ private[backend] class ParameterStorageBackendImpl(
         )
         import Conversions.AbsoluteOffsetOToStatement
         val lastOffset = None
-        // TODO(#21220) temporary measures, will be none in next iteration
+        // TODO(#22143) temporary measures, will be none in next iteration
         val lastEventSeqId = ParallelIndexerSubscription.ZeroLedgerEnd.lastEventSeqId
         val lastStringInterningId = ParallelIndexerSubscription.ZeroLedgerEnd.lastStringInterningId
         val lastPublicationTime = ParallelIndexerSubscription.ZeroLedgerEnd.lastPublicationTime

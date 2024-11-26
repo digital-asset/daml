@@ -6,7 +6,7 @@ package com.digitalasset.canton.domain.sequencing.service
 import cats.data.EitherT
 import cats.syntax.option.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.concurrent.{FutureSupervisor, Threading}
+import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDouble, PositiveInt}
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, Signature}
@@ -116,7 +116,6 @@ class GrpcSequencerServiceTest
         BaseTest.defaultStaticDomainParameters,
         None,
         topologyClient,
-        FutureSupervisor.Noop,
         loggerFactory,
       )
     private val params = new SequencerParameters {

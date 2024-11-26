@@ -83,9 +83,7 @@ class BftOrderingVerifier(
   private def checkBlockAgainstModel(block: BlockFormat.Block): Unit =
     if (block.blockHeight < currentLog.size) {
       // Block already exists in the model, check it is the same
-      // TODO(#19661): State-transferred blocks might need to propagate this timestamp
-      currentLog(block.blockHeight.toInt).copy(tickTopologyAtMicrosFromEpoch = None) shouldBe
-        block.copy(tickTopologyAtMicrosFromEpoch = None)
+      currentLog(block.blockHeight.toInt) shouldBe block
     } else {
       // New block
       block.blockHeight shouldBe currentLog.size

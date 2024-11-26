@@ -18,7 +18,9 @@ message BftSequencerSnapshotAdditionalInfo {
     optional int64 epoch_number = 2;
     // Needed to properly set the initial block in the Output module (due to transferring full epochs)
     optional int64 first_block_number_in_epoch = 3;
+    // Needed for emitting topology ticks consistently.
+    optional bool pending_topology_changes_in_epoch = 4;
     // BFT time of the last block in the previous epoch (in microseconds of UTC time since Unix epoch)
-    optional int64 previous_bft_time = 4;
+    optional int64 previous_bft_time = 5;
   }
 }

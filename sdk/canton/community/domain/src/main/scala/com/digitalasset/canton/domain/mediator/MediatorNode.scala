@@ -556,7 +556,6 @@ class MediatorNodeBootstrap(
             TopologyTransactionProcessor.createProcessorAndClientForDomain(
               domainTopologyStore,
               domainId,
-              domainConfig.domainParameters.protocolVersion,
               new DomainCryptoPureApi(staticDomainParameters, crypto.pureCrypto),
               arguments.parameterConfig,
               arguments.clock,
@@ -603,7 +602,6 @@ class MediatorNodeBootstrap(
         parameters.exitOnFatalFailures,
         domainLoggerFactory,
         ProtocolVersionCompatibility.supportedProtocols(parameters),
-        None,
       )
 
       // we wait here until the sequencer becomes active. this allows to reconfigure the

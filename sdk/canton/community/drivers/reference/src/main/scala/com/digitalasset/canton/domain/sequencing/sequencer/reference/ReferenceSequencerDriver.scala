@@ -17,7 +17,6 @@ import com.digitalasset.canton.domain.block.{
   RawLedgerBlock,
   SequencerDriver,
   SequencerDriverHealthStatus,
-  TransactionSignature,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.ReferenceSequencerDriver.{
   TimestampedRequest,
@@ -141,7 +140,6 @@ class ReferenceSequencerDriver(
   private def sendRequest(
       tag: String,
       body: ByteString,
-      signature: Option[TransactionSignature] = None,
   )(implicit
       traceContext: TraceContext
   ): Future[Unit] =

@@ -40,7 +40,6 @@ class JsStateService(
 ) extends Endpoints
     with NamedLogging {
 
-  import JsStateServiceCodecs.*
   import JsStateService.*
 
   private def stateServiceClient(token: Option[String])(implicit

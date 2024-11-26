@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 
 class ScaffeineCacheTest extends AsyncWordSpec with BaseTest with FailOnShutdown {
 
-  private def getValueBroken(input: Int): FutureUnlessShutdown[Int] =
+  private def getValueBroken: Int => FutureUnlessShutdown[Nothing] = (_: Int) =>
     FutureUnlessShutdown.abortedDueToShutdown
   private def getValue(input: Int): FutureUnlessShutdown[Int] = FutureUnlessShutdown.pure(input)
 
@@ -129,7 +129,7 @@ class ScaffeineCacheTest extends AsyncWordSpec with BaseTest with FailOnShutdown
       val counter = new AtomicInteger()
       val keysCache = ScaffeineCache.buildTracedAsync[FutureUnlessShutdown, Int, Int](
         cache = CachingConfigs.testing.mySigningKeyCache.buildScaffeine(),
-        loader = traceContext => input => getValue(counter.incrementAndGet() + input),
+        loader = _ => input => getValue(counter.incrementAndGet() + input),
       )(logger)
       for {
         result1 <- keysCache.get(10)(TraceContext.empty)

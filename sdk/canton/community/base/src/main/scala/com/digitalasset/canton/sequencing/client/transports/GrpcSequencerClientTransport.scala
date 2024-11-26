@@ -13,7 +13,6 @@ import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.api.v30.SequencerServiceGrpc.SequencerServiceStub
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.SequencerClientMetrics
 import com.digitalasset.canton.networking.grpc.GrpcError.GrpcServiceUnavailable
 import com.digitalasset.canton.networking.grpc.{
   CantonGrpcUtil,
@@ -267,7 +266,6 @@ class GrpcSequencerClientTransport(
     channel: ManagedChannel,
     callOptions: CallOptions,
     clientAuth: GrpcSequencerClientAuth,
-    metrics: SequencerClientMetrics,
     timeouts: ProcessingTimeout,
     loggerFactory: NamedLoggerFactory,
     protocolVersion: ProtocolVersion,
@@ -295,7 +293,6 @@ class GrpcSequencerClientTransport(
     val subscription = GrpcSequencerSubscription.fromVersionedSubscriptionResponse(
       context,
       handler,
-      metrics,
       timeouts,
       loggerFactory,
     )(protocolVersion)

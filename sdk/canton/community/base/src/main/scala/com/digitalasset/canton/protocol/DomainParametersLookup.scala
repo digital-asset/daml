@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.protocol
 
-import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -23,7 +22,6 @@ class DynamicDomainParametersLookup[P](
     projector: DynamicDomainParameters => P,
     topologyClient: DomainTopologyClient,
     protocolVersion: ProtocolVersion,
-    futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
@@ -72,7 +70,6 @@ object DomainParametersLookup {
       staticDomainParameters: StaticDomainParameters,
       overrideMaxRequestSize: Option[NonNegativeInt],
       topologyClient: DomainTopologyClient,
-      futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): DynamicDomainParametersLookup[SequencerDomainParameters] =
     new DynamicDomainParametersLookup(
@@ -83,14 +80,12 @@ object DomainParametersLookup {
         ),
       topologyClient,
       staticDomainParameters.protocolVersion,
-      futureSupervisor,
       loggerFactory,
     )
 
   def forAcsCommitmentDomainParameters(
       pv: ProtocolVersion,
       topologyClient: DomainTopologyClient,
-      futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): DynamicDomainParametersLookup[AcsCommitmentDomainParameters] =
     new DynamicDomainParametersLookup(
@@ -101,7 +96,6 @@ object DomainParametersLookup {
         ),
       topologyClient,
       pv,
-      futureSupervisor,
       loggerFactory,
     )
 

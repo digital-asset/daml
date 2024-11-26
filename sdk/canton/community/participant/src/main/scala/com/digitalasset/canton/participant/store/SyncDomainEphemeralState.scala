@@ -78,7 +78,6 @@ class SyncDomainEphemeralState(
       metrics,
       loggerFactory,
       startingPoints.processing.nextRequestCounter,
-      futureSupervisor,
     )
   val requestCounterAllocator = new RequestCounterAllocatorImpl(
     startingPoints.cleanReplay.nextRequestCounter,
@@ -128,7 +127,7 @@ class SyncDomainEphemeralState(
     )
 
   val submissionTracker: SubmissionTracker =
-    SubmissionTracker(persistentState.staticDomainParameters.protocolVersion)(
+    SubmissionTracker(
       participantId,
       persistentState.submissionTrackerStore,
       futureSupervisor,

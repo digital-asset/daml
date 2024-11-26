@@ -171,7 +171,7 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
     }
   }
 
-  class TestProtocolMessage(_text: String) extends ProtocolMessage with UnsignedProtocolMessage {
+  class TestProtocolMessage() extends ProtocolMessage with UnsignedProtocolMessage {
     override def domainId: DomainId = fail("shouldn't be used")
 
     override def representativeProtocolVersion: RepresentativeProtocolVersion[companionObj.type] =
@@ -194,8 +194,8 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
       import env.*
 
       val messageId = MessageId.tryCreate("test-message")
-      val message1 = new TestProtocolMessage("message1")
-      val message2 = new TestProtocolMessage("message2")
+      val message1 = new TestProtocolMessage()
+      val message2 = new TestProtocolMessage()
 
       val submission = SubmissionRequest.tryCreate(
         alice,

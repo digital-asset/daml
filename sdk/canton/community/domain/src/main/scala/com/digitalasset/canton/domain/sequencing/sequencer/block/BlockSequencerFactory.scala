@@ -145,7 +145,6 @@ abstract class BlockSequencerFactory(
   @VisibleForTesting
   protected def makeRateLimitManager(
       trafficPurchasedManager: TrafficPurchasedManager,
-      futureSupervisor: FutureSupervisor,
       domainSyncCryptoApi: DomainSyncCryptoClient,
       protocolVersion: ProtocolVersion,
       trafficConfig: SequencerTrafficConfig,
@@ -199,14 +198,12 @@ abstract class BlockSequencerFactory(
       trafficConfig,
       futureSupervisor,
       metrics,
-      protocolVersion,
       nodeParameters.processingTimeouts,
       loggerFactory,
     )
 
     val rateLimitManager = makeRateLimitManager(
       balanceManager,
-      futureSupervisor,
       domainSyncCryptoApi,
       protocolVersion,
       trafficConfig,
@@ -215,9 +212,7 @@ abstract class BlockSequencerFactory(
     val domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
 
     val stateManager = BlockSequencerStateManager(
-      protocolVersion,
       domainId,
-      sequencerId,
       store,
       trafficConsumedStore,
       nodeParameters.enableAdditionalConsistencyChecks,

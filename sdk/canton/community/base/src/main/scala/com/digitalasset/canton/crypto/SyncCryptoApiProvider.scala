@@ -56,6 +56,7 @@ import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersio
 import com.google.protobuf.ByteString
 import org.slf4j.event.Level
 
+import scala.annotation.unused
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -328,7 +329,7 @@ class DomainSyncCryptoClient(
     val domainId: DomainId,
     val ips: DomainTopologyClient,
     val crypto: Crypto,
-    sessionSigningKeysConfig: SessionSigningKeysConfig,
+    @unused sessionSigningKeysConfig: SessionSigningKeysConfig,
     cacheConfigs: CachingConfigs,
     val staticDomainParameters: StaticDomainParameters,
     override val timeouts: ProcessingTimeout,

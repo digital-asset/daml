@@ -54,7 +54,7 @@ class DbRegisteredDomainsStore(
       }
 
       // Try to insert until we succeed or find a consistency error
-      def step(_x: Unit): Future[Either[Unit, Either[Error, Unit]]] = {
+      def step(): Future[Either[Unit, Either[Error, Unit]]] = {
         // Use Left for short-circuiting the checks and report an error or success and Right to continue checking.
         // We swap sides at the end
         val swapped = for {
@@ -95,7 +95,7 @@ class DbRegisteredDomainsStore(
         } yield () // We get here only if rowCount is not 1 and neither the alias nor the domain was found. So try inserting again.
         swapped.swap.value
       }
-      Monad[Future].tailRecM(())(step)
+      Monad[Future].tailRecM(())(_ => step())
     }
 
   override def aliasToDomainIdMap(implicit

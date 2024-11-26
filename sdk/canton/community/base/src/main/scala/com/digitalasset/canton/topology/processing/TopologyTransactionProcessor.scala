@@ -47,7 +47,6 @@ import com.digitalasset.canton.topology.transaction.{
 import com.digitalasset.canton.topology.{DomainId, TopologyManagerError, TopologyStateProcessor}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, MonadUtil, SimpleExecutionQueue}
-import com.digitalasset.canton.version.ProtocolVersion
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.concurrent.{ExecutionContext, Future}
@@ -545,7 +544,6 @@ object TopologyTransactionProcessor {
   def createProcessorAndClientForDomain(
       topologyStore: TopologyStore[TopologyStoreId.DomainStore],
       domainId: DomainId,
-      protocolVersion: ProtocolVersion,
       pureCrypto: DomainCryptoPureApi,
       parameters: CantonNodeParameters,
       clock: Clock,
@@ -572,7 +570,6 @@ object TopologyTransactionProcessor {
     val cachingClientF = CachingDomainTopologyClient.create(
       clock,
       domainId,
-      protocolVersion,
       topologyStore,
       StoreBasedDomainTopologyClient.NoPackageDependencies,
       parameters.cachingConfigs,

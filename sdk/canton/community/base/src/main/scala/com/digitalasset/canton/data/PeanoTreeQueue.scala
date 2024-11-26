@@ -55,11 +55,10 @@ class PeanoTreeQueue[Discr, V](initHead: Counter[Discr]) extends PeanoQueue[Coun
       true
     } else if (key >= headV) {
       val oldValue =
-        elems
-          .get(key)
-          .getOrElse(
-            throw new IllegalStateException("Unreachable code by properties of the PeanoQueue")
-          )
+        elems.getOrElse(
+          key,
+          throw new IllegalStateException("Unreachable code by properties of the PeanoQueue"),
+        )
       if (value != oldValue)
         associationChanged(oldValue)
       true

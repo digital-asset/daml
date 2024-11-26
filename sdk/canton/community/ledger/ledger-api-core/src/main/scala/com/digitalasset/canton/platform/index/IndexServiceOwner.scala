@@ -35,7 +35,6 @@ import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.engine.Engine
 import io.opentelemetry.api.trace.Tracer
 
 import scala.concurrent.duration.*
@@ -46,7 +45,6 @@ final class IndexServiceOwner(
     config: IndexServiceConfig,
     dbSupport: DbSupport,
     metrics: LedgerApiServerMetrics,
-    engine: Engine,
     participantId: Ref.ParticipantId,
     inMemoryState: InMemoryState,
     tracer: Tracer,
@@ -78,7 +76,6 @@ final class IndexServiceOwner(
       _ <- Resource.fromFuture(waitForInMemoryStateInitialization())
 
       contractStore = new MutableCacheBackedContractStore(
-        metrics,
         ledgerDao.contractsReader,
         contractStateCaches = inMemoryState.contractStateCaches,
         loggerFactory = loggerFactory,
@@ -188,7 +185,6 @@ final class IndexServiceOwner(
       dbSupport = dbSupport,
       servicesExecutionContext = servicesExecutionContext,
       metrics = metrics,
-      engine = Some(engine),
       participantId = participantId,
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,

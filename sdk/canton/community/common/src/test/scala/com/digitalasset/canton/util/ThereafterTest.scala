@@ -53,7 +53,7 @@ trait ThereafterTest extends AnyWordSpec with BaseTest {
       "propagate an exception in the body" in {
         val ex = new RuntimeException("BODY FAILURE")
         val x = fixture.fromTry(Success(()))
-        val res = sut.thereafter(x)(_content => throw ex)
+        val res = sut.thereafter(x)(_ => throw ex)
         val y = fixture.await(res)
         Try(fixture.theContent(y)) shouldBe Failure(ex)
       }
@@ -62,7 +62,7 @@ trait ThereafterTest extends AnyWordSpec with BaseTest {
         val ex1 = new RuntimeException("EXCEPTION")
         val ex2 = new RuntimeException("BODY FAILURE")
         val x = fixture.fromTry(Failure[Unit](ex1))
-        val res = sut.thereafter(x)(_content => throw ex2)
+        val res = sut.thereafter(x)(_ => throw ex2)
         val y = fixture.await(res)
         Try(fixture.theContent(y)) shouldBe Failure(ex1)
         ex1.getSuppressed should contain(ex2)
@@ -181,7 +181,7 @@ trait ThereafterTest extends AnyWordSpec with BaseTest {
       "propagate a synchronous exception in the body" in {
         val ex = new RuntimeException("BODY FAILURE")
         val x = fixture.fromFuture(Future.successful(()))
-        val res = sut.thereafterF(x)(_content => throw ex)
+        val res = sut.thereafterF(x)(_ => throw ex)
         val y = fixture.await(res)
         Try(fixture.theContent(y)) shouldBe Failure(ex)
       }
@@ -189,7 +189,7 @@ trait ThereafterTest extends AnyWordSpec with BaseTest {
       "propagate an asynchronous exception in the body" in {
         val ex = new RuntimeException("BODY FAILURE")
         val x = fixture.fromFuture(Future.successful(()))
-        val res = sut.thereafterF(x)(_content => Future.failed(ex))
+        val res = sut.thereafterF(x)(_ => Future.failed(ex))
         val y = fixture.await(res)
         Try(fixture.theContent(y)) shouldBe Failure(ex)
       }
@@ -198,7 +198,7 @@ trait ThereafterTest extends AnyWordSpec with BaseTest {
         val ex1 = new RuntimeException("EXCEPTION")
         val ex2 = new RuntimeException("BODY FAILURE")
         val x = fixture.fromFuture(Future.failed[Unit](ex1))
-        val res = sut.thereafterF(x)(_content => Future.failed(ex2))
+        val res = sut.thereafterF(x)(_ => Future.failed(ex2))
         val y = fixture.await(res)
         Try(fixture.theContent(y)) shouldBe Failure(ex1)
         ex1.getSuppressed should contain(ex2)

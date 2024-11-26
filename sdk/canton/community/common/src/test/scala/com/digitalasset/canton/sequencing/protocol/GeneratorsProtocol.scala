@@ -7,7 +7,7 @@ import com.daml.nonempty.NonEmptyUtil
 import com.digitalasset.canton.config.CantonRequireTypes.String73
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.{AsymmetricEncrypted, Signature, SymmetricKey}
-import com.digitalasset.canton.data.{CantonTimestamp, GeneratorsData}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.messages.{GeneratorsMessages, ProtocolMessage}
 import com.digitalasset.canton.sequencing.channel.{
   ConnectToSequencerChannelRequest,
@@ -38,7 +38,6 @@ import org.scalacheck.{Arbitrary, Gen}
 final class GeneratorsProtocol(
     protocolVersion: ProtocolVersion,
     generatorsMessages: GeneratorsMessages,
-    generatorsData: GeneratorsData,
 ) {
   import GeneratorsProtocol.*
   import com.digitalasset.canton.Generators.*

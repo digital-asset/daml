@@ -8,7 +8,10 @@ import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Epoch
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.CryptoProvider
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+  BlockNumber,
+  EpochNumber,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.availability.OrderingBlock
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.OrderedBlock
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
@@ -29,14 +32,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.topology.SequencerId
-import com.digitalasset.canton.version.{
-  HasMemoizedProtocolVersionedWithContextCompanion,
-  HasProtocolVersionedWrapper,
-  HasRepresentativeProtocolVersion,
-  ProtoVersion,
-  ProtocolVersion,
-  RepresentativeProtocolVersion,
-}
+import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
 
 object Consensus {
@@ -83,6 +79,11 @@ object Consensus {
     ) extends ConsensusMessage
 
     final case class CompleteEpochStored(epoch: Epoch) extends ConsensusMessage
+
+    final case class SegmentCompletedEpoch(
+        segmentFirstBlockNumber: BlockNumber,
+        epochNumber: EpochNumber,
+    ) extends ConsensusMessage
 
     final case class AsyncException(e: Throwable) extends ConsensusMessage
   }
@@ -134,7 +135,7 @@ object Consensus {
         None,
       )
 
-      def fromProtoStateTransferMessage(from: SequencerId, value: v1.StateTransferMessage)(
+      private def fromProtoStateTransferMessage(from: SequencerId, value: v1.StateTransferMessage)(
           originalByteString: ByteString
       ): ParsingResult[BlockTransferRequest] = for {
         protoBlockTransferRequest <- value.message.blockRequest.toRight(
@@ -165,34 +166,23 @@ object Consensus {
         )
     }
 
-    final case class BlockTransferData private (
-        prePrepare: SignedMessage[PrePrepare],
-        pendingTopologyChanges: Boolean,
-    ) {
+    final case class BlockTransferData private (prePrepare: SignedMessage[PrePrepare]) {
       def toProto: v1.BlockTransferData =
-        v1.BlockTransferData.of(
-          Some(prePrepare.toProto),
-          pendingTopologyChanges,
-        )
+        v1.BlockTransferData.of(Some(prePrepare.toProto))
     }
     object BlockTransferData {
-      def create(
-          prePrepare: SignedMessage[PrePrepare],
-          pendingTopologyChanges: Boolean,
-      ): BlockTransferData = BlockTransferData(prePrepare, pendingTopologyChanges)
+      def create(prePrepare: SignedMessage[PrePrepare]): BlockTransferData = BlockTransferData(
+        prePrepare
+      )
 
       def fromProto(protoData: v1.BlockTransferData): ParsingResult[BlockTransferData] =
         for {
-          signedMessage <-
-            ProtoConverter.required(
-              "blockPrePrepare",
-              protoData.blockPrePrepare,
-            )
+          signedMessage <- ProtoConverter.required("blockPrePrepare", protoData.blockPrePrepare)
           prePrepare <-
             SignedMessage.fromProto(v1.ConsensusMessage)(
               ConsensusSegment.ConsensusMessage.PrePrepare.fromProtoConsensusMessage
             )(signedMessage)
-        } yield BlockTransferData(prePrepare, protoData.pendingTopologyChanges)
+        } yield BlockTransferData(prePrepare)
     }
 
     final case class BlockTransferResponse private (
@@ -246,7 +236,7 @@ object Consensus {
         None,
       )
 
-      def fromProtoStateTransferMessage(from: SequencerId, value: v1.StateTransferMessage)(
+      private def fromProtoStateTransferMessage(from: SequencerId, value: v1.StateTransferMessage)(
           originalByteString: ByteString
       ): ParsingResult[BlockTransferResponse] = for {
         protoBlockTransferResponse <- value.message.blockResponse.toRight(

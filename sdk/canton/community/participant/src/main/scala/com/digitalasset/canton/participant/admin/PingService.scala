@@ -499,7 +499,7 @@ object PingService {
             superviseBackgroundSubmission(
               action,
               timeout,
-              withSpan(s"PingService.$action") { implicit traceContext => _span =>
+              withSpan(s"PingService.$action") { implicit traceContext => _ =>
                 submitRetryingOnErrors(
                   id,
                   action,
@@ -722,7 +722,7 @@ object PingService {
               ),
             )
           }
-        withSpan("PingService.submit") { implicit traceContext => _span =>
+        withSpan("PingService.submit") { implicit traceContext => _ =>
           submitRetryingOnErrors(
             id,
             name,

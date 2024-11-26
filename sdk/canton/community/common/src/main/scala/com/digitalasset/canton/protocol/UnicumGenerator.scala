@@ -101,7 +101,6 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
     * @param ledgerCreateTime the ledger time at which the contract is created
     * @param metadata contract metadata
     * @param suffixedContractInstance the serializable raw contract instance of the contract where contract IDs have already been suffixed.
-    * @param contractIdVersion version of contract ID used
     *
     * @see UnicumGenerator for the construction details and the security properties
     */
@@ -115,7 +114,6 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
       ledgerCreateTime: LedgerCreateTime,
       metadata: ContractMetadata,
       suffixedContractInstance: SerializableRawContractInstance,
-      contractIdVersion: CantonContractIdVersion,
   ): (ContractSalt, Unicum) = {
     val contractSalt =
       ContractSalt.create(cryptoOps)(
@@ -125,14 +123,12 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
         viewParticipantDataSalt,
         createIndex,
         viewPosition,
-        contractIdVersion,
       )
     val unicumHash = computeUnicumV3Hash(
       ledgerCreateTime = ledgerCreateTime,
       metadata,
       suffixedContractInstance = suffixedContractInstance,
       contractSalt = contractSalt.unwrap,
-      contractIdVersion = contractIdVersion,
     )
 
     contractSalt -> Unicum(unicumHash)
@@ -145,7 +141,6 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
     * @param ledgerCreateTime the ledger time at which the contract is created
     * @param metadata contract metadata
     * @param suffixedContractInstance the serializable raw contract instance of the contract where contract IDs have already been suffixed.
-    * @param contractIdVersion version of contract ID used
     * @return the unicum if successful or a failure if the contract salt size is mismatching the predefined size.
     */
   def recomputeUnicum(
@@ -153,7 +148,6 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
       ledgerCreateTime: LedgerCreateTime,
       metadata: ContractMetadata,
       suffixedContractInstance: SerializableRawContractInstance,
-      contractIdVersion: CantonContractIdVersion,
   ): Either[String, Unicum] = {
     val contractSaltSize = contractSalt.size
     Either.cond(
@@ -164,7 +158,6 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
           metadata,
           suffixedContractInstance,
           contractSalt,
-          contractIdVersion,
         )
       ),
       s"Invalid contract salt size ($contractSaltSize)",
@@ -176,7 +169,6 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
       metadata: ContractMetadata,
       suffixedContractInstance: SerializableRawContractInstance,
       contractSalt: Salt,
-      contractIdVersion: CantonContractIdVersion,
   ): Hash = {
     val nonSignatoryStakeholders = metadata.stakeholders -- metadata.signatories
 

@@ -24,10 +24,16 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
   LeaderSelectionPolicy,
   SimpleLeaderSelectionPolicy,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferManager
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferManager.NewEpochState
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferMessageResult.{
+  BlockTransferCompleted,
+  NothingToStateTransfer,
+}
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.{
+  CatchupDetector,
+  StateTransferManager,
+  StateTransferMessageResult,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.validation.IssConsensusValidator
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.OutputBlocksReader
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.{
   HasDelayedInit,
   shortType,
@@ -84,7 +90,6 @@ final class IssConsensusModule[E <: Env[E]](
     epochLength: EpochLength, // Currently fixed for all epochs
     startupState: StartupState[E],
     epochStore: EpochStore[E],
-    outputBlocksReader: OutputBlocksReader[E],
     clock: Clock,
     metrics: BftOrderingMetrics,
     segmentModuleRefFactory: SegmentModuleRefFactory[E],
@@ -97,7 +102,6 @@ final class IssConsensusModule[E <: Env[E]](
       dependencies,
       epochLength,
       epochStore,
-      outputBlocksReader,
       thisPeer,
       loggerFactory,
     )
@@ -116,6 +120,8 @@ final class IssConsensusModule[E <: Env[E]](
 
   private var latestCompletedEpoch: EpochStore.Epoch = startupState.latestCompletedEpoch
   private var activeMembership = startupState.membership
+  private val catchupDetector =
+    new CatchupDetector(activeMembership, stateTransferManager)
   private var activeCryptoProvider = startupState.cryptoProvider
   private var epochState = startupState.epochState
   @VisibleForTesting
@@ -212,6 +218,7 @@ final class IssConsensusModule[E <: Env[E]](
 
         // Update the topology and start a new epoch.
         activeMembership = membership
+        catchupDetector.updateMembership(membership)
         activeCryptoProvider = cryptoProvider
 
         val newEpoch =
@@ -240,7 +247,7 @@ final class IssConsensusModule[E <: Env[E]](
           loggerFactory = loggerFactory,
           timeouts = timeouts,
         )
-        if (stateTransferManager.isInStateTransfer) {
+        if (stateTransferManager.inStateTransfer) {
           stateTransferManager.clearStateTransferState()
         }
         startSegmentModulesAndCompleteInit()
@@ -269,39 +276,43 @@ final class IssConsensusModule[E <: Env[E]](
             stateTransferMessage,
             activeMembership,
             latestCompletedEpoch,
-          )(() => startSegmentModulesAndCompleteInit(), abort)
+          )(abort)
 
-        maybeNewEpochState.foreach { case NewEpochState(newEpochState, epoch) =>
-          logger.info(
-            s"State transfer: received new epoch state, epoch info = ${epoch.info}, updating"
-          )
-          latestCompletedEpoch = epoch
-          val currentEpochNumber = epochState.epoch.info.number
-          val newEpochNumber = newEpochState.info.number
-          if (newEpochNumber < currentEpochNumber)
-            abort("Should not state transfer to previously completed epoch")
-          else if (newEpochNumber > currentEpochNumber) {
-            epochState.completeEpoch(epochState.epoch.info.number)
-            epochState.close()
-            epochState = new EpochState(
-              newEpochState,
-              clock,
-              abort,
-              metrics,
-              segmentModuleRefFactory(
-                context,
-                newEpochState,
-                activeCryptoProvider,
-                latestCompletedEpochLastCommits = epoch.lastBlockCommitMessages,
-                epochInProgress = EpochStore.EpochInProgress(
-                  completedBlocks = Seq.empty,
-                  pbftMessagesForIncompleteBlocks = Seq.empty,
-                ),
-              ),
-              loggerFactory = loggerFactory,
-              timeouts = timeouts,
+        maybeNewEpochState match {
+          case NothingToStateTransfer =>
+            startSegmentModulesAndCompleteInit()
+          case BlockTransferCompleted(newEpochState, epoch) =>
+            logger.info(
+              s"State transfer: received new epoch state, epoch info = ${epoch.info}, updating"
             )
-          } // else it is equal, so we don't need to update the state
+            latestCompletedEpoch = epoch
+            val currentEpochNumber = epochState.epoch.info.number
+            val newEpochNumber = newEpochState.info.number
+            if (newEpochNumber < currentEpochNumber)
+              abort("Should not state transfer to previously completed epoch")
+            else if (newEpochNumber > currentEpochNumber) {
+              epochState.completeEpoch(epochState.epoch.info.number)
+              epochState.close()
+              epochState = new EpochState(
+                newEpochState,
+                clock,
+                abort,
+                metrics,
+                segmentModuleRefFactory(
+                  context,
+                  newEpochState,
+                  activeCryptoProvider,
+                  latestCompletedEpochLastCommits = epoch.lastBlockCommitMessages,
+                  epochInProgress = EpochStore.EpochInProgress(
+                    completedBlocks = Seq.empty,
+                    pbftMessagesForIncompleteBlocks = Seq.empty,
+                  ),
+                ),
+                loggerFactory = loggerFactory,
+                timeouts = timeouts,
+              )
+            } // else it is equal, so we don't need to update the state
+          case StateTransferMessageResult.Continue => // ignore
         }
       case _ =>
         ifInitCompleted(message) {
@@ -409,10 +420,11 @@ final class IssConsensusModule[E <: Env[E]](
           }
         }
 
+      case Consensus.ConsensusMessage.SegmentCompletedEpoch(segmentFirstBlockNumber, epochNumber) =>
+        logger.debug(s"Segment module $segmentFirstBlockNumber completed epoch $epochNumber")
+
       case Consensus.ConsensusMessage.AsyncException(e: Throwable) =>
-        logger.error(
-          s"$messageType: exception raised from async consensus message: ${e.toString}"
-        )
+        logger.error(s"$messageType: exception raised from async consensus message: ${e.toString}")
     }
   }
 
@@ -459,48 +471,79 @@ final class IssConsensusModule[E <: Env[E]](
   }
 
   private def processPbftMessage(
-      msg: SignedMessage[ConsensusSegment.ConsensusMessage.PbftNetworkMessage]
-  )(implicit
-      traceContext: TraceContext
-  ): Unit = {
-    lazy val messageType = shortType(msg)
+      pbftMessage: SignedMessage[ConsensusSegment.ConsensusMessage.PbftNetworkMessage]
+  )(implicit traceContext: TraceContext): Unit = {
+    val pbftMessagePayload = pbftMessage.message
+    val pbftMessageBlockMetadata = pbftMessagePayload.blockMetadata
+
+    def emitNonComplianceMetric(): Unit =
+      emitNonCompliance(metrics)(
+        pbftMessagePayload.from,
+        pbftMessageBlockMetadata.epochNumber,
+        pbftMessagePayload.viewNumber,
+        pbftMessageBlockMetadata.blockNumber,
+        metrics.security.noncompliant.labels.violationType.values.ConsensusInvalidMessage,
+      )
+
+    lazy val messageType = shortType(pbftMessage)
     logger.debug(
-      s"$messageType: received from ${msg.from} w/ metadata ${msg.message.blockMetadata}"
+      s"$messageType: received from ${pbftMessage.from} w/ metadata $pbftMessageBlockMetadata"
     )
 
-    // Messages from stale epoch are discarded.
-    if (msg.message.blockMetadata.epochNumber < epochState.epoch.info.number)
-      logger.info(
-        s"Discarded block ${msg.message.blockMetadata.blockNumber} at epoch ${msg.message.blockMetadata.epochNumber} because we're at a later epoch (${epochState.epoch.info.number})"
+    val pbftMessageEpochNumber = pbftMessageBlockMetadata.epochNumber
+    val thisNodeEpochNumber = epochState.epoch.info.number
+    val updatedPeerEpoch =
+      catchupDetector.updateLatestKnownPeerEpoch(
+        pbftMessage.from,
+        pbftMessageEpochNumber,
       )
 
-    // Messages from future epoch are queued to be processed when we move to that epoch.
-    else if (msg.message.blockMetadata.epochNumber > epochState.epoch.info.number) {
-      futurePbftMessageQueue.enqueue(msg)
+    // Messages from stale epochs are discarded.
+    if (pbftMessageEpochNumber < thisNodeEpochNumber) {
+      logger.info(
+        s"Discarded PBFT message $messageType about block ${pbftMessageBlockMetadata.blockNumber} " +
+          s"at epoch $pbftMessageEpochNumber because we're at a later epoch ($thisNodeEpochNumber)"
+      )
+    } else if (pbftMessageEpochNumber > thisNodeEpochNumber) {
+      // Messages from future epoch are queued to be processed when we move to that epoch.
+      futurePbftMessageQueue.enqueue(pbftMessage)
       logger.debug(
-        s"Received PBFT message from epoch ${msg.message.blockMetadata.epochNumber} while being in epoch " +
-          s"${epochState.epoch.info.number}, queued the message"
+        s"Queued PBFT message $messageType from future epoch $pbftMessageEpochNumber " +
+          s"as we're still in epoch $thisNodeEpochNumber"
       )
 
-      // Messages with blocks numbers out of bounds of the epoch are discarded.
+      if (
+        updatedPeerEpoch &&
+        catchupDetector.shouldCatchUp(thisNodeEpochNumber)
+      ) {
+        logger.debug(
+          s"Switching to catch-up state transfer while in epoch $thisNodeEpochNumber; latestCompletedEpoch is "
+            + s"${latestCompletedEpoch.info.number} and message epoch is $pbftMessageEpochNumber"
+        )
+        // TODO(#19661): clean up the state and DB and switch to state transfer
+      }
     } else if (
-      msg.message.blockMetadata.blockNumber < epochState.epoch.info.startBlockNumber || msg.message.blockMetadata.blockNumber > epochState.epoch.info.lastBlockNumber
+      pbftMessageBlockMetadata.blockNumber < epochState.epoch.info.startBlockNumber || pbftMessageBlockMetadata.blockNumber > epochState.epoch.info.lastBlockNumber
     ) {
+      // Messages with blocks numbers out of bounds of the epoch are discarded.
       val epochInfo = epochState.epoch.info
-      logger.info(
-        s"Discarded block ${msg.message.blockMetadata.blockNumber} from epoch ${msg.message.blockMetadata.epochNumber} (current epoch number = ${epochInfo.number}, " +
-          s"first block = ${epochInfo.startBlockNumber}, epoch length = ${epochInfo.length}) because block number is out of bounds of the current epoch"
+      logger.warn(
+        s"Discarded PBFT message $messageType about block ${pbftMessageBlockMetadata.blockNumber}" +
+          s"from epoch $pbftMessageEpochNumber (current epoch number = ${epochInfo.number}, " +
+          s"first block = ${epochInfo.startBlockNumber}, epoch length = ${epochInfo.length}) " +
+          "because the block number is out of bounds of the current epoch"
       )
+      emitNonComplianceMetric()
+    } else if (!activeMembership.orderingTopology.contains(pbftMessage.from)) {
+      // Message is for current epoch but is not from a peer in this epoch's topology
+      // TODO(i18194) Check signature that message is from this peer
+      logger.warn(
+        s"Discarded PBFT message $messageType message from peer ${pbftMessage.from} not in the current epoch's topology"
+      )
+      emitNonComplianceMetric()
+    } else {
+      epochState.processPbftMessage(PbftSignedNetworkMessage(pbftMessage))
     }
-
-    // Message is for current epoch but is not from a peer in this epoch's topology
-    // TODO(i18194) Check signature that message is from this peer
-    else if (!activeMembership.orderingTopology.contains(msg.from))
-      logger.info(
-        s"Discarded Pbft message from peer ${msg.from} not in the current epoch's topology"
-      )
-    else
-      epochState.processPbftMessage(PbftSignedNetworkMessage(msg))
   }
 
   private def completeEpoch()(implicit

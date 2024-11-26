@@ -124,6 +124,7 @@ class DbDamlPackageStore(
     insertToDamlPackages.andThen(insertToDarPackages)
   }
 
+  @SuppressWarnings(Array("org.wartremover.warts.AnyVal"))
   override def append(
       pkgs: List[DamlLf.Archive],
       uploadedAt: CantonTimestamp,

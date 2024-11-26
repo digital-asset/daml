@@ -186,7 +186,6 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
         templateId: TypeConName,
         key: Value,
         packageName: Ref.PackageName,
-        hash: lf.crypto.Hash,
     ): Result[lf.transaction.GlobalKey] =
       lf.transaction.GlobalKey.build(templateId, key, packageName).leftMap(_.msg).toResult
 

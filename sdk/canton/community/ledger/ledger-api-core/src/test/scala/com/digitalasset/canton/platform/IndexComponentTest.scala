@@ -6,7 +6,6 @@ package com.digitalasset.canton.platform
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.ledger.participant.state.index.IndexService
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -58,12 +57,9 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
     Option(testServicesRef.get())
       .getOrElse(throw new Exception("TestServices not initialized. Not accessing from a test?"))
 
-  protected def ingestUpdates(updates: Update*): Offset = {
+  protected def ingestUpdates(updates: Update*): Unit = {
     updates.foreach(update => testServices.indexer.offer(update).futureValue)
     updates.last.persisted.future.futureValue
-    Offset.fromHexString(
-      testServices.index.currentLedgerEnd().futureValue
-    )
   }
 
   protected def index: IndexService = testServices.index
@@ -150,9 +146,6 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
           config = IndexServiceConfig(),
           participantId = Ref.ParticipantId.assertFromString(IndexComponentTest.TestParticipantId),
           metrics = LedgerApiServerMetrics.ForTesting,
-          engine = new Engine(
-            EngineConfig(LanguageVersion.StableVersions(LanguageMajorVersion.V2))
-          ),
           inMemoryState = inMemoryState,
           tracer = NoReportingTracerProvider.tracer,
           loggerFactory = loggerFactory,
@@ -163,7 +156,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
             metrics = LedgerApiServerMetrics.ForTesting,
             engineO = Some(engine),
             // Not used
-            loadPackage = (_packageId, _loggingContext) => Future(None),
+            loadPackage = (_, _) => Future(None),
             loggerFactory = loggerFactory,
           ),
           readApiServiceExecutionContext = executorService,

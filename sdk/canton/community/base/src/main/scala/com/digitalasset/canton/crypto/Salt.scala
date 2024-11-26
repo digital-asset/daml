@@ -5,7 +5,6 @@ package com.digitalasset.canton.crypto
 
 import cats.syntax.either.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.CantonContractIdVersion
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{DefaultDeserializationError, DeterministicEncoding}
 import com.digitalasset.canton.{ProtoDeserializationError, admin, crypto}
@@ -129,7 +128,6 @@ object Salt {
   def tryDeriveSalt(
       seed: Salt,
       bytes: ByteString,
-      contractIdVersion: CantonContractIdVersion,
       hmacOps: HmacOps,
   ): Salt =
     deriveSalt(seed.forHashing, bytes, hmacOps).valueOr(err =>

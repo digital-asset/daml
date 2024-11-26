@@ -8,7 +8,6 @@ package com.digitalasset.canton.config
 // SOME OF THE IMPLICIT IMPORTS NECESSARY TO COMPILE
 ////////////////////////////////////////////////////////
 
-import cats.Order
 import cats.data.Validated
 import cats.syntax.either.*
 import cats.syntax.functor.*
@@ -720,7 +719,7 @@ object CantonConfig {
       deriveReader[SigningSchemeConfig]
     lazy implicit val encryptionSchemeConfigReader: ConfigReader[EncryptionSchemeConfig] =
       deriveReader[EncryptionSchemeConfig]
-    implicit def cryptoSchemeConfig[S: ConfigReader: Order]: ConfigReader[CryptoSchemeConfig[S]] =
+    implicit def cryptoSchemeConfig[S: ConfigReader]: ConfigReader[CryptoSchemeConfig[S]] =
       deriveReader[CryptoSchemeConfig[S]]
     lazy implicit val communityCryptoReader: ConfigReader[CommunityCryptoConfig] =
       deriveReader[CommunityCryptoConfig]
@@ -1569,7 +1568,7 @@ object CantonConfig {
       .leftWiden[CantonConfigError]
   }
 
-  private def configOrExit[ConfClass: ClassTag](
+  private def configOrExit[ConfClass](
       result: Either[CantonConfigError, ConfClass]
   ): ConfClass =
     result.valueOr { _ =>

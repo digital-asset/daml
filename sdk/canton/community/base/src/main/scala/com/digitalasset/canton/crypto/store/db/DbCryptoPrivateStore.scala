@@ -125,7 +125,11 @@ class DbCryptoPrivateStore(
                 .cond[FutureUnlessShutdown](
                   equalKeys(existingKey, key),
                   (),
-                  CryptoPrivateStoreError.KeyAlreadyExists(key.id, existingKey.name.map(_.unwrap)),
+                  CryptoPrivateStoreError.KeyAlreadyExists(
+                    key.id,
+                    existingKey.name.map(_.unwrap),
+                    key.name.map(_.unwrap),
+                  ),
                 )
                 .leftWiden[CryptoPrivateStoreError]
             }

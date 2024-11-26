@@ -37,7 +37,6 @@ import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
-import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml.lf.transaction.CommittedTransaction
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed
@@ -50,7 +49,6 @@ private class JdbcLedgerDao(
     dbDispatcher: DbDispatcher & ReportsHealth,
     servicesExecutionContext: ExecutionContext,
     metrics: LedgerApiServerMetrics,
-    engine: Option[Engine],
     sequentialIndexer: SequentialWriteDao,
     participantId: Ref.ParticipantId,
     readStorageBackend: ReadStorageBackend,
@@ -555,7 +553,6 @@ private[platform] object JdbcLedgerDao {
       dbSupport: DbSupport,
       servicesExecutionContext: ExecutionContext,
       metrics: LedgerApiServerMetrics,
-      engine: Option[Engine],
       participantId: Ref.ParticipantId,
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
@@ -579,7 +576,6 @@ private[platform] object JdbcLedgerDao {
       dbDispatcher = dbSupport.dbDispatcher,
       servicesExecutionContext = servicesExecutionContext,
       metrics = metrics,
-      engine = engine,
       sequentialIndexer = SequentialWriteDao.noop,
       participantId = participantId,
       readStorageBackend = dbSupport.storageBackendFactory
@@ -605,7 +601,6 @@ private[platform] object JdbcLedgerDao {
       sequentialWriteDao: SequentialWriteDao,
       servicesExecutionContext: ExecutionContext,
       metrics: LedgerApiServerMetrics,
-      engine: Option[Engine],
       participantId: Ref.ParticipantId,
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
@@ -624,7 +619,6 @@ private[platform] object JdbcLedgerDao {
       dbDispatcher = dbSupport.dbDispatcher,
       servicesExecutionContext = servicesExecutionContext,
       metrics = metrics,
-      engine = engine,
       sequentialIndexer = sequentialWriteDao,
       participantId = participantId,
       readStorageBackend = dbSupport.storageBackendFactory

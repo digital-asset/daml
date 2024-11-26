@@ -154,7 +154,6 @@ class DbActiveContractStore(
       _ <- bulkInsert(
         activeContractsData.asMap.fmap(builder),
         change = ChangeType.Activation,
-        operationName = operationName,
       )
       _ <-
         if (enableAdditionalConsistencyChecks) {
@@ -191,7 +190,6 @@ class DbActiveContractStore(
       _ <- bulkInsert(
         contracts.map(contract => (contract, operation)).toMap,
         change = ChangeType.Deactivation,
-        operationName = operationName,
       )
       _ <-
         if (enableAdditionalConsistencyChecks) {
@@ -213,7 +211,6 @@ class DbActiveContractStore(
       ],
       builder: (ReassignmentCounter, Int) => ReassignmentChangeDetail,
       change: ChangeType,
-      operationName: LengthLimitedString,
   )(implicit
       traceContext: TraceContext
   ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] = {
@@ -245,7 +242,6 @@ class DbActiveContractStore(
       _ <- bulkInsert(
         preparedReassignments.toMap,
         change,
-        operationName = operationName,
       ).mapK(FutureUnlessShutdown.outcomeK)
 
       _ <- checkReassignmentsConsistency(preparedReassignments).mapK(FutureUnlessShutdown.outcomeK)
@@ -261,7 +257,6 @@ class DbActiveContractStore(
       assignments,
       Assignment.apply,
       ChangeType.Activation,
-      ActivenessChangeDetail.assign,
     )
 
   override def unassignContracts(
@@ -272,7 +267,6 @@ class DbActiveContractStore(
     unassignments,
     Unassignment.apply,
     ChangeType.Deactivation,
-    ActivenessChangeDetail.unassignment,
   )
 
   override def fetchStates(
@@ -925,7 +919,6 @@ class DbActiveContractStore(
   private def bulkInsert(
       contractChanges: Map[(LfContractId, TimeOfChange), ActivenessChangeDetail],
       change: ChangeType,
-      operationName: LengthLimitedString,
   )(implicit traceContext: TraceContext): CheckedT[Future, AcsError, AcsWarning, Unit] = {
     val insertQuery = storage.profile match {
       case _: DbStorage.Profile.H2 | _: DbStorage.Profile.Postgres =>

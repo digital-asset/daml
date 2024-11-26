@@ -22,7 +22,7 @@ class LazyValWithContextTest extends AnyWordSpec with BaseTest with HasExecution
 
     "evaluate the initializer only once" in {
       val counter = new AtomicInteger()
-      val sut = ClassUsingLazyValWithContext { i =>
+      val sut = ClassUsingLazyValWithContext { _ =>
         counter.incrementAndGet().discard[Int]
         "abc"
       }

@@ -43,7 +43,7 @@ class SubmissionTrackerTest
     (1 to 1000).map(i => RequestId(CantonTimestamp.Epoch.plusSeconds(i.toLong)))
 
   lazy val submissionTrackerStore = new InMemorySubmissionTrackerStore(loggerFactory)
-  lazy val submissionTracker: SubmissionTracker = SubmissionTracker(testedProtocolVersion)(
+  lazy val submissionTracker: SubmissionTracker = SubmissionTracker(
     participantId,
     submissionTrackerStore,
     futureSupervisor,

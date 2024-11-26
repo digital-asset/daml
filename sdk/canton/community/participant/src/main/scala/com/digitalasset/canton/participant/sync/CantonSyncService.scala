@@ -140,7 +140,6 @@ class CantonSyncService(
     resourceManagementService: ResourceManagementService,
     parameters: ParticipantNodeParameters,
     syncDomainFactory: SyncDomain.Factory[SyncDomain],
-    indexedStringStore: IndexedStringStore,
     storage: Storage,
     metrics: ParticipantMetrics,
     sequencerInfoLoader: SequencerInfoLoader,
@@ -407,7 +406,7 @@ class CantonSyncService(
         disclosedContracts,
       )
     }.map(result =>
-      result.map { _asyncResult =>
+      result.map { _ =>
         // It's OK to throw away the asynchronous result because its errors were already logged in `submitTransactionF`.
         // We merely retain it until here so that the span ends only after the asynchronous computation
         SubmissionResult.Acknowledged
@@ -628,7 +627,7 @@ class CantonSyncService(
   override def validateDar(dar: ByteString, darName: String)(implicit
       traceContext: TraceContext
   ): Future[SubmissionResult] =
-    withSpan("CantonSyncService.validateDar") { implicit traceContext => _span =>
+    withSpan("CantonSyncService.validateDar") { implicit traceContext => _ =>
       if (!isActive()) {
         logger.debug(s"Rejecting DAR validation request on passive replica.")
         Future.successful(SyncServiceError.Synchronous.PassiveNode)
@@ -1572,11 +1571,9 @@ class CantonSyncService(
       logger.debug(s"Received submit-reassignment $commandId from ledger-api server")
 
       /* @param domain For unassignment this should be the source domain, for assignment this is the target domain
-       * @param remoteDomain For unassignment this should be the target domain, for assignment this is the source domain
        */
       def doReassignment[E <: ReassignmentProcessorError, T](
-          domain: DomainId,
-          remoteDomain: DomainId,
+          domain: DomainId
       )(
           reassign: SyncDomain => EitherT[Future, E, FutureUnlessShutdown[T]]
       )(implicit traceContext: TraceContext): Future[SubmissionResult] = {
@@ -1617,8 +1614,7 @@ class CantonSyncService(
           for {
             targetProtocolVersion <- getProtocolVersion(unassign.targetDomain.unwrap).map(Target(_))
             submissionResult <- doReassignment(
-              domain = unassign.sourceDomain.unwrap,
-              remoteDomain = unassign.targetDomain.unwrap,
+              domain = unassign.sourceDomain.unwrap
             )(
               _.submitUnassignment(
                 submitterMetadata = ReassignmentSubmitterMetadata(
@@ -1638,8 +1634,7 @@ class CantonSyncService(
 
         case assign: ReassignmentCommand.Assign =>
           doReassignment(
-            domain = assign.targetDomain.unwrap,
-            remoteDomain = assign.sourceDomain.unwrap,
+            domain = assign.targetDomain.unwrap
           )(
             _.submitAssignment(
               submitterMetadata = ReassignmentSubmitterMetadata(
@@ -1854,7 +1849,6 @@ object CantonSyncService {
         resourceManagementService,
         cantonParameterConfig,
         SyncDomain.DefaultFactory,
-        indexedStringStore,
         storage,
         metrics,
         sequencerInfoLoader,

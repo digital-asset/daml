@@ -33,7 +33,6 @@ import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.Ge
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.data.Ref.PackageId
 
 import java.util.concurrent.atomic.AtomicReference
@@ -229,7 +228,6 @@ object CachingDomainTopologyClient {
   def create(
       clock: Clock,
       domainId: DomainId,
-      protocolVersion: ProtocolVersion,
       store: TopologyStore[TopologyStoreId.DomainStore],
       packageDependenciesResolver: PackageDependencyResolverUS,
       cachingConfigs: CachingConfigs,
@@ -246,7 +244,6 @@ object CachingDomainTopologyClient {
       new StoreBasedDomainTopologyClient(
         clock,
         domainId,
-        protocolVersion,
         store,
         packageDependenciesResolver,
         timeouts,

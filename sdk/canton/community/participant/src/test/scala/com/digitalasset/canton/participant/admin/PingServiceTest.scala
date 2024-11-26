@@ -159,9 +159,7 @@ class PingServiceTest extends BaseTestWordSpec with HasExecutionContext {
 
   }
 
-  private def runTest(test: TestFixture => Future[Assertion])(
-      expectedWarningMessages: Seq[String]
-  ): Assertion = {
+  private def runTest(test: TestFixture => Future[Assertion]): Assertion = {
     val fixture = new TestFixture()
     val result = test(fixture)
     result.futureValue.tap { _ =>
@@ -188,7 +186,7 @@ class PingServiceTest extends BaseTestWordSpec with HasExecutionContext {
         } yield {
           result shouldBe a[PingService.Success]
         }
-      }(Seq.empty)
+      }
     }
   }
   "responds properly to a ping initiated by someone else" in {
@@ -205,7 +203,7 @@ class PingServiceTest extends BaseTestWordSpec with HasExecutionContext {
         archived("123")
         id shouldBe id2
       }
-    }(Seq.empty)
+    }
   }
 
   "initiates a bong correctly" in {
@@ -227,7 +225,7 @@ class PingServiceTest extends BaseTestWordSpec with HasExecutionContext {
       } yield {
         result shouldBe a[PingService.Success]
       }
-    }(Seq.empty)
+    }
   }
 
   "fails ping if submission fails" in {
@@ -243,7 +241,7 @@ class PingServiceTest extends BaseTestWordSpec with HasExecutionContext {
       } yield {
         result shouldBe a[PingService.Failure]
       }
-    }(Seq.empty)
+    }
   }
 
   "timeout ping if we don't observe the contract in time" in {
@@ -266,7 +264,7 @@ class PingServiceTest extends BaseTestWordSpec with HasExecutionContext {
             reason should include("Timeout: We were unable to create the ping contract")
         }
       }
-    }(Seq.empty)
+    }
   }
 
   "timeout ping if we don't receive a response" in {
@@ -293,7 +291,7 @@ class PingServiceTest extends BaseTestWordSpec with HasExecutionContext {
             )
         }
       }
-    }(Seq.empty)
+    }
   }
 
 }

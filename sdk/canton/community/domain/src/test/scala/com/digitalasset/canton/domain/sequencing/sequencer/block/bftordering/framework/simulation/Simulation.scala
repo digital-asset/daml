@@ -147,7 +147,8 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
           module.ready(context.self)
         logger.info(s"$peer has set a behavior for module $to (ready=$ready)")
 
-      case ModuleControl.Stop() =>
+      case ModuleControl.Stop(onStop) =>
+        onStop()
         val _ = machine.allReactors.remove(to)
         logger.info(s"$peer has stopped module $to")
 
@@ -208,8 +209,8 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
     val sequencerId = SimulationP2PNetworkManager.fakeSequencerId(endpoint)
     logger.info(s"Onboarding a new sequencer $sequencerId")
     val initializer = topology.laterOnboardedEndpointsWithInitializers(endpoint)
-    val machine =
-      machineInitializer.initialize(onboardingDataProvider.provide(sequencerId), initializer)
+    val onboardingData = onboardingDataProvider.provide(sequencerId)
+    val machine = machineInitializer.initialize(onboardingData, initializer)
     topology.foreach { case (peerId, _) =>
       executeEvent(
         peerId,

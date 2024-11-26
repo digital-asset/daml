@@ -83,7 +83,6 @@ class ReassignmentStreamReader(
           paginatingAsyncStream.streamIdsFromSeekPagination(
             idPageSizing = idPageSizing,
             idPageBufferSize = maxPagesPerIdPagesBuffer,
-            // TODO(#21220) use initialFromIdInclusive
             initialFromIdExclusive = queryRange.startInclusiveEventSeqId,
           )(
             fetchPage = (state: IdPaginationState) => {

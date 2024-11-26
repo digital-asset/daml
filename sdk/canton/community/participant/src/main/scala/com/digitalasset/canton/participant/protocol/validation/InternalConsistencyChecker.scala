@@ -27,15 +27,13 @@ import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.value.Value
 
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 
 class InternalConsistencyChecker(
-    protocolVersion: ProtocolVersion,
-    override val loggerFactory: NamedLoggerFactory,
+    override val loggerFactory: NamedLoggerFactory
 ) extends NamedLogging {
 
   /** Checks if there is no internal consistency issue between views, e.g., it would return an error if
@@ -45,8 +43,7 @@ class InternalConsistencyChecker(
     * of [[ModelConformanceChecker]].
     */
   def check(
-      rootViewTrees: NonEmpty[Seq[FullTransactionViewTree]],
-      hostedParty: LfPartyId => Boolean,
+      rootViewTrees: NonEmpty[Seq[FullTransactionViewTree]]
   )(implicit
       traceContext: TraceContext
   ): Either[ErrorWithInternalConsistencyCheck, Unit] =

@@ -13,7 +13,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.memory.GenericInMemoryEpochStore
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.leaders.SimpleLeaderSelectionPolicy
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferManager
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.OutputBlocksReader
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.memory.GenericInMemoryOutputBlockMetadataStore
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.{
   CryptoProvider,
@@ -143,7 +142,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
       "start segment modules only once when state transfer is completed" in {
         val segmentModuleMock = mock[ModuleRef[ConsensusSegment.Message]]
         val stateTransferManagerMock = mock[StateTransferManager[ProgrammableUnitTestEnv]]
-        when(stateTransferManagerMock.isInStateTransfer).thenReturn(true)
+        when(stateTransferManagerMock.inStateTransfer).thenReturn(true)
 
         val membership = Membership(selfId, otherPeers.toSet)
         val aStartEpoch = GenesisEpoch.info.next(epochLength)
@@ -443,6 +442,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
                     Some(TopologyActivationTime(CantonTimestamp.MinValue)),
                     Some(aStartEpoch.number),
                     Some(aStartEpoch.startBlockNumber),
+                    pendingTopologyChangesInEpoch = None,
                     previousBftTime = None,
                   )
                 )
@@ -507,8 +507,6 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
       otherPeers: Set[SequencerId] = Set.empty,
       epochStore: EpochStore[ProgrammableUnitTestEnv] =
         new InMemoryUnitTestEpochStore[ProgrammableUnitTestEnv],
-      outputBlocksReader: OutputBlocksReader[ProgrammableUnitTestEnv] =
-        new InMemoryUnitTestOutputBlockMetadataStore[ProgrammableUnitTestEnv],
       preConfiguredInitialEpochState: Option[
         ContextType => EpochState[ProgrammableUnitTestEnv]
       ] = None,
@@ -556,7 +554,6 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
         dependencies,
         epochLength,
         epochStore,
-        outputBlocksReader,
         selfId,
         loggerFactory,
       )
@@ -572,7 +569,6 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
         latestCompletedEpochFromStore,
       ),
       epochStore,
-      outputBlocksReader,
       clock,
       SequencerMetrics.noop(getClass.getSimpleName).bftOrdering,
       createSegmentModuleRefFactory(segmentModuleFactoryFunction),

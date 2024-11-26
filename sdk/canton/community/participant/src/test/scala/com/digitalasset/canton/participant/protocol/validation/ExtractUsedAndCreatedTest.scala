@@ -34,7 +34,6 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
 
   private def buildUnderTest(hostedParties: Map[LfPartyId, Boolean]): ExtractUsedAndCreated =
     new ExtractUsedAndCreated(
-      protocolVersion = testedProtocolVersion,
       hostedParties = hostedParties,
       loggerFactory = loggerFactory,
     )

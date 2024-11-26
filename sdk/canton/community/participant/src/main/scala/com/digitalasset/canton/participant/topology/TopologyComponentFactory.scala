@@ -22,7 +22,6 @@ import com.digitalasset.canton.topology.processing.{EffectiveTime, TopologyTrans
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{PackageDependencyResolverUS, TopologyStore}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -87,13 +86,11 @@ class TopologyComponentFactory(
   }
 
   def createTopologyClient(
-      protocolVersion: ProtocolVersion,
-      packageDependencyResolver: PackageDependencyResolverUS,
+      packageDependencyResolver: PackageDependencyResolverUS
   )(implicit executionContext: ExecutionContext): DomainTopologyClientWithInit =
     new StoreBasedDomainTopologyClient(
       clock,
       domainId,
-      protocolVersion,
       topologyStore,
       packageDependencyResolver,
       timeouts,
@@ -102,15 +99,13 @@ class TopologyComponentFactory(
     )
 
   def createCachingTopologyClient(
-      protocolVersion: ProtocolVersion,
-      packageDependencyResolver: PackageDependencyResolverUS,
+      packageDependencyResolver: PackageDependencyResolverUS
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
   ): Future[DomainTopologyClientWithInit] = CachingDomainTopologyClient.create(
     clock,
     domainId,
-    protocolVersion,
     topologyStore,
     packageDependencyResolver,
     caching,

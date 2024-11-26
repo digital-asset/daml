@@ -278,7 +278,6 @@ private[store] object StorageBackendTestValues {
       authorizationLevel: AuthorizationLevel = AuthorizationLevel.Submission,
       domainId: String = "x::sourcedomain",
       recordTime: Timestamp = someTime,
-      effectiveTime: Timestamp = someTime,
       traceContext: Array[Byte] = serializableTraceContext,
   ): DbDto.EventPartyToParticipant = {
     val updateId = updateIdFromOffset(offset)

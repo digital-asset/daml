@@ -159,13 +159,13 @@ class AuthenticationTokenManager(
     if (!isClosed) {
       clock
         .scheduleAt(
-          backgroundRefreshToken,
+          _ => backgroundRefreshToken(),
           expiresAt.minus(config.refreshAuthTokenBeforeExpiry.asJava),
         )
         .discard
     }
 
-  private def backgroundRefreshToken(_now: CantonTimestamp): Unit =
+  private def backgroundRefreshToken(): Unit =
     if (!isClosed) {
       // Create a fresh trace context for each refresh to avoid long-lasting trace IDs from other contexts
       TraceContext.withNewTraceContext { implicit traceContext =>

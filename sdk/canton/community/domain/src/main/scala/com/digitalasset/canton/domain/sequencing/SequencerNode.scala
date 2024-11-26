@@ -488,7 +488,6 @@ class SequencerNodeBootstrap(
               TopologyTransactionProcessor.createProcessorAndClientForDomain(
                 domainTopologyStore,
                 domainId,
-                staticDomainParameters.protocolVersion,
                 new DomainCryptoPureApi(staticDomainParameters, crypto.pureCrypto),
                 parameters,
                 clock,
@@ -603,7 +602,6 @@ class SequencerNodeBootstrap(
             staticDomainParameters,
             config.publicApi.overrideMaxRequestSize,
             topologyClient,
-            futureSupervisor,
             loggerFactory,
           )
           indexedDomain <- EitherT.right[String](
@@ -653,7 +651,6 @@ class SequencerNodeBootstrap(
               loggerFactory,
               timeouts,
               None,
-              sequencerId,
             ),
             arguments.metrics.sequencerClient,
             None,
@@ -698,7 +695,6 @@ class SequencerNodeBootstrap(
               config.publicApi.maxTokenExpirationInterval,
             ),
             Seq(sequencerId) ++ membersToRegister,
-            futureSupervisor,
             memberAuthServiceFactory,
             new StoreBasedTopologyStateForInitializationService(
               domainTopologyStore,

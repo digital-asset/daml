@@ -795,7 +795,6 @@ object DbStorage {
         maxRetries = retryConfig.maxRetries,
         waitInMs = retryConfig.retryWaitingTime.toMillis,
         operationName = functionFullName,
-        logger = logger,
         retryLogLevel = retryConfig.retryLogLevel,
         failLogLevel = Level.ERROR,
       ) {

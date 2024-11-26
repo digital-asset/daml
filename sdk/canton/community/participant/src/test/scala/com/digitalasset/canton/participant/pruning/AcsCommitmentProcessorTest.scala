@@ -74,11 +74,10 @@ import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.daml.lf.data.Ref
 import org.scalatest.Assertion
-import org.scalatest.wordspec.{AnyWordSpec, AsyncWordSpec}
+import org.scalatest.wordspec.AsyncWordSpec
 
 import java.time.Duration as JDuration
 import java.util.UUID
-import java.util.concurrent.TimeUnit
 import scala.annotation.nowarn
 import scala.collection.concurrent.TrieMap
 import scala.collection.immutable.{Seq, SortedSet}
@@ -2336,6 +2335,7 @@ class AcsCommitmentProcessorTest
               processor.publish(RecordTime(ts, tb.v), change, Future.unit)
             }
           _ <- processor.flush()
+
           _ <- testSequence(
             testSequences,
             processor,
@@ -4250,48 +4250,4 @@ object Lifespan {
       reassignmentCounterAtActivation: ReassignmentCounter,
       reassignmentCounterAtUnassignment: ReassignmentCounter,
   ) extends Lifespan
-}
-
-class AcsCommitmentProcessorSyncTest
-    extends AnyWordSpec
-    with AcsCommitmentProcessorBaseTest
-    with HasExecutionContext
-    with RepeatableTestSuiteTest {
-
-  "retry on DB exceptions" in {
-    val timeProofs = List(0L, 1).map(CantonTimestamp.ofEpochSecond)
-    val contractSetup = Map(
-      (
-        coid(0, 0),
-        (Set(alice, bob), toc(1), toc(9), initialReassignmentCounter, initialReassignmentCounter),
-      )
-    )
-
-    val topology = Map(
-      localId -> Set(alice),
-      remoteId1 -> Set(bob),
-    )
-
-    val badStore = new ThrowOnWriteCommitmentStore()
-    loggerFactory.assertLoggedWarningsAndErrorsSeq(
-      {
-        val (processor, _, _) = testSetup(
-          timeProofs,
-          contractSetup,
-          topology,
-          optCommitmentStore = Some(badStore),
-        )
-        eventually(timeUntilSuccess = FiniteDuration(40, TimeUnit.SECONDS)) {
-          badStore.writeCounter.get() should be > 100
-        }
-        logger.info("Close the processor to stop retrying")
-        processor.map(_.close())
-      },
-      forAll(_) {
-        _.warningMessage should (include(
-          s"Disconnect and reconnect to the domain ${domainId.toString} if this error persists."
-        ) or include regex "Timeout .* expired, but tasks still running. Shutting down forcibly")
-      },
-    )
-  }
 }

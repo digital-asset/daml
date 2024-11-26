@@ -46,8 +46,6 @@ class JsCommandService(
 ) extends Endpoints
     with NamedLogging {
 
-  import JsCommandServiceCodecs.*
-
   private def commandServiceClient(token: Option[String])(implicit
       traceContext: TraceContext
   ): CommandServiceGrpc.CommandServiceStub =

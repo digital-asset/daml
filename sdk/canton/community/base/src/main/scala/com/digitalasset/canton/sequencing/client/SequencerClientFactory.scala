@@ -80,7 +80,6 @@ object SequencerClientFactory {
       exitOnTimeout: Boolean,
       namedLoggerFactory: NamedLoggerFactory,
       supportedProtocolVersions: Seq[ProtocolVersion],
-      minimumProtocolVersion: Option[ProtocolVersion],
   ): SequencerClientFactory & SequencerClientTransportFactory =
     new SequencerClientFactory with SequencerClientTransportFactory with NamedLogging {
       override protected def loggerFactory: NamedLoggerFactory = namedLoggerFactory
@@ -111,7 +110,6 @@ object SequencerClientFactory {
           domainParameters,
           config.overrideMaxRequestSize,
           topologyClient,
-          futureSupervisor,
           loggerFactory,
         )
 
@@ -184,8 +182,6 @@ object SequencerClientFactory {
             trafficStateO.getOrElse(TrafficState.empty(CantonTimestamp.Epoch)),
             domainParameters.protocolVersion,
             new EventCostCalculator(loggerFactory),
-            futureSupervisor,
-            processingTimeout,
             metrics.trafficConsumption,
             domainId,
           )
@@ -196,7 +192,6 @@ object SequencerClientFactory {
             loggerFactory,
             processingTimeout,
             Some(trafficStateController),
-            member,
           )
           // pluggable send approach to support transitioning to the new async sends
           validatorFactory = new SequencedEventValidatorFactory {
@@ -367,7 +362,6 @@ object SequencerClientFactory {
           channel,
           callOptions,
           auth,
-          metrics,
           processingTimeout,
           SequencerClient
             .loggerFactoryWithSequencerAlias(loggerFactory, connection.sequencerAlias),
