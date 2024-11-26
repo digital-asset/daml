@@ -361,20 +361,24 @@ generateSrcFromLf env = noLoc mod
         LF.DefValue {dvalBinder=(name, _)} <- NM.toList . LF.moduleValues $ envMod env
         guard $ name == LFC.explicitExportsTag
 
+    qualNameToSynName :: LFC.QualName -> LF.TypeSynName
+    qualNameToSynName (LFC.QualName (LF.Qualified {LF.qualObject})) = LF.TypeSynName $ T.split (=='.') $ T.pack $ occNameString qualObject
+
     allExports :: Gen [LIE GhcPs]
     allExports = sequence $ do
         LF.DefValue {dvalBinder=(name, ty)} <- NM.toList . LF.moduleValues $ envMod env
         Just _ <- [LFC.unExportName name] -- We don't really care about the order of exports
         Just export <- [LFC.decodeExportInfo ty]
-        pure $ mkLIE export
+        mkLIE export
         where
-            mkLIE :: LFC.ExportInfo -> Gen (LIE GhcPs)
-            mkLIE = fmap noLoc . \case
+            mkLIE :: LFC.ExportInfo -> [Gen (LIE GhcPs)]
+            mkLIE = fmap (fmap noLoc) . \case
                 LFC.ExportInfoVal name ->
-                    IEVar NoExt
+                    pure $ IEVar NoExt
                         <$> mkWrappedRdrName IEName name
+                LFC.ExportInfoTC name _ _ | qualNameToSynName name `MS.member` classReexportMap || not (shouldExposeExport name) -> []
                 LFC.ExportInfoTC name pieces fields ->
-                    IEThingWith NoExt
+                    pure $ IEThingWith NoExt
                         <$> mkWrappedRdrName IEType name
                         <*> pure NoIEWildcard
                         <*> mapM (mkWrappedRdrName IEName) pieces
@@ -722,6 +726,14 @@ generateSrcFromLf env = noLoc mod
         && not (any isHidden (DL.toList (refsFromType lfType)))
         && (LF.moduleNameString lfModName /= "GHC.Prim")
         && not (LF.unExprValName lfName `Set.member` classMethodNames)
+
+    shouldExposeExport :: LFC.QualName -> Bool
+    shouldExposeExport (LFC.QualName (LF.Qualified {..}))
+        = not (isInternalName name)
+        && (LF.moduleNameString qualModule /= "GHC.Prim")
+        && not (name `Set.member` classMethodNames)
+      where
+        name = T.intercalate "." $ drop (length $ LF.unModuleName qualModule) $ T.split (=='.') $ T.pack $ occNameString qualObject
 
     isInternalName :: T.Text -> Bool
     isInternalName t = case T.stripPrefix "$" t of

@@ -776,7 +776,6 @@ convertModuleContents env mc = do
     templates <- convertTemplateDefs env mc
     exceptions <- convertExceptionDefs env mc
     interfaces <- convertInterfaces env mc
-    exports <- convertExports env mc
     let fixities = convertFixities mc
         defs =
             types
@@ -785,9 +784,10 @@ convertModuleContents env mc = do
             ++ definitions
             ++ interfaces
             ++ depOrphanModules
-            ++ exports
             ++ fixities
-    pure defs
+    -- Exports need to know what is defined to know if it should export it
+    exports <- convertExports env mc defs
+    pure $ defs ++ exports
 
 data Consuming = PreConsuming
                | Consuming
@@ -982,12 +982,65 @@ convertFixities = zipWith mkFixityDef [0..] . mcFixities
           (fixityName i)
           (encodeFixityInfo fixityInfo)
 
-convertExports :: Env -> ModuleContents -> ConvertM [Definition]
-convertExports env mc = do
+-- List of exports from DA_Internal_Template_Functions which are feature dependent
+exportNameToFeatureMap :: UniqFM Feature
+exportNameToFeatureMap = listToUFM @FastString
+  [ ("exerciseGuarded", featureExtendedInterfaces)
+  , ("HasExerciseGuarded", featureExtendedInterfaces)
+  , ("_choiceController", featureChoiceFuncs)
+  , ("HasChoiceController", featureChoiceFuncs)
+  , ("_choiceObserver", featureChoiceFuncs)
+  , ("HasChoiceObserver", featureChoiceFuncs)
+  , ("dynamicExercise", featureDynamicExercise)
+  , ("HasDynamicExercise", featureDynamicExercise)
+  , ("HasSoftFetch", featurePackageUpgrades)
+  , ("_softFetch", featurePackageUpgrades)
+  ]
+
+convertExports :: Env -> ModuleContents -> [Definition] -> ConvertM [Definition]
+convertExports env mc existingDefs = do
     let externalExportInfos = filter isExternalAvailInfo (mcExports mc)
     exportInfos <- mapM availInfoToExportInfo externalExportInfos
     pure $ explicitExportsDef : zipWith mkExportDef [0..] exportInfos
     where
+        thisModule = GHC.Module (envModuleUnitId env) (envGHCModuleName env)
+
+        localExportables :: [T.Text]
+        localExportables = topLevelExportables existingDefs
+
+        -- If name is local but isn't defined in other generated definitions, don't export it
+        isLocallyUndefined :: Name -> Bool
+        isLocallyUndefined name | nameIsLocalOrFrom thisModule name = not $ getOccText name `elem` localExportables
+        isLocallyUndefined _ = False
+
+        isInternalFunction :: Name -> Bool
+        isInternalFunction name = fromMaybe False $ do
+          -- If no name, it is either "internal", i.e. envGHCModuleName, or system, which will have been caught by the isSystemName
+          let modName = maybe (envGHCModuleName env) GHC.moduleName $ GHC.nameModule_maybe name
+          internals <- lookupUFM internalFunctions modName
+          pure $ getOccFS name `elementOfUniqSet` internals
+
+        -- Includes desugar types
+        isInternalType :: Name -> Bool
+        isInternalType (NameIn DA_Internal_LF n) = n `elementOfUniqSet` internalTypes
+        isInternalType (NameIn DA_Internal_Prelude "Optional") = True
+        isInternalType (NameIn DA_Internal_Desugar n) = n `elementOfUniqSet` desugarTypes
+        isInternalType _ = False
+
+        -- Omit disabled feature exports
+        isDisabledFeature :: Name -> Bool
+        isDisabledFeature (NameIn DA_Internal_Template_Functions name)
+          | Just f <- lookupUFM exportNameToFeatureMap name
+          = not $ envLfVersion env `supports` f
+        isDisabledFeature _ = False
+
+        -- DA.Internal.Compatible exports pattern syns for `Nothing` and `Just` which data deps cannot handle
+        -- The `isLocallyUndefined` check catches this for that module, but prelude has several modules re-export it
+        isMaybePatternSyn :: Name -> Bool
+        isMaybePatternSyn (NameIn DA_Internal_Compatible "Nothing") = True
+        isMaybePatternSyn (NameIn DA_Internal_Compatible "Just") = True
+        isMaybePatternSyn _ = False
+
         isExternalAvailInfo :: GHC.AvailInfo -> Bool
         isExternalAvailInfo = isExternalName . GHC.availName
             where
@@ -996,6 +1049,11 @@ convertExports env mc = do
                         isSystemName name
                         || isWiredInName name
                         || isGeneratedName name
+                        || isLocallyUndefined name
+                        || isInternalFunction name
+                        || isInternalType name
+                        || isDisabledFeature name
+                        || isMaybePatternSyn name
 
         availInfoToExportInfo :: GHC.AvailInfo -> ConvertM ExportInfo
         availInfoToExportInfo = \case
@@ -1555,6 +1613,9 @@ internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
     , ("GHC.Tuple.Check",
         [ "userWrittenTuple"
         ])
+    , ("GHC.Real", ["fromRational"])
+    , ("GHC.CString", ["fromString"])
+    , ("GHC.Integer.Type", ["fromInteger"])
     ]
 
 convertExpr :: SdkVersioned => Env -> GHC.Expr Var -> ConvertM LF.Expr

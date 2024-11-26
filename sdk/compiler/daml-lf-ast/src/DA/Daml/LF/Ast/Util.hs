@@ -318,6 +318,21 @@ partitionDefinitions = foldr f ([], [], [], [], [], [])
       DException e -> over _5 (e:)
       DInterface i -> over _6 (i:)
 
+-- | All names of top level exportable definitions (does not include data constructors/record accessors, as they are covered by the type name)
+topLevelExportables :: [Definition] -> [T.Text]
+topLevelExportables defs =
+  let (syns, dataTypes, values, templates, exceptions, interfaces) = partitionDefinitions defs
+   in mconcat
+        [ last . unTypeSynName . synName <$> syns
+        , last . unTypeConName . dataTypeCon <$> dataTypes
+        , unExprValName . fst . dvalBinder <$> values
+        , last . unTypeConName . tplTypeCon <$> templates -- Template names
+        , mconcat $ fmap (unChoiceName . chcName) . NM.elems . tplChoices <$> templates -- Template Choice names
+        , last . unTypeConName . exnName <$> exceptions
+        , last . unTypeConName . intName <$> interfaces -- Interface names
+        , mconcat $ fmap (unChoiceName . chcName) . NM.elems . intChoices <$> interfaces -- Interface Choice names
+        ]
+
 -- | This is the analogue of GHC’s moduleNameString for the LF
 -- `ModuleName` type.
 moduleNameString :: ModuleName -> T.Text
