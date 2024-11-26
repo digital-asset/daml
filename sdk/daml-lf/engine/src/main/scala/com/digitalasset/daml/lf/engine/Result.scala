@@ -19,7 +19,8 @@ import scala.annotation.tailrec
   */
 sealed trait Result[+A] extends Product with Serializable {
   def map[B](f: A => B): Result[B] = this match {
-    case ResultInterruption(continue) => ResultInterruption(() => continue().map(f))
+    case ResultInterruption(continue, abort) =>
+      ResultInterruption(() => continue().map(f), abort)
     case ResultDone(x) => ResultDone(f(x))
     case ResultError(err) => ResultError(err)
     case ResultNeedContract(acoid, resume) =>
@@ -35,7 +36,8 @@ sealed trait Result[+A] extends Product with Serializable {
   }
 
   def flatMap[B](f: A => Result[B]): Result[B] = this match {
-    case ResultInterruption(continue) => ResultInterruption(() => continue().flatMap(f))
+    case ResultInterruption(continue, abort) =>
+      ResultInterruption(() => continue().flatMap(f), abort)
     case ResultDone(x) => f(x)
     case ResultError(err) => ResultError(err)
     case ResultNeedContract(acoid, resume) =>
@@ -61,7 +63,7 @@ sealed trait Result[+A] extends Product with Serializable {
     def go(res: Result[A]): Either[Error, A] =
       res match {
         case ResultDone(x) => Right(x)
-        case ResultInterruption(continue) => go(continue())
+        case ResultInterruption(continue, _) => go(continue())
         case ResultError(err) => Left(err)
         case ResultNeedContract(acoid, resume) => go(resume(pcs.lift(acoid)))
         case ResultNeedPackage(pkgId, resume) => go(resume(pkgs.lift(pkgId)))
@@ -74,7 +76,8 @@ sealed trait Result[+A] extends Product with Serializable {
   }
 }
 
-final case class ResultInterruption[A](continue: () => Result[A]) extends Result[A]
+final case class ResultInterruption[A](continue: () => Result[A], abort: () => Option[String])
+    extends Result[A]
 
 /** Indicates that the command (re)interpretation was successful.
   */
@@ -276,13 +279,15 @@ object Result {
                       .map(otherResults => (okResults :+ x) :++ otherResults)
                   ),
               )
-            case ResultInterruption(continue) =>
-              ResultInterruption(() =>
-                continue().flatMap(x =>
-                  Result
-                    .sequence(results_)
-                    .map(otherResults => (okResults :+ x) :++ otherResults)
-                )
+            case ResultInterruption(continue, abort) =>
+              ResultInterruption(
+                () =>
+                  continue().flatMap(x =>
+                    Result
+                      .sequence(results_)
+                      .map(otherResults => (okResults :+ x) :++ otherResults)
+                  ),
+                abort,
               )
           }
       }

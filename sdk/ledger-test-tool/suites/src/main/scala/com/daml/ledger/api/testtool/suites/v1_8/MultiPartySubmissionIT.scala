@@ -397,6 +397,10 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
             ),
         )
         .mustFail("exercising a choice without authorization to look up another contract by key")
+      trace =
+        """
+          |    in choice [0-9a-f]{8}:Test:MultiPartyContract:MPLookupOtherByKey on contract [0-9a-f]{10} (#0)
+          |    in exercise command [0-9a-f]{8}:MultiPartyContract:MPLookupOtherByKey on contract [0-9a-f]{10}.""".stripMargin
     } yield {
       assertGrpcErrorRegex(
         failure,
@@ -406,8 +410,8 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
             "Interpretation error: Error: (" +
               "User abort: Assertion failed." +
               "|User abort: LookupOtherByKey value matches" +
-              "|Unhandled (Daml )?exception: [0-9a-zA-Z\\.:]*@[0-9a-f]*\\{ message = \"LookupOtherByKey value matches\" \\}\\." +
-              ")( [Dd]etails(: |=)Last location: \\[[^\\]]*\\], partial transaction: root node)?"
+              "|Unhandled (Daml )?exception: [0-9a-zA-Z\\.:]*@[0-9a-f]*\\{ message = \"LookupOtherByKey value matches\" \\}" +
+              s")(\\n. [Dd]etails(: |=)Last location: \\[[^\\]]*\\], partial transaction: root node|$trace)?"
           )
         ),
         checkDefiniteAnswerMetadata = true,
