@@ -127,6 +127,7 @@ da_scala_dar_resources_library(
     for test_name in [
         "FailsWhenUpgradedFieldFromDifferentPackageName",
         "WarnsWhenExpressionChangesPackageId",
+        "FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface",
     ]
     for project_name in [
         "name1",
@@ -531,6 +532,11 @@ da_scala_dar_resources_library(
             {"lf_version": "1.17"},
             {"lf_version": "1.dev"},
         ),
+        (
+            "FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface",
+            {"data_dependencies": ["//test-common:upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-dep-name1.dar"]},
+            {"data_dependencies": ["//test-common:upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-dep-name2.dar"]},
+        )
     ]
 ]
 

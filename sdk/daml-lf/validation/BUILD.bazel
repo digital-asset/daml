@@ -360,6 +360,8 @@ da_scala_test_suite(
 
             "//test-common:upgrades-FailsWhenAnEnumDropsAConstructor-v1.dar",
             "//test-common:upgrades-FailsWhenAnEnumDropsAConstructor-v2.dar",
+            "//test-common:upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-v1.dar",
+            "//test-common:upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-v2.dar",
         ],
         flaky = True,
         scala_deps = [

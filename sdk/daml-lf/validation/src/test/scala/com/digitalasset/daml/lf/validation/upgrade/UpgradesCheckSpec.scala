@@ -1136,6 +1136,24 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
       )
     }
 
+    "Fails when an instance is replaced with a different instance of an identically named interface." in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-v1.dar",
+          "test-common/upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-v1.dar",
+            "test-common/upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-v2.dar",
+            Some(
+              "Implementation of interface .*:Dep:I by template T appears in package that is being upgraded, but does not appear in this package."
+            ),
+          )
+        ),
+      )
+    }
+
     "Succeeds when an instance is added to a new template (upgraded package)." in {
       testPackages(
         Seq(
