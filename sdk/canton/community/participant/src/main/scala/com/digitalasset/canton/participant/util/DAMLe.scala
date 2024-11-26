@@ -214,7 +214,7 @@ class DAMLe(
           Left(
             Error.Interpretation(
               Error.Interpretation.Internal("engine.reinterpret", msg, None),
-              detailMessage = None,
+              transactionTrace = None,
             )
           )
 
@@ -385,7 +385,7 @@ class DAMLe(
           continue: () => Result[A]
       ): Either[EngineAborted, Result[A]] =
         continue() match {
-          case ResultInterruption(continue) =>
+          case ResultInterruption(continue, _) =>
             getEngineAbortStatus().reasonO match {
               case Some(reason) =>
                 logger.warn(s"Aborting engine computation, reason = $reason")
@@ -426,7 +426,7 @@ class DAMLe(
             .value
             .flatMap(optInst => handleResultInternal(contracts, resume(optInst)))
         case ResultError(err) => Future.successful(Left(EngineError(err)))
-        case ResultInterruption(continue) =>
+        case ResultInterruption(continue, _) =>
           // Run the interruption loop asynchronously to avoid blocking the calling thread.
           // Using a `Future` as a trampoline also makes the recursive call to `handleResult` stack safe.
           Future(iterateOverInterrupts(continue)).flatMap {

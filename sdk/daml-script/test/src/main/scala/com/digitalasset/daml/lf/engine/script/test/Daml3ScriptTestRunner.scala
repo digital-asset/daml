@@ -42,14 +42,20 @@ class Daml3ScriptTestRunner extends DamlScriptTestRunner {
           |ExceptionSemantics:tryContext FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id XXXXXXXX
           |ExceptionSemantics:uncaughtArithmeticError SUCCESS
           |ExceptionSemantics:uncaughtUserException SUCCESS
-          |ExceptionSemantics:unhandledArithmeticError FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: UNHANDLED_EXCEPTION(9,XXXXXXXX): Interpretation error: Error: Unhandled Daml exception: DA.Exception.ArithmeticError:ArithmeticError@XXXXXXXX{ message = "ArithmeticError while evaluating (DIV_INT64 1 0)." }. Details: Last location: [DA.Internal.Template.Functions:265], partial transaction: ...
-          |ExceptionSemantics:unhandledUserException FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: UNHANDLED_EXCEPTION(9,XXXXXXXX): Interpretation error: Error: Unhandled Daml exception: ExceptionSemantics:E@XXXXXXXX{  }. Details: Last location: [DA.Internal.Exception:176], partial transaction: ...
+          |ExceptionSemantics:unhandledArithmeticError FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: UNHANDLED_EXCEPTION(9,XXXXXXXX): Interpretation error: Error: Unhandled Daml exception: DA.Exception.ArithmeticError:ArithmeticError@XXXXXXXX{ message = "ArithmeticError while evaluating (DIV_INT64 1 0)." }
+          |    in choice XXXXXXXX:ExceptionSemantics:T:ThrowArithmeticError on contract XXXXXXXXXX (#1)
+          |    in create-and-exercise command XXXXXXXX:ExceptionSemantics:T:ThrowArithmeticError.
+          |ExceptionSemantics:unhandledUserException FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: UNHANDLED_EXCEPTION(9,XXXXXXXX): Interpretation error: Error: Unhandled Daml exception: ExceptionSemantics:E@XXXXXXXX{  }
+          |    in choice XXXXXXXX:ExceptionSemantics:T:Throw on contract XXXXXXXXXX (#1)
+          |    in create-and-exercise command XXXXXXXX:ExceptionSemantics:T:Throw.
           |ExceptionSemanticsWithKeys:duplicateKey FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: SErrorDamlException(UserError(Expected submit to fail but it succeeded)
           |LFContractKeys:lookupTest FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: SErrorDamlException(UserError(Expected submit to fail but it succeeded)
           |MoreChoiceObserverDivulgence:test FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id XXXXXXXX
           |MultiTest:disclosuresByKeyTest SUCCESS
           |MultiTest:disclosuresTest SUCCESS
-          |MultiTest:inactiveDisclosureDoesNotFailDuringSubmission FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: UNHANDLED_EXCEPTION(9,XXXXXXXX): Interpretation error: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "Here" }. Details: Last location: [GHC.Err:25], partial transaction: ...
+          |MultiTest:inactiveDisclosureDoesNotFailDuringSubmission FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: UNHANDLED_EXCEPTION(9,XXXXXXXX): Interpretation error: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "Here" }
+          |    in choice XXXXXXXX:MultiTest:Helper:FailWith on contract XXXXXXXXXX (#1)
+          |    in exercise command XXXXXXXX:MultiTest:Helper:FailWith on contract XXXXXXXXXX.
           |MultiTest:listKnownPartiesTest SUCCESS
           |MultiTest:multiTest SUCCESS
           |MultiTest:partyIdHintTest SUCCESS
@@ -58,12 +64,16 @@ class Daml3ScriptTestRunner extends DamlScriptTestRunner {
           |ScriptExample:initializeUser SUCCESS
           |ScriptExample:test SUCCESS
           |ScriptTest:clearUsers SUCCESS
-          |ScriptTest:failingTest FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: UNHANDLED_EXCEPTION(9,XXXXXXXX): Interpretation error: Error: Unhandled Daml exception: DA.Exception.AssertionFailed:AssertionFailed@XXXXXXXX{ message = "Assertion failed" }. Details: Last location: [DA.Internal.Exception:176], partial transaction: ...
+          |ScriptTest:failingTest FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: UNHANDLED_EXCEPTION(9,XXXXXXXX): Interpretation error: Error: Unhandled Daml exception: DA.Exception.AssertionFailed:AssertionFailed@XXXXXXXX{ message = "Assertion failed" }
+          |    in choice XXXXXXXX:ScriptTest:C:ShouldFail on contract XXXXXXXXXX (#0)
+          |    in exercise command XXXXXXXX:ScriptTest:C:ShouldFail on contract XXXXXXXXXX.
           |ScriptTest:listKnownPartiesTest SUCCESS
           |ScriptTest:multiPartySubmission SUCCESS
           |ScriptTest:partyIdHintTest SUCCESS
           |ScriptTest:sleepTest SUCCESS
-          |ScriptTest:stackTrace FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: UNHANDLED_EXCEPTION(9,XXXXXXXX): Interpretation error: Error: Unhandled Daml exception: DA.Exception.AssertionFailed:AssertionFailed@XXXXXXXX{ message = "Assertion failed" }. Details: Last location: [DA.Internal.Exception:176], partial transaction: ...
+          |ScriptTest:stackTrace FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: UNHANDLED_EXCEPTION(9,XXXXXXXX): Interpretation error: Error: Unhandled Daml exception: DA.Exception.AssertionFailed:AssertionFailed@XXXXXXXX{ message = "Assertion failed" }
+          |    in choice XXXXXXXX:ScriptTest:C:ShouldFail on contract XXXXXXXXXX (#1)
+          |    in create-and-exercise command XXXXXXXX:ScriptTest:C:ShouldFail.
           |ScriptTest:test0 SUCCESS
           |ScriptTest:test1 SUCCESS
           |ScriptTest:test3 SUCCESS

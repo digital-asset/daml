@@ -2124,6 +2124,16 @@ private[lf] object SBuiltinFun {
     }
   }
 
+  final case class SBUSetLastCommand(cmd: Command) extends UpdateBuiltin(1) {
+    override protected def executeUpdate(
+        args: util.ArrayList[SValue],
+        machine: UpdateMachine,
+    ): Control[Question.Update] = {
+      machine.lastCommand = Some(cmd)
+      Control.Value(args.get(0))
+    }
+  }
+
   /** $dynamicExercise[T, C, R] :: HasDynamicExercise T C R => ContractId T ->  C -> Update R */
   final case class SBUDynamicExercise(
       templateId: TypeConName,
