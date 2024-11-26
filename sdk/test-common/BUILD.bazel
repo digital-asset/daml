@@ -76,6 +76,7 @@ da_scala_dar_resources_library(
     daml_compile(
         name = "upgrades-{}-dep-{}".format(test_name, project_name),
         srcs = glob(["src/main/daml/upgrades/{}/dep/Dep.daml".format(test_name)]),
+        enable_interfaces = True,
         project_name = project_name,
         target = "2.dev",
         version = "1.0.0",
@@ -84,6 +85,7 @@ da_scala_dar_resources_library(
     for test_name in [
         "FailsWhenUpgradedFieldFromDifferentPackageName",
         "WarnsWhenExpressionChangesPackageId",
+        "FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface",
     ]
     for project_name in [
         "name1",
@@ -236,6 +238,7 @@ da_scala_dar_resources_library(
         ("MissingDataCon", {}, {}),
         ("MissingChoice", {}, {}),
         ("RecordFieldsNewNonOptional", {}, {}),
+        ("TemplateAddedChoice", {}, {}),
         ("TemplateChangedKeyType", {}, {}),
         ("TemplateChangedKeyType2", {}, {}),
         ("ValidUpgrade", {}, {}),
@@ -283,7 +286,10 @@ da_scala_dar_resources_library(
         ("FailsWhenTemplateRemovesKeyType", {}, {}),
         ("SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplate", {}, {}),
         ("SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice", {}, {}),
-        ("SucceedsWhenTemplateChoiceInputArgumentHasChanged", {}, {}),
+        ("SucceedsWhenTemplateChoiceInputArgumentTemplateHasChanged", {}, {}),
+        ("SucceedsWhenTemplateChoiceInputArgumentEnumHasChanged", {}, {}),
+        ("SucceedsWhenTemplateChoiceInputArgumentStructHasChanged", {}, {}),
+        ("SucceedsWhenTemplateChoiceInputArgumentVariantHasChanged", {}, {}),
         ("SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged", {}, {}),
         ("SucceedsWhenNonSerializableTypesAreIncompatible", {}, {}),
         (
@@ -362,6 +368,7 @@ da_scala_dar_resources_library(
             {"data_dependencies": ["//test-common:upgrades-FailsWhenAnInstanceIsAddedSeparateDep-dep.dar"]},
         ),
         ("FailsWithSynonymReturnTypeChange", {}, {}),
+        ("FailsWhenAnEnumDropsAConstructor", {}, {}),
         ("SucceedsWhenATopLevelVariantAddsAConstructor", {}, {}),
         ("WarnsWhenTemplateChangesEnsure", {}, {}),
         (
@@ -382,6 +389,11 @@ da_scala_dar_resources_library(
             "SucceedsWhenNewerPackagesUsesANewerLFVersion",
             {"lf_version": "2.1"},
             {"lf_version": "2.dev"},
+        ),
+        (
+            "FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface",
+            {"data_dependencies": ["//test-common:upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-dep-name1.dar"]},
+            {"data_dependencies": ["//test-common:upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-dep-name2.dar"]},
         ),
     ]
 ]
