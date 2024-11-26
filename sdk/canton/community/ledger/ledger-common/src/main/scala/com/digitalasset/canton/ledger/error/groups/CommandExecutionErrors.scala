@@ -3,18 +3,8 @@
 
 package com.digitalasset.canton.ledger.error.groups
 
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlErrorWithDefiniteAnswer,
-  ErrorCategory,
-  ErrorCategoryRetry,
-  ErrorCode,
-  ErrorGroup,
-  ErrorResource,
-  Explanation,
-  Resolution,
-}
-import com.daml.lf.data.Ref
+import com.daml.error.{ContextualizedErrorLogger, DamlErrorWithDefiniteAnswer, ErrorCategory, ErrorCategoryRetry, ErrorCode, ErrorGroup, ErrorResource, Explanation, Resolution}
+import com.daml.lf.data.{FrontStack, Ref}
 import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine.Error as LfError
 import com.daml.lf.interpretation.Error as LfInterpretationError
@@ -50,6 +40,9 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
       },
       f,
     )
+
+  def encodeParties(parties: Set[Ref.Party]): Seq[(ErrorResource, String)] =
+    Seq((ErrorResource.Parties, parties.mkString(",")))
 
   @Explanation(
     """This error occurs if the participant fails to determine the max ledger time of the used
@@ -669,14 +662,18 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
           cause = cause
         ) {
 
-          override def resources: Seq[(ErrorResource, String)] =
+          override def resources: Seq[(ErrorResource, String)] = {
+            val optKeyResources = err.keyOpt.fold(Seq.empty[(ErrorResource, String)])(key =>
+              withEncodedValue(key.globalKey.key) { encodedKey =>
+                Seq((ErrorResource.ContractKey, encodedKey)) ++ encodeParties(key.maintainers)
+            })
+
             Seq(
               (ErrorResource.ContractId, err.coid.coid),
               (ErrorResource.TemplateId, err.srcTemplateId.toString),
               (ErrorResource.TemplateId, err.dstTemplateId.toString),
-              (ErrorResource.Parties, err.signatories.toString),
-              (ErrorResource.Parties, err.observers.toString),
-            ) ++ err.keyOpt.fold(Seq.empty[(ErrorResource, String)])(key => Seq((ErrorResource.ContractKey, key.globalKey.toString), (ErrorResource.Parties, key.maintainers.toString)))
+            ) ++ encodeParties(err.signatories) ++ encodeParties(err.observers) ++ optKeyResources
+          }
         }
       }
 

@@ -366,9 +366,9 @@ class IdeLedgerClient(
           innerError.coid,
           innerError.srcTemplateId,
           innerError.dstTemplateId,
-          innerError.signatories.toString,
-          innerError.observers.toString,
-          innerError.keyOpt.map(key => (key.globalKey.toString, key.maintainers.toString)),
+          innerError.signatories,
+          innerError.observers,
+          innerError.keyOpt,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
       case e @ Upgrade(innerError: Upgrade.DowngradeDropDefinedField) =>

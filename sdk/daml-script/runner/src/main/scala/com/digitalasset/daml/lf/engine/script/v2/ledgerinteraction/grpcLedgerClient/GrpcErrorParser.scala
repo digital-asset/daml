@@ -7,7 +7,7 @@ import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.assertRight
 import com.daml.lf.language.LanguageMajorVersion
-import com.daml.lf.transaction.{GlobalKey, TransactionVersion}
+import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.ValueCoder
 import com.daml.lf.value.ValueCoder.CidDecoder
@@ -81,6 +81,14 @@ class GrpcErrorParser(majorVersion: LanguageMajorVersion) {
       handler
         .lift(resourceDetails)
         .getOrElse(new submitErrors.TruncatedError(classNameOf[A], message))
+
+    def parseParties(parties: String): Set[Party] = {
+      if (parties.isBlank) {
+        Set.empty
+      } else {
+        parties.split(",").toSet.map(Party.assertFromString _)
+      }
+    }
 
     errorCode match {
       case "CONTRACT_NOT_FOUND" =>
@@ -329,8 +337,8 @@ class GrpcErrorParser(majorVersion: LanguageMajorVersion) {
               ContractId.assertFromString(coid),
               Identifier.assertFromString(srcTemplateId),
               Identifier.assertFromString(dstTemplateId),
-              signatories,
-              observers,
+              parseParties(signatories),
+              parseParties(observers),
               None,
               message,
             )
@@ -340,16 +348,24 @@ class GrpcErrorParser(majorVersion: LanguageMajorVersion) {
                 (ErrorResource.TemplateId, dstTemplateId),
                 (ErrorResource.Parties, signatories),
                 (ErrorResource.Parties, observers),
-                (ErrorResource.ContractKey, globalKey),
+                (ErrorResource.ContractKey, decodeValue.unlift(globalKey)),
                 (ErrorResource.Parties, maintainers),
               ) =>
+            val dstTid = Identifier.assertFromString(dstTemplateId)
             submitErrors.UpgradeError.ValidationFailed(
               ContractId.assertFromString(coid),
               Identifier.assertFromString(srcTemplateId),
-              Identifier.assertFromString(dstTemplateId),
-              signatories,
-              observers,
-              Some((globalKey, maintainers)),
+              dstTid,
+              parseParties(signatories),
+              parseParties(observers),
+              Some(
+                GlobalKeyWithMaintainers.assertBuild(
+                  dstTid,
+                  globalKey,
+                  parseParties(maintainers),
+                  assertKeyPackageName(dstTid.packageId),
+                )
+              ),
               message,
             )
         }

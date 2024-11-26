@@ -23,7 +23,8 @@ data UpgradeErrorType
         signatories : [Party]
         observers : [Party]
         keyOpt : Optional (AnyContractKey, [Party])
-  | DowngradeDropDefinedField
+  | DowngradeDropDefinedField with
+        expectedType : Text
   | ViewMismatch with
         coid : AnyContractId
         iterfaceId : TemplateTypeRep
