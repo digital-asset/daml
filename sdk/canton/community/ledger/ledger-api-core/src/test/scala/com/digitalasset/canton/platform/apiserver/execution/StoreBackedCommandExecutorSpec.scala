@@ -215,7 +215,7 @@ class StoreBackedCommandExecutorSpec
           LoggingContextWithTrace(loggerFactory)
         )
         .map {
-          case Left(InterpretationTimeExceeded(`let`, `tolerance`)) => succeed
+          case Left(InterpretationTimeExceeded(`let`, `tolerance`, _)) => succeed
           case _ => fail()
         }
     }
