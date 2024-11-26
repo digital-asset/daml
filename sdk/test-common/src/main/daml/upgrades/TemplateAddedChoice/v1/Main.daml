@@ -1,0 +1,9 @@
+module Main where
+
+template T with
+    p: Party
+  where
+    signatory p
+    choice C1 : ()
+      controller p
+      do pure ()

@@ -96,6 +96,9 @@ tests damlc =
                   "MissingChoice"
                   (FailWithError "error type checking template Main.T :\n  Choice C2 appears in package that is being upgraded, but does not appear in this package.")
             , testUpgradeCheck
+                  "TemplateAddedChoice"
+                  Succeed
+            , testUpgradeCheck
                   "TemplateChangedKeyType"
                   (FailWithError "error type checking template Main.T key:\n  The upgraded template T cannot change its key type.")
             , testUpgradeCheck

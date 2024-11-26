@@ -456,6 +456,21 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
         ),
       )
     }
+    s"succeed when adding a choice to a template in upgrading package" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-TemplateAddedChoice-v1.dar",
+          "test-common/upgrades-TemplateAddedChoice-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-TemplateAddedChoice-v1.dar",
+            "test-common/upgrades-TemplateAddedChoice-v2.dar",
+            None,
+          )
+        ),
+      )
+    }
     s"report error when key type changes" in {
       testPackages(
         Seq(

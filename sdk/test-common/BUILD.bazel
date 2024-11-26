@@ -366,6 +366,7 @@ da_scala_dar_resources_library(
         ("MissingDataCon", {}, {}),
         ("MissingChoice", {}, {}),
         ("RecordFieldsNewNonOptional", {}, {}),
+        ("TemplateAddedChoice", {}, {}),
         ("TemplateChangedKeyType", {}, {}),
         ("TemplateChangedKeyType2", {}, {}),
         ("ValidUpgrade", {}, {}),
