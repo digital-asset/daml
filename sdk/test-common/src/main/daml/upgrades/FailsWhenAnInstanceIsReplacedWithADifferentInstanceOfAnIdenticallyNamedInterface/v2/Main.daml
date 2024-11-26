@@ -11,5 +11,5 @@ template T with
     signatory p
 
     interface instance I for T where
-      view = IView "V1"
+      view = IView "V2"
 
