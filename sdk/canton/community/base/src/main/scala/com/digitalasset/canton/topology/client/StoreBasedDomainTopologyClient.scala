@@ -709,7 +709,7 @@ class StoreBasedTopologySnapshot(
       findTransactions(
         asOfInclusive = false,
         includeSecondary = false,
-        types = Seq(DomainTopologyTransactionType.PackageUse),
+        types = Seq(DomainTopologyTransactionType.VettedPackage),
         filterUid = Some(Seq(participant.uid)),
         filterNamespace = None,
       ).map { res =>

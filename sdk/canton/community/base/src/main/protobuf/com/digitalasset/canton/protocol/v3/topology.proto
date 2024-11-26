@@ -1,0 +1,18 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.protocol.v3;
+
+import "com/digitalasset/canton/protocol/v2/topology.proto";
+import "scalapb/scalapb.proto";
+
+message TopologyTransaction {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  oneof transaction {
+    v2.TopologyStateUpdate state_update = 1;
+    v2.DomainGovernanceTransaction domain_governance = 2;
+  }
+}
