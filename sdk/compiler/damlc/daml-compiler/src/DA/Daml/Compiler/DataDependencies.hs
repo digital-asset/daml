@@ -367,7 +367,9 @@ generateSrcFromLf env = noLoc mod
     allExports :: Gen [LIE GhcPs]
     allExports = sequence $ do
         LF.DefValue {dvalBinder=(name, ty)} <- NM.toList . LF.moduleValues $ envMod env
-        Just _ <- [LFC.unExportName name] -- We don't really care about the order of exports
+        -- We don't really care about the order of exports
+        -- Export both re-exports and explicit exports with the same mechanism
+        Just _ <- [LFC.unReExportName name <|> LFC.unExportName name]
         Just export <- [LFC.decodeExportInfo ty]
         mkLIE export
         where

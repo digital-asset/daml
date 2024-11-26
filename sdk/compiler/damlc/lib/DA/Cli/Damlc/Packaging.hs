@@ -621,12 +621,12 @@ buildLfPackageGraph =
               , Just quals <- [LFC.decodeModuleImports ty]
               , LF.Qualified { LF.qualPackage } <- Set.toList quals
               ]
-              -- Pull out all package ids from exports as well, in order to cover re-exports.
+              -- Pull out all package ids from re-exports as well
               <>
               [ qualPackage
               | m <- NM.toList $ LF.packageModules pkg
               , LF.DefValue {dvalBinder=(name, ty)} <- NM.toList $ LF.moduleValues m
-              , Just _ <- [LFC.unExportName name]
+              , Just _ <- [LFC.unReExportName name]
               , Just export <- [LFC.decodeExportInfo ty]
               , LFC.QualName (LF.Qualified { LF.qualPackage }) <-
                   [ case export of 

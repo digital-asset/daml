@@ -87,6 +87,7 @@ import           DA.Daml.LFConversion.MetadataEncoding
 import           DA.Daml.LFConversion.ConvertM
 import           DA.Daml.LFConversion.ExternalWarnings (topLevelWarnings)
 import           DA.Daml.LFConversion.Utils
+import           DA.Daml.Preprocessor (isInternal)
 import           DA.Daml.UtilGHC
 import           DA.Daml.UtilLF
 
@@ -997,12 +998,32 @@ exportNameToFeatureMap = listToUFM @FastString
   , ("_softFetch", featurePackageUpgrades)
   ]
 
+isDamlInternal :: Env -> Name -> Bool
+isDamlInternal _ (NameIn DA_Internal_LF n) = n `elementOfUniqSet` internalTypes
+isDamlInternal _ (NameIn DA_Internal_Prelude "Optional") = True
+isDamlInternal _ (NameIn DA_Internal_Desugar n) = n `elementOfUniqSet` desugarTypes
+isDamlInternal env name = fromMaybe False $ do
+    -- If no name, it is either "internal", i.e. envGHCModuleName, or system, which will have been caught by the isSystemName
+    let modName = maybe (envGHCModuleName env) GHC.moduleName $ GHC.nameModule_maybe name
+    internals <- lookupUFM internalFunctions modName
+    pure $ getOccFS name `elementOfUniqSet` internals
+
 convertExports :: Env -> ModuleContents -> [Definition] -> ConvertM [Definition]
 convertExports env mc existingDefs = do
-    let externalExportInfos = filter isExternalAvailInfo (mcExports mc)
+    let externalReExportInfos = filter (isReExportName . GHC.availName) (mcExports mc)
+        externalExportInfos = filter (isExportName . GHC.availName) (mcExports mc) \\ externalReExportInfos
+    reExportInfos <- mapM availInfoToExportInfo externalReExportInfos
     exportInfos <- mapM availInfoToExportInfo externalExportInfos
-    pure $ explicitExportsDef : zipWith mkExportDef [0..] exportInfos
+    pure $ explicitExportsDef : zipWith mkReExportDef [0..] reExportInfos <> zipWith mkExportDef [0..] exportInfos
     where
+        isReExportName :: Name -> Bool
+        isReExportName name = not $
+            isSystemName name
+            || isWiredInName name
+            || nameIsLocalOrFrom thisModule name
+            || maybe False (isInternal . GHC.moduleName) (nameModule_maybe name)
+
+        thisModule :: GHC.Module
         thisModule = GHC.Module (envModuleUnitId env) (envGHCModuleName env)
 
         localExportables :: [T.Text]
@@ -1012,20 +1033,6 @@ convertExports env mc existingDefs = do
         isLocallyUndefined :: Name -> Bool
         isLocallyUndefined name | nameIsLocalOrFrom thisModule name = not $ getOccText name `elem` localExportables
         isLocallyUndefined _ = False
-
-        isInternalFunction :: Name -> Bool
-        isInternalFunction name = fromMaybe False $ do
-          -- If no name, it is either "internal", i.e. envGHCModuleName, or system, which will have been caught by the isSystemName
-          let modName = maybe (envGHCModuleName env) GHC.moduleName $ GHC.nameModule_maybe name
-          internals <- lookupUFM internalFunctions modName
-          pure $ getOccFS name `elementOfUniqSet` internals
-
-        -- Includes desugar types
-        isInternalType :: Name -> Bool
-        isInternalType (NameIn DA_Internal_LF n) = n `elementOfUniqSet` internalTypes
-        isInternalType (NameIn DA_Internal_Prelude "Optional") = True
-        isInternalType (NameIn DA_Internal_Desugar n) = n `elementOfUniqSet` desugarTypes
-        isInternalType _ = False
 
         -- Omit disabled feature exports
         isDisabledFeature :: Name -> Bool
@@ -1041,19 +1048,14 @@ convertExports env mc existingDefs = do
         isMaybePatternSyn (NameIn DA_Internal_Compatible "Just") = True
         isMaybePatternSyn _ = False
 
-        isExternalAvailInfo :: GHC.AvailInfo -> Bool
-        isExternalAvailInfo = isExternalName . GHC.availName
-            where
-                isExternalName name =
-                    not $
-                        isSystemName name
-                        || isWiredInName name
-                        || isGeneratedName name
-                        || isLocallyUndefined name
-                        || isInternalFunction name
-                        || isInternalType name
-                        || isDisabledFeature name
-                        || isMaybePatternSyn name
+        isExportName :: Name -> Bool
+        isExportName name = not $
+            isSystemName name
+            || isWiredInName name
+            || isLocallyUndefined name
+            || isDamlInternal env name
+            || isDisabledFeature name
+            || isMaybePatternSyn name
 
         availInfoToExportInfo :: GHC.AvailInfo -> ConvertM ExportInfo
         availInfoToExportInfo = \case
@@ -1081,6 +1083,11 @@ convertExports env mc existingDefs = do
             flSelector <- convertQualName (flSelector f)
             pure f { flSelector }
 
+        mkReExportDef :: Integer -> ExportInfo -> Definition
+        mkReExportDef i info =
+            let exportType = encodeExportInfo info
+            in DValue (mkMetadataStub (reExportName i) exportType)
+
         mkExportDef :: Integer -> ExportInfo -> Definition
         mkExportDef i info =
             let exportType = encodeExportInfo info
@@ -1089,11 +1096,6 @@ convertExports env mc existingDefs = do
         -- Tag for explicit exports, so we can differentiate between no exports and old-style exports
         explicitExportsDef :: Definition
         explicitExportsDef = DValue (mkMetadataStub explicitExportsTag (LF.TBuiltin LF.BTUnit))
-
-        -- Need to also remove generated names from exports, such as `_choice$_T$...`
-        -- as these will fail to parse in the export list.
-        isGeneratedName :: Name -> Bool
-        isGeneratedName (GHC.getOccString -> n) = '$' `elem` n
 
 defNewtypeWorker :: NamedThing a => Env -> a -> TypeConName -> DataCon
     -> [(TypeVarName, LF.Kind)] -> [(FieldName, LF.Type)] -> Definition
