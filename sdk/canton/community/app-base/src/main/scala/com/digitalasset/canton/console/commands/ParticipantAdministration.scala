@@ -16,20 +16,8 @@ import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommand
   GetResourceLimits,
   SetResourceLimits,
 }
-import com.digitalasset.canton.admin.api.client.commands.{
-  DomainTimeCommands,
-  LedgerApiCommands,
-  ParticipantAdminCommands,
-  PruningSchedulerCommands,
-  StatusAdminCommands,
-}
-import com.digitalasset.canton.admin.api.client.data.{
-  DarMetadata,
-  InFlightCount,
-  ListConnectedDomainsResult,
-  ParticipantPruningSchedule,
-  ParticipantStatus,
-}
+import com.digitalasset.canton.admin.api.client.commands.*
+import com.digitalasset.canton.admin.api.client.data.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{DomainTimeTrackerConfig, NonNegativeDuration}
 import com.digitalasset.canton.console.{
@@ -780,6 +768,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
   def id: ParticipantId
 
   protected def vettedPackagesOfParticipant(): Set[PackageId]
+  protected def checkOnlyPackagesOfParticipant(): Set[PackageId]
   protected def participantIsActiveOnDomain(
       domainId: DomainId,
       participantId: ParticipantId,
@@ -848,6 +837,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         |
         |If vetAllPackages is true (default), the packages will all be vetted on all domains the participant is registered.
         |If synchronizeVetting is true (default), then the command will block until the participant has observed the vetting transactions to be registered with the domain.
+        |If alsoSynchronizeCheckOnly is true (default), then the command will block until the participant has observed the check-only packages transactions on the domain.
         |
         |Note that synchronize vetting might block on permissioned domains that do not just allow participants to update the topology state.
         |In such cases, synchronizeVetting should be turned off.
@@ -857,6 +847,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         path: String,
         vetAllPackages: Boolean = true,
         synchronizeVetting: Boolean = true,
+        alsoSynchronizeCheckOnly: Boolean = true,
     ): String = {
       val res = consoleEnvironment.runE {
         for {
@@ -866,7 +857,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         } yield hash
       }
       if (synchronizeVetting && vetAllPackages) {
-        packages.synchronize_vetting()
+        packages.synchronize_vetting(alsoSynchronizeCheckOnly = alsoSynchronizeCheckOnly)
       }
       res
     }
@@ -977,7 +968,10 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         |that commands are only submitted once the package vetting has been observed by some other connected participant
         |known to the console. This command can be used in such cases.""")
     def synchronize_vetting(
-        timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.bounded
+        timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.bounded,
+        // TODO(#21671): Use the protocol versions of the participants and domains to
+        //               check whether to synchronize check-only or not
+        alsoSynchronizeCheckOnly: Boolean = true,
     ): Unit = {
       val connected = domains.list_connected().map(_.domainId).toSet
 
@@ -1008,20 +1002,21 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           topology: TopologyAdministrationGroup,
           observer: String,
           domainId: DomainId,
+          getPackagesInTopology: () => Set[PackageId],
+          packageTopologyDesc: String,
+      )(
+          getDomainPackagesInTopology: TopologyAdministrationGroup => Set[PackageId]
       ): Unit =
         try {
           AdminCommandRunner
             .retryUntilTrue(timeout) {
-              // ensure that vetted packages on the domain match the ones in the authorized store
-              val onDomain = topology.vetted_packages
-                .list(filterStore = domainId.filterString, filterParticipant = id.filterString)
-                .flatMap(_.item.packageIds)
-                .toSet
-              val vetted = vettedPackagesOfParticipant()
-              val ret = vetted == onDomain
+              // ensure that topology packages (either check-only or vetted) on the domain match the ones in the authorized store
+              val onDomain = getDomainPackagesInTopology(topology)
+              val packagesInTopology = getPackagesInTopology()
+              val ret = packagesInTopology == onDomain
               if (!ret) {
                 logger.debug(
-                  show"Still waiting for package vetting updates to be observed by $observer on $domainId: vetted - onDomain is ${vetted -- onDomain} while onDomain -- vetted is ${onDomain -- vetted}"
+                  show"Still waiting for package topology updates to be observed by $observer on $domainId: $packageTopologyDesc - onDomain is ${packagesInTopology -- onDomain} while onDomain -- $packageTopologyDesc is ${onDomain -- packagesInTopology}"
                 )
               }
               ret
@@ -1030,15 +1025,54 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         } catch {
           case _: TimeoutException =>
             logger.error(
-              show"$observer has not observed all vetting txs of $id on domain $domainId within the given timeout."
+              show"$observer has not observed all $packageTopologyDesc txs of $id on domain $domainId within the given timeout."
             )
+        }
+
+      def waitForVettedPackages(
+          topology: TopologyAdministrationGroup,
+          observer: String,
+          domainId: DomainId,
+      ): Unit =
+        waitForPackages(
+          topology = topology,
+          observer = observer,
+          domainId = domainId,
+          getPackagesInTopology = vettedPackagesOfParticipant _,
+          packageTopologyDesc = "vetted",
+        ) {
+          _.vetted_packages
+            .list(filterStore = domainId.filterString, filterParticipant = id.filterString)
+            .flatMap(_.item.packageIds)
+            .toSet
+        }
+
+      def waitForCheckOnlyPackages(
+          topology: TopologyAdministrationGroup,
+          observer: String,
+          domainId: DomainId,
+      ): Unit =
+        waitForPackages(
+          topology = topology,
+          observer = observer,
+          domainId = domainId,
+          getPackagesInTopology = checkOnlyPackagesOfParticipant _,
+          packageTopologyDesc = "check-only",
+        ) {
+          _.check_only_packages
+            .list(filterStore = domainId.filterString, filterParticipant = id.filterString)
+            .flatMap(_.item.packageIds)
+            .toSet
         }
 
       // for every domain this participant is connected to
       consoleEnvironment.domains.all
         .filter(d => d.health.running() && d.health.initialized() && connected.contains(d.id))
         .foreach { domain =>
-          waitForPackages(domain.topology, s"Domain ${domain.name}", domain.id)
+          waitForVettedPackages(domain.topology, s"Domain ${domain.name}", domain.id)
+          if (alsoSynchronizeCheckOnly) {
+            waitForCheckOnlyPackages(domain.topology, s"Domain ${domain.name}", domain.id)
+          }
         }
 
       // for every participant
@@ -1048,14 +1082,22 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           // for every domain this participant is connected to as well
           participant.domains.list_connected().foreach {
             case item if connected.contains(item.domainId) =>
-              waitForPackages(
+              waitForVettedPackages(
                 participant.topology,
                 s"Participant ${participant.name}",
                 item.domainId,
               )
+              if (alsoSynchronizeCheckOnly) {
+                waitForCheckOnlyPackages(
+                  participant.topology,
+                  s"Participant ${participant.name}",
+                  item.domainId,
+                )
+              }
             case _ =>
           }
         }
+
     }
 
   }

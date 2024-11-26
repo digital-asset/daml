@@ -220,7 +220,9 @@ class PackageOpsTest extends PackageOpsTestBase {
         import env.*
         when(
           topologyManager
-            .unvettedPackages(eqTo(participantId), eqTo(packagesToBeVetted.toSet))(anyTraceContext)
+            .packagesNotVetted(eqTo(participantId), eqTo(packagesToBeVetted.toSet))(
+              anyTraceContext
+            )
         ).thenReturn(Future.successful(Set.empty))
 
         packageOps
@@ -228,9 +230,10 @@ class PackageOpsTest extends PackageOpsTestBase {
           .value
           .unwrap
           .map(inside(_) { case UnlessShutdown.Outcome(Right(_)) =>
-            verify(topologyManager).unvettedPackages(any[ParticipantId], any[Set[LfPackageId]])(
-              anyTraceContext
-            )
+            verify(topologyManager)
+              .packagesNotVetted(any[ParticipantId], any[Set[LfPackageId]])(
+                anyTraceContext
+              )
             verifyNoMoreInteractions(topologyManager)
             succeed
           })
@@ -278,7 +281,9 @@ class PackageOpsTest extends PackageOpsTestBase {
 
     when(
       topologyManager
-        .unvettedPackages(eqTo(participantId), eqTo(packagesToBeVetted.toSet))(anyTraceContext)
+        .packagesNotVetted(eqTo(participantId), eqTo(packagesToBeVetted.toSet))(
+          anyTraceContext
+        )
     )
       .thenReturn(Future.successful(packagesToBeVetted.toSet))
 

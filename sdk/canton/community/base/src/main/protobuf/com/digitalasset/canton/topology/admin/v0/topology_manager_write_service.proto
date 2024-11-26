@@ -42,6 +42,11 @@ service TopologyManagerWriteService {
    */
   rpc AuthorizeVettedPackages(VettedPackagesAuthorization) returns (AuthorizationSuccess);
 
+  /**
+   * Authorizes a new check-only package transaction
+   */
+  rpc AuthorizeCheckOnlyPackages(CheckOnlyPackagesAuthorization) returns (AuthorizationSuccess);
+
   /** Authorizes a change of parameters for the domain */
   rpc AuthorizeDomainParametersChange(DomainParametersChangeAuthorization) returns (AuthorizationSuccess);
 
@@ -193,6 +198,12 @@ message MediatorDomainStateAuthorization {
 }
 
 message VettedPackagesAuthorization {
+  AuthorizationData authorization = 1;
+  string participant = 2;
+  repeated string package_ids = 3;
+}
+
+message CheckOnlyPackagesAuthorization {
   AuthorizationData authorization = 1;
   string participant = 2;
   repeated string package_ids = 3;

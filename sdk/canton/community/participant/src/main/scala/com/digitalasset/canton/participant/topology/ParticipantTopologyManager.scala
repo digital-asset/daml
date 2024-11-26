@@ -28,6 +28,7 @@ import com.digitalasset.canton.topology.client.DomainTopologyClient
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
@@ -186,7 +187,7 @@ class ParticipantTopologyManager(
       case _ => EitherT.rightT(())
     }
 
-  private def checkPackageVettingRefersToExistingPackages(
+  private def checkPackageTopologyTransactions(
       participantId: ParticipantId,
       transaction: SignedTopologyTransaction[TopologyChangeOp],
       force: Boolean,
@@ -197,21 +198,9 @@ class ParticipantTopologyManager(
       _ <- (transaction.transaction match {
         case TopologyStateUpdate(
               TopologyChangeOp.Add,
-              TopologyStateUpdateElement(_, VettedPackages(pid, packageIds)),
-            ) if participantId == pid && !force =>
-          for {
-            dependencies <- packageDependencyResolver
-              .packageDependencies(packageIds.toList)
-              .leftMap(ParticipantTopologyManagerError.CannotVetDueToMissingPackages.Missing(_))
-            unvetted <- EitherT.right(outcomeF(unvettedPackages(pid, dependencies)))
-            _ <- EitherT
-              .cond[FutureUnlessShutdown](
-                unvetted.isEmpty,
-                (),
-                ParticipantTopologyManagerError.DependenciesNotVetted
-                  .Reject(unvetted),
-              ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit]
-          } yield ()
+              TopologyStateUpdateElement(_, mapping: TopologyPackagesStateUpdateMapping),
+            ) if !force =>
+          checkAddPackagesTopologyTransaction(participantId, mapping)
         case TopologyStateUpdate(op, TopologyStateUpdateElement(_, vp @ VettedPackages(_, _))) =>
           if (force) {
             logger.info(show"Using force to authorize $op of $vp")
@@ -225,6 +214,49 @@ class ParticipantTopologyManager(
           EitherT.rightT[FutureUnlessShutdown, ParticipantTopologyManagerError](())
       }): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit]
     } yield ()
+
+  private def checkAddPackagesTopologyTransaction(
+      participantId: ParticipantId,
+      mapping: TopologyPackagesStateUpdateMapping,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit] = {
+    def dependenciesOf(packageIds: Seq[PackageId]) =
+      packageDependencyResolver
+        .packageDependencies(packageIds.toList)
+        .leftMap(ParticipantTopologyManagerError.CannotVetDueToMissingPackages.Missing(_))
+
+    mapping match {
+      case VettedPackages(pid, packageIds) if pid == participantId =>
+        for {
+          dependencies <- dependenciesOf(packageIds)
+          notVettedDependencies <- EitherT.right(outcomeF(packagesNotVetted(pid, dependencies)))
+          _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
+            notVettedDependencies.isEmpty,
+            ParticipantTopologyManagerError.DependenciesNotVetted
+              .Reject(notVettedDependencies): ParticipantTopologyManagerError,
+          )
+        } yield ()
+      case CheckOnlyPackages(pid, packageIds) if pid == participantId =>
+        for {
+          dependencies <- dependenciesOf(packageIds)
+          // Dependencies of check-only packages should be either check-only or vetted
+          notCheckOnlyNorVettedF = packagesNotMarkedAsCheckOnly(pid, dependencies)
+            .flatMap {
+              case set if set.isEmpty => Future.successful(Set.empty)
+              case notCheckOnly =>
+                packagesNotVetted(pid, dependencies).map(_ intersect notCheckOnly)
+            }: Future[Set[PackageId]]
+          notCheckOnlyNorVetted <- EitherT.right(outcomeF(notCheckOnlyNorVettedF))
+          _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
+            notCheckOnlyNorVetted.isEmpty,
+            ParticipantTopologyManagerError.DependenciesNotCheckOnlyNorVetted
+              .Reject(notCheckOnlyNorVetted): ParticipantTopologyManagerError,
+          )
+        } yield ()
+      case _ => EitherT.rightT(())
+    }
+  }
 
   private def runWithParticipantId(
       run: ParticipantId => EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit]
@@ -282,8 +314,8 @@ class ParticipantTopologyManager(
             FutureUnlessShutdown.outcomeK
           )
         )
-      case _: VettedPackages =>
-        runWithParticipantId(checkPackageVettingRefersToExistingPackages(_, transaction, force))
+      case _: TopologyPackagesStateUpdateMapping =>
+        runWithParticipantId(checkPackageTopologyTransactions(_, transaction, force))
       case _ => EitherT.rightT(())
     }
 
@@ -342,23 +374,45 @@ class ParticipantTopologyManager(
     ret.leftMap(_.cause)
   }
 
-  def unvettedPackages(pid: ParticipantId, packages: Set[PackageId])(implicit
+  /** Return the packages in `packages` that are not vetted (i.e., check-only or unknown)
+    */
+  def packagesNotVetted(pid: ParticipantId, packages: Set[PackageId])(implicit
       traceContext: TraceContext
   ): Future[Set[PackageId]] =
+    packagesNotMarkedAs(pid, packages, VettedPackages.dbType) {
+      case VettedPackages(_, packageIds) => packageIds
+    }
+
+  /** Return the packages in `packages` that are not check-only (i.e., vetted or unknown)
+    */
+  private def packagesNotMarkedAsCheckOnly(pid: ParticipantId, packages: Set[PackageId])(implicit
+      traceContext: TraceContext
+  ): Future[Set[PackageId]] =
+    packagesNotMarkedAs(pid, packages, CheckOnlyPackages.dbType) {
+      case CheckOnlyPackages(_, packageIds) => packageIds
+    }
+
+  private def packagesNotMarkedAs(
+      pid: ParticipantId,
+      packages: Set[PackageId],
+      domainTopologyTransactionType: DomainTopologyTransactionType,
+  )(
+      packageIdsExtractor: PartialFunction[TopologyStateUpdateMapping, Seq[PackageId]]
+  )(implicit traceContext: TraceContext): Future[Set[PackageId]] =
     this.store
       .findPositiveTransactions(
         CantonTimestamp.MaxValue,
         asOfInclusive = true,
         includeSecondary = false,
-        types = Seq(VettedPackages.dbType),
+        types = Seq(domainTopologyTransactionType),
         filterUid = Some(Seq(pid.uid)),
         filterNamespace = None,
       )
       .map { current =>
         current.adds.toTopologyState
           .foldLeft(packages) {
-            case (acc, TopologyStateUpdateElement(_, vs: VettedPackages)) =>
-              acc -- vs.packageIds
+            case (acc, TopologyStateUpdateElement(_, mapping)) =>
+              packageIdsExtractor.lift(mapping).map(acc -- _).getOrElse(acc)
             case (acc, _) => acc
           }
       }
@@ -501,6 +555,28 @@ object ParticipantTopologyManagerError extends ParticipantErrorGroup {
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = "Package vetting failed due to dependencies not being vetted"
+        )
+        with ParticipantTopologyManagerError
+  }
+
+  @Explanation(
+    """This error indicates a packages topology request marking a set of packages as check-only failed due to dependencies not being marked as vetted or check-only.
+      |The system requires that not only the main packages are marked checked-only explicitly but also all dependencies
+      |must be declared as either vetted or check-only.
+      |This is necessary as not all participants are required to have the same packages installed and therefore
+      |not every participant can resolve the dependencies implicitly."""
+  )
+  @Resolution("Vet the dependencies first and then repeat your attempt.")
+  object DependenciesNotCheckOnlyNorVetted
+      extends ErrorCode(
+        id = "DEPENDENCIES_NOT_CHECK_ONLY_OR_VETTED",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Reject(notVettedNorCheckOnly: Set[PackageId])(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            "Marking packages as check-only failed due to dependencies not being vetted or check-only"
         )
         with ParticipantTopologyManagerError
   }
