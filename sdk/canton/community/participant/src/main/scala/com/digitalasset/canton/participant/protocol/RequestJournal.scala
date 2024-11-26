@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.protocol
 
 import cats.data.OptionT
 import com.digitalasset.canton.RequestCounter
-import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.data.{CantonTimestamp, Counter}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -43,7 +42,6 @@ class RequestJournal(
     metrics: SyncDomainMetrics,
     override protected val loggerFactory: NamedLoggerFactory,
     initRc: RequestCounter,
-    futureSupervisor: FutureSupervisor,
 )(implicit ec: ExecutionContext)
     extends RequestJournalReader
     with NamedLogging {

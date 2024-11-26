@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.simulation.bftordering
+package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.simulation.topology
 
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.memory.SimulationOutputBlockMetadataStore
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.TopologyActivationTime
@@ -64,6 +64,8 @@ class PeerActiveAtProvider(
               Some(onboardingTime),
               onboardingBlock.map(_.epochNumber),
               Some(startBlockNumber),
+              // Switch the value deterministically so that we trigger all code paths.
+              pendingTopologyChangesInEpoch = onboardingBlock.map(_.epochNumber % 2 == 0),
               previousBftTime,
             )
           }
@@ -73,6 +75,7 @@ class PeerActiveAtProvider(
               // Present from genesis.
               epochNumber = None,
               firstBlockNumberInEpoch = None,
+              pendingTopologyChangesInEpoch = None,
               previousBftTime = None,
             )
           )

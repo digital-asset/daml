@@ -45,12 +45,12 @@ class ContractStateCachesSpec
   }
 
   "push" should "update the caches with a batch of events" in new TestScope {
-    val previousCreate = createEvent(offset = offset(1), eventSequentialId = 1, withKey = true)
+    val previousCreate = createEvent(offset = offset(1), withKey = true)
 
-    val create1 = createEvent(offset = offset(2), eventSequentialId = 2, withKey = false)
-    val create2 = createEvent(offset = offset(3), eventSequentialId = 3, withKey = true)
-    val archive1 = archiveEvent(create1, offset(3), eventSequentialId = 4)
-    val archivedPrevious = archiveEvent(previousCreate, offset(4), eventSequentialId = 5)
+    val create1 = createEvent(offset = offset(2), withKey = false)
+    val create2 = createEvent(offset = offset(3), withKey = true)
+    val archive1 = archiveEvent(create1, offset(3))
+    val archivedPrevious = archiveEvent(previousCreate, offset(4))
 
     val batch = NonEmptyVector.of(create1, create2, archive1, archivedPrevious)
 
@@ -70,7 +70,7 @@ class ContractStateCachesSpec
   }
 
   "push" should "not update the key state cache if no key updates" in new TestScope {
-    val create1 = createEvent(offset = offset(2), eventSequentialId = 2, withKey = false)
+    val create1 = createEvent(offset = offset(2), withKey = false)
 
     val batch = NonEmptyVector.of(create1)
     val expectedContractStateUpdates = Map(create1.contractId -> contractActive(create1))
@@ -105,7 +105,6 @@ class ContractStateCachesSpec
 
     def createEvent(
         offset: AbsoluteOffset,
-        eventSequentialId: Long,
         withKey: Boolean,
     ): ContractStateEvent.Created = {
       val cId = contractIdx.incrementAndGet()
@@ -125,7 +124,6 @@ class ContractStateCachesSpec
     def archiveEvent(
         create: ContractStateEvent.Created,
         offset: AbsoluteOffset,
-        eventSequentialId: Long,
     ): ContractStateEvent.Archived =
       ContractStateEvent.Archived(
         contractId = create.contractId,

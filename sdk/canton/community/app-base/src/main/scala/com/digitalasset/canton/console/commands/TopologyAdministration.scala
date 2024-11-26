@@ -764,7 +764,7 @@ class TopologyAdministrationGroup(
         mustFullyAuthorize: Boolean = true,
         serial: Option[PositiveInt] = None,
         signedBy: Seq[Fingerprint] = Seq.empty,
-        force: Boolean = false,
+        forceChanges: ForceFlags = ForceFlags.none,
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
@@ -783,7 +783,7 @@ class TopologyAdministrationGroup(
               serial = serial,
               change = TopologyChangeOp.Remove,
               mustFullyAuthorize = mustFullyAuthorize,
-              forceChanges = ForceFlags.none,
+              forceChanges = forceChanges,
             )
           )
 

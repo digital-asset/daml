@@ -117,7 +117,6 @@ class BlockSequencerTest
     private val topologyClient = new StoreBasedDomainTopologyClient(
       mock[Clock],
       domainId,
-      testedProtocolVersion,
       topologyStore,
       StoreBasedDomainTopologyClient.NoPackageDependencies,
       DefaultProcessingTimeouts.testing,

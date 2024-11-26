@@ -66,7 +66,6 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
         new StoreBasedDomainTopologyClient(
           mock[Clock],
           domainId,
-          testedProtocolVersion,
           store,
           StoreBasedDomainTopologyClient.NoPackageDependencies,
           DefaultProcessingTimeouts.testing,

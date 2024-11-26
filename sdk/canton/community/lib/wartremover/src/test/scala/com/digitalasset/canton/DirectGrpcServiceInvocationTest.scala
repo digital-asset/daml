@@ -8,6 +8,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.wartremover.test.WartTestTraverser
 
+import scala.annotation.unused
 import scala.concurrent.Future
 
 class DirectGrpcServiceInvocationTest
@@ -173,5 +174,8 @@ object DirectGrpcServiceInvocationTest {
   }
 
   @GrpcServiceInvocationMethod
-  private class MyGrpcUtil(arg: Any)
+  private class MyGrpcUtil(
+      @unused
+      arg: Any
+  )
 }

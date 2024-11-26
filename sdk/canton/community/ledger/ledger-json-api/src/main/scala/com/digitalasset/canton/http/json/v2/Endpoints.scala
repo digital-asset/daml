@@ -102,7 +102,7 @@ trait Endpoints extends NamedLogging {
             .transform(handleErrorResponse(i.traceContext))(ExecutionContext.parasitic)
       )
 
-  protected def websocket[HI, I: Decoder: Encoder: Schema, O: Decoder: Encoder: Schema](
+  protected def websocket[HI, I, O](
       endpoint: Endpoint[
         CallerContext,
         HI,

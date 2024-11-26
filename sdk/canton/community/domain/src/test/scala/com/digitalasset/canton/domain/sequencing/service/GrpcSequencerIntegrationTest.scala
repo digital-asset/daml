@@ -141,7 +141,6 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
       BaseTest.defaultStaticDomainParameters,
       None,
       topologyClient,
-      futureSupervisor,
       loggerFactory,
     )
 
@@ -264,7 +263,6 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
           includeBetaVersions = BaseTest.testedProtocolVersion.isBeta,
           release = ReleaseVersion.current,
         ),
-        Some(BaseTest.testedProtocolVersion),
       ).create(
         participant,
         sequencedEventStore,

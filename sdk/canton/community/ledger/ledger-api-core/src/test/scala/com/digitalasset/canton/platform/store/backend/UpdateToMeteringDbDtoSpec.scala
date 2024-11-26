@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.backend
 
 import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
 import com.daml.metrics.api.{HistogramInventory, MetricName, MetricsContext}
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.metrics.{IndexerHistograms, IndexerMetrics}
 import com.digitalasset.canton.topology.DomainId
@@ -149,9 +149,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
               someTransactionAccepted,
             ),
             (
-              Offset
-                .fromHexString(Ref.HexString.assertFromString(metering.ledger_offset))
-                .toAbsoluteOffset,
+              AbsoluteOffset.fromHexString(Ref.HexString.assertFromString(metering.ledger_offset)),
               someTransactionAccepted,
             ),
           )

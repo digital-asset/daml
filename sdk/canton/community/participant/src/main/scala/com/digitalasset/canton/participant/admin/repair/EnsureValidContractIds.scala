@@ -159,7 +159,6 @@ object EnsureValidContractIds {
                 contract.ledgerCreateTime,
                 contract.metadata,
                 newRawContractInstance,
-                contractIdVersion,
               )
           }
         }

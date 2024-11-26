@@ -6,7 +6,6 @@ package com.digitalasset.canton.domain.sequencing
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.parallel.*
-import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
@@ -128,7 +127,6 @@ class SequencerRuntime(
     clock: Clock,
     authenticationConfig: SequencerAuthenticationConfig,
     staticMembersToRegister: Seq[Member],
-    futureSupervisor: FutureSupervisor,
     memberAuthenticationServiceFactory: MemberAuthenticationServiceFactory,
     topologyStateForInitializationService: TopologyStateForInitializationService,
     maybeDomainOutboxFactory: Option[DomainOutboxFactorySingleCreate],
@@ -190,7 +188,6 @@ class SequencerRuntime(
       staticDomainParameters,
       publicServerConfig.overrideMaxRequestSize,
       topologyClient,
-      futureSupervisor,
       loggerFactory,
     )
 

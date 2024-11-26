@@ -89,7 +89,7 @@ trait DbMigrations { this: NamedLogging =>
       flyway: Flyway
   )(implicit traceContext: TraceContext): EitherT[UnlessShutdown, DbMigrations.Error, Unit] =
     // Retry the migration in case of failures, which may happen due to a race condition in concurrent migrations
-    RetryEither.retry[DbMigrations.Error, Unit](10, 100, functionFullName, logger) {
+    RetryEither.retry[DbMigrations.Error, Unit](10, 100, functionFullName) {
       Either
         .catchOnly[FlywayException](flyway.migrate())
         .map(r => logger.info(s"Applied ${r.migrationsExecuted} migrations successfully"))

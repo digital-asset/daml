@@ -11,7 +11,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultDatabaseReadTimeout
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.leaders.SimpleLeaderSelectionPolicy
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.OutputBlocksReader
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochLength
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.snapshot.SequencerSnapshotAdditionalInfo
@@ -33,7 +32,6 @@ final class PreIssConsensusModule[E <: Env[E]](
     initialCryptoProvider: CryptoProvider[E],
     epochLength: EpochLength,
     epochStore: EpochStore[E],
-    outputBlocksReader: OutputBlocksReader[E],
     sequencerSnapshotAdditionalInfo: Option[SequencerSnapshotAdditionalInfo],
     clock: Clock,
     metrics: BftOrderingMetrics,
@@ -65,7 +63,6 @@ final class PreIssConsensusModule[E <: Env[E]](
             latestCompletedEpoch,
           ),
           epochStore,
-          outputBlocksReader,
           clock,
           metrics,
           segmentModuleRefFactory,

@@ -318,7 +318,6 @@ private object MutableCacheBackedContractStoreRaceTests {
     val metrics = LedgerApiServerMetrics.ForTesting
     new MutableCacheBackedContractStore(
       contractsReader = indexViewContractsReader,
-      metrics = metrics,
       contractStateCaches = ContractStateCaches.build(
         initialCacheIndex = None,
         maxContractsCacheSize = 1L,

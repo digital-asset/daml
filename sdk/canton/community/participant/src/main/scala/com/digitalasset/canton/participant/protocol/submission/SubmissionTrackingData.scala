@@ -33,6 +33,7 @@ import com.google.protobuf.empty.Empty
 import com.google.rpc.status.Status
 
 import java.util.UUID
+import scala.annotation.unused
 
 /** The data of an in-flight unsequenced submission that suffices to produce a rejection reason.
   * This data is persisted in the [[com.digitalasset.canton.participant.store.InFlightSubmissionStore]]
@@ -225,7 +226,7 @@ object TransactionSubmissionTrackingData {
 
     override protected def pretty: Pretty[TimeoutCause.type] = prettyOfObject[TimeoutCause.type]
 
-    def fromProtoV30(_empty: Empty): ParsingResult[TimeoutCause.type] = Right(
+    def fromProtoV30(@unused _empty: Empty): ParsingResult[TimeoutCause.type] = Right(
       this
     )
   }

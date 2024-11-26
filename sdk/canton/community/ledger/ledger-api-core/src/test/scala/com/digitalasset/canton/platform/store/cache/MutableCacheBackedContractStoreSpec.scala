@@ -43,7 +43,6 @@ class MutableCacheBackedContractStoreSpec
     "update the contract state caches" in {
       val contractStateCaches = mock[ContractStateCaches]
       val contractStore = new MutableCacheBackedContractStore(
-        metrics = LedgerApiServerMetrics.ForTesting,
         contractsReader = mock[LedgerDaoContractsReader],
         contractStateCaches = contractStateCaches,
         loggerFactory = loggerFactory,
@@ -303,7 +302,6 @@ object MutableCacheBackedContractStoreSpec {
     val metrics = LedgerApiServerMetrics.ForTesting
     val startIndexExclusive = Some(offset0)
     val contractStore = new MutableCacheBackedContractStore(
-      metrics,
       readerFixture,
       contractStateCaches = ContractStateCaches
         .build(startIndexExclusive, cachesSize, cachesSize, metrics, loggerFactory),

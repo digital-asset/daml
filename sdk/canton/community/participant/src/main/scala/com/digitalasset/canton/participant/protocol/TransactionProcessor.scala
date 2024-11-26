@@ -107,8 +107,7 @@ class TransactionProcessor(
         damle.enrichTransaction,
         new AuthorizationValidator(participantId, parameters.enableExternalAuthorization),
         new InternalConsistencyChecker(
-          staticDomainParameters.protocolVersion,
-          loggerFactory,
+          loggerFactory
         ),
         commandProgressTracker,
         loggerFactory,

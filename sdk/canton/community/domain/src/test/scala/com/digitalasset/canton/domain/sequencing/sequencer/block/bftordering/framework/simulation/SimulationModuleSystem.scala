@@ -170,8 +170,8 @@ object SimulationModuleSystem {
     override def become(module: Module[SimulationEnv, MessageT]): Unit =
       addSetBehaviorEvent(collector, to, module, ready = true)
 
-    override def stop(): Unit =
-      collector.addInternalEvent(to, ModuleControl.Stop())
+    override def stop(onStop: () => Unit): Unit =
+      collector.addInternalEvent(to, ModuleControl.Stop(onStop))
 
   }
 
@@ -205,7 +205,7 @@ object SimulationModuleSystem {
     override def become(module: Module[SimulationEnv, MessageT]): Unit =
       unsupportedForClientModules()
 
-    override def stop(): Unit =
+    override def stop(onStop: () => Unit): Unit =
       unsupportedForClientModules()
 
     private def unsupportedForClientModules(): Nothing =
@@ -242,7 +242,7 @@ object SimulationModuleSystem {
 
     override def become(module: Module[SimulationEnv, MessageT]): Unit = unsupportedForSystem()
 
-    override def stop(): Unit = unsupportedForSystem()
+    override def stop(onStop: () => Unit): Unit = unsupportedForSystem()
 
   }
 

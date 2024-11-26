@@ -110,7 +110,6 @@ class QueueBasedDomainOutboxTest
     val client = new StoreBasedDomainTopologyClient(
       clock,
       domainId,
-      protocolVersion = testedProtocolVersion,
       store = target,
       packageDependenciesResolver = StoreBasedDomainTopologyClient.NoPackageDependencies,
       timeouts = timeouts,

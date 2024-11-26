@@ -247,7 +247,7 @@ trait ModuleContext[E <: Env[E], MessageT] extends NamedLogging {
 
   def become(module: Module[E, MessageT]): Unit
 
-  def stop(): Unit
+  def stop(onStop: () => Unit = () => ()): Unit
 
   // Aborting in Canton shouldn't kill the whole process, as it may contain several nodes,
   //  but rather only the module/sequencer.
@@ -311,13 +311,13 @@ object Module {
     final case class NoOp[E <: Env[E], AcceptedMessageT]()
         extends ModuleControl[E, AcceptedMessageT]
 
-    final case class Stop[E <: Env[E], AcceptedMessageT]()
+    final case class Stop[E <: Env[E], AcceptedMessageT](onStop: () => Unit)
         extends ModuleControl[E, AcceptedMessageT]
         with ControlMessage
   }
 
   /** A system initializer defines how a specific modular distributed system is built
-    * independently from the concrete actors framework, such as Pekko or the simulation testing framework,
+    * independently of the concrete actors framework, such as Pekko or the simulation testing framework,
     * as to further reduce the gap between what is run and what is deterministically simulation-tested.
     *
     * Inputs are a module system and a network manager; the latter defines how peers connect.

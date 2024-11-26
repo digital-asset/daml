@@ -33,6 +33,7 @@ import com.digitalasset.canton.version.{
 import com.digitalasset.canton.{ProtoDeserializationError, ReassignmentCounter}
 import com.digitalasset.daml.lf.data.Bytes
 
+import scala.annotation.unused
 import scala.concurrent.{ExecutionContext, Future}
 
 final case class CommitmentContractMetadata(
@@ -542,7 +543,7 @@ object ContractCreated
   )
 
   def fromProtoV30(
-      created: v30.ContractState.Created
+      @unused created: v30.ContractState.Created
   ): ParsingResult[ContractCreated] =
     for {
       reprProtocolVersion <- protocolVersionRepresentativeFor(ProtoVersion(30))
@@ -760,7 +761,7 @@ object ContractArchived
   )
 
   def fromProtoV30(
-      archived: v30.ContractState.Archived
+      @unused archived: v30.ContractState.Archived
   ): ParsingResult[ContractArchived] =
     for {
       reprProtocolVersion <- protocolVersionRepresentativeFor(ProtoVersion(30))
@@ -805,7 +806,7 @@ object ContractUnknown
   )
 
   def fromProtoV30(
-      unknown: v30.ContractState.Unknown
+      @unused unknown: v30.ContractState.Unknown
   ): ParsingResult[ContractUnknown] =
     for {
       reprProtocolVersion <- protocolVersionRepresentativeFor(ProtoVersion(30))

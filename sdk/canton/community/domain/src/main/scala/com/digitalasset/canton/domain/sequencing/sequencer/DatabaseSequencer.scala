@@ -30,7 +30,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
   SequencerRateLimitError,
   SequencerTrafficStatus,
 }
-import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficConsumedStore
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.metrics.MetricsHelper
@@ -105,7 +104,6 @@ object DatabaseSequencer {
       clock,
       domainId,
       topologyClientMember,
-      trafficConsumedStore = None,
       protocolVersion,
       cryptoApi,
       metrics,
@@ -131,7 +129,6 @@ class DatabaseSequencer(
     clock: Clock,
     domainId: DomainId,
     topologyClientMember: Member,
-    trafficConsumedStore: Option[TrafficConsumedStore],
     protocolVersion: ProtocolVersion,
     cryptoApi: DomainSyncCryptoClient,
     metrics: SequencerMetrics,
@@ -275,7 +272,6 @@ class DatabaseSequencer(
       cryptoApi,
       eventSignaller,
       topologyClientMember,
-      trafficConsumedStore,
       protocolVersion,
       timeouts,
       loggerFactory,

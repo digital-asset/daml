@@ -80,9 +80,13 @@ object OutputBlockMetadataStore {
       epochNumber: EpochNumber,
       blockNumber: BlockNumber,
       blockBftTime: CantonTimestamp,
-      // TODO(#22205): consider using a separate table for the following epoch-level info
-      epochCouldAlterSequencingTopology: Boolean, // Cumulative over all blocks in the epoch (restart support)
-      pendingTopologyChangesInNextEpoch: Boolean, // May be true only for the last block in an epoch
+      // TODO(#22205): Consider using a separate table for the following epoch-level info; in particular,
+      //  the "pending topology changes" flag is not stable and may get updated before the block is output;
+      //  this is currently not a problem for state transfer, but avoiding updates would make reasoning simpler.
+      // Cumulative over all blocks in the epoch (restart support).
+      epochCouldAlterSequencingTopology: Boolean,
+      // It may be updated later if the topology needs to be fetched. May be true only for the last block in an epoch.
+      pendingTopologyChangesInNextEpoch: Boolean = false,
   )
 
   def apply(
@@ -91,7 +95,7 @@ object OutputBlockMetadataStore {
       loggerFactory: NamedLoggerFactory,
   )(implicit
       ec: ExecutionContext
-  ): OutputBlockMetadataStore[PekkoEnv] & OutputBlocksReader[PekkoEnv] =
+  ): OutputBlockMetadataStore[PekkoEnv] =
     storage match {
       case _: MemoryStorage =>
         new InMemoryOutputBlockMetadataStore

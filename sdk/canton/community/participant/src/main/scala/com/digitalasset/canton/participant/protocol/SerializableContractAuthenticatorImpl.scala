@@ -80,7 +80,7 @@ class SerializableContractAuthenticatorImpl(unicumGenerator: UnicumGenerator)
       metadata: ContractMetadata,
       rawContractInstance: SerializableRawContractInstance,
   ): Either[String, Unit] = {
-    val ContractId.V1(_discriminator, cantonContractSuffix) = contractId
+    val ContractId.V1(_, cantonContractSuffix) = contractId
     val optContractIdVersion = CantonContractIdVersion.fromContractSuffix(cantonContractSuffix)
     optContractIdVersion match {
       case Right(AuthenticatedContractIdVersionV10) =>
@@ -95,7 +95,6 @@ class SerializableContractAuthenticatorImpl(unicumGenerator: UnicumGenerator)
               ledgerCreateTime = ledgerTime,
               metadata = metadata,
               suffixedContractInstance = rawContractInstance,
-              contractIdVersion = contractIdVersion,
             )
           recomputedSuffix = recomputedUnicum.toContractIdSuffix(contractIdVersion)
           _ <- Either.cond(

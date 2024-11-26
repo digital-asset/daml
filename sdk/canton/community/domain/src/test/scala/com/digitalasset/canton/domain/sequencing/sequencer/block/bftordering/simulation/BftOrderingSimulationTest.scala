@@ -37,9 +37,9 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.simulation.bftordering.{
   BftOrderingVerifier,
   IssClient,
-  PeerActiveAtProvider,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.simulation.topology.{
+  PeerActiveAtProvider,
   SimulationOrderingTopologyProvider,
   SimulationTopologyHelpers,
 }
@@ -137,7 +137,6 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
             simulationEpochStore,
             orderedBlocksReader = simulationEpochStore,
             outputBlockMetadataStore,
-            outputBlocksReader = outputBlockMetadataStore,
           )
 
           val thisPeer = SimulationP2PNetworkManager.fakeSequencerId(endpoint)

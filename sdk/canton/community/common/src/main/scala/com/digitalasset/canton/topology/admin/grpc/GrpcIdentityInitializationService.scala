@@ -6,7 +6,6 @@ package com.digitalasset.canton.topology.admin.grpc
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
-import com.digitalasset.canton.crypto.store.CryptoPublicStore
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.UniqueIdentifier
@@ -18,7 +17,6 @@ import scala.concurrent.{ExecutionContext, Future}
 class GrpcIdentityInitializationService(
     clock: Clock,
     bootstrap: GrpcIdentityInitializationService.Callback,
-    cryptoPublicStore: CryptoPublicStore,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends adminProto.IdentityInitializationServiceGrpc.IdentityInitializationService

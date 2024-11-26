@@ -66,7 +66,11 @@ class InMemoryCryptoPrivateStore(
       oldKey: K,
       newKey: K,
   ): CryptoPrivateStoreError =
-    CryptoPrivateStoreError.KeyAlreadyExists(keyId, oldKey.name.map(_.unwrap))
+    CryptoPrivateStoreError.KeyAlreadyExists(
+      keyId,
+      oldKey.name.map(_.unwrap),
+      newKey.name.map(_.unwrap),
+    )
 
   private[crypto] def readPrivateKey(keyId: Fingerprint, purpose: KeyPurpose)(implicit
       traceContext: TraceContext

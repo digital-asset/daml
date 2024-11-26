@@ -710,7 +710,6 @@ class LocalCommitmentsAdministrationGroup(
   def buffered(
       domain: DomainAlias,
       endAtOrBefore: Instant,
-      counterParticipant: Option[ParticipantId] = None,
   ): Iterable[AcsCommitment] =
     access { node =>
       node.sync.stateInspection.bufferedCommitments(

@@ -185,7 +185,7 @@ final case class TransactionView private (
         subviews.unblindedElements.foldLeft(viewParticipantData.resolvedKeysWithMaintainers) {
           (acc, subview) =>
             val subviewGki = subview.globalKeyInputs
-            MapsUtil.mergeWith(acc, subviewGki)((accRes, _subviewRes) => accRes)
+            MapsUtil.mergeWith(acc, subviewGki)((accRes, _) => accRes)
         }
     }
 

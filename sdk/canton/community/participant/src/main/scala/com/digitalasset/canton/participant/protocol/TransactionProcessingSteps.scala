@@ -61,10 +61,7 @@ import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFa
   UnknownPackageError,
 }
 import com.digitalasset.canton.participant.protocol.validation.ContractConsistencyChecker.ReferenceToFutureContractError
-import com.digitalasset.canton.participant.protocol.validation.InternalConsistencyChecker.{
-  ErrorWithInternalConsistencyCheck,
-  alertingPartyLookup,
-}
+import com.digitalasset.canton.participant.protocol.validation.InternalConsistencyChecker.ErrorWithInternalConsistencyCheck
 import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.{
   ErrorWithSubTransaction,
   LazyAsyncReInterpretation,
@@ -803,7 +800,6 @@ class TransactionProcessingSteps(
     for {
       usedAndCreated <- ExtractUsedAndCreated(
         participantId,
-        staticDomainParameters,
         rootViewTrees.map(_.view),
         snapshot.ipsSnapshot,
         loggerFactory,
@@ -966,8 +962,7 @@ class TransactionProcessingSteps(
         )
 
         internalConsistencyResultE = internalConsistencyChecker.check(
-          parsedRequest.rootViewTrees,
-          alertingPartyLookup(globalKeyHostedParties),
+          parsedRequest.rootViewTrees
         )
 
       } yield ParallelChecksResult(
@@ -1366,7 +1361,6 @@ class TransactionProcessingSteps(
       usedAndCreated <- EitherT.right(
         ExtractUsedAndCreated(
           participantId,
-          staticDomainParameters,
           validSubViewsNE,
           topologySnapshot,
           loggerFactory,

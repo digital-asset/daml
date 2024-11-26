@@ -35,7 +35,6 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
     managers: => Seq[TopologyManager[TopologyStoreId, PureCrypto]],
-    crypto: Crypto,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends v30.TopologyManagerWriteServiceGrpc.TopologyManagerWriteService

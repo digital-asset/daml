@@ -12,15 +12,9 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
   EpochStore,
   Genesis,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferManager
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferManager.{
-  NewEpochState,
-  NoEpochStateUpdates,
-}
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.OutputBlockMetadataStore.OutputBlockMetadata
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.{
-  OutputBlockMetadataStore,
-  OutputBlocksReader,
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.{
+  StateTransferManager,
+  StateTransferMessageResult,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.ModuleRef
@@ -52,10 +46,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   P2PNetworkOut,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.unit.modules.*
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.unit.modules.consensus.iss.{
-  InMemoryUnitTestEpochStore,
-  InMemoryUnitTestOutputBlockMetadataStore,
-}
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.unit.modules.consensus.iss.InMemoryUnitTestEpochStore
 import com.digitalasset.canton.topology.SequencerId
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -72,7 +63,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
           p2pNetworkOutModuleRef = p2pNetworkOutRef
         )
 
-      stateTransferManager.isInStateTransfer shouldBe false
+      stateTransferManager.inStateTransfer shouldBe false
 
       val startEpoch = EpochNumber(7L)
       stateTransferManager.startStateTransfer(
@@ -81,7 +72,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
         startEpoch,
       )(abort = fail(_))
 
-      stateTransferManager.isInStateTransfer shouldBe true
+      stateTransferManager.inStateTransfer shouldBe true
 
       val blockTransferRequest = StateTransferMessage.BlockTransferRequest
         .create(
@@ -106,7 +97,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       context.extractSelfMessages() shouldBe empty
 
       stateTransferManager.clearStateTransferState()
-      stateTransferManager.isInStateTransfer shouldBe false
+      stateTransferManager.inStateTransfer shouldBe false
     }
 
     "schedule a retry and send block transfer request" in {
@@ -139,7 +130,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
           .ResendBlockTransferRequest(blockTransferRequest, to = otherSequencerId),
         membership,
         latestCompletedEpoch,
-      )(completeInit = () => (), abort = fail(_)) shouldBe NoEpochStateUpdates
+      )(abort = fail(_)) shouldBe StateTransferMessageResult.Continue
 
       assertBlockTransferRequestHasBeenSent(
         p2pNetworkOutRef,
@@ -154,38 +145,19 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
       val p2pNetworkOutRef = mock[ModuleRef[P2PNetworkOut.Message]]
       val epochStore = new InMemoryUnitTestEpochStore[ProgrammableUnitTestEnv]
-      val outputBlocksMetadataStore =
-        new InMemoryUnitTestOutputBlockMetadataStore[ProgrammableUnitTestEnv]
       val stateTransferManager =
         createStateTransferManager[ProgrammableUnitTestEnv](
           p2pNetworkOutModuleRef = p2pNetworkOutRef,
           epochStore = epochStore,
-          outputBlocksMetadataStore = outputBlocksMetadataStore,
         )
 
       // Store a pre-prepare that will be sent by the serving node.
       val prePrepare = aPrePrepare()
-      val blockTransferData = StateTransferMessage.BlockTransferData.create(
-        prePrepare,
-        pendingTopologyChanges = true,
-      )
+      val blockTransferData = StateTransferMessage.BlockTransferData.create(prePrepare)
       context.pipeToSelf(epochStore.addOrderedBlock(prePrepare, Seq.empty))(
         _.map(_ => None).getOrElse(fail("Storing the pre-prepare failed"))
       )
-      context.pipeToSelf(
-        outputBlocksMetadataStore.insertIfMissing(
-          OutputBlockMetadata(
-            epochNumber = EpochNumber.First,
-            blockNumber = BlockNumber.First,
-            blockBftTime = CantonTimestamp.Epoch,
-            epochCouldAlterSequencingTopology = true,
-            pendingTopologyChangesInNextEpoch = true,
-          )
-        )
-      )(
-        _.map(_ => None).getOrElse(fail("Storing the output block metadata failed"))
-      )
-      context.runPipedMessages() // store ordered and output block data
+      context.runPipedMessages() // store ordered block data
 
       // Handle a block transfer request from genesis.
       val latestCompletedEpochLocally = EpochStore.Epoch(
@@ -205,7 +177,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
         ),
         membership,
         latestCompletedEpoch = latestCompletedEpochLocally,
-      )(completeInit = () => (), abort = fail(_)) shouldBe NoEpochStateUpdates
+      )(abort = fail(_)) shouldBe StateTransferMessageResult.Continue
 
       context.runPipedMessages() // retrieve pre-prepares and output metadata
 
@@ -258,10 +230,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       )
     val blockMetadata = BlockMetadata.mk(EpochNumber.First, BlockNumber.First)
     val prePrepare = aPrePrepare(blockMetadata)
-    val blockTransferData = StateTransferMessage.BlockTransferData.create(
-      prePrepare,
-      pendingTopologyChanges = true,
-    )
+    val blockTransferData = StateTransferMessage.BlockTransferData.create(prePrepare)
 
     // Handle a block transfer response with a single epoch containing a single block.
     val blockTransferResponse = StateTransferMessage.BlockTransferResponse.create(
@@ -274,7 +243,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       NetworkMessage(blockTransferResponse),
       membership,
       latestCompletedEpochLocally,
-    )(completeInit = () => (), abort = fail(_)) shouldBe NoEpochStateUpdates
+    )(abort = fail(_)) shouldBe StateTransferMessageResult.Continue
 
     val messages = context.runPipedMessages() // store block
     messages should contain only StateTransferMessage.BlockStored(
@@ -282,24 +251,22 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       blockTransferResponse,
     )
 
-    val newEpochState = stateTransferManager.handleStateTransferMessage(
+    val result = stateTransferManager.handleStateTransferMessage(
       messages.headOption
         .getOrElse(fail("There should be a single message"))
         .asInstanceOf[StateTransferMessage],
       membership,
       latestCompletedEpochLocally,
-    )(() => (), fail(_))
+    )(fail(_))
 
     // Should have completed the block transfer and returned a new epoch state to the Consensus module.
-    newEpochState shouldBe Some(
-      NewEpochState(
-        EpochState.Epoch(
-          latestCompletedEpochRemotely.info,
-          membership,
-          DefaultLeaderSelectionPolicy,
-        ),
-        latestCompletedEpochRemotely,
-      )
+    result shouldBe StateTransferMessageResult.BlockTransferCompleted(
+      EpochState.Epoch(
+        latestCompletedEpochRemotely.info,
+        membership,
+        DefaultLeaderSelectionPolicy,
+      ),
+      latestCompletedEpochRemotely,
     )
 
     // Should have sent an ordered block to the Output module.
@@ -313,9 +280,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
           ),
           from = prePrepare.from,
           isLastInEpoch = true,
-          mode = OrderedBlockForOutput.Mode.StateTransfer.LastBlock(
-            pendingTopologyChangesInNextEpoch = true
-          ),
+          mode = OrderedBlockForOutput.Mode.StateTransfer.LastBlock,
         )
       )
     )
@@ -326,8 +291,6 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       p2pNetworkOutModuleRef: ModuleRef[P2PNetworkOut.Message],
       epochLength: Long = 1L,
       epochStore: EpochStore[E] = new InMemoryUnitTestEpochStore[E],
-      outputBlocksMetadataStore: OutputBlockMetadataStore[E] & OutputBlocksReader[E] =
-        new InMemoryUnitTestOutputBlockMetadataStore[E],
   ): StateTransferManager[E] = {
     val dependencies = ConsensusModuleDependencies[E](
       availability = fakeIgnoringModule,
@@ -339,7 +302,6 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       dependencies,
       EpochLength(epochLength),
       epochStore,
-      outputBlocksMetadataStore,
       mySequencerId,
       loggerFactory,
     )

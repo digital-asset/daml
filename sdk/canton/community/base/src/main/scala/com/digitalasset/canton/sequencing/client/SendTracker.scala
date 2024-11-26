@@ -25,7 +25,6 @@ import com.digitalasset.canton.sequencing.protocol.{
 import com.digitalasset.canton.sequencing.traffic.TrafficStateController
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.store.{SavePendingSendError, SendTrackerStore}
-import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.util.MonadUtil.sequentialTraverse_
@@ -50,7 +49,6 @@ class SendTracker(
     protected val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
     trafficStateController: Option[TrafficStateController],
-    member: Member,
 ) extends NamedLogging
     with FlagCloseableAsync
     with AutoCloseable {

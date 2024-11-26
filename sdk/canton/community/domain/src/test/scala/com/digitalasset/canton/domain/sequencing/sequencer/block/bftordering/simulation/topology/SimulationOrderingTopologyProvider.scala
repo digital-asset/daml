@@ -30,10 +30,7 @@ class SimulationOrderingTopologyProvider(
     loggerFactory: NamedLoggerFactory,
 ) extends OrderingTopologyProvider[SimulationEnv] {
 
-  override def getOrderingTopologyAt(
-      activationTime: TopologyActivationTime,
-      assumePendingTopologyChanges: Boolean = false,
-  )(implicit
+  override def getOrderingTopologyAt(activationTime: TopologyActivationTime)(implicit
       traceContext: TraceContext
   ): SimulationFuture[Option[(OrderingTopology, CryptoProvider[SimulationEnv])]] =
     SimulationFuture { () =>
@@ -52,7 +49,8 @@ class SimulationOrderingTopologyProvider(
           activeSequencerOnboardInformation.view.mapValues(_.onboardingTime).toMap,
           SequencingParameters.Default,
           activationTime,
-          areTherePendingCantonTopologyChanges = assumePendingTopologyChanges,
+          // Switch the value deterministically so that we trigger all code paths.
+          areTherePendingCantonTopologyChanges = activationTime.value.toMicros % 2 == 0,
         )
       Success(
         Some(

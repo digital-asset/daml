@@ -238,7 +238,6 @@ class StartableStoppableLedgerApiServer(
         config = indexServiceConfig,
         participantId = config.participantId,
         metrics = config.metrics,
-        engine = config.engine,
         inMemoryState = inMemoryState,
         tracer = config.tracerProvider.tracer,
         loggerFactory = loggerFactory,

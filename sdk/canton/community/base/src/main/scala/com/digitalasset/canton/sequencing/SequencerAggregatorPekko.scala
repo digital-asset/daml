@@ -84,7 +84,7 @@ class SequencerAggregatorPekko(
   ] = {
     val onShutdownRunner = new OnShutdownRunner.PureOnShutdownRunner(logger)
     val health = new SequencerAggregatorHealth(domainId, onShutdownRunner, logger)
-    val ops = new SequencerAggregatorMergeOps(initialCounterOrPriorEvent, health)
+    val ops = new SequencerAggregatorMergeOps(initialCounterOrPriorEvent)
     val hub = new OrderedBucketMergeHub[
       SequencerId,
       OrdinarySerializedEvent,
@@ -141,7 +141,7 @@ class SequencerAggregatorPekko(
     OrdinarySequencedEvent(mergedSignedEvent)(mergedTraceContext)
   }
 
-  private def logError[E: Pretty](
+  private def logError[E](
       control: SubscriptionControlInternal[E]
   )(implicit traceContext: TraceContext): Unit =
     control match {
@@ -166,8 +166,7 @@ class SequencerAggregatorPekko(
     }
 
   private class SequencerAggregatorMergeOps[E: Pretty](
-      initialCounterOrPriorEvent: Either[SequencerCounter, PossiblyIgnoredSerializedEvent],
-      health: SequencerAggregatorHealth,
+      initialCounterOrPriorEvent: Either[SequencerCounter, PossiblyIgnoredSerializedEvent]
   )(implicit val traceContext: TraceContext)
       extends OrderedBucketMergeHubOps[
         SequencerId,

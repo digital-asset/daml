@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
 import com.digitalasset.canton.ledger.participant.state.{DomainIndex, Update}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.platform.PackageName
@@ -239,7 +239,7 @@ object SequentialWriteDaoSpec {
   private val serializableTraceContext =
     SerializableTraceContext(TraceContext.empty).toDamlProto.toByteArray
 
-  private def offset(l: Long): AbsoluteOffset = Offset.fromLong(l).toAbsoluteOffset
+  private def offset(l: Long): AbsoluteOffset = AbsoluteOffset.tryFromLong(l)
 
   private def someUpdate(key: String) = Some(
     Update.PartyAllocationRejected(

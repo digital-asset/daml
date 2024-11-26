@@ -78,8 +78,9 @@ object PekkoModuleSystem {
             Behaviors.same
           case NoOp() =>
             Behaviors.same
-          case Stop() =>
+          case Stop(onStop) =>
             logger.info(s"Stopping Pekko actor for module '$moduleName' as requested")
+            onStop()
             Behaviors.stopped
         }
         .receiveSignal { case (_, Terminated(actorRef)) =>
@@ -201,8 +202,8 @@ object PekkoModuleSystem {
       underlying.self ! SetBehavior(module, ready = true)
 
     // Note that further messages sent to stopped actors land in the dead letters. Pekko is configured to log them.
-    override def stop(): Unit =
-      underlying.self ! Stop()
+    override def stop(onStop: () => Unit): Unit =
+      underlying.self ! Stop(onStop)
 
     private def toFuture[X](
         action: String,

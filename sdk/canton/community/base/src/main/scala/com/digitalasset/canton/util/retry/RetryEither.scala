@@ -8,7 +8,7 @@ import cats.syntax.either.*
 import cats.syntax.flatMap.*
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.lifecycle.{CloseContext, UnlessShutdown}
-import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.util.LoggerUtil
 import org.slf4j.event.Level
 
@@ -20,7 +20,6 @@ object RetryEither {
       maxRetries: Int,
       waitInMs: Long,
       operationName: String,
-      logger: TracedLogger,
       stopOnLeft: Option[A => Boolean] = None,
       retryLogLevel: Level = Level.INFO,
       failLogLevel: Level = Level.WARN,
@@ -34,7 +33,6 @@ object RetryEither {
       maxRetries,
       waitInMs,
       operationName,
-      logger,
       stopOnLeft,
       retryLogLevel,
       failLogLevel,
@@ -46,7 +44,6 @@ object RetryEither {
       maxRetries: Int,
       waitInMs: Long,
       operationName: String,
-      logger: TracedLogger,
       stopOnLeft: Option[A => Boolean] = None,
       retryLogLevel: Level = Level.INFO,
       failLogLevel: Level = Level.WARN,

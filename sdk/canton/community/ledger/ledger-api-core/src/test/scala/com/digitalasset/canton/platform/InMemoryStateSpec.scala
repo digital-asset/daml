@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform
 
 import com.digitalasset.canton.TestEssentials
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
 import com.digitalasset.canton.pekkostreams.dispatcher.Dispatcher
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
@@ -20,7 +20,6 @@ import com.digitalasset.canton.platform.store.interning.{
   StringInterningView,
   UpdatingStringInterningView,
 }
-import com.digitalasset.daml.lf.data.Ref
 import org.mockito.{InOrder, Mockito, MockitoSugar}
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -48,8 +47,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
           submissionTracker,
           inOrder,
         ) =>
-      val initOffset =
-        Offset.fromHexString(Ref.HexString.assertFromString("00" * 6 + "abcdef")).toAbsoluteOffset
+      val initOffset = AbsoluteOffset.tryFromLong(12345678L)
       val initEventSequentialId = 1337L
       val initStringInterningId = 17
       val initPublicationTime = CantonTimestamp.now()

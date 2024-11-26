@@ -14,6 +14,7 @@ import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.{
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import sttp.tapir.path
 
+import scala.annotation.unused
 import scala.concurrent.Future
 
 class JsDamlDefinitionsService(
@@ -49,17 +50,17 @@ class JsDamlDefinitionsService(
     )
 
   // TODO(#21695): Propagate TraceContext
-  private def getPackageSignature(_callerContext: CallerContext)(
+  private def getPackageSignature(@unused _callerContext: CallerContext)(
       req: TracedInput[String]
   ): Future[Either[JsSchema.JsCantonError, Option[TypeSig]]] =
     Future.successful(Right(damlDefinitionsView.packageSignature(req.in)))
 
-  private def getAllTemplates(_callerContext: CallerContext)(
-      req: TracedInput[Unit]
+  private def getAllTemplates(@unused _callerContext: CallerContext)(
+      @unused req: TracedInput[Unit]
   ): Future[Either[JsSchema.JsCantonError, AllTemplatesResponse]] =
     Future.successful(Right(damlDefinitionsView.allTemplates()))
 
-  private def getTemplateDefinition(_callerContext: CallerContext)(
+  private def getTemplateDefinition(@unused _callerContext: CallerContext)(
       req: TracedInput[String]
   ): Future[Either[JsSchema.JsCantonError, Option[TemplateDefinition]]] =
     Future.successful(Right(damlDefinitionsView.templateDefinition(req.in)))

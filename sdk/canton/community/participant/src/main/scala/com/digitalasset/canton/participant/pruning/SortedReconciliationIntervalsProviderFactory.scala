@@ -43,8 +43,7 @@ class SortedReconciliationIntervalsProviderFactory(
         .toEitherT[Future]
     } yield {
       val topologyClient = topologyFactory.createTopologyClient(
-        staticDomainParameters.protocolVersion,
-        StoreBasedDomainTopologyClient.NoPackageDependencies,
+        StoreBasedDomainTopologyClient.NoPackageDependencies
       )
       topologyClient.updateHead(
         SequencedTime(subscriptionTs),

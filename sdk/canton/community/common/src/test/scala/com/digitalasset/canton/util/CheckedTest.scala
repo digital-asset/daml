@@ -518,7 +518,7 @@ class CheckedTest extends AnyWordSpec with BaseTestWordSpec {
 
 object CheckedTest extends AnyWordSpecLike {
 
-  implicit def eqChecked[A: Eq, N: Eq, R: Eq]: Eq[Checked[A, N, R]] = Eq.fromUniversalEquals
+  implicit def eqChecked[A, N, R]: Eq[Checked[A, N, R]] = Eq.fromUniversalEquals
 
   implicit def arbitraryChecked[A: Arbitrary, N: Arbitrary, R: Arbitrary]
       : Arbitrary[Checked[A, N, R]] =

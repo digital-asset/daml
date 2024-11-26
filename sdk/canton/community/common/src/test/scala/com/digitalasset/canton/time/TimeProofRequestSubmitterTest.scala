@@ -21,7 +21,6 @@ import com.digitalasset.canton.sequencing.protocol.{
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.topology.DefaultTestIdentities
-import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.{BaseTest, SequencerCounter}
 import org.scalatest.FutureOutcome
@@ -42,11 +41,15 @@ class TimeProofRequestSubmitterTest extends FixtureAsyncWordSpec with BaseTest {
       )
     val clock = new SimClock(loggerFactory = loggerFactory)
     val timeRequestSubmitter =
-      new TimeProofRequestSubmitterImpl(config, handleRequest, clock, timeouts, loggerFactory)
+      new TimeProofRequestSubmitterImpl(
+        config,
+        _ => handleRequest(),
+        clock,
+        timeouts,
+        loggerFactory,
+      )
 
-    private def handleRequest(
-        traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] = {
+    private def handleRequest(): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] = {
       callCount.incrementAndGet()
       nextRequestP.get.foreach(_.trySuccess(()))
       nextRequestP.set(None)

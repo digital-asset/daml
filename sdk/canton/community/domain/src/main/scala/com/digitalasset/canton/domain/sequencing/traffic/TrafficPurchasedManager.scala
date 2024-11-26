@@ -24,7 +24,6 @@ import com.digitalasset.canton.sequencing.traffic.TrafficPurchased
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
-import com.digitalasset.canton.version.ProtocolVersion
 import com.github.blemale.scaffeine.Scaffeine
 
 import java.util.concurrent.atomic.AtomicReference
@@ -46,7 +45,6 @@ class TrafficPurchasedManager(
     trafficConfig: SequencerTrafficConfig,
     futureSupervisor: FutureSupervisor,
     sequencerMetrics: SequencerMetrics,
-    protocolVersion: ProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)

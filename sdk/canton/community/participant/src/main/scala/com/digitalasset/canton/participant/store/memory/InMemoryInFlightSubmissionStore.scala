@@ -74,7 +74,7 @@ class InMemoryInFlightSubmissionStore(override protected val loggerFactory: Name
       submission: InFlightSubmission[UnsequencedSubmission],
       rootHash: RootHash,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    inFlights.mapValuesInPlace { (_changeId, info) =>
+    inFlights.mapValuesInPlace { (_, info) =>
       if (
         !info.isSequenced && info.submissionDomain == submission.submissionDomain
         && info.changeIdHash == submission.changeIdHash && info.rootHashO.isEmpty
@@ -89,7 +89,7 @@ class InMemoryInFlightSubmissionStore(override protected val loggerFactory: Name
       domainId: DomainId,
       submissions: Map[MessageId, SequencedSubmission],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    inFlights.mapValuesInPlace { (_changeId, info) =>
+    inFlights.mapValuesInPlace { (_, info) =>
       if (!info.isSequenced && info.submissionDomain == domainId) {
         submissions.get(info.messageId).fold(info) { sequencedInfo =>
           info.copy(sequencingInfo = sequencedInfo)
@@ -105,10 +105,10 @@ class InMemoryInFlightSubmissionStore(override protected val loggerFactory: Name
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
-    inFlights.mapValuesInPlace { (_changeId, info) =>
+    inFlights.mapValuesInPlace { (_, info) =>
       val shouldUpdate = info.rootHashO.contains(rootHash) && (info.sequencingInfo match {
         case UnsequencedSubmission(_, _) => true
-        case SequencedSubmission(_sc, ts) => submission.sequencingTime < ts
+        case SequencedSubmission(_, ts) => submission.sequencingTime < ts
       })
       if (shouldUpdate) {
         info.copy(sequencingInfo = submission)
@@ -122,7 +122,7 @@ class InMemoryInFlightSubmissionStore(override protected val loggerFactory: Name
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     FutureUnlessShutdown.pure {
       val (byId, bySequencingInfo) = submissions.toList.map(_.toEither).separate
-      inFlights.filterInPlace { case (_changeIdHash, inFlightSubmission) =>
+      inFlights.filterInPlace { case (_, inFlightSubmission) =>
         !(inFlightSubmission.sequencingInfo.asSequenced.exists { sequenced =>
           bySequencingInfo.contains(
             InFlightBySequencingInfo(inFlightSubmission.submissionDomain, sequenced)

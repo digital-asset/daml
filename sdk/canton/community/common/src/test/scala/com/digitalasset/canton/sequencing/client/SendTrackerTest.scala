@@ -116,7 +116,6 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
         loggerFactory,
         timeouts,
         trafficStateController,
-        participant1,
       ) {
 
     private val calls = new AtomicInteger()
@@ -152,8 +151,6 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
       initialTrafficState,
       testedProtocolVersion,
       new EventCostCalculator(loggerFactory),
-      futureSupervisor,
-      timeouts,
       new TrafficConsumptionMetrics(MetricName("test"), metricsFactory(histogramInventory)),
       domainId,
     )
@@ -384,7 +381,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
       val concurrentCalls = new AtomicInteger()
       val totalCalls = new AtomicInteger()
 
-      val Env(tracker, _) = mkSendTracker { _msgId =>
+      val Env(tracker, _) = mkSendTracker { _ =>
         totalCalls.incrementAndGet()
         if (!concurrentCalls.compareAndSet(0, 1)) {
           fail("timeout handler was called concurrently")

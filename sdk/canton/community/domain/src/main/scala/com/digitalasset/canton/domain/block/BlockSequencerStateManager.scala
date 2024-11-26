@@ -27,11 +27,10 @@ import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficConsumedSt
 import com.digitalasset.canton.error.BaseAlarm
 import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.topology.{DomainId, Member, SequencerId}
+import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.util.{ErrorUtil, LoggerUtil}
-import com.digitalasset.canton.version.ProtocolVersion
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Flow
 
@@ -75,9 +74,7 @@ trait BlockSequencerStateManagerBase extends FlagCloseable {
 }
 
 class BlockSequencerStateManager(
-    protocolVersion: ProtocolVersion,
     domainId: DomainId,
-    sequencerId: SequencerId,
     val store: SequencerBlockStore,
     val trafficConsumedStore: TrafficConsumedStore,
     enableInvariantCheck: Boolean,
@@ -416,9 +413,7 @@ class BlockSequencerStateManager(
 object BlockSequencerStateManager {
 
   def apply(
-      protocolVersion: ProtocolVersion,
       domainId: DomainId,
-      sequencerId: SequencerId,
       store: SequencerBlockStore,
       trafficConsumedStore: TrafficConsumedStore,
       enableInvariantCheck: Boolean,
@@ -426,9 +421,7 @@ object BlockSequencerStateManager {
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): BlockSequencerStateManager =
     new BlockSequencerStateManager(
-      protocolVersion = protocolVersion,
       domainId = domainId,
-      sequencerId = sequencerId,
       store = store,
       trafficConsumedStore = trafficConsumedStore,
       enableInvariantCheck = enableInvariantCheck,

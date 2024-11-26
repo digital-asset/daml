@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store.cache
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.completion.Completion
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.data.{AbsoluteOffset, Offset}
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer.BufferSlice.LastBufferChunkSuffix
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer.{
@@ -396,8 +396,8 @@ class InMemoryFanoutBufferSpec
 
           buffer.flush()
 
-          buffer._bufferLog shouldBe Vector.empty[(Offset, Int)]
-          buffer._lookupMap shouldBe Map.empty
+          buffer._bufferLog shouldBe empty
+          buffer._lookupMap shouldBe empty
           buffer.slice(firstOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
             bufferedStartExclusive = LastOffset,
             slice = Vector.empty,

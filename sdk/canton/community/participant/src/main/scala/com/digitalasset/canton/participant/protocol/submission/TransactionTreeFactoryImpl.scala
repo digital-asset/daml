@@ -510,7 +510,6 @@ class TransactionTreeFactoryImpl(
       LedgerCreateTime(state.ledgerTime),
       contractMetadata,
       serializedCantonContractInst,
-      cantonContractIdVersion,
     )
 
     val contractId = cantonContractIdVersion.fromDiscriminator(discriminator, unicum)

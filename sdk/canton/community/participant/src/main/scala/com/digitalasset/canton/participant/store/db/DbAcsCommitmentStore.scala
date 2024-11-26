@@ -586,6 +586,7 @@ class DbIncrementalCommitmentStore(
       .map(_.fold(RecordTime.MinValue) { case (ts, tieBreaker) => RecordTime(ts, tieBreaker) })
   }
 
+  @SuppressWarnings(Array("org.wartremover.warts.AnyVal"))
   def update(
       rt: RecordTime,
       updates: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],

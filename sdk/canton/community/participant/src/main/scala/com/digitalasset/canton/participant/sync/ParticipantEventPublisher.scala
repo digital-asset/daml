@@ -13,7 +13,6 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.platform.indexer.IndexerState.RepairInProgress
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, LoggerUtil, SimpleExecutionQueue}
 import org.slf4j.event.Level
@@ -25,12 +24,10 @@ import scala.concurrent.{ExecutionContext, Future}
   *
   * ParticipantEventPublisher also encapsulates the participant clock generating unique participant recordTime.
   *
-  * @param participantId        participant id
   * @param participantClock     clock for the current time to stamp published events with
   * @param loggerFactory        named logger factory
   */
 class ParticipantEventPublisher(
-    participantId: ParticipantId,
     ledgerApiIndexer: Eval[LedgerApiIndexer],
     participantClock: Clock,
     exitOnFatalFailures: Boolean,

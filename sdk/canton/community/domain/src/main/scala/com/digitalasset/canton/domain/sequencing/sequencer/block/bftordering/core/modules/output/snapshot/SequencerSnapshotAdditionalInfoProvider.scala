@@ -98,17 +98,17 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
         logger.error(errorMessage, exception)
         Some(Output.SequencerSnapshotMessage.AdditionalInfoRetrievalError(requester, errorMessage))
       case Success(firstBlocksInEpochs -> lastBlocksInPreviousEpochs) =>
-        val previousBftTimes = lastBlocksInPreviousEpochs.map(_.map(_.blockBftTime))
         val peerIdsToActiveAt = peerActiveAtTimestamps
+          .lazyZip(lastBlocksInPreviousEpochs)
           .lazyZip(firstBlocksInEpochs)
-          .lazyZip(previousBftTimes)
           .toList
-          .map { case ((peerId, timestamp), blockMetadata, previousBftTime) =>
+          .map { case ((peerId, timestamp), previousLastBlockMetadata, firstBlockMetadata) =>
             peerId -> PeerActiveAt(
               Some(timestamp),
-              blockMetadata.map(_.epochNumber),
-              firstBlockNumberInEpoch = blockMetadata.map(_.blockNumber),
-              previousBftTime,
+              firstBlockMetadata.map(_.epochNumber),
+              firstBlockMetadata.map(_.blockNumber),
+              previousLastBlockMetadata.map(_.pendingTopologyChangesInNextEpoch),
+              previousLastBlockMetadata.map(_.blockBftTime),
             )
           }
           .toMap

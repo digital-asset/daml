@@ -8,7 +8,7 @@ import cats.syntax.either.*
 import cats.syntax.foldable.*
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.*
-import com.digitalasset.canton.concurrent.{FutureSupervisor, Threading}
+import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
@@ -393,7 +393,7 @@ class SequencerClientTest
         val testF = loggerFactory.assertLogs(
           env.subscribeAfter(
             nextDeliver.timestamp.immediatePredecessor,
-            ApplicationHandler.create("long running synchronous handler") { events =>
+            ApplicationHandler.create("long running synchronous handler") { _ =>
               env.clock.advance(
                 java.time.Duration.of(
                   DefaultProcessingTimeouts.testing.sequencedEventProcessingBound.asFiniteApproximation.toNanos,
@@ -421,7 +421,7 @@ class SequencerClientTest
         val testF = loggerFactory.assertLogs(
           env.subscribeAfter(
             nextDeliver.timestamp.immediatePredecessor,
-            ApplicationHandler.create("long running asynchronous handler") { events =>
+            ApplicationHandler.create("long running asynchronous handler") { _ =>
               env.clock.advance(
                 java.time.Duration.of(
                   DefaultProcessingTimeouts.testing.sequencedEventProcessingBound.asFiniteApproximation.toNanos,
@@ -821,7 +821,7 @@ class SequencerClientTest
             .sendAsync(
               Batch.of(
                 testedProtocolVersion,
-                (new TestProtocolMessage("_unused"), Recipients.cc(participant1)),
+                (new TestProtocolMessage(), Recipients.cc(participant1)),
               ),
               messageId = messageId,
             )
@@ -871,7 +871,7 @@ class SequencerClientTest
             .sendAsync(
               Batch.of(
                 testedProtocolVersion,
-                (new TestProtocolMessage("_unused"), Recipients.cc(participant1)),
+                (new TestProtocolMessage(), Recipients.cc(participant1)),
               ),
               messageId = messageId,
             )
@@ -1380,7 +1380,6 @@ class SequencerClientTest
         BaseTest.defaultStaticDomainParameters,
         None,
         topologyClient,
-        FutureSupervisor.Noop,
         loggerFactory,
       )
     }
@@ -1415,9 +1414,7 @@ class SequencerClientTest
   }
 
   private object TestProtocolMessage
-  private class TestProtocolMessage(_text: String)
-      extends ProtocolMessage
-      with UnsignedProtocolMessage {
+  private class TestProtocolMessage() extends ProtocolMessage with UnsignedProtocolMessage {
     override def domainId: DomainId = fail("shouldn't be used")
 
     override def representativeProtocolVersion: RepresentativeProtocolVersion[companionObj.type] =
@@ -1471,8 +1468,6 @@ class SequencerClientTest
         TrafficState.empty(CantonTimestamp.MinValue),
         testedProtocolVersion,
         new EventCostCalculator(loggerFactory),
-        futureSupervisor,
-        timeouts,
         TrafficConsumptionMetrics.noop,
         domainId,
       )
@@ -1484,7 +1479,6 @@ class SequencerClientTest
           loggerFactory,
           timeouts,
           Some(trafficStateController),
-          participant1,
         )
 
       val client = new RichSequencerClientImpl(
@@ -1561,8 +1555,6 @@ class SequencerClientTest
         TrafficState.empty(CantonTimestamp.MinValue),
         testedProtocolVersion,
         new EventCostCalculator(loggerFactory),
-        futureSupervisor,
-        timeouts,
         TrafficConsumptionMetrics.noop,
         domainId,
       )
@@ -1574,7 +1566,6 @@ class SequencerClientTest
           loggerFactory,
           timeouts,
           Some(trafficStateController),
-          participant1,
         )
 
       val client = new SequencerClientImplPekko(

@@ -72,7 +72,6 @@ class SerializationDeserializationTest
     val generatorsProtocolSeq = new GeneratorsProtocolSequencing(
       version,
       generatorsMessages,
-      generatorsData,
     )
     val generatorsTrafficData = new GeneratorsTrafficData(
       version

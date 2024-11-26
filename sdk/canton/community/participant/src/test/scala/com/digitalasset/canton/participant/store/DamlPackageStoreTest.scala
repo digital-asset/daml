@@ -184,7 +184,7 @@ trait DamlPackageStoreTest extends AsyncWordSpec with BaseTest with HasExecution
       }
 
       // Run 10 times to increase the chance of observing a concurrency bug
-      MonadUtil.repeatFlatmap(Future(succeed), _unit => runTest, 10)
+      MonadUtil.repeatFlatmap(Future(succeed), _ => runTest, 10)
     }
 
     "save and retrieve one Daml Package" in {

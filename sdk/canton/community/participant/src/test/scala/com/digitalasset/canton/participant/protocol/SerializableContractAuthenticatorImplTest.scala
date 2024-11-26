@@ -258,7 +258,6 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
     ledgerCreateTime = LedgerCreateTime(ledgerTime),
     metadata = contractMetadata,
     suffixedContractInstance = ExampleTransactionFactory.asSerializableRaw(contractInstance),
-    contractIdVersion = contractIdVersion,
   )
 
   protected lazy val contractId = contractIdVersion.fromDiscriminator(
@@ -294,7 +293,6 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
         metadata = ContractMetadata
           .tryCreate(testedSignatories, testedSignatories ++ testedObservers, testedContractKey),
         suffixedContractInstance = testedContractInstance,
-        contractIdVersion = contractIdVersion,
       )
       .valueOrFail("Failed unicum computation")
     val actualSuffix = unicum.toContractIdSuffix(contractIdVersion)

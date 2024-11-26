@@ -556,7 +556,7 @@ class DomainOutboxFactorySingleCreate(
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): DomainOutboxHandle = {
-    outboxRef.get.foreach { outbox =>
+    outboxRef.get.foreach { _ =>
       ErrorUtil.invalidState(s"DomainOutbox was already created. This is a bug.")(
         ErrorLoggingContext(
           domainLoggerFactory.getTracedLogger(getClass),

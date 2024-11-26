@@ -14,7 +14,7 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCryptoProvider
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLogging, SuppressingLogger}
 import com.digitalasset.canton.metrics.OpenTelemetryOnDemandMetricsReader
-import com.digitalasset.canton.protocol.{AcsCommitmentsCatchUpConfig, StaticDomainParameters}
+import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
 import com.digitalasset.canton.time.WallClock
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, W3CTraceContext}
@@ -459,8 +459,7 @@ object BaseTest {
     defaultStaticDomainParametersWith()
 
   def defaultStaticDomainParametersWith(
-      protocolVersion: ProtocolVersion = testedProtocolVersion,
-      acsCommitmentsCatchUp: Option[AcsCommitmentsCatchUpConfig] = None,
+      protocolVersion: ProtocolVersion = testedProtocolVersion
   ): StaticDomainParameters = StaticDomainParameters(
     requiredSigningSpecs = SymbolicCryptoProvider.supportedSigningSpecs,
     requiredEncryptionSpecs = SymbolicCryptoProvider.supportedEncryptionSpecs,

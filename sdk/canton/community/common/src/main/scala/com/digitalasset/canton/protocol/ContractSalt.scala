@@ -38,7 +38,6 @@ object ContractSalt {
       actionSalt: Salt,
       createIndex: Int,
       viewPosition: ViewPosition,
-      contractIdVersion: CantonContractIdVersion,
   ): ContractSalt = {
     val bytestring = DeterministicEncoding
       .encodeInt(createIndex)
@@ -47,7 +46,7 @@ object ContractSalt {
       .concat(DeterministicEncoding.encodeString(domainId.toProtoPrimitive))
       .concat(DeterministicEncoding.encodeString(mediator.toProtoPrimitive))
 
-    val salt = Salt.tryDeriveSalt(actionSalt, bytestring, contractIdVersion, hmacOps)
+    val salt = Salt.tryDeriveSalt(actionSalt, bytestring, hmacOps)
 
     ContractSalt(salt)
   }

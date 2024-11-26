@@ -122,7 +122,6 @@ object ExampleTransactionFactory {
       ledgerCreateTime = LedgerCreateTime(ledgerTime),
       metadata = metadata,
       suffixedContractInstance = ExampleTransactionFactory.asSerializableRaw(instance),
-      contractIdVersion = contractIdVersion,
     )
 
     val contractId = contractIdVersion.fromDiscriminator(
@@ -577,7 +576,6 @@ class ExampleTransactionFactory(
         LedgerCreateTime(ledgerTime),
         metadata,
         asSerializableRaw(suffixedContractInstance),
-        cantonContractIdVersion,
       )
 
     contractSalt.unwrap -> unicum
@@ -1457,7 +1455,6 @@ class ExampleTransactionFactory(
     def genCreate10(
         cid: LfContractId,
         contractInstance: LfContractInst,
-        agreementText: String,
     ): LfNodeCreate =
       createNode(
         cid,
@@ -1468,7 +1465,6 @@ class ExampleTransactionFactory(
     def genCreate12(
         cid: LfContractId,
         contractInstance: LfContractInst,
-        agreementText: String,
     ): LfNodeCreate =
       createNode(
         cid,
@@ -1482,12 +1478,12 @@ class ExampleTransactionFactory(
       discriminator(create10seed, Set(submitter, signatory, signatoryReplica))
 
     val lfCreate10: LfNodeCreate =
-      genCreate10(LfContractId.V1(create10disc), create10Inst, create10Agreement)
+      genCreate10(LfContractId.V1(create10disc), create10Inst)
     val create12Agreement = "create12"
     val create12seed: LfHash = deriveNodeSeed(1, 2)
     val create12disc: LfHash = discriminator(create12seed, Set(submitter, signatory, extra))
     val lfCreate12: LfNodeCreate =
-      genCreate12(LfContractId.V1(create12disc), create12Inst, create12Agreement)
+      genCreate12(LfContractId.V1(create12disc), create12Inst)
 
     def genFetch11(cid: LfContractId): LfNodeFetch =
       fetchNode(
@@ -1641,7 +1637,7 @@ class ExampleTransactionFactory(
         create10disc,
         signatories = Set(submitter, signatory, signatoryReplica),
       )
-    val create10: LfNodeCreate = genCreate10(create10Id, create10Inst, create10Agreement)
+    val create10: LfNodeCreate = genCreate10(create10Id, create10Inst)
 
     val fetch11: LfNodeFetch = lfFetch11
 
@@ -1654,7 +1650,7 @@ class ExampleTransactionFactory(
         create12disc,
         signatories = Set(submitter, signatory, extra),
       )
-    val create12: LfNodeCreate = genCreate12(create12Id, create12Inst, create12Agreement)
+    val create12: LfNodeCreate = genCreate12(create12Id, create12Inst)
 
     val exercise13Id: LfContractId = suffixedId(-1, 0)
     val exercise13: LfNodeExercises = genExercise13(exercise13Id)

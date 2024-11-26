@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.health
 
-import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.grpc.GrpcServerMetrics
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.config.*
@@ -18,7 +17,6 @@ import java.util.concurrent.ExecutorService
 
 class GrpcHealthServer(
     config: GrpcHealthServerConfig,
-    metrics: LabeledMetricsFactory,
     executor: ExecutorService,
     override val loggerFactory: NamedLoggerFactory,
     apiConfig: ApiLoggingConfig,

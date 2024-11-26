@@ -62,7 +62,6 @@ import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.{
 }
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.BinaryFileUtil
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DomainAlias, SequencerAlias}
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.google.protobuf.ByteString
@@ -73,6 +72,7 @@ import io.circe.syntax.*
 
 import java.io.File as JFile
 import java.time.Instant
+import scala.annotation.unused
 import scala.collection.mutable
 import scala.concurrent.duration.*
 
@@ -88,7 +88,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
     @Help.Description(
       "Return the list field names of the given object. Helpful function when inspecting the return result."
     )
-    def object_args[T: TypeTag](obj: T): List[String] = type_args[T]
+    def object_args[T: TypeTag](@unused obj: T): List[String] = type_args[T]
 
     @Help.Summary("Reflective inspection of type arguments, handy to inspect case class types")
     @Help.Description(
@@ -339,7 +339,6 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
     def recompute_contract_ids(
         participant: LocalParticipantReference,
         acs: Seq[SerializableContract],
-        protocolVersion: ProtocolVersion,
     ): (Seq[SerializableContract], Map[LfContractId, LfContractId]) = {
       val contractIdMappings = mutable.Map.empty[LfContractId, LfContractId]
       // We assume ACS events are in order
@@ -411,7 +410,6 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
           LedgerCreateTime(createdAt),
           metadata,
           rawContract,
-          cantonContractIdVersion,
         )
         .valueOr(err => throw new RuntimeException(err))
       cantonContractIdVersion.fromDiscriminator(discriminator, unicum)

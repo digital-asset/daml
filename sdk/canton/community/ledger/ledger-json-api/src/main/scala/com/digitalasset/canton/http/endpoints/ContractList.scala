@@ -116,7 +116,7 @@ private[http] final class ContractList(
     for {
       it <- inputAndJwtPayload[JwtPayload](req).leftMap(identity[Error])
       (jwt, jwtPayload, reqBody) = it
-      res <- withJwtPayloadLoggingContext(jwtPayload) { tc => implicit lc =>
+      res <- withJwtPayloadLoggingContext(jwtPayload) { _ => implicit lc =>
         val res = for {
           cmd <- SprayJson
             .decode[domain.GetActiveContractsRequest](reqBody)

@@ -224,7 +224,7 @@ class JsonProtocolTest
   }
 
   "UserRight" - {
-    def testIsomorphic[T <: domain.UserRight: JsonFormat](original: T): Assertion =
+    def testIsomorphic[T <: domain.UserRight](original: T): Assertion =
       (original: domain.UserRight).toJson.convertTo[domain.UserRight] shouldBe original
 
     "Encoding and decoding ParticipantAdmin should result in the same object" in {

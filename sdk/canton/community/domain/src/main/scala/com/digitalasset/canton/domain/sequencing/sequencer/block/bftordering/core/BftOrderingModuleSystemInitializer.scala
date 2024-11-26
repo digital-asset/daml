@@ -27,10 +27,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.OutputModule
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.OutputModule.RequestInspector
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.{
-  OutputBlockMetadataStore,
-  OutputBlocksReader,
-}
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.OutputBlockMetadataStore
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.networking.data.P2pEndpointsStore
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.networking.{
   BftP2PNetworkIn,
@@ -100,6 +97,19 @@ object BftOrderingModuleSystemInitializer {
       sequencerSnapshotAdditionalInfo.flatMap(_.peerActiveAt.get(thisPeer))
     val firstBlockNumberInOnboardingEpoch = thisPeerFirstKnownAt.flatMap(_.firstBlockNumberInEpoch)
     val previousBftTimeForOnboarding = thisPeerFirstKnownAt.flatMap(_.previousBftTime)
+    val areTherePendingTopologyChangesInOnboardingEpoch =
+      thisPeerFirstKnownAt
+        .flatMap(_.pendingTopologyChangesInEpoch)
+        .exists(pendingChanges => pendingChanges)
+    val outputModuleStartupState =
+      OutputModule.StartupState(
+        // Note that the initial height for the block subscription below might be different (when onboarding after genesis).
+        initialHeight = firstBlockNumberInOnboardingEpoch.getOrElse(initialApplicationHeight),
+        previousBftTimeForOnboarding,
+        areTherePendingTopologyChangesInOnboardingEpoch,
+        initialCryptoProvider,
+        initialOrderingTopology,
+      )
     OrderingModuleSystemInitializer(
       ModuleFactories(
         mempool = { availabilityRef =>
@@ -191,7 +201,6 @@ object BftOrderingModuleSystemInitializer {
             initialCryptoProvider,
             epochLength,
             stores.epochStore,
-            stores.outputBlocksReader,
             sequencerSnapshotAdditionalInfo,
             clock,
             metrics,
@@ -203,17 +212,13 @@ object BftOrderingModuleSystemInitializer {
         },
         output = (availabilityRef, consensusRef) =>
           new OutputModule(
-            // Note that the initial height for the block subscription below might be different (when onboarding after genesis).
-            firstBlockNumberInOnboardingEpoch.getOrElse(initialApplicationHeight),
-            protocolVersion,
-            previousBftTimeForOnboarding,
-            initialCryptoProvider,
-            initialOrderingTopology,
+            outputModuleStartupState,
             orderingTopologyProvider,
             stores.outputStore,
             stores.orderedBlocksReader,
             blockSubscription,
             metrics,
+            protocolVersion,
             availabilityRef,
             consensusRef,
             loggerFactory,
@@ -230,6 +235,5 @@ object BftOrderingModuleSystemInitializer {
       epochStore: EpochStore[E],
       orderedBlocksReader: OrderedBlocksReader[E],
       outputStore: OutputBlockMetadataStore[E],
-      outputBlocksReader: OutputBlocksReader[E],
   )
 }

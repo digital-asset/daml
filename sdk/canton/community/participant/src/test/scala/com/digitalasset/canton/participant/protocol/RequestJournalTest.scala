@@ -6,7 +6,6 @@ package com.digitalasset.canton.participant.protocol
 import cats.Monad
 import cats.data.OptionT
 import cats.syntax.parallel.*
-import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.protocol.RequestJournal.RequestState.*
@@ -35,7 +34,7 @@ class RequestJournalTest extends AsyncWordSpec with BaseTest with HasTestCloseCo
       initRc: RequestCounter,
       store: RequestJournalStore = new InMemoryRequestJournalStore(loggerFactory),
   ): RequestJournal =
-    new RequestJournal(store, mkSyncDomainMetrics, loggerFactory, initRc, FutureSupervisor.Noop)
+    new RequestJournal(store, mkSyncDomainMetrics, loggerFactory, initRc)
 
   private def mkSyncDomainMetrics = ParticipantTestMetrics.domain
 

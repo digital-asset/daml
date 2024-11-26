@@ -105,7 +105,7 @@ class UnitTestContext[E <: Env[E], MessageT] extends ModuleContext[E, MessageT] 
 
   override def become(module: Module[E, MessageT]): Unit = unsupported()
 
-  override def stop(): Unit = unsupported()
+  override def stop(onStop: () => Unit): Unit = unsupported()
 
   private def unsupported() =
     fail("Unsupported by unit tests")
@@ -272,7 +272,7 @@ object ProgrammableUnitTestEnv {
         traceContext: TraceContext
     ): () => Either[SyncCryptoError, Signature] = () => Right(Signature.noSignature)
 
-    override def signMessage[MessageT <: ProtocolVersionedMemoizedEvidence with MessageFrom](
+    override def signMessage[MessageT <: ProtocolVersionedMemoizedEvidence & MessageFrom](
         message: MessageT,
         hashPurpose: HashPurpose,
     )(implicit traceContext: TraceContext): () => Either[SyncCryptoError, SignedMessage[MessageT]] =

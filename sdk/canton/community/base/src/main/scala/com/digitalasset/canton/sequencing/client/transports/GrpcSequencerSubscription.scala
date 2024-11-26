@@ -12,7 +12,6 @@ import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.SequencerClientMetrics
 import com.digitalasset.canton.networking.grpc.GrpcError
 import com.digitalasset.canton.networking.grpc.GrpcError.GrpcServiceUnavailable
 import com.digitalasset.canton.sequencing.SerializedEventHandler
@@ -275,7 +274,6 @@ object GrpcSequencerSubscription {
   def fromVersionedSubscriptionResponse[E](
       context: CancellableContext,
       handler: SerializedEventHandler[E],
-      metrics: SequencerClientMetrics,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(protocolVersion: ProtocolVersion)(implicit

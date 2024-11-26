@@ -11,7 +11,6 @@ import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker
 import com.digitalasset.canton.participant.sync.ParticipantEventPublisher
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.ParticipantId
 
 import scala.concurrent.ExecutionContext
 
@@ -24,7 +23,6 @@ class ParticipantNodeEphemeralState(
 
 object ParticipantNodeEphemeralState {
   def apply(
-      participantId: ParticipantId,
       ledgerApiIndexer: Eval[LedgerApiIndexer],
       inFlightSubmissionTracker: InFlightSubmissionTracker,
       clock: Clock,
@@ -34,7 +32,6 @@ object ParticipantNodeEphemeralState {
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): ParticipantNodeEphemeralState = {
     val participantEventPublisher = new ParticipantEventPublisher(
-      participantId,
       ledgerApiIndexer,
       clock,
       exitOnFatalFailures = exitOnFatalFailures,

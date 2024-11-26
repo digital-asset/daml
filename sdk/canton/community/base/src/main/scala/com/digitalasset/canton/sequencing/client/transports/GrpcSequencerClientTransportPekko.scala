@@ -11,7 +11,6 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.health.HealthComponent.AlwaysHealthyComponent
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.SequencerClientMetrics
 import com.digitalasset.canton.networking.grpc.GrpcError
 import com.digitalasset.canton.networking.grpc.GrpcError.GrpcServiceUnavailable
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
@@ -37,7 +36,6 @@ class GrpcSequencerClientTransportPekko(
     channel: ManagedChannel,
     callOptions: CallOptions,
     clientAuth: GrpcSequencerClientAuth,
-    metrics: SequencerClientMetrics,
     timeouts: ProcessingTimeout,
     loggerFactory: NamedLoggerFactory,
     protocolVersion: ProtocolVersion,
@@ -51,7 +49,6 @@ class GrpcSequencerClientTransportPekko(
       channel,
       callOptions,
       clientAuth,
-      metrics,
       timeouts,
       loggerFactory,
       protocolVersion,

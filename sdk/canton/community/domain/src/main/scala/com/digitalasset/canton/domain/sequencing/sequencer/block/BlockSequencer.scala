@@ -103,7 +103,6 @@ class BlockSequencer(
       clock,
       domainId,
       sequencerId,
-      Some(blockRateLimitManager.trafficConsumedStore),
       protocolVersion,
       cryptoApi,
       metrics,

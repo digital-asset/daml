@@ -134,7 +134,6 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
         ),
         servicesExecutionContext = ec,
         metrics = metrics,
-        engine = engine,
         participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
         ledgerEndCache = ledgerEndCache,
         stringInterning = stringInterningView,

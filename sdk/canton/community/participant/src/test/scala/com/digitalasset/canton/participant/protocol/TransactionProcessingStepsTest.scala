@@ -48,11 +48,10 @@ class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
           metadata: ContractMetadata,
       ): Either[String, Unit] = Either.unit
     },
-    transactionEnricher = { case tx => _traceContext => EitherT.pure(tx) },
+    transactionEnricher = tx => _ => EitherT.pure(tx),
     new AuthorizationValidator(participantId, true),
     new InternalConsistencyChecker(
-      defaultStaticDomainParameters.protocolVersion,
-      loggerFactory,
+      loggerFactory
     ),
     CommandProgressTracker.NoOp,
     loggerFactory = loggerFactory,

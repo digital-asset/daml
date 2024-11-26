@@ -853,7 +853,7 @@ class ConfirmationRequestAndResponseProcessorTest
           anyTraceContext
         )
       )
-        .thenAnswer { (participant: ParticipantId, parties: Set[LfPartyId]) =>
+        .thenAnswer { (_: ParticipantId, parties: Set[LfPartyId]) =>
           Future.successful(parties)
         }
       when(mockTopologySnapshot.consortiumThresholds(any[Set[LfPartyId]])(anyTraceContext))

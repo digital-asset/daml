@@ -16,6 +16,7 @@ import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.EitherTUtil
 import io.grpc.Status
 
+import scala.annotation.unused
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Failure
 
@@ -35,6 +36,7 @@ trait GrpcPruningScheduler {
   }
 
   def clearSchedule(
+      @unused
       request: v30.ClearSchedule.Request
   ): Future[v30.ClearSchedule.Response] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
@@ -91,6 +93,7 @@ trait GrpcPruningScheduler {
   }
 
   def getSchedule(
+      @unused
       request: v30.GetSchedule.Request
   ): Future[v30.GetSchedule.Response] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext

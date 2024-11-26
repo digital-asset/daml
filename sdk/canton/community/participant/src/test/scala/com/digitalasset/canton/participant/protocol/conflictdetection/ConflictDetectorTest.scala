@@ -1650,7 +1650,7 @@ class ConflictDetectorTest
         toc = TimeOfChange(RequestCounter(0), ofEpochMilli(1))
         toc2 = TimeOfChange(RequestCounter(2), ofEpochMilli(3))
         promise = Promise[Either[NonEmptyChain[RequestTracker.RequestTrackerStoreError], Unit]]()
-        _ = hookedStore.preComplete { (_reassignmentId, _toc) =>
+        _ = hookedStore.preComplete { (_, _) =>
           // This runs after committing the request, but before the reassignment store is updated
           val actSetOut = mkActivenessSet(deact = Set(coid00))
           val commitSetOut =
@@ -1739,7 +1739,7 @@ class ConflictDetectorTest
       val actSet1 = mkActivenessSet(deact = Set(coid21))
 
       def setFetchHook(acs: HookedAcs, cd: ConflictDetector): Unit =
-        acs.setFetchHook { _contractIds =>
+        acs.setFetchHook { _ =>
           // This runs while the contracts for the first request are prefetched from the ACS
           // Prefetch second request with distinct contracts
           cd.registerActivenessSet(RequestCounter(1), actSet1).failOnShutdown
@@ -1785,7 +1785,7 @@ class ConflictDetectorTest
 
     "detect non-prefetched states" in {
       def setFetchHook(acs: HookedAcs, cd: ConflictDetector): Unit =
-        acs.setFetchHook { _contractIds =>
+        acs.setFetchHook { _ =>
           // This runs while the contracts for the request are prefetched from the ACS
           // Trigger checking already now to provoke an error
           cd.checkActivenessAndLock(RequestCounter(0)).void.failOnShutdown

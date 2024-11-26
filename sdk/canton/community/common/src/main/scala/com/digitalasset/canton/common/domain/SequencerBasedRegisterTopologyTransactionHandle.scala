@@ -109,7 +109,7 @@ class DomainTopologyService(
             TopologyTransactionsBroadcast.State.Failed
           )
         },
-        _result =>
+        _ =>
           sendCallback.future
             .map {
               case SendResult.Success(_) =>

@@ -25,6 +25,8 @@ import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.SequencerId
 import org.scalatest.wordspec.AsyncWordSpec
 
+import scala.annotation.unused
+
 class EpochStateTest extends AsyncWordSpec with BaseTest {
   import EpochStateTest.*
 
@@ -35,7 +37,7 @@ class EpochStateTest extends AsyncWordSpec with BaseTest {
 
   def segmentModuleRefFactory(
       segmentState: SegmentState,
-      _epochMetricsAccumulator: EpochMetricsAccumulator,
+      @unused _epochMetricsAccumulator: EpochMetricsAccumulator,
   ): ModuleRef[ConsensusSegment.Message] = {
     case pbftEvent: ConsensusSegment.ConsensusMessage.PbftEvent =>
       segmentState.processEvent(pbftEvent)

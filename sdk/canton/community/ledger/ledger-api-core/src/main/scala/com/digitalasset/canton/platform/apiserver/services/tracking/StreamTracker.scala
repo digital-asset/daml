@@ -128,7 +128,7 @@ private[tracking] class StreamTrackerImpl[Key <: Errors.KeyDescriptions, Item](
               case Success(_) => // succeeded, nothing to do
               case Failure(throwable) =>
                 // Start failed, finishing entry with the very same error
-                promise.tryComplete(Failure(throwable))
+                promise.tryComplete(Failure(throwable)).discard[Boolean]
             }
         }
         promise.future.onComplete { _ =>
@@ -140,8 +140,8 @@ private[tracking] class StreamTrackerImpl[Key <: Errors.KeyDescriptions, Item](
         }
     }
 
-  def onStreamItem(item: Item) =
-    pending.get(itemKey(item)).foreach { case (traceCtx, promise) =>
+  def onStreamItem(item: Item): Unit =
+    pending.get(itemKey(item)).foreach { case (_traceCtx, promise) =>
       promise.tryComplete(scala.util.Success(item)).discard
     }
 

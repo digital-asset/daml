@@ -39,7 +39,6 @@ class JsUpdateService(
     wsConfig: WebsocketConfig,
 ) extends Endpoints
     with NamedLogging {
-  import JsUpdateServiceCodecs.*
 
   private def updateServiceClient(token: Option[String])(implicit
       traceContext: TraceContext

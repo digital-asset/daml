@@ -10,7 +10,6 @@ import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.participant.v30.*
 import com.digitalasset.canton.admin.participant.v30.InspectionServiceGrpc.InspectionService
-import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.InspectionServiceErrorGroup
@@ -50,7 +49,6 @@ class GrpcInspectionService(
     ips: IdentityProvidingServiceClient,
     indexedStringStore: IndexedStringStore,
     domainAliasManager: DomainAliasManager,
-    futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit
     executionContext: ExecutionContext
@@ -478,10 +476,9 @@ class GrpcInspectionService(
               .forAcsCommitmentDomainParameters(
                 pv,
                 topologySnapshot,
-                futureSupervisor,
                 loggerFactory,
               )
-              .get(cantonTickTs, false),
+              .get(cantonTickTs, warnOnUsingDefaults = false),
             err => InspectionServiceError.InternalServerError.Error(err.toString),
           )
           .leftWiden[CantonError]

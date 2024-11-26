@@ -9,7 +9,7 @@ import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
-import com.digitalasset.canton.config.{BatchingConfig, ClientConfig, ProcessingTimeout}
+import com.digitalasset.canton.config.{ClientConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.ledger.client.configuration.{
@@ -49,7 +49,6 @@ final class ParticipantPruningScheduler(
     storage: Storage, // storage to build the pruning scheduler store that tracks the current schedule
     adminToken: CantonAdminToken, // the admin token is needed to invoke pruning via the ledger-api
     pruningConfig: ParticipantStoreConfig,
-    batchingConfig: BatchingConfig,
     override val timeouts: ProcessingTimeout,
     loggerFactory: NamedLoggerFactory,
 )(implicit
@@ -152,7 +151,7 @@ final class ParticipantPruningScheduler(
               ledgerClient <- tryEnsureLedgerClient()
               result <- ledgerClient.participantPruningManagementClient
                 .prune(pruneUpTo, submissionId = Some(submissionId))
-                .map(_emptyResponse => doneOrMoreWorkToPerform.asRight[ScheduledRunResult])
+                .map(_ => doneOrMoreWorkToPerform.asRight[ScheduledRunResult])
             } yield result
             // Turn grpc errors returned as Future.failed into a Left ScheduledRunResult.
             EitherT(

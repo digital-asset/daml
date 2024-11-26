@@ -19,11 +19,12 @@ class SequencerSnapshotAdditionalInfoTest extends AnyWordSpec with BftSequencerB
     "successfully deserialize what we write" in {
       val snapshotAdditionalInfo = SequencerSnapshotAdditionalInfo(
         Map(
-          fakeSequencerId("sequencer1") -> PeerActiveAt(None, None, None, None),
+          fakeSequencerId("sequencer1") -> PeerActiveAt(None, None, None, None, None),
           fakeSequencerId("sequencer2") -> PeerActiveAt(
             Some(TopologyActivationTime(CantonTimestamp.Epoch)),
             Some(EpochNumber(7L)),
             Some(BlockNumber(70L)),
+            Some(true),
             Some(CantonTimestamp.MinValue),
           ),
         )

@@ -23,7 +23,6 @@ import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.concurrent.TrieMap
@@ -81,14 +80,14 @@ trait SubmissionTracker extends AutoCloseable {
 
 object SubmissionTracker {
 
-  def apply(protocolVersion: ProtocolVersion)(
+  def apply(
       participantId: ParticipantId,
       store: SubmissionTrackerStore,
       futureSupervisor: FutureSupervisor,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): SubmissionTracker =
-    new SubmissionTrackerImpl(protocolVersion)(
+    new SubmissionTrackerImpl(
       participantId,
       store,
       futureSupervisor,
@@ -97,7 +96,7 @@ object SubmissionTracker {
     )
 }
 
-class SubmissionTrackerImpl private[protocol] (protocolVersion: ProtocolVersion)(
+class SubmissionTrackerImpl private[protocol] (
     participantId: ParticipantId,
     store: SubmissionTrackerStore,
     futureSupervisor: FutureSupervisor,

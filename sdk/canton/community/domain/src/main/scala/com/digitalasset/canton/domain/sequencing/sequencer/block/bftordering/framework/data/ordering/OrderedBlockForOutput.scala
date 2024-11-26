@@ -10,8 +10,7 @@ import com.digitalasset.canton.topology.SequencerId
   *
   * @param isLastInEpoch From consensus: whether a block is the last in an epoch. Since the output module processes
   *                      blocks in order, this boolean information is enough to determine when an epoch ends and
-  *                      the ordering topology for the next epoch may thus need to be retrieved from the topology
-  *                      client.
+  *                      the ordering topology for the next epoch may thus need to be sent to the consensus module.
   */
 final case class OrderedBlockForOutput(
     orderedBlock: OrderedBlock,
@@ -30,12 +29,9 @@ object OrderedBlockForOutput {
       case Mode.FromConsensus => false
     }
 
-    def shouldQueryTopology: Boolean = this match {
-      case Mode.FromConsensus => true
-      // TODO(#19661): we should rather query the topology for the last state-transferred block but
-      //  we assume that the initial sequencer topology for the onboarded node won't change
-      //  up to and including the first epoch in which it switches from state transfer to consensus.
-      case _: Mode.StateTransfer => false
+    def shouldSendTopologyToConsensus: Boolean = this match {
+      case Mode.FromConsensus | Mode.StateTransfer.LastBlock => true
+      case Mode.StateTransfer.MiddleBlock => false
     }
   }
 
@@ -43,18 +39,10 @@ object OrderedBlockForOutput {
 
     case object FromConsensus extends Mode
 
-    sealed trait StateTransfer extends Mode {
-      def pendingTopologyChangesInNextEpoch: Boolean
-    }
+    sealed trait StateTransfer extends Mode
     object StateTransfer {
-      final case class MiddleBlock(
-          override val pendingTopologyChangesInNextEpoch: Boolean
-      ) extends StateTransfer
-      // TODO(#19661): we should rather get this info from the topology
-      //  queried for the last state-transferred block (see above).
-      final case class LastBlock(
-          override val pendingTopologyChangesInNextEpoch: Boolean
-      ) extends StateTransfer
+      case object MiddleBlock extends StateTransfer
+      case object LastBlock extends StateTransfer
     }
   }
 }

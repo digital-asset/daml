@@ -404,11 +404,11 @@ private[platform] object InMemoryStateUpdater {
           createKey = create.keyOpt.map(_.globalKey),
           createKeyMaintainers = create.keyOpt.map(_.maintainers),
           driverMetadata = txAccepted.contractMetadata
-            .get(create.coid)
             .getOrElse(
+              create.coid,
               throw new IllegalStateException(
                 s"missing driver metadata for contract ${create.coid}"
-              )
+              ),
             ),
         )
       case (nodeId, exercise: Exercise) =>

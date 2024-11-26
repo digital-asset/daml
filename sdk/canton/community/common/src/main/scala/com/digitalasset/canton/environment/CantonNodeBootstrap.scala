@@ -99,6 +99,7 @@ import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.actor.ActorSystem
 
 import java.util.concurrent.{Executors, ScheduledExecutorService}
+import scala.annotation.unused
 import scala.concurrent.{ExecutionContext, Future}
 
 /** When a canton node is created it first has to obtain an identity before most of its services can be started.
@@ -192,7 +193,7 @@ abstract class CantonNodeBootstrapImpl[
       nodeId: UniqueIdentifier,
       crypto: Crypto,
       authorizedStore: TopologyStore[AuthorizedStore],
-      storage: Storage,
+      @unused storage: Storage,
   ): AuthorizedTopologyManager =
     new AuthorizedTopologyManager(
       nodeId,
@@ -279,7 +280,6 @@ abstract class CantonNodeBootstrapImpl[
 
       new GrpcHealthServer(
         healthConfig,
-        arguments.metrics.openTelemetryMetricsFactory,
         executor,
         loggerFactory,
         parameterConfig.loggingConfig.api,
@@ -550,7 +550,6 @@ abstract class CantonNodeBootstrapImpl[
             new GrpcIdentityInitializationService(
               clock,
               this,
-              crypto.cryptoPublicStore,
               bootstrapStageCallback.loggerFactory,
             ),
             executionContext,
@@ -655,7 +654,6 @@ abstract class CantonNodeBootstrapImpl[
           .bindService(
             new GrpcTopologyManagerWriteService(
               sequencedTopologyManagers :+ topologyManager,
-              crypto,
               bootstrapStageCallback.loggerFactory,
             ),
             executionContext,
@@ -857,6 +855,7 @@ object CantonNodeBootstrapImpl {
 
   def getOrCreateSigningKeyByFingerprint(crypto: Crypto)(
       fingerprint: Fingerprint,
+      @unused
       usage: SigningKeyUsage,
   )(implicit
       traceContext: TraceContext,

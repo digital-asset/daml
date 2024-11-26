@@ -7,8 +7,7 @@ import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
 /** Defines how the progress on the ledger should be mapped to look-up operations */
-sealed abstract class SubSource[Index: Ordering, T]
-    extends ((Index, Index) => Source[(Index, T), NotUsed]) {
+sealed abstract class SubSource[Index, T] extends ((Index, Index) => Source[(Index, T), NotUsed]) {
 
   /** Returns a Source emitting items for the given range */
   def subSource(startInclusive: Index, endInclusive: Index): Source[(Index, T), NotUsed]
@@ -26,7 +25,7 @@ object SubSource {
     *
     * @param getRange (startInclusive, endInclusive) => Source[(Index, T), NotUsed]
     */
-  final case class RangeSource[Index: Ordering, T](
+  final case class RangeSource[Index, T](
       getRange: (Index, Index) => Source[(Index, T), NotUsed]
   ) extends SubSource[Index, T] {
     override def subSource(

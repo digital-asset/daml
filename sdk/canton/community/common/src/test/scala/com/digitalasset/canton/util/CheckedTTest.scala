@@ -147,7 +147,7 @@ class CheckedTTest extends AnyWordSpec with BaseTestWordSpec {
 
     "act according to the transformed monad" in {
       val sut = CheckedT.resultT[Monad, Int, String](5)
-      assert(sut.semiflatMap(x => Left(3)) == CheckedT.result(Either.left(3)))
+      assert(sut.semiflatMap(_ => Left(3)) == CheckedT.result(Either.left(3)))
     }
 
     "respect the transformed monad" in {

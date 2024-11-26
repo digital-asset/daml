@@ -18,7 +18,6 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.transaction.Versioned
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -97,7 +96,6 @@ object ExtractUsedAndCreated {
 
   def apply(
       participantId: ParticipantId,
-      staticDomainParameters: StaticDomainParameters,
       rootViews: NonEmpty[Seq[TransactionView]],
       topologySnapshot: TopologySnapshot,
       loggerFactory: NamedLoggerFactory,
@@ -108,7 +106,6 @@ object ExtractUsedAndCreated {
     fetchHostedParties(partyIds, participantId, topologySnapshot)
       .map { hostedParties =>
         new ExtractUsedAndCreated(
-          staticDomainParameters.protocolVersion,
           hostedParties,
           loggerFactory,
         ).usedAndCreated(rootViews)
@@ -131,7 +128,6 @@ object ExtractUsedAndCreated {
 }
 
 private[validation] class ExtractUsedAndCreated(
-    protocolVersion: ProtocolVersion,
     hostedParties: Map[LfPartyId, Boolean],
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit traceContext: TraceContext)

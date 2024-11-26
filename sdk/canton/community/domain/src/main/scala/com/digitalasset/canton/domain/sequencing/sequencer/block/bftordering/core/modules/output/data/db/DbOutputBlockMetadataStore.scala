@@ -7,11 +7,8 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.OutputBlockMetadataStore
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.OutputBlockMetadataStore.OutputBlockMetadata
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.{
-  OutputBlockMetadataStore,
-  OutputBlocksReader,
-}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
   EpochNumber,
@@ -34,7 +31,6 @@ class DbOutputBlockMetadataStore(
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends OutputBlockMetadataStore[PekkoEnv]
-    with OutputBlocksReader[PekkoEnv]
     with DbStore {
 
   import storage.api.*
@@ -263,31 +259,6 @@ class DbOutputBlockMetadataStore(
           """,
         functionFullName,
       )
-    }
-    PekkoFutureUnlessShutdown(name, future)
-  }
-
-  override def loadOutputBlockMetadata(
-      startEpochNumberInclusive: EpochNumber,
-      endEpochNumberInclusive: EpochNumber,
-  )(implicit traceContext: TraceContext): PekkoFutureUnlessShutdown[Seq[OutputBlockMetadata]] = {
-    val name = loadOutputBlockMetadataActionName(startEpochNumberInclusive, endEpochNumberInclusive)
-    val future = storage.performUnlessClosingF(name) {
-      storage
-        .query(
-          sql"""
-          select
-            epoch_number,
-            block_number,
-            bft_ts,
-            epoch_could_alter_sequencing_topology,
-            pending_topology_changes_in_next_epoch
-          from ord_metadata_output_blocks
-          where epoch_number >= $startEpochNumberInclusive and epoch_number <= $endEpochNumberInclusive
-          order by block_number
-          """.as[OutputBlockMetadata],
-          functionFullName,
-        )
     }
     PekkoFutureUnlessShutdown(name, future)
   }

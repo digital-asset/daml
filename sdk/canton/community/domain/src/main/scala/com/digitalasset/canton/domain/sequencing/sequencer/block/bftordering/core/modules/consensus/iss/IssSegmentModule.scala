@@ -279,7 +279,15 @@ class IssSegmentModule[E <: Env[E]](
       case ConsensusSegment.ConsensusMessage.CompletedEpoch(epochNumber) =>
         if (epoch.info.number == epochNumber) {
           viewChangeTimeoutManager.cancelTimeout()
-          context.stop()
+          context.stop { () =>
+            logger.info(
+              s"Segment module ${segmentState.segment.firstBlockNumber} completed epoch $epochNumber"
+            )
+            parent.asyncSend(
+              Consensus.ConsensusMessage
+                .SegmentCompletedEpoch(segmentState.segment.firstBlockNumber, epochNumber)
+            )
+          }
         } else
           logger.warn(
             s"Received a completed epoch message for epoch $epochNumber but we are in epoch ${epoch.info.number}"
