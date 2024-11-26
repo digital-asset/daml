@@ -170,7 +170,8 @@ private[domain] class DomainTopologyDispatcher(
     case _: ParticipantState | _: DomainParametersChange => Last
     case _: MediatorDomainState => Alone
     case _: IdentifierDelegation | _: NamespaceDelegation | _: OwnerToKeyMapping |
-        _: PartyToParticipant | _: SignedLegalIdentityClaim | _: VettedPackages =>
+        _: PartyToParticipant | _: SignedLegalIdentityClaim | _: VettedPackages |
+        _: CheckOnlyPackages =>
       Batched
   }
 

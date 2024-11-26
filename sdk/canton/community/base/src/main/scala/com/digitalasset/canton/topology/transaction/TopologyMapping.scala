@@ -573,42 +573,66 @@ object PartyToParticipant {
 
 }
 
-final case class VettedPackages(participant: ParticipantId, packageIds: Seq[LfPackageId])
+sealed trait TopologyPackagesStateUpdateMapping
     extends TopologyStateUpdateMapping
     with PrettyPrinting {
-  def toProtoV0: v0.VettedPackages =
-    v0.VettedPackages(
-      participant =
-        participant.uid.toProtoPrimitive, // use UID proto, not participant proto (as this would be Member.toProtoPrimitive) which includes the unnecessary code
-      packageIds = packageIds,
-    )
+  def participant: ParticipantId
+  def packageIds: Seq[LfPackageId]
+  def dbType: DomainTopologyTransactionType
 
-  override def pretty: Pretty[VettedPackages] =
+  override def pretty: Pretty[TopologyPackagesStateUpdateMapping.this.type] =
     prettyOfClass(param("participant", _.participant.uid), param("packages", _.packageIds))
 
   override def uniquePath(id: TopologyElementId): UniquePath =
     // TODO(i4933) include hash over content
     UniquePathSignedTopologyTransaction(participant.uid, dbType, id)
 
-  override def dbType: DomainTopologyTransactionType = VettedPackages.dbType
-
   override def requiredAuth: RequiredAuth = RequiredAuth.Uid(Seq(participant.uid))
-
 }
 
-object VettedPackages {
-  val dbType: DomainTopologyTransactionType = DomainTopologyTransactionType.PackageUse
+sealed trait TopologyPackagesCompanion[ProtoT, T] {
+  protected def extract: ProtoT => (String, Seq[String])
+  protected def toDomainObj: (ParticipantId, Seq[LfPackageId]) => T
 
-  def fromProtoV0(value: v0.VettedPackages): ParsingResult[VettedPackages] = {
-    val v0.VettedPackages(participantP, packagesP) = value
+  def fromProtoV0(value: ProtoT): ParsingResult[T] = {
+    val (participantP, packagesP) = extract(value)
     for {
       uid <- UniqueIdentifier.fromProtoPrimitive(participantP, "participant")
       packageIds <- packagesP
         .traverse(LfPackageId.fromString)
         .leftMap(ProtoDeserializationError.ValueConversionError("package_ids", _))
-    } yield VettedPackages(ParticipantId(uid), packageIds)
+    } yield toDomainObj(ParticipantId(uid), packageIds)
   }
+}
 
+final case class VettedPackages(participant: ParticipantId, packageIds: Seq[LfPackageId])
+    extends TopologyPackagesStateUpdateMapping {
+  override def dbType: DomainTopologyTransactionType = VettedPackages.dbType
+  def toProtoV0: v0.VettedPackages = v0.VettedPackages(participant.uid.toProtoPrimitive, packageIds)
+}
+
+object VettedPackages extends TopologyPackagesCompanion[v0.VettedPackages, VettedPackages] {
+  val dbType: DomainTopologyTransactionType = DomainTopologyTransactionType.VettedPackage
+  override protected def extract: v0.VettedPackages => (String, Seq[String]) = pt =>
+    pt.participant -> pt.packageIds
+  override protected def toDomainObj: (ParticipantId, Seq[LfPackageId]) => VettedPackages =
+    VettedPackages(_, _)
+}
+
+final case class CheckOnlyPackages(participant: ParticipantId, packageIds: Seq[LfPackageId])
+    extends TopologyPackagesStateUpdateMapping {
+  override def dbType: DomainTopologyTransactionType = CheckOnlyPackages.dbType
+  def toProtoV0: v0.CheckOnlyPackages =
+    v0.CheckOnlyPackages(participant.uid.toProtoPrimitive, packageIds)
+}
+
+object CheckOnlyPackages
+    extends TopologyPackagesCompanion[v0.CheckOnlyPackages, CheckOnlyPackages] {
+  val dbType: DomainTopologyTransactionType = DomainTopologyTransactionType.CheckOnlyPackage
+  override protected def extract: v0.CheckOnlyPackages => (String, Seq[String]) = pt =>
+    pt.participant -> pt.packageIds
+  override protected def toDomainObj: (ParticipantId, Seq[LfPackageId]) => CheckOnlyPackages =
+    CheckOnlyPackages(_, _)
 }
 
 final case class DomainParametersChange(

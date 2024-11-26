@@ -359,6 +359,11 @@ final class CommandServiceIT extends LedgerTestSuite {
     "A submission resulting in an interpretation error should return the stack trace",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    val trace =
+      """
+        |    in choice [0-9a-f]{8}:Test:Dummy:FailingChoice on contract 00[0-9a-f]{8} \(#3\)
+        |    in choice [0-9a-f]{8}:Test:Dummy:FailingClone on contract 00[0-9a-f]{8} \(#0\)
+        |    in exercise command [0-9a-f]{8}:Test:Dummy:FailingClone on contract 00[0-9a-f]{8}""".stripMargin
     for {
       dummy: Dummy.ContractId <- ledger.create(party, new Dummy(party))
       failure <- ledger
@@ -370,7 +375,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         LedgerApiErrors.CommandExecution.Interpreter.UnhandledException,
         Some(
           Pattern.compile(
-            "Interpretation error: Error: (User abort: Assertion failed.?|Unhandled (Daml )?exception: [0-9a-zA-Z\\.:]*@[0-9a-f]*\\{ message = \"Assertion failed\" \\}\\. [Dd]etails(: |=)Last location: \\[[^\\]]*\\], partial transaction: root node)"
+            s"Interpretation error: Error: (User abort: Assertion failed.?|Unhandled (Daml )?exception: [0-9a-zA-Z\\.:]*@[0-9a-f]*\\{ message = \"Assertion failed\" \\}(\\. [Dd]etails(: |=)Last location: \\[[^\\]]*\\], partial transaction: root node|$trace))"
           )
         ),
         checkDefiniteAnswerMetadata = true,

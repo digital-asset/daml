@@ -5,9 +5,29 @@ syntax = "proto3";
 
 package com.digitalasset.canton.protocol.v2;
 
+import "com/digitalasset/canton/protocol/v0/topology.proto";
 import "com/digitalasset/canton/protocol/v1/topology.proto";
 import "com/digitalasset/canton/protocol/v2/domain_params.proto";
 import "scalapb/scalapb.proto";
+
+// Difference with v1.TopologyStateUpdate: added check_only_packages
+message TopologyStateUpdate {
+  v0.TopologyChangeOp operation = 1;
+  // unique id of this element
+  string id = 2;
+  // the element of this topology transaction
+  oneof mapping {
+    v0.NamespaceDelegation namespace_delegation = 3;
+    v0.IdentifierDelegation identifier_delegation = 4;
+    v0.OwnerToKeyMapping owner_to_key_mapping = 5;
+    v0.PartyToParticipant party_to_participant = 6;
+    v0.SignedLegalIdentityClaim signed_legal_identity_claim = 7;
+    v0.ParticipantState participant_state = 8;
+    v0.VettedPackages vetted_packages = 9;
+    v0.CheckOnlyPackages check_only_packages = 11;
+    v0.MediatorDomainState mediator_domain_state = 10;
+  }
+}
 
 message DomainParametersChange {
   // domain affected by the new domain parameters
