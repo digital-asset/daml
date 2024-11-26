@@ -1,3 +1,6 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 module Main where
 
 data MyEnum
@@ -5,3 +8,4 @@ data MyEnum
   | MyEnumCon2
   | MyEnumCon3
   deriving (Show, Eq)
+
