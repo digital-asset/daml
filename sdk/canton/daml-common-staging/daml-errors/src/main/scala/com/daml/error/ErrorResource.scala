@@ -28,6 +28,7 @@ object ErrorResource {
     ExceptionText,
     ExceptionType,
     ExceptionValue,
+    FieldType,
     IdentityProviderConfig,
     InterfaceId,
     LedgerId,
@@ -36,7 +37,6 @@ object ErrorResource {
     Party,
     TemplateId,
     TransactionId,
-    UpgradeErrorType,
     User,
   )
 
@@ -102,8 +102,8 @@ object ErrorResource {
   object ExceptionText extends ErrorResource {
     def asString: String = "EXCEPTION_TEXT"
   }
-  object UpgradeErrorType extends ErrorResource {
-    def asString: String = "UPGRADE_ERROR_TYPE"
+  object FieldType extends ErrorResource {
+    def asString: String = "FIELD_TYPE"
   }
   object DevErrorType extends ErrorResource {
     def asString: String = "DEV_ERROR_TYPE"
