@@ -420,7 +420,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
   ): Result[(SubmittedTransaction, Tx.Metadata)] = {
     val abort = () => {
       machine.abort()
-      Some(machine.transactionTrace)
+      Some(machine.transactionTrace(config.transactionTraceMaxLength))
     }
 
     def finish: Result[(SubmittedTransaction, Tx.Metadata)] =
@@ -551,7 +551,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
           finish
 
         case SResultError(err) =>
-          handleError(err, Some(machine.transactionTrace))
+          handleError(err, Some(machine.transactionTrace(config.transactionTraceMaxLength)))
       }
     }
 
