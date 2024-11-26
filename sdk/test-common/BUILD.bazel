@@ -418,7 +418,7 @@ da_scala_dar_resources_library(
         ("FailsWhenTemplateRemovesKeyType", {}, {}),
         ("SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplate", {}, {}),
         ("SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice", {}, {}),
-        ("SucceedsWhenTemplateChoiceInputArgumentHasChanged", {}, {}),
+        ("SucceedsWhenTemplateChoiceInputArgumentTemplateHasChanged", {}, {}),
         ("SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged", {}, {}),
         ("SucceedsWhenNonSerializableTypesAreIncompatible", {}, {}),
         (

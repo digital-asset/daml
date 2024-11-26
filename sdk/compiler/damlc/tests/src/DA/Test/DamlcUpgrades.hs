@@ -171,7 +171,7 @@ tests damlc =
                   "SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged"
                   Succeed
             , testUpgradeCheck
-                  "SucceedsWhenTemplateChoiceInputArgumentHasChanged"
+                  "SucceedsWhenTemplateChoiceInputArgumentTemplateHasChanged"
                   Succeed
             , testUpgradeCheck
                   "SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice"

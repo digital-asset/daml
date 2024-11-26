@@ -679,13 +679,13 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
     s"Succeeds when template choice input argument has changed" in {
       testPackages(
         Seq(
-          "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentHasChanged-v1.dar",
-          "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentHasChanged-v2.dar",
+          "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentTemplateHasChanged-v1.dar",
+          "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentTemplateHasChanged-v2.dar",
         ),
         Seq(
           (
-            "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentHasChanged-v1.dar",
-            "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentHasChanged-v2.dar",
+            "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentTemplateHasChanged-v1.dar",
+            "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentTemplateHasChanged-v2.dar",
             None,
           )
         ),
