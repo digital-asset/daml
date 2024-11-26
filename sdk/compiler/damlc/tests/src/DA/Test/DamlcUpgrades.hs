@@ -96,6 +96,9 @@ tests damlc =
                   "MissingChoice"
                   (FailWithError "error type checking template Main.T :\n  Choice C2 appears in package that is being upgraded, but does not appear in this package.")
             , testUpgradeCheck
+                  "TemplateAddedChoice"
+                  Succeed
+            , testUpgradeCheck
                   "TemplateChangedKeyType"
                   (FailWithError "error type checking template Main.T key:\n  The upgraded template T cannot change its key type.")
             , testUpgradeCheck
@@ -168,7 +171,16 @@ tests damlc =
                   "SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged"
                   Succeed
             , testUpgradeCheck
-                  "SucceedsWhenTemplateChoiceInputArgumentHasChanged"
+                  "SucceedsWhenTemplateChoiceInputArgumentTemplateHasChanged"
+                  Succeed
+            , testUpgradeCheck
+                  "SucceedsWhenTemplateChoiceInputArgumentEnumHasChanged"
+                  Succeed
+            , testUpgradeCheck
+                  "SucceedsWhenTemplateChoiceInputArgumentStructHasChanged"
+                  Succeed
+            , testUpgradeCheck
+                  "SucceedsWhenTemplateChoiceInputArgumentVariantHasChanged"
                   Succeed
             , testUpgradeCheck
                   "SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice"
@@ -200,6 +212,9 @@ tests damlc =
             , testUpgradeCheck
                   "SucceedWhenATopLevelEnumAddsAField"
                   Succeed
+            , testUpgradeCheck
+                  "FailsWhenAnEnumDropsAConstructor"
+                  (FailWithError "error type checking data type Main.MyEnum:\n  The upgraded data type MyEnum is missing some of its original constructors: MyEnumCon3")
             , testUpgradeCheck
                   "FailWhenATopLevelEnumChangesChangesTheOrderOfItsConstructors"
                   (FailWithError "error type checking data type Main.A:\n  The upgraded data type A has changed the order of its constructors - any new enum constructor must be added at the end of the enum.")
@@ -239,6 +254,9 @@ tests damlc =
             , testUpgradeCheck
                   "FailsWhenAnInstanceIsAddedUpgradedPackage"
                   (FailWithError "error type checking template Main.T :\n  Implementation of interface I by template T appears in this package, but does not appear in package that is being upgraded.")
+            , testUpgradeCheck
+                  "FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface"
+                  (FailWithError "error type checking template Main.T :\n  Implementation of interface I by template T appears in package that is being upgraded, but does not appear in this package.")
             , testUpgradeCheck
                   "SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep"
                   Succeed
