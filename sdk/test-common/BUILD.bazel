@@ -127,6 +127,7 @@ da_scala_dar_resources_library(
     for test_name in [
         "FailsWhenUpgradedFieldFromDifferentPackageName",
         "WarnsWhenExpressionChangesPackageId",
+        "FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface",
     ]
     for project_name in [
         "name1",
@@ -366,6 +367,7 @@ da_scala_dar_resources_library(
         ("MissingDataCon", {}, {}),
         ("MissingChoice", {}, {}),
         ("RecordFieldsNewNonOptional", {}, {}),
+        ("TemplateAddedChoice", {}, {}),
         ("TemplateChangedKeyType", {}, {}),
         ("TemplateChangedKeyType2", {}, {}),
         ("ValidUpgrade", {}, {}),
@@ -418,7 +420,10 @@ da_scala_dar_resources_library(
         ("FailsWhenTemplateRemovesKeyType", {}, {}),
         ("SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplate", {}, {}),
         ("SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice", {}, {}),
-        ("SucceedsWhenTemplateChoiceInputArgumentHasChanged", {}, {}),
+        ("SucceedsWhenTemplateChoiceInputArgumentTemplateHasChanged", {}, {}),
+        ("SucceedsWhenTemplateChoiceInputArgumentEnumHasChanged", {}, {}),
+        ("SucceedsWhenTemplateChoiceInputArgumentStructHasChanged", {}, {}),
+        ("SucceedsWhenTemplateChoiceInputArgumentVariantHasChanged", {}, {}),
         ("SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged", {}, {}),
         ("SucceedsWhenNonSerializableTypesAreIncompatible", {}, {}),
         (
@@ -489,6 +494,7 @@ da_scala_dar_resources_library(
         ("FailsWhenMakingTypeUnserializable", {}, {}),
         ("FailsWithSynonymReturnTypeChange", {}, {}),
         ("SucceedWhenATopLevelEnumAddsAField", {}, {}),
+        ("FailsWhenAnEnumDropsAConstructor", {}, {}),
         ("SucceedsWhenATopLevelEnumChanges", {}, {}),
         ("SucceedsWhenATopLevelVariantAddsAConstructor", {}, {}),
         ("SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAConstructorsType", {}, {}),
@@ -525,6 +531,11 @@ da_scala_dar_resources_library(
             "SucceedsWhenNewerPackagesUsesANewerLFVersion",
             {"lf_version": "1.17"},
             {"lf_version": "1.dev"},
+        ),
+        (
+            "FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface",
+            {"data_dependencies": ["//test-common:upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-dep-name1.dar"]},
+            {"data_dependencies": ["//test-common:upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-dep-name2.dar"]},
         ),
     ]
 ]

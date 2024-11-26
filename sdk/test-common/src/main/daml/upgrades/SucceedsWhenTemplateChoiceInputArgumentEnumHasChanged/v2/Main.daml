@@ -1,0 +1,21 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Main where
+
+data MyEnum
+  = MyEnumCons1
+  | MyEnumCons2
+  | MyEnumCons3
+  | MyEnumCons4
+  deriving (Show, Eq)
+
+template A with
+    p : Party
+  where
+    signatory p
+    choice C : ()
+      with
+        choiceArg : MyEnum
+      controller p
+      do pure ()
