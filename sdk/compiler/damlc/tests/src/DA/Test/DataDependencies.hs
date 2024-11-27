@@ -2812,8 +2812,7 @@ tests TestArgs{..} =
                 , "source: ."
                 , "version: 0.1.0"
                 , "dependencies: [" <> intercalate ", " deps <> "]"
-                , "data-dependencies: "
-                , "  - " <> (tmpDir </> "lib" </> "lib.dar")
+                , "data-dependencies: [" <> intercalate ", " (fmap show $ (tmpDir </> "lib" </> "lib.dar") : dataDeps) <> "]"
                 ]
             forM_ mainModules $ \(path, contents) ->
                 writeFileUTF8 (tmpDir </> "main" </> path) $ unlines contents
