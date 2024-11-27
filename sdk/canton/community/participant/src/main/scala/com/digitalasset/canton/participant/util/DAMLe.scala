@@ -169,7 +169,7 @@ class DAMLe(
           Left(
             Error.Interpretation(
               Error.Interpretation.Internal("engine.reinterpret", msg, None),
-              transactionTrace = None,
+              detailMessage = None,
             )
           )
 
@@ -317,7 +317,7 @@ class DAMLe(
     @tailrec
     def iterateOverInterrupts(continue: () => Result[A]): Result[A] =
       continue() match {
-        case ResultInterruption(continue, _) => iterateOverInterrupts(continue)
+        case ResultInterruption(continue) => iterateOverInterrupts(continue)
         case otherResult => otherResult
       }
 
@@ -349,7 +349,7 @@ class DAMLe(
           .value
           .flatMap(optInst => handleResult(contracts, resume(optInst)))
       case ResultError(err) => Future.successful(Left(err))
-      case ResultInterruption(continue, _) =>
+      case ResultInterruption(continue) =>
         // Using a `Future` as a trampoline to make the recursive call to `handleResult` stack safe.
         Future {
           iterateOverInterrupts(continue)

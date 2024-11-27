@@ -25,7 +25,6 @@ object ErrorCause {
   final case class InterpretationTimeExceeded(
       ledgerEffectiveTime: Time.Timestamp, // the Ledger Effective Time of the submitted command
       tolerance: NonNegativeFiniteDuration,
-      transactionTrace: Option[String],
   ) extends ErrorCause
 }
 
@@ -66,7 +65,7 @@ object RejectionGenerators {
     def processDamlException(
         err: com.daml.lf.interpretation.Error,
         renderedMessage: String,
-        transactionTrace: Option[String],
+        detailMessage: Option[String],
     ): DamlError =
       // detailMessage is only suitable for server side debugging but not for the user, so don't pass except on internal errors
 
@@ -101,7 +100,7 @@ object RejectionGenerators {
             .RejectWithContractKeyArg(renderedMessage, key)
         case e: LfInterpretationError.UnhandledException =>
           CommandExecutionErrors.Interpreter.UnhandledException.Reject(
-            renderedMessage + transactionTrace.fold("")("\n" + _) + ".",
+            renderedMessage + detailMessage.fold("")(x => ". Details: " + x),
             e,
           )
         case e: LfInterpretationError.UserError =>
@@ -137,14 +136,8 @@ object RejectionGenerators {
         case e: LfInterpretationError.ValueNesting =>
           CommandExecutionErrors.Interpreter.ValueNesting
             .Reject(renderedMessage, e)
-        case LfInterpretationError.Upgrade(error: LfInterpretationError.Upgrade.ValidationFailed) =>
-          CommandExecutionErrors.Interpreter.UpgradeError.ValidationFailed
-            .Reject(renderedMessage, error)
-        case LfInterpretationError.Upgrade(error: LfInterpretationError.Upgrade.DowngradeDropDefinedField) =>
-          CommandExecutionErrors.Interpreter.UpgradeError.DowngradeDropDefinedField
-            .Reject(renderedMessage, error)
-        case LfInterpretationError.Upgrade(error: LfInterpretationError.Upgrade.ViewMismatch) =>
-          CommandExecutionErrors.Interpreter.UpgradeError.ViewMismatch
+        case LfInterpretationError.Upgrade(error) =>
+          CommandExecutionErrors.Interpreter.UpgradeError
             .Reject(renderedMessage, error)
         case LfInterpretationError.Dev(_, err) =>
           CommandExecutionErrors.Interpreter.InterpretationDevError
@@ -183,9 +176,9 @@ object RejectionGenerators {
       case ErrorCause.LedgerTime(retries) =>
         CommandExecutionErrors.FailedToDetermineLedgerTime
           .Reject(s"Could not find a suitable ledger time after $retries retries")
-      case ErrorCause.InterpretationTimeExceeded(let, tolerance, transactionTrace) =>
+      case ErrorCause.InterpretationTimeExceeded(let, tolerance) =>
         CommandExecutionErrors.TimeExceeded.Reject(
-          s"Time exceeds limit of Ledger Effective Time ($let) + tolerance ($tolerance). Interpretation aborted" + transactionTrace.fold("")("\n" + _) + "."
+          s"Interpretation time exceeds limit of Ledger Effective Time ($let) + tolerance ($tolerance)"
         )
     }
   }

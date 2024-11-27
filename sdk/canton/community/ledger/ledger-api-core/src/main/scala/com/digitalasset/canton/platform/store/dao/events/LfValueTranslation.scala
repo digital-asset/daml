@@ -652,7 +652,7 @@ final class LfValueTranslation(
               .map(resume)
               .flatMap(goAsync)
 
-          case LfEngine.ResultInterruption(continue, _) =>
+          case LfEngine.ResultInterruption(continue) =>
             goAsync(continue())
 
           case LfEngine.ResultNeedAuthority(_, _, _) =>
