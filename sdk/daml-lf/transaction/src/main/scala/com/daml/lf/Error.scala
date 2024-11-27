@@ -111,6 +111,13 @@ object Error {
       actual: TypeConName,
   ) extends Error
 
+  /** An attempt was made to upgrade a contract from a LF version that does not support upgrading */
+  final case class ContractNotUpgradable(
+      coid: ContractId,
+      target: TypeConName,
+      actual: TypeConName,
+  ) extends Error
+
   /** We tried to fetch / exercise a contract by interface, but
     * the contract does not implement this interface.
     */

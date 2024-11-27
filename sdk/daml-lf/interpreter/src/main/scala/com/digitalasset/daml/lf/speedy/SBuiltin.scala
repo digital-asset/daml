@@ -2452,13 +2452,20 @@ private[lf] object SBuiltin {
       val srcTmplId = srcContract.templateId
       val coinst =
         V.ContractInstance(srcContract.packageName, srcContract.templateId, srcContract.arg)
-      val (upgradingIsEnabled, dstTmplId) = optTargetTemplateId match {
+      val (upgradingIsEnabled, dstTmplId, unsupportedUpgrade) = optTargetTemplateId match {
         case Some(tycon) if coinst.upgradable =>
-          (true, tycon)
+          (true, tycon, false)
+        case Some(tycon) =>
+          (true, tycon, true)
         case _ =>
-          (false, srcTmplId) // upgrading not enabled; import at source type
+          (false, srcTmplId, false) // upgrading not enabled; import at source type
       }
-      if (srcTmplId.qualifiedName != dstTmplId.qualifiedName) {
+
+      if (unsupportedUpgrade) {
+        Control.Error(
+          IE.ContractNotUpgradable(coid, dstTmplId, srcTmplId)
+        )
+      } else if (srcTmplId.qualifiedName != dstTmplId.qualifiedName) {
         Control.Error(
           IE.WronglyTypedContract(coid, dstTmplId, srcTmplId)
         )
