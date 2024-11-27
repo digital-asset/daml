@@ -269,13 +269,18 @@ clientMessageHandler miState unblock bs = do
                   then do
                     handleCreatedPackageOpenFiles miState home
                     rebootIdeByHome miState home
-                  else shutdownIdeByHome miState home
+                  else
+                    -- If a daml.yaml with only sdk-version defined is created, we shutdown its IDE (in case something was running)
+                    -- and don't update any state
+                    shutdownIdeByHome miState home
                 atomically $ onSubIde_ miState home $ \ideData -> ideData {ideDataIsFullDamlYaml = isFullDamlYaml}
               LSP.FcChanged -> do
                 isFullDamlYaml <- shouldHandleDamlYamlChange <$> T.readFile (unPackageHome home </> "daml.yaml")
                 oldIdeData <- atomically $ onSubIde miState home $ \ideData -> (ideData {ideDataIsFullDamlYaml = isFullDamlYaml}, ideData)
                 if isFullDamlYaml
                   then do
+                    -- If a daml.yaml has gone from only containing sdk-version, to containing package fields,
+                    -- we want to treat it as through a full daml.yaml was created, calling the relevant handlers
                     when (not (ideDataIsFullDamlYaml oldIdeData) && Set.null (ideDataOpenFiles oldIdeData)) $
                       handleCreatedPackageOpenFiles miState home
                     rebootIdeByHome miState home
