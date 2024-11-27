@@ -759,6 +759,18 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        "end": "2.10.0-snapshot.20240821.12933.0",
+        "platform_ranges": [
+            {
+                "start": "2.10.0-snapshot.20240821.12933.1",
+                "exclusions": [
+                    "MultiPartySubmissionIT:MPSLookupOtherByKeyInvisible",
+                    "CommandServiceIT:CSReturnStackTrace",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):

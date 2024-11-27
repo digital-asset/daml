@@ -8,7 +8,7 @@ import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{InitialSeeding, Pretty, Question, SError, SResult, SValue, TraceLog}
+import com.daml.lf.speedy.{InitialSeeding, Question, SError, SResult, SValue, TraceLog}
 import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.daml.lf.speedy.Speedy.{Machine, PureMachine, UpdateMachine}
 import com.daml.lf.speedy.SResult._
@@ -405,7 +405,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
     ResultDone(deps)
   }
 
-  private def handleError(err: SError.SError, detailMsg: Option[String] = None): ResultError = {
+  private def handleError(err: SError.SError, detailMsg: Option[String]): ResultError = {
     err match {
       case SError.SErrorDamlException(error) =>
         ResultError(Error.Interpretation.DamlException(error), detailMsg)
@@ -418,9 +418,10 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
       machine: UpdateMachine,
       time: Time.Timestamp,
   ): Result[(SubmittedTransaction, Tx.Metadata)] = {
-    def detailMsg = Some(
-      s"Last location: ${Pretty.prettyLoc(machine.getLastLocation).render(80)}, partial transaction: ${machine.nodesToString}"
-    )
+    val abort = () => {
+      machine.abort()
+      Some(machine.transactionTrace(config.transactionTraceMaxLength))
+    }
 
     def finish: Result[(SubmittedTransaction, Tx.Metadata)] =
       machine.finish match {
@@ -456,7 +457,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
             ResultDone((tx, meta))
           }
         case Left(err) =>
-          handleError(err)
+          handleError(err, None)
       }
 
     @scala.annotation.tailrec
@@ -544,13 +545,13 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
           }
 
         case SResultInterruption =>
-          ResultInterruption(() => interpretLoop(machine, time))
+          ResultInterruption(() => interpretLoop(machine, time), abort)
 
         case _: SResultFinal =>
           finish
 
         case SResultError(err) =>
-          handleError(err, detailMsg)
+          handleError(err, Some(machine.transactionTrace(config.transactionTraceMaxLength)))
       }
     }
 
@@ -626,11 +627,12 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
       interfaceId: Identifier,
   )(implicit loggingContext: LoggingContext): Result[Versioned[Value]] = {
     @scala.annotation.nowarn("msg=dead code following this construct")
-    def interpret(machine: PureMachine): Result[SValue] =
+    def interpret(machine: PureMachine, abort: () => Option[String]): Result[SValue] =
       machine.run() match {
         case SResultFinal(v) => ResultDone(v)
         case SResultError(err) => handleError(err, None)
-        case SResult.SResultInterruption => ResultInterruption(() => interpret(machine))
+        case SResult.SResultInterruption =>
+          ResultInterruption(() => interpret(machine, abort), abort)
         case SResultQuestion(nothing) => nothing: Nothing
       }
     for {
@@ -644,7 +646,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
         sexpr,
         config.iterationsBetweenInterruptions,
       )
-      r <- interpret(machine)
+      r <- interpret(machine, () => { machine.abort(); None })
       version = machine.tmplId2TxVersion(interfaceId)
     } yield Versioned(version, r.toNormalizedValue(version))
   }

@@ -122,7 +122,7 @@ class PackageOpsImpl(
 
     for {
       unvettedPackages <- EitherT
-        .right(topologyManager.unvettedPackages(participantId, packageSet))
+        .right(topologyManager.packagesNotVetted(participantId, packageSet))
         .mapK(FutureUnlessShutdown.outcomeK)
       _ <-
         if (unvettedPackages.isEmpty) {

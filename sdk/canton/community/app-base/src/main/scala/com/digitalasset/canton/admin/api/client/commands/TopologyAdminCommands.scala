@@ -338,6 +338,31 @@ object TopologyAdminCommands {
 
     }
 
+    final case class AuthorizeCheckOnlyPackages(
+        ops: TopologyChangeOp,
+        signedBy: Option[Fingerprint],
+        participant: ParticipantId,
+        packageIds: Seq[PackageId],
+        force: Boolean,
+    ) extends BaseCommand[v0.CheckOnlyPackagesAuthorization] {
+
+      override def createRequest(): Either[String, v0.CheckOnlyPackagesAuthorization] =
+        Right(
+          v0.CheckOnlyPackagesAuthorization(
+            authData(ops, signedBy, replaceExisting = false, force = force),
+            participant.uid.toProtoPrimitive,
+            packageIds = packageIds,
+          )
+        )
+
+      override def submitRequest(
+          service: TopologyManagerWriteServiceStub,
+          request: v0.CheckOnlyPackagesAuthorization,
+      ): Future[v0.AuthorizationSuccess] =
+        service.authorizeCheckOnlyPackages(request)
+
+    }
+
     final case class AuthorizeDomainParametersChange(
         signedBy: Option[Fingerprint],
         domainId: DomainId,
@@ -608,6 +633,31 @@ object TopologyAdminCommands {
           response: v0.ListVettedPackagesResult
       ): Either[String, Seq[ListVettedPackagesResult]] =
         response.results.traverse(ListVettedPackagesResult.fromProtoV0).leftMap(_.toString)
+    }
+
+    final case class ListCheckOnlyPackages(query: BaseQuery, filterParticipant: String)
+        extends BaseCommand[v0.ListCheckOnlyPackagesRequest, v0.ListCheckOnlyPackagesResult, Seq[
+          ListCheckOnlyPackagesResult
+        ]] {
+
+      override def createRequest(): Either[String, v0.ListCheckOnlyPackagesRequest] =
+        Right(
+          new v0.ListCheckOnlyPackagesRequest(
+            baseQuery = Some(query.toProtoV0),
+            filterParticipant,
+          )
+        )
+
+      override def submitRequest(
+          service: TopologyManagerReadServiceStub,
+          request: v0.ListCheckOnlyPackagesRequest,
+      ): Future[v0.ListCheckOnlyPackagesResult] =
+        service.listCheckOnlyPackages(request)
+
+      override def handleResponse(
+          response: v0.ListCheckOnlyPackagesResult
+      ): Either[String, Seq[ListCheckOnlyPackagesResult]] =
+        response.results.traverse(ListCheckOnlyPackagesResult.fromProtoV0).leftMap(_.toString)
     }
 
     final case class ListDomainParametersChanges(query: BaseQuery)

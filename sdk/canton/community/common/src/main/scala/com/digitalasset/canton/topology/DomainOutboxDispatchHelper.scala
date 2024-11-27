@@ -19,7 +19,13 @@ import com.digitalasset.canton.logging.pretty.PrettyPrinting
 import com.digitalasset.canton.protocol.messages.RegisterTopologyTransactionResponseResult
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreCommon, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.topology.transaction.{OwnerToKeyMapping, SignedTopologyTransaction}
+import com.digitalasset.canton.topology.transaction.{
+  CheckOnlyPackages,
+  OwnerToKeyMapping,
+  SignedTopologyTransaction,
+  TopologyStateUpdate,
+  TopologyStateUpdateElement,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.retry.AllExceptionRetryPolicy
@@ -102,11 +108,18 @@ trait DomainOutboxDispatchHelperOld
       traceContext: TraceContext,
   ): EitherT[Future, /*DomainRegistryError*/ String, Seq[GenericSignedTopologyTransaction]] =
     transactions
-      .parTraverse { tx =>
-        if (tx.transaction.hasEquivalentVersion(protocolVersion)) {
+      .parFlatTraverse {
+        case tx if tx.transaction.hasEquivalentVersion(protocolVersion) =>
           // Transaction already in the correct version, nothing to do here
-          EitherT.rightT[Future, String](tx)
-        } else {
+          EitherT.rightT[Future, String](Seq(tx))
+        case SignedTopologyTransaction(
+              TopologyStateUpdate(_, TopologyStateUpdateElement(_, _: CheckOnlyPackages)),
+              _,
+              _,
+            ) if protocolVersion < ProtocolVersion.v7 =>
+          // CheckOnlyPackages transactions are only supported starting with protocol version 7
+          EitherT.rightT(Seq.empty)
+        case tx =>
           // First try to find if the topology transaction already exists in the correct version in the topology store
           OptionT(authorizedStore.findStoredForVersion(tx.transaction, protocolVersion))
             .map(_.transaction)
@@ -115,7 +128,7 @@ trait DomainOutboxDispatchHelperOld
               // We did not find a topology transaction with the correct version, so we try to convert and resign
               SignedTopologyTransaction.asVersion(tx, protocolVersion)(crypto)
             }
-        }
+            .map(Seq(_))
       }
 
   override protected def isFailedState(

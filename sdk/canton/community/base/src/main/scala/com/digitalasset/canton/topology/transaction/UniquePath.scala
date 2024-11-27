@@ -124,7 +124,8 @@ object DomainTopologyTransactionType {
   object OwnerToKeyMapping extends DomainTopologyTransactionType(4, "okm")
   object PartyToParticipant extends DomainTopologyTransactionType(5, "ptp")
   object SignedLegalIdentityClaim extends DomainTopologyTransactionType(6, "lic")
-  object PackageUse extends DomainTopologyTransactionType(7, "pau")
+  object VettedPackage extends DomainTopologyTransactionType(7, "pau")
+  object CheckOnlyPackage extends DomainTopologyTransactionType(10, "pac")
   object DomainParameters extends DomainTopologyTransactionType(8, "dmp")
   object MediatorDomainState extends DomainTopologyTransactionType(9, "mds")
 
@@ -134,7 +135,8 @@ object DomainTopologyTransactionType {
     OwnerToKeyMapping,
     PartyToParticipant,
     SignedLegalIdentityClaim,
-    PackageUse,
+    VettedPackage,
+    CheckOnlyPackage,
     ParticipantState,
     DomainParameters,
     MediatorDomainState,
