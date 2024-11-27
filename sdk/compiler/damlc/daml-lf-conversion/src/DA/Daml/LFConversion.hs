@@ -1580,9 +1580,6 @@ internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
     , ("GHC.Tuple.Check",
         [ "userWrittenTuple"
         ])
-    , ("GHC.Real", ["fromRational"])
-    , ("GHC.CString", ["fromString"])
-    , ("GHC.Integer.Type", ["fromInteger"])
     ]
 
 convertExpr :: SdkVersioned => Env -> GHC.Expr Var -> ConvertM LF.Expr
