@@ -101,13 +101,6 @@ private[lf] object Pretty {
           ) & prettyTypeConName(
             actual
           )
-      case ContractNotUpgradable(coid, target, actual) =>
-        text("Attempt to upgrade non-upgradable contract id") & prettyContractId(coid) /
-          text("to target package") & prettyTypeConName(target) & text(
-            "from"
-          ) & prettyTypeConName(
-            actual
-          )
       case ContractDoesNotImplementInterface(interfaceId, coid, templateId) =>
         text("Update failed due to contract") & prettyContractId(coid) & text(
           "not implementing an interface"
@@ -204,6 +197,14 @@ private[lf] object Pretty {
               text("computed view for") & prettyTypeConName(iterfaceId) & text(
                 "in the destination contract is"
               ) & prettyValue(false)(dstViewValue)
+          }
+          case Upgrade.ContractNotUpgradable(coid, target, actual) => {
+            text("Attempt to upgrade non-upgradable contract id") & prettyContractId(coid) /
+              text("to target package") & prettyTypeConName(target) & text(
+                "from"
+              ) & prettyTypeConName(
+                actual
+              )
           }
         }
       case Dev(_, error) =>

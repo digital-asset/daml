@@ -2463,7 +2463,7 @@ private[lf] object SBuiltin {
 
       if (unsupportedUpgrade) {
         Control.Error(
-          IE.ContractNotUpgradable(coid, dstTmplId, srcTmplId)
+          IE.Upgrade(IE.Upgrade.ContractNotUpgradable(coid, dstTmplId, srcTmplId))
         )
       } else if (srcTmplId.qualifiedName != dstTmplId.qualifiedName) {
         Control.Error(

@@ -19,6 +19,7 @@ data UpgradeErrorType
   = ValidationFailed
   | DowngradeDropDefinedField
   | ViewMismatch
+  | ContractNotUpgradable
   deriving Show
 
 -- | Errors that will be promoted to SubmitError once stable - code needs to be kept in sync with SubmitError.scala
