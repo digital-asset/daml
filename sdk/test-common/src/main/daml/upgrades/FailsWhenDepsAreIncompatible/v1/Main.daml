@@ -1,0 +1,8 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Main where
+
+-- We import the deps so they get included in the dar
+import qualified V1.Dep as V1
+import qualified V2.Dep as V2
