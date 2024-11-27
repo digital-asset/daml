@@ -17,7 +17,7 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   ExecuteSubmissionRequest,
   PrepareSubmissionRequest,
 }
-import com.digitalasset.canton.data.{AbsoluteOffset, DeduplicationPeriod}
+import com.digitalasset.canton.data.{DeduplicationPeriod, Offset}
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampConversion}
 import com.digitalasset.canton.ledger.api.validation.CommandsValidator.{
@@ -336,7 +336,7 @@ final class CommandsValidator(
         else
           Right(
             DeduplicationPeriod.DeduplicationOffset(
-              Option(AbsoluteOffset.tryFromLong(offset))
+              Option(Offset.tryFromLong(offset))
             )
           )
     }

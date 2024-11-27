@@ -3,12 +3,12 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 
 // [startInclusive, endInclusive]
 final case class EventsRange(
-    startInclusiveOffset: AbsoluteOffset,
+    startInclusiveOffset: Offset,
     startInclusiveEventSeqId: Long,
-    endInclusiveOffset: AbsoluteOffset,
+    endInclusiveOffset: Offset,
     endInclusiveEventSeqId: Long,
 )

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.protocol
 
 import com.digitalasset.canton.ProtoDeserializationError
-import com.digitalasset.canton.data.{AbsoluteOffset, DeduplicationPeriod}
+import com.digitalasset.canton.data.{DeduplicationPeriod, Offset}
 import com.digitalasset.canton.serialization.ProtoConverter.{DurationConverter, ParsingResult}
 import com.digitalasset.daml.lf.data.Bytes as LfBytes
 
@@ -19,7 +19,7 @@ final case class SerializableDeduplicationPeriod(deduplicationPeriod: Deduplicat
     case offset: DeduplicationPeriod.DeduplicationOffset =>
       v30.DeduplicationPeriod(
         v30.DeduplicationPeriod.Period.Offset(
-          AbsoluteOffset.toOldOffsetBytes(offset.offset).toByteString
+          Offset.toOldOffsetBytes(offset.offset).toByteString
         )
       )
   }
@@ -38,7 +38,7 @@ object SerializableDeduplicationPeriod {
       case dedupP.Offset(offset) =>
         Right(
           DeduplicationPeriod.DeduplicationOffset(
-            AbsoluteOffset.fromHexStringO(LfBytes.fromByteString(offset).toHexString)
+            Offset.fromHexStringO(LfBytes.fromByteString(offset).toHexString)
           )
         )
     }

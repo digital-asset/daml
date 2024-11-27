@@ -15,8 +15,8 @@ import com.digitalasset.canton.crypto.{
   TestHash,
 }
 import com.digitalasset.canton.data.{
-  AbsoluteOffset,
   CantonTimestamp,
+  Offset,
   ReassignmentSubmitterMetadata,
   ViewType,
 }
@@ -98,7 +98,7 @@ final case class ReassignmentDataHelpers(
     )
 
   def reassignmentData(reassignmentId: ReassignmentId, unassignmentRequest: UnassignmentRequest)(
-      unassignmentGlobalOffset: Option[AbsoluteOffset] = None
+      unassignmentGlobalOffset: Option[Offset] = None
   ): ReassignmentData = {
     val uuid = new UUID(10L, 0L)
     val seed = seedGenerator.generateSaltSeed()

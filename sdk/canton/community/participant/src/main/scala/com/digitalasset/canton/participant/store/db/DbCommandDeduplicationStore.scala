@@ -7,7 +7,7 @@ import cats.data.OptionT
 import cats.syntax.option.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.ChangeId
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -273,7 +273,7 @@ class DbCommandDeduplicationStore(
     }
   }
 
-  override def prune(upToInclusive: AbsoluteOffset, prunedPublicationTime: CantonTimestamp)(implicit
+  override def prune(upToInclusive: Offset, prunedPublicationTime: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
     cachedLastPruning.updateAndGet {

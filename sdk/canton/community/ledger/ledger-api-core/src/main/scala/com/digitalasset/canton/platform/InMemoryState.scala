@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform
 
 import com.daml.ledger.resources.ResourceOwner
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
@@ -40,8 +40,8 @@ class InMemoryState(
 
   final def initialized: Boolean = dispatcherState.isRunning
 
-  val cachesUpdatedUpto: AtomicReference[Option[AbsoluteOffset]] =
-    new AtomicReference[Option[AbsoluteOffset]](None)
+  val cachesUpdatedUpto: AtomicReference[Option[Offset]] =
+    new AtomicReference[Option[Offset]](None)
 
   /** (Re-)initializes the participant in-memory state to a specific ledger end.
     *

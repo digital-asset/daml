@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store.dao
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer
@@ -57,17 +57,17 @@ class BufferedStreamsReader[PERSISTENCE_FETCH_ARGS, API_RESPONSE](
     * @return The Ledger API stream source.
     */
   def stream[BUFFER_OUT](
-      startInclusive: AbsoluteOffset,
-      endInclusive: AbsoluteOffset,
+      startInclusive: Offset,
+      endInclusive: Offset,
       persistenceFetchArgs: PERSISTENCE_FETCH_ARGS,
       bufferFilter: TransactionLogUpdate => Option[BUFFER_OUT],
       toApiResponse: BUFFER_OUT => Future[API_RESPONSE],
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(AbsoluteOffset, API_RESPONSE), NotUsed] = {
+  ): Source[(Offset, API_RESPONSE), NotUsed] = {
     def toApiResponseStream(
-        slice: Vector[(AbsoluteOffset, BUFFER_OUT)]
-    ): Source[(AbsoluteOffset, API_RESPONSE), NotUsed] =
+        slice: Vector[(Offset, BUFFER_OUT)]
+    ): Source[(Offset, API_RESPONSE), NotUsed] =
       if (slice.isEmpty) Source.empty
       else
         Source(slice)
@@ -130,11 +130,11 @@ class BufferedStreamsReader[PERSISTENCE_FETCH_ARGS, API_RESPONSE](
 private[platform] object BufferedStreamsReader {
   trait FetchFromPersistence[FILTER, API_RESPONSE] {
     def apply(
-        startInclusive: AbsoluteOffset,
-        endInclusive: AbsoluteOffset,
+        startInclusive: Offset,
+        endInclusive: Offset,
         filter: FILTER,
     )(implicit
         loggingContext: LoggingContextWithTrace
-    ): Source[(AbsoluteOffset, API_RESPONSE), NotUsed]
+    ): Source[(Offset, API_RESPONSE), NotUsed]
   }
 }

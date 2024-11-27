@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.participant.protocol.reassignment.IncompleteReassignmentData.ReassignmentEventGlobalOffset
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -18,7 +18,7 @@ class IncompleteReassignmentDataTest extends AnyWordSpec with BaseTest {
       }
       import scala.language.implicitConversions
 
-      implicit def toOffset(i: Int) = AbsoluteOffset.tryFromLong(i.toLong)
+      implicit def toOffset(i: Int) = Offset.tryFromLong(i.toLong)
 
       create(9, Some(10), None).left.value shouldBe a[String] // No event emitted
       create(10, Some(10), None).value shouldBe Unassignment(10)

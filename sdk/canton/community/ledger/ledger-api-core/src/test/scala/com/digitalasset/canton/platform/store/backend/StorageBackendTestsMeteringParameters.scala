@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.SuppressingLogger
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -47,7 +47,7 @@ private[backend] trait StorageBackendTestsMeteringParameters
         backend.meteringParameter.initializeLedgerMeteringEnd(initLedgerMeteringEnd, loggerFactory)
       )
       val expected = LedgerMeteringEnd(
-        Some(AbsoluteOffset.tryFromLong(7L)),
+        Some(Offset.tryFromLong(7L)),
         Timestamp.now(),
       )
       executeSql(backend.meteringParameter.updateLedgerMeteringEnd(expected))

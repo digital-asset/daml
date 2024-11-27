@@ -257,7 +257,7 @@ class TransactionProcessingSteps(
               // Extend the reported deduplication period to include the conflicting submission,
               // as deduplication offsets are exclusive
               Option.unless(completionOffset.unwrap - 1L == 0)(
-                AbsoluteOffset.tryFromLong(completionOffset.unwrap - 1L)
+                Offset.tryFromLong(completionOffset.unwrap - 1L)
               )
             )
         case CommandDeduplicator.DeduplicationPeriodTooEarly(requested, supported) =>

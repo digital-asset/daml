@@ -10,7 +10,7 @@ import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.tracing
 import com.daml.tracing.Spans
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.TraceIdentifiers
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
@@ -80,7 +80,7 @@ class TransactionsTreeStreamReader(
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(AbsoluteOffset, GetUpdateTreesResponse), NotUsed] = {
+  ): Source[(Offset, GetUpdateTreesResponse), NotUsed] = {
     val span =
       Telemetry.Transactions.createSpan(
         tracer,
@@ -123,7 +123,7 @@ class TransactionsTreeStreamReader(
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(AbsoluteOffset, GetUpdateTreesResponse), NotUsed] = {
+  ): Source[(Offset, GetUpdateTreesResponse), NotUsed] = {
     val createEventIdQueriesLimiter =
       new QueueBasedConcurrencyLimiter(maxParallelIdCreateQueries, executionContext)
     val consumingEventIdQueriesLimiter =
@@ -199,9 +199,9 @@ class TransactionsTreeStreamReader(
                 queryValidRange.withRangeNotPruned(
                   minOffsetInclusive = queryRange.startInclusiveOffset,
                   maxOffsetInclusive = queryRange.endInclusiveOffset,
-                  errorPruning = (prunedOffset: AbsoluteOffset) =>
+                  errorPruning = (prunedOffset: Offset) =>
                     s"Transactions request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} precedes pruned offset ${prunedOffset.unwrap}",
-                  errorLedgerEnd = (ledgerEndOffset: Option[AbsoluteOffset]) =>
+                  errorLedgerEnd = (ledgerEndOffset: Option[Offset]) =>
                     s"Transactions request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} is beyond ledger end offset ${ledgerEndOffset
                         .fold(0L)(_.unwrap)}",
                 ) {
@@ -306,7 +306,7 @@ class TransactionsTreeStreamReader(
       )
       .mapConcat { events =>
         val responses = TransactionConversions.toGetTransactionTreesResponse(events)
-        responses.map { case (offset, response) => AbsoluteOffset.tryFromLong(offset) -> response }
+        responses.map { case (offset, response) => Offset.tryFromLong(offset) -> response }
       }
 
     val topologyTransactions =

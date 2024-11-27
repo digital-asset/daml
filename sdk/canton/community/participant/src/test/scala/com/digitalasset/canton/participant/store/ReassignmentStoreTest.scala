@@ -10,7 +10,7 @@ import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, ViewType}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset, ViewType}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentData.*
@@ -61,7 +61,7 @@ trait ReassignmentStoreTest {
   @unused
   private implicit val _ec: ExecutionContext = ec
 
-  private implicit def toOffset(i: Long): AbsoluteOffset = AbsoluteOffset.tryFromLong(i)
+  private implicit def toOffset(i: Long): Offset = Offset.tryFromLong(i)
 
   protected def reassignmentStore(mk: IndexedDomain => ReassignmentStore): Unit = {
     val reassignmentData = mkReassignmentData(reassignment10, mediator1)
@@ -71,7 +71,7 @@ trait ReassignmentStoreTest {
     def reassignmentDataFor(
         reassignmentId: ReassignmentId,
         contract: SerializableContract,
-        unassignmentGlobalOffset: Option[AbsoluteOffset] = None,
+        unassignmentGlobalOffset: Option[Offset] = None,
     ): ReassignmentData = mkReassignmentData(
       reassignmentId,
       mediator1,
@@ -567,7 +567,7 @@ trait ReassignmentStoreTest {
             .addReassignmentsOffsets(
               Map(
                 reassignmentId -> UnassignmentGlobalOffset(
-                  AbsoluteOffset.tryFromLong(unassignmentOffset.offset.unwrap - 1)
+                  Offset.tryFromLong(unassignmentOffset.offset.unwrap - 1)
                 )
               )
             )
@@ -582,7 +582,7 @@ trait ReassignmentStoreTest {
             .addReassignmentsOffsets(
               Map(
                 reassignmentId -> AssignmentGlobalOffset(
-                  AbsoluteOffset.tryFromLong(assignmentOffset.offset.unwrap - 1)
+                  Offset.tryFromLong(assignmentOffset.offset.unwrap - 1)
                 )
               )
             )
@@ -915,7 +915,7 @@ trait ReassignmentStoreTest {
           lookupAfterAssignment <- store.findEarliestIncomplete().failOnShutdown
         } yield {
           inside(lookupAfterUnassignment) { case Some((offset, _, _)) =>
-            offset shouldBe AbsoluteOffset.tryFromLong(unassignmentOffset)
+            offset shouldBe Offset.tryFromLong(unassignmentOffset)
           }
           lookupAfterAssignment shouldBe None
         }
@@ -951,7 +951,7 @@ trait ReassignmentStoreTest {
 
         } yield {
           inside(lookupAfterAssignment) { case Some((offset, _, _)) =>
-            offset shouldBe AbsoluteOffset.tryFromLong(assignmentOffset)
+            offset shouldBe Offset.tryFromLong(assignmentOffset)
           }
           lookupAfterUnassignment shouldBe None
         }
@@ -1082,7 +1082,7 @@ trait ReassignmentStoreTest {
 
         } yield {
           inside(lookupEnd) { case Some((offset, _, _)) =>
-            offset shouldBe AbsoluteOffset.tryFromLong(unassignmentOffset2)
+            offset shouldBe Offset.tryFromLong(unassignmentOffset2)
           }
         }
       }
@@ -1530,7 +1530,7 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
       submittingParty: LfPartyId = LfPartyId.assertFromString("submitter"),
       targetDomainId: Target[DomainId],
       contract: SerializableContract = contract,
-      unassignmentGlobalOffset: Option[AbsoluteOffset] = None,
+      unassignmentGlobalOffset: Option[Offset] = None,
   ): ReassignmentData = {
 
     val identityFactory = TestingTopology()
@@ -1558,7 +1558,7 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
       sourceMediator: MediatorGroupRecipient,
       submitter: LfPartyId = LfPartyId.assertFromString("submitter"),
       contract: SerializableContract = contract,
-      unassignmentGlobalOffset: Option[AbsoluteOffset] = None,
+      unassignmentGlobalOffset: Option[Offset] = None,
   ): ReassignmentData =
     mkReassignmentDataForDomain(
       reassignmentId,

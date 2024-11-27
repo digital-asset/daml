@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.interfaces
 
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.*
@@ -20,7 +20,7 @@ private[platform] trait LedgerDaoContractsReader {
     * @param validAtO the offset at which to resolve the contract state
     * @return the optional [[ContractState]]
     */
-  def lookupContractState(contractId: ContractId, validAtO: Option[AbsoluteOffset])(implicit
+  def lookupContractState(contractId: ContractId, validAtO: Option[Offset])(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Option[ContractState]]
 
@@ -30,7 +30,7 @@ private[platform] trait LedgerDaoContractsReader {
     * @param validAt the offset at which to resolve the key state
     * @return the [[KeyState]]
     */
-  def lookupKeyState(key: GlobalKey, validAt: AbsoluteOffset)(implicit
+  def lookupKeyState(key: GlobalKey, validAt: Offset)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[KeyState]
 }

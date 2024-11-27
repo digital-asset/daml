@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.{DomainIndex, Update}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.platform.PackageName
@@ -198,22 +198,22 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     ): Option[ParameterStorageBackend.IdentityParams] =
       throw new UnsupportedOperationException
 
-    override def updatePrunedUptoInclusive(prunedUpToInclusive: AbsoluteOffset)(
+    override def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(
         connection: Connection
     ): Unit =
       throw new UnsupportedOperationException
 
-    override def updatePrunedAllDivulgedContractsUpToInclusive(prunedUpToInclusive: AbsoluteOffset)(
+    override def updatePrunedAllDivulgedContractsUpToInclusive(prunedUpToInclusive: Offset)(
         connection: Connection
     ): Unit =
       throw new UnsupportedOperationException
 
-    override def prunedUpToInclusive(connection: Connection): Option[AbsoluteOffset] =
+    override def prunedUpToInclusive(connection: Connection): Option[Offset] =
       throw new UnsupportedOperationException
 
     override def participantAllDivulgedContractsPrunedUpToInclusive(
         connection: Connection
-    ): Option[AbsoluteOffset] =
+    ): Option[Offset] =
       throw new UnsupportedOperationException
 
     override def prunedUpToInclusiveAndLedgerEnd(
@@ -224,12 +224,12 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     override def cleanDomainIndex(domainId: DomainId)(connection: Connection): DomainIndex =
       throw new UnsupportedOperationException
 
-    override def updatePostProcessingEnd(postProcessingEnd: Option[AbsoluteOffset])(
+    override def updatePostProcessingEnd(postProcessingEnd: Option[Offset])(
         connection: Connection
     ): Unit =
       throw new UnsupportedOperationException
 
-    override def postProcessingEnd(connection: Connection): Option[AbsoluteOffset] =
+    override def postProcessingEnd(connection: Connection): Option[Offset] =
       throw new UnsupportedOperationException
   }
 }
@@ -239,7 +239,7 @@ object SequentialWriteDaoSpec {
   private val serializableTraceContext =
     SerializableTraceContext(TraceContext.empty).toDamlProto.toByteArray
 
-  private def offset(l: Long): AbsoluteOffset = AbsoluteOffset.tryFromLong(l)
+  private def offset(l: Long): Offset = Offset.tryFromLong(l)
 
   private def someUpdate(key: String) = Some(
     Update.PartyAllocationRejected(
@@ -339,7 +339,7 @@ object SequentialWriteDaoSpec {
     ),
   )
 
-  private val updateToDbDtoFixture: AbsoluteOffset => Update => Iterator[DbDto] =
+  private val updateToDbDtoFixture: Offset => Update => Iterator[DbDto] =
     _ => {
       case r: Update.PartyAllocationRejected =>
         someUpdateToDbDtoFixture(r.rejectionReason).iterator

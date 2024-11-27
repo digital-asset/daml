@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant
 
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.participant.store.DomainConnectionConfigStore
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.util.ShowUtil.*
@@ -33,11 +33,11 @@ object Pruning {
   }
 
   final case class LedgerPruningOffsetUnsafeToPrune(
-      offset: AbsoluteOffset,
+      offset: Offset,
       domainId: DomainId,
       recordTime: CantonTimestamp,
       cause: String,
-      lastSafeOffset: Option[AbsoluteOffset],
+      lastSafeOffset: Option[Offset],
   ) extends LedgerPruningError {
     override def message =
       show"Unsafe to prune offset $offset due to the event for $domainId with record time $recordTime"

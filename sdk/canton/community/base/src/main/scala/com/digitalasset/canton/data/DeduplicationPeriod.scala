@@ -51,7 +51,7 @@ object DeduplicationPeriod {
   }
 
   /** The `offset` defines the start of the deduplication period (exclusive). */
-  final case class DeduplicationOffset(offset: Option[AbsoluteOffset]) extends DeduplicationPeriod
+  final case class DeduplicationOffset(offset: Option[Offset]) extends DeduplicationPeriod
 
   implicit val `DeduplicationPeriod to LoggingValue`: ToLoggingValue[DeduplicationPeriod] = {
     case DeduplicationDuration(duration) =>

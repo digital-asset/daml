@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.TransactionMetering
 import com.digitalasset.canton.logging.SuppressingLogger
 import com.digitalasset.canton.platform.store.backend.common.EventIdSourceForInformees
@@ -24,7 +24,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
 
   import StorageBackendTestValues.*
 
-  private def dtoMetering(app: String, offset: AbsoluteOffset) =
+  private def dtoMetering(app: String, offset: Offset) =
     dtoTransactionMetering(
       TransactionMetering(
         applicationId = Ref.ApplicationId.assertFromString(app),

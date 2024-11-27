@@ -13,7 +13,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong}
 import com.digitalasset.canton.crypto.SyncCryptoApiProvider
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, CantonTimestampSecond}
+import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond, Offset}
 import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -735,7 +735,7 @@ final class SyncStateInspection(
       ledgerOffset: Long
   )(implicit traceContext: TraceContext): EitherT[Future, String, CantonTimestamp] = for {
     offset <- EitherT.fromEither[Future](
-      AbsoluteOffset.fromLong(ledgerOffset)
+      Offset.fromLong(ledgerOffset)
     )
     domainOffset <- EitherT(
       participantNodePersistentState.value.ledgerApiStore
@@ -918,7 +918,7 @@ final class SyncStateInspection(
         )
       )
 
-  def prunedUptoOffset(implicit traceContext: TraceContext): Option[AbsoluteOffset] =
+  def prunedUptoOffset(implicit traceContext: TraceContext): Option[Offset] =
     timeouts.inspection.await(functionFullName)(
       participantNodePersistentState.value.pruningStore.pruningStatus().map(_.completedO)
     )

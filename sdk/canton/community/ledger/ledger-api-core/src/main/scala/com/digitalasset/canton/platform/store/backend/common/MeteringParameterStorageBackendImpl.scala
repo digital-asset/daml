@@ -7,8 +7,8 @@ import anorm.{RowParser, ~}
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.platform.store.backend.Conversions.{
-  AbsoluteOffsetOToStatement,
-  absoluteOffsetO,
+  OffsetOToStatement,
+  offsetO,
   timestampFromMicros,
 }
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend
@@ -48,7 +48,7 @@ private[backend] object MeteringParameterStorageBackendImpl
   def ledgerMeteringEnd(connection: Connection): Option[LedgerMeteringEnd] = {
 
     val LedgerMeteringEndParser: RowParser[LedgerMeteringEnd] = (
-      absoluteOffsetO("ledger_metering_end").?.map(_.flatten) ~
+      offsetO("ledger_metering_end").?.map(_.flatten) ~
         timestampFromMicros("ledger_metering_timestamp")
     ) map { case ledgerMeteringEnd ~ ledgerMeteringTimestamp =>
       LedgerMeteringEnd(ledgerMeteringEnd, ledgerMeteringTimestamp)

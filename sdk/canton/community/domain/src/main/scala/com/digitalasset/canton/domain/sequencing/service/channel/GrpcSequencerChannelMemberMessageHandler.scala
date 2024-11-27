@@ -6,11 +6,10 @@ package com.digitalasset.canton.domain.sequencing.service.channel
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.lifecycle.FlagCloseable
-import com.digitalasset.canton.logging.NamedLogging.loggerWithoutTracing
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.channel.ConnectToSequencerChannelResponse
 import com.digitalasset.canton.topology.Member
-import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
+import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
@@ -51,6 +50,7 @@ private[channel] final class GrpcSequencerChannelMemberMessageHandler(
 ) extends FlagCloseable
     with CompletesGrpcResponseObserver[v30.ConnectToSequencerChannelResponse]
     with NamedLogging {
+
   private[channel] val requestObserver =
     new StreamObserver[v30.ConnectToSequencerChannelRequest] {
       override def onNext(requestP: v30.ConnectToSequencerChannelRequest): Unit = {
@@ -67,9 +67,7 @@ private[channel] final class GrpcSequencerChannelMemberMessageHandler(
             Left("Unexpectedly asked to forward empty request")
         }
         implicit val traceContext: TraceContext = SerializableTraceContext
-          .fromProtoSafeV30Opt(
-            loggerWithoutTracing(logger)
-          )(requestP.traceContext)
+          .fromProtoSafeV30Opt(noTracingLogger)(requestP.traceContext)
           .unwrap
         responseE.fold(
           error => {
@@ -106,27 +104,27 @@ private[channel] final class GrpcSequencerChannelMemberMessageHandler(
         )
       }
 
-      override def onError(t: Throwable): Unit =
-        TraceContext.withNewTraceContext { implicit traceContext =>
-          logger.warn(msg(s"Member message handler received error ${t.getMessage}.", "error"))
-          forwardToRecipient(_.receiveOnError(t), s"error ${t.getMessage}")
+      override def onError(t: Throwable): Unit = {
+        implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+        logger.warn(msg(s"Member message handler received error ${t.getMessage}.", "error"))
+        forwardToRecipient(_.receiveOnError(t), s"error ${t.getMessage}")
 
-          // An error on the request observer implies that this handler's response observer is already closed
-          // so mark the member message handler as complete without sending a response.
-          complete(_ => ())
-        }
+        // An error on the request observer implies that this handler's response observer is already closed
+        // so mark the member message handler as complete without sending a response.
+        complete(_ => ())
+      }
 
-      override def onCompleted(): Unit =
-        TraceContext.withNewTraceContext { implicit traceContext =>
-          logger.info(msg("Completed request stream.", "completion"))
-          forwardToRecipient(_.receiveOnCompleted(), s"completion")
+      override def onCompleted(): Unit = {
+        implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+        logger.info(msg("Completed request stream.", "completion"))
+        forwardToRecipient(_.receiveOnCompleted(), s"completion")
 
-          // Completing the request stream on a channel request implies that the response stream is also complete.
-          // This helps avoid complexity related to having to track two separate directions for closing a channel
-          // and also simplifies the interaction of bidirectional GRPC requests.
-          logger.info("Completing response stream after request stream completion")
-          complete()
-        }
+        // Completing the request stream on a channel request implies that the response stream is also complete.
+        // This helps avoid complexity related to having to track two separate directions for closing a channel
+        // and also simplifies the interaction of bidirectional GRPC requests.
+        logger.info("Completing response stream after request stream completion")
+        complete()
+      }
 
       // Helper to produce log message adding suffix only if recipient is available.
       private def msg(message: String, operation: String): String =

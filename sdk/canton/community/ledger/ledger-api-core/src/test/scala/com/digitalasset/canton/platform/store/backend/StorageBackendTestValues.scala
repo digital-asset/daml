@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.data
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.TransactionMetering
@@ -30,10 +30,10 @@ private[store] object StorageBackendTestValues {
   def hashCid(key: String): ContractId = ContractId.V1(Hash.hashPrivateKey(key))
 
   /** Produces offsets that are ordered the same as the input value */
-  def offset(x: Long): AbsoluteOffset = AbsoluteOffset.tryFromLong(x)
+  def offset(x: Long): Offset = Offset.tryFromLong(x)
   def ledgerEnd(o: Long, e: Long): ParameterStorageBackend.LedgerEnd =
     ParameterStorageBackend.LedgerEnd(offset(o), e, 0, CantonTimestamp.now())
-  def updateIdFromOffset(x: AbsoluteOffset): Ref.LedgerString =
+  def updateIdFromOffset(x: Offset): Ref.LedgerString =
     Ref.LedgerString.assertFromString(x.toHexString)
 
   def timestampFromInstant(i: Instant): Timestamp = Timestamp.assertFromInstant(i)
@@ -72,7 +72,7 @@ private[store] object StorageBackendTestValues {
     SerializableTraceContext(TraceContext.empty).toDamlProto.toByteArray
 
   def dtoPartyEntry(
-      offset: AbsoluteOffset,
+      offset: Offset,
       party: String = someParty,
       isLocal: Boolean = true,
       reject: Boolean = false,
@@ -91,7 +91,7 @@ private[store] object StorageBackendTestValues {
     * Corresponds to a transaction with a single create node.
     */
   def dtoCreate(
-      offset: AbsoluteOffset,
+      offset: Offset,
       eventSequentialId: Long,
       contractId: ContractId,
       signatory: String = "signatory",
@@ -148,7 +148,7 @@ private[store] object StorageBackendTestValues {
     * @param actor The choice actor, who is also the submitter
     */
   def dtoExercise(
-      offset: AbsoluteOffset,
+      offset: Offset,
       eventSequentialId: Long,
       consuming: Boolean,
       contractId: ContractId,
@@ -192,7 +192,7 @@ private[store] object StorageBackendTestValues {
   }
 
   def dtoAssign(
-      offset: AbsoluteOffset,
+      offset: Offset,
       eventSequentialId: Long,
       contractId: ContractId,
       signatory: String = "signatory",
@@ -237,7 +237,7 @@ private[store] object StorageBackendTestValues {
   }
 
   def dtoUnassign(
-      offset: AbsoluteOffset,
+      offset: Offset,
       eventSequentialId: Long,
       contractId: ContractId,
       signatory: String = "signatory",
@@ -271,7 +271,7 @@ private[store] object StorageBackendTestValues {
   }
 
   def dtoPartyToParticipant(
-      offset: AbsoluteOffset,
+      offset: Offset,
       eventSequentialId: Long,
       party: String = someParty,
       participant: String = someParticipantId.toString,
@@ -295,7 +295,7 @@ private[store] object StorageBackendTestValues {
   }
 
   def dtoCompletion(
-      offset: AbsoluteOffset,
+      offset: Offset,
       submitters: Set[String] = Set("signatory"),
       commandId: String = UUID.randomUUID().toString,
       applicationId: String = someApplicationId,
@@ -337,7 +337,7 @@ private[store] object StorageBackendTestValues {
     )
 
   def dtoTransactionMeta(
-      offset: AbsoluteOffset,
+      offset: Offset,
       event_sequential_id_first: Long,
       event_sequential_id_last: Long,
       recordTime: Timestamp = someTime,

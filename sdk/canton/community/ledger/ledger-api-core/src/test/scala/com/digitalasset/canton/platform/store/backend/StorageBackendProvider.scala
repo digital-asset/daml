@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.backend.h2.H2StorageBackendFactory
@@ -39,7 +39,7 @@ trait StorageBackendProvider {
   }
 
   protected final def updateLedgerEnd(
-      ledgerEndOffset: AbsoluteOffset,
+      ledgerEndOffset: Offset,
       ledgerEndSequentialId: Long,
       ledgerEndPublicationTime: CantonTimestamp = CantonTimestamp.now(),
   )(connection: Connection): Unit = {

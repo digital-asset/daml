@@ -7,7 +7,7 @@ import com.daml.metrics.CacheMetrics
 import com.daml.metrics.api.noop.{NoOpMetricsFactory, NoOpTimer}
 import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification}
 import com.digitalasset.canton.caching.{CaffeineCache, ConcurrentCache, SizedCache}
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.mockito.MockitoSugar
@@ -295,8 +295,8 @@ class StateCacheSpec
     (r, duration)
   }
 
-  private def offset(idx: Long): AbsoluteOffset = {
+  private def offset(idx: Long): Offset = {
     val base = 1000000000L
-    AbsoluteOffset.tryFromLong(base + idx)
+    Offset.tryFromLong(base + idx)
   }
 }

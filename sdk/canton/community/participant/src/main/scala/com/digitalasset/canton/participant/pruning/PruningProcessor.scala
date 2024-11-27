@@ -14,7 +14,7 @@ import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, CantonTimestampSecond}
+import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond, Offset}
 import com.digitalasset.canton.ledger.participant.state.DomainIndex
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
@@ -120,13 +120,13 @@ class PruningProcessor(
     * Safe to call multiple times concurrently.
     */
   def pruneLedgerEvents(
-      pruneUpToInclusive: AbsoluteOffset
+      pruneUpToInclusive: Offset
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, LedgerPruningError, Unit] = {
 
-    def go(lastUpTo: Option[AbsoluteOffset]): FutureUnlessShutdown[
-      Either[Option[AbsoluteOffset], Either[LedgerPruningError, Unit]]
+    def go(lastUpTo: Option[Offset]): FutureUnlessShutdown[
+      Either[Option[Offset], Either[LedgerPruningError, Unit]]
     ] = {
       val pruneUpToNext = increaseByBatchSize(lastUpTo)
       val offset = pruneUpToNext.min(pruneUpToInclusive)
@@ -160,9 +160,9 @@ class PruningProcessor(
     * @param boundInclusive The caller must choose a bound so that the ledger API server never requests an offset at or below `boundInclusive`.
     *                       Offsets at or below ledger end are typically a safe choice.
     */
-  def safeToPrune(beforeOrAt: CantonTimestamp, boundInclusive: AbsoluteOffset)(implicit
+  def safeToPrune(beforeOrAt: CantonTimestamp, boundInclusive: Offset)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, LedgerPruningError, Option[AbsoluteOffset]] = EitherT(
+  ): EitherT[FutureUnlessShutdown, LedgerPruningError, Option[Offset]] = EitherT(
     FutureUnlessShutdown
       .outcomeF(
         participantNodePersistentState.value.ledgerApiStore
@@ -172,7 +172,7 @@ class PruningProcessor(
       .flatMap {
         case Some(beforeOrAtOffset) =>
           // under the hood this computation not only pushes back the boundInclusive bound according to the beforeOrAt publication timestamp, but also pushes it back before the ledger-end
-          val rewoundBoundInclusive: AbsoluteOffset =
+          val rewoundBoundInclusive: Offset =
             if (beforeOrAtOffset >= boundInclusive) boundInclusive else beforeOrAtOffset
           firstUnsafeOffset(
             syncDomainPersistentStateManager.getAll.toList,
@@ -216,7 +216,7 @@ class PruningProcessor(
 
   private def firstUnsafeOffset(
       allDomains: List[(DomainId, SyncDomainPersistentState)],
-      pruneUptoInclusive: AbsoluteOffset,
+      pruneUptoInclusive: Offset,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, LedgerPruningError, Option[UnsafeOffset]] = {
@@ -414,8 +414,8 @@ class PruningProcessor(
   }
 
   private def pruneLedgerEventBatch(
-      lastUpTo: Option[AbsoluteOffset],
-      pruneUpToInclusiveBatchEnd: AbsoluteOffset,
+      lastUpTo: Option[Offset],
+      pruneUpToInclusiveBatchEnd: Offset,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, LedgerPruningError, Unit] =
     performUnlessClosingEitherUSF[LedgerPruningError, Unit](functionFullName) {
       logger.info(s"Start pruning up to $pruneUpToInclusiveBatchEnd...")
@@ -436,8 +436,8 @@ class PruningProcessor(
     }
 
   private def lookUpDomainAndParticipantPruningCutoffs(
-      pruneFromExclusive: Option[AbsoluteOffset],
-      pruneUpToInclusive: AbsoluteOffset,
+      pruneFromExclusive: Option[Offset],
+      pruneUpToInclusive: Offset,
   )(implicit traceContext: TraceContext): Future[PruningCutoffs] =
     for {
       lastOffsetBeforeOrAtPruneUptoInclusive <- participantNodePersistentState.value.ledgerApiStore
@@ -480,8 +480,8 @@ class PruningProcessor(
     )
 
   private def lookUpContractsArchivedBeforeOrAt(
-      fromExclusive: Option[AbsoluteOffset],
-      upToInclusive: AbsoluteOffset,
+      fromExclusive: Option[Offset],
+      upToInclusive: Offset,
   )(implicit traceContext: TraceContext): Future[Set[LfContractId]] =
     participantNodePersistentState.value.ledgerApiStore.archivals(
       fromExclusive,
@@ -489,7 +489,7 @@ class PruningProcessor(
     )
 
   private def ensurePruningOffsetIsSafe(
-      offset: AbsoluteOffset
+      offset: Offset
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, LedgerPruningError, Unit] = {
@@ -520,8 +520,8 @@ class PruningProcessor(
   }
 
   private[pruning] def performPruning(
-      fromExclusive: Option[AbsoluteOffset],
-      upToInclusive: AbsoluteOffset,
+      fromExclusive: Option[Offset],
+      upToInclusive: Offset,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     for {
       cutoffs <- FutureUnlessShutdown.outcomeF(
@@ -607,7 +607,7 @@ class PruningProcessor(
   }
 
   private def pruneDeduplicationStore(
-      globalOffset: AbsoluteOffset,
+      globalOffset: Offset,
       publicationTime: CantonTimestamp,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     logger.debug(
@@ -649,7 +649,7 @@ class PruningProcessor(
     */
   def locatePruningOffsetForOneIteration(implicit
       traceContext: TraceContext
-  ): EitherT[Future, LedgerPruningError, AbsoluteOffset] =
+  ): EitherT[Future, LedgerPruningError, Offset] =
     EitherT
       .right(
         participantNodePersistentState.value.pruningStore.pruningStatus()
@@ -657,8 +657,8 @@ class PruningProcessor(
       .map(_.completedO)
       .map(increaseByBatchSize)
 
-  private def increaseByBatchSize(offset: Option[AbsoluteOffset]): AbsoluteOffset =
-    AbsoluteOffset.tryFromLong(offset.fold(0L)(_.unwrap) + maxPruningBatchSize.value)
+  private def increaseByBatchSize(offset: Option[Offset]): Offset =
+    Offset.tryFromLong(offset.fold(0L)(_.unwrap) + maxPruningBatchSize.value)
 
 }
 
@@ -785,7 +785,7 @@ private[pruning] object PruningProcessor extends HasLoggerName {
     )
   }
   private final case class UnsafeOffset(
-      offset: AbsoluteOffset,
+      offset: Offset,
       domainId: DomainId,
       recordTime: CantonTimestamp,
       cause: String,
@@ -795,7 +795,7 @@ private[pruning] object PruningProcessor extends HasLoggerName {
     * @param domainOffsets cutoff as domain-local offsets used for canton-internal per-domain pruning
     */
   final case class PruningCutoffs(
-      globalOffsetO: Option[(AbsoluteOffset, CantonTimestamp)],
+      globalOffsetO: Option[(Offset, CantonTimestamp)],
       domainOffsets: List[PruningCutoffs.DomainOffset],
   )
 

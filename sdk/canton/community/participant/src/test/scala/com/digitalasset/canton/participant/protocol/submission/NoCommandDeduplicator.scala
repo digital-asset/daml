@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.protocol.submission
 
 import cats.data.EitherT
 import cats.syntax.either.*
-import com.digitalasset.canton.data.{AbsoluteOffset, DeduplicationPeriod}
+import com.digitalasset.canton.data.{DeduplicationPeriod, Offset}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.submission.CommandDeduplicator.DeduplicationFailed
 import com.digitalasset.canton.platform.indexer.parallel.PostPublishData
@@ -29,7 +29,7 @@ class NoCommandDeduplicator extends CommandDeduplicator {
       case offset: DeduplicationPeriod.DeduplicationOffset =>
         EitherT(FutureUnlessShutdown.pure(Either.right(offset)))
       case _: DeduplicationPeriod.DeduplicationDuration =>
-        val offset = Some(AbsoluteOffset.firstOffset)
+        val offset = Some(Offset.firstOffset)
         EitherT(
           FutureUnlessShutdown.pure(Either.right(DeduplicationPeriod.DeduplicationOffset(offset)))
         )

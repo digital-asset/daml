@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.backend.common
 
 import anorm.SqlParser.{array, int, long, str}
 import anorm.{RowParser, ~}
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.platform.store.backend.IntegrityStorageBackend
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
@@ -149,7 +149,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
        UNION ALL
        SELECT event_offset as _offset, record_time, domain_id FROM lapi_events_party_to_participant
        """.asVectorOf(
-      absoluteOffset("_offset") ~ long("record_time") ~ int("domain_id") map {
+      offset("_offset") ~ long("record_time") ~ int("domain_id") map {
         case offset ~ recordTimeMicros ~ internedDomainId =>
           (offset.unwrap, internedDomainId, recordTimeMicros)
       }
@@ -160,8 +160,8 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
         case ((firstOffset, _, firstRecordTime), (secondOffset, _, secondRecordTime)) =>
           if (firstRecordTime > secondRecordTime) {
             throw new RuntimeException(
-              s"occurrence of decreasing record time found within one domain: offsets ${AbsoluteOffset
-                  .tryFromLong(firstOffset)},${AbsoluteOffset.tryFromLong(secondOffset)} record times: ${CantonTimestamp
+              s"occurrence of decreasing record time found within one domain: offsets ${Offset
+                  .tryFromLong(firstOffset)},${Offset.tryFromLong(secondOffset)} record times: ${CantonTimestamp
                   .assertFromLong(firstRecordTime)},${CantonTimestamp.assertFromLong(secondRecordTime)}"
             )
           }
@@ -176,7 +176,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
                 meta1.event_offset != meta2.event_offset
           FETCH NEXT 1 ROWS ONLY
       """
-      .asSingleOpt(str("uId") ~ absoluteOffset("offset1") ~ absoluteOffset("offset2"))(connection)
+      .asSingleOpt(str("uId") ~ offset("offset1") ~ offset("offset2"))(connection)
       .foreach { case uId ~ offset1 ~ offset2 =>
         throw new RuntimeException(
           s"occurrence of duplicate update ID [$uId] found for offsets $offset1, $offset2"
@@ -191,7 +191,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
           HAVING count(*) > 1
           FETCH NEXT 1 ROWS ONLY
       """
-      .asSingleOpt(absoluteOffset("completion_offset") ~ int("offset_count"))(connection)
+      .asSingleOpt(offset("completion_offset") ~ int("offset_count"))(connection)
       .foreach { case offset ~ count =>
         throw new RuntimeException(
           s"occurrence of duplicate offset found for lapi_command_completions: for offset $offset $count rows found"
@@ -206,9 +206,8 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
            SELECT completion_offset as _offset, publication_time FROM lapi_command_completions
            """
         .asVectorOf(
-          absoluteOffset("_offset") ~ long("publication_time") map {
-            case offset ~ publicationTime =>
-              (offset.unwrap, publicationTime)
+          offset("_offset") ~ long("publication_time") map { case offset ~ publicationTime =>
+            (offset.unwrap, publicationTime)
           }
         )(connection)
         .sortBy(_._1)
@@ -241,7 +240,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
           FROM lapi_command_completions
       """
       .asVectorOf(
-        absoluteOffset("completion_offset") ~
+        offset("completion_offset") ~
           str("application_id") ~
           array[Int]("submitters") ~
           str("command_id") ~

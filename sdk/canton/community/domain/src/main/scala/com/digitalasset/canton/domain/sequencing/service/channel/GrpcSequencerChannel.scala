@@ -18,10 +18,11 @@ import com.digitalasset.canton.sequencing.protocol.channel.{
 }
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
-import com.digitalasset.canton.util.SingleUseCell
+import com.digitalasset.canton.util.{LoggerUtil, SingleUseCell}
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 import io.grpc.{Status, StatusRuntimeException}
+import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.AtomicReference
 
@@ -226,7 +227,18 @@ private[channel] abstract class UninitializedGrpcSequencerChannel(
 
       override def onError(t: Throwable): Unit =
         initializedRequestStreamObserver.get.fold {
-          logger.warn(s"Request stream error ${t.getMessage} before initialization.")
+          val logLevel = t match {
+            case statusEx: StatusRuntimeException
+                if statusEx.getStatus.getCode == Status.Code.CANCELLED =>
+              // This may happen if something goes wrong constructing the stream observers, e.g.,
+              // if the channel ID or processor is reused
+              Level.INFO
+            case _ => Level.WARN
+          }
+          LoggerUtil.logAtLevel(
+            logLevel,
+            s"Request stream error ${t.getMessage} before initialization.",
+          )
           // Flag response stream as complete as we cannot send anything after an error.
           complete(_ => ())
         }(_.onError(t))

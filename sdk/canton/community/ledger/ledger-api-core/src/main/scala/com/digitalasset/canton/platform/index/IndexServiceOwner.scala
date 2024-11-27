@@ -7,7 +7,7 @@ import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.error.IndexErrors.IndexDbException
 import com.digitalasset.canton.ledger.participant.state.index.IndexService
@@ -50,10 +50,10 @@ final class IndexServiceOwner(
     tracer: Tracer,
     val loggerFactory: NamedLoggerFactory,
     incompleteOffsets: (
-        AbsoluteOffset,
+        Offset,
         Option[Set[Ref.Party]],
         TraceContext,
-    ) => FutureUnlessShutdown[Vector[AbsoluteOffset]],
+    ) => FutureUnlessShutdown[Vector[Offset]],
     contractLoader: ContractLoader,
     getPackageMetadataSnapshot: ContextualizedErrorLogger => PackageMetadata,
     lfValueTranslation: LfValueTranslation,

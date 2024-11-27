@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.daml.logging.entries.LoggingEntries
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, SuppressionRule}
 import com.digitalasset.canton.platform.store.backend.StorageBackendTestValues.{
   offset,
@@ -43,7 +43,7 @@ private[backend] trait StorageBackendTestsQueryValidRange extends Matchers with 
     executeSql(updateLedgerEnd(offset(10), 10L))
     executeSql(implicit connection =>
       QueryValidRangeImpl(backend.parameter, this.loggerFactory).withRangeNotPruned(
-        minOffsetInclusive = AbsoluteOffset.firstOffset,
+        minOffsetInclusive = Offset.firstOffset,
         maxOffsetInclusive = offset(8),
         errorPruning = _ => "",
         errorLedgerEnd = _ => "",

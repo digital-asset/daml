@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform
 
 import com.digitalasset.canton.TestEssentials
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.pekkostreams.dispatcher.Dispatcher
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
@@ -47,7 +47,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
           submissionTracker,
           inOrder,
         ) =>
-      val initOffset = AbsoluteOffset.tryFromLong(12345678L)
+      val initOffset = Offset.tryFromLong(12345678L)
       val initEventSequentialId = 1337L
       val initStringInterningId = 17
       val initPublicationTime = CantonTimestamp.now()
@@ -62,7 +62,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
       when(dispatcherState.getDispatcher).thenReturn(
         Dispatcher(
           name = "",
-          firstIndex = AbsoluteOffset.firstOffset,
+          firstIndex = Offset.firstOffset,
           headAtInitialization = None,
         )
       )
@@ -88,7 +88,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
           inMemoryState.initialized shouldBe true
         }
 
-        reInitOffset = AbsoluteOffset.tryFromLong(12345678L)
+        reInitOffset = Offset.tryFromLong(12345678L)
         reInitEventSequentialId = 9999L
         reInitStringInterningId = 50
         reInitPublicationTime = CantonTimestamp.now()
@@ -117,7 +117,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
           when(dispatcherState.getDispatcher).thenReturn(
             Dispatcher(
               name = "",
-              firstIndex = AbsoluteOffset.firstOffset,
+              firstIndex = Offset.firstOffset,
               headAtInitialization = Some(initOffset),
             )
           )
