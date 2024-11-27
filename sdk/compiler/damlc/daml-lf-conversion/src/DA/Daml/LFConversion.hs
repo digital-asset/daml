@@ -983,38 +983,22 @@ convertFixities = zipWith mkFixityDef [0..] . mcFixities
           (fixityName i)
           (encodeFixityInfo fixityInfo)
 
--- List of exports from DA_Internal_Template_Functions which are feature dependent
-exportNameToFeatureMap :: UniqFM Feature
-exportNameToFeatureMap = listToUFM @FastString
-  [ ("exerciseGuarded", featureExtendedInterfaces)
-  , ("HasExerciseGuarded", featureExtendedInterfaces)
-  , ("_choiceController", featureChoiceFuncs)
-  , ("HasChoiceController", featureChoiceFuncs)
-  , ("_choiceObserver", featureChoiceFuncs)
-  , ("HasChoiceObserver", featureChoiceFuncs)
-  , ("dynamicExercise", featureDynamicExercise)
-  , ("HasDynamicExercise", featureDynamicExercise)
-  , ("HasSoftFetch", featurePackageUpgrades)
-  , ("_softFetch", featurePackageUpgrades)
-  ]
-
-isDamlInternal :: Env -> Name -> Bool
-isDamlInternal _ (NameIn DA_Internal_LF n) = n `elementOfUniqSet` internalTypes
-isDamlInternal _ (NameIn DA_Internal_Prelude "Optional") = True
-isDamlInternal _ (NameIn DA_Internal_Desugar n) = n `elementOfUniqSet` desugarTypes
-isDamlInternal env name = fromMaybe False $ do
-    -- If no name, it is either "internal", i.e. envGHCModuleName, or system, which will have been caught by the isSystemName
-    let modName = maybe (envGHCModuleName env) GHC.moduleName $ GHC.nameModule_maybe name
-    internals <- lookupUFM internalFunctions modName
-    pure $ getOccFS name `elementOfUniqSet` internals
-
-convertExports :: Env -> ModuleContents -> [Definition] -> ConvertM [Definition]
+convertExports :: SdkVersioned => Env -> ModuleContents -> [Definition] -> ConvertM [Definition]
 convertExports env mc existingDefs = do
     let externalReExportInfos = filter (isReExportName . GHC.availName) (mcExports mc)
-        externalExportInfos = filter (isExportName . GHC.availName) (mcExports mc) \\ externalReExportInfos
     reExportInfos <- mapM availInfoToExportInfo externalReExportInfos
-    exportInfos <- mapM availInfoToExportInfo externalExportInfos
-    pure $ explicitExportsDef : zipWith mkReExportDef [0..] reExportInfos <> zipWith mkExportDef [0..] exportInfos
+    let reExportDefs = zipWith mkExportDef (reExportName <$> [0..]) reExportInfos
+        
+    -- [SW] Use old style exports for prim/stdlib, i.e. export everything
+    -- I tried to have these also export normally, but ran into issues with proto3-suite overflowing heap when parsing stdlib
+    -- (when using `compile` directly, without daml-assistant)
+    if isPrimOrStdlib
+      then pure reExportDefs
+      else do
+        let externalExportInfos = filter (isExportName . GHC.availName) (mcExports mc) \\ externalReExportInfos
+        exportInfos <- mapM availInfoToExportInfo externalExportInfos
+        let exportDefs = zipWith mkExportDef (exportName <$> [0..]) exportInfos
+        pure $ explicitExportsDef : reExportDefs <> exportDefs
     where
         isReExportName :: Name -> Bool
         isReExportName name = not $
@@ -1022,6 +1006,9 @@ convertExports env mc existingDefs = do
             || isWiredInName name
             || nameIsLocalOrFrom thisModule name
             || maybe False (isInternal . GHC.moduleName) (nameModule_maybe name)
+
+        isPrimOrStdlib :: Bool
+        isPrimOrStdlib = envModuleUnitId env == damlStdlib || envModuleUnitId env == stringToUnitId "daml-prim"
 
         thisModule :: GHC.Module
         thisModule = GHC.Module (envModuleUnitId env) (envGHCModuleName env)
@@ -1034,28 +1021,11 @@ convertExports env mc existingDefs = do
         isLocallyUndefined name | nameIsLocalOrFrom thisModule name = not $ getOccText name `elem` localExportables
         isLocallyUndefined _ = False
 
-        -- Omit disabled feature exports
-        isDisabledFeature :: Name -> Bool
-        isDisabledFeature (NameIn DA_Internal_Template_Functions name)
-          | Just f <- lookupUFM exportNameToFeatureMap name
-          = not $ envLfVersion env `supports` f
-        isDisabledFeature _ = False
-
-        -- DA.Internal.Compatible exports pattern syns for `Nothing` and `Just` which data deps cannot handle
-        -- The `isLocallyUndefined` check catches this for that module, but prelude has several modules re-export it
-        isMaybePatternSyn :: Name -> Bool
-        isMaybePatternSyn (NameIn DA_Internal_Compatible "Nothing") = True
-        isMaybePatternSyn (NameIn DA_Internal_Compatible "Just") = True
-        isMaybePatternSyn _ = False
-
         isExportName :: Name -> Bool
         isExportName name = not $
             isSystemName name
             || isWiredInName name
             || isLocallyUndefined name
-            || isDamlInternal env name
-            || isDisabledFeature name
-            || isMaybePatternSyn name
 
         availInfoToExportInfo :: GHC.AvailInfo -> ConvertM ExportInfo
         availInfoToExportInfo = \case
@@ -1083,15 +1053,10 @@ convertExports env mc existingDefs = do
             flSelector <- convertQualName (flSelector f)
             pure f { flSelector }
 
-        mkReExportDef :: Integer -> ExportInfo -> Definition
-        mkReExportDef i info =
+        mkExportDef :: LF.ExprValName -> ExportInfo -> Definition
+        mkExportDef name info =
             let exportType = encodeExportInfo info
-            in DValue (mkMetadataStub (reExportName i) exportType)
-
-        mkExportDef :: Integer -> ExportInfo -> Definition
-        mkExportDef i info =
-            let exportType = encodeExportInfo info
-            in DValue (mkMetadataStub (exportName i) exportType)
+            in DValue (mkMetadataStub name exportType)
 
         -- Tag for explicit exports, so we can differentiate between no exports and old-style exports
         explicitExportsDef :: Definition
