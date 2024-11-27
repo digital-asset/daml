@@ -154,8 +154,7 @@ object Error {
   // Error happening during interpretation
   final case class Interpretation(
       interpretationError: Interpretation.Error,
-      // detailMessage describes the state of the machine when the error occurs
-      detailMessage: Option[String],
+      transactionTrace: Option[String],
   ) extends Error {
     def message: String = interpretationError.message
   }

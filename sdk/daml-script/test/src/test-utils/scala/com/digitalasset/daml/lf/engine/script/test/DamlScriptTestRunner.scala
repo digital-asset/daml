@@ -48,21 +48,23 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
     val actual = builder
       .toString()
       .linesIterator
-      .filter(s => List("SUCCESS", "FAILURE").exists(s.contains))
+      .filter(s => s.endsWith("SUCCESS") || s.contains("FAILURE") || s.startsWith("    in "))
       .mkString("", f"%n", f"%n")
-      // ignore partial transactions as parties, cids, and package Ids are pretty unpredictable
-      .replaceAll("partial transaction: .*", "partial transaction: ...")
+      // rename package Ids and contractId
+      .replaceAll(raw"in choice [0-9a-f]{8}:([\w_\.:]+)+", "in choice XXXXXXXX:$1")
+      .replaceAll(raw"in ([\w\-]+) command [0-9a-f]{8}:([\w_\.:]+)+", "in $1 command XXXXXXXX:$2")
+      .replaceAll(raw"on contract [0-9a-f]{10}", "on contract XXXXXXXXXX")
       // rename ledger errors
-      .replaceAll("""([A-Z_]+)\((\d+),[a-f0-9]{8}\)""", "$1($2,XXXXXXXX)")
+      .replaceAll(raw"([A-Z_]+)\((\d+),[a-f0-9]{8}\)", "$1($2,XXXXXXXX)")
       // rename exceptions
-      .replaceAll("""([\w\.]+):([\w\.]+)@[a-f0-9]{8}""", "$1:$2@XXXXXXXX")
+      .replaceAll(raw"([\w\.]+):([\w\.]+)@[a-f0-9]{8}", "$1:$2@XXXXXXXX")
       // rename template IDs
-      .replaceAll("""[a-f0-9]{64}(:\w+:\w+)""", "XXXXXXXX$1")
+      .replaceAll(raw"[a-f0-9]{64}(:\w+:\w+)", "XXXXXXXX$1")
       // rename contract IDs
       .replaceAll("id [a-f0-9]{138}", "id XXXXXXXX")
       // rename parties
-      .replaceAll("""party-[a-f0-9\-:]+""", "party")
-      .replaceAll("""(Alice|Bob|Charlie|Ivy|Mach)(-[a-z0-9]+)?::[a-z0-9]+""", "party")
+      .replaceAll(raw"party-[a-f0-9\-:]+", "party")
+      .replaceAll(raw"(Alice|Bob|Charlie|Ivy|Mach)(-[a-z0-9]+)?::[a-z0-9]+", "party")
 
     cantonFixtureDebugMode match {
       case CantonFixtureDebugKeepTmpFiles | CantonFixtureDebugRemoveTmpFiles => {
