@@ -86,6 +86,8 @@ data Config = Config
         -- ^ Information about dependencies (not data-dependencies)
     , configSdkPrefix :: [T.Text]
         -- ^ prefix to use for current SDK in data-dependencies
+    , configIgnoreExplicitExports :: Bool
+        -- ^ Should explicit export information be disregarded, and all definitions be exported
     }
 
 data Env = Env
@@ -358,6 +360,7 @@ generateSrcFromLf env = noLoc mod
 
     usesExplicitExports :: Bool
     usesExplicitExports = not $ null $ do
+        guard $ not $ configIgnoreExplicitExports $ envConfig env
         LF.DefValue {dvalBinder=(name, _)} <- NM.toList . LF.moduleValues $ envMod env
         guard $ name == LFC.explicitExportsTag
 
@@ -369,7 +372,7 @@ generateSrcFromLf env = noLoc mod
         LF.DefValue {dvalBinder=(name, ty)} <- NM.toList . LF.moduleValues $ envMod env
         -- We don't really care about the order of exports
         -- Export both re-exports and explicit exports with the same mechanism
-        Just _ <- [LFC.unReExportName name <|> LFC.unExportName name]
+        Just _ <- [LFC.unReExportName name <|> (guard usesExplicitExports >> LFC.unExportName name)]
         Just export <- [LFC.decodeExportInfo ty]
         mkLIE export
         where

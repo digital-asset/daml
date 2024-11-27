@@ -307,6 +307,7 @@ installDataDep InstallDataDepArgs {..} = do
         , configStablePackages = MS.fromList [ (LF.dalfPackageId dalfPkg, unitId) | ((unitId, _), dalfPkg) <- MS.toList stablePkgs ]
         , configDependencyInfo = dependencyInfo
         , configSdkPrefix = [T.pack currentSdkPrefix]
+        , configIgnoreExplicitExports = getIgnoreDataDepVisibility $ optIgnoreDataDepVisibility opts
         }
 
     pkg = LF.extPackagePkg (LF.dalfPackagePkg dalfPackage)
