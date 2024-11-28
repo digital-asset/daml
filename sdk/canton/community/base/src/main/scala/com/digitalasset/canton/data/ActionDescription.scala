@@ -46,7 +46,10 @@ import com.digitalasset.canton.version.{
   RepresentativeProtocolVersion,
 }
 import com.digitalasset.canton.{LfChoiceName, LfInterfaceId, LfPackageId, LfPartyId, LfVersioned}
+import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
+import monocle.Lens
+import monocle.macros.GenLens
 
 import scala.math.Ordered.orderingToOrdered
 
@@ -766,6 +769,23 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       param("version", _.version),
       paramIfTrue("failed", _.failed),
     )
+
+    @VisibleForTesting
+    private[data] def copy(packagePreference: Set[LfPackageId]): ExerciseActionDescription =
+      ExerciseActionDescription(
+        inputContractId = this.inputContractId,
+        templateId = this.templateId,
+        choice = this.choice,
+        interfaceId = this.interfaceId,
+        packagePreference = packagePreference,
+        chosenValue = this.chosenValue,
+        actors = this.actors,
+        byKey = this.byKey,
+        seed = this.seed,
+        version = this.version,
+        failed = this.failed,
+      )(representativeProtocolVersion)
+
   }
 
   object ExerciseActionDescription {
@@ -858,6 +878,11 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
         )
       } yield action
     }
+
+    @VisibleForTesting
+    val packagePreferenceUnsafe: Lens[ExerciseActionDescription, Set[LfPackageId]] =
+      GenLens[ExerciseActionDescription](_.packagePreference)
+
   }
 
   final case class FetchActionDescription private (
