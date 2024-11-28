@@ -1036,7 +1036,8 @@ convertExports env mc existingDefs = do
             let exportType = encodeExportInfo info
             in DValue (mkMetadataStub name exportType)
 
-        -- Tag for explicit exports, so we can differentiate between no exports and old-style exports
+        -- Tag for explicit exports, so we can differentiate between a module no exports and a module compiled either before
+        -- explicit exports was implemented, or is stdlib/prim
         explicitExportsDef :: Definition
         explicitExportsDef = DValue (mkMetadataStub explicitExportsTag (LF.TBuiltin LF.BTUnit))
 
