@@ -114,6 +114,10 @@ is_snapshot() (
     echo "$1" | grep -q -P "($SNAPSHOT_REGEX)"
 )
 
+is_adhoc() (
+    echo "$1" | grep -q -P "($ADHOC_REGEX)"
+)
+
 make_snapshot() {
     local sha prefix commit_date number_of_commits commit_sha_8
     t=$1
