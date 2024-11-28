@@ -50,7 +50,7 @@ class TransactionViewDecompositionTest
               RollbackContext.empty,
               Some(ExampleTransactionFactory.submitter),
             )
-            .futureValue
+            .futureValueUS
             .toList shouldEqual example.rootViewDecompositions.toList
         }
       }
@@ -65,12 +65,14 @@ class TransactionViewDecompositionTest
         val flatTransactionSize = 10000
 
         val decomposition = timeouts.default.await("Decomposing test transaction")(
-          TransactionViewDecompositionFactory.fromTransaction(
-            defaultTopologySnapshot,
-            wftWithCreateNodes(flatTransactionSize, signatory, observer),
-            RollbackContext.empty,
-            None,
-          )
+          TransactionViewDecompositionFactory
+            .fromTransaction(
+              defaultTopologySnapshot,
+              wftWithCreateNodes(flatTransactionSize, signatory, observer),
+              RollbackContext.empty,
+              None,
+            )
+            .failOnShutdown
         )
 
         decomposition.size shouldBe flatTransactionSize
@@ -122,7 +124,7 @@ class TransactionViewDecompositionTest
             RollbackContext.empty,
             None,
           )
-          .futureValue
+          .futureValueUS
 
         val actual = RollbackDecomposition.rollbackDecomposition(decomposition)
 

@@ -25,7 +25,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Sends confirmation result messages to the informee participants of a request.
   * The result message contains only one envelope addressed to a given informee participant.
@@ -103,10 +103,8 @@ private[mediator] class DefaultVerdictSender(
               )
             )
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
       sendVerdict <- EitherT
         .right(shouldSendVerdict(request.mediator, snapshot))
-        .mapK(FutureUnlessShutdown.outcomeK)
       batch <- createResults(requestId, request, verdict)
       _ <- EitherT.right[SyncCryptoError](
         sendResultBatch(requestId, batch, decisionTime, aggregationRule, sendVerdict)
@@ -196,7 +194,6 @@ private[mediator] class DefaultVerdictSender(
             snapshot.ipsSnapshot,
           )
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
       envelopes <- {
         val result = ConfirmationResultMessage.create(
           crypto.domainId,
@@ -230,7 +227,7 @@ private[mediator] class DefaultVerdictSender(
       topologySnapshot: TopologySnapshot,
   )(implicit
       traceContext: TraceContext
-  ): Future[Map[ParticipantId, Set[LfPartyId]]] =
+  ): FutureUnlessShutdown[Map[ParticipantId, Set[LfPartyId]]] =
     for {
       participantsByParty <- topologySnapshot.activeParticipantsOfParties(informees)
     } yield {
@@ -246,7 +243,7 @@ private[mediator] class DefaultVerdictSender(
   private def shouldSendVerdict(
       mediatorGroup: MediatorGroupRecipient,
       topologySnapshot: TopologySnapshot,
-  )(implicit traceContext: TraceContext): Future[Boolean] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean] = {
     val mediatorGroupIndex = mediatorGroup.group
     topologySnapshot.mediatorGroup(mediatorGroupIndex).map { groupO =>
       groupO
@@ -267,7 +264,7 @@ private[mediator] class DefaultVerdictSender(
       protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Option[AggregationRule]] = {
+  ): EitherT[FutureUnlessShutdown, String, Option[AggregationRule]] = {
     val index = mediatorGroup.group
     for {
       mediatorGroup <- EitherT(
@@ -361,15 +358,14 @@ private[mediator] class DefaultVerdictSender(
                   snapshot.ipsSnapshot,
                   mediatorGroup,
                   protocolVersion,
-                ).mapK(FutureUnlessShutdown.outcomeK)
+                )
                   .valueOr(reason =>
                     ErrorUtil.invalidState(
                       s"MediatorReject not sent. Failed to determine group aggregation rule for mediator $mediatorGroup due to: $reason"
                     )
                   )
-                sendVerdict <- FutureUnlessShutdown.outcomeF(
+                sendVerdict <-
                   shouldSendVerdict(mediatorGroup, snapshot.ipsSnapshot)
-                )
               } yield {
                 sendResultBatch(
                   requestId,

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.protocol
 
 import com.digitalasset.canton.ledger.participant.state.Update.SequencerIndexMoved
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.topology.DomainId
@@ -11,7 +12,7 @@ import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{SequencerCounter, topology}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 // TODO(i21243): Clean up this and the trait as polymorphism is not needed here anymore
 class ParticipantTopologyTerminateProcessingTicker(
@@ -25,13 +26,18 @@ class ParticipantTopologyTerminateProcessingTicker(
       sc: SequencerCounter,
       sequencedTime: SequencedTime,
       effectiveTime: EffectiveTime,
-  )(implicit traceContext: TraceContext, executionContext: ExecutionContext): Future[Unit] =
-    recordOrderPublisher.tick(
-      SequencerIndexMoved(
-        domainId = domainId,
-        sequencerCounter = sc,
-        recordTime = sequencedTime.value,
-        requestCounterO = None,
+  )(implicit
+      traceContext: TraceContext,
+      executionContext: ExecutionContext,
+  ): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.outcomeF(
+      recordOrderPublisher.tick(
+        SequencerIndexMoved(
+          domainId = domainId,
+          sequencerCounter = sc,
+          recordTime = sequencedTime.value,
+          requestCounterO = None,
+        )
       )
     )
 }

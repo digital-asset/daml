@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.SequencerCounter
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.platform.indexer.parallel.{PostPublishData, PublishSource}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
@@ -50,7 +50,7 @@ private[backend] trait StorageBackendTestsCompletions
       val completions0to2 = executeSql(
         backend.completion
           .commandCompletions(
-            AbsoluteOffset.firstOffset,
+            Offset.firstOffset,
             offset(2),
             applicationId,
             Set(party),
@@ -70,7 +70,7 @@ private[backend] trait StorageBackendTestsCompletions
       val completions0to9 = executeSql(
         backend.completion
           .commandCompletions(
-            AbsoluteOffset.firstOffset,
+            Offset.firstOffset,
             offset(9),
             applicationId,
             Set(party),
@@ -105,7 +105,7 @@ private[backend] trait StorageBackendTestsCompletions
     val completions = executeSql(
       backend.completion
         .commandCompletions(
-          AbsoluteOffset.firstOffset,
+          Offset.firstOffset,
           offset(1),
           applicationId,
           Set(party),
@@ -135,7 +135,7 @@ private[backend] trait StorageBackendTestsCompletions
     val completions = executeSql(
       backend.completion
         .commandCompletions(
-          AbsoluteOffset.firstOffset,
+          Offset.firstOffset,
           offset(2),
           someApplicationId,
           Set(party),
@@ -158,14 +158,13 @@ private[backend] trait StorageBackendTestsCompletions
 
   it should "correctly persist and retrieve command deduplication offsets" in {
     val party = someParty
-    val anOffset = 0L
-    val anOffsetHex = AbsoluteOffset.firstOffset.decrement.toHexString
+    val anOffset = 1L
 
     val dtos = Vector(
       dtoCompletion(
         offset(1),
         submitters = Set(party),
-        deduplicationOffset = Some(anOffsetHex),
+        deduplicationOffset = Some(anOffset),
       ),
       dtoCompletion(offset(2), submitters = Set(party), deduplicationOffset = None),
     )
@@ -177,7 +176,7 @@ private[backend] trait StorageBackendTestsCompletions
     val completions = executeSql(
       backend.completion
         .commandCompletions(
-          AbsoluteOffset.firstOffset,
+          Offset.firstOffset,
           offset(2),
           someApplicationId,
           Set(party),
@@ -225,7 +224,7 @@ private[backend] trait StorageBackendTestsCompletions
     val completions = executeSql(
       backend.completion
         .commandCompletions(
-          AbsoluteOffset.firstOffset,
+          Offset.firstOffset,
           offset(2),
           someApplicationId,
           Set(party),
@@ -268,7 +267,7 @@ private[backend] trait StorageBackendTestsCompletions
     val completions = executeSql(
       backend.completion
         .commandCompletions(
-          AbsoluteOffset.firstOffset,
+          Offset.firstOffset,
           offset(2),
           someApplicationId,
           Set(party, party2),
@@ -313,7 +312,7 @@ private[backend] trait StorageBackendTestsCompletions
     val caught = intercept[IllegalArgumentException](
       executeSql(
         backend.completion.commandCompletions(
-          AbsoluteOffset.firstOffset,
+          Offset.firstOffset,
           offset(1),
           someApplicationId,
           Set(party),

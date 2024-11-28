@@ -24,7 +24,7 @@ import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
 import com.google.common.annotations.VisibleForTesting
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 object EncryptedViewMessageFactory {
 
@@ -248,7 +248,7 @@ object EncryptedViewMessageFactory {
           sessionKeyRandomness,
           cryptoSnapshot,
           protocolVersion,
-        ).map(_.values.toSeq).mapK(FutureUnlessShutdown.outcomeK)
+        ).map(_.values.toSeq)
       } yield ViewKeyData(sessionKeyRandomness, sessionKey, sessionKeyMap)
 
     def getInformeeParticipantsAndKeys(
@@ -262,13 +262,11 @@ object EncryptedViewMessageFactory {
         informeeParticipants <- cryptoSnapshot.ipsSnapshot
           .activeParticipantsOfAll(informeeParties)
           .leftMap(UnableToDetermineParticipant(_, cryptoSnapshot.domainId))
-          .mapK(FutureUnlessShutdown.outcomeK)
         memberEncryptionKeys <- EitherT
           .right[EncryptedViewMessageCreationError](
             cryptoSnapshot.ipsSnapshot
               .encryptionKeys(informeeParticipants.toSeq)
           )
-          .mapK(FutureUnlessShutdown.outcomeK)
 
         memberEncryptionKeysIds = memberEncryptionKeys.flatMap { case (_, keys) =>
           keys.map(_.id)
@@ -405,7 +403,7 @@ object EncryptedViewMessageFactory {
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[Future, EncryptedViewMessageCreationError, Map[
+  ): EitherT[FutureUnlessShutdown, EncryptedViewMessageCreationError, Map[
     ParticipantId,
     AsymmetricEncrypted[M],
   ]] =

@@ -6,6 +6,7 @@ package com.digitalasset.canton.topology.store
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.Fingerprint
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{DbStorage, DbStore, MemoryStorage, Storage}
 import com.digitalasset.canton.topology.*
@@ -24,7 +25,7 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 trait InitializationStore extends AutoCloseable {
 
-  def uid(implicit traceContext: TraceContext): Future[Option[UniqueIdentifier]]
+  def uid(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[UniqueIdentifier]]
 
   def setUid(id: UniqueIdentifier)(implicit traceContext: TraceContext): Future[Unit]
 
@@ -48,8 +49,10 @@ class InMemoryInitializationStore(override protected val loggerFactory: NamedLog
     extends InitializationStore
     with NamedLogging {
   private val myId = new AtomicReference[Option[UniqueIdentifier]](None)
-  override def uid(implicit traceContext: TraceContext): Future[Option[UniqueIdentifier]] =
-    Future.successful(myId.get())
+  override def uid(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[UniqueIdentifier]] =
+    FutureUnlessShutdown.pure(myId.get())
 
   override def setUid(id: UniqueIdentifier)(implicit traceContext: TraceContext): Future[Unit] =
     if (myId.compareAndSet(None, Some(id))) Future.successful(())
@@ -76,8 +79,10 @@ class DbInitializationStore(
     with DbStore {
   import storage.api.*
 
-  override def uid(implicit traceContext: TraceContext): Future[Option[UniqueIdentifier]] =
-    storage.query(
+  override def uid(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[UniqueIdentifier]] =
+    storage.queryUnlessShutdown(
       for {
         data <- idQuery
       } yield data.headOption.map { case (identity, fingerprint) =>

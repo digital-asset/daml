@@ -9,7 +9,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
-import com.digitalasset.canton.lifecycle.FlagCloseable
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.client.SequencerSubscription
@@ -44,7 +44,7 @@ trait ManagedSubscription extends FlagCloseable with CloseNotification {
   */
 private[service] class GrpcManagedSubscription[T](
     createSubscription: SerializedEventOrErrorHandler[SequencedEventError] => EitherT[
-      Future,
+      FutureUnlessShutdown,
       CreateSubscriptionError,
       SequencerSubscription[SequencedEventError],
     ],
@@ -112,25 +112,33 @@ private[service] class GrpcManagedSubscription[T](
     val shouldClose = performUnlessClosing("grpc-managed-subscription-handler") {
       val createSub = Try({
         val subscription = createSubscription(handler)
-        timeouts.unbounded.await(s"Creation of subscription handler")(subscription.value)
+        timeouts.unbounded.awaitUS(s"Creation of subscription handler")(
+          subscription.value
+        )
       })
       createSub match {
         case Failure(exception) =>
           logger.warn("Creating sequencer subscription failed", exception)
           setCloseSignal(ErrorSignal(exception))
           true
-        case Success(Left(err)) =>
+        case Success(UnlessShutdown.Outcome(Left(err))) =>
           logger.warn(s"Creating sequencer subscription returned error: $err")
           setCloseSignal(
             ErrorSignal(Status.FAILED_PRECONDITION.withDescription(err.toString).asException())
           )
           true
-        case Success(Right(subscription)) =>
+        case Success(UnlessShutdown.Outcome(Right(subscription))) =>
           subscriptionRef.set(Some(subscription))
           logger.debug(
             "Underlying subscription has been successfully created (may still be starting)"
           )
           false
+        case Success(UnlessShutdown.AbortedDueToShutdown) =>
+          setCloseSignal(CompleteSignal)
+          logger.debug(
+            "Received shutdown signal"
+          )
+          true
       }
     } onShutdown false
 

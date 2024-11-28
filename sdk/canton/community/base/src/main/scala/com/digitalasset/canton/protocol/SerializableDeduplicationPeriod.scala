@@ -4,9 +4,8 @@
 package com.digitalasset.canton.protocol
 
 import com.digitalasset.canton.ProtoDeserializationError
-import com.digitalasset.canton.data.{AbsoluteOffset, DeduplicationPeriod}
+import com.digitalasset.canton.data.{DeduplicationPeriod, Offset}
 import com.digitalasset.canton.serialization.ProtoConverter.{DurationConverter, ParsingResult}
-import com.digitalasset.daml.lf.data.Bytes as LfBytes
 
 final case class SerializableDeduplicationPeriod(deduplicationPeriod: DeduplicationPeriod) {
   def toProtoV30: v30.DeduplicationPeriod = deduplicationPeriod match {
@@ -19,7 +18,7 @@ final case class SerializableDeduplicationPeriod(deduplicationPeriod: Deduplicat
     case offset: DeduplicationPeriod.DeduplicationOffset =>
       v30.DeduplicationPeriod(
         v30.DeduplicationPeriod.Period.Offset(
-          AbsoluteOffset.toOldOffsetBytes(offset.offset).toByteString
+          offset.offset.fold(0L)(_.unwrap)
         )
       )
   }
@@ -36,11 +35,15 @@ object SerializableDeduplicationPeriod {
           .fromProtoPrimitive(duration)
           .map(DeduplicationPeriod.DeduplicationDuration.apply)
       case dedupP.Offset(offset) =>
-        Right(
-          DeduplicationPeriod.DeduplicationOffset(
-            AbsoluteOffset.fromHexStringO(LfBytes.fromByteString(offset).toHexString)
-          )
-        )
+        if (offset == 0)
+          Right(DeduplicationPeriod.DeduplicationOffset(None))
+        else
+          Offset
+            .fromLong(offset)
+            .map(Some(_))
+            .map(DeduplicationPeriod.DeduplicationOffset.apply)
+            .left
+            .map(ProtoDeserializationError.ValueConversionError("deduplication_period", _))
     }
   }
 }

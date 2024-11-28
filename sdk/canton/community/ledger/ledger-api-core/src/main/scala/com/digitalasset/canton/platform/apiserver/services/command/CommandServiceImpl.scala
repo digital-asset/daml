@@ -20,6 +20,7 @@ import com.digitalasset.canton.ledger.api.services.CommandService
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.api.validation.CommandsValidator
 import com.digitalasset.canton.ledger.error.CommonErrors
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{
   LedgerErrorLoggingContext,
   LoggingContextWithTrace,
@@ -46,7 +47,7 @@ import scala.util.{Failure, Success, Try}
 private[apiserver] final class CommandServiceImpl private[services] (
     transactionServices: TransactionServices,
     submissionTracker: SubmissionTracker,
-    submit: Traced[SubmitRequest] => Future[SubmitResponse],
+    submit: Traced[SubmitRequest] => FutureUnlessShutdown[SubmitResponse],
     defaultTrackingTimeout: config.NonNegativeFiniteDuration,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
@@ -193,7 +194,7 @@ private[apiserver] object CommandServiceImpl {
   def createApiService(
       submissionTracker: SubmissionTracker,
       commandsValidator: CommandsValidator,
-      submit: Traced[SubmitRequest] => Future[SubmitResponse],
+      submit: Traced[SubmitRequest] => FutureUnlessShutdown[SubmitResponse],
       defaultTrackingTimeout: config.NonNegativeFiniteDuration,
       transactionServices: TransactionServices,
       timeProvider: TimeProvider,

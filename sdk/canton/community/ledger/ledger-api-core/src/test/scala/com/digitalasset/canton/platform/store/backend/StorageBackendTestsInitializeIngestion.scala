@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.TransactionMetering
 import com.digitalasset.canton.logging.SuppressingLogger
 import com.digitalasset.canton.platform.store.backend.common.EventIdSourceForInformees
@@ -24,7 +24,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
 
   import StorageBackendTestValues.*
 
-  private def dtoMetering(app: String, offset: AbsoluteOffset) =
+  private def dtoMetering(app: String, offset: Offset) =
     dtoTransactionMetering(
       TransactionMetering(
         applicationId = Ref.ApplicationId.assertFromString(app),
@@ -225,7 +225,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           val contractsAssigned =
             executeSql(
               backend.contract
-                .assignedContracts(List(hashCid("#103"), hashCid("#203")))
+                .assignedContracts(List(hashCid("#103"), hashCid("#203")), offset(1000))
             )
           val assignedEvents =
             executeSql(
@@ -240,7 +240,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           contractsArchived.get(hashCid("#101")) shouldBe empty
           contractsArchived.get(hashCid("#201")) shouldBe empty
           contractsAssigned.get(hashCid("#103")) should not be empty
-          contractsAssigned.get(hashCid("#203")) shouldBe empty // constrained by ledger end
+          contractsAssigned.get(hashCid("#203")) should not be empty
           assignedEvents shouldBe List(hashCid("#103"), hashCid("#203")).map(
             _.coid
           ) // not constrained by ledger end
@@ -275,7 +275,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           val contractsAssigned =
             executeSql(
               backend.contract
-                .assignedContracts(List(hashCid("#103"), hashCid("#203")))
+                .assignedContracts(List(hashCid("#103"), hashCid("#203")), offset(1000))
             )
           val assignedEvents =
             executeSql(
@@ -323,7 +323,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           val contractsAssigned =
             executeSql(
               backend.contract
-                .assignedContracts(List(hashCid("#103"), hashCid("#203")))
+                .assignedContracts(List(hashCid("#103"), hashCid("#203")), offset(1000))
             )
           val assignedEvents =
             executeSql(

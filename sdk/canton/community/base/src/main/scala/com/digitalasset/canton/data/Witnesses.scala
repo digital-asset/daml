@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.syntax.foldable.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.LfPartyId
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.sequencing.protocol.{
   MemberRecipient,
@@ -17,7 +18,7 @@ import com.digitalasset.canton.sequencing.protocol.{
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Encodes the hierarchy of the witnesses of a view.
   *
@@ -35,7 +36,7 @@ final case class Witnesses(unwrap: NonEmpty[Seq[Set[LfPartyId]]]) {
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[Future, InvalidWitnesses, Recipients] =
+  ): EitherT[FutureUnlessShutdown, InvalidWitnesses, Recipients] =
     for {
       recipientsList <- unwrap.forgetNE.foldLeftM(Seq.empty[RecipientsTree]) {
         (children, informees) =>
@@ -48,7 +49,7 @@ final case class Witnesses(unwrap: NonEmpty[Seq[Set[LfPartyId]]]) {
                 informeeParticipants.collect {
                   case (party, participants) if participants.isEmpty => party
                 }
-              EitherT.cond[Future](
+              EitherT.cond[FutureUnlessShutdown](
                 informeesWithNoActiveParticipants.isEmpty,
                 (),
                 InvalidWitnesses(
@@ -60,7 +61,7 @@ final case class Witnesses(unwrap: NonEmpty[Seq[Set[LfPartyId]]]) {
               participants.map[Recipient](MemberRecipient.apply)
             }.toSet
 
-            informeeRecipientSet <- EitherT.fromOption[Future](
+            informeeRecipientSet <- EitherT.fromOption[FutureUnlessShutdown](
               NonEmpty.from(recipients),
               InvalidWitnesses(s"Empty set of witnesses given"),
             )

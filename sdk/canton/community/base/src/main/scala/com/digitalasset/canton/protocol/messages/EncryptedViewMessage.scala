@@ -369,7 +369,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
        */
       encryptionKeys <- EitherT
         .right(
-          FutureUnlessShutdown.outcomeF(snapshot.ipsSnapshot.encryptionKeys(participantId))
+          snapshot.ipsSnapshot.encryptionKeys(participantId)
         )
         .map(_.map(_.id).toSet)
       encryptedSessionKeyForParticipant <- encrypted.sessionKeys

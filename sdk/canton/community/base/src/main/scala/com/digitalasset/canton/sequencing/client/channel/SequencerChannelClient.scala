@@ -8,7 +8,12 @@ import cats.syntax.either.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, UnlessShutdown}
+import com.digitalasset.canton.lifecycle.{
+  FlagCloseable,
+  FutureUnlessShutdown,
+  OnShutdownRunner,
+  UnlessShutdown,
+}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.sequencing.client.SubscriptionCloseReason
@@ -17,7 +22,7 @@ import com.digitalasset.canton.sequencing.client.channel.endpoint.SequencerChann
 import com.digitalasset.canton.sequencing.protocol.channel.SequencerChannelId
 import com.digitalasset.canton.topology.{Member, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
-import io.grpc.Context
+import io.grpc.Context.CancellableContext
 
 import scala.concurrent.ExecutionContext
 import scala.util.Try
@@ -81,9 +86,11 @@ final class SequencerChannelClient(
     }
 
     EitherT(performUnlessClosing("connectToSequencerChannel") {
-      for {
-        transport <- clientState.transport(sequencerId)
-        endpoint = new SequencerChannelClientEndpoint(
+      def mkEndpoint(
+          context: CancellableContext,
+          onShutdownRunner: OnShutdownRunner,
+      ): SequencerChannelClientEndpoint =
+        new SequencerChannelClientEndpoint(
           sequencerId,
           channelId,
           member,
@@ -93,18 +100,17 @@ final class SequencerChannelClient(
           isSessionKeyOwner,
           topologyTs,
           domainParameters.protocolVersion,
-          Context.ROOT.withCancellation(),
+          context,
+          onShutdownRunner,
           timeouts,
           loggerFactory
             .append("sequencerId", sequencerId.uid.toString)
             .append("channel", channelId.unwrap),
           onSentMessage,
         )
-        _ <- processor.setChannelEndpoint(endpoint)
-        _ <- clientState.addChannelEndpoint(endpoint)
-      } yield {
+
+      clientState.connectToSequencer(sequencerId, processor, mkEndpoint).map { endpoint =>
         endpoint.closeReason.onComplete(closeChannelEndpoint)
-        transport.connectToSequencerChannel(endpoint)
       }
     })
   }

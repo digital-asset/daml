@@ -7,7 +7,7 @@ import com.daml.metrics.CacheMetrics
 import com.daml.metrics.api.noop.{NoOpMetricsFactory, NoOpTimer}
 import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification}
 import com.digitalasset.canton.caching.{CaffeineCache, ConcurrentCache, SizedCache}
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.mockito.MockitoSugar
@@ -39,9 +39,10 @@ class StateCacheSpec
 
   it should "asynchronously store the update" in {
     val cache = mock[ConcurrentCache[String, String]]
-    val someOffset = Some(offset(0L))
+    val someOffset = offset(0L)
     val stateCache = StateCache[String, String](
-      initialCacheIndex = someOffset,
+      initialCacheIndex = Some(someOffset),
+      emptyLedgerState = "",
       cache = cache,
       registerUpdateTimer = cacheUpdateTimer,
       loggerFactory = loggerFactory,
@@ -119,9 +120,10 @@ class StateCacheSpec
 
   it should "synchronously update the cache in front of older asynchronous updates" in {
     val cache = mock[ConcurrentCache[String, String]]
-    val initialOffset = Some(offset(0L))
+    val initialOffset = offset(0L)
     val stateCache = StateCache[String, String](
-      initialCacheIndex = initialOffset,
+      initialCacheIndex = Some(initialOffset),
+      emptyLedgerState = "",
       cache = cache,
       registerUpdateTimer = cacheUpdateTimer,
       loggerFactory = loggerFactory,
@@ -154,7 +156,7 @@ class StateCacheSpec
 
   it should "not update the cache if called with a non-increasing `validAt`" in {
     val cache = mock[ConcurrentCache[String, String]]
-    val stateCache = StateCache[String, String](None, cache, cacheUpdateTimer, loggerFactory)
+    val stateCache = StateCache[String, String](None, "", cache, cacheUpdateTimer, loggerFactory)
 
     stateCache.putBatch(offset(2L), Map("key" -> "value"))
     loggerFactory.assertLogs(
@@ -183,6 +185,7 @@ class StateCacheSpec
     val stateCache =
       new StateCache[String, String](
         initialCacheIndex = Some(offset(1L)),
+        emptyLedgerState = "",
         cache = SizedCache.from(
           SizedCache.Configuration(2),
           new CacheMetrics(
@@ -210,7 +213,7 @@ class StateCacheSpec
       loggerFactory.assertLogs(
         within = stateCache.putAsync(
           asyncUpdateKey,
-          Map(Some(offset(2L)) -> asyncUpdatePromise.future),
+          Map(offset(2L) -> asyncUpdatePromise.future),
         ),
         assertions = _.warningMessage should include(
           "Pending updates tracker for other_key not registered. This could be due to a transient error causing a restart in the index service."
@@ -233,6 +236,7 @@ class StateCacheSpec
   private def buildStateCache(cacheSize: Long): StateCache[String, String] =
     StateCache[String, String](
       initialCacheIndex = None,
+      emptyLedgerState = "",
       cache = CaffeineCache[String, String](
         Caffeine
           .newBuilder()
@@ -274,8 +278,8 @@ class StateCacheSpec
       var cacheIdx = 0L
       insertions.map { case (key, (promise, _)) =>
         cacheIdx += 1L
-        stateCache.cacheIndex = Some(offset(cacheIdx))
-        val validAt = stateCache.cacheIndex
+        val validAt = offset(cacheIdx)
+        stateCache.cacheIndex = Some(validAt)
         stateCache
           .putAsync(
             key,
@@ -295,8 +299,8 @@ class StateCacheSpec
     (r, duration)
   }
 
-  private def offset(idx: Long): AbsoluteOffset = {
+  private def offset(idx: Long): Offset = {
     val base = 1000000000L
-    AbsoluteOffset.tryFromLong(base + idx)
+    Offset.tryFromLong(base + idx)
   }
 }

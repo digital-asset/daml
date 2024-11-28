@@ -6,12 +6,11 @@ package com.digitalasset.canton.platform.store.backend.common
 import anorm.SqlParser.{int, long}
 import anorm.{BatchSql, NamedParameter, RowParser, ~}
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex, SequencerIndex}
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.platform.indexer.parallel.ParallelIndexerSubscription
-import com.digitalasset.canton.platform.store.backend.Conversions.{absoluteOffset, absoluteOffsetO}
+import com.digitalasset.canton.platform.store.backend.Conversions.offset
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.backend.{Conversions, ParameterStorageBackend}
 import com.digitalasset.canton.platform.store.interning.StringInterning
@@ -28,7 +27,7 @@ private[backend] class ParameterStorageBackendImpl(
     queryStrategy: QueryStrategy,
     stringInterning: StringInterning,
 ) extends ParameterStorageBackend {
-  import Conversions.AbsoluteOffsetToStatement
+  import Conversions.OffsetToStatement
 
   override def updateLedgerEnd(
       ledgerEnd: ParameterStorageBackend.LedgerEnd,
@@ -107,35 +106,40 @@ private[backend] class ParameterStorageBackendImpl(
   private val ParticipantIdParser: RowParser[ParticipantId] =
     Conversions.participantId(ParticipantIdColumnName).map(ParticipantId(_))
 
-  private val LedgerEndOffsetParser: RowParser[Option[AbsoluteOffset]] =
-    // Note: the ledger_end is a non-optional column,
-    // however some databases treat the empty string as NULL
-    absoluteOffsetO(LedgerEndColumnName).?.map(_.flatten)
+  private val LedgerEndOffsetParser: RowParser[Option[Offset]] =
+    offset(LedgerEndColumnName).?
 
-  private val LedgerEndSequentialIdParser: RowParser[Long] =
-    long(LedgerEndSequentialIdColumnName)
+  private val LedgerEndSequentialIdParser: RowParser[Option[Long]] =
+    long(LedgerEndSequentialIdColumnName).?
 
-  private val LedgerEndStringInterningIdParser: RowParser[Int] =
-    int(LedgerEndStringInterningIdColumnName)
+  private val LedgerEndStringInterningIdParser: RowParser[Option[Int]] =
+    int(LedgerEndStringInterningIdColumnName).?
 
   private val LedgerIdentityParser: RowParser[ParameterStorageBackend.IdentityParams] =
     ParticipantIdParser map { case participantId =>
       ParameterStorageBackend.IdentityParams(participantId)
     }
 
-  private val LedgerEndPublicationTimeParser: RowParser[CantonTimestamp] =
-    long(LedgerEndPublicationTimeColumnName).map(CantonTimestamp.ofEpochMicro)
+  private val LedgerEndPublicationTimeParser: RowParser[Option[CantonTimestamp]] =
+    long(LedgerEndPublicationTimeColumnName).map(CantonTimestamp.ofEpochMicro).?
 
   private val LedgerEndParser: RowParser[Option[ParameterStorageBackend.LedgerEnd]] =
     LedgerEndOffsetParser ~ LedgerEndSequentialIdParser ~ LedgerEndStringInterningIdParser ~ LedgerEndPublicationTimeParser map {
-      case lastOffset ~ lastEventSequentialId ~ lastStringInterningId ~ lastPublicationTime =>
-        lastOffset.map(offset =>
+      case Some(lastOffset) ~ Some(lastEventSequentialId) ~
+          Some(lastStringInterningId) ~ Some(lastPublicationTime) =>
+        // the four values are updated the same time, so it is expected that if one is not null, then all of them will not be null
+        Some(
           ParameterStorageBackend.LedgerEnd(
-            offset,
+            lastOffset,
             lastEventSequentialId,
             lastStringInterningId,
             lastPublicationTime,
           )
+        )
+      case None ~ None ~ None ~ None => None
+      case _ =>
+        throw new IllegalStateException(
+          "The offset, eventSequentialId, stringInterningId and publicationTime of the ledger end should have been defined at the same time"
         )
     }
 
@@ -153,12 +157,10 @@ private[backend] class ParameterStorageBackendImpl(
         logger.info(
           s"Initializing new database for participantId '${params.participantId}'"
         )
-        import Conversions.AbsoluteOffsetOToStatement
-        val lastOffset = None
-        // TODO(#22143) temporary measures, will be none in next iteration
-        val lastEventSeqId = ParallelIndexerSubscription.ZeroLedgerEnd.lastEventSeqId
-        val lastStringInterningId = ParallelIndexerSubscription.ZeroLedgerEnd.lastStringInterningId
-        val lastPublicationTime = ParallelIndexerSubscription.ZeroLedgerEnd.lastPublicationTime
+        val lastOffset: Option[Offset] = None
+        val lastEventSeqId: Option[Long] = None
+        val lastStringInterningId: Option[Int] = None
+        val lastPublicationTime: Option[Long] = None
 
         discard(
           SQL"""insert into #$TableName(
@@ -169,10 +171,10 @@ private[backend] class ParameterStorageBackendImpl(
               #$LedgerEndPublicationTimeColumnName
             ) values(
               ${participantId.unwrap: String},
-              ${lastOffset: Option[AbsoluteOffset]},
+              ${lastOffset.map(_.unwrap)},
               $lastEventSeqId,
               $lastStringInterningId,
-              ${lastPublicationTime.toMicros}
+              $lastPublicationTime
             )"""
             .execute()(connection)
         )
@@ -197,7 +199,7 @@ private[backend] class ParameterStorageBackendImpl(
     SQL"select #$ParticipantIdColumnName from #$TableName"
       .as(LedgerIdentityParser.singleOpt)(connection)
 
-  def updatePrunedUptoInclusive(prunedUpToInclusive: AbsoluteOffset)(connection: Connection): Unit =
+  def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(connection: Connection): Unit =
     discard(
       SQL"""
         update lapi_parameters set participant_pruned_up_to_inclusive=$prunedUpToInclusive
@@ -205,9 +207,8 @@ private[backend] class ParameterStorageBackendImpl(
         """
         .execute()(connection)
     )
-
   def updatePrunedAllDivulgedContractsUpToInclusive(
-      prunedUpToInclusive: AbsoluteOffset
+      prunedUpToInclusive: Offset
   )(connection: Connection): Unit =
     discard(
       SQL"""
@@ -216,22 +217,21 @@ private[backend] class ParameterStorageBackendImpl(
         """
         .execute()(connection)
     )
-
   private val SqlSelectMostRecentPruning =
     SQL"select participant_pruned_up_to_inclusive from lapi_parameters"
 
-  def prunedUpToInclusive(connection: Connection): Option[AbsoluteOffset] =
+  def prunedUpToInclusive(connection: Connection): Option[Offset] =
     SqlSelectMostRecentPruning
-      .as(absoluteOffset("participant_pruned_up_to_inclusive").?.single)(connection)
+      .as(offset("participant_pruned_up_to_inclusive").?.single)(connection)
 
   private val SqlSelectMostRecentPruningAllDivulgedContracts =
     SQL"select participant_all_divulged_contracts_pruned_up_to_inclusive from lapi_parameters"
 
   def participantAllDivulgedContractsPrunedUpToInclusive(
       connection: Connection
-  ): Option[AbsoluteOffset] =
+  ): Option[Offset] =
     SqlSelectMostRecentPruningAllDivulgedContracts
-      .as(absoluteOffset("participant_all_divulged_contracts_pruned_up_to_inclusive").?.single)(
+      .as(offset("participant_all_divulged_contracts_pruned_up_to_inclusive").?.single)(
         connection
       )
 
@@ -240,10 +240,10 @@ private[backend] class ParameterStorageBackendImpl(
 
   private val PruneUptoInclusiveAndLedgerEndParser
       : RowParser[ParameterStorageBackend.PruneUptoInclusiveAndLedgerEnd] =
-    absoluteOffsetO("participant_pruned_up_to_inclusive").? ~ LedgerEndOffsetParser map {
+    offset("participant_pruned_up_to_inclusive").? ~ LedgerEndOffsetParser map {
       case pruneUptoInclusive ~ ledgerEndOffset =>
         ParameterStorageBackend.PruneUptoInclusiveAndLedgerEnd(
-          pruneUptoInclusive = pruneUptoInclusive.flatten,
+          pruneUptoInclusive = pruneUptoInclusive,
           ledgerEnd = ledgerEndOffset,
         )
     }
@@ -343,7 +343,7 @@ private[backend] class ParameterStorageBackendImpl(
       )
       .getOrElse(DomainIndex.empty)
 
-  override def updatePostProcessingEnd(postProcessingEnd: Option[AbsoluteOffset])(
+  override def updatePostProcessingEnd(postProcessingEnd: Option[Offset])(
       connection: Connection
   ): Unit =
     batchUpsert(
@@ -351,15 +351,16 @@ private[backend] class ParameterStorageBackendImpl(
       "UPDATE lapi_post_processing_end SET post_processing_end = {postProcessingEnd}",
       List(
         Seq[NamedParameter](
-          "postProcessingEnd" -> postProcessingEnd.toHexString.toString
+          "postProcessingEnd" -> postProcessingEnd.map(_.unwrap)
         )
       ),
     )(connection)
 
-  override def postProcessingEnd(connection: Connection): Option[AbsoluteOffset] =
+  override def postProcessingEnd(connection: Connection): Option[Offset] =
     SQL"select post_processing_end from lapi_post_processing_end"
-      // TODO(#22143) do not store zero as an offset in lapi_post_processing_end
-      .asSingleOpt(absoluteOffsetO("post_processing_end"))(connection)
+      .asSingleOpt(
+        offset("post_processing_end").?
+      )(connection)
       .flatten
 
   private def batchSql(

@@ -5,30 +5,15 @@ package com.digitalasset.canton.crypto
 
 import cats.Monad
 import cats.data.EitherT
-import cats.implicits.catsSyntaxValidatedId
-import cats.syntax.alternative.*
 import cats.syntax.either.*
 import cats.syntax.flatMap.*
 import cats.syntax.functor.*
-import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.caching.ScaffeineCache
-import com.digitalasset.canton.caching.ScaffeineCache.TracedAsyncLoadingCache
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.concurrent.{FutureSupervisor, HasFutureSupervision}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{
-  CacheConfig,
-  CachingConfigs,
-  ProcessingTimeout,
-  SessionSigningKeysConfig,
-}
-import com.digitalasset.canton.crypto.SignatureCheckError.{
-  SignatureWithWrongKey,
-  SignerHasNoValidKeys,
-  UnsupportedKeySpec,
-}
+import com.digitalasset.canton.config.{ProcessingTimeout, SessionSigningKeysConfig}
 import com.digitalasset.canton.crypto.SyncCryptoError.{KeyNotAvailable, SyncCryptoEncryptionError}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{
@@ -38,6 +23,7 @@ import com.digitalasset.canton.lifecycle.{
   LifeCycle,
 }
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.protocol.signer.{ProtocolSigner, ProtocolSignerDefault}
 import com.digitalasset.canton.protocol.{DynamicDomainParameters, StaticDomainParameters}
 import com.digitalasset.canton.serialization.DeserializationError
 import com.digitalasset.canton.topology.*
@@ -50,7 +36,6 @@ import com.digitalasset.canton.topology.client.{
 }
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.LoggerUtil
 import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
 import com.google.protobuf.ByteString
@@ -71,7 +56,6 @@ class SyncCryptoApiProvider(
     val ips: IdentityProvidingServiceClient,
     val crypto: Crypto,
     sessionSigningKeysConfig: SessionSigningKeysConfig,
-    cachingConfigs: CachingConfigs,
     timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
@@ -91,7 +75,6 @@ class SyncCryptoApiProvider(
       ips.tryForDomain(domain),
       crypto,
       sessionSigningKeysConfig,
-      cachingConfigs,
       staticDomainParameters,
       timeouts,
       futureSupervisor,
@@ -110,7 +93,6 @@ class SyncCryptoApiProvider(
       dips,
       crypto,
       sessionSigningKeysConfig,
-      cachingConfigs,
       staticDomainParameters,
       timeouts,
       futureSupervisor,
@@ -175,7 +157,7 @@ object SyncCryptoClient {
     (description, timestamp, traceContext) =>
       client.awaitSnapshotUSSupervised(description)(timestamp)(traceContext),
     (snapshot, traceContext) =>
-      closeContext.context.performUnlessClosingF(
+      closeContext.context.performUnlessClosingUSF(
         "get-dynamic-domain-parameters"
       ) {
         snapshot
@@ -201,16 +183,16 @@ object SyncCryptoClient {
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: ErrorLoggingContext,
-  ): Future[SyncCryptoApi] =
-    getSnapshotForTimestampInternal[Future](
+  ): FutureUnlessShutdown[SyncCryptoApi] =
+    getSnapshotForTimestampInternal[FutureUnlessShutdown](
       client,
       desiredTimestamp,
       previousTimestampO,
       warnIfApproximate,
     )(
-      (timestamp, traceContext) => client.snapshot(timestamp)(traceContext),
+      (timestamp, traceContext) => client.snapshotUS(timestamp)(traceContext),
       (description, timestamp, traceContext) =>
-        client.awaitSnapshotSupervised(description)(timestamp)(traceContext),
+        client.awaitSnapshotUSSupervised(description)(timestamp)(traceContext),
       (snapshot, traceContext) =>
         snapshot
           .findDynamicDomainParametersOrDefault(
@@ -277,7 +259,7 @@ object SyncCryptoClient {
     }
   }
 
-  def computeTimestampForValidation[F[_]](
+  private def computeTimestampForValidation[F[_]](
       desiredTimestamp: CantonTimestamp,
       previousTimestampO: Option[CantonTimestamp],
       topologyKnownUntilTimestamp: CantonTimestamp,
@@ -330,7 +312,6 @@ class DomainSyncCryptoClient(
     val ips: DomainTopologyClient,
     val crypto: Crypto,
     @unused sessionSigningKeysConfig: SessionSigningKeysConfig,
-    cacheConfigs: CachingConfigs,
     val staticDomainParameters: StaticDomainParameters,
     override val timeouts: ProcessingTimeout,
     override protected val futureSupervisor: FutureSupervisor,
@@ -372,60 +353,23 @@ class DomainSyncCryptoClient(
   ): FutureUnlessShutdown[DomainSnapshotSyncCryptoApi] =
     ips.awaitSnapshotUS(timestamp).map(create)
 
+  private val topologySigner = new ProtocolSignerDefault(
+    member,
+    new DomainCryptoPureApi(staticDomainParameters, pureCrypto),
+    crypto.privateCrypto,
+    crypto.cryptoPrivateStore,
+    logger,
+  )
+
   private def create(snapshot: TopologySnapshot): DomainSnapshotSyncCryptoApi =
     new DomainSnapshotSyncCryptoApi(
-      member,
       domainId,
       staticDomainParameters,
       snapshot,
       crypto,
-      implicit tc => (ts, usage) => mySigningKeyCache.get((ts, usage)),
-      cacheConfigs.keyCache,
+      topologySigner,
       loggerFactory,
     )
-
-  private val mySigningKeyCache: TracedAsyncLoadingCache[
-    EitherT[FutureUnlessShutdown, SyncCryptoError, *],
-    (CantonTimestamp, NonEmpty[Set[SigningKeyUsage]]),
-    Fingerprint,
-  ] = ScaffeineCache.buildTracedAsync[
-    EitherT[FutureUnlessShutdown, SyncCryptoError, *],
-    (CantonTimestamp, NonEmpty[Set[SigningKeyUsage]]),
-    Fingerprint,
-  ](
-    cache = cacheConfigs.mySigningKeyCache.buildScaffeine(),
-    loader = implicit traceContext => { case (timestamp, usage) =>
-      findSigningKey(timestamp, usage)
-    },
-  )(logger)
-
-  private def findSigningKey(
-      referenceTime: CantonTimestamp,
-      usage: NonEmpty[Set[SigningKeyUsage]],
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SyncCryptoError, Fingerprint] =
-    for {
-      snapshot <- EitherT.right(ipsSnapshot(referenceTime))
-      signingKeys <- EitherT
-        .right(snapshot.signingKeys(member, usage))
-        .mapK(FutureUnlessShutdown.outcomeK)
-      existingKeys <- signingKeys.toList
-        .parFilterA(pk => crypto.cryptoPrivateStore.existsSigningKey(pk.fingerprint))
-        .leftMap[SyncCryptoError](SyncCryptoError.StoreError.apply)
-      // use lastOption to retrieve latest key (newer keys are at the end)
-      kk <- existingKeys.lastOption
-        .toRight[SyncCryptoError](
-          SyncCryptoError
-            .KeyNotAvailable(
-              member,
-              KeyPurpose.Signing,
-              snapshot.timestamp,
-              signingKeys.map(_.fingerprint),
-            )
-        )
-        .toEitherT[FutureUnlessShutdown]
-    } yield kk.fingerprint
 
   override def ipsSnapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -469,17 +413,11 @@ class DomainSyncCryptoClient(
 
 /** crypto operations for a (domain,timestamp) */
 class DomainSnapshotSyncCryptoApi(
-    val member: Member,
     val domainId: DomainId,
     staticDomainParameters: StaticDomainParameters,
     override val ipsSnapshot: TopologySnapshot,
     val crypto: Crypto,
-    fetchSigningKey: TraceContext => (CantonTimestamp, NonEmpty[Set[SigningKeyUsage]]) => EitherT[
-      FutureUnlessShutdown,
-      SyncCryptoError,
-      Fingerprint,
-    ],
-    validKeysCacheConfig: CacheConfig,
+    val protocolSigner: ProtocolSigner,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends SyncCryptoApi
@@ -487,112 +425,33 @@ class DomainSnapshotSyncCryptoApi(
 
   override val pureCrypto: CryptoPureApi =
     new DomainCryptoPureApi(staticDomainParameters, crypto.pureCrypto)
-  private val validKeysCache
-      : TracedAsyncLoadingCache[Future, Member, Map[Fingerprint, SigningPublicKey]] =
-    ScaffeineCache.buildTracedAsync[Future, Member, Map[Fingerprint, SigningPublicKey]](
-      cache = validKeysCacheConfig.buildScaffeine(),
-      loader = implicit traceContext =>
-        member =>
-          loadSigningKeysForMembers(Seq(member)).map(membersWithKeys => membersWithKeys(member)),
-      allLoader = Some(implicit traceContext => members => loadSigningKeysForMembers(members.toSeq)),
-    )(logger)
 
-  private def loadSigningKeysForMembers(
-      members: Seq[Member]
-  )(implicit traceContext: TraceContext): Future[Map[Member, Map[Fingerprint, SigningPublicKey]]] =
-    // we fetch ALL signing keys for all members
-    ipsSnapshot
-      .signingKeys(members)
-      .map(membersToKeys =>
-        members
-          .map(member =>
-            member -> membersToKeys
-              .getOrElse(member, Seq.empty)
-              .map(key => (key.fingerprint, key))
-              .toMap
-          )
-          .toMap
-      )
-
-  /** Sign given hash with signing key for (member, domain, timestamp)
-    */
   override def sign(
       hash: Hash
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, Signature] =
-    for {
-      fingerprint <- fetchSigningKey(traceContext)(ipsSnapshot.referenceTime, SigningKeyUsage.All)
-      signature <- crypto.privateCrypto
-        .sign(hash, fingerprint)
-        .leftMap[SyncCryptoError](SyncCryptoError.SyncCryptoSigningError.apply)
-    } yield signature
-
-  private def verifySignature(
-      hash: Hash,
-      validKeys: Map[Fingerprint, SigningPublicKey],
-      signature: Signature,
-      signerStr: => String,
-  ): Either[SignatureCheckError, Unit] = {
-    lazy val signerStr_ = signerStr
-    def signatureCheckFailed(): Either[SignatureCheckError, Unit] = {
-      val error =
-        if (validKeys.isEmpty)
-          SignerHasNoValidKeys(
-            s"There are no valid keys for $signerStr_ but received message signed with ${signature.signedBy}"
-          )
-        else
-          SignatureWithWrongKey(
-            s"Key ${signature.signedBy} used to generate signature is not a valid key for $signerStr_. Valid keys are ${validKeys.values
-                .map(_.fingerprint.unwrap)}"
-          )
-      Left(error)
-    }
-    validKeys.get(signature.signedBy) match {
-      case Some(key) =>
-        if (staticDomainParameters.requiredSigningSpecs.keys.contains(key.keySpec))
-          pureCrypto.verifySignature(hash, key, signature)
-        else
-          Left(
-            UnsupportedKeySpec(
-              key.keySpec,
-              staticDomainParameters.requiredSigningSpecs.keys,
-            )
-          )
-      case None =>
-        signatureCheckFailed()
-    }
-  }
+    protocolSigner.sign(ipsSnapshot, hash)
 
   override def verifySignature(
       hash: Hash,
       signer: Member,
       signature: Signature,
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] =
-    for {
-      validKeys <- EitherT.right(validKeysCache.get(signer))
-      res <- EitherT.fromEither[Future](
-        verifySignature(hash, validKeys, signature, signer.toString)
-      )
-    } yield res
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
+    protocolSigner.verifySignature(ipsSnapshot, hash, signer, signature)
 
   override def verifySignatures(
       hash: Hash,
       signer: Member,
       signatures: NonEmpty[Seq[Signature]],
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] =
-    for {
-      validKeys <- EitherT.right(validKeysCache.get(signer))
-      res <- signatures.forgetNE.parTraverse_ { signature =>
-        EitherT.fromEither[Future](verifySignature(hash, validKeys, signature, signer.toString))
-      }
-    } yield res
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
+    protocolSigner.verifySignatures(ipsSnapshot, hash, signer, signatures)
 
   override def verifyMediatorSignatures(
       hash: Hash,
       mediatorGroupIndex: MediatorGroupIndex,
       signatures: NonEmpty[Seq[Signature]],
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
     for {
       mediatorGroup <- EitherT(
         ipsSnapshot.mediatorGroups().map { groups =>
@@ -605,7 +464,8 @@ class DomainSnapshotSyncCryptoApi(
             )
         }
       )
-      _ <- verifyGroupSignatures(
+      _ <- protocolSigner.verifyGroupSignatures(
+        ipsSnapshot,
         hash,
         mediatorGroup.active,
         mediatorGroup.threshold,
@@ -614,66 +474,10 @@ class DomainSnapshotSyncCryptoApi(
       )
     } yield ()
 
-  private def verifyGroupSignatures(
-      hash: Hash,
-      members: Seq[Member],
-      threshold: PositiveInt,
-      groupName: String,
-      signatures: NonEmpty[Seq[Signature]],
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] =
-    for {
-      validKeysWithMember <-
-        EitherT.right(
-          ipsSnapshot
-            .signingKeys(members)
-            .map(memberToKeysMap =>
-              memberToKeysMap.flatMap { case (mediatorId, keys) =>
-                keys.map(key => (key.id, (mediatorId, key)))
-              }
-            )
-        )
-      validKeys = validKeysWithMember.view.mapValues(_._2).toMap
-      keyMember = validKeysWithMember.view.mapValues(_._1).toMap
-      validated <- EitherT.right(signatures.forgetNE.parTraverse { signature =>
-        EitherT
-          .fromEither[Future](
-            verifySignature(
-              hash,
-              validKeys,
-              signature,
-              groupName,
-            )
-          )
-          .fold(
-            _.invalid,
-            _ => keyMember(signature.signedBy).valid[SignatureCheckError],
-          )
-      })
-      _ <- {
-        val (signatureCheckErrors, validSigners) = validated.separate
-        EitherT.cond[Future](
-          validSigners.distinct.sizeIs >= threshold.value, {
-            if (signatureCheckErrors.nonEmpty) {
-              val errors = SignatureCheckError.MultipleErrors(signatureCheckErrors)
-              // TODO(i13206): Replace with an Alarm
-              logger.warn(
-                s"Signature check passed for $groupName, although there were errors: $errors"
-              )
-            }
-            ()
-          },
-          SignatureCheckError.MultipleErrors(
-            signatureCheckErrors,
-            Some(s"$groupName signature threshold not reached"),
-          ): SignatureCheckError,
-        )
-      }
-    } yield ()
-
   override def verifySequencerSignatures(
       hash: Hash,
       signatures: NonEmpty[Seq[Signature]],
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
     for {
       sequencerGroup <- EitherT(
         ipsSnapshot
@@ -686,7 +490,8 @@ class DomainSnapshotSyncCryptoApi(
             )
           )
       )
-      _ <- verifyGroupSignatures(
+      _ <- protocolSigner.verifyGroupSignatures(
+        ipsSnapshot,
         hash,
         sequencerGroup.active,
         sequencerGroup.threshold,
@@ -698,26 +503,28 @@ class DomainSnapshotSyncCryptoApi(
   override def unsafePartialVerifySequencerSignatures(
       hash: Hash,
       signatures: NonEmpty[Seq[Signature]],
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] = for {
-    sequencerGroup <- EitherT(
-      ipsSnapshot
-        .sequencerGroup()
-        .map(
-          _.toRight(
-            SignatureCheckError.MemberGroupDoesNotExist(
-              "Sequencer group not found"
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
+    for {
+      sequencerGroup <- EitherT(
+        ipsSnapshot
+          .sequencerGroup()
+          .map(
+            _.toRight(
+              SignatureCheckError.MemberGroupDoesNotExist(
+                "Sequencer group not found"
+              )
             )
           )
-        )
-    )
-    _ <- verifyGroupSignatures(
-      hash,
-      sequencerGroup.active,
-      threshold = PositiveInt.one,
-      sequencerGroup.toString,
-      signatures,
-    )
-  } yield ()
+      )
+      _ <- protocolSigner.verifyGroupSignatures(
+        ipsSnapshot,
+        hash,
+        sequencerGroup.active,
+        threshold = PositiveInt.one,
+        sequencerGroup.toString,
+        signatures,
+      )
+    } yield ()
 
   override def decrypt[M](encryptedMessage: AsymmetricEncrypted[M])(
       deserialize: ByteString => Either[DeserializationError, M]
@@ -737,7 +544,10 @@ class DomainSnapshotSyncCryptoApi(
       version: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, (MemberType, SyncCryptoError), Map[MemberType, AsymmetricEncrypted[M]]] = {
+  ): EitherT[FutureUnlessShutdown, (MemberType, SyncCryptoError), Map[
+    MemberType,
+    AsymmetricEncrypted[M],
+  ]] = {
     def encryptFor(keys: Map[Member, EncryptionPublicKey])(
         member: MemberType
     ): Either[(MemberType, SyncCryptoError), (MemberType, AsymmetricEncrypted[M])] = keys

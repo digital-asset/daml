@@ -61,6 +61,7 @@ abstract class ConsumesCancellableGrpcStreamObserver[
     R: HasProtoTraceContext,
 ] private[client] (
     context: CancellableContext,
+    parentOnShutdownRunner: OnShutdownRunner,
     timeouts: ProcessingTimeout,
 )(implicit executionContext: ExecutionContext)
     extends SequencerSubscription[E] {
@@ -76,11 +77,23 @@ abstract class ConsumesCancellableGrpcStreamObserver[
   protected def callHandler: Traced[R] => EitherT[FutureUnlessShutdown, E, Unit]
   protected def onCompleteCloseReason: SubscriptionCloseReason[E]
 
-  runOnShutdown_(new RunOnShutdown {
-    override def name: String = "cancel-current-await-in-onNext"
-    override def done: Boolean = currentAwaitOnNext.get.isCompleted
-    override def run(): Unit = currentAwaitOnNext.get.trySuccess(AbortedDueToShutdown).discard
-  })(TraceContext.empty)
+  locally {
+    import TraceContext.Implicits.Empty.*
+
+    // Abort the current waiting when this observer is shut down
+    runOnShutdown_(new RunOnShutdown {
+      override def name: String = "cancel-current-await-in-onNext"
+      override def done: Boolean = false
+      override def run(): Unit = currentAwaitOnNext.get.trySuccess(AbortedDueToShutdown).discard
+    })
+
+    // Cancel the subscription when the parent is closed
+    parentOnShutdownRunner.runOnShutdown_(new RunOnShutdown {
+      override def name: String = "cancel-subscription-on-parent-close"
+      override def done: Boolean = cancelledByClient.get() || isClosing
+      override def run(): Unit = cancel()
+    })
+  }
 
   protected val cancelledByClient = new AtomicBoolean(false)
 
@@ -249,12 +262,14 @@ abstract class ConsumesCancellableGrpcStreamObserver[
 @VisibleForTesting
 class GrpcSequencerSubscription[E, R: HasProtoTraceContext] private[transports] (
     context: CancellableContext,
+    parentOnShutdownRunner: OnShutdownRunner,
     override protected val callHandler: Traced[R] => EitherT[FutureUnlessShutdown, E, Unit],
     override val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends ConsumesCancellableGrpcStreamObserver[E, R](
       context,
+      parentOnShutdownRunner,
       timeouts,
     ) {
 
@@ -274,6 +289,7 @@ object GrpcSequencerSubscription {
   def fromVersionedSubscriptionResponse[E](
       context: CancellableContext,
       handler: SerializedEventHandler[E],
+      onShutdownRunner: OnShutdownRunner,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(protocolVersion: ProtocolVersion)(implicit
@@ -281,6 +297,7 @@ object GrpcSequencerSubscription {
   ): GrpcSequencerSubscription[E, v30.VersionedSubscriptionResponse] =
     new GrpcSequencerSubscription(
       context,
+      onShutdownRunner,
       deserializingSubscriptionHandler(
         handler,
         (value, traceContext) =>

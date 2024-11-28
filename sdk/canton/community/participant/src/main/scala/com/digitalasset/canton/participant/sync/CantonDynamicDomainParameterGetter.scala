@@ -7,16 +7,16 @@ import cats.data.EitherT
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.SyncCryptoApiProvider
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.domain.DomainAliasManager
 import com.digitalasset.canton.platform.apiserver.execution.DynamicDomainParameterGetter
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.ProtocolVersion
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class CantonDynamicDomainParameterGetter(
     syncCrypto: SyncCryptoApiProvider,
@@ -29,18 +29,18 @@ class CantonDynamicDomainParameterGetter(
     with NamedLogging {
   override def getLedgerTimeRecordTimeTolerance(domainIdO: Option[DomainId])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, NonNegativeFiniteDuration] = {
+  ): EitherT[FutureUnlessShutdown, String, NonNegativeFiniteDuration] = {
     def getToleranceForDomain(
         domainId: DomainId,
         warnOnUsingDefault: Boolean,
-    ): EitherT[Future, String, NonNegativeFiniteDuration] =
+    ): EitherT[FutureUnlessShutdown, String, NonNegativeFiniteDuration] =
       for {
-        topoClient <- EitherT.fromOption[Future](
+        topoClient <- EitherT.fromOption[FutureUnlessShutdown](
           syncCrypto.ips.forDomain(domainId),
           s"Cannot get topology client for domain $domainId",
         )
         snapshot = topoClient.currentSnapshotApproximation
-        protocolVersion <- EitherT.fromOption[Future](
+        protocolVersion <- EitherT.fromOption[FutureUnlessShutdown](
           protocolVersionFor(domainId),
           s"Cannot get protocol version for domain $domainId",
         )
@@ -62,7 +62,7 @@ class CantonDynamicDomainParameterGetter(
         val domainAliases = aliasManager.ids.toSeq
 
         for {
-          _ <- EitherT.fromOption[Future](
+          _ <- EitherT.fromOption[FutureUnlessShutdown](
             NonEmpty.from(domainAliases),
             "No domain defined",
           )
@@ -78,9 +78,9 @@ class CantonDynamicDomainParameterGetter(
                 }
                 .toOption
                 .value
-            } else Future.successful(None)
+            } else FutureUnlessShutdown.pure(None)
           })
-          allTolerancesNE <- EitherT.fromOption[Future](
+          allTolerancesNE <- EitherT.fromOption[FutureUnlessShutdown](
             NonEmpty.from(allTolerances),
             "All defined domains returned errors",
           )

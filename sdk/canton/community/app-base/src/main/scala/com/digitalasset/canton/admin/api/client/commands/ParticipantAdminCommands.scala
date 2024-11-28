@@ -1769,7 +1769,7 @@ object ParticipantAdminCommands {
   object Replication {
 
     final case class SetPassiveCommand()
-        extends GrpcAdminCommand[SetPassive.Request, SetPassive.Response, Boolean] {
+        extends GrpcAdminCommand[SetPassive.Request, SetPassive.Response, Unit] {
       override type Svc = EnterpriseParticipantReplicationServiceStub
 
       override def createService(
@@ -1788,9 +1788,9 @@ object ParticipantAdminCommands {
 
       override protected def handleResponse(
           response: SetPassive.Response
-      ): Either[String, Boolean] =
+      ): Either[String, Unit] =
         response match {
-          case SetPassive.Response(becamePassive) => Right(becamePassive)
+          case SetPassive.Response() => Either.unit
         }
     }
   }

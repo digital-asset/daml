@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.daml.scalautil.Statement
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.platform.store.backend.PruningDto.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
@@ -29,9 +29,9 @@ private[backend] trait StorageBackendTestsPruning
   private val actorParty = Ref.Party.assertFromString("actor")
 
   def pruneEventsSql(
-      pruneUpToInclusive: AbsoluteOffset,
+      pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
-      incompleteReassignmentOffsets: Vector[AbsoluteOffset] = Vector.empty,
+      incompleteReassignmentOffsets: Vector[Offset] = Vector.empty,
   )(implicit
       traceContext: TraceContext
   ): Unit =

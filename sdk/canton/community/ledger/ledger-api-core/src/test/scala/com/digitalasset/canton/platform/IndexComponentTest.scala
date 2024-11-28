@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.ledger.participant.state.index.IndexService
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -43,7 +44,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
 
   private val clock = new WallClock(ProcessingTimeout(), loggerFactory)
 
-  private implicit val ec: ExecutionContext = system.dispatcher
+  implicit val ec: ExecutionContext = system.dispatcher
 
   protected implicit val loggingContextWithTrace: LoggingContextWithTrace =
     LoggingContextWithTrace.ForTesting
@@ -57,9 +58,20 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
     Option(testServicesRef.get())
       .getOrElse(throw new Exception("TestServices not initialized. Not accessing from a test?"))
 
-  protected def ingestUpdates(updates: Update*): Unit = {
+  private def ledgerEndOffset =
+    Offset
+      .fromHexStringO(
+        testServices.index.currentLedgerEnd().futureValue
+      )
+
+  protected def ingestUpdates(updates: Update*): Offset = {
+    val ledgerEndLongBefore = ledgerEndOffset.map(_.positive).getOrElse(0L)
     updates.foreach(update => testServices.indexer.offer(update).futureValue)
-    updates.last.persisted.future.futureValue
+    val expectedOffset = Offset.tryFromLong(updates.size + ledgerEndLongBefore)
+    eventually() {
+      ledgerEndOffset shouldBe Some(expectedOffset)
+      expectedOffset
+    }
   }
 
   protected def index: IndexService = testServices.index
@@ -121,6 +133,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
           clock = clock,
           reassignmentOffsetPersistence = NoOpReassignmentOffsetPersistence,
           postProcessor = (_, _) => Future.unit,
+          sequentialPostProcessor = _ => (),
         ).initialized()
         indexerFutureQueueConsumer <- ResourceOwner.forFuture(() => indexerF(false)(_ => ()))
         indexer <- ResourceOwner.forReleasable(() =>
@@ -131,8 +144,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
         }
         contractLoader <- ContractLoader.create(
           contractStorageBackend = dbSupport.storageBackendFactory.createContractStorageBackend(
-            inMemoryState.ledgerEndCache,
-            inMemoryState.stringInterningView,
+            inMemoryState.stringInterningView
           ),
           dbDispatcher = dbSupport.dbDispatcher,
           metrics = LedgerApiServerMetrics.ForTesting,

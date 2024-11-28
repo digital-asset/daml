@@ -29,6 +29,7 @@ trait SyncDomainEphemeralStateFactory {
   def createFromPersistent(
       persistentState: SyncDomainPersistentState,
       ledgerApiIndexer: Eval[LedgerApiIndexer],
+      contractStore: Eval[ContractStore],
       participantNodeEphemeralState: ParticipantNodeEphemeralState,
       createTimeTracker: () => DomainTimeTracker,
       metrics: SyncDomainMetrics,
@@ -53,6 +54,7 @@ class SyncDomainEphemeralStateFactoryImpl(
   override def createFromPersistent(
       persistentState: SyncDomainPersistentState,
       ledgerApiIndexer: Eval[LedgerApiIndexer],
+      contractStore: Eval[ContractStore],
       participantNodeEphemeralState: ParticipantNodeEphemeralState,
       createTimeTracker: () => DomainTimeTracker,
       metrics: SyncDomainMetrics,
@@ -84,6 +86,7 @@ class SyncDomainEphemeralStateFactoryImpl(
       )
 
       recordOrderPublisher = new RecordOrderPublisher(
+        persistentState.indexedDomain.domainId,
         startingPoints.processing.nextSequencerCounter,
         startingPoints.processing.prenextTimestamp,
         ledgerApiIndexer.value,
@@ -92,7 +95,6 @@ class SyncDomainEphemeralStateFactoryImpl(
         timeouts,
         loggerFactory,
         futureSupervisor,
-        persistentState.activeContractStore,
         clock,
       )
 
@@ -116,6 +118,7 @@ class SyncDomainEphemeralStateFactoryImpl(
         inFlightSubmissionDomainTracker,
         persistentState,
         ledgerApiIndexer.value,
+        contractStore.value,
         startingPoints,
         metrics,
         exitOnFatalFailures = exitOnFatalFailures,

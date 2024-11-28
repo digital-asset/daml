@@ -52,7 +52,7 @@ import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 sealed trait SequencedEventValidationError[+E] extends Product with Serializable with PrettyPrinting
 object SequencedEventValidationError {
@@ -271,7 +271,7 @@ object SequencedEventValidator extends HasLoggerName {
   )(implicit
       loggingContext: NamedLoggingContext,
       executionContext: ExecutionContext,
-  ): EitherT[Future, TopologyTimestampVerificationError, SyncCryptoApi] =
+  ): EitherT[FutureUnlessShutdown, TopologyTimestampVerificationError, SyncCryptoApi] =
     validateTopologyTimestampInternal(
       syncCryptoApi,
       topologyTimestamp,
@@ -309,7 +309,7 @@ object SequencedEventValidator extends HasLoggerName {
     )(
       SyncCryptoClient.getSnapshotForTimestampUS _,
       (topology, traceContext) =>
-        closeContext.context.performUnlessClosingF("get-dynamic-parameters")(
+        closeContext.context.performUnlessClosingUSF("get-dynamic-parameters")(
           topology.findDynamicDomainParameters()(traceContext)
         )(executionContext, traceContext),
     )
@@ -615,7 +615,6 @@ class SequencedEventValidatorImpl(
           .leftMap[SequencedEventValidationError[Nothing]](
             SignatureInvalid(event.timestamp, signingTs, _)
           )
-          .mapK(FutureUnlessShutdown.outcomeK)
       } yield ()
     }
   }

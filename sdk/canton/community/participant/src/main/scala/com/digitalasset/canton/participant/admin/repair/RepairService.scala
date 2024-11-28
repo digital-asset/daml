@@ -92,6 +92,7 @@ final class RepairService(
     syncCrypto: SyncCryptoApiProvider,
     packageDependencyResolver: PackageDependencyResolver,
     damle: DAMLe,
+    contractStore: Eval[ContractStore],
     ledgerApiIndexer: Eval[LedgerApiIndexer],
     aliasManager: DomainAliasManager,
     parameters: ParticipantNodeParameters,
@@ -353,7 +354,7 @@ final class RepairService(
             )
 
             storedContracts <- logOnFailureWithInfoLevel(
-              domain.persistentState.contractStore.lookupManyUncached(
+              contractStore.value.lookupManyUncached(
                 contracts.map(_.contract.contractId)
               ),
               "Unable to lookup contracts in contract store",
@@ -392,7 +393,7 @@ final class RepairService(
                       requestCountersToAllocate = groupCount,
                     )
 
-                    hostedWitnesses <- EitherTUtil.rightUS(
+                    hostedWitnesses <- EitherT.right(
                       hostsParties(
                         repair.domain.topologySnapshot,
                         filteredContracts.flatMap(_.witnesses).toSet,
@@ -487,7 +488,7 @@ final class RepairService(
 
           storedContracts <-
             logOnFailureWithInfoLevel(
-              repair.domain.persistentState.contractStore.lookupManyUncached(contractIds),
+              contractStore.value.lookupManyUncached(contractIds),
               "Unable to lookup contracts in contract store",
             )
               .map { contracts =>
@@ -620,6 +621,7 @@ final class RepairService(
           participantId,
           syncCrypto,
           repairIndexer,
+          contractStore.value,
           loggerFactory,
         )
         (for {
@@ -689,6 +691,7 @@ final class RepairService(
           participantId,
           syncCrypto,
           repairIndexer,
+          contractStore.value,
           loggerFactory,
         )
         unassignmentData = ChangeAssignation.Data.from(reassignmentData, changeAssignation)
@@ -700,6 +703,7 @@ final class RepairService(
           participantId,
           syncCrypto,
           repairIndexer,
+          contractStore.value,
           loggerFactory,
         )
         contractIdData <- EitherT.fromEither[FutureUnlessShutdown](
@@ -847,21 +851,20 @@ final class RepairService(
         else
           for {
             // At least one stakeholder is hosted locally if no witnesses are defined
-            _localStakeholderOrWitnesses <- EitherT(
-              FutureUnlessShutdown
-                .outcomeF(
-                  hostsParties(topologySnapshot, contract.metadata.stakeholders, participantId)
+            _localStakeholderOrWitnesses <- EitherT
+              .right(
+                hostsParties(topologySnapshot, contract.metadata.stakeholders, participantId)
+              )
+              .map { localStakeholders =>
+                Either.cond(
+                  contractToAdd.witnesses.nonEmpty || localStakeholders.nonEmpty,
+                  (),
+                  log(
+                    s"Contract ${contract.contractId} has no local stakeholders ${contract.metadata.stakeholders} and no witnesses defined"
+                  ),
                 )
-                .map { localStakeholders =>
-                  Either.cond(
-                    contractToAdd.witnesses.nonEmpty || localStakeholders.nonEmpty,
-                    (),
-                    log(
-                      s"Contract ${contract.contractId} has no local stakeholders ${contract.metadata.stakeholders} and no witnesses defined"
-                    ),
-                  )
-                }
-            )
+              }
+
             // All stakeholders exist on the domain
             _ <- topologySnapshot
               .allHaveActiveParticipants(contract.metadata.stakeholders)
@@ -870,7 +873,6 @@ final class RepairService(
                   s"Domain ${repair.domain.alias} missing stakeholders $missingStakeholders of contract ${contract.contractId}"
                 )
               }
-              .mapK(FutureUnlessShutdown.outcomeK)
           } yield ()
 
       // All witnesses exist on the domain
@@ -881,7 +883,6 @@ final class RepairService(
             s"Domain ${repair.domain.alias} missing witnesses $missingWitnesses of contract ${contract.contractId}"
           )
         }
-        .mapK(FutureUnlessShutdown.outcomeK)
     } yield ()
   }
 
@@ -941,7 +942,7 @@ final class RepairService(
 
       // Now, we update the stores
       _ <- logOnFailureWithInfoLevel(
-        repair.domain.persistentState.contractStore.storeCreatedContracts(missingContracts),
+        contractStore.value.storeCreatedContracts(missingContracts),
         "Unable to store missing contracts",
       )
 

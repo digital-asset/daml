@@ -672,7 +672,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         .map { owner =>
           val existingDnsO =
             owner.topology.transactions
-              .findLatestByMappingHash[DecentralizedNamespaceDefinition](
+              .find_latest_by_mapping_hash[DecentralizedNamespaceDefinition](
                 DecentralizedNamespaceDefinition.uniqueKey(expectedDNS),
                 filterStore = AuthorizedStore.filterName,
                 includeProposals = true,
@@ -722,19 +722,32 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         DecentralizedNamespaceDefinition.computeNamespace(
           owners.map(_.namespace).toSet
         )
-      val recordedNamespaces =
-        owners.map(
+
+      val recordedNamespaces: Set[Namespace] = owners
+        .map(
           _.topology.transactions
-            .findLatestByMappingHash[DecentralizedNamespaceDefinition](
-              DecentralizedNamespaceDefinition.uniqueKey(expectedNamespace),
+            .find_latest_by_mapping[DecentralizedNamespaceDefinition](
               filterStore = AuthorizedStore.filterName,
               includeProposals = true,
             )
             .map(_.mapping.namespace)
         )
+        .toSet
+        .flatten
 
-      recordedNamespaces.distinct match {
-        case Seq(namespaceO) => Right(namespaceO)
+      val recordedNamespacesForOwners: Set[Namespace] =
+        recordedNamespaces.filter(_ == expectedNamespace)
+
+      recordedNamespaces.toSeq match {
+        case Seq(single) =>
+          if (recordedNamespacesForOwners.sizeIs == 0) {
+            logger.warn(
+              "The owners agree on a namespace but it differs from the stored one. Check the list of owners as this probably indicates a mistake. For example, review the domain owners in the domain bootstrap."
+            )
+            Right(None)
+          } else Right(Some(single))
+
+        case Seq() => Right(None)
         case otherwise =>
           Left(s"the domain owners do not agree on the decentralizedNamespace: $otherwise")
       }

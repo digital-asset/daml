@@ -7,7 +7,7 @@ import cats.data.EitherT
 import com.daml.timer.RetryStrategy
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.Update.CommitRepair
-import com.digitalasset.canton.ledger.participant.state.{RepairUpdate, Update}
+import com.digitalasset.canton.ledger.participant.state.{DomainUpdate, RepairUpdate, Update}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
@@ -212,11 +212,7 @@ class IndexerState(
       } { (_, _) =>
         if (
           recoveringQueue.uncommittedQueueSnapshot.iterator.map(_._2).exists {
-            case u: Update.TransactionAccepted => u.domainId == domainId
-            case u: Update.ReassignmentAccepted => u.domainId == domainId
-            case u: Update.CommandRejected => u.domainId == domainId
-            case u: Update.SequencerIndexMoved => u.domainId == domainId
-            case u: Update.TopologyTransactionEffective => u.domainId == domainId
+            case u: DomainUpdate => u.domainId == domainId
             case _: Update.CommitRepair => false
             case _: Update.PartyAddedToParticipant => false
             case _: Update.PartyAllocationRejected => false

@@ -14,6 +14,7 @@ import com.digitalasset.canton.ledger.participant.state.{
   SubmitterInfo,
   TransactionMeta,
 }
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.SeedService
@@ -52,7 +53,7 @@ import org.scalatest.matchers.should.Matchers
 
 import java.time.{Duration, Instant}
 import java.util.concurrent.CompletableFuture
-import scala.concurrent.Future
+import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
 class CommandSubmissionServiceImplSpec
@@ -100,7 +101,7 @@ class CommandSubmissionServiceImplSpec
       .submit(SubmitRequest(commands))(
         LoggingContextWithTrace(TraceContext.empty)
       )
-      .futureValue
+      .futureValueUS
   }
 
   behavior of "submit"
@@ -166,17 +167,17 @@ class CommandSubmissionServiceImplSpec
               commandExecutor.execute(
                 eqTo(commands),
                 any[Hash],
-              )(any[LoggingContextWithTrace])
-            ).thenReturn(Future.successful(Left(error)))
+              )(any[LoggingContextWithTrace], any[ExecutionContext])
+            ).thenReturn(FutureUnlessShutdown.pure(Left(error)))
 
             apiSubmissionService()
               .submit(SubmitRequest(commands))
-              .transform(result => Success(expectedStatus -> result))
-              .futureValue
+              .transform(result => Success(UnlessShutdown.Outcome(expectedStatus -> result)))
+              .futureValueUS
           }
 
         // then
-        results.foreach { case (expectedStatus: Status, result: Try[Unit]) =>
+        results.foreach { case (expectedStatus: Status, result: Try[UnlessShutdown[Unit]]) =>
           inside(result) { case Failure(exception) =>
             exception.getMessage should startWith(expectedStatus.getCode.toString)
           }
@@ -197,11 +198,11 @@ class CommandSubmissionServiceImplSpec
       .transform {
         case Failure(e: StatusRuntimeException)
             if e.getStatus.getCode.value == grpcError.code && e.getStatus.getDescription == grpcError.message =>
-          Success(succeed)
+          Success(UnlessShutdown.Outcome(succeed))
         case result =>
           fail(s"Expected submission to be aborted, but got $result")
       }
-      .futureValue
+      .futureValueUS
   }
 
   private trait TestContext {
@@ -297,10 +298,11 @@ class CommandSubmissionServiceImplSpec
 
     when(
       commandExecutor.execute(eqTo(commands), any[Hash])(
-        any[LoggingContextWithTrace]
+        any[LoggingContextWithTrace],
+        any[ExecutionContext],
       )
     )
-      .thenReturn(Future.successful(Right(commandExecutionResult)))
+      .thenReturn(FutureUnlessShutdown.pure(Right(commandExecutionResult)))
     when(
       syncService.submitTransaction(
         eqTo(submitterInfo),

@@ -84,7 +84,7 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
               sender: A => Member,
           )(implicit
               traceContext: TraceContext
-          ): EitherT[Future, String, SignedContent[A]] =
+          ): EitherT[FutureUnlessShutdown, String, SignedContent[A]] =
             EitherT.rightT(signedContent)
         },
       )
@@ -116,8 +116,8 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
 
     override def readInternal(member: Member, offset: SequencerCounter)(implicit
         traceContext: TraceContext
-    ): EitherT[Future, CreateSubscriptionError, Sequencer.EventSource] =
-      EitherT.rightT[Future, CreateSubscriptionError](
+    ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource] =
+      EitherT.rightT[FutureUnlessShutdown, CreateSubscriptionError](
         Source.empty
           .viaMat(KillSwitches.single)(Keep.right)
           .mapMaterializedValue(_ -> Future.successful(Done))
@@ -125,7 +125,7 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
 
     override protected def acknowledgeSignedInternal(
         signedAcknowledgeRequest: SignedContent[AcknowledgeRequest]
-    )(implicit traceContext: TraceContext): Future[Unit] = ???
+    )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = ???
 
     override def pruningStatus(implicit
         traceContext: TraceContext

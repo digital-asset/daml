@@ -14,6 +14,7 @@ import com.digitalasset.canton.ledger.api.validation.{
   CommandsValidator,
   ValidateUpgradingPackageResolutions,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
@@ -27,7 +28,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.time.{Duration, Instant}
-import scala.concurrent.Future
 
 class ApiCommandSubmissionServiceSpec
     extends AsyncWordSpec
@@ -77,7 +77,7 @@ class ApiCommandSubmissionServiceSpec
         mockCommandSubmissionService
           .submit(any[SubmitRequest])(any[LoggingContextWithTrace])
       )
-        .thenReturn(Future.unit)
+        .thenReturn(FutureUnlessShutdown.unit)
 
       grpcCommandSubmissionService(mockCommandSubmissionService)
         .submit(requestWithSubmissionId)
@@ -97,7 +97,7 @@ class ApiCommandSubmissionServiceSpec
         mockCommandSubmissionService
           .submit(any[SubmitRequest])(any[LoggingContextWithTrace])
       )
-        .thenReturn(Future.unit)
+        .thenReturn(FutureUnlessShutdown.unit)
 
       grpcCommandSubmissionService(mockCommandSubmissionService)
         .submit(aSubmitRequest)
@@ -171,7 +171,7 @@ object ApiCommandSubmissionServiceSpec {
       mockCommandSubmissionService
         .submit(any[SubmitRequest])(any[LoggingContextWithTrace])
     )
-      .thenReturn(Future.unit)
+      .thenReturn(FutureUnlessShutdown.unit)
     mockCommandSubmissionService
   }
 }

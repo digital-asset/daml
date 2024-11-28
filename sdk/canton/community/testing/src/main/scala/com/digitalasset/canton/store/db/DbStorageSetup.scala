@@ -21,6 +21,7 @@ import com.digitalasset.canton.resource.{
 import com.digitalasset.canton.store.db.DbStorageSetup.DbBasicConfig
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
+import com.github.dockerjava.api.model.Bind
 import com.typesafe.config.{Config, ConfigFactory}
 import org.postgresql.util.PSQLException
 import org.scalatest.Assertions.fail
@@ -243,6 +244,10 @@ class PostgresTestContainerSetup(
     // we also have a matching max connections limit set in the CircleCI postgres executor (`.circle/config.yml`)
     val command = postgresContainer.getCommandParts.toSeq :+ "-c" :+ "max_connections=500"
     postgresContainer.setCommandParts(command.toArray)
+    val binds = java.util.List.of(
+      Bind.parse("/tmp/canton/data-continuity-dumps:/tmp/canton/data-continuity-dumps")
+    )
+    postgresContainer.setBinds(binds)
     noTracingLogger.debug(s"Starting postgres container with $command")
 
     val startF = Future(postgresContainer.start())

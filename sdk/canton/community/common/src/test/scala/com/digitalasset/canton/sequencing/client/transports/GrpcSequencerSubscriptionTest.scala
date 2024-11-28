@@ -8,6 +8,7 @@ import cats.syntax.either.*
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.crypto.v30 as cryptoproto
 import com.digitalasset.canton.domain.api.v30 as v30domain
+import com.digitalasset.canton.lifecycle.OnShutdownRunner.PureOnShutdownRunner
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.networking.grpc.GrpcError
 import com.digitalasset.canton.protocol.v30
@@ -100,6 +101,7 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
   ): GrpcSequencerSubscription[String, v30domain.VersionedSubscriptionResponse] =
     new GrpcSequencerSubscription[String, v30domain.VersionedSubscriptionResponse](
       context,
+      new PureOnShutdownRunner(logger),
       tracedEvent => handler(tracedEvent.value), // ignore Traced[..] wrapper
       DefaultProcessingTimeouts.testing,
       loggerFactory,

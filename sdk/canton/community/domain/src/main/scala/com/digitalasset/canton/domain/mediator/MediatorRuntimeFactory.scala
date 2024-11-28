@@ -75,7 +75,7 @@ final class MediatorRuntime(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] =
     for {
-      _ <- EitherT.right(mediator.startFUS())
+      _ <- EitherT.right(mediator.start())
       // start the domainOutbox only after the mediator has been started, otherwise
       // the future returned by startup will not be complete, because any topology transactions pushed to the
       // domain aren't actually processed until after the runtime is up and ... running

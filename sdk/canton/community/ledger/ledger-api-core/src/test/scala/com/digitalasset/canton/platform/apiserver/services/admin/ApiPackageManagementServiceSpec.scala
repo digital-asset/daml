@@ -14,7 +14,7 @@ import com.daml.ledger.api.v2.admin.package_management_service.{
 import com.daml.tracing.DefaultOpenTelemetry
 import com.daml.tracing.TelemetrySpecBase.*
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.data.{AbsoluteOffset, ProcessedDisclosedContract}
+import com.digitalasset.canton.data.{Offset, ProcessedDisclosedContract}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.{
@@ -190,7 +190,7 @@ object ApiPackageManagementServiceSpec {
       throw new UnsupportedOperationException()
 
     override def prune(
-        pruneUpToInclusive: AbsoluteOffset,
+        pruneUpToInclusive: Offset,
         submissionId: SubmissionId,
         pruneAllDivulgedContracts: Boolean,
     ): CompletionStage[PruningResult] =

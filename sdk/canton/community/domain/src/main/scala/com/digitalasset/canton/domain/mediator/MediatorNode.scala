@@ -5,7 +5,6 @@ package com.digitalasset.canton.domain.mediator
 
 import cats.Monad
 import cats.data.{EitherT, OptionT}
-import cats.instances.future.*
 import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.NonEmpty
@@ -75,7 +74,6 @@ import monocle.macros.syntax.lens.*
 import org.apache.pekko.actor.ActorSystem
 
 import java.util.concurrent.ScheduledExecutorService
-import scala.concurrent.Future
 
 abstract class MediatorNodeConfigCommon(
     val adminApi: AdminServerConfig,
@@ -278,14 +276,11 @@ class MediatorNodeBootstrap(
 
     override protected def stageCompleted(implicit
         traceContext: TraceContext
-    ): Future[Option[(StaticDomainParameters, DomainId)]] =
-      OptionT(domainConfigurationStore.fetchConfiguration)
-        .map { mediatorDomainConfiguration =>
-          (mediatorDomainConfiguration.domainParameters, mediatorDomainConfiguration.domainId)
+    ): FutureUnlessShutdown[Option[(StaticDomainParameters, DomainId)]] =
+      OptionT(domainConfigurationStore.fetchConfiguration).map { mediatorDomainConfiguration =>
+        (mediatorDomainConfiguration.domainParameters, mediatorDomainConfiguration.domainId)
 
-        }
-        .value
-        .onShutdown(None)
+      }.value
 
     override protected def buildNextStage(
         result: (
@@ -563,7 +558,6 @@ class MediatorNodeBootstrap(
               domainLoggerFactory,
             )
           )
-          .mapK(FutureUnlessShutdown.outcomeK)
       (topologyProcessor, topologyClient) = topologyProcessorAndClient
       _ = ips.add(topologyClient)
       syncCryptoApi = new DomainSyncCryptoClient(
@@ -572,7 +566,6 @@ class MediatorNodeBootstrap(
         topologyClient,
         crypto,
         arguments.parameterConfig.sessionSigningKeys,
-        parameters.cachingConfigs,
         staticDomainParameters,
         timeouts,
         futureSupervisor,
@@ -655,7 +648,6 @@ class MediatorNodeBootstrap(
           // TODO(i12076): Request topology information from all sequencers and reconcile
           isMediatorActive <- EitherT
             .right[String](headSnapshot.isMediatorActive(mediatorId))
-            .mapK(FutureUnlessShutdown.outcomeK)
           _ <- Monad[EitherT[FutureUnlessShutdown, String, *]].whenA(!isMediatorActive)(
             domainTopologyStateInit
               .callback(
@@ -663,7 +655,6 @@ class MediatorNodeBootstrap(
                 sequencerClient,
                 domainConfig.domainParameters.protocolVersion,
               )
-              .mapK(FutureUnlessShutdown.outcomeK)
           )
         } yield {}
       }

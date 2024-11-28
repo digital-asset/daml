@@ -16,6 +16,7 @@ import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.store.{
   AcsCounterParticipantConfigStore,
   AcsInspection,
+  ContractStore,
   SyncDomainPersistentState,
 }
 import com.digitalasset.canton.participant.topology.ParticipantTopologyValidation
@@ -49,6 +50,7 @@ class DbSyncDomainPersistentState(
     crypto: Crypto,
     parameters: ParticipantNodeParameters,
     indexedStringStore: IndexedStringStore,
+    contractStore: ContractStore,
     acsCounterParticipantConfigStore: AcsCounterParticipantConfigStore,
     packageDependencyResolver: PackageDependencyResolver,
     ledgerApiStore: Eval[LedgerApiStore],
@@ -63,22 +65,10 @@ class DbSyncDomainPersistentState(
 
   private val timeouts = parameters.processingTimeouts
   private val batching = parameters.batchingConfig
-  private val caching = parameters.cachingConfigs
 
   override def enableAdditionalConsistencyChecks: Boolean =
     parameters.enableAdditionalConsistencyChecks
 
-  val contractStore: DbContractStore =
-    new DbContractStore(
-      storage,
-      indexedDomain,
-      staticDomainParameters.protocolVersion,
-      caching.contractStore,
-      dbQueryBatcherConfig = batching.aggregator,
-      insertBatchAggregatorConfig = batching.aggregator,
-      timeouts,
-      loggerFactory,
-    )
   val reassignmentStore: DbReassignmentStore = new DbReassignmentStore(
     storage,
     ReassignmentTag.Target(indexedDomain),
@@ -150,7 +140,7 @@ class DbSyncDomainPersistentState(
 
   override val domainOutboxQueue = new DomainOutboxQueue(loggerFactory)
 
-  override val topologyManager = new DomainTopologyManager(
+  override val topologyManager: DomainTopologyManager = new DomainTopologyManager(
     participantId.uid,
     clock = clock,
     crypto = crypto,
@@ -195,7 +185,6 @@ class DbSyncDomainPersistentState(
     LifeCycle.close(
       topologyStore,
       topologyManager,
-      contractStore,
       reassignmentStore,
       activeContractStore,
       sequencedEventStore,

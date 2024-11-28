@@ -55,7 +55,6 @@ private[reassignment] object UnassignmentValidation {
           participantId = request.submitterMetadata.submittingParticipant,
           stakeholders = expectedStakeholders.all,
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       _ <- targetTopology match {
         case Some(targetTopology) =>

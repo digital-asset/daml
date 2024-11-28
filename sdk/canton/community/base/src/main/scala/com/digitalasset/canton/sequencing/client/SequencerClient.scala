@@ -333,9 +333,7 @@ abstract class SequencerClientImpl(
         case _ => false
       }
       val domainParamsF = EitherT.liftF(
-        FutureUnlessShutdown.outcomeF(
-          domainParametersLookup.getApproximateOrDefaultValue(warnOnUsingDefaults)
-        )
+        domainParametersLookup.getApproximateOrDefaultValue(warnOnUsingDefaults)
       )
 
       if (replayEnabled) {

@@ -8,6 +8,7 @@ import cats.syntax.parallel.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.{CantonTimestamp, ViewConfirmationParameters, ViewPosition}
 import com.digitalasset.canton.error.MediatorError
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
 import com.digitalasset.canton.protocol.messages.*
@@ -16,11 +17,10 @@ import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import pprint.Tree
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait ResponseAggregator extends HasLoggerName with Product with Serializable {
 
@@ -49,7 +49,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
   )(implicit
       loggingContext: NamedLoggingContext,
       ec: ExecutionContext,
-  ): Future[Option[ResponseAggregation[VKey]]]
+  ): FutureUnlessShutdown[Option[ResponseAggregation[VKey]]]
 
   protected def validateResponse[VKEY: ViewKey](
       viewKeyO: Option[VKEY],
@@ -62,12 +62,12 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
   )(implicit
       ec: ExecutionContext,
       loggingContext: NamedLoggingContext,
-  ): OptionT[Future, List[(VKEY, Set[LfPartyId])]] = {
+  ): OptionT[FutureUnlessShutdown, List[(VKEY, Set[LfPartyId])]] = {
     implicit val tc: TraceContext = loggingContext.traceContext
     def authorizedPartiesOfSender(
         viewKey: VKEY,
         declaredConfirmingParties: Set[LfPartyId],
-    ): OptionT[Future, Set[LfPartyId]] =
+    ): OptionT[FutureUnlessShutdown, Set[LfPartyId]] =
       localVerdict match {
         case malformed: LocalReject if malformed.isMalformed =>
           malformed.logWithContext(
@@ -90,14 +90,14 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
             confirmingParties -- declaredConfirmingParties
           for {
             _ <-
-              if (unexpectedConfirmingParties.isEmpty) OptionT.some[Future](())
+              if (unexpectedConfirmingParties.isEmpty) OptionT.some[FutureUnlessShutdown](())
               else {
                 MediatorError.MalformedMessage
                   .Reject(
                     s"Received a confirmation response at $responseTimestamp by $sender for request $requestId with unexpected confirming parties $unexpectedConfirmingParties. Discarding response..."
                   )
                   .report()
-                OptionT.none[Future, Unit]
+                OptionT.none[FutureUnlessShutdown, Unit]
               }
 
             expectedConfirmingParties =
@@ -113,20 +113,20 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
                 }
             )
             _ <-
-              if (unauthorizedConfirmingParties.isEmpty) OptionT.some[Future](())
+              if (unauthorizedConfirmingParties.isEmpty) OptionT.some[FutureUnlessShutdown](())
               else {
                 MediatorError.MalformedMessage
                   .Reject(
                     s"Received an unauthorized confirmation response at $responseTimestamp by $sender for request $requestId on behalf of $unauthorizedConfirmingParties. Discarding response..."
                   )
                   .report()
-                OptionT.none[Future, Unit]
+                OptionT.none[FutureUnlessShutdown, Unit]
               }
           } yield confirmingParties
       }
 
     for {
-      _ <- OptionT.fromOption[Future](
+      _ <- OptionT.fromOption[FutureUnlessShutdown](
         if (request.rootHash == rootHash) Some(())
         else {
           val cause =
@@ -173,7 +173,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
             OptionT.liftF(ret)
           case Some(viewKey) =>
             for {
-              viewConfirmationParameters <- OptionT.fromOption[Future](
+              viewConfirmationParameters <- OptionT.fromOption[FutureUnlessShutdown](
                 ViewKey[VKEY].informeesAndThresholdByKey(request).get(viewKey).orElse {
                   val cause =
                     s"Received a confirmation response at $responseTimestamp by $sender for request $requestId with an unknown view position $viewKey. Discarding response..."

@@ -21,7 +21,7 @@ import com.digitalasset.canton.domain.sequencing.config.SequencerParameters
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError
 import com.digitalasset.canton.domain.sequencing.sequencer.{Sequencer, SequencerValidations}
 import com.digitalasset.canton.domain.sequencing.service.GrpcSequencerService.*
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
@@ -222,11 +222,10 @@ class GrpcSequencerService(
         .right[SendAsyncError](
           domainParamsLookup.getApproximateOrDefaultValue(warnOnUsingDefaults(senderFromMetadata))
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
       request <- EitherT.fromEither[FutureUnlessShutdown](
         parseAndValidate(domainParameters.maxRequestSize)
       )
-      _ <- checkRate(request.content).mapK(FutureUnlessShutdown.outcomeK)
+      _ <- checkRate(request.content)
       _ <- sequencer.sendAsyncSigned(request)
     } yield ()
 
@@ -346,7 +345,7 @@ class GrpcSequencerService(
       request: SubmissionRequest
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SendAsyncError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] = {
     val sender = request.sender
     def checkRate(
         participantId: ParticipantId,
@@ -372,10 +371,12 @@ class GrpcSequencerService(
           confirmationRequestsMaxRate <- EitherT
             .right(domainParamsLookup.getApproximateOrDefaultValue())
             .map(_.confirmationRequestsMaxRate)
-          _ <- EitherT.fromEither[Future](checkRate(participantId, confirmationRequestsMaxRate))
+          _ <- EitherT.fromEither[FutureUnlessShutdown](
+            checkRate(participantId, confirmationRequestsMaxRate)
+          )
         } yield ()
       case _ =>
-        EitherT.rightT[Future, SendAsyncError](())
+        EitherT.rightT[FutureUnlessShutdown, SendAsyncError](())
     }
   }
 
@@ -500,8 +501,10 @@ class GrpcSequencerService(
       request <- validatedRequestE.toEitherT[Future]
       _ <- (request match {
         case s: SignedAcknowledgeRequest =>
-          sequencer
-            .acknowledgeSigned(s.signedRequest)
+          CantonGrpcUtil.shutdownAsGrpcErrorE(
+            sequencer
+              .acknowledgeSigned(s.signedRequest)
+          )
       }).leftMap(e =>
         Status.INVALID_ARGUMENT.withDescription(s"Could not acknowledge $e").asException()
       )
@@ -583,10 +586,10 @@ class GrpcSequencerService(
           .initialSnapshot(request.member)
       )
       .onComplete {
-        case Success(Left(parsingError)) =>
+        case Success(UnlessShutdown.Outcome(Left(parsingError))) =>
           responseObserver.onError(ProtoDeserializationFailure.Wrap(parsingError).asGrpcError)
 
-        case Success(Right(initialSnapshot)) =>
+        case Success(UnlessShutdown.Outcome(Right(initialSnapshot))) =>
           initialSnapshot.result.grouped(maxItemsInTopologyResponse.value).foreach { batch =>
             val response =
               TopologyStateForInitResponse(Traced(StoredTopologyTransactions(batch)))
@@ -596,6 +599,8 @@ class GrpcSequencerService(
 
         case Failure(exception) =>
           responseObserver.onError(exception)
+        case Success(UnlessShutdown.AbortedDueToShutdown) =>
+          responseObserver.onCompleted()
       }
   }
 

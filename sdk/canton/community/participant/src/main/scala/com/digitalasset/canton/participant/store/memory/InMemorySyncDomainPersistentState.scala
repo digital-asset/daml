@@ -16,6 +16,7 @@ import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.store.{
   AcsCounterParticipantConfigStore,
   AcsInspection,
+  ContractStore,
   SyncDomainPersistentState,
 }
 import com.digitalasset.canton.participant.topology.ParticipantTopologyValidation
@@ -46,6 +47,7 @@ class InMemorySyncDomainPersistentState(
     val staticDomainParameters: StaticDomainParameters,
     override val enableAdditionalConsistencyChecks: Boolean,
     indexedStringStore: IndexedStringStore,
+    contractStore: ContractStore,
     acsCounterParticipantConfigStore: AcsCounterParticipantConfigStore,
     exitOnFatalFailures: Boolean,
     packageDependencyResolver: PackageDependencyResolver,
@@ -58,7 +60,6 @@ class InMemorySyncDomainPersistentState(
 
   override val pureCryptoApi: CryptoPureApi = crypto.pureCrypto
 
-  val contractStore = new InMemoryContractStore(loggerFactory)
   val activeContractStore =
     new InMemoryActiveContractStore(
       indexedStringStore,

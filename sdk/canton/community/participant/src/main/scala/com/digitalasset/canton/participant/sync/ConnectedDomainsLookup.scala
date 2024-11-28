@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.sync
 
 import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.util.SingleUseCell
 
 import scala.collection.concurrent.TrieMap
 
@@ -23,4 +24,26 @@ object ConnectedDomainsLookup {
 
       override def snapshot: collection.Map[DomainId, SyncDomain] = connected.readOnlySnapshot()
     }
+}
+
+class ConnectedDomainsLookupContainer extends ConnectedDomainsLookup {
+
+  private val delegateCell: SingleUseCell[ConnectedDomainsLookup] =
+    new SingleUseCell[ConnectedDomainsLookup]
+
+  def registerDelegate(delegate: ConnectedDomainsLookup): Unit =
+    delegateCell
+      .putIfAbsent(delegate)
+      .foreach(_ => throw new IllegalStateException("Already registered delegate"))
+
+  private def tryGetDelegate: ConnectedDomainsLookup =
+    delegateCell.getOrElse(
+      throw new IllegalStateException("Not yet registered")
+    )
+
+  override def get(domainId: DomainId): Option[SyncDomain] =
+    tryGetDelegate.get(domainId)
+
+  override def snapshot: collection.Map[DomainId, SyncDomain] =
+    tryGetDelegate.snapshot
 }

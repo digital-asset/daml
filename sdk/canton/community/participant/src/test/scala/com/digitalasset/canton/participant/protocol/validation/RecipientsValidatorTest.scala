@@ -114,7 +114,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
 
         val (wrongRecipients, goodInputs) = validator
           .retainInputsWithValidRecipients(requestId, Seq(input), snapshot, None)
-          .futureValue
+          .futureValueUS
 
         goodInputs shouldBe Seq(input)
         wrongRecipients shouldBe empty
@@ -137,7 +137,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
             snapshot,
             None,
           )
-          .futureValue
+          .futureValueUS
 
         goodInputs shouldBe Seq(parentInput, childInput)
         wrongRecipients shouldBe empty
@@ -151,7 +151,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
         val (wrongRecipients, goodInputs) = loggerFactory.assertLogs(
           validator
             .retainInputsWithValidRecipients(requestId, Seq(input), snapshot, None)
-            .futureValue,
+            .futureValueUS,
           _.shouldBeCantonError(
             SyncServiceAlarm,
             _ shouldBe s"""Received a request with id $requestId where the view at ViewPosition("") has informees without an active participant: Set(inactive::default). Discarding ViewPosition("")...""",
@@ -185,7 +185,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
               snapshot,
               Some(submissionSnapshot),
             )
-            .futureValue
+            .futureValueUS
             // No assertion to explicitly check that no warning is emitted
         )
 
@@ -228,7 +228,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
               snapshot,
               None,
             )
-            .futureValue,
+            .futureValueUS,
           _.shouldBeCantonError(
             SyncServiceAlarm,
             _ shouldBe s"""Received a request with id $requestId where the view at ViewPosition("", "") has informees without an active participant: Set(inactive::default). Discarding ViewPosition("", "")...""",
@@ -270,7 +270,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
               snapshot,
               Some(submissionSnapshot),
             )
-            .futureValue
+            .futureValueUS
             // No assertion to explicitly check that no warning is emitted
         )
 
@@ -289,7 +289,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
         val (wrongRecipients, goodInputs) = loggerFactory.assertLogs(
           validator
             .retainInputsWithValidRecipients(requestId, Seq(input), snapshot, None)
-            .futureValue,
+            .futureValueUS,
           _.shouldBeCantonError(
             SyncServiceAlarm,
             _ shouldBe s"""Received a request with id $requestId where the view at List("") has missing recipients Set(MemberRecipient(PAR::participant2::default)) for the view at List(""). Discarding List("") with all ancestors...""",
@@ -323,7 +323,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
               snapshot,
               Some(submissionSnapshot),
             )
-            .futureValue
+            .futureValueUS
             // No assertion to explicitly check that no warning is emitted
         )
 
@@ -351,7 +351,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
               snapshot,
               None,
             )
-            .futureValue,
+            .futureValueUS,
           _.shouldBeCantonError(
             SyncServiceAlarm,
             _ shouldBe s"""Received a request with id $requestId where the view at List("", "") has missing recipients Set(MemberRecipient(PAR::participant2::default)) for the view at List(""). Discarding List("") with all ancestors...""",
@@ -372,7 +372,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
         val (wrongRecipients, goodInputs) = loggerFactory.assertLogs(
           validator
             .retainInputsWithValidRecipients(requestId, Seq(input), snapshot, None)
-            .futureValue,
+            .futureValueUS,
           _.shouldBeCantonError(
             SyncServiceAlarm,
             _ shouldBe s"""Received a request with id $requestId where the view at List("") has extra recipients Set(MemberRecipient(PAR::participant2::default)) for the view at List(""). Continue processing...""",
@@ -409,7 +409,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
               snapshot,
               Some(submissionSnapshot),
             )
-            .futureValue
+            .futureValueUS
             // No assertion to explicitly check that no warning is emitted
         )
 
@@ -435,7 +435,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
               snapshot,
               None,
             )
-            .futureValue,
+            .futureValueUS,
           _.shouldBeCantonError(
             SyncServiceAlarm,
             _ shouldBe s"""Received a request with id $requestId where the view at List("", "") has extra recipients Set(MemberRecipient(PAR::participant2::default)) for the view at List(""). Continue processing...""",
@@ -461,7 +461,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
         val (wrongRecipients, goodInputs) = loggerFactory.assertLogs(
           validator
             .retainInputsWithValidRecipients(requestId, Seq(input), snapshot, None)
-            .futureValue,
+            .futureValueUS,
           _.shouldBeCantonError(
             SyncServiceAlarm,
             _ shouldBe
@@ -487,7 +487,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
               snapshot,
               None,
             )
-            .futureValue,
+            .futureValueUS,
           _.shouldBeCantonError(
             SyncServiceAlarm,
             _ shouldBe s"""Received a request with id $requestId where the view at List("", "") has no recipients group for List(""). Discarding List("") with all ancestors...""",
@@ -522,7 +522,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
               snapshot,
               None,
             )
-            .futureValue,
+            .futureValueUS,
           _.shouldBeCantonError(
             SyncServiceAlarm,
             _ shouldBe s"""Received a request with id $requestId where the view at List("") is missing. Discarding all ancestors of List("")...""",
@@ -566,7 +566,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
                 snapshot,
                 None,
               )
-              .futureValue,
+              .futureValueUS,
             _.shouldBeCantonError(
               SyncServiceAlarm,
               _ should startWith(
@@ -616,7 +616,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
                 snapshot,
                 None,
               )
-              .futureValue,
+              .futureValueUS,
             _.shouldBeCantonError(
               SyncServiceAlarm,
               _ should startWith(

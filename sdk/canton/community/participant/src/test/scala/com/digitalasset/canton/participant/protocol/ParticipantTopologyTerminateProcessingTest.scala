@@ -12,6 +12,7 @@ import com.digitalasset.canton.ledger.participant.state.Update.{
   SequencerIndexMoved,
   TopologyTransactionEffective,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.topology.*
@@ -29,7 +30,7 @@ import com.digitalasset.canton.topology.store.{
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.*
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, SequencerCounter}
 import org.mockito.ArgumentCaptor
 import org.scalatest.wordspec.AsyncWordSpec
 import org.slf4j.event.Level
@@ -40,6 +41,7 @@ import scala.jdk.CollectionConverters.*
 class ParticipantTopologyTerminateProcessingTest
     extends AsyncWordSpec
     with BaseTest
+    with FailOnShutdown
     with HasExecutionContext {
 
   protected def mkStore: TopologyStore[TopologyStoreId.DomainStore] = new InMemoryTopologyStore(
@@ -116,7 +118,7 @@ class ParticipantTopologyTerminateProcessingTest
       store: TopologyStore[TopologyStoreId.DomainStore],
       timestamp: CantonTimestamp,
       transactions: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
-  ): Future[Unit] =
+  ): FutureUnlessShutdown[Unit] =
     for {
       _ <- store.update(
         SequencedTime(timestamp),

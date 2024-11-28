@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.domain.block.update
 
-import cats.implicits.catsStdInstancesForFuture
 import cats.syntax.alternative.*
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
@@ -213,11 +212,9 @@ private[update] final class BlockChunkProcessor(
         s"Obtained topology snapshot for topology tick at $tickSequencingTimestamp after processing block $height"
       )
       sequencerRecipients <-
-        FutureUnlessShutdown.outcomeF(
-          GroupAddressResolver.resolveGroupsToMembers(
-            Set(SequencersOfDomain),
-            snapshot.ipsSnapshot,
-          )
+        GroupAddressResolver.resolveGroupsToMembers(
+          Set(SequencersOfDomain),
+          snapshot.ipsSnapshot,
         )
     } yield {
       val newState =
@@ -433,7 +430,7 @@ private[update] final class BlockChunkProcessor(
           SequencerError.InvalidAcknowledgementTimestamp.Error(member, timestamp, state.lastBlockTs)
         (member, timestamp, error)
       })
-      sigChecks <- FutureUnlessShutdown.outcomeF(Future.sequence(goodTsAcks.map(_.withTraceContext {
+      sigChecks <- FutureUnlessShutdown.sequence(goodTsAcks.map(_.withTraceContext {
         implicit traceContext => signedAck =>
           val ack = signedAck.content
           signedAck
@@ -451,7 +448,7 @@ private[update] final class BlockChunkProcessor(
               )
             )
             .map(_ => (ack.member, ack.timestamp))
-      }.value)))
+      }.value))
       (invalidSigAcks, validSigAcks) = sigChecks.separate
       acksByMember = validSigAcks
         // Look for the highest acked timestamp by each member

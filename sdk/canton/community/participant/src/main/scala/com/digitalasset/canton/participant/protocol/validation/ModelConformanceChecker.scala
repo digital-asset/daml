@@ -35,11 +35,7 @@ import com.digitalasset.canton.participant.protocol.validation.ModelConformanceC
   PackageNotFound,
   *,
 }
-import com.digitalasset.canton.participant.store.{
-  ContractLookup,
-  ExtendedContractLookup,
-  StoredContract,
-}
+import com.digitalasset.canton.participant.store.{ExtendedContractLookup, StoredContract}
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.participant.util.DAMLe.{
   HasReinterpret,
@@ -223,7 +219,7 @@ class ModelConformanceChecker(
             case ContractMismatch(actual, _) =>
               InvalidInputContract(cid, actual.templateId, view.viewHash): Error
           }
-          .map(_ => cid -> StoredContract(contract, requestCounter, isDivulged = true))
+          .map(_ => cid -> StoredContract(contract, requestCounter))
       }
       .map(_.toMap)
       .mapK(FutureUnlessShutdown.outcomeK)
@@ -276,8 +272,6 @@ class ModelConformanceChecker(
 
       contractLookupAndVerification =
         new ExtendedContractLookup(
-          // all contracts and keys specified explicitly
-          ContractLookup.noContracts(loggerFactory),
           viewInputContracts,
           resolverFromView,
           serializableContractAuthenticator,
@@ -387,7 +381,7 @@ class ModelConformanceChecker(
             TransactionTreeFactory.contractInstanceLookup(contractLookupAndVerification),
           keyResolver = resolverFromReinterpretation,
         )
-      ).leftMap(err => TransactionTreeError(err, view.viewHash)).mapK(FutureUnlessShutdown.outcomeK)
+      ).leftMap(err => TransactionTreeError(err, view.viewHash))
 
       (reconstructedView, suffixedTx) = reconstructedViewAndTx
 
@@ -410,9 +404,9 @@ class ModelConformanceChecker(
     val informees = view.viewCommonData.tryUnwrap.viewConfirmationParameters.informees
 
     EitherT(for {
-      informeeParticipantsByParty <- FutureUnlessShutdown.outcomeF(
+      informeeParticipantsByParty <-
         snapshot.activeParticipantsOfParties(informees.toSeq)
-      )
+
       informeeParticipants = informeeParticipantsByParty.values.flatten.toSet
       unvetted <- informeeParticipants.toSeq
         .parTraverse(p =>

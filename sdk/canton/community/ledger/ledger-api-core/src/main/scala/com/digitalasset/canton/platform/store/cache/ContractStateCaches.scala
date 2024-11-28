@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.cache
 
 import cats.data.NonEmptyVector
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.cache.ContractKeyStateValue.{Assigned, Unassigned}
@@ -14,6 +14,7 @@ import com.digitalasset.canton.platform.store.cache.ContractStateValue.{
   ExistingContractValue,
 }
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
+import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent.ReassignmentAccepted
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.transaction.GlobalKey
 
@@ -61,25 +62,26 @@ class ContractStateCaches(
               driverMetadata = created.driverMetadata,
             )
         )
+
       case archived: ContractStateEvent.Archived =>
         archived.globalKey.foreach { key =>
           keyMappingsBuilder.addOne(key -> Unassigned)
         }
         contractMappingsBuilder.addOne(archived.contractId -> Archived(archived.stakeholders))
+
+      case _: ReassignmentAccepted => ()
     }
 
     val keyMappings = keyMappingsBuilder.result()
     val contractMappings = contractMappingsBuilder.result()
 
     val validAt = eventsBatch.last.eventOffset
-    if (keyMappings.nonEmpty) {
-      keyState.putBatch(validAt, keyMappings)
-    }
+    keyState.putBatch(validAt, keyMappings)
     contractState.putBatch(validAt, contractMappings)
   }
 
   /** Reset the contract and key state caches to the specified offset. */
-  def reset(lastPersistedLedgerEnd: Option[AbsoluteOffset]): Unit = {
+  def reset(lastPersistedLedgerEnd: Option[Offset]): Unit = {
     keyState.reset(lastPersistedLedgerEnd)
     contractState.reset(lastPersistedLedgerEnd)
   }
@@ -87,7 +89,7 @@ class ContractStateCaches(
 
 object ContractStateCaches {
   def build(
-      initialCacheIndex: Option[AbsoluteOffset],
+      initialCacheIndex: Option[Offset],
       maxContractsCacheSize: Long,
       maxKeyCacheSize: Long,
       metrics: LedgerApiServerMetrics,

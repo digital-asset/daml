@@ -7,7 +7,6 @@ import cats.data.EitherT
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{
   ApiLoggingConfig,
-  CachingConfigs,
   DefaultProcessingTimeouts,
   ProcessingTimeout,
   SessionSigningKeysConfig,
@@ -112,7 +111,7 @@ class BlockSequencerTest
           topologyTransactionFactory.okm1bk5k1E_k1, // this one to allow verification of the sender's signature
         ).map(ValidatedTopologyTransaction(_, rejectionReason = None)),
       )
-      .futureValue
+      .futureValueUS
 
     private val topologyClient = new StoreBasedDomainTopologyClient(
       mock[Clock],
@@ -135,7 +134,6 @@ class BlockSequencerTest
       topologyClient,
       topologyTransactionFactory.cryptoApi.crypto,
       SessionSigningKeysConfig.disabled,
-      CachingConfigs.testing,
       defaultStaticDomainParameters,
       DefaultProcessingTimeouts.testing,
       FutureSupervisor.Noop,

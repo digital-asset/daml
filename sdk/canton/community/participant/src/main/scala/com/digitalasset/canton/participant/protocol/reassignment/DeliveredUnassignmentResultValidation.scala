@@ -8,7 +8,11 @@ import cats.syntax.foldable.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoApi}
 import com.digitalasset.canton.data.{CantonTimestamp, FullUnassignmentTree}
-import com.digitalasset.canton.participant.protocol.reassignment.DeliveredUnassignmentResultValidation.*
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.participant.protocol.reassignment.DeliveredUnassignmentResultValidation.{
+  Error,
+  *,
+}
 import com.digitalasset.canton.protocol.messages.{
   ConfirmationResultMessage,
   DeliveredUnassignmentResult,
@@ -20,7 +24,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 private[reassignment] final case class DeliveredUnassignmentResultValidation(
     unassignmentRequest: FullUnassignmentTree,
@@ -37,27 +41,28 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
   private val sourceDomainId = unassignmentRequest.sourceDomain
   private val reassigningParticipants = unassignmentRequest.reassigningParticipants
 
-  def validate: EitherT[Future, Error, Unit] =
+  def validate: EitherT[FutureUnlessShutdown, Error, Unit] =
     for {
       _ <- confirmationResultMessageValidation
       _ <- deliverEventValidation
     } yield ()
 
-  private def confirmationResultMessageValidation: EitherT[Future, Error, Unit] = for {
-    _ <- validateDomainId(result.domainId)
-    _ <- validateRequestId
-    _ <- validateRootHash
-    _ <- validateInformees
-    _ <- validateSignatures
-  } yield ()
+  private def confirmationResultMessageValidation: EitherT[FutureUnlessShutdown, Error, Unit] =
+    for {
+      _ <- validateDomainId(result.domainId)
+      _ <- validateRequestId
+      _ <- validateRootHash
+      _ <- validateInformees
+      _ <- validateSignatures
+    } yield ()
 
-  private def deliverEventValidation: EitherT[Future, Error, Unit] = {
+  private def deliverEventValidation: EitherT[FutureUnlessShutdown, Error, Unit] = {
     val deliver = deliveredUnassignmentResult.result.content
 
     for {
       _ <- validateDomainId(deliver.domainId)
       _ <- EitherTUtil
-        .condUnitET[Future][Error](
+        .condUnitET[FutureUnlessShutdown][Error](
           deliver.timestamp <= unassignmentDecisionTime,
           ResultTimestampExceedsDecisionTime(
             timestamp = deliver.timestamp,
@@ -67,31 +72,31 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
     } yield ()
   }
 
-  private def validateDomainId(domainId: DomainId): EitherT[Future, Error, Unit] =
-    EitherTUtil.condUnitET[Future](
+  private def validateDomainId(domainId: DomainId): EitherT[FutureUnlessShutdown, Error, Unit] =
+    EitherTUtil.condUnitET[FutureUnlessShutdown](
       domainId == sourceDomainId.unwrap,
       IncorrectDomain(sourceDomainId.unwrap, domainId),
     )
 
-  private def validateRequestId: EitherT[Future, Error, Unit] = {
+  private def validateRequestId: EitherT[FutureUnlessShutdown, Error, Unit] = {
     val expectedRequestId = RequestId(unassignmentRequestTs)
 
-    EitherTUtil.condUnitET[Future](
+    EitherTUtil.condUnitET[FutureUnlessShutdown](
       result.requestId == expectedRequestId,
       IncorrectRequestId(expectedRequestId, result.requestId),
     )
   }
 
-  private def validateRootHash: EitherT[Future, Error, Unit] = {
+  private def validateRootHash: EitherT[FutureUnlessShutdown, Error, Unit] = {
     val expectedRootHash = unassignmentRequest.rootHash
 
-    EitherTUtil.condUnitET[Future](
+    EitherTUtil.condUnitET[FutureUnlessShutdown](
       result.rootHash == expectedRootHash,
       IncorrectRootHash(expectedRootHash, result.rootHash),
     )
   }
 
-  private def validateInformees = {
+  private def validateInformees: EitherT[FutureUnlessShutdown, Error, Unit] = {
     val partyToParticipantsSourceF =
       sourceTopology.unwrap.ipsSnapshot.activeParticipantsOfPartiesWithInfo(
         stakeholders.all.toSeq
@@ -100,7 +105,7 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
       targetTopology.unwrap.activeParticipantsOfPartiesWithInfo(stakeholders.all.toSeq)
 
     // Check that each stakeholder is hosted on at least one reassigning participant
-    val stakeholdersHostedReassigningParticipants: Future[Either[Error, Unit]] = for {
+    val stakeholdersHostedReassigningParticipants: FutureUnlessShutdown[Either[Error, Unit]] = for {
       partyToParticipantsSource <- partyToParticipantsSourceF
       partyToParticipantsTarget <- partyToParticipantsTargetF
 
@@ -126,14 +131,14 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
       unassignmentRequest.stakeholders.all + unassignmentRequest.submitterMetadata.submittingAdminParty
     for {
       _ <- EitherT(stakeholdersHostedReassigningParticipants)
-      _ <- EitherTUtil.condUnitET[Future][Error](
+      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown][Error](
         result.informees == expectedInformees,
         IncorrectInformees(expectedInformees, result.informees),
       )
     } yield ()
   }
 
-  private def validateSignatures: EitherT[Future, Error, Unit] =
+  private def validateSignatures: EitherT[FutureUnlessShutdown, Error, Unit] =
     for {
       // Mediators signatures on the confirmation result
       _ <- deliveredUnassignmentResult.signedConfirmationResult

@@ -433,7 +433,7 @@ class TopologyAdministrationGroup(
                - "<domain-id>": the topology transaction will be looked up in the specified domain store.
         includeProposals: when true, the result could be the latest proposal, otherwise will only return the latest fully authorized transaction"""
     )
-    def findLatestByMappingHash[M <: TopologyMapping: ClassTag](
+    def find_latest_by_mapping_hash[M <: TopologyMapping: ClassTag](
         mappingHash: MappingHash,
         filterStore: String,
         includeProposals: Boolean = false,
@@ -447,6 +447,29 @@ class TopologyAdministrationGroup(
           list(filterStore = filterStore, proposals = true)
             .collectOfMapping[M]
             .filter(_.mapping.uniqueKey == mappingHash)
+            .result
+        else Seq.empty
+      (latestAuthorized ++ latestProposal).maxByOption(_.serial)
+    }
+
+    @Help.Summary("Find the latest transaction for a given mapping hash")
+    @Help.Description(
+      """
+        store: - "Authorized": the topology transaction will be looked up in the node's authorized store.
+               - "<domain-id>": the topology transaction will be looked up in the specified domain store.
+        includeProposals: when true, the result could be the latest proposal, otherwise will only return the latest fully authorized transaction"""
+    )
+    def find_latest_by_mapping[M <: TopologyMapping: ClassTag](
+        filterStore: String,
+        includeProposals: Boolean = false,
+    ): Option[StoredTopologyTransaction[TopologyChangeOp, M]] = {
+      val latestAuthorized = list(filterStore = filterStore)
+        .collectOfMapping[M]
+        .result
+      val latestProposal =
+        if (includeProposals)
+          list(filterStore = filterStore, proposals = true)
+            .collectOfMapping[M]
             .result
         else Seq.empty
       (latestAuthorized ++ latestProposal).maxByOption(_.serial)
@@ -500,7 +523,7 @@ class TopologyAdministrationGroup(
 
       def latest[M <: TopologyMapping: ClassTag](hash: MappingHash) =
         instance.topology.transactions
-          .findLatestByMappingHash[M](
+          .find_latest_by_mapping_hash[M](
             hash,
             filterStore = AuthorizedStore.filterName,
             includeProposals = true,

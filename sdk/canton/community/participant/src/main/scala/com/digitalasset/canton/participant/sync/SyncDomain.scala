@@ -128,7 +128,7 @@ class SyncDomain(
     testingConfig: TestingConfigInternal,
 )(implicit ec: ExecutionContext, tracer: Tracer)
     extends NamedLogging
-    with StartAndCloseable[Either[SyncDomainInitializationError, Unit]]
+    with FlagCloseableAsync
     with ReassignmentSubmissionHandle
     with CloseableHealthComponent
     with AtomicHealthComponent
@@ -271,14 +271,13 @@ class SyncDomain(
         futureSupervisor,
         persistent.activeContractStore,
         participantNodePersistentState.value.acsCounterParticipantConfigStore,
-        persistent.contractStore,
+        participantNodePersistentState.value.contractStore,
         persistent.enableAdditionalConsistencyChecks,
         loggerFactory,
         testingConfig,
         clock,
         exitOnFatalFailures = parameters.exitOnFatalFailures,
       )
-      _ = ephemeral.recordOrderPublisher.setAcsChangeListener(listener)
     } yield listener
   }
 
@@ -382,7 +381,7 @@ class SyncDomain(
     def liftF[A](f: Future[A]): EitherT[Future, SyncDomainInitializationError, A] = EitherT.right(f)
 
     def withMetadataSeq(cids: Seq[LfContractId]): Future[Seq[StoredContract]] =
-      persistent.contractStore
+      participantNodePersistentState.value.contractStore
         .lookupManyExistingUncached(cids)
         .valueOr { missingContractId =>
           ErrorUtil.internalError(
@@ -451,7 +450,6 @@ class SyncDomain(
               acp.initializeTicksOnStartup(changes.map(_.validFrom).toList)
             }
           })
-          .mapK(FutureUnlessShutdown.outcomeK)
       } yield ()
     }
 
@@ -509,11 +507,9 @@ class SyncDomain(
       topologyClient
         .awaitSnapshotUS(resubscriptionTs)
         .flatMap(snapshot =>
-          FutureUnlessShutdown.outcomeF(
-            snapshot.findDynamicDomainParametersOrDefault(
-              staticDomainParameters.protocolVersion,
-              warnOnUsingDefault = false,
-            )
+          snapshot.findDynamicDomainParametersOrDefault(
+            staticDomainParameters.protocolVersion,
+            warnOnUsingDefault = false,
           )
         )
         .map(_.topologyChangeDelay)
@@ -534,7 +530,7 @@ class SyncDomain(
 
     for {
       // Prepare missing key alerter
-      _ <- EitherT.right(missingKeysAlerter.init()).mapK(FutureUnlessShutdown.outcomeK)
+      _ <- EitherT.right(missingKeysAlerter.init())
 
       // Phase 0: Initialise topology client at current clean head
       _ <- EitherT.right(initializeClientAtCleanHead())
@@ -575,154 +571,154 @@ class SyncDomain(
         } else EitherT.pure[FutureUnlessShutdown, SyncDomainInitializationError](Seq.empty)
       acp <- EitherT.right[SyncDomainInitializationError](acsCommitmentProcessor)
       _ = acsChangesToReplay.foreach { case (toc, change) =>
-        acp.publish(
-          toc,
-          change,
-          Future.unit, // corresponding publications already happened
-        )
+        acp.publish(toc, change)
       }
     } yield ()
   }
 
-  protected def startAsync()(implicit
+  /** Starts the sync domain. NOTE: Must only be called at most once on a sync domain instance. */
+  private[sync] def start()(implicit
       initializationTraceContext: TraceContext
-  ): FutureUnlessShutdown[Either[SyncDomainInitializationError, Unit]] = {
+  ): FutureUnlessShutdown[Either[SyncDomainInitializationError, Unit]] =
+    performUnlessClosingUSF("start") {
 
-    val delayLogger = new DelayLogger(
-      clock,
-      logger,
-      parameters.delayLoggingThreshold,
-      metrics.sequencerClient.handler.delay,
-    )
+      val delayLogger = new DelayLogger(
+        clock,
+        logger,
+        parameters.delayLoggingThreshold,
+        metrics.sequencerClient.handler.delay,
+      )
 
-    def firstUnpersistedEventScF: Future[SequencerCounter] =
-      persistent.sequencedEventStore
-        .find(SequencedEventStore.LatestUpto(CantonTimestamp.MaxValue))(initializationTraceContext)
-        .fold(_ => SequencerCounter.Genesis, _.counter + 1)
-
-    val cleanProcessingTs =
-      ephemeral.startingPoints.processing.prenextTimestamp
-    // note: we need the optional here, since it changes the behavior inside (subscribing from Some(CantonTimestamp.MinValue) would result in timeouts at requesting topology snapshot ... has not completed after...)
-    val cleanProcessingTsO = Some(cleanProcessingTs)
-      .filterNot(_ == CantonTimestamp.MinValue)
-    val subscriptionPriorTs = {
-      val cleanReplayTs = ephemeral.startingPoints.cleanReplay.prenextTimestamp
-      Ordering[CantonTimestamp].min(cleanReplayTs, cleanProcessingTs)
-    }
-
-    def waitForParticipantToBeInTopology(implicit
-        initializationTraceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, SyncDomainInitializationError, Unit] =
-      EitherT(
-        domainHandle.topologyClient
-          .await(_.isParticipantActive(participantId), timeouts.verifyActive.duration)
-          .map(isActive =>
-            Either.cond(
-              isActive,
-              (),
-              ParticipantDidNotBecomeActive(
-                s"Participant did not become active after ${timeouts.verifyActive.duration}"
-              ),
-            )
+      def firstUnpersistedEventScF: Future[SequencerCounter] =
+        persistent.sequencedEventStore
+          .find(SequencedEventStore.LatestUpto(CantonTimestamp.MaxValue))(
+            initializationTraceContext
           )
-      )
+          .fold(_ => SequencerCounter.Genesis, _.counter + 1)
 
-    // Initialize, replay and process stored events, then subscribe to new events
-    (for {
-      _ <- initialize(initializationTraceContext)
-      firstUnpersistedEventSc <- EitherT
-        .liftF(firstUnpersistedEventScF)
-        .mapK(FutureUnlessShutdown.outcomeK)
-      md <- EitherT
-        .liftF(messageDispatcher)
-      monitor = new SyncDomain.EventProcessingMonitor(
-        ephemeral.startingPoints,
-        firstUnpersistedEventSc,
-        delayLogger,
-        loggerFactory,
-      )
-      messageHandler =
-        new ApplicationHandler[
-          Lambda[`+X <: Envelope[_]` => Traced[Seq[PossiblyIgnoredSequencedEvent[X]]]],
-          ClosedEnvelope,
-        ] {
-          override def name: String = s"sync-domain-$domainId"
+      val cleanProcessingTs =
+        ephemeral.startingPoints.processing.prenextTimestamp
+      // note: we need the optional here, since it changes the behavior inside (subscribing from Some(CantonTimestamp.MinValue) would result in timeouts at requesting topology snapshot ... has not completed after...)
+      val cleanProcessingTsO = Some(cleanProcessingTs)
+        .filterNot(_ == CantonTimestamp.MinValue)
+      val subscriptionPriorTs = {
+        val cleanReplayTs = ephemeral.startingPoints.cleanReplay.prenextTimestamp
+        Ordering[CantonTimestamp].min(cleanReplayTs, cleanProcessingTs)
+      }
 
-          override def subscriptionStartsAt(
-              start: SubscriptionStart,
-              domainTimeTracker: DomainTimeTracker,
-          )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-            Seq(
-              for {
-                tp <- topologyProcessor
-                _ <- tp.subscriptionStartsAt(start, domainTimeTracker)(traceContext)
-              } yield (),
-              trafficProcessor.subscriptionStartsAt(start, domainTimeTracker)(traceContext),
-            ).parSequence_
+      def waitForParticipantToBeInTopology(implicit
+          initializationTraceContext: TraceContext
+      ): EitherT[FutureUnlessShutdown, SyncDomainInitializationError, Unit] =
+        EitherT(
+          domainHandle.topologyClient
+            .awaitUS(_.isParticipantActive(participantId), timeouts.verifyActive.duration)
+            .map(isActive =>
+              Either.cond(
+                isActive,
+                (),
+                ParticipantDidNotBecomeActive(
+                  s"Participant did not become active after ${timeouts.verifyActive.duration}"
+                ),
+              )
+            )
+        )
 
-          override def apply(
-              tracedEvents: BoxedEnvelope[Lambda[
-                `+X <: Envelope[_]` => Traced[Seq[PossiblyIgnoredSequencedEvent[X]]]
-              ], ClosedEnvelope]
-          ): HandlerResult =
-            tracedEvents.withTraceContext { traceContext => closedEvents =>
-              val openEvents = closedEvents.map { event =>
-                val openedEvent = PossiblyIgnoredSequencedEvent.openEnvelopes(event)(
-                  staticDomainParameters.protocolVersion,
-                  domainCrypto.crypto.pureCrypto,
-                )
+      // Initialize, replay and process stored events, then subscribe to new events
+      (for {
+        _ <- initialize(initializationTraceContext)
+        firstUnpersistedEventSc <- EitherT
+          .liftF(firstUnpersistedEventScF)
+          .mapK(FutureUnlessShutdown.outcomeK)
+        md <- EitherT
+          .liftF(messageDispatcher)
+        monitor = new SyncDomain.EventProcessingMonitor(
+          ephemeral.startingPoints,
+          firstUnpersistedEventSc,
+          delayLogger,
+          loggerFactory,
+        )
+        messageHandler =
+          new ApplicationHandler[
+            Lambda[`+X <: Envelope[_]` => Traced[Seq[PossiblyIgnoredSequencedEvent[X]]]],
+            ClosedEnvelope,
+          ] {
+            override def name: String = s"sync-domain-$domainId"
 
-                // Raise alarms
-                // TODO(i11804): Send a rejection
-                openedEvent.openingErrors.foreach { error =>
-                  val cause =
-                    s"Received an envelope at ${openedEvent.event.timestamp} that cannot be opened. " +
-                      s"Discarding envelope... Reason: $error"
-                  SyncServiceAlarm.Warn(cause).report()
+            override def subscriptionStartsAt(
+                start: SubscriptionStart,
+                domainTimeTracker: DomainTimeTracker,
+            )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+              Seq(
+                for {
+                  tp <- topologyProcessor
+                  _ <- tp.subscriptionStartsAt(start, domainTimeTracker)(traceContext)
+                } yield (),
+                trafficProcessor.subscriptionStartsAt(start, domainTimeTracker)(traceContext),
+              ).parSequence_
+
+            override def apply(
+                tracedEvents: BoxedEnvelope[Lambda[
+                  `+X <: Envelope[_]` => Traced[Seq[PossiblyIgnoredSequencedEvent[X]]]
+                ], ClosedEnvelope]
+            ): HandlerResult =
+              tracedEvents.withTraceContext { traceContext => closedEvents =>
+                val openEvents = closedEvents.map { event =>
+                  val openedEvent = PossiblyIgnoredSequencedEvent.openEnvelopes(event)(
+                    staticDomainParameters.protocolVersion,
+                    domainCrypto.crypto.pureCrypto,
+                  )
+
+                  // Raise alarms
+                  // TODO(i11804): Send a rejection
+                  openedEvent.openingErrors.foreach { error =>
+                    val cause =
+                      s"Received an envelope at ${openedEvent.event.timestamp} that cannot be opened. " +
+                        s"Discarding envelope... Reason: $error"
+                    SyncServiceAlarm.Warn(cause).report()
+                  }
+
+                  openedEvent
                 }
 
-                openedEvent
+                md.handleAll(Traced(openEvents)(traceContext))
               }
+          }
+        _ <- EitherT
+          .right[SyncDomainInitializationError](
+            sequencerClient.subscribeAfter(
+              subscriptionPriorTs,
+              cleanProcessingTsO,
+              monitor(messageHandler),
+              ephemeral.timeTracker,
+              tc =>
+                FutureUnlessShutdown.outcomeF(
+                  participantNodePersistentState.value.ledgerApiStore
+                    .cleanDomainIndex(domainId)(tc)
+                    .map(_.sequencerIndex.map(_.timestamp))
+                ),
+            )(initializationTraceContext)
+          )
+          .mapK(FutureUnlessShutdown.outcomeK)
 
-              md.handleAll(Traced(openEvents)(traceContext))
-            }
-        }
-      _ <- EitherT
-        .right[SyncDomainInitializationError](
-          sequencerClient.subscribeAfter(
-            subscriptionPriorTs,
-            cleanProcessingTsO,
-            monitor(messageHandler),
-            ephemeral.timeTracker,
-            tc =>
-              FutureUnlessShutdown.outcomeF(
-                participantNodePersistentState.value.ledgerApiStore
-                  .cleanDomainIndex(domainId)(tc)
-                  .map(_.sequencerIndex.map(_.timestamp))
-              ),
-          )(initializationTraceContext)
+        // wait for initial topology transactions to be sequenced and received before we start computing pending
+        // topology transactions to push for IDM approval
+        _ <- waitForParticipantToBeInTopology(initializationTraceContext)
+        _ <-
+          registerIdentityTransactionHandle
+            .domainConnected()(initializationTraceContext)
+            .leftMap[SyncDomainInitializationError](ParticipantTopologyHandshakeError.apply)
+      } yield {
+        logger.debug(s"Started sync domain for $domainId")(initializationTraceContext)
+        ephemeral.markAsRecovered()
+        logger.debug("Sync domain is ready.")(initializationTraceContext)
+        FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
+          completeAssignment,
+          "Failed to complete outstanding assignments on startup. " +
+            "You may have to complete the assignments manually.",
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
-
-      // wait for initial topology transactions to be sequenced and received before we start computing pending
-      // topology transactions to push for IDM approval
-      _ <- waitForParticipantToBeInTopology(initializationTraceContext)
-      _ <-
-        registerIdentityTransactionHandle
-          .domainConnected()(initializationTraceContext)
-          .leftMap[SyncDomainInitializationError](ParticipantTopologyHandshakeError.apply)
-    } yield {
-      logger.debug(s"Started sync domain for $domainId")(initializationTraceContext)
-      ephemeral.markAsRecovered()
-      logger.debug("Sync domain is ready.")(initializationTraceContext)
-      FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
-        completeAssignment,
-        "Failed to complete outstanding assignments on startup. " +
-          "You may have to complete the assignments manually.",
-      )
-      ()
-    }).value
-  }
+        ()
+      }).value
+    }
 
   private def completeAssignment(implicit tc: TraceContext): FutureUnlessShutdown[Unit] = {
 
@@ -745,7 +741,7 @@ class SyncDomain(
           .sequentialTraverse(pendingReassignments) { data =>
             logger.debug(s"Complete ${data.reassignmentId} after startup")
             val eitherF =
-              performUnlessClosingEitherU[ReassignmentProcessorError, Unit](functionFullName)(
+              performUnlessClosingEitherUSF[ReassignmentProcessorError, Unit](functionFullName)(
                 AutomaticAssignment.perform(
                   data.reassignmentId,
                   Target(domainId),
@@ -793,7 +789,7 @@ class SyncDomain(
           .getOrElse(Future.unit)
       )
 
-      _params <- performUnlessClosingF(functionFullName)(
+      _params <- performUnlessClosingUSF(functionFullName)(
         topologyClient.currentSnapshotApproximation.findDynamicDomainParametersOrDefault(
           staticDomainParameters.protocolVersion
         )

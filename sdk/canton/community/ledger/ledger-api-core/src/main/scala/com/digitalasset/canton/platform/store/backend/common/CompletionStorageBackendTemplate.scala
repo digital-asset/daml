@@ -8,19 +8,19 @@ import anorm.{Row, RowParser, SimpleSql, ~}
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.platform.v1.index.StatusDetails
 import com.digitalasset.canton.SequencerCounter
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.indexer.parallel.{PostPublishData, PublishSource}
 import com.digitalasset.canton.platform.store.CompletionFromTransaction
 import com.digitalasset.canton.platform.store.backend.CompletionStorageBackend
 import com.digitalasset.canton.platform.store.backend.Conversions.{
-  absoluteOffset,
+  offset,
   timestampFromMicros,
   traceContextOption,
 }
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.interning.StringInterning
-import com.digitalasset.canton.platform.{ApiOffset, ApplicationId, Party}
+import com.digitalasset.canton.platform.{ApplicationId, Party}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -37,8 +37,8 @@ class CompletionStorageBackendTemplate(
     with NamedLogging {
 
   override def commandCompletions(
-      startInclusive: AbsoluteOffset,
-      endInclusive: AbsoluteOffset,
+      startInclusive: Offset,
+      endInclusive: Offset,
       applicationId: ApplicationId,
       parties: Set[Party],
       limit: Int,
@@ -88,10 +88,10 @@ class CompletionStorageBackendTemplate(
   }
 
   private val sharedColumns: RowParser[
-    Array[Int] ~ AbsoluteOffset ~ Timestamp ~ String ~ String ~ Option[String] ~ Int ~ TraceContext
+    Array[Int] ~ Offset ~ Timestamp ~ String ~ String ~ Option[String] ~ Int ~ TraceContext
   ] =
     array[Int]("submitters") ~
-      absoluteOffset("completion_offset") ~
+      offset("completion_offset") ~
       timestampFromMicros("record_time") ~
       str("command_id") ~
       str("application_id") ~
@@ -100,14 +100,14 @@ class CompletionStorageBackendTemplate(
       traceContextOption("trace_context")(noTracingLogger)
 
   private val acceptedCommandSharedColumns: RowParser[
-    Array[Int] ~ AbsoluteOffset ~ Timestamp ~ String ~ String ~ Option[
+    Array[Int] ~ Offset ~ Timestamp ~ String ~ String ~ Option[
       String
     ] ~ Int ~ TraceContext ~ String
   ] =
     sharedColumns ~ str("update_id")
 
-  private val deduplicationOffsetColumn: RowParser[Option[String]] =
-    str("deduplication_offset").?
+  private val deduplicationOffsetColumn: RowParser[Option[Long]] =
+    long("deduplication_offset").?
   private val deduplicationDurationSecondsColumn: RowParser[Option[Long]] =
     long("deduplication_duration_seconds").?
   private val deduplicationDurationNanosColumn: RowParser[Option[Int]] =
@@ -135,7 +135,7 @@ class CompletionStorageBackendTemplate(
             updateId = updateId,
             applicationId = applicationId,
             optSubmissionId = submissionId,
-            optDeduplicationOffset = deduplicationOffset.map(ApiOffset.assertFromStringToLong),
+            optDeduplicationOffset = deduplicationOffset,
             optDeduplicationDurationSeconds = deduplicationDurationSeconds,
             optDeduplicationDurationNanos = deduplicationDurationNanos,
             domainId = stringInterning.domainId.unsafe.externalize(internedDomainId),
@@ -174,7 +174,7 @@ class CompletionStorageBackendTemplate(
             status = status,
             applicationId = applicationId,
             optSubmissionId = submissionId,
-            optDeduplicationOffset = deduplicationOffset.map(ApiOffset.assertFromStringToLong),
+            optDeduplicationOffset = deduplicationOffset,
             optDeduplicationDurationSeconds = deduplicationDurationSeconds,
             optDeduplicationDurationNanos = deduplicationDurationNanos,
             domainId = stringInterning.domainId.unsafe.externalize(internedDomainId),
@@ -195,7 +195,7 @@ class CompletionStorageBackendTemplate(
       str("application_id") ~
       str("command_id") ~
       array[Int]("submitters") ~
-      absoluteOffset("completion_offset") ~
+      offset("completion_offset") ~
       long("publication_time") ~
       str("submission_id").? ~
       str("update_id").? ~
@@ -256,10 +256,10 @@ class CompletionStorageBackendTemplate(
       .getOrElse(Seq.empty)
 
   override def pruneCompletions(
-      pruneUpToInclusive: AbsoluteOffset
+      pruneUpToInclusive: Offset
   )(connection: Connection, traceContext: TraceContext): Unit =
     pruneWithLogging(queryDescription = "Command completions pruning") {
-      import com.digitalasset.canton.platform.store.backend.Conversions.AbsoluteOffsetToStatement
+      import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
       SQL"delete from lapi_command_completions where completion_offset <= $pruneUpToInclusive"
     }(connection, traceContext)
 
@@ -274,8 +274,8 @@ class CompletionStorageBackendTemplate(
   }
 
   override def commandCompletionsForRecovery(
-      startInclusive: AbsoluteOffset,
-      endInclusive: AbsoluteOffset,
+      startInclusive: Offset,
+      endInclusive: Offset,
   )(connection: Connection): Vector[PostPublishData] = {
     import ComposableQuery.*
     import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*

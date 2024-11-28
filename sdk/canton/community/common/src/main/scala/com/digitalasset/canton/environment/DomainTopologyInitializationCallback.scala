@@ -4,6 +4,7 @@
 package com.digitalasset.canton.environment
 
 import cats.data.EitherT
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
@@ -15,7 +16,7 @@ import com.digitalasset.canton.topology.{MediatorId, Member, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait DomainTopologyInitializationCallback {
   def callback(
@@ -25,7 +26,7 @@ trait DomainTopologyInitializationCallback {
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, String, GenericStoredTopologyTransactions]
+  ): EitherT[FutureUnlessShutdown, String, GenericStoredTopologyTransactions]
 }
 
 class StoreBasedDomainTopologyInitializationCallback(
@@ -39,9 +40,11 @@ class StoreBasedDomainTopologyInitializationCallback(
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, String, GenericStoredTopologyTransactions] =
+  ): EitherT[FutureUnlessShutdown, String, GenericStoredTopologyTransactions] =
     for {
-      topologyTransactions <- sequencerClient.downloadTopologyStateForInit()
+      topologyTransactions <- sequencerClient
+        .downloadTopologyStateForInit()
+        .mapK(FutureUnlessShutdown.outcomeK)
 
       _ <- EitherT.right(topologyStore.bootstrap(topologyTransactions))
 
@@ -56,7 +59,7 @@ class StoreBasedDomainTopologyInitializationCallback(
                 )
             )
             .map(storedTx => storedTx.sequenced -> storedTx.validFrom)
-          EitherT.fromEither[Future](
+          EitherT.fromEither[FutureUnlessShutdown](
             Either.cond(
               fromOnboardingTransaction.nonEmpty,
               fromOnboardingTransaction,
@@ -75,7 +78,7 @@ class StoreBasedDomainTopologyInitializationCallback(
             )
             .map(storedTx => storedTx.sequenced -> storedTx.validFrom)
 
-          EitherT.fromEither[Future](
+          EitherT.fromEither[FutureUnlessShutdown](
             Either.cond(
               fromOnboardingTransaction.nonEmpty,
               fromOnboardingTransaction,
@@ -83,7 +86,7 @@ class StoreBasedDomainTopologyInitializationCallback(
             )
           )
         case unexpectedMemberType =>
-          EitherT.leftT[Future, Seq[(SequencedTime, EffectiveTime)]](
+          EitherT.leftT[FutureUnlessShutdown, Seq[(SequencedTime, EffectiveTime)]](
             s"unexpected member type: $unexpectedMemberType"
           )
       }

@@ -4,8 +4,10 @@
 package com.digitalasset.canton.topology.store
 
 import cats.syntax.option.*
+import com.digitalasset.canton.FailOnShutdown
 import com.digitalasset.canton.config.CantonRequireTypes.String256M
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
@@ -13,11 +15,10 @@ import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.Future
-
 trait DownloadTopologyStateForInitializationServiceTest
     extends AsyncWordSpec
-    with TopologyStoreTestBase {
+    with TopologyStoreTestBase
+    with FailOnShutdown {
 
   protected def createTopologyStore(domainId: DomainId): TopologyStore[DomainStore]
 
@@ -68,7 +69,7 @@ trait DownloadTopologyStateForInitializationServiceTest
 
   private def initializeStore(
       storedTransactions: GenericStoredTopologyTransactions
-  ): Future[TopologyStore[DomainStore]] = {
+  ): FutureUnlessShutdown[TopologyStore[DomainStore]] = {
     val store = createTopologyStore(domainId1)
     store.bootstrap(storedTransactions).map(_ => store)
   }

@@ -14,7 +14,7 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdatesResponse,
 }
 import com.digitalasset.canton.data
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -69,13 +69,13 @@ private[dao] final class TransactionsReader(
   private val dbMetrics = metrics.index.db
 
   override def getFlatTransactions(
-      startInclusive: AbsoluteOffset,
-      endInclusive: AbsoluteOffset,
+      startInclusive: Offset,
+      endInclusive: Offset,
       filter: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(AbsoluteOffset, GetUpdatesResponse), NotUsed] = {
+  ): Source[(Offset, GetUpdatesResponse), NotUsed] = {
     val futureSource =
       getEventSeqIdRange(startInclusive, endInclusive)
         .map(queryRange =>
@@ -119,13 +119,13 @@ private[dao] final class TransactionsReader(
     )
 
   override def getTransactionTrees(
-      startInclusive: AbsoluteOffset,
-      endInclusive: AbsoluteOffset,
+      startInclusive: Offset,
+      endInclusive: Offset,
       requestingParties: Option[Set[Party]],
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(AbsoluteOffset, GetUpdateTreesResponse), NotUsed] = {
+  ): Source[(Offset, GetUpdateTreesResponse), NotUsed] = {
     val futureSource =
       getEventSeqIdRange(startInclusive, endInclusive)
         .map(queryRange =>
@@ -141,7 +141,7 @@ private[dao] final class TransactionsReader(
   }
 
   override def getActiveContracts(
-      activeAt: Option[AbsoluteOffset],
+      activeAt: Option[Offset],
       filter: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
@@ -163,7 +163,7 @@ private[dao] final class TransactionsReader(
           .mapMaterializedValue((_: Future[NotUsed]) => NotUsed)
     }
 
-  private def getMaxAcsEventSeqId(activeAt: AbsoluteOffset)(implicit
+  private def getMaxAcsEventSeqId(activeAt: Offset)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Long] =
     dispatcher
@@ -186,17 +186,17 @@ private[dao] final class TransactionsReader(
       )
 
   private def getEventSeqIdRange(
-      startInclusive: AbsoluteOffset,
-      endInclusive: AbsoluteOffset,
+      startInclusive: Offset,
+      endInclusive: Offset,
   )(implicit loggingContext: LoggingContextWithTrace): Future[EventsRange] =
     dispatcher
       .executeSql(dbMetrics.getEventSeqIdRange)(implicit connection =>
         queryValidRange.withRangeNotPruned(
           minOffsetInclusive = startInclusive,
           maxOffsetInclusive = endInclusive,
-          errorPruning = (prunedOffset: AbsoluteOffset) =>
+          errorPruning = (prunedOffset: Offset) =>
             s"Transactions request from ${startInclusive.unwrap} to ${endInclusive.unwrap} precedes pruned offset ${prunedOffset.unwrap}",
-          errorLedgerEnd = (ledgerEndOffset: Option[AbsoluteOffset]) =>
+          errorLedgerEnd = (ledgerEndOffset: Option[Offset]) =>
             s"Transactions request from ${startInclusive.unwrap} to ${endInclusive.unwrap} is beyond ledger end offset ${ledgerEndOffset
                 .fold(0L)(_.unwrap)}",
         ) {

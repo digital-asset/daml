@@ -7,7 +7,7 @@ import cats.data.{Chain, EitherT}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.reassignment.{
   IncompleteReassignmentData,
@@ -333,7 +333,7 @@ object ReassignmentCacheTest extends BaseTest {
 
     override def findIncomplete(
         sourceDomain: Option[Source[DomainId]],
-        validAt: AbsoluteOffset,
+        validAt: Offset,
         stakeholders: Option[NonEmpty[Set[LfPartyId]]],
         limit: NonNegativeInt,
     )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[IncompleteReassignmentData]] =
@@ -341,7 +341,7 @@ object ReassignmentCacheTest extends BaseTest {
 
     override def findEarliestIncomplete()(implicit
         traceContext: TraceContext
-    ): FutureUnlessShutdown[Option[(AbsoluteOffset, ReassignmentId, Target[DomainId])]] =
+    ): FutureUnlessShutdown[Option[(Offset, ReassignmentId, Target[DomainId])]] =
       baseStore.findEarliestIncomplete()
 
     override def lookup(reassignmentId: ReassignmentId)(implicit

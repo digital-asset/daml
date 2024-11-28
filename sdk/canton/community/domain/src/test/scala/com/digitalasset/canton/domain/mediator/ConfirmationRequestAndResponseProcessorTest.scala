@@ -19,6 +19,7 @@ import com.digitalasset.canton.domain.mediator.store.{
 }
 import com.digitalasset.canton.domain.metrics.MediatorTestMetrics
 import com.digitalasset.canton.error.MediatorError
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
@@ -49,7 +50,8 @@ class ConfirmationRequestAndResponseProcessorTest
     extends AsyncWordSpec
     with BaseTest
     with HasTestCloseContext
-    with HasExecutionContext {
+    with HasExecutionContext
+    with FailOnShutdown {
 
   protected val domainId: DomainId = DomainId(
     UniqueIdentifier.tryFromProtoPrimitive("domain::test")
@@ -264,7 +266,7 @@ class ConfirmationRequestAndResponseProcessorTest
       viewPosition: ViewPosition,
       verdict: LocalVerdict,
       requestId: RequestId,
-  ): Future[SignedProtocolMessage[ConfirmationResponse]] = {
+  ): FutureUnlessShutdown[SignedProtocolMessage[ConfirmationResponse]] = {
     val response: ConfirmationResponse = ConfirmationResponse.tryCreate(
       requestId,
       participant,
@@ -284,7 +286,6 @@ class ConfirmationRequestAndResponseProcessorTest
           .currentSnapshotApproximation,
         testedProtocolVersion,
       )
-      .failOnShutdown
   }
 
   def sign(tree: FullInformeeTree): Signature = identityFactory
@@ -854,11 +855,11 @@ class ConfirmationRequestAndResponseProcessorTest
         )
       )
         .thenAnswer { (_: ParticipantId, parties: Set[LfPartyId]) =>
-          Future.successful(parties)
+          FutureUnlessShutdown.pure(parties)
         }
       when(mockTopologySnapshot.consortiumThresholds(any[Set[LfPartyId]])(anyTraceContext))
         .thenAnswer { (parties: Set[LfPartyId]) =>
-          Future.successful(parties.map(x => x -> PositiveInt.one).toMap)
+          FutureUnlessShutdown.pure(parties.map(x => x -> PositiveInt.one).toMap)
         }
 
       for {
@@ -880,12 +881,10 @@ class ConfirmationRequestAndResponseProcessorTest
             ),
             batchAlsoContainsTopologyTransaction = false,
           )
-          .failOnShutdown
         // should record the request
         requestState <- sut.mediatorState
           .fetch(requestId)
           .value
-          .failOnShutdown("Unexpected shutdown.")
           .map(_.value)
         responseAggregation <-
           ResponseAggregation.fromRequest(
@@ -898,7 +897,7 @@ class ConfirmationRequestAndResponseProcessorTest
         _ = requestState shouldBe responseAggregation
         // receiving the confirmation response
         ts1 = CantonTimestamp.Epoch.plusMillis(1L)
-        approvals: Seq[SignedProtocolMessage[ConfirmationResponse]] <- sequentialTraverse(
+        approvals <- sequentialTraverse(
           List(
             view0Position -> view,
             view1Position -> factory.MultipleRootsAndViewNestings.view1,
@@ -913,7 +912,7 @@ class ConfirmationRequestAndResponseProcessorTest
             requestId,
           )
         }
-        _ <- sequentialTraverse_(approvals)(
+        _ <- sequentialTraverse(approvals)(
           sut.processor
             .processResponse(
               ts1,
@@ -924,13 +923,11 @@ class ConfirmationRequestAndResponseProcessorTest
               Some(requestId.unwrap),
               Recipients.cc(mediatorGroupRecipient),
             )
-            .failOnShutdown("Unexpected shutdown.")
         )
         // records the request
         updatedState <- sut.mediatorState
           .fetch(requestId)
           .value
-          .failOnShutdown("Unexpected shutdown.")
         _ = {
           inside(updatedState) {
             case Some(
@@ -1018,7 +1015,7 @@ class ConfirmationRequestAndResponseProcessorTest
             requestId,
           )
         }
-        _ <- sequentialTraverse_(approvals)(
+        _ <- sequentialTraverse(approvals)(
           sut.processor
             .processResponse(
               ts2,
@@ -1029,13 +1026,11 @@ class ConfirmationRequestAndResponseProcessorTest
               Some(requestId.unwrap),
               Recipients.cc(mediatorGroupRecipient),
             )
-            .failOnShutdown("Unexpected shutdown.")
         )
         // records the request
         finalState <- sut.mediatorState
           .fetch(requestId)
           .value
-          .failOnShutdown("Unexpected shutdown.")
       } yield {
         inside(finalState) {
           case Some(FinalizedResponse(`requestId`, `informeeMessage`, `ts2`, verdict)) =>
@@ -1284,8 +1279,7 @@ class ConfirmationRequestAndResponseProcessorTest
               response,
               Some(requestId.unwrap),
               Recipients.cc(mediatorGroupRecipient),
-            )
-            .failOnShutdown("Unexpected shutdown."),
+            ),
           _.warningMessage shouldBe s"Response $responseTs is too late as request RequestId($requestTs) has already exceeded the participant response deadline [$participantResponseDeadline]",
         )
       } yield succeed
@@ -1443,8 +1437,7 @@ class ConfirmationRequestAndResponseProcessorTest
               response,
               Some(requestId.unwrap),
               Recipients.cc(mediatorGroupRecipient),
-            )
-            .failOnShutdown("Unexpected shutdown."),
+            ),
           _.shouldBeCantonError(
             MediatorError.InvalidMessage,
             _ shouldBe show"Received a confirmation response at ${ts.immediateSuccessor} by $participant with an unknown request id $requestId. Discarding response...",
@@ -1490,8 +1483,7 @@ class ConfirmationRequestAndResponseProcessorTest
               // No timestamp of signing key given
               None,
               Recipients.cc(mediatorGroupRecipient),
-            )
-            .failOnShutdown("Unexpected shutdown."),
+            ),
           checkWrongTimestampOfSigningKeyError,
         )
 
@@ -1506,8 +1498,7 @@ class ConfirmationRequestAndResponseProcessorTest
               // Wrong timestamp of signing key given
               Some(requestId.unwrap.immediatePredecessor),
               Recipients.cc(mediatorGroupRecipient),
-            )
-            .failOnShutdown("Unexpected shutdown."),
+            ),
           checkWrongTimestampOfSigningKeyError,
         )
       } yield succeed

@@ -9,6 +9,7 @@ import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.LfPartyId
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.StakeholderHostingErrors
 import com.digitalasset.canton.protocol.Stakeholders
 import com.digitalasset.canton.topology.ParticipantId
@@ -19,7 +20,7 @@ import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.SingletonTraverse.syntax.SingletonTraverseOps
 import com.digitalasset.canton.util.{ReassignmentTag, SingletonTraverse}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 private[protocol] class ReassigningParticipantsComputation(
     stakeholders: Stakeholders,
@@ -37,19 +38,19 @@ private[protocol] class ReassigningParticipantsComputation(
     * - one signatory does not have enough signatory reassigning participants to meet
     *   the thresholds defined on both source and target domain
     */
-  def compute: EitherT[Future, UnassignmentProcessorError, Set[ParticipantId]] =
+  def compute: EitherT[FutureUnlessShutdown, UnassignmentProcessorError, Set[ParticipantId]] =
     for {
       sourceStakeholdersInfo <- getStakeholdersPartyInfo(sourceTopology)
       targetStakeholdersInfo <- getStakeholdersPartyInfo(targetTopology)
 
       reassigningParticipants <- EitherT
-        .fromEither[Future](
+        .fromEither[FutureUnlessShutdown](
           computeReassigningParticipants(sourceStakeholdersInfo, targetStakeholdersInfo)
         )
         .leftWiden[UnassignmentProcessorError]
 
       _ <- EitherT
-        .fromEither[Future](
+        .fromEither[FutureUnlessShutdown](
           Seq(sourceStakeholdersInfo, targetStakeholdersInfo)
             .traverse_(checkSignatoryReassigningParticipants(_, reassigningParticipants))
         )
@@ -138,7 +139,7 @@ private[protocol] class ReassigningParticipantsComputation(
   // Fails if one stakeholder is unknown.
   private def getStakeholdersPartyInfo[T[X] <: ReassignmentTag[X]: SingletonTraverse](
       topologySnapshot: T[TopologySnapshot]
-  ): EitherT[Future, StakeholderHostingErrors, T[Map[LfPartyId, PartyInfo]]] =
+  ): EitherT[FutureUnlessShutdown, StakeholderHostingErrors, T[Map[LfPartyId, PartyInfo]]] =
     EitherT(
       topologySnapshot
         .traverseSingleton((_, topology) =>

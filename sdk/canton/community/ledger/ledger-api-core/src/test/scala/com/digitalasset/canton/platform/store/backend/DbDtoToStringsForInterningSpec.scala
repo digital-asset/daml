@@ -87,7 +87,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
 
   private def fixture: List[DbDto] = List(
     DbDto.PartyEntry(
-      ledger_offset = "0",
+      ledger_offset = 1,
       recorded_at = 0,
       submission_id = Some("1"),
       party = Some("2"),
@@ -100,7 +100,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       externalString = "5",
     ),
     DbDto.EventCreate(
-      event_offset = "15",
+      event_offset = 15,
       update_id = "16",
       ledger_effective_time = 1,
       command_id = Some("17"),
@@ -130,7 +130,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
     ),
     DbDto.EventExercise(
       consuming = true,
-      event_offset = "40",
+      event_offset = 40,
       update_id = "41",
       ledger_effective_time = 1,
       command_id = Some("42"),
@@ -158,7 +158,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       record_time = 1,
     ),
     DbDto.CommandCompletion(
-      completion_offset = "64",
+      completion_offset = 64,
       record_time = 2,
       publication_time = 0,
       application_id = "65",
@@ -169,7 +169,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       rejection_status_message = Some("71"),
       rejection_status_details = None,
       submission_id = Some("72"),
-      deduplication_offset = Some("73"),
+      deduplication_offset = Some(73),
       deduplication_duration_seconds = Some(1),
       deduplication_duration_nanos = Some(1),
       deduplication_start = Some(1),
@@ -180,7 +180,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       trace_context = serializableTraceContext,
     ),
     DbDto.EventAssign(
-      event_offset = "",
+      event_offset = 1,
       update_id = "",
       command_id = None,
       workflow_id = None,
@@ -209,7 +209,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       record_time = 0,
     ),
     DbDto.EventUnassign(
-      event_offset = "",
+      event_offset = 1,
       update_id = "",
       command_id = None,
       workflow_id = None,

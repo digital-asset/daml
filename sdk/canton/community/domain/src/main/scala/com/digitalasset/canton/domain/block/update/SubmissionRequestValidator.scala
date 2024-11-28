@@ -210,12 +210,12 @@ private[update] final class SubmissionRequestValidator(
         topologyOrSequencingSnapshot,
         sequencingTimestamp,
       )
-        .mapK(validationK)
+        .mapK(validationFUSK)
       _ <- checkClosedEnvelopesSignatures(
         topologyOrSequencingSnapshot,
         submissionRequest,
         sequencingTimestamp,
-      ).mapK(validationK)
+      ).mapK(validationFUSK)
       groupToMembers <-
         groupRecipientsToMembers(
           submissionRequest,
@@ -295,8 +295,10 @@ private[update] final class SubmissionRequestValidator(
         )
       } yield Map((SequencersOfDomain: GroupRecipient) -> sequencers)
     } else
-      EitherT.rightT[Future, SubmissionRequestOutcome](Map.empty[GroupRecipient, Set[Member]])
-  }.mapK(FutureUnlessShutdown.outcomeK)
+      EitherT.rightT[FutureUnlessShutdown, SubmissionRequestOutcome](
+        Map.empty[GroupRecipient, Set[Member]]
+      )
+  }
 
   private def expandAllMembersOfDomainGroupRecipients(
       topologyOrSequencingSnapshot: SyncCryptoApi,
@@ -304,9 +306,11 @@ private[update] final class SubmissionRequestValidator(
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, SubmissionRequestOutcome, Map[GroupRecipient, Set[Member]]] = {
+  ): EitherT[FutureUnlessShutdown, SubmissionRequestOutcome, Map[GroupRecipient, Set[Member]]] =
     if (!groupRecipients.contains(AllMembersOfDomain)) {
-      EitherT.rightT[Future, SubmissionRequestOutcome](Map.empty[GroupRecipient, Set[Member]])
+      EitherT.rightT[FutureUnlessShutdown, SubmissionRequestOutcome](
+        Map.empty[GroupRecipient, Set[Member]]
+      )
     } else {
       for {
         allMembers <- EitherT.right[SubmissionRequestOutcome](
@@ -314,7 +318,6 @@ private[update] final class SubmissionRequestValidator(
         )
       } yield Map((AllMembersOfDomain: GroupRecipient, allMembers))
     }
-  }.mapK(FutureUnlessShutdown.outcomeK)
 
   private def expandMediatorGroupRecipients(
       submissionRequest: SubmissionRequest,
@@ -330,7 +333,9 @@ private[update] final class SubmissionRequestValidator(
         group
       }.toSeq
     if (mediatorGroups.isEmpty)
-      EitherT.rightT[Future, SubmissionRequestOutcome](Map.empty[GroupRecipient, Set[Member]])
+      EitherT.rightT[FutureUnlessShutdown, SubmissionRequestOutcome](
+        Map.empty[GroupRecipient, Set[Member]]
+      )
     else
       for {
         groups <- topologyOrSequencingSnapshot.ipsSnapshot
@@ -348,9 +353,11 @@ private[update] final class SubmissionRequestValidator(
         _ <- groups.parTraverse { group =>
           val nonRegisteredF =
             (group.active ++ group.passive).parTraverseFilter { member =>
-              memberValidator.isMemberRegisteredAt(member, sequencingTimestamp).map {
-                isRegistered => Option.when(!isRegistered)(member)
-              }
+              FutureUnlessShutdown
+                .outcomeF(memberValidator.isMemberRegisteredAt(member, sequencingTimestamp))
+                .map { isRegistered =>
+                  Option.when(!isRegistered)(member)
+                }
             }
 
           EitherT(
@@ -371,7 +378,7 @@ private[update] final class SubmissionRequestValidator(
           )
         }
       } yield GroupAddressResolver.asGroupRecipientsToMembers(groups)
-  }.mapK(FutureUnlessShutdown.outcomeK)
+  }
 
   private def checkClosedEnvelopesSignatures(
       topologyOrSequencingSnapshot: SyncCryptoApi,
@@ -380,7 +387,7 @@ private[update] final class SubmissionRequestValidator(
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
-  ): EitherT[Future, SubmissionRequestOutcome, Unit] =
+  ): EitherT[FutureUnlessShutdown, SubmissionRequestOutcome, Unit] =
     submissionRequest.batch.envelopes
       .parTraverse_ { closedEnvelope =>
         closedEnvelope.verifySignatures(
@@ -407,7 +414,7 @@ private[update] final class SubmissionRequestValidator(
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, SubmissionRequestOutcome, Unit] =
+  ): EitherT[FutureUnlessShutdown, SubmissionRequestOutcome, Unit] =
     submissionRequest.aggregationRule.traverse_ { _ =>
       for {
         domainParameters <- EitherT(
@@ -425,7 +432,7 @@ private[update] final class SubmissionRequestValidator(
         maxSequencingTimeUpperBound = sequencingTimestamp.toInstant.plus(
           domainParameters.parameters.sequencerAggregateSubmissionTimeout.duration
         )
-        _ <- EitherTUtil.condUnitET[Future](
+        _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
           submissionRequest.maxSequencingTime.toInstant.isBefore(maxSequencingTimeUpperBound),
           invalidSubmissionRequest(
             submissionRequest,
@@ -487,7 +494,6 @@ private[update] final class SubmissionRequestValidator(
           submissionRequest.sender,
           HashPurpose.SubmissionRequestSignature,
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
         .leftMap[BaseAlarm](error =>
           SequencerError.InvalidSubmissionRequestSignature.Error(
             signedSubmissionRequest,

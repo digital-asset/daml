@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.protocol.submission
 
 import cats.Eval
 import cats.syntax.option.*
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, DeduplicationPeriod}
+import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod, Offset}
 import com.digitalasset.canton.ledger.participant.state.CompletionInfo
 import com.digitalasset.canton.participant.DefaultParticipantStateValues
 import com.digitalasset.canton.participant.protocol.submission.CommandDeduplicator.{
@@ -44,7 +44,7 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
       val store: CommandDeduplicationStore,
   )
 
-  private implicit def toOffset(i: Long): AbsoluteOffset = AbsoluteOffset.tryFromLong(i)
+  private implicit def toOffset(i: Long): Offset = Offset.tryFromLong(i)
 
   private def mk(lowerBound: CantonTimestamp = CantonTimestamp.MinValue): Fixture = {
     val store = new InMemoryCommandDeduplicationStore(loggerFactory)
@@ -54,7 +54,7 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
   }
 
   private def dedupOffset(longOffset: Long): DeduplicationPeriod.DeduplicationOffset =
-    DeduplicationPeriod.DeduplicationOffset(Option(AbsoluteOffset.tryFromLong(longOffset)))
+    DeduplicationPeriod.DeduplicationOffset(Option(Offset.tryFromLong(longOffset)))
 
   private def mkPublicationInternal(
       longOffset: Long,
@@ -68,7 +68,7 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
       applicationId = completionInfo.applicationId,
       commandId = completionInfo.commandId,
       actAs = completionInfo.actAs.toSet,
-      offset = AbsoluteOffset.tryFromLong(longOffset),
+      offset = Offset.tryFromLong(longOffset),
       publicationTime = publicationTime,
       submissionId = completionInfo.submissionId,
       accepted = accepted,
@@ -106,8 +106,8 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
           .checkDuplication(changeId2Hash, dedupOffset(100L))
           .valueOrFail("dedup 3")
       } yield {
-        offset1 shouldBe dedupOffset(AbsoluteOffset.firstOffset.unwrap)
-        offset3 shouldBe dedupOffset(AbsoluteOffset.firstOffset.unwrap)
+        offset1 shouldBe dedupOffset(Offset.firstOffset.unwrap)
+        offset3 shouldBe dedupOffset(Offset.firstOffset.unwrap)
       }
     }.failOnShutdown
 
@@ -221,7 +221,7 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
         )
         okOffset4 shouldBe dedupOffset(offset1.toLong)
         okOffset5 shouldBe dedupOffset(offset1.toLong)
-        okOther shouldBe dedupOffset(AbsoluteOffset.firstOffset.unwrap)
+        okOther shouldBe dedupOffset(Offset.firstOffset.unwrap)
       }
     }.failOnShutdown
 
@@ -269,8 +269,8 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
           .checkDuplication(changeId1Hash, dedupOffset(offset2.toLong - 1))
           .leftOrFail("dedup conflict by offset before accept")
       } yield {
-        okTime shouldBe dedupOffset(AbsoluteOffset.firstOffset.unwrap)
-        okOffset shouldBe dedupOffset(AbsoluteOffset.firstOffset.unwrap)
+        okTime shouldBe dedupOffset(Offset.firstOffset.unwrap)
+        okOffset shouldBe dedupOffset(Offset.firstOffset.unwrap)
         okTimeAfter shouldBe dedupOffset(offset2.toLong)
         errorTime shouldBe AlreadyExists(
           offset2,

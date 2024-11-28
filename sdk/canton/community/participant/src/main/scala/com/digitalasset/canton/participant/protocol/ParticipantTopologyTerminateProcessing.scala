@@ -7,6 +7,7 @@ import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.ledger.participant.state.Update.SequencerIndexMoved
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.topology.DomainId
@@ -18,7 +19,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{LedgerTransactionId, SequencerCounter, topology}
 import com.google.protobuf.ByteString
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 object ParticipantTopologyTerminateProcessing {
 
@@ -43,28 +44,33 @@ class ParticipantTopologyTerminateProcessing(
       sc: SequencerCounter,
       sequencedTime: SequencedTime,
       effectiveTime: EffectiveTime,
-  )(implicit traceContext: TraceContext, executionContext: ExecutionContext): Future[Unit] =
+  )(implicit
+      traceContext: TraceContext,
+      executionContext: ExecutionContext,
+  ): FutureUnlessShutdown[Unit] =
     for {
       events <- getNewEvents(sc, sequencedTime, effectiveTime)
       _ <-
         // TODO(i21243) This is a rudimentary first approach, and only proper if epsilon is 0
-        recordOrderPublisher.tick(
-          Option
-            .when(events.events.nonEmpty)(events)
-            .getOrElse(
-              SequencerIndexMoved(
-                domainId = domainId,
-                sequencerCounter = sc,
-                recordTime = sequencedTime.value,
-                requestCounterO = None,
+        FutureUnlessShutdown.outcomeF(
+          recordOrderPublisher.tick(
+            Option
+              .when(events.events.nonEmpty)(events)
+              .getOrElse(
+                SequencerIndexMoved(
+                  domainId = domainId,
+                  sequencerCounter = sc,
+                  recordTime = sequencedTime.value,
+                  requestCounterO = None,
+                )
               )
-            )
+          )
         )
     } yield ()
 
   private def queryStore(asOf: CantonTimestamp, asOfInclusive: Boolean)(implicit
       traceContext: TraceContext
-  ): Future[PositiveStoredTopologyTransactions] =
+  ): FutureUnlessShutdown[PositiveStoredTopologyTransactions] =
     store.findPositiveTransactions(
       // the effectiveTime of topology transactions is exclusive. so if we want to find
       // the old and new state, we need to take the immediateSuccessor of the effectiveTime
@@ -83,7 +89,7 @@ class ParticipantTopologyTerminateProcessing(
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
-  ): Future[Update.TopologyTransactionEffective] = {
+  ): FutureUnlessShutdown[Update.TopologyTransactionEffective] = {
 
     val beforeF = queryStore(asOf = effectiveTime.value, asOfInclusive = false)
     val afterF = queryStore(asOf = effectiveTime.value, asOfInclusive = true)

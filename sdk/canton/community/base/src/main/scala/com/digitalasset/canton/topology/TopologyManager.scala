@@ -95,7 +95,7 @@ class DomainTopologyManager(
       expectFullAuthorization: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): Future[Seq[(Seq[GenericValidatedTopologyTransaction], CantonTimestamp)]] = {
+  ): FutureUnlessShutdown[Seq[(Seq[GenericValidatedTopologyTransaction], CantonTimestamp)]] = {
     val ts = timestampForValidation()
     processor
       .validateAndApplyAuthorization(
@@ -149,7 +149,7 @@ class AuthorizedTopologyManager(
       expectFullAuthorization: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): Future[Seq[(Seq[GenericValidatedTopologyTransaction], CantonTimestamp)]] =
+  ): FutureUnlessShutdown[Seq[(Seq[GenericValidatedTopologyTransaction], CantonTimestamp)]] =
     MonadUtil
       .sequentialTraverse(transactions) { transaction =>
         val ts = timestampForValidation()
@@ -250,9 +250,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
   ): EitherT[FutureUnlessShutdown, TopologyManagerError, GenericSignedTopologyTransaction] = {
     logger.debug(show"Attempting to build, sign, and $op $mapping with serial $serial")
     for {
-      existingTransaction <- findExistingTransaction(mapping).mapK(
-        FutureUnlessShutdown.outcomeK
-      )
+      existingTransaction <- findExistingTransaction(mapping)
       tx <- build(op, mapping, serial, protocolVersion, existingTransaction).mapK(
         FutureUnlessShutdown.outcomeK
       )
@@ -293,7 +291,6 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
         .right[TopologyManagerError](
           store.findTransactionsAndProposalsByTxHash(effective, Set(transactionHash))
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
       existingTransaction <-
         EitherT.fromEither[FutureUnlessShutdown][
           TopologyManagerError,
@@ -323,7 +320,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
 
   def findExistingTransaction[M <: TopologyMapping](mapping: M)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TopologyManagerError, Option[GenericSignedTopologyTransaction]] =
+  ): EitherT[FutureUnlessShutdown, TopologyManagerError, Option[GenericSignedTopologyTransaction]] =
     for {
       existingTransactions <- EitherT.right(
         store.findTransactionsForMapping(EffectiveTime.MaxValue, NonEmpty(Set, mapping.uniqueKey))
@@ -508,7 +505,6 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
             NonEmpty(Set, transaction.mapping.uniqueKey),
           )
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
       result <- new TopologyManagerSigningKeyDetection(
         store,
         crypto.pureCrypto,
@@ -528,7 +524,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
       expectFullAuthorization: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): Future[Seq[(Seq[GenericValidatedTopologyTransaction], CantonTimestamp)]]
+  ): FutureUnlessShutdown[Seq[(Seq[GenericValidatedTopologyTransaction], CantonTimestamp)]]
 
   /** sequential(!) adding of topology transactions
     *
@@ -554,7 +550,6 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
               transactions.map(_.hash).toSet,
             )
           )
-          .mapK(FutureUnlessShutdown.outcomeK)
         existingHashes = transactionsInStore
           .map(tx => tx.hash -> tx.hashOfSignatures)
           .toMap
@@ -583,7 +578,6 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
                 )
               )
               .flatMap(filterDuplicatesAndNotify)
-              .mapK(FutureUnlessShutdown.outcomeK)
           }
       } yield (),
       "add-topology-transaction",
@@ -664,7 +658,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
     // See i9028 for a detailed design.
 
     EitherT(for {
-      headTransactions <- FutureUnlessShutdown.outcomeF(
+      headTransactions <-
         store.findPositiveTransactions(
           asOf = CantonTimestamp.MaxValue,
           asOfInclusive = false,
@@ -673,7 +667,6 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
           filterUid = Some(Seq(domainId.uid)),
           filterNamespace = None,
         )
-      )
     } yield {
       headTransactions
         .collectOfMapping[DomainParametersState]
@@ -724,7 +717,6 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
               filterNamespace = None,
             )
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
         .map {
           _.collectOfMapping[VettedPackages].collectLatestByUniqueKey.toTopologyState
             .collectFirst { case VettedPackages(_, existingPackageIds) =>
@@ -784,13 +776,13 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
               .getOrElse(Set.empty)
           }
       case TopologyChangeOp.Remove =>
-        Future.successful(
+        FutureUnlessShutdown.pure(
           nextParticipants.map(_.participantId.uid).toSet
         )
     }
 
     for {
-      removed <- EitherT.right(removedParticipantIds).mapK(FutureUnlessShutdown.outcomeK)
+      removed <- EitherT.right(removedParticipantIds)
       _ <-
         if (removed.contains(nodeId)) {
           checkCannotDisablePartyWithActiveContracts(partyId, forceChanges: ForceFlags)
@@ -803,13 +795,14 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
   private def notifyObservers(
       timestamp: CantonTimestamp,
       transactions: Seq[GenericSignedTopologyTransaction],
-  )(implicit traceContext: TraceContext): Future[Unit] = Future
-    .sequence(
-      observers
-        .get()
-        .map(_.addedNewTransactions(timestamp, transactions).onShutdown(()))
-    )
-    .map(_ => ())
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown
+      .sequence(
+        observers
+          .get()
+          .map(_.addedNewTransactions(timestamp, transactions))
+      )
+      .map(_ => ())
 
   override protected def onClosed(): Unit = LifeCycle.close(store, sequentialQueue)(logger)
 

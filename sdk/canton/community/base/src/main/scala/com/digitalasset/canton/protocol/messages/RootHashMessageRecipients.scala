@@ -15,7 +15,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{Checked, ErrorUtil}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 object RootHashMessageRecipients extends HasLoggerName {
 
@@ -31,7 +31,7 @@ object RootHashMessageRecipients extends HasLoggerName {
   )(implicit
       loggingContext: NamedLoggingContext,
       executionContext: ExecutionContext,
-  ): Future[Seq[Recipient]] = {
+  ): FutureUnlessShutdown[Seq[Recipient]] = {
     implicit val tc = loggingContext.traceContext
     val informeesList = informees.toList
     for {
@@ -105,7 +105,7 @@ object RootHashMessageRecipients extends HasLoggerName {
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): FutureUnlessShutdown[WrongMembers] = FutureUnlessShutdown.outcomeF {
+  ): FutureUnlessShutdown[WrongMembers] = {
     val participants = rootHashMessagesRecipients.collect {
       case MemberRecipient(p: ParticipantId) => p
     }

@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.backend
 
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.api.MetricsContext.withExtraMetricLabels
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted
 import com.digitalasset.canton.metrics.IndexerMetrics
@@ -21,14 +21,14 @@ object UpdateToMeteringDbDto {
       metrics: IndexerMetrics,
   )(implicit
       mc: MetricsContext
-  ): Iterable[(AbsoluteOffset, Update)] => Vector[DbDto.TransactionMetering] = input => {
+  ): Iterable[(Offset, Update)] => Vector[DbDto.TransactionMetering] = input => {
 
     val time = clock()
 
     if (input.nonEmpty) {
 
       @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
-      val ledgerOffset = input.last._1.toHexString
+      val ledgerOffset: Long = input.last._1.unwrap
 
       (for {
         (completionInfo, transactionAccepted) <- input.iterator

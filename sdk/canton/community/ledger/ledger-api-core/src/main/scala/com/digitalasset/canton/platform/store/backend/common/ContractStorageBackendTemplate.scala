@@ -5,19 +5,18 @@ package com.digitalasset.canton.platform.store.backend.common
 
 import anorm.SqlParser.{array, byteArray, int, str}
 import anorm.{RowParser, ~}
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend.{
   RawArchivedContract,
   RawCreatedContract,
 }
 import com.digitalasset.canton.platform.store.backend.Conversions.{
-  AbsoluteOffsetToStatement,
+  OffsetToStatement,
   contractId,
   timestampFromMicros,
 }
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
-import com.digitalasset.canton.platform.store.cache.LedgerEndCache
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.{
   KeyAssigned,
   KeyState,
@@ -30,11 +29,10 @@ import java.sql.Connection
 
 class ContractStorageBackendTemplate(
     queryStrategy: QueryStrategy,
-    ledgerEndCache: LedgerEndCache,
     stringInterning: StringInterning,
 ) extends ContractStorageBackend {
 
-  override def keyState(key: Key, validAt: AbsoluteOffset)(connection: Connection): KeyState = {
+  override def keyState(key: Key, validAt: Offset)(connection: Connection): KeyState = {
     val resultParser =
       (contractId("contract_id") ~ array[Int]("flat_event_witnesses")).map {
         case cId ~ stakeholders =>
@@ -74,7 +72,7 @@ class ContractStorageBackendTemplate(
         )
       }
 
-  override def archivedContracts(contractIds: Seq[ContractId], before: AbsoluteOffset)(
+  override def archivedContracts(contractIds: Seq[ContractId], before: Offset)(
       connection: Connection
   ): Map[ContractId, RawArchivedContract] =
     if (contractIds.isEmpty) Map.empty
@@ -125,7 +123,7 @@ class ContractStorageBackendTemplate(
           )
       }
 
-  override def createdContracts(contractIds: Seq[ContractId], before: AbsoluteOffset)(
+  override def createdContracts(contractIds: Seq[ContractId], before: Offset)(
       connection: Connection
   ): Map[ContractId, RawCreatedContract] =
     if (contractIds.isEmpty) Map.empty
@@ -153,22 +151,21 @@ class ContractStorageBackendTemplate(
         .toMap
     }
 
-  override def assignedContracts(contractIds: Seq[ContractId])(
+  override def assignedContracts(
+      contractIds: Seq[ContractId],
+      before: Offset,
+  )(
       connection: Connection
   ): Map[ContractId, RawCreatedContract] =
     if (contractIds.isEmpty) Map.empty
     else {
-      import com.digitalasset.canton.platform.store.backend.Conversions.AbsoluteOffsetToStatement
-      val ledgerEndOffsetO = ledgerEndCache().map(_.lastOffset)
-      ledgerEndOffsetO match {
-        case Some(ledgerEndOffset) =>
-          SQL"""
+      SQL"""
          WITH min_event_sequential_ids_of_assign AS (
              SELECT MIN(event_sequential_id) min_event_sequential_id
              FROM lapi_events_assign
              WHERE
                contract_id ${queryStrategy.anyOfStrings(contractIds.map(_.coid))}
-               AND event_offset <= $ledgerEndOffset
+               AND event_offset <= $before
              GROUP BY contract_id
            )
          SELECT
@@ -188,9 +185,7 @@ class ContractStorageBackendTemplate(
          FROM lapi_events_assign, min_event_sequential_ids_of_assign
          WHERE
            event_sequential_id = min_event_sequential_ids_of_assign.min_event_sequential_id"""
-            .as(rawCreatedContractRowParser.*)(connection)
-            .toMap
-        case None => Map.empty
-      }
+        .as(rawCreatedContractRowParser.*)(connection)
+        .toMap
     }
 }

@@ -46,8 +46,8 @@ private[dao] trait JdbcLedgerDaoExceptionSpec
 
     for {
       (offset, _) <- store(offsetAndEntry)
-      result1 <- contractsReader.lookupContractState(cid1, Some(offset))
-      result2 <- contractsReader.lookupContractState(cid2, Some(offset))
+      result1 <- contractsReader.lookupContractState(cid1, offset)
+      result2 <- contractsReader.lookupContractState(cid2, offset)
     } yield {
       result1 shouldBe None
       result2.value shouldBe a[LedgerDaoContractsReader.ActiveContract]

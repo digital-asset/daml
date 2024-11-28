@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.backend.CompletionStorageBackend
@@ -30,26 +30,26 @@ private[dao] final class CommandCompletionsReader(
   private val paginatingAsyncStream = new PaginatingAsyncStream(loggerFactory)
 
   @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
-  private def offsetFor(response: CompletionStreamResponse): AbsoluteOffset =
+  private def offsetFor(response: CompletionStreamResponse): Offset =
     // It would be nice to obtain the offset such that it's obvious that it always exists (rather then relaying on calling .get)
-    AbsoluteOffset.tryFromLong(response.completionResponse.completion.get.offset)
+    Offset.tryFromLong(response.completionResponse.completion.get.offset)
 
   override def getCommandCompletions(
-      startInclusive: AbsoluteOffset,
-      endInclusive: AbsoluteOffset,
+      startInclusive: Offset,
+      endInclusive: Offset,
       applicationId: ApplicationId,
       parties: Set[Party],
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(AbsoluteOffset, CompletionStreamResponse), NotUsed] = {
+  ): Source[(Offset, CompletionStreamResponse), NotUsed] = {
     val pruneSafeQuery =
-      (range: QueryRange[AbsoluteOffset]) => { implicit connection: Connection =>
+      (range: QueryRange[Offset]) => { implicit connection: Connection =>
         queryValidRange.withRangeNotPruned[Vector[CompletionStreamResponse]](
           minOffsetInclusive = startInclusive,
           maxOffsetInclusive = endInclusive,
-          errorPruning = (prunedOffset: AbsoluteOffset) =>
+          errorPruning = (prunedOffset: Offset) =>
             s"Command completions request from ${startInclusive.unwrap} to ${endInclusive.unwrap} overlaps with pruned offset ${prunedOffset.unwrap}",
-          errorLedgerEnd = (ledgerEndOffset: Option[AbsoluteOffset]) =>
+          errorLedgerEnd = (ledgerEndOffset: Option[Offset]) =>
             s"Command completions request from ${startInclusive.unwrap} to ${endInclusive.unwrap} is beyond ledger end offset ${ledgerEndOffset
                 .fold(0L)(_.unwrap)}",
         ) {
@@ -63,18 +63,18 @@ private[dao] final class CommandCompletionsReader(
         }
       }
 
-    val initialRange = new QueryRange[AbsoluteOffset](
+    val initialRange = new QueryRange[Offset](
       startInclusive = startInclusive,
       endInclusive = endInclusive,
     )
     val source: Source[CompletionStreamResponse, NotUsed] = paginatingAsyncStream
-      .streamFromSeekPagination[QueryRange[AbsoluteOffset], CompletionStreamResponse](
+      .streamFromSeekPagination[QueryRange[Offset], CompletionStreamResponse](
         startFromOffset = initialRange,
         getOffset = (previousCompletion: CompletionStreamResponse) => {
           val lastOffset = offsetFor(previousCompletion)
           initialRange.copy(startInclusive = lastOffset.increment)
         },
-      ) { (subRange: QueryRange[AbsoluteOffset]) =>
+      ) { (subRange: QueryRange[Offset]) =>
         dispatcher.executeSql(metrics.index.db.getCompletions)(pruneSafeQuery(subRange))
       }
     source.map(response => offsetFor(response) -> response)

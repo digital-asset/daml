@@ -560,7 +560,7 @@ abstract class CantonNodeBootstrapImpl[
 
     override protected def stageCompleted(implicit
         traceContext: TraceContext
-    ): Future[Option[UniqueIdentifier]] = initializationStore.uid
+    ): FutureUnlessShutdown[Option[UniqueIdentifier]] = initializationStore.uid
 
     override protected def buildNextStage(
         uid: UniqueIdentifier
@@ -704,7 +704,7 @@ abstract class CantonNodeBootstrapImpl[
 
     override protected def stageCompleted(implicit
         traceContext: TraceContext
-    ): Future[Option[Unit]] = {
+    ): FutureUnlessShutdown[Option[Unit]] = {
       val myMember = member(nodeId)
       authorizedStore
         .findPositiveTransactions(

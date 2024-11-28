@@ -4,11 +4,10 @@
 package com.digitalasset.canton.platform.apiserver.execution
 
 import cats.data.EitherT
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
-
-import scala.concurrent.Future
 
 /** Class for retrieving dynamic domain parameters.
   *
@@ -21,5 +20,5 @@ import scala.concurrent.Future
 trait DynamicDomainParameterGetter {
   def getLedgerTimeRecordTimeTolerance(domainIdO: Option[DomainId])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, NonNegativeFiniteDuration]
+  ): EitherT[FutureUnlessShutdown, String, NonNegativeFiniteDuration]
 }

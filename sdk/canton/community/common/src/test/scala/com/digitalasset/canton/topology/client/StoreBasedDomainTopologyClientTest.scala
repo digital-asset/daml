@@ -8,6 +8,7 @@ import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{SigningKeyUsage, SigningPublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
@@ -21,13 +22,15 @@ import com.digitalasset.canton.topology.store.{
 }
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.*
-import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, SequencerCounter}
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.Future
-
 @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
-trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with HasExecutionContext {
+trait StoreBasedTopologySnapshotTest
+    extends AsyncWordSpec
+    with BaseTest
+    with HasExecutionContext
+    with FailOnShutdown {
 
   import EffectiveTimeTestHelpers.*
 
@@ -76,7 +79,7 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
       def add(
           timestamp: CantonTimestamp,
           transactions: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
-      ): Future[Unit] =
+      ): FutureUnlessShutdown[Unit] =
         for {
           _ <- store.update(
             SequencedTime(timestamp),
@@ -87,7 +90,6 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
           )
           _ <- client
             .observed(timestamp, timestamp, SequencerCounter(1), transactions)
-            .failOnShutdown(s"observe timestamp $timestamp")
         } yield ()
 
       def observed(ts: CantonTimestamp): Unit =
@@ -96,8 +98,7 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
       def observed(st: SequencedTime, et: EffectiveTime): Unit =
         client
           .observed(st, et, SequencerCounter(0), List())
-          .failOnShutdown(s"advance to ($st, $et)")
-          .futureValue
+          .futureValueUS
 
       def updateHead(
           st: SequencedTime,
@@ -263,7 +264,7 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
           SequencerCounter(0),
           Seq(),
         )
-        snapshot <- fixture.client.snapshot(ts.immediateSuccessor)
+        snapshot <- fixture.client.snapshotUS(ts.immediateSuccessor)
         party1Mappings <- snapshot.activeParticipantsOf(party1.toLf)
       } yield {
         compareMappings(party1Mappings, Map(participant1 -> ParticipantPermission.Observation))
@@ -303,9 +304,9 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
           SequencerCounter(0),
           Seq(),
         )
-        snapshotA <- fixture.client.snapshot(ts1)
-        snapshotB <- fixture.client.snapshot(ts1.immediateSuccessor)
-        snapshotC <- fixture.client.snapshot(ts2.immediateSuccessor)
+        snapshotA <- fixture.client.snapshotUS(ts1)
+        snapshotB <- fixture.client.snapshotUS(ts1.immediateSuccessor)
+        snapshotC <- fixture.client.snapshotUS(ts2.immediateSuccessor)
         party1Ma <- snapshotA.activeParticipantsOf(party1.toLf)
         party1Mb <- snapshotB.activeParticipantsOf(party1.toLf)
         party2Ma <- snapshotA.activeParticipantsOf(party2.toLf)

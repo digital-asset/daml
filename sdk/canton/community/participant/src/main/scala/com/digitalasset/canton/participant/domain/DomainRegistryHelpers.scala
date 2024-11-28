@@ -119,7 +119,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
         .toEitherT[FutureUnlessShutdown]
 
       topologyClient <- EitherT.right(
-        performUnlessClosingF("create caching client")(
+        performUnlessClosingUSF("create caching client")(
           topologyFactory.createCachingTopologyClient(
             packageDependencyResolver
           )
@@ -305,7 +305,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
       ec: ExecutionContextExecutor,
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, DomainRegistryError, Unit] =
-    performUnlessClosingEitherU("check-for-domain-topology-initialization")(
+    performUnlessClosingEitherUSF("check-for-domain-topology-initialization")(
       syncDomainPersistentStateManager.domainTopologyStateInitFor(
         domainId,
         participantId,
@@ -316,7 +316,6 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
       case Some(topologyInitializationCallback) =>
         topologyInitializationCallback
           .callback(topologyClient, sequencerClient, protocolVersion)
-          .mapK(FutureUnlessShutdown.outcomeK)
           // notify the ledger api server about regular and admin parties contained
           // in the topology snapshot for this domain
           .semiflatMap { storedTopologyTransactions =>

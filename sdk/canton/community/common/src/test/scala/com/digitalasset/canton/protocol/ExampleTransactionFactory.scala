@@ -15,6 +15,7 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.data.TransactionViewDecomposition.{NewView, SameView}
 import com.digitalasset.canton.data.ViewPosition.MerklePathElement
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.AuthenticatedContractIdVersionV10
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
@@ -464,7 +465,7 @@ class ExampleTransactionFactory(
       rootNodeId: LfNodeId,
       tailNodes: Seq[TransactionViewDecomposition],
       isRoot: Boolean,
-  ): Future[NewView] = {
+  ): FutureUnlessShutdown[NewView] = {
 
     val rootRbContext = RollbackContext.empty
 
@@ -492,16 +493,18 @@ class ExampleTransactionFactory(
       tailNodes: Seq[TransactionViewDecomposition],
       isRoot: Boolean,
   ): NewView =
-    Await.result(
-      createNewView(
-        rootNode,
-        rootSeed,
-        rootNodeId,
-        tailNodes,
-        isRoot,
-      ),
-      10.seconds,
-    )
+    Await
+      .result(
+        createNewView(
+          rootNode,
+          rootSeed,
+          rootNodeId,
+          tailNodes,
+          isRoot,
+        ),
+        10.seconds,
+      )
+      .onShutdown(throw new RuntimeException("Aborted due to shutdown"))
 
   /** Yields standard test cases that the sync-protocol must be able to handle.
     * Yields only "happy" cases, i.e., the sync-protocol must not emit an error.
@@ -696,7 +699,8 @@ class ExampleTransactionFactory(
     val (rawInformeesWithParticipantData, rawThreshold) =
       Await.result(
         TransactionViewDecompositionFactory
-          .informeesParticipantsAndThreshold(node, topologySnapshot, submittingAdminPartyO),
+          .informeesParticipantsAndThreshold(node, topologySnapshot, submittingAdminPartyO)
+          .failOnShutdownTo(new Exception("Aborted due to shutdown")),
         10.seconds,
       )
     val rawInformees = rawInformeesWithParticipantData.fmap { case (_, weight) => weight }
@@ -740,7 +744,8 @@ class ExampleTransactionFactory(
               Option.when(isRoot && nodeToMerge == node)(
                 submitterMetadata.submittingParticipant.adminParty.toLf
               ),
-            ),
+            )
+            .failOnShutdownTo(new Exception("Aborted due to shutdown")),
           10.seconds,
         )
       val rawInformees = rawInformeesWithParticipantData.fmap { case (_, weight) => weight }

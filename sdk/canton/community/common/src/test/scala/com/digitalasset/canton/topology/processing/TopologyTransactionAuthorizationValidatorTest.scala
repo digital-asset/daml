@@ -10,6 +10,7 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.SignatureCheckError.{InvalidSignature, UnsupportedKeySpec}
 import com.digitalasset.canton.crypto.{DomainCryptoPureApi, Signature, SigningPublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
@@ -24,16 +25,20 @@ import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.Ge
 import com.digitalasset.canton.topology.transaction.TopologyMapping.MappingHash
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
-import com.digitalasset.canton.{BaseTest, HasExecutionContext, ProtocolVersionChecksAsyncWordSpec}
+import com.digitalasset.canton.{
+  BaseTest,
+  FailOnShutdown,
+  HasExecutionContext,
+  ProtocolVersionChecksAsyncWordSpec,
+}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
-
-import scala.concurrent.Future
 
 class TopologyTransactionAuthorizationValidatorTest
     extends AsyncWordSpec
     with BaseTest
     with HasExecutionContext
+    with FailOnShutdown
     with ProtocolVersionChecksAsyncWordSpec {
 
   "topology transaction authorization" when {
@@ -80,7 +85,9 @@ class TopologyTransactionAuthorizationValidatorTest
         toValidate: Seq[GenericSignedTopologyTransaction],
         inStore: Map[MappingHash, GenericSignedTopologyTransaction],
         expectFullAuthorization: Boolean,
-    )(implicit traceContext: TraceContext): Future[Seq[GenericValidatedTopologyTransaction]] =
+    )(implicit
+        traceContext: TraceContext
+    ): FutureUnlessShutdown[Seq[GenericValidatedTopologyTransaction]] =
       MonadUtil
         .sequentialTraverse(toValidate)(tx =>
           validator.validateAndUpdateHeadAuthState(
@@ -1047,8 +1054,8 @@ class TopologyTransactionAuthorizationValidatorTest
           isProposal: Boolean,
           expectFullAuthorization: Boolean,
           signingKeys: SigningPublicKey*
-      ): Future[GenericValidatedTopologyTransaction] = TraceContext.withNewTraceContext {
-        freshTraceContext =>
+      ): FutureUnlessShutdown[GenericValidatedTopologyTransaction] =
+        TraceContext.withNewTraceContext { freshTraceContext =>
           validate(
             validator,
             ts(1),
@@ -1063,7 +1070,7 @@ class TopologyTransactionAuthorizationValidatorTest
             expectFullAuthorization = expectFullAuthorization,
           )(freshTraceContext)
             .map(_.loneElement)
-      }
+        }
 
       for {
         _ <- store.update(
@@ -1086,7 +1093,7 @@ class TopologyTransactionAuthorizationValidatorTest
         // try with 1/3 signatures
         _ <- MonadUtil.sequentialTraverse(combinationsThatAreNotAuthorized) {
           case (isProposal, expectFullAuthorization) =>
-            clueF(
+            clueFUS(
               s"key1: isProposal=$isProposal, expectFullAuthorization=$expectFullAuthorization"
             )(
               validateTx(isProposal, expectFullAuthorization, key1).map(
@@ -1096,25 +1103,27 @@ class TopologyTransactionAuthorizationValidatorTest
         }
 
         // authorizing as proposal should succeed
-        _ <- clueF(s"key1: isProposal=true, expectFullAuthorization=false")(
-          validateTx(isProposal = true, expectFullAuthorization = false, key1).map(
-            _.rejectionReason shouldBe None
-          )
+        _ <- clueFUS(s"key1: isProposal=true, expectFullAuthorization=false")(
+          validateTx(isProposal = true, expectFullAuthorization = false, key1).map({ s =>
+            s.rejectionReason shouldBe None
+            ()
+          })
         )
 
         // try with 2/3 signatures
         _ <- MonadUtil.sequentialTraverse(combinationsThatAreNotAuthorized) {
           case (isProposal, expectFullAuthorization) =>
-            clueF(
+            clueFUS(
               s"key1, key8: isProposal=$isProposal, expectFullAuthorization=$expectFullAuthorization"
             )(
-              validateTx(isProposal, expectFullAuthorization, key1, key8).map(
-                _.rejectionReason shouldBe Some(NotAuthorized)
-              )
+              validateTx(isProposal, expectFullAuthorization, key1, key8).map({ s =>
+                s.rejectionReason shouldBe Some(NotAuthorized)
+                ()
+              })
             )
         }
 
-        _ <- clueF(
+        _ <- clueFUS(
           s"key1, key8: isProposal=true, expectFullAuthorization=false"
         )(
           validateTx(
@@ -1122,9 +1131,10 @@ class TopologyTransactionAuthorizationValidatorTest
             expectFullAuthorization = false,
             key1,
             key8,
-          ).map(
-            _.rejectionReason shouldBe None
-          )
+          ).map({ s =>
+            s.rejectionReason shouldBe None
+            ()
+          })
         )
 
         // when there are enough signatures, the transaction should become fully authorized
@@ -1132,7 +1142,7 @@ class TopologyTransactionAuthorizationValidatorTest
         allCombinations = Apply[List].product(List(true, false), List(true, false))
         _ <- MonadUtil.sequentialTraverse(allCombinations) {
           case (isProposal, expectFullAuthorization) =>
-            clueF(
+            clueFUS(
               s"key1, key8, key9: isProposal=$isProposal, expectFullAuthorization=$expectFullAuthorization"
             )(
               validateTx(isProposal, expectFullAuthorization, key1, key8, key9).map(

@@ -50,21 +50,23 @@ abstract class AbstractMessageProcessor(
       requestTimestamp: CantonTimestamp,
       commitTime: CantonTimestamp,
       eventO: Option[SequencedUpdate],
-  )(implicit traceContext: TraceContext): Future[Unit] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     for {
       _ <- ephemeral.requestJournal.terminate(
         requestCounter,
         requestTimestamp,
         commitTime,
       )
-      _ <- ephemeral.recordOrderPublisher.tick(
-        // providing directly a SequencerIndexMoved with RequestCounter for the non-submitting participant rejections
-        eventO.getOrElse(
-          SequencerIndexMoved(
-            domainId = domainId,
-            requestCounterO = Some(requestCounter),
-            sequencerCounter = requestSequencerCounter,
-            recordTime = requestTimestamp,
+      _ <- FutureUnlessShutdown.outcomeF(
+        ephemeral.recordOrderPublisher.tick(
+          // providing directly a SequencerIndexMoved with RequestCounter for the non-submitting participant rejections
+          eventO.getOrElse(
+            SequencerIndexMoved(
+              domainId = domainId,
+              requestCounterO = Some(requestCounter),
+              sequencerCounter = requestSequencerCounter,
+              recordTime = requestTimestamp,
+            )
           )
         )
       )
@@ -102,11 +104,7 @@ abstract class AbstractMessageProcessor(
       for {
         domainParameters <- crypto.ips
           .awaitSnapshotUS(requestId.unwrap)
-          .flatMap(snapshot =>
-            FutureUnlessShutdown.outcomeF(
-              snapshot.findDynamicDomainParametersOrDefault(protocolVersion)
-            )
-          )
+          .flatMap(snapshot => snapshot.findDynamicDomainParametersOrDefault(protocolVersion))
 
         maxSequencingTime = requestId.unwrap.add(
           domainParameters.confirmationResponseTimeout.unwrap
@@ -141,26 +139,24 @@ abstract class AbstractMessageProcessor(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     crypto.ips
       .awaitSnapshotUS(timestamp)
-      .flatMap(snapshot => FutureUnlessShutdown.outcomeF(snapshot.findDynamicDomainParameters()))
+      .flatMap(snapshot => snapshot.findDynamicDomainParameters())
       .flatMap { domainParametersE =>
         val decisionTimeE = domainParametersE.flatMap(_.decisionTimeFor(timestamp))
         val decisionTimeF = decisionTimeE.fold(
-          err => Future.failed(new IllegalStateException(err)),
-          Future.successful,
+          err => FutureUnlessShutdown.failed(new IllegalStateException(err)),
+          FutureUnlessShutdown.pure,
         )
 
-        def onTimeout: Future[Unit] = {
+        def onTimeout: FutureUnlessShutdown[Unit] = {
           logger.debug(
             s"Bad request $requestCounter: Timed out without a confirmation result message."
           )
-          performUnlessClosingF(functionFullName) {
+          performUnlessClosingUSF(functionFullName) {
 
             decisionTimeF.flatMap(
               terminateRequest(requestCounter, sequencerCounter, timestamp, _, None)
             )
 
-          }.onShutdown {
-            logger.info(s"Ignoring timeout of bad request $requestCounter due to shutdown")
           }
         }
 
@@ -177,11 +173,11 @@ abstract class AbstractMessageProcessor(
       requestCounter: RequestCounter,
       sequencerCounter: SequencerCounter,
       timestamp: CantonTimestamp,
-      decisionTimeF: Future[CantonTimestamp],
-      onTimeout: => Future[Unit],
+      decisionTimeF: FutureUnlessShutdown[CantonTimestamp],
+      onTimeout: => FutureUnlessShutdown[Unit],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     for {
-      decisionTime <- FutureUnlessShutdown.outcomeF(decisionTimeF)
+      decisionTime <- decisionTimeF
       requestFutures <- ephemeral.requestTracker
         .addRequest(
           requestCounter,
@@ -205,7 +201,7 @@ abstract class AbstractMessageProcessor(
         if (!isCleanReplay(requestCounter)) {
           val timeoutF =
             requestFutures.timeoutResult.flatMap { timeoutResult =>
-              if (timeoutResult.timedOut) FutureUnlessShutdown.outcomeF(onTimeout)
+              if (timeoutResult.timedOut) onTimeout
               else FutureUnlessShutdown.unit
             }
           FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(timeoutF, "Handling timeout failed")
@@ -226,7 +222,7 @@ abstract class AbstractMessageProcessor(
       requestCounter,
       sequencerCounter,
       timestamp,
-      Future.successful(decisionTime),
+      FutureUnlessShutdown.pure(decisionTime),
       terminateRequest(requestCounter, sequencerCounter, timestamp, decisionTime, eventO),
     )
   }

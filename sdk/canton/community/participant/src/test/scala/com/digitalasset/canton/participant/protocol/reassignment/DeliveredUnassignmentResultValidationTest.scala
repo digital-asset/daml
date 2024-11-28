@@ -142,7 +142,7 @@ class DeliveredUnassignmentResultValidationTest
       unassignmentDecisionTime = decisionTime,
       sourceTopology = Source(cryptoSnapshot),
       targetTopology = Target(cryptoSnapshot.ipsSnapshot),
-    )(result).validate.value.futureValue
+    )(result).validate.value.futureValueUS
 
   // Transform the ConfirmationResultMessage and apply validation
   private def updateAndValidate(
@@ -361,14 +361,14 @@ class DeliveredUnassignmentResultValidationTest
       observerMissing
         .activeParticipantsOfAll(stakeholders.toList)
         .value
-        .futureValue
+        .futureValueUS
         .left
         .value shouldBe Set(observer)
 
       cryptoSnapshot.ipsSnapshot
         .activeParticipantsOfAll(stakeholders.toList)
         .value
-        .futureValue
+        .futureValueUS
         .value shouldBe reassigningParticipants.toSet
 
       def validate(targetTopology: TopologySnapshot) = DeliveredUnassignmentResultValidation(
@@ -377,7 +377,7 @@ class DeliveredUnassignmentResultValidationTest
         unassignmentDecisionTime = decisionTime,
         sourceTopology = Source(cryptoSnapshot),
         targetTopology = Target(targetTopology),
-      )(unassignmentResult).validate.value.futureValue
+      )(unassignmentResult).validate.value.futureValueUS
 
       validate(cryptoSnapshot.ipsSnapshot).value shouldBe ()
       validate(

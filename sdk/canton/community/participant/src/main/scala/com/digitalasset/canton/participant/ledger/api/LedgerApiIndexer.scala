@@ -92,6 +92,7 @@ object LedgerApiIndexer {
       ledgerApiIndexerConfig: LedgerApiIndexerConfig,
       reassignmentOffsetPersistence: ReassignmentOffsetPersistence,
       postProcessor: (Seq[PostPublishData], TraceContext) => Future[Unit],
+      sequentialPostProcessor: Update => Unit,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       executionContext: ExecutionContextIdlenessExecutorService,
@@ -147,6 +148,7 @@ object LedgerApiIndexer {
         clock,
         reassignmentOffsetPersistence,
         postProcessor,
+        sequentialPostProcessor,
       ).initialized().map { indexer => (repairMode: Boolean) => (commit: Commit) =>
         val result = indexer(repairMode)(commit)
         result.onComplete {

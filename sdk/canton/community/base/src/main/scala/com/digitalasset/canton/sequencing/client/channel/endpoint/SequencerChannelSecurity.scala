@@ -53,10 +53,10 @@ private[endpoint] final class SequencerChannelSecurity(
 
   private[endpoint] def generateSessionKey(connectTo: Member)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, AsymmetricEncrypted[SymmetricKey]] =
+  ): EitherT[FutureUnlessShutdown, String, AsymmetricEncrypted[SymmetricKey]] =
     for {
       key <- EitherT
-        .fromEither[Future](pureCrypto.generateSymmetricKey())
+        .fromEither[FutureUnlessShutdown](pureCrypto.generateSymmetricKey())
         .leftMap(_.toString)
       encryptedKey <- encrypt(connectTo, key)(traceContext)
     } yield {
@@ -80,9 +80,9 @@ private[endpoint] final class SequencerChannelSecurity(
 
   private def encrypt(connectTo: Member, key: SymmetricKey)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, AsymmetricEncrypted[SymmetricKey]] =
+  ): EitherT[FutureUnlessShutdown, String, AsymmetricEncrypted[SymmetricKey]] =
     for {
-      recentSnapshot <- EitherT.right(domainCryptoApi.snapshot(timestamp))
+      recentSnapshot <- EitherT.right(domainCryptoApi.snapshotUS(timestamp))
       // asymmetrically encrypted for the connectTo member
       encryptedPerMember <- recentSnapshot
         .encryptFor(
@@ -91,7 +91,7 @@ private[endpoint] final class SequencerChannelSecurity(
           protocolVersion,
         )
         .leftMap(_.toString)
-      encrypted <- EitherT.fromOption[Future](
+      encrypted <- EitherT.fromOption[FutureUnlessShutdown](
         encryptedPerMember.get(connectTo),
         s"No encrypted symmetric key found for $connectTo",
       )

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
@@ -17,19 +17,19 @@ import java.sql.Connection
 
 trait QueryValidRange {
   def withRangeNotPruned[T](
-      minOffsetInclusive: AbsoluteOffset,
-      maxOffsetInclusive: AbsoluteOffset,
-      errorPruning: AbsoluteOffset => String,
-      errorLedgerEnd: Option[AbsoluteOffset] => String,
+      minOffsetInclusive: Offset,
+      maxOffsetInclusive: Offset,
+      errorPruning: Offset => String,
+      errorLedgerEnd: Option[Offset] => String,
   )(query: => T)(implicit
       conn: Connection,
       loggingContext: LoggingContextWithTrace,
   ): T
 
   def withOffsetNotBeforePruning[T](
-      offset: AbsoluteOffset,
-      errorPruning: AbsoluteOffset => String,
-      errorLedgerEnd: Option[AbsoluteOffset] => String,
+      offset: Offset,
+      errorPruning: Offset => String,
+      errorLedgerEnd: Option[Offset] => String,
   )(query: => T)(implicit
       conn: Connection,
       loggingContext: LoggingContextWithTrace,
@@ -61,10 +61,10 @@ final case class QueryValidRangeImpl(
     * such a race condition.
     */
   override def withRangeNotPruned[T](
-      minOffsetInclusive: AbsoluteOffset,
-      maxOffsetInclusive: AbsoluteOffset,
-      errorPruning: AbsoluteOffset => String,
-      errorLedgerEnd: Option[AbsoluteOffset] => String,
+      minOffsetInclusive: Offset,
+      maxOffsetInclusive: Offset,
+      errorPruning: Offset => String,
+      errorLedgerEnd: Option[Offset] => String,
   )(query: => T)(implicit
       conn: Connection,
       loggingContext: LoggingContextWithTrace,
@@ -101,9 +101,9 @@ final case class QueryValidRangeImpl(
   }
 
   override def withOffsetNotBeforePruning[T](
-      offset: AbsoluteOffset,
-      errorPruning: AbsoluteOffset => String,
-      errorLedgerEnd: Option[AbsoluteOffset] => String,
+      offset: Offset,
+      errorPruning: Offset => String,
+      errorLedgerEnd: Option[Offset] => String,
   )(query: => T)(implicit
       conn: Connection,
       loggingContext: LoggingContextWithTrace,

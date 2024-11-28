@@ -13,7 +13,7 @@ import com.digitalasset.canton.topology.client.DomainTopologyClient
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** This class allows to query domain parameters easily.
   * Type parameter `P` is the type of the returned value.
@@ -36,9 +36,7 @@ class DynamicDomainParametersLookup[P](
   ): FutureUnlessShutdown[P] = topologyClient
     .awaitSnapshotUSSupervised(s"Querying for domain parameters valid at $validAt")(validAt)
     .flatMap(snapshot =>
-      FutureUnlessShutdown.outcomeF(
-        snapshot.findDynamicDomainParametersOrDefault(protocolVersion, warnOnUsingDefaults)
-      )
+      snapshot.findDynamicDomainParametersOrDefault(protocolVersion, warnOnUsingDefaults)
     )
     .map(projector)
 
@@ -47,14 +45,14 @@ class DynamicDomainParametersLookup[P](
     */
   def getApproximateOrDefaultValue(warnOnUsingDefaults: Boolean = true)(implicit
       traceContext: TraceContext
-  ): Future[P] =
+  ): FutureUnlessShutdown[P] =
     topologyClient.currentSnapshotApproximation
       .findDynamicDomainParametersOrDefault(protocolVersion, warnOnUsingDefaults)
       .map(projector)
 
   /** Return the value of the topology snapshot approximation.
     */
-  def getApproximate()(implicit traceContext: TraceContext): Future[Option[P]] =
+  def getApproximate()(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[P]] =
     topologyClient.currentSnapshotApproximation
       .findDynamicDomainParameters()
       .map(_.map(p => projector(p.parameters)).toOption)

@@ -459,11 +459,9 @@ class UnassignmentProcessingSteps(
       activenessResult <- EitherT.right(activenessF)
 
       hostedStakeholders <- EitherT.right(
-        FutureUnlessShutdown.outcomeF(
-          sourceSnapshot.ipsSnapshot
-            .hostedOn(fullTree.stakeholders.all, participantId)
-            .map(_.keySet)
-        )
+        sourceSnapshot.ipsSnapshot
+          .hostedOn(fullTree.stakeholders.all, participantId)
+          .map(_.keySet)
       )
 
       authenticationErrors <- EitherT.right(
@@ -474,7 +472,6 @@ class UnassignmentProcessingSteps(
       unassignmentDecisionTime <- ProcessingSteps
         .getDecisionTime(sourceSnapshot.ipsSnapshot, ts)
         .leftMap(ReassignmentParametersError(domainId.unwrap, _))
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       reassignmentData = ReassignmentData(
         sourceProtocolVersion = sourceDomainProtocolVersion,
@@ -491,13 +488,12 @@ class UnassignmentProcessingSteps(
       }
 
       confirmingSignatories <- EitherT.right(
-        FutureUnlessShutdown.outcomeF(
-          sourceSnapshot.ipsSnapshot.canConfirm(
-            participantId,
-            fullTree.confirmingParties,
-          )
+        sourceSnapshot.ipsSnapshot.canConfirm(
+          participantId,
+          fullTree.confirmingParties,
         )
       )
+
       isConfirming = confirmingSignatories.nonEmpty &&
         fullTree.isReassigningParticipant(participantId)
 
@@ -628,7 +624,7 @@ class UnassignmentProcessingSteps(
           ),
           assignments = Map.empty,
         )
-        val commitSetFO = Some(Future.successful(commitSet))
+        val commitSetFO = Some(FutureUnlessShutdown.pure(commitSet))
         for {
           _ <- ifThenET(isReassigningParticipant) {
             EitherT
@@ -751,6 +747,7 @@ class UnassignmentProcessingSteps(
     (for {
       targetStaticDomainParameters <- reassignmentCoordination
         .getStaticDomainParameter(targetDomain)
+        .mapK(FutureUnlessShutdown.outcomeK)
 
       automaticAssignment <- AutomaticAssignment
         .perform(
@@ -764,7 +761,7 @@ class UnassignmentProcessingSteps(
           t0,
         )
 
-    } yield automaticAssignment).mapK(FutureUnlessShutdown.outcomeK)
+    } yield automaticAssignment)
   }
 
   private[this] def deleteReassignment(
@@ -858,7 +855,6 @@ class UnassignmentProcessingSteps(
     targetTopology.traverse { targetTopology =>
       ProcessingSteps
         .getAssignmentExclusivity(targetTopology, timestamp)
-        .mapK(FutureUnlessShutdown.outcomeK)
         .leftMap(ReassignmentParametersError(domainId.unwrap, _))
     }
 }

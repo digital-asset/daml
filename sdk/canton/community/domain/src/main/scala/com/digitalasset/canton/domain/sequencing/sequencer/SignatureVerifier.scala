@@ -5,12 +5,13 @@ package com.digitalasset.canton.domain.sequencing.sequencer
 
 import cats.data.EitherT
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, HashPurpose}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.sequencing.protocol.SignedContent
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait SignatureVerifier {
   def verifySignature[A <: ProtocolVersionedMemoizedEvidence](
@@ -18,7 +19,7 @@ trait SignatureVerifier {
       hashPurpose: HashPurpose,
       sender: A => Member,
   )(implicit traceContext: TraceContext): EitherT[
-    Future,
+    FutureUnlessShutdown,
     String,
     SignedContent[A],
   ]
@@ -32,7 +33,9 @@ object SignatureVerifier {
         signedContent: SignedContent[A],
         hashPurpose: HashPurpose,
         sender: A => Member,
-    )(implicit traceContext: TraceContext): EitherT[Future, String, SignedContent[A]] = {
+    )(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, String, SignedContent[A]] = {
       val snapshot = cryptoApi.headSnapshot(traceContext)
       val timestamp = snapshot.ipsSnapshot.timestamp
       signedContent

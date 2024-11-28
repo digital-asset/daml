@@ -8,6 +8,7 @@ import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.SerializedEventOrErrorHandler
 import com.digitalasset.canton.sequencing.client.*
@@ -16,7 +17,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import org.apache.pekko.stream.Materializer
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Factory for creating resilient subscriptions directly to an in-process [[sequencer.Sequencer]] */
 class DirectSequencerSubscriptionFactory(
@@ -43,7 +44,7 @@ class DirectSequencerSubscriptionFactory(
       handler: SerializedEventOrErrorHandler[E],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CreateSubscriptionError, SequencerSubscription[E]] = {
+  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, SequencerSubscription[E]] = {
     logger.debug(show"Creating subscription for $member from $startingAt...")
     for {
       source <- sequencer.read(member, startingAt)

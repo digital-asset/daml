@@ -5,6 +5,7 @@ package com.digitalasset.canton.topology.store
 
 import cats.syntax.option.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.FailOnShutdown
 import com.digitalasset.canton.config.CantonRequireTypes.{String255, String256M}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.topology.DefaultTestIdentities
@@ -15,7 +16,7 @@ import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
 import com.digitalasset.canton.version.ProtocolVersion
 import org.scalatest.wordspec.AsyncWordSpec
 
-trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase {
+trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with FailOnShutdown {
 
   val testData = new TopologyStoreTestData(loggerFactory, executionContext)
   import testData.*
@@ -490,7 +491,6 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase {
                 tx5_DTC.mapping.participantId,
                 tx5_DTC.mapping.domainId,
               )
-              .unwrap // FutureUnlessShutdown[_] -> Future[UnlessShutdown[_]]
           } yield {
             expectTransactions(positiveTransactions, Seq(tx3_NSD, tx4_DND, tx5_PTP, tx5_DTC))
             expectTransactions(positiveTransactionsExclusive, Seq(tx3_NSD, tx4_DND))
@@ -540,7 +540,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase {
               ),
             )
 
-            onboardingTransactionUnlessShutdown.onShutdown(fail()) shouldBe Seq(
+            onboardingTransactionUnlessShutdown shouldBe Seq(
               tx5_DTC,
               tx6_DTC_Update,
             )

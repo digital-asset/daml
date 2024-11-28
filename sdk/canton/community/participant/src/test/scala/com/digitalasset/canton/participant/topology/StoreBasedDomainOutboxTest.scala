@@ -10,7 +10,11 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{ProcessingTimeout, TopologyConfig}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.{
+  FutureUnlessShutdown,
+  PromiseUnlessShutdown,
+  UnlessShutdown,
+}
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast
 import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast.State
@@ -32,6 +36,7 @@ import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.{
   BaseTest,
   DomainAlias,
+  FailOnShutdown,
   ProtocolVersionChecksAsyncWordSpec,
   SequencerCounter,
 }
@@ -41,13 +46,13 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.{Future, Promise}
 import scala.util.chaining.scalaUtilChainingOps
 
 class StoreBasedDomainOutboxTest
     extends AsyncWordSpec
     with BaseTest
-    with ProtocolVersionChecksAsyncWordSpec {
+    with ProtocolVersionChecksAsyncWordSpec
+    with FailOnShutdown {
   import DefaultTestIdentities.*
 
   private lazy val clock = new WallClock(timeouts, loggerFactory)
@@ -126,7 +131,10 @@ class StoreBasedDomainOutboxTest
     val buffer: ListBuffer[GenericSignedTopologyTransaction] = ListBuffer()
     val batches: mutable.ListBuffer[Seq[GenericSignedTopologyTransaction]] = ListBuffer()
     private val promise = new AtomicReference(
-      Promise[Seq[Seq[GenericSignedTopologyTransaction]]]()
+      new PromiseUnlessShutdown[Seq[Seq[GenericSignedTopologyTransaction]]](
+        "promise",
+        futureSupervisor,
+      )
     )
     private val expect = new AtomicInteger(expectI)
 
@@ -134,61 +142,60 @@ class StoreBasedDomainOutboxTest
         transactions: Seq[GenericSignedTopologyTransaction]
     )(implicit
         traceContext: TraceContext
-    ): FutureUnlessShutdown[Seq[TopologyTransactionsBroadcast.State]] =
-      FutureUnlessShutdown.outcomeF {
-        logger.debug(s"Observed ${transactions.length} transactions")
-        buffer ++= transactions
-        batches += transactions
-        val finalResult = transactions.map(_ => responses.next())
-        for {
-          _ <- MonadUtil.sequentialTraverse(transactions) { x =>
-            logger.debug(s"Processing $x")
-            val ts = CantonTimestamp.now()
-            if (finalResult.forall(_ == State.Accepted))
-              store
-                .update(
-                  SequencedTime(ts),
-                  EffectiveTime(ts),
-                  additions = List(ValidatedTopologyTransaction(x, rejections.next())),
-                  // dumbed down version of how to "append" ValidatedTopologyTransactions:
-                  removeMapping = Option
-                    .when(x.operation == TopologyChangeOp.Remove)(
-                      x.mapping.uniqueKey -> x.serial
-                    )
-                    .toList
-                    .toMap,
-                  removeTxs = Set.empty,
-                )
-                .flatMap(_ =>
-                  targetClient
-                    .observed(
-                      SequencedTime(ts),
-                      EffectiveTime(ts),
-                      SequencerCounter(3),
-                      if (rejections.isEmpty) Seq(x) else Seq.empty,
-                    )
-                    .onShutdown(())
-                )
-            else Future.unit
-          }
-          _ = if (buffer.length >= expect.get()) {
-            promise.get().success(batches.toSeq)
-          }
-        } yield {
-          logger.debug(s"Done with observed ${transactions.length} transactions")
-          finalResult
+    ): FutureUnlessShutdown[Seq[TopologyTransactionsBroadcast.State]] = {
+      logger.debug(s"Observed ${transactions.length} transactions")
+      buffer ++= transactions
+      batches += transactions
+      val finalResult = transactions.map(_ => responses.next())
+      for {
+        _ <- MonadUtil.sequentialTraverse(transactions) { x =>
+          logger.debug(s"Processing $x")
+          val ts = CantonTimestamp.now()
+          if (finalResult.forall(_ == State.Accepted))
+            store
+              .update(
+                SequencedTime(ts),
+                EffectiveTime(ts),
+                additions = List(ValidatedTopologyTransaction(x, rejections.next())),
+                // dumbed down version of how to "append" ValidatedTopologyTransactions:
+                removeMapping = Option
+                  .when(x.operation == TopologyChangeOp.Remove)(
+                    x.mapping.uniqueKey -> x.serial
+                  )
+                  .toList
+                  .toMap,
+                removeTxs = Set.empty,
+              )
+              .flatMap(_ =>
+                targetClient
+                  .observed(
+                    SequencedTime(ts),
+                    EffectiveTime(ts),
+                    SequencerCounter(3),
+                    if (rejections.isEmpty) Seq(x) else Seq.empty,
+                  )
+              )
+          else FutureUnlessShutdown.unit
         }
+        _ = if (buffer.length >= expect.get()) {
+          promise.get().success(UnlessShutdown.Outcome(batches.toSeq))
+        }
+      } yield {
+        logger.debug(s"Done with observed ${transactions.length} transactions")
+        finalResult
       }
+    }
 
     def clear(expectI: Int): Seq[GenericSignedTopologyTransaction] = {
       val ret = buffer.toList
       buffer.clear()
       expect.set(expectI)
-      promise.set(Promise())
+      promise.set(new PromiseUnlessShutdown("promise", futureSupervisor))
       ret
     }
 
-    def allObserved(): Future[Unit] = promise.get().future.void
+    def allObserved(): FutureUnlessShutdown[Unit] =
+      promise.get().futureUS.void
 
     override protected def timeouts: ProcessingTimeout = ProcessingTimeout()
     override protected def logger: TracedLogger = StoreBasedDomainOutboxTest.this.logger
@@ -197,7 +204,7 @@ class StoreBasedDomainOutboxTest
   private def push(
       manager: AuthorizedTopologyManager,
       transactions: Seq[GenericTopologyTransaction],
-  ): Future[
+  ): FutureUnlessShutdown[
     Either[TopologyManagerError, Seq[GenericSignedTopologyTransaction]]
   ] =
     MonadUtil
@@ -212,7 +219,6 @@ class StoreBasedDomainOutboxTest
         )
       )
       .value
-      .failOnShutdown
 
   private def outboxConnected(
       manager: AuthorizedTopologyManager,
@@ -221,7 +227,7 @@ class StoreBasedDomainOutboxTest
       source: TopologyStore[TopologyStoreId.AuthorizedStore],
       target: TopologyStore[TopologyStoreId.DomainStore],
       broadcastBatchSize: PositiveInt = TopologyConfig.defaultBroadcastBatchSize,
-  ): Future[StoreBasedDomainOutbox] = {
+  ): FutureUnlessShutdown[StoreBasedDomainOutbox] = {
     val domainOutbox = new StoreBasedDomainOutbox(
       domain,
       domainId,
@@ -255,7 +261,6 @@ class StoreBasedDomainOutboxTest
             })
           ),
       )
-      .onShutdown(domainOutbox)
   }
 
   private def outboxDisconnected(manager: AuthorizedTopologyManager): Unit =

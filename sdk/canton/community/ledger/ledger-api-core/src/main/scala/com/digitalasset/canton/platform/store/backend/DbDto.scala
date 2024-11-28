@@ -13,7 +13,7 @@ sealed trait DbDto
 object DbDto {
 
   final case class EventCreate(
-      event_offset: String,
+      event_offset: Long,
       update_id: String,
       ledger_effective_time: Long,
       command_id: Option[String],
@@ -44,7 +44,7 @@ object DbDto {
 
   final case class EventExercise(
       consuming: Boolean,
-      event_offset: String,
+      event_offset: Long,
       update_id: String,
       ledger_effective_time: Long,
       command_id: Option[String],
@@ -75,7 +75,7 @@ object DbDto {
   ) extends DbDto
 
   final case class EventAssign(
-      event_offset: String,
+      event_offset: Long,
       update_id: String,
       command_id: Option[String],
       workflow_id: Option[String],
@@ -105,7 +105,7 @@ object DbDto {
   ) extends DbDto
 
   final case class EventUnassign(
-      event_offset: String,
+      event_offset: Long,
       update_id: String,
       command_id: Option[String],
       workflow_id: Option[String],
@@ -126,7 +126,7 @@ object DbDto {
 
   final case class EventPartyToParticipant(
       event_sequential_id: Long,
-      event_offset: String,
+      event_offset: Long,
       update_id: String,
       party_id: String,
       participant_id: String,
@@ -137,7 +137,7 @@ object DbDto {
   ) extends DbDto
 
   final case class PartyEntry(
-      ledger_offset: String,
+      ledger_offset: Long,
       recorded_at: Long,
       submission_id: Option[String],
       party: Option[String],
@@ -147,7 +147,7 @@ object DbDto {
   ) extends DbDto
 
   final case class CommandCompletion(
-      completion_offset: String,
+      completion_offset: Long,
       record_time: Long,
       publication_time: Long,
       application_id: String,
@@ -158,7 +158,7 @@ object DbDto {
       rejection_status_message: Option[String],
       rejection_status_details: Option[Array[Byte]],
       submission_id: Option[String],
-      deduplication_offset: Option[String],
+      deduplication_offset: Option[Long],
       deduplication_duration_seconds: Option[Long],
       deduplication_duration_nanos: Option[Int],
       deduplication_start: Option[Long],
@@ -220,7 +220,7 @@ object DbDto {
 
   final case class TransactionMeta(
       update_id: String,
-      event_offset: String,
+      event_offset: Long,
       publication_time: Long,
       record_time: Long,
       domain_id: String,
@@ -232,7 +232,7 @@ object DbDto {
       application_id: String,
       action_count: Int,
       metering_timestamp: Long,
-      ledger_offset: String,
+      ledger_offset: Long,
   ) extends DbDto
 
   final case class SequencerIndexMoved(domainId: String) extends DbDto

@@ -78,7 +78,7 @@ private[mediator] class Mediator(
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext, tracer: Tracer)
     extends NamedLogging
-    with StartAndCloseable[Unit]
+    with FlagCloseableAsync
     with HasCloseContext {
 
   override protected def timeouts: ProcessingTimeout = parameters.processingTimeouts
@@ -123,23 +123,28 @@ private[mediator] class Mediator(
 
   val stateInspection: MediatorStateInspection = new MediatorStateInspection(state)
 
-  override protected def startAsync()(implicit
+  /** Starts the mediator. NOTE: Must only be called at most once on a mediator instance. */
+  private[mediator] def start()(implicit
       initializationTraceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] = for {
+  ): FutureUnlessShutdown[Unit] = performUnlessClosingUSF("start") {
+    for {
 
-    preheadO <- FutureUnlessShutdown.outcomeF(sequencerCounterTrackerStore.preheadSequencerCounter)
-    nextTs = preheadO.fold(CantonTimestamp.MinValue)(_.timestamp.immediateSuccessor)
-    _ <- state.deduplicationStore.initialize(nextTs)
-
-    _ <- FutureUnlessShutdown.outcomeF(
-      sequencerClient.subscribeTracking(
-        sequencerCounterTrackerStore,
-        DiscardIgnoredEvents(loggerFactory)(handler),
-        timeTracker,
-        onCleanHandler = onCleanSequencerCounterHandler,
+      preheadO <- FutureUnlessShutdown.outcomeF(
+        sequencerCounterTrackerStore.preheadSequencerCounter
       )
-    )
-  } yield ()
+      nextTs = preheadO.fold(CantonTimestamp.MinValue)(_.timestamp.immediateSuccessor)
+      _ <- state.deduplicationStore.initialize(nextTs)
+
+      _ <- FutureUnlessShutdown.outcomeF(
+        sequencerClient.subscribeTracking(
+          sequencerCounterTrackerStore,
+          DiscardIgnoredEvents(loggerFactory)(handler),
+          timeTracker,
+          onCleanHandler = onCleanSequencerCounterHandler,
+        )
+      )
+    } yield ()
+  }
 
   private def onCleanSequencerCounterHandler(
       newTracedPrehead: Traced[SequencerCounterCursorPrehead]
@@ -180,9 +185,7 @@ private[mediator] class Mediator(
         .right(
           topologyClient
             .awaitSnapshotUS(timestamp)
-            .flatMap(snapshot =>
-              FutureUnlessShutdown.outcomeF(snapshot.listDynamicDomainParametersChanges())
-            )
+            .flatMap(snapshot => snapshot.listDynamicDomainParametersChanges())
         )
 
       _ <- NonEmptySeq.fromSeq(domainParametersChanges) match {
@@ -260,11 +263,9 @@ private[mediator] class Mediator(
 
         for {
           snapshot <- syncCrypto.awaitSnapshotUS(timestamp)
-          domainParameters <- FutureUnlessShutdown.outcomeF(
-            snapshot.ipsSnapshot
-              .findDynamicDomainParameters()
-              .flatMap(_.toFuture(new RuntimeException(_)))
-          )
+          domainParameters <- snapshot.ipsSnapshot
+            .findDynamicDomainParameters()
+            .flatMap(_.toFutureUS(new RuntimeException(_)))
 
           decisionTime <- domainParameters.decisionTimeForF(timestamp)
           _ <- verdictSender.sendReject(

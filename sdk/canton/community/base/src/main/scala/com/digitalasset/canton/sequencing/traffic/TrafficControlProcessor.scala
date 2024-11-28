@@ -254,7 +254,6 @@ class TrafficControlProcessor(
       // Check that within `signatures` we have at least `threshold` valid signatures from `sequencers`
       _ <- signedMessage
         .verifySequencerSignatures(snapshot)
-        .mapK(FutureUnlessShutdown.outcomeK)
         .leftMap(err =>
           TrafficControlErrors.InvalidTrafficPurchasedMessage
             .Error(err.show): TrafficControlError

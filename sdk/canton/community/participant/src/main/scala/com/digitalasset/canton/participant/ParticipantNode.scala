@@ -44,6 +44,7 @@ import com.digitalasset.canton.participant.domain.grpc.GrpcDomainRegistry
 import com.digitalasset.canton.participant.health.admin.ParticipantStatus
 import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapper.IndexerLockIds
 import com.digitalasset.canton.participant.ledger.api.{
+  AcsCommitmentPublicationPostProcessor,
   LedgerApiIndexer,
   LedgerApiIndexerConfig,
   StartableStoppableLedgerApiDependentServices,
@@ -61,16 +62,9 @@ import com.digitalasset.canton.participant.pruning.{
 }
 import com.digitalasset.canton.participant.scheduler.ParticipantPruningScheduler
 import com.digitalasset.canton.participant.store.*
+import com.digitalasset.canton.participant.sync.*
 import com.digitalasset.canton.participant.sync.SyncDomain.SubmissionReady
-import com.digitalasset.canton.participant.sync.{CantonSyncService, *}
-import com.digitalasset.canton.participant.topology.{
-  LedgerServerPartyNotifier,
-  PackageOps,
-  PackageOpsImpl,
-  ParticipantTopologyDispatcher,
-  ParticipantTopologyValidation,
-  PartyOps,
-}
+import com.digitalasset.canton.participant.topology.*
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey.CommunityKey
@@ -81,11 +75,7 @@ import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.time.admin.v30.DomainTimeServiceGrpc
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.client.{
-  DomainTopologyClient,
-  IdentityProvidingServiceClient,
-  StoreBasedTopologySnapshot,
-}
+import com.digitalasset.canton.topology.client.{DomainTopologyClient, StoreBasedTopologySnapshot}
 import com.digitalasset.canton.topology.store.TopologyStoreId.{AuthorizedStore, DomainStore}
 import com.digitalasset.canton.topology.store.{PartyMetadataStore, TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -291,7 +281,6 @@ class ParticipantNodeBootstrap(
           clock,
           crypto.pureCrypto,
           participantServices.participantTopologyDispatcher,
-          ips,
           participantServices.cantonSyncService,
           adminToken,
           recordSequencerInteractions,
@@ -350,7 +339,6 @@ class ParticipantNodeBootstrap(
         ips,
         crypto,
         arguments.parameterConfig.sessionSigningKeys,
-        config.parameters.caching,
         timeouts,
         futureSupervisor,
         loggerFactory,
@@ -389,14 +377,12 @@ class ParticipantNodeBootstrap(
             ParticipantNodePersistentState.create(
               storage,
               config.storage,
-              exitOnFatalFailures = parameters.exitOnFatalFailures,
               config.init.ledgerApi.maxDeduplicationDuration.toInternal.some,
-              parameterConfig.batchingConfig,
+              parameters,
               ReleaseProtocolVersion.latest,
               arguments.metrics,
               participantId.toLf,
               config.ledgerApi,
-              parameterConfig.processingTimeouts,
               futureSupervisor,
               loggerFactory,
             ),
@@ -416,6 +402,7 @@ class ParticipantNodeBootstrap(
           clock,
           tryGetPackageDependencyResolver(),
           persistentState.map(_.ledgerApiStore),
+          persistentState.map(_.contractStore),
           futureSupervisor,
           loggerFactory,
         )
@@ -470,6 +457,12 @@ class ParticipantNodeBootstrap(
             new CommandProgressTrackerImpl(parameters.commandProgressTracking, clock, loggerFactory)
           else CommandProgressTracker.NoOp
 
+        connectedDomainsLookupContainer = new ConnectedDomainsLookupContainer
+        sequentialPostProcessor = new AcsCommitmentPublicationPostProcessor(
+          connectedDomainsLookupContainer,
+          loggerFactory,
+        )
+
         ledgerApiIndexerContainer = new LifeCycleContainer[LedgerApiIndexer](
           stateName = "indexer",
           create = () =>
@@ -499,6 +492,7 @@ class ParticipantNodeBootstrap(
                     // This will be throw in the Indexer pekko-stream pipeline, and handled gracefully there
                     new RuntimeException("Post processing aborted due to shutdown")
                   ),
+                sequentialPostProcessor = sequentialPostProcessor,
                 loggerFactory = loggerFactory,
               )
             ),
@@ -681,7 +675,6 @@ class ParticipantNodeBootstrap(
           clock,
           resourceManagementService,
           parameterConfig,
-          indexedStringStore,
           pruningProcessor,
           schedulers,
           arguments.metrics,
@@ -691,6 +684,7 @@ class ParticipantNodeBootstrap(
           loggerFactory,
           arguments.testingConfig,
           ledgerApiIndexerContainer,
+          connectedDomainsLookupContainer,
         )
 
         _ = {
@@ -1073,7 +1067,6 @@ class ParticipantNode(
     override protected val clock: Clock,
     val cryptoPureApi: CryptoPureApi,
     identityPusher: ParticipantTopologyDispatcher,
-    private[canton] val ips: IdentityProvidingServiceClient,
     private[canton] val sync: CantonSyncService,
     override val adminToken: CantonAdminToken,
     val recordSequencerInteractions: AtomicReference[Option[RecordingConfig]],

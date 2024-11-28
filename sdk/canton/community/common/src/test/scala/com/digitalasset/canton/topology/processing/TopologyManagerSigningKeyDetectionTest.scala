@@ -62,7 +62,7 @@ class TopologyManagerSigningKeyDetectionTest
 
       val detector = mk()
 
-      detector.store.bootstrap(mkStored(ts(0), ns1k1_k1, id1ak4_k1)).futureValue
+      detector.store.bootstrap(mkStored(ts(0), ns1k1_k1, id1ak4_k1)).futureValueUS
 
       // uid1a has an identifier delegation, therefore it should be used
       detector
@@ -87,7 +87,7 @@ class TopologyManagerSigningKeyDetectionTest
     "prefer keys furthest from the root certificate" in {
       val detector = mk()
 
-      detector.store.bootstrap(mkStored(ts(0), ns1k1_k1, ns1k2_k1, ns1k3_k2)).futureValue
+      detector.store.bootstrap(mkStored(ts(0), ns1k1_k1, ns1k2_k1, ns1k3_k2)).futureValueUS
 
       detector
         .getValidSigningKeysForTransaction(ts(1), dtc_uid1a, None, returnAllValidKeys = false)
@@ -113,7 +113,7 @@ class TopologyManagerSigningKeyDetectionTest
           removeTxs = Set(ns1k2_k1.hash),
           additions = Seq.empty,
         )
-        .futureValue
+        .futureValueUS
 
       // reset caches so that the namespace delegations are fetched again from the store.
       // normally we would use a separate detector instance per topology manager srequest
@@ -142,7 +142,7 @@ class TopologyManagerSigningKeyDetectionTest
       val detector = mk()
       detector.store
         .bootstrap(mkStored(ts(0), ns1k1_k1, ns8k8_k8, ns9k9_k9, ns1k2_k1, dns1))
-        .futureValue
+        .futureValueUS
 
       val otk = TopologyTransaction(
         Replace,

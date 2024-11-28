@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.event
 
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
 import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet
@@ -10,10 +11,8 @@ import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
+import com.digitalasset.canton.{LfPartyId, ReassignmentCounter, RequestCounter}
 import com.google.common.annotations.VisibleForTesting
-
-import scala.concurrent.Future
 
 /** Components that need to keep a running snapshot of ACS.
   */
@@ -24,9 +23,15 @@ trait AcsChangeListener {
     *
     * @param toc time of the change
     * @param acsChange active contract set change descriptor
-    * @param waitFor processing won't start until this Future completes
     */
-  def publish(toc: RecordTime, acsChange: AcsChange, waitFor: Future[Unit])(implicit
+  def publish(toc: RecordTime, acsChange: AcsChange)(implicit
+      traceContext: TraceContext
+  ): Unit
+
+  def publish(
+      sequencerTimestamp: CantonTimestamp,
+      requestCounterCommitSetPairO: Option[(RequestCounter, CommitSet)],
+  )(implicit
       traceContext: TraceContext
   ): Unit
 

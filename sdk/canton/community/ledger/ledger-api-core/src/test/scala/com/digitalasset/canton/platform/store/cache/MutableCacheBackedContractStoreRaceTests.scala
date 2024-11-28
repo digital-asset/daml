@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store.cache
 import cats.data.NonEmptyVector
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.digitalasset.canton.TestEssentials
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -80,7 +80,7 @@ private object MutableCacheBackedContractStoreRaceTests {
 
   private def test(
       indexViewContractsReader: IndexViewContractsReader,
-      workload: Seq[AbsoluteOffset => SimplifiedContractStateEvent],
+      workload: Seq[Offset => SimplifiedContractStateEvent],
       unboundedExecutionContext: ExecutionContext,
   )(
       assert: ExecutionContext => SimplifiedContractStateEvent => Future[Unit]
@@ -207,7 +207,7 @@ private object MutableCacheBackedContractStoreRaceTests {
             )
         }
       _ <- indexViewContractsReader
-        .lookupContractState(event.contractId, Some(event.offset))
+        .lookupContractState(event.contractId, event.offset)
         .map {
           case Some(ActiveContract(actualContract, _, _, _, _, _, _))
               if event.created && event.contract == actualContract =>
@@ -223,7 +223,7 @@ private object MutableCacheBackedContractStoreRaceTests {
   private def generateWorkload(
       keysCount: Long,
       contractsCount: Long,
-  ): Seq[AbsoluteOffset => SimplifiedContractStateEvent] = {
+  ): Seq[Offset => SimplifiedContractStateEvent] = {
     val keys = (0L until keysCount).map { keyIdx =>
       keyIdx -> GlobalKey.assertBuild(
         Identifier.assertFromString("pkgId:module:entity"),
@@ -250,7 +250,7 @@ private object MutableCacheBackedContractStoreRaceTests {
       keysToContracts.map { case (key, contracts) =>
         contracts.flatMap { case (contractId, contractRef) =>
           Vector(
-            (offset: AbsoluteOffset) =>
+            (offset: Offset) =>
               SimplifiedContractStateEvent(
                 offset = offset,
                 contractId = contractId,
@@ -258,7 +258,7 @@ private object MutableCacheBackedContractStoreRaceTests {
                 created = true,
                 key = key,
               ),
-            (offset: AbsoluteOffset) =>
+            (offset: Offset) =>
               SimplifiedContractStateEvent(
                 offset = offset,
                 contractId = contractId,
@@ -274,8 +274,8 @@ private object MutableCacheBackedContractStoreRaceTests {
   }
 
   private def interleaveRandom(
-      indexContractsUpdates: Iterable[Iterable[AbsoluteOffset => SimplifiedContractStateEvent]]
-  ): Seq[AbsoluteOffset => SimplifiedContractStateEvent] = {
+      indexContractsUpdates: Iterable[Iterable[Offset => SimplifiedContractStateEvent]]
+  ): Seq[Offset => SimplifiedContractStateEvent] = {
     @tailrec
     def interleaveIteratorsRandom[T](acc: Vector[T], col: Set[Iterator[T]]): Vector[T] =
       if (col.isEmpty) acc
@@ -288,13 +288,13 @@ private object MutableCacheBackedContractStoreRaceTests {
       }
 
     interleaveIteratorsRandom(
-      Vector.empty[AbsoluteOffset => SimplifiedContractStateEvent],
+      Vector.empty[Offset => SimplifiedContractStateEvent],
       indexContractsUpdates.map(_.iterator).toSet,
     )
   }
 
   final case class SimplifiedContractStateEvent(
-      offset: AbsoluteOffset,
+      offset: Offset,
       contractId: ContractId,
       contract: Contract,
       created: Boolean,
@@ -355,14 +355,14 @@ private object MutableCacheBackedContractStoreRaceTests {
   final case class ContractLifecycle(
       contractId: ContractId,
       contract: Contract,
-      createdAt: AbsoluteOffset,
-      archivedAt: Option[AbsoluteOffset],
+      createdAt: Offset,
+      archivedAt: Option[Offset],
   )
 
   // Simplified view of the index which models the evolution of the key and contracts state
   private final case class IndexViewContractsReader()(implicit ec: ExecutionContext)
       extends LedgerDaoContractsReader {
-    private type CreatedAt = AbsoluteOffset
+    private type CreatedAt = Offset
     @volatile private[cache] var contractStateStore = Map.empty[ContractId, ContractLifecycle]
     @volatile private[cache] var keyStateStore = Map.empty[Key, TreeMap[CreatedAt, ContractId]]
 
@@ -419,16 +419,16 @@ private object MutableCacheBackedContractStoreRaceTests {
         }
       }
 
-    override def lookupContractState(contractId: ContractId, validAt: Option[AbsoluteOffset])(
-        implicit loggingContext: LoggingContextWithTrace
+    override def lookupContractState(contractId: ContractId, validAt: Offset)(implicit
+        loggingContext: LoggingContextWithTrace
     ): Future[Option[ContractState]] =
       Future {
         val _ = loggingContext
         contractStateStore
           .get(contractId)
           .flatMap { case ContractLifecycle(_, contract, createdAt, maybeArchivedAt) =>
-            if (validAt < Some(createdAt)) None
-            else if (maybeArchivedAt.forall(Option(_) > validAt))
+            if (validAt < createdAt) None
+            else if (maybeArchivedAt.forall(_ > validAt))
               Some(
                 ActiveContract(
                   contract,
@@ -444,7 +444,7 @@ private object MutableCacheBackedContractStoreRaceTests {
           }
       }(ec)
 
-    override def lookupKeyState(key: Key, validAt: AbsoluteOffset)(implicit
+    override def lookupKeyState(key: Key, validAt: Offset)(implicit
         loggingContext: LoggingContextWithTrace
     ): Future[KeyState] = Future {
       val _ = loggingContext
@@ -464,8 +464,8 @@ private object MutableCacheBackedContractStoreRaceTests {
 
   private def offset(idx: Long) = {
     val base = BigInt(1L) << 32
-    AbsoluteOffset.tryFromLong((base + idx).toLong)
+    Offset.tryFromLong((base + idx).toLong)
   }
 
-  private def nextAfter(currentOffset: AbsoluteOffset) = currentOffset.increment
+  private def nextAfter(currentOffset: Offset) = currentOffset.increment
 }

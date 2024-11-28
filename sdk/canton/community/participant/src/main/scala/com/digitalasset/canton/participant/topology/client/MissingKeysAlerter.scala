@@ -17,7 +17,7 @@ import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.Ge
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 
 /** Monitor topology updates and alert on missing keys */
@@ -30,7 +30,7 @@ class MissingKeysAlerter(
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
 
-  def init()(implicit traceContext: TraceContext): Future[Unit] =
+  def init()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     for {
       encryptionKeys <- client.currentSnapshotApproximation.encryptionKeys(participantId)
       signingKeys <- client.currentSnapshotApproximation.signingKeys(

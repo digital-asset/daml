@@ -129,7 +129,7 @@ class TopologyTransactionProcessor(
       // effective time at the given point in time. we need to recover these as otherwise, we might be using outdated
       // topology snapshots on startup. (wouldn't be tragic as by getting the rejects, we'd be updating the timestamps
       // anyway).
-      upcoming <- performUnlessClosingF(functionFullName)(
+      upcoming <- performUnlessClosingUSF(functionFullName)(
         store.findUpcomingEffectiveChanges(sequencedTs.value)
         // find effective time of sequenced Ts (directly from store)
         // merge times
@@ -148,9 +148,7 @@ class TopologyTransactionProcessor(
     }
 
     for {
-      stateStoreTsO <- performUnlessClosingF(functionFullName)(
-        maxTimestampFromStore()
-      )
+      stateStoreTsO <- performUnlessClosingUSF(functionFullName)(maxTimestampFromStore())
       clientTs = subscriptionTimestamp(
         start,
         stateStoreTsO.map { case (_, effective) => effective },
@@ -411,11 +409,11 @@ class TopologyTransactionProcessor(
   private def epsilonForTimestamp(asOfExclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Change.TopologyDelay] =
-    FutureUnlessShutdown.outcomeF(store.currentChangeDelay(asOfExclusive))
+    store.currentChangeDelay(asOfExclusive)
 
   private def maxTimestampFromStore()(implicit
       traceContext: TraceContext
-  ): Future[Option[(SequencedTime, EffectiveTime)]] =
+  ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] =
     store.maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true)
 
   /** @return A tuple with list of envelopes with invalid recipients and a list of topology broadcasts to further process */
@@ -445,11 +443,9 @@ class TopologyTransactionProcessor(
     // when initializing TopologyTransactionProcessor means that is it is being replayed
     // after crash recovery (eg reconnecting to a domain or restart after a crash)
     for {
-      maxSequencedTimeAtInitialization <- performUnlessClosingF(
+      maxSequencedTimeAtInitialization <- performUnlessClosingUSF(
         "max-sequenced-time-at-initialization"
-      )(
-        maxSequencedTimeAtInitializationF
-      )
+      )(maxSequencedTimeAtInitializationF)
       eventIsBeingReplayed = maxSequencedTimeAtInitialization.exists(_ >= sequencingTimestamp)
 
       _ = if (eventIsBeingReplayed) {
@@ -457,7 +453,7 @@ class TopologyTransactionProcessor(
           s"Replaying topology transactions at $sequencingTimestamp and SC=$sc: $txs"
         )
       }
-      validated <- performUnlessClosingF("process-topology-transaction")(
+      validated <- performUnlessClosingUSF("process-topology-transaction")(
         stateProcessor
           .validateAndApplyAuthorization(
             sequencingTimestamp,
@@ -476,7 +472,7 @@ class TopologyTransactionProcessor(
         case tx if tx.rejectionReason.isEmpty && !tx.transaction.isProposal => tx.transaction
       }
       _ <- performUnlessClosingUSF("notify-topology-transaction-observers")(
-        MonadUtil.sequentialTraverse_(listeners.get()) { listenerGroup =>
+        MonadUtil.sequentialTraverse(listeners.get()) { listenerGroup =>
           logger.debug(
             s"Notifying listener group (${listenerGroup.head1.executionOrder}) of $sequencingTimestamp, $effectiveTimestamp and SC $sc"
           )
@@ -494,7 +490,7 @@ class TopologyTransactionProcessor(
       // TODO(#15089): do not notify the terminate processing for replayed events.
       //               but for some reason, this is still required, otherwise
       //               SequencerOnboardingTombstoneTestPostgres fails
-      _ <- performUnlessClosingF("terminate-processing")(
+      _ <- performUnlessClosingUSF("terminate-processing")(
         terminateProcessing.terminate(sc, sequencingTimestamp, effectiveTimestamp)
       )
     } yield ()
@@ -553,7 +549,7 @@ object TopologyTransactionProcessor {
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[(TopologyTransactionProcessor, DomainTopologyClientWithInit)] = {
+  ): FutureUnlessShutdown[(TopologyTransactionProcessor, DomainTopologyClientWithInit)] = {
 
     val processor = new TopologyTransactionProcessor(
       domainId,

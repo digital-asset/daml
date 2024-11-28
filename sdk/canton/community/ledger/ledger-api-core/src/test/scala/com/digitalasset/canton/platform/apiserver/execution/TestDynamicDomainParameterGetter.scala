@@ -4,11 +4,12 @@
 package com.digitalasset.canton.platform.apiserver.execution
 
 import cats.data.EitherT
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class TestDynamicDomainParameterGetter(
     ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration
@@ -17,6 +18,6 @@ class TestDynamicDomainParameterGetter(
 ) extends DynamicDomainParameterGetter {
   override def getLedgerTimeRecordTimeTolerance(domainIdO: Option[DomainId])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, NonNegativeFiniteDuration] =
-    EitherT.pure[Future, String](ledgerTimeRecordTimeTolerance)
+  ): EitherT[FutureUnlessShutdown, String, NonNegativeFiniteDuration] =
+    EitherT.pure[FutureUnlessShutdown, String](ledgerTimeRecordTimeTolerance)
 }

@@ -10,7 +10,11 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{ProcessingTimeout, TopologyConfig}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.{
+  FutureUnlessShutdown,
+  PromiseUnlessShutdown,
+  UnlessShutdown,
+}
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast
 import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast.State
@@ -31,6 +35,8 @@ import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.{
   BaseTest,
   DomainAlias,
+  FailOnShutdown,
+  HasExecutionContext,
   ProtocolVersionChecksAsyncWordSpec,
   SequencerCounter,
 }
@@ -40,13 +46,14 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.{Future, Promise}
 import scala.util.chaining.scalaUtilChainingOps
 
 class QueueBasedDomainOutboxTest
     extends AsyncWordSpec
     with BaseTest
-    with ProtocolVersionChecksAsyncWordSpec {
+    with ProtocolVersionChecksAsyncWordSpec
+    with HasExecutionContext
+    with FailOnShutdown {
   import DefaultTestIdentities.*
 
   private lazy val clock = new WallClock(timeouts, loggerFactory)
@@ -79,7 +86,6 @@ class QueueBasedDomainOutboxTest
       testedProtocolVersion,
     )
     .value
-    .failOnShutdown
     .map(_.valueOrFail("error creating root certificate"))
 
   private def mk(
@@ -87,7 +93,14 @@ class QueueBasedDomainOutboxTest
       responses: Iterator[TopologyTransactionsBroadcast.State] =
         Iterator.continually(TopologyTransactionsBroadcast.State.Accepted),
       rejections: Iterator[Option[TopologyTransactionRejection]] = Iterator.continually(None),
-  ) = {
+  ): FutureUnlessShutdown[
+    (
+        InMemoryTopologyStore[TopologyStoreId.DomainStore],
+        DomainTopologyManager,
+        MockHandle,
+        StoreBasedDomainTopologyClient,
+    )
+  ] = {
     val target = new InMemoryTopologyStore(
       TopologyStoreId.DomainStore(DefaultTestIdentities.domainId),
       loggerFactory,
@@ -157,7 +170,10 @@ class QueueBasedDomainOutboxTest
     val buffer: mutable.ListBuffer[GenericSignedTopologyTransaction] = ListBuffer()
     val batches: mutable.ListBuffer[Seq[GenericSignedTopologyTransaction]] = ListBuffer()
     private val promise = new AtomicReference(
-      Promise[Seq[Seq[GenericSignedTopologyTransaction]]]()
+      new PromiseUnlessShutdown[Seq[Seq[GenericSignedTopologyTransaction]]](
+        "promise",
+        futureSupervisor,
+      )
     )
     private val expect = new AtomicInteger(expectI)
 
@@ -165,61 +181,60 @@ class QueueBasedDomainOutboxTest
         transactions: Seq[GenericSignedTopologyTransaction]
     )(implicit
         traceContext: TraceContext
-    ): FutureUnlessShutdown[Seq[TopologyTransactionsBroadcast.State]] =
-      FutureUnlessShutdown.outcomeF {
-        logger.debug(s"Observed ${transactions.length} transactions")
-        buffer ++= transactions
-        batches += transactions
-        val finalResult = transactions.map(_ => responses.next())
-        for {
-          _ <- MonadUtil.sequentialTraverse(transactions) { x =>
-            logger.debug(s"Processing $x")
-            val ts = CantonTimestamp.now()
-            if (finalResult.forall(_ == State.Accepted))
-              store
-                .update(
-                  SequencedTime(ts),
-                  EffectiveTime(ts),
-                  additions = List(ValidatedTopologyTransaction(x, rejections.next())),
-                  // dumbed down version of how to "append" ValidatedTopologyTransactions:
-                  removeMapping = Option
-                    .when(x.operation == TopologyChangeOp.Remove)(
-                      x.mapping.uniqueKey -> x.serial
-                    )
-                    .toList
-                    .toMap,
-                  removeTxs = Set.empty,
-                )
-                .flatMap(_ =>
-                  targetClient
-                    .observed(
-                      SequencedTime(ts),
-                      EffectiveTime(ts),
-                      SequencerCounter(3),
-                      if (rejections.isEmpty) Seq(x) else Seq.empty,
-                    )
-                    .onShutdown(())
-                )
-            else Future.unit
-          }
-          _ = if (buffer.length >= expect.get()) {
-            promise.get().success(batches.toSeq)
-          }
-        } yield {
-          logger.debug(s"Done with observed ${transactions.length} transactions")
-          finalResult
+    ): FutureUnlessShutdown[Seq[TopologyTransactionsBroadcast.State]] = {
+      logger.debug(s"Observed ${transactions.length} transactions")
+      buffer ++= transactions
+      batches += transactions
+      val finalResult = transactions.map(_ => responses.next())
+      for {
+        _ <- MonadUtil.sequentialTraverse(transactions) { x =>
+          logger.debug(s"Processing $x")
+          val ts = CantonTimestamp.now()
+          if (finalResult.forall(_ == State.Accepted))
+            store
+              .update(
+                SequencedTime(ts),
+                EffectiveTime(ts),
+                additions = List(ValidatedTopologyTransaction(x, rejections.next())),
+                // dumbed down version of how to "append" ValidatedTopologyTransactions:
+                removeMapping = Option
+                  .when(x.operation == TopologyChangeOp.Remove)(
+                    x.mapping.uniqueKey -> x.serial
+                  )
+                  .toList
+                  .toMap,
+                removeTxs = Set.empty,
+              )
+              .flatMap(_ =>
+                targetClient
+                  .observed(
+                    SequencedTime(ts),
+                    EffectiveTime(ts),
+                    SequencerCounter(3),
+                    if (rejections.isEmpty) Seq(x) else Seq.empty,
+                  )
+              )
+          else FutureUnlessShutdown.unit
         }
+        _ = if (buffer.length >= expect.get()) {
+          promise.get().success(UnlessShutdown.Outcome(batches.toSeq))
+        }
+      } yield {
+        logger.debug(s"Done with observed ${transactions.length} transactions")
+        finalResult
       }
+    }
 
     def clear(expectI: Int): Seq[GenericSignedTopologyTransaction] = {
       val ret = buffer.toList
       buffer.clear()
       expect.set(expectI)
-      promise.set(Promise())
+      promise.set(new PromiseUnlessShutdown("promise", futureSupervisor))
       ret
     }
 
-    def allObserved(): Future[Unit] = promise.get().future.void
+    def allObserved(): FutureUnlessShutdown[Unit] =
+      promise.get().futureUS.void
 
     override protected def timeouts: ProcessingTimeout = ProcessingTimeout()
     override protected def logger: TracedLogger = QueueBasedDomainOutboxTest.this.logger
@@ -228,7 +243,7 @@ class QueueBasedDomainOutboxTest
   private def push(
       manager: DomainTopologyManager,
       transactions: Seq[GenericTopologyTransaction],
-  ): Future[
+  ): FutureUnlessShutdown[
     Either[TopologyManagerError, Seq[GenericSignedTopologyTransaction]]
   ] =
     MonadUtil
@@ -243,7 +258,6 @@ class QueueBasedDomainOutboxTest
         )
       )
       .value
-      .failOnShutdown
 
   private def outboxConnected(
       manager: DomainTopologyManager,
@@ -251,7 +265,7 @@ class QueueBasedDomainOutboxTest
       client: DomainTopologyClientWithInit,
       target: TopologyStore[TopologyStoreId.DomainStore],
       broadcastBatchSize: PositiveInt = TopologyConfig.defaultBroadcastBatchSize,
-  ): Future[QueueBasedDomainOutbox] = {
+  ): FutureUnlessShutdown[QueueBasedDomainOutbox] = {
     val domainOutbox = new QueueBasedDomainOutbox(
       domain,
       domainId,
@@ -284,7 +298,6 @@ class QueueBasedDomainOutboxTest
             })
           ),
       )
-      .onShutdown(domainOutbox)
   }
 
   private def outboxDisconnected(manager: DomainTopologyManager): Unit =

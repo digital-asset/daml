@@ -558,24 +558,12 @@ trait MessageDispatcherTest {
         )
         // Check that we're calling the topology manager before we're publishing the deliver event and ticking the
         // request tracker
-        when(
-          sut.recordOrderPublisher.scheduleEmptyAcsChangePublication(
-            any[SequencerCounter],
-            any[CantonTimestamp],
-          )(any[TraceContext])
-        )
-          .thenAnswer {
-            checkTickTopologyProcessor(sut, sc, ts).discard
-          }
         when(sut.requestTracker.tick(any[SequencerCounter], any[CantonTimestamp])(anyTraceContext))
           .thenAnswer {
             checkTickTopologyProcessor(sut, sc, ts).discard
           }
 
         handle(sut, deliver) {
-          verify(sut.recordOrderPublisher).scheduleEmptyAcsChangePublication(isEq(sc), isEq(ts))(
-            any[TraceContext]
-          )
           checkTicks(sut, sc, ts)
         }.futureValue
       }

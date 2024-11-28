@@ -120,7 +120,6 @@ class TrafficPurchasedSubmissionHandler(
               )
             )
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
       activeSequencers <- EitherT.fromOption[FutureUnlessShutdown](
         NonEmpty
           .from(sequencerGroup.active.map(_.member)),

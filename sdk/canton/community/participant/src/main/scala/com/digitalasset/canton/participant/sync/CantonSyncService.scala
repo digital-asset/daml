@@ -18,8 +18,8 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.{CryptoPureApi, SyncCryptoApiProvider}
 import com.digitalasset.canton.data.{
-  AbsoluteOffset,
   CantonTimestamp,
+  Offset,
   ProcessedDisclosedContract,
   ReassignmentSubmitterMetadata,
 }
@@ -32,7 +32,7 @@ import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.ledger.participant.state.SyncService.ConnectedDomainResponse
-import com.digitalasset.canton.lifecycle.*
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, *}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.participant.*
@@ -81,7 +81,6 @@ import com.digitalasset.canton.scheduler.Schedulers
 import com.digitalasset.canton.sequencing.SequencerConnectionValidation
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.client.SequencerClient.CloseReason
-import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker, NonNegativeFiniteDuration}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{DomainTopologyClientWithInit, TopologySnapshot}
@@ -148,6 +147,7 @@ class CantonSyncService(
     protected val loggerFactory: NamedLoggerFactory,
     testingConfig: TestingConfigInternal,
     val ledgerApiIndexer: LifeCycleContainer[LedgerApiIndexer],
+    connectedDomainsLookupContainer: ConnectedDomainsLookupContainer,
 )(implicit ec: ExecutionContextExecutor, mat: Materializer, val tracer: Tracer)
     extends state.SyncService
     with ParticipantPruningSyncService
@@ -191,6 +191,7 @@ class CantonSyncService(
     TrieMap.empty[DomainId, SyncDomain]
   private val connectedDomainsLookup: ConnectedDomainsLookup =
     ConnectedDomainsLookup.create(connectedDomainsMap)
+  connectedDomainsLookupContainer.registerDelegate(connectedDomainsLookup)
 
   private val partyAllocation = new PartyAllocation(
     participantId,
@@ -324,6 +325,7 @@ class CantonSyncService(
     syncCrypto,
     packageService.value.packageDependencyResolver,
     repairServiceDAMLe,
+    participantNodePersistentState.map(_.contractStore),
     ledgerApiIndexer.asEval(TraceContext.empty),
     aliasManager,
     parameters,
@@ -437,7 +439,7 @@ class CantonSyncService(
   )
 
   override def prune(
-      pruneUpToInclusive: AbsoluteOffset,
+      pruneUpToInclusive: Offset,
       submissionId: LedgerSubmissionId,
       _pruneAllDivulgedContracts: Boolean, // Canton always prunes divulged contracts ignoring this flag
   ): CompletionStage[PruningResult] =
@@ -454,7 +456,7 @@ class CantonSyncService(
     }).asJava
 
   def pruneInternally(
-      pruneUpToInclusive: AbsoluteOffset
+      pruneUpToInclusive: Offset
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, CantonError, Unit] =
     (for {
       _pruned <- pruningProcessor.pruneLedgerEvents(pruneUpToInclusive)
@@ -974,7 +976,7 @@ class CantonSyncService(
   private def startDomain(alias: DomainAlias, syncDomain: SyncDomain)(implicit
       traceContext: TraceContext
   ): EitherT[Future, SyncServiceError, Unit] =
-    EitherT(syncDomain.startFUS())
+    EitherT(syncDomain.start())
       .leftMap(error => SyncServiceError.SyncServiceStartupError.InitError(alias, error))
       .onShutdown(
         Left(
@@ -1230,6 +1232,7 @@ class CantonSyncService(
             .createFromPersistent(
               persistent,
               ledgerApiIndexer.asEval,
+              participantNodePersistentState.map(_.contractStore),
               participantNodeEphemeralState,
               () => {
                 val tracker = DomainTimeTracker(
@@ -1654,11 +1657,16 @@ class CantonSyncService(
 
   override def getConnectedDomains(
       request: SyncService.ConnectedDomainRequest
-  )(implicit traceContext: TraceContext): Future[SyncService.ConnectedDomainResponse] = {
-    def getSnapshot(domainAlias: DomainAlias, domainId: DomainId): Future[TopologySnapshot] =
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[SyncService.ConnectedDomainResponse] = {
+    def getSnapshot(
+        domainAlias: DomainAlias,
+        domainId: DomainId,
+    ): FutureUnlessShutdown[TopologySnapshot] =
       syncCrypto.ips
         .forDomain(domainId)
-        .toFuture(
+        .toFutureUS(
           new Exception(
             s"Failed retrieving DomainTopologyClient for domain `$domainId` with alias $domainAlias"
           )
@@ -1686,13 +1694,13 @@ class CantonSyncService(
             )
       }.toSeq
 
-    Future.sequence(result).map(_.flatten).map(ConnectedDomainResponse.apply)
+    FutureUnlessShutdown.sequence(result).map(_.flatten).map(ConnectedDomainResponse.apply)
   }
 
   override def incompleteReassignmentOffsets(
-      validAt: AbsoluteOffset,
+      validAt: Offset,
       stakeholders: Set[LfPartyId],
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Vector[AbsoluteOffset]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Vector[Offset]] =
     syncDomainPersistentStateManager.getAll.values.toList
       .parTraverse {
         _.reassignmentStore.findIncomplete(
@@ -1779,7 +1787,6 @@ object CantonSyncService {
         clock: Clock,
         resourceManagementService: ResourceManagementService,
         cantonParameterConfig: ParticipantNodeParameters,
-        indexedStringStore: IndexedStringStore,
         pruningProcessor: PruningProcessor,
         schedulers: Schedulers,
         metrics: ParticipantMetrics,
@@ -1789,6 +1796,7 @@ object CantonSyncService {
         loggerFactory: NamedLoggerFactory,
         testingConfig: TestingConfigInternal,
         ledgerApiIndexer: LifeCycleContainer[LedgerApiIndexer],
+        connectedDomainsLookupContainer: ConnectedDomainsLookupContainer,
     )(implicit ec: ExecutionContextExecutor, mat: Materializer, tracer: Tracer): T
   }
 
@@ -1813,7 +1821,6 @@ object CantonSyncService {
         clock: Clock,
         resourceManagementService: ResourceManagementService,
         cantonParameterConfig: ParticipantNodeParameters,
-        indexedStringStore: IndexedStringStore,
         pruningProcessor: PruningProcessor,
         schedulers: Schedulers,
         metrics: ParticipantMetrics,
@@ -1823,6 +1830,7 @@ object CantonSyncService {
         loggerFactory: NamedLoggerFactory,
         testingConfig: TestingConfigInternal,
         ledgerApiIndexer: LifeCycleContainer[LedgerApiIndexer],
+        connectedDomainsLookupContainer: ConnectedDomainsLookupContainer,
     )(implicit
         ec: ExecutionContextExecutor,
         mat: Materializer,
@@ -1857,6 +1865,7 @@ object CantonSyncService {
         loggerFactory,
         testingConfig,
         ledgerApiIndexer,
+        connectedDomainsLookupContainer,
       )
   }
 }

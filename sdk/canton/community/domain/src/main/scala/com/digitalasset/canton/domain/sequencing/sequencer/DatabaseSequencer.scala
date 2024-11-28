@@ -341,7 +341,8 @@ class DatabaseSequencer(
 
   override def readInternal(member: Member, offset: SequencerCounter)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CreateSubscriptionError, Sequencer.EventSource] = reader.read(member, offset)
+  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource] =
+    reader.read(member, offset)
 
   /** Internal method to be used in the sequencer integration.
     */
@@ -356,13 +357,13 @@ class DatabaseSequencer(
 
   override protected def acknowledgeSignedInternal(
       signedAcknowledgeRequest: SignedContent[AcknowledgeRequest]
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     // it is unlikely that the ack operation will be called without the member being registered
     // as the sequencer-client will need to be registered to send and subscribe.
     // rather than introduce an error to deal with this case in the database sequencer we'll just
     // fail the operation.
     val req = signedAcknowledgeRequest.content
-    writeAcknowledgementInternal(req.member, req.timestamp)
+    FutureUnlessShutdown.outcomeF(writeAcknowledgementInternal(req.member, req.timestamp))
   }
 
   protected def disableMemberInternal(

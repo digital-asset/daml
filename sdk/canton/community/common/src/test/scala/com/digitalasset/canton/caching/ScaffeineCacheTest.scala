@@ -21,7 +21,7 @@ class ScaffeineCacheTest extends AsyncWordSpec with BaseTest with FailOnShutdown
     "Get a value when not shutting down" in {
       val keysCache =
         ScaffeineCache.buildAsync[FutureUnlessShutdown, Int, Int](
-          cache = CachingConfigs.testing.mySigningKeyCache.buildScaffeine(),
+          cache = CachingConfigs.testing.keyCache.buildScaffeine(),
           loader = getValue,
         )(logger)
       for {
@@ -34,7 +34,7 @@ class ScaffeineCacheTest extends AsyncWordSpec with BaseTest with FailOnShutdown
     "Handle AbortDueToShutdown in get" in {
       val keysCache =
         ScaffeineCache.buildAsync[FutureUnlessShutdown, Int, Int](
-          cache = CachingConfigs.testing.mySigningKeyCache.buildScaffeine(),
+          cache = CachingConfigs.testing.keyCache.buildScaffeine(),
           loader = getValueBroken,
         )(logger)
 
@@ -50,7 +50,7 @@ class ScaffeineCacheTest extends AsyncWordSpec with BaseTest with FailOnShutdown
     "Handle AbortDueToShutdown in getAll" in {
       val keysCache =
         ScaffeineCache.buildAsync[FutureUnlessShutdown, Int, Int](
-          cache = CachingConfigs.testing.mySigningKeyCache.buildScaffeine(),
+          cache = CachingConfigs.testing.keyCache.buildScaffeine(),
           loader = getValueBroken,
           allLoader = Some(_ => FutureUnlessShutdown.abortedDueToShutdown),
         )(logger)
@@ -65,7 +65,7 @@ class ScaffeineCacheTest extends AsyncWordSpec with BaseTest with FailOnShutdown
     "Handle AbortedDueToShutdown in compute" in {
       val keysCache =
         ScaffeineCache.buildAsync[FutureUnlessShutdown, Int, Int](
-          cache = CachingConfigs.testing.mySigningKeyCache.buildScaffeine(),
+          cache = CachingConfigs.testing.keyCache.buildScaffeine(),
           loader = getValue,
         )(logger)
 
@@ -79,7 +79,7 @@ class ScaffeineCacheTest extends AsyncWordSpec with BaseTest with FailOnShutdown
     "Pass cached value to compute" in {
       val keysCache =
         ScaffeineCache.buildAsync[FutureUnlessShutdown, Int, Int](
-          cache = CachingConfigs.testing.mySigningKeyCache.buildScaffeine(),
+          cache = CachingConfigs.testing.keyCache.buildScaffeine(),
           loader = getValue,
         )(logger)
       val previousValue = new AtomicReference[Option[Int]]()
@@ -107,7 +107,7 @@ class ScaffeineCacheTest extends AsyncWordSpec with BaseTest with FailOnShutdown
 
       val keysCache =
         ScaffeineCache.buildAsync[FutureUnlessShutdown, Int, Int](
-          cache = CachingConfigs.testing.mySigningKeyCache.buildScaffeine(),
+          cache = CachingConfigs.testing.keyCache.buildScaffeine(),
           loader = getValueCount,
         )(logger)
 
@@ -128,7 +128,7 @@ class ScaffeineCacheTest extends AsyncWordSpec with BaseTest with FailOnShutdown
     "ignore the trace context stored with a key" in {
       val counter = new AtomicInteger()
       val keysCache = ScaffeineCache.buildTracedAsync[FutureUnlessShutdown, Int, Int](
-        cache = CachingConfigs.testing.mySigningKeyCache.buildScaffeine(),
+        cache = CachingConfigs.testing.keyCache.buildScaffeine(),
         loader = _ => input => getValue(counter.incrementAndGet() + input),
       )(logger)
       for {

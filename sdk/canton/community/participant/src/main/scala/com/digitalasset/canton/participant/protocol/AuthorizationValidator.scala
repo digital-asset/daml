@@ -88,12 +88,11 @@ class AuthorizationValidator(participantId: ParticipantId, enableExternalAuthori
             noAuthorizationForParties(notCoveredBySubmittingParty)
           } else {
             for {
-              notAllowedBySubmittingParticipant <- FutureUnlessShutdown.outcomeF(
+              notAllowedBySubmittingParticipant <-
                 snapshot.canNotSubmit(
                   submitterMetadata.submittingParticipant,
                   submitterMetadata.actAs.toSeq,
                 )
-              )
             } yield
               if (notAllowedBySubmittingParticipant.nonEmpty) {
                 notAuthorizedBySubmittingParticipant(
@@ -123,16 +122,15 @@ class AuthorizationValidator(participantId: ParticipantId, enableExternalAuthori
         }
 
         def checkAuthorizersAreNotHosted(): FutureUnlessShutdown[Option[String]] =
-          FutureUnlessShutdown.outcomeF(snapshot.hostedOn(authorizers, participantId)).map {
-            hostedAuthorizers =>
-              // If this participant hosts an authorizer, it should also have received the parent view.
-              // As rootView is not a top-level (submitter metadata is blinded), there is a gap in the authorization chain.
+          snapshot.hostedOn(authorizers, participantId).map { hostedAuthorizers =>
+            // If this participant hosts an authorizer, it should also have received the parent view.
+            // As rootView is not a top-level (submitter metadata is blinded), there is a gap in the authorization chain.
 
-              Option.when(hostedAuthorizers.nonEmpty)(
-                err(
-                  show"Missing authorization for ${hostedAuthorizers.keys.toSeq.sorted}, ${rootView.viewPosition}."
-                )
+            Option.when(hostedAuthorizers.nonEmpty)(
+              err(
+                show"Missing authorization for ${hostedAuthorizers.keys.toSeq.sorted}, ${rootView.viewPosition}."
               )
+            )
           }
 
         (rootView.submitterMetadataO match {

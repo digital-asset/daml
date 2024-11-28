@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.networking.grpc
 
+import cats.Functor
 import cats.data.EitherT
 import cats.implicits.*
 import com.daml.error.{ErrorCategory, ErrorCategoryRetry, ErrorCode, Explanation, Resolution}
@@ -20,7 +21,8 @@ import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{DelayUtil, EitherTUtil}
 import com.digitalasset.canton.{GrpcServiceInvocationMethod, ProtoDeserializationError, config}
 import io.grpc.*
-import io.grpc.stub.AbstractStub
+import io.grpc.Context.CancellableContext
+import io.grpc.stub.{AbstractStub, StreamObserver}
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{Duration, FiniteDuration}
@@ -283,6 +285,69 @@ object CantonGrpcUtil {
       send: Svc => Future[Resp]
   )(implicit traceContext: TraceContext): Future[Resp] =
     TraceContextGrpc.withGrpcContext(traceContext)(send(service))
+
+  /** Makes the server-streaming call via `send` on the `client` in a fresh cancellable gRPC [[io.grpc.Context]]
+    * that is used to construct the stream observer via the `observerFactory`.
+    *
+    * @param observerFactory Factory to create the stream observer for handling the message stream from the server.
+    * @param getObserver Extracts the actual stream observer from the `HasObserver` instance.
+    */
+  def serverStreamingRequest[Svc <: AbstractStub[Svc], HasObserver, Resp](
+      client: GrpcClient[Svc],
+      observerFactory: (CancellableContext, OnShutdownRunner) => HasObserver,
+  )(getObserver: HasObserver => StreamObserver[Resp])(
+      send: (Svc, StreamObserver[Resp]) => Unit
+  )(implicit traceContext: TraceContext): HasObserver = {
+    // we intentionally don't use `Context.current()` as we don't want to inherit the
+    // cancellation scope from upstream requests
+    val context: CancellableContext = Context.ROOT.withCancellation()
+
+    val result = observerFactory(context, client.channel)
+    val observer = getObserver(result)
+
+    context.run(() =>
+      // This trace context will only be used for the initial request, not for the streaming responses
+      // Clients must manage the trace context inside the streaming responses themselves
+      TraceContextGrpc.withGrpcContext(traceContext) {
+        send(client.service, observer)
+      }
+    )
+
+    result
+  }
+
+  /** Makes the bidirectional-streaming call via `send` on the `client` in a fresh cancellable gRPC [[io.grpc.Context]]
+    * that is used to construct the stream observer via the `observerFactory`.
+    *
+    * @param observerFactory Factory to create the stream observer for handling the message stream from the server.
+    * @param getObserver Extracts the actual stream observer from the `HasObserver` instance.
+    * @tparam F The effect type of the observer factory.
+    */
+  @GrpcServiceInvocationMethod
+  def bidirectionalStreamingRequest[Svc <: AbstractStub[Svc], F[_], HasObserver, Req, Resp](
+      client: GrpcClient[Svc],
+      observerFactory: (CancellableContext, OnShutdownRunner) => F[HasObserver],
+  )(getObserver: HasObserver => StreamObserver[Resp])(
+      send: (Svc, StreamObserver[Resp]) => StreamObserver[Req]
+  )(implicit traceContext: TraceContext, F: Functor[F]): F[(HasObserver, StreamObserver[Req])] = {
+    // we intentionally don't use `Context.current()` as we don't want to inherit the
+    // cancellation scope from upstream requests
+    val context: CancellableContext = Context.ROOT.withCancellation()
+
+    val resultF = observerFactory(context, client.channel)
+    F.map(resultF) { result =>
+      val responseObserver = getObserver(result)
+
+      val requestObserver = context.call(() =>
+        // This trace context will only be used for setting up the bidirectional channel.
+        // Clients must manage the trace context inside the streaming requests and responses themselves
+        TraceContextGrpc.withGrpcContext(traceContext) {
+          send(client.service, responseObserver)
+        }
+      )
+      (result, requestObserver)
+    }
+  }
 
   trait GrpcLogPolicy {
     def log(error: GrpcError, logger: TracedLogger)(implicit

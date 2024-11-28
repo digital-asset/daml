@@ -14,6 +14,7 @@ import com.digitalasset.canton.ledger.participant.state.index.{
   IndexActiveContractsService as ACSBackend,
   IndexTransactionsService,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.{
   implicitExtractTraceContext,
   withEnrichedLoggingContext,
@@ -21,6 +22,7 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace.{
 import com.digitalasset.canton.logging.TracedLoggerOps.TracedLoggerOps
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.shutdownAsGrpcError
 import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.topology.transaction.ParticipantPermission as TopologyParticipantPermission
 import com.digitalasset.canton.tracing.TraceContext
@@ -98,14 +100,14 @@ final class ApiStateService(
   ): Future[GetConnectedDomainsResponse] = {
     implicit val loggingContext: LoggingContextWithTrace =
       LoggingContextWithTrace(loggerFactory, telemetry)
-    (for {
+    val result = (for {
       party <- FieldValidator
         .requirePartyField(request.party, "party")
       participantId <- FieldValidator
         .optionalParticipantId(request.participantId, "participant_id")
     } yield SyncService.ConnectedDomainRequest(party, participantId))
       .fold(
-        t => Future.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
+        t => FutureUnlessShutdown.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
         request =>
           syncService
             .getConnectedDomains(request)
@@ -132,6 +134,7 @@ final class ApiStateService(
               )
             ),
       )
+    shutdownAsGrpcError(result)
   }
 
   override def getLedgerEnd(request: GetLedgerEndRequest): Future[GetLedgerEndResponse] = {
