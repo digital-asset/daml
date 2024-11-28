@@ -108,4 +108,4 @@ listPackagesIsCorrect = script do
   -- 2 packages for daml3-script (main/internal + stable)
   -- the current package
   packages <- listVettedPackages
-  length packages === 14
+  length packages === 15

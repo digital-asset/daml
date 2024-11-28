@@ -2284,9 +2284,8 @@ tests TestArgs{..} =
             , "source: ."
             , "version: 0.1.0"
             , "dependencies: [" <> intercalate ", " (["daml-prim", "daml-stdlib"] <> fmap show extraDeps) <> "]"
-            , "data-dependencies: [" <> intercalate ", " (fmap dar dataDeps) <> "]"
+            , "data-dependencies: [" <> intercalate ", " dataDeps <> "]"
             ]
-
         step tokenProj >> do
           createDirectoryIfMissing True (path tokenProj)
           writeFileUTF8 (damlYaml tokenProj) $ damlYamlBody tokenProj [] []
@@ -2334,7 +2333,7 @@ tests TestArgs{..} =
         step fancyTokenProj >> do
           createDirectoryIfMissing True (path fancyTokenProj)
           writeFileUTF8 (damlYaml fancyTokenProj) $ damlYamlBody fancyTokenProj []
-            [ tokenProj
+            [ dar tokenProj
             ]
           writeFileUTF8 (damlMod fancyTokenProj "FancyToken") $ unlines
             [ "module FancyToken where"
@@ -2362,8 +2361,8 @@ tests TestArgs{..} =
         step assetProj >> do
           createDirectoryIfMissing True (path assetProj)
           writeFileUTF8 (damlYaml assetProj) $ damlYamlBody assetProj []
-            [ tokenProj
-            , fancyTokenProj
+            [ dar tokenProj
+            , dar fancyTokenProj
             ]
           writeFileUTF8 (damlMod assetProj "Asset") $ unlines
             [ "module Asset where"
@@ -2408,13 +2407,18 @@ tests TestArgs{..} =
             , "--project-root", path assetProj
             , "-o", dar assetProj
             ]
-
+        step' $ damlYamlBody mainProj []
+            [ dar tokenProj
+            , dar fancyTokenProj
+            , dar assetProj
+            , scriptDevDar
+            ]
         step mainProj >> do
           createDirectoryIfMissing True (path mainProj)
           writeFileUTF8 (damlYaml mainProj) $ damlYamlBody mainProj []
-            [ tokenProj
-            , fancyTokenProj
-            , assetProj
+            [ dar tokenProj
+            , dar fancyTokenProj
+            , dar assetProj
             , scriptDevDar
             ]
           writeFileUTF8 (damlMod mainProj "Main") $ unlines
