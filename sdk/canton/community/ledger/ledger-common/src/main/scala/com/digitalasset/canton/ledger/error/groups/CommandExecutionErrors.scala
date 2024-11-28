@@ -656,18 +656,18 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
         "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed"
       )
       object ValidationFailed
-        extends ErrorCode(
-          id = "INTERPRETATION_UPGRADE_ERROR_VALIDATION_FAILED",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther,
-        ) {
+          extends ErrorCode(
+            id = "INTERPRETATION_UPGRADE_ERROR_VALIDATION_FAILED",
+            ErrorCategory.InvalidGivenCurrentSystemStateOther,
+          ) {
         final case class Reject(
-                                 override val cause: String,
-                                 err: LfInterpretationError.Upgrade.ValidationFailed,
-                               )(implicit
-                                 loggingContext: ContextualizedErrorLogger
-                               ) extends DamlErrorWithDefiniteAnswer(
-          cause = cause
-        ) {
+            override val cause: String,
+            err: LfInterpretationError.Upgrade.ValidationFailed,
+        )(implicit
+            loggingContext: ContextualizedErrorLogger
+        ) extends DamlErrorWithDefiniteAnswer(
+              cause = cause
+            ) {
 
           override def resources: Seq[(ErrorResource, String)] =
             Seq(
@@ -676,30 +676,37 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
               (ErrorResource.TemplateId, err.dstTemplateId.toString),
               (ErrorResource.Parties, err.signatories.toString),
               (ErrorResource.Parties, err.observers.toString),
-            ) ++ err.keyOpt.fold(Seq.empty[(ErrorResource, String)])(key => Seq((ErrorResource.ContractKey, key.globalKey.toString), (ErrorResource.Parties, key.maintainers.toString)))
+            ) ++ err.keyOpt.fold(Seq.empty[(ErrorResource, String)])(key =>
+              Seq(
+                (ErrorResource.ContractKey, key.globalKey.toString),
+                (ErrorResource.Parties, key.maintainers.toString),
+              )
+            )
         }
       }
 
-      @Explanation("An optional contract field with a value of Some may not be dropped during downgrading")
+      @Explanation(
+        "An optional contract field with a value of Some may not be dropped during downgrading"
+      )
       @Resolution(
         "Ensure optional contract fields with a value of Some are not dropped"
       )
       object DowngradeDropDefinedField
-        extends ErrorCode(
-          id = "INTERPRETATION_UPGRADE_ERROR_DOWNGRADE_DROP_DEFINED_FIELD",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther,
-        ) {
+          extends ErrorCode(
+            id = "INTERPRETATION_UPGRADE_ERROR_DOWNGRADE_DROP_DEFINED_FIELD",
+            ErrorCategory.InvalidGivenCurrentSystemStateOther,
+          ) {
         final case class Reject(
-                                 override val cause: String,
-                                 err: LfInterpretationError.Upgrade.DowngradeDropDefinedField,
-                               )(implicit
-                                 loggingContext: ContextualizedErrorLogger
-                               ) extends DamlErrorWithDefiniteAnswer(
-          cause = cause
-        ) {
+            override val cause: String,
+            err: LfInterpretationError.Upgrade.DowngradeDropDefinedField,
+        )(implicit
+            loggingContext: ContextualizedErrorLogger
+        ) extends DamlErrorWithDefiniteAnswer(
+              cause = cause
+            ) {
           override def resources: Seq[(ErrorResource, String)] =
             Seq(
-              (ErrorResource.FieldType, err.expectedType.pretty),
+              (ErrorResource.FieldType, err.expectedType.pretty)
             )
         }
       }
@@ -709,18 +716,18 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
         "Verify that the views of the contract have not changed"
       )
       object ViewMismatch
-        extends ErrorCode(
-          id = "INTERPRETATION_UPGRADE_ERROR_VIEW_MISMATCH",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther,
-        ) {
+          extends ErrorCode(
+            id = "INTERPRETATION_UPGRADE_ERROR_VIEW_MISMATCH",
+            ErrorCategory.InvalidGivenCurrentSystemStateOther,
+          ) {
         final case class Reject(
-                                 override val cause: String,
-                                 err: LfInterpretationError.Upgrade.ViewMismatch,
-                               )(implicit
-                                 loggingContext: ContextualizedErrorLogger
-                               ) extends DamlErrorWithDefiniteAnswer(
-          cause = cause
-        ) {
+            override val cause: String,
+            err: LfInterpretationError.Upgrade.ViewMismatch,
+        )(implicit
+            loggingContext: ContextualizedErrorLogger
+        ) extends DamlErrorWithDefiniteAnswer(
+              cause = cause
+            ) {
 
           override def resources: Seq[(ErrorResource, String)] =
             Seq(

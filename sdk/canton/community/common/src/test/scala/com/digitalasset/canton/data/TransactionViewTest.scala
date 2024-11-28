@@ -12,7 +12,7 @@ import com.digitalasset.canton.data.ViewParticipantData.InvalidViewParticipantDa
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.util.LfTransactionBuilder
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.{BaseTest, HasExecutionContext}
+import com.digitalasset.canton.{BaseTest, HasExecutionContext, LfPackageId}
 import org.scalatest.wordspec.AnyWordSpec
 
 class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionContext {
@@ -74,19 +74,36 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
   }
 
   "A view" when {
-    "a child view has the same view common data" must {
-      val view = factory.SingleCreate(seed = ExampleTransactionFactory.lfHash(3)).view0
-      val subViews = TransactionSubviews(Seq(view))(testedProtocolVersion, factory.cryptoOps)
+    val firstSubviewIndex = TransactionSubviews.indices(testedProtocolVersion, 1).head.toString
+
+    "a child view has package preferences not in the parent" must {
+
+      val unexpectedPackage = LfPackageId.assertFromString("u1")
+
+      val view = factory.SingleExercise(seed = ExampleTransactionFactory.lfHash(3)).view0
+
+      val subview =
+        TransactionView.viewParticipantDataUnsafe
+          .modify { w =>
+            val d = w.tryUnwrap
+            val p = d.actionDescription.toProtoV4
+            p.getExercise.withPackagePreference(Seq(unexpectedPackage))
+            val n = p.withExercise(p.getExercise.withPackagePreference(Seq(unexpectedPackage)))
+            d.copy(actionDescription = ActionDescription.fromProtoV4(n).value)
+          }(view)
+
+      val subViews = TransactionSubviews(Seq(subview))(testedProtocolVersion, factory.cryptoOps)
+
       "reject creation" in {
-        val firstSubviewIndex = TransactionSubviews.indices(testedProtocolVersion, 1).head.toString
-        TransactionView.create(hashOps)(
-          view.viewCommonData,
-          view.viewParticipantData,
-          subViews,
-          testedProtocolVersion,
-        ) shouldEqual Left(
-          s"The subview with index $firstSubviewIndex has an equal viewCommonData."
-        )
+        TransactionView
+          .create(hashOps)(
+            view.viewCommonData,
+            view.viewParticipantData,
+            subViews,
+            testedProtocolVersion,
+          )
+          .left
+          .value shouldBe s"Detected unexpected exercise package preference: $unexpectedPackage at $firstSubviewIndex"
       }
     }
   }
