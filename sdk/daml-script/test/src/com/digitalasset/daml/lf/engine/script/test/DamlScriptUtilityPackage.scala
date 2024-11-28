@@ -15,6 +15,7 @@ import java.nio.file.Paths
 class DamlScriptUtilityPackage extends AnyWordSpec with Matchers {
   self: Suite =>
 
+  // daml2-script is not currently split, we will likely do this later
   // "Daml-script" should {
   //   "be a utility package in LF 1.14" in testUtility("daml-script/daml/daml-script-1.14.dar")
   //   "be a utility package in LF 1.15" in testUtility("daml-script/daml/daml-script-1.15.dar")

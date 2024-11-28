@@ -26,6 +26,8 @@ inferModule world0 version forceUtilityPackage mod0 =
     -- https://github.com/digital-asset/daml/issues/19338issues/19338
     ModuleName ["GHC", "Stack", "Types"] -> pure mod0
     _ | forceUtilityPackage -> do
+      -- With the --force-utility-package flag, we do not infer serializability for regular data types, and
+      -- disallow any definitions that must be serializable
       let mkErr name =
             throwError $ T.unpack $ "No " <> name <> " definitions permitted in forced utility packages (Module " <> moduleNameString (moduleName mod0) <> ")"
       when (not $ NM.null $ moduleTemplates mod0) $ mkErr "template"
