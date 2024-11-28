@@ -447,6 +447,7 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
     optUpgradeInfo <- optUpgradeInfo
     optDamlWarningFlags <- optDamlWarningFlags
     optForceUtilityPackage <- forceUtilityPackageOpt
+    optIgnoreDataDepVisibility <- optIgnoreDataDepVisibility
 
     return Options{..}
   where
@@ -656,6 +657,17 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
       uiTypecheckUpgrades <- optTypecheckUpgrades
       uiUpgradedPackagePath <- optUpgradeDar
       pure UpgradeInfo {..}
+
+    optIgnoreDataDepVisibility :: Parser IgnoreDataDepVisibility
+    optIgnoreDataDepVisibility =
+      IgnoreDataDepVisibility <$>
+        flagYesNoAuto
+          "ignore-data-deps-visibility"
+          False
+          ( "Ignore explicit exports on data-dependencies, and instead allow importing of all definitions from that package\n"
+            <> "(This was the default behaviour before Daml 2.10)"
+          )
+          idm
 
 optGhcCustomOptions :: Parser [String]
 optGhcCustomOptions =

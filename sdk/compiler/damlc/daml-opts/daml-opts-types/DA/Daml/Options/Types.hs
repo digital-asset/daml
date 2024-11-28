@@ -22,6 +22,7 @@ module DA.Daml.Options.Types
     , PackageArg(..)
     , ErrorOrWarning
     , ForceUtilityPackage(..)
+    , IgnoreDataDepVisibility(..)
     , defaultOptions
     , damlArtifactDir
     , projectPackageDatabase
@@ -144,6 +145,7 @@ data Options = Options
   , optUpgradeInfo :: UpgradeInfo
   , optDamlWarningFlags :: WarningFlags.DamlWarningFlags ErrorOrWarning
   , optForceUtilityPackage :: ForceUtilityPackage
+  , optIgnoreDataDepVisibility :: IgnoreDataDepVisibility
   }
 
 type ErrorOrWarning = Either TypeCheckerError.ErrorOrWarning LFConversion.ErrorOrWarning
@@ -158,6 +160,9 @@ newtype IncrementalBuild = IncrementalBuild { getIncrementalBuild :: Bool }
   deriving Show
 
 newtype IgnorePackageMetadata = IgnorePackageMetadata { getIgnorePackageMetadata :: Bool }
+  deriving Show
+
+newtype IgnoreDataDepVisibility = IgnoreDataDepVisibility { getIgnoreDataDepVisibility :: Bool }
   deriving Show
 
 newtype Haddock = Haddock Bool
@@ -296,6 +301,7 @@ defaultOptions mbVersion =
         , optUpgradeInfo = defaultUpgradeInfo
         , optDamlWarningFlags = WarningFlags.mkDamlWarningFlags damlWarningFlagParser []
         , optForceUtilityPackage = ForceUtilityPackage False
+        , optIgnoreDataDepVisibility = IgnoreDataDepVisibility False
         }
 
 defaultUpgradeInfo :: UpgradeInfo

@@ -777,7 +777,6 @@ convertModuleContents env mc = do
     templates <- convertTemplateDefs env mc
     exceptions <- convertExceptionDefs env mc
     interfaces <- convertInterfaces env mc
-    exports <- convertExports env mc
     let fixities = convertFixities mc
         defs =
             types
@@ -786,9 +785,10 @@ convertModuleContents env mc = do
             ++ definitions
             ++ interfaces
             ++ depOrphanModules
-            ++ exports
             ++ fixities
-    pure defs
+    -- Exports need to know what is defined to know if it should export it
+    exports <- convertExports env mc defs
+    pure $ defs ++ exports
 
 data Consuming = PreConsuming
                | Consuming
@@ -983,22 +983,49 @@ convertFixities = zipWith mkFixityDef [0..] . mcFixities
           (fixityName i)
           (encodeFixityInfo fixityInfo)
 
-convertExports :: Env -> ModuleContents -> ConvertM [Definition]
-convertExports env mc = do
-    let externalExportInfos = filter isExternalAvailInfo (mcExports mc)
-    exportInfos <- mapM availInfoToExportInfo externalExportInfos
-    pure $ zipWith mkExportDef [0..] exportInfos
+convertExports :: SdkVersioned => Env -> ModuleContents -> [Definition] -> ConvertM [Definition]
+convertExports env mc existingDefs = do
+    let externalReExportInfos = filter (isReExportName . GHC.availName) (mcExports mc)
+    reExportInfos <- mapM availInfoToExportInfo externalReExportInfos
+    let reExportDefs = zipWith mkExportDef (reExportName <$> [0..]) reExportInfos
+        
+    -- [SW] Use old style exports for prim/stdlib, i.e. export everything
+    -- I tried to have these also export normally, but ran into issues with proto3-suite overflowing heap when parsing stdlib
+    -- (when using `compile` directly, without daml-assistant)
+    if isPrimOrStdlib
+      then pure reExportDefs
+      else do
+        let externalExportInfos = filter (isExportName . GHC.availName) (mcExports mc) \\ externalReExportInfos
+        exportInfos <- mapM availInfoToExportInfo externalExportInfos
+        let exportDefs = zipWith mkExportDef (exportName <$> [0..]) exportInfos
+        pure $ explicitExportsDef : reExportDefs <> exportDefs
     where
-        isExternalAvailInfo :: GHC.AvailInfo -> Bool
-        isExternalAvailInfo = isExternalName . GHC.availName
-            where
-                isExternalName name =
-                    not $
-                        nameIsLocalOrFrom thisModule name
-                        || isSystemName name
-                        || isWiredInName name
-                        || maybe False (isInternal . GHC.moduleName) (nameModule_maybe name)
-                thisModule = GHC.Module (envModuleUnitId env) (envGHCModuleName env)
+        isReExportName :: Name -> Bool
+        isReExportName name = not $
+            isSystemName name
+            || isWiredInName name
+            || nameIsLocalOrFrom thisModule name
+            || maybe False (isInternal . GHC.moduleName) (nameModule_maybe name)
+
+        isPrimOrStdlib :: Bool
+        isPrimOrStdlib = envModuleUnitId env == damlStdlib || envModuleUnitId env == stringToUnitId "daml-prim"
+
+        thisModule :: GHC.Module
+        thisModule = GHC.Module (envModuleUnitId env) (envGHCModuleName env)
+
+        localExportables :: [T.Text]
+        localExportables = topLevelExportables existingDefs
+
+        -- If name is local but isn't defined in other generated definitions, don't export it
+        isLocallyUndefined :: Name -> Bool
+        isLocallyUndefined name | nameIsLocalOrFrom thisModule name = not $ getOccText name `elem` localExportables
+        isLocallyUndefined _ = False
+
+        isExportName :: Name -> Bool
+        isExportName name = not $
+            isSystemName name
+            || isWiredInName name
+            || isLocallyUndefined name
 
         availInfoToExportInfo :: GHC.AvailInfo -> ConvertM ExportInfo
         availInfoToExportInfo = \case
@@ -1026,10 +1053,14 @@ convertExports env mc = do
             flSelector <- convertQualName (flSelector f)
             pure f { flSelector }
 
-        mkExportDef :: Integer -> ExportInfo -> Definition
-        mkExportDef i info =
+        mkExportDef :: LF.ExprValName -> ExportInfo -> Definition
+        mkExportDef name info =
             let exportType = encodeExportInfo info
-            in DValue (mkMetadataStub (exportName i) exportType)
+            in DValue (mkMetadataStub name exportType)
+
+        -- Tag for explicit exports, so we can differentiate between no exports and old-style exports
+        explicitExportsDef :: Definition
+        explicitExportsDef = DValue (mkMetadataStub explicitExportsTag (LF.TBuiltin LF.BTUnit))
 
 defNewtypeWorker :: NamedThing a => Env -> a -> TypeConName -> DataCon
     -> [(TypeVarName, LF.Kind)] -> [(FieldName, LF.Type)] -> Definition

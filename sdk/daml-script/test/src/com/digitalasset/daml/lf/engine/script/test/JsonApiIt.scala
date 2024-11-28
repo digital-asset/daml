@@ -415,7 +415,7 @@ final class JsonApiIt extends AsyncWordSpec with JsonApiFixture with Matchers wi
         )
       } yield {
         exception.cause.getMessage should include(
-          "Interpretation error: Error: Unhandled Daml exception: DA.Exception.AssertionFailed:AssertionFailed@3f4deaf1{ message = \"Assertion failed\" }."
+          "Interpretation error: Error: Unhandled Daml exception: DA.Exception.AssertionFailed:AssertionFailed@3f4deaf1{ message = \"Assertion failed\" }"
         )
       }
     }

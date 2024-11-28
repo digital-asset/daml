@@ -124,10 +124,19 @@ message LegalIdentityClaim {
   }
 }
 
+// Allows the referenced package-ids to be used in a Daml transaction
 message VettedPackages {
   // the participant vetting the packages
   string participant = 1;
   // the hash of the vetted packages
+  repeated string package_ids = 2;
+}
+
+// Allows the referenced package-ids to represent the creation packages of input contracts to a Daml transaction
+message CheckOnlyPackages {
+  // the participant declaring the packages as check-only
+  string participant = 1;
+  // the hashes of the check-only packages
   repeated string package_ids = 2;
 }
 

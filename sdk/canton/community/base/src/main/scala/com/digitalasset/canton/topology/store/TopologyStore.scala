@@ -890,6 +890,7 @@ object TopologyStore {
       case ParticipantState(_, _, pid, _, _) => pid == participantId
       case PartyToParticipant(_, _, _, _) => false
       case VettedPackages(_, _) => false
+      case CheckOnlyPackages(_, _) => false
       case MediatorDomainState(_, _, _) => false
     }
     def include(mapping: TopologyMapping): Boolean = mapping match {

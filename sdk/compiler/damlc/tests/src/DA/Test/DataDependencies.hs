@@ -1615,6 +1615,33 @@ tests TestArgs{..} =
             ]
         ]
 
+    , simpleImportTest "Using explicit exports"
+        [ "module Lib (myDef, MyDataHiddenConstructor, mkMyDataHiddenConstructor, MyData(MyData)) where"
+        , "data MyDataHidden = MyDataHidden"
+        , "data MyDataHiddenConstructor = MyDataHiddenConstructor"
+        , "data MyData = MyData"
+        , "myDef : Int"
+        , "myDef = 4"
+        , "mkMyDataHiddenConstructor : MyDataHiddenConstructor"
+        , "mkMyDataHiddenConstructor = MyDataHiddenConstructor"
+        ]
+        [ "module Main where"
+        , "import Lib"
+        , "data MyDataHidden = MyDataHidden Int"
+        , "myHiddenData : MyDataHidden"
+          -- Lack of "ambiguous type" error proves MyDataHidden isn't exported from Lib
+        , "myHiddenData = MyDataHidden myDef"
+          -- While use of myDef show intended exports do work
+        , "data MyDataProveHiddenConstructor = MyDataHiddenConstructor"
+          -- Overloads the hidden constructor
+        , "myDataProveHiddenConstructor : MyDataProveHiddenConstructor"
+        , "myDataProveHiddenConstructor = MyDataHiddenConstructor"
+          -- Lack of "ambiguous constructor" error proves MyDataHiddenConstructor isn't exported from Lib
+        , "myDataHiddenConstructor : MyDataHiddenConstructor"
+          -- Proves the MyDataHiddenConstructor type was exported
+        , "myDataHiddenConstructor = mkMyDataHiddenConstructor"
+        ]
+
     , simpleImportTest "Constraint synonym context on instance"
         [ "{-# LANGUAGE UndecidableInstances #-}"
         , "module Lib where"

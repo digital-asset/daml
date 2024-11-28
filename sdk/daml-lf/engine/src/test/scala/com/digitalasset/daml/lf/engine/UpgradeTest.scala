@@ -24,6 +24,7 @@ import org.scalatest.Inside.inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.annotation.nowarn
 import scala.language.implicitConversions
 
 /** A test suite for smart contract upgrades.
@@ -64,6 +65,10 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       pkgId: PackageId
   ): ParserParameters[this.type] =
     ParserParameters(pkgId, languageVersion = LanguageVersion.Features.smartContractUpgrade)
+
+  // implicit conversions from strings to names and qualified names
+  implicit def toName(s: String): Name = Name.assertFromString(s)
+  implicit def toQualifiedName(s: String): QualifiedName = QualifiedName.assertFromString(s)
 
   // A package that defines an interface, a key type, an exception, and a party to be used by
   // the packages defined below.
@@ -106,8 +111,12 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
   case object ExpectPreconditionViolated
       extends ExpectedOutcome("should fail with a precondition violated error")
   case object ExpectUpgradeError extends ExpectedOutcome("should fail with an upgrade error")
+  case object ExpectPreprocessingError
+      extends ExpectedOutcome("should fail with a preprocessing error")
   case object ExpectUnhandledException
       extends ExpectedOutcome("should fail with an unhandled exception")
+  case object ExpectInternalInterpretationError
+      extends ExpectedOutcome("should fail with an internal interpretation error")
 
   /** Represents an LF value specified both as some string we can splice into the textual representation of LF, and as a
     * scala value we can splice into an [[ApiCommand]].
@@ -120,14 +129,9 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     * for instance [[v2Observers]].
     */
   abstract class TestCase(val templateName: String, val expectedOutcome: ExpectedOutcome) {
-    def v1AdditionalRecordArgFields: String = ""
-    def v1AdditionalVariantArgCtors: String = ""
-    def v1AdditionalEnumArgCtors: String = ""
+    def v1AdditionalDefinitions: String = ""
+    def v1ChoiceArgTypeDef: String = "{}"
     def v1AdditionalFields: String = ""
-    def v1AdditionalFieldsForChoiceArgRecordFieldType: String = ""
-    def v1AdditionalCtorsForChoiceArgVariantFieldType: String = ""
-    def v1AdditionalCtorsForChoiceArgEnumFieldType: String = ""
-    def v1AdditionalFieldsForChoiceArgType: String = ""
     def v1AdditionalChoices: String = ""
     def v1Precondition: String = "True"
     def v1Signatories: String = s"Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)"
@@ -147,14 +151,9 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     def v1InterfaceChoiceObservers: String = "Nil @Party"
     def v1View: String = s"'$commonDefsPkgId':Mod:MyView { value = 0 }"
 
-    def v2AdditionalRecordArgFields: String = ""
-    def v2AdditionalVariantArgCtors: String = ""
-    def v2AdditionalEnumArgCtors: String = ""
+    def v2AdditionalDefinitions: String = v1AdditionalDefinitions
+    def v2ChoiceArgTypeDef: String = v1ChoiceArgTypeDef
     def v2AdditionalFields: String = ""
-    def v2AdditionalFieldsForChoiceArgRecordFieldType: String = ""
-    def v2AdditionalCtorsForChoiceArgVariantFieldType: String = ""
-    def v2AdditionalCtorsForChoiceArgEnumFieldType: String = ""
-    def v2AdditionalFieldsForChoiceArgType: String = ""
     def v2AdditionalChoices: String = ""
     def v2Precondition: String = v1Precondition
     def v2Signatories: String = v1Signatories
@@ -166,38 +165,16 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     def v2Maintainers: String = v1Maintainers
     def v2View: String = v1View
 
-    def additionalFieldsToPassToChoiceArgRecordField
-        : TestCaseValue[ImmArray[(Option[Name], Value)]] =
-      TestCaseValue(
-        inChoiceBodyLfCode = "",
-        inApiCommand = ImmArray.empty,
-      )
-    def constructorCallToUseInChoiceArgVariantField: TestCaseValue[(Name, Value)] = {
-      TestCaseValue(
-        inChoiceBodyLfCode = "Ctor1 0",
-        inApiCommand = (Name.assertFromString("Ctor1"), ValueInt64(0)),
-      )
-    }
-    def constructorToUseInChoiceArgEnumField: TestCaseValue[Name] =
-      TestCaseValue(
-        inChoiceBodyLfCode = "Ctor1",
-        inApiCommand = Name.assertFromString("Ctor1"),
-      )
-    def additionalFieldsToPassToChoiceArg: TestCaseValue[ImmArray[(Option[Name], Value)]] =
-      TestCaseValue(
-        inChoiceBodyLfCode = "",
-        inApiCommand = ImmArray.empty,
-      )
+    def additionalCreateArgsLf(v1PkgId: PackageId): String = ""
+    def additionalCreateArgsValue(@nowarn v1PkgId: PackageId): ImmArray[(Option[Name], Value)] =
+      ImmArray.empty
+
+    def choiceArgValue: ImmArray[(Option[Name], Value)] = ImmArray.empty
 
     private def templateDefinition(
-        additionalRecordArgFields: String,
-        additionalVariantArgCtors: String,
-        additionalEnumArgCtors: String,
+        additionalDefinitions: String,
+        choiceArgTypeDef: String,
         additionalFields: String,
-        additionalFieldsForChoiceArgRecordFieldType: String,
-        additionalCtorsForChoiceArgVariantFieldType: String,
-        additionalCtorsForChoiceArgEnumFieldType: String,
-        additionalFieldsForChoiceArgType: String,
         additionalChoices: String,
         precondition: String,
         signatories: String,
@@ -210,45 +187,13 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         view: String,
     ): String =
       s"""
-         |  record @serializable ${templateName}ChoiceArgRecordFieldType =
-         |    { n : Int64
-         |    $additionalFieldsForChoiceArgRecordFieldType
-         |    };
+         |  $additionalDefinitions
          |
-         |  variant @serializable ${templateName}ChoiceArgVariantFieldType =
-         |    Ctor1: Int64
-         |    $additionalCtorsForChoiceArgVariantFieldType;
-         |
-         |  enum @serializable ${templateName}ChoiceArgEnumFieldType =
-         |    Ctor1
-         |    $additionalCtorsForChoiceArgEnumFieldType;
-         |
-         |  record @serializable ${templateName}ChoiceArgType =
-         |    { r: Mod:${templateName}ChoiceArgRecordFieldType
-         |    , v: Mod:${templateName}ChoiceArgVariantFieldType
-         |    , e: Mod:${templateName}ChoiceArgEnumFieldType
-         |    $additionalFieldsForChoiceArgType
-         |    };
-         |
-         |  record @serializable ${templateName}RecordArgType =
-         |    { n : Int64
-         |    $additionalRecordArgFields
-         |    };
-         |
-         |  variant @serializable ${templateName}VariantArgType =
-         |    Ctor1: Int64
-         |    $additionalVariantArgCtors;
-         |
-         |  enum @serializable ${templateName}EnumArgType =
-         |    Ctor1
-         |    $additionalEnumArgCtors;
+         |  record @serializable ${templateName}ChoiceArgType = $choiceArgTypeDef;
          |
          |  record @serializable $templateName =
          |    { p1: Party
          |    , p2: Party
-         |    , r: Mod:${templateName}RecordArgType
-         |    , v: Mod:${templateName}VariantArgType
-         |    , e: Mod:${templateName}EnumArgType
          |    $additionalFields
          |    };
          |
@@ -275,14 +220,9 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
          |  };""".stripMargin
 
     def v1TemplateDefinition: String = templateDefinition(
-      v1AdditionalRecordArgFields,
-      v1AdditionalVariantArgCtors,
-      v1AdditionalEnumArgCtors,
+      v1AdditionalDefinitions,
+      v1ChoiceArgTypeDef,
       v1AdditionalFields,
-      v1AdditionalFieldsForChoiceArgRecordFieldType,
-      v1AdditionalCtorsForChoiceArgVariantFieldType,
-      v1AdditionalCtorsForChoiceArgEnumFieldType,
-      v1AdditionalFieldsForChoiceArgType,
       v1AdditionalChoices,
       v1Precondition,
       v1Signatories,
@@ -296,14 +236,9 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     )
 
     def v2TemplateDefinition: String = templateDefinition(
-      v2AdditionalRecordArgFields,
-      v2AdditionalVariantArgCtors,
-      v2AdditionalEnumArgCtors,
+      v2AdditionalDefinitions,
+      v2ChoiceArgTypeDef,
       v2AdditionalFields,
-      v2AdditionalFieldsForChoiceArgRecordFieldType,
-      v2AdditionalCtorsForChoiceArgVariantFieldType,
-      v2AdditionalCtorsForChoiceArgEnumFieldType,
-      v2AdditionalFieldsForChoiceArgType,
       v2AdditionalChoices,
       v2Precondition,
       v2Signatories,
@@ -326,18 +261,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       val v2TplQualifiedName = s"'$v2PkgId':Mod:$templateName"
       val ifaceQualifiedName = s"'$commonDefsPkgId':Mod:Iface"
       val viewQualifiedName = s"'$commonDefsPkgId':Mod:MyView"
-
-      val v1RecordArgTypeQualifiedName = s"'$v1PkgId':Mod:${templateName}RecordArgType"
-      val v1VariantArgTypeQualifiedName = s"'$v1PkgId':Mod:${templateName}VariantArgType"
-      val v1EnumArgTypeQualifiedName = s"'$v1PkgId':Mod:${templateName}EnumArgType"
-
       val v2ChoiceArgTypeQualifiedName = s"'$v2PkgId':Mod:${templateName}ChoiceArgType"
-      val v2ChoiceArgRecordFieldTypeQualifiedName =
-        s"'$v2PkgId':Mod:${templateName}ChoiceArgRecordFieldType"
-      val v2ChoiceArgVariantFieldTypeQualifiedName =
-        s"'$v2PkgId':Mod:${templateName}ChoiceArgVariantFieldType"
-      val v2ChoiceArgEnumFieldTypeQualifiedName =
-        s"'$v2PkgId':Mod:${templateName}ChoiceArgEnumFieldType"
 
       val createV1ContractExpr =
         s""" create
@@ -345,20 +269,11 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
            |    ($v1TplQualifiedName
            |        { p1 = '$commonDefsPkgId':Mod:alice
            |        , p2 = '$commonDefsPkgId':Mod:bob
-           |        , r = $v1RecordArgTypeQualifiedName { n = 0 }
-           |        , v = $v1VariantArgTypeQualifiedName:Ctor1 0
-           |        , e = $v1EnumArgTypeQualifiedName:Ctor1
+           |        ${additionalCreateArgsLf(v1PkgId)}
            |        })
            |""".stripMargin
 
-      val choiceArgExpr =
-        s""" ($v2ChoiceArgTypeQualifiedName
-           |      { r = $v2ChoiceArgRecordFieldTypeQualifiedName { n = 0 ${additionalFieldsToPassToChoiceArgRecordField.inChoiceBodyLfCode} }
-           |      , v = $v2ChoiceArgVariantFieldTypeQualifiedName:${constructorCallToUseInChoiceArgVariantField.inChoiceBodyLfCode}
-           |      , e = $v2ChoiceArgEnumFieldTypeQualifiedName:${constructorToUseInChoiceArgEnumField.inChoiceBodyLfCode}
-           |      ${additionalFieldsToPassToChoiceArg.inChoiceBodyLfCode}
-           |      })
-           |""".stripMargin
+      val choiceArgExpr = s"($v2ChoiceArgTypeQualifiedName {})"
 
       s"""
         |  choice @nonConsuming ExerciseNoCatchLocal${templateName} (self) (u: Unit): Text
@@ -800,63 +715,332 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
 
   case object AdditionalFieldInChoiceArgRecordField
       extends TestCase("AdditionalFieldInChoiceArgRecordField", ExpectSuccess) {
-    override def v1AdditionalFieldsForChoiceArgRecordFieldType = ""
-    override def v2AdditionalFieldsForChoiceArgRecordFieldType = ", extra: Option Unit"
-    override def additionalFieldsToPassToChoiceArgRecordField =
-      TestCaseValue(
-        inChoiceBodyLfCode = ", extra = Some @Unit ()",
-        inApiCommand =
-          ImmArray(Some(Name.assertFromString("extra")) -> ValueOptional(Some(ValueUnit))),
+
+    val recordName = s"${templateName}Record"
+
+    override def v1AdditionalDefinitions: String =
+      s"record @serializable $recordName = { n : Int64 };"
+    override def v2AdditionalDefinitions: String =
+      s"record @serializable $recordName = { n : Int64, extra: Option Unit };"
+
+    override def v1ChoiceArgTypeDef = s"{ r : Mod:$recordName }"
+    override def v2ChoiceArgTypeDef = v1ChoiceArgTypeDef
+
+    override def choiceArgValue: ImmArray[(Option[Name], Value)] =
+      ImmArray(
+        Some("r": Name) -> ValueRecord(
+          None,
+          ImmArray(
+            Some("n": Name) -> ValueInt64(0),
+            Some("extra": Name) -> ValueOptional(Some(ValueUnit)),
+          ),
+        )
+      )
+  }
+
+  case object ValidDowngradeAdditionalFieldInChoiceArgRecordField
+      extends TestCase("ValidDowngradeAdditionalFieldInChoiceArgRecordField", ExpectSuccess) {
+
+    val recordName = s"${templateName}Record"
+
+    override def v1AdditionalDefinitions: String =
+      s"record @serializable $recordName = { n : Int64, extra: Option Unit };"
+    override def v2AdditionalDefinitions: String =
+      s"record @serializable $recordName = { n : Int64 };"
+
+    override def v1ChoiceArgTypeDef = s"{ r : Mod:$recordName }"
+    override def v2ChoiceArgTypeDef = v1ChoiceArgTypeDef
+
+    override def choiceArgValue: ImmArray[(Option[Name], Value)] =
+      ImmArray(
+        Some("r": Name) -> ValueRecord(
+          None,
+          ImmArray(
+            Some("n": Name) -> ValueInt64(0),
+            Some("extra": Name) -> ValueOptional(None),
+          ),
+        )
+      )
+  }
+
+  case object InvalidDowngradeAdditionalFieldInChoiceArgRecordField
+      extends TestCase(
+        "InvalidDowngradeAdditionalFieldInChoiceArgRecordField",
+        ExpectPreprocessingError,
+      ) {
+
+    val recordName = s"${templateName}Record"
+
+    override def v1AdditionalDefinitions: String =
+      s"record @serializable $recordName = { n : Int64, extra: Option Unit };"
+    override def v2AdditionalDefinitions: String =
+      s"record @serializable $recordName = { n : Int64 };"
+
+    override def v1ChoiceArgTypeDef = s"{ r : Mod:$recordName }"
+    override def v2ChoiceArgTypeDef = v1ChoiceArgTypeDef
+
+    override def choiceArgValue: ImmArray[(Option[Name], Value)] =
+      ImmArray(
+        Some("r": Name) -> ValueRecord(
+          None,
+          ImmArray(
+            Some("n": Name) -> ValueInt64(0),
+            Some("extra": Name) -> ValueOptional(Some(ValueUnit)),
+          ),
+        )
       )
   }
 
   case object AdditionalConstructorInChoiceArgVariantField
       extends TestCase("AdditionalConstructorInChoiceArgVariantField", ExpectSuccess) {
-    override def v1AdditionalCtorsForChoiceArgVariantFieldType = ""
-    override def v2AdditionalCtorsForChoiceArgVariantFieldType = "| Ctor2: Unit"
-    override def constructorCallToUseInChoiceArgVariantField = TestCaseValue(
-      inChoiceBodyLfCode = "Ctor2 ()",
-      inApiCommand = (Name.assertFromString("Ctor2"), ValueUnit),
-    )
+
+    val variantName = s"${templateName}Variant"
+
+    override def v1AdditionalDefinitions: String =
+      s"variant @serializable $variantName = Ctor1: Int64;"
+    override def v2AdditionalDefinitions: String =
+      s"variant @serializable $variantName = Ctor1: Int64 | Ctor2: Unit;"
+
+    override def v1ChoiceArgTypeDef = s"{ v : Mod:$variantName }"
+    override def v2ChoiceArgTypeDef = v1ChoiceArgTypeDef
+
+    override def choiceArgValue: ImmArray[(Option[Name], Value)] =
+      ImmArray(
+        Some("v": Name) -> ValueVariant(None, "Ctor2", ValueUnit)
+      )
+  }
+
+  case object ValidDowngradeAdditionalConstructorInChoiceArgVariantField
+      extends TestCase(
+        "ValidDowngradeAdditionalConstructorInChoiceArgVariantField",
+        ExpectSuccess,
+      ) {
+
+    val variantName = s"${templateName}Variant"
+
+    override def v1AdditionalDefinitions: String =
+      s"variant @serializable $variantName = Ctor1: Int64 | Ctor2: Unit;"
+    override def v2AdditionalDefinitions: String =
+      s"variant @serializable $variantName = Ctor1: Int64;"
+
+    override def v1ChoiceArgTypeDef = s"{ v : Mod:$variantName }"
+    override def v2ChoiceArgTypeDef = v1ChoiceArgTypeDef
+
+    override def choiceArgValue: ImmArray[(Option[Name], Value)] =
+      ImmArray(
+        Some("v": Name) -> ValueVariant(None, "Ctor1", ValueInt64(0))
+      )
+  }
+
+  case object InvalidDowngradeAdditionalConstructorInChoiceArgVariantField
+      extends TestCase(
+        "InvalidDowngradeAdditionalConstructorInChoiceArgVariantField",
+        ExpectPreprocessingError,
+      ) {
+
+    val variantName = s"${templateName}Variant"
+
+    override def v1AdditionalDefinitions: String =
+      s"variant @serializable $variantName = Ctor1: Int64 | Ctor2: Unit;"
+    override def v2AdditionalDefinitions: String =
+      s"variant @serializable $variantName = Ctor1: Int64;"
+
+    override def v1ChoiceArgTypeDef = s"{ v : Mod:$variantName }"
+    override def v2ChoiceArgTypeDef = v1ChoiceArgTypeDef
+
+    override def choiceArgValue: ImmArray[(Option[Name], Value)] =
+      ImmArray(
+        Some("v": Name) -> ValueVariant(None, "Ctor2", ValueUnit)
+      )
   }
 
   case object AdditionalConstructorInChoiceArgEnumField
       extends TestCase("AdditionalConstructorInChoiceArgEnumField", ExpectSuccess) {
-    override def v1AdditionalCtorsForChoiceArgEnumFieldType = ""
-    override def v2AdditionalCtorsForChoiceArgEnumFieldType = "| Ctor2"
-    override def constructorToUseInChoiceArgEnumField = TestCaseValue(
-      inChoiceBodyLfCode = "Ctor2",
-      inApiCommand = Name.assertFromString("Ctor2"),
-    )
+
+    val enumName = s"${templateName}Enum"
+
+    override def v1AdditionalDefinitions: String =
+      s"enum @serializable $enumName = Ctor1;"
+    override def v2AdditionalDefinitions: String =
+      s"enum @serializable $enumName = Ctor1 | Ctor2;"
+
+    override def v1ChoiceArgTypeDef = s"{ e : Mod:$enumName }"
+    override def v2ChoiceArgTypeDef = v1ChoiceArgTypeDef
+
+    override def choiceArgValue: ImmArray[(Option[Name], Value)] =
+      ImmArray(
+        Some("e": Name) -> ValueEnum(None, "Ctor2")
+      )
   }
 
-  case object AdditionalTemplateChoiceArg
-      extends TestCase("AdditionalTemplateChoiceArg", ExpectSuccess) {
-    override def v1AdditionalFieldsForChoiceArgType = ""
-    override def v2AdditionalFieldsForChoiceArgType = ", extra: Option Unit"
-    override def additionalFieldsToPassToChoiceArg = TestCaseValue(
-      inChoiceBodyLfCode = ", extra = Some @Unit ()",
-      inApiCommand =
-        ImmArray(Some(Name.assertFromString("extra")) -> ValueOptional(Some(ValueUnit))),
-    )
+  case object ValidDowngradeAdditionalConstructorInChoiceArgEnumField
+      extends TestCase("ValidDowngradeAdditionalConstructorInChoiceArgEnumField", ExpectSuccess) {
+
+    val enumName = s"${templateName}Enum"
+
+    override def v1AdditionalDefinitions: String =
+      s"enum @serializable $enumName = Ctor1 | Ctor2;"
+    override def v2AdditionalDefinitions: String =
+      s"enum @serializable $enumName = Ctor1;"
+
+    override def v1ChoiceArgTypeDef = s"{ e : Mod:$enumName }"
+    override def v2ChoiceArgTypeDef = v1ChoiceArgTypeDef
+
+    override def choiceArgValue: ImmArray[(Option[Name], Value)] =
+      ImmArray(
+        Some("e": Name) -> ValueEnum(None, "Ctor1")
+      )
+  }
+
+  case object InvalidDowngradeAdditionalConstructorInChoiceArgEnumField
+      extends TestCase(
+        "InvalidDowngradeAdditionalConstructorInChoiceArgEnumField",
+        ExpectPreprocessingError,
+      ) {
+
+    val enumName = s"${templateName}Enum"
+
+    override def v1AdditionalDefinitions: String =
+      s"enum @serializable $enumName = Ctor1 | Ctor2;"
+    override def v2AdditionalDefinitions: String =
+      s"enum @serializable $enumName = Ctor1;"
+
+    override def v1ChoiceArgTypeDef = s"{ e : Mod:$enumName }"
+    override def v2ChoiceArgTypeDef = v1ChoiceArgTypeDef
+
+    override def choiceArgValue: ImmArray[(Option[Name], Value)] =
+      ImmArray(
+        Some("e": Name) -> ValueEnum(None, "Ctor2")
+      )
+  }
+
+  case object AdditionalChoiceArg extends TestCase("AdditionalChoiceArg", ExpectSuccess) {
+
+    override def v1ChoiceArgTypeDef = s"{ n : Int64 }"
+    override def v2ChoiceArgTypeDef = s"{ n : Int64, extra: Option Unit }"
+
+    override def choiceArgValue: ImmArray[(Option[Name], Value)] =
+      ImmArray(
+        Some("n": Name) -> ValueInt64(0)
+      )
+  }
+
+  case object ValidDowngradeAdditionalChoiceArg
+      extends TestCase("ValidDowngradeAdditionalChoiceArg", ExpectSuccess) {
+
+    override def v1ChoiceArgTypeDef = s"{ n : Int64, extra: Option Unit  }"
+    override def v2ChoiceArgTypeDef = s"{ n : Int64 }"
+
+    override def choiceArgValue: ImmArray[(Option[Name], Value)] =
+      ImmArray(
+        Some("n": Name) -> ValueInt64(0),
+        Some("extra": Name) -> ValueOptional(None),
+      )
+  }
+
+  case object InvalidDowngradeAdditionalChoiceArg
+      extends TestCase("InvalidDowngradeAdditionalChoiceArg", ExpectPreprocessingError) {
+
+    override def v1ChoiceArgTypeDef = s"{ n : Int64, extra: Option Unit  }"
+    override def v2ChoiceArgTypeDef = s"{ n : Int64 }"
+
+    override def choiceArgValue: ImmArray[(Option[Name], Value)] =
+      ImmArray(
+        Some("n": Name) -> ValueInt64(0),
+        Some("extra": Name) -> ValueOptional(Some(ValueUnit)),
+      )
   }
 
   case object AdditionalFieldInRecordArg
       extends TestCase("AdditionalFieldInRecordArg", ExpectSuccess) {
-    override def v1AdditionalRecordArgFields = ""
-    override def v2AdditionalRecordArgFields = ", extra: Option Unit"
+
+    val recordName = s"${templateName}Record"
+
+    override def v1AdditionalDefinitions: String =
+      s"record @serializable $recordName = { n : Int64 };"
+    override def v2AdditionalDefinitions: String =
+      s"record @serializable $recordName = { n : Int64, extra: Option Unit };"
+
+    override def v1AdditionalFields = s", r: Mod:$recordName"
+    override def v2AdditionalFields = v1AdditionalFields
+
+    override def additionalCreateArgsLf(v1PkgId: PackageId): String = {
+      val qualifiedRecordName = s"'$v1PkgId':Mod:$recordName"
+      s", r = $qualifiedRecordName { n = 0 }"
+    }
+
+    override def additionalCreateArgsValue(v1PkgId: PackageId) = {
+      val v1RecordId =
+        Identifier(v1PkgId, s"Mod:$recordName")
+      ImmArray(
+        Some("r": Name) -> ValueRecord(
+          Some(v1RecordId),
+          ImmArray(
+            Some("n": Name) -> ValueInt64(0)
+          ),
+        )
+      )
+    }
   }
 
   case object AdditionalConstructorInVariantArg
       extends TestCase("AdditionalConstructorInVariantArg", ExpectSuccess) {
-    override def v1AdditionalVariantArgCtors = ""
-    override def v2AdditionalVariantArgCtors = "| Ctor2: Unit"
+
+    val variantName = s"${templateName}Variant"
+
+    override def v1AdditionalDefinitions: String =
+      s"variant @serializable $variantName = Ctor1: Int64;"
+    override def v2AdditionalDefinitions: String =
+      s"variant @serializable $variantName = Ctor1: Int64 | Ctor2: Unit;"
+
+    override def v1AdditionalFields = s", v: Mod:$variantName"
+    override def v2AdditionalFields = v1AdditionalFields
+
+    override def additionalCreateArgsLf(v1PkgId: PackageId): String = {
+      val qualifiedVariantName = s"'$v1PkgId':Mod:$variantName"
+      s", v = $qualifiedVariantName:Ctor1 0"
+    }
+
+    override def additionalCreateArgsValue(v1PkgId: PackageId) = {
+      val v1VariantId =
+        Identifier(v1PkgId, s"Mod:$variantName")
+      ImmArray(
+        Some("v": Name) -> ValueVariant(
+          Some(v1VariantId),
+          "Ctor1",
+          ValueInt64(0),
+        )
+      )
+    }
   }
 
   case object AdditionalConstructorInEnumArg
       extends TestCase("AdditionalConstructorInEnumArg", ExpectSuccess) {
-    override def v1AdditionalEnumArgCtors = ""
-    override def v2AdditionalEnumArgCtors = "| Ctor2"
+
+    val enumName = s"${templateName}Enum"
+
+    override def v1AdditionalDefinitions: String =
+      s"enum @serializable $enumName = Ctor1;"
+    override def v2AdditionalDefinitions: String =
+      s"enum @serializable $enumName = Ctor1 | Ctor2;"
+
+    override def v1AdditionalFields = s", e: Mod:$enumName"
+    override def v2AdditionalFields = v1AdditionalFields
+
+    override def additionalCreateArgsLf(v1PkgId: PackageId): String = {
+      val qualifiedEnumName = s"'$v1PkgId':Mod:$enumName"
+      s", e = $qualifiedEnumName:Ctor1"
+    }
+
+    override def additionalCreateArgsValue(v1PkgId: PackageId) = {
+      val v1EnumId = Identifier(v1PkgId, s"Mod:$enumName")
+      ImmArray(
+        Some("e": Name) -> ValueEnum(
+          Some(v1EnumId),
+          "Ctor1",
+        )
+      )
+    }
   }
 
   case object AdditionalTemplateArg extends TestCase("AdditionalTemplateArg", ExpectSuccess) {
@@ -886,7 +1070,233 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       s"""throw @'$commonDefsPkgId':Mod:MyView @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "View"})"""
   }
 
-  val testCases: Seq[TestCase] = List(
+  case object ValidDowngradeAdditionalTemplateArg
+      extends TestCase("ValidDowngradeAdditionalTemplateArg", ExpectSuccess) {
+    override def v1AdditionalFields = ", extra: Option Unit"
+    override def v2AdditionalFields = ""
+
+    override def additionalCreateArgsLf(v1PkgId: PackageId): String =
+      s", extra = None @Unit"
+
+    override def additionalCreateArgsValue(v1PkgId: PackageId) = {
+      ImmArray(
+        Some("extra": Name) -> ValueOptional(None)
+      )
+    }
+  }
+
+  case object InvalidDowngradeAdditionalTemplateArg
+      extends TestCase("InvalidDowngradeAdditionalTemplateArg", ExpectUpgradeError) {
+    override def v1AdditionalFields = ", extra: Option Unit"
+    override def v2AdditionalFields = ""
+
+    override def additionalCreateArgsLf(v1PkgId: PackageId): String =
+      s", extra = Some @Unit ()"
+
+    override def additionalCreateArgsValue(v1PkgId: PackageId) = {
+      ImmArray(
+        Some("extra": Name) -> ValueOptional(Some(ValueUnit))
+      )
+    }
+  }
+
+  case object ValidDowngradeAdditionalFieldInRecordArg
+      extends TestCase("ValidDowngradeAdditionalFieldInRecordArg", ExpectSuccess) {
+
+    val recordName = s"${templateName}Record"
+
+    override def v1AdditionalDefinitions: String =
+      s"record @serializable $recordName = { n : Int64, extra: Option Unit };"
+    override def v2AdditionalDefinitions: String =
+      s"record @serializable $recordName = { n : Int64 };"
+
+    override def v1AdditionalFields = s", r: Mod:$recordName"
+    override def v2AdditionalFields = v1AdditionalFields
+
+    override def additionalCreateArgsLf(v1PkgId: PackageId): String = {
+      val qualifiedRecordName = s"'$v1PkgId':Mod:$recordName"
+      s", r = $qualifiedRecordName { n = 0, extra = None @Unit }"
+    }
+
+    override def additionalCreateArgsValue(v1PkgId: PackageId) = {
+      val v1RecordId =
+        Identifier(v1PkgId, s"Mod:$recordName")
+      ImmArray(
+        Some("r": Name) -> ValueRecord(
+          Some(v1RecordId),
+          ImmArray(
+            Some("n": Name) -> ValueInt64(0),
+            Some("extra": Name) -> ValueOptional(None),
+          ),
+        )
+      )
+    }
+  }
+
+  case object InvalidDowngradeAdditionalFieldInRecordArg
+      extends TestCase("InvalidDowngradeAdditionalFieldInRecordArg", ExpectUpgradeError) {
+
+    val recordName = s"${templateName}Record"
+
+    override def v1AdditionalDefinitions: String =
+      s"record @serializable $recordName = { n : Int64, extra: Option Unit };"
+    override def v2AdditionalDefinitions: String =
+      s"record @serializable $recordName = { n : Int64 };"
+
+    override def v1AdditionalFields = s", r: Mod:$recordName"
+    override def v2AdditionalFields = v1AdditionalFields
+
+    override def additionalCreateArgsLf(v1PkgId: PackageId): String = {
+      val qualifiedRecordName = s"'$v1PkgId':Mod:$recordName"
+      s", r = $qualifiedRecordName { n = 0, extra = Some @Unit () }"
+    }
+
+    override def additionalCreateArgsValue(v1PkgId: PackageId) = {
+      val v1RecordId =
+        Identifier(v1PkgId, s"Mod:$recordName")
+      ImmArray(
+        Some("r": Name) -> ValueRecord(
+          Some(v1RecordId),
+          ImmArray(
+            Some("n": Name) -> ValueInt64(0),
+            Some("extra": Name) -> ValueOptional(Some(ValueUnit)),
+          ),
+        )
+      )
+    }
+  }
+
+  case object ValidDowngradeAdditionalConstructorInVariantArg
+      extends TestCase("ValidDowngradeAdditionalConstructorInVariantArg", ExpectSuccess) {
+
+    val variantName = s"${templateName}Variant"
+
+    override def v1AdditionalDefinitions: String =
+      s"variant @serializable $variantName = Ctor1: Int64 | Ctor2: Unit;"
+    override def v2AdditionalDefinitions: String =
+      s"variant @serializable $variantName = Ctor1: Int64;"
+
+    override def v1AdditionalFields = s", v: Mod:$variantName"
+    override def v2AdditionalFields = v1AdditionalFields
+
+    override def additionalCreateArgsLf(v1PkgId: PackageId): String = {
+      val qualifiedVariantName = s"'$v1PkgId':Mod:$variantName"
+      s", v = $qualifiedVariantName:Ctor1 0"
+    }
+
+    override def additionalCreateArgsValue(v1PkgId: PackageId) = {
+      val v1VariantId =
+        Identifier(v1PkgId, s"Mod:$variantName")
+      ImmArray(
+        Some("v": Name) -> ValueVariant(
+          Some(v1VariantId),
+          "Ctor1",
+          ValueInt64(0),
+        )
+      )
+    }
+  }
+
+  // TODO(https://github.com/digital-asset/daml/issues/17647): This should be an upgrade or lookup error.
+  case object InvalidDowngradeAdditionalConstructorInVariantArg
+      extends TestCase(
+        "InvalidDowngradeAdditionalConstructorInVariantArg",
+        ExpectInternalInterpretationError,
+      ) {
+
+    val variantName = s"${templateName}Variant"
+
+    override def v1AdditionalDefinitions: String =
+      s"variant @serializable $variantName = Ctor1: Int64 | Ctor2: Unit;"
+    override def v2AdditionalDefinitions: String =
+      s"variant @serializable $variantName = Ctor1: Int64;"
+
+    override def v1AdditionalFields = s", v: Mod:$variantName"
+    override def v2AdditionalFields = v1AdditionalFields
+
+    override def additionalCreateArgsLf(v1PkgId: PackageId): String = {
+      val qualifiedVariantName = s"'$v1PkgId':Mod:$variantName"
+      s", v = $qualifiedVariantName:Ctor2 ()"
+    }
+
+    override def additionalCreateArgsValue(v1PkgId: PackageId) = {
+      val v1VariantId =
+        Identifier(v1PkgId, s"Mod:$variantName")
+      ImmArray(
+        Some("v": Name) -> ValueVariant(
+          Some(v1VariantId),
+          "Ctor2",
+          ValueUnit,
+        )
+      )
+    }
+  }
+
+  case object ValidDowngradeAdditionalConstructorInEnumArg
+      extends TestCase("ValidDowngradeAdditionalConstructorInEnumArg", ExpectSuccess) {
+
+    val enumName = s"${templateName}Enum"
+
+    override def v1AdditionalDefinitions: String =
+      s"enum @serializable $enumName = Ctor1 | Ctor2;"
+    override def v2AdditionalDefinitions: String =
+      s"enum @serializable $enumName = Ctor1;"
+
+    override def v1AdditionalFields = s", e: Mod:$enumName"
+    override def v2AdditionalFields = v1AdditionalFields
+
+    override def additionalCreateArgsLf(v1PkgId: PackageId): String = {
+      val qualifiedEnumName = s"'$v1PkgId':Mod:$enumName"
+      s", e = $qualifiedEnumName:Ctor1"
+    }
+
+    override def additionalCreateArgsValue(v1PkgId: PackageId) = {
+      val v1EnumId = Identifier(v1PkgId, s"Mod:$enumName")
+      ImmArray(
+        Some("e": Name) -> ValueEnum(
+          Some(v1EnumId),
+          "Ctor1",
+        )
+      )
+    }
+  }
+
+  // TODO(https://github.com/digital-asset/daml/issues/17647): This should be an upgrade or lookup error.
+  case object InvalidDowngradeAdditionalConstructorInEnumArg
+      extends TestCase(
+        "InvalidDowngradeAdditionalConstructorInEnumArg",
+        ExpectInternalInterpretationError,
+      ) {
+
+    val enumName = s"${templateName}Enum"
+
+    override def v1AdditionalDefinitions: String =
+      s"enum @serializable $enumName = Ctor1 | Ctor2;"
+    override def v2AdditionalDefinitions: String =
+      s"enum @serializable $enumName = Ctor1;"
+
+    override def v1AdditionalFields = s", e: Mod:$enumName"
+    override def v2AdditionalFields = v1AdditionalFields
+
+    override def additionalCreateArgsLf(v1PkgId: PackageId): String = {
+      val qualifiedEnumName = s"'$v1PkgId':Mod:$enumName"
+      s", e = $qualifiedEnumName:Ctor2"
+    }
+
+    override def additionalCreateArgsValue(v1PkgId: PackageId) = {
+      val v1EnumId = Identifier(v1PkgId, s"Mod:$enumName")
+      ImmArray(
+        Some("e": Name) -> ValueEnum(
+          Some(v1EnumId),
+          "Ctor2",
+        )
+      )
+    }
+  }
+
+  // Test cases that apply to both commands and "in choice body" operations.
+  val commandAndChoiceTestCases: Seq[TestCase] = List(
+    // metadata
     UnchangedPrecondition,
     ChangedPrecondition,
     ThrowingPrecondition,
@@ -899,6 +1309,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     UnchangedAgreement,
     ChangedAgreement,
     ThrowingAgreement,
+    // keys and maintainers
     ChangedKey,
     UnchangedKey,
     ThrowingKey,
@@ -906,19 +1317,47 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     UnchangedMaintainers,
     ThrowingMaintainers,
     ThrowingMaintainersBody,
-    AdditionalFieldInChoiceArgRecordField,
-    AdditionalConstructorInChoiceArgVariantField,
-    AdditionalConstructorInChoiceArgEnumField,
-    AdditionalTemplateChoiceArg,
+    // template arg
     AdditionalFieldInRecordArg,
     AdditionalConstructorInVariantArg,
     AdditionalConstructorInEnumArg,
     AdditionalTemplateArg,
     AdditionalChoices,
+    // template arg downgrade
+    ValidDowngradeAdditionalTemplateArg,
+    InvalidDowngradeAdditionalTemplateArg,
+    ValidDowngradeAdditionalFieldInRecordArg,
+    InvalidDowngradeAdditionalFieldInRecordArg,
+    ValidDowngradeAdditionalConstructorInVariantArg,
+    InvalidDowngradeAdditionalConstructorInVariantArg,
+    ValidDowngradeAdditionalConstructorInEnumArg,
+    InvalidDowngradeAdditionalConstructorInEnumArg,
+    // interface instances
     ThrowingInterfaceChoiceControllers,
     ThrowingInterfaceChoiceObservers,
     ThrowingView,
   )
+
+  // Test cases that only apply to commands.
+  val commandOnlyTestCases: Seq[TestCase] = List(
+    // choice arg
+    AdditionalFieldInChoiceArgRecordField,
+    AdditionalConstructorInChoiceArgVariantField,
+    AdditionalConstructorInChoiceArgEnumField,
+    AdditionalChoiceArg,
+    // choice arg downgrade
+    ValidDowngradeAdditionalFieldInChoiceArgRecordField,
+    InvalidDowngradeAdditionalFieldInChoiceArgRecordField,
+    ValidDowngradeAdditionalConstructorInChoiceArgVariantField,
+    InvalidDowngradeAdditionalConstructorInChoiceArgVariantField,
+    ValidDowngradeAdditionalConstructorInChoiceArgEnumField,
+    InvalidDowngradeAdditionalConstructorInChoiceArgEnumField,
+    ValidDowngradeAdditionalChoiceArg,
+    InvalidDowngradeAdditionalChoiceArg,
+  )
+
+  // All test cases.
+  val testCases = commandAndChoiceTestCases ++ commandOnlyTestCases;
 
   val templateDefsPkgName = PackageName.assertFromString("-template-defs-")
 
@@ -951,7 +1390,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
   val clientPkgId = PackageId.assertFromString("-client-id-")
   val clientParserParams = parserParameters(clientPkgId)
   val clientPkg = {
-    val choices = testCases
+    val choices = commandAndChoiceTestCases
       .map(_.clientChoices(clientPkgId, templateDefsV1PkgId, templateDefsV2PkgId))
     p"""metadata ( '-client-' : '1.0.0' )
             module Mod {
@@ -1027,10 +1466,6 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
 
     implicit val logContext: LoggingContext = LoggingContext.ForTesting
 
-    // implicit conversions from strings to names and qualified names
-    implicit def toName(s: String): Name = Name.assertFromString(s)
-    implicit def toQualifiedName(s: String): QualifiedName = QualifiedName.assertFromString(s)
-
     val templateName = testCase.templateName
 
     val alice: Party = Party.assertFromString("Alice")
@@ -1039,25 +1474,8 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     val clientTplId: Identifier = Identifier(clientPkgId, "Mod:Client")
     val ifaceId: Identifier = Identifier(commonDefsPkgId, "Mod:Iface")
     val tplQualifiedName: QualifiedName = s"Mod:$templateName"
-
+    val tplRef: TypeConRef = TypeConRef.assertFromString(s"#$templateDefsPkgName:Mod:$templateName")
     val v1TplId: Identifier = Identifier(templateDefsV1PkgId, tplQualifiedName)
-    val v1RecordArgTypeId: Identifier =
-      Identifier(templateDefsV1PkgId, s"Mod:${templateName}RecordArgType")
-    val v1VariantArgTypeId: Identifier =
-      Identifier(templateDefsV1PkgId, s"Mod:${templateName}VariantArgType")
-    val v1EnumArgTypeId: Identifier =
-      Identifier(templateDefsV1PkgId, s"Mod:${templateName}EnumArgType")
-
-    val v2ChoiceArgTypeId: Identifier =
-      Identifier(templateDefsV2PkgId, s"Mod:${templateName}ChoiceArgType")
-    val v2ChoiceArgRecordFieldTypeId: Identifier =
-      Identifier(templateDefsV2PkgId, s"Mod:${templateName}ChoiceArgRecordFieldType")
-    val v2ChoiceArgVariantFieldTypeId: Identifier =
-      Identifier(templateDefsV2PkgId, s"Mod:${templateName}ChoiceArgVariantFieldType")
-    val v2ChoiceArgEnumFieldTypeId: Identifier =
-      Identifier(templateDefsV2PkgId, s"Mod:${templateName}ChoiceArgEnumFieldType")
-
-    val v2TplId: Identifier = Identifier(templateDefsV2PkgId, tplQualifiedName)
 
     val clientContractId: ContractId = toContractId("client")
     val globalContractId: ContractId = toContractId("1")
@@ -1080,22 +1498,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       ImmArray(
         Some("p1": Name) -> ValueParty(alice),
         Some("p2": Name) -> ValueParty(bob),
-        Some("r": Name) -> ValueRecord(
-          Some(v1RecordArgTypeId),
-          ImmArray(
-            Some("n": Name) -> ValueInt64(0)
-          ),
-        ),
-        Some("v": Name) -> ValueVariant(
-          Some(v1VariantArgTypeId),
-          "Ctor1",
-          ValueInt64(0),
-        ),
-        Some("e": Name) -> ValueEnum(
-          Some(v1EnumArgTypeId),
-          "Ctor1",
-        ),
-      ),
+      ).slowAppend(testCase.additionalCreateArgsValue(templateDefsV1PkgId)),
     )
 
     val globalContract: VersionedContractInstance = assertAsVersionedContract(
@@ -1151,24 +1554,8 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     ): Option[ImmArray[ApiCommand]] = {
 
       val choiceArg = ValueRecord(
-        Some(v2ChoiceArgTypeId),
-        ImmArray(
-          Some("r": Name) -> ValueRecord(
-            Some(v2ChoiceArgRecordFieldTypeId),
-            ImmArray(
-              Some("n": Name) -> ValueInt64(0)
-            ).slowAppend(testCase.additionalFieldsToPassToChoiceArgRecordField.inApiCommand),
-          ),
-          Some("v": Name) -> ValueVariant(
-            Some(v2ChoiceArgVariantFieldTypeId),
-            testCase.constructorCallToUseInChoiceArgVariantField.inApiCommand._1,
-            testCase.constructorCallToUseInChoiceArgVariantField.inApiCommand._2,
-          ),
-          Some("e": Name) -> ValueEnum(
-            Some(v2ChoiceArgEnumFieldTypeId),
-            testCase.constructorToUseInChoiceArgEnumField.inApiCommand,
-          ),
-        ).slowAppend(testCase.additionalFieldsToPassToChoiceArg.inApiCommand),
+        None,
+        testCase.choiceArgValue,
       )
 
       // We first rule out all non-sensical cases, and then proceed to create a command in the most generic way
@@ -1181,6 +1568,23 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
           None // There are no fetch* or lookupByKey commands
         case (_, Exercise | ExerciseInterface, _, Command, Local) =>
           None // Local contracts cannot be exercised by commands, except by key
+        case (
+              AdditionalFieldInChoiceArgRecordField | AdditionalConstructorInChoiceArgVariantField |
+              AdditionalConstructorInChoiceArgEnumField | AdditionalChoiceArg |
+              ValidDowngradeAdditionalFieldInChoiceArgRecordField |
+              InvalidDowngradeAdditionalFieldInChoiceArgRecordField |
+              ValidDowngradeAdditionalConstructorInChoiceArgVariantField |
+              InvalidDowngradeAdditionalConstructorInChoiceArgVariantField |
+              ValidDowngradeAdditionalConstructorInChoiceArgEnumField |
+              InvalidDowngradeAdditionalConstructorInChoiceArgEnumField |
+              ValidDowngradeAdditionalChoiceArg | InvalidDowngradeAdditionalChoiceArg,
+              _,
+              _,
+              _,
+              _,
+            )
+            if entryPoint == ChoiceBody || operation == FetchInterface || operation == ExerciseInterface =>
+          None // *ChoiceArg* test cases only make sense for non-interface exercise commands
         case (
               ThrowingInterfaceChoiceControllers | ThrowingInterfaceChoiceObservers,
               Fetch | FetchInterface | FetchByKey | LookupByKey | Exercise | ExerciseByKey,
@@ -1195,7 +1599,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
           Some(
             ImmArray(
               ApiCommand.Exercise(
-                v2TplId,
+                tplRef, // we let package preference select v2
                 globalContractId,
                 ChoiceName.assertFromString("TemplateChoice"),
                 choiceArg,
@@ -1217,7 +1621,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
           Some(
             ImmArray(
               ApiCommand.ExerciseByKey(
-                v2TplId,
+                tplRef, // we let package preference select v2
                 globalContractSKey.toUnnormalizedValue,
                 ChoiceName.assertFromString("TemplateChoice"),
                 choiceArg,
@@ -1232,7 +1636,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
                 globalContractArg,
               ),
               ApiCommand.ExerciseByKey(
-                v2TplId,
+                tplRef, // we let package preference select v2
                 globalContractSKey.toUnnormalizedValue,
                 ChoiceName.assertFromString("TemplateChoice"),
                 choiceArg,
@@ -1334,6 +1738,10 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         inside(result) { case Left(EE.Interpretation(EE.Interpretation.DamlException(error), _)) =>
           error shouldBe a[IE.Upgrade]
         }
+      case ExpectPreprocessingError =>
+        inside(result) { case Left(error) =>
+          error shouldBe a[EE.Preprocessing]
+        }
       case ExpectPreconditionViolated =>
         inside(result) { case Left(EE.Interpretation(EE.Interpretation.DamlException(error), _)) =>
           error shouldBe a[IE.TemplatePreconditionViolated]
@@ -1341,6 +1749,10 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       case ExpectUnhandledException =>
         inside(result) { case Left(EE.Interpretation(EE.Interpretation.DamlException(error), _)) =>
           error shouldBe a[IE.UnhandledException]
+        }
+      case ExpectInternalInterpretationError =>
+        inside(result) { case Left(EE.Interpretation(error, _)) =>
+          error shouldBe a[EE.Interpretation.Internal]
         }
     }
   }

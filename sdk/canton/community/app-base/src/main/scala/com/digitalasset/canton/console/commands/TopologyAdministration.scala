@@ -842,6 +842,20 @@ class TopologyAdministrationGroup(
 
                   renewVettedPackages(TopologyChangeOp.Add, authorizeWith)
                   renewVettedPackages(TopologyChangeOp.Remove, filterAuthorizedKey)
+
+                case CheckOnlyPackages(participant, packageIds) =>
+                  def renewCheckOnlyPackages(op: TopologyChangeOp, key: Fingerprint): Unit =
+                    check_only_packages
+                      .authorize(
+                        op,
+                        participant,
+                        packageIds,
+                        key.some,
+                      )
+                      .discard
+
+                  renewCheckOnlyPackages(TopologyChangeOp.Add, authorizeWith)
+                  renewCheckOnlyPackages(TopologyChangeOp.Remove, filterAuthorizedKey)
               }
 
             case TopologyStateUpdate(TopologyChangeOp.Remove, _element) =>
@@ -1082,7 +1096,7 @@ class TopologyAdministrationGroup(
       })
   }
 
-  @Help.Summary("Manage package vettings")
+  @Help.Summary("Manage vetted packages")
   @Help.Group("Vetted Packages")
   object vetted_packages extends Helpful {
 
@@ -1165,7 +1179,81 @@ class TopologyAdministrationGroup(
           )
         )
       }
+  }
 
+  @Help.Summary("Manage check-only packages")
+  @Help.Group("Check-only Packages")
+  object check_only_packages extends Helpful {
+    @Help.Summary("Modify check-only packages topology")
+    @Help.Description(
+      """Check-only packages, as opposed to vetted packages, do not allow creating or exercising contracts. Instead, a check-only package
+      |only allows a participant to process a transaction with input contracts previously created with it.
+      ops: Either Add or Remove the transaction.
+      participant: The unique identifier of the participant that is marking the package as check-only.
+      packageIds: The lf-package ids to be marked as check-only.
+      signedBy: Refers to the fingerprint of the authorizing key which in turn must be authorized by a valid, locally existing certificate.
+      |  If none is given, a key is automatically determined.
+      synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
+      force: Flag to enable dangerous operations (default false). Great power requires great care.
+      """
+    )
+    def authorize(
+        ops: TopologyChangeOp,
+        participant: ParticipantId,
+        packageIds: Seq[PackageId],
+        signedBy: Option[Fingerprint] = None,
+        synchronize: Option[NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
+        force: Boolean = false,
+    ): ByteString =
+      synchronisation.run(synchronize)(consoleEnvironment.run {
+        adminCommand(
+          TopologyAdminCommands.Write
+            .AuthorizeCheckOnlyPackages(ops, signedBy, participant, packageIds, force)
+        )
+      })
+
+    @Help.Summary("List check-only package transactions")
+    @Help.Description(
+      """List the check-only package transactions present in the stores.
+        |
+        filterStore: Filter for topology stores starting with the given filter string (Authorized, <domain-id>, Requested)
+        useStateStore: If true (default), only properly authorized transactions that are part of the state will be selected.
+        timeQuery: The time query allows to customize the query by time. The following options are supported:
+                   TimeQuery.HeadState (default): The most recent known state.
+                   TimeQuery.Snapshot(ts): The state at a certain point in time.
+                   TimeQuery.Range(fromO, toO): Time-range of when the transaction was added to the store
+        operation: Optionally, what type of operation the transaction should have. State store only has "Add".
+        filterSigningKey: Filter for transactions that are authorized with a key that starts with the given filter string.
+        filterParticipant: Filter for participants starting with the given filter string.
+        protocolVersion: Export the topology transactions in the optional protocol version.
+        |"""
+    )
+    def list(
+        filterStore: String = "",
+        useStateStore: Boolean = true,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
+        operation: Option[TopologyChangeOp] = None,
+        filterParticipant: String = "",
+        filterSigningKey: String = "",
+        protocolVersion: Option[String] = None,
+    ): Seq[ListCheckOnlyPackagesResult] =
+      consoleEnvironment.run {
+        adminCommand(
+          TopologyAdminCommands.Read.ListCheckOnlyPackages(
+            BaseQuery(
+              filterStore,
+              useStateStore,
+              timeQuery,
+              operation,
+              filterSigningKey,
+              protocolVersion.map(ProtocolVersion.tryCreate(_)),
+            ),
+            filterParticipant,
+          )
+        )
+      }
   }
 
   @Help.Summary("Manage domain parameters changes", FeatureFlag.Preview)

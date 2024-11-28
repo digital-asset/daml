@@ -48,16 +48,27 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
     val actual = builder
       .toString()
       .linesIterator
-      .filter(s => List("SUCCESS", "FAILURE").exists(s.contains))
+      .filter(s => s.endsWith("SUCCESS") || s.contains("FAILURE") || s.startsWith("    in "))
       .mkString("", f"%n", f"%n")
       // ignore partial transactions as parties, cids, and package Ids are pretty unpredictable
-      .replaceAll("partial transaction: .*", "partial transaction: ...")
       .replaceAll(
-        """UNHANDLED_EXCEPTION\((\d+),\w{8}\)""",
+        raw"in choice [0-9a-f]{8}:([\w_\.:]+)+ on contract 00[0-9a-f]{8}",
+        "in choice XXXXXXXX:$1 on contract 00XXXXXXXX",
+      )
+      .replaceAll(
+        raw"in exercise command [0-9a-f]{8}:([\w_\.:]+)+ on contract 00[0-9a-f]{8}",
+        "in exercise command XXXXXXXX:$1 on contract 00XXXXXXXX",
+      )
+      .replaceAll(
+        raw"in create\-and\-exercise command [0-9a-f]{8}:([\w_\.:]+)+",
+        "in create-and-exercise command XXXXXXXX:$1",
+      )
+      .replaceAll(
+        raw"UNHANDLED_EXCEPTION\((\d+),\w{8}\)",
         "UNHANDLED_EXCEPTION($1,XXXXXXXX)",
       )
       .replaceAll(
-        """DA.Exception.(\w+):(\w+)@\w{8}""",
+        raw"DA.Exception.(\w+):(\w+)@\w{8}",
         "DA.Exception.$1:$2@XXXXXXXX",
       )
 

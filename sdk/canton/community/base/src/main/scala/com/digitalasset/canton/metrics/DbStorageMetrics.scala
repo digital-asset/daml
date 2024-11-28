@@ -77,7 +77,16 @@ class DbQueueMetrics(basePrefix: MetricName, @nowarn("cat=deprecation") factory:
         |the current number of tasks running in parallel.""",
     qualification = Debug,
   )
-  val running = factory.counter(prefix :+ "running")
+  val running = factory.gauge(prefix :+ "running", 0)(MetricsContext.Empty)
+
+  @MetricDoc.Tag(
+    summary = "Load of database pool",
+    description = """Database queries run as tasks on an async executor. This metric shows
+                    |the current number of queries running in parallel divided by the number
+                    |database connections for this database connection pool.""",
+    qualification = Debug,
+  )
+  val load = factory.gauge(prefix :+ "load", 0.0)(MetricsContext.Empty)
 
   @MetricDoc.Tag(
     summary = "Scheduling time metric for database tasks",
@@ -86,6 +95,13 @@ class DbQueueMetrics(basePrefix: MetricName, @nowarn("cat=deprecation") factory:
     qualification = Debug,
   )
   val waitTimer = factory.timer(prefix :+ "waittime")
+
+  @MetricDoc.Tag(
+    summary = "Execution time metric for database tasks",
+    description = """The time a task is running on the database is measured using this metric.""",
+    qualification = Debug,
+  )
+  val execTimer = factory.timer(prefix :+ "exectime")
 
 }
 
