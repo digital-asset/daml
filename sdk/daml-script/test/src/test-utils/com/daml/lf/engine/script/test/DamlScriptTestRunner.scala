@@ -56,8 +56,12 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
         "in choice XXXXXXXX:$1 on contract 00XXXXXXXX",
       )
       .replaceAll(
-        raw"in ([\w\-]+) command [0-9a-f]{8}:([\w_\.:]+)+ on contract 00[0-9a-f]{8}",
-        "in $1 command XXXXXXXX:$2 on contract 00XXXXXXXX",
+        raw"in exercise command [0-9a-f]{8}:([\w_\.:]+)+ on contract 00[0-9a-f]{8}",
+        "in exercise command XXXXXXXX:$1 on contract 00XXXXXXXX",
+      )
+      .replaceAll(
+        raw"in create\-and\-exercise command [0-9a-f]{8}:([\w_\.:]+)+",
+        "in create-and-exercise command XXXXXXXX:$1",
       )
       .replaceAll(
         raw"UNHANDLED_EXCEPTION\((\d+),\w{8}\)",
