@@ -14,7 +14,7 @@ uhoh() {
     of the LATEST file and consider running this script again."
 }
 
-#trap uhoh EXIT
+trap uhoh EXIT
 
 STABLE_REGEX="\d+\.\d+\.\d+"
 SNAPSHOT_REGEX="^${STABLE_REGEX}-snapshot\.\d{8}\.\d+(\.\d+)?\.v[0-9a-f]{8}$"
