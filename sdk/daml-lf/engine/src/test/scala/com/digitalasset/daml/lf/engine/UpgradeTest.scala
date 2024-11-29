@@ -727,6 +727,20 @@ object UpgradeTest {
          |""".stripMargin
   }
 
+  case object AdditionalTemplates extends TestCase("AdditionalTemplates", ExpectSuccess) {
+    override def v1AdditionalDefinitions = ""
+    override def v2AdditionalDefinitions =
+      s"""
+         | record @serializable ${templateName}AdditionalTemplate = { p : Party };
+         | template (this: ${templateName}AdditionalTemplate) = {
+         |   precondition True;
+         |   signatories Cons @Party [Mod:${templateName}AdditionalTemplate {p} this] (Nil @Party);
+         |   observers Nil @Party;
+         |   agreement "";
+         | };
+         |""".stripMargin
+  }
+
   case object UnchangedKey extends TestCase("UnchangedKey", ExpectSuccess) {
     override def v1Key = s"""
                             |  Mod:${templateName}Key {
@@ -1525,7 +1539,9 @@ object UpgradeTest {
     AdditionalConstructorInVariantArg,
     AdditionalConstructorInEnumArg,
     AdditionalTemplateArg,
+    // cases that test that adding unrelated stuff to the package has no impact
     AdditionalChoices,
+    AdditionalTemplates,
     // template arg downgrade
     ValidDowngradeAdditionalTemplateArg,
     InvalidDowngradeAdditionalTemplateArg,
