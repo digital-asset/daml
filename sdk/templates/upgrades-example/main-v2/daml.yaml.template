@@ -9,4 +9,8 @@ dependencies:
   - daml-prim
   - daml-stdlib
   - daml3-script
+data-dependencies:
+  - ../interfaces/.daml/dist/__PROJECT_NAME__-interfaces-1.0.0.dar
 upgrades: ../main-v1/.daml/dist/__PROJECT_NAME__-main-1.0.0.dar
+build-options:
+- --target=1.dev
