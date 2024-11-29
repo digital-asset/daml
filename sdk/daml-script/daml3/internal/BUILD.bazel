@@ -11,12 +11,12 @@ load("//rules_daml:daml.bzl", "daml_compile")
     daml_compile(
         name = "daml3-script-{}".format(lf_version),
         srcs = glob(["**/*.daml"]),
-        # Force daml files to be under `daml` directory, to match previous behaviour
-        daml_source = "daml",
         dependencies = [
             "//daml-script/daml3/stable:daml3-script-stable-{}.dar".format(lf_version),
         ],
         force_utility_package = True,
+        # Force daml files to be under `daml` directory, to match previous behaviour
+        generated_daml_source_directory = "daml",
         project_name = "daml3-script",
         target = lf_version,
         version = ghc_version,
