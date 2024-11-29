@@ -9,7 +9,7 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.data._
 import com.daml.lf.interpretation.Error.TemplatePreconditionViolated
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.LanguageMajorVersion
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.daml.lf.speedy.SExpr.SExpr
 import com.daml.lf.speedy.Speedy.ContractInfo
@@ -24,15 +24,13 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class CompilerTestV1 extends CompilerTest(LanguageMajorVersion.V1)
+class CompilerTestPreUpgrade extends CompilerTest(LanguageVersion.v1_15)
+class CompilerTestPostUpgrade extends CompilerTest(LanguageVersion.v1_17)
 //class CompilerTestV2 extends CompilerTest(LanguageMajorVersion.V2)
 
-class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyWordSpec
-    with Matchers
-    with Inside {
+class CompilerTest(langVersion: LanguageVersion) extends AnyWordSpec with Matchers with Inside {
 
-  val helpers = new CompilerTestHelpers(majorLanguageVersion)
+  val helpers = new CompilerTestHelpers(langVersion)
   import helpers._
 
   "unsafeCompile" should {
@@ -497,13 +495,16 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
   }
 }
 
-final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
+final class CompilerTestHelpers(langVersion: LanguageVersion) {
 
   import SpeedyTestLib.loggingContext
 
+  val pkgId = Ref.PackageId.assertFromString(s"-pkgId-")
   implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
-  val pkgId = parserParameters.defaultPackageId
+    ParserParameters(
+      defaultPackageId = pkgId,
+      languageVersion = langVersion,
+    )
 
   implicit val contractIdOrder: Ordering[ContractId] = `Cid Order`.toScalaOrdering
   implicit val contractIdV1Order: Ordering[ContractId.V1] = `V1 Order`.toScalaOrdering
@@ -548,7 +549,7 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   val compiledPackages: PureCompiledPackages =
     PureCompiledPackages.assertBuild(
       Map(pkgId -> pkg),
-      Compiler.Config.Default(majorLanguageVersion),
+      Compiler.Config.Default(langVersion.major),
     )
   val alice: Party = Ref.Party.assertFromString("Alice")
 

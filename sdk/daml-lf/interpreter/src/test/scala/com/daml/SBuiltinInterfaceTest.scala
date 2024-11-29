@@ -23,14 +23,14 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import com.daml.lf.interpretation.{Error => IE}
 import scala.util.{Failure, Success, Try}
 
-class SBuiltinInterfaceTestDefaultLf
+class SBuiltinInterfacePreUpgrade
     extends SBuiltinInterfaceTest(
-      LanguageVersion.default,
+      LanguageVersion.v1_15,
       Compiler.Config.Default(LanguageMajorVersion.V1),
     )
-class SBuiltinInterfaceTestEarlyAccessLf
+class SBuiltinInterfacePostUpgrade
     extends SBuiltinInterfaceTest(
-      LanguageVersion.Features.smartContractUpgrade,
+      LanguageVersion.v1_17,
       Compiler.Config.Dev(LanguageMajorVersion.V1),
     )
 

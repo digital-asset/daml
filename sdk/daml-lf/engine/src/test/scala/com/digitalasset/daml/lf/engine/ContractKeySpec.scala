@@ -11,7 +11,7 @@ import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref.{Identifier, Name, PackageId, Party, QualifiedName, TypeConName}
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.language.Ast.Package
-import com.daml.lf.language.LanguageMajorVersion
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.speedy.InitialSeeding
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.lf.transaction.{ContractKeyUniquenessMode, GlobalKey, GlobalKeyWithMaintainers}
@@ -36,8 +36,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
-class ContractKeySpecV1 extends ContractKeySpec(LanguageMajorVersion.V1)
-//class ContractKeySpecV2 extends ContractKeySpec(LanguageMajorVersion.V2)
+class ContractKeySpecPreUpgrade extends ContractKeySpec(LanguageVersion.v1_15)
+class ContractKeySpecPostUpgreade extends ContractKeySpec(LanguageVersion.v1_17)
 
 @SuppressWarnings(
   Array(
@@ -46,7 +46,7 @@ class ContractKeySpecV1 extends ContractKeySpec(LanguageMajorVersion.V1)
     "org.wartremover.warts.Product",
   )
 )
-class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
+class ContractKeySpec(langVersion: LanguageVersion)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
@@ -57,7 +57,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
 
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
-  private[this] val suffixLenientEngine = Engine.DevEngine(majorLanguageVersion)
+  private[this] val suffixLenientEngine = Engine.DevEngine(langVersion.major)
   private[this] val compiledPackages = ConcurrentCompiledPackages(
     suffixLenientEngine.config.getCompilerConfig
   )
@@ -66,15 +66,17 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
   private def loadAndAddPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
     val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
     val (mainPkgId, mainPkg) = packages.main
+    assert(mainPkg.languageVersion == langVersion)
     assert(
       compiledPackages.addPackage(mainPkgId, mainPkg).consume(pkgs = packages.all.toMap).isRight
     )
     (mainPkgId, mainPkg, packages.all.toMap)
   }
 
-  private val (basicTestsPkgId, basicTestsPkg, allPackages) = loadAndAddPackage(
-    s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}.dar"
-  )
+  private val darSuffix = s"-v${langVersion.pretty.replaceAll(raw"\.", "")}.dar"
+
+  private val (basicTestsPkgId, basicTestsPkg, allPackages) =
+    loadAndAddPackage(s"daml-lf/engine/BasicTests$darSuffix")
 
   val basicTestsSignatures = language.PackageInterface(Map(basicTestsPkgId -> basicTestsPkg))
 
@@ -266,20 +268,20 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
       import com.daml.lf.language.{LanguageVersion => LV}
       val nonUckEngine = new Engine(
         EngineConfig(
-          allowedLanguageVersions = LV.AllVersions(majorLanguageVersion),
+          allowedLanguageVersions = LV.AllVersions(langVersion.major),
           contractKeyUniqueness = ContractKeyUniquenessMode.Off,
           requireSuffixedGlobalContractId = true,
         )
       )
       val uckEngine = new Engine(
         EngineConfig(
-          allowedLanguageVersions = LV.AllVersions(majorLanguageVersion),
+          allowedLanguageVersions = LV.AllVersions(langVersion.major),
           contractKeyUniqueness = ContractKeyUniquenessMode.Strict,
           requireSuffixedGlobalContractId = true,
         )
       )
       val (multiKeysPkgId, multiKeysPkg, allMultiKeysPkgs) =
-        loadAndAddPackage(s"daml-lf/tests/MultiKeys-v${majorLanguageVersion.pretty}.dar")
+        loadAndAddPackage(s"daml-lf/tests/MultiKeys$darSuffix")
       val keyedId = Identifier(multiKeysPkgId, "MultiKeys:Keyed")
       val opsId = Identifier(multiKeysPkgId, "MultiKeys:KeyOperations")
       val let = Time.Timestamp.now()

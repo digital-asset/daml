@@ -6,9 +6,8 @@ package engine
 package preprocessing
 
 import com.daml.lf.command.ApiCommand
-import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data._
-import com.daml.lf.language.LanguageMajorVersion
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.test.TransactionBuilder.newCid
 import com.daml.lf.value.Value._
@@ -21,10 +20,11 @@ import com.daml.lf.speedy.Compiler
 
 import scala.util.{Failure, Success, Try}
 
-class ApiCommandPreprocessorSpecV1 extends ApiCommandPreprocessorSpec(LanguageMajorVersion.V1)
-//class ApiCommandPreprocessorSpecV2 extends ApiCommandPreprocessorSpec(LanguageMajorVersion.V2)
+class ApiCommandPreprocessorSpecPreUpgrade extends ApiCommandPreprocessorSpec(LanguageVersion.v1_15)
+class ApiCommandPreprocessorSpecPostUpgrade
+    extends ApiCommandPreprocessorSpec(LanguageVersion.v1_17)
 
-class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
+class ApiCommandPreprocessorSpec(langVersion: LanguageVersion)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
@@ -33,10 +33,10 @@ class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
   import com.daml.lf.testing.parser.Implicits.SyntaxHelper
   import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
 
-  private implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor(majorLanguageVersion)
-
-  private implicit val defaultPackageId: PackageId = parserParameters.defaultPackageId
+  implicit val defaultPackageId: Ref.PackageId =
+    Ref.PackageId.assertFromString(s"-pkgId-${getClass.getSimpleName}")
+  implicit val parserParameters: ParserParameters[this.type] =
+    ParserParameters(defaultPackageId = defaultPackageId, languageVersion = langVersion)
 
   private[this] val pkg =
     p"""
@@ -111,7 +111,7 @@ class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
     """
 
   private[this] val compiledPackage = ConcurrentCompiledPackages(
-    Compiler.Config.Default(majorLanguageVersion)
+    Compiler.Config.Default(langVersion.major)
   )
   assert(compiledPackage.addPackage(defaultPackageId, pkg) == ResultDone.Unit)
 
