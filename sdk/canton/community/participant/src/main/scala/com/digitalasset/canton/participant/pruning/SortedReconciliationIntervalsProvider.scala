@@ -46,9 +46,7 @@ class SortedReconciliationIntervalsProvider(
     .supervisedUS(s"Querying for list of domain parameters changes valid at $validAt") {
       topologyClient.awaitSnapshotUS(validAt)
     }
-    .flatMap(snapshot =>
-      FutureUnlessShutdown.outcomeF(snapshot.listDynamicDomainParametersChanges())
-    )
+    .flatMap(snapshot => snapshot.listDynamicDomainParametersChanges())
     .map(_.map(_.map(_.reconciliationInterval)))
 
   def reconciliationIntervals(

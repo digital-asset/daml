@@ -90,10 +90,5 @@ class GrpcSequencerClientAuth(
   }
 
   override protected def onClosed(): Unit =
-    LifeCycle.close(
-      (tokenProvider +:
-        grpcChannelPerEndpoint.toSeq.map { case (endpoint, channel) =>
-          channel
-        })*
-    )(logger)
+    LifeCycle.close(tokenProvider)(logger)
 }

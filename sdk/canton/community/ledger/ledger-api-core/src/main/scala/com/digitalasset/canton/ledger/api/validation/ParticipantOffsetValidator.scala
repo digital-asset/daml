@@ -3,19 +3,16 @@
 
 package com.digitalasset.canton.ledger.api.validation
 
-import cats.syntax.either.*
 import com.daml.error.ContextualizedErrorLogger
-import com.digitalasset.canton.data.AbsoluteOffset
-import com.digitalasset.canton.ledger.api.domain.types.ParticipantOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.platform.ApiOffset
 import io.grpc.StatusRuntimeException
 
 object ParticipantOffsetValidator {
 
   def validateOptionalPositive(ledgerOffsetO: Option[Long], fieldName: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Option[ParticipantOffset]] =
+  ): Either[StatusRuntimeException, Option[Offset]] =
     ledgerOffsetO match {
       case Some(off) =>
         validatePositive(
@@ -34,7 +31,7 @@ object ParticipantOffsetValidator {
       errorMsg: String = "the offset has to be a positive integer (>0)",
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, ParticipantOffset] =
+  ): Either[StatusRuntimeException, Offset] =
     if (ledgerOffset <= 0)
       Left(
         RequestValidationErrors.NonPositiveOffset
@@ -46,11 +43,11 @@ object ParticipantOffsetValidator {
           .asGrpcError
       )
     else
-      Right(AbsoluteOffset.tryFromLong(ledgerOffset).toHexString)
+      Right(Offset.tryFromLong(ledgerOffset))
 
   def validateNonNegative(ledgerOffset: Long, fieldName: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, ParticipantOffset] =
+  ): Either[StatusRuntimeException, Option[Offset]] =
     if (ledgerOffset < 0)
       Left(
         RequestValidationErrors.NegativeOffset
@@ -62,12 +59,12 @@ object ParticipantOffsetValidator {
           .asGrpcError
       )
     else
-      Right(Option.unless(ledgerOffset == 0)(AbsoluteOffset.tryFromLong(ledgerOffset)).toHexString)
+      Right(Option.unless(ledgerOffset == 0)(Offset.tryFromLong(ledgerOffset)))
 
   def offsetIsBeforeEnd(
       offsetType: String,
-      ledgerOffset: ParticipantOffset,
-      ledgerEnd: ParticipantOffset,
+      ledgerOffset: Option[Offset],
+      ledgerEnd: Option[Offset],
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Unit] =
@@ -77,21 +74,9 @@ object ParticipantOffsetValidator {
       RequestValidationErrors.OffsetAfterLedgerEnd
         .Reject(
           offsetType,
-          ApiOffset.assertFromStringToLong(ledgerOffset),
-          ApiOffset.assertFromStringToLong(ledgerEnd),
+          ledgerOffset.fold(0L)(_.unwrap),
+          ledgerEnd.fold(0L)(_.unwrap),
         )
         .asGrpcError,
-    )
-
-  // Same as above, but with an optional offset.
-  def offsetIsBeforeEnd(
-      offsetType: String,
-      ledgerOffset: Option[ParticipantOffset],
-      ledgerEnd: ParticipantOffset,
-  )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Unit] =
-    ledgerOffset.fold(Either.unit[StatusRuntimeException])(
-      offsetIsBeforeEnd(offsetType, _, ledgerEnd)
     )
 }

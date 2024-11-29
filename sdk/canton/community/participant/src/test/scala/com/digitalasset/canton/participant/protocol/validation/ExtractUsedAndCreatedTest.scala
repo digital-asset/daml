@@ -19,7 +19,6 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
 
   private val emptyUsedAndCreatedContracts = UsedAndCreatedContracts(
     witnessed = Map.empty[LfContractId, SerializableContract],
-    divulged = Map.empty[LfContractId, SerializableContract],
     checkActivenessTxInputs = Set.empty[LfContractId],
     consumedInputsOfHostedStakeholders = Map.empty[LfContractId, Set[LfPartyId]],
     used = Map.empty[LfContractId, SerializableContract],

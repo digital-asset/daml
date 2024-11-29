@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform
 import com.daml.error.utils.ErrorDetails
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.pekkostreams.dispatcher.{Dispatcher, SubSource}
 import io.grpc.StatusRuntimeException
@@ -26,7 +26,7 @@ class DispatcherStateSpec
     with BaseTest {
   private val className = classOf[DispatcherState].getSimpleName
 
-  private val initializationOffset = Some(AbsoluteOffset.tryFromLong(12345678L))
+  private val initializationOffset = Some(Offset.tryFromLong(12345678L))
 
   private val nextOffset = initializationOffset.map(_.increment)
 
@@ -125,7 +125,7 @@ class DispatcherStateSpec
     )
 
   private def assertDispatcherDoesntAcceptNewSubscriptions(
-      initialDispatcher: Dispatcher[AbsoluteOffset]
+      initialDispatcher: Dispatcher[Offset]
   ): Future[Assertion] =
     initialDispatcher
       .startingAt(

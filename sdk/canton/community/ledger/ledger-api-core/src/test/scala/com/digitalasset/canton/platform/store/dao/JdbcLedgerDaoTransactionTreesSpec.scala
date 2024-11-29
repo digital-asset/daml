@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.dao
 
 import com.daml.ledger.api.v2.transaction.TransactionTree
 import com.daml.ledger.api.v2.update_service.GetUpdateTreesResponse
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.platform.store.entries.LedgerEntry
 import com.digitalasset.canton.platform.store.utils.EventOps.TreeEventOps
@@ -280,7 +280,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       resultForAlice <- transactionsOf(
         ledgerDao.transactionsReader
           .getTransactionTrees(
-            startInclusive = from.fold(AbsoluteOffset.firstOffset)(_.lastOffset.increment),
+            startInclusive = from.fold(Offset.firstOffset)(_.lastOffset.increment),
             endInclusive = to.value.lastOffset,
             requestingParties = Some(Set(alice)),
             eventProjectionProperties = EventProjectionProperties(
@@ -292,7 +292,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       resultForBob <- transactionsOf(
         ledgerDao.transactionsReader
           .getTransactionTrees(
-            startInclusive = from.fold(AbsoluteOffset.firstOffset)(_.lastOffset.increment),
+            startInclusive = from.fold(Offset.firstOffset)(_.lastOffset.increment),
             endInclusive = to.value.lastOffset,
             requestingParties = Some(Set(bob)),
             eventProjectionProperties = EventProjectionProperties(
@@ -304,7 +304,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       resultForCharlie <- transactionsOf(
         ledgerDao.transactionsReader
           .getTransactionTrees(
-            startInclusive = from.fold(AbsoluteOffset.firstOffset)(_.lastOffset.increment),
+            startInclusive = from.fold(Offset.firstOffset)(_.lastOffset.increment),
             endInclusive = to.value.lastOffset,
             requestingParties = Some(Set(charlie)),
             eventProjectionProperties = EventProjectionProperties(
@@ -320,8 +320,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     }
   }
 
-  private def storeTestFixture()
-      : Future[(AbsoluteOffset, AbsoluteOffset, Seq[LedgerEntry.Transaction])] =
+  private def storeTestFixture(): Future[(Offset, Offset, Seq[LedgerEntry.Transaction])] =
     for {
       from <- ledgerDao.lookupLedgerEnd()
       (_, t1) <- store(singleCreate)
@@ -330,7 +329,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       (_, t4) <- store(fullyTransient())
       to <- ledgerDao.lookupLedgerEnd()
     } yield (
-      from.fold(AbsoluteOffset.firstOffset)(_.lastOffset.increment),
+      from.fold(Offset.firstOffset)(_.lastOffset.increment),
       to.value.lastOffset,
       Seq(t1, t2, t3, t4),
     )
@@ -349,7 +348,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       .map(_.flatMap(_.toList.flatMap(_.transaction.toList)))
 
   private def transactionsOf(
-      source: Source[(AbsoluteOffset, GetUpdateTreesResponse), NotUsed]
+      source: Source[(Offset, GetUpdateTreesResponse), NotUsed]
   ): Future[Seq[TransactionTree]] =
     source
       .map(_._2)

@@ -6,8 +6,8 @@ package com.digitalasset.canton.lifecycle
 import cats.arrow.FunctionK
 import cats.data.EitherT
 import cats.{Applicative, FlatMap, Functor, Id, Monad, MonadThrow, Monoid, Parallel, ~>}
-import com.daml.metrics.Timed
-import com.daml.metrics.api.MetricHandle.Timer
+import com.daml.metrics.api.MetricHandle.{Counter, Timer}
+import com.daml.metrics.{Timed, Tracked}
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{LoggerUtil, Thereafter, ThereafterAsync}
@@ -206,6 +206,21 @@ object FutureUnlessShutdownImpl {
       FutureUnlessShutdown(unwrap.transformWith(Instance.unsubst[K](f)))
     }
 
+    /** Similar to [[transformWith]], but more interchangeable with normal [[scala.concurrent.Future.transformWith]] */
+    def transformWithHandledAborted[B](
+        f: Try[A] => FutureUnlessShutdown[B]
+    )(implicit ec: ExecutionContext): FutureUnlessShutdown[B] = {
+      val wrappedF: Try[UnlessShutdown[A]] => FutureUnlessShutdown[B] = {
+        case Success(UnlessShutdown.Outcome(value)) =>
+          f(Success(value))
+        case Success(UnlessShutdown.AbortedDueToShutdown) =>
+          FutureUnlessShutdown(Future.successful(UnlessShutdown.AbortedDueToShutdown))
+        case Failure(exception) =>
+          f(Failure(exception))
+      }
+      transformWith(wrappedF)
+    }
+
     /** Analog to [[scala.concurrent.Future]].onComplete */
     def onComplete[B](f: Try[UnlessShutdown[A]] => Unit)(implicit ec: ExecutionContext): Unit =
       unwrap.onComplete(f)
@@ -214,7 +229,7 @@ object FutureUnlessShutdownImpl {
     def failed(implicit ec: ExecutionContext): FutureUnlessShutdown[Throwable] =
       FutureUnlessShutdown.outcomeF(self.unwrap.failed)
 
-    /** Evaluates `f` and returns its result if this future completes with [[UnlessShutdown.AbortedDueToShutdown]]. */
+    /** Evaluates `f` and returns its result as a Future if this future completes with [[UnlessShutdown.AbortedDueToShutdown]]. */
     def onShutdown[B >: A](f: => B)(implicit ec: ExecutionContext): Future[B] =
       unwrap.map(_.onShutdown(f))
 
@@ -257,6 +272,12 @@ object FutureUnlessShutdownImpl {
     // This method is here so that we don't need to import ```cats.syntax.functor._``` everywhere
     def map[B](f: A => B)(implicit ec: ExecutionContext): FutureUnlessShutdown[B] =
       Functor[FutureUnlessShutdown].map(self)(f)
+
+    /** Used by for-comprehensions. */
+    def withFilter(
+        p: A => Boolean
+    )(implicit executor: ExecutionContext): FutureUnlessShutdown[A] =
+      FutureUnlessShutdown(self.unwrap.withFilter(_.forall(p)))
 
     def subflatMap[B](f: A => UnlessShutdown[B])(implicit
         ec: ExecutionContext
@@ -432,5 +453,21 @@ object FutureUnlessShutdownImpl {
   implicit class TimerOnShutdownSyntax(private val timed: Timed.type) extends AnyVal {
     def future[T](timer: Timer, future: => FutureUnlessShutdown[T]): FutureUnlessShutdown[T] =
       FutureUnlessShutdown(timed.future(timer, future.unwrap))
+  }
+
+  implicit class TrackOnShutdownSyntax(private val tracked: Tracked.type) extends AnyVal {
+    def future[T](track: Counter, future: => FutureUnlessShutdown[T]): FutureUnlessShutdown[T] =
+      FutureUnlessShutdown(tracked.future(track, future.unwrap))
+  }
+
+  implicit class TimerAndTrackOnShutdownSyntax(
+      private val timed: Timed.type
+  ) extends AnyVal {
+    def timedAndTrackedFutureUS[T](
+        timer: Timer,
+        track: Counter,
+        future: => FutureUnlessShutdown[T],
+    ): FutureUnlessShutdown[T] =
+      timed.future(timer, Tracked.future(track, future))
   }
 }

@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.cache
 
 import cats.data.NonEmptyVector
 import com.daml.ledger.resources.Resource
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.ContractState
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -52,7 +52,7 @@ class MutableCacheBackedContractStoreSpec
         contractId = ContractId.V1(Hash.hashPrivateKey("cid")),
         globalKey = None,
         stakeholders = Set.empty,
-        eventOffset = AbsoluteOffset.firstOffset,
+        eventOffset = Offset.firstOffset,
       )
       val event2 = event1
       val updateBatch = NonEmptyVector.of(event1, event2)
@@ -100,9 +100,9 @@ class MutableCacheBackedContractStoreSpec
         // So even though a read-through populates missing entries,
         // they can be immediately evicted by GCs and lead to subsequent misses.
         // Hence, verify atLeastOnce for LedgerDaoContractsReader.lookupContractState
-        verify(spyContractsReader, atLeastOnce).lookupContractState(cId_2, Some(offset1))
-        verify(spyContractsReader, atLeastOnce).lookupContractState(cId_3, Some(offset2))
-        verify(spyContractsReader, atLeastOnce).lookupContractState(nonExistentCId, Some(offset3))
+        verify(spyContractsReader, atLeastOnce).lookupContractState(cId_2, offset1)
+        verify(spyContractsReader, atLeastOnce).lookupContractState(cId_3, offset2)
+        verify(spyContractsReader, atLeastOnce).lookupContractState(nonExistentCId, offset3)
         succeed
       }
     }
@@ -123,7 +123,7 @@ class MutableCacheBackedContractStoreSpec
         positiveLookup_cId6 shouldBe Option.empty
 
         verify(spyContractsReader, times(wantedNumberOfInvocations = 1))
-          .lookupContractState(cId_6, Some(offset1))
+          .lookupContractState(cId_6, offset1)
         succeed
       }
     }
@@ -272,10 +272,10 @@ class MutableCacheBackedContractStoreSpec
 
 @nowarn("msg=match may not be exhaustive")
 object MutableCacheBackedContractStoreSpec {
-  private val offset0 = AbsoluteOffset.tryFromLong(1L)
-  private val offset1 = AbsoluteOffset.tryFromLong(2L)
-  private val offset2 = AbsoluteOffset.tryFromLong(3L)
-  private val offset3 = AbsoluteOffset.tryFromLong(4L)
+  private val offset0 = Offset.tryFromLong(1L)
+  private val offset1 = Offset.tryFromLong(2L)
+  private val offset2 = Offset.tryFromLong(3L)
+  private val offset3 = Offset.tryFromLong(4L)
 
   private val Seq(alice, bob, charlie) = Seq("alice", "bob", "charlie").map(party)
   private val (
@@ -316,7 +316,7 @@ object MutableCacheBackedContractStoreSpec {
     @volatile private var initialResultForCid6 =
       Future.successful(Option.empty[LedgerDaoContractsReader.ContractState])
 
-    override def lookupKeyState(key: Key, validAt: AbsoluteOffset)(implicit
+    override def lookupKeyState(key: Key, validAt: Offset)(implicit
         loggingContext: LoggingContextWithTrace
     ): Future[LedgerDaoContractsReader.KeyState] = (key, validAt) match {
       case (`someKey`, `offset0`) => Future.successful(KeyAssigned(cId_1, Set(alice)))
@@ -324,13 +324,13 @@ object MutableCacheBackedContractStoreSpec {
       case _ => Future.successful(KeyUnassigned)
     }
 
-    override def lookupContractState(contractId: ContractId, validAt: Option[AbsoluteOffset])(
-        implicit loggingContext: LoggingContextWithTrace
+    override def lookupContractState(contractId: ContractId, validAt: Offset)(implicit
+        loggingContext: LoggingContextWithTrace
     ): Future[Option[LedgerDaoContractsReader.ContractState]] =
       (contractId, validAt) match {
-        case (`cId_1`, Some(`offset0`)) => activeContract(contract1, Set(alice), t1)
-        case (`cId_1`, Some(validAt)) if validAt > offset0 => archivedContract(Set(alice))
-        case (`cId_2`, Some(validAt)) if validAt >= offset1 =>
+        case (`cId_1`, `offset0`) => activeContract(contract1, Set(alice), t1)
+        case (`cId_1`, validAt) if validAt > offset0 => archivedContract(Set(alice))
+        case (`cId_2`, validAt) if validAt >= offset1 =>
           activeContract(contract2, exStakeholders, t2)
         case (`cId_3`, _) => activeContract(contract3, exStakeholders, t3)
         case (`cId_4`, _) => activeContract(contract4, exStakeholders, t4)

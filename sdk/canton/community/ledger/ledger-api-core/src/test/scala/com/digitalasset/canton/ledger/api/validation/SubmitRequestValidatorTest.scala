@@ -13,7 +13,7 @@ import com.daml.ledger.api.v2.value.{
   TextMap as ApiTextMap,
   *,
 }
-import com.digitalasset.canton.data.{AbsoluteOffset, DeduplicationPeriod}
+import com.digitalasset.canton.data.{DeduplicationPeriod, Offset}
 import com.digitalasset.canton.ledger.api.DomainMocks
 import com.digitalasset.canton.ledger.api.DomainMocks.{
   applicationId,
@@ -381,7 +381,7 @@ class SubmitRequestValidatorTest
           Table[DeduplicationPeriodProto, DeduplicationPeriod](
             ("input proto deduplication", "valid model deduplication"),
             DeduplicationPeriodProto.DeduplicationOffset(12345678L) -> DeduplicationPeriod
-              .DeduplicationOffset(Some(AbsoluteOffset.tryFromLong(12345678L))),
+              .DeduplicationOffset(Some(Offset.tryFromLong(12345678L))),
             DeduplicationPeriodProto.DeduplicationDuration(
               deduplicationDuration
             ) -> DeduplicationPeriod

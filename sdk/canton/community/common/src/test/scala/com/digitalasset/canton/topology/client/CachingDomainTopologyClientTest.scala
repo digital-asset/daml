@@ -17,7 +17,7 @@ import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.{DefaultTestIdentities, KeyCollection, TestingOwnerWithKeys}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{BaseTest, SequencerCounter, config}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, SequencerCounter, config}
 import org.scalatest.wordspec.AsyncWordSpecLike
 
 import scala.concurrent.Future
@@ -31,7 +31,7 @@ object EffectiveTimeTestHelpers {
 
 }
 
-class CachingDomainTopologyClientTest extends AsyncWordSpecLike with BaseTest {
+class CachingDomainTopologyClientTest extends AsyncWordSpecLike with BaseTest with FailOnShutdown {
 
   import EffectiveTimeTestHelpers.*
 
@@ -50,11 +50,11 @@ class CachingDomainTopologyClientTest extends AsyncWordSpecLike with BaseTest {
     val key2 = crypto.SigningKeys.key2
 
     when(mockSnapshot0.allKeys(owner))
-      .thenReturn(Future.successful(KeyCollection(signingKeys = Seq(key1), Seq())))
+      .thenReturn(FutureUnlessShutdown.pure(KeyCollection(signingKeys = Seq(key1), Seq())))
     when(mockSnapshot1.allKeys(owner))
-      .thenReturn(Future.successful(KeyCollection(signingKeys = Seq(key1, key2), Seq())))
+      .thenReturn(FutureUnlessShutdown.pure(KeyCollection(signingKeys = Seq(key1, key2), Seq())))
     when(mockSnapshot2.allKeys(owner))
-      .thenReturn(Future.successful(KeyCollection(signingKeys = Seq(key2), Seq())))
+      .thenReturn(FutureUnlessShutdown.pure(KeyCollection(signingKeys = Seq(key2), Seq())))
 
     val cc =
       new CachingDomainTopologyClient(
@@ -78,7 +78,7 @@ class CachingDomainTopologyClientTest extends AsyncWordSpecLike with BaseTest {
 
     when(mockParent.topologyKnownUntilTimestamp).thenReturn(ts3.plusSeconds(3))
     when(mockParent.approximateTimestamp).thenReturn(ts3)
-    when(mockParent.awaitTimestamp(any[CantonTimestamp])(any[TraceContext]))
+    when(mockParent.awaitTimestampUS(any[CantonTimestamp])(any[TraceContext]))
       .thenReturn(None)
     when(mockParent.trySnapshot(ts0)).thenReturn(mockSnapshot0)
     when(mockParent.trySnapshot(ts1)).thenReturn(mockSnapshot0)
@@ -103,18 +103,17 @@ class CachingDomainTopologyClientTest extends AsyncWordSpecLike with BaseTest {
       for {
         _ <- cc
           .observed(ts1, ts1, SequencerCounter(1), Seq(mockTransaction))
-          .failOnShutdown(s"at $ts1") // nonempty
-        sp0a <- cc.snapshot(ts0)
-        sp0b <- cc.snapshot(ts1)
+        sp0a <- cc.snapshotUS(ts0)
+        sp0b <- cc.snapshotUS(ts1)
         _ = cc.observed(ts1.plusSeconds(10), ts1.plusSeconds(10), SequencerCounter(1), Seq())
         keys0a <- sp0a.allKeys(owner)
         keys0b <- sp0b.allKeys(owner)
-        keys1a <- cc.snapshot(ts1.plusSeconds(5)).flatMap(_.allKeys(owner))
+        keys1a <- cc.snapshotUS(ts1.plusSeconds(5)).flatMap(_.allKeys(owner))
         _ = cc.observed(ts2, ts2, SequencerCounter(1), Seq(mockTransaction))
-        keys1b <- cc.snapshot(ts2).flatMap(_.allKeys(owner))
+        keys1b <- cc.snapshotUS(ts2).flatMap(_.allKeys(owner))
         _ = cc.observed(ts3, ts3, SequencerCounter(1), Seq())
-        keys2a <- cc.snapshot(ts2.plusSeconds(5)).flatMap(_.allKeys(owner))
-        keys2b <- cc.snapshot(ts3).flatMap(_.allKeys(owner))
+        keys2a <- cc.snapshotUS(ts2.plusSeconds(5)).flatMap(_.allKeys(owner))
+        keys2b <- cc.snapshotUS(ts3).flatMap(_.allKeys(owner))
       } yield {
         keys0a.signingKeys shouldBe Seq(key1)
         keys0b.signingKeys shouldBe Seq(key1)

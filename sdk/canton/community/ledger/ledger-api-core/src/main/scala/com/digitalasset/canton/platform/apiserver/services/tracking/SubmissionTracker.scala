@@ -11,6 +11,7 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.ledger.error.CommonErrors
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker.SubmissionKey
@@ -24,7 +25,7 @@ trait SubmissionTracker extends AutoCloseable {
   def track(
       submissionKey: SubmissionKey,
       timeout: NonNegativeFiniteDuration,
-      submit: TraceContext => Future[Any],
+      submit: TraceContext => FutureUnlessShutdown[Any],
   )(implicit
       errorLogger: ContextualizedErrorLogger,
       traceContext: TraceContext,
@@ -78,7 +79,7 @@ object SubmissionTracker {
     override def track(
         submissionKey: SubmissionKey,
         timeout: NonNegativeFiniteDuration,
-        submit: TraceContext => Future[Any],
+        submit: TraceContext => FutureUnlessShutdown[Any],
     )(implicit
         errorLogger: ContextualizedErrorLogger,
         traceContext: TraceContext,

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.admin
 
+import cats.Eval
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String255
@@ -40,7 +41,7 @@ import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import org.mockito.ArgumentMatchersSugar
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatchersSugar {
   protected type T <: CommonTestSetup
@@ -133,13 +134,16 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
     when(topologyComponentFactory.createHeadTopologySnapshot()(any[ExecutionContext]))
       .thenReturn(anotherDomainTopologySnapshot)
 
-    when(stateManager.topologyFactoryFor(domainId1)).thenReturn(Some(topologyComponentFactory))
-    when(stateManager.topologyFactoryFor(domainId2)).thenReturn(None)
+    val contractStore = mock[ContractStore]
+
+    when(stateManager.topologyFactoryFor(domainId1, testedProtocolVersion))
+      .thenReturn(Some(topologyComponentFactory))
+    when(stateManager.topologyFactoryFor(domainId2, testedProtocolVersion)).thenReturn(None)
+    when(stateManager.contractStore).thenReturn(Eval.now(contractStore))
 
     val activeContractStore = mock[ActiveContractStore]
-    val contractStore = mock[ContractStore]
+
     when(syncDomainPersistentState.activeContractStore).thenReturn(activeContractStore)
-    when(syncDomainPersistentState.contractStore).thenReturn(contractStore)
     when(activeContractStore.packageUsage(eqTo(pkgId1), eqTo(contractStore))(anyTraceContext))
       .thenReturn(FutureUnlessShutdown.pure(None))
 
@@ -294,7 +298,7 @@ class PackageOpsTest extends PackageOpsTestBase {
           eqTo(Some(Seq(nodeId))),
           eqTo(None),
         )(anyTraceContext)
-      ).thenReturn(Future.successful(packagesVettedStoredTx(currentlyVettedPackages)))
+      ).thenReturn(FutureUnlessShutdown.pure(packagesVettedStoredTx(currentlyVettedPackages)))
 
     def expectNewVettingState(newVettedPackagesState: List[LfPackageId]) =
       when(

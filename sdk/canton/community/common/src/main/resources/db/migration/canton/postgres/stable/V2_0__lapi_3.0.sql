@@ -7,7 +7,7 @@
 -- This table is meant to have a single row storing the current metering parameters.
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_metering_parameters (
-    ledger_metering_end text,
+    ledger_metering_end bigint,
     ledger_metering_timestamp bigint not null
 );
 
@@ -21,7 +21,7 @@ CREATE TABLE lapi_participant_metering (
     from_timestamp bigint not null,
     to_timestamp bigint not null,
     action_count integer not null,
-    ledger_offset text not null
+    ledger_offset bigint
 );
 
 CREATE UNIQUE INDEX lapi_participant_metering_from_to_application_idx ON lapi_participant_metering(from_timestamp, to_timestamp, application_id);
@@ -35,7 +35,7 @@ CREATE TABLE lapi_transaction_metering (
     application_id text not null,
     action_count integer not null,
     metering_timestamp bigint not null,
-    ledger_offset text not null
+    ledger_offset bigint
 );
 
 CREATE INDEX lapi_transaction_metering_ledger_offset_idx ON lapi_transaction_metering USING btree (ledger_offset);
@@ -45,26 +45,30 @@ CREATE INDEX lapi_transaction_metering_ledger_offset_idx ON lapi_transaction_met
 --
 -- This table is meant to have a single row storing all the parameters we have.
 -- We make sure the following invariant holds:
--- - The ledger_end and ledger_end_sequential_id are always defined at the same time. I.e., either
---   both are NULL, or both are defined.
+-- - The ledger_end, ledger_end_sequential_id, ledger_end_string_interning_id and
+--   ledger_end_publication_time are always defined at the same time. I.e., either
+--   all are NULL, or all are defined.
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_parameters (
     -- stores the head offset, meant to change with every new ledger entry
-    ledger_end varchar(4000) collate "C" not null,
+    -- NULL denotes the participant begin
+    ledger_end bigint,
     participant_id varchar(1000) collate "C" not null,
     -- Add the column for most recent pruning offset to parameters.
     -- A value of NULL means that the participant has not been pruned so far.
-    participant_pruned_up_to_inclusive varchar(4000) collate "C",
+    participant_pruned_up_to_inclusive bigint,
     -- the sequential_event_id up to which all events have been ingested
-    ledger_end_sequential_id bigint not null,
-    participant_all_divulged_contracts_pruned_up_to_inclusive varchar(4000) collate "C",
+    -- NULL denotes that no events have been ingested
+    ledger_end_sequential_id bigint,
+    participant_all_divulged_contracts_pruned_up_to_inclusive bigint,
     -- lapi_string_interning ledger-end tracking
-    ledger_end_string_interning_id integer not null,
-    ledger_end_publication_time bigint not null
+    ledger_end_string_interning_id integer,
+    ledger_end_publication_time bigint
 );
 
 CREATE TABLE lapi_post_processing_end (
-    post_processing_end VARCHAR(4000) collate "C" not null
+    -- null signifies the participant begin
+    post_processing_end bigint
 );
 
 CREATE TABLE lapi_ledger_end_domain_index (
@@ -80,7 +84,7 @@ CREATE TABLE lapi_ledger_end_domain_index (
 -- Completions
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_command_completions (
-    completion_offset varchar(4000) collate "C" not null,
+    completion_offset bigint not null,
     record_time bigint not null,
     publication_time bigint not null,
     application_id varchar(4000) collate "C" not null,
@@ -96,7 +100,7 @@ CREATE TABLE lapi_command_completions (
     -- 1. an initial offset
     -- 2. an initial timestamp
     -- 3. a duration (split into two columns, seconds and nanos, mapping protobuf's 1:1)
-    deduplication_offset text,
+    deduplication_offset bigint,
     deduplication_duration_seconds bigint,
     deduplication_duration_nanos integer,
     deduplication_start bigint,
@@ -129,7 +133,7 @@ CREATE TABLE lapi_events_assign (
     event_sequential_id bigint not null,    -- event identification: same ordering as event_offset
 
     -- * event identification
-    event_offset text not null,
+    event_offset bigint not null,
 
     -- * transaction metadata
     update_id text not null,
@@ -188,7 +192,7 @@ CREATE TABLE lapi_events_consuming_exercise (
     node_index integer not null,            -- event metadata
 
     -- * event identification
-    event_offset text not null,
+    event_offset bigint not null,
 
     -- * transaction metadata
     update_id text not null,
@@ -245,7 +249,7 @@ CREATE TABLE lapi_events_create (
     node_index integer not null,            -- event metadata
 
     -- * event identification
-    event_offset text not null,
+    event_offset bigint not null,
 
     -- * transaction metadata
     update_id text not null,
@@ -303,7 +307,7 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     node_index integer not null,            -- event metadata
 
     -- * event identification
-    event_offset text not null,
+    event_offset bigint not null,
 
     -- * transaction metadata
     update_id text not null,
@@ -354,7 +358,7 @@ CREATE TABLE lapi_events_unassign (
     event_sequential_id bigint not null,    -- event identification: same ordering as event_offset
 
     -- * event identification
-    event_offset text not null,
+    event_offset bigint not null,
 
     -- * transaction metadata
     update_id text not null,
@@ -398,7 +402,7 @@ CREATE INDEX lapi_events_unassign_event_sequential_id_idx ON lapi_events_unassig
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_events_party_to_participant (
     event_sequential_id bigint not null,
-    event_offset text not null,
+    event_offset bigint not null,
     update_id text not null,
     party_id integer not null,
     participant_id varchar(255) collate "C" not null,
@@ -464,7 +468,7 @@ CREATE TABLE lapi_party_record_annotations (
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_transaction_meta (
     update_id text not null,
-    event_offset text not null,
+    event_offset bigint not null,
     publication_time bigint not null,
     record_time bigint not null,
     domain_id integer not null,
@@ -536,7 +540,7 @@ CREATE TABLE lapi_user_annotations (
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_party_entries (
     -- The ledger end at the time when the party allocation was added
-    ledger_offset varchar(4000) collate "C" primary key not null,
+    ledger_offset bigint primary key not null,
     recorded_at bigint not null, --with timezone
 
     -- SubmissionId for the party allocation

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry
 import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry.AllocationAccepted
@@ -248,7 +248,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
 
   private def storePartyEntry(
       partyDetails: IndexerPartyDetails,
-      offset: AbsoluteOffset,
+      offset: Offset,
       submissionIdOpt: Option[Ref.SubmissionId] = Some(UUID.randomUUID().toString),
       recordTime: Timestamp = Timestamp.now(),
   ) =
@@ -264,7 +264,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
 
   private def storeRejectedPartyEntry(
       reason: String,
-      offset: AbsoluteOffset,
+      offset: Offset,
       submissionIdOpt: Ref.SubmissionId,
       recordTime: Timestamp,
   ): Future[PersistenceResponse] =

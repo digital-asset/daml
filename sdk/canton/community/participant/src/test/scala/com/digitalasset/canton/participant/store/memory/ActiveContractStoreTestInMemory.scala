@@ -30,7 +30,7 @@ class ActiveContractStoreTestInMemory
         new InMemoryActiveContractStore(indexedStringStore, loggerFactory)(
           ec
         ),
-      ec => new InMemoryContractStore(loggerFactory)(ec),
+      ec => new InMemoryContractStore(timeouts, loggerFactory)(ec),
     )
   }
 

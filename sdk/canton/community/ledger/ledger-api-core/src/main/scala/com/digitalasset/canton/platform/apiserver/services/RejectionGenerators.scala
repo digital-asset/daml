@@ -36,7 +36,6 @@ object ErrorCause {
   final case class InterpretationTimeExceeded(
       ledgerEffectiveTime: Time.Timestamp, // the Ledger Effective Time of the submitted command
       tolerance: NonNegativeFiniteDuration,
-      transactionTrace: Option[String],
   ) extends ErrorCause
 }
 
@@ -80,7 +79,7 @@ object RejectionGenerators {
     def processDamlException(
         err: com.digitalasset.daml.lf.interpretation.Error,
         renderedMessage: String,
-        transactionTrace: Option[String],
+        detailMessage: Option[String],
     ): DamlError =
       // detailMessage is only suitable for server side debugging but not for the user, so don't pass except on internal errors
 
@@ -108,7 +107,7 @@ object RejectionGenerators {
             .RejectWithContractKeyArg(renderedMessage, key)
         case e: LfInterpretationError.UnhandledException =>
           CommandExecutionErrors.Interpreter.UnhandledException.Reject(
-            renderedMessage + transactionTrace.fold("")("\n" + _) + ".",
+            renderedMessage + detailMessage.fold("")(x => ". Details: " + x),
             e,
           )
         case e: LfInterpretationError.UserError =>
@@ -181,9 +180,9 @@ object RejectionGenerators {
       case ErrorCause.LedgerTime(retries) =>
         CommandExecutionErrors.FailedToDetermineLedgerTime
           .Reject(s"Could not find a suitable ledger time after $retries retries")
-      case ErrorCause.InterpretationTimeExceeded(let, tolerance, transactionTrace) =>
+      case ErrorCause.InterpretationTimeExceeded(let, tolerance) =>
         CommandExecutionErrors.TimeExceeded.Reject(
-          s"Time exceeds limit of Ledger Effective Time ($let) + tolerance ($tolerance). Interpretation aborted" + transactionTrace.fold("")("\n" + _) + "."
+          s"Interpretation time exceeds limit of Ledger Effective Time ($let) + tolerance ($tolerance)"
         )
       case ErrorCause.DisclosedContractsDomainIdsMismatch(mismatchingDisclosedContractDomainIds) =>
         CommandExecutionErrors.DisclosedContractsDomainIdMismatch.Reject(

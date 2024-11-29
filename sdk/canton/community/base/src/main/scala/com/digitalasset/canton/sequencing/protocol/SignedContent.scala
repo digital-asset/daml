@@ -32,7 +32,7 @@ import com.digitalasset.canton.version.{
 }
 import com.google.protobuf.ByteString
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** @param timestampOfSigningKey The timestamp of the topology snapshot that was used for signing the content.
   *                              [[scala.None$]] if the signing timestamp can be derived from the content.
@@ -72,7 +72,9 @@ final case class SignedContent[+A <: HasCryptographicEvidence] private (
       snapshot: SyncCryptoApi,
       member: Member,
       purpose: HashPurpose,
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] = {
     val hash = SignedContent.hashContent(snapshot.pureCrypto, content, purpose)
     snapshot.verifySignature(hash, member, signature)
   }

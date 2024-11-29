@@ -156,7 +156,7 @@ class ParticipantTopologyDispatcher(
       for {
         alreadyTrusted <- EitherT
           .right[String](
-            performUnlessClosingF(functionFullName)(
+            performUnlessClosingUSF(functionFullName)(
               store
                 .findPositiveTransactions(
                   asOf = CantonTimestamp.MaxValue,
@@ -372,7 +372,7 @@ private class DomainOnboardingOutbox(
         )
       )
       applicable <- EitherT.right(
-        performUnlessClosingF(functionFullName)(onlyApplicable(candidates))
+        performUnlessClosingUSF(functionFullName)(onlyApplicable(candidates))
       )
       _ <- EitherT.fromEither[FutureUnlessShutdown](initializedWith(applicable))
       // Try to convert if necessary the topology transactions for the required protocol version of the domain

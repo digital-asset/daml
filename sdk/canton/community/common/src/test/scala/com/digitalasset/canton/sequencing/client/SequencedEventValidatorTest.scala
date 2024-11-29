@@ -495,6 +495,7 @@ class SequencedEventValidatorTest
           testedProtocolVersion,
           warnIfApproximate = false,
         )
+        .failOnShutdown
         .failed
         .futureValue shouldBe a[IllegalArgumentException]
 

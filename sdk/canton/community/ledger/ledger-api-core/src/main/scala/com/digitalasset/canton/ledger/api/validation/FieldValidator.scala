@@ -6,7 +6,7 @@ package com.digitalasset.canton.ledger.api.validation
 import cats.implicits.toBifunctorOps
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.value.Identifier
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, JwksUrl}
 import com.digitalasset.canton.ledger.api.validation.ResourceAnnotationValidator.{
@@ -14,7 +14,7 @@ import com.digitalasset.canton.ledger.api.validation.ResourceAnnotationValidator
   EmptyAnnotationsValueError,
   InvalidAnnotationsKeyError,
 }
-import com.digitalasset.canton.ledger.api.validation.ValidationErrors.{invalidField, *}
+import com.digitalasset.canton.ledger.api.validation.ValidationErrors.*
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId as TopologyPartyId}
@@ -245,10 +245,10 @@ object FieldValidator {
 
   def requireNonNegativeOffset(offset: Long, fieldName: String)(implicit
       errorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Option[AbsoluteOffset]] =
+  ): Either[StatusRuntimeException, Option[Offset]] =
     Either.cond(
       offset >= 0,
-      Option.unless(offset == 0)(AbsoluteOffset.tryFromLong(offset)),
+      Option.unless(offset == 0)(Offset.tryFromLong(offset)),
       RequestValidationErrors.NegativeOffset
         .Error(
           fieldName = fieldName,

@@ -3,12 +3,9 @@
 
 package com.digitalasset.canton.protocol.messages
 
-import cats.syntax.traverse.*
-import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.TopologyRequestId
-import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
-import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast.Broadcast
 import com.digitalasset.canton.protocol.v30
+import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.*
@@ -16,13 +13,12 @@ import com.digitalasset.canton.version.{
   HasProtocolVersionedWithContextCompanion,
   ProtoVersion,
   ProtocolVersion,
-  ProtocolVersionValidation,
   RepresentativeProtocolVersion,
 }
 
-final case class TopologyTransactionsBroadcast private (
+final case class TopologyTransactionsBroadcast(
     override val domainId: DomainId,
-    broadcasts: Seq[Broadcast],
+    transactions: SignedTopologyTransactions[TopologyChangeOp, TopologyMapping],
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
       TopologyTransactionsBroadcast.type
@@ -38,9 +34,11 @@ final case class TopologyTransactionsBroadcast private (
 
   def toProtoV30: v30.TopologyTransactionsBroadcast = v30.TopologyTransactionsBroadcast(
     domainId.toProtoPrimitive,
-    broadcasts = broadcasts.map(_.toProtoV30),
+    Some(transactions.toProtoV30),
   )
 
+  def signedTransactions: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]] =
+    transactions.transactions
 }
 
 object TopologyTransactionsBroadcast
@@ -49,12 +47,15 @@ object TopologyTransactionsBroadcast
       ProtocolVersion,
     ] {
 
-  def create(
+  def apply(
       domainId: DomainId,
-      broadcasts: Seq[Broadcast],
+      transactions: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
       protocolVersion: ProtocolVersion,
   ): TopologyTransactionsBroadcast =
-    TopologyTransactionsBroadcast(domainId = domainId, broadcasts = broadcasts)(
+    TopologyTransactionsBroadcast(
+      domainId,
+      SignedTopologyTransactions(transactions, protocolVersion),
+    )(
       supportedProtoVersions.protocolVersionRepresentativeFor(protocolVersion)
     )
 
@@ -82,38 +83,18 @@ object TopologyTransactionsBroadcast
       expectedProtocolVersion: ProtocolVersion,
       message: v30.TopologyTransactionsBroadcast,
   ): ParsingResult[TopologyTransactionsBroadcast] = {
-    val v30.TopologyTransactionsBroadcast(domain, broadcasts) = message
+    val v30.TopologyTransactionsBroadcast(domainP, signedTopologyTransactionsP) = message
     for {
-      domainId <- DomainId.fromProtoPrimitive(domain, "domain")
-      broadcasts <- broadcasts.traverse(broadcastFromProtoV30(expectedProtocolVersion))
+      domainId <- DomainId.fromProtoPrimitive(domainP, "domain")
+
+      signedTopologyTransactions <- ProtoConverter.parseRequired(
+        SignedTopologyTransactions.fromProtoV30(expectedProtocolVersion, _),
+        "signed_transactions",
+        signedTopologyTransactionsP,
+      )
+
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield TopologyTransactionsBroadcast(domainId, broadcasts.toList)(rpv)
-  }
-
-  private def broadcastFromProtoV30(expectedProtocolVersion: ProtocolVersion)(
-      message: v30.TopologyTransactionsBroadcast.Broadcast
-  ): ParsingResult[Broadcast] = {
-    val v30.TopologyTransactionsBroadcast.Broadcast(broadcastId, transactions) = message
-    for {
-      broadcastId <- String255.fromProtoPrimitive(broadcastId, "broadcast_id")
-      transactions <- transactions.traverse(tx =>
-        SignedTopologyTransaction.fromProtoV30(
-          ProtocolVersionValidation(expectedProtocolVersion),
-          tx,
-        )
-      )
-    } yield Broadcast(broadcastId, transactions.toList)
-  }
-
-  final case class Broadcast(
-      broadcastId: TopologyRequestId,
-      transactions: List[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
-  ) {
-    def toProtoV30: v30.TopologyTransactionsBroadcast.Broadcast =
-      v30.TopologyTransactionsBroadcast.Broadcast(
-        broadcastId = broadcastId.toProtoPrimitive,
-        transactions = transactions.map(_.toProtoV30),
-      )
+    } yield TopologyTransactionsBroadcast(domainId, signedTopologyTransactions)(rpv)
   }
 
   /** The state of the submission of a topology transaction broadcast. In combination with the sequencer client

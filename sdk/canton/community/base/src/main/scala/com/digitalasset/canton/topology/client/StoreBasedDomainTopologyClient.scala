@@ -67,7 +67,7 @@ trait TopologyAwaiter extends FlagCloseable {
         }
       )
 
-  private class StateAwait(func: => Future[Boolean]) {
+  private class StateAwait(func: => FutureUnlessShutdown[Boolean]) {
     val promise: Promise[UnlessShutdown[Boolean]] = Promise[UnlessShutdown[Boolean]]()
     promise.future.onComplete { _ =>
       val _ = conditions.updateAndGet(_.filterNot(_.promise.isCompleted))
@@ -76,16 +76,16 @@ trait TopologyAwaiter extends FlagCloseable {
     def check(): Unit =
       if (!promise.isCompleted) {
         // Ok to use onComplete as any exception will be propagated to the promise.
-        func.onComplete {
-          case Success(false) => // nothing to do, will retry later
+        func.unwrap.onComplete {
+          case Success(UnlessShutdown.Outcome(false)) => // nothing to do, will retry later
           case res =>
-            val _ = promise.tryComplete(res.map(UnlessShutdown.Outcome(_)))
+            val _ = promise.tryComplete(res)
         }
       }
   }
 
   private[topology] def scheduleAwait(
-      condition: => Future[Boolean],
+      condition: => FutureUnlessShutdown[Boolean],
       timeout: Duration,
   ): FutureUnlessShutdown[Boolean] = {
     val waiter = new StateAwait(condition)
@@ -312,9 +312,8 @@ class StoreBasedDomainTopologyClient(
       _ <- awaitSequencedTimestampUS(sequencedTime).getOrElse(
         FutureUnlessShutdown.unit
       )
-      maxTimestamp <- FutureUnlessShutdown.outcomeF(
+      maxTimestamp <-
         store.maxTimestamp(sequencedTime, includeRejected = false)
-      )
     } yield maxTimestamp
 
   override def awaitTimestamp(
@@ -331,6 +330,14 @@ class StoreBasedDomainTopologyClient(
   }
 
   override def await(condition: TopologySnapshot => Future[Boolean], timeout: Duration)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Boolean] =
+    scheduleAwait(FutureUnlessShutdown.outcomeF(condition(currentSnapshotApproximation)), timeout)
+
+  override def awaitUS(
+      condition: TopologySnapshot => FutureUnlessShutdown[Boolean],
+      timeout: Duration,
+  )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Boolean] =
     scheduleAwait(condition(currentSnapshotApproximation), timeout)

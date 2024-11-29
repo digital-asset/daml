@@ -34,6 +34,7 @@ class TopologyTimestampPlusEpsilonTrackerTest
     )
     val store = new InMemoryTopologyStore(
       TopologyStoreId.DomainStore(DefaultTestIdentities.domainId),
+      testedProtocolVersion,
       loggerFactory,
       timeouts,
     )
@@ -87,7 +88,7 @@ class TopologyTimestampPlusEpsilonTrackerTest
           removeTxs = Set.empty,
           List(ValidatedTopologyTransaction(tx, None)),
         )
-        .futureValue
+        .futureValueUS
     }
 
     def storeRejection(sequenced: Long, effective: Long): Unit = {
@@ -105,7 +106,7 @@ class TopologyTimestampPlusEpsilonTrackerTest
           removeTxs = Set.empty,
           Seq(tx),
         )
-        .futureValue
+        .futureValueUS
     }
 
     def assertEffectiveTime(

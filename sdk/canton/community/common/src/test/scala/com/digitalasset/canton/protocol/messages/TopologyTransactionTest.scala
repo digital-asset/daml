@@ -4,7 +4,6 @@
 package com.digitalasset.canton.protocol.messages
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.SigningKeyUsage
 import com.digitalasset.canton.data.CantonTimestamp
@@ -12,11 +11,16 @@ import com.digitalasset.canton.protocol.TestDomainParameters
 import com.digitalasset.canton.serialization.HasCryptographicEvidenceTest
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.*
+import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import com.google.protobuf.ByteString
 import org.scalatest.exceptions.TestFailedException
 import org.scalatest.wordspec.AnyWordSpec
 
-class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptographicEvidenceTest {
+class TopologyTransactionTest
+    extends AnyWordSpec
+    with BaseTest
+    with HasCryptographicEvidenceTest
+    with FailOnShutdown {
 
   private val uid = DefaultTestIdentities.uid
   private val uid2 = UniqueIdentifier.tryFromProtoPrimitive("da1::default1")
@@ -33,7 +37,7 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
   private val publicKey =
     crypto.currentSnapshotApproximation.ipsSnapshot
       .signingKeys(sequencerId, SigningKeyUsage.All)
-      .futureValue
+      .futureValueUS
       // for this test it does not really matter what public signing key we use
       .lastOption
       .getOrElse(sys.error("no keys"))

@@ -6,7 +6,12 @@ package com.digitalasset.canton.sequencing.client.channel
 import cats.data.EitherT
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.domain.api.v30
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
+import com.digitalasset.canton.lifecycle.{
+  FlagCloseable,
+  FutureUnlessShutdown,
+  OnShutdownRunner,
+  RunOnShutdown,
+}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, GrpcClient, GrpcManagedChannel}
 import com.digitalasset.canton.sequencing.client.channel.endpoint.SequencerChannelClientEndpoint
@@ -15,6 +20,7 @@ import com.digitalasset.canton.sequencing.client.transports.{
   GrpcSequencerClientAuth,
 }
 import com.digitalasset.canton.tracing.TraceContext
+import io.grpc.Context.CancellableContext
 import io.grpc.{CallOptions, ManagedChannel}
 
 import scala.concurrent.ExecutionContext
@@ -46,24 +52,37 @@ private[channel] final class SequencerChannelClientTransport(
         ),
     )
 
-  /** Issue the GRPC request to connect to a sequencer channel.
-    *
-    * The call is made directly against the GRPC stub as trace context propagation and error handling
-    * in the bidirectionally streaming request is performed by implementations of the
-    * [[SequencerChannelProtocolProcessor]].
-    */
-  @SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
-  def connectToSequencerChannel(
-      channelEndpoint: SequencerChannelClientEndpoint
-  )(implicit traceContext: TraceContext): Unit = {
-    val requestObserver =
-      grpcClient.service.connectToSequencerChannel(channelEndpoint.observer)
-
-    // Only now that the GRPC request has provided the "request" GRPC StreamObserver,
-    // pass on the request observer to the channel endpoint. This enables the sequencer
-    // channel endpoint to send messages via the sequencer channel.
-    channelEndpoint.setRequestObserver(requestObserver)
+  locally {
+    // Make sure that the authentication channels are closed before the transport channel
+    // Otherwise the forced shutdownNow() on the transport channel will time out if the authentication interceptor
+    // is in a retry loop to refresh the token
+    import TraceContext.Implicits.Empty.*
+    managedChannel.runOnShutdown_(new RunOnShutdown() {
+      override def name: String = "grpc-sequencer-transport-shutdown-auth"
+      override def done: Boolean = clientAuth.isClosing
+      override def run(): Unit = clientAuth.close()
+    })
   }
+
+  /** Issue the GRPC request to connect to a sequencer channel.
+    */
+  def connectToSequencerChannel(
+      channelEndpointFactory: (
+          CancellableContext,
+          OnShutdownRunner,
+      ) => Either[String, SequencerChannelClientEndpoint]
+  )(implicit traceContext: TraceContext): Either[String, SequencerChannelClientEndpoint] =
+    CantonGrpcUtil
+      .bidirectionalStreamingRequest(grpcClient, channelEndpointFactory)(_.observer)(
+        _.connectToSequencerChannel(_)
+      )
+      .map { case (channelEndpoint, requestObserver) =>
+        // Only now that the GRPC request has provided the "request" gRPC StreamObserver,
+        // pass on the request observer to the channel endpoint. This enables the sequencer
+        // channel endpoint to send messages via the sequencer channel.
+        channelEndpoint.setRequestObserver(requestObserver)
+        channelEndpoint
+      }
 
   /** Ping the sequencer channel service to check if the sequencer supports channels.
     */
@@ -81,10 +100,4 @@ private[channel] final class SequencerChannelClientTransport(
     response.bimap(_.toString, _ => ())
 
   }
-
-  override protected def onClosed(): Unit =
-    LifeCycle.close(
-      clientAuth,
-      managedChannel,
-    )(logger)
 }

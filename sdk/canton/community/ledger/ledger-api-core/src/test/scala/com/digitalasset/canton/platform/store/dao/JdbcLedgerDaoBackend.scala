@@ -104,8 +104,7 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
       )
       contractLoader <- ContractLoader.create(
         contractStorageBackend = dbSupport.storageBackendFactory.createContractStorageBackend(
-          ledgerEndCache,
-          stringInterningView,
+          stringInterningView
         ),
         dbDispatcher = dbSupport.dbDispatcher,
         metrics = metrics,

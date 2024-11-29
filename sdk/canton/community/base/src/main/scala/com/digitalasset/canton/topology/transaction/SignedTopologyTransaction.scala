@@ -6,7 +6,9 @@ package com.digitalasset.canton.topology.transaction
 import cats.data.EitherT
 import cats.instances.seq.*
 import cats.syntax.either.*
+import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
+import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.crypto.*
@@ -18,6 +20,7 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbSerializationException
 import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.*
 import com.google.common.annotations.VisibleForTesting
@@ -53,14 +56,13 @@ case class SignedTopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
 
   override protected def transactionLikeDelegate: TopologyTransactionLike[Op, M] = transaction
 
-  lazy val hashOfSignatures: Hash = Hash.digest(
-    HashPurpose.TopologyTransactionSignature,
+  def hashOfSignatures(protocolVersion: ProtocolVersion): Hash = {
+    val builder = Hash.build(HashPurpose.TopologyTransactionSignature, HashAlgorithm.Sha256)
     signatures.toList
       .sortBy(_.signedBy.toProtoPrimitive)
-      .map(_.toProtoV30.toByteString)
-      .reduceLeft(_.concat(_)),
-    HashAlgorithm.Sha256,
-  )
+      .foreach(tx => builder.add(tx.toByteString(protocolVersion)))
+    builder.finish()
+  }
 
   def addSignatures(add: Seq[Signature]): SignedTopologyTransaction[Op, M] =
     SignedTopologyTransaction(
@@ -236,4 +238,112 @@ object SignedTopologyTransaction
     (d: GenericSignedTopologyTransaction, pp: PositionedParameters) =>
       pp >> d.toByteArray
   }
+}
+
+final case class SignedTopologyTransactions[
+    +Op <: TopologyChangeOp,
+    +M <: TopologyMapping,
+](transactions: Seq[SignedTopologyTransaction[Op, M]])(
+    override val representativeProtocolVersion: RepresentativeProtocolVersion[
+      SignedTopologyTransactions.type
+    ]
+) extends HasProtocolVersionedWrapper[SignedTopologyTransactions[TopologyChangeOp, TopologyMapping]]
+    with PrettyPrinting {
+
+  @transient override protected lazy val companionObj: SignedTopologyTransactions.type =
+    SignedTopologyTransactions
+
+  override protected def pretty: Pretty[SignedTopologyTransactions.this.type] = prettyOfParam(
+    _.transactions
+  )
+
+  def toProtoV30: v30.SignedTopologyTransactions = v30.SignedTopologyTransactions(
+    transactions.map(_.toByteString)
+  )
+
+  def collectOfType[T <: TopologyChangeOp: ClassTag]: SignedTopologyTransactions[T, M] =
+    SignedTopologyTransactions(
+      transactions.mapFilter(_.selectOp[T])
+    )(representativeProtocolVersion)
+
+  def collectOfMapping[T <: TopologyMapping: ClassTag]: SignedTopologyTransactions[Op, T] =
+    SignedTopologyTransactions(
+      transactions.mapFilter(_.selectMapping[T])
+    )(representativeProtocolVersion)
+}
+
+object SignedTopologyTransactions
+    extends HasProtocolVersionedWithContextCompanion[
+      SignedTopologyTransactions[TopologyChangeOp, TopologyMapping],
+      ProtocolVersion,
+    ] {
+  override val supportedProtoVersions = SupportedProtoVersions(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(
+      v30.SignedTopologyTransactions
+    )(
+      supportedProtoVersion(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
+    )
+  )
+
+  override def name: String = "SignedTopologyTransactions"
+
+  type PositiveSignedTopologyTransactions =
+    Seq[SignedTopologyTransaction[TopologyChangeOp.Replace, TopologyMapping]]
+
+  def apply[Op <: TopologyChangeOp, M <: TopologyMapping](
+      transactions: Seq[SignedTopologyTransaction[Op, M]],
+      protocolVersion: ProtocolVersion,
+  ): SignedTopologyTransactions[Op, M] =
+    SignedTopologyTransactions(transactions)(
+      supportedProtoVersions.protocolVersionRepresentativeFor(protocolVersion)
+    )
+
+  def fromProtoV30(
+      expectedProtocolVersion: ProtocolVersion,
+      proto: v30.SignedTopologyTransactions,
+  ): ParsingResult[SignedTopologyTransactions[TopologyChangeOp, TopologyMapping]] =
+    for {
+      transactions <- proto.signedTransaction
+        .traverse(
+          SignedTopologyTransaction.fromByteString(expectedProtocolVersion)(
+            ProtocolVersionValidation.PV(expectedProtocolVersion)
+          )(_)
+        )
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
+    } yield SignedTopologyTransactions(transactions)(rpv)
+
+  /** Merges the signatures of transactions with the same transaction hash,
+    * while maintaining the order of the first occurrence of each hash.
+    *
+    * For example:
+    * {{{
+    * val original = Seq(hash_A, hash_B, hash_A, hash_C, hash_B)
+    * compact(original) == Seq(hash_A, hash_B, hash_C)
+    * }}}
+    */
+  def compact(
+      txs: Seq[GenericSignedTopologyTransaction]
+  ): Seq[GenericSignedTopologyTransaction] = {
+    val byHash = txs
+      .groupBy(_.hash)
+      .view
+      .mapValues(_.reduceLeftOption((tx1, tx2) => tx1.addSignatures(tx2.signatures.toSeq)))
+      .collect { case (k, Some(v)) => k -> v }
+      .toMap
+
+    val (compacted, _) =
+      txs.foldLeft((Vector.empty[GenericSignedTopologyTransaction], byHash)) {
+        case ((result, byHash), tx) =>
+          val newResult = byHash.get(tx.hash).map(result :+ _).getOrElse(result)
+          val txHashRemoved = byHash.removed(tx.hash)
+          (newResult, txHashRemoved)
+      }
+    compacted
+  }
+
+  def collectOfMapping[Op <: TopologyChangeOp, M <: TopologyMapping: ClassTag](
+      transactions: Seq[SignedTopologyTransaction[Op, TopologyMapping]]
+  ): Seq[SignedTopologyTransaction[Op, M]] =
+    transactions.mapFilter(_.selectMapping[M])
 }

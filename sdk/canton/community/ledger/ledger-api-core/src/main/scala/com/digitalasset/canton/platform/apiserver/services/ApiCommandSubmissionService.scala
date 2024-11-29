@@ -22,6 +22,8 @@ import com.digitalasset.canton.ledger.api.validation.{CommandsValidator, SubmitR
 import com.digitalasset.canton.ledger.api.{SubmissionIdGenerator, ValidationLogger}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.{ReassignmentCommand, SubmissionSyncService}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.TimerAndTrackOnShutdownSyntax
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.TracedLoggerOps.TracedLoggerOps
 import com.digitalasset.canton.logging.{
@@ -31,6 +33,7 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcFUSExtended
 import com.digitalasset.canton.platform.apiserver.execution.{
   CommandProgressTracker,
   CommandResultHandle,
@@ -63,12 +66,12 @@ final class ApiCommandSubmissionService(
 
   override def submit(request: SubmitRequest): Future[SubmitResponse] = {
     implicit val traceContext = getAnnotedCommandTraceContext(request.commands, telemetry)
-    submitWithTraceContext(Traced(request))
+    submitWithTraceContext(Traced(request)).asGrpcResponse
   }
 
   def submitWithTraceContext(
       request: Traced[SubmitRequest]
-  ): Future[SubmitResponse] = {
+  ): FutureUnlessShutdown[SubmitResponse] = {
     implicit val loggingContextWithTrace: LoggingContextWithTrace =
       LoggingContextWithTrace(loggerFactory)(request.traceContext)
     val requestWithSubmissionId = generateSubmissionIdIfEmpty(request.value)
@@ -105,7 +108,7 @@ final class ApiCommandSubmissionService(
       }
       .getOrElse(CommandResultHandle.NoOp)
 
-    val result = Timed.timedAndTrackedFuture(
+    val result = Timed.timedAndTrackedFutureUS(
       metrics.commands.submissions,
       metrics.commands.submissionsRunning,
       Timed
@@ -120,7 +123,8 @@ final class ApiCommandSubmissionService(
         )
         .fold(
           t =>
-            Future.failed(ValidationLogger.logFailureWithTrace(logger, requestWithSubmissionId, t)),
+            FutureUnlessShutdown
+              .failed(ValidationLogger.logFailureWithTrace(logger, requestWithSubmissionId, t)),
           commandSubmissionService.submit(_).map(_ => SubmitResponse()),
         ),
     )

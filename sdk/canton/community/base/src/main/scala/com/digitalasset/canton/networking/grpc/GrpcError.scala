@@ -4,7 +4,6 @@
 package com.digitalasset.canton.networking.grpc
 
 import com.daml.error.utils.DecodedCantonError
-import com.digitalasset.canton.error.ErrorCodeUtils.errorCategoryFromString
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.{
   MemberAccessDisabled,
@@ -15,8 +14,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import io.grpc.Status.Code.*
 import io.grpc.{Metadata, Status, StatusRuntimeException}
-
-import scala.annotation.nowarn
 
 sealed trait GrpcError {
 
@@ -190,29 +187,29 @@ object GrpcError {
     override def retry: Boolean = _retry
   }
 
-  @nowarn("msg=match may not be exhaustive")
   def apply(request: String, serverName: String, e: StatusRuntimeException): GrpcError = {
     val status = e.getStatus
     val optTrailers = Option(e.getTrailers)
     val decodedError = DecodedCantonError.fromStatusRuntimeException(e).toOption
 
     status.getCode match {
-      case INVALID_ARGUMENT | UNAUTHENTICATED
-          if !checkAuthenticationError(
-            optTrailers,
-            Seq(MissingToken.toString, MemberAccessDisabled.toString),
-          ) =>
+      case INVALID_ARGUMENT =>
         GrpcClientError(request, serverName, status, optTrailers, decodedError)
+      case UNAUTHENTICATED =>
+        val isAuthenticationError = checkAuthenticationError(
+          optTrailers,
+          Seq(MissingToken.toString, MemberAccessDisabled.toString),
+        )
+        if (isAuthenticationError)
+          GrpcRequestRefusedByServer(request, serverName, status, optTrailers, decodedError)
+        else GrpcClientError(request, serverName, status, optTrailers, decodedError)
 
       case FAILED_PRECONDITION | NOT_FOUND | OUT_OF_RANGE | RESOURCE_EXHAUSTED | ABORTED |
-          PERMISSION_DENIED | UNAUTHENTICATED | ALREADY_EXISTS =>
+          PERMISSION_DENIED | ALREADY_EXISTS =>
         GrpcRequestRefusedByServer(request, serverName, status, optTrailers, decodedError)
 
       case DEADLINE_EXCEEDED | CANCELLED =>
         GrpcClientGaveUp(request, serverName, status, optTrailers, decodedError)
-
-      case UNAVAILABLE if errorCategoryFromString(status.getDescription).nonEmpty =>
-        GrpcClientError(request, serverName, status, optTrailers, decodedError)
 
       case UNAVAILABLE | UNIMPLEMENTED =>
         GrpcServiceUnavailable(request, serverName, status, optTrailers, decodedError)

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.{
   ParticipantMetering,
   TransactionMetering,
@@ -41,7 +41,7 @@ private[backend] trait StorageBackendTestsWriteMetering
 
     it should "return the maximum transaction metering offset" in {
 
-      def check(from: AbsoluteOffset, to: Timestamp): Assertion = {
+      def check(from: Offset, to: Timestamp): Assertion = {
         val expected = metering
           .filter(_.ledgerOffset > from)
           .filter(_.meteringTimestamp < to)
@@ -63,7 +63,7 @@ private[backend] trait StorageBackendTestsWriteMetering
 
       executeSql(ingest(metering.map(dtoTransactionMetering), _))
 
-      val nextLastOffset: AbsoluteOffset = meteringOffsets.filter(_ < lastOffset).max
+      val nextLastOffset: Offset = meteringOffsets.filter(_ < lastOffset).max
       val expected = metering
         .filter(_.ledgerOffset > firstOffset)
         .filter(_.ledgerOffset <= nextLastOffset)
@@ -81,7 +81,7 @@ private[backend] trait StorageBackendTestsWriteMetering
 
       executeSql(ingest(metering.map(dtoTransactionMetering), _))
 
-      val nextLastOffset: AbsoluteOffset = meteringOffsets.filter(_ < lastOffset).max
+      val nextLastOffset: Offset = meteringOffsets.filter(_ < lastOffset).max
 
       executeSql(
         backend.metering.write

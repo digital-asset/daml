@@ -157,7 +157,6 @@ class TopologyManagerSigningKeyDetection[+PureCrypto <: CryptoPureApi](
     val result = for {
       _ <- EitherT
         .right(populateCaches(asOfExclusive, toSign, inStore))
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       referencedAuth = toSign.mapping.requiredAuth(inStore).referenced
 

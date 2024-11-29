@@ -70,7 +70,7 @@ private[routing] class ContractsReassigner(
       _unit <- EitherT
         .cond[Future](sourceSyncDomain.ready, (), "The source domain is not ready for submissions")
 
-      outResult <- sourceSyncDomain
+      unassignmentResult <- sourceSyncDomain
         .submitUnassignment(
           submitterMetadata,
           contractId,
@@ -81,31 +81,31 @@ private[routing] class ContractsReassigner(
         .semiflatMap(Predef.identity)
         .leftMap(_.toString)
         .onShutdown(Left("Application is shutting down"))
-      unassignmentStatus <- EitherT.right[String](outResult.unassignmentCompletionF)
+      unassignmentStatus <- EitherT.right[String](unassignmentResult.unassignmentCompletionF)
       _unassignmentApprove <- EitherT.cond[Future](
         unassignmentStatus.code == com.google.rpc.Code.OK_VALUE,
         (),
-        s"The reassignment out for ${outResult.reassignmentId} failed with status $unassignmentStatus",
+        s"The reassignment out for ${unassignmentResult.reassignmentId} failed with status $unassignmentStatus",
       )
 
       _unit <- EitherT
         .cond[Future](targetSyncDomain.ready, (), "The target domain is not ready for submission")
 
-      inResult <- targetSyncDomain
+      assignmentResult <- targetSyncDomain
         .submitAssignment(
           submitterMetadata,
-          outResult.reassignmentId,
+          unassignmentResult.reassignmentId,
         )
         .leftMap[String](err => s"Assignment failed with error $err")
         .flatMap { s =>
           EitherT(s.map(Right(_)).onShutdown(Left("Application is shutting down")))
         }
 
-      inStatus <- EitherT.right[String](inResult.assignmentCompletionF)
-      _inApprove <- EitherT.cond[Future](
-        inStatus.code == com.google.rpc.Code.OK_VALUE,
+      assignmentStatus <- EitherT.right[String](assignmentResult.assignmentCompletionF)
+      _assignmentApprove <- EitherT.cond[Future](
+        assignmentStatus.code == com.google.rpc.Code.OK_VALUE,
         (),
-        s"The assignment for ${outResult.reassignmentId} failed with verdict $inStatus",
+        s"The assignment for ${unassignmentResult.reassignmentId} failed with verdict $assignmentStatus",
       )
     } yield ()
 

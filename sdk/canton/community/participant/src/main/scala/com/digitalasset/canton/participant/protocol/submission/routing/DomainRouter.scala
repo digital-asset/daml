@@ -42,7 +42,6 @@ import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.{LfKeyResolver, LfPartyId, checked}
 import com.digitalasset.daml.lf.data.ImmArray
 
@@ -144,12 +143,9 @@ class DomainRouter(
 
       domainSelector <- domainSelectorFactory
         .create(transactionData)
-        .mapK(FutureUnlessShutdown.outcomeK)
       inputDomains = transactionData.inputContractsDomainData.domains
 
-      isMultiDomainTx <- isMultiDomainTx(inputDomains, transactionData.informees, optDomainId).mapK(
-        FutureUnlessShutdown.outcomeK
-      )
+      isMultiDomainTx <- isMultiDomainTx(inputDomains, transactionData.informees, optDomainId)
 
       domainRankTarget <- {
         if (!isMultiDomainTx) {
@@ -163,13 +159,13 @@ class DomainRouter(
           )
           chooseDomainForMultiDomain(domainSelector)
         } else {
-          EitherT.leftT[Future, DomainRank](
+          EitherT.leftT[FutureUnlessShutdown, DomainRank](
             MultiDomainSupportNotEnabled.Error(
               transactionData.inputContractsDomainData.domains
             ): TransactionRoutingError
           )
         }
-      }.mapK(FutureUnlessShutdown.outcomeK)
+      }
       _ <- contractsReassigner
         .reassign(
           domainRankTarget,
@@ -191,9 +187,11 @@ class DomainRouter(
       informees: Set[LfPartyId]
   )(domainId: DomainId)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, UnableToQueryTopologySnapshot.Failed, Boolean] =
+  ): EitherT[FutureUnlessShutdown, UnableToQueryTopologySnapshot.Failed, Boolean] =
     for {
-      snapshot <- EitherT.fromEither[Future](snapshotProvider.getTopologySnapshotFor(domainId))
+      snapshot <- EitherT.fromEither[FutureUnlessShutdown](
+        snapshotProvider.getTopologySnapshotFor(domainId)
+      )
       allInformeesOnDomain <- EitherT.right(
         snapshot.allHaveActiveParticipants(informees).bimap(_ => false, _ => true).merge
       )
@@ -201,7 +199,9 @@ class DomainRouter(
 
   private def chooseDomainForMultiDomain(
       domainSelector: DomainSelector
-  )(implicit traceContext: TraceContext): EitherT[Future, TransactionRoutingError, DomainRank] =
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, DomainRank] =
     for {
       _ <- checkValidityOfMultiDomain(domainSelector.transactionData)
       domainRankTarget <- domainSelector.forMultiDomain
@@ -219,7 +219,7 @@ class DomainRouter(
       optDomainId: Option[DomainId],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, UnableToQueryTopologySnapshot.Failed, Boolean] =
+  ): EitherT[FutureUnlessShutdown, UnableToQueryTopologySnapshot.Failed, Boolean] =
     if (inputDomains.sizeCompare(2) >= 0) EitherT.rightT(true)
     else if (
       optDomainId
@@ -232,7 +232,9 @@ class DomainRouter(
 
   private def checkValidityOfMultiDomain(
       transactionData: TransactionData
-  )(implicit traceContext: TraceContext): EitherT[Future, TransactionRoutingError, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, Unit] = {
     val inputContractsDomainData = transactionData.inputContractsDomainData
 
     val contractData = inputContractsDomainData.withDomainData
@@ -250,14 +252,14 @@ class DomainRouter(
 
     for {
       // Check: reader
-      _ <- EitherTUtil.condUnitET[Future](
+      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
         readerNotBeingStakeholder.isEmpty,
         SubmitterAlwaysStakeholder.Error(readerNotBeingStakeholder.map(_.id)),
       )
 
       // Check: connected domains
       _ <- EitherTUtil
-        .condUnitET[Future](
+        .condUnitET[FutureUnlessShutdown](
           contractsDomainNotConnected.isEmpty, {
             val contractsAndDomains: Map[String, DomainId] = contractsDomainNotConnected.map {
               contractData => contractData.id.show -> contractData.domain

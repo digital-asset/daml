@@ -8,6 +8,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.FullTransactionViewTree
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
@@ -30,7 +31,7 @@ import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.daml.lf.value.Value
 
 import scala.annotation.tailrec
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class InternalConsistencyChecker(
     override val loggerFactory: NamedLoggerFactory
@@ -300,7 +301,7 @@ object InternalConsistencyChecker {
   )(implicit
       loggingContext: NamedLoggingContext,
       ec: ExecutionContext,
-  ): Future[Map[LfPartyId, Boolean]] = {
+  ): FutureUnlessShutdown[Map[LfPartyId, Boolean]] = {
     val parties =
       rootViewTrees.forgetNE
         .flatMap(_.view.globalKeyInputs.values.flatMap(_.unversioned.maintainers))

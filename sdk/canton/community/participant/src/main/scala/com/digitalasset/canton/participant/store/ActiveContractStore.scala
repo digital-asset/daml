@@ -308,15 +308,9 @@ trait ActiveContractStore
   ): FutureUnlessShutdown[DomainId] =
     IndexedDomain
       .fromDbIndexOT("par_active_contracts remote domain index", indexedStringStore)(idx)
-      .map(_.domainId)
-      .value
-      .flatMap {
-        case Some(domainId) => FutureUnlessShutdown.pure(domainId)
-        case None =>
-          FutureUnlessShutdown.failed(
-            new RuntimeException(s"Unable to find domain ID for domain with index $idx")
-          )
-      }
+      .fold[DomainId](
+        throw new RuntimeException(s"Unable to find domain ID for domain with index $idx")
+      )(_.domainId)
 
   protected def getDomainIndices(
       domains: Seq[DomainId]

@@ -67,7 +67,7 @@ class GrpcDomainConnectivityService(
         DomainIsMissingInternally(domain, "ips"),
       )
       active <- EitherT
-        .right(client.await(_.isParticipantActive(sync.participantId), timeouts.network.unwrap))
+        .right(client.awaitUS(_.isParticipantActive(sync.participantId), timeouts.network.unwrap))
       _ <-
         EitherT
           .cond[FutureUnlessShutdown](

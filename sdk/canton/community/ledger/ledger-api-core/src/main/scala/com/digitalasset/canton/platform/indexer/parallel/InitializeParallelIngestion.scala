@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.indexer.parallel
 
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
@@ -79,8 +79,7 @@ private[platform] final case class InitializeParallelIngestion(
             metrics.index.db.getPostProcessingEnd
           )(
             completionStorageBackend.commandCompletionsForRecovery(
-              startInclusive =
-                postProcessingEndOffset.fold(AbsoluteOffset.firstOffset)(_.increment),
+              startInclusive = postProcessingEndOffset.fold(Offset.firstOffset)(_.increment),
               endInclusive = lastOffset,
             )
           )

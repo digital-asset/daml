@@ -102,7 +102,7 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
         )
 
         _ <- sequencer.sendAsync(request).valueOrFailShutdown("Sent async")
-        messages <- readForMembers(List(sender), sequencer)
+        messages <- readForMembers(List(sender), sequencer).failOnShutdown("readForMembers")
         _ = {
           val details = EventDetails(
             SequencerCounter(0),

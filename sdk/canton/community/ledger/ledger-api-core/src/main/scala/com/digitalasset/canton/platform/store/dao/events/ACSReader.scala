@@ -13,7 +13,7 @@ import com.daml.metrics.Timed
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.tracing
 import com.daml.tracing.{SpanAttribute, Spans}
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.error.CommonErrors.ServerIsShuttingDown
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
@@ -75,10 +75,10 @@ class ACSReader(
     eventStorageBackend: EventStorageBackend,
     lfValueTranslation: LfValueTranslation,
     incompleteOffsets: (
-        AbsoluteOffset,
+        Offset,
         Option[Set[Ref.Party]],
         TraceContext,
-    ) => FutureUnlessShutdown[Vector[AbsoluteOffset]],
+    ) => FutureUnlessShutdown[Vector[Offset]],
     metrics: LedgerApiServerMetrics,
     tracer: Tracer,
     val loggerFactory: NamedLoggerFactory,
@@ -91,7 +91,7 @@ class ACSReader(
 
   def streamActiveContracts(
       filteringConstraints: TemplatePartiesFilter,
-      activeAt: (AbsoluteOffset, Long),
+      activeAt: (Offset, Long),
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace
@@ -115,7 +115,7 @@ class ACSReader(
 
   private def doStreamActiveContracts(
       filter: TemplatePartiesFilter,
-      activeAt: (AbsoluteOffset, Long),
+      activeAt: (Offset, Long),
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace
@@ -260,13 +260,13 @@ class ACSReader(
       )
 
     def fetchAssignIdsForOffsets(
-        offsets: Iterable[AbsoluteOffset]
+        offsets: Iterable[Offset]
     ): Future[Vector[Long]] =
       globalIdQueriesLimiter.execute(
         dispatcher.executeSql(metrics.index.db.getAssingIdsForOffsets) { connection =>
           val ids =
             eventStorageBackend
-              .lookupAssignSequentialIdByOffset(offsets.map(_.toHexString))(connection)
+              .lookupAssignSequentialIdByOffset(offsets.map(_.unwrap))(connection)
           logger.debug(
             s"Assign Ids for offsets returned #${ids.size} (from ${offsets.size}) ${ids.lastOption
                 .map(last => s"until $last")
@@ -277,13 +277,13 @@ class ACSReader(
       )
 
     def fetchUnassignIdsForOffsets(
-        offsets: Iterable[AbsoluteOffset]
+        offsets: Iterable[Offset]
     ): Future[Vector[Long]] =
       globalIdQueriesLimiter.execute(
         dispatcher.executeSql(metrics.index.db.getUnassingIdsForOffsets) { connection =>
           val ids =
             eventStorageBackend
-              .lookupUnassignSequentialIdByOffset(offsets.map(_.toHexString))(connection)
+              .lookupUnassignSequentialIdByOffset(offsets.map(_.unwrap))(connection)
           logger.debug(
             s"Unassign Ids for offsets returned #${ids.size} (from ${offsets.size}) ${ids.lastOption
                 .map(last => s"until $last")
@@ -512,10 +512,10 @@ class ACSReader(
             filter.allFilterParties,
             loggingContext.traceContext,
           ).map { offsets =>
-            def incompleteOffsetPages: () => Iterator[Vector[AbsoluteOffset]] =
+            def incompleteOffsetPages: () => Iterator[Vector[Offset]] =
               () => offsets.sliding(config.maxIncompletePageSize, config.maxIncompletePageSize)
 
-            val incompleteAssigned: Source[(String, GetActiveContractsResponse), NotUsed] =
+            val incompleteAssigned: Source[(Long, GetActiveContractsResponse), NotUsed] =
               Source
                 .fromIterator(incompleteOffsetPages)
                 .mapAsync(config.maxParallelIdCreateQueries)(
@@ -531,7 +531,7 @@ class ACSReader(
                   toApiResponseIncompleteAssigned(eventProjectionProperties)
                 )
 
-            val incompleteUnassigned: Source[(String, GetActiveContractsResponse), NotUsed] =
+            val incompleteUnassigned: Source[(Long, GetActiveContractsResponse), NotUsed] =
               Source
                 .fromIterator(incompleteOffsetPages)
                 .mapAsync(config.maxParallelIdCreateQueries)(
@@ -592,7 +592,7 @@ class ACSReader(
 
   private def toApiResponseIncompleteAssigned(eventProjectionProperties: EventProjectionProperties)(
       rawAssignEntry: Entry[RawAssignEvent]
-  )(implicit lc: LoggingContextWithTrace): Future[(String, GetActiveContractsResponse)] =
+  )(implicit lc: LoggingContextWithTrace): Future[(Long, GetActiveContractsResponse)] =
     Timed.future(
       future = Future.delegate(
         lfValueTranslation
@@ -617,7 +617,7 @@ class ACSReader(
       eventProjectionProperties: EventProjectionProperties
   )(
       rawUnassignEntryWithCreate: (Entry[RawUnassignEvent], RawCreatedEvent)
-  )(implicit lc: LoggingContextWithTrace): Future[(String, GetActiveContractsResponse)] = {
+  )(implicit lc: LoggingContextWithTrace): Future[(Long, GetActiveContractsResponse)] = {
     val (rawUnassignEntry, rawCreate) = rawUnassignEntryWithCreate
     Timed.future(
       future = lfValueTranslation
@@ -642,14 +642,14 @@ class ACSReader(
 object ACSReader {
 
   def acsBeforePruningErrorReason(
-      acsOffset: AbsoluteOffset,
-      prunedUpToOffset: AbsoluteOffset,
+      acsOffset: Offset,
+      prunedUpToOffset: Offset,
   ): String =
     s"Active contracts request at offset ${acsOffset.unwrap} precedes pruned offset ${prunedUpToOffset.unwrap}"
 
   def acsAfterLedgerEndErrorReason(
-      acsOffset: AbsoluteOffset,
-      ledgerEndOffset: Option[AbsoluteOffset],
+      acsOffset: Offset,
+      ledgerEndOffset: Option[Offset],
   ): String =
     s"Active contracts request at offset ${acsOffset.unwrap} preceded by ledger end offset ${ledgerEndOffset
         .fold(0L)(_.unwrap)}"

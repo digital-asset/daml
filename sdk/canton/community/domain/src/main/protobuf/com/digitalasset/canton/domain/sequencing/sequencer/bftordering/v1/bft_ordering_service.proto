@@ -145,7 +145,6 @@ message Commit {
 message ViewChange {
   int32 segment_index = 1;
   repeated ConsensusCertificate consensus_certs = 2;
-  // repeated CommitCertificate commit_cert = 2; // optimization for block completion across view changes
 }
 
 // A `NewView` message is sent by the next node taking over leader responsibilities
@@ -215,12 +214,9 @@ message BlockTransferRequest {
 message BlockTransferResponse {
   // Latest completed epoch of the serving node.
   int64 latest_completed_epoch = 1;
-  repeated BlockTransferData block_transfer_data = 2;
-  // For BFT time calculation.
-  repeated SignedMessage /*ConsensusMessage*/ last_block_commits = 3;
-}
-
-message BlockTransferData {
-  // Reused to reduce the number of messages and conversions.
-  SignedMessage /*ConsensusMessage*/ block_pre_prepare = 1;
+  // The main purpose of commit messages (alongside pre-prepares) in this message is BFT time calculation (when
+  //  transitioning from state transfer to consensus). However, having them for all blocks is a bit wasteful, as we
+  //  only need them for epoch boundaries. On the other hand, they might be used for retransmissions. Plus, the data
+  //  we store in the database during state transfer is now consistent with what we store during consensus.
+  repeated CommitCertificate commit_certificates = 2;
 }

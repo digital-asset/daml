@@ -56,6 +56,7 @@ class SyncDomainPersistentStateManager(
     clock: Clock,
     packageDependencyResolver: PackageDependencyResolver,
     ledgerApiStore: Eval[LedgerApiStore],
+    val contractStore: Eval[ContractStore],
     futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -219,14 +220,19 @@ class SyncDomainPersistentStateManager(
       acsCounterParticipantConfigStore,
       packageDependencyResolver,
       ledgerApiStore,
+      contractStore,
       loggerFactory,
       futureSupervisor,
     )
 
-  def topologyFactoryFor(domainId: DomainId): Option[TopologyComponentFactory] =
+  def topologyFactoryFor(
+      domainId: DomainId,
+      protocolVersion: ProtocolVersion,
+  ): Option[TopologyComponentFactory] =
     get(domainId).map(state =>
       new TopologyComponentFactory(
         domainId,
+        protocolVersion,
         crypto,
         clock,
         parameters.processingTimeouts,
@@ -244,10 +250,12 @@ class SyncDomainPersistentStateManager(
       participantId: ParticipantId,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, DomainRegistryError, Option[DomainTopologyInitializationCallback]] =
+  ): EitherT[FutureUnlessShutdown, DomainRegistryError, Option[
+    DomainTopologyInitializationCallback
+  ]] =
     get(domainId) match {
       case None =>
-        EitherT.leftT[Future, Option[DomainTopologyInitializationCallback]](
+        EitherT.leftT[FutureUnlessShutdown, Option[DomainTopologyInitializationCallback]](
           DomainRegistryError.DomainRegistryInternalError.InvalidState(
             "topology factory for domain is unavailable"
           )

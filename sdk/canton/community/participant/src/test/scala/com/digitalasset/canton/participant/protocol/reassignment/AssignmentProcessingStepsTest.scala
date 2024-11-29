@@ -48,6 +48,7 @@ import com.digitalasset.canton.participant.store.ReassignmentStoreTest.coidAbs1
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.store.{
   AcsCounterParticipantConfigStore,
+  ContractStore,
   ReassignmentStoreTest,
   SyncDomainEphemeralState,
   SyncDomainPersistentState,
@@ -80,7 +81,8 @@ class AssignmentProcessingStepsTest
     extends AsyncWordSpec
     with BaseTest
     with HasTestCloseContext
-    with HasExecutionContext {
+    with HasExecutionContext
+    with FailOnShutdown {
   private lazy val sourceDomain = Source(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::source"))
   )
@@ -159,6 +161,7 @@ class AssignmentProcessingStepsTest
   private def statefulDependencies
       : Future[(SyncDomainPersistentState, SyncDomainEphemeralState)] = {
     val ledgerApiIndexer = mock[LedgerApiIndexer]
+    val contractStore = mock[ContractStore]
     val persistentState =
       new InMemorySyncDomainPersistentState(
         participant,
@@ -168,6 +171,7 @@ class AssignmentProcessingStepsTest
         defaultStaticDomainParameters,
         enableAdditionalConsistencyChecks = true,
         indexedStringStore = indexedStringStore,
+        contractStore = contractStore,
         acsCounterParticipantConfigStore = mock[AcsCounterParticipantConfigStore],
         packageDependencyResolver = mock[PackageDependencyResolver],
         ledgerApiStore = Eval.now(mock[LedgerApiStore]),
@@ -187,6 +191,7 @@ class AssignmentProcessingStepsTest
         mock[InFlightSubmissionDomainTracker],
         persistentState,
         ledgerApiIndexer,
+        contractStore,
         ProcessingStartingPoints.default,
         ParticipantTestMetrics.domain,
         exitOnFatalFailures = true,
@@ -238,7 +243,7 @@ class AssignmentProcessingStepsTest
     Seq.empty,
     targetMediator,
     cryptoSnapshot,
-    cryptoSnapshot.ipsSnapshot.findDynamicDomainParameters().futureValue.value,
+    cryptoSnapshot.ipsSnapshot.findDynamicDomainParameters().futureValueUS.value,
   )
 
   "prepare submission" should {

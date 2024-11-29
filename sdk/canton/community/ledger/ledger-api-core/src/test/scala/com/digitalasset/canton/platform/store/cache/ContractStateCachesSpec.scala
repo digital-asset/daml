@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.cache
 
 import cats.data.NonEmptyVector
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.{HasExecutionContext, TestEssentials}
@@ -69,7 +69,7 @@ class ContractStateCachesSpec
     verify(keyStateCache).putBatch(offset(4), expectedKeyStateUpdates)
   }
 
-  "push" should "not update the key state cache if no key updates" in new TestScope {
+  "push" should "update the key state cache even if no key updates" in new TestScope {
     val create1 = createEvent(offset = offset(2), withKey = false)
 
     val batch = NonEmptyVector.of(create1)
@@ -77,11 +77,21 @@ class ContractStateCachesSpec
 
     contractStateCaches.push(batch)
     verify(contractStateCache).putBatch(offset(2), expectedContractStateUpdates)
-    verifyZeroInteractions(keyStateCache)
+    verify(keyStateCache).putBatch(offset(2), Map.empty)
+  }
+
+  "push" should "update the key state cache even if only reassignment updates" in new TestScope {
+    val assign1 = ContractStateEvent.ReassignmentAccepted(offset(2))
+
+    val batch = NonEmptyVector.of(assign1)
+
+    contractStateCaches.push(batch)
+    verify(contractStateCache).putBatch(offset(2), Map.empty)
+    verify(keyStateCache).putBatch(offset(2), Map.empty)
   }
 
   "reset" should "reset the caches on `reset`" in new TestScope {
-    private val someOffset = Some(AbsoluteOffset.tryFromLong(112233L))
+    private val someOffset = Some(Offset.tryFromLong(112233L))
 
     contractStateCaches.reset(someOffset)
     verify(keyStateCache).reset(someOffset)
@@ -104,7 +114,7 @@ class ContractStateCachesSpec
     )
 
     def createEvent(
-        offset: AbsoluteOffset,
+        offset: Offset,
         withKey: Boolean,
     ): ContractStateEvent.Created = {
       val cId = contractIdx.incrementAndGet()
@@ -123,7 +133,7 @@ class ContractStateCachesSpec
 
     def archiveEvent(
         create: ContractStateEvent.Created,
-        offset: AbsoluteOffset,
+        offset: Offset,
     ): ContractStateEvent.Archived =
       ContractStateEvent.Archived(
         contractId = create.contractId,
@@ -175,5 +185,5 @@ class ContractStateCachesSpec
     Versioned(LanguageVersion.StableVersions(LanguageVersion.Major.V2).max, contractInstance)
   }
 
-  private def offset(idx: Int) = AbsoluteOffset.tryFromLong(idx.toLong)
+  private def offset(idx: Int) = Offset.tryFromLong(idx.toLong)
 }

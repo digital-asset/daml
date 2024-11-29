@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.protocol.reassignment
 
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentData.*
 import org.scalatest.EitherValues
 import org.scalatest.matchers.should.Matchers
@@ -12,7 +12,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import scala.language.implicitConversions
 
 class ReassignmentDataTest extends AnyWordSpec with Matchers with EitherValues {
-  private implicit def toOffset(i: Long): AbsoluteOffset = AbsoluteOffset.tryFromLong(i)
+  private implicit def toOffset(i: Long): Offset = Offset.tryFromLong(i)
 
   "ReassignmentData.ReassignmentGlobalOffset" should {
     val unassignment1 = UnassignmentGlobalOffset(1)

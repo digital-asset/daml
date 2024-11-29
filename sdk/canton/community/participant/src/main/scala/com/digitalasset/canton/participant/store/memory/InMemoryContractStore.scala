@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.store.memory
 import cats.Id
 import cats.data.{EitherT, OptionT}
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
@@ -19,7 +20,10 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 
 /** An in-memory contract store. This class is thread-safe. */
-class InMemoryContractStore(protected val loggerFactory: NamedLoggerFactory)(
+class InMemoryContractStore(
+    override protected val timeouts: ProcessingTimeout,
+    protected val loggerFactory: NamedLoggerFactory,
+)(
     protected implicit val ec: ExecutionContext
 ) extends ContractStore
     with NamedLogging {
@@ -94,7 +98,7 @@ class InMemoryContractStore(protected val loggerFactory: NamedLoggerFactory)(
       creations: Seq[(SerializableContract, RequestCounter)]
   )(implicit traceContext: TraceContext): Future[Unit] = {
     creations.foreach { case (creation, requestCounter) =>
-      store(StoredContract.fromCreatedContract(creation, requestCounter))
+      store(StoredContract(creation, requestCounter))
     }
     Future.unit
   }
@@ -108,36 +112,10 @@ class InMemoryContractStore(protected val loggerFactory: NamedLoggerFactory)(
     )
   }
 
-  override def storeDivulgedContracts(
-      requestCounter: RequestCounter,
-      divulgences: Seq[SerializableContract],
-  )(implicit traceContext: TraceContext): Future[Unit] = {
-    divulgences.foreach { divulgence =>
-      store(StoredContract.fromDivulgedContract(divulgence, requestCounter))
-    }
-    Future.unit
-  }
-
-  override def deleteContract(
-      id: LfContractId
-  )(implicit traceContext: TraceContext): EitherT[Future, UnknownContract, Unit] =
-    EitherT.fromEither {
-      contracts.remove(id).toRight(UnknownContract(id)).map(_ => ())
-    }
-
   override def deleteIgnoringUnknown(
       ids: Iterable[LfContractId]
   )(implicit traceContext: TraceContext): Future[Unit] = {
     ids.foreach(id => contracts.remove(id).discard[Option[StoredContract]])
-    Future.unit
-  }
-
-  override def deleteDivulged(
-      upTo: RequestCounter
-  )(implicit traceContext: TraceContext): Future[Unit] = {
-    contracts.filterInPlace { case (_, contract) =>
-      !contract.isDivulged || contract.requestCounter > upTo
-    }
     Future.unit
   }
 

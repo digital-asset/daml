@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
 import com.digitalasset.canton.ledger.participant.state.SyncService.{
   ConnectedDomainRequest,
@@ -15,8 +15,6 @@ import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DomainAlias, LfPartyId}
-
-import scala.concurrent.Future
 
 /** An interface to change a ledger via a participant.
   * '''Please note that this interface is unstable and may significantly change.'''
@@ -49,7 +47,7 @@ trait SyncService
   // temporary implementation, will be removed as topology events on Ledger API proceed
   def getConnectedDomains(request: ConnectedDomainRequest)(implicit
       traceContext: TraceContext
-  ): Future[ConnectedDomainResponse] =
+  ): FutureUnlessShutdown[ConnectedDomainResponse] =
     throw new UnsupportedOperationException()
 
   // TODO(i20688): Temporary until prepared transactions run through the domain router
@@ -64,9 +62,9 @@ trait SyncService
     *         the validAt offset, and only for the reassignments for which this participant is reassigning.
     */
   def incompleteReassignmentOffsets(
-      validAt: AbsoluteOffset,
+      validAt: Offset,
       stakeholders: Set[LfPartyId],
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Vector[AbsoluteOffset]] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Vector[Offset]] = {
     val _ = validAt
     val _ = stakeholders
     val _ = traceContext

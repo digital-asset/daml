@@ -7,12 +7,13 @@ import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.FlagCloseable
+import com.digitalasset.canton.lifecycle.{FlagCloseable, OnShutdownRunner}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.client.channel.endpoint.SequencerChannelClientEndpoint
 import com.digitalasset.canton.sequencing.protocol.channel.SequencerChannelId
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
+import io.grpc.Context.CancellableContext
 
 import scala.collection.mutable
 import scala.concurrent.{Future, Promise, blocking}
@@ -44,8 +45,29 @@ private[channel] final class SequencerChannelClientState(
 
   def completion: Future[Unit] = closePromise.future
 
-  def addChannelEndpoint(endpoint: SequencerChannelClientEndpoint): Either[String, Unit] =
-    modifyChannelState(endpoint.sequencerId, _.addChannelEndpoint(endpoint))
+  def connectToSequencer(
+      sequencerId: SequencerId,
+      processor: SequencerChannelProtocolProcessor,
+      endpointFactory: (CancellableContext, OnShutdownRunner) => SequencerChannelClientEndpoint,
+  )(implicit traceContext: TraceContext): Either[String, SequencerChannelClientEndpoint] = {
+    def endpointFactoryWithRegistration(state: SequencerChannelState)(
+        context: CancellableContext,
+        onShutdownRunner: OnShutdownRunner,
+    ): Either[String, SequencerChannelClientEndpoint] = {
+      val endpoint = endpointFactory(context, onShutdownRunner)
+      for {
+        _ <- state.addChannelEndpoint(endpoint)
+        _ <- processor.setChannelEndpoint(endpoint)
+      } yield endpoint
+    }
+
+    for {
+      state <- transports.get(sequencerId).toRight(s"Sequencer id $sequencerId not found")
+      endpoint <- state.transport.connectToSequencerChannel(
+        endpointFactoryWithRegistration(state)
+      )
+    } yield endpoint
+  }
 
   def closeChannelEndpoint(
       sequencerId: SequencerId,
@@ -64,8 +86,8 @@ private[channel] final class SequencerChannelClientState(
   } yield ()
 
   private def closeChannelsAndTransports(): Unit = {
-    transports.toList.foreach { case (_, consumerState) =>
-      consumerState.closeChannelsAndTransport()
+    transports.foreach { case (_, channelState) =>
+      channelState.closeChannelsAndTransport()
     }
 
     closePromise.tryComplete(Success(())).discard
@@ -108,7 +130,7 @@ private final class SequencerChannelState(
 
   def closeChannelsAndTransport(): Unit = {
     blocking(this.synchronized {
-      endpoints.toList.foreach { case (_, endpoint) => endpoint.close() }
+      endpoints.foreach { case (_, endpoint) => endpoint.close() }
     })
     transport.close()
   }

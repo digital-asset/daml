@@ -8,6 +8,7 @@ import cats.syntax.foldable.*
 import com.digitalasset.canton.crypto.{CryptoPureApi, SigningPublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.AuthorizedTopologyTransaction.{
@@ -23,7 +24,7 @@ import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Replace
 import com.digitalasset.canton.topology.transaction.TopologyMapping.ReferencedAuthorizations
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 private[processing] final case class AuthorizationKeys(
     uids: Set[UniqueIdentifier],
@@ -115,7 +116,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
       expectFullAuthorization: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): Future[GenericValidatedTopologyTransaction] =
+  ): FutureUnlessShutdown[GenericValidatedTopologyTransaction] =
     verifyDomain(toValidate) match {
       case ValidatedTopologyTransaction(tx, None, _) =>
         populateCaches(effectiveTime, toValidate.transaction, inStore.map(_.transaction)).map(_ =>
@@ -126,7 +127,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
           )
         )
       case invalid @ ValidatedTopologyTransaction(_, Some(_rejectionReason), _) =>
-        Future.successful(invalid)
+        FutureUnlessShutdown.pure(invalid)
     }
 
   /** Validates a topology transaction as follows:

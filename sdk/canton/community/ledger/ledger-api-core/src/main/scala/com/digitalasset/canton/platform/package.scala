@@ -4,7 +4,7 @@
 package com.digitalasset.canton
 
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -64,7 +64,7 @@ package object platform {
   import com.digitalasset.daml.lf.crypto
   private[platform] type Hash = crypto.Hash
 
-  private[platform] type PruneBuffers = AbsoluteOffset => Unit
+  private[platform] type PruneBuffers = Offset => Unit
 
   implicit class ResourceOwnerOps[T](val resourceOwner: ResourceOwner[T]) extends AnyVal {
     def afterReleased(body: => Unit): ResourceOwner[T] =

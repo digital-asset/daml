@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
-import com.digitalasset.canton.ledger.api.domain.types.ParticipantOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.SubmissionResult
@@ -43,7 +43,7 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
   def submitAndWait(
       submissionId: Ref.SubmissionId,
       input: Input,
-      ledgerEndBeforeRequest: ParticipantOffset,
+      ledgerEndBeforeRequest: Option[Offset],
       timeToLive: FiniteDuration,
   )(implicit
       loggingContext: LoggingContextWithTrace
@@ -55,7 +55,7 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
 
   private def toResult(
       submissionId: Ref.SubmissionId,
-      ledgerEndBeforeRequest: ParticipantOffset,
+      ledgerEndBeforeRequest: Option[Offset],
       submissionResult: SubmissionResult,
       timeToLive: FiniteDuration,
   )(implicit loggingContext: LoggingContextWithTrace) = submissionResult match {
@@ -67,7 +67,7 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
 
   private def acknowledged(
       submissionId: Ref.SubmissionId,
-      ledgerEndBeforeRequest: ParticipantOffset,
+      ledgerEndBeforeRequest: Option[Offset],
       timeToLive: FiniteDuration,
   )(implicit loggingContext: LoggingContextWithTrace) = {
     val isAccepted = new Accepted(strategy.accept(submissionId))
@@ -131,7 +131,7 @@ object SynchronousResponse {
     ): Future[state.SubmissionResult]
 
     /** Opens a stream of entries from before the submission. */
-    def entries(offset: ParticipantOffset)(implicit
+    def entries(offset: Option[Offset])(implicit
         loggingContext: LoggingContextWithTrace
     ): Source[Entry, ?]
 

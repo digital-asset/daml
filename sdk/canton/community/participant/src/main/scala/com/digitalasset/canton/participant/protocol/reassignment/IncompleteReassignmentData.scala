@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.syntax.either.*
 import com.digitalasset.canton.RequestCounter
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, FullUnassignmentTree}
+import com.digitalasset.canton.data.{CantonTimestamp, FullUnassignmentTree, Offset}
 import com.digitalasset.canton.participant.protocol.reassignment.IncompleteReassignmentData.ReassignmentEventGlobalOffset
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
@@ -31,16 +31,16 @@ final case class IncompleteReassignmentData private (
     contract: SerializableContract,
     unassignmentResult: Option[DeliveredUnassignmentResult],
     reassignmentEventGlobalOffset: ReassignmentEventGlobalOffset,
-    queryOffset: AbsoluteOffset,
+    queryOffset: Offset,
 ) {
 
   def sourceDomain: Source[DomainId] = unassignmentRequest.sourceDomain
   def targetDomain: Target[DomainId] = unassignmentRequest.targetDomain
 
-  def unassignmentGlobalOffset: Option[AbsoluteOffset] =
+  def unassignmentGlobalOffset: Option[Offset] =
     reassignmentEventGlobalOffset.unassignmentGlobalOffset
 
-  def assignmentGlobalOffset: Option[AbsoluteOffset] =
+  def assignmentGlobalOffset: Option[Offset] =
     reassignmentEventGlobalOffset.assignmentGlobalOffset
 
   require(
@@ -65,7 +65,7 @@ final case class IncompleteReassignmentData private (
 object IncompleteReassignmentData {
   def create(
       reassignmentData: ReassignmentData,
-      queryOffset: AbsoluteOffset,
+      queryOffset: Offset,
   ): Either[String, IncompleteReassignmentData] = {
     val reassignmentEventGlobalOffsetE: Either[String, ReassignmentEventGlobalOffset] =
       ReassignmentEventGlobalOffset.create(
@@ -86,37 +86,37 @@ object IncompleteReassignmentData {
 
   def tryCreate(
       reassignmentData: ReassignmentData,
-      queryOffset: AbsoluteOffset,
+      queryOffset: Offset,
   ): IncompleteReassignmentData =
     create(reassignmentData, queryOffset).valueOr(err =>
       throw new IllegalArgumentException(s"Unable to create IncompleteReassignmentData: $err")
     )
 
   sealed trait ReassignmentEventGlobalOffset {
-    def globalOffset: AbsoluteOffset
-    def unassignmentGlobalOffset: Option[AbsoluteOffset]
-    def assignmentGlobalOffset: Option[AbsoluteOffset]
+    def globalOffset: Offset
+    def unassignmentGlobalOffset: Option[Offset]
+    def assignmentGlobalOffset: Option[Offset]
   }
 
-  final case class AssignmentEventGlobalOffset(globalOffset: AbsoluteOffset)
+  final case class AssignmentEventGlobalOffset(globalOffset: Offset)
       extends ReassignmentEventGlobalOffset {
-    override def unassignmentGlobalOffset: Option[AbsoluteOffset] = None
+    override def unassignmentGlobalOffset: Option[Offset] = None
 
-    override def assignmentGlobalOffset: Option[AbsoluteOffset] = Some(globalOffset)
+    override def assignmentGlobalOffset: Option[Offset] = Some(globalOffset)
   }
 
-  final case class UnassignmentEventGlobalOffset(globalOffset: AbsoluteOffset)
+  final case class UnassignmentEventGlobalOffset(globalOffset: Offset)
       extends ReassignmentEventGlobalOffset {
-    override def unassignmentGlobalOffset: Option[AbsoluteOffset] = Some(globalOffset)
+    override def unassignmentGlobalOffset: Option[Offset] = Some(globalOffset)
 
-    override def assignmentGlobalOffset: Option[AbsoluteOffset] = None
+    override def assignmentGlobalOffset: Option[Offset] = None
   }
 
   object ReassignmentEventGlobalOffset {
     private[reassignment] def create(
-        queryOffset: AbsoluteOffset,
-        unassignmentGlobalOffset: Option[AbsoluteOffset],
-        assignmentGlobalOffset: Option[AbsoluteOffset],
+        queryOffset: Offset,
+        unassignmentGlobalOffset: Option[Offset],
+        assignmentGlobalOffset: Option[Offset],
     ): Either[String, ReassignmentEventGlobalOffset] =
       (unassignmentGlobalOffset, assignmentGlobalOffset) match {
         case (Some(unassignment), None) if unassignment <= queryOffset =>

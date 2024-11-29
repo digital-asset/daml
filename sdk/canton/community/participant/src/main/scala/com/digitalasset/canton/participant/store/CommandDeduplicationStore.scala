@@ -7,7 +7,7 @@ import cats.data.OptionT
 import cats.syntax.either.*
 import cats.syntax.option.*
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.ChangeId
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -69,7 +69,7 @@ trait CommandDeduplicationStore extends AutoCloseable {
     *
     * @param prunedPublicationTime The publication time of the given offset
     */
-  def prune(upToInclusive: AbsoluteOffset, prunedPublicationTime: CantonTimestamp)(implicit
+  def prune(upToInclusive: Offset, prunedPublicationTime: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 
@@ -97,7 +97,7 @@ object CommandDeduplicationStore {
     }
 
   final case class OffsetAndPublicationTime(
-      offset: AbsoluteOffset,
+      offset: Offset,
       publicationTime: CantonTimestamp,
   ) extends PrettyPrinting {
 
@@ -110,7 +110,7 @@ object CommandDeduplicationStore {
   object OffsetAndPublicationTime {
     implicit val getResultOffsetAndPublicationTime: GetResult[OffsetAndPublicationTime] =
       GetResult { r =>
-        val offset = r.<<[AbsoluteOffset]
+        val offset = r.<<[Offset]
         val publicationTime = r.<<[CantonTimestamp]
         OffsetAndPublicationTime(offset, publicationTime)
       }
@@ -191,7 +191,7 @@ object CommandDeduplicationData {
   * @param traceContext The trace context that created the completion offset.
   */
 final case class DefiniteAnswerEvent(
-    offset: AbsoluteOffset,
+    offset: Offset,
     publicationTime: CantonTimestamp,
     submissionIdO: Option[LedgerSubmissionId],
     // TODO(#7348) add submission rank
@@ -213,7 +213,7 @@ object DefiniteAnswerEvent {
   implicit def getResultDefiniteAnswerEvent(implicit
       getResultByteArray: GetResult[Array[Byte]]
   ): GetResult[DefiniteAnswerEvent] = GetResult { r =>
-    val offset = r.<<[AbsoluteOffset]
+    val offset = r.<<[Offset]
     val publicationTime = r.<<[CantonTimestamp]
     val submissionIdO = r.<<[Option[SerializableSubmissionId]]
     val traceContext = r.<<[SerializableTraceContext]
@@ -228,7 +228,7 @@ object DefiniteAnswerEvent {
       getResultByteArrayO: GetResult[Option[Array[Byte]]]
   ): GetResult[Option[DefiniteAnswerEvent]] =
     GetResult { r =>
-      val offsetO = r.<<[Option[AbsoluteOffset]]
+      val offsetO = r.<<[Option[Offset]]
       val publicationTimeO = r.<<[Option[CantonTimestamp]]
       val submissionIdO = r.<<[Option[SerializableSubmissionId]]
       val traceContextO = r.<<[Option[SerializableTraceContext]]

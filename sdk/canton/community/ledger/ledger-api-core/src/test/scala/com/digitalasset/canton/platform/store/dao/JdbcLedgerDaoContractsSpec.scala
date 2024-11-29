@@ -32,7 +32,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       )
       result <- contractsReader.lookupContractState(
         nonTransient(tx).loneElement,
-        Some(offset),
+        offset,
       )
     } yield {
       result.collect { case active: LedgerDaoContractsReader.ActiveContract =>
@@ -60,7 +60,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       )
       result <- contractsReader.lookupContractState(
         nonTransient(tx).loneElement,
-        Some(offset),
+        offset,
       )
     } yield {
       result.collect { case active: LedgerDaoContractsReader.ActiveContract =>
@@ -107,16 +107,16 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       (_, tx) <- store(singleCreate(create(_, signatories = Set(alice))))
       contractId = nonTransient(tx).loneElement
       _ <- store(singleNonConsumingExercise(contractId))
-      ledgerEndAtCreate <- ledgerDao.lookupLedgerEnd()
+      Some(ledgerEndAtCreate) <- ledgerDao.lookupLedgerEnd()
       _ <- store(txArchiveContract(alice, (contractId, None)))
-      ledgerEndAfterArchive <- ledgerDao.lookupLedgerEnd()
+      Some(ledgerEndAfterArchive) <- ledgerDao.lookupLedgerEnd()
       queryAfterCreate <- contractsReader.lookupContractState(
         contractId,
-        ledgerEndAtCreate.map(_.lastOffset),
+        ledgerEndAtCreate.lastOffset,
       )
       queryAfterArchive <- contractsReader.lookupContractState(
         contractId,
-        ledgerEndAfterArchive.map(_.lastOffset),
+        ledgerEndAfterArchive.lastOffset,
       )
     } yield {
       queryAfterCreate.value match {

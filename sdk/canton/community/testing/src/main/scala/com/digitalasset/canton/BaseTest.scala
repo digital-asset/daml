@@ -187,6 +187,23 @@ trait BaseTest
         throw ex
     }
   }
+  def clueFUS[T](
+      message: String
+  )(expr: => FutureUnlessShutdown[T])(implicit ec: ExecutionContext): FutureUnlessShutdown[T] = {
+    logger.debug(s"Running clue: $message")
+    Try(expr) match {
+      case Success(value) =>
+        value.onComplete {
+          case Success(_) =>
+            logger.debug(s"Finished clue: $message")
+          case Failure(ex) =>
+            logger.error(s"Failed clue: $message", ex)
+        }
+        value
+      case Failure(ex) =>
+        throw ex
+    }
+  }
 
   /** Allows for returning an `EitherT[Future, _, Assertion]` instead of `Future[Assertion]` in asynchronous
     * test suites.

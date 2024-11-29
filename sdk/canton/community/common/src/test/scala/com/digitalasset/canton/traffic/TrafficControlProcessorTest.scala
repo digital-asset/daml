@@ -3,13 +3,11 @@
 
 package com.digitalasset.canton.traffic
 
-import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.LogEntry
-import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast.Broadcast
 import com.digitalasset.canton.protocol.messages.{
   DefaultOpenEnvelope,
   SetTrafficPurchasedMessage,
@@ -52,14 +50,9 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
   private val factory =
     new TopologyTransactionTestFactory(loggerFactory, initEc = parallelExecutionContext)
 
-  private def mkTopoTx(): TopologyTransactionsBroadcast = TopologyTransactionsBroadcast.create(
+  private lazy val topoTx: TopologyTransactionsBroadcast = TopologyTransactionsBroadcast(
     domainId,
-    Seq(
-      Broadcast(
-        String255.tryCreate("some request"),
-        List(factory.ns1k1_k1),
-      )
-    ),
+    List(factory.ns1k1_k1),
     testedProtocolVersion,
   )
 
@@ -158,7 +151,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
 
   "the traffic control processor" should {
     "notify subscribers of all event timestamps" in {
-      val batch = Batch.of(testedProtocolVersion, mkTopoTx() -> Recipients.cc(participantId))
+      val batch = Batch.of(testedProtocolVersion, topoTx -> Recipients.cc(participantId))
       val events = Traced(
         Seq(
           mkDeliver(sc1, ts1, batch),

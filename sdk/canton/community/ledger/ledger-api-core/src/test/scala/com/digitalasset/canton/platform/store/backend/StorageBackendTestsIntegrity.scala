@@ -136,7 +136,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
-      "occurrence of decreasing record time found within one domain: offsets AbsoluteOffset(3),AbsoluteOffset(5)"
+      "occurrence of decreasing record time found within one domain: offsets Offset(3),Offset(5)"
     )
   }
 
@@ -186,7 +186,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
-      "occurrence of decreasing record time found within one domain: offsets AbsoluteOffset(3),AbsoluteOffset(5)"
+      "occurrence of decreasing record time found within one domain: offsets Offset(3),Offset(5)"
     )
   }
 
@@ -236,7 +236,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
-      "occurrence of decreasing record time found within one domain: offsets AbsoluteOffset(3),AbsoluteOffset(5)"
+      "occurrence of decreasing record time found within one domain: offsets Offset(3),Offset(5)"
     )
   }
 
@@ -285,7 +285,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
-      "occurrence of decreasing record time found within one domain: offsets AbsoluteOffset(3),AbsoluteOffset(5)"
+      "occurrence of decreasing record time found within one domain: offsets Offset(3),Offset(5)"
     )
   }
 
@@ -334,7 +334,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
-      "occurrence of decreasing record time found within one domain: offsets AbsoluteOffset(3),AbsoluteOffset(5)"
+      "occurrence of decreasing record time found within one domain: offsets Offset(3),Offset(5)"
     )
   }
 
@@ -381,7 +381,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
-      "occurrence of decreasing record time found within one domain: offsets AbsoluteOffset(3),AbsoluteOffset(5)"
+      "occurrence of decreasing record time found within one domain: offsets Offset(3),Offset(5)"
     )
   }
 
@@ -429,7 +429,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
-      "occurrence of decreasing record time found within one domain: offsets AbsoluteOffset(3),AbsoluteOffset(5)"
+      "occurrence of decreasing record time found within one domain: offsets Offset(3),Offset(5)"
     )
   }
 
@@ -488,7 +488,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
-      "occurrence of decreasing record time found within one domain: offsets AbsoluteOffset(3),AbsoluteOffset(5)"
+      "occurrence of decreasing record time found within one domain: offsets Offset(3),Offset(5)"
     )
   }
 
@@ -526,7 +526,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
-      "occurrence of duplicate update ID [000000000000000002] found for offsets AbsoluteOffset(2), AbsoluteOffset(3)"
+      "occurrence of duplicate update ID [2] found for offsets Offset(2), Offset(3)"
     )
   }
 
@@ -549,7 +549,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
-      "occurrence of duplicate offset found for lapi_command_completions: for offset AbsoluteOffset(2) 2 rows found"
+      "occurrence of duplicate offset found for lapi_command_completions: for offset Offset(2) 2 rows found"
     )
   }
 
@@ -578,7 +578,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
-      "duplicate entries found in lapi_command_completions at offsets (first 10 shown) List(AbsoluteOffset(2), AbsoluteOffset(3))"
+      "duplicate entries found in lapi_command_completions at offsets (first 10 shown) List(Offset(2), Offset(3))"
     )
   }
 
@@ -610,7 +610,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
-      "duplicate entries found by messageUuid in lapi_command_completions at offsets (first 10 shown) List(AbsoluteOffset(2), AbsoluteOffset(3))"
+      "duplicate entries found by messageUuid in lapi_command_completions at offsets (first 10 shown) List(Offset(2), Offset(3))"
     )
   }
 

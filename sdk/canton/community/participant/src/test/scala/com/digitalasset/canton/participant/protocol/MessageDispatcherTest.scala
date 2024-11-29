@@ -6,7 +6,6 @@ package com.digitalasset.canton.participant.protocol
 import cats.syntax.flatMap.*
 import cats.syntax.option.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{
@@ -37,7 +36,6 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.messages.EncryptedView.CompressedView
-import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast.Broadcast
 import com.digitalasset.canton.protocol.messages.Verdict.MediatorReject
 import com.digitalasset.canton.protocol.{
   LocalRejectError,
@@ -388,14 +386,9 @@ trait MessageDispatcherTest {
 
     val factory =
       new TopologyTransactionTestFactory(loggerFactory, initEc = executionContext)
-    val idTx = TopologyTransactionsBroadcast.create(
+    val idTx = TopologyTransactionsBroadcast(
       domainId,
-      Seq(
-        Broadcast(
-          String255.tryCreate("some request"),
-          List(factory.ns1k1_k1),
-        )
-      ),
+      List(factory.ns1k1_k1),
       testedProtocolVersion,
     )
 
@@ -558,24 +551,12 @@ trait MessageDispatcherTest {
         )
         // Check that we're calling the topology manager before we're publishing the deliver event and ticking the
         // request tracker
-        when(
-          sut.recordOrderPublisher.scheduleEmptyAcsChangePublication(
-            any[SequencerCounter],
-            any[CantonTimestamp],
-          )(any[TraceContext])
-        )
-          .thenAnswer {
-            checkTickTopologyProcessor(sut, sc, ts).discard
-          }
         when(sut.requestTracker.tick(any[SequencerCounter], any[CantonTimestamp])(anyTraceContext))
           .thenAnswer {
             checkTickTopologyProcessor(sut, sc, ts).discard
           }
 
         handle(sut, deliver) {
-          verify(sut.recordOrderPublisher).scheduleEmptyAcsChangePublication(isEq(sc), isEq(ts))(
-            any[TraceContext]
-          )
           checkTicks(sut, sc, ts)
         }.futureValue
       }
@@ -821,14 +802,9 @@ trait MessageDispatcherTest {
       val sut = mk()
       val sc = SequencerCounter(1)
       val ts = CantonTimestamp.ofEpochSecond(1)
-      val txForeignDomain = TopologyTransactionsBroadcast.create(
+      val txForeignDomain = TopologyTransactionsBroadcast(
         DomainId.tryFromString("foo::bar"),
-        Seq(
-          Broadcast(
-            String255.tryCreate("some request"),
-            List(factory.ns1k1_k1),
-          )
-        ),
+        List(factory.ns1k1_k1),
         testedProtocolVersion,
       )
       val event =

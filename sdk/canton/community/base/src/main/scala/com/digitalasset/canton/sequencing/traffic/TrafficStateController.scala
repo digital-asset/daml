@@ -178,7 +178,6 @@ class TrafficStateController(
         .liftF(
           GroupAddressResolver.resolveGroupsToMembers(groups.toSet, snapshot)
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
     } yield {
       val costDetails = eventCostCalculator.computeEventCost(
         batch.map(_.closeEnvelope),

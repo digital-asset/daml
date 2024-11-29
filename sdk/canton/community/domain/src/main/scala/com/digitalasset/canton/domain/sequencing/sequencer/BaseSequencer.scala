@@ -66,7 +66,6 @@ abstract class BaseSequencer(
             _.sender,
           )
           .leftMap(e => SendAsyncError.RequestRefused(e))
-          .mapK(FutureUnlessShutdown.outcomeK)
         isMemberEnabled <- EitherT.right[SendAsyncError.RequestRefused](
           FutureUnlessShutdown.outcomeF(isEnabled(submission.sender))
         )
@@ -83,7 +82,7 @@ abstract class BaseSequencer(
 
   override def acknowledgeSigned(signedAcknowledgeRequest: SignedContent[AcknowledgeRequest])(
       implicit traceContext: TraceContext
-  ): EitherT[Future, String, Unit] = for {
+  ): EitherT[FutureUnlessShutdown, String, Unit] = for {
     signedAcknowledgeRequestWithFixedTs <- signatureVerifier
       .verifySignature[AcknowledgeRequest](
         signedAcknowledgeRequest,
@@ -97,7 +96,7 @@ abstract class BaseSequencer(
       signedAcknowledgeRequest: SignedContent[AcknowledgeRequest]
   )(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   override def sendAsync(
       submission: SubmissionRequest
@@ -148,12 +147,12 @@ abstract class BaseSequencer(
 
   override def read(member: Member, offset: SequencerCounter)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CreateSubscriptionError, Sequencer.EventSource] =
+  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource] =
     readInternal(member, offset)
 
   protected def readInternal(member: Member, offset: SequencerCounter)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CreateSubscriptionError, Sequencer.EventSource]
+  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource]
 
   override def onClosed(): Unit =
     periodicHealthCheck.foreach(LifeCycle.close(_)(logger))

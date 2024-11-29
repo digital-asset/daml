@@ -9,6 +9,7 @@ import com.daml.metrics.api.MetricHandle.Counter
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterAsyncOps
@@ -28,7 +29,7 @@ trait StreamTracker[K, I] extends AutoCloseable {
   def track(
       key: K,
       timeout: NonNegativeFiniteDuration,
-      start: TraceContext => Future[Any],
+      start: TraceContext => FutureUnlessShutdown[Any],
   )(implicit
       ec: ExecutionContext,
       errorLogger: ContextualizedErrorLogger,
@@ -78,7 +79,7 @@ private[tracking] class StreamTrackerImpl[Key <: Errors.KeyDescriptions, Item](
   def track(
       key: Key,
       timeout: NonNegativeFiniteDuration,
-      start: TraceContext => Future[Any],
+      start: TraceContext => FutureUnlessShutdown[Any],
   )(implicit
       ec: ExecutionContext,
       errorLogger: ContextualizedErrorLogger,
@@ -98,7 +99,7 @@ private[tracking] class StreamTrackerImpl[Key <: Errors.KeyDescriptions, Item](
       key: Key,
       timeout: config.NonNegativeFiniteDuration,
       promise: Promise[Item],
-      start: TraceContext => Future[Any],
+      start: TraceContext => FutureUnlessShutdown[Any],
   )(implicit
       ec: ExecutionContext,
       errorLogger: ContextualizedErrorLogger,

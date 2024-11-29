@@ -3,21 +3,26 @@
 
 package com.digitalasset.canton.participant.store
 
-import cats.data.EitherT
 import cats.instances.list.*
 import cats.syntax.foldable.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.RequestCounter
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
+import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.participant.ParticipantNodeParameters
+import com.digitalasset.canton.participant.store.db.DbContractStore
+import com.digitalasset.canton.participant.store.memory.InMemoryContractStore
 import com.digitalasset.canton.protocol.{LfContractId, SerializableContract}
+import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.store.Purgeable
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.ReleaseProtocolVersion
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
-trait ContractStore extends ContractLookup with Purgeable {
+trait ContractStore extends ContractLookup with Purgeable with FlagCloseable {
 
   /** Stores contracts created by a request.
     * Assumes the contract data has been authenticated against the contract id using
@@ -35,27 +40,6 @@ trait ContractStore extends ContractLookup with Purgeable {
       contract: SerializableContract,
   )(implicit traceContext: TraceContext): Future[Unit] =
     storeCreatedContracts(Seq((contract, requestCounter)))
-
-  /** Store divulged contracts.
-    * Assumes the contract data has been authenticated against the contract id using
-    * [[com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator]].
-    *
-    * If the same contract instance has been stored before, the fields not covered by the contract id authentication will be updated.
-    * The method will however not override a contract that has previously been stored as created contract.
-    */
-  def storeDivulgedContracts(
-      requestCounter: RequestCounter,
-      divulgences: Seq[SerializableContract],
-  )(implicit traceContext: TraceContext): Future[Unit]
-
-  def storeDivulgedContract(requestCounter: RequestCounter, contract: SerializableContract)(implicit
-      traceContext: TraceContext
-  ): Future[Unit] = storeDivulgedContracts(requestCounter, Seq(contract))
-
-  /** Removes the contract from the contract store. */
-  def deleteContract(id: LfContractId)(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, UnknownContract, Unit]
 
   /** Debug find utility to search pcs
     */
@@ -83,9 +67,6 @@ trait ContractStore extends ContractLookup with Purgeable {
       traceContext: TraceContext
   ): Future[Unit]
 
-  /** Deletes all divulged contracts up to a given request counter. */
-  def deleteDivulged(upTo: RequestCounter)(implicit traceContext: TraceContext): Future[Unit]
-
   def contractCount()(implicit traceContext: TraceContext): Future[Int]
 
   def hasActiveContracts(
@@ -110,16 +91,38 @@ trait ContractStore extends ContractLookup with Purgeable {
   }
 }
 
+object ContractStore {
+  def create(
+      storage: Storage,
+      releaseProtocolVersion: ReleaseProtocolVersion,
+      parameters: ParticipantNodeParameters,
+      loggerFactory: NamedLoggerFactory,
+  )(implicit executionContext: ExecutionContext): ContractStore =
+    storage match {
+      case _: MemoryStorage =>
+        new InMemoryContractStore(parameters.processingTimeouts, loggerFactory)
+
+      case dbStorage: DbStorage =>
+        new DbContractStore(
+          dbStorage,
+          releaseProtocolVersion,
+          cacheConfig = parameters.cachingConfigs.contractStore,
+          dbQueryBatcherConfig = parameters.batchingConfig.aggregator,
+          insertBatchAggregatorConfig = parameters.batchingConfig.aggregator,
+          parameters.processingTimeouts,
+          loggerFactory,
+        )
+    }
+}
+
 /** Data to be stored for a contract.
   *
   * @param contract       The contract to be stored
   * @param requestCounter The request counter of the latest request that stored the contract.
-  * @param isDivulged     Whether the contract was divulged
   */
 final case class StoredContract(
     contract: SerializableContract,
     requestCounter: RequestCounter,
-    isDivulged: Boolean,
 ) extends PrettyPrinting {
   def contractId: LfContractId = contract.contractId
 
@@ -130,13 +133,9 @@ final case class StoredContract(
         this.contractId == other.contractId,
         s"Cannot merge $this with $other due to different contract ids",
       )
-      if (
-        isDivulged && !other.isDivulged ||
-        isDivulged == other.isDivulged && requestCounter < other.requestCounter
-      ) {
+      if (requestCounter < other.requestCounter) {
         copy(
-          requestCounter = other.requestCounter,
-          isDivulged = other.isDivulged,
+          requestCounter = other.requestCounter
         )
       } else this
     }
@@ -144,23 +143,7 @@ final case class StoredContract(
   override protected def pretty: Pretty[StoredContract] = prettyOfClass(
     param("contract", _.contract),
     param("request counter", _.requestCounter),
-    param("is divulged", _.isDivulged),
   )
-}
-
-object StoredContract {
-
-  def fromCreatedContract(
-      contract: SerializableContract,
-      requestCounter: RequestCounter,
-  ): StoredContract =
-    StoredContract(contract, requestCounter, isDivulged = false)
-
-  def fromDivulgedContract(
-      contract: SerializableContract,
-      requestCounter: RequestCounter,
-  ): StoredContract =
-    StoredContract(contract, requestCounter, isDivulged = true)
 }
 
 sealed trait ContractStoreError extends Product with Serializable with PrettyPrinting

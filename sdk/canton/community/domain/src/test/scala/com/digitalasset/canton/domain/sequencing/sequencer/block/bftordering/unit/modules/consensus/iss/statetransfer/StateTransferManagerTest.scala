@@ -32,6 +32,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   EpochInfo,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.{
+  CommitCertificate,
   OrderedBlock,
   OrderedBlockForOutput,
 }
@@ -151,10 +152,9 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
           epochStore = epochStore,
         )
 
-      // Store a pre-prepare that will be sent by the serving node.
-      val prePrepare = aPrePrepare()
-      val blockTransferData = StateTransferMessage.BlockTransferData.create(prePrepare)
-      context.pipeToSelf(epochStore.addOrderedBlock(prePrepare, Seq.empty))(
+      // Store a block that will be sent by the serving node.
+      val commitCertificate = aCommitCertificate()
+      context.pipeToSelf(epochStore.addOrderedBlock(commitCertificate.prePrepare, Seq.empty))(
         _.map(_ => None).getOrElse(fail("Storing the pre-prepare failed"))
       )
       context.runPipedMessages() // store ordered block data
@@ -192,8 +192,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
               StateTransferMessage.BlockTransferResponse
                 .create(
                   latestCompletedEpoch = EpochNumber.First,
-                  Seq(blockTransferData),
-                  lastBlockCommits = Seq.empty,
+                  Seq(commitCertificate),
                   from = mySequencerId,
                 )
                 .fakeSign
@@ -229,14 +228,12 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
         lastBlockCommitMessages = Seq.empty,
       )
     val blockMetadata = BlockMetadata.mk(EpochNumber.First, BlockNumber.First)
-    val prePrepare = aPrePrepare(blockMetadata)
-    val blockTransferData = StateTransferMessage.BlockTransferData.create(prePrepare)
+    val commitCertificate = aCommitCertificate(blockMetadata)
 
     // Handle a block transfer response with a single epoch containing a single block.
     val blockTransferResponse = StateTransferMessage.BlockTransferResponse.create(
       latestCompletedEpochRemotely.info.number,
-      Seq(blockTransferData),
-      lastBlockCommits = Seq.empty,
+      Seq(commitCertificate),
       from = otherSequencerId,
     )
     stateTransferManager.handleStateTransferMessage(
@@ -246,9 +243,9 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     )(abort = fail(_)) shouldBe StateTransferMessageResult.Continue
 
     val messages = context.runPipedMessages() // store block
-    messages should contain only StateTransferMessage.BlockStored(
-      blockTransferData,
-      blockTransferResponse,
+    messages should contain only StateTransferMessage.BlocksStored(
+      Seq(commitCertificate),
+      latestCompletedEpochRemotely.info.number,
     )
 
     val result = stateTransferManager.handleStateTransferMessage(
@@ -270,13 +267,14 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     )
 
     // Should have sent an ordered block to the Output module.
+    val prePrepare = commitCertificate.prePrepare.message
     verify(outputRef, times(1)).asyncSend(
       Output.BlockOrdered(
         OrderedBlockForOutput(
           OrderedBlock(
             blockMetadata,
-            prePrepare.message.block.proofs,
-            prePrepare.message.canonicalCommitSet,
+            prePrepare.block.proofs,
+            prePrepare.canonicalCommitSet,
           ),
           from = prePrepare.from,
           isLastInEpoch = true,
@@ -343,10 +341,10 @@ object StateTransferManagerTest {
   private val otherSequencerId = fakeSequencerId("other")
   private val membership = Membership(mySequencerId, Set(otherSequencerId))
 
-  private def aPrePrepare(
+  private def aCommitCertificate(
       blockMetadata: BlockMetadata = BlockMetadata.mk(EpochNumber.First, BlockNumber.First)
-  ) =
-    PrePrepare
+  ) = {
+    val prePrepare = PrePrepare
       .create(
         blockMetadata = blockMetadata,
         viewNumber = ViewNumber.First,
@@ -356,4 +354,7 @@ object StateTransferManagerTest {
         from = mySequencerId,
       )
       .fakeSign
+    // TODO(#19661): Test commits
+    CommitCertificate(prePrepare, commits = Seq.empty)
+  }
 }

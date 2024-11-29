@@ -7,6 +7,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.crypto.{Crypto, DomainCryptoPureApi}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.protocol.{
@@ -22,11 +23,13 @@ import com.digitalasset.canton.topology.processing.{EffectiveTime, TopologyTrans
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{PackageDependencyResolverUS, TopologyStore}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.version.ProtocolVersion
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class TopologyComponentFactory(
     domainId: DomainId,
+    protocolVersion: ProtocolVersion,
     crypto: Crypto,
     clock: Clock,
     timeouts: ProcessingTimeout,
@@ -54,6 +57,7 @@ class TopologyComponentFactory(
         if (experimentalEnableTopologyEvents) {
           new ParticipantTopologyTerminateProcessing(
             domainId,
+            protocolVersion,
             recordOrderPublisher,
             topologyStore,
             loggerFactory,
@@ -103,7 +107,7 @@ class TopologyComponentFactory(
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[DomainTopologyClientWithInit] = CachingDomainTopologyClient.create(
+  ): FutureUnlessShutdown[DomainTopologyClientWithInit] = CachingDomainTopologyClient.create(
     clock,
     domainId,
     topologyStore,
@@ -127,7 +131,7 @@ class TopologyComponentFactory(
       loggerFactory,
     )
     if (preferCaching) {
-      new CachingTopologySnapshot(snapshot, caching, batching, loggerFactory)
+      new CachingTopologySnapshot(snapshot, caching, batching, loggerFactory, futureSupervisor)
     } else
       snapshot
   }

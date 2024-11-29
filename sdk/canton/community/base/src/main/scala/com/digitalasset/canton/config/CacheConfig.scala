@@ -66,6 +66,8 @@ final case class SessionEncryptionKeyCacheConfig(
   * @param indexedStrings cache size configuration for the static string index cache
   * @param contractStore cache size configuration for the contract store
   * @param topologySnapshot cache size configuration for topology snapshots
+  * @param keyCache cache configuration for keys in the topology snapshots to avoid loading redundant keys
+  *                 from the database.
   * @param finalizedMediatorConfirmationRequests cache size for the finalized mediator confirmation requests such the mediator does not have to
   *                                  perform a db round-trip if we have slow responders.
   */
@@ -80,7 +82,6 @@ final case class CachingConfigs(
     sessionEncryptionKeyCache: SessionEncryptionKeyCacheConfig =
       CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
     packageVettingCache: CacheConfig = CachingConfigs.defaultPackageVettingCache,
-    mySigningKeyCache: CacheConfig = CachingConfigs.defaultMySigningKeyCache,
     memberCache: CacheConfig = CachingConfigs.defaultMemberCache,
     kmsMetadataCache: CacheConfig = CachingConfigs.kmsMetadataCache,
     finalizedMediatorConfirmationRequests: CacheConfig =
@@ -114,10 +115,6 @@ object CachingConfigs {
       ),
     )
   val defaultPackageVettingCache: CacheConfig =
-    CacheConfig(maximumSize = PositiveNumeric.tryCreate(10000))
-  val defaultMySigningKeyCache: CacheConfig =
-    CacheConfig(maximumSize = PositiveNumeric.tryCreate(5))
-  val defaultTrafficStatusCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(10000))
   val defaultMemberCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))

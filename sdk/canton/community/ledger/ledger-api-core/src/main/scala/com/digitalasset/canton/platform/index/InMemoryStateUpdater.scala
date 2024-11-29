@@ -7,8 +7,8 @@ import cats.data.NonEmptyVector
 import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.timer.FutureCheck.*
-import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Reassignment, Update}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
@@ -21,6 +21,7 @@ import com.digitalasset.canton.platform.store.CompletionFromTransaction
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.cache.OffsetCheckpoint
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
+import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent.ReassignmentAccepted
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.platform.{Contract, InMemoryState, Key, Party}
 import com.digitalasset.canton.tracing.TraceContext
@@ -52,10 +53,10 @@ private[platform] object InMemoryStateUpdaterFlow {
       logger: TracedLogger,
   )(
       inMemoryState: InMemoryState,
-      prepare: (Vector[(AbsoluteOffset, Update)], LedgerEnd) => PrepareResult,
+      prepare: (Vector[(Offset, Update)], LedgerEnd) => PrepareResult,
       update: (PrepareResult, Boolean) => Unit,
   )(implicit traceContext: TraceContext): UpdaterFlow = { repairMode =>
-    Flow[(Vector[(AbsoluteOffset, Update)], LedgerEnd)]
+    Flow[(Vector[(Offset, Update)], LedgerEnd)]
       .filter(_._1.nonEmpty)
       .via(updateOffsetCheckpointCacheFlow(inMemoryState, offsetCheckpointCacheUpdateInterval))
       .mapAsync(prepareUpdatesParallelism) { case (batch, ledgerEnd) =>
@@ -82,8 +83,8 @@ private[platform] object InMemoryStateUpdaterFlow {
       inMemoryState: InMemoryState,
       interval: FiniteDuration,
   ): Flow[
-    (Vector[(AbsoluteOffset, Update)], LedgerEnd),
-    (Vector[(AbsoluteOffset, Update)], LedgerEnd),
+    (Vector[(Offset, Update)], LedgerEnd),
+    (Vector[(Offset, Update)], LedgerEnd),
     NotUsed,
   ] = {
     // tick source so that we update offset checkpoint caches
@@ -99,8 +100,8 @@ private[platform] object InMemoryStateUpdaterFlow {
       updateOffsetCheckpointCache: OffsetCheckpoint => Unit,
       tick: Source[Option[Nothing], NotUsed],
   ): Flow[
-    (Vector[(AbsoluteOffset, Update)], LedgerEnd),
-    (Vector[(AbsoluteOffset, Update)], LedgerEnd),
+    (Vector[(Offset, Update)], LedgerEnd),
+    (Vector[(Offset, Update)], LedgerEnd),
     NotUsed,
   ] =
     Flow.fromGraph(GraphDSL.create() { implicit builder =>
@@ -111,22 +112,22 @@ private[platform] object InMemoryStateUpdaterFlow {
       // them with a tick source that ticks every interval seconds to signify the update of the cache
 
       val broadcast =
-        builder.add(Broadcast[(Vector[(AbsoluteOffset, Update)], LedgerEnd)](2))
+        builder.add(Broadcast[(Vector[(Offset, Update)], LedgerEnd)](2))
 
       val merge =
-        builder.add(Merge[Option[(AbsoluteOffset, Update)]](inputPorts = 2, eagerComplete = true))
+        builder.add(Merge[Option[(Offset, Update)]](inputPorts = 2, eagerComplete = true))
 
-      val preprocess: Flow[(Vector[(AbsoluteOffset, Update)], LedgerEnd), Option[
-        (AbsoluteOffset, Update)
+      val preprocess: Flow[(Vector[(Offset, Update)], LedgerEnd), Option[
+        (Offset, Update)
       ], NotUsed] =
-        Flow[(Vector[(AbsoluteOffset, Update)], LedgerEnd)]
+        Flow[(Vector[(Offset, Update)], LedgerEnd)]
           .map(_._1)
           .mapConcat(identity)
           .map { case (off, tracedUpdate) => (off, tracedUpdate) }
           .map(Some(_))
 
-      val updateCheckpointState: Flow[Option[(AbsoluteOffset, Update)], OffsetCheckpoint, NotUsed] =
-        Flow[Option[(AbsoluteOffset, Update)]]
+      val updateCheckpointState: Flow[Option[(Offset, Update)], OffsetCheckpoint, NotUsed] =
+        Flow[Option[(Offset, Update)]]
           .statefulMap[Option[OffsetCheckpoint], Option[OffsetCheckpoint]](create = () => None)(
             f = {
               // an Offset and Update pair was received
@@ -145,9 +146,10 @@ private[platform] object InMemoryStateUpdaterFlow {
                     }
                   case commandRejected: Update.CommandRejected =>
                     Some((commandRejected.domainId, commandRejected.recordTime))
-                  case sim: Update.SequencerIndexMoved => Some((sim.domainId, sim.recordTime))
-                  case _: Update.CommitRepair => None
                   case tt: Update.TopologyTransactionEffective => Some((tt.domainId, tt.recordTime))
+                  case sim: Update.SequencerIndexMoved => Some((sim.domainId, sim.recordTime))
+                  case _: Update.EmptyAcsPublicationRequired => None
+                  case _: Update.CommitRepair => None
                 }
 
                 val lastDomainTimes = lastOffsetCheckpointO.map(_.domainTimes).getOrElse(Map.empty)
@@ -185,8 +187,8 @@ private[platform] object InMemoryStateUpdater {
       lastTraceContext: TraceContext,
   )
   type UpdaterFlow =
-    Boolean => Flow[(Vector[(AbsoluteOffset, Update)], LedgerEnd), Vector[
-      (AbsoluteOffset, Update)
+    Boolean => Flow[(Vector[(Offset, Update)], LedgerEnd), Vector[
+      (Offset, Update)
     ], NotUsed]
   def owner(
       inMemoryState: InMemoryState,
@@ -224,7 +226,7 @@ private[platform] object InMemoryStateUpdater {
   )
 
   private[index] def prepare(
-      batch: Vector[(AbsoluteOffset, Update)],
+      batch: Vector[(Offset, Update)],
       ledgerEnd: LedgerEnd,
   ): PrepareResult = {
     val traceContext = batch.lastOption.fold(
@@ -292,7 +294,7 @@ private[platform] object InMemoryStateUpdater {
   private def updateCaches(
       inMemoryState: InMemoryState,
       updates: Vector[TransactionLogUpdate],
-      lastOffset: AbsoluteOffset,
+      lastOffset: Offset,
   ): Unit = {
     updates.foreach { transaction =>
       inMemoryState.inMemoryFanoutBuffer.push(transaction)
@@ -361,11 +363,13 @@ private[platform] object InMemoryStateUpdater {
     tx match {
       case tx: TransactionLogUpdate.TransactionAccepted =>
         tx.events.iterator.collect(convertLogToStateEvent).toVector
+      case tx: TransactionLogUpdate.ReassignmentAccepted =>
+        Vector(ReassignmentAccepted(tx.offset))
       case _ => Vector.empty
     }
 
   private def convertTransactionAccepted(
-      offset: AbsoluteOffset,
+      offset: Offset,
       txAccepted: Update.TransactionAccepted,
   ): TransactionLogUpdate.TransactionAccepted = {
     val rawEvents =
@@ -403,13 +407,10 @@ private[platform] object InMemoryStateUpdater {
           createKeyHash = create.keyOpt.map(_.globalKey.hash),
           createKey = create.keyOpt.map(_.globalKey),
           createKeyMaintainers = create.keyOpt.map(_.maintainers),
-          driverMetadata = txAccepted.contractMetadata
-            .getOrElse(
-              create.coid,
-              throw new IllegalStateException(
-                s"missing driver metadata for contract ${create.coid}"
-              ),
-            ),
+          driverMetadata = txAccepted.contractMetadata.getOrElse(
+            create.coid,
+            throw new IllegalStateException(s"missing driver metadata for contract ${create.coid}"),
+          ),
         )
       case (nodeId, exercise: Exercise) =>
         TransactionLogUpdate.ExercisedEvent(
@@ -479,7 +480,7 @@ private[platform] object InMemoryStateUpdater {
   }
 
   private def convertTransactionRejected(
-      offset: AbsoluteOffset,
+      offset: Offset,
       u: Update.CommandRejected,
   ): TransactionLogUpdate.TransactionRejected = {
     val (deduplicationOffset, deduplicationDurationSeconds, deduplicationDurationNanos) =
@@ -505,7 +506,7 @@ private[platform] object InMemoryStateUpdater {
   }
 
   private def convertReassignmentAccepted(
-      offset: AbsoluteOffset,
+      offset: Offset,
       u: Update.ReassignmentAccepted,
   ): TransactionLogUpdate.ReassignmentAccepted = {
     val completionStreamResponse = u.optCompletionInfo

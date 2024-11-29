@@ -5,11 +5,12 @@ package com.digitalasset.canton.platform.store.dao.events
 
 import com.daml.ledger.api.v2.reassignment.Reassignment
 import com.daml.metrics.{DatabaseMetrics, Timed}
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.TemplatePartiesFilter
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   Entry,
@@ -31,7 +32,6 @@ import com.digitalasset.canton.platform.store.utils.{
   ConcurrencyLimiter,
   QueueBasedConcurrencyLimiter,
 }
-import com.digitalasset.canton.platform.{ApiOffset, TemplatePartiesFilter}
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
@@ -61,7 +61,7 @@ class ReassignmentStreamReader(
 
   def streamReassignments(reassignmentStreamQueryParams: ReassignmentStreamQueryParams)(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(AbsoluteOffset, Reassignment), NotUsed] = {
+  ): Source[(Offset, Reassignment), NotUsed] = {
     import reassignmentStreamQueryParams.*
     logger.debug(
       s"streamReassignments(${queryRange.startInclusiveOffset}, ${queryRange.endInclusiveOffset}, $filteringConstraints, $eventProjectionProperties)"
@@ -126,9 +126,9 @@ class ReassignmentStreamReader(
                 queryValidRange.withRangeNotPruned(
                   minOffsetInclusive = queryRange.startInclusiveOffset,
                   maxOffsetInclusive = queryRange.endInclusiveOffset,
-                  errorPruning = (prunedOffset: AbsoluteOffset) =>
+                  errorPruning = (prunedOffset: Offset) =>
                     s"Reassignment request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} precedes pruned offset ${prunedOffset.unwrap}",
-                  errorLedgerEnd = (ledgerEndOffset: Option[AbsoluteOffset]) =>
+                  errorLedgerEnd = (ledgerEndOffset: Option[Offset]) =>
                     s"Reassignment request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} is beyond ledger end offset ${ledgerEndOffset
                         .fold(0L)(_.unwrap)}",
                 ) {
@@ -182,7 +182,7 @@ class ReassignmentStreamReader(
 
     payloadsAssign
       .mergeSorted(payloadsUnassign)(Ordering.by(_.offset))
-      .map(response => AbsoluteOffset.tryFromLong(response.offset) -> response)
+      .map(response => Offset.tryFromLong(response.offset) -> response)
   }
 
   private def toApiUnassigned(rawUnassignEntry: Entry[RawUnassignEvent]): Future[Reassignment] =
@@ -192,7 +192,7 @@ class ReassignmentStreamReader(
           updateId = rawUnassignEntry.updateId,
           commandId = rawUnassignEntry.commandId.getOrElse(""),
           workflowId = rawUnassignEntry.workflowId.getOrElse(""),
-          offset = ApiOffset.assertFromStringToLong(rawUnassignEntry.offset),
+          offset = rawUnassignEntry.offset,
           event = Reassignment.Event.UnassignedEvent(
             TransactionsReader.toUnassignedEvent(rawUnassignEntry.event)
           ),
@@ -216,7 +216,7 @@ class ReassignmentStreamReader(
               updateId = rawAssignEntry.updateId,
               commandId = rawAssignEntry.commandId.getOrElse(""),
               workflowId = rawAssignEntry.workflowId.getOrElse(""),
-              offset = ApiOffset.assertFromStringToLong(rawAssignEntry.offset),
+              offset = rawAssignEntry.offset,
               event = Reassignment.Event.AssignedEvent(
                 TransactionsReader.toAssignedEvent(
                   rawAssignEntry.event,

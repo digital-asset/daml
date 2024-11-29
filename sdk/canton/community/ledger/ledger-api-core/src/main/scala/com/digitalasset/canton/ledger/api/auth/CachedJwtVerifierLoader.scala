@@ -57,7 +57,7 @@ class CachedJwtVerifierLoader(
         .maximumSize(cacheMaxSize),
       loader = getVerifier,
       metrics = Some(metrics.identityProviderConfigStore.verifierCache),
-    )(logger)
+    )(logger, "cache")
 
   override def loadJwtVerifier(jwksUrl: JwksUrl, keyId: Option[String]): Future[JwtVerifier] =
     cache.get(CacheKey(jwksUrl, keyId))

@@ -12,7 +12,7 @@ final class GrpcClient[Svc <: AbstractStub[Svc]] private (
     private[grpc] val channel: GrpcManagedChannel,
     val service: Svc,
 ) {
-  def onShutdownRunner: OnShutdownRunner = channel.associatedShutdownRunner
+  def onShutdownRunner: OnShutdownRunner = channel
 }
 
 object GrpcClient {

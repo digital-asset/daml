@@ -78,7 +78,7 @@ class TrafficPurchasedManager(
             TrafficPurchasedForMember(SortedMap(balances.map(b => b.sequencingTimestamp -> b)*))
           ),
       metrics = Some(sequencerMetrics.trafficControl.purchaseCache),
-    )(logger)
+    )(logger, "trafficPurchased")
 
   lazy val subscription = new SequencerTrafficControlSubscriber(this, loggerFactory)
 

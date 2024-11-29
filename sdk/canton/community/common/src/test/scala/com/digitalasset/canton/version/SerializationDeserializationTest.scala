@@ -39,6 +39,7 @@ import com.digitalasset.canton.sequencing.protocol.{
 import com.digitalasset.canton.topology.transaction.{
   GeneratorsTransaction,
   SignedTopologyTransaction,
+  SignedTopologyTransactions,
   TopologyTransaction,
 }
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
@@ -146,6 +147,10 @@ class SerializationDeserializationTest
         testProtocolVersionedWithCtx(
           SignedTopologyTransaction,
           ProtocolVersionValidation(version),
+        )
+        testProtocolVersionedWithCtx(
+          SignedTopologyTransactions,
+          version,
         )
 
         testMemoizedProtocolVersionedWithCtx(

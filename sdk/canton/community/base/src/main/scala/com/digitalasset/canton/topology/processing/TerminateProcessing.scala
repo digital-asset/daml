@@ -4,9 +4,11 @@
 package com.digitalasset.canton.topology.processing
 
 import com.digitalasset.canton.SequencerCounter
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** An implementation of this trait allows to schedule code to be executed at the end of the
   * processing of a batch of topology transactions.
@@ -20,7 +22,11 @@ trait TerminateProcessing {
       sc: SequencerCounter,
       sequencedTime: SequencedTime,
       effectiveTime: EffectiveTime,
-  )(implicit traceContext: TraceContext, executionContext: ExecutionContext): Future[Unit]
+      transactions: Seq[GenericSignedTopologyTransaction],
+  )(implicit
+      traceContext: TraceContext,
+      executionContext: ExecutionContext,
+  ): FutureUnlessShutdown[Unit]
 }
 
 object TerminateProcessing {
@@ -34,7 +40,11 @@ object TerminateProcessing {
         sc: SequencerCounter,
         sequencedTime: SequencedTime,
         effectiveTime: EffectiveTime,
-    )(implicit traceContext: TraceContext, executionContext: ExecutionContext): Future[Unit] =
-      Future.unit
+        transactions: Seq[GenericSignedTopologyTransaction],
+    )(implicit
+        traceContext: TraceContext,
+        executionContext: ExecutionContext,
+    ): FutureUnlessShutdown[Unit] =
+      FutureUnlessShutdown.unit
   }
 }

@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store.backend.common
 import anorm.SqlParser.{int, long}
 import anorm.{ParameterMetaData, RowParser, ToStatement, ~}
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.{
   ParticipantMetering,
@@ -14,8 +14,8 @@ import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.{
 }
 import com.digitalasset.canton.platform.ApplicationId
 import com.digitalasset.canton.platform.store.backend.Conversions.{
-  absoluteOffsetO,
   applicationId,
+  offset,
   timestampFromMicros,
 }
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.{
@@ -43,7 +43,7 @@ private[backend] object MeteringStorageBackendImpl {
         timestampFromMicros("from_timestamp") ~
         timestampFromMicros("to_timestamp") ~
         int("action_count") ~
-        absoluteOffsetO("ledger_offset")
+        offset("ledger_offset").?
     ).map {
       case applicationId ~
           from ~
@@ -68,8 +68,8 @@ private[backend] object MeteringStorageBackendImpl {
 
 private[backend] object MeteringStorageBackendReadTemplate extends MeteringStorageReadBackend {
 
-  implicit val offsetToStatement: ToStatement[AbsoluteOffset] =
-    Conversions.AbsoluteOffsetToStatement
+  implicit val OffsetToStatement: ToStatement[Offset] =
+    Conversions.OffsetToStatement
   implicit val timestampToStatement: ToStatement[Timestamp] =
     Conversions.TimestampToStatement
   implicit val timestampParamMeta: ParameterMetaData[Timestamp] =
@@ -93,7 +93,7 @@ private[backend] object MeteringStorageBackendReadTemplate extends MeteringStora
     } else {
       val transactionData =
         transactionMetering(
-          from = ledgerMeteringEnd.offset.fold(AbsoluteOffset.firstOffset)(_.increment),
+          from = ledgerMeteringEnd.offset.fold(Offset.firstOffset)(_.increment),
           to = to,
           appId = maybeApplicationId,
         )(connection)
@@ -112,7 +112,7 @@ private[backend] object MeteringStorageBackendReadTemplate extends MeteringStora
     * @param appId - If specified only return rows for this application
     */
   private def transactionMetering(
-      from: AbsoluteOffset,
+      from: Offset,
       to: Option[Time.Timestamp],
       appId: Option[String],
   )(connection: Connection): Map[ApplicationId, Long] =
@@ -121,9 +121,10 @@ private[backend] object MeteringStorageBackendReadTemplate extends MeteringStora
         application_id,
         sum(action_count)
       from lapi_transaction_metering
-      where ledger_offset >= $from
-      and   ${ifSet[Timestamp](to, t => cSQL"metering_timestamp < $t")}
-      and   ${ifSet[String](appId, a => cSQL"application_id = $a")}
+      where ledger_offset is not null
+      and ledger_offset >= $from
+      and ${ifSet[Timestamp](to, t => cSQL"metering_timestamp < $t")}
+      and ${ifSet[String](appId, a => cSQL"application_id = $a")}
       group by application_id
     """
       .asVectorOf(applicationCountParser)(connection)
@@ -154,10 +155,8 @@ private[backend] object MeteringStorageBackendReadTemplate extends MeteringStora
 }
 private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStorageWriteBackend {
 
-  implicit val absoluteOffsetToStatement: ToStatement[AbsoluteOffset] =
-    Conversions.AbsoluteOffsetToStatement
-  implicit val absoluteOffsetOToStatement: ToStatement[Option[AbsoluteOffset]] =
-    Conversions.AbsoluteOffsetOToStatement
+  implicit val OffsetToStatement: ToStatement[Offset] =
+    Conversions.OffsetToStatement
   implicit val timestampToStatement: ToStatement[Timestamp] =
     Conversions.TimestampToStatement
   implicit val timestampParamMeta: ParameterMetaData[Timestamp] =
@@ -167,20 +166,19 @@ private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStor
     (applicationId(columnName = "application_id") ~ int(columnPosition = 2))
       .map { case applicationId ~ count => applicationId -> count }
 
-  def transactionMeteringMaxOffset(from: Option[AbsoluteOffset], to: Timestamp)(
+  def transactionMeteringMaxOffset(from: Option[Offset], to: Timestamp)(
       connection: Connection
-  ): Option[AbsoluteOffset] =
+  ): Option[Offset] =
     SQL"""
       select max(ledger_offset)
       from lapi_transaction_metering
-      where ${ifSet[AbsoluteOffset](from, f => cSQL"ledger_offset > $f")}
+      where ledger_offset is not null
+      and ${ifSet[Offset](from, f => cSQL"ledger_offset > $f")}
       and metering_timestamp < $to
     """
-      // TODO(#22143) verify we do not store zero as an offset in lapi_transaction_metering
-      .as(absoluteOffsetO(1).?.single)(connection)
-      .flatten
+      .as(offset(1).?.single)(connection)
 
-  def selectTransactionMetering(from: Option[AbsoluteOffset], to: AbsoluteOffset)(
+  def selectTransactionMetering(from: Option[Offset], to: Offset)(
       connection: Connection
   ): Map[ApplicationId, Int] =
     SQL"""
@@ -188,20 +186,22 @@ private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStor
         application_id,
         sum(action_count)
       from lapi_transaction_metering
-      where ${ifSet[AbsoluteOffset](from, f => cSQL"ledger_offset > $f")}
+      where ledger_offset is not null
+      and ${ifSet[Offset](from, f => cSQL"ledger_offset > $f")}
       and ledger_offset <= $to
       group by application_id
     """
       .asVectorOf(applicationCountParser)(connection)
       .toMap
 
-  def deleteTransactionMetering(from: Option[AbsoluteOffset], to: AbsoluteOffset)(
+  def deleteTransactionMetering(from: Option[Offset], to: Offset)(
       connection: Connection
   ): Unit =
     discard(
       SQL"""
       delete from lapi_transaction_metering
-      where ${ifSet[AbsoluteOffset](from, f => cSQL"ledger_offset > $f")}
+      where ledger_offset is not null
+      and ${ifSet[Offset](from, f => cSQL"ledger_offset > $f")}
       and ledger_offset <= $to
     """
         .execute()(connection)
@@ -214,7 +214,8 @@ private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStor
       import participantMetering.*
       SQL"""
         insert into lapi_participant_metering(application_id, from_timestamp, to_timestamp, action_count, ledger_offset)
-        values (${participantMetering.applicationId.toString}, $from, $to, $actionCount, $ledgerOffset)
+        values (${participantMetering.applicationId.toString}, $from, $to, $actionCount, ${ledgerOffset
+          .map(_.unwrap)})
       """.execute()(connection).discard
     }
 

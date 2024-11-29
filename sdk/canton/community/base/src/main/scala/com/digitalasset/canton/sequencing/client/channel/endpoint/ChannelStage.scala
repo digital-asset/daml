@@ -5,11 +5,10 @@ package com.digitalasset.canton.sequencing.client.channel.endpoint
 
 import cats.data.EitherT
 import cats.syntax.either.*
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.{AsymmetricEncrypted, Encrypted, SymmetricKey}
 import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.api.v30.ConnectToSequencerChannelResponse.Response
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.channel.ConnectToSequencerChannelRequest
 import com.digitalasset.canton.sequencing.client.channel.SequencerChannelProtocolProcessor
@@ -36,10 +35,8 @@ private[endpoint] sealed abstract class ChannelStage(
     val name: String,
 )(implicit
     executionContext: ExecutionContext
-) extends FlagCloseable
-    with NamedLogging {
+) extends NamedLogging {
 
-  override protected def timeouts: ProcessingTimeout = data.timeouts
   override protected def loggerFactory: NamedLoggerFactory = data.loggerFactory
 
   protected def wrongMessageError(
@@ -77,7 +74,6 @@ private[endpoint] object ChannelStage {
       protocolVersion: ProtocolVersion,
       processor: SequencerChannelProtocolProcessor,
       loggerFactory: NamedLoggerFactory,
-      timeouts: ProcessingTimeout,
   )
 }
 
@@ -118,10 +114,9 @@ private[endpoint] class ChannelStageBootstrap(
     }
 
   private def createSessionKey(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
+      traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, AsymmetricEncrypted[SymmetricKey]] =
-    data.security.generateSessionKey(connectTo).mapK(FutureUnlessShutdown.outcomeK)
+    data.security.generateSessionKey(connectTo)
 }
 
 private[endpoint] class ChannelStageConnected(data: InternalData)(implicit
@@ -209,9 +204,7 @@ private[endpoint] class ChannelStageSecurelyConnected(data: InternalData)(implic
     } yield (Nil, newStage)
   }
 
-  private def decrypt[M](
-      encryptedMessage: Encrypted[M]
-  )(
+  private def decrypt[M](encryptedMessage: Encrypted[M])(
       deserialize: ByteString => Either[DeserializationError, M]
   ): EitherT[FutureUnlessShutdown, String, M] =
     data.security.decrypt(encryptedMessage)(deserialize).mapK(FutureUnlessShutdown.outcomeK)

@@ -41,7 +41,7 @@ class PackageDependencyResolver(
       cache = Scaffeine().maximumSize(10000).expireAfterAccess(15.minutes).executor(ec.execute(_)),
       loader = implicit tc => loadPackageDependencies _,
       allLoader = None,
-    )(logger)
+    )(logger, "dependencyCache")
 
   def packageDependencies(packageId: PackageId)(implicit
       traceContext: TraceContext

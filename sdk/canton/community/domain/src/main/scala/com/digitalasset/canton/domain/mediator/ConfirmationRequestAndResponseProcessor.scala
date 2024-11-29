@@ -4,7 +4,6 @@
 package com.digitalasset.canton.domain.mediator
 
 import cats.data.{EitherT, OptionT}
-import cats.instances.future.*
 import cats.syntax.alternative.*
 import cats.syntax.foldable.*
 import cats.syntax.functorFilter.*
@@ -79,11 +78,10 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
       // FIXME(i12903): do not block if requestId is far in the future
       snapshot <- crypto.ips.awaitSnapshotUS(timestamp)(callerTraceContext)
 
-      domainParameters <- FutureUnlessShutdown.outcomeF(
+      domainParameters <-
         snapshot
           .findDynamicDomainParameters()(callerTraceContext)
-          .flatMap(_.toFuture(new IllegalStateException(_)))
-      )
+          .flatMap(_.toFutureUS(new IllegalStateException(_)))
 
       participantResponseDeadline <- FutureUnlessShutdown.outcomeF(
         domainParameters.participantResponseDeadlineForF(timestamp)
@@ -172,11 +170,10 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
       for {
         snapshot <- crypto.ips.awaitSnapshotUS(responseAggregation.requestId.unwrap)(traceContext)
 
-        domainParameters <- FutureUnlessShutdown.outcomeF(
+        domainParameters <-
           snapshot
             .findDynamicDomainParameters()(traceContext)
-            .flatMap(_.toFuture(new IllegalStateException(_)))
-        )
+            .flatMap(_.toFutureUS(new IllegalStateException(_)))
         decisionTime = domainParameters.decisionTimeFor(responseAggregation.requestId.unwrap)
         state <- mediatorState
           .replace(responseAggregation, timeout)
@@ -232,14 +229,13 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
             _ <- unitOrVerdictO match {
               // Request is well-formed, but not yet finalized
               case Right(()) =>
-                val aggregationF = FutureUnlessShutdown.outcomeF(
+                val aggregationF =
                   ResponseAggregation.fromRequest(
                     requestId,
                     request,
                     timeout,
                     snapshot.ipsSnapshot,
                   )
-                )
 
                 for {
                   aggregation <- aggregationF
@@ -300,7 +296,6 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
         .right[Option[MediatorVerdict.MediatorReject]](
           topologySnapshot.isMediatorActive(mediatorId)
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
       _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
         isActive, {
           logger.info(
@@ -317,7 +312,6 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
           request.submittingParticipant,
           request.submittingParticipantSignature,
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
         .leftMap { err =>
           val reject = MediatorError.MalformedMessage.Reject(
             show"Received a mediator confirmation request with id $requestId from ${request.submittingParticipant} with an invalid signature. Rejecting request.\nDetailed error: $err"
@@ -329,7 +323,6 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
       // Validate activeness of informee participants
       _ <- topologySnapshot
         .allHaveActiveParticipants(request.allInformees)
-        .mapK(FutureUnlessShutdown.outcomeK)
         .leftMap { informeesNoParticipant =>
           val reject = MediatorError.InvalidMessage.Reject(
             show"Received a mediator confirmation request with id $requestId with some informees not being hosted by an active participant: $informeesNoParticipant. Rejecting request..."
@@ -400,31 +393,30 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
         )
       )
 
-    val fut = for {
+    for {
       mediatorGroupO <- EitherT.right(
         topologySnapshot.mediatorGroup(request.mediator.group)(loggingContext)
       )
-      mediatorGroup <- EitherT.fromOption[Future](
+      mediatorGroup <- EitherT.fromOption[FutureUnlessShutdown](
         mediatorGroupO,
         rejectWrongMediator(show"unknown mediator group"),
       )
-      _ <- EitherTUtil.condUnitET[Future](
+      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
         mediatorGroup.isActive,
         rejectWrongMediator(show"inactive mediator group"),
       )
-      _ <- EitherTUtil.condUnitET[Future](
+      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
         mediatorGroup.active.contains(mediatorId) || mediatorGroup.passive.contains(mediatorId),
         rejectWrongMediator(show"this mediator not being part of the mediator group"),
       )
       expectedRecipients = Recipients.cc(request.mediator)
-      _ <- EitherTUtil.condUnitET[Future](
+      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
         requestEnvelope.recipients == expectedRecipients,
         rejectWrongMediator(
           show"wrong recipients (expected $expectedRecipients, actual ${requestEnvelope.recipients})"
         ),
       )
     } yield request.mediator
-    fut.mapK(FutureUnlessShutdown.outcomeK)
   }
 
   private def checkRootHashMessages(
@@ -698,7 +690,6 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
                     .map(cp => Either.cond(hostedConfirmingParties.contains(cp), cp, cp))
                 }
             )
-            .mapK(FutureUnlessShutdown.outcomeK)
 
           (unauthorized, authorized) = partitionedConfirmingParties.separate
 
@@ -757,7 +748,6 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
           snapshot <- OptionT.liftF(crypto.awaitSnapshotUS(response.requestId.unwrap))
           _ <- signedResponse
             .verifySignature(snapshot, response.sender)
-            .mapK(FutureUnlessShutdown.outcomeK)
             .leftMap(err =>
               MediatorError.MalformedMessage
                 .Reject(
@@ -831,9 +821,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
             }
           }
           nextResponseAggregation <- OptionT(
-            FutureUnlessShutdown.outcomeF(
-              responseAggregation.validateAndProgress(ts, response, snapshot.ipsSnapshot)
-            )
+            responseAggregation.validateAndProgress(ts, response, snapshot.ipsSnapshot)
           )
           _unit <- mediatorState.replace(responseAggregation, nextResponseAggregation)
           _ <- OptionT.some[FutureUnlessShutdown](

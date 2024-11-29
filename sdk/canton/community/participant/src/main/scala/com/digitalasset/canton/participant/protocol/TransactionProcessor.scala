@@ -101,7 +101,6 @@ class TransactionProcessor(
         ),
         staticDomainParameters,
         crypto,
-        ephemeral.contractStore,
         metrics,
         SerializableContractAuthenticator(crypto.pureCrypto),
         damle.enrichTransaction,

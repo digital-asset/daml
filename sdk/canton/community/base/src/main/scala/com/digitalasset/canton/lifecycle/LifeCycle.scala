@@ -5,6 +5,7 @@ package com.digitalasset.canton.lifecycle
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.ShowUtil.*
@@ -105,11 +106,26 @@ object LifeCycle extends NoTracing {
     override def close(): Unit =
       shutdownResource(
         s"channel: $channel ($name)",
-        () => { val _ = channel.shutdown() },
-        () => { val _ = channel.shutdownNow() },
+        () => channel.shutdown().discard[ManagedChannel],
+        () => channel.shutdownNow().discard[ManagedChannel],
         _ => true,
         duration => channel.awaitTermination(duration.toMillis, TimeUnit.MILLISECONDS),
         defaultGracefulShutdownTimeout,
+        defaultForcedShutdownTimeout,
+        logger,
+        verbose = false,
+      )
+
+    override def toString: String = s"ManagedChannel ($name, $channel)"
+  }
+
+  class FastCloseableChannel(val channel: ManagedChannel, logger: TracedLogger, name: String)
+      extends AutoCloseable {
+    override def close(): Unit =
+      forceShutdownResource(
+        s"channel: $channel ($name)",
+        () => channel.shutdownNow().discard[ManagedChannel],
+        duration => channel.awaitTermination(duration.toMillis, TimeUnit.MILLISECONDS),
         defaultForcedShutdownTimeout,
         logger,
         verbose = false,
@@ -123,8 +139,8 @@ object LifeCycle extends NoTracing {
     override def close(): Unit =
       shutdownResource(
         s"server: $server ($name)",
-        () => { val _ = server.shutdown() },
-        () => { val _ = server.shutdownNow },
+        () => server.shutdown().discard[Server],
+        () => server.shutdownNow().discard[Server],
         _ => true,
         duration => server.awaitTermination(duration.toMillis, TimeUnit.MILLISECONDS),
         defaultGracefulShutdownTimeout,
@@ -134,7 +150,7 @@ object LifeCycle extends NoTracing {
     override def toString: String = s"ManagedServer ($name)"
   }
 
-  def shutdownResource[A](
+  def shutdownResource(
       name: String,
       shutdown: () => Unit,
       shutdownNow: () => Unit,
@@ -183,6 +199,30 @@ object LifeCycle extends NoTracing {
         forceShutdown("Interrupt during shutdown. Forcing shutdown now.")
         // preserve interrupt status
         Thread.currentThread().interrupt()
+    }
+  }
+
+  private def forceShutdownResource(
+      name: String,
+      shutdownNow: () => Unit,
+      awaitTermination: FiniteDuration => Boolean,
+      timeout: FiniteDuration,
+      logger: TracedLogger,
+      verbose: Boolean,
+  ): Unit = {
+    val started = Deadline.now
+
+    if (verbose) logger.debug(s"About to force close $name.")
+    shutdownNow()
+    if (!awaitTermination(timeout)) {
+      logger.error(s"$name: failed to terminate within $timeout")
+    } else {
+      val end = Deadline.now
+      if (started + slowShutdownThreshold < end) {
+        logger.info(s"$name: Slow shutdown of ${end - started}.")
+      } else if (verbose) {
+        logger.debug(s"Closed $name after ${end - started}.")
+      }
     }
   }
 }

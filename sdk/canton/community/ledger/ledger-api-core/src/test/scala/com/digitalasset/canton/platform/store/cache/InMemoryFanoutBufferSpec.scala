@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store.cache
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.completion.Completion
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer.BufferSlice.LastBufferChunkSuffix
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer.{
@@ -477,7 +477,7 @@ class InMemoryFanoutBufferSpec
 
     def withBuffer(
         maxBufferSize: Int = 5,
-        elems: immutable.Vector[(AbsoluteOffset, TransactionLogUpdate)] = bufferElements,
+        elems: immutable.Vector[(Offset, TransactionLogUpdate)] = bufferElements,
         maxFetchSize: Int = 10,
     )(test: InMemoryFanoutBuffer => Assertion): Assertion = {
       val buffer = new InMemoryFanoutBuffer(
@@ -491,14 +491,14 @@ class InMemoryFanoutBufferSpec
     }
   }
 
-  private def offset(idx: Long): AbsoluteOffset = {
+  private def offset(idx: Long): Offset = {
     val base = 1000000000L
-    AbsoluteOffset.tryFromLong(base + idx)
+    Offset.tryFromLong(base + idx)
   }
 
-  private def succ(offset: AbsoluteOffset): AbsoluteOffset = offset.increment
+  private def succ(offset: Offset): Offset = offset.increment
 
-  private def txAccepted(idx: Long, offset: AbsoluteOffset) =
+  private def txAccepted(idx: Long, offset: Offset) =
     TransactionLogUpdate.TransactionAccepted(
       updateId = s"tx-$idx",
       workflowId = s"workflow-$idx",
@@ -511,7 +511,7 @@ class InMemoryFanoutBufferSpec
       recordTime = Time.Timestamp.Epoch,
     )
 
-  private def txRejected(idx: Long, offset: AbsoluteOffset) =
+  private def txRejected(idx: Long, offset: Offset) =
     TransactionLogUpdate.TransactionRejected(
       offset = offset,
       completionStreamResponse = CompletionStreamResponse.defaultInstance.withCompletion(

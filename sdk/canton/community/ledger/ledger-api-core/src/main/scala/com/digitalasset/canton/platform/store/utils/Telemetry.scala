@@ -4,13 +4,13 @@
 package com.digitalasset.canton.platform.store.utils
 
 import com.daml.tracing.SpanAttribute
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import io.opentelemetry.api.trace.{Span, Tracer}
 
 object Telemetry {
 
   object Transactions {
-    def createSpan(tracer: Tracer, startInclusive: AbsoluteOffset, endInclusive: AbsoluteOffset)(
+    def createSpan(tracer: Tracer, startInclusive: Offset, endInclusive: Offset)(
         fullyQualifiedFunctionName: String
     ): Span =
       tracer
@@ -20,7 +20,7 @@ object Telemetry {
         .setAttribute(SpanAttribute.OffsetTo.key, endInclusive.toDecimalString)
         .startSpan()
 
-    def createSpan(tracer: Tracer, activeAt: AbsoluteOffset)(
+    def createSpan(tracer: Tracer, activeAt: Offset)(
         fullyQualifiedFunctionName: String
     ): Span =
       tracer

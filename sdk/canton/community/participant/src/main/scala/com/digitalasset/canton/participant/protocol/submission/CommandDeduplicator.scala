@@ -7,7 +7,7 @@ import cats.Eval
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.LedgerSubmissionId
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, DeduplicationPeriod}
+import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod, Offset}
 import com.digitalasset.canton.ledger.participant.state.ChangeId
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -63,7 +63,7 @@ object CommandDeduplicator {
   final case class MalformedOffset(error: String) extends DeduplicationFailed
 
   final case class AlreadyExists(
-      completionOffset: AbsoluteOffset,
+      completionOffset: Offset,
       accepted: Boolean,
       existingSubmissionId: Option[LedgerSubmissionId],
   ) extends DeduplicationFailed
@@ -111,7 +111,7 @@ class CommandDeduplicatorImpl(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, DeduplicationFailed, DeduplicationPeriod.DeduplicationOffset] = {
 
-    def dedupPeriodTooEarly(prunedOffset: AbsoluteOffset): DeduplicationFailed =
+    def dedupPeriodTooEarly(prunedOffset: Offset): DeduplicationFailed =
       DeduplicationPeriodTooEarly(
         deduplicationPeriod,
         DeduplicationPeriod.DeduplicationOffset(
@@ -127,11 +127,11 @@ class CommandDeduplicatorImpl(
     // So we report the first ledger offset as the deduplication start instead.
     // This difference does not matter in practice for command deduplication
     // as the first offset always contains the ledger configuration and can therefore never be a command completion.
-    def unprunedDedupOffset: AbsoluteOffset = AbsoluteOffset.firstOffset
+    def unprunedDedupOffset: Offset = Offset.firstOffset
 
     def dedupDuration(
         duration: java.time.Duration
-    ): EitherT[FutureUnlessShutdown, DeduplicationFailed, AbsoluteOffset] = {
+    ): EitherT[FutureUnlessShutdown, DeduplicationFailed, Offset] = {
       // Convert the duration into a timestamp based on the local participant clock
       // and check against the publication time of the definite answer events.
       //
@@ -149,7 +149,7 @@ class CommandDeduplicatorImpl(
 
       def checkAgainstPruning(
           deduplicationStart: CantonTimestamp
-      ): EitherT[FutureUnlessShutdown, DeduplicationFailed, AbsoluteOffset] =
+      ): EitherT[FutureUnlessShutdown, DeduplicationFailed, Offset] =
         EitherTUtil.leftSubflatMap(store.value.latestPruning().toLeft(unprunedDedupOffset)) {
           case OffsetAndPublicationTime(prunedOffset, prunedPublicationTime) =>
             Either.cond(
@@ -198,11 +198,11 @@ class CommandDeduplicatorImpl(
     }
 
     def dedupOffset(
-        offset: Option[AbsoluteOffset]
-    ): EitherT[FutureUnlessShutdown, DeduplicationFailed, AbsoluteOffset] = {
+        offset: Option[Offset]
+    ): EitherT[FutureUnlessShutdown, DeduplicationFailed, Offset] = {
       def checkAgainstPruning(
-          dedupOffset: AbsoluteOffset
-      ): EitherT[FutureUnlessShutdown, DeduplicationFailed, AbsoluteOffset] =
+          dedupOffset: Offset
+      ): EitherT[FutureUnlessShutdown, DeduplicationFailed, Offset] =
         EitherTUtil.leftSubflatMap(store.value.latestPruning().toLeft(unprunedDedupOffset)) {
           case OffsetAndPublicationTime(prunedOffset, _prunedPublicationTime) =>
             Either.cond(
@@ -214,7 +214,7 @@ class CommandDeduplicatorImpl(
 
       for {
         dedupOffset <- EitherT.fromEither[FutureUnlessShutdown](
-          AbsoluteOffset
+          Offset
             .fromLong(offset.fold(0L)(_.unwrap))
             .leftMap[DeduplicationFailed](err => MalformedOffset(err))
         )

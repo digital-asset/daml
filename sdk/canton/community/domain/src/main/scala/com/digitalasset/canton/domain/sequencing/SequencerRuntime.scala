@@ -144,7 +144,9 @@ class SequencerRuntime(
 
   def domainId: DomainId = indexedDomain.domainId
 
-  def initialize()(implicit traceContext: TraceContext): EitherT[Future, String, Unit] = {
+  def initialize()(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, Unit] = {
     def keyCheckET =
       EitherT {
         val snapshot = syncCrypto
@@ -157,7 +159,7 @@ class SequencerRuntime(
           }
       }
 
-    def registerInitialMembers: EitherT[Future, String, Unit] = {
+    def registerInitialMembers: EitherT[FutureUnlessShutdown, String, Unit] = {
       logger.debug(s"Registering initial sequencer members: $staticMembersToRegister")
       staticMembersToRegister
         .parTraverse_ { member =>
@@ -168,8 +170,10 @@ class SequencerRuntime(
                 case Some((_, firstKnownAtEffectiveTime)) =>
                   sequencer
                     .registerMemberInternal(member, firstKnownAtEffectiveTime.value)
+                    .mapK(FutureUnlessShutdown.outcomeK)
                     .leftMap(_.toString)
-                case None => EitherT.leftT[Future, Unit](s"Member $member not known in topology")
+                case None =>
+                  EitherT.leftT[FutureUnlessShutdown, Unit](s"Member $member not known in topology")
               }
             }
           } yield ()
@@ -261,7 +265,7 @@ class SequencerRuntime(
         sequencerService.disconnectMember(member)(tc)
         sequencerChannelServiceO.foreach(_.disconnectMember(member)(tc))
       },
-      runtimeReadyPromise.future.map(_ =>
+      runtimeReadyPromise.futureUS.map(_ =>
         ()
       ), // on shutdown, MemberAuthenticationStore will be closed via closeContext
     )
@@ -440,24 +444,29 @@ class SequencerRuntime(
       loggerFactory,
     )
 
-  def initializeAll()(implicit traceContext: TraceContext): EitherT[Future, String, Unit] =
+  def initializeAll()(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, Unit] =
     for {
       _ <- initialize()
       _ = logger.debug("Subscribing topology client within sequencer runtime")
-      _ <- EitherT.right(
-        client.subscribeTracking(
-          topologyManagerSequencerCounterTrackerStore,
-          DiscardIgnoredEvents(loggerFactory) {
-            EnvelopeOpener(staticDomainParameters.protocolVersion, syncCrypto.pureCrypto)(
-              eventHandler
-            )
-          },
-          timeTracker,
+      _ <- EitherT
+        .right(
+          client.subscribeTracking(
+            topologyManagerSequencerCounterTrackerStore,
+            DiscardIgnoredEvents(loggerFactory) {
+              EnvelopeOpener(staticDomainParameters.protocolVersion, syncCrypto.pureCrypto)(
+                eventHandler
+              )
+            },
+            timeTracker,
+          )
         )
-      )
+        .mapK(FutureUnlessShutdown.outcomeK)
       _ <- domainOutboxO
         .map(_.startup().onShutdown(Either.unit))
         .getOrElse(EitherT.rightT[Future, String](()))
+        .mapK(FutureUnlessShutdown.outcomeK)
     } yield {
       logger.info("Sequencer runtime initialized")
       runtimeReadyPromise.outcome(())

@@ -5,12 +5,12 @@ package com.digitalasset.canton.platform.store.backend.common
 
 import anorm.SqlParser.*
 import anorm.{Row, RowParser, SimpleSql, ~}
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.store.backend.Conversions.{
-  absoluteOffset,
   contractId,
   hashFromHexString,
+  offset,
   timestampFromMicros,
 }
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
@@ -109,11 +109,11 @@ object EventStorageBackendTemplate {
     baseColumnsForFlatTransactionsExercise.mkString(", ")
 
   private type SharedRow =
-    String ~ String ~ Int ~ Long ~ String ~ Timestamp ~ Int ~ Int ~ Option[String] ~
+    Long ~ String ~ Int ~ Long ~ String ~ Timestamp ~ Int ~ Int ~ Option[String] ~
       Option[String] ~ Array[Int] ~ Option[Array[Int]] ~ Int ~ Option[Array[Byte]] ~ Timestamp
 
   private val sharedRow: RowParser[SharedRow] =
-    str("event_offset") ~
+    long("event_offset") ~
       str("update_id") ~
       int("node_index") ~
       long("event_sequential_id") ~
@@ -432,7 +432,7 @@ object EventStorageBackendTemplate {
 
   val partyToParticipantEventRow =
     long("event_sequential_id") ~
-      absoluteOffset("event_offset") ~
+      offset("event_offset") ~
       str("update_id") ~
       int("party_id") ~
       str("participant_id") ~
@@ -469,7 +469,7 @@ object EventStorageBackendTemplate {
   val assignEventRow =
     str("command_id").? ~
       str("workflow_id").? ~
-      str("event_offset") ~
+      long("event_offset") ~
       int("source_domain_id") ~
       int("target_domain_id") ~
       str("unassign_id") ~
@@ -577,7 +577,7 @@ object EventStorageBackendTemplate {
   val unassignEventRow =
     str("command_id").? ~
       str("workflow_id").? ~
-      str("event_offset") ~
+      long("event_offset") ~
       int("source_domain_id") ~
       int("target_domain_id") ~
       str("unassign_id") ~
@@ -837,7 +837,7 @@ object EventStorageBackendTemplate {
       offsetColumnName: String,
       stringInterning: StringInterning,
   ): RowParser[DomainOffset] =
-    absoluteOffset(offsetColumnName) ~
+    offset(offsetColumnName) ~
       int("domain_id") ~
       timestampFromMicros("record_time") ~
       timestampFromMicros("publication_time") map {
@@ -864,12 +864,12 @@ abstract class EventStorageBackendTemplate(
     ledgerEndCache: LedgerEndCache,
     stringInterning: StringInterning,
     // This method is needed in pruneEvents, but belongs to [[ParameterStorageBackend]].
-    participantAllDivulgedContractsPrunedUpToInclusive: Connection => Option[AbsoluteOffset],
+    participantAllDivulgedContractsPrunedUpToInclusive: Connection => Option[Offset],
     val loggerFactory: NamedLoggerFactory,
 ) extends EventStorageBackend
     with NamedLogging {
   import EventStorageBackendTemplate.*
-  import com.digitalasset.canton.platform.store.backend.Conversions.AbsoluteOffsetToStatement
+  import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
 
   override def transactionPointwiseQueries: TransactionPointwiseQueries =
     new TransactionPointwiseQueries(
@@ -900,15 +900,15 @@ abstract class EventStorageBackendTemplate(
     * 10. transaction meta entries for which there exists at least one create event.
     */
   override def pruneEvents(
-      pruneUpToInclusive: AbsoluteOffset,
+      pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
-      incompletReassignmentOffsets: Vector[AbsoluteOffset],
+      incompletReassignmentOffsets: Vector[Offset],
   )(implicit connection: Connection, traceContext: TraceContext): Unit = {
     val _ =
       SQL"""
           -- Create temporary table for storing incomplete reassignment offsets
           CREATE LOCAL TEMPORARY TABLE IF NOT EXISTS temp_incomplete_reassignment_offsets (
-            incomplete_offset varchar PRIMARY KEY NOT NULL
+            incomplete_offset bigint PRIMARY KEY NOT NULL
           ) ON COMMIT DELETE ROWS
           """.execute()
     val incompleteOffsetBatches = incompletReassignmentOffsets.distinct
@@ -920,7 +920,7 @@ abstract class EventStorageBackendTemplate(
     ) { preparedStatement =>
       incompleteOffsetBatches.zipWithIndex.foreach { case (batch, index) =>
         batch.foreach { offset =>
-          preparedStatement.setString(1, offset.toHexString)
+          preparedStatement.setLong(1, offset.unwrap)
           preparedStatement.addBatch()
         }
         val _ = preparedStatement.executeBatch()
@@ -1029,7 +1029,7 @@ abstract class EventStorageBackendTemplate(
     }
   }
 
-  private def pruneIdFilterTables(pruneUpToInclusive: AbsoluteOffset)(implicit
+  private def pruneIdFilterTables(pruneUpToInclusive: Offset)(implicit
       connection: Connection,
       traceContext: TraceContext,
   ): Unit = {
@@ -1136,7 +1136,7 @@ abstract class EventStorageBackendTemplate(
 
   private def createIsArchivedOrUnassigned(
       createEventTableName: String,
-      pruneUpToInclusive: AbsoluteOffset,
+      pruneUpToInclusive: Offset,
   ): CompositeSql =
     cSQL"""
           ${eventIsArchivedOrUnassigned(createEventTableName, pruneUpToInclusive, "domain_id")}
@@ -1149,7 +1149,7 @@ abstract class EventStorageBackendTemplate(
 
   private def assignIsArchivedOrUnassigned(
       assignEventTableName: String,
-      pruneUpToInclusive: AbsoluteOffset,
+      pruneUpToInclusive: Offset,
   ): CompositeSql =
     cSQL"""
       ${eventIsArchivedOrUnassigned(assignEventTableName, pruneUpToInclusive, "target_domain_id")}
@@ -1162,7 +1162,7 @@ abstract class EventStorageBackendTemplate(
 
   private def eventIsArchivedOrUnassigned(
       eventTableName: String,
-      pruneUpToInclusive: AbsoluteOffset,
+      pruneUpToInclusive: Offset,
       eventDomainName: String,
   ): CompositeSql =
     cSQL"""
@@ -1188,7 +1188,6 @@ abstract class EventStorageBackendTemplate(
               ${QueryStrategy.limitClause(Some(1))}
             )
           )"""
-
   private def reassignmentIsNotIncomplete(eventTableName: String): CompositeSql =
     cSQL"""
           not exists (
@@ -1230,7 +1229,7 @@ abstract class EventStorageBackendTemplate(
   private def activationIsNotDirectlyFollowedByIncompleteUnassign(
       activationTableName: String,
       activationDomainColumnName: String,
-      pruneUpToInclusive: AbsoluteOffset,
+      pruneUpToInclusive: Offset,
   ): CompositeSql =
     cSQL"""
           not exists (
@@ -1260,7 +1259,7 @@ abstract class EventStorageBackendTemplate(
   }
 
   override def maxEventSequentialId(
-      untilInclusiveOffset: Option[AbsoluteOffset]
+      untilInclusiveOffset: Option[Offset]
   )(connection: Connection): Long = {
     val ledgerEnd = ledgerEndCache()
     SQL"""
@@ -1442,25 +1441,25 @@ abstract class EventStorageBackendTemplate(
     )(connection)
 
   override def lookupAssignSequentialIdByOffset(
-      offsets: Iterable[String]
+      offsets: Iterable[Long]
   )(connection: Connection): Vector[Long] =
     SQL"""
         SELECT event_sequential_id
         FROM lapi_events_assign
         WHERE
-          event_offset ${queryStrategy.anyOfStrings(offsets)}
+          event_offset ${queryStrategy.anyOf(offsets)}
         ORDER BY event_sequential_id -- deliver in index order
         """
       .asVectorOf(long("event_sequential_id"))(connection)
 
   override def lookupUnassignSequentialIdByOffset(
-      offsets: Iterable[String]
+      offsets: Iterable[Long]
   )(connection: Connection): Vector[Long] =
     SQL"""
         SELECT event_sequential_id
         FROM lapi_events_unassign
         WHERE
-          event_offset ${queryStrategy.anyOfStrings(offsets)}
+          event_offset ${queryStrategy.anyOf(offsets)}
         ORDER BY event_sequential_id -- deliver in index order
         """
       .asVectorOf(long("event_sequential_id"))(connection)
@@ -1520,7 +1519,7 @@ abstract class EventStorageBackendTemplate(
 
   def lastDomainOffsetBeforeOrAt(
       domainIdO: Option[DomainId],
-      beforeOrAtOffsetInclusive: AbsoluteOffset,
+      beforeOrAtOffsetInclusive: Offset,
   )(connection: Connection): Option[DomainOffset] = {
     val ledgerEndOffset = ledgerEndCache().map(_.lastOffset)
     val safeBeforeOrAtOffset =
@@ -1564,7 +1563,7 @@ abstract class EventStorageBackendTemplate(
       .headOption
   }
 
-  def domainOffset(offset: AbsoluteOffset)(connection: Connection): Option[DomainOffset] =
+  def domainOffset(offset: Offset)(connection: Connection): Option[DomainOffset] =
     List(
       SQL"""
           SELECT completion_offset, record_time, publication_time, domain_id
@@ -1642,7 +1641,7 @@ abstract class EventStorageBackendTemplate(
       .headOption
   }
 
-  def archivals(fromExclusive: Option[AbsoluteOffset], toInclusive: AbsoluteOffset)(
+  def archivals(fromExclusive: Option[Offset], toInclusive: Offset)(
       connection: Connection
   ): Set[ContractId] = {
     val fromExclusiveSeqId =

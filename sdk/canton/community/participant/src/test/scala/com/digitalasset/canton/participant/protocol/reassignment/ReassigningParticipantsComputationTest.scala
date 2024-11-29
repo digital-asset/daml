@@ -76,7 +76,7 @@ class ReassigningParticipantsComputationTest
         stakeholders = Stakeholders.withSignatoriesAndObservers(Set(signatory), Set(observer)),
         sourceTopology = Source(snapshot),
         targetTopology = Target(snapshot),
-      ).compute.futureValue shouldBe Set(p1, p2)
+      ).compute.futureValueUS.value shouldBe Set(p1, p2)
     }
 
     "not return participants connected to a single domain" in {
@@ -102,19 +102,19 @@ class ReassigningParticipantsComputationTest
         stakeholders = stakeholders,
         sourceTopology = Source(source), // p4 missing
         targetTopology = Target(target), // p3 missing
-      ).compute.futureValue shouldBe Set(p1, p2)
+      ).compute.futureValueUS.value shouldBe Set(p1, p2)
 
       new ReassigningParticipantsComputation(
         stakeholders = stakeholders,
         sourceTopology = Source(source),
         targetTopology = Target(source), // p3 is there as well
-      ).compute.futureValue shouldBe Set(p1, p2, p3)
+      ).compute.futureValueUS.value shouldBe Set(p1, p2, p3)
 
       new ReassigningParticipantsComputation(
         stakeholders = stakeholders,
         sourceTopology = Source(target), // p4 is there as well
         targetTopology = Target(target),
-      ).compute.futureValue shouldBe Set(p1, p2, p4)
+      ).compute.futureValueUS.value shouldBe Set(p1, p2, p4)
     }
 
     "fail if one signatory is unknown in the topology state" in {
@@ -137,7 +137,7 @@ class ReassigningParticipantsComputationTest
         stakeholders = stakeholders,
         sourceTopology = Source(incomplete),
         targetTopology = Target(complete),
-      ).compute.value.futureValue.left.value shouldBe StakeholderHostingErrors(
+      ).compute.value.futureValueUS.left.value shouldBe StakeholderHostingErrors(
         s"The following parties are not active on the source domain: Set($signatory)"
       )
 
@@ -145,7 +145,7 @@ class ReassigningParticipantsComputationTest
         stakeholders = stakeholders,
         sourceTopology = Source(complete),
         targetTopology = Target(incomplete),
-      ).compute.value.futureValue.left.value shouldBe StakeholderHostingErrors(
+      ).compute.value.futureValueUS.left.value shouldBe StakeholderHostingErrors(
         s"The following parties are not active on the target domain: Set($signatory)"
       )
 
@@ -153,7 +153,7 @@ class ReassigningParticipantsComputationTest
         stakeholders = stakeholders,
         sourceTopology = Source(complete),
         targetTopology = Target(complete),
-      ).compute.futureValue shouldBe Set(p1, p2)
+      ).compute.futureValueUS.value shouldBe Set(p1, p2)
     }
 
     "fail if one observer is unknown in the topology state" in {
@@ -176,7 +176,7 @@ class ReassigningParticipantsComputationTest
         stakeholders = stakeholders,
         sourceTopology = Source(incomplete),
         targetTopology = Target(complete),
-      ).compute.value.futureValue.left.value shouldBe StakeholderHostingErrors(
+      ).compute.value.futureValueUS.left.value shouldBe StakeholderHostingErrors(
         s"The following parties are not active on the source domain: Set($observer)"
       )
 
@@ -184,7 +184,7 @@ class ReassigningParticipantsComputationTest
         stakeholders = stakeholders,
         sourceTopology = Source(complete),
         targetTopology = Target(incomplete),
-      ).compute.value.futureValue.left.value shouldBe StakeholderHostingErrors(
+      ).compute.value.futureValueUS.left.value shouldBe StakeholderHostingErrors(
         s"The following parties are not active on the target domain: Set($observer)"
       )
 
@@ -192,7 +192,7 @@ class ReassigningParticipantsComputationTest
         stakeholders = stakeholders,
         sourceTopology = Source(complete),
         targetTopology = Target(complete),
-      ).compute.futureValue shouldBe Set(p1, p2)
+      ).compute.futureValueUS.value shouldBe Set(p1, p2)
     }
 
     "return all participants for a given party" in {
@@ -209,7 +209,7 @@ class ReassigningParticipantsComputationTest
         stakeholders = Stakeholders.withSignatoriesAndObservers(Set(signatory), Set(observer)),
         sourceTopology = Source(topology),
         targetTopology = Target(topology),
-      ).compute.futureValue shouldBe Set(p1, p2, p3, p4)
+      ).compute.futureValueUS.value shouldBe Set(p1, p2, p3, p4)
 
     }
 
@@ -227,7 +227,7 @@ class ReassigningParticipantsComputationTest
         stakeholders = Stakeholders.withSignatoriesAndObservers(Set(signatory), Set(observer)),
         sourceTopology = Source(topology),
         targetTopology = Target(topology),
-      ).compute.futureValue shouldBe Set(p1, p2, p3, p4)
+      ).compute.futureValueUS.value shouldBe Set(p1, p2, p3, p4)
     }
 
     "fail if there are not enough signatory reassigning participants" in {
@@ -269,48 +269,48 @@ class ReassigningParticipantsComputationTest
         stakeholders = Stakeholders.withSignatories(Set(signatory)),
         sourceTopology = Source(t1_c_x_x),
         targetTopology = Target(t1_c_x_x),
-      ).compute.futureValue shouldBe Set(p1)
+      ).compute.futureValueUS.value shouldBe Set(p1)
 
       new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.withSignatories(Set(signatory)),
         sourceTopology = Source(t2_c_c_x),
         targetTopology = Target(t2_c_c_c),
-      ).compute.futureValue shouldBe Set(p1, p2)
+      ).compute.futureValueUS.value shouldBe Set(p1, p2)
       new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.withSignatories(Set(signatory)),
         sourceTopology = Source(t2_c_c_c),
         targetTopology = Target(t2_c_c_x),
-      ).compute.futureValue shouldBe Set(p1, p2)
+      ).compute.futureValueUS.value shouldBe Set(p1, p2)
 
       new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.withSignatories(Set(signatory)),
         sourceTopology = Source(t2_c_c_x),
         targetTopology = Target(t1_c_o_x),
-      ).compute.futureValue shouldBe Set(p1, p2)
+      ).compute.futureValueUS.value shouldBe Set(p1, p2)
       new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.withSignatories(Set(signatory)),
         sourceTopology = Source(t1_c_o_x),
         targetTopology = Target(t2_c_c_x),
-      ).compute.futureValue shouldBe Set(p1, p2)
+      ).compute.futureValueUS.value shouldBe Set(p1, p2)
 
       new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.withSignatories(Set(signatory)),
         sourceTopology = Source(t2_c_o_c),
         targetTopology = Target(t2_c_o_c),
-      ).compute.futureValue shouldBe Set(p1, p2, p3)
+      ).compute.futureValueUS.value shouldBe Set(p1, p2, p3)
       // Errors
       new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.withSignatories(Set(signatory)),
         sourceTopology = Source(t1_c_x_x),
         targetTopology = Target(t2_c_c_x),
-      ).compute.value.futureValue.left.value shouldBe StakeholderHostingErrors(
+      ).compute.value.futureValueUS.left.value shouldBe StakeholderHostingErrors(
         s"Signatory $signatory requires at least 2 signatory reassigning participants on target domain, but only 1 are available"
       )
       new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.withSignatories(Set(signatory)),
         sourceTopology = Source(t2_c_c_x),
         targetTopology = Target(t1_c_x_x),
-      ).compute.value.futureValue.left.value shouldBe StakeholderHostingErrors(
+      ).compute.value.futureValueUS.left.value shouldBe StakeholderHostingErrors(
         s"Signatory $signatory requires at least 2 signatory reassigning participants on source domain, but only 1 are available"
       )
 
@@ -318,14 +318,14 @@ class ReassigningParticipantsComputationTest
         stakeholders = Stakeholders.withSignatories(Set(signatory)),
         sourceTopology = Source(t1_c_x_x),
         targetTopology = Target(t2_c_o_c),
-      ).compute.value.futureValue.left.value shouldBe StakeholderHostingErrors(
+      ).compute.value.futureValueUS.left.value shouldBe StakeholderHostingErrors(
         s"Signatory $signatory requires at least 2 signatory reassigning participants on target domain, but only 1 are available"
       )
       new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.withSignatories(Set(signatory)),
         sourceTopology = Source(t2_c_o_c),
         targetTopology = Target(t1_c_x_x),
-      ).compute.value.futureValue.left.value shouldBe StakeholderHostingErrors(
+      ).compute.value.futureValueUS.left.value shouldBe StakeholderHostingErrors(
         s"Signatory $signatory requires at least 2 signatory reassigning participants on source domain, but only 1 are available"
       )
     }
@@ -348,7 +348,7 @@ class ReassigningParticipantsComputationTest
         stakeholders = Stakeholders.withSignatories(Set(signatory)),
         sourceTopology = Source(t2_c_c_c),
         targetTopology = Target(t1_c_o_x),
-      ).compute.futureValue shouldBe Set(p1, p2)
+      ).compute.futureValueUS.value shouldBe Set(p1, p2)
     }
   }
 }

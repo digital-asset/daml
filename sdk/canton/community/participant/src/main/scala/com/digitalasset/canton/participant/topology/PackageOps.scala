@@ -84,11 +84,12 @@ class PackageOpsImpl(
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, PackageInUse, Unit] =
     stateManager.getAll.toList
-      .sortBy(_._1.toProtoPrimitive) // Sort to keep tests deterministic
+      // Sort to keep tests deterministic
+      .sortBy { case (domainId, _) => domainId.toProtoPrimitive }
       .parTraverse_ { case (_, state) =>
         EitherT(
           state.activeContractStore
-            .packageUsage(packageId, state.contractStore)
+            .packageUsage(packageId, stateManager.contractStore.value)
             .map(opt =>
               opt.fold(Either.unit[PackageInUse])(contractId =>
                 Left(new PackageInUse(packageId, contractId, state.indexedDomain.domainId))
@@ -106,7 +107,7 @@ class PackageOpsImpl(
     // Use the aliasManager to query all domains, even those that are currently disconnected
     val snapshotsForDomains: List[TopologySnapshot] =
       stateManager.getAll.view.keys
-        .map(stateManager.topologyFactoryFor)
+        .map(stateManager.topologyFactoryFor(_, initialProtocolVersion))
         .flatMap(_.map(_.createHeadTopologySnapshot()))
         .toList
 
@@ -172,7 +173,7 @@ class PackageOpsImpl(
   ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Boolean] =
     for {
       currentMapping <- EitherT.right(
-        performUnlessClosingF(functionFullName)(
+        performUnlessClosingUSF(functionFullName)(
           topologyManager.store
             .findPositiveTransactions(
               asOf = CantonTimestamp.MaxValue,

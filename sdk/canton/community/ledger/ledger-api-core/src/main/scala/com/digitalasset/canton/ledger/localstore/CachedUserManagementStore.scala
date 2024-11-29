@@ -38,7 +38,7 @@ class CachedUserManagementStore(
         .maximumSize(maximumCacheSize.toLong),
       loader = key => delegate.getUserInfo(key.id, key.identityProviderId),
       metrics = Some(metrics.userManagement.cache),
-    )(logger)
+    )(logger, "cache")
 
   override def getUserInfo(id: UserId, identityProviderId: IdentityProviderId)(implicit
       loggingContext: LoggingContextWithTrace

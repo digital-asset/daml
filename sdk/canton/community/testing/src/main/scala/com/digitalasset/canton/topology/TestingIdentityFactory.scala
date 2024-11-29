@@ -16,11 +16,7 @@ import com.digitalasset.canton.concurrent.{
   HasFutureSupervision,
 }
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.config.{
-  CachingConfigs,
-  DefaultProcessingTimeouts,
-  SessionSigningKeysConfig,
-}
+import com.digitalasset.canton.config.{DefaultProcessingTimeouts, SessionSigningKeysConfig}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
@@ -307,7 +303,6 @@ class TestingIdentityFactory(
       ips(availableUpToInclusive, currentSnapshotApproximationTimestamp),
       crypto,
       SessionSigningKeysConfig.disabled,
-      CachingConfigs.testing,
       DefaultProcessingTimeouts.testing,
       FutureSupervisor.Noop,
       loggerFactory,
@@ -342,6 +337,13 @@ class TestingIdentityFactory(
 
         override def await(condition: TopologySnapshot => Future[Boolean], timeout: Duration)(
             implicit traceContext: TraceContext
+        ): FutureUnlessShutdown[Boolean] = ???
+
+        override def awaitUS(
+            condition: TopologySnapshot => FutureUnlessShutdown[Boolean],
+            timeout: Duration,
+        )(implicit
+            traceContext: TraceContext
         ): FutureUnlessShutdown[Boolean] = ???
 
         override def domainId: DomainId = dId
@@ -431,6 +433,7 @@ class TestingIdentityFactory(
 
     val store = new InMemoryTopologyStore(
       TopologyStoreId.AuthorizedStore,
+      BaseTest.testedProtocolVersion,
       loggerFactory,
       DefaultProcessingTimeouts.testing,
     )

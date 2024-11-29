@@ -278,23 +278,30 @@ abstract class GenericInMemoryEpochStore[E <: Env[E]]
       }
     }
 
-  override def loadPrePreparesForCompleteBlocks(
+  override def loadCompleteBlocks(
       startEpochNumberInclusive: EpochNumber,
       endEpochNumberInclusive: EpochNumber,
   )(implicit
       traceContext: TraceContext
-  ): E#FutureUnlessShutdownT[Seq[SignedMessage[PrePrepare]]] =
+  ): E#FutureUnlessShutdownT[Seq[Block]] =
     createFuture(loadPrePreparesActionName(startEpochNumberInclusive, endEpochNumberInclusive)) {
       () =>
-        val prePrepares = blocks.view
+        val completedBlocks = blocks.view
           .filter { case (_, CompletedBlock(prePrepare, _)) =>
             val epochNumber = prePrepare.message.blockMetadata.epochNumber
             epochNumber >= startEpochNumberInclusive && epochNumber <= endEpochNumberInclusive
           }
           .values
-          .map(_.prePrepare)
           .toSeq
-        Success(prePrepares)
+          .map { case CompletedBlock(prePrepare, commits) =>
+            Block(
+              prePrepare.message.blockMetadata.epochNumber,
+              prePrepare.message.blockMetadata.blockNumber,
+              CommitCertificate(prePrepare, commits),
+            )
+          }
+          .sortWith(_.blockNumber < _.blockNumber)
+        Success(completedBlocks)
     }
 
   override def loadOrderedBlocks(

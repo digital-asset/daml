@@ -148,7 +148,6 @@ class TransactionTreeFactoryImpl(
 
       rootViewDecompositions <- EitherT
         .liftF(rootViewDecompositionsF)
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       _ = if (logger.underlying.isDebugEnabled) {
         val numRootViews = rootViewDecompositions.length
@@ -796,7 +795,7 @@ class TransactionTreeFactoryImpl(
       rbContext: RollbackContext,
       keyResolver: LfKeyResolver,
   )(implicit traceContext: TraceContext): EitherT[
-    Future,
+    FutureUnlessShutdown,
     TransactionTreeConversionError,
     (TransactionView, WellFormedTransaction[WithSuffixes]),
   ] = {
@@ -834,6 +833,7 @@ class TransactionTreeFactoryImpl(
       decompositions <- EitherT.right(decompositionsF)
       decomposition = checked(decompositions.head)
       view <- createView(decomposition, rootPosition, state, contractOfId)
+        .mapK(FutureUnlessShutdown.outcomeK)
     } yield {
       val suffixedNodes = state.suffixedNodes() transform {
         // Recover the children

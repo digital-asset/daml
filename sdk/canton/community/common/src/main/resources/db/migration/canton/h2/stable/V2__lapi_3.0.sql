@@ -8,21 +8,23 @@ CREATE ALIAS array_intersection FOR "com.digitalasset.canton.store.db.h2.H2Funct
 --
 -- This table is meant to have a single row storing all the parameters we have.
 -- We make sure the following invariant holds:
--- - The ledger_end and ledger_end_sequential_id are always defined at the same time. I.e., either
---   both are NULL, or both are defined.
+-- - The ledger_end, ledger_end_sequential_id, ledger_end_string_interning_id and
+--   ledger_end_publication_time are always defined at the same time. I.e., either
+--   all are NULL, or all are defined.
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_parameters (
   participant_id VARCHAR(1000) NOT NULL,
-  ledger_end VARCHAR(4000) NOT NULL,
-  ledger_end_sequential_id BIGINT NOT NULL,
-  ledger_end_string_interning_id INTEGER NOT NULL,
-  ledger_end_publication_time BIGINT NOT NULL,
-  participant_pruned_up_to_inclusive VARCHAR(4000),
-  participant_all_divulged_contracts_pruned_up_to_inclusive VARCHAR(4000)
+  ledger_end BIGINT,
+  ledger_end_sequential_id BIGINT,
+  ledger_end_string_interning_id INTEGER,
+  ledger_end_publication_time BIGINT,
+  participant_pruned_up_to_inclusive BIGINT,
+  participant_all_divulged_contracts_pruned_up_to_inclusive BIGINT
 );
 
 CREATE TABLE lapi_post_processing_end (
-    post_processing_end VARCHAR(4000) NOT NULL
+    -- null signifies the participant begin
+    post_processing_end BIGINT
 );
 
 
@@ -41,7 +43,7 @@ CREATE TABLE lapi_ledger_end_domain_index (
 -- A table for tracking party allocation submissions
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_party_entries (
-    ledger_offset VARCHAR(4000) PRIMARY KEY NOT NULL,
+    ledger_offset BIGINT PRIMARY KEY NOT NULL,
     recorded_at BIGINT NOT NULL,
     submission_id VARCHAR(1000),
     party VARCHAR(512),
@@ -65,7 +67,7 @@ CREATE INDEX lapi_party_entries_party_id_and_ledger_offset_idx ON lapi_party_ent
 -- Completions
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_command_completions (
-    completion_offset VARCHAR(4000) NOT NULL,
+    completion_offset BIGINT NOT NULL,
     record_time BIGINT NOT NULL,
     publication_time BIGINT NOT NULL,
     application_id VARCHAR(1000) NOT NULL,
@@ -81,7 +83,7 @@ CREATE TABLE lapi_command_completions (
     -- 1. an initial offset
     -- 2. a duration (split into two columns, seconds and nanos, mapping protobuf's 1:1)
     -- 3. an initial timestamp
-    deduplication_offset VARCHAR(4000),
+    deduplication_offset BIGINT,
     deduplication_duration_seconds BIGINT,
     deduplication_duration_nanos INT,
     deduplication_start BIGINT,
@@ -115,7 +117,7 @@ CREATE TABLE lapi_events_create (
     node_index integer NOT NULL,              -- event metadata
 
     -- * event identification
-    event_offset VARCHAR(4000) NOT NULL,
+    event_offset BIGINT NOT NULL,
 
     -- * transaction metadata
     update_id VARCHAR(4000) NOT NULL,
@@ -176,7 +178,7 @@ CREATE TABLE lapi_events_consuming_exercise (
     node_index integer NOT NULL,              -- event metadata
 
     -- * event identification
-    event_offset VARCHAR(4000) NOT NULL,
+    event_offset BIGINT NOT NULL,
 
     -- * transaction metadata
     update_id VARCHAR(4000) NOT NULL,
@@ -233,7 +235,7 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     node_index integer NOT NULL,              -- event metadata
 
     -- * event identification
-    event_offset VARCHAR(4000) NOT NULL,
+    event_offset BIGINT NOT NULL,
 
     -- * transaction metadata
     update_id VARCHAR(4000) NOT NULL,
@@ -289,7 +291,7 @@ CREATE TABLE lapi_events_unassign (
     event_sequential_id bigint NOT NULL,      -- event identification: same ordering as event_offset
 
     -- * event identification
-    event_offset VARCHAR(4000) NOT NULL,
+    event_offset BIGINT NOT NULL,
 
     -- * transaction metadata
     update_id VARCHAR(4000) NOT NULL,
@@ -336,7 +338,7 @@ CREATE TABLE lapi_events_assign (
     event_sequential_id bigint NOT NULL,      -- event identification: same ordering as event_offset
 
     -- * event identification
-    event_offset VARCHAR(4000) NOT NULL,
+    event_offset BIGINT NOT NULL,
 
     -- * transaction metadata
     update_id VARCHAR(4000) NOT NULL,
@@ -390,7 +392,7 @@ CREATE INDEX lapi_events_assign_event_contract_id_idx ON lapi_events_assign (con
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_events_party_to_participant (
     event_sequential_id BIGINT NOT NULL,
-    event_offset VARCHAR(4000) NOT NULL,
+    event_offset BIGINT NOT NULL,
     update_id VARCHAR(4000) NOT NULL,
     party_id INTEGER NOT NULL,
     participant_id VARCHAR(1000) NOT NULL,
@@ -482,7 +484,7 @@ CREATE INDEX lapi_pe_non_consuming_id_filter_informee_s_idx ON lapi_pe_non_consu
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_transaction_meta(
     update_id VARCHAR(4000) NOT NULL,
-    event_offset VARCHAR(4000) NOT NULL,
+    event_offset BIGINT NOT NULL,
     publication_time BIGINT NOT NULL,
     record_time BIGINT NOT NULL,
     domain_id INTEGER NOT NULL,
@@ -504,7 +506,7 @@ CREATE TABLE lapi_transaction_metering (
     application_id VARCHAR(4000) NOT NULL,
     action_count INTEGER NOT NULL,
     metering_timestamp BIGINT NOT NULL,
-    ledger_offset VARCHAR(4000) NOT NULL
+    ledger_offset BIGINT
 );
 
 CREATE INDEX lapi_transaction_metering_ledger_offset_idx ON lapi_transaction_metering(ledger_offset);
@@ -515,7 +517,7 @@ CREATE INDEX lapi_transaction_metering_ledger_offset_idx ON lapi_transaction_met
 -- This table is meant to have a single row storing the current metering parameters.
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_metering_parameters (
-    ledger_metering_end VARCHAR(4000),
+    ledger_metering_end BIGINT,
     ledger_metering_timestamp BIGINT NOT NULL
 );
 
@@ -529,7 +531,7 @@ CREATE TABLE lapi_participant_metering (
     from_timestamp BIGINT NOT NULL,
     to_timestamp BIGINT NOT NULL,
     action_count INTEGER NOT NULL,
-    ledger_offset VARCHAR(4000) NOT NULL
+    ledger_offset BIGINT
 );
 
 CREATE UNIQUE INDEX lapi_participant_metering_from_to_application_idx ON lapi_participant_metering(from_timestamp, to_timestamp, application_id);

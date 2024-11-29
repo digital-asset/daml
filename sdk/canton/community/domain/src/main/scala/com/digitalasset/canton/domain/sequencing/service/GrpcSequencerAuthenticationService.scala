@@ -25,7 +25,9 @@ import com.digitalasset.canton.domain.sequencing.service.GrpcSequencerAuthentica
 }
 import com.digitalasset.canton.domain.service.HandshakeValidator
 import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcFUSExtended
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.{
   AuthenticationError,
   LogoutTokenDoesNotExist,
@@ -88,7 +90,7 @@ class GrpcSequencerAuthenticationService(
         error
       }
       throw redactedError.asRuntimeException()
-    }
+    }.asGrpcResponse
   }
 
   /** This will return a random number (nonce) plus the fingerprint of the key the participant needs to use to complete
@@ -133,7 +135,7 @@ class GrpcSequencerAuthenticationService(
         error
       }
       throw redactedError.asRuntimeException()
-    }
+    }.asGrpcResponse
   }
 
   private def isSensitive(err: Status): Boolean =
@@ -159,7 +161,7 @@ class GrpcSequencerAuthenticationService(
     }
   }
 
-  private def eitherT[A, B](value: Either[A, B]) = EitherT.fromEither[Future](value)
+  private def eitherT[A, B](value: Either[A, B]) = EitherT.fromEither[FutureUnlessShutdown](value)
 
   private def deserializeMember(
       memberPO: String
@@ -182,9 +184,9 @@ class GrpcSequencerAuthenticationService(
 
     val result = for {
       providedToken <- AuthenticationToken.fromProtoPrimitive(request.token) match {
-        case Right(token) => Future.successful(token)
+        case Right(token) => FutureUnlessShutdown.pure(token)
         case Left(err) =>
-          Future.failed(
+          FutureUnlessShutdown.failed(
             Status.INVALID_ARGUMENT
               .withDescription(s"Failed to deserialize token: $err")
               .asRuntimeException()
@@ -192,9 +194,9 @@ class GrpcSequencerAuthenticationService(
       }
       logoutResult <- authenticationService.invalidateMemberWithToken(providedToken)
       _ <- logoutResult match {
-        case Right(()) => Future.successful(())
+        case Right(()) => FutureUnlessShutdown.pure(())
         case Left(err @ LogoutTokenDoesNotExist) =>
-          Future.failed(
+          FutureUnlessShutdown.failed(
             Status.FAILED_PRECONDITION
               .withDescription(s"Failed to logout: $err")
               .asRuntimeException()
@@ -202,7 +204,7 @@ class GrpcSequencerAuthenticationService(
       }
     } yield ()
 
-    result.map(_ => LogoutResponse())
+    result.map(_ => LogoutResponse()).asGrpcResponse
   }
 }
 

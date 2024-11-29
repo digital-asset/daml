@@ -116,7 +116,6 @@ private[protocol] object AuthenticationValidator {
               signature,
             )
             .leftMap(_.show)
-            .mapK(FutureUnlessShutdown.outcomeK)
         } yield ()).fold(
           cause =>
             Some(
