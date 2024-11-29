@@ -647,6 +647,13 @@ class IdeLedgerClient(
           )
         } catch {
           case Error.Preprocessing.Lookup(err) => Left(makeLookupError(err))
+          // Expose type mismatches as unknown errors to match canton behaviour. Later this should be fully expressed as a SubmitError
+          case Error.Preprocessing.TypeMismatch(_, _, msg) =>
+            Left(
+              makeEmptySubmissionError(
+                scenario.Error.Internal("COMMAND_PREPROCESSING_FAILED(0, 00000000): " + msg)
+              )
+            )
         }
 
       val eitherSpeedyDisclosures
