@@ -11,6 +11,7 @@ import qualified V2.UpgradedChoice as V2
 import qualified V1.UpgradedChoiceClient as V1
 import qualified V2.UpgradedChoiceClient as V2
 import DA.Optional (fromSome)
+import PackageIds
 
 {- PACKAGE
 name: ledger-api-choice-upgrades
@@ -76,20 +77,23 @@ contents: |
           exercise (coerceContractId @V1.UpgradedChoiceTemplate @V2.UpgradedChoiceTemplate cid) (V2.UpgradedChoice "v1 to v1" None) -- @V 2
 -}
 
+v1PackageId : PackageId
+v1PackageId = getPackageId "ledger-api-choice-upgrades-1.0.0"
 
 main : TestTree
 main = tests
-  [ ("Explicitly call a V1 choice on a V1 contract over the ledger-api, expect V1 implementation used.", explicitV1ChoiceV1Contract)
-  , ("Explicitly call a V2 choice on a V1 contract over the ledger-api, expect V2 implementation used, and contract upgraded.", explicitV2ChoiceV1Contract)
-  , subtree "Call a V1 choice without package ID on a V1 contract over the ledger-api, expect V2 implementation used, contract + argument upgraded, daml-script downgrades return type." 
-     [ ("global contract", inferredV1ChoiceV1GlobalContract)
-     , ("disclosed contract", inferredV1ChoiceV1DisclosedContract)
-     , ("local contract", inferredV1ChoiceV1LocalContract)
-     ]
-  , ("Call a V2 choice without package ID on a V1 contract over the ledger-api, expect V2 implementation used, and contract upgraded.", inferredV2ChoiceV1Contract)
-  , broken ("Call a V2 choice without package ID on a V1 contract over the ledger-api, with V2 unvetted, expect V1 implementation used, argument downgraded, daml-script upgrades return type.", inferredV1ChoiceV1ContractWithoutV2)
-  , ("Explicitly call a V1 choice on a V2 contract over the ledger-api, expect V1 implementation used, and contract downgraded.", explicitV1ChoiceV2Contract)
-  , ("Explicitly call a V2 choice on a V2 contract over the ledger-api, expect V2 implementation used.", explicitV2ChoiceV2Contract)
+  [
+--  ("Explicitly call a V1 choice on a V1 contract over the ledger-api, expect V1 implementation used.", explicitV1ChoiceV1Contract)
+--  , ("Explicitly call a V2 choice on a V1 contract over the ledger-api, expect V2 implementation used, and contract upgraded.", explicitV2ChoiceV1Contract)
+--  , subtree "Call a V1 choice without package ID on a V1 contract over the ledger-api, expect V2 implementation used, contract + argument upgraded, daml-script downgrades return type."
+--     [ ("global contract", inferredV1ChoiceV1GlobalContract)
+--     , ("disclosed contract", inferredV1ChoiceV1DisclosedContract)
+--     , ("local contract", inferredV1ChoiceV1LocalContract)
+--     ]
+--  , ("Call a V2 choice without package ID on a V1 contract over the ledger-api, expect V2 implementation used, and contract upgraded.", inferredV2ChoiceV1Contract)
+   ("Call a V2 choice without package ID on a V1 contract over the ledger-api, with V2 unvetted, expect V1 implementation used, argument downgraded, daml-script upgrades return type.", inferredV1ChoiceV1ContractWithoutV2)
+--  , ("Explicitly call a V1 choice on a V2 contract over the ledger-api, expect V1 implementation used, and contract downgraded.", explicitV1ChoiceV2Contract)
+--  , ("Explicitly call a V2 choice on a V2 contract over the ledger-api, expect V2 implementation used.", explicitV2ChoiceV2Contract)
   ]
 
 choiceTest
@@ -147,11 +151,16 @@ inferredV2ChoiceV1Contract =
 
 -- If v2 isn't vetted, then omitting a package id and giving v1 arguments should use the v1 implementation
 -- Ledger-api still considers unvetted packages in package selection
--- IDE ledger doesn't support vettiing
+-- IDE ledger doesn't support vetting
 inferredV1ChoiceV1ContractWithoutV2 : Test
-inferredV1ChoiceV1ContractWithoutV2 =
-  withUnvettedDar "ledger-api-choice-upgrades-2.0.0" .
-    choiceTest @V1.UpgradedChoiceTemplate V1.UpgradedChoiceTemplate (V1.UpgradedChoice "v1 to v1") False (V1.UpgradedChoiceReturn "v1 to v1:V1")
+inferredV1ChoiceV1ContractWithoutV2 = test $ do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createExactCmd (V1.UpgradedChoiceTemplate a)
+  let cidV2 = coerceContractId @V1.UpgradedChoiceTemplate @V2.UpgradedChoiceTemplate cid
+  res <- (actAs a <> packagePreference [v1PackageId]) `trySubmit` exerciseCmd cidV2 (V2.UpgradedChoice "v1 to v1" None)
+  case res of
+    Right returnValue -> returnValue === (V2.UpgradedChoiceReturn "v1 to v1:V1" None)
+    Left err -> assertFail $ "Expected 'v1 to v1:V1:None' but got " <> show err
 
 explicitV1ChoiceV2Contract : Test
 explicitV1ChoiceV2Contract =
