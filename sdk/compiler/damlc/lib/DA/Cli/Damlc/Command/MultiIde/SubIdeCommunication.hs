@@ -66,8 +66,8 @@ getSourceFileHome miState path = do
 sourceFileHomeHandleDamlFileDeleted :: MultiIdeState -> FilePath -> STM ()
 sourceFileHomeHandleDamlFileDeleted miState path = do
   dirPath <- unsafeIOToSTM $ getDirectoryIfFile path
-  modifyTMVar (misSourceFileHomesVar miState) $ Map.delete dirPath
+  modifyTMVar_ (misSourceFileHomesVar miState) $ Map.delete dirPath
 
 -- When a daml.yaml changes, all files pointing to it are invalidated in the cache
 sourceFileHomeHandleDamlYamlChanged :: MultiIdeState -> PackageHome -> STM ()
-sourceFileHomeHandleDamlYamlChanged miState home = modifyTMVar (misSourceFileHomesVar miState) $ Map.filter (/=home)
+sourceFileHomeHandleDamlYamlChanged miState home = modifyTMVar_ (misSourceFileHomesVar miState) $ Map.filter (/=home)

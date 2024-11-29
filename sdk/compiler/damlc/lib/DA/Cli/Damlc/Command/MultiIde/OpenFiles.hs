@@ -36,7 +36,7 @@ sendPackageDiagnostic miState ideData = do
    in traverse_ (sendClientSTM miState) $ makeMessage <$> files 
 
 onOpenFiles :: MultiIdeState -> PackageHome -> (Set.Set DamlFile -> Set.Set DamlFile) -> STM ()
-onOpenFiles miState home f = modifyTMVarM (misSubIdesVar miState) $ \ides -> do
+onOpenFiles miState home f = modifyTMVarM_ (misSubIdesVar miState) $ \ides -> do
   let ideData = lookupSubIde home ides
       ideData' = ideData {ideDataOpenFiles = f $ ideDataOpenFiles ideData}
   sendPackageDiagnostic miState ideData'
@@ -52,9 +52,9 @@ removeOpenFile miState home file = do
   unsafeIOToSTM $ logInfo miState $ "Removed open file " <> unDamlFile file <> " from " <> unPackageHome home
   onOpenFiles miState home $ Set.delete file
 
-setDamlYamlOpen :: MultiIdeState -> PackageHome -> Bool -> STM ()
-setDamlYamlOpen miState home isOpen =
-  modifyTMVar (misSubIdesVar miState) $ Map.adjust (\ideData -> ideData {ideDataOpenDamlYaml = isOpen}) home
+setDamlYamlOpen :: MultiIdeState -> Bool -> PackageHome -> STM ()
+setDamlYamlOpen miState open home =
+  onSubIde_ miState home $ \ideData -> ideData {ideDataOpenDamlYaml = open}
 
 isIdeDataOpen :: SubIdeData -> Bool
 isIdeDataOpen SubIdeData {..} = not (Set.null ideDataOpenFiles) || ideDataOpenDamlYaml

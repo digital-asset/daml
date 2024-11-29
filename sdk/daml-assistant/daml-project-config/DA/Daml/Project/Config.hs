@@ -8,6 +8,7 @@ module DA.Daml.Project.Config
     , projectConfigUsesEnvironmentVariables
     , readSdkConfig
     , readProjectConfig
+    , readProjectConfigPure
     , readDamlConfig
     , readMultiPackageConfig
     , releaseVersionFromProjectConfig
@@ -29,11 +30,12 @@ import DA.Daml.Project.Util
 import Data.Aeson (Result (..), fromJSON)
 import qualified Data.Aeson.Key as A
 import qualified Data.Array as Array
-import Data.Bifunctor (bimap)
+import Data.Bifunctor (bimap, first)
 import Data.Generics.Uniplate.Data (transformM, universe)
 import Data.Monoid (Ap (..))
 import qualified Data.Text as T
 import Data.Text (Text)
+import Data.Text.Encoding (encodeUtf8)
 import qualified Data.Yaml as Y
 import qualified Data.Aeson.KeyMap as KeyMap
 import qualified Data.Aeson.Key as Key
@@ -56,6 +58,10 @@ readDamlConfig (DamlPath path) = readConfig "daml" (path </> damlConfigName)
 -- Throws a ConfigError if reading or parsing fails.
 readProjectConfig :: ProjectPath -> IO ProjectConfig
 readProjectConfig (ProjectPath path) = readConfigWithEnv "project" (path </> projectConfigName)
+
+-- | Version of readProject that runs in Either, as such does not interpolate variables
+readProjectConfigPure :: Text -> Either ConfigError ProjectConfig
+readProjectConfigPure = readConfigFromStringWithoutEnv "project"
 
 -- | Checks if a project config contains environment variables.
 projectConfigUsesEnvironmentVariables :: ProjectPath -> IO Bool
@@ -149,6 +155,11 @@ readVariableInterpolationField = \case
 -- Returns first error encountered
 traverseKeyMapKeys :: Applicative f => (Text -> f Text) -> KeyMap.KeyMap a -> f (KeyMap.KeyMap a)
 traverseKeyMapKeys f = getAp . KeyMap.foldMapWithKey (\k v -> Ap $ flip KeyMap.singleton v . Key.fromText <$> f (Key.toText k))
+
+-- | Reads a config from string and doesn't interpolate variables so it may run outside of IO
+readConfigFromStringWithoutEnv :: Y.FromJSON b => Text -> Text -> Either ConfigError b
+readConfigFromStringWithoutEnv name content =
+  first (ConfigFileInvalid name) $ Y.decodeEither' $ encodeUtf8 content
 
 -- | (internal) Helper function for defining 'readXConfig' functions.
 -- Throws a ConfigError if reading or parsing fails.

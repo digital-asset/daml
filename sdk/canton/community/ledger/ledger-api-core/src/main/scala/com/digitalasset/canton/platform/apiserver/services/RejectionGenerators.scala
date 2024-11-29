@@ -140,11 +140,16 @@ object RejectionGenerators {
         case LfInterpretationError.Upgrade(error: LfInterpretationError.Upgrade.ValidationFailed) =>
           CommandExecutionErrors.Interpreter.UpgradeError.ValidationFailed
             .Reject(renderedMessage, error)
-        case LfInterpretationError.Upgrade(error: LfInterpretationError.Upgrade.DowngradeDropDefinedField) =>
+        case LfInterpretationError.Upgrade(
+              error: LfInterpretationError.Upgrade.DowngradeDropDefinedField
+            ) =>
           CommandExecutionErrors.Interpreter.UpgradeError.DowngradeDropDefinedField
             .Reject(renderedMessage, error)
         case LfInterpretationError.Upgrade(error: LfInterpretationError.Upgrade.ViewMismatch) =>
           CommandExecutionErrors.Interpreter.UpgradeError.ViewMismatch
+            .Reject(renderedMessage, error)
+        case LfInterpretationError.Upgrade(error: LfInterpretationError.Upgrade.ContractNotUpgradable) =>
+          CommandExecutionErrors.Interpreter.UpgradeError.ContractNotUpgradable
             .Reject(renderedMessage, error)
         case LfInterpretationError.Dev(_, err) =>
           CommandExecutionErrors.Interpreter.InterpretationDevError
@@ -185,7 +190,8 @@ object RejectionGenerators {
           .Reject(s"Could not find a suitable ledger time after $retries retries")
       case ErrorCause.InterpretationTimeExceeded(let, tolerance, transactionTrace) =>
         CommandExecutionErrors.TimeExceeded.Reject(
-          s"Time exceeds limit of Ledger Effective Time ($let) + tolerance ($tolerance). Interpretation aborted" + transactionTrace.fold("")("\n" + _) + "."
+          s"Time exceeds limit of Ledger Effective Time ($let) + tolerance ($tolerance). Interpretation aborted" + transactionTrace
+            .fold("")("\n" + _) + "."
         )
     }
   }

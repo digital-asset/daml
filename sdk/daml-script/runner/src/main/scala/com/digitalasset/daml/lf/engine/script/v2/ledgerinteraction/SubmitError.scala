@@ -503,6 +503,25 @@ class SubmitErrors(majorLanguageVersion: LanguageMajorVersion) {
         )
       }
     }
+
+    sealed case class ContractNotUpgradable(
+        contractId: ContractId,
+        targetTemplateId: Identifier,
+        actualTemplateId: Identifier,
+        message: String,
+    ) extends SubmitError {
+      override def toDamlSubmitError(env: Env): SValue = {
+        val upgradeErrorType =
+          SEnum(upgradeErrorTypeIdentifier(env), Name.assertFromString("ContractNotUpgradable"), 3)
+        SubmitErrorConverters(env).damlScriptError(
+          "UpgradeError",
+          20,
+          ("errorType", upgradeErrorType),
+          ("errorMessage", SText(message)),
+        )
+      }
+    }
+
   }
 
   sealed case class DevError(errorType: String, message: String) extends SubmitError {

@@ -134,12 +134,16 @@ data SubIdeData = SubIdeData
   , ideDataClosing :: Set.Set SubIdeInstance
   , ideDataOpenFiles :: Set.Set DamlFile
   , ideDataOpenDamlYaml :: Bool
+  , ideDataIsFullDamlYaml :: Bool
+    -- ^ We support daml.yaml files with only an sdk version. These should not be considered as packages
+    -- however, we still want to track data about these, as file changes can promote/demote them to/from packages
+    -- Thus we store this flag, rather than omitting from subIdes
   , ideDataFailures :: [(UTCTime, T.Text)]
   , ideDataDisabled :: IdeDataDisabled
   }
 
 defaultSubIdeData :: PackageHome -> SubIdeData
-defaultSubIdeData home = SubIdeData home Nothing Set.empty Set.empty False [] IdeDataNotDisabled
+defaultSubIdeData home = SubIdeData home Nothing Set.empty Set.empty False False [] IdeDataNotDisabled
 
 lookupSubIde :: PackageHome -> SubIdes -> SubIdeData
 lookupSubIde home ides = fromMaybe (defaultSubIdeData home) $ Map.lookup home ides

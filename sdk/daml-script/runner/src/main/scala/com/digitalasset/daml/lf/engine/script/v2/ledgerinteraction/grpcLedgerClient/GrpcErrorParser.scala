@@ -392,6 +392,22 @@ class GrpcErrorParser(majorVersion: LanguageMajorVersion) {
               message,
             )
         }
+
+      case "CONTRACT_NOT_UPGRADABLE" =>
+        caseErr {
+          case Seq(
+                (ErrorResource.ContractId, coid),
+                (ErrorResource.TemplateId, srcTemplateId),
+                (ErrorResource.TemplateId, targetTemplateId),
+              ) =>
+            submitErrors.UpgradeError.ContractNotUpgradable(
+              ContractId.assertFromString(coid),
+              Identifier.assertFromString(srcTemplateId),
+              Identifier.assertFromString(targetTemplateId),
+              message,
+            )
+        }
+
       case "INTERPRETATION_DEV_ERROR" =>
         caseErr { case Seq((ErrorResource.DevErrorType, errorType)) =>
           submitErrors.DevError(errorType, message)

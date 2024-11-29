@@ -35,6 +35,10 @@ namespace DamlKeepAliveRequest {
 
 let damlRoot: string = path.join(os.homedir(), ".daml");
 
+export interface EnvVars {
+  [envVarName: string]: string | undefined;
+}
+
 class UnsupportedFeature extends Error {
   featureName: string;
   sdkVersion: string;
@@ -72,7 +76,7 @@ export class DamlLanguageClient {
 
   static async build(
     rootPath: string,
-    envVars: { [envVarName: string]: string },
+    envVars: EnvVars,
     config: vscode.WorkspaceConfiguration,
     telemetryConsent: boolean | undefined,
     _context: vscode.ExtensionContext,
@@ -301,7 +305,7 @@ export class DamlLanguageClient {
   }
   private static async createLanguageClient(
     rootPath: string,
-    envVars: { [envVarName: string]: string },
+    envVars: EnvVars,
     config: vscode.WorkspaceConfiguration,
     telemetryConsent: boolean | undefined,
     identifier: string | undefined,

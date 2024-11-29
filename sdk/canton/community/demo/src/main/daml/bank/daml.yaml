@@ -1,4 +1,4 @@
-sdk-version: 2.10.0-snapshot.20241122.13091.0.v2515f003
+sdk-version: 2.10.0-snapshot.20241126.13098.0.vb4a785d0
 name: bank
 source: Bank.daml
 init-script: Bank:setup

@@ -40,7 +40,7 @@ class Daml2ScriptTestRunner extends DamlScriptTestRunner {
           |ScriptTest:sleepTest SUCCESS
           |ScriptTest:stackTrace FAILURE (com.daml.lf.engine.script.Script$FailedCmd: Command submit failed: FAILED_PRECONDITION: UNHANDLED_EXCEPTION(9,XXXXXXXX): Interpretation error: Error: Unhandled Daml exception: DA.Exception.AssertionFailed:AssertionFailed@XXXXXXXX{ message = "Assertion failed" }
           |    in choice XXXXXXXX:ScriptTest:C:ShouldFail on contract 00XXXXXXXX (#1)
-          |    in create-and-exercise command 1ef98323:ScriptTest:C:ShouldFail.
+          |    in create-and-exercise command XXXXXXXX:ScriptTest:C:ShouldFail.
           |ScriptTest:test0 SUCCESS
           |ScriptTest:test1 SUCCESS
           |ScriptTest:test3 SUCCESS

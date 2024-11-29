@@ -73,9 +73,14 @@ main = tests
   , ("Call a LF < 1.15 choice on a LF >= 1.15 contract, expect LF 1.15 implementation to attempt to be used, but fail upgrade", exerciseNonUpgradingLfFail)
   ]
 
+assertIsUpgradeError : Either SubmitError a -> Script ()
+assertIsUpgradeError (Left (UpgradeError ContractNotUpgradable _)) = pure ()
+assertIsUpgradeError (Left e) = fail $ "Expected upgrade error but got " <> show e
+assertIsUpgradeError _ = fail "Expected upgrade error but got success"
+
 mustBeWronglyTypedContract : Either SubmitError r -> Script ()
 mustBeWronglyTypedContract (Left (WronglyTypedContract {})) = pure ()
-mustBeWronglyTypedContract (Left e) = assertFail $ "Incorrect error: " <> show e
+mustBeWronglyTypedContract (Left e) = assertFail $ "Expected WronglyTypedContract but got: " <> show e
 mustBeWronglyTypedContract _ = assertFail $ "Expected failure and got success"
 
 fetchNonUpgradableLfFail : Test
@@ -83,16 +88,14 @@ fetchNonUpgradableLfFail = test $ do
   alice <- allocateParty "alice"
   v1Cid <- alice `submit` createExactCmd V1.LfTemplate with party = alice
   let v2Cid = coerceContractId @V1.LfTemplate @V2.LfTemplate v1Cid
-
   res <- alice `trySubmit` createAndExerciseCmd (LfTemplateHelper with party = alice) (FetchV2 with cid = v2Cid)
-  mustBeWronglyTypedContract res
+  assertIsUpgradeError res
 
 fetchNonUpgradingLfFail : Test
 fetchNonUpgradingLfFail = test $ do
   alice <- allocateParty "alice"
   v2Cid <- alice `submit` createExactCmd V2.LfTemplate with party = alice
   let v1Cid = coerceContractId @V2.LfTemplate @V1.LfTemplate v2Cid
-
   res <- alice `trySubmit` createAndExerciseCmd (LfTemplateHelper with party = alice) (FetchV1 with cid = v1Cid)
   mustBeWronglyTypedContract res
 
@@ -102,7 +105,7 @@ exerciseNonUpgradableLfFail = test $ do
     v1Cid <- alice `submit` createExactCmd V1.LfTemplate with party = alice
     let v2Cid = coerceContractId @V1.LfTemplate @V2.LfTemplate v1Cid
     res <- alice `trySubmit` exerciseExactCmd @V2.LfTemplate v2Cid V2.Noop
-    mustBeWronglyTypedContract res
+    assertIsUpgradeError res
 
 exerciseNonUpgradingLfFail: Test
 exerciseNonUpgradingLfFail = test $ do
