@@ -17,9 +17,18 @@ uhoh() {
 trap uhoh EXIT
 
 STABLE_REGEX="\d+\.\d+\.\d+"
-SNAPSHOT_REGEX="^${STABLE_REGEX}-(snapshot|adhoc)\.\d{8}\.\d+(\.\d+)?\.v[0-9a-f]{8}$"
-RC_REGEX="^${STABLE_REGEX}-rc\d+$"
-VERSION_REGEX="(^$STABLE_REGEX$)|($SNAPSHOT_REGEX)|($RC_REGEX)"
+
+check_ver() {
+    local version="$1"
+    local regex="$2"
+    echo "$version" | grep -x -P -q "$regex"
+}
+
+is_stable()   { check_ver "$1" "(${STABLE_REGEX})"; }
+is_rc()       { check_ver "$1" "(${STABLE_REGEX}-rc\d+)"; }
+is_snapshot() { check_ver "$1" "(${STABLE_REGEX}-snapshot\.\d{8}\.\d+(\.\d+)?\.v[0-9a-f]{8})"; }
+is_adhoc()    { check_ver "$1" "(${STABLE_REGEX}-adhoc\.\d{8}\.\d+(\.\d+)?\.v[0-9a-f]{8})"; }
+is_version()  { is_stable "$ver" || is_rc "$ver" || is_snapshot "$ver" || is_adhoc "$ver"; }
 
 function file_ends_with_newline() {
     [[ $(tail -c1 "$1" | wc -l) -gt 0 ]]
@@ -31,21 +40,56 @@ check() {
         echo "LATEST file does not end with newline. Please correct."
         exit 1
     fi
-    while read line; do
+    while read -r line; do
         sha=$(echo "$line" | gawk '{print $1}')
         ver=$(echo "$line" | gawk '{print $2}')
         split=$(echo "$line" | gawk '{print $3}')
-        if ! echo "$ver" | grep -q -P $VERSION_REGEX; then
+        if ! is_version "$ver"; then
             echo "Invalid version number in LATEST file, needs manual correction."
             echo "Offending version: '$ver'."
             exit 1
         fi
-        if is_snapshot $ver; then
-            ver_sha=$(echo $ver | sed 's/.*\.v//')
+        if is_snapshot "$ver" || is_adhoc "$ver"; then
+            ver_sha=${ver/*.v/}
             if ! [ "${sha:0:8}" = "$ver_sha" ]; then
                 echo "$ver does not match $sha, please correct. ($ver_sha != ${sha:0:8})"
                 exit 1
             fi
+        fi
+
+        version_without_trailer=$(echo "$ver" | grep -oP "^$STABLE_REGEX")
+        version_arr=(${version_without_trailer//./ })
+        if is_stable "$ver" || is_rc "$ver"; then
+            target_branch="origin/release/${version_arr[0]}.${version_arr[1]}.x"
+            if missing_target_branch "$version_without_trailer"; then
+                echo "Skipping check for release '$line' because version $version_without_trailer has a target branch '$target_branch' which does not exist anymore."
+            elif ! commit_belongs_to_branch "$sha" "$target_branch"; then
+                echo "Error while checking '$line' is a valid release:"
+                echo "Stable or RC release with version $version_without_trailer must come from branch '$target_branch', but commit $sha does not belong to that branch."
+                echo "Stable releases or release candidates must come from their release branch."
+                echo "Commit $sha belongs to the following release branches:"
+                find_release_branches_for_commit "$sha"
+                exit 1
+            else
+                echo "Commit $sha belongs to branch '$target_branch', release '$line' is valid"
+            fi
+        elif is_snapshot "$ver"; then
+            target_branch=$(release_branch_for_version "$version_without_trailer")
+            if ! commit_belongs_to_branch "$sha" "$target_branch"; then
+                echo "Error while checking '$line' is a valid release:"
+                echo "Snapshot release with version $version_without_trailer must come from branch '$target_branch', but commit $sha does not belong to that branch."
+                echo "Commit $sha belongs to the following release branches:"
+                find_release_branches_for_commit "$sha"
+                exit 1
+            else
+                echo "Commit $sha belongs to branch '$target_branch', release '$line' is valid"
+            fi
+        elif is_adhoc "$ver"; then
+            echo "Skipping check for release '$line' because version $ver is an adhoc version."
+        else
+            echo "Error while checking '$line' is a valid release:"
+            echo "Version $ver does not match the regex for a snapshot version, nor an adhoc version, nor a stable version, nor a release candidate version."
+            exit 1
         fi
 
         if [ ! -z "$split" ] && [ "$split" != "SPLIT_RELEASE" ]; then
@@ -54,23 +98,19 @@ check() {
     done < LATEST
 }
 
-is_stable() {
+missing_target_branch() {
     local version="$1"
-    echo "$version" | grep -q -P "^${STABLE_REGEX}$"
+    echo "$version" | grep -x -P -q "1\.(4|5|7|12)\.[0-9]+"
 }
-
-is_snapshot() (
-  echo "$1" | grep -q -P "$SNAPSHOT_REGEX"
-)
 
 make_snapshot() {
     local sha prefix commit_date number_of_commits commit_sha_8
     t=$1
     sha=$2
     prefix=$3
-    commit_date=$(git log -n1 --format=%cd --date=format:%Y%m%d $sha)
-    number_of_commits=$(git rev-list --count $sha)
-    commit_sha_8=$(git log -n1 --format=%h --abbrev=8 $sha)
+    commit_date=$(git log -n1 --format=%cd --date=format:%Y%m%d "$sha")
+    number_of_commits=$(git rev-list --count "$sha")
+    commit_sha_8=$(git log -n1 --format=%h --abbrev=8 "$sha")
     echo "$sha $prefix-$t.$commit_date.$number_of_commits.0.v$commit_sha_8 SPLIT_RELEASE"
 }
 
@@ -101,20 +141,94 @@ if [ -z "${1+x}" ]; then
     exit 1
 fi
 
-commit_belongs_to_release_branch() {
+# Takes a major version, prints all release lines for that version
+available_release_lines() {
+    git branch --all --format='%(refname:short)' \
+      | grep -E "^origin/release/$1\.[0-9]+\.x$" \
+      | jq -sR 'split("\n") | map(select(length > 0)) | map(split("/")[2] | split(".")[0:2] | map(tonumber))'
+}
+
+# Takes a version a.b.c as its first argument, prints the expected branch for
+# producing those release lines.
+# If the version's minor is greater than the highest existing release line, then
+# we use main/main-2.x.
+# Otherwise, we use the release line release/a.b.x. For example, 3.2.5 would
+# have expected branch release/3.2.x.
+# Example 1: If the highest release line for Daml 3 is release/3.2.x, then version 3.3.0 has expected branch main.
+# Example 2: If the highest release line for Daml 2 is release/2.9.x, then 2.10.0 has expected branch main-2.x.
+# Example 3: If there is a branch release/3.2.x, then version 3.2.0 has expected branch release/3.2.x.
+# Example 4: If there is a branch release/3.2.x, but no branch release/3.1.x then version 3.1.0 still has expected branch release/3.1.x.
+release_branch_for_version() {
+    version="$1"
+    version_arr=(${version//./ })
+    available_release_lines "${version_arr[0]}" | \
+    jq -r --argjson major "${version_arr[0]}" --argjson minor "${version_arr[1]}" '''
+      max |
+      if .[1] < $minor then
+          if $major == 2 then
+              "origin/main-2.x"
+          else
+              "origin/main"
+          end
+      else
+          "origin/release/\($major).\($minor).x"
+      end
+    '''
+}
+
+# Takes a commit reference as its first argument.
+find_release_branches_for_commit() {
     git branch --all --format='%(refname:short)' --contains="$1" \
-      | grep -q -E '^origin/(main$|main-2\.x$|release/)'
+      | grep "${2:-}" -E -x "origin/(release/[0-9]+.[0-9]+.x|main|main-2.x)"
+}
+
+# Takes a commit reference as its first argument, and a branch as its second argument.
+commit_belongs_to_branch() {
+    commit=$1
+    branch=$2
+    git branch --all --format='%(refname:short)' --contains="$commit" \
+      | grep -F -x "$branch" &>/dev/null # grep -q flag quits early and causes a SIGPIPE signal in git branch
+}
+
+# Takes a version x.y.z as its first argument, a commit reference as its second argument
+check_new_version_and_commit() {
+    version=$1
+    commit=$2
+    target_branch=$(release_branch_for_version "$version")
+    if commit_belongs_to_branch "$commit" "$target_branch"; then
+      echo exact
+    else
+      if find_release_branches_for_commit "$commit" -q; then
+        echo failure
+      else
+        echo adhoc
+      fi
+    fi
 }
 
 case $1 in
     snapshot)
         if [ -n "${2+x}" ] && [ -n "${3+x}" ]; then
-            if ! commit_belongs_to_release_branch $2; then
-                echo "WARNING: Commit does not belong to a release branch." >&2
-                make_snapshot adhoc $(git rev-parse $2) $3
-            else
-                make_snapshot snapshot $(git rev-parse $2) $3
+            commit=$2
+            version=$3
+            if ! echo "$version" | grep -q -E '[0-9]+\.[0-9]+\.[0-9]+'; then
+                echo "Supplied version '$version' is not a valid version. Versions must be three integers separated by dots, e.g. 2.9.7 or 3.0.4" >&2
+                exit 1
             fi
+            target_branch=$(release_branch_for_version "$version")
+            case $(check_new_version_and_commit "$version" "$commit") in
+              exact)
+                make_snapshot snapshot "$(git rev-parse "$commit")" "$version"
+                ;;
+              adhoc)
+                echo "WARNING: The expected release branch for version $version is '$target_branch', but commit $commit is not on any release branch. Generating an adhoc release name..." >&2
+                make_snapshot adhoc "$(git rev-parse "$commit")" "$version"
+                ;;
+              failure)
+                echo "ERROR: The expected release branch for version $version is '$target_branch', but commit $commit belongs to a different release branch: $(find_release_branches_for_commit "$commit" | tr '\n' ' ')" >&2
+                exit 1
+                ;;
+            esac
         else
             display_help
         fi
