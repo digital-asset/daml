@@ -178,7 +178,7 @@ commit_belongs_to_branch() {
     commit=$1
     branch=$2
     git branch --all --format='%(refname:short)' --contains="$commit" \
-      | grep -F -x "$branch" >/dev/null 2>/dev/null # grep -q flag quits early and causes a SIGPIPE signal in git branch
+      | grep -F -x "$branch" &>/dev/null # grep -q flag quits early and causes a SIGPIPE signal in git branch
 }
 
 # Takes a version x.y.z as its first argument, a commit reference as its second argument
