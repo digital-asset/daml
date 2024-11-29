@@ -384,6 +384,13 @@ class IdeLedgerClient(
           innerError.dstTemplateId,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
+      case e @ Upgrade(innerError: Upgrade.ContractNotUpgradable) =>
+        submitErrors.UpgradeError.ContractNotUpgradable(
+          innerError.coid,
+          innerError.target,
+          innerError.actual,
+          Pretty.prettyDamlException(e).renderWideStream.mkString,
+        )
       case e @ Dev(_, innerError) =>
         submitErrors.DevError(
           innerError.getClass.getSimpleName,
