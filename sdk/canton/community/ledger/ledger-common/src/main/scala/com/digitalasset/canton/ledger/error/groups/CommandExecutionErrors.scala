@@ -643,7 +643,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
     }
 
     @Explanation("Errors that occur when trying to upgrade a contract")
-    object UpgradeError {
+    object UpgradeError extends ErrorGroup {
       @Explanation("Validation fails when trying to upgrade the contract")
       @Resolution(
         "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed"
@@ -679,7 +679,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
 
       @Explanation("An optional contract field with a value of Some may not be dropped during downgrading")
       @Resolution(
-        "Ensure optional contract fields with a value of Some are not dropped"
+        "There is data that is newer than the implementation it is being used it, and thus is not compatible. Ensure new data (i.e. those with additional fields as `Some`) is only used with new choices"
       )
       object DowngradeDropDefinedField
         extends ErrorCode(
@@ -703,7 +703,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
 
       @Explanation("View mismatch when trying to upgrade the contract")
       @Resolution(
-        "Verify that the views of the contract have not changed"
+        "Verify that the interface views of the contract have not changed"
       )
       object ViewMismatch
         extends ErrorCode(
