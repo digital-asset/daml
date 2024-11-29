@@ -11,7 +11,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
@@ -56,12 +55,7 @@ public final class InclusiveFilter extends Filter {
   }
 
   public static InclusiveFilter ofTemplateIds(@NonNull Set<@NonNull Identifier> templateIds) {
-    return new InclusiveFilter(
-        Collections.emptyMap(),
-        templateIds.stream()
-            .collect(
-                Collectors.toUnmodifiableMap(
-                    Function.identity(), tId -> Template.HIDE_CREATED_EVENT_BLOB)));
+    return new InclusiveFilter(templateIds, Collections.emptyMap());
   }
 
   @NonNull
