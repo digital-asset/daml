@@ -3,14 +3,14 @@
 
 package com.digitalasset.canton.platform
 
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 
 // This utility object is used as a single point to encode and decode
 // offsets sent over the API and received from the API.
 object ApiOffset {
 
-  private def assertFromString(s: String): Option[AbsoluteOffset] =
-    AbsoluteOffset.tryFromString(s).fold(throw _, identity)
+  private def assertFromString(s: String): Option[Offset] =
+    Offset.tryFromString(s).fold(throw _, identity)
 
   // TODO(#18685) remove converter as it should be unused
   def assertFromStringToLongO(s: String): Option[Long] =
@@ -22,5 +22,5 @@ object ApiOffset {
 
   // TODO(#18685) remove converter as it should be unused
   def fromLong(l: Long): String =
-    AbsoluteOffset.tryFromLong(l).toHexString
+    Offset.tryFromLong(l).toHexString
 }

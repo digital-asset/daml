@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.backend
 
 import anorm.SqlParser.long
 import anorm.{RowParser, ~}
-import com.digitalasset.canton.platform.store.backend.Conversions.absoluteOffsetO
+import com.digitalasset.canton.platform.store.backend.Conversions.offsetO
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
 
@@ -40,7 +40,7 @@ class PruningDtoQueries {
   private def idFilterParser[T](f: (Long, Long) => T): RowParser[T] =
     long("event_sequential_id") ~ long("party_id") map { case seqId ~ partyId => f(seqId, partyId) }
   private def offsetParser[T](f: Long => T): RowParser[T] =
-    absoluteOffsetO("ledger_offset").map(_.fold(0L)(_.unwrap)) map (f)
+    offsetO("ledger_offset").map(_.fold(0L)(_.unwrap)) map (f)
 
   def eventCreate(implicit c: Connection): Seq[EventCreate] =
     SQL"SELECT event_sequential_id FROM lapi_events_create ORDER BY event_sequential_id"

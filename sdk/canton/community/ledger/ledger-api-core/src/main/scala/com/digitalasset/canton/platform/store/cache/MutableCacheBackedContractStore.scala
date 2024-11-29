@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.cache
 
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index
 import com.digitalasset.canton.ledger.participant.state.index.ContractStore
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
@@ -127,7 +127,7 @@ private[platform] class MutableCacheBackedContractStore(
   private def readThroughKeyCache(
       key: GlobalKey
   )(implicit loggingContext: LoggingContextWithTrace): Future[ContractKeyStateValue] = {
-    val readThroughRequest = (validAt: Option[AbsoluteOffset]) =>
+    val readThroughRequest = (validAt: Option[Offset]) =>
       validAt
         .map(contractsReader.lookupKeyState(key, _))
         .getOrElse(Future.successful(KeyUnassigned))

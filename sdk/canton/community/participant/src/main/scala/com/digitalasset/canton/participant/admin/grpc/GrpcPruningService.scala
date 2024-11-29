@@ -15,7 +15,7 @@ import com.digitalasset.canton.admin.pruning.v30.{
   ResetNoWaitCommitmentsFrom,
   SetNoWaitCommitmentsFrom,
 }
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.PruningServiceErrorGroup
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidArgument
@@ -63,7 +63,7 @@ class GrpcPruningService(
         for {
           ledgerSyncOffset <-
             EitherT.fromEither[Future](
-              AbsoluteOffset
+              Offset
                 .fromLong(request.pruneUpTo)
                 .leftMap(err =>
                   InvalidArgument
@@ -80,7 +80,7 @@ class GrpcPruningService(
       request: GetSafePruningOffsetRequest
   ): Future[GetSafePruningOffsetResponse] = TraceContextGrpc.withGrpcTraceContext {
     implicit traceContext =>
-      val validatedRequestE: ParsingResult[(CantonTimestamp, AbsoluteOffset)] = for {
+      val validatedRequestE: ParsingResult[(CantonTimestamp, Offset)] = for {
         beforeOrAt <-
           ProtoConverter.parseRequired(
             CantonTimestamp.fromProtoTimestamp,
@@ -88,7 +88,7 @@ class GrpcPruningService(
             request.beforeOrAt,
           )
 
-        ledgerEndOffset <- AbsoluteOffset
+        ledgerEndOffset <- Offset
           .fromLong(request.ledgerEnd)
           .leftMap(err => ProtoDeserializationError.ValueConversionError("ledger_end", err))
       } yield (beforeOrAt, ledgerEndOffset)
@@ -106,7 +106,7 @@ class GrpcPruningService(
 
         safeOffsetO <- sync.pruningProcessor
           .safeToPrune(beforeOrAt, ledgerEndOffset)
-          .leftFlatMap[Option[AbsoluteOffset], StatusRuntimeException] {
+          .leftFlatMap[Option[Offset], StatusRuntimeException] {
             case e @ Pruning.LedgerPruningNothingToPrune =>
               // Let the user know that no internal canton data exists prior to the specified
               // time and offset. Return this condition as an error instead of None, so that
@@ -160,7 +160,7 @@ class GrpcPruningService(
     } yield v30.GetParticipantSchedule.Response(schedule.map(_.toProtoV30))
   }
 
-  private def toProtoResponse(safeOffsetO: Option[AbsoluteOffset]): GetSafePruningOffsetResponse = {
+  private def toProtoResponse(safeOffsetO: Option[Offset]): GetSafePruningOffsetResponse = {
 
     val response = safeOffsetO
       .fold[GetSafePruningOffsetResponse.Response](
@@ -362,7 +362,7 @@ object PruningServiceError extends PruningServiceErrorGroup {
         id = "NO_INTERNAL_PARTICIPANT_DATA_BEFORE",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
-    final case class Error(beforeOrAt: CantonTimestamp, boundInclusive: AbsoluteOffset)(implicit
+    final case class Error(beforeOrAt: CantonTimestamp, boundInclusive: Offset)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = "No internal participant data to prune up to time " +

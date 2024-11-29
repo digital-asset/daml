@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -26,7 +26,7 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement with 
       (_, lookup) <- store(txLookupByKey(alice, keyValue, Some(createdContractId)))
       to <- ledgerDao.lookupLedgerEnd()
       completions <- getCompletions(
-        from.fold(AbsoluteOffset.firstOffset)(_.lastOffset.increment),
+        from.fold(Offset.firstOffset)(_.lastOffset.increment),
         to.map(_.lastOffset).getOrElse(fail("ledger end should not have been empty")),
         defaultAppId,
         Set(alice),
@@ -49,7 +49,7 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement with 
       (_, fetch) <- store(txFetch(alice, createdContractId))
       to <- ledgerDao.lookupLedgerEnd()
       completions <- getCompletions(
-        from.fold(AbsoluteOffset.firstOffset)(_.lastOffset.increment),
+        from.fold(Offset.firstOffset)(_.lastOffset.increment),
         to.map(_.lastOffset).getOrElse(fail("ledger end should not have been empty")),
         defaultAppId,
         Set(alice),

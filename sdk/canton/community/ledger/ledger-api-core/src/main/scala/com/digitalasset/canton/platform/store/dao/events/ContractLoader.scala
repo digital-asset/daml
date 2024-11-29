@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store.dao.events
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.InstrumentedGraph
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
@@ -120,7 +120,7 @@ class PekkoStreamParallelBatchedLoader[KEY, VALUE](
   }
 }
 
-trait ContractLoader extends Loader[(ContractId, Option[AbsoluteOffset]), RawContractState]
+trait ContractLoader extends Loader[(ContractId, Option[Offset]), RawContractState]
 
 object ContractLoader {
   def create(
@@ -138,7 +138,7 @@ object ContractLoader {
     ResourceOwner
       .forReleasable(() =>
         new PekkoStreamParallelBatchedLoader[
-          (ContractId, Option[AbsoluteOffset]),
+          (ContractId, Option[Offset]),
           RawContractState,
         ](
           batchLoad = { batch =>
@@ -223,7 +223,7 @@ object ContractLoader {
       )(_.closeAsync())
       .map(loader =>
         new ContractLoader {
-          override def load(key: (ContractId, Option[AbsoluteOffset]))(implicit
+          override def load(key: (ContractId, Option[Offset]))(implicit
               loggingContext: LoggingContextWithTrace
           ): Future[Option[RawContractState]] =
             loader.load(key)
@@ -231,7 +231,7 @@ object ContractLoader {
       )
 
   val dummyLoader = new ContractLoader {
-    override def load(key: (ContractId, Option[AbsoluteOffset]))(implicit
+    override def load(key: (ContractId, Option[Offset]))(implicit
         loggingContext: LoggingContextWithTrace
     ): Future[Option[RawContractState]] = Future.successful(None)
   }

@@ -12,7 +12,7 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdateTreesResponse,
   GetUpdatesResponse,
 }
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
 import com.digitalasset.canton.ledger.participant.state
@@ -33,13 +33,13 @@ import scala.concurrent.Future
 
 private[platform] trait LedgerDaoTransactionsReader {
   def getFlatTransactions(
-      startInclusive: AbsoluteOffset,
-      endInclusive: AbsoluteOffset,
+      startInclusive: Offset,
+      endInclusive: Offset,
       filter: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(AbsoluteOffset, GetUpdatesResponse), NotUsed]
+  ): Source[(Offset, GetUpdatesResponse), NotUsed]
 
   def lookupFlatTransactionById(
       updateId: UpdateId,
@@ -47,13 +47,13 @@ private[platform] trait LedgerDaoTransactionsReader {
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]]
 
   def getTransactionTrees(
-      startInclusive: AbsoluteOffset,
-      endInclusive: AbsoluteOffset,
+      startInclusive: Offset,
+      endInclusive: Offset,
       requestingParties: Option[Set[Party]],
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(AbsoluteOffset, GetUpdateTreesResponse), NotUsed]
+  ): Source[(Offset, GetUpdateTreesResponse), NotUsed]
 
   def lookupTransactionTreeById(
       updateId: UpdateId,
@@ -61,7 +61,7 @@ private[platform] trait LedgerDaoTransactionsReader {
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]]
 
   def getActiveContracts(
-      activeAt: Option[AbsoluteOffset],
+      activeAt: Option[Offset],
       filter: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetActiveContractsResponse, NotUsed]
@@ -69,13 +69,13 @@ private[platform] trait LedgerDaoTransactionsReader {
 
 private[platform] trait LedgerDaoCommandCompletionsReader {
   def getCommandCompletions(
-      startInclusive: AbsoluteOffset,
-      endInclusive: AbsoluteOffset,
+      startInclusive: Offset,
+      endInclusive: Offset,
       applicationId: ApplicationId,
       parties: Set[Party],
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(AbsoluteOffset, CompletionStreamResponse), NotUsed]
+  ): Source[(Offset, CompletionStreamResponse), NotUsed]
 }
 
 private[platform] trait LedgerDaoEventsReader {
@@ -126,11 +126,11 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   ): Future[List[IndexerPartyDetails]]
 
   def getPartyEntries(
-      startInclusive: AbsoluteOffset,
-      endInclusive: AbsoluteOffset,
+      startInclusive: Offset,
+      endInclusive: Offset,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(AbsoluteOffset, PartyLedgerEntry), NotUsed]
+  ): Source[(Offset, PartyLedgerEntry), NotUsed]
 
   /** Prunes participant events and completions in archived history and remembers largest
     * pruning offset processed thus far.
@@ -139,9 +139,9 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
     * @return
     */
   def prune(
-      pruneUpToInclusive: AbsoluteOffset,
+      pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
-      incompletReassignmentOffsets: Vector[AbsoluteOffset],
+      incompletReassignmentOffsets: Vector[Offset],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Unit]
@@ -151,7 +151,7 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
     */
   def pruningOffsets(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[(Option[AbsoluteOffset], Option[AbsoluteOffset])]
+  ): Future[(Option[Offset], Option[Offset])]
 
   /** Returns all TransactionMetering records matching given criteria */
   def meteringReportData(
@@ -185,7 +185,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
   def storeRejection(
       completionInfo: Option[state.CompletionInfo],
       recordTime: Timestamp,
-      offset: AbsoluteOffset,
+      offset: Offset,
       reason: state.Update.CommandRejected.RejectionReasonTemplate,
   )(implicit
       loggingContext: LoggingContextWithTrace
@@ -197,7 +197,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
     * @param partyEntry  the PartyEntry to be stored
     * @return Ok when the operation was successful otherwise a Duplicate
     */
-  def storePartyEntry(offset: AbsoluteOffset, partyEntry: PartyLedgerEntry)(implicit
+  def storePartyEntry(offset: Offset, partyEntry: PartyLedgerEntry)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[PersistenceResponse]
 
@@ -209,7 +209,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       workflowId: Option[WorkflowId],
       updateId: UpdateId,
       ledgerEffectiveTime: Timestamp,
-      offset: AbsoluteOffset,
+      offset: Offset,
       transaction: CommittedTransaction,
       hostedWitnesses: List[Party],
       recordTime: Timestamp,

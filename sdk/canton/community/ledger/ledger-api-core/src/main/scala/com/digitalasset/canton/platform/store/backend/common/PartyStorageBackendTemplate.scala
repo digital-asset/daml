@@ -5,12 +5,12 @@ package com.digitalasset.canton.platform.store.backend.common
 
 import anorm.SqlParser.{bool, flatten, str}
 import anorm.{RowParser, ~}
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.platform.store.backend.Conversions.{
-  absoluteOffset,
   ledgerString,
+  offset,
   party,
   timestampFromMicros,
 }
@@ -25,9 +25,9 @@ import java.sql.Connection
 
 class PartyStorageBackendTemplate(ledgerEndCache: LedgerEndCache) extends PartyStorageBackend {
 
-  private val partyEntryParser: RowParser[(AbsoluteOffset, PartyLedgerEntry)] = {
+  private val partyEntryParser: RowParser[(Offset, PartyLedgerEntry)] = {
     import com.digitalasset.canton.platform.store.backend.Conversions.bigDecimalColumnToBoolean
-    (absoluteOffset("ledger_offset") ~
+    (offset("ledger_offset") ~
       timestampFromMicros("recorded_at") ~
       ledgerString("submission_id").? ~
       party("party").? ~
@@ -71,11 +71,11 @@ class PartyStorageBackendTemplate(ledgerEndCache: LedgerEndCache) extends PartyS
   }
 
   override def partyEntries(
-      startInclusive: AbsoluteOffset,
-      endInclusive: AbsoluteOffset,
+      startInclusive: Offset,
+      endInclusive: Offset,
       pageSize: Int,
       queryOffset: Long,
-  )(connection: Connection): Vector[(AbsoluteOffset, PartyLedgerEntry)] =
+  )(connection: Connection): Vector[(Offset, PartyLedgerEntry)] =
     SQL"""select * from lapi_party_entries
       where ${QueryStrategy.offsetIsBetween(
         nonNullableColumn = "ledger_offset",
@@ -107,7 +107,7 @@ class PartyStorageBackendTemplate(ledgerEndCache: LedgerEndCache) extends PartyS
     ledgerEndCache() match {
       case None => Vector.empty
       case Some(ledgerEnd) =>
-        import com.digitalasset.canton.platform.store.backend.Conversions.AbsoluteOffsetToStatement
+        import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
         SQL"""
         SELECT
           party,

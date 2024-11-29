@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer
@@ -22,13 +22,13 @@ class BufferedCommandCompletionsReader(
 ) extends LedgerDaoCommandCompletionsReader {
 
   override def getCommandCompletions(
-      startInclusive: AbsoluteOffset,
-      endInclusive: AbsoluteOffset,
+      startInclusive: Offset,
+      endInclusive: Offset,
       applicationId: ApplicationId,
       parties: Set[Party],
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(AbsoluteOffset, CompletionStreamResponse), NotUsed] =
+  ): Source[(Offset, CompletionStreamResponse), NotUsed] =
     bufferReader
       .stream(
         startInclusive = startInclusive,
@@ -82,12 +82,12 @@ object BufferedCommandCompletionsReader {
   )(implicit ec: ExecutionContext): BufferedCommandCompletionsReader = {
     val fetchCompletions = new FetchFromPersistence[CompletionsFilter, CompletionStreamResponse] {
       override def apply(
-          startInclusive: AbsoluteOffset,
-          endInclusive: AbsoluteOffset,
+          startInclusive: Offset,
+          endInclusive: Offset,
           filter: (ApplicationId, Parties),
       )(implicit
           loggingContext: LoggingContextWithTrace
-      ): Source[(AbsoluteOffset, CompletionStreamResponse), NotUsed] = {
+      ): Source[(Offset, CompletionStreamResponse), NotUsed] = {
         val (applicationId, parties) = filter
         delegate
           .getCommandCompletions(

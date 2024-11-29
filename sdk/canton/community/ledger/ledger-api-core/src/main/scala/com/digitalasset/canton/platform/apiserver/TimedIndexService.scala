@@ -13,7 +13,7 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdatesResponse,
 }
 import com.daml.metrics.Timed
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.UpdateId
 import com.digitalasset.canton.ledger.api.domain.types.ParticipantOffset
@@ -92,7 +92,7 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
   override def getActiveContracts(
       filter: domain.TransactionFilter,
       verbose: Boolean,
-      activeAt: Option[AbsoluteOffset],
+      activeAt: Option[Offset],
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetActiveContractsResponse, NotUsed] =
     Timed.source(
       metrics.services.index.getActiveContracts,
@@ -152,9 +152,9 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
     Timed.source(metrics.services.index.partyEntries, delegate.partyEntries(startExclusive))
 
   override def prune(
-      pruneUpToInclusive: AbsoluteOffset,
+      pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
-      incompletReassignmentOffsets: Vector[AbsoluteOffset],
+      incompletReassignmentOffsets: Vector[Offset],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Unit] =
     Timed.future(
       metrics.services.index.prune,
@@ -184,7 +184,7 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
 
   override def latestPrunedOffsets()(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[(Option[AbsoluteOffset], Option[AbsoluteOffset])] =
+  ): Future[(Option[Offset], Option[Offset])] =
     Timed.future(metrics.services.index.latestPrunedOffsets, delegate.latestPrunedOffsets())
 
   override def getEventsByContractId(

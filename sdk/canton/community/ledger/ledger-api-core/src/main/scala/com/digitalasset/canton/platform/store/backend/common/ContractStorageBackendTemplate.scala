@@ -5,14 +5,14 @@ package com.digitalasset.canton.platform.store.backend.common
 
 import anorm.SqlParser.{array, byteArray, int, str}
 import anorm.{RowParser, ~}
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend.{
   RawArchivedContract,
   RawCreatedContract,
 }
 import com.digitalasset.canton.platform.store.backend.Conversions.{
-  AbsoluteOffsetToStatement,
+  OffsetToStatement,
   contractId,
   timestampFromMicros,
 }
@@ -34,7 +34,7 @@ class ContractStorageBackendTemplate(
     stringInterning: StringInterning,
 ) extends ContractStorageBackend {
 
-  override def keyState(key: Key, validAt: AbsoluteOffset)(connection: Connection): KeyState = {
+  override def keyState(key: Key, validAt: Offset)(connection: Connection): KeyState = {
     val resultParser =
       (contractId("contract_id") ~ array[Int]("flat_event_witnesses")).map {
         case cId ~ stakeholders =>
@@ -74,7 +74,7 @@ class ContractStorageBackendTemplate(
         )
       }
 
-  override def archivedContracts(contractIds: Seq[ContractId], before: AbsoluteOffset)(
+  override def archivedContracts(contractIds: Seq[ContractId], before: Offset)(
       connection: Connection
   ): Map[ContractId, RawArchivedContract] =
     if (contractIds.isEmpty) Map.empty
@@ -125,7 +125,7 @@ class ContractStorageBackendTemplate(
           )
       }
 
-  override def createdContracts(contractIds: Seq[ContractId], before: AbsoluteOffset)(
+  override def createdContracts(contractIds: Seq[ContractId], before: Offset)(
       connection: Connection
   ): Map[ContractId, RawCreatedContract] =
     if (contractIds.isEmpty) Map.empty
@@ -158,7 +158,7 @@ class ContractStorageBackendTemplate(
   ): Map[ContractId, RawCreatedContract] =
     if (contractIds.isEmpty) Map.empty
     else {
-      import com.digitalasset.canton.platform.store.backend.Conversions.AbsoluteOffsetToStatement
+      import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
       val ledgerEndOffsetO = ledgerEndCache().map(_.lastOffset)
       ledgerEndOffsetO match {
         case Some(ledgerEndOffset) =>

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer
@@ -256,7 +256,7 @@ object BufferedStreamsReaderSpec {
 
     val metrics = LedgerApiServerMetrics.ForTesting
     val Seq(offset0, offset1, offset2, offset3) =
-      (0 to 3) map { idx => absoluteOffset(idx.toLong) }: @nowarn("msg=match may not be exhaustive")
+      (0 to 3) map { idx => offset(idx.toLong) }: @nowarn("msg=match may not be exhaustive")
     val offsetUpdates: Seq[TransactionLogUpdate.TransactionAccepted] =
       (1L to 3L).map(transaction)
 
@@ -291,24 +291,24 @@ object BufferedStreamsReaderSpec {
 
     trait StaticTestScope {
 
-      val streamElements: ArrayBuffer[(AbsoluteOffset, String)] =
-        ArrayBuffer.empty[(AbsoluteOffset, String)]
+      val streamElements: ArrayBuffer[(Offset, String)] =
+        ArrayBuffer.empty[(Offset, String)]
 
       private val failingPersistenceFetch = new FetchFromPersistence[Object, String] {
         override def apply(
-            startInclusive: AbsoluteOffset,
-            endInclusive: AbsoluteOffset,
+            startInclusive: Offset,
+            endInclusive: Offset,
             filter: Object,
         )(implicit
             loggingContext: LoggingContextWithTrace
-        ): Source[(AbsoluteOffset, String), NotUsed] = fail(
+        ): Source[(Offset, String), NotUsed] = fail(
           "Unexpected call to fetch from persistence"
         )
       }
 
       def run(
-          startInclusive: AbsoluteOffset,
-          endInclusive: AbsoluteOffset,
+          startInclusive: Offset,
+          endInclusive: Offset,
           transactionsBuffer: InMemoryFanoutBuffer = inMemoryFanoutBufferWithSmallChunkSize,
           fetchFromPersistence: FetchFromPersistence[Object, String] = failingPersistenceFetch,
           persistenceFetchArgs: Object = new Object,
@@ -335,19 +335,19 @@ object BufferedStreamsReaderSpec {
           .futureValue
 
       def buildFetchFromPersistence(
-          expectedStartInclusive: AbsoluteOffset,
-          expectedEndInclusive: AbsoluteOffset,
+          expectedStartInclusive: Offset,
+          expectedEndInclusive: Offset,
           expectedFilter: Object,
-          thenReturnStream: Source[(AbsoluteOffset, String), NotUsed],
+          thenReturnStream: Source[(Offset, String), NotUsed],
       ): FetchFromPersistence[Object, String] =
         new FetchFromPersistence[Object, String] {
           override def apply(
-              startInclusive: AbsoluteOffset,
-              endInclusive: AbsoluteOffset,
+              startInclusive: Offset,
+              endInclusive: Offset,
               filter: Object,
           )(implicit
               loggingContext: LoggingContextWithTrace
-          ): Source[(AbsoluteOffset, String), NotUsed] =
+          ): Source[(Offset, String), NotUsed] =
             (startInclusive, endInclusive, filter) match {
               case (`expectedStartInclusive`, `expectedEndInclusive`, `expectedFilter`) =>
                 thenReturnStream
@@ -359,21 +359,21 @@ object BufferedStreamsReaderSpec {
 
     class DynamicTestScope(val maxBufferSize: Int = 100, val maxBufferChunkSize: Int = 10) {
       @volatile private var persistenceStore =
-        Vector.empty[(AbsoluteOffset, TransactionLogUpdate.TransactionAccepted)]
+        Vector.empty[(Offset, TransactionLogUpdate.TransactionAccepted)]
       @volatile private var ledgerEndIndex = 0L
       private val inMemoryFanoutBuffer =
         new InMemoryFanoutBuffer(maxBufferSize, metrics, maxBufferChunkSize, loggerFactory)
 
       private val fetchFromPersistence = new FetchFromPersistence[Object, String] {
         override def apply(
-            startInclusive: AbsoluteOffset,
-            endInclusive: AbsoluteOffset,
+            startInclusive: Offset,
+            endInclusive: Offset,
             filter: Object,
         )(implicit
             loggingContext: LoggingContextWithTrace
-        ): Source[(AbsoluteOffset, String), NotUsed] =
+        ): Source[(Offset, String), NotUsed] =
           if (startInclusive > endInclusive) fail("startExclusive after endInclusive")
-          else if (endInclusive > absoluteOffset(ledgerEndIndex))
+          else if (endInclusive > offset(ledgerEndIndex))
             fail("endInclusive after ledgerEnd")
           else
             persistenceStore
@@ -430,8 +430,8 @@ object BufferedStreamsReaderSpec {
 
         val assertReadStream = streamReader
           .stream[TransactionLogUpdate.TransactionAccepted](
-            startInclusive = absoluteOffset(startInclusiveIdx.toLong),
-            endInclusive = absoluteOffset(endInclusiveIdx.toLong),
+            startInclusive = offset(startInclusiveIdx.toLong),
+            endInclusive = offset(endInclusiveIdx.toLong),
             persistenceFetchArgs = new Object, // Not used
             bufferFilter = noFilterBufferSlice, // Do not filter
             toApiResponse = tx => Future.successful(tx.updateId),
@@ -447,7 +447,7 @@ object BufferedStreamsReaderSpec {
               result.size shouldBe endInclusiveIdx - startInclusiveIdx + 1
             }
             val expectedElements = (startInclusiveIdx.toLong to endInclusiveIdx.toLong) map { idx =>
-              absoluteOffset(idx) -> s"tx-$idx"
+              offset(idx) -> s"tx-$idx"
             }
             result should contain theSameElementsInOrderAs expectedElements
           }
@@ -459,7 +459,7 @@ object BufferedStreamsReaderSpec {
         f.futureValue
 
       private def updateFixtures(idx: Long): Unit = {
-        val offsetAt = absoluteOffset(idx)
+        val offsetAt = offset(idx)
         val tx = transaction(idx)
         persistenceStore = persistenceStore.appended(offsetAt -> tx)
         inMemoryFanoutBuffer.push(tx)
@@ -476,15 +476,15 @@ object BufferedStreamsReaderSpec {
       commandId = "",
       workflowId = "",
       effectiveAt = Timestamp.Epoch,
-      offset = absoluteOffset(i),
+      offset = offset(i),
       events = Vector(null),
       completionStreamResponse = None,
       domainId = someDomainId.toProtoPrimitive,
       recordTime = Timestamp.Epoch,
     )(TraceContext.empty)
 
-  private def absoluteOffset(idx: Long): AbsoluteOffset = {
+  private def offset(idx: Long): Offset = {
     val base = 1000000000L
-    AbsoluteOffset.tryFromLong(base + idx)
+    Offset.tryFromLong(base + idx)
   }
 }

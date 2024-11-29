@@ -8,6 +8,7 @@ import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
 import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDetector.LockedStates
 import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTracker.*
 import com.digitalasset.canton.participant.store.ActiveContractStore
@@ -1058,7 +1059,7 @@ private[conflictdetection] trait RequestTrackerTest {
           timeout,
           mkActivenessSet(create = Set(coid00, coid01)),
         )
-        (cdF1, toF1) <- enterCR(
+        (cdF1, toF1) <- enterCR_US(
           rt,
           rc + 1,
           sc + 1,
@@ -1067,7 +1068,12 @@ private[conflictdetection] trait RequestTrackerTest {
           mkActivenessSet(create = Set(coid10)),
         )
         _ <- checkConflictResult(rc, cdF0, mkActivenessResult(), "first request succeeds")
-        _ <- checkConflictResult(rc, cdF1, mkActivenessResult(), "second request succeeds")
+        _ <- checkConflictResult(
+          rc,
+          cdF1.failOnShutdown,
+          mkActivenessResult(),
+          "second request succeeds",
+        )
         finalize0 = rt.addResult(rc, sc + 2, ts.plusMillis(2), ts.plusMillis(3))
         _ = finalize0 shouldBe Either.unit
         to0 <- toF0
@@ -1082,16 +1088,15 @@ private[conflictdetection] trait RequestTrackerTest {
               commit0 <- commitF0.value.failed.failOnShutdown
               finalize1 = rt.addResult(rc + 1, sc + 4, ts.plusMillis(6), ts.plusMillis(6))
               _ = finalize1 shouldBe Either.unit
-              to1 <- toF1
-              _ = to1.timedOut shouldBe false
+              to1 <- toF1.unwrap
+              // The commit set failure of RC 100 shuts down conflict detection
+              _ = to1 shouldBe AbortedDueToShutdown
               commitF1 = valueOrFail(
                 rt.addCommitSet(rc + 1, Success(mkCommitSet(create = Set(coid10))))
               )("no commit set error expected for second request")
               _ <- rt.taskScheduler.flush()
             } yield (commit0, commitF1)
           },
-          _.errorMessage should include("will not run because of failure of previous task"),
-          _.errorMessage should include("A task failed with an exception."),
           _.errorMessage should include("A task failed with an exception."),
         )
         contracts <- acs.fetchStates(Seq(coid00, coid10)).failOnShutdown
@@ -1142,7 +1147,10 @@ private[conflictdetection] trait RequestTrackerTest {
       decisionTime,
       activenessSet,
     ).map { case (aR, tR) =>
-      (aR.failOnShutdown("activeness result"), tR.failOnShutdown("timeout result"))
+      (
+        aR.failOnShutdown("activeness result"),
+        tR.failOnShutdown(s"timeout result (rc=$rc, sc=$sc)"),
+      )
     }
 
   protected def enterCR_US(

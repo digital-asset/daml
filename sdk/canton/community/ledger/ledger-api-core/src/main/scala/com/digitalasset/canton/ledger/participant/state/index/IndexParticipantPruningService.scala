@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.participant.state.index
 
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 
 import scala.concurrent.Future
@@ -13,9 +13,9 @@ import scala.concurrent.Future
   */
 trait IndexParticipantPruningService {
   def prune(
-      pruneUpToInclusive: AbsoluteOffset,
+      pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
-      incompletReassignmentOffsets: Vector[AbsoluteOffset],
+      incompletReassignmentOffsets: Vector[Offset],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Unit]

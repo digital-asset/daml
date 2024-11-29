@@ -17,7 +17,7 @@ import com.daml.metrics.InstrumentedGraph.*
 import com.daml.tracing.{Event, SpanAttribute, Spans}
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.types.ParticipantOffset
 import com.digitalasset.canton.ledger.api.domain.{CumulativeFilter, TransactionFilter, UpdateId}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
@@ -68,7 +68,7 @@ private[index] class IndexServiceImpl(
     commandCompletionsReader: LedgerDaoCommandCompletionsReader,
     contractStore: ContractStore,
     pruneBuffers: PruneBuffers,
-    dispatcher: () => Dispatcher[AbsoluteOffset],
+    dispatcher: () => Dispatcher[Offset],
     fetchOffsetCheckpoint: () => Option[OffsetCheckpoint],
     getPackageMetadataSnapshot: ContextualizedErrorLogger => PackageMetadata,
     metrics: LedgerApiServerMetrics,
@@ -177,18 +177,18 @@ private[index] class IndexServiceImpl(
       responseFromCheckpoint: OffsetCheckpoint => T,
       idleStreamOffsetCheckpointTimeout: NonNegativeFiniteDuration =
         idleStreamOffsetCheckpointTimeout,
-  ): Flow[(AbsoluteOffset, Carrier[T]), T, NotUsed] =
+  ): Flow[(Offset, Carrier[T]), T, NotUsed] =
     if (cond) {
       // keepAlive flow so that we create a checkpoint for idle streams
-      Flow[(AbsoluteOffset, Carrier[T])]
+      Flow[(Offset, Carrier[T])]
         .keepAlive(
           idleStreamOffsetCheckpointTimeout.underlying,
-          () => (AbsoluteOffset.MaxValue, Timeout), // the offset for timeout is ignored
+          () => (Offset.MaxValue, Timeout), // the offset for timeout is ignored
         )
         .via(injectCheckpoints(fetchOffsetCheckpoint, responseFromCheckpoint))
         .map(_._2)
     } else
-      Flow[(AbsoluteOffset, Carrier[T])].collect { case (_offset, Element(elem)) =>
+      Flow[(Offset, Carrier[T])].collect { case (_offset, Element(elem)) =>
         elem
       }
 
@@ -309,7 +309,7 @@ private[index] class IndexServiceImpl(
   override def getActiveContracts(
       transactionFilter: TransactionFilter,
       verbose: Boolean,
-      activeAt: Option[AbsoluteOffset],
+      activeAt: Option[Offset],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[GetActiveContractsResponse, NotUsed] = {
@@ -429,9 +429,9 @@ private[index] class IndexServiceImpl(
       }
 
   override def prune(
-      pruneUpToInclusive: AbsoluteOffset,
+      pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
-      incompletReassignmentOffsets: Vector[AbsoluteOffset],
+      incompletReassignmentOffsets: Vector[Offset],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Unit] = {
@@ -455,22 +455,22 @@ private[index] class IndexServiceImpl(
     Future.successful(absoluteApiOffset)
   }
 
-  private def toApiOffset(ledgerDomainOffsetO: Option[AbsoluteOffset]): ParticipantOffset =
+  private def toApiOffset(ledgerDomainOffsetO: Option[Offset]): ParticipantOffset =
     ledgerDomainOffsetO.toHexString
 
-  private def ledgerEnd(): Option[AbsoluteOffset] = dispatcher().getHead()
+  private def ledgerEnd(): Option[Offset] = dispatcher().getHead()
 
   // Returns a function that memoizes the current end
   // Can be used directly or shared throughout a request processing
-  private def convertOffset: ParticipantOffset => Source[Option[AbsoluteOffset], NotUsed] = {
+  private def convertOffset: ParticipantOffset => Source[Option[Offset], NotUsed] = {
     ledgerOffset =>
-      AbsoluteOffset.tryFromString(ledgerOffset).fold(Source.failed, off => Source.single(off))
+      Offset.tryFromString(ledgerOffset).fold(Source.failed, off => Source.single(off))
   }
 
   // TODO(#22293) when participant offset is replaced by an optional type, deduplicate with the above convertOffset
-  private def convertOffsetInclusive: ParticipantOffset => Source[AbsoluteOffset, NotUsed] = {
+  private def convertOffsetInclusive: ParticipantOffset => Source[Offset, NotUsed] = {
     ledgerOffset =>
-      AbsoluteOffset
+      Offset
         .tryFromString(ledgerOffset)
         .map(_.getOrElse(throw new IllegalArgumentException("Inclusive offset was not positive")))
         .fold(Source.failed, off => Source.single(off))
@@ -479,7 +479,7 @@ private[index] class IndexServiceImpl(
   private def between[A](
       startExclusive: ParticipantOffset,
       endInclusive: Option[ParticipantOffset],
-  )(f: (Option[AbsoluteOffset], Option[AbsoluteOffset]) => Source[A, NotUsed])(implicit
+  )(f: (Option[Offset], Option[Offset]) => Source[A, NotUsed])(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[A, NotUsed] = {
     val convert = convertOffset
@@ -498,14 +498,14 @@ private[index] class IndexServiceImpl(
                 )(ErrorLoggingContext(logger, loggingContext))
                 .asGrpcError
             )
-          case endOpt: Option[AbsoluteOffset] =>
+          case endOpt: Option[Offset] =>
             f(begin, endOpt)
         }
     }
   }
 
-  private def concreteOffset(startExclusive: ParticipantOffset): Future[Option[AbsoluteOffset]] =
-    Future.fromTry(AbsoluteOffset.tryFromString(startExclusive))
+  private def concreteOffset(startExclusive: ParticipantOffset): Future[Option[Offset]] =
+    Future.fromTry(Offset.tryFromString(startExclusive))
 
   private def shutdownError(implicit
       loggingContext: LoggingContextWithTrace
@@ -532,7 +532,7 @@ private[index] class IndexServiceImpl(
 
   override def latestPrunedOffsets()(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[(Option[AbsoluteOffset], Option[AbsoluteOffset])] =
+  ): Future[(Option[Offset], Option[Offset])] =
     ledgerDao.pruningOffsets
 }
 
@@ -659,8 +659,8 @@ object IndexServiceImpl {
     )
 
   private[index] def validatedAcsActiveAtOffset[T](
-      activeAt: Option[AbsoluteOffset],
-      ledgerEnd: Option[AbsoluteOffset],
+      activeAt: Option[Offset],
+      ledgerEnd: Option[Offset],
   )(implicit errorLogger: ContextualizedErrorLogger): Either[StatusRuntimeException, Unit] =
     Either.cond(
       activeAt <= ledgerEnd,
@@ -811,11 +811,11 @@ object IndexServiceImpl {
   // the decorators are added along with the offset they are referring to
   // the decorators' offsets are both inclusive
   private[index] def rangeDecorator[T](
-      startInclusive: AbsoluteOffset,
-      endInclusive: AbsoluteOffset,
-  ): Flow[(AbsoluteOffset, T), (AbsoluteOffset, Carrier[T]), NotUsed] =
-    Flow[(AbsoluteOffset, T)]
-      .map[(AbsoluteOffset, Carrier[T])] { case (off, elem) =>
+      startInclusive: Offset,
+      endInclusive: Offset,
+  ): Flow[(Offset, T), (Offset, Carrier[T]), NotUsed] =
+    Flow[(Offset, T)]
+      .map[(Offset, Carrier[T])] { case (off, elem) =>
         (off, Element(elem))
       }
       .prepend(
@@ -826,11 +826,11 @@ object IndexServiceImpl {
   def injectCheckpoints[T](
       fetchOffsetCheckpoint: () => Option[OffsetCheckpoint],
       responseFromCheckpoint: OffsetCheckpoint => T,
-  ): Flow[(AbsoluteOffset, Carrier[T]), (AbsoluteOffset, T), NotUsed] =
-    Flow[(AbsoluteOffset, Carrier[T])]
+  ): Flow[(Offset, Carrier[T]), (Offset, T), NotUsed] =
+    Flow[(Offset, Carrier[T])]
       .statefulMap[
-        (Option[OffsetCheckpoint], Option[OffsetCheckpoint], Option[(AbsoluteOffset, Carrier[T])]),
-        Seq[(AbsoluteOffset, T)],
+        (Option[OffsetCheckpoint], Option[OffsetCheckpoint], Option[(Offset, Carrier[T])]),
+        Seq[(Offset, T)],
       ](create = () => (None, None, None))(
         f = { case ((lastFetchedCheckpointO, lastStreamedCheckpointO, processedElemO), elem) =>
           elem match {

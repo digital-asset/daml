@@ -3,14 +3,14 @@
 
 package com.digitalasset.canton.ledger.offset
 
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import org.scalacheck.{Arbitrary, Gen}
 
 object GeneratorsOffset {
 
-  implicit val offsetArb: Arbitrary[AbsoluteOffset] = Arbitrary(
+  implicit val offsetArb: Arbitrary[Offset] = Arbitrary(
     for {
       l <- Gen.posNum[Long]
-    } yield AbsoluteOffset.tryFromLong(l)
+    } yield Offset.tryFromLong(l)
   )
 }

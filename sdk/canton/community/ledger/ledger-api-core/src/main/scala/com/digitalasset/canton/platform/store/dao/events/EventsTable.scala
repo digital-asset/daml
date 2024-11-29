@@ -23,7 +23,7 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdateTreesResponse,
   GetUpdatesResponse,
 }
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel.*
 import com.digitalasset.canton.platform.ApiOffset
@@ -81,7 +81,7 @@ object EventsTable {
 
     def toTopologyTransaction(
         events: Vector[RawParticipantAuthorization]
-    ): Option[(AbsoluteOffset, TopologyTransaction)] =
+    ): Option[(Offset, TopologyTransaction)] =
       events.headOption.map { first =>
         first.offset ->
           TopologyTransaction(

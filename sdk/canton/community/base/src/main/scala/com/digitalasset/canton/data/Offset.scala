@@ -5,7 +5,7 @@ package com.digitalasset.canton.data
 
 import cats.syntax.either.*
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
-import com.digitalasset.canton.data.AbsoluteOffset.{firstOffset, toOldOffsetBytes, tryFromLong}
+import com.digitalasset.canton.data.Offset.{firstOffset, toOldOffsetBytes, tryFromLong}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.pretty.Pretty.prettyOfString
 import com.digitalasset.canton.pekkostreams.dispatcher.DispatcherImpl.Incrementable
@@ -21,25 +21,24 @@ import scala.util.{Failure, Success, Try}
   * We use these offsets to address changes to the participant state.
   * Offsets are opaque values that must be strictly increasing.
   */
-// TODO(#21220) rename to Offset
-class AbsoluteOffset private (val positive: Long)
+class Offset private (val positive: Long)
     extends AnyVal
-    with Ordered[AbsoluteOffset]
-    with Incrementable[AbsoluteOffset] {
+    with Ordered[Offset]
+    with Incrementable[Offset] {
   def unwrap: Long = positive
 
-  def compare(that: AbsoluteOffset): Int = this.positive.compare(that.positive)
+  def compare(that: Offset): Int = this.positive.compare(that.positive)
 
-  def increment: AbsoluteOffset = tryFromLong(positive + 1L)
+  def increment: Offset = tryFromLong(positive + 1L)
 
-  def min(other: AbsoluteOffset): AbsoluteOffset = new AbsoluteOffset(positive.min(other.unwrap))
+  def min(other: Offset): Offset = new Offset(positive.min(other.unwrap))
 
-  def max(other: AbsoluteOffset): AbsoluteOffset = new AbsoluteOffset(positive.max(other.unwrap))
+  def max(other: Offset): Offset = new Offset(positive.max(other.unwrap))
 
-  def decrement: Option[AbsoluteOffset] =
+  def decrement: Option[Offset] =
     Option.unless(this == firstOffset)(tryFromLong(positive - 1L))
 
-  override def toString: String = s"AbsoluteOffset($positive)"
+  override def toString: String = s"Offset($positive)"
 
   def toDecimalString: String = positive.toString
 
@@ -47,38 +46,38 @@ class AbsoluteOffset private (val positive: Long)
   def toHexString: Ref.HexString = toOldOffsetBytes(positive).toHexString
 }
 
-object AbsoluteOffset {
-  lazy val firstOffset: AbsoluteOffset = AbsoluteOffset.tryFromLong(1L)
-  lazy val MaxValue: AbsoluteOffset = AbsoluteOffset.tryFromLong(Long.MaxValue)
+object Offset {
+  lazy val firstOffset: Offset = Offset.tryFromLong(1L)
+  lazy val MaxValue: Offset = Offset.tryFromLong(Long.MaxValue)
 
-  def tryFromLong(num: Long): AbsoluteOffset =
+  def tryFromLong(num: Long): Offset =
     fromLong(num).valueOr(err => throw new IllegalArgumentException(err))
 
-  def fromLong(num: Long): Either[String, AbsoluteOffset] =
+  def fromLong(num: Long): Either[String, Offset] =
     Either.cond(
       num > 0L,
-      new AbsoluteOffset(num),
+      new Offset(num),
       s"Expecting positive value for offset, found $num.",
     )
 
-  def fromHexString(s: Ref.HexString): AbsoluteOffset = {
+  def fromHexString(s: Ref.HexString): Offset = {
     val bytes = Bytes.fromHexString(s)
-    AbsoluteOffset.tryFromLong(ByteBuffer.wrap(bytes.toByteArray).getLong(1))
+    Offset.tryFromLong(ByteBuffer.wrap(bytes.toByteArray).getLong(1))
   }
 
-  def fromHexStringO(s: Ref.HexString): Option[AbsoluteOffset] =
+  def fromHexStringO(s: Ref.HexString): Option[Offset] =
     if (s.isEmpty) None else Some(fromHexString(s))
 
-  def tryFromString(s: String): Try[Option[AbsoluteOffset]] =
+  def tryFromString(s: String): Try[Option[Offset]] =
     fromString(s) match {
       case Left(msg) => Failure(new IllegalArgumentException(msg))
       case Right(offset) => Success(offset)
     }
 
-  private def fromString(s: String): Either[String, Option[AbsoluteOffset]] =
+  private def fromString(s: String): Either[String, Option[Offset]] =
     Ref.HexString
       .fromString(s)
-      .map(AbsoluteOffset.fromHexStringO)
+      .map(Offset.fromHexStringO)
 
   // TODO(#22143) move to SerializableDeduplicationPeriod since there should be the only place that uses it
   private def toOldOffsetBytes(offset: Long): Bytes = {
@@ -96,29 +95,28 @@ object AbsoluteOffset {
     )
   }
 
-  def toOldOffsetBytes(offsetO: Option[AbsoluteOffset]): Bytes =
+  def toOldOffsetBytes(offsetO: Option[Offset]): Bytes =
     offsetO.fold(Bytes.Empty)(off => toOldOffsetBytes(off.unwrap))
 
-  implicit val `AbsoluteOffset to LoggingValue`: ToLoggingValue[AbsoluteOffset] = value =>
+  implicit val `Offset to LoggingValue`: ToLoggingValue[Offset] = value =>
     LoggingValue.OfLong(value.unwrap)
 
-  implicit class AbsoluteOffsetOptionToHexString(val offsetO: Option[AbsoluteOffset])
-      extends AnyVal {
+  implicit class OffsetOptionToHexString(val offsetO: Option[Offset]) extends AnyVal {
     def toHexString: Ref.HexString = offsetO match {
       case Some(offset) => offset.toHexString
       case None => Bytes.Empty.toHexString
     }
   }
 
-  implicit val prettyOffset: Pretty[AbsoluteOffset] = prettyOfString(_.toDecimalString)
+  implicit val prettyOffset: Pretty[Offset] = prettyOfString(_.toDecimalString)
 
-  implicit val getResultOffset: GetResult[AbsoluteOffset] =
-    GetResult(_.nextLong()).andThen(AbsoluteOffset.tryFromLong)
-  implicit val getResultOffsetO: GetResult[Option[AbsoluteOffset]] =
-    GetResult(_.nextLongOption().map(AbsoluteOffset.tryFromLong))
+  implicit val getResultOffset: GetResult[Offset] =
+    GetResult(_.nextLong()).andThen(Offset.tryFromLong)
+  implicit val getResultOffsetO: GetResult[Option[Offset]] =
+    GetResult(_.nextLongOption().map(Offset.tryFromLong))
 
-  implicit val setParameterOffset: SetParameter[AbsoluteOffset] = (off, pp) => pp >> off.unwrap
-  implicit val setParameterOffsetO: SetParameter[Option[AbsoluteOffset]] = (off, pp) =>
+  implicit val setParameterOffset: SetParameter[Offset] = (off, pp) => pp >> off.unwrap
+  implicit val setParameterOffsetO: SetParameter[Option[Offset]] = (off, pp) =>
     pp >> off.map(_.unwrap)
 
 }

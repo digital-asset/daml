@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.indexer.parallel
 
 import com.daml.executors.executors.{NamedExecutor, QueueAwareExecutor}
 import com.daml.metrics.DatabaseMetrics
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.{
   DomainIndex,
@@ -90,7 +90,7 @@ class ParallelIndexerSubscriptionSpec
     rejectionReason = "reason",
   )
 
-  private def offset(l: Long): AbsoluteOffset = AbsoluteOffset.tryFromLong(l)
+  private def offset(l: Long): Offset = Offset.tryFromLong(l)
 
   private val metrics = LedgerApiServerMetrics.ForTesting
 
@@ -250,9 +250,9 @@ class ParallelIndexerSubscriptionSpec
       logger,
     )(
       List(
-        AbsoluteOffset.tryFromLong(1),
-        AbsoluteOffset.tryFromLong(2),
-        AbsoluteOffset.tryFromLong(3),
+        Offset.tryFromLong(1),
+        Offset.tryFromLong(2),
+        Offset.tryFromLong(3),
       ).zip(offsetsAndUpdates.map(_._2))
     )
     val expected = Batch[Vector[DbDto]](
@@ -284,8 +284,7 @@ class ParallelIndexerSubscriptionSpec
     val applicationId = Ref.ApplicationId.assertFromString("a0")
 
     val timestamp: Long = 12345
-    val offset = Ref.HexString.assertFromString("02")
-    val absoluteOffset = AbsoluteOffset.tryFromLong(2)
+    val offset = Offset.tryFromLong(2)
     val someHash = Hash.hashPrivateKey("p0")
 
     val someRecordTime =
@@ -328,7 +327,7 @@ class ParallelIndexerSubscriptionSpec
         application_id = applicationId,
         action_count = 0,
         metering_timestamp = timestamp,
-        ledger_offset = offset,
+        ledger_offset = offset.toHexString,
       )
     )
 
@@ -340,7 +339,7 @@ class ParallelIndexerSubscriptionSpec
         logger,
       )(
         List(
-          (absoluteOffset, someTransactionAccepted)
+          (offset, someTransactionAccepted)
         )
       )
       .batch
@@ -632,8 +631,8 @@ class ParallelIndexerSubscriptionSpec
       ParallelIndexerSubscription.ingester(
         ingestFunction,
         new ReassignmentOffsetPersistence {
-          override def persist(updates: Seq[(AbsoluteOffset, Update)], tracedLogger: TracedLogger)(
-              implicit traceContext: TraceContext
+          override def persist(updates: Seq[(Offset, Update)], tracedLogger: TracedLogger)(implicit
+              traceContext: TraceContext
           ): Future[Unit] = {
             persistedTransferOffsets.set(true)
             Future.unit
@@ -1030,20 +1029,20 @@ class ParallelIndexerSubscriptionSpec
   behavior of "monotonicOffsetValidator"
 
   it should "throw if offsets are not in a strictly increasing order" in {
-    val offsetsUpdates: Vector[(AbsoluteOffset, Unit)] = Vector(1L, 3L, 2L)
+    val offsetsUpdates: Vector[(Offset, Unit)] = Vector(1L, 3L, 2L)
       .map(offset)
       .zip(Vector.fill(3)(()))
 
     val testSink = Source(offsetsUpdates)
       .via(ParallelIndexerSubscription.monotonicOffsetValidator)
-      .runWith(TestSink.probe[(AbsoluteOffset, Unit)])
+      .runWith(TestSink.probe[(Offset, Unit)])
 
     testSink.request(3)
     testSink.expectNextN(offsetsUpdates.take(2))
 
     val error = testSink.expectError()
     error shouldBe an[AssertionError]
-    error.getMessage shouldBe "assertion failed: Monotonic Offset violation detected from AbsoluteOffset(3) to AbsoluteOffset(2)"
+    error.getMessage shouldBe "assertion failed: Monotonic Offset violation detected from Offset(3) to Offset(2)"
   }
 
   def update: Update =

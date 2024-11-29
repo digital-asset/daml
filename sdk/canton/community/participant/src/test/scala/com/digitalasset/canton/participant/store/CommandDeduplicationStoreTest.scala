@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.store
 
 import cats.syntax.option.*
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.ChangeId
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
 import com.digitalasset.canton.participant.protocol.submission.ChangeIdHash
@@ -28,21 +28,21 @@ trait CommandDeduplicationStoreTest extends BaseTest { this: AsyncWordSpec =>
   private lazy val changeId2 = ChangeId(applicationId2.unwrap, commandId2.unwrap, Set(alice))
 
   private lazy val answer1 = DefiniteAnswerEvent(
-    AbsoluteOffset.tryFromLong(1),
+    Offset.tryFromLong(1),
     CantonTimestamp.ofEpochSecond(1),
     DefaultDamlValues.submissionId(1).some,
   )(
     TraceContext.withNewTraceContext(Predef.identity)
   )
   private lazy val answer2 = DefiniteAnswerEvent(
-    AbsoluteOffset.tryFromLong(2),
+    Offset.tryFromLong(2),
     CantonTimestamp.ofEpochSecond(2),
     DefaultDamlValues.submissionId(2).some,
   )(
     TraceContext.withNewTraceContext(Predef.identity)
   )
   private lazy val answer3 =
-    DefiniteAnswerEvent(AbsoluteOffset.tryFromLong(3), CantonTimestamp.ofEpochSecond(3), None)(
+    DefiniteAnswerEvent(Offset.tryFromLong(3), CantonTimestamp.ofEpochSecond(3), None)(
       TraceContext.withNewTraceContext(Predef.identity)
     )
 

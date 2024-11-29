@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.dao.events
 
 import com.daml.ledger.api.v2.topology_transaction.TopologyTransaction
 import com.daml.metrics.DatabaseMetrics
-import com.digitalasset.canton.data.AbsoluteOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
@@ -51,7 +51,7 @@ class TopologyTransactionsStreamReader(
       topologyTransactionsStreamQueryParams: TopologyTransactionsStreamQueryParams
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(AbsoluteOffset, TopologyTransaction), NotUsed] = {
+  ): Source[(Offset, TopologyTransaction), NotUsed] = {
     import topologyTransactionsStreamQueryParams.*
 
     val assignedEventIdQueriesLimiter =
@@ -111,9 +111,9 @@ class TopologyTransactionsStreamReader(
                 queryValidRange.withRangeNotPruned(
                   minOffsetInclusive = queryRange.startInclusiveOffset,
                   maxOffsetInclusive = queryRange.endInclusiveOffset,
-                  errorPruning = (prunedOffset: AbsoluteOffset) =>
+                  errorPruning = (prunedOffset: Offset) =>
                     s"Topology events request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} precedes pruned offset ${prunedOffset.unwrap}",
-                  errorLedgerEnd = (ledgerEndOffset: Option[AbsoluteOffset]) =>
+                  errorLedgerEnd = (ledgerEndOffset: Option[Offset]) =>
                     s"Topology events request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} is beyond ledger end offset ${ledgerEndOffset
                         .fold(0L)(_.unwrap)}",
                 ) {

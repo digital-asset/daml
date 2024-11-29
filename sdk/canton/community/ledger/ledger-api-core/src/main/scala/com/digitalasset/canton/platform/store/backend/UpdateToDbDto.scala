@@ -6,8 +6,8 @@ package com.digitalasset.canton.platform.store.backend
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.api.MetricsContext.{withExtraMetricLabels, withOptionalMetricLabels}
 import com.daml.platform.v1.index.StatusDetails
-import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel.*
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.{
   AuthorizationLevel,
@@ -35,74 +35,73 @@ object UpdateToDbDto {
       translation: LfValueSerialization,
       compressionStrategy: CompressionStrategy,
       metrics: LedgerApiServerMetrics,
-  )(implicit mc: MetricsContext): AbsoluteOffset => Update => Iterator[DbDto] = {
-    offset => tracedUpdate =>
-      val serializedTraceContext =
-        SerializableTraceContext(tracedUpdate.traceContext).toDamlProto.toByteArray
-      tracedUpdate match {
-        case u: CommandRejected =>
-          commandRejectedToDbDto(
-            metrics = metrics,
-            offset = offset,
-            serializedTraceContext = serializedTraceContext,
-            commandRejected = u,
-          )
+  )(implicit mc: MetricsContext): Offset => Update => Iterator[DbDto] = { offset => tracedUpdate =>
+    val serializedTraceContext =
+      SerializableTraceContext(tracedUpdate.traceContext).toDamlProto.toByteArray
+    tracedUpdate match {
+      case u: CommandRejected =>
+        commandRejectedToDbDto(
+          metrics = metrics,
+          offset = offset,
+          serializedTraceContext = serializedTraceContext,
+          commandRejected = u,
+        )
 
-        case u: PartyAddedToParticipant =>
-          partyAddedToParticipantToDbDto(
-            metrics = metrics,
-            participantId = participantId,
-            offset = offset,
-            partyAddedToParticipant = u,
-          )
+      case u: PartyAddedToParticipant =>
+        partyAddedToParticipantToDbDto(
+          metrics = metrics,
+          participantId = participantId,
+          offset = offset,
+          partyAddedToParticipant = u,
+        )
 
-        case u: PartyAllocationRejected =>
-          partyAllocationRejectedToDbDto(
-            metrics = metrics,
-            offset = offset,
-            partyAllocationRejected = u,
-          )
+      case u: PartyAllocationRejected =>
+        partyAllocationRejectedToDbDto(
+          metrics = metrics,
+          offset = offset,
+          partyAllocationRejected = u,
+        )
 
-        case u: TopologyTransactionEffective =>
-          topologyTransactionToDbDto(
-            metrics = metrics,
-            offset = offset,
-            serializedTraceContext = serializedTraceContext,
-            topologyTransaction = u,
-          )
+      case u: TopologyTransactionEffective =>
+        topologyTransactionToDbDto(
+          metrics = metrics,
+          offset = offset,
+          serializedTraceContext = serializedTraceContext,
+          topologyTransaction = u,
+        )
 
-        case u: TransactionAccepted =>
-          transactionAcceptedToDbDto(
-            translation = translation,
-            compressionStrategy = compressionStrategy,
-            metrics = metrics,
-            offset = offset,
-            serializedTraceContext = serializedTraceContext,
-            transactionAccepted = u,
-          )
+      case u: TransactionAccepted =>
+        transactionAcceptedToDbDto(
+          translation = translation,
+          compressionStrategy = compressionStrategy,
+          metrics = metrics,
+          offset = offset,
+          serializedTraceContext = serializedTraceContext,
+          transactionAccepted = u,
+        )
 
-        case u: ReassignmentAccepted =>
-          reassignmentAcceptedToDbDto(
-            translation = translation,
-            compressionStrategy = compressionStrategy,
-            metrics = metrics,
-            offset = offset,
-            serializedTraceContext = serializedTraceContext,
-            reassignmentAccepted = u,
-          )
+      case u: ReassignmentAccepted =>
+        reassignmentAcceptedToDbDto(
+          translation = translation,
+          compressionStrategy = compressionStrategy,
+          metrics = metrics,
+          offset = offset,
+          serializedTraceContext = serializedTraceContext,
+          reassignmentAccepted = u,
+        )
 
-        case u: SequencerIndexMoved =>
-          // nothing to persist, this is only a synthetic DbDto to facilitate updating the StringInterning
-          Iterator(DbDto.SequencerIndexMoved(u.domainId.toProtoPrimitive))
+      case u: SequencerIndexMoved =>
+        // nothing to persist, this is only a synthetic DbDto to facilitate updating the StringInterning
+        Iterator(DbDto.SequencerIndexMoved(u.domainId.toProtoPrimitive))
 
-        case _: CommitRepair =>
-          Iterator.empty
-      }
+      case _: CommitRepair =>
+        Iterator.empty
+    }
   }
 
   private def commandRejectedToDbDto(
       metrics: LedgerApiServerMetrics,
-      offset: AbsoluteOffset,
+      offset: Offset,
       serializedTraceContext: Array[Byte],
       commandRejected: CommandRejected,
   )(implicit mc: MetricsContext): Iterator[DbDto] = {
@@ -156,7 +155,7 @@ object UpdateToDbDto {
   private def partyAddedToParticipantToDbDto(
       metrics: LedgerApiServerMetrics,
       participantId: Ref.ParticipantId,
-      offset: AbsoluteOffset,
+      offset: Offset,
       partyAddedToParticipant: PartyAddedToParticipant,
   )(implicit mc: MetricsContext): Iterator[DbDto] = {
     incrementCounterForEvent(
@@ -179,7 +178,7 @@ object UpdateToDbDto {
 
   private def partyAllocationRejectedToDbDto(
       metrics: LedgerApiServerMetrics,
-      offset: AbsoluteOffset,
+      offset: Offset,
       partyAllocationRejected: PartyAllocationRejected,
   )(implicit mc: MetricsContext): Iterator[DbDto] = {
     incrementCounterForEvent(
@@ -209,7 +208,7 @@ object UpdateToDbDto {
 
   private def topologyTransactionToDbDto(
       metrics: LedgerApiServerMetrics,
-      offset: AbsoluteOffset,
+      offset: Offset,
       serializedTraceContext: Array[Byte],
       topologyTransaction: TopologyTransactionEffective,
   )(implicit mc: MetricsContext): Iterator[DbDto] = {
@@ -255,7 +254,7 @@ object UpdateToDbDto {
       translation: LfValueSerialization,
       compressionStrategy: CompressionStrategy,
       metrics: LedgerApiServerMetrics,
-      offset: AbsoluteOffset,
+      offset: Offset,
       serializedTraceContext: Array[Byte],
       transactionAccepted: TransactionAccepted,
   )(implicit mc: MetricsContext): Iterator[DbDto] = {
@@ -340,7 +339,7 @@ object UpdateToDbDto {
   private def createNodeToDbDto(
       compressionStrategy: CompressionStrategy,
       translation: LfValueSerialization,
-      offset: AbsoluteOffset,
+      offset: Offset,
       serializedTraceContext: Array[Byte],
       transactionAccepted: TransactionAccepted,
       nodeId: NodeId,
@@ -406,7 +405,7 @@ object UpdateToDbDto {
   private def exerciseNodeToDbDto(
       compressionStrategy: CompressionStrategy,
       translation: LfValueSerialization,
-      offset: AbsoluteOffset,
+      offset: Offset,
       serializedTraceContext: Array[Byte],
       transactionAccepted: TransactionAccepted,
       nodeId: NodeId,
@@ -485,7 +484,7 @@ object UpdateToDbDto {
       translation: LfValueSerialization,
       compressionStrategy: CompressionStrategy,
       metrics: LedgerApiServerMetrics,
-      offset: AbsoluteOffset,
+      offset: Offset,
       serializedTraceContext: Array[Byte],
       reassignmentAccepted: ReassignmentAccepted,
   )(implicit mc: MetricsContext): Iterator[DbDto] = {
@@ -556,7 +555,7 @@ object UpdateToDbDto {
   }
 
   private def unassignToDbDto(
-      offset: AbsoluteOffset,
+      offset: Offset,
       serializedTraceContext: Array[Byte],
       reassignmentAccepted: ReassignmentAccepted,
       unassign: Reassignment.Unassign,
@@ -597,7 +596,7 @@ object UpdateToDbDto {
   private def assignToDbDto(
       translation: LfValueSerialization,
       compressionStrategy: CompressionStrategy,
-      offset: AbsoluteOffset,
+      offset: Offset,
       serializedTraceContext: Array[Byte],
       reassignmentAccepted: ReassignmentAccepted,
       assign: Reassignment.Assign,
@@ -666,7 +665,7 @@ object UpdateToDbDto {
     }
 
   private def commandCompletion(
-      offset: AbsoluteOffset,
+      offset: Offset,
       recordTime: Time.Timestamp,
       updateId: Option[data.UpdateId],
       completionInfo: CompletionInfo,

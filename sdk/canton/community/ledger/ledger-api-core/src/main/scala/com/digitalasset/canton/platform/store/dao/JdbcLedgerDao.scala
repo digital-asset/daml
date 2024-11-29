@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.daml.logging.entries.LoggingEntry
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.digitalasset.canton.ledger.participant.state
@@ -63,10 +63,10 @@ private class JdbcLedgerDao(
     tracer: Tracer,
     val loggerFactory: NamedLoggerFactory,
     incompleteOffsets: (
-        AbsoluteOffset,
+        Offset,
         Option[Set[Ref.Party]],
         TraceContext,
-    ) => FutureUnlessShutdown[Vector[AbsoluteOffset]],
+    ) => FutureUnlessShutdown[Vector[Offset]],
     contractLoader: ContractLoader,
     translation: LfValueTranslation,
 ) extends LedgerDao
@@ -112,7 +112,7 @@ private class JdbcLedgerDao(
 
   @SuppressWarnings(Array("org.wartremover.warts.Null"))
   override def storePartyEntry(
-      offset: AbsoluteOffset,
+      offset: Offset,
       partyEntry: PartyLedgerEntry,
   )(implicit
       loggingContext: LoggingContextWithTrace
@@ -159,11 +159,11 @@ private class JdbcLedgerDao(
   }
 
   override def getPartyEntries(
-      startInclusive: AbsoluteOffset,
-      endInclusive: AbsoluteOffset,
+      startInclusive: Offset,
+      endInclusive: Offset,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(AbsoluteOffset, PartyLedgerEntry), NotUsed] =
+  ): Source[(Offset, PartyLedgerEntry), NotUsed] =
     paginatingAsyncStream.streamFromLimitOffsetPagination(PageSize) { queryOffset =>
       withEnrichedLoggingContext("queryOffset" -> queryOffset: LoggingEntry) {
         implicit loggingContext =>
@@ -181,7 +181,7 @@ private class JdbcLedgerDao(
   override def storeRejection(
       completionInfo: Option[state.CompletionInfo],
       recordTime: Timestamp,
-      offset: AbsoluteOffset,
+      offset: Offset,
       reason: state.Update.CommandRejected.RejectionReasonTemplate,
   )(implicit
       loggingContext: LoggingContextWithTrace
@@ -267,9 +267,9 @@ private class JdbcLedgerDao(
     *            transaction-local divulgence.
     */
   override def prune(
-      pruneUpToInclusive: AbsoluteOffset,
+      pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
-      incompleteReassignmentOffsets: Vector[AbsoluteOffset],
+      incompleteReassignmentOffsets: Vector[Offset],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Unit] = {
     val allDivulgencePruningParticle =
       if (pruneAllDivulgedContracts) " (including all divulged contracts)" else ""
@@ -316,7 +316,7 @@ private class JdbcLedgerDao(
 
   override def pruningOffsets(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[(Option[AbsoluteOffset], Option[AbsoluteOffset])] =
+  ): Future[(Option[Offset], Option[Offset])] =
     dbDispatcher.executeSql(metrics.index.db.fetchPruningOffsetsMetrics) { conn =>
       (
         parameterStorageBackend
@@ -477,7 +477,7 @@ private class JdbcLedgerDao(
       workflowId: Option[WorkflowId],
       updateId: UpdateId,
       ledgerEffectiveTime: Timestamp,
-      offset: AbsoluteOffset,
+      offset: Offset,
       transaction: CommittedTransaction,
       hostedWitnesses: List[Party],
       recordTime: Timestamp,
@@ -565,10 +565,10 @@ private[platform] object JdbcLedgerDao {
       tracer: Tracer,
       loggerFactory: NamedLoggerFactory,
       incompleteOffsets: (
-          AbsoluteOffset,
+          Offset,
           Option[Set[Ref.Party]],
           TraceContext,
-      ) => FutureUnlessShutdown[Vector[AbsoluteOffset]],
+      ) => FutureUnlessShutdown[Vector[Offset]],
       contractLoader: ContractLoader = ContractLoader.dummyLoader,
       lfValueTranslation: LfValueTranslation,
   ): LedgerReadDao =

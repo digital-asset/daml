@@ -4,8 +4,8 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
-import com.digitalasset.canton.data.AbsoluteOffset
-import com.digitalasset.canton.data.AbsoluteOffset.firstOffset
+import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.Offset.firstOffset
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDaoCompletionsSpec.*
 import com.digitalasset.daml.lf.data.Ref
@@ -265,7 +265,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       reason: state.Update.CommandRejected.RejectionReasonTemplate,
       commandId: Ref.CommandId = UUID.randomUUID().toString,
       submissionId: Ref.SubmissionId = UUID.randomUUID().toString,
-  ): Future[AbsoluteOffset] = {
+  ): Future[Offset] = {
     val offset = nextOffset()
     ledgerDao
       .storeRejection(
@@ -289,7 +289,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       reason: state.Update.CommandRejected.RejectionReasonTemplate,
       commandId: Ref.CommandId = UUID.randomUUID().toString,
       submissionId: Ref.SubmissionId = UUID.randomUUID().toString,
-  ): Future[AbsoluteOffset] = {
+  ): Future[Offset] = {
     lazy val offset = nextOffset()
     ledgerDao
       .storeRejection(
@@ -319,8 +319,8 @@ private[dao] object JdbcLedgerDaoCompletionsSpec {
   private val parties = Set(party1, party2, party3)
 
   @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
-  private def offsetOf(response: CompletionStreamResponse): AbsoluteOffset =
-    AbsoluteOffset.tryFromLong(
+  private def offsetOf(response: CompletionStreamResponse): Offset =
+    Offset.tryFromLong(
       response.completionResponse.completion.get.offset
     )
 

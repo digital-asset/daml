@@ -18,8 +18,8 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.{CryptoPureApi, SyncCryptoApiProvider}
 import com.digitalasset.canton.data.{
-  AbsoluteOffset,
   CantonTimestamp,
+  Offset,
   ProcessedDisclosedContract,
   ReassignmentSubmitterMetadata,
 }
@@ -437,7 +437,7 @@ class CantonSyncService(
   )
 
   override def prune(
-      pruneUpToInclusive: AbsoluteOffset,
+      pruneUpToInclusive: Offset,
       submissionId: LedgerSubmissionId,
       _pruneAllDivulgedContracts: Boolean, // Canton always prunes divulged contracts ignoring this flag
   ): CompletionStage[PruningResult] =
@@ -454,7 +454,7 @@ class CantonSyncService(
     }).asJava
 
   def pruneInternally(
-      pruneUpToInclusive: AbsoluteOffset
+      pruneUpToInclusive: Offset
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, CantonError, Unit] =
     (for {
       _pruned <- pruningProcessor.pruneLedgerEvents(pruneUpToInclusive)
@@ -974,7 +974,7 @@ class CantonSyncService(
   private def startDomain(alias: DomainAlias, syncDomain: SyncDomain)(implicit
       traceContext: TraceContext
   ): EitherT[Future, SyncServiceError, Unit] =
-    EitherT(syncDomain.startFUS())
+    EitherT(syncDomain.start())
       .leftMap(error => SyncServiceError.SyncServiceStartupError.InitError(alias, error))
       .onShutdown(
         Left(
@@ -1690,9 +1690,9 @@ class CantonSyncService(
   }
 
   override def incompleteReassignmentOffsets(
-      validAt: AbsoluteOffset,
+      validAt: Offset,
       stakeholders: Set[LfPartyId],
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Vector[AbsoluteOffset]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Vector[Offset]] =
     syncDomainPersistentStateManager.getAll.values.toList
       .parTraverse {
         _.reassignmentStore.findIncomplete(

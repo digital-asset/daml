@@ -214,7 +214,7 @@ object FutureUnlessShutdownImpl {
     def failed(implicit ec: ExecutionContext): FutureUnlessShutdown[Throwable] =
       FutureUnlessShutdown.outcomeF(self.unwrap.failed)
 
-    /** Evaluates `f` and returns its result if this future completes with [[UnlessShutdown.AbortedDueToShutdown]]. */
+    /** Evaluates `f` and returns its result as a Future if this future completes with [[UnlessShutdown.AbortedDueToShutdown]]. */
     def onShutdown[B >: A](f: => B)(implicit ec: ExecutionContext): Future[B] =
       unwrap.map(_.onShutdown(f))
 

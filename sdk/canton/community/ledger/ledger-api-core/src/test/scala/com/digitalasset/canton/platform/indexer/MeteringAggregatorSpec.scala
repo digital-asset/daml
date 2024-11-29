@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.indexer
 import com.daml.executors.executors.QueueAwareExecutionContextExecutorService
 import com.daml.metrics.DatabaseMetrics
 import com.digitalasset.canton.TestEssentials
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.{
   ParticipantMetering,
@@ -55,7 +55,7 @@ final class MeteringAggregatorSpec
         OffsetDateTime.of(LocalDate.now(), LocalTime.of(15, 0), ZoneOffset.UTC)
       val nextAggEndTime: OffsetDateTime = lastAggEndTime.plusHours(1)
       val timeNow: OffsetDateTime = lastAggEndTime.plusHours(1).plusMinutes(+5)
-      val lastAggOffset: AbsoluteOffset = AbsoluteOffset.firstOffset
+      val lastAggOffset: Offset = Offset.firstOffset
 
       val conn: Connection = mock[Connection]
       val dispatcher: DbDispatcher = new DbDispatcher {
@@ -75,13 +75,13 @@ final class MeteringAggregatorSpec
 
       def runUnderTest(
           transactionMetering: Vector[TransactionMetering],
-          maybeLedgerEnd: Option[AbsoluteOffset] = None,
+          maybeLedgerEnd: Option[Offset] = None,
       ): Future[Unit] = {
 
         val applicationCounts = transactionMetering
           .groupMapReduce(_.applicationId)(_.actionCount)(_ + _)
 
-        val ledgerEndOffset: AbsoluteOffset =
+        val ledgerEndOffset: Offset =
           (maybeLedgerEnd, transactionMetering.lastOption) match {
             case (Some(le), _) => le
             case (None, Some(t)) => t.ledgerOffset
@@ -137,7 +137,7 @@ final class MeteringAggregatorSpec
           applicationId = applicationA,
           actionCount = i,
           meteringTimestamp = toTS(lastAggEndTime.plusMinutes(i.toLong)),
-          ledgerOffset = AbsoluteOffset.tryFromLong(i.toLong),
+          ledgerOffset = Offset.tryFromLong(i.toLong),
         )
       }
 
@@ -180,7 +180,7 @@ final class MeteringAggregatorSpec
           applicationId = a,
           actionCount = 1,
           meteringTimestamp = toTS(lastAggEndTime.plusMinutes(1)),
-          ledgerOffset = AbsoluteOffset.tryFromLong(16L),
+          ledgerOffset = Offset.tryFromLong(16L),
         )
       }
 
@@ -209,13 +209,13 @@ final class MeteringAggregatorSpec
           applicationId = applicationA,
           actionCount = 1,
           meteringTimestamp = toTS(lastAggEndTime.plusMinutes(1)),
-          ledgerOffset = AbsoluteOffset.tryFromLong(3L),
+          ledgerOffset = Offset.tryFromLong(3L),
         )
       )
 
       runUnderTest(
         transactionMetering,
-        maybeLedgerEnd = Some(AbsoluteOffset.tryFromLong(2L)),
+        maybeLedgerEnd = Some(Offset.tryFromLong(2L)),
       ).discard
 
       verify(meteringParameterStore, never).updateLedgerMeteringEnd(any[LedgerMeteringEnd])(

@@ -4,7 +4,6 @@
 package com.digitalasset.canton.lifecycle
 
 import cats.data.EitherT
-import cats.syntax.traverse.*
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.tracing.TraceContext
@@ -79,25 +78,20 @@ trait PerformUnlessClosing extends OnShutdownRunner { this: AutoCloseable =>
   def performUnlessClosingF[A](name: String)(
       f: => Future[A]
   )(implicit ec: ExecutionContext, traceContext: TraceContext): FutureUnlessShutdown[A] =
-    FutureUnlessShutdown(internalPerformUnlessClosingF(name)(f).sequence)
+    performUnlessClosingUSF(name)(FutureUnlessShutdown.outcomeF(f))
 
   def performUnlessClosingUSF[A](name: String)(
       f: => FutureUnlessShutdown[A]
   )(implicit ec: ExecutionContext, traceContext: TraceContext): FutureUnlessShutdown[A] =
-    performUnlessClosingF(name)(f.unwrap).subflatMap(Predef.identity)
-
-  protected def internalPerformUnlessClosingF[A](name: String)(
-      f: => Future[A]
-  )(implicit ec: ExecutionContext, traceContext: TraceContext): UnlessShutdown[Future[A]] =
     if (isClosing || !addReader(name)) {
       logger.debug(s"Won't schedule the future '$name' as this object is closing")
-      UnlessShutdown.AbortedDueToShutdown
+      FutureUnlessShutdown.abortedDueToShutdown
     } else {
-      val fut = Try(f).fold(Future.failed, x => x).thereafter { _ =>
+      val fut = Try(f).fold(FutureUnlessShutdown.failed[A], x => x).thereafter { _ =>
         removeReader(name)
       }
-      trackFuture(fut)
-      UnlessShutdown.Outcome(fut)
+      trackFuture(fut.unwrap)
+      fut
     }
 
   /** Performs the EitherT[Future] given by `etf` unless a shutdown has been initiated, in which case the provided error is returned instead.
@@ -138,26 +132,6 @@ trait PerformUnlessClosing extends OnShutdownRunner { this: AutoCloseable =>
       traceContext: TraceContext,
   ): CheckedT[Future, A, N, R] =
     CheckedT(performUnlessClosingF(name)(etf.value).unwrap.map(_.onShutdown(onClosing)))
-
-  def performUnlessClosingEitherTF[E, R](name: String, onClosing: => E)(
-      etf: => EitherT[Future, E, Future[R]]
-  )(implicit ec: ExecutionContext, traceContext: TraceContext): EitherT[Future, E, Future[R]] =
-    if (isClosing || !addReader(name)) {
-      logger.debug(s"Won't schedule the future '$name' as this object is closing")
-      EitherT.leftT(onClosing)
-    } else {
-      val res = Try(etf.value).fold(Future.failed, x => x)
-      trackFuture(res)
-      val _ = res
-        .flatMap {
-          case Left(_) => Future.unit
-          case Right(value) => value.map(_ => ())
-        }
-        .thereafter { _ =>
-          removeReader(name)
-        }
-      EitherT(res)
-    }
 
   /** track running futures on shutdown
     *
