@@ -384,6 +384,13 @@ class IdeLedgerClient(
           innerError.dstTemplateId,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
+      case e @ Upgrade(innerError: Upgrade.ContractNotUpgradable) =>
+        submitErrors.UpgradeError.ContractNotUpgradable(
+          innerError.coid,
+          innerError.target,
+          innerError.actual,
+          Pretty.prettyDamlException(e).renderWideStream.mkString,
+        )
       case e @ Dev(_, innerError) =>
         submitErrors.DevError(
           innerError.getClass.getSimpleName,
@@ -647,6 +654,13 @@ class IdeLedgerClient(
           )
         } catch {
           case Error.Preprocessing.Lookup(err) => Left(makeLookupError(err))
+          // Expose type mismatches as unknown errors to match canton behaviour. Later this should be fully expressed as a SubmitError
+          case Error.Preprocessing.TypeMismatch(_, _, msg) =>
+            Left(
+              makeEmptySubmissionError(
+                scenario.Error.Internal("COMMAND_PREPROCESSING_FAILED(0, 00000000): " + msg)
+              )
+            )
         }
 
       val eitherSpeedyDisclosures

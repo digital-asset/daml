@@ -198,6 +198,14 @@ private[lf] object Pretty {
                 "in the destination contract is"
               ) & prettyValue(false)(dstViewValue)
           }
+          case Upgrade.ContractNotUpgradable(coid, target, actual) => {
+            text("Attempt to upgrade non-upgradable contract id") & prettyContractId(coid) /
+              text("to target package") & prettyTypeConName(target) & text(
+                "from"
+              ) & prettyTypeConName(
+                actual
+              )
+          }
         }
       case Dev(_, error) =>
         error match {

@@ -6,5 +6,6 @@ package com.digitalasset.canton.participant.store.memory
 import com.digitalasset.canton.participant.store.{ParticipantEventLog, ParticipantEventLogTest}
 
 class ParticipantEventLogTestInMemory extends ParticipantEventLogTest {
-  override def newStore: ParticipantEventLog = new InMemoryParticipantEventLog(id, loggerFactory)
+  override def newStore: ParticipantEventLog =
+    new InMemoryParticipantEventLog(id, timeouts, loggerFactory)
 }

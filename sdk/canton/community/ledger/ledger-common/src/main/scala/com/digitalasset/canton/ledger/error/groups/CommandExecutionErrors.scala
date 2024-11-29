@@ -738,8 +738,33 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
             )
         }
       }
-    }
 
+      @Explanation("ContractNotUpgradable explanation")
+      @Resolution("ContractNotUpgradable resolution")
+      object ContractNotUpgradable
+        extends ErrorCode(
+          id = "CONTRACT_NOT_UPGRADABLE",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+
+        final case class Reject(
+                                 override val cause: String,
+                                 err: LfInterpretationError.Upgrade.ContractNotUpgradable,
+                               )(implicit
+                                 loggingContext: ContextualizedErrorLogger
+                               ) extends DamlErrorWithDefiniteAnswer(
+          cause = cause
+        ) {
+
+          override def resources: Seq[(ErrorResource, String)] =
+            Seq(
+              (ErrorResource.ContractId, err.coid.coid),
+              (ErrorResource.TemplateId, err.target.toString),
+              (ErrorResource.TemplateId, err.actual.toString),
+            )
+        }
+      }
+    }
     @Explanation(
       """This error is a catch-all for errors thrown by in-development features, and should never be thrown in production."""
     )
