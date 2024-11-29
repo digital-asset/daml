@@ -148,8 +148,16 @@ available_release_lines() {
       | jq -sR 'split("\n") | map(select(length > 0)) | map(split("/")[2] | split(".")[0:2] | map(tonumber))'
 }
 
-# Takes a version x.y.z as its first argument, prints the expected branch for
+# Takes a version a.b.c as its first argument, prints the expected branch for
 # producing those release lines.
+# If the version's minor is greater than the highest existing release line, then
+# we use main/main-2.x.
+# Otherwise, we use the release line release/a.b.x. For example, 3.2.5 would
+# have expected branch release/3.2.x.
+# Example 1: If the highest release line for Daml 3 is release/3.2.x, then version 3.3.0 has expected branch main.
+# Example 2: If the highest release line for Daml 2 is release/2.9.x, then 2.10.0 has expected branch main-2.x.
+# Example 3: If there is a branch release/3.2.x, then version 3.2.0 has expected branch release/3.2.x.
+# Example 4: If there is a branch release/3.2.x, but no branch release/3.1.x then version 3.1.0 still has expected branch release/3.1.x.
 release_branch_for_version() {
     version="$1"
     version_arr=(${version//./ })
