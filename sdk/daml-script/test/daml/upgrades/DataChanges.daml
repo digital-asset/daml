@@ -46,10 +46,7 @@ main = tests
   , ("Succeeds if a nested enum is an old case when downgrading", templateEnumDowngradeFromOld)
   , ("Fails if a nested enum is a removed case", templateEnumUpgradeToRemoved)
   , ("Fails if a nested enum is an additional case when downgrading", templateEnumDowngradeFromNew)
-  , ("Fails if an optional field is set on a choice when downgrading", \case
-        -- TODO: Disabled on IdeLedger because this seems to break the IdeLedger for mysterious reasons and in horrible ways
-        TestState { runMode = IdeLedger } -> pure ()
-        state -> templateOptionalFieldOnChoiceSetWhenDowngrading state)
+  , ("Fails if an optional field is set on a choice when downgrading", templateOptionalFieldOnChoiceSetWhenDowngrading)
   -- Template optional field set when downgrading
   , tofswdViaInterfaceInCommandLocal
   , tofswdViaInterfaceInCommandGlobal
