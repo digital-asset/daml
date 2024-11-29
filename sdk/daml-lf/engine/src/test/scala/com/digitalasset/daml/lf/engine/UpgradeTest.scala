@@ -18,10 +18,10 @@ import com.daml.lf.transaction.{GlobalKeyWithMaintainers, SubmittedTransaction, 
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
 import com.daml.logging.LoggingContext
-import org.scalatest.Assertion
 import org.scalatest.Inside.inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.{Assertion, ParallelTestExecution}
 
 import scala.annotation.nowarn
 import scala.language.implicitConversions
@@ -58,8 +58,79 @@ import scala.language.implicitConversions
   * Finally, some definitions need to be shared between v1 and v2 templates: key and interface definitions, gobal
   * parties. These are defined in [[commonDefsPkg]].
   */
-class UpgradeTest extends AnyFreeSpec with Matchers {
+class UpgradeTest extends AnyFreeSpec with Matchers with ParallelTestExecution {
 
+  import UpgradeTest._
+
+  def assertResultMatchesExpectedOutcome(
+      result: Either[Error, (SubmittedTransaction, Transaction.Metadata)],
+      expectedOutcome: ExpectedOutcome,
+  ): Assertion = {
+    expectedOutcome match {
+      case ExpectSuccess =>
+        result shouldBe a[Right[_, _]]
+      case ExpectUpgradeError =>
+        inside(result) { case Left(EE.Interpretation(EE.Interpretation.DamlException(error), _)) =>
+          error shouldBe a[IE.Upgrade]
+        }
+      case ExpectPreprocessingError =>
+        inside(result) { case Left(error) =>
+          error shouldBe a[EE.Preprocessing]
+        }
+      case ExpectPreconditionViolated =>
+        inside(result) { case Left(EE.Interpretation(EE.Interpretation.DamlException(error), _)) =>
+          error shouldBe a[IE.TemplatePreconditionViolated]
+        }
+      case ExpectUnhandledException =>
+        inside(result) { case Left(EE.Interpretation(EE.Interpretation.DamlException(error), _)) =>
+          error shouldBe a[IE.UnhandledException]
+        }
+      case ExpectInternalInterpretationError =>
+        inside(result) { case Left(EE.Interpretation(error, _)) =>
+          error shouldBe a[EE.Interpretation.Internal]
+        }
+    }
+  }
+
+  // This is the main loop of the test: for every combination of test case, operation, catch behavior, entry point, and
+  // contract origin, we generate an API command, execute it, and check that the result matches the expected outcome.
+  for (testCase <- testCases)
+    testCase.templateName - {
+      val testHelper = new TestHelper(testCase)
+      for (operation <- operations) {
+        operation.name - {
+          for (catchBehavior <- catchBehaviors)
+            catchBehavior.name - {
+              for (entryPoint <- entryPoints) {
+                entryPoint.name - {
+                  for (contractOrigin <- contractOrigins) {
+                    contractOrigin.name - {
+                      testHelper
+                        .makeApiCommands(
+                          operation,
+                          catchBehavior,
+                          entryPoint,
+                          contractOrigin,
+                        )
+                        .foreach { apiCommands =>
+                          testCase.expectedOutcome.description in {
+                            assertResultMatchesExpectedOutcome(
+                              testHelper.execute(apiCommands, contractOrigin),
+                              testCase.expectedOutcome,
+                            )
+                          }
+                        }
+                    }
+                  }
+                }
+              }
+            }
+        }
+      }
+    }
+}
+
+object UpgradeTest {
   private[this] implicit def parserParameters(implicit
       pkgId: PackageId
   ): ParserParameters[this.type] =
@@ -299,280 +370,280 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
       val choiceArgExpr = s"($v2ChoiceArgTypeQualifiedName {})"
 
       s"""
-        |  choice @nonConsuming ExerciseNoCatchLocal${templateName} (self) (u: Unit): Text
-        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
-        |    , observers (Nil @Party)
-        |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
-        |       in exercise
-        |            @$v2TplQualifiedName
-        |            TemplateChoice
-        |            (COERCE_CONTRACT_ID @$v1TplQualifiedName @$v2TplQualifiedName cid)
-        |            $choiceArgExpr;
-        |
-        |  choice @nonConsuming ExerciseAttemptCatchLocal${templateName} (self) (u: Unit): Text
-        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
-        |    , observers (Nil @Party)
-        |    to try @Text
-        |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseNoCatchLocal${templateName} self ()
-        |         in upure @Text "no exception was caught"
-        |       catch
-        |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
-        |
-        |  choice @nonConsuming ExerciseNoCatchGlobal${templateName} (self) (cid: ContractId $v1TplQualifiedName): Text
-        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
-        |    , observers (Nil @Party)
-        |    to exercise
-        |         @$v2TplQualifiedName
-        |         TemplateChoice
-        |         (COERCE_CONTRACT_ID @$v1TplQualifiedName @$v2TplQualifiedName cid)
-        |         $choiceArgExpr;
-        |
-        |  choice @nonConsuming ExerciseAttemptCatchGlobal${templateName}
-        |        (self)
-        |        (cid: ContractId $v1TplQualifiedName)
-        |        : Text
-        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
-        |    , observers (Nil @Party)
-        |    to try @Text
-        |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseNoCatchGlobal${templateName} self cid
-        |         in upure @Text "no exception was caught"
-        |       catch
-        |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
-        |
-        |  choice @nonConsuming ExerciseInterfaceNoCatchLocal${templateName} (self) (u: Unit): Text
-        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
-        |    , observers (Nil @Party)
-        |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
-        |       in exercise_interface
-        |            @$ifaceQualifiedName
-        |            InterfaceChoice
-        |            (COERCE_CONTRACT_ID @$v1TplQualifiedName @$ifaceQualifiedName cid)
-        |            ();
-        |
-        |  choice @nonConsuming ExerciseInterfaceAttemptCatchLocal${templateName} (self) (u: Unit): Text
-        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
-        |    , observers (Nil @Party)
-        |    to try @Text
-        |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseInterfaceNoCatchLocal${templateName} self ()
-        |         in upure @Text "no exception was caught"
-        |       catch
-        |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
-        |
-        |  choice @nonConsuming ExerciseInterfaceNoCatchGlobal${templateName}
-        |        (self)
-        |        (cid: ContractId $v1TplQualifiedName)
-        |        : Text
-        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
-        |    , observers (Nil @Party)
-        |    to exercise_interface
-        |         @$ifaceQualifiedName
-        |         InterfaceChoice
-        |         (COERCE_CONTRACT_ID @$v1TplQualifiedName @$ifaceQualifiedName cid)
-        |         ();
-        |
-        |  choice @nonConsuming ExerciseInterfaceAttemptCatchGlobal${templateName}
-        |        (self)
-        |        (cid: ContractId $v1TplQualifiedName)
-        |        : Text
-        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
-        |    , observers (Nil @Party)
-        |    to try @Text
-        |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseInterfaceNoCatchGlobal${templateName} self cid
-        |         in upure @Text "no exception was caught"
-        |       catch
-        |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
-        |
-        |  choice @nonConsuming ExerciseByKeyNoCatchLocal${templateName} (self) (u: Unit): Text
-        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
-        |    , observers (Nil @Party)
-        |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
-        |       in exercise_by_key
-        |            @$v2TplQualifiedName
-        |            TemplateChoice
-        |            $v2KeyExpr
-        |            $choiceArgExpr;
-        |
-        |  choice @nonConsuming ExerciseByKeyAttemptCatchLocal${templateName} (self) (u: Unit): Text
-        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
-        |    , observers (Nil @Party)
-        |    to try @Text
-        |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseByKeyNoCatchLocal${templateName} self ()
-        |         in upure @Text "no exception was caught"
-        |       catch
-        |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
-        |
-        |  choice @nonConsuming ExerciseByKeyNoCatchGlobal${templateName} (self) (key: $v2KeyTypeQualifiedName): Text
-        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
-        |    , observers (Nil @Party)
-        |    to exercise_by_key
-        |         @$v2TplQualifiedName
-        |         TemplateChoice
-        |         key
-        |         $choiceArgExpr;
-        |
-        |  choice @nonConsuming ExerciseByKeyAttemptCatchGlobal${templateName} (self) (key: $v2KeyTypeQualifiedName)
-        |        : Text
-        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
-        |    , observers (Nil @Party)
-        |    to try @Text
-        |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseByKeyNoCatchGlobal${templateName} self key
-        |         in upure @Text "no exception was caught"
-        |       catch
-        |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
-        |
-        |  choice @nonConsuming FetchNoCatchLocal${templateName} (self) (u: Unit): $v2TplQualifiedName
-        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
-        |    , observers (Nil @Party)
-        |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
-        |       in fetch_template
-        |            @$v2TplQualifiedName
-        |            (COERCE_CONTRACT_ID @$v1TplQualifiedName @$v2TplQualifiedName cid);
-        |
-        |  choice @nonConsuming FetchAttemptCatchLocal${templateName} (self) (u: Unit): Text
-        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
-        |    , observers (Nil @Party)
-        |    to try @Text
-        |         ubind _:$v2TplQualifiedName <-
-        |             exercise @$clientTplQualifiedName FetchNoCatchLocal${templateName} self ()
-        |         in upure @Text "no exception was caught"
-        |       catch
-        |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
-        |
-        |  choice @nonConsuming FetchNoCatchGlobal${templateName} (self) (cid: ContractId $v1TplQualifiedName)
-        |        : $v2TplQualifiedName
-        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
-        |    , observers (Nil @Party)
-        |    to fetch_template
-        |         @$v2TplQualifiedName
-        |         (COERCE_CONTRACT_ID @$v1TplQualifiedName @$v2TplQualifiedName cid);
-        |
-        |  choice @nonConsuming FetchAttemptCatchGlobal${templateName} (self) (cid: ContractId $v1TplQualifiedName): Text
-        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
-        |    , observers (Nil @Party)
-        |    to try @Text
-        |         ubind _:$v2TplQualifiedName <-
-        |             exercise @$clientTplQualifiedName FetchNoCatchGlobal${templateName} self cid
-        |         in upure @Text "no exception was caught"
-        |       catch
-        |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
-        |
-        |  choice @nonConsuming FetchByKeyNoCatchLocal${templateName} (self) (u: Unit): $v2TplQualifiedName
-        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
-        |    , observers (Nil @Party)
-        |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
-        |       in ubind pair:<contract: $v2TplQualifiedName, contractId: ContractId $v2TplQualifiedName> <-
-        |              fetch_by_key
-        |                @$v2TplQualifiedName
-        |                $v2KeyExpr
-        |          in upure @$v2TplQualifiedName (pair).contract;
-        |
-        |  choice @nonConsuming FetchByKeyAttemptCatchLocal${templateName} (self) (u: Unit): Text
-        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
-        |    , observers (Nil @Party)
-        |    to try @Text
-        |         ubind _:$v2TplQualifiedName <-
-        |             exercise @$clientTplQualifiedName FetchByKeyNoCatchLocal${templateName} self ()
-        |         in upure @Text "no exception was caught"
-        |       catch
-        |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
-        |
-        |  choice @nonConsuming FetchByKeyNoCatchGlobal${templateName} (self) (key: $v2KeyTypeQualifiedName)
-        |        : $v2TplQualifiedName
-        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
-        |    , observers (Nil @Party)
-        |    to ubind pair:<contract: $v2TplQualifiedName, contractId: ContractId $v2TplQualifiedName> <-
-        |          fetch_by_key
-        |            @$v2TplQualifiedName
-        |            key
-        |       in upure @$v2TplQualifiedName (pair).contract;
-        |
-        |  choice @nonConsuming FetchByKeyAttemptCatchGlobal${templateName} (self) (key: $v2KeyTypeQualifiedName)
-        |        : Text
-        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
-        |    , observers (Nil @Party)
-        |    to try @Text
-        |         ubind _:$v2TplQualifiedName <-
-        |             exercise @$clientTplQualifiedName FetchByKeyNoCatchGlobal${templateName} self key
-        |         in upure @Text "no exception was caught"
-        |       catch
-        |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
-        |
-        |  choice @nonConsuming FetchInterfaceNoCatchLocal${templateName} (self) (u: Unit): $viewQualifiedName
-        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
-        |    , observers (Nil @Party)
-        |    to ubind
-        |         cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr;
-        |         iface: $ifaceQualifiedName <- fetch_interface
-        |            @$ifaceQualifiedName
-        |            (COERCE_CONTRACT_ID @$v1TplQualifiedName @$ifaceQualifiedName cid)
-        |         in upure @$viewQualifiedName (view_interface @$ifaceQualifiedName iface);
-        |
-        |  choice @nonConsuming FetchInterfaceAttemptCatchLocal${templateName} (self) (u: Unit): Text
-        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
-        |    , observers (Nil @Party)
-        |    to try @Text
-        |         ubind _:$viewQualifiedName <-
-        |             exercise @$clientTplQualifiedName FetchInterfaceNoCatchLocal${templateName} self ()
-        |         in upure @Text "no exception was caught"
-        |       catch
-        |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
-        |
-        |  choice @nonConsuming FetchInterfaceNoCatchGlobal${templateName} (self) (cid: ContractId $v1TplQualifiedName)
-        |        : $viewQualifiedName
-        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
-        |    , observers (Nil @Party)
-        |    to ubind iface: $ifaceQualifiedName <- fetch_interface
-        |         @$ifaceQualifiedName
-        |         (COERCE_CONTRACT_ID @$v1TplQualifiedName @$ifaceQualifiedName cid)
-        |       in upure @$viewQualifiedName (view_interface @$ifaceQualifiedName iface);
-        |
-        |  choice @nonConsuming FetchInterfaceAttemptCatchGlobal${templateName} (self) (cid: ContractId $v1TplQualifiedName): Text
-        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
-        |    , observers (Nil @Party)
-        |    to try @Text
-        |         ubind _:$viewQualifiedName <-
-        |             exercise @$clientTplQualifiedName FetchInterfaceNoCatchGlobal${templateName} self cid
-        |         in upure @Text "no exception was caught"
-        |       catch
-        |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
-        |
-        |  choice @nonConsuming LookupByKeyNoCatchLocal${templateName} (self) (u: Unit): Option (ContractId $v2TplQualifiedName)
-        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
-        |    , observers (Nil @Party)
-        |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
-        |       in lookup_by_key
-        |            @$v2TplQualifiedName
-        |            $v2KeyExpr;
-        |
-        |  choice @nonConsuming LookupByKeyAttemptCatchLocal${templateName} (self) (u: Unit): Text
-        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
-        |    , observers (Nil @Party)
-        |    to try @Text
-        |         ubind _:Option (ContractId $v2TplQualifiedName) <-
-        |             exercise @$clientTplQualifiedName LookupByKeyNoCatchLocal${templateName} self ()
-        |         in upure @Text "no exception was caught"
-        |       catch
-        |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
-        |
-        |  choice @nonConsuming LookupByKeyNoCatchGlobal${templateName} (self) (key: $v2KeyTypeQualifiedName)
-        |        : Option (ContractId $v2TplQualifiedName)
-        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
-        |    , observers (Nil @Party)
-        |    to lookup_by_key
-        |         @$v2TplQualifiedName
-        |         key;
-        |
-        |  choice @nonConsuming LookupByKeyAttemptCatchGlobal${templateName} (self) (key: $v2KeyTypeQualifiedName)
-        |        : Text
-        |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
-        |    , observers (Nil @Party)
-        |    to try @Text
-        |         ubind _:Option (ContractId $v2TplQualifiedName) <-
-        |             exercise @$clientTplQualifiedName LookupByKeyNoCatchGlobal${templateName} self key
-        |         in upure @Text "no exception was caught"
-        |       catch
-        |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
-        |""".stripMargin
+         |  choice @nonConsuming ExerciseNoCatchLocal${templateName} (self) (u: Unit): Text
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
+         |       in exercise
+         |            @$v2TplQualifiedName
+         |            TemplateChoice
+         |            (COERCE_CONTRACT_ID @$v1TplQualifiedName @$v2TplQualifiedName cid)
+         |            $choiceArgExpr;
+         |
+         |  choice @nonConsuming ExerciseAttemptCatchLocal${templateName} (self) (u: Unit): Text
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to try @Text
+         |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseNoCatchLocal${templateName} self ()
+         |         in upure @Text "no exception was caught"
+         |       catch
+         |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+         |
+         |  choice @nonConsuming ExerciseNoCatchGlobal${templateName} (self) (cid: ContractId $v1TplQualifiedName): Text
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to exercise
+         |         @$v2TplQualifiedName
+         |         TemplateChoice
+         |         (COERCE_CONTRACT_ID @$v1TplQualifiedName @$v2TplQualifiedName cid)
+         |         $choiceArgExpr;
+         |
+         |  choice @nonConsuming ExerciseAttemptCatchGlobal${templateName}
+         |        (self)
+         |        (cid: ContractId $v1TplQualifiedName)
+         |        : Text
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to try @Text
+         |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseNoCatchGlobal${templateName} self cid
+         |         in upure @Text "no exception was caught"
+         |       catch
+         |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+         |
+         |  choice @nonConsuming ExerciseInterfaceNoCatchLocal${templateName} (self) (u: Unit): Text
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
+         |       in exercise_interface
+         |            @$ifaceQualifiedName
+         |            InterfaceChoice
+         |            (COERCE_CONTRACT_ID @$v1TplQualifiedName @$ifaceQualifiedName cid)
+         |            ();
+         |
+         |  choice @nonConsuming ExerciseInterfaceAttemptCatchLocal${templateName} (self) (u: Unit): Text
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to try @Text
+         |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseInterfaceNoCatchLocal${templateName} self ()
+         |         in upure @Text "no exception was caught"
+         |       catch
+         |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+         |
+         |  choice @nonConsuming ExerciseInterfaceNoCatchGlobal${templateName}
+         |        (self)
+         |        (cid: ContractId $v1TplQualifiedName)
+         |        : Text
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to exercise_interface
+         |         @$ifaceQualifiedName
+         |         InterfaceChoice
+         |         (COERCE_CONTRACT_ID @$v1TplQualifiedName @$ifaceQualifiedName cid)
+         |         ();
+         |
+         |  choice @nonConsuming ExerciseInterfaceAttemptCatchGlobal${templateName}
+         |        (self)
+         |        (cid: ContractId $v1TplQualifiedName)
+         |        : Text
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to try @Text
+         |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseInterfaceNoCatchGlobal${templateName} self cid
+         |         in upure @Text "no exception was caught"
+         |       catch
+         |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+         |
+         |  choice @nonConsuming ExerciseByKeyNoCatchLocal${templateName} (self) (u: Unit): Text
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
+         |       in exercise_by_key
+         |            @$v2TplQualifiedName
+         |            TemplateChoice
+         |            $v2KeyExpr
+         |            $choiceArgExpr;
+         |
+         |  choice @nonConsuming ExerciseByKeyAttemptCatchLocal${templateName} (self) (u: Unit): Text
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to try @Text
+         |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseByKeyNoCatchLocal${templateName} self ()
+         |         in upure @Text "no exception was caught"
+         |       catch
+         |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+         |
+         |  choice @nonConsuming ExerciseByKeyNoCatchGlobal${templateName} (self) (key: $v2KeyTypeQualifiedName): Text
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to exercise_by_key
+         |         @$v2TplQualifiedName
+         |         TemplateChoice
+         |         key
+         |         $choiceArgExpr;
+         |
+         |  choice @nonConsuming ExerciseByKeyAttemptCatchGlobal${templateName} (self) (key: $v2KeyTypeQualifiedName)
+         |        : Text
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to try @Text
+         |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseByKeyNoCatchGlobal${templateName} self key
+         |         in upure @Text "no exception was caught"
+         |       catch
+         |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+         |
+         |  choice @nonConsuming FetchNoCatchLocal${templateName} (self) (u: Unit): $v2TplQualifiedName
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
+         |       in fetch_template
+         |            @$v2TplQualifiedName
+         |            (COERCE_CONTRACT_ID @$v1TplQualifiedName @$v2TplQualifiedName cid);
+         |
+         |  choice @nonConsuming FetchAttemptCatchLocal${templateName} (self) (u: Unit): Text
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to try @Text
+         |         ubind _:$v2TplQualifiedName <-
+         |             exercise @$clientTplQualifiedName FetchNoCatchLocal${templateName} self ()
+         |         in upure @Text "no exception was caught"
+         |       catch
+         |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+         |
+         |  choice @nonConsuming FetchNoCatchGlobal${templateName} (self) (cid: ContractId $v1TplQualifiedName)
+         |        : $v2TplQualifiedName
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to fetch_template
+         |         @$v2TplQualifiedName
+         |         (COERCE_CONTRACT_ID @$v1TplQualifiedName @$v2TplQualifiedName cid);
+         |
+         |  choice @nonConsuming FetchAttemptCatchGlobal${templateName} (self) (cid: ContractId $v1TplQualifiedName): Text
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to try @Text
+         |         ubind _:$v2TplQualifiedName <-
+         |             exercise @$clientTplQualifiedName FetchNoCatchGlobal${templateName} self cid
+         |         in upure @Text "no exception was caught"
+         |       catch
+         |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+         |
+         |  choice @nonConsuming FetchByKeyNoCatchLocal${templateName} (self) (u: Unit): $v2TplQualifiedName
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
+         |       in ubind pair:<contract: $v2TplQualifiedName, contractId: ContractId $v2TplQualifiedName> <-
+         |              fetch_by_key
+         |                @$v2TplQualifiedName
+         |                $v2KeyExpr
+         |          in upure @$v2TplQualifiedName (pair).contract;
+         |
+         |  choice @nonConsuming FetchByKeyAttemptCatchLocal${templateName} (self) (u: Unit): Text
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to try @Text
+         |         ubind _:$v2TplQualifiedName <-
+         |             exercise @$clientTplQualifiedName FetchByKeyNoCatchLocal${templateName} self ()
+         |         in upure @Text "no exception was caught"
+         |       catch
+         |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+         |
+         |  choice @nonConsuming FetchByKeyNoCatchGlobal${templateName} (self) (key: $v2KeyTypeQualifiedName)
+         |        : $v2TplQualifiedName
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to ubind pair:<contract: $v2TplQualifiedName, contractId: ContractId $v2TplQualifiedName> <-
+         |          fetch_by_key
+         |            @$v2TplQualifiedName
+         |            key
+         |       in upure @$v2TplQualifiedName (pair).contract;
+         |
+         |  choice @nonConsuming FetchByKeyAttemptCatchGlobal${templateName} (self) (key: $v2KeyTypeQualifiedName)
+         |        : Text
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to try @Text
+         |         ubind _:$v2TplQualifiedName <-
+         |             exercise @$clientTplQualifiedName FetchByKeyNoCatchGlobal${templateName} self key
+         |         in upure @Text "no exception was caught"
+         |       catch
+         |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+         |
+         |  choice @nonConsuming FetchInterfaceNoCatchLocal${templateName} (self) (u: Unit): $viewQualifiedName
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to ubind
+         |         cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr;
+         |         iface: $ifaceQualifiedName <- fetch_interface
+         |            @$ifaceQualifiedName
+         |            (COERCE_CONTRACT_ID @$v1TplQualifiedName @$ifaceQualifiedName cid)
+         |         in upure @$viewQualifiedName (view_interface @$ifaceQualifiedName iface);
+         |
+         |  choice @nonConsuming FetchInterfaceAttemptCatchLocal${templateName} (self) (u: Unit): Text
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to try @Text
+         |         ubind _:$viewQualifiedName <-
+         |             exercise @$clientTplQualifiedName FetchInterfaceNoCatchLocal${templateName} self ()
+         |         in upure @Text "no exception was caught"
+         |       catch
+         |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+         |
+         |  choice @nonConsuming FetchInterfaceNoCatchGlobal${templateName} (self) (cid: ContractId $v1TplQualifiedName)
+         |        : $viewQualifiedName
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to ubind iface: $ifaceQualifiedName <- fetch_interface
+         |         @$ifaceQualifiedName
+         |         (COERCE_CONTRACT_ID @$v1TplQualifiedName @$ifaceQualifiedName cid)
+         |       in upure @$viewQualifiedName (view_interface @$ifaceQualifiedName iface);
+         |
+         |  choice @nonConsuming FetchInterfaceAttemptCatchGlobal${templateName} (self) (cid: ContractId $v1TplQualifiedName): Text
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to try @Text
+         |         ubind _:$viewQualifiedName <-
+         |             exercise @$clientTplQualifiedName FetchInterfaceNoCatchGlobal${templateName} self cid
+         |         in upure @Text "no exception was caught"
+         |       catch
+         |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+         |
+         |  choice @nonConsuming LookupByKeyNoCatchLocal${templateName} (self) (u: Unit): Option (ContractId $v2TplQualifiedName)
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
+         |       in lookup_by_key
+         |            @$v2TplQualifiedName
+         |            $v2KeyExpr;
+         |
+         |  choice @nonConsuming LookupByKeyAttemptCatchLocal${templateName} (self) (u: Unit): Text
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to try @Text
+         |         ubind _:Option (ContractId $v2TplQualifiedName) <-
+         |             exercise @$clientTplQualifiedName LookupByKeyNoCatchLocal${templateName} self ()
+         |         in upure @Text "no exception was caught"
+         |       catch
+         |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+         |
+         |  choice @nonConsuming LookupByKeyNoCatchGlobal${templateName} (self) (key: $v2KeyTypeQualifiedName)
+         |        : Option (ContractId $v2TplQualifiedName)
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to lookup_by_key
+         |         @$v2TplQualifiedName
+         |         key;
+         |
+         |  choice @nonConsuming LookupByKeyAttemptCatchGlobal${templateName} (self) (key: $v2KeyTypeQualifiedName)
+         |        : Text
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to try @Text
+         |         ubind _:Option (ContractId $v2TplQualifiedName) <-
+         |             exercise @$clientTplQualifiedName LookupByKeyNoCatchGlobal${templateName} self key
+         |         in upure @Text "no exception was caught"
+         |       catch
+         |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+         |""".stripMargin
     }
   }
 
@@ -649,11 +720,11 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
     override def v1AdditionalChoices: String = ""
     override def v2AdditionalChoices: String =
       s"""
-        | choice @nonConsuming AdditionalChoice (self) (u: Unit): Text
-        |   , controllers (Cons @Party [Mod:${templateName} {p1} this] (Nil @Party))
-        |   , observers (Nil @Party)
-        |   to upure @Text "AdditionalChoice was called";
-        |""".stripMargin
+         | choice @nonConsuming AdditionalChoice (self) (u: Unit): Text
+         |   , controllers (Cons @Party [Mod:${templateName} {p1} this] (Nil @Party))
+         |   , observers (Nil @Party)
+         |   to upure @Text "AdditionalChoice was called";
+         |""".stripMargin
   }
 
   case object UnchangedKey extends TestCase("UnchangedKey", ExpectSuccess) {
@@ -1869,71 +1940,4 @@ class UpgradeTest extends AnyFreeSpec with Matchers {
         )
     }
   }
-
-  def assertResultMatchesExpectedOutcome(
-      result: Either[Error, (SubmittedTransaction, Transaction.Metadata)],
-      expectedOutcome: ExpectedOutcome,
-  ): Assertion = {
-    expectedOutcome match {
-      case ExpectSuccess =>
-        result shouldBe a[Right[_, _]]
-      case ExpectUpgradeError =>
-        inside(result) { case Left(EE.Interpretation(EE.Interpretation.DamlException(error), _)) =>
-          error shouldBe a[IE.Upgrade]
-        }
-      case ExpectPreprocessingError =>
-        inside(result) { case Left(error) =>
-          error shouldBe a[EE.Preprocessing]
-        }
-      case ExpectPreconditionViolated =>
-        inside(result) { case Left(EE.Interpretation(EE.Interpretation.DamlException(error), _)) =>
-          error shouldBe a[IE.TemplatePreconditionViolated]
-        }
-      case ExpectUnhandledException =>
-        inside(result) { case Left(EE.Interpretation(EE.Interpretation.DamlException(error), _)) =>
-          error shouldBe a[IE.UnhandledException]
-        }
-      case ExpectInternalInterpretationError =>
-        inside(result) { case Left(EE.Interpretation(error, _)) =>
-          error shouldBe a[EE.Interpretation.Internal]
-        }
-    }
-  }
-
-  // This is the main loop of the test: for every combination of test case, operation, catch behavior, entry point, and
-  // contract origin, we generate an API command, execute it, and check that the result matches the expected outcome.
-  for (testCase <- testCases)
-    testCase.templateName - {
-      val testHelper = new TestHelper(testCase)
-      for (operation <- operations) {
-        operation.name - {
-          for (catchBehavior <- catchBehaviors)
-            catchBehavior.name - {
-              for (entryPoint <- entryPoints) {
-                entryPoint.name - {
-                  for (contractOrigin <- contractOrigins) {
-                    contractOrigin.name - {
-                      testHelper
-                        .makeApiCommands(
-                          operation,
-                          catchBehavior,
-                          entryPoint,
-                          contractOrigin,
-                        )
-                        .foreach { apiCommands =>
-                          testCase.expectedOutcome.description in {
-                            assertResultMatchesExpectedOutcome(
-                              testHelper.execute(apiCommands, contractOrigin),
-                              testCase.expectedOutcome,
-                            )
-                          }
-                        }
-                    }
-                  }
-                }
-              }
-            }
-        }
-      }
-    }
 }

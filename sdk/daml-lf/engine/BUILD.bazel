@@ -86,6 +86,7 @@ da_scala_test_suite(
         exclude = [
             "src/test/**/LargeTransactionTest.scala",
             "src/test/**/MinVersionTest.scala",
+            "src/test/**/UpgradeTest.scala",
         ],
     ),
     data = [
@@ -184,6 +185,33 @@ da_scala_test(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//libs-scala/contextualized-logging",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
+da_scala_test(
+    name = "upgrade-test",
+    timeout = "moderate",
+    srcs = glob([
+        "src/test/**/UpgradeTest.scala",
+    ]),
+    args = ["-P"],  # run the test cases in parallel
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":engine",
+        "//daml-lf/data",
+        "//daml-lf/language",
+        "//daml-lf/parser",
+        "//daml-lf/transaction",
+        "//daml-lf/transaction-test-lib",
+        "//libs-scala/contextualized-logging",
+        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
