@@ -2455,7 +2455,7 @@ private[lf] object SBuiltin {
       val (upgradingIsEnabled, dstTmplId, unsupportedUpgrade) = optTargetTemplateId match {
         case Some(tycon) if coinst.upgradable =>
           (true, tycon, false)
-        case Some(tycon) =>
+        case Some(tycon) if tycon != srcTmplId =>
           (true, tycon, true)
         case _ =>
           (false, srcTmplId, false) // upgrading not enabled; import at source type
