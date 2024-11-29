@@ -5,8 +5,8 @@ package com.digitalasset.canton.participant.store.db
 
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.RequestCounter
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.LocalOffset
@@ -34,6 +34,7 @@ class DbParticipantEventLog(
       storage,
       indexedStringStore,
       releaseProtocolVersion,
+      BatchAggregatorConfig.NoBatching,
       timeouts,
       loggerFactory,
     )

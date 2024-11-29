@@ -4,9 +4,11 @@
 package com.digitalasset.canton.participant.store
 
 import com.digitalasset.canton.checked
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.BatchAggregatorConfig.NoBatching
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.HasCloseContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.LocalOffset
 import com.digitalasset.canton.participant.store.EventLogId.ParticipantEventLogId
@@ -25,7 +27,9 @@ import scala.concurrent.{ExecutionContext, Future}
 trait ParticipantEventLog
     extends SingleDimensionEventLog[ParticipantEventLogId]
     with AutoCloseable {
-  this: NamedLogging =>
+  this: NamedLogging & HasCloseContext =>
+
+  override protected val batchAggregatorConfig: BatchAggregatorConfig = NoBatching
 
   /** Returns the first event (by offset ordering) whose [[com.digitalasset.canton.participant.sync.TimestampedEvent.EventId]]
     * has the given `associatedDomain` and whose timestamp is at or after `atOrAfter`.
@@ -68,7 +72,7 @@ object ParticipantEventLog {
   )(implicit executionContext: ExecutionContext): ParticipantEventLog =
     storage match {
       case _: MemoryStorage =>
-        new InMemoryParticipantEventLog(ProductionParticipantEventLogId, loggerFactory)
+        new InMemoryParticipantEventLog(ProductionParticipantEventLogId, timeouts, loggerFactory)
       case dbStorage: DbStorage =>
         new DbParticipantEventLog(
           ProductionParticipantEventLogId,
