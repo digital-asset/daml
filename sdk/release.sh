@@ -161,18 +161,19 @@ available_release_lines() {
 release_branch_for_version() {
     version="$1"
     version_arr=(${version//./ })
-    available_release_lines "${version_arr[0]}" | jq -r """
+    available_release_lines "${version_arr[0]}" | \
+    jq -r --argjson major "${version_arr[0]}" --argjson minor "${version_arr[1]}" '''
       max |
-      if .[1] < ${version_arr[1]} then
-          if ${version_arr[0]} == 2 then
-              \"origin/main-2.x\"
+      if .[1] < $minor then
+          if $major == 2 then
+              "origin/main-2.x"
           else
-              \"origin/main\"
+              "origin/main"
           end
       else
-          \"origin/release/${version_arr[0]}.${version_arr[1]}.x\"
+          "origin/release/\($major).\($minor).x"
       end
-    """
+    '''
 }
 
 # Takes a commit reference as its first argument.
