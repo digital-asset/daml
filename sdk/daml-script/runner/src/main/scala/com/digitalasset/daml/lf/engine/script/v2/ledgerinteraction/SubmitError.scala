@@ -515,9 +515,9 @@ class SubmitErrors(majorLanguageVersion: LanguageMajorVersion) {
           env,
           "ContractNotUpgradable",
           3,
-          ("coid", SText(coid.coid)),
-          ("target", fromTemplateTypeRep(srcTemplateId)),
-          ("actual", fromTemplateTypeRep(dstTemplateId)),
+          ("coid", SText(contractId.coid)),
+          ("target", fromTemplateTypeRep(targetTemplateId)),
+          ("actual", fromTemplateTypeRep(actualTemplateId)),
         )
         SubmitErrorConverters(env).damlScriptError(
           "UpgradeError",
