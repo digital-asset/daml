@@ -80,20 +80,26 @@ contents: |
 v1PackageId : PackageId
 v1PackageId = getPackageId "ledger-api-choice-upgrades-1.0.0"
 
+v1ClientPackageId : PackageId
+v1ClientPackageId = getPackageId "ledger-api-choice-upgrades-client-1.0.0"
+
 main : TestTree
 main = tests
-  [
---  ("Explicitly call a V1 choice on a V1 contract over the ledger-api, expect V1 implementation used.", explicitV1ChoiceV1Contract)
---  , ("Explicitly call a V2 choice on a V1 contract over the ledger-api, expect V2 implementation used, and contract upgraded.", explicitV2ChoiceV1Contract)
---  , subtree "Call a V1 choice without package ID on a V1 contract over the ledger-api, expect V2 implementation used, contract + argument upgraded, daml-script downgrades return type."
---     [ ("global contract", inferredV1ChoiceV1GlobalContract)
---     , ("disclosed contract", inferredV1ChoiceV1DisclosedContract)
---     , ("local contract", inferredV1ChoiceV1LocalContract)
---     ]
---  , ("Call a V2 choice without package ID on a V1 contract over the ledger-api, expect V2 implementation used, and contract upgraded.", inferredV2ChoiceV1Contract)
-   ("Call a V2 choice without package ID on a V1 contract over the ledger-api, with V2 unvetted, expect V1 implementation used, argument downgraded, daml-script upgrades return type.", inferredV1ChoiceV1ContractWithoutV2)
---  , ("Explicitly call a V1 choice on a V2 contract over the ledger-api, expect V1 implementation used, and contract downgraded.", explicitV1ChoiceV2Contract)
---  , ("Explicitly call a V2 choice on a V2 contract over the ledger-api, expect V2 implementation used.", explicitV2ChoiceV2Contract)
+  [ ("Explicitly call a V1 choice on a V1 contract over the ledger-api, expect V1 implementation used.", explicitV1ChoiceV1Contract)
+  , ("Explicitly call a V2 choice on a V1 contract over the ledger-api, expect V2 implementation used, and contract upgraded.", explicitV2ChoiceV1Contract)
+  , subtree "Call a V1 choice without package ID on a V1 contract over the ledger-api, expect V2 implementation used, contract + argument upgraded, daml-script downgrades return type."
+     [ ("global contract", v1RequestV2PreferenceV1GlobalContract)
+     , ("disclosed contract", v1RequestV2PreferenceV1DisclosedContract)
+     , ("local contract", v1RequestV2PreferenceV1LocalContract)
+     ]
+  , ("Call a V2 choice without package ID on a V1 contract over the ledger-api, expect V2 implementation used, and contract upgraded.", inferredV2ChoiceV1Contract)
+  , subtree "Call a V2 choice without package ID on a V1 contract over the ledger-api, with package preference V1, expect V1 implementation used, daml-script upgrades return type."
+     [ ("global contract", v2RequestV1PreferenceV1GlobalContract)
+     , ("disclosed contract", v2RequestV1PreferenceV1DisclosedContract)
+     , ("local contract", v2RequestV1PreferenceV1LocalContract)
+     ]
+  , ("Explicitly call a V1 choice on a V2 contract over the ledger-api, expect V1 implementation used, and contract downgraded.", explicitV1ChoiceV2Contract)
+  , ("Explicitly call a V2 choice on a V2 contract over the ledger-api, expect V2 implementation used.", explicitV2ChoiceV2Contract)
   ]
 
 choiceTest
@@ -124,11 +130,11 @@ explicitV2ChoiceV1Contract =
 -- When inferring, the V1 contract and choice argument is upgraded, and the return type is downgraded directly by daml script.
 -- As such, we get the v2 implementation called, with the additional field set to None (as shown in the choice return)
 -- and since the extra data in the return will also be none, the downgrade can succeed.
-inferredV1ChoiceV1GlobalContract : Test
-inferredV1ChoiceV1GlobalContract =
+v1RequestV2PreferenceV1GlobalContract : Test
+v1RequestV2PreferenceV1GlobalContract =
   choiceTest @V1.UpgradedChoiceTemplate V1.UpgradedChoiceTemplate (V1.UpgradedChoice "v1 to v1") False (V1.UpgradedChoiceReturn "v1 to v1:V2:None")
 
-inferredV1ChoiceV1DisclosedContract = test $ do
+v1RequestV2PreferenceV1DisclosedContract = test $ do
   a <- allocatePartyOn "alice" participant0
   cid <- a `submit` createExactCmd (V1.UpgradedChoiceTemplate a)
   disclosure <- fromSome <$> queryDisclosure a cid
@@ -137,7 +143,7 @@ inferredV1ChoiceV1DisclosedContract = test $ do
     Right returnValue -> returnValue === (V1.UpgradedChoiceReturn "v1 to v1:V2:None")
     Left err -> assertFail $ "Expected 'v1 to v1:V2:None' but got " <> show err
 
-inferredV1ChoiceV1LocalContract = test $ do
+v1RequestV2PreferenceV1LocalContract = test $ do
   a <- allocatePartyOn "alice" participant0
   cid <- a `submit` createExactCmd (V1.UpgradedChoiceClientTemplate a)
   res <- a `trySubmit` exerciseCmd cid V1.CreateAndExercise
@@ -149,18 +155,36 @@ inferredV2ChoiceV1Contract : Test
 inferredV2ChoiceV1Contract =
   choiceTest @V2.UpgradedChoiceTemplate V1.UpgradedChoiceTemplate (V2.UpgradedChoice "v2 to v1" $ Some "extra") False (V2.UpgradedChoiceReturn "v2 to v1:V2:Some \"extra\"" $ Some "extra")
 
--- If v2 isn't vetted, then omitting a package id and giving v1 arguments should use the v1 implementation
--- Ledger-api still considers unvetted packages in package selection
--- IDE ledger doesn't support vetting
-inferredV1ChoiceV1ContractWithoutV2 : Test
-inferredV1ChoiceV1ContractWithoutV2 = test $ do
+v2RequestV1PreferenceV1GlobalContract : Test
+v2RequestV1PreferenceV1GlobalContract = test $ do
   a <- allocatePartyOn "alice" participant0
   cid <- a `submit` createExactCmd (V1.UpgradedChoiceTemplate a)
   let cidV2 = coerceContractId @V1.UpgradedChoiceTemplate @V2.UpgradedChoiceTemplate cid
   res <- (actAs a <> packagePreference [v1PackageId]) `trySubmit` exerciseCmd cidV2 (V2.UpgradedChoice "v1 to v1" None)
   case res of
     Right returnValue -> returnValue === (V2.UpgradedChoiceReturn "v1 to v1:V1" None)
-    Left err -> assertFail $ "Expected 'v1 to v1:V1:None' but got " <> show err
+    Left err -> assertFail $ "Expected 'v1 to v1:V1' but got " <> show err
+
+v2RequestV1PreferenceV1DisclosedContract : Test
+v2RequestV1PreferenceV1DisclosedContract = test $ do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createExactCmd (V1.UpgradedChoiceTemplate a)
+  disclosure <- fromSome <$> queryDisclosure a cid
+  let cidV2 = coerceContractId @V1.UpgradedChoiceTemplate @V2.UpgradedChoiceTemplate cid
+  res <- (actAs a <> disclose disclosure <> packagePreference [v1PackageId]) `trySubmit` exerciseCmd cidV2 (V2.UpgradedChoice "v1 to v1" None)
+  case res of
+    Right returnValue -> returnValue === (V2.UpgradedChoiceReturn "v1 to v1:V1" None)
+    Left err -> assertFail $ "Expected 'v1 to v1:V1' but got " <> show err
+
+v2RequestV1PreferenceV1LocalContract = test $ do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createExactCmd (V1.UpgradedChoiceClientTemplate a)
+  let cidV2 = coerceContractId @V1.UpgradedChoiceClientTemplate @V2.UpgradedChoiceClientTemplate cid
+  res <- (actAs a <> packagePreference [v1ClientPackageId]) `trySubmit` exerciseCmd cidV2 V2.CreateAndExercise
+  case res of
+    Right returnValue -> returnValue === (V2.UpgradedChoiceReturn "v1 to v1:V1" None)
+    Left err -> assertFail $ "Expected 'v1 to v1:V1' but got " <> show err
+
 
 explicitV1ChoiceV2Contract : Test
 explicitV1ChoiceV2Contract =
