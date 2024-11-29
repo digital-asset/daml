@@ -26,11 +26,6 @@ function file_ends_with_newline() {
     [[ $(tail -c1 "$1" | wc -l) -gt 0 ]]
 }
 
-commit_belongs_to_branch() {
-    git branch --all --format='%(refname:short)' --contains="$1" \
-      | grep -F -x "$2" >/dev/null 2>/dev/null # grep -q flag quits early and causes a SIGPIPE signal in git branch
-}
-
 check() {
     local sha ver ver_sha
     if ! file_ends_with_newline LATEST; then
@@ -106,15 +101,18 @@ is_stable_or_rc() {
 }
 
 is_snapshot_or_adhoc() (
-    echo "$1" | grep -q -P "($SNAPSHOT_REGEX|$ADHOC_REGEX)"
+    local version="$1"
+    echo "$version" | grep -q -P "($SNAPSHOT_REGEX|$ADHOC_REGEX)"
 )
 
 is_snapshot() (
-    echo "$1" | grep -q -P "($SNAPSHOT_REGEX)"
+    local version="$1"
+    echo "$version" | grep -q -P "($SNAPSHOT_REGEX)"
 )
 
 is_adhoc() (
-    echo "$1" | grep -q -P "($ADHOC_REGEX)"
+    local version="$1"
+    echo "$version" | grep -q -P "($ADHOC_REGEX)"
 )
 
 make_snapshot() {
@@ -155,12 +153,15 @@ if [ -z "${1+x}" ]; then
     exit 1
 fi
 
+# Takes a major version, prints all release lines for that version
 available_release_lines() {
     git branch --all --format='%(refname:short)' \
       | grep -E "^origin/release/$1\.[0-9]+\.x$" \
       | jq -sR 'split("\n") | map(select(length > 0)) | map(split("/")[2] | split(".")[0:2] | map(tonumber))'
 }
 
+# Takes a version x.y.z as its first argument, prints the expected branch for
+# producing those release lines.
 release_branch_for_version() {
     version="$1"
     version_arr=(${version//./ })
@@ -178,11 +179,21 @@ release_branch_for_version() {
     """
 }
 
+# Takes a commit reference as its first argument.
 find_release_branches_for_commit() {
     git branch --all --format='%(refname:short)' --contains="$1" \
       | grep "${2:-}" -E -x "origin/(release/[0-9]+.[0-9]+.x|main|main-2.x)"
 }
 
+# Takes a commit reference as its first argument, and a branch as its second argument.
+commit_belongs_to_branch() {
+    commit=$1
+    branch=$2
+    git branch --all --format='%(refname:short)' --contains="$commit" \
+      | grep -F -x "$branch" >/dev/null 2>/dev/null # grep -q flag quits early and causes a SIGPIPE signal in git branch
+}
+
+# Takes a version x.y.z as its first argument, a commit reference as its second argument
 check_new_version_and_commit() {
     version=$1
     commit=$2
