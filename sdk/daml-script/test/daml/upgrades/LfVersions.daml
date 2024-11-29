@@ -74,7 +74,7 @@ main = tests
   ]
 
 assertIsUpgradeError : Either SubmitError a -> Script ()
-assertIsUpgradeError (Left (UpgradeError ContractNotUpgradable _)) = pure ()
+assertIsUpgradeError (Left (UpgradeError (ContractNotUpgradable _ _ _) _)) = pure ()
 assertIsUpgradeError (Left e) = fail $ "Expected upgrade error but got " <> show e
 assertIsUpgradeError _ = fail "Expected upgrade error but got success"
 

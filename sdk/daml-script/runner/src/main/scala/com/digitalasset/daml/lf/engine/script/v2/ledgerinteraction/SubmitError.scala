@@ -511,8 +511,14 @@ class SubmitErrors(majorLanguageVersion: LanguageMajorVersion) {
         message: String,
     ) extends SubmitError {
       override def toDamlSubmitError(env: Env): SValue = {
-        val upgradeErrorType =
-          SEnum(upgradeErrorTypeIdentifier(env), Name.assertFromString("ContractNotUpgradable"), 3)
+        val upgradeErrorType = damlScriptUpgradeErrorType(
+          env,
+          "ContractNotUpgradable",
+          3,
+          ("coid", SText(coid.coid)),
+          ("target", fromTemplateTypeRep(srcTemplateId)),
+          ("actual", fromTemplateTypeRep(dstTemplateId)),
+        )
         SubmitErrorConverters(env).damlScriptError(
           "UpgradeError",
           20,

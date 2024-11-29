@@ -30,7 +30,10 @@ data UpgradeErrorType
         iterfaceId : TemplateTypeRep
         srcTemplateId : TemplateTypeRep
         dstTemplateId : TemplateTypeRep
-  | ContractNotUpgradable
+  | ContractNotUpgradable with
+        coid : AnyContractId
+        target : TemplateTypeRep
+        actual : TemplateTypeRep
   deriving Show
 
 -- | Errors that will be promoted to SubmitError once stable - code needs to be kept in sync with SubmitError.scala
