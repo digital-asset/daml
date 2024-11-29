@@ -17,10 +17,18 @@ uhoh() {
 trap uhoh EXIT
 
 STABLE_REGEX="\d+\.\d+\.\d+"
-SNAPSHOT_REGEX="^${STABLE_REGEX}-snapshot\.\d{8}\.\d+(\.\d+)?\.v[0-9a-f]{8}$"
-ADHOC_REGEX="^${STABLE_REGEX}-adhoc\.\d{8}\.\d+(\.\d+)?\.v[0-9a-f]{8}$"
-RC_REGEX="^${STABLE_REGEX}-rc\d+$"
-VERSION_REGEX="(^$STABLE_REGEX$)|($SNAPSHOT_REGEX)|($ADHOC_REGEX)|($RC_REGEX)"
+
+check_ver() {
+    local version="$1"
+    local regex="$2"
+    echo "$version" | grep -x -P -q "$regex"
+}
+
+is_stable()   { check_ver "$1" "(${STABLE_REGEX})"; }
+is_rc()       { check_ver "$1" "(${STABLE_REGEX}-rc\d+)"; }
+is_snapshot() { check_ver "$1" "(${STABLE_REGEX}-snapshot\.\d{8}\.\d+(\.\d+)?\.v[0-9a-f]{8})"; }
+is_adhoc()    { check_ver "$1" "(${STABLE_REGEX}-adhoc\.\d{8}\.\d+(\.\d+)?\.v[0-9a-f]{8})"; }
+is_version()  { is_stable "$ver" || is_rc "$ver" || is_snapshot "$ver" || is_adhoc "$ver"; }
 
 function file_ends_with_newline() {
     [[ $(tail -c1 "$1" | wc -l) -gt 0 ]]
@@ -36,12 +44,12 @@ check() {
         sha=$(echo "$line" | gawk '{print $1}')
         ver=$(echo "$line" | gawk '{print $2}')
         split=$(echo "$line" | gawk '{print $3}')
-        if ! echo "$ver" | grep -q -P "$VERSION_REGEX"; then
+        if ! is_version "$ver"; then
             echo "Invalid version number in LATEST file, needs manual correction."
             echo "Offending version: '$ver'."
             exit 1
         fi
-        if is_snapshot_or_adhoc "$ver"; then
+        if is_snapshot "$ver" || is_adhoc "$ver"; then
             ver_sha=${ver/*.v/}
             if ! [ "${sha:0:8}" = "$ver_sha" ]; then
                 echo "$ver does not match $sha, please correct. ($ver_sha != ${sha:0:8})"
@@ -51,7 +59,7 @@ check() {
 
         version_without_trailer=$(echo "$ver" | grep -oP "^$STABLE_REGEX")
         version_arr=(${version_without_trailer//./ })
-        if is_stable_or_rc "$ver"; then
+        if is_stable "$ver" || is_rc "$ver"; then
             target_branch="origin/release/${version_arr[0]}.${version_arr[1]}.x"
             if missing_target_branch "$version_without_trailer"; then
                 echo "Skipping check for release '$line' because version $version_without_trailer has a target branch '$target_branch' which does not exist anymore."
@@ -94,26 +102,6 @@ missing_target_branch() {
     local version="$1"
     echo "$version" | grep -x -P -q "1\.(4|5|7|12)\.[0-9]+"
 }
-
-is_stable_or_rc() {
-    local version="$1"
-    echo "$version" | grep -q -P "(^${STABLE_REGEX}|${RC_REGEX})$"
-}
-
-is_snapshot_or_adhoc() (
-    local version="$1"
-    echo "$version" | grep -q -P "($SNAPSHOT_REGEX|$ADHOC_REGEX)"
-)
-
-is_snapshot() (
-    local version="$1"
-    echo "$version" | grep -q -P "($SNAPSHOT_REGEX)"
-)
-
-is_adhoc() (
-    local version="$1"
-    echo "$version" | grep -q -P "($ADHOC_REGEX)"
-)
 
 make_snapshot() {
     local sha prefix commit_date number_of_commits commit_sha_8
