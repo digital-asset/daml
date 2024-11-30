@@ -121,7 +121,14 @@ final case class SimulationSettings(
     durationOfSecondPhaseWithoutFaults: FiniteDuration = 30.seconds,
     clientRequestInterval: Option[FiniteDuration] = Some(1.second),
     peerOnboardingTimes: Iterable[TopologyActivationTime] = Iterable.empty,
+    becomingOnlineAfterOnboardingDelay: FiniteDuration =
+      SimulationSettings.defaultBecomingOnlineAfterOnboardingDelay,
 ) {
   def totalSimulationTime: FiniteDuration =
     durationOfFirstPhaseWithFaults.plus(durationOfSecondPhaseWithoutFaults)
+}
+
+object SimulationSettings {
+
+  private val defaultBecomingOnlineAfterOnboardingDelay = 15.seconds
 }

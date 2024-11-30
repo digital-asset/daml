@@ -3,16 +3,17 @@
 
 package com.digitalasset.canton.platform.apiserver.execution
 
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationDuration
 import com.digitalasset.canton.data.{DeduplicationPeriod, ProcessedDisclosedContract}
 import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands}
 import com.digitalasset.canton.ledger.participant.state.index.MaximumLedgerTime
 import com.digitalasset.canton.ledger.participant.state.{SubmitterInfo, TransactionMeta}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause.LedgerTime
+import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import com.digitalasset.daml.lf.command.ApiCommands as LfCommands
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageName, PackageVersion}
@@ -26,12 +27,13 @@ import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.time.Duration
-import scala.concurrent.Future
+import scala.concurrent.ExecutionContext
 
 class LedgerTimeAwareCommandExecutorSpec
     extends AsyncWordSpec
     with MockitoSugar
     with ArgumentMatchersSugar
+    with FailOnShutdown
     with BaseTest {
 
   private val loggingContext =
@@ -78,7 +80,7 @@ class LedgerTimeAwareCommandExecutorSpec
       dependsOnLedgerTime: Boolean,
       resolveMaximumLedgerTimeResults: List[MaximumLedgerTime],
       finalExecutionResult: Either[ErrorCause, Time.Timestamp],
-  ): Future[Assertion] = {
+  ): FutureUnlessShutdown[Assertion] = {
 
     def commandExecutionResult(let: Time.Timestamp) = CommandExecutionResult(
       SubmitterInfo(
@@ -110,11 +112,12 @@ class LedgerTimeAwareCommandExecutorSpec
     val mockExecutor = mock[CommandExecutor]
     when(
       mockExecutor.execute(any[Commands], any[Hash])(
-        any[LoggingContextWithTrace]
+        any[LoggingContextWithTrace],
+        any[ExecutionContext],
       )
     )
       .thenAnswer((c: Commands) =>
-        Future.successful(Right(commandExecutionResult(c.commands.ledgerEffectiveTime)))
+        FutureUnlessShutdown.pure(Right(commandExecutionResult(c.commands.ledgerEffectiveTime)))
       )
 
     val mockResolveMaximumLedgerTime = mock[ResolveMaximumLedgerTime]
@@ -124,12 +127,13 @@ class LedgerTimeAwareCommandExecutorSpec
           eqTo(processedDisclosedContracts),
           any[Set[ContractId]],
         )(
-          any[LoggingContextWithTrace]
+          any[LoggingContextWithTrace],
+          any[ExecutionContext],
         )
       )
-        .thenReturn(Future.successful(resolveMaximumLedgerTimeResults.head))
+        .thenReturn(FutureUnlessShutdown.pure(resolveMaximumLedgerTimeResults.head))
     ) { case (mock, result) =>
-      mock.andThen(Future.successful(result))
+      mock.andThen(FutureUnlessShutdown.pure(result))
     }
 
     val commands = Commands(
@@ -158,7 +162,7 @@ class LedgerTimeAwareCommandExecutorSpec
       loggerFactory,
     )
 
-    instance.execute(commands, submissionSeed)(loggingContext).map { actual =>
+    instance.execute(commands, submissionSeed)(loggingContext, executionContext).map { actual =>
       val expectedResult = finalExecutionResult.map(let =>
         CommandExecutionResult(
           SubmitterInfo(
@@ -191,7 +195,7 @@ class LedgerTimeAwareCommandExecutorSpec
       verify(mockExecutor, times(resolveMaximumLedgerTimeResults.size)).execute(
         any[Commands],
         any[Hash],
-      )(any[LoggingContextWithTrace])
+      )(any[LoggingContextWithTrace], any[ExecutionContext])
 
       actual shouldEqual expectedResult
     }

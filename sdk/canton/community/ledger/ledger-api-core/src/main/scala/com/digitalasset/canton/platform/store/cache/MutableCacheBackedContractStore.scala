@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.store.cache
 
-import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index
 import com.digitalasset.canton.ledger.participant.state.index.ContractStore
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
@@ -16,7 +15,6 @@ import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReade
   ArchivedContract,
   ContractState,
   KeyState,
-  KeyUnassigned,
 }
 import com.digitalasset.daml.lf.transaction.GlobalKey
 
@@ -126,14 +124,11 @@ private[platform] class MutableCacheBackedContractStore(
 
   private def readThroughKeyCache(
       key: GlobalKey
-  )(implicit loggingContext: LoggingContextWithTrace): Future[ContractKeyStateValue] = {
-    val readThroughRequest = (validAt: Option[Offset]) =>
-      validAt
-        .map(contractsReader.lookupKeyState(key, _))
-        .getOrElse(Future.successful(KeyUnassigned))
-        .map(toKeyCacheValue)
-    contractStateCaches.keyState.putAsync(key, readThroughRequest)
-  }
+  )(implicit loggingContext: LoggingContextWithTrace): Future[ContractKeyStateValue] =
+    contractStateCaches.keyState.putAsync(
+      key,
+      contractsReader.lookupKeyState(key, _).map(toKeyCacheValue),
+    )
 
   private def nonEmptyIntersection[T](one: Set[T], other: Set[T]): Boolean =
     one.intersect(other).nonEmpty

@@ -34,7 +34,7 @@ object TopologyStateForInitRequest
       v30.DownloadTopologyStateForInitRequest
     )(
       supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 

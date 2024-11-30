@@ -530,7 +530,15 @@ class PruningProcessor(
       archivedContracts <- FutureUnlessShutdown.outcomeF(
         lookUpContractsArchivedBeforeOrAt(fromExclusive, upToInclusive)
       )
-      _ <- cutoffs.domainOffsets.parTraverse(pruneDomain(archivedContracts))
+
+      // We must prune the contract store even if the event log is empty, because there is not necessarily an
+      // archival event reassigned-away contracts.
+      _ = logger.debug("Pruning contract store...")
+      _ <- FutureUnlessShutdown.outcomeF(
+        participantNodePersistentState.value.contractStore.deleteIgnoringUnknown(archivedContracts)
+      )
+
+      _ <- cutoffs.domainOffsets.parTraverse(pruneDomain)
       _ <- cutoffs.globalOffsetO.fold(FutureUnlessShutdown.unit) {
         case (globalOffset, publicationTime) =>
           pruneDeduplicationStore(globalOffset, publicationTime)
@@ -541,9 +549,7 @@ class PruningProcessor(
     *
     * @param archived  Contracts which have (by some external logic) been deemed safe to delete
     */
-  private def pruneDomain(
-      archived: Iterable[LfContractId]
-  )(domainOffset: PruningCutoffs.DomainOffset)(implicit
+  private def pruneDomain(domainOffset: PruningCutoffs.DomainOffset)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
     val PruningCutoffs.DomainOffset(state, lastTimestamp, lastRequestCounter) = domainOffset
@@ -551,19 +557,11 @@ class PruningProcessor(
     logger.info(
       show"Pruning ${state.indexedDomain.domainId} up to $lastTimestamp and request counter $lastRequestCounter"
     )
-    logger.debug("Pruning contract store...")
+
+    // we don't prune stores that are pruned by the JournalGarbageCollector regularly anyway
+    logger.debug("Pruning sequenced event store...")
 
     for {
-      // We must prune the contract store even if the event log is empty, because there is not necessarily an archival event
-      // for divulged contracts or reassigned-away contracts.
-      _ <- FutureUnlessShutdown.outcomeF(state.contractStore.deleteIgnoringUnknown(archived))
-
-      _ <- FutureUnlessShutdown.outcomeF(
-        lastRequestCounter.fold(Future.unit)(state.contractStore.deleteDivulged)
-      )
-
-      // we don't prune stores that are pruned by the JournalGarbageCollector regularly anyway
-      _ = logger.debug("Pruning sequenced event store...")
       _ <- state.sequencedEventStore.prune(lastTimestamp)
 
       _ = logger.debug("Pruning request journal store...")
@@ -580,13 +578,10 @@ class PruningProcessor(
   ): Future[Unit] = {
     logger.info(s"Purging domain ${state.indexedDomain.domainId}")
 
-    logger.debug("Purging contract store...")
+    logger.debug("Purging active contract store...")
     for {
-      _ <- state.contractStore.purge()
-
-      // Also purge stores that are pruned by the SyncDomain's JournalGarbageCollector as the SyncDomain
+      // Purge stores that are pruned by the SyncDomain's JournalGarbageCollector as the SyncDomain
       // is never active anymore.
-      _ = logger.debug("Purging active contract store...")
       _ <- state.activeContractStore.purge()
 
       _ = logger.debug("Purging sequenced event store...")

@@ -20,7 +20,7 @@ import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait SortedReconciliationIntervalsHelpers {
   this: BaseTest =>
@@ -131,7 +131,7 @@ trait SortedReconciliationIntervalsHelpers {
     )
 
     when(topologySnapshot.listDynamicDomainParametersChanges()).thenReturn {
-      Future.successful(
+      FutureUnlessShutdown.pure(
         Seq(
           mkDynamicDomainParameters(domainBootstrappingTime, reconciliationInterval)
         )

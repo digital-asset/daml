@@ -4,12 +4,18 @@
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.Eval
+import cats.data.EitherT
 import cats.implicits.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
-import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, Signature, TestHash}
+import com.digitalasset.canton.crypto.{
+  DomainSnapshotSyncCryptoApi,
+  Signature,
+  SyncCryptoError,
+  TestHash,
+}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.data.ViewType.UnassignmentViewType
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -75,6 +81,7 @@ import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{
   BaseTest,
+  FailOnShutdown,
   HasExecutorService,
   LedgerApplicationId,
   LedgerCommandId,
@@ -95,7 +102,8 @@ final class UnassignmentProcessingStepsTest
     extends AsyncWordSpec
     with BaseTest
     with HasExecutorService
-    with HasTestCloseContext {
+    with HasTestCloseContext
+    with FailOnShutdown {
 
   private implicit val ec: ExecutionContext = executorService
 
@@ -141,6 +149,8 @@ final class UnassignmentProcessingStepsTest
     SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
 
   private lazy val ledgerApiIndexer = mock[LedgerApiIndexer]
+  private lazy val contractStore = new InMemoryContractStore(timeouts, loggerFactory)
+
   private lazy val clock = new WallClock(timeouts, loggerFactory)
   private lazy val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1)
   private lazy val persistentState =
@@ -152,6 +162,7 @@ final class UnassignmentProcessingStepsTest
       defaultStaticDomainParameters,
       enableAdditionalConsistencyChecks = true,
       indexedStringStore = indexedStringStore,
+      contractStore = contractStore,
       acsCounterParticipantConfigStore = mock[AcsCounterParticipantConfigStore],
       exitOnFatalFailures = true,
       packageDependencyResolver = mock[PackageDependencyResolver],
@@ -169,6 +180,7 @@ final class UnassignmentProcessingStepsTest
       mock[InFlightSubmissionDomainTracker],
       persistentState,
       ledgerApiIndexer,
+      contractStore,
       ProcessingStartingPoints.default,
       ParticipantTestMetrics.domain,
       exitOnFatalFailures = true,
@@ -326,7 +338,7 @@ final class UnassignmentProcessingStepsTest
     Seq.empty,
     sourceMediator,
     cryptoSnapshot,
-    cryptoSnapshot.ipsSnapshot.findDynamicDomainParameters().futureValue.value,
+    cryptoSnapshot.ipsSnapshot.findDynamicDomainParameters().futureValueUS.value,
   )
 
   "UnassignmentRequest.validated" should {
@@ -899,15 +911,17 @@ final class UnassignmentProcessingStepsTest
       for {
         signature <- cryptoSnapshot
           .sign(fullUnassignmentTree.rootHash.unwrap)
-          .valueOrFailShutdown("signing failed")
 
         parsed = mkParsedRequest(
           fullUnassignmentTree,
           Recipients.cc(submittingParticipant),
           signatureO = Some(signature),
         )
-        authenticationError <-
-          AuthenticationValidator.verifyViewSignature(parsed).failOnShutdown
+
+        authenticationError <- EitherT
+          .liftF[FutureUnlessShutdown, SyncCryptoError, Option[AuthenticationError]](
+            AuthenticationValidator.verifyViewSignature(parsed)
+          )
       } yield authenticationError shouldBe None
     }
 

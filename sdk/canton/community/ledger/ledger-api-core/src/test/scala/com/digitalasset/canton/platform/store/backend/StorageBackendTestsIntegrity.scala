@@ -526,7 +526,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
-      "occurrence of duplicate update ID [000000000000000002] found for offsets Offset(2), Offset(3)"
+      "occurrence of duplicate update ID [2] found for offsets Offset(2), Offset(3)"
     )
   }
 

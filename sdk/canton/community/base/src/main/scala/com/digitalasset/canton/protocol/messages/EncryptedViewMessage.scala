@@ -253,8 +253,6 @@ final case class EncryptedViewMessage[+VT <: ViewType](
       newView: EncryptedView[VT2]
   ): EncryptedViewMessage[VT2] = copy(encryptedView = newView)
 
-  def toByteString: ByteString = toProtoV30.toByteString
-
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   def traverse[F[_], VT2 <: ViewType](
       f: EncryptedView[VT] => F[EncryptedView[VT2]]
@@ -276,7 +274,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.EncryptedViewMessage)(
       supportedProtoVersion(_)(EncryptedViewMessage.fromProto),
-      _.toByteString,
+      _.toProtoV30,
     )
   )
 
@@ -369,7 +367,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
        */
       encryptionKeys <- EitherT
         .right(
-          FutureUnlessShutdown.outcomeF(snapshot.ipsSnapshot.encryptionKeys(participantId))
+          snapshot.ipsSnapshot.encryptionKeys(participantId)
         )
         .map(_.map(_.id).toSet)
       encryptedSessionKeyForParticipant <- encrypted.sessionKeys

@@ -10,6 +10,7 @@ import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.{
   TopologyErrors,
@@ -22,9 +23,8 @@ import com.digitalasset.canton.topology.transaction.ParticipantAttributes
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.math.Ordered.orderingToOrdered
 
 private[routing] final class AdmissibleDomains(
@@ -41,11 +41,13 @@ private[routing] final class AdmissibleDomains(
   def forParties(submitters: Set[LfPartyId], informees: Set[LfPartyId])(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, TransactionRoutingError, NonEmpty[Set[DomainId]]] = {
+  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[Set[DomainId]]] = {
 
     def queryPartyTopologySnapshotClient(
         domainPartyTopologySnapshotClient: (DomainId, PartyTopologySnapshotClient)
-    ): EitherT[Future, TransactionRoutingError, Option[(DomainId, Map[LfPartyId, PartyInfo])]] = {
+    ): EitherT[FutureUnlessShutdown, TransactionRoutingError, Option[
+      (DomainId, Map[LfPartyId, PartyInfo])
+    ]] = {
       val (domainId, partyTopologySnapshotClient) = domainPartyTopologySnapshotClient
       val allParties = submitters.view ++ informees.view
       partyTopologySnapshotClient
@@ -65,8 +67,10 @@ private[routing] final class AdmissibleDomains(
         }
     }
 
-    def queryTopology()
-        : EitherT[Future, TransactionRoutingError, Map[DomainId, Map[LfPartyId, PartyInfo]]] =
+    def queryTopology(): EitherT[FutureUnlessShutdown, TransactionRoutingError, Map[
+      DomainId,
+      Map[LfPartyId, PartyInfo],
+    ]] =
       connectedDomains.snapshot.view
         .mapValues(_.topologyClient.currentSnapshotApproximation)
         .toVector
@@ -77,9 +81,9 @@ private[routing] final class AdmissibleDomains(
         required: Set[A],
         known: Set[A],
         ifUnknown: Set[A] => E,
-    ): EitherT[Future, E, Unit] = {
+    ): EitherT[FutureUnlessShutdown, E, Unit] = {
       val unknown = required -- known
-      EitherT.cond[Future](
+      EitherT.cond[FutureUnlessShutdown](
         unknown.isEmpty,
         (),
         ifUnknown(unknown),
@@ -88,7 +92,7 @@ private[routing] final class AdmissibleDomains(
 
     def ensureAllSubmittersAreKnown(
         knownParties: Set[LfPartyId]
-    ): EitherT[Future, TransactionRoutingError, Unit] =
+    ): EitherT[FutureUnlessShutdown, TransactionRoutingError, Unit] =
       ensureAllKnown(
         required = submitters,
         known = knownParties,
@@ -97,7 +101,7 @@ private[routing] final class AdmissibleDomains(
 
     def ensureAllInformeesAreKnown(
         knownParties: Set[LfPartyId]
-    ): EitherT[Future, TransactionRoutingError, Unit] =
+    ): EitherT[FutureUnlessShutdown, TransactionRoutingError, Unit] =
       ensureAllKnown(
         required = informees,
         known = knownParties,
@@ -107,8 +111,8 @@ private[routing] final class AdmissibleDomains(
     def ensureNonEmpty[I[_] <: collection.immutable.Iterable[?], A, E](
         iterable: I[A],
         ifEmpty: => E,
-    ): EitherT[Future, E, NonEmpty[I[A]]] =
-      EitherT.fromEither[Future](NonEmpty.from(iterable).toRight(ifEmpty))
+    ): EitherT[FutureUnlessShutdown, E, NonEmpty[I[A]]] =
+      EitherT.fromEither[FutureUnlessShutdown](NonEmpty.from(iterable).toRight(ifEmpty))
 
     def domainWithAll(parties: Set[LfPartyId])(
         topology: (DomainId, Map[LfPartyId, PartyInfo])
@@ -119,7 +123,7 @@ private[routing] final class AdmissibleDomains(
         parties: Set[LfPartyId],
         topology: Map[DomainId, Map[LfPartyId, PartyInfo]],
         ifEmpty: Set[DomainId] => TransactionRoutingError,
-    ): EitherT[Future, TransactionRoutingError, NonEmpty[
+    ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[
       Map[DomainId, Map[LfPartyId, PartyInfo]]
     ]] = {
       val domainsWithAllParties = topology.filter(domainWithAll(parties))
@@ -128,7 +132,7 @@ private[routing] final class AdmissibleDomains(
 
     def domainsWithAllSubmitters(
         topology: Map[DomainId, Map[LfPartyId, PartyInfo]]
-    ): EitherT[Future, TransactionRoutingError, NonEmpty[
+    ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[
       Map[DomainId, Map[LfPartyId, PartyInfo]]
     ]] =
       domainsWithAll(
@@ -139,7 +143,7 @@ private[routing] final class AdmissibleDomains(
 
     def domainsWithAllInformees(
         topology: Map[DomainId, Map[LfPartyId, PartyInfo]]
-    ): EitherT[Future, TransactionRoutingError, NonEmpty[
+    ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[
       Map[DomainId, Map[LfPartyId, PartyInfo]]
     ]] =
       domainsWithAll(
@@ -150,7 +154,7 @@ private[routing] final class AdmissibleDomains(
 
     def suitableDomains(
         domainsWithAllSubmitters: NonEmpty[Map[DomainId, Map[LfPartyId, PartyInfo]]]
-    ): EitherT[Future, TransactionRoutingError, NonEmpty[Set[DomainId]]] = {
+    ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[Set[DomainId]]] = {
       logger.debug(
         s"Checking whether one domain in ${domainsWithAllSubmitters.keys} is suitable for submission"
       )
@@ -201,7 +205,7 @@ private[routing] final class AdmissibleDomains(
     def commonDomainIds(
         submittersDomainIds: Set[DomainId],
         informeesDomainIds: Set[DomainId],
-    ): EitherT[Future, TransactionRoutingError, NonEmpty[Set[DomainId]]] =
+    ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[Set[DomainId]]] =
       ensureNonEmpty(
         submittersDomainIds.intersect(informeesDomainIds),
         TopologyErrors.NoCommonDomain.Error(submitters, informees),

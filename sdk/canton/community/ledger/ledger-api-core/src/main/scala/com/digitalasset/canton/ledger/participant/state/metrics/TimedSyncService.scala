@@ -118,7 +118,7 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
 
   override def getConnectedDomains(
       request: ConnectedDomainRequest
-  )(implicit traceContext: TraceContext): Future[ConnectedDomainResponse] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[ConnectedDomainResponse] =
     Timed.future(
       metrics.services.read.getConnectedDomains,
       delegate.getConnectedDomains(request),

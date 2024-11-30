@@ -7,10 +7,12 @@ import com.daml.error.GrpcStatuses
 import com.daml.logging.entries.{LoggingEntry, LoggingValue, ToLoggingValue}
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.ledger.participant.state.Update.CommandRejected.RejectionReasonTemplate
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.LfHash
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}
+import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.{RequestCounter, SequencerCounter, data}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
@@ -55,22 +57,22 @@ sealed trait Update extends Product with Serializable with PrettyPrinting with H
   /** The record time at which the state change was committed. */
   def recordTime: CantonTimestamp
 
-  def domainIndexOpt: Option[(DomainId, DomainIndex)]
-
   // TODO(i20043) this will be removed later as various needs solved differently
   def persisted: Promise[Unit]
 }
 
 // TODO(i20043) this will be removed later as Topology Event project progresses
 sealed trait ParticipantUpdate extends Update {
-  final override def domainIndexOpt: Option[(DomainId, DomainIndex)] = None
-
   def withRecordTime(recordTime: CantonTimestamp): Update
 }
 
 sealed trait DomainUpdate extends Update {
   def domainId: DomainId
+}
 
+/** Update which defines a DomainIndex, and therefore contribute to DomainIndex moving ahead.
+  */
+sealed trait DomainIndexUpdate extends DomainUpdate {
   def requestCounterO: Option[RequestCounter]
 
   def sequencerCounterO: Option[SequencerCounter]
@@ -83,18 +85,15 @@ sealed trait DomainUpdate extends Update {
 
   final def domainIndex: (DomainId, DomainIndex) =
     domainId -> DomainIndex(requestIndexO, sequencerIndexO)
-
-  final override def domainIndexOpt: Option[(DomainId, DomainIndex)] =
-    Some(domainIndex)
 }
 
-sealed trait SequencedUpdate extends DomainUpdate {
+sealed trait SequencedUpdate extends DomainIndexUpdate {
   def sequencerCounter: SequencerCounter
 
   final override def sequencerCounterO: Option[SequencerCounter] = Some(sequencerCounter)
 }
 
-sealed trait RequestUpdate extends DomainUpdate {
+sealed trait RequestUpdate extends DomainIndexUpdate {
   def requestCounter: RequestCounter
 
   final override def requestCounterO: Option[RequestCounter] = Some(requestCounter)
@@ -102,6 +101,22 @@ sealed trait RequestUpdate extends DomainUpdate {
 
 sealed trait RepairUpdate extends RequestUpdate {
   final override def sequencerCounterO: Option[SequencerCounter] = None
+}
+
+trait LapiCommitSet
+
+sealed trait CommitSetUpdate extends RequestUpdate with SequencedUpdate {
+  protected def commitSetO: Option[LapiCommitSet]
+
+  /** Expected to be set already when accessed
+    * @return IllegalStateException if not set
+    */
+  def commitSet(implicit errorLoggingContext: ErrorLoggingContext): LapiCommitSet =
+    commitSetO.getOrElse(
+      ErrorUtil.invalidState("CommitSet not specified.")
+    )
+
+  def withCommitSet(commitSet: LapiCommitSet): CommitSetUpdate
 }
 
 object Update {
@@ -215,6 +230,7 @@ object Update {
       prettyOfClass(
         param("recordTime", _.recordTime),
         param("domainId", _.domainId),
+        param("updateId", _.updateId),
         indicateOmittedFields,
       )
 
@@ -337,9 +353,14 @@ object Update {
       sequencerCounter: SequencerCounter,
       recordTime: CantonTimestamp,
       persisted: Promise[Unit] = Promise(),
+      commitSetO: Option[LapiCommitSet] = None,
   )(implicit override val traceContext: TraceContext)
       extends TransactionAccepted
       with SequencedUpdate
+      with CommitSetUpdate {
+    override def withCommitSet(commitSet: LapiCommitSet): CommitSetUpdate =
+      this.copy(commitSetO = Some(commitSet))
+  }
 
   final case class RepairTransactionAccepted(
       transactionMeta: TransactionMeta,
@@ -410,9 +431,14 @@ object Update {
       sequencerCounter: SequencerCounter,
       recordTime: CantonTimestamp,
       persisted: Promise[Unit] = Promise(),
+      commitSetO: Option[LapiCommitSet] = None,
   )(implicit override val traceContext: TraceContext)
       extends ReassignmentAccepted
       with SequencedUpdate
+      with CommitSetUpdate {
+    override def withCommitSet(commitSet: LapiCommitSet): CommitSetUpdate =
+      this.copy(commitSetO = Some(commitSet))
+  }
 
   final case class RepairReassignmentAccepted(
       workflowId: Option[Ref.WorkflowId],
@@ -442,7 +468,7 @@ object Update {
 
   /** Signal that a command submitted via [[SyncService]] was rejected.
     */
-  sealed trait CommandRejected extends Update {
+  sealed trait CommandRejected extends DomainUpdate {
 
     /** The completion information for the submission
       */
@@ -452,8 +478,6 @@ object Update {
       * See ``error.proto`` for the status codes of common rejection reasons.
       */
     def reasonTemplate: RejectionReasonTemplate
-
-    def domainId: DomainId
 
     /** If true, the deduplication guarantees apply to this rejection.
       * The participant state implementations should strive to set this flag to true as often as
@@ -492,11 +516,7 @@ object Update {
       messageUuid: UUID,
       persisted: Promise[Unit] = Promise(),
   )(implicit override val traceContext: TraceContext)
-      extends CommandRejected {
-
-    override def domainIndexOpt: Option[(DomainId, DomainIndex)] =
-      None
-  }
+      extends CommandRejected
 
   object CommandRejected {
 
@@ -580,10 +600,31 @@ object Update {
         )
   }
 
+  final case class EmptyAcsPublicationRequired(
+      domainId: DomainId,
+      recordTime: CantonTimestamp,
+      persisted: Promise[Unit] = Promise(),
+  )(implicit override val traceContext: TraceContext)
+      extends DomainUpdate {
+    override protected def pretty: Pretty[EmptyAcsPublicationRequired] =
+      prettyOfClass(
+        param("domainId", _.domainId.uid),
+        param("sequencerTimestamp", _.recordTime),
+      )
+  }
+
+  object EmptyAcsPublicationRequired {
+    implicit val `EmptyAcsPublicationRequired to LoggingValue`
+        : ToLoggingValue[EmptyAcsPublicationRequired] =
+      emptyAcsPublicationRequired =>
+        LoggingValue.Nested.fromEntries(
+          Logging.domainId(emptyAcsPublicationRequired.domainId),
+          "sequencerTimestamp" -> emptyAcsPublicationRequired.recordTime.toInstant,
+        )
+  }
+
   final case class CommitRepair()(implicit override val traceContext: TraceContext) extends Update {
     override val persisted: Promise[Unit] = Promise()
-
-    override val domainIndexOpt: Option[(DomainId, DomainIndex)] = None
 
     override protected def pretty: Pretty[CommitRepair] = prettyOfClass()
 
@@ -605,6 +646,10 @@ object Update {
       CommandRejected.`CommandRejected to LoggingValue`.toLoggingValue(update)
     case update: ReassignmentAccepted =>
       ReassignmentAccepted.`ReassignmentAccepted to LoggingValue`.toLoggingValue(update)
+    case update: EmptyAcsPublicationRequired =>
+      EmptyAcsPublicationRequired.`EmptyAcsPublicationRequired to LoggingValue`.toLoggingValue(
+        update
+      )
     case update: SequencerIndexMoved =>
       SequencerIndexMoved.`SequencerIndexMoved to LoggingValue`.toLoggingValue(update)
     case _: CommitRepair =>

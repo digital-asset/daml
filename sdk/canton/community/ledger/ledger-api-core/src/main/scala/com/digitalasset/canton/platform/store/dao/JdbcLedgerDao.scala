@@ -274,7 +274,7 @@ private class JdbcLedgerDao(
     val allDivulgencePruningParticle =
       if (pruneAllDivulgedContracts) " (including all divulged contracts)" else ""
     logger.info(
-      s"Pruning the ledger api server index db$allDivulgencePruningParticle up to ${pruneUpToInclusive.toHexString}."
+      s"Pruning the ledger api server index db$allDivulgencePruningParticle up to ${pruneUpToInclusive.unwrap}."
     )
 
     implicit val ec: ExecutionContext = servicesExecutionContext

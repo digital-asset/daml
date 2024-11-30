@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.protocol.conflictdetection
 
 import cats.data.{EitherT, NonEmptyChain}
 import com.digitalasset.canton.data.{CantonTimestamp, TaskScheduler}
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDetector.LockedStates
@@ -272,8 +272,8 @@ trait RequestTracker extends RequestTrackerLookup with AutoCloseable with NamedL
     *         Otherwise, activeness irregularities are reported as [[scala.Left$]].
     * @see ConflictDetector.finalizeRequest
     */
-  def addCommitSet(requestCounter: RequestCounter, commitSet: Try[CommitSet])(implicit
-      traceContext: TraceContext
+  def addCommitSet(requestCounter: RequestCounter, commitSet: Try[UnlessShutdown[CommitSet]])(
+      implicit traceContext: TraceContext
   ): Either[CommitSetError, EitherT[FutureUnlessShutdown, NonEmptyChain[
     RequestTrackerStoreError
   ], Unit]]

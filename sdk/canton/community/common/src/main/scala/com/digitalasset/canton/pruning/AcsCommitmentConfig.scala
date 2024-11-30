@@ -142,7 +142,7 @@ object CounterParticipantIntervalsBehind
       supportedProtoVersion(
         partV30.GetIntervalsBehindForCounterParticipants.CounterParticipantInfo
       )(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 

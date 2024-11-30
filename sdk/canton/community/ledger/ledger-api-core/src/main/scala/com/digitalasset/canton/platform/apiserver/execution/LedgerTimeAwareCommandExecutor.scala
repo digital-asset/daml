@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.apiserver.execution
 
 import com.digitalasset.canton.ledger.api.domain.Commands
 import com.digitalasset.canton.ledger.participant.state.index.MaximumLedgerTime
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -13,7 +14,7 @@ import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.value.Value.ContractId
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 
 private[apiserver] final class LedgerTimeAwareCommandExecutor(
@@ -36,8 +37,9 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
       commands: Commands,
       submissionSeed: crypto.Hash,
   )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[Either[ErrorCause, CommandExecutionResult]] =
+      loggingContext: LoggingContextWithTrace,
+      ec: ExecutionContext,
+  ): FutureUnlessShutdown[Either[ErrorCause, CommandExecutionResult]] =
     loop(commands, submissionSeed, maxRetries)
 
   private[this] def loop(
@@ -46,13 +48,13 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
       retriesLeft: Int,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Either[ErrorCause, CommandExecutionResult]] =
+  ): FutureUnlessShutdown[Either[ErrorCause, CommandExecutionResult]] =
     delegate
       .execute(commands, submissionSeed)
       .flatMap {
         case e @ Left(_) =>
           // Permanently failed
-          Future.successful(e)
+          FutureUnlessShutdown.pure(e)
         case Right(cer) =>
           // Command execution was successful.
           // Check whether the ledger time used for input is consistent with the output,
@@ -61,15 +63,16 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
             .inputContracts[ContractId]
             .collect { case id: ContractId => id }
 
-          def failed = Future.successful(Left(ErrorCause.LedgerTime(maxRetries - retriesLeft)))
-          def success(c: CommandExecutionResult) = Future.successful(Right(c))
+          def failed =
+            FutureUnlessShutdown.pure(Left(ErrorCause.LedgerTime(maxRetries - retriesLeft)))
+          def success(c: CommandExecutionResult) = FutureUnlessShutdown.pure(Right(c))
           def retry(c: Commands) = {
             metrics.execution.retry.mark()
             loop(c, submissionSeed, retriesLeft - 1)
           }
 
           resolveMaximumLedgerTime(cer.processedDisclosedContracts, usedContractIds)
-            .transformWith {
+            .transformWithHandledAborted {
               case Success(MaximumLedgerTime.NotAvailable) =>
                 success(cer)
 

@@ -53,7 +53,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 import java.util.UUID
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.*
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext}
 
 class TransactionConfirmationRequestFactoryTest
     extends AsyncWordSpec
@@ -176,7 +176,7 @@ class TransactionConfirmationRequestFactoryTest
           _rbContext: RollbackContext,
           _keyResolver: LfKeyResolver,
       )(implicit traceContext: TraceContext): EitherT[
-        Future,
+        FutureUnlessShutdown,
         TransactionTreeConversionError,
         (TransactionView, WellFormedTransaction[WithSuffixes]),
       ] = ???
@@ -265,7 +265,7 @@ class TransactionConfirmationRequestFactoryTest
       val recipients = witnesses
         .toRecipients(cryptoSnapshot.ipsSnapshot)(ec, traceContext)
         .value
-        .futureValue
+        .futureValueUS
         .value
 
       // simulates session key cache
@@ -298,7 +298,7 @@ class TransactionConfirmationRequestFactoryTest
           .valueOrFail("fail to create symmetric key from randomness")
 
         val participants = tree.informees
-          .map(cryptoSnapshot.ipsSnapshot.activeParticipantsOf(_).futureValue)
+          .map(cryptoSnapshot.ipsSnapshot.activeParticipantsOf(_).futureValueUS)
           .flatMap(_.keySet)
 
         val ltvt = LightTransactionViewTree
@@ -357,7 +357,7 @@ class TransactionConfirmationRequestFactoryTest
       participant <- informeeParticipants
       publicKey = newCryptoSnapshot.ipsSnapshot
         .encryptionKey(participant)
-        .futureValue
+        .futureValueUS
         .getOrElse(fail("The defaultIdentitySnapshot really should have at least one key."))
     } yield participant -> cryptoPureApi
       .encryptWithVersion(randomness, publicKey, testedProtocolVersion)

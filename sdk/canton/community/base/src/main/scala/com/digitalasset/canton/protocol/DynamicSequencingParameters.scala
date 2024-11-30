@@ -58,7 +58,7 @@ object DynamicSequencingParameters
         v30.DynamicSequencingParameters
       )(
         supportedProtoVersion(_)(fromProtoV30),
-        _.toProtoV30.toByteString,
+        _.toProtoV30,
       )
     )
 

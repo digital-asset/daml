@@ -19,6 +19,7 @@ import com.digitalasset.canton.lifecycle.{
   AsyncOrSyncCloseable,
   CloseContext,
   FlagCloseableAsync,
+  FutureUnlessShutdown,
   SyncCloseable,
 }
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule, TracedLogger}
@@ -46,6 +47,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.{
   BaseTest,
+  FailOnShutdown,
   ProtocolVersionChecksFixtureAsyncWordSpec,
   SequencerCounter,
   config,
@@ -69,6 +71,7 @@ import scala.concurrent.{Future, Promise}
 class SequencerReaderTest
     extends FixtureAsyncWordSpec
     with BaseTest
+    with FailOnShutdown
     with ProtocolVersionChecksFixtureAsyncWordSpec {
 
   private val alice = ParticipantId("alice")
@@ -168,20 +171,25 @@ class SequencerReaderTest
         member: Member,
         sc: SequencerCounter,
         take: Int,
-    ): Future[Seq[OrdinarySerializedEvent]] =
+    ): FutureUnlessShutdown[Seq[OrdinarySerializedEvent]] =
       loggerFactory.assertLogsSeq(SuppressionRule.Level(Level.WARN))(
-        valueOrFail(reader.read(member, sc))(s"Events source for $member") flatMap {
-          _.take(take.toLong)
-            .idleTimeout(defaultTimeout)
-            .map {
-              case Right(event) => event
-              case Left(err) =>
-                fail(
-                  s"The DatabaseSequencer's SequencerReader does not produce tombstone-errors: $err"
-                )
-            }
-            .runWith(Sink.seq)
-        },
+        FutureUnlessShutdown.outcomeF(
+          valueOrFail(reader.read(member, sc).failOnShutdown)(
+            s"Events source for $member"
+          ) flatMap { eventSource =>
+            eventSource
+              .take(take.toLong)
+              .idleTimeout(defaultTimeout)
+              .map {
+                case Right(event) => event
+                case Left(err) =>
+                  fail(
+                    s"The DatabaseSequencer's SequencerReader does not produce tombstone-errors: $err"
+                  )
+              }
+              .runWith(Sink.seq)
+          }
+        ),
         ignoreWarningsFromLackOfTopologyUpdates,
       )
 
@@ -190,7 +198,9 @@ class SequencerReaderTest
         counter: SequencerCounter,
     ): SinkQueueWithCancel[OrdinarySerializedEvent] =
       Source
-        .future(valueOrFail(reader.read(member, counter))(s"Events source for $member"))
+        .future(
+          valueOrFail(reader.read(member, counter).failOnShutdown)(s"Events source for $member")
+        )
         .flatMapConcat(identity)
         .map {
           case Right(event) => event
@@ -208,44 +218,46 @@ class SequencerReaderTest
 
     def pullFromQueue(
         queue: SinkQueueWithCancel[OrdinarySerializedEvent]
-    ): Future[Option[OrdinarySerializedEvent]] =
+    ): FutureUnlessShutdown[Option[OrdinarySerializedEvent]] =
       loggerFactory.assertLogsSeq(SuppressionRule.Level(Level.WARN))(
-        queue.pull(),
+        FutureUnlessShutdown.outcomeF(queue.pull()),
         ignoreWarningsFromLackOfTopologyUpdates,
       )
 
-    def waitFor(duration: FiniteDuration): Future[Unit] = {
-      val promise = Promise[Unit]()
+    def waitFor(duration: FiniteDuration): FutureUnlessShutdown[Unit] =
+      FutureUnlessShutdown.outcomeF {
+        val promise = Promise[Unit]()
 
-      actorSystem.scheduler.scheduleOnce(duration)(promise.success(()))
+        actorSystem.scheduler.scheduleOnce(duration)(promise.success(()))
 
-      promise.future
-    }
+        promise.future
+      }
 
-    def storeAndWatermark(events: Seq[Sequenced[PayloadId]]): Future[Unit] = {
+    def storeAndWatermark(events: Seq[Sequenced[PayloadId]]): FutureUnlessShutdown[Unit] = {
       val withPaylaods = events.map(
         _.map(id => Payload(id, Batch.empty(testedProtocolVersion).toByteString))
       )
       storePayloadsAndWatermark(withPaylaods)
     }
 
-    def storePayloadsAndWatermark(events: Seq[Sequenced[Payload]]): Future[Unit] = {
-      val eventsNE = NonEmptyUtil.fromUnsafe(events.map(_.map(_.id)))
-      val payloads = NonEmpty.from(events.mapFilter(_.event.payloadO))
+    def storePayloadsAndWatermark(events: Seq[Sequenced[Payload]]): FutureUnlessShutdown[Unit] =
+      FutureUnlessShutdown.outcomeF {
+        val eventsNE = NonEmptyUtil.fromUnsafe(events.map(_.map(_.id)))
+        val payloads = NonEmpty.from(events.mapFilter(_.event.payloadO))
 
-      for {
-        _ <- payloads
-          .traverse_(store.savePayloads(_, instanceDiscriminator))
-          .valueOrFail("Save payloads")
-        _ <- store.saveEvents(instanceIndex, eventsNE)
-        _ <- store
-          .saveWatermark(instanceIndex, eventsNE.last1.timestamp)
-          .valueOrFail("saveWatermark")
-      } yield {
-        // update the event signaller if auto signalling is enabled
-        if (autoPushLatestTimestamps.get()) eventSignaller.signalRead()
+        for {
+          _ <- payloads
+            .traverse_(store.savePayloads(_, instanceDiscriminator))
+            .valueOrFail("Save payloads")
+          _ <- store.saveEvents(instanceIndex, eventsNE)
+          _ <- store
+            .saveWatermark(instanceIndex, eventsNE.last1.timestamp)
+            .valueOrFail("saveWatermark")
+        } yield {
+          // update the event signaller if auto signalling is enabled
+          if (autoPushLatestTimestamps.get()) eventSignaller.signalRead()
+        }
       }
-    }
 
     override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = Seq(
       AsyncCloseable(
@@ -329,7 +341,7 @@ class SequencerReaderTest
         _ <- storeAndWatermark(delivers)
         queue = readWithQueue(alice, SequencerCounter(0))
         // read off all of the initial delivers
-        _ <- MonadUtil.sequentialTraverse_(delivers.zipWithIndex.map(_._2)) { expectedCounter =>
+        _ <- MonadUtil.sequentialTraverse(delivers.zipWithIndex.map(_._2)) { expectedCounter =>
           for {
             eventO <- pullFromQueue(queue)
           } yield eventO.value.counter shouldBe SequencerCounter(expectedCounter)
@@ -437,6 +449,7 @@ class SequencerReaderTest
           // store a counter check point at 5s
           _ <- store
             .saveCounterCheckpoint(aliceId, checkpoint(SequencerCounter(5), ts(6)))
+            .mapK(FutureUnlessShutdown.outcomeK)
             .valueOrFail("saveCounterCheckpoint")
           events <- readAsSeq(alice, SequencerCounter(10), 15)
         } yield {
@@ -487,9 +500,11 @@ class SequencerReaderTest
           // close the queue before we make any assertions
           _ = queue.cancel()
           lastEventRead = readEvents.lastOption.value.value
-          checkpointForLastEventO <- store.fetchClosestCheckpointBefore(
-            aliceId,
-            lastEventRead.counter + 1,
+          checkpointForLastEventO <- FutureUnlessShutdown.outcomeF(
+            store.fetchClosestCheckpointBefore(
+              aliceId,
+              lastEventRead.counter + 1,
+            )
           )
         } yield {
           // check it created a checkpoint for the last event we read
@@ -527,10 +542,12 @@ class SequencerReaderTest
           _ <- storeAndWatermark(delivers)
           checkpointTimestamp = ts0.plusSeconds(11)
           _ <- valueOrFail(
-            store.saveCounterCheckpoint(
-              aliceId,
-              checkpoint(SequencerCounter(10), checkpointTimestamp),
-            )
+            store
+              .saveCounterCheckpoint(
+                aliceId,
+                checkpoint(SequencerCounter(10), checkpointTimestamp),
+              )
+              .mapK(FutureUnlessShutdown.outcomeK)
           )("saveCounterCheckpoint")
           // read from a point ahead of this checkpoint
           events <- readAsSeq(alice, SequencerCounter(15), 3)
@@ -567,7 +584,10 @@ class SequencerReaderTest
                 Sequenced(_, mockDeliverStoreEvent(sender = aliceId, traceContext = traceContext)())
               )
             _ <- storeAndWatermark(delivers)
-            _ <- store.saveLowerBound(ts(10)).valueOrFail("saveLowerBound")
+            _ <- store
+              .saveLowerBound(ts(10))
+              .mapK(FutureUnlessShutdown.outcomeK)
+              .valueOrFail("saveLowerBound")
             error <- loggerFactory.assertLogs(
               leftOrFail(reader.read(alice, SequencerCounter(0)))("read"),
               _.errorMessage shouldBe expectedMessage,
@@ -597,8 +617,12 @@ class SequencerReaderTest
             _ <- storeAndWatermark(delivers)
             _ <- store
               .saveCounterCheckpoint(aliceId, checkpoint(SequencerCounter(9), ts(10)))
+              .mapK(FutureUnlessShutdown.outcomeK)
               .valueOrFail("saveCounterCheckpoint")
-            _ <- store.saveLowerBound(ts(10)).valueOrFail("saveLowerBound")
+            _ <- store
+              .saveLowerBound(ts(10))
+              .mapK(FutureUnlessShutdown.outcomeK)
+              .valueOrFail("saveLowerBound")
             error <- loggerFactory.assertLogs(
               leftOrFail(reader.read(alice, SequencerCounter(9)))("read"),
               _.errorMessage shouldBe expectedMessage,
@@ -622,8 +646,12 @@ class SequencerReaderTest
           _ <- storeAndWatermark(delivers)
           _ <- store
             .saveCounterCheckpoint(aliceId, checkpoint(SequencerCounter(11), ts(10)))
+            .mapK(FutureUnlessShutdown.outcomeK)
             .valueOrFail("saveCounterCheckpoint")
-          _ <- store.saveLowerBound(ts(10)).valueOrFail("saveLowerBound")
+          _ <- store
+            .saveLowerBound(ts(10))
+            .mapK(FutureUnlessShutdown.outcomeK)
+            .valueOrFail("saveLowerBound")
           _ <- reader.read(alice, SequencerCounter(12)).valueOrFail("read")
         } yield succeed // the above not failing is enough of an assertion
       }
@@ -640,9 +668,9 @@ class SequencerReaderTest
           topologyTimestampTolerance = domainParams.sequencerTopologyTimestampTolerance
           topologyTimestampToleranceInSec = topologyTimestampTolerance.duration.toSeconds
 
-          _ <- store.registerMember(topologyClientMember, ts0)
-          aliceId <- store.registerMember(alice, ts0)
-          bobId <- store.registerMember(bob, ts0)
+          _ <- FutureUnlessShutdown.outcomeF(store.registerMember(topologyClientMember, ts0))
+          aliceId <- FutureUnlessShutdown.outcomeF(store.registerMember(alice, ts0))
+          bobId <- FutureUnlessShutdown.outcomeF(store.registerMember(bob, ts0))
 
           recipients = NonEmpty(SortedSet, aliceId, bobId)
           testData = Seq(
@@ -823,8 +851,10 @@ class SequencerReaderTest
           signingTolerance = domainParams.sequencerTopologyTimestampTolerance
           signingToleranceInSec = signingTolerance.duration.toSeconds
 
-          topologyClientMemberId <- store.registerMember(topologyClientMember, ts0)
-          aliceId <- store.registerMember(alice, ts0)
+          topologyClientMemberId <- FutureUnlessShutdown.outcomeF(
+            store.registerMember(topologyClientMember, ts0)
+          )
+          aliceId <- FutureUnlessShutdown.outcomeF(store.registerMember(alice, ts0))
 
           recipientsTopo = NonEmpty(SortedSet, aliceId, topologyClientMemberId)
           recipientsAlice = NonEmpty(SortedSet, aliceId)
@@ -867,9 +897,11 @@ class SequencerReaderTest
           _ = queue.cancel()
           lastEventRead = readEvents.lastOption.value.value
           _ = logger.debug(s"Fetching checkpoint for event with counter ${lastEventRead.counter}")
-          checkpointForLastEventO <- store.fetchClosestCheckpointBefore(
-            aliceId,
-            lastEventRead.counter + 1,
+          checkpointForLastEventO <- FutureUnlessShutdown.outcomeF(
+            store.fetchClosestCheckpointBefore(
+              aliceId,
+              lastEventRead.counter + 1,
+            )
           )
         } yield {
           // check it created a checkpoint for a recent event

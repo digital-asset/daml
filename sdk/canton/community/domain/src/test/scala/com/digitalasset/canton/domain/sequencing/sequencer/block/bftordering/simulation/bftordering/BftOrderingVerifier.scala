@@ -9,8 +9,12 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.memory.SimulationOutputBlockMetadataStore
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.BlockNumber
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.simulation.SimulationVerifier
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.simulation.{
+  SimulationSettings,
+  SimulationVerifier,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.simulation.bftordering.BftOrderingVerifier.LivenessState
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.simulation.topology.SimulationTopologyHelpers.sequencerBecomeOnlineTime
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.matchers.should.Matchers
@@ -25,6 +29,7 @@ class BftOrderingVerifier(
     stores: Map[SequencerId, SimulationOutputBlockMetadataStore],
     onboardingTimes: Map[SequencerId, TopologyActivationTime],
     livenessRecoveryTimeout: FiniteDuration,
+    simSettings: SimulationSettings,
 ) extends SimulationVerifier
     with Matchers {
   private val currentLog = ArrayBuffer[BlockFormat.Block]()
@@ -37,7 +42,11 @@ class BftOrderingVerifier(
   private var livenessState: LivenessState = LivenessState.NotChecking
 
   override def simulationIsGoingHealthy(at: CantonTimestamp): Unit =
-    livenessState = LivenessState.BecameHealthy(at, currentLog.size)
+    livenessState = LivenessState.BecameHealthy(
+      at,
+      currentLog.size,
+      peanoQueues.view.mapValues(_.head.unwrap).toMap,
+    )
 
   override def checkInvariants(at: CantonTimestamp): Unit = {
     checkLiveness(at)
@@ -50,13 +59,21 @@ class BftOrderingVerifier(
   private def checkLiveness(at: CantonTimestamp): Unit =
     livenessState match {
       case LivenessState.NotChecking => ()
-      case LivenessState.BecameHealthy(healthyAt, sizeAtTime) =>
-        if (sizeAtTime < currentLog.size) {
-          // The log have progressed since the simulation became healthy
-          // so we don't need to check anymore
+      case LivenessState.BecameHealthy(healthyAt, logSizeAtTime, peanoQueueSnapshots) =>
+        val haveAllPeersMadeProgress = peanoQueueSnapshots.foldLeft(true) {
+          case (acc, (peerId, peanoQueueHead)) =>
+            acc && peanoQueues(peerId).head.unwrap > peanoQueueHead
+        }
+        if (currentLog.sizeIs > logSizeAtTime && haveAllPeersMadeProgress) {
+          // There has been progress since the simulation became healthy, so we don't need to check anymore
           livenessState = LivenessState.NotChecking
         } else {
-          withClue("liveness timeout occurred") {
+          withClue(
+            s"previous log size = $logSizeAtTime, current log size = ${currentLog.size}, " +
+              s"previous peano queue heads = $peanoQueueSnapshots, " +
+              s"current peano queue heads = ${peanoQueues.view.mapValues(_.head.unwrap).toMap}; " +
+              "liveness timeout occurred"
+          ) {
             at should be <= healthyAt.add(livenessRecoveryTimeout.toJava)
           }
         }
@@ -66,15 +83,22 @@ class BftOrderingVerifier(
     if (sequencersToOnboard.nonEmpty) {
       sequencersToOnboard.toSeq.foreach { sequencer =>
         val onboardingTime = onboardingTimes(sequencer)
-        if (onboardingTime.value < timestamp) {
-          val store = stores(sequencer)
+        if (sequencerBecomeOnlineTime(onboardingTime, simSettings) < timestamp) {
+          implicit val traceContext: TraceContext = TraceContext.empty
+          // Find the most advanced store
+          val store = stores.values.maxBy( // throws
+            _.getLastConsecutive
+              .resolveValue()
+              .toOption
+              .flatMap(_.map(_.blockNumber))
+              .getOrElse(BlockNumber(0L))
+          )
           val startingBlock = store
-            .getLatestAtOrBefore(onboardingTime.value)(TraceContext.empty)
+            .getLatestAtOrBefore(onboardingTime.value)
             .resolveValue()
             .getOrElse(fail(s"failed to get an onboarding block for peer $sequencer"))
             .map(_.blockNumber)
-            .getOrElse(BlockNumber(0L))
-          peanoQueues(sequencer) = new PeanoQueue(startingBlock)
+          peanoQueues(sequencer) = new PeanoQueue(startingBlock.getOrElse(BlockNumber(0L)))
           sequencersToOnboard.remove(sequencer)
         }
       }
@@ -111,11 +135,17 @@ class BftOrderingVerifier(
 }
 
 object BftOrderingVerifier {
+
+  private type PeanoQueueHead = Long
+
   sealed trait LivenessState
 
   object LivenessState {
     case object NotChecking extends LivenessState
-    final case class BecameHealthy(healthyAt: CantonTimestamp, sizeAtTime: Int)
-        extends LivenessState
+    final case class BecameHealthy(
+        healthyAt: CantonTimestamp,
+        logSizeAtTime: Int,
+        peanoQueueSnapshots: Map[SequencerId, PeanoQueueHead],
+    ) extends LivenessState
   }
 }

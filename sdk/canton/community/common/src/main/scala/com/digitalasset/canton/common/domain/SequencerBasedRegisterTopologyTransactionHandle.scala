@@ -6,7 +6,6 @@ package com.digitalasset.canton.common.domain
 import cats.data.EitherT
 import com.daml.metrics.api.MetricsContext
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.{ProcessingTimeout, TopologyConfig}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -22,7 +21,6 @@ import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import org.slf4j.event.Level
 
-import java.util.UUID
 import scala.concurrent.ExecutionContext
 
 // unsealed for testing
@@ -62,12 +60,9 @@ class SequencerBasedRegisterTopologyTransactionHandle(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[TopologyTransactionsBroadcast.State]] =
     service.registerTopologyTransaction(
-      TopologyTransactionsBroadcast.create(
+      TopologyTransactionsBroadcast(
         domainId,
-        List(
-          TopologyTransactionsBroadcast
-            .Broadcast(String255.tryCreate(UUID.randomUUID().toString), transactions.toList)
-        ),
+        transactions,
         protocolVersion,
       )
     )
@@ -116,13 +111,13 @@ class DomainTopologyService(
                 TopologyTransactionsBroadcast.State.Accepted
               case notSequenced @ (_: SendResult.Timeout | _: SendResult.Error) =>
                 logger.info(
-                  s"The submitted topology transactions were not sequenced. Error=[$notSequenced]. Transactions=${request.broadcasts}"
+                  s"The submitted topology transactions were not sequenced. Error=[$notSequenced]. Transactions=${request.transactions}"
                 )
                 TopologyTransactionsBroadcast.State.Failed
             },
       )
       .merge
-      .map(Seq.fill(request.broadcasts.flatMap(_.transactions).size)(_))
+      .map(Seq.fill(request.signedTransactions.size)(_))
   }
 
   private def sendRequest(
@@ -134,7 +129,7 @@ class DomainTopologyService(
     implicit val metricsContext: MetricsContext = MetricsContext(
       "type" -> "send-topology"
     )
-    logger.debug(s"Broadcasting topology transaction: ${request.broadcasts}")
+    logger.debug(s"Broadcasting topology transaction: ${request.transactions}")
     EitherTUtil.logOnErrorU(
       sequencerClient.sendAsync(
         Batch.of(protocolVersion, (request, Recipients.cc(TopologyBroadcastAddress.recipient))),

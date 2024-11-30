@@ -12,6 +12,7 @@ import com.digitalasset.canton.ledger.participant.state.Update.{
   SequencerIndexMoved,
   TopologyTransactionEffective,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.topology.*
@@ -29,7 +30,7 @@ import com.digitalasset.canton.topology.store.{
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.*
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, SequencerCounter}
 import org.mockito.ArgumentCaptor
 import org.scalatest.wordspec.AsyncWordSpec
 import org.slf4j.event.Level
@@ -40,10 +41,12 @@ import scala.jdk.CollectionConverters.*
 class ParticipantTopologyTerminateProcessingTest
     extends AsyncWordSpec
     with BaseTest
+    with FailOnShutdown
     with HasExecutionContext {
 
   protected def mkStore: TopologyStore[TopologyStoreId.DomainStore] = new InMemoryTopologyStore(
     TopologyStoreId.DomainStore(DefaultTestIdentities.domainId),
+    testedProtocolVersion,
     loggerFactory,
     timeouts,
   )
@@ -68,6 +71,7 @@ class ParticipantTopologyTerminateProcessingTest
 
     val proc = new ParticipantTopologyTerminateProcessing(
       DefaultTestIdentities.domainId,
+      testedProtocolVersion,
       recordOrderPublisher,
       store,
       loggerFactory,
@@ -116,7 +120,7 @@ class ParticipantTopologyTerminateProcessingTest
       store: TopologyStore[TopologyStoreId.DomainStore],
       timestamp: CantonTimestamp,
       transactions: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
-  ): Future[Unit] =
+  ): FutureUnlessShutdown[Unit] =
     for {
       _ <- store.update(
         SequencedTime(timestamp),
@@ -142,9 +146,11 @@ class ParticipantTopologyTerminateProcessingTest
         val (proc, store, eventCaptor, rop) = mk()
         val (cts, sc) = timestampWithCounter(0)
 
+        val txs = List(party1participant1)
+
         for {
-          _ <- add(store, cts, List(party1participant1))
-          _ <- proc.terminate(sc, SequencedTime(cts), EffectiveTime(cts))
+          _ <- add(store, cts, txs)
+          _ <- proc.terminate(sc, SequencedTime(cts), EffectiveTime(cts), txs)
         } yield {
           verify(rop, times(1)).tick(any[SequencedUpdate])(any[TraceContext])
           val events = eventCaptor.getAllValues.asScala
@@ -177,7 +183,12 @@ class ParticipantTopologyTerminateProcessingTest
         for {
           _ <- add(store, cts0, List(party1participant1))
           _ <- add(store, cts1, List(party1participant1_2))
-          _ <- proc.terminate(sc1, SequencedTime(cts1), EffectiveTime(cts1))
+          _ <- proc.terminate(
+            sc1,
+            SequencedTime(cts1),
+            EffectiveTime(cts1),
+            List(party1participant1_2),
+          )
         } yield {
           verify(rop, times(1)).tick(any[SequencedUpdate])(any[TraceContext])
           val events = eventCaptor.getAllValues.asScala
@@ -210,7 +221,12 @@ class ParticipantTopologyTerminateProcessingTest
         for {
           _ <- add(store, cts0, List(party1participant1_2))
           _ <- add(store, cts1, List(party1participant1))
-          _ <- proc.terminate(sc1, SequencedTime(cts1), EffectiveTime(cts1))
+          _ <- proc.terminate(
+            sc1,
+            SequencedTime(cts1),
+            EffectiveTime(cts1),
+            List(party1participant1),
+          )
         } yield {
           verify(rop, times(1)).tick(any[SequencedUpdate])(any[TraceContext])
           val events = eventCaptor.getAllValues.asScala
@@ -242,7 +258,12 @@ class ParticipantTopologyTerminateProcessingTest
         for {
           _ <- add(store, cts0, List(party1participant1_2))
           _ <- add(store, cts1, List(party1participant1_2_threshold2))
-          _ <- proc.terminate(sc1, SequencedTime(cts1), EffectiveTime(cts1))
+          _ <- proc.terminate(
+            sc1,
+            SequencedTime(cts1),
+            EffectiveTime(cts1),
+            List(party1participant1_2_threshold2),
+          )
         } yield {
           verify(rop, times(1)).tick(any[SequencedUpdate])(any[TraceContext])
           val events = eventCaptor.getAllValues.asScala
@@ -264,7 +285,7 @@ class ParticipantTopologyTerminateProcessingTest
         for {
           _ <- add(store, cts0, List(party1participant1_2))
           _ <- add(store, cts1, List.empty)
-          _ <- proc.terminate(sc1, SequencedTime(cts1), EffectiveTime(cts1))
+          _ <- proc.terminate(sc1, SequencedTime(cts1), EffectiveTime(cts1), List.empty)
         } yield {
           verify(rop, times(1)).tick(any[SequencedUpdate])(any[TraceContext])
           val events = eventCaptor.getAllValues.asScala

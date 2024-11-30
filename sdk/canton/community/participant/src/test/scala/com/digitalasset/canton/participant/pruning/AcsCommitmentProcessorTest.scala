@@ -355,7 +355,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       futureSupervisor,
       new InMemoryActiveContractStore(indexedStringStore, loggerFactory),
       acsCommitmentConfigStore,
-      new InMemoryContractStore(loggerFactory),
+      new InMemoryContractStore(timeouts, loggerFactory),
       // no additional consistency checks; if enabled, one needs to populate the above ACS and contract stores
       // correctly, otherwise the test will fail
       enableAdditionalConsistencyChecks = false,
@@ -396,7 +396,7 @@ sealed trait AcsCommitmentProcessorBaseTest
     val proc = for {
       processor <- acsCommitmentProcessor
       _ = changes.foreach { case (ts, rc, acsChange) =>
-        processor.publish(RecordTime(ts, rc.v), acsChange, Future.unit)
+        processor.publish(RecordTime(ts, rc.v), acsChange)
       }
     } yield processor
     (proc, store, sequencerClient)
@@ -2247,7 +2247,7 @@ class AcsCommitmentProcessorTest
               _ = changes
                 .filter(a => a._1 < testSequences.head)
                 .foreach { case (ts, tb, change) =>
-                  processor.publish(RecordTime(ts, tb.v), change, Future.unit)
+                  processor.publish(RecordTime(ts, tb.v), change)
                 }
               _ <- processor.flush()
               _ <- testSequence(
@@ -2332,7 +2332,7 @@ class AcsCommitmentProcessorTest
           _ = changes
             .filter(a => a._1 < testSequences.head)
             .foreach { case (ts, tb, change) =>
-              processor.publish(RecordTime(ts, tb.v), change, Future.unit)
+              processor.publish(RecordTime(ts, tb.v), change)
             }
           _ <- processor.flush()
 
@@ -2411,7 +2411,7 @@ class AcsCommitmentProcessorTest
           _ = changes
             .filter(a => a._1 < testSequences.head)
             .foreach { case (ts, tb, change) =>
-              processor.publish(RecordTime(ts, tb.v), change, Future.unit)
+              processor.publish(RecordTime(ts, tb.v), change)
             }
           _ <- processor.flush()
           _ <- testSequence(
@@ -2620,7 +2620,7 @@ class AcsCommitmentProcessorTest
           _ <- loggerFactory.assertLoggedWarningsAndErrorsSeq(
             {
               changes.foreach { case (ts, tb, change) =>
-                processor.publish(RecordTime(ts, tb.v), change, Future.unit)
+                processor.publish(RecordTime(ts, tb.v), change)
               }
               for {
                 _ <- processor.flush()
@@ -2743,7 +2743,7 @@ class AcsCommitmentProcessorTest
           _ = changes
             .filter(a => a._1 <= testSequences.head.head)
             .foreach { case (ts, tb, change) =>
-              processor.publish(RecordTime(ts, tb.v), change, Future.unit)
+              processor.publish(RecordTime(ts, tb.v), change)
             }
           _ <- processor.flush()
           _ <- testSequence(
@@ -2844,7 +2844,7 @@ class AcsCommitmentProcessorTest
           _ = changes
             .filter(a => a._1 <= testSequences.head)
             .foreach { case (ts, tb, change) =>
-              processor.publish(RecordTime(ts, tb.v), change, Future.unit)
+              processor.publish(RecordTime(ts, tb.v), change)
             }
           _ <- processor.flush()
 
@@ -2936,7 +2936,7 @@ class AcsCommitmentProcessorTest
           _ = changes
             .filter(a => a._1 <= testSequences.head)
             .foreach { case (ts, tb, change) =>
-              processor.publish(RecordTime(ts, tb.v), change, Future.unit)
+              processor.publish(RecordTime(ts, tb.v), change)
 
             }
           _ <- processor.flush()
@@ -3010,7 +3010,7 @@ class AcsCommitmentProcessorTest
             changes
               .filter(a => a._1 < testSequences.head)
               .foreach { case (ts, tb, change) =>
-                processor.publish(RecordTime(ts, tb.v), change, Future.unit)
+                processor.publish(RecordTime(ts, tb.v), change)
 
               }
           )
@@ -3192,7 +3192,7 @@ class AcsCommitmentProcessorTest
           _ <- loggerFactory.assertLoggedWarningsAndErrorsSeq(
             {
               changes.foreach { case (ts, tb, change) =>
-                processor.publish(RecordTime(ts, tb.v), change, Future.unit)
+                processor.publish(RecordTime(ts, tb.v), change)
               }
               for {
                 _ <- processor.flush()
@@ -3356,7 +3356,7 @@ class AcsCommitmentProcessorTest
           _ = loggerFactory.assertLogs(
             {
               changes.foreach { case (ts, tb, change) =>
-                processor.publish(RecordTime(ts, tb.v), change, Future.unit)
+                processor.publish(RecordTime(ts, tb.v), change)
               }
               processor.flush()
             },
@@ -3535,7 +3535,7 @@ class AcsCommitmentProcessorTest
               }
 
             _ = changes.foreach { case (ts, tb, change) =>
-              processor.publish(RecordTime(ts, tb.v), change, Future.unit)
+              processor.publish(RecordTime(ts, tb.v), change)
             }
             _ <- processor.flush()
 
@@ -3629,7 +3629,7 @@ class AcsCommitmentProcessorTest
     ): FutureUnlessShutdown[Unit] = {
       lazy val fut = {
         changes.foreach { case (ts, tb, change) =>
-          processor.publish(RecordTime(ts, tb.v), change, Future.unit)
+          processor.publish(RecordTime(ts, tb.v), change)
         }
         processor.flush()
       }

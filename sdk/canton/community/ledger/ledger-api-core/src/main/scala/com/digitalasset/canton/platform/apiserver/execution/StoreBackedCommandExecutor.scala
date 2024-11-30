@@ -12,6 +12,7 @@ import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.PackageSyncService
 import com.digitalasset.canton.ledger.participant.state.index.{ContractState, ContractStore}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{
   LoggingContextWithTrace,
@@ -74,8 +75,9 @@ private[apiserver] final class StoreBackedCommandExecutor(
       commands: ApiCommands,
       submissionSeed: crypto.Hash,
   )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[Either[ErrorCause, CommandExecutionResult]] = {
+      loggingContext: LoggingContextWithTrace,
+      ec: ExecutionContext,
+  ): FutureUnlessShutdown[Either[ErrorCause, CommandExecutionResult]] = {
     val interpretationTimeNanos = new AtomicLong(0L)
     val start = System.nanoTime()
     val coids = commands.commands.commands.toSeq.foldLeft(Set.empty[Value.ContractId]) {
@@ -95,7 +97,9 @@ private[apiserver] final class StoreBackedCommandExecutor(
         }
         .value
         .map(_.toOption)
-      _ <- Future.sequence(coids.map(contractStore.lookupContractState))
+      _ <- FutureUnlessShutdown.outcomeF(
+        Future.sequence(coids.map(contractStore.lookupContractState))
+      )
       submissionResult <- submitToEngine(commands, submissionSeed, interpretationTimeNanos)
       submission <- consume(
         commands.actAs,
@@ -191,10 +195,10 @@ private[apiserver] final class StoreBackedCommandExecutor(
       interpretationTimeNanos: AtomicLong,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Result[(SubmittedTransaction, Transaction.Metadata)]] =
+  ): FutureUnlessShutdown[Result[(SubmittedTransaction, Transaction.Metadata)]] =
     Tracked.future(
       metrics.execution.engineRunning,
-      Future(trackSyncExecution(interpretationTimeNanos) {
+      FutureUnlessShutdown.outcomeF(Future(trackSyncExecution(interpretationTimeNanos) {
         // The actAs and readAs parties are used for two kinds of checks by the ledger API server:
         // When looking up contracts during command interpretation, the engine should only see contracts
         // that are visible to at least one of the actAs or readAs parties. This visibility check is not part of the
@@ -213,7 +217,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           submissionSeed = submissionSeed,
           config.toEngineLogger(loggerFactory.append("phase", "submission")),
         )
-      }),
+      })),
     )
 
   private def consume[A](
@@ -226,7 +230,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
       ledgerTimeRecordTimeToleranceO: Option[NonNegativeFiniteDuration],
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Either[ErrorCause, A]] = {
+  ): FutureUnlessShutdown[Either[ErrorCause, A]] = {
     val readers = actAs ++ readAs
 
     val lookupActiveContractTime = new AtomicLong(0L)
@@ -235,18 +239,18 @@ private[apiserver] final class StoreBackedCommandExecutor(
     val lookupContractKeyTime = new AtomicLong(0L)
     val lookupContractKeyCount = new AtomicLong(0L)
 
-    def resolveStep(result: Result[A]): Future[Either[ErrorCause, A]] =
+    def resolveStep(result: Result[A]): FutureUnlessShutdown[Either[ErrorCause, A]] =
       result match {
-        case ResultDone(r) => Future.successful(Right(r))
+        case ResultDone(r) => FutureUnlessShutdown.pure(Right(r))
 
-        case ResultError(err) => Future.successful(Left(ErrorCause.DamlLf(err)))
+        case ResultError(err) => FutureUnlessShutdown.pure(Left(ErrorCause.DamlLf(err)))
 
         case ResultNeedContract(acoid, resume) =>
           val start = System.nanoTime
           Timed
             .future(
               metrics.execution.lookupActiveContract,
-              contractStore.lookupActiveContract(readers, acoid),
+              FutureUnlessShutdown.outcomeF(contractStore.lookupActiveContract(readers, acoid)),
             )
             .flatMap { instance =>
               lookupActiveContractTime.addAndGet(System.nanoTime() - start)
@@ -264,7 +268,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           Timed
             .future(
               metrics.execution.lookupContractKey,
-              contractStore.lookupContractKey(readers, key.globalKey),
+              FutureUnlessShutdown.outcomeF(contractStore.lookupContractKey(readers, key.globalKey)),
             )
             .flatMap { contractId =>
               lookupContractKeyTime.addAndGet(System.nanoTime() - start)
@@ -278,11 +282,14 @@ private[apiserver] final class StoreBackedCommandExecutor(
             }
 
         case ResultNeedPackage(packageId, resume) =>
-          packageLoader
-            .loadPackage(
-              packageId = packageId,
-              delegate = packageSyncService.getLfArchive(_)(loggingContext.traceContext),
-              metric = metrics.execution.getLfPackage,
+          FutureUnlessShutdown
+            .outcomeF(
+              packageLoader
+                .loadPackage(
+                  packageId = packageId,
+                  delegate = packageSyncService.getLfArchive(_)(loggingContext.traceContext),
+                  metric = metrics.execution.getLfPackage,
+                )
             )
             .flatMap { maybePackage =>
               resolveStep(
@@ -293,7 +300,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
               )
             }
 
-        case ResultInterruption(continue, abort) =>
+        case ResultInterruption(continue) =>
           // We want to prevent the interpretation to run indefinitely and use all the resources.
           // For this purpose, we check the following condition:
           //
@@ -307,13 +314,17 @@ private[apiserver] final class StoreBackedCommandExecutor(
           // interpretation and return an error to the application.
 
           // Using a `Future` as a trampoline to make the recursive call to `resolveStep` stack safe.
-          def resume(): Future[Either[ErrorCause, A]] =
-            Future {
-              Tracked.value(
-                metrics.execution.engineRunning,
-                trackSyncExecution(interpretationTimeNanos)(continue()),
-              )
-            }.flatMap(resolveStep)
+          def resume(): FutureUnlessShutdown[Either[ErrorCause, A]] =
+            FutureUnlessShutdown
+              .outcomeF {
+                Future {
+                  Tracked.value(
+                    metrics.execution.engineRunning,
+                    trackSyncExecution(interpretationTimeNanos)(continue()),
+                  )
+                }
+              }
+              .flatMap(resolveStep)
 
           ledgerTimeRecordTimeToleranceO match {
             // Fall back to not checking if the tolerance could not be retrieved
@@ -331,14 +342,16 @@ private[apiserver] final class StoreBackedCommandExecutor(
                   .InterpretationTimeExceeded(
                     ledgerEffectiveTime,
                     ledgerTimeRecordTimeTolerance,
-                    abort(),
                   )
-                Future.successful(Left(error))
+                FutureUnlessShutdown.pure(Left(error))
               } else resume()
           }
 
         case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>
-          checkContractUpgradable(coid, signatories, observers, keyOpt, disclosedContracts)
+          FutureUnlessShutdown
+            .outcomeF(
+              checkContractUpgradable(coid, signatories, observers, keyOpt, disclosedContracts)
+            )
             .flatMap { result =>
               resolveStep(
                 Tracked.value(

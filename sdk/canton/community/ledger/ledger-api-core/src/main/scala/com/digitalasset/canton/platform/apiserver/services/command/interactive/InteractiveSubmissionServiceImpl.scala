@@ -24,6 +24,7 @@ import com.digitalasset.canton.ledger.configuration.LedgerTimeModel
 import com.digitalasset.canton.ledger.error.groups.{CommandExecutionErrors, RequestValidationErrors}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.SubmissionResult
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.*
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
@@ -122,7 +123,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
       request: PrepareRequestInternal
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[PrepareSubmissionResponse] =
+  ): FutureUnlessShutdown[PrepareSubmissionResponse] =
     withEnrichedLoggingContext(logging.commands(request.commands)) { implicit loggingContext =>
       logger.info(
         s"Requesting preparation of daml transaction with command ID ${request.commands.commandId}"
@@ -158,13 +159,15 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
 
   private def handleCommandExecutionResult(
       result: Either[ErrorCause, CommandExecutionResult]
-  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Future[CommandExecutionResult] =
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): FutureUnlessShutdown[CommandExecutionResult] =
     result.fold(
       error => {
         metrics.commands.failedCommandInterpretations.mark()
         failedOnCommandExecution(error)
       },
-      Future.successful,
+      FutureUnlessShutdown.pure,
     )
 
   private def evaluateAndHash(
@@ -174,8 +177,8 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
   )(implicit
       loggingContext: LoggingContextWithTrace,
       errorLoggingContext: ContextualizedErrorLogger,
-  ): Future[PrepareSubmissionResponse] = {
-    val result: EitherT[Future, DamlError, PrepareSubmissionResponse] = for {
+  ): FutureUnlessShutdown[PrepareSubmissionResponse] = {
+    val result: EitherT[FutureUnlessShutdown, DamlError, PrepareSubmissionResponse] = for {
       commandExecutionResultE <- withSpan("InteractiveSubmissionService.evaluate") { _ => _ =>
         EitherT.liftF(commandExecutor.execute(commands, submissionSeed))
       }
@@ -183,21 +186,23 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
         handleCommandExecutionResult(commandExecutionResultE)
       )
       // We need to enrich the transaction before computing the hash, because record labels must be part of the hash
-      enrichedTransaction <- EitherT.liftF(
-        lfValueTranslation
-          .enrichVersionedTransaction(preEnrichedCommandExecutionResult.transaction)
-      )
+      enrichedTransaction <- EitherT
+        .liftF(
+          lfValueTranslation
+            .enrichVersionedTransaction(preEnrichedCommandExecutionResult.transaction)
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
       commandExecutionResult = preEnrichedCommandExecutionResult.copy(transaction =
         SubmittedTransaction(enrichedTransaction)
       )
       // Domain is required to be explicitly provided for now
-      domainId <- EitherT.fromEither[Future](
+      domainId <- EitherT.fromEither[FutureUnlessShutdown](
         commandExecutionResult.optDomainId.toRight(
           RequestValidationErrors.MissingField.Reject("domain_id")
         )
       )
       // Require this participant to be connected to the domain on which the transaction will be run
-      protocolVersionForChosenDomain <- EitherT.fromEither[Future](
+      protocolVersionForChosenDomain <- EitherT.fromEither[FutureUnlessShutdown](
         protocolVersionForDomainId(domainId)
       )
       // Use the highest hashing versions supported on that protocol version
@@ -206,17 +211,19 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
         .max1
       transactionUUID = UUID.randomUUID()
       mediatorGroup = 0
-      preparedTransaction <- EitherT.liftF(
-        transactionEncoder.serializeCommandExecutionResult(
-          commandExecutionResult,
-          // TODO(i20688) Domain ID should be picked by the domain router
-          domainId,
-          // TODO(i20688) Transaction UUID should be picked in the TransactionConfirmationRequestFactory
-          transactionUUID,
-          // TODO(i20688) Mediator group should be picked in the ProtocolProcessor
-          mediatorGroup,
+      preparedTransaction <- EitherT
+        .liftF(
+          transactionEncoder.serializeCommandExecutionResult(
+            commandExecutionResult,
+            // TODO(i20688) Domain ID should be picked by the domain router
+            domainId,
+            // TODO(i20688) Transaction UUID should be picked in the TransactionConfirmationRequestFactory
+            transactionUUID,
+            // TODO(i20688) Mediator group should be picked in the ProtocolProcessor
+            mediatorGroup,
+          )
         )
-      )
+        .mapK(FutureUnlessShutdown.outcomeK)
       metadataForHashing = TransactionMetadataForHashing.create(
         commandExecutionResult.submitterInfo.actAs.toSet,
         commandExecutionResult.submitterInfo.commandId,
@@ -244,7 +251,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
         else
           HashTracer.NoOp
       transactionHash <- EitherT
-        .fromEither[Future](
+        .fromEither[FutureUnlessShutdown](
           InteractiveSubmission.computeVersionedHash(
             hashVersion,
             commandExecutionResult.transaction,
@@ -278,13 +285,15 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
       hashingDetails = hashingDetails,
     )
 
-    result.value.map(_.leftMap(_.asGrpcError).toTry).flatMap(Future.fromTry)
+    result.value.map(_.leftMap(_.asGrpcError).toTry).flatMap(FutureUnlessShutdown.fromTry)
   }
 
   private def failedOnCommandExecution(
       error: ErrorCause
-  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Future[CommandExecutionResult] =
-    Future.failed(
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): FutureUnlessShutdown[CommandExecutionResult] =
+    FutureUnlessShutdown.failed(
       RejectionGenerators
         .commandExecutorError(error)
         .asGrpcError
@@ -390,7 +399,9 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
 
   override def execute(
       executionRequest: ExecuteRequest
-  )(implicit loggingContext: LoggingContextWithTrace): Future[ExecuteSubmissionResponse] = {
+  )(implicit
+      loggingContext: LoggingContextWithTrace
+  ): FutureUnlessShutdown[ExecuteSubmissionResponse] = FutureUnlessShutdown.outcomeF {
     val commandIdLogging =
       executionRequest.preparedTransaction.metadata
         .flatMap(_.submitterInfo.map(_.commandId))

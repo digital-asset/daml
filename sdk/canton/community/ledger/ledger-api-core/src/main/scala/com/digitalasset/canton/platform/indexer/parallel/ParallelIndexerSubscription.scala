@@ -10,7 +10,7 @@ import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.Update.CommitRepair
-import com.digitalasset.canton.ledger.participant.state.{DomainIndex, Update}
+import com.digitalasset.canton.ledger.participant.state.{DomainIndex, DomainIndexUpdate, Update}
 import com.digitalasset.canton.logging.{
   LoggingContextWithTrace,
   NamedLoggerFactory,
@@ -61,6 +61,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
     inMemoryState: InMemoryState,
     reassignmentOffsetPersistence: ReassignmentOffsetPersistence,
     postProcessor: (Vector[PostPublishData], TraceContext) => Future[Unit],
+    sequentialPostProcessor: Update => Unit,
     tracer: Tracer,
     loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging
@@ -184,6 +185,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
         )
       )
       .async
+      .map(sequentialPostProcess(sequentialPostProcessor))
       .mapAsync(postProcessingParallelism)(
         postProcess(
           postProcessor,
@@ -512,7 +514,9 @@ object ParallelIndexerSubscription {
             ledgerEndDomainIndexFrom(
               batchOfBatches
                 .flatMap(_.offsetsUpdates)
-                .flatMap(_._2.domainIndexOpt)
+                .collect { case (_, update: DomainIndexUpdate) =>
+                  update.domainIndex
+                }
             ),
           ).map(_ => batchOfBatches)(directExecutionContext)
 
@@ -564,7 +568,9 @@ object ParallelIndexerSubscription {
           val newLedgerEnd = lastBatch.ledgerEnd
           val domainIndexesForBatchOfBatches = batchOfBatches
             .flatMap(_.offsetsUpdates)
-            .flatMap(_._2.domainIndexOpt)
+            .collect { case (_, update: DomainIndexUpdate) =>
+              update.domainIndex
+            }
           val newDomainIndexes =
             ledgerEndDomainIndexFrom(oldDomainIndexes ++ domainIndexesForBatchOfBatches)
           Some((newLedgerEnd, newDomainIndexes))
@@ -589,6 +595,15 @@ object ParallelIndexerSubscription {
       }
       processor(postPublishData, batchTraceContext).map(_ => batch)(directExecutionContext)
     }
+  }
+
+  def sequentialPostProcess[DB_BATCH](
+      sequentialPostProcessor: Update => Unit
+  ): Batch[DB_BATCH] => Batch[DB_BATCH] = { batch =>
+    batch.offsetsUpdates.foreach { case (_, update) =>
+      sequentialPostProcessor(update)
+    }
+    batch
   }
 
   def ingestPostProcessEnd[DB_BATCH](

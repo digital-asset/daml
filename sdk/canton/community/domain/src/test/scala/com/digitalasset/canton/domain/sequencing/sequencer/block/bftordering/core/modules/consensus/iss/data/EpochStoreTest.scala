@@ -232,23 +232,40 @@ trait EpochStoreTest extends AsyncWordSpec {
         for {
           _ <- store.startEpoch(epoch0)
           _ <- store.addOrderedBlock(
-            prePrepare(epochNumber = EpochNumber.First, blockNumber = BlockNumber.First),
-            Seq.empty,
+            prePrepare(EpochNumber.First, BlockNumber.First),
+            commitMessages(EpochNumber.First, BlockNumber.First),
           )
           _ <- store.startEpoch(epoch2)
-          _ <- store.addOrderedBlock(prePrepare(epochNumber = 2L, blockNumber = 2L), Seq.empty)
+          _ <- store.addOrderedBlock(
+            prePrepare(epochNumber = 2L, blockNumber = 2L),
+            commitMessages(epochNumber = 2L, blockNumber = 2L),
+          )
           _ <- store.startEpoch(epoch1)
-          _ <- store.addOrderedBlock(prePrepare(epochNumber = 1L, blockNumber = 1L), Seq.empty)
+          _ <- store.addOrderedBlock(
+            prePrepare(epochNumber = 1L, blockNumber = 1L),
+            commitMessages(epochNumber = 1L, blockNumber = 1L),
+          )
           _ <- store.startEpoch(epoch3)
-          _ <- store.addOrderedBlock(prePrepare(epochNumber = 3L, blockNumber = 3L), Seq.empty)
-          prePrepares <- store.loadPrePreparesForCompleteBlocks(
+          _ <- store.addOrderedBlock(
+            prePrepare(epochNumber = 3L, blockNumber = 3L),
+            commitMessages(epochNumber = 3L, blockNumber = 3L),
+          )
+          blocks <- store.loadCompleteBlocks(
             startEpochNumberInclusive = EpochNumber(1L),
             endEpochNumberInclusive = EpochNumber(2L),
           )
         } yield {
-          prePrepares shouldBe Seq(
-            prePrepare(epochNumber = 1L, blockNumber = 1L),
-            prePrepare(epochNumber = 2L, blockNumber = 2L),
+          blocks shouldBe Seq(
+            Block(
+              EpochNumber(1L),
+              BlockNumber(1L),
+              CommitCertificate(prePrepare(1L, 1L), commitMessages(1L, 1L)),
+            ),
+            Block(
+              EpochNumber(2L),
+              BlockNumber(2L),
+              CommitCertificate(prePrepare(2L, 2L), commitMessages(2L, 2L)),
+            ),
           )
         }
       }

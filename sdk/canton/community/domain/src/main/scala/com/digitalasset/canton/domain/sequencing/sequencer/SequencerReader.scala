@@ -107,75 +107,73 @@ class SequencerReader(
 
   def read(member: Member, offset: SequencerCounter)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CreateSubscriptionError, Sequencer.EventSource] =
-    performUnlessClosingEitherT(
-      functionFullName,
-      CreateSubscriptionError.ShutdownError: CreateSubscriptionError,
-    ) {
-      for {
-        registeredTopologyClientMember <- EitherT
-          .fromOptionF(
-            store.lookupMember(topologyClientMember),
-            CreateSubscriptionError.UnknownMember(topologyClientMember),
-          )
-          .leftWiden[CreateSubscriptionError]
-        registeredMember <- EitherT
-          .fromOptionF(store.lookupMember(member), CreateSubscriptionError.UnknownMember(member))
-          .leftWiden[CreateSubscriptionError]
-        // check they haven't been disabled
-        _ <- EitherTUtil.condUnitET[Future](
-          registeredMember.enabled,
-          CreateSubscriptionError.MemberDisabled(member): CreateSubscriptionError,
+  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource] =
+    performUnlessClosingEitherUSF(functionFullName)(for {
+      registeredTopologyClientMember <- EitherT
+        .fromOptionF(
+          FutureUnlessShutdown.outcomeF(store.lookupMember(topologyClientMember)),
+          CreateSubscriptionError.UnknownMember(topologyClientMember),
         )
-        // We use the sequencing time of the topology transaction that registered the member on the domain
-        // as the latestTopologyClientRecipientTimestamp
-        memberOnboardingTxSequencingTime <- EitherT.right(
-          syncCryptoApi.headSnapshot.ipsSnapshot
-            .memberFirstKnownAt(member)
-            .map {
-              case Some((sequencedTime, _)) => sequencedTime.value
-              case None =>
-                ErrorUtil.invalidState(
-                  s"Member $member unexpectedly not known to the topology client"
-                )
-            }
+        .leftWiden[CreateSubscriptionError]
+      registeredMember <- EitherT
+        .fromOptionF(
+          FutureUnlessShutdown.outcomeF(store.lookupMember(member)),
+          CreateSubscriptionError.UnknownMember(member),
         )
-        initialReadState <- EitherT.right(
-          startFromClosestCounterCheckpoint(
-            ReadState.initial(
-              member,
-              registeredMember,
-              latestTopologyClientRecipientTimestamp = memberOnboardingTxSequencingTime,
-            ),
-            offset,
-          )
+        .leftWiden[CreateSubscriptionError]
+      // check they haven't been disabled
+      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
+        registeredMember.enabled,
+        CreateSubscriptionError.MemberDisabled(member): CreateSubscriptionError,
+      )
+      // We use the sequencing time of the topology transaction that registered the member on the domain
+      // as the latestTopologyClientRecipientTimestamp
+      memberOnboardingTxSequencingTime <- EitherT.right(
+        syncCryptoApi.headSnapshot.ipsSnapshot
+          .memberFirstKnownAt(member)
+          .map {
+            case Some((sequencedTime, _)) => sequencedTime.value
+            case None =>
+              ErrorUtil.invalidState(
+                s"Member $member unexpectedly not known to the topology client"
+              )
+          }
+      )
+      initialReadState <- EitherT.right(
+        startFromClosestCounterCheckpoint(
+          ReadState.initial(
+            member,
+            registeredMember,
+            latestTopologyClientRecipientTimestamp = memberOnboardingTxSequencingTime,
+          ),
+          offset,
         )
-        // validate we are in the bounds of the data that this sequencer can serve
-        lowerBoundO <- EitherT.right(store.fetchLowerBound())
-        _ <- EitherT
-          .cond[Future](
-            lowerBoundO.forall(_ <= initialReadState.nextReadTimestamp),
-            (), {
-              val lowerBoundText = lowerBoundO.map(_.toString).getOrElse("epoch")
-              val errorMessage =
-                show"Subscription for $member@$offset would require reading data from ${initialReadState.nextReadTimestamp} but our lower bound is ${lowerBoundText.unquoted}."
+      )
+      // validate we are in the bounds of the data that this sequencer can serve
+      lowerBoundO <- EitherT.right(FutureUnlessShutdown.outcomeF(store.fetchLowerBound()))
+      _ <- EitherT
+        .cond[FutureUnlessShutdown](
+          lowerBoundO.forall(_ <= initialReadState.nextReadTimestamp),
+          (), {
+            val lowerBoundText = lowerBoundO.map(_.toString).getOrElse("epoch")
+            val errorMessage =
+              show"Subscription for $member@$offset would require reading data from ${initialReadState.nextReadTimestamp} but our lower bound is ${lowerBoundText.unquoted}."
 
-              logger.error(errorMessage)
-              CreateSubscriptionError.EventsUnavailable(offset, errorMessage)
-            },
-          )
-          .leftWiden[CreateSubscriptionError]
-      } yield {
-        val loggerFactoryForMember = loggerFactory.append("subscriber", member.toString)
-        val reader = new EventsReader(
-          member,
-          registeredMember,
-          registeredTopologyClientMember.memberId,
-          loggerFactoryForMember,
+            logger.error(errorMessage)
+            CreateSubscriptionError.EventsUnavailable(offset, errorMessage)
+          },
         )
-        reader.from(offset, initialReadState)
-      }
-    }
+        .leftWiden[CreateSubscriptionError]
+    } yield {
+      val loggerFactoryForMember = loggerFactory.append("subscriber", member.toString)
+      val reader = new EventsReader(
+        member,
+        registeredMember,
+        registeredTopologyClientMember.memberId,
+        loggerFactoryForMember,
+      )
+      reader.from(offset, initialReadState)
+    })
 
   private[SequencerReader] class EventsReader(
       member: Member,
@@ -321,14 +319,18 @@ class SequencerReader(
     def validateEvent(
         topologyClientTimestampBefore: Option[CantonTimestamp],
         sequenced: (SequencerCounter, Sequenced[IdOrPayload]),
-    ): Future[(TopologyClientTimestampAfter, ValidatedSnapshotWithEvent[IdOrPayload])] = {
+    ): FutureUnlessShutdown[
+      (TopologyClientTimestampAfter, ValidatedSnapshotWithEvent[IdOrPayload])
+    ] = {
       val (counter, unvalidatedEvent) = sequenced
 
       def validateTopologyTimestamp(
           topologyTimestamp: CantonTimestamp,
           sequencingTimestamp: CantonTimestamp,
           eventTraceContext: TraceContext,
-      ): Future[(TopologyClientTimestampAfter, ValidatedSnapshotWithEvent[IdOrPayload])] = {
+      ): FutureUnlessShutdown[
+        (TopologyClientTimestampAfter, ValidatedSnapshotWithEvent[IdOrPayload])
+      ] = {
         implicit val traceContext: TraceContext = eventTraceContext
         // The topology timestamp will end up as the timestamp of topology on the signed event.
         // So we validate it accordingly.
@@ -372,7 +374,7 @@ class SequencerReader(
         case None =>
           val after =
             latestTopologyClientTimestampAfter(topologyClientTimestampBefore, unvalidatedEvent)
-          Future.successful(
+          FutureUnlessShutdown.pure(
             after -> ValidatedSnapshotWithEvent(
               topologyClientTimestampBefore,
               None,
@@ -391,21 +393,23 @@ class SequencerReader(
       import snapshotWithEvent.{counter, topologyClientTimestampBefore, unvalidatedEvent}
 
       def validationSuccess(
-          eventF: Future[SequencedEvent[ClosedEnvelope]],
+          eventF: FutureUnlessShutdown[SequencedEvent[ClosedEnvelope]],
           signingSnapshot: Option[SyncCryptoApi],
       ): Future[UnsignedEventData] = {
         val topologyClientTimestampAfter =
           latestTopologyClientTimestampAfter(topologyClientTimestampBefore, unvalidatedEvent)
-        eventF.map { eventEnvelope =>
-          UnsignedEventData(
-            eventEnvelope,
-            signingSnapshot,
-            topologyClientTimestampBefore,
-            topologyClientTimestampAfter,
-            unvalidatedEvent.traceContext,
-          )
-        }
-      }
+        eventF
+          .map { eventEnvelope =>
+            UnsignedEventData(
+              eventEnvelope,
+              signingSnapshot,
+              topologyClientTimestampBefore,
+              topologyClientTimestampAfter,
+              unvalidatedEvent.traceContext,
+            )
+          }
+
+      }.failOnShutdownToAbortException("SequencerReader generate Event")
 
       snapshotWithEvent.snapshotOrError match {
         case None =>
@@ -536,7 +540,7 @@ class SequencerReader(
         traceContext: TraceContext
     ): Sequencer.EventSource = {
       val unvalidatedEventsSrc = unvalidatedEventsSourceFromCheckpoint(initialReadState)
-      val validatedEventSrc = unvalidatedEventsSrc.statefulMapAsync(
+      val validatedEventSrc = unvalidatedEventsSrc.statefulMapAsyncUSAndDrain(
         initialReadState.latestTopologyClientRecipientTimestamp
       )(validateEvent)
       val eventsSource =
@@ -674,7 +678,7 @@ class SequencerReader(
         topologyClientTimestampBeforeO: Option[
           CantonTimestamp
         ], // None for until the first topology event, otherwise contains the latest topology event timestamp
-    )(implicit traceContext: TraceContext): Future[SequencedEvent[ClosedEnvelope]] = {
+    )(implicit traceContext: TraceContext): FutureUnlessShutdown[SequencedEvent[ClosedEnvelope]] = {
       val timestamp = event.timestamp
       event.event match {
         case DeliverStoreEvent(
@@ -701,10 +705,10 @@ class SequencerReader(
               groupRecipients match {
                 case x if x.isEmpty =>
                   // an optimization in case there are no group addresses
-                  Future.successful(Map.empty[GroupRecipient, Set[Member]])
+                  FutureUnlessShutdown.pure(Map.empty[GroupRecipient, Set[Member]])
                 case x if x.sizeCompare(1) == 0 && x.contains(AllMembersOfDomain) =>
                   // an optimization to avoid group address resolution on topology txs
-                  Future.successful(
+                  FutureUnlessShutdown.pure(
                     Map[GroupRecipient, Set[Member]](AllMembersOfDomain -> Set(member))
                   )
                 case _ =>
@@ -718,7 +722,7 @@ class SequencerReader(
                           protocolVersion,
                         )
                         .map(_.ipsSnapshot)
-                    )(Future.successful)
+                    )(FutureUnlessShutdown.pure)
                     resolvedGroupAddresses <- GroupAddressResolver.resolveGroupsToMembers(
                       groupRecipients,
                       topologySnapshot,
@@ -751,7 +755,7 @@ class SequencerReader(
               _traceContext,
               trafficReceiptO,
             ) =>
-          Future.successful(
+          FutureUnlessShutdown.pure(
             Deliver.create[ClosedEnvelope](
               counter,
               timestamp,
@@ -767,7 +771,7 @@ class SequencerReader(
           val status = DeliverErrorStoreEvent
             .fromByteString(error, protocolVersion)
             .valueOr(err => throw new DbDeserializationException(err.toString))
-          Future.successful(
+          FutureUnlessShutdown.pure(
             DeliverError.create(
               counter,
               timestamp,
@@ -786,11 +790,13 @@ class SequencerReader(
   private def startFromClosestCounterCheckpoint(
       readState: ReadState,
       requestedCounter: SequencerCounter,
-  )(implicit traceContext: TraceContext): Future[ReadState] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[ReadState] =
     for {
-      closestCheckpoint <- store.fetchClosestCheckpointBefore(
-        readState.memberId,
-        requestedCounter,
+      closestCheckpoint <- FutureUnlessShutdown.outcomeF(
+        store.fetchClosestCheckpointBefore(
+          readState.memberId,
+          requestedCounter,
+        )
       )
     } yield {
       val startText = closestCheckpoint.fold("the beginning")(_.toString)

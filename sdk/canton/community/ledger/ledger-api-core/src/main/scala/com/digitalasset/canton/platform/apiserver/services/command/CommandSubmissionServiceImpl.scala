@@ -13,6 +13,7 @@ import com.digitalasset.canton.ledger.api.services.CommandSubmissionService
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.configuration.LedgerTimeModel
 import com.digitalasset.canton.ledger.participant.state
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.LoggingContextWithTrace.{
   implicitExtractTraceContext,
   withEnrichedLoggingContext,
@@ -93,7 +94,7 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
       request: SubmitRequest
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Unit] =
+  ): FutureUnlessShutdown[Unit] =
     withEnrichedLoggingContext(logging.commands(request.commands)) { implicit loggingContext =>
       logger.info(
         show"Phase 1 started: Submitting commands for interpretation: ${request.commands}."
@@ -124,22 +125,24 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
       val evaluatedCommand =
         evaluateAndSubmit(seedService.nextSeed(), request.commands)
           .transform(handleSubmissionResult)
-      evaluatedCommand.thereafter(logger.logErrorsOnCall[Unit])
+      evaluatedCommand.thereafter(logger.logErrorsOnCall[UnlessShutdown[Unit]])
     }
 
-  private def handleSubmissionResult(result: Try[state.SubmissionResult])(implicit
+  private def handleSubmissionResult(result: Try[UnlessShutdown[state.SubmissionResult]])(implicit
       loggingContext: LoggingContextWithTrace
-  ): Try[Unit] = {
+  ): Try[UnlessShutdown[Unit]] = {
     import state.SubmissionResult.*
     result match {
-      case Success(Acknowledged) =>
+      case Success(UnlessShutdown.Outcome(Acknowledged)) =>
         logger.debug("Submission acknowledged by sync-service.")
-        Success(())
+        Success(UnlessShutdown.unit)
 
-      case Success(result: SynchronousError) =>
+      case Success(UnlessShutdown.Outcome(result: SynchronousError)) =>
         logger.info(s"Rejected: ${result.description}")
         Failure(result.exception)
 
+      case Success(UnlessShutdown.AbortedDueToShutdown) =>
+        Success(UnlessShutdown.AbortedDueToShutdown)
       // Do not log again on errors that are logging on creation
       case Failure(error: LoggedApiException) => Failure(error)
       case Failure(error) =>
@@ -150,13 +153,16 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
 
   private def handleCommandExecutionResult(
       result: Either[ErrorCause, CommandExecutionResult]
-  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Future[CommandExecutionResult] =
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): FutureUnlessShutdown[CommandExecutionResult] =
     result.fold(
-      error => {
-        metrics.commands.failedCommandInterpretations.mark()
-        failedOnCommandExecution(error)
-      },
-      Future.successful,
+      error =>
+        FutureUnlessShutdown.outcomeF {
+          metrics.commands.failedCommandInterpretations.mark()
+          failedOnCommandExecution(error)
+        },
+      FutureUnlessShutdown.pure,
     )
 
   private def evaluateAndSubmit(
@@ -165,9 +171,9 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
   )(implicit
       loggingContext: LoggingContextWithTrace,
       errorLoggingContext: ContextualizedErrorLogger,
-  ): Future[state.SubmissionResult] =
+  ): FutureUnlessShutdown[state.SubmissionResult] =
     checkOverloaded(loggingContext.traceContext) match {
-      case Some(submissionResult) => Future.successful(submissionResult)
+      case Some(submissionResult) => FutureUnlessShutdown.pure(submissionResult)
       case None =>
         for {
           result <- withSpan("ApiSubmissionService.evaluate") { _ => _ =>
@@ -184,7 +190,7 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
       transactionInfo: CommandExecutionResult
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[state.SubmissionResult] =
+  ): FutureUnlessShutdown[state.SubmissionResult] = FutureUnlessShutdown.outcomeF {
     timeProviderType match {
       case TimeProviderType.WallClock =>
         // Submit transactions such that they arrive at the ledger sequencer exactly when record time equals ledger time.
@@ -205,6 +211,7 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
         // In static time mode, record time is always equal to ledger time
         submitTransaction(transactionInfo)
     }
+  }
 
   private def submitTransaction(
       result: CommandExecutionResult

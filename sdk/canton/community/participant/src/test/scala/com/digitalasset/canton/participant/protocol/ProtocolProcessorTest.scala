@@ -12,8 +12,13 @@ import com.daml.test.evidence.scalatest.ScalaTestSupport.TagContainer
 import com.daml.test.evidence.tag.EvidenceTag
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.{
+  CachingConfigs,
+  CommunityStorageConfig,
+  ProcessingTimeout,
+  TestingConfigInternal,
+}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationDuration
 import com.digitalasset.canton.data.PeanoQueue.{BeforeHead, NotInserted}
@@ -22,7 +27,6 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Update}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.Pretty
-import com.digitalasset.canton.participant.DefaultParticipantStateValues
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
@@ -45,6 +49,10 @@ import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissio
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
+import com.digitalasset.canton.participant.{
+  DefaultParticipantStateValues,
+  ParticipantNodeParameters,
+}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.resource.MemoryStorage
@@ -242,19 +250,19 @@ class ProtocolProcessorTest
         .create(
           new MemoryStorage(loggerFactory, timeouts),
           CommunityStorageConfig.Memory(),
-          exitOnFatalFailures = true,
           None,
-          BatchingConfig(),
+          ParticipantNodeParameters.forTestingOnly(testedProtocolVersion),
           testedReleaseProtocolVersion,
           ParticipantTestMetrics,
           participant.toLf,
           LedgerApiServerConfig(),
-          timeouts,
           futureSupervisor,
           loggerFactory,
         )
         .failOnShutdown
     )
+
+    val contractStore = new InMemoryContractStore(timeouts, loggerFactory)
 
     val persistentState =
       new InMemorySyncDomainPersistentState(
@@ -265,6 +273,7 @@ class ProtocolProcessorTest
         defaultStaticDomainParameters,
         enableAdditionalConsistencyChecks = true,
         new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1), // only one domain needed
+        contractStore,
         nodePersistentState.acsCounterParticipantConfigStore,
         exitOnFatalFailures = true,
         packageDependencyResolver,
@@ -277,6 +286,7 @@ class ProtocolProcessorTest
     val ephemeralState = new AtomicReference[SyncDomainEphemeralState]()
 
     val ledgerApiIndexer = mock[LedgerApiIndexer]
+
     when(ledgerApiIndexer.queue).thenAnswer(
       new FutureQueue[Update] {
         override def offer(elem: Update): Future[Done] = Future.successful(Done)
@@ -290,6 +300,7 @@ class ProtocolProcessorTest
 
     val timeTracker = mock[DomainTimeTracker]
     val recordOrderPublisher = new RecordOrderPublisher(
+      domainId = domain,
       initSc = SequencerCounter.Genesis,
       initTimestamp = CantonTimestamp.MinValue,
       ledgerApiIndexer = ledgerApiIndexer,
@@ -298,10 +309,9 @@ class ProtocolProcessorTest
       timeouts = ProcessingTimeout(),
       loggerFactory = loggerFactory,
       futureSupervisor = futureSupervisor,
-      activeContractSnapshot = persistentState.activeContractStore,
       clock = clock,
     )
-    val unseqeuncedSubmissionMap = new UnsequencedSubmissionMap(
+    val unseqeuncedSubmissionMap = new UnsequencedSubmissionMap[SubmissionTrackingData](
       domain,
       1000,
       ParticipantTestMetrics.domain.inFlightSubmissionDomainTracker.unsequencedInFlight,
@@ -330,6 +340,7 @@ class ProtocolProcessorTest
         inFlightSubmissionDomainTracker,
         persistentState,
         ledgerApiIndexer,
+        contractStore,
         startingPoints,
         ParticipantTestMetrics.domain,
         exitOnFatalFailures = true,
@@ -976,7 +987,7 @@ class ProtocolProcessorTest
     def performResultProcessing(
         timestamp: CantonTimestamp,
         sut: TestInstance,
-    ): EitherT[Future, sut.steps.ResultError, Unit] = {
+    ): EitherT[FutureUnlessShutdown, sut.steps.ResultError, Unit] = {
       val mockSignedProtocolMessage = mock[SignedProtocolMessage[ConfirmationResultMessage]]
       when(mockSignedProtocolMessage.message).thenReturn(trm)
       when(
@@ -999,7 +1010,6 @@ class ProtocolProcessorTest
           timestamp,
           resultSc,
         )
-        .map(_.onShutdown(fail("Unexpected shutdown")))
         .flatMap(identity)
     }
 
@@ -1014,7 +1024,7 @@ class ProtocolProcessorTest
       setUpOrFail(persistent, ephemeral)
       valueOrFail(performResultProcessing(CantonTimestamp.Epoch.plusSeconds(10), sut))(
         "result processing failed"
-      ).futureValue
+      ).futureValueUS
 
       val finalState = ephemeral.requestJournal.query(rc).value.futureValue
       finalState.value.state shouldEqual RequestState.Clean
@@ -1062,7 +1072,7 @@ class ProtocolProcessorTest
         .futureValue
 
       eventually() {
-        processF.value.futureValue shouldEqual Either.unit
+        processF.value.futureValueUS shouldEqual Either.unit
         taskScheduler.readSequencerCounterQueue(resultSc) shouldBe BeforeHead
         requestJournal.query(rc).value.futureValue.value.state shouldBe RequestState.Clean
       }
@@ -1104,7 +1114,7 @@ class ProtocolProcessorTest
 
       valueOrFail(performResultProcessing(CantonTimestamp.Epoch.plusSeconds(10), sut))(
         "result processing failed"
-      ).futureValue
+      ).futureValueUS
 
       val requestState = ephemeral.requestJournal.query(rc).value.futureValue
       requestState shouldEqual None
@@ -1123,7 +1133,7 @@ class ProtocolProcessorTest
       val result = loggerFactory.suppressWarningsAndErrors(
         leftOrFail(performResultProcessing(CantonTimestamp.Epoch.plusSeconds(5 * 60), sut))(
           "result processing did not return a left"
-        ).futureValue
+        ).futureValueUS
       )
 
       result match {

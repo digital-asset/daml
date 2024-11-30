@@ -125,7 +125,6 @@ class TransactionProcessingSteps(
     modelConformanceChecker: ModelConformanceChecker,
     staticDomainParameters: StaticDomainParameters,
     crypto: DomainSyncCryptoClient,
-    contractStore: ContractStore,
     metrics: TransactionProcessingMetrics,
     serializableContractAuthenticator: SerializableContractAuthenticator,
     transactionEnricher: TransactionEnricher,
@@ -276,10 +275,6 @@ class TransactionProcessingSteps(
               )
           }
           error -> emptyDeduplicationPeriod
-        case CommandDeduplicator.MalformedOffset(error) =>
-          CommandDeduplicationError.MalformedDeduplicationOffset.Error(
-            error
-          ) -> emptyDeduplicationPeriod
       }
       mkTransactionSubmissionTrackingData(
         error,
@@ -300,7 +295,7 @@ class TransactionProcessingSteps(
 
     override def submissionId: Option[LedgerSubmissionId] = submitterInfo.submissionId
 
-    override def maxSequencingTimeO: OptionT[Future, CantonTimestamp] = OptionT.liftF(
+    override def maxSequencingTimeO: OptionT[FutureUnlessShutdown, CantonTimestamp] = OptionT.liftF(
       recentSnapshot.ipsSnapshot.findDynamicDomainParametersOrDefault(protocolVersion).map {
         domainParameters =>
           CantonTimestamp(transactionMeta.ledgerEffectiveTime)
@@ -329,7 +324,7 @@ class TransactionProcessingSteps(
       def check(
           transaction: LfVersionedTransaction,
           topologySnapshot: TopologySnapshot,
-      ): Future[Boolean] = {
+      ): FutureUnlessShutdown[Boolean] = {
 
         val actionNodes = transaction.nodes.values.collect { case an: LfActionNode => an }
 
@@ -370,7 +365,7 @@ class TransactionProcessingSteps(
                 ),
               )
             )
-        ).mapK(FutureUnlessShutdown.outcomeK)
+        )
 
         _ <- submitterInfo.actAs
           .parTraverse(rawSubmitter =>
@@ -427,7 +422,6 @@ class TransactionProcessingSteps(
           .right[TransactionSubmissionTrackingData.RejectionCause](
             request.asBatch(recentSnapshot.ipsSnapshot)
           )
-          .mapK(FutureUnlessShutdown.outcomeK)
       } yield {
         val batchSize = batch.toProtoVersioned.serializedSize
         val numRecipients = batch.allRecipients.size
@@ -795,7 +789,7 @@ class TransactionProcessingSteps(
       mediator: MediatorGroupRecipient,
       snapshot: DomainSnapshotSyncCryptoApi,
       domainParameters: DynamicDomainParametersWithValidity,
-  )(implicit traceContext: TraceContext): Future[ParsedTransactionRequest] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[ParsedTransactionRequest] = {
     val rootViewTrees = rootViewsWithMetadata.map { case (WithRecipients(view, _), _) => view }
     for {
       usedAndCreated <- ExtractUsedAndCreated(
@@ -916,9 +910,8 @@ class TransactionProcessingSteps(
             ledgerTime,
           )
 
-        domainParameters <- FutureUnlessShutdown.outcomeF(
+        domainParameters <-
           ipsSnapshot.findDynamicDomainParametersOrDefault(protocolVersion)
-        )
 
         // `tryCommonData` should never throw here because all views have the same root hash
         // which already commits to the ParticipantMetadata and CommonMetadata
@@ -953,13 +946,12 @@ class TransactionProcessingSteps(
             reInterpretedTopLevelViews,
           )
 
-        globalKeyHostedParties <- FutureUnlessShutdown.outcomeF(
+        globalKeyHostedParties <-
           InternalConsistencyChecker.hostedGlobalKeyParties(
             parsedRequest.rootViewTrees,
             participantId,
             snapshot.ipsSnapshot,
           )
-        )
 
         internalConsistencyResultE = internalConsistencyChecker.check(
           parsedRequest.rootViewTrees
@@ -1045,7 +1037,6 @@ class TransactionProcessingSteps(
         internalConsistencyResultE = parallelChecksResult.internalConsistencyResultE,
         consumedInputsOfHostedParties = usedAndCreated.contracts.consumedInputsOfHostedStakeholders,
         witnessed = usedAndCreated.contracts.witnessed,
-        divulged = usedAndCreated.contracts.divulged,
         createdContracts = usedAndCreated.contracts.created,
         transient = usedAndCreated.contracts.transient,
         activenessResult = activenessResult,
@@ -1255,7 +1246,11 @@ class TransactionProcessingSteps(
       modelConformanceResult: ModelConformanceChecker.Result,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] = {
+  ): EitherT[
+    FutureUnlessShutdown,
+    TransactionProcessorError,
+    CommitAndStoreContractsAndPublishEvent,
+  ] = {
     val txValidationResult = pendingRequestData.transactionValidationResult
     val commitSet = txValidationResult.commitSet(pendingRequestData.requestId)
 
@@ -1268,7 +1263,6 @@ class TransactionProcessingSteps(
       commitSet = commitSet,
       createdContracts = txValidationResult.createdContracts,
       witnessed = txValidationResult.witnessed,
-      divulged = txValidationResult.divulged,
       hostedWitnesses = txValidationResult.hostedWitnesses,
       completionInfoO = completionInfoO,
       lfTx = modelConformanceResult.suffixedTransaction,
@@ -1284,30 +1278,22 @@ class TransactionProcessingSteps(
       commitSet: CommitSet,
       createdContracts: Map[LfContractId, SerializableContract],
       witnessed: Map[LfContractId, SerializableContract],
-      divulged: Map[LfContractId, SerializableContract],
       hostedWitnesses: Set[LfPartyId],
       completionInfoO: Option[CompletionInfo],
       lfTx: WellFormedTransaction[WithSuffixesAndMerged],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] = {
-    val commitSetF = Future.successful(commitSet)
+  ): EitherT[
+    FutureUnlessShutdown,
+    TransactionProcessorError,
+    CommitAndStoreContractsAndPublishEvent,
+  ] = {
+    val commitSetF = FutureUnlessShutdown.pure(commitSet)
     val contractsToBeStored = createdContracts.values.toSeq
 
-    val witnessedAndDivulged = witnessed ++ divulged
-    def storeDivulgedContracts: Future[Unit] =
-      contractStore
-        .storeDivulgedContracts(
-          requestCounter,
-          witnessedAndDivulged.values.toSeq,
-        )
-
     for {
-      // Store the divulged contracts in the contract store
-      _ <- EitherT.right(storeDivulgedContracts)
-
       lfTxId <- EitherT
-        .fromEither[Future](txId.asLedgerTransactionId)
+        .fromEither[FutureUnlessShutdown](txId.asLedgerTransactionId)
         .leftMap[TransactionProcessorError](FieldConversionError("Transaction Id", _))
 
       contractMetadata =
@@ -1356,7 +1342,11 @@ class TransactionProcessingSteps(
       topologySnapshot: TopologySnapshot,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] =
+  ): EitherT[
+    FutureUnlessShutdown,
+    TransactionProcessorError,
+    CommitAndStoreContractsAndPublishEvent,
+  ] =
     for {
       usedAndCreated <- EitherT.right(
         ExtractUsedAndCreated(
@@ -1386,7 +1376,6 @@ class TransactionProcessingSteps(
         commitSet = commitSet,
         createdContracts = createdContracts,
         witnessed = usedAndCreated.contracts.witnessed,
-        divulged = usedAndCreated.contracts.divulged,
         hostedWitnesses = usedAndCreated.hostedWitnesses,
         completionInfoO = completionInfoO,
         lfTx = validSubTransaction,
@@ -1476,7 +1465,7 @@ class TransactionProcessingSteps(
               validSubTransaction,
               validSubViewsNE,
               topologySnapshot,
-            ).mapK(FutureUnlessShutdown.outcomeK)
+            )
 
           case error =>
             // There is no valid subview
@@ -1488,7 +1477,7 @@ class TransactionProcessingSteps(
             pendingRequestData,
             completionInfoO,
             modelConformanceResult,
-          ).mapK(FutureUnlessShutdown.outcomeK),
+          ),
       )
 
     def rejectedWithModelConformanceError(error: ErrorWithSubTransaction) =
@@ -1521,7 +1510,6 @@ class TransactionProcessingSteps(
       maxDecisionTime <- ProcessingSteps
         .getDecisionTime(topologySnapshot, pendingRequestData.requestTime)
         .leftMap(DomainParametersError(domainId, _))
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       _ <-
         (if (ts <= maxDecisionTime) EitherT.pure[Future, TransactionProcessorError](())
@@ -1539,7 +1527,6 @@ class TransactionProcessingSteps(
         .right[TransactionProcessorError](
           resultTopologySnapshot.isMediatorActive(pendingRequestData.mediator)
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       res <-
         if (mediatorActiveAtResultTs) getCommitSetAndContractsToBeStoredAndEvent(topologySnapshot)

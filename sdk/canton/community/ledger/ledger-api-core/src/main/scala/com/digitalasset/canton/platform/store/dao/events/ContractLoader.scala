@@ -120,7 +120,7 @@ class PekkoStreamParallelBatchedLoader[KEY, VALUE](
   }
 }
 
-trait ContractLoader extends Loader[(ContractId, Option[Offset]), RawContractState]
+trait ContractLoader extends Loader[(ContractId, Offset), RawContractState]
 
 object ContractLoader {
   def create(
@@ -138,11 +138,11 @@ object ContractLoader {
     ResourceOwner
       .forReleasable(() =>
         new PekkoStreamParallelBatchedLoader[
-          (ContractId, Option[Offset]),
+          (ContractId, Offset),
           RawContractState,
         ](
           batchLoad = { batch =>
-            val ((_, latestValidAtOffsetO), usedLoggingContext) = batch
+            val ((_, latestValidAtOffset), usedLoggingContext) = batch
               .maxByOption(_._1._2)
               .getOrElse(
                 throw new IllegalStateException("A batch should never be empty")
@@ -151,29 +151,21 @@ object ContractLoader {
               .update(batch.size)(MetricsContext.Empty)
             val contractIds = batch.map(_._1._1)
             val archivedContractsF =
-              latestValidAtOffsetO match {
-                case None => Future.successful(Map.empty[ContractId, RawArchivedContract])
-                case Some(latestValidAtOffset) =>
-                  dbDispatcher
-                    .executeSql(metrics.index.db.lookupArchivedContractsDbMetrics)(
-                      contractStorageBackend.archivedContracts(
-                        contractIds = contractIds,
-                        before = latestValidAtOffset,
-                      )
-                    )(usedLoggingContext)
-              }
+              dbDispatcher
+                .executeSql(metrics.index.db.lookupArchivedContractsDbMetrics)(
+                  contractStorageBackend.archivedContracts(
+                    contractIds = contractIds,
+                    before = latestValidAtOffset,
+                  )
+                )(usedLoggingContext)
             val createdContractsF =
-              latestValidAtOffsetO match {
-                case None => Future(Map.empty[ContractId, RawCreatedContract])
-                case Some(latestValidAtOffset) =>
-                  dbDispatcher
-                    .executeSql(metrics.index.db.lookupCreatedContractsDbMetrics)(
-                      contractStorageBackend.createdContracts(
-                        contractIds = contractIds,
-                        before = latestValidAtOffset,
-                      )
-                    )(usedLoggingContext)
-              }
+              dbDispatcher
+                .executeSql(metrics.index.db.lookupCreatedContractsDbMetrics)(
+                  contractStorageBackend.createdContracts(
+                    contractIds = contractIds,
+                    before = latestValidAtOffset,
+                  )
+                )(usedLoggingContext)
             def additionalContractsF(
                 archivedContracts: Map[ContractId, RawArchivedContract],
                 createdContracts: Map[ContractId, RawCreatedContract],
@@ -185,12 +177,10 @@ object ContractLoader {
               if (notFoundContractIds.isEmpty) Future.successful(Map.empty)
               else
                 dbDispatcher.executeSql(metrics.index.db.lookupAssignedContractsDbMetrics)(
-                  // The latestValidAtOffset is not used here as an upper bound for the lookup,
-                  // since the ContractStateCache only tracks creation and archival, therefore the
-                  // index is not moving ahead in case of assignment. This in corner cases would mean
-                  // that the index is behind of some assignments.
-                  // Instead the query is constrained by the ledgerEndCache.
-                  contractStorageBackend.assignedContracts(notFoundContractIds)
+                  contractStorageBackend.assignedContracts(
+                    contractIds = notFoundContractIds,
+                    before = latestValidAtOffset,
+                  )
                 )(usedLoggingContext)
             }
             for {
@@ -223,7 +213,7 @@ object ContractLoader {
       )(_.closeAsync())
       .map(loader =>
         new ContractLoader {
-          override def load(key: (ContractId, Option[Offset]))(implicit
+          override def load(key: (ContractId, Offset))(implicit
               loggingContext: LoggingContextWithTrace
           ): Future[Option[RawContractState]] =
             loader.load(key)
@@ -231,7 +221,7 @@ object ContractLoader {
       )
 
   val dummyLoader = new ContractLoader {
-    override def load(key: (ContractId, Option[Offset]))(implicit
+    override def load(key: (ContractId, Offset))(implicit
         loggingContext: LoggingContextWithTrace
     ): Future[Option[RawContractState]] = Future.successful(None)
   }

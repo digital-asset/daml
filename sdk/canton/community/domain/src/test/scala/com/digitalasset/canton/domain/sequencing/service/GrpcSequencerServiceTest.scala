@@ -103,7 +103,7 @@ class GrpcSequencerServiceTest
       )
     )
       .thenReturn(
-        Future.successful(
+        FutureUnlessShutdown.pure(
           TestDomainParameters.defaultDynamic(
             confirmationRequestsMaxRate = confirmationRequestsMaxRate,
             maxRequestSize = MaxRequestSize(maxRequestSize),
@@ -134,7 +134,7 @@ class GrpcSequencerServiceTest
         override def initialSnapshot(member: Member)(implicit
             executionContext: ExecutionContext,
             traceContext: TraceContext,
-        ): Future[GenericStoredTopologyTransactions] = Future.successful(
+        ): FutureUnlessShutdown[GenericStoredTopologyTransactions] = FutureUnlessShutdown.pure(
           StoredTopologyTransactions(
             // As we don't expect the actual transactions in this test, we can repeat the same transaction a bunch of times
             List

@@ -120,7 +120,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
           application_id = applicationId,
           action_count = statistics.committed.actions + statistics.rolledBack.actions,
           metering_timestamp = timestamp,
-          ledger_offset = offset.toHexString,
+          ledger_offset = offset.unwrap,
         )
       )
 
@@ -134,7 +134,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
         application_id = applicationId,
         action_count = 2 * (statistics.committed.actions + statistics.rolledBack.actions),
         metering_timestamp = timestamp,
-        ledger_offset = Ref.HexString.assertFromString("00" * 8 + "99"),
+        ledger_offset = 99,
       )
 
       val expected: Vector[DbDto.TransactionMetering] = Vector(metering)
@@ -149,7 +149,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
               someTransactionAccepted,
             ),
             (
-              Offset.fromHexString(Ref.HexString.assertFromString(metering.ledger_offset)),
+              Offset.tryFromLong(metering.ledger_offset),
               someTransactionAccepted,
             ),
           )

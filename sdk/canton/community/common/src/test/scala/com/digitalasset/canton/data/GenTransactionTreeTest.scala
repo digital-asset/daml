@@ -9,6 +9,7 @@ import com.digitalasset.canton.crypto.{CryptoPureApi, HashPurpose}
 import com.digitalasset.canton.data.GenTransactionTree.ViewWithWitnessesAndRecipients
 import com.digitalasset.canton.data.LightTransactionViewTree.InvalidLightTransactionViewTree
 import com.digitalasset.canton.data.MerkleTree.{BlindSubtree, RevealIfNeedBe, RevealSubtree}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessage
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessage.computeRandomnessLength
@@ -18,6 +19,7 @@ import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.{
   BaseTestWordSpec,
+  FailOnShutdown,
   HasExecutionContext,
   LfPartyId,
   ProtocolVersionChecksAnyWordSpec,
@@ -25,13 +27,13 @@ import com.digitalasset.canton.{
 import monocle.PIso
 
 import scala.annotation.nowarn
-import scala.concurrent.Future
 
 @nowarn("msg=match may not be exhaustive")
 class GenTransactionTreeTest
     extends BaseTestWordSpec
     with HasExecutionContext
-    with ProtocolVersionChecksAnyWordSpec {
+    with ProtocolVersionChecksAnyWordSpec
+    with FailOnShutdown {
 
   val factory: ExampleTransactionFactory = new ExampleTransactionFactory()()
 
@@ -612,7 +614,7 @@ class GenTransactionTreeTest
       val topology = mock[PartyTopologySnapshotClient]
       when(topology.activeParticipantsOfParties(any[List[LfPartyId]])(anyTraceContext))
         .thenAnswer[Seq[LfPartyId]] { parties =>
-          Future.successful(topologyMap.collect {
+          FutureUnlessShutdown.pure(topologyMap.collect {
             case (party, map) if parties.contains(party) => (party, map.keySet)
           })
         }
@@ -624,7 +626,7 @@ class GenTransactionTreeTest
       witnesses
         .toRecipients(topology)
         .valueOr(err => fail(err.message))
-        .futureValue shouldBe Recipients(
+        .futureValueUS shouldBe Recipients(
         NonEmpty(
           Seq,
           RecipientsTree.ofRecipients(

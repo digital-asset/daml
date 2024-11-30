@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.participant.state.index
 
-import com.digitalasset.canton.ledger.api.domain.types.ParticipantOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.daml.lf.data.Ref.{ParticipantId, Party}
 import org.apache.pekko.NotUsed
@@ -29,6 +29,6 @@ trait IndexPartyManagementService {
   ): Future[List[IndexerPartyDetails]]
 
   def partyEntries(
-      startExclusive: ParticipantOffset
+      startExclusive: Option[Offset]
   )(implicit loggingContext: LoggingContextWithTrace): Source[PartyEntry, NotUsed]
 }

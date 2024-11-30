@@ -24,7 +24,7 @@ import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{BaseTest, LfValue}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, LfValue}
 import com.digitalasset.daml.lf.command.ApiCommands as LfCommands
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.{Identifier, ParticipantId, Party}
@@ -54,6 +54,8 @@ class StoreBackedCommandExecutorSpec
     extends AsyncWordSpec
     with MockitoSugar
     with ArgumentMatchersSugar
+    with HasExecutionContext
+    with FailOnShutdown
     with BaseTest {
 
   val cryptoApi: CryptoPureApi = new SymbolicPureCrypto()
@@ -199,7 +201,8 @@ class StoreBackedCommandExecutorSpec
 
       sut
         .execute(commands, submissionSeed)(
-          LoggingContextWithTrace(loggerFactory)
+          LoggingContextWithTrace(loggerFactory),
+          executionContext,
         )
         .map { actual =>
           actual.foreach { actualResult =>
@@ -222,7 +225,8 @@ class StoreBackedCommandExecutorSpec
 
       sut
         .execute(commands, submissionSeed)(
-          LoggingContextWithTrace(loggerFactory)
+          LoggingContextWithTrace(loggerFactory),
+          executionContext,
         )
         .map {
           case Right(_) => succeed
@@ -242,10 +246,11 @@ class StoreBackedCommandExecutorSpec
 
       sut
         .execute(commands, submissionSeed)(
-          LoggingContextWithTrace(loggerFactory)
+          LoggingContextWithTrace(loggerFactory),
+          executionContext,
         )
         .map {
-          case Left(InterpretationTimeExceeded(`let`, `tolerance`, _)) => succeed
+          case Left(InterpretationTimeExceeded(`let`, `tolerance`)) => succeed
           case _ => fail()
         }
     }
@@ -376,7 +381,7 @@ class StoreBackedCommandExecutorSpec
         .execute(
           commands = commandsWithDisclosedContracts,
           submissionSeed = submissionSeed,
-        )(LoggingContextWithTrace(loggerFactory))
+        )(LoggingContextWithTrace(loggerFactory), executionContext)
         .map(_ => ref.get() shouldBe expected)
     }
 

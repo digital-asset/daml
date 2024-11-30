@@ -10,9 +10,15 @@ import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
+import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError.ShutdownError
 import com.digitalasset.canton.domain.sequencing.service.DirectSequencerSubscriptionFactory
 import com.digitalasset.canton.health.{AtomicHealthComponent, ComponentHealthState}
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, OnShutdownRunner, SyncCloseable}
+import com.digitalasset.canton.lifecycle.{
+  FutureUnlessShutdown,
+  OnShutdownRunner,
+  SyncCloseable,
+  UnlessShutdown,
+}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.sequencing.SerializedEventHandler
@@ -36,7 +42,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil.DelayedKillSwitch
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, PekkoUtil}
+import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil, PekkoUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.Status
 import org.apache.pekko.stream.Materializer
@@ -87,7 +93,6 @@ class DirectSequencerClientTransport(
     sequencer
       .acknowledgeSigned(request)
       .map(_ => true)
-      .mapK(FutureUnlessShutdown.outcomeK)
 
   override def getTrafficStateForMember(request: GetTrafficStateForMemberRequest)(implicit
       traceContext: TraceContext
@@ -126,7 +131,7 @@ class DirectSequencerClientTransport(
             },
           )
           .thereafter {
-            case Success(Right(subscription)) =>
+            case Success(UnlessShutdown.Outcome(Right(subscription))) =>
               closeReasonPromise.completeWith(subscription.closeReason)
 
               performUnlessClosing(functionFullName) {
@@ -134,12 +139,14 @@ class DirectSequencerClientTransport(
               } onShutdown {
                 subscription.close()
               }
-            case Success(Left(value)) =>
+            case Success(UnlessShutdown.Outcome(Left(value))) =>
               closeReasonPromise.trySuccess(Fatal(value.toString)).discard[Boolean]
             case Failure(exception) =>
               closeReasonPromise.tryFailure(exception).discard[Boolean]
+            case Success(UnlessShutdown.AbortedDueToShutdown) =>
+              closeReasonPromise.trySuccess(SubscriptionCloseReason.Shutdown).discard[Boolean]
           }
-      FutureUtil.doNotAwait(
+      FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
         subscriptionET.value,
         s"creating the direct sequencer subscription for $request",
       )
@@ -172,14 +179,22 @@ class DirectSequencerClientTransport(
     val sourceF = sequencer
       .read(request.member, request.counter)
       .value
+      .unwrap
       .map {
-        case Left(creationError) =>
+        case UnlessShutdown.AbortedDueToShutdown =>
+          Source
+            .single(Left(SubscriptionCreationError(ShutdownError)))
+            .mapMaterializedValue((_: NotUsed) =>
+              (PekkoUtil.noOpKillSwitch, Future.successful(Done))
+            )
+        case UnlessShutdown.Outcome(Left(creationError)) =>
           Source
             .single(Left(SubscriptionCreationError(creationError)))
             .mapMaterializedValue((_: NotUsed) =>
               (PekkoUtil.noOpKillSwitch, Future.successful(Done))
             )
-        case Right(source) => source.map(_.leftMap(SequencedEventError.apply))
+        case UnlessShutdown.Outcome(Right(source)) =>
+          source.map(_.leftMap(SequencedEventError.apply))
       }
     val health = new DirectSequencerClientTransportHealth(logger)
     val source = Source

@@ -139,7 +139,7 @@ object CryptoKeyPair extends HasVersionedMessageCompanion[CryptoKeyPair[PublicKe
     ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v33,
       supportedProtoVersion(v30.CryptoKeyPair)(fromProtoCryptoKeyPairV30),
-      _.toProtoCryptoKeyPairV30.toByteString,
+      _.toProtoCryptoKeyPairV30,
     )
   )
 
@@ -255,7 +255,7 @@ object PublicKeyWithName extends HasVersionedMessageCompanion[PublicKeyWithName]
     ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v33,
       supportedProtoVersion(v30.PublicKeyWithName)(fromProto30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 

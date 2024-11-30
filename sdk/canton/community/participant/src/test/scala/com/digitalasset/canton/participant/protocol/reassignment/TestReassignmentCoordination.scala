@@ -59,7 +59,7 @@ private[reassignment] object TestReassignmentCoordination {
       reassignmentStoreFor = id =>
         reassignmentStores.get(id).toRight(UnknownDomain(id.unwrap, "not found")),
       recentTimeProofFor = recentTimeProofProvider,
-      inSubmissionById = assignmentBySubmission,
+      reassignmentSubmissionFor = assignmentBySubmission,
       staticDomainParameterFor = protocolVersionGetter,
       syncCryptoApi = defaultSyncCryptoApi(domains.toSeq.map(_.unwrap), packages, loggerFactory),
       loggerFactory,

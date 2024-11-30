@@ -7,6 +7,7 @@ import cats.Monad
 import cats.data.OptionT
 import cats.syntax.parallel.*
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.protocol.RequestJournal.RequestState.*
 import com.digitalasset.canton.participant.protocol.RequestJournal.{
@@ -20,15 +21,17 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.version.HasTestCloseContext
-import com.digitalasset.canton.{BaseTest, RequestCounter}
-import org.scalatest.Assertion
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, RequestCounter}
 import org.scalatest.wordspec.{AnyWordSpec, AsyncWordSpec}
 
 import java.time.Instant
-import scala.concurrent.Future
 
 @SuppressWarnings(Array("org.wartremover.warts.IsInstanceOf"))
-class RequestJournalTest extends AsyncWordSpec with BaseTest with HasTestCloseContext {
+class RequestJournalTest
+    extends AsyncWordSpec
+    with BaseTest
+    with HasTestCloseContext
+    with FailOnShutdown {
 
   def mk(
       initRc: RequestCounter,
@@ -44,9 +47,9 @@ class RequestJournalTest extends AsyncWordSpec with BaseTest with HasTestCloseCo
       state: RequestStateWithCursor,
       requestTimestamp: CantonTimestamp,
       commitTime: Option[CantonTimestamp] = None,
-  )(implicit traceContext: TraceContext): Future[Unit] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     for {
-      _ <- rj.insert(rc, requestTimestamp)
+      _ <- FutureUnlessShutdown.outcomeF(rj.insert(rc, requestTimestamp))
       cursorF <- transitTo(rj, rc, requestTimestamp, state, commitTime).getOrElse(
         fail(s"Request $rc: Cursor future for request state $state")
       )
@@ -58,17 +61,19 @@ class RequestJournalTest extends AsyncWordSpec with BaseTest with HasTestCloseCo
       requestTimestamp: CantonTimestamp,
       target: RequestState,
       commitTimeO: Option[CantonTimestamp] = None,
-  ): OptionT[Future, Unit] =
-    OptionT[Future, Unit] {
+  ): OptionT[FutureUnlessShutdown, Unit] =
+    OptionT[FutureUnlessShutdown, Unit] {
 
       def step(
           unit: Option[Unit]
-      ): Future[Either[Option[Unit], Option[Unit]]] =
+      ): FutureUnlessShutdown[Either[Option[Unit], Option[Unit]]] =
         for {
-          current <- rj
-            .query(rc)
-            .getOrElse(throw new IllegalArgumentException(s"request counter $rc not found"))
-            .map(_.state)
+          current <- FutureUnlessShutdown.outcomeF(
+            rj
+              .query(rc)
+              .getOrElse(throw new IllegalArgumentException(s"request counter $rc not found"))
+              .map(_.state)
+          )
           result <-
             if (current < target) {
               current.next.value match {
@@ -79,50 +84,55 @@ class RequestJournalTest extends AsyncWordSpec with BaseTest with HasTestCloseCo
                     .map(u => Right(Some(u)))
                 case Pending => fail("Next state must not be Pending.")
               }
-            } else Future.successful(Right(unit))
+            } else FutureUnlessShutdown.pure(Right(unit))
         } yield result
 
-      Monad[Future].tailRecM(Option.empty[Unit])(step)
+      Monad[FutureUnlessShutdown].tailRecM(Option.empty[Unit])(step)
     }
 
   def mkWith(
       initRc: RequestCounter,
       inserts: List[(RequestCounter, CantonTimestamp)],
       store: RequestJournalStore = new InMemoryRequestJournalStore(loggerFactory),
-  ): Future[RequestJournal] = {
+  ): FutureUnlessShutdown[RequestJournal] = {
     val rj = mk(initRc, store)
 
     inserts
       .parTraverse_ { case (rc, timestamp) =>
-        rj.insert(rc, timestamp)
+        FutureUnlessShutdown.outcomeF(rj.insert(rc, timestamp))
       }
       .map(_ => rj)
   }
 
   def assertPresent(rj: RequestJournal, presentRcs: List[(RequestCounter, CantonTimestamp)])(
       expectedState: (RequestCounter, CantonTimestamp) => RequestData
-  ): Future[Assertion] =
+  ): FutureUnlessShutdown[Unit] =
     presentRcs
       .parTraverse_ { case (rc, ts) =>
-        rj.query(rc)
-          .value
-          .map(result =>
-            assert(
-              result.contains(expectedState(rc, ts)),
-              s"Request counter $rc has state $result, but should be ${expectedState(rc, ts)}",
+        FutureUnlessShutdown.outcomeF(
+          rj.query(rc)
+            .value
+            .map(result =>
+              assert(
+                result.contains(expectedState(rc, ts)),
+                s"Request counter $rc has state $result, but should be ${expectedState(rc, ts)}",
+              )
             )
-          )
+        )
       }
-      .map((_: Unit) => succeed)
 
-  def assertAbsent(rj: RequestJournal, absentRcs: List[RequestCounter]): Future[Assertion] =
+  def assertAbsent(
+      rj: RequestJournal,
+      absentRcs: List[RequestCounter],
+  ): FutureUnlessShutdown[Unit] =
     absentRcs
       .parTraverse_ { rc =>
-        rj.query(rc)
-          .value
-          .map(result => assert(result.isEmpty, s"Found state $result for request counter $rc"))
+        FutureUnlessShutdown.outcomeF(
+          rj.query(rc)
+            .value
+            .map(result => assert(result.isEmpty, s"Found state $result for request counter $rc"))
+        )
       }
-      .map((_: Unit) => succeed)
 
   val commitTime: CantonTimestamp =
     CantonTimestamp.assertFromInstant(Instant.parse("2020-01-03T00:00:00.00Z"))
@@ -163,7 +173,7 @@ class RequestJournalTest extends AsyncWordSpec with BaseTest with HasTestCloseCo
 
     s"transiting only the second request to $Clean" should {
       val transitRc = initRc + 1
-      def setup(): Future[RequestJournal] =
+      def setup(): FutureUnlessShutdown[RequestJournal] =
         for {
           rj <- mkWith(initRc, inserts.toList)
           _ <- rj.terminate(transitRc, inserts(transitRc), inserts(transitRc).plusSeconds(1))
@@ -192,21 +202,23 @@ class RequestJournalTest extends AsyncWordSpec with BaseTest with HasTestCloseCo
       "fail" in {
         for {
           rj <- mkWith(initRc, inserts.toList)
-          _ <- MonadUtil.sequentialTraverse_(inserts) { case (rc, timestamp) =>
-            loggerFactory.assertInternalErrorAsync[IllegalArgumentException](
-              rj.insert(rc, timestamp),
-              _.getMessage should fullyMatch regex raw"The request .* is already pending\.",
-            )
-          }
-          _ <- MonadUtil.sequentialTraverse_(inserts) { case (rc, timestamp) =>
+          _ <- FutureUnlessShutdown.outcomeF(MonadUtil.sequentialTraverse_(inserts) {
+            case (rc, timestamp) =>
+              loggerFactory.assertInternalErrorAsync[IllegalArgumentException](
+                rj.insert(rc, timestamp),
+                _.getMessage should fullyMatch regex raw"The request .* is already pending\.",
+              )
+          })
+          _ <- MonadUtil.sequentialTraverse(inserts.toSeq) { case (rc, timestamp) =>
             rj.terminate(rc, timestamp, timestamp)
           }
-          _ <- MonadUtil.sequentialTraverse_(inserts) { case (rc, timestamp) =>
-            loggerFactory.assertInternalErrorAsync[IllegalStateException](
-              rj.insert(rc, timestamp),
-              _.getMessage should fullyMatch regex raw"Map key .* already has value RequestData.* state = Clean.*\.",
-            )
-          }
+          _ <- FutureUnlessShutdown.outcomeF(MonadUtil.sequentialTraverse_(inserts) {
+            case (rc, timestamp) =>
+              loggerFactory.assertInternalErrorAsync[IllegalStateException](
+                rj.insert(rc, timestamp),
+                _.getMessage should fullyMatch regex raw"Map key .* already has value RequestData.* state = Clean.*\.",
+              )
+          })
         } yield succeed
       }
     }
@@ -215,7 +227,7 @@ class RequestJournalTest extends AsyncWordSpec with BaseTest with HasTestCloseCo
       "fail" in {
         val rj = mk(initRc)
         for {
-          _ <- loggerFactory.assertInternalErrorAsync[IllegalArgumentException](
+          _ <- loggerFactory.assertInternalErrorAsyncUS[IllegalArgumentException](
             rj.terminate(initRc, CantonTimestamp.Epoch, commitTime),
             _.getMessage shouldBe "Cannot transit non-existing request with request counter 0",
           )
@@ -228,7 +240,7 @@ class RequestJournalTest extends AsyncWordSpec with BaseTest with HasTestCloseCo
         val rj = mk(initRc)
         for {
           _ <- rj.insert(initRc, CantonTimestamp.Epoch)
-          _failure <- loggerFactory.assertInternalErrorAsync[IllegalStateException](
+          _failure <- loggerFactory.assertInternalErrorAsyncUS[IllegalStateException](
             rj.terminate(
               initRc,
               CantonTimestamp.ofEpochSecond(1),
@@ -245,7 +257,7 @@ class RequestJournalTest extends AsyncWordSpec with BaseTest with HasTestCloseCo
       "fail" in {
         for {
           rj <- mkWith(initRc, List(initRc -> CantonTimestamp.Epoch))
-          _ <- loggerFactory.assertInternalErrorAsync[IllegalArgumentException](
+          _ <- loggerFactory.assertInternalErrorAsyncUS[IllegalArgumentException](
             rj.terminate(
               initRc,
               CantonTimestamp.Epoch,
@@ -289,7 +301,7 @@ class RequestJournalTest extends AsyncWordSpec with BaseTest with HasTestCloseCo
         ((initRc, initTs), Pending, None),
       )
 
-      def setup(): Future[RequestJournal] =
+      def setup(): FutureUnlessShutdown[RequestJournal] =
         for {
           rj <- mkWith(initRc, inserts.map(_._1))
           _ <- inserts.parTraverse_ { case ((rc, timestamp), target, commitTime) =>
@@ -300,13 +312,14 @@ class RequestJournalTest extends AsyncWordSpec with BaseTest with HasTestCloseCo
       "queries are correct" in {
         for {
           rj <- setup()
-          _ <- inserts.parTraverse_ { case ((rc, timestamp), target, commitTime) =>
-            rj.query(rc)
-              .value
-              .map(result =>
-                assert(result.contains(new RequestData(rc, target, timestamp, commitTime, None)))
-              )
-          }
+          _ <- FutureUnlessShutdown.outcomeF(inserts.parTraverse_ {
+            case ((rc, timestamp), target, commitTime) =>
+              rj.query(rc)
+                .value
+                .map(result =>
+                  assert(result.contains(new RequestData(rc, target, timestamp, commitTime, None)))
+                )
+          })
         } yield rj.numberOfDirtyRequests shouldBe 2
       }
 
@@ -315,7 +328,7 @@ class RequestJournalTest extends AsyncWordSpec with BaseTest with HasTestCloseCo
 
       "correctly count the requests" in {
         for {
-          rj <- setup()
+          rj <- setup().failOnShutdown
           _ <- rj.insert(insertedRc, ts)
           totalCount <- rj.size()
           countUntilTs <- rj.size(end = Some(ts))

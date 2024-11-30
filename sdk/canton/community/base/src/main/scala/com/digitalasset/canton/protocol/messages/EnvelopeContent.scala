@@ -19,8 +19,8 @@ final case class EnvelopeContent(message: UnsignedProtocolMessage)(
 ) extends HasProtocolVersionedWrapper[EnvelopeContent] {
   @transient override protected lazy val companionObj: EnvelopeContent.type = EnvelopeContent
 
-  def toByteStringUnversioned: ByteString =
-    v30.EnvelopeContent(message.toProtoSomeEnvelopeContentV30).toByteString
+  private def toProtoV30: v30.EnvelopeContent =
+    v30.EnvelopeContent(message.toProtoSomeEnvelopeContentV30)
 }
 
 object EnvelopeContent
@@ -31,7 +31,7 @@ object EnvelopeContent
       ProtocolVersion.v33
     )(v30.EnvelopeContent)(
       supportedProtoVersion(_)(fromProtoV30),
-      _.toByteStringUnversioned,
+      _.toProtoV30,
     )
   )
 

@@ -51,8 +51,8 @@ import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.google.common.annotations.VisibleForTesting
 
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
-import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
 
 sealed trait TopologyStoreId extends PrettyPrinting {
@@ -226,7 +226,7 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
     */
   def findUpcomingEffectiveChanges(asOfInclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Seq[TopologyStore.Change]]
+  ): FutureUnlessShutdown[Seq[TopologyStore.Change]]
 
   /** Yields the currently valid and all upcoming topology change delays.
     * Namely:
@@ -242,7 +242,7 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
     */
   def findCurrentAndUpcomingChangeDelays(sequencedTime: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[NonEmpty[List[TopologyStore.Change.TopologyDelay]]] = for {
+  ): FutureUnlessShutdown[NonEmpty[List[TopologyStore.Change.TopologyDelay]]] = for {
     storedTransactions <- doFindCurrentAndUpcomingChangeDelays(sequencedTime)
   } yield {
     val storedDelays = storedTransactions.toList
@@ -278,7 +278,7 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
     */
   protected def doFindCurrentAndUpcomingChangeDelays(sequencedTime: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Iterable[GenericStoredTopologyTransaction]]
+  ): FutureUnlessShutdown[Iterable[GenericStoredTopologyTransaction]]
 
   /** Yields the topologyChangeDelay valid at a given time or, if there is none in the store,
     * the initial default value.
@@ -287,7 +287,7 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       asOfExclusive: CantonTimestamp
   )(implicit
       traceContext: TraceContext
-  ): Future[TopologyStore.Change.TopologyDelay] =
+  ): FutureUnlessShutdown[TopologyStore.Change.TopologyDelay] =
     for {
       txs <- findPositiveTransactions(
         asOf = asOfExclusive,
@@ -328,7 +328,7 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       validUntilMaxExclusive: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): Future[Seq[TopologyStore.Change.TopologyDelay]]
+  ): FutureUnlessShutdown[Seq[TopologyStore.Change.TopologyDelay]]
 
   /** Finds the transaction with maximum effective time that has been sequenced before `sequencedTime` and
     * yields the sequenced / effective time of that transaction.
@@ -337,7 +337,7 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
     */
   def maxTimestamp(sequencedTime: CantonTimestamp, includeRejected: Boolean)(implicit
       traceContext: TraceContext
-  ): Future[Option[(SequencedTime, EffectiveTime)]]
+  ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]]
 
   /** returns the current dispatching watermark
     *
@@ -348,24 +348,24 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
     */
   def currentDispatchingWatermark(implicit
       traceContext: TraceContext
-  ): Future[Option[CantonTimestamp]]
+  ): FutureUnlessShutdown[Option[CantonTimestamp]]
 
   /** update the dispatching watermark for this target store */
   def updateDispatchingWatermark(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   def findTransactionsAndProposalsByTxHash(asOfExclusive: EffectiveTime, hashes: Set[TxHash])(
       implicit traceContext: TraceContext
-  ): Future[Seq[GenericSignedTopologyTransaction]]
+  ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]]
 
   def findProposalsByTxHash(asOfExclusive: EffectiveTime, hashes: NonEmpty[Set[TxHash]])(implicit
       traceContext: TraceContext
-  ): Future[Seq[GenericSignedTopologyTransaction]]
+  ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]]
 
   def findTransactionsForMapping(asOfExclusive: EffectiveTime, hashes: NonEmpty[Set[MappingHash]])(
       implicit traceContext: TraceContext
-  ): Future[Seq[GenericSignedTopologyTransaction]]
+  ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]]
 
   /** returns the set of positive transactions
     *
@@ -384,7 +384,7 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       filterNamespace: Option[Seq[Namespace]],
   )(implicit
       traceContext: TraceContext
-  ): Future[PositiveStoredTopologyTransactions]
+  ): FutureUnlessShutdown[PositiveStoredTopologyTransactions]
 
   /** Updates topology transactions.
     * The method proceeds as follows:
@@ -403,18 +403,18 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       additions: Seq[GenericValidatedTopologyTransaction],
   )(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   @VisibleForTesting
   protected[topology] def dumpStoreContent()(implicit
       traceContext: TraceContext
-  ): Future[GenericStoredTopologyTransactions]
+  ): FutureUnlessShutdown[GenericStoredTopologyTransactions]
 
   /** Store an initial set of topology transactions as given into the store.
     */
   def bootstrap(snapshot: GenericStoredTopologyTransactions)(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   /** query optimized for inspection
     *
@@ -431,13 +431,13 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       namespaceFilter: Option[String],
   )(implicit
       traceContext: TraceContext
-  ): Future[StoredTopologyTransactions[TopologyChangeOp, TopologyMapping]]
+  ): FutureUnlessShutdown[StoredTopologyTransactions[TopologyChangeOp, TopologyMapping]]
 
   def inspectKnownParties(
       asOfExclusive: CantonTimestamp,
       filterParty: String,
       filterParticipant: String,
-  )(implicit traceContext: TraceContext): Future[Set[PartyId]]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PartyId]]
 
   /** Finds the topology transaction that first onboarded the sequencer with ID `sequencerId`
     */
@@ -445,7 +445,9 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       sequencerId: SequencerId
   )(implicit
       traceContext: TraceContext
-  ): Future[Option[StoredTopologyTransaction[TopologyChangeOp.Replace, SequencerDomainState]]]
+  ): FutureUnlessShutdown[
+    Option[StoredTopologyTransaction[TopologyChangeOp.Replace, SequencerDomainState]]
+  ]
 
   /** Finds the topology transaction that first onboarded the mediator with ID `mediatorId`
     */
@@ -453,7 +455,9 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       mediatorId: MediatorId
   )(implicit
       traceContext: TraceContext
-  ): Future[Option[StoredTopologyTransaction[TopologyChangeOp.Replace, MediatorDomainState]]]
+  ): FutureUnlessShutdown[
+    Option[StoredTopologyTransaction[TopologyChangeOp.Replace, MediatorDomainState]]
+  ]
 
   /** Finds the topology transaction that first onboarded the participant with ID `participantId`
     */
@@ -461,7 +465,9 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       participant: ParticipantId
   )(implicit
       traceContext: TraceContext
-  ): Future[Option[StoredTopologyTransaction[TopologyChangeOp.Replace, DomainTrustCertificate]]]
+  ): FutureUnlessShutdown[
+    Option[StoredTopologyTransaction[TopologyChangeOp.Replace, DomainTrustCertificate]]
+  ]
 
   /** Yields all transactions with sequenced time less than or equal to `asOfInclusive`.
     * Sets `validUntil` to `None`, if `validUntil` is strictly greater than the maximum value of `validFrom`.
@@ -469,11 +475,11 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
     */
   def findEssentialStateAtSequencedTime(
       asOfInclusive: SequencedTime
-  )(implicit traceContext: TraceContext): Future[GenericStoredTopologyTransactions]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[GenericStoredTopologyTransactions]
 
   def providesAdditionalSignatures(
       transaction: GenericSignedTopologyTransaction
-  )(implicit traceContext: TraceContext): Future[Boolean] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean] =
     findStored(CantonTimestamp.MaxValue, transaction).map(_.forall { inStore =>
       // check whether source still could provide an additional signature
       transaction.signatures.diff(inStore.transaction.signatures.forgetNE).nonEmpty &&
@@ -506,7 +512,7 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       limit: Option[Int],
   )(implicit
       traceContext: TraceContext
-  ): Future[GenericStoredTopologyTransactions]
+  ): FutureUnlessShutdown[GenericStoredTopologyTransactions]
 
   /** Finds the last (i.e. highest id) stored transaction with `validFrom` strictly before `asOfExclusive` that has
     * the same hash as `transaction` and the representative protocol version for the given `protocolVersion`.
@@ -518,7 +524,7 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
-  ): Future[Option[GenericStoredTopologyTransaction]]
+  ): FutureUnlessShutdown[Option[GenericStoredTopologyTransaction]]
 
   /** Finds the last (i.e. highest id) stored transaction with `validFrom` strictly before `asOfExclusive` that has
     * the same hash as `transaction`.
@@ -529,7 +535,7 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       includeRejected: Boolean = false,
   )(implicit
       traceContext: TraceContext
-  ): Future[Option[GenericStoredTopologyTransaction]]
+  ): FutureUnlessShutdown[Option[GenericStoredTopologyTransaction]]
 }
 
 object TopologyStore {
@@ -580,6 +586,7 @@ object TopologyStore {
   def apply[StoreID <: TopologyStoreId](
       storeId: StoreID,
       storage: Storage,
+      protocolVersion: ProtocolVersion,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(implicit
@@ -588,13 +595,13 @@ object TopologyStore {
     val storeLoggerFactory = loggerFactory.append("store", storeId.toString)
     storage match {
       case _: MemoryStorage =>
-        new InMemoryTopologyStore(storeId, storeLoggerFactory, timeouts)
+        new InMemoryTopologyStore(storeId, protocolVersion, storeLoggerFactory, timeouts)
       case dbStorage: DbStorage =>
-        new DbTopologyStore(dbStorage, storeId, timeouts, storeLoggerFactory)
+        new DbTopologyStore(dbStorage, storeId, protocolVersion, timeouts, storeLoggerFactory)
     }
   }
 
-  lazy val initialParticipantDispatchingSet = Set(
+  lazy val initialParticipantDispatchingSet: Set[TopologyMapping.Code] = Set(
     TopologyMapping.Code.DomainTrustCertificate,
     TopologyMapping.Code.OwnerToKeyMapping,
     TopologyMapping.Code.NamespaceDelegation,
@@ -622,10 +629,13 @@ object TopologyStore {
       traceContext: TraceContext,
       executionContext: ExecutionContext,
   ): FutureUnlessShutdown[Boolean] =
-    client.await(
+    client.awaitUS(
       // we know that the transaction is stored and effective once we find it in the target
       // domain store and once the effective time (valid from) is smaller than the client timestamp
-      sp => target.findStored(sp.timestamp, transaction, includeRejected = true).map(_.nonEmpty),
+      sp =>
+        target
+          .findStored(sp.timestamp, transaction, includeRejected = true)
+          .map(_.nonEmpty),
       timeout,
     )
 }

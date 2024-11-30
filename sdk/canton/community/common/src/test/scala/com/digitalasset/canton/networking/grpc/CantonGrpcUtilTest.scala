@@ -9,6 +9,7 @@ import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.domain.api.v0.HelloServiceGrpc.{HelloService, HelloServiceStub}
 import com.digitalasset.canton.domain.api.v0.{Hello, HelloServiceGrpc}
 import com.digitalasset.canton.lifecycle.OnShutdownRunner.PureOnShutdownRunner
+import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.networking.grpc.GrpcError.*
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
@@ -22,6 +23,7 @@ import org.scalatest.Outcome
 import org.scalatest.wordspec.FixtureAnyWordSpec
 
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 
@@ -419,6 +421,53 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
         err.status.getCode shouldBe INTERNAL
         err.status.getDescription shouldBe "test description"
         err.status.getCause shouldBe cause
+      }
+    }
+
+    def fastClosing(triggerClose: () => Unit)(env: Env): Unit = {
+      import env.*
+
+      val requestMade = new AtomicBoolean(false)
+
+      server.start()
+      when(service.hello(request)).thenAnswer { (_: Hello.Request) =>
+        requestMade.set(true)
+        Future.never
+      }
+
+      val longTimeout = 1.hour
+
+      val start = System.nanoTime()
+
+      val requestF =
+        CantonGrpcUtil.sendGrpcRequest(client, "serverName")(
+          _.hello(request),
+          "command",
+          longTimeout,
+          logger,
+        )
+      eventually() {
+        requestMade.get() shouldBe true
+      }
+      triggerClose()
+      requestF.value.unwrap.futureValue shouldBe AbortedDueToShutdown
+
+      val stop = System.nanoTime()
+      val duration = Duration.fromNanos(stop - start)
+      duration shouldBe <(2.seconds) // shorter than the normal shutdown timeouts
+    }
+
+    "the client closes the channel" must {
+      "terminate immediately" in { env =>
+        import env.*
+        fastClosing(() => client.channel.close())(env)
+      }
+    }
+
+    "the client is closed" must {
+      "terminate immediately" in { env =>
+        import env.*
+        fastClosing(() => onShutdownRunner.close())(env)
       }
     }
 

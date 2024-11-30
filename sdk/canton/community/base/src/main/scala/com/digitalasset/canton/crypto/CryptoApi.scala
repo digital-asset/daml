@@ -31,7 +31,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
 import com.google.protobuf.ByteString
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Wrapper class to simplify crypto dependency management */
 class Crypto(
@@ -161,16 +161,11 @@ trait SyncCryptoApi {
   def ipsSnapshot: TopologySnapshot
 
   /** Signs the given hash using the private signing key. */
-  def sign(hash: Hash)(implicit
+  def sign(
+      hash: Hash
+  )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, Signature]
-
-  /** Decrypts a message using the private key of the public key identified by the fingerprint
-    * in the AsymmetricEncrypted object.
-    */
-  def decrypt[M](encryptedMessage: AsymmetricEncrypted[M])(
-      deserialize: ByteString => Either[DeserializationError, M]
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SyncCryptoError, M]
 
   /** Verify signature of a given owner
     *
@@ -180,13 +175,13 @@ trait SyncCryptoApi {
       hash: Hash,
       signer: Member,
       signature: Signature,
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit]
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit]
 
   def verifySignatures(
       hash: Hash,
       signer: Member,
       signatures: NonEmpty[Seq[Signature]],
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit]
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit]
 
   /** Verifies a list of `signatures` to be produced by active members of a `mediatorGroup`,
     * counting each member's signature only once.
@@ -198,12 +193,12 @@ trait SyncCryptoApi {
       hash: Hash,
       mediatorGroupIndex: MediatorGroupIndex,
       signatures: NonEmpty[Seq[Signature]],
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit]
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit]
 
   def verifySequencerSignatures(
       hash: Hash,
       signatures: NonEmpty[Seq[Signature]],
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit]
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit]
 
   /** This verifies that at least one of the signature is a valid sequencer signature.
     * In particular, it does not respect the participant trust threshold.
@@ -215,7 +210,14 @@ trait SyncCryptoApi {
   def unsafePartialVerifySequencerSignatures(
       hash: Hash,
       signatures: NonEmpty[Seq[Signature]],
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit]
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit]
+
+  /** Decrypts a message using the private key of the public key identified by the fingerprint
+    * in the AsymmetricEncrypted object.
+    */
+  def decrypt[M](encryptedMessage: AsymmetricEncrypted[M])(
+      deserialize: ByteString => Either[DeserializationError, M]
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SyncCryptoError, M]
 
   /** Encrypts a message for the given members
     *
@@ -228,6 +230,9 @@ trait SyncCryptoApi {
       version: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, (MemberType, SyncCryptoError), Map[MemberType, AsymmetricEncrypted[M]]]
+  ): EitherT[FutureUnlessShutdown, (MemberType, SyncCryptoError), Map[
+    MemberType,
+    AsymmetricEncrypted[M],
+  ]]
 }
 // architecture-handbook-entry-end: SyncCryptoApi

@@ -36,7 +36,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class ReassignmentCoordination(
     reassignmentStoreFor: Target[DomainId] => Either[ReassignmentProcessorError, ReassignmentStore],
     recentTimeProofFor: RecentTimeProofProvider,
-    inSubmissionById: DomainId => Option[ReassignmentSubmissionHandle],
+    reassignmentSubmissionFor: DomainId => Option[ReassignmentSubmissionHandle],
     val staticDomainParameterFor: Traced[DomainId] => Option[StaticDomainParameters],
     syncCryptoApi: SyncCryptoApiProvider,
     override val loggerFactory: NamedLoggerFactory,
@@ -49,7 +49,7 @@ class ReassignmentCoordination(
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, UnknownDomain, Unit] =
-    inSubmissionById(domain.unwrap) match {
+    reassignmentSubmissionFor(domain.unwrap) match {
       case Some(handle) =>
         handle.timeTracker.requestTick(timestamp, immediately = true)
         EitherT.right(handle.timeTracker.awaitTick(timestamp).map(_.void).getOrElse(Future.unit))
@@ -94,7 +94,7 @@ class ReassignmentCoordination(
   ): Either[ReassignmentProcessorError, Option[Future[Unit]]] =
     (for {
       cryptoApi <- syncCryptoApi.forDomain(domain.unwrap, staticDomainParameters.unwrap)
-      handle <- inSubmissionById(domain.unwrap)
+      handle <- reassignmentSubmissionFor(domain.unwrap)
     } yield {
       handle.timeTracker.requestTick(timestamp, immediately = true)
       cryptoApi.awaitTimestamp(timestamp)
@@ -133,7 +133,7 @@ class ReassignmentCoordination(
 
     for {
       inSubmission <- EitherT.fromEither[Future](
-        inSubmissionById(targetDomain.unwrap).toRight(
+        reassignmentSubmissionFor(targetDomain.unwrap).toRight(
           UnknownDomain(targetDomain.unwrap, "When submitting assignment")
         )
       )
@@ -306,7 +306,7 @@ object ReassignmentCoordination {
     new ReassignmentCoordination(
       reassignmentStoreFor = domainDataFor,
       recentTimeProofFor = recentTimeProofProvider,
-      inSubmissionById = submissionHandles,
+      reassignmentSubmissionFor = submissionHandles,
       staticDomainParameterFor = staticDomainParametersGetter,
       syncCryptoApi = syncCryptoApi,
       loggerFactory = loggerFactory,

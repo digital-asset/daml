@@ -362,4 +362,7 @@ final class ProgrammableUnitTestContext[MessageT](resolveAwaits: Boolean = false
 
   override def zipFuture[X, Y](future1: () => X, future2: () => Y): () => (X, Y) =
     () => (future1(), future2())
+
+  override def sequenceFuture[A, F[_]](futures: F[() => A])(implicit ev: Traverse[F]): () => F[A] =
+    ev.sequence(futures)
 }

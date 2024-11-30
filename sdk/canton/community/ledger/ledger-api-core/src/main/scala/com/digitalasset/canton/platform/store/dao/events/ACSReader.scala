@@ -266,7 +266,7 @@ class ACSReader(
         dispatcher.executeSql(metrics.index.db.getAssingIdsForOffsets) { connection =>
           val ids =
             eventStorageBackend
-              .lookupAssignSequentialIdByOffset(offsets.map(_.toHexString))(connection)
+              .lookupAssignSequentialIdByOffset(offsets.map(_.unwrap))(connection)
           logger.debug(
             s"Assign Ids for offsets returned #${ids.size} (from ${offsets.size}) ${ids.lastOption
                 .map(last => s"until $last")
@@ -283,7 +283,7 @@ class ACSReader(
         dispatcher.executeSql(metrics.index.db.getUnassingIdsForOffsets) { connection =>
           val ids =
             eventStorageBackend
-              .lookupUnassignSequentialIdByOffset(offsets.map(_.toHexString))(connection)
+              .lookupUnassignSequentialIdByOffset(offsets.map(_.unwrap))(connection)
           logger.debug(
             s"Unassign Ids for offsets returned #${ids.size} (from ${offsets.size}) ${ids.lastOption
                 .map(last => s"until $last")
@@ -515,7 +515,7 @@ class ACSReader(
             def incompleteOffsetPages: () => Iterator[Vector[Offset]] =
               () => offsets.sliding(config.maxIncompletePageSize, config.maxIncompletePageSize)
 
-            val incompleteAssigned: Source[(String, GetActiveContractsResponse), NotUsed] =
+            val incompleteAssigned: Source[(Long, GetActiveContractsResponse), NotUsed] =
               Source
                 .fromIterator(incompleteOffsetPages)
                 .mapAsync(config.maxParallelIdCreateQueries)(
@@ -531,7 +531,7 @@ class ACSReader(
                   toApiResponseIncompleteAssigned(eventProjectionProperties)
                 )
 
-            val incompleteUnassigned: Source[(String, GetActiveContractsResponse), NotUsed] =
+            val incompleteUnassigned: Source[(Long, GetActiveContractsResponse), NotUsed] =
               Source
                 .fromIterator(incompleteOffsetPages)
                 .mapAsync(config.maxParallelIdCreateQueries)(
@@ -592,7 +592,7 @@ class ACSReader(
 
   private def toApiResponseIncompleteAssigned(eventProjectionProperties: EventProjectionProperties)(
       rawAssignEntry: Entry[RawAssignEvent]
-  )(implicit lc: LoggingContextWithTrace): Future[(String, GetActiveContractsResponse)] =
+  )(implicit lc: LoggingContextWithTrace): Future[(Long, GetActiveContractsResponse)] =
     Timed.future(
       future = Future.delegate(
         lfValueTranslation
@@ -617,7 +617,7 @@ class ACSReader(
       eventProjectionProperties: EventProjectionProperties
   )(
       rawUnassignEntryWithCreate: (Entry[RawUnassignEvent], RawCreatedEvent)
-  )(implicit lc: LoggingContextWithTrace): Future[(String, GetActiveContractsResponse)] = {
+  )(implicit lc: LoggingContextWithTrace): Future[(Long, GetActiveContractsResponse)] = {
     val (rawUnassignEntry, rawCreate) = rawUnassignEntryWithCreate
     Timed.future(
       future = lfValueTranslation

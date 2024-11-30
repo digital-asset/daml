@@ -48,6 +48,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
       SELECT min(event_sequential_id) as min, max(event_sequential_id) as max, count(event_sequential_id) as count
       FROM sequential_ids, lapi_parameters
       WHERE
+        lapi_parameters.ledger_end_sequential_id is not null and
         event_sequential_id <= lapi_parameters.ledger_end_sequential_id and
         (
           lapi_parameters.participant_pruned_up_to_inclusive is null or
@@ -62,7 +63,8 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
        WITH sequential_ids AS (#$allSequentialIds)
        SELECT event_sequential_id as id, count(*) as count
        FROM sequential_ids, lapi_parameters
-       WHERE event_sequential_id <= lapi_parameters.ledger_end_sequential_id
+       WHERE lapi_parameters.ledger_end_sequential_id is not null
+       AND event_sequential_id <= lapi_parameters.ledger_end_sequential_id
        GROUP BY event_sequential_id
        HAVING count(*) > 1
        FETCH NEXT #$maxReportedDuplicates ROWS ONLY
@@ -85,7 +87,8 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
        WITH event_ids AS (#$allEventIds)
        SELECT event_offset, node_index, count(*) as count
        FROM event_ids, lapi_parameters
-       WHERE event_offset <= lapi_parameters.ledger_end
+       WHERE lapi_parameters.ledger_end is not null
+       AND event_offset <= lapi_parameters.ledger_end
        GROUP BY event_offset, node_index
        HAVING count(*) > 1
        FETCH NEXT #$maxReportedDuplicates ROWS ONLY
@@ -106,7 +109,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
     val duplicateSeqIds = SqlDuplicateEventSequentialIds
       .as(long("id").*)(connection)
     val duplicateOffsets = SqlDuplicateOffsets
-      .as(str("event_offset").*)(connection)
+      .as(long("event_offset").*)(connection)
     val summary = SqlEventSequentialIdsSummary
       .as(eventSequantialIdsParser.single)(connection)
 

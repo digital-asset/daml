@@ -5,13 +5,14 @@ package com.digitalasset.canton.domain.sequencing.topology
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerSnapshot
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit.DefaultHeadStateInitializer
 import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** If a snapshot is provided, updates the topology client's head state up to
   * [[com.digitalasset.canton.domain.sequencing.sequencer.SequencerSnapshot.lastTs]], because this is up to where
@@ -28,7 +29,7 @@ final class SequencerSnapshotBasedTopologyHeadInitializer(
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[DomainTopologyClientWithInit] =
+  ): FutureUnlessShutdown[DomainTopologyClientWithInit] =
     sequencerSnapshot match {
       case Some(snapshot) =>
         store

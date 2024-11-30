@@ -38,7 +38,7 @@ class CachedIdentityProviderConfigStore(
         .maximumSize(maximumCacheSize.toLong),
       loader = issuer => delegate.getIdentityProviderConfig(issuer),
       metrics = Some(metrics.identityProviderConfigStore.idpConfigCache),
-    )(logger)
+    )(logger, "idpByIssuer")
 
   override def createIdentityProviderConfig(identityProviderConfig: IdentityProviderConfig)(implicit
       loggingContext: LoggingContextWithTrace

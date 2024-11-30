@@ -19,6 +19,7 @@ import com.digitalasset.canton.http.domain.{
   ExerciseCommand,
   ExerciseResponse,
   JwtWritePayload,
+  Offset,
 }
 import com.digitalasset.canton.http.util.ClientUtil.uniqueCommandId
 import com.digitalasset.canton.http.util.FutureUtil.*
@@ -28,7 +29,6 @@ import com.digitalasset.canton.http.util.{Commands, Transactions}
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.digitalasset.canton.ledger.service.Grpc.StatusEnvelope
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import scalaz.std.scalaFuture.*
@@ -95,7 +95,7 @@ class CommandService(
         contract.signatories,
         contract.observers,
         domain.CompletionOffset(
-          response.transaction.map(_.offset).map(ApiOffset.fromLong).getOrElse("")
+          response.transaction.map(_.offset).map(Offset.fromLong).getOrElse("")
         ),
       )
       et.run
@@ -129,7 +129,7 @@ class CommandService(
               exerciseResult,
               contracts,
               domain.CompletionOffset(
-                response.transaction.map(_.offset).map(ApiOffset.fromLong).getOrElse("")
+                response.transaction.map(_.offset).map(Offset.fromLong).getOrElse("")
               ),
             )
 
@@ -159,7 +159,7 @@ class CommandService(
         exerciseResult,
         contracts,
         domain.CompletionOffset(
-          response.transaction.map(_.offset).map(ApiOffset.fromLong).getOrElse("")
+          response.transaction.map(_.offset).map(Offset.fromLong).getOrElse("")
         ),
       )
       et.run

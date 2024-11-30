@@ -77,8 +77,8 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
     "return correct value in happy path" in {
       val selector = selectorForExerciseByInterface()
 
-      selector.forSingleDomain.futureValue shouldBe defaultDomainRank
-      selector.forMultiDomain.futureValue shouldBe defaultDomainRank
+      selector.forSingleDomain.futureValueUS.value shouldBe defaultDomainRank
+      selector.forMultiDomain.futureValueUS.value shouldBe defaultDomainRank
     }
 
     "return an error when not connected to the domain" in {
@@ -86,10 +86,14 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
       val expected = TransactionRoutingError.UnableToQueryTopologySnapshot.Failed(da)
 
       // Single domain
-      selector.forSingleDomain.leftValue shouldBe expected
+      selector.forSingleDomain.futureValueUS.leftOrFail(
+        "FutureValueUS failed for single domain"
+      ) shouldBe expected
 
       // Multi domain
-      selector.forMultiDomain.leftValue shouldBe NoDomainForSubmission.Error(
+      selector.forMultiDomain.futureValueUS.leftOrFail(
+        "FutureValueUS failed for multi domain"
+      ) shouldBe NoDomainForSubmission.Error(
         Map(da -> expected.toString)
       )
     }
@@ -101,7 +105,7 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
       )
 
       // Single domain: failure
-      selector.forSingleDomain.leftValue shouldBe InvalidPrescribedDomainId
+      selector.forSingleDomain.futureValueUS.leftOrFail("") shouldBe InvalidPrescribedDomainId
         .NotAllInformeeAreOnDomain(
           da,
           domainsOfAllInformee = NonEmpty.mk(Set, acme),
@@ -109,7 +113,7 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
 
       // Multi domain: reassignment proposal (da -> acme)
       val domainRank = reassignmentsDaToAcme(selector.inputContractIds)
-      selector.forMultiDomain.futureValue shouldBe domainRank
+      selector.forMultiDomain.futureValueUS.value shouldBe domainRank
 
       // Multi domain, missing connection to acme: error
       val selectorMissingConnection = selectorForExerciseByInterface(
@@ -117,7 +121,9 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
         connectedDomains = Set(da),
       )
 
-      selectorMissingConnection.forMultiDomain.leftValue shouldBe NoDomainForSubmission.Error(
+      selectorMissingConnection.forMultiDomain.futureValueUS.leftOrFail(
+        ""
+      ) shouldBe NoDomainForSubmission.Error(
         Map(acme -> TransactionRoutingError.UnableToQueryTopologySnapshot.Failed(acme).toString)
       )
     }
@@ -128,7 +134,7 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
         admissibleDomains = NonEmpty.mk(Set, acme, repair),
         connectedDomains = Set(acme, da, repair),
         priorityOfDomain = d => if (d == bestDomain) 10 else 0,
-      ).forMultiDomain.futureValue.domainId
+      ).forMultiDomain.futureValueUS.value.domainId
 
       pickDomain(acme) shouldBe acme
       pickDomain(repair) shouldBe repair
@@ -156,12 +162,16 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
         lfVersion = transactionVersion,
       )
 
-      selectorOldPV.forSingleDomain.leftValue shouldBe InvalidPrescribedDomainId.Generic(
+      selectorOldPV.forSingleDomain.leftOrFailShutdown(
+        "aborted due to shutdown."
+      ) shouldBe InvalidPrescribedDomainId.Generic(
         da,
         expectedError.toString,
       )
 
-      selectorOldPV.forMultiDomain.leftValue shouldBe NoDomainForSubmission.Error(
+      selectorOldPV.forMultiDomain.leftOrFailShutdown(
+        "aborted due to shutdown."
+      ) shouldBe NoDomainForSubmission.Error(
         Map(da -> expectedError.toString)
       )
 
@@ -171,8 +181,8 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
         domainProtocolVersion = _ => newPV,
       )
 
-      selectorNewPV.forSingleDomain.futureValue shouldBe defaultDomainRank
-      selectorNewPV.forMultiDomain.futureValue shouldBe defaultDomainRank
+      selectorNewPV.forSingleDomain.futureValueUS shouldBe defaultDomainRank
+      selectorNewPV.forMultiDomain.futureValueUS shouldBe defaultDomainRank
     }
 
     "refuse to route to a domain with missing package vetting" in {
@@ -191,12 +201,13 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
           ),
         )
 
-        selector.forSingleDomain.leftValue shouldBe InvalidPrescribedDomainId.Generic(
+        selector.forSingleDomain.futureValueUS
+          .leftOrFail("") shouldBe InvalidPrescribedDomainId.Generic(
           da,
           expectedError.toString,
         )
 
-        selector.forMultiDomain.leftValue shouldBe NoDomainForSubmission.Error(
+        selector.forMultiDomain.futureValueUS.leftOrFail("") shouldBe NoDomainForSubmission.Error(
           Map(da -> expectedError.toString)
         )
       }
@@ -258,8 +269,10 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
         topology = topology,
       )
 
-      selector.forSingleDomain.leftValue shouldBe InputContractsOnDifferentDomains(Set(da, repair))
-      selector.forMultiDomain.futureValue shouldBe DomainRank(
+      selector.forSingleDomain.futureValueUS.leftOrFail(
+        ""
+      ) shouldBe InputContractsOnDifferentDomains(Set(da, repair))
+      selector.forMultiDomain.futureValueUS.value shouldBe DomainRank(
         reassignments = Map(treeExercises.inputContract3Id -> (signatory, da)),
         priority = 0,
         domainId = repair,
@@ -272,8 +285,8 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
           prescribedDomainId = Some(da)
         )
 
-        selector.forSingleDomain.futureValue shouldBe defaultDomainRank
-        selector.forMultiDomain.futureValue shouldBe defaultDomainRank
+        selector.forSingleDomain.futureValueUS.value shouldBe defaultDomainRank
+        selector.forMultiDomain.futureValueUS.value shouldBe defaultDomainRank
       }
 
       "return an error when prescribed domain is incorrect" in {
@@ -283,14 +296,14 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
         )
 
         // Single domain: prescribed domain should be domain of input contract
-        selector.forSingleDomain.leftValue shouldBe InvalidPrescribedDomainId
+        selector.forSingleDomain.futureValueUS.leftOrFail("") shouldBe InvalidPrescribedDomainId
           .InputContractsNotOnDomain(
             domainId = acme,
             inputContractDomain = da,
           )
 
         // Multi domain
-        selector.forMultiDomain.leftValue shouldBe InvalidPrescribedDomainId
+        selector.forMultiDomain.futureValueUS.leftOrFail("") shouldBe InvalidPrescribedDomainId
           .NotAllInformeeAreOnDomain(
             acme,
             domainsOfAllInformee = NonEmpty.mk(Set, da),
@@ -305,7 +318,7 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
         )
 
         // Single domain: prescribed domain should be domain of input contract
-        selector.forSingleDomain.leftValue shouldBe InvalidPrescribedDomainId
+        selector.forSingleDomain.futureValueUS.leftOrFail("") shouldBe InvalidPrescribedDomainId
           .InputContractsNotOnDomain(
             domainId = acme,
             inputContractDomain = da,
@@ -313,7 +326,7 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
 
         // Multi domain: reassignment proposal (da -> acme)
         val domainRank = reassignmentsDaToAcme(selector.inputContractIds)
-        selector.forMultiDomain.futureValue shouldBe domainRank
+        selector.forMultiDomain.futureValueUS.value shouldBe domainRank
       }
     }
   }
@@ -347,7 +360,7 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
           connectedDomains = domains,
           admissibleDomains = domains,
           domainOfContracts = _ => domainOfContracts,
-        ).forMultiDomain.futureValue
+        ).forMultiDomain.futureValueUS.value
 
       /*
         Two contracts on acme, one on repair
@@ -563,7 +576,8 @@ private[routing] object DomainSelectorTest {
           disclosedContracts = Nil,
         )
 
-      private val domainSelector: EitherT[Future, TransactionRoutingError, DomainSelector] =
+      private val domainSelector
+          : EitherT[FutureUnlessShutdown, TransactionRoutingError, DomainSelector] =
         transactionDataET
           .map { transactionData =>
             new DomainSelector(
@@ -575,12 +589,11 @@ private[routing] object DomainSelectorTest {
               loggerFactory = loggerFactory,
             )
           }
-          .mapK(FutureUnlessShutdown.failOnShutdownToAbortExceptionK("test"))
 
-      def forSingleDomain: EitherT[Future, TransactionRoutingError, DomainRank] =
+      def forSingleDomain: EitherT[FutureUnlessShutdown, TransactionRoutingError, DomainRank] =
         domainSelector.flatMap(_.forSingleDomain)
 
-      def forMultiDomain: EitherT[Future, TransactionRoutingError, DomainRank] =
+      def forMultiDomain: EitherT[FutureUnlessShutdown, TransactionRoutingError, DomainRank] =
         domainSelector.flatMap(_.forMultiDomain)
     }
   }

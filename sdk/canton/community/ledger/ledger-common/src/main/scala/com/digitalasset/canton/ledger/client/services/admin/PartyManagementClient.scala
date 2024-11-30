@@ -80,18 +80,6 @@ final class PartyManagementClient(service: PartyManagementServiceStub)(implicit
       .getParties(PartyManagementClient.getPartiesRequest(parties))
       .map(_.partyDetails.view.map(PartyManagementClient.details).toList)
 
-  // TODO(i21344): Remove this overload altogether, once the daml side uses the other one.
-  def allocateParty(
-      hint: Option[String],
-      deprecatedDisplayName: Option[String],
-      token: Option[String],
-  )(implicit traceContext: TraceContext): Future[PartyDetails] =
-    if (deprecatedDisplayName.isDefined) {
-      Future.failed(new RuntimeException(s"deprecatedDisplayName was set: $deprecatedDisplayName"))
-    } else {
-      allocateParty(hint, token)
-    }
-
   def allocateParty(
       hint: Option[String],
       token: Option[String] = None,

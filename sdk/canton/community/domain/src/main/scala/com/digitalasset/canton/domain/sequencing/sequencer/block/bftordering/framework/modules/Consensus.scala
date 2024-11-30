@@ -13,8 +13,11 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   EpochNumber,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.availability.OrderingBlock
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.OrderedBlock
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.{
+  CommitCertificate,
+  OrderedBlock,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.topology.{
   Membership,
   OrderingTopology,
@@ -23,14 +26,10 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   MessageFrom,
   SignedMessage,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
-  Commit,
-  PrePrepare,
-}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.{Env, Module}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
+import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
@@ -161,34 +160,14 @@ object Consensus {
               supportedProtoVersionMemoized(_)(
                 fromProtoStateTransferMessage
               ),
-              _.toProto.toByteString,
+              _.toProto,
             )
         )
     }
 
-    final case class BlockTransferData private (prePrepare: SignedMessage[PrePrepare]) {
-      def toProto: v1.BlockTransferData =
-        v1.BlockTransferData.of(Some(prePrepare.toProto))
-    }
-    object BlockTransferData {
-      def create(prePrepare: SignedMessage[PrePrepare]): BlockTransferData = BlockTransferData(
-        prePrepare
-      )
-
-      def fromProto(protoData: v1.BlockTransferData): ParsingResult[BlockTransferData] =
-        for {
-          signedMessage <- ProtoConverter.required("blockPrePrepare", protoData.blockPrePrepare)
-          prePrepare <-
-            SignedMessage.fromProto(v1.ConsensusMessage)(
-              ConsensusSegment.ConsensusMessage.PrePrepare.fromProtoConsensusMessage
-            )(signedMessage)
-        } yield BlockTransferData(prePrepare)
-    }
-
     final case class BlockTransferResponse private (
         latestCompletedEpoch: EpochNumber,
-        blockTransferData: Seq[BlockTransferData],
-        lastBlockCommits: Seq[SignedMessage[Commit]],
+        commitCertificates: Seq[CommitCertificate],
         from: SequencerId,
     )(
         override val representativeProtocolVersion: RepresentativeProtocolVersion[
@@ -197,18 +176,15 @@ object Consensus {
         override val deserializedFrom: Option[ByteString],
     ) extends StateTransferNetworkMessage
         with HasProtocolVersionedWrapper[BlockTransferResponse] {
-      def toProto: v1.StateTransferMessage = {
-        val protoLastBlockCommits = lastBlockCommits.view.map(_.toProto).toSeq
+      def toProto: v1.StateTransferMessage =
         v1.StateTransferMessage.of(
           v1.StateTransferMessage.Message.BlockResponse(
             v1.BlockTransferResponse.of(
               latestCompletedEpoch,
-              blockTransferData.view.map(_.toProto).toSeq,
-              protoLastBlockCommits,
+              commitCertificates.view.map(_.toProto).toSeq,
             )
           )
         )
-      }
       override protected val companionObj: BlockTransferResponse.type = BlockTransferResponse
 
       override protected[this] def toByteStringUnmemoized: ByteString =
@@ -223,13 +199,11 @@ object Consensus {
       override def name: String = "BlockTransferResponse"
       def create(
           latestCompletedEpoch: EpochNumber,
-          blockTransferData: Seq[BlockTransferData],
-          lastBlockCommits: Seq[SignedMessage[Commit]],
+          commitCertificates: Seq[CommitCertificate],
           from: SequencerId,
       ): BlockTransferResponse = BlockTransferResponse(
         latestCompletedEpoch,
-        blockTransferData,
-        lastBlockCommits,
+        commitCertificates,
         from,
       )(
         protocolVersionRepresentativeFor(ProtocolVersion.minimum),
@@ -248,28 +222,17 @@ object Consensus {
       def fromProto(
           from: SequencerId,
           protoResponse: v1.BlockTransferResponse,
-      )(originalByteString: ByteString): ParsingResult[BlockTransferResponse] = {
-        val blockTransferDataE = protoResponse.blockTransferData.traverse {
-          BlockTransferData.fromProto
-        }
-
-        val lastBlockCommitsE = protoResponse.lastBlockCommits.traverse {
-          SignedMessage.fromProto(v1.ConsensusMessage)(
-            ConsensusSegment.ConsensusMessage.Commit.fromProtoConsensusMessage
-          )
-        }
-
+      )(originalByteString: ByteString): ParsingResult[BlockTransferResponse] =
         for {
-          blockTransferData <- blockTransferDataE
-          lastBlockCommits <- lastBlockCommitsE
+          commitCertificates <- protoResponse.commitCertificates.traverse(
+            CommitCertificate.fromProto
+          )
           rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
         } yield BlockTransferResponse(
           EpochNumber(protoResponse.latestCompletedEpoch),
-          blockTransferData,
-          lastBlockCommits,
+          commitCertificates,
           from,
         )(rpv, Some(originalByteString))
-      }
 
       override def supportedProtoVersions: SupportedProtoVersions =
         SupportedProtoVersions(
@@ -280,7 +243,7 @@ object Consensus {
               supportedProtoVersionMemoized(_)(
                 fromProtoStateTransferMessage
               ),
-              _.toProto.toByteString,
+              _.toProto,
             )
         )
     }
@@ -293,9 +256,9 @@ object Consensus {
         to: SequencerId,
     ) extends StateTransferMessage
 
-    final case class BlockStored[E <: Env[E]](
-        blockTransferData: BlockTransferData,
-        fullResponse: StateTransferMessage.BlockTransferResponse,
+    final case class BlocksStored[E <: Env[E]](
+        commitCertificates: Seq[CommitCertificate],
+        stateTransferEndEpoch: EpochNumber,
     ) extends StateTransferMessage
   }
 

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.protocol.submission
 
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.protocol.submission.DomainSelectionFixture.*
 import com.digitalasset.canton.participant.protocol.submission.DomainSelectionFixture.Transactions.ExerciseByInterface
@@ -13,13 +14,17 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.VettedPackage
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{DamlLfVersionToProtocolVersions, ProtocolVersion}
-import com.digitalasset.canton.{BaseTest, HasExecutionContext, LfPartyId}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, LfPartyId}
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.*
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
-class DomainsFilterTest extends AnyWordSpec with BaseTest with HasExecutionContext {
+class DomainsFilterTest
+    extends AnyWordSpec
+    with BaseTest
+    with HasExecutionContext
+    with FailOnShutdown {
   "DomainsFilter (simple create)" should {
     import SimpleTopology.*
 
@@ -34,7 +39,7 @@ class DomainsFilterTest extends AnyWordSpec with BaseTest with HasExecutionConte
 
     "keep domains that satisfy all the constraints" in {
       val (unusableDomains, usableDomains) =
-        filter.split(loggerFactory, correctTopology, correctPackages).futureValue
+        filter.split(loggerFactory, correctTopology, correctPackages).futureValueUS
 
       unusableDomains shouldBe empty
       usableDomains shouldBe List(DefaultTestIdentities.domainId)
@@ -45,7 +50,7 @@ class DomainsFilterTest extends AnyWordSpec with BaseTest with HasExecutionConte
       val topology = correctTopology.filterNot { case (partyId, _) => partyId == partyNotConnected }
 
       val (unusableDomains, usableDomains) =
-        filter.split(loggerFactory, topology, correctPackages).futureValue
+        filter.split(loggerFactory, topology, correctPackages).futureValueUS
 
       unusableDomains shouldBe List(
         UsableDomain.MissingActiveParticipant(
@@ -70,7 +75,7 @@ class DomainsFilterTest extends AnyWordSpec with BaseTest with HasExecutionConte
         val (unusableDomains, usableDomains) =
           filter
             .split(loggerFactory, correctTopology, packagesWithModifedValidityPeriod)
-            .futureValue
+            .futureValueUS
         usableDomains shouldBe empty
 
         unusableDomains shouldBe List(
@@ -93,7 +98,7 @@ class DomainsFilterTest extends AnyWordSpec with BaseTest with HasExecutionConte
       val packages = correctPackages.filterNot(_.packageId == missingPackage)
 
       val (unusableDomains, usableDomains) =
-        filter.split(loggerFactory, correctTopology, packages).futureValue
+        filter.split(loggerFactory, correctTopology, packages).futureValueUS
       usableDomains shouldBe empty
 
       unusableDomains shouldBe List(
@@ -123,7 +128,7 @@ class DomainsFilterTest extends AnyWordSpec with BaseTest with HasExecutionConte
       val (unusableDomains, usableDomains) =
         filter
           .split(loggerFactory, correctTopology, Transactions.Create.correctPackages)
-          .futureValue
+          .futureValueUS
       val requiredPV = DamlLfVersionToProtocolVersions.damlLfVersionToMinimumProtocolVersions
         .get(LfLanguageVersion.v2_dev)
         .value
@@ -149,7 +154,7 @@ class DomainsFilterTest extends AnyWordSpec with BaseTest with HasExecutionConte
 
     "keep domains that satisfy all the constraints" in {
       val (unusableDomains, usableDomains) =
-        filter.split(loggerFactory, correctTopology, correctPackages).futureValue
+        filter.split(loggerFactory, correctTopology, correctPackages).futureValueUS
 
       unusableDomains shouldBe empty
       usableDomains shouldBe List(DefaultTestIdentities.domainId)
@@ -175,7 +180,7 @@ class DomainsFilterTest extends AnyWordSpec with BaseTest with HasExecutionConte
         }
 
         val (unusableDomains, usableDomains) =
-          filter.split(loggerFactory, correctTopology, packages).futureValue
+          filter.split(loggerFactory, correctTopology, packages).futureValueUS
 
         usableDomains shouldBe empty
         unusableDomains shouldBe List(
@@ -203,7 +208,7 @@ private[submission] object DomainsFilterTest {
     )(implicit
         ec: ExecutionContext,
         tc: TraceContext,
-    ): Future[(List[UsableDomain.DomainNotUsedReason], List[DomainId])] = {
+    ): FutureUnlessShutdown[(List[UsableDomain.DomainNotUsedReason], List[DomainId])] = {
       val domains = List(
         (
           DefaultTestIdentities.domainId,

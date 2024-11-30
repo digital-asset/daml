@@ -5,6 +5,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.co
 
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.{
+  Block,
   Epoch,
   EpochInProgress,
 }
@@ -105,17 +106,17 @@ trait EpochStore[E <: Env[E]] {
   protected def loadEpochProgressActionName(activeEpochInfo: EpochInfo): String =
     s"load epoch progress ${activeEpochInfo.number}"
 
-  def loadPrePreparesForCompleteBlocks(
+  def loadCompleteBlocks(
       startEpochNumberInclusive: EpochNumber,
       endEpochNumberInclusive: EpochNumber,
   )(implicit
       traceContext: TraceContext
-  ): E#FutureUnlessShutdownT[Seq[SignedMessage[PrePrepare]]]
+  ): E#FutureUnlessShutdownT[Seq[Block]]
   protected def loadPrePreparesActionName(
       startEpochNumberInclusive: EpochNumber,
       endEpochNumberInclusive: EpochNumber,
   ): String =
-    s"load pre-prepares from $startEpochNumberInclusive to $endEpochNumberInclusive"
+    s"load complete blocks from $startEpochNumberInclusive to $endEpochNumberInclusive"
 }
 
 object EpochStore {

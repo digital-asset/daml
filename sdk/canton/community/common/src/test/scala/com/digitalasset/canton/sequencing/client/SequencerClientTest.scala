@@ -1375,7 +1375,7 @@ class SequencerClientTest
           anyBoolean,
         )(any[TraceContext])
       )
-        .thenReturn(Future.successful(TestDomainParameters.defaultDynamic))
+        .thenReturn(FutureUnlessShutdown.pure(TestDomainParameters.defaultDynamic))
       DomainParametersLookup.forSequencerDomainParameters(
         BaseTest.defaultStaticDomainParameters,
         None,

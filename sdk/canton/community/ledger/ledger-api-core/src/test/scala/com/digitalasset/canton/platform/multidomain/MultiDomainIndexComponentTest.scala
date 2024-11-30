@@ -11,9 +11,9 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.value.Value
-import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.flatspec.AnyFlatSpec
 
-class MultiDomainIndexComponentTest extends AsyncFlatSpec with IndexComponentTest {
+class MultiDomainIndexComponentTest extends AnyFlatSpec with IndexComponentTest {
   behavior of "MultiDomain contract lookup"
 
   it should "successfully look up contract, even if only the assigned event is visible" in {
@@ -65,5 +65,6 @@ class MultiDomainIndexComponentTest extends AsyncFlatSpec with IndexComponentTes
           createNode.versionedCoinst.unversioned.template
         )
       }
+      .futureValue
   }
 }

@@ -13,7 +13,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.store.{
   InMemorySequencerStore,
   SequencerStore,
 }
-import com.digitalasset.canton.lifecycle.*
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, *}
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.protocol.messages.{
   EnvelopeContent,
@@ -27,9 +27,14 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.time.WallClock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.{ParticipantAttributes, ParticipantPermission}
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.RepresentativeProtocolVersion
-import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter, config}
+import com.digitalasset.canton.{
+  BaseTest,
+  FailOnShutdown,
+  HasExecutionContext,
+  SequencerCounter,
+  config,
+}
 import com.typesafe.config.ConfigFactory
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
@@ -37,10 +42,13 @@ import org.apache.pekko.stream.scaladsl.Sink
 import org.scalatest.FutureOutcome
 import org.scalatest.wordspec.FixtureAsyncWordSpec
 
-import scala.concurrent.Future
 import scala.concurrent.duration.*
 
-class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecutionContext {
+class SequencerTest
+    extends FixtureAsyncWordSpec
+    with BaseTest
+    with HasExecutionContext
+    with FailOnShutdown {
 
   private val domainId = DefaultTestIdentities.domainId
   private val alice = ParticipantId("alice")
@@ -130,18 +138,20 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
         member: Member,
         limit: Int,
         sc: SequencerCounter = SequencerCounter(0),
-    ): Future[Seq[OrdinarySerializedEvent]] =
-      valueOrFail(sequencer.readInternal(member, sc))(
-        s"read for $member"
-      ) flatMap {
-        _.take(limit.toLong)
-          .map {
-            case Right(event) => event
-            case Left(err) => fail(s"The DatabaseSequencer does not emit tombstone-errors: $err")
-          }
-          .idleTimeout(30.seconds)
-          .runWith(Sink.seq)
-      }
+    ): FutureUnlessShutdown[Seq[OrdinarySerializedEvent]] =
+      FutureUnlessShutdown.outcomeF(
+        valueOrFail(sequencer.readInternal(member, sc).failOnShutdown)(
+          s"read for $member"
+        ) flatMap {
+          _.take(limit.toLong)
+            .map {
+              case Right(event) => event
+              case Left(err) => fail(s"The DatabaseSequencer does not emit tombstone-errors: $err")
+            }
+            .idleTimeout(30.seconds)
+            .runWith(Sink.seq)
+        }
+      )
 
     def asDeliverEvent(event: SequencedEvent[ClosedEnvelope]): Deliver[ClosedEnvelope] =
       event match {
@@ -219,11 +229,12 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
           List(alice, bob, carole, topologyClientMember).parTraverse(
             TestDatabaseSequencerWrapper(sequencer)
               .registerMemberInternal(_, CantonTimestamp.Epoch)
+              .mapK(FutureUnlessShutdown.outcomeK)
           )
         )(
           "member registration"
         )
-        _ <- sequencer.sendAsync(submission).valueOrFailShutdown("send")
+        _ <- sequencer.sendAsync(submission).valueOrFail("send")
         aliceDeliverEvent <- readAsSeq(alice, 1)
           .map(_.loneElement.signedEvent.content)
           .map(asDeliverEvent)

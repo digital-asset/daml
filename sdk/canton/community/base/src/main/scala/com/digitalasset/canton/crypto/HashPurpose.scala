@@ -95,4 +95,5 @@ object HashPurpose {
   val BftBatchId = HashPurpose(46, "BftBatchId")
   val BftSignedAvailabilityMessage = HashPurpose(47, "BftSignedAvailabilityMessage")
   val PreparedSubmission = HashPurpose(48, "PreparedSubmission")
+  val TopologyUpdateId = HashPurpose(49, "TopologyUpdateId")
 }

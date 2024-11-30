@@ -7,6 +7,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.validation.ExtractUsedAndCreated.{
   CreatedContractPrep,
@@ -20,7 +21,7 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.transaction.Versioned
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Helper to extract information from transaction view trees.
   */
@@ -87,7 +88,10 @@ object ExtractUsedAndCreated {
       parties: Set[LfPartyId],
       participantId: ParticipantId,
       topologySnapshot: TopologySnapshot,
-  )(implicit ec: ExecutionContext, tc: TraceContext): Future[Map[LfPartyId, Boolean]] =
+  )(implicit
+      ec: ExecutionContext,
+      tc: TraceContext,
+  ): FutureUnlessShutdown[Map[LfPartyId, Boolean]] =
     topologySnapshot.hostedOn(parties, participantId).map { partyWithAttributes =>
       parties
         .map(partyId => partyId -> partyWithAttributes.contains(partyId))
@@ -99,7 +103,10 @@ object ExtractUsedAndCreated {
       rootViews: NonEmpty[Seq[TransactionView]],
       topologySnapshot: TopologySnapshot,
       loggerFactory: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext, traceContext: TraceContext): Future[UsedAndCreated] = {
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): FutureUnlessShutdown[UsedAndCreated] = {
 
     val partyIds = extractPartyIds(rootViews)
 
@@ -276,7 +283,6 @@ private[validation] class ExtractUsedAndCreated(
 
     UsedAndCreatedContracts(
       witnessed = createdContracts.witnessed,
-      divulged = inputContracts.divulged,
       checkActivenessTxInputs = checkActivenessTxInputs,
       consumedInputsOfHostedStakeholders = consumedInputsOfHostedStakeholders,
       maybeCreated = maybeCreated,

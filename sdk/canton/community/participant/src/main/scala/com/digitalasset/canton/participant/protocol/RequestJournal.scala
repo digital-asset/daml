@@ -7,6 +7,7 @@ import cats.data.OptionT
 import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.data.{CantonTimestamp, Counter}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.repair.RepairContext
@@ -141,8 +142,8 @@ class RequestJournal(
       rc: RequestCounter,
       requestTimestamp: CantonTimestamp,
       commitTime: CantonTimestamp,
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    advanceTo(rc, requestTimestamp, Clean, Some(commitTime))
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.outcomeF(advanceTo(rc, requestTimestamp, Clean, Some(commitTime)))
 
   private[this] def advanceTo(
       rc: RequestCounter,

@@ -37,7 +37,7 @@ object SequencerChannelMetadata extends HasProtocolVersionedCompanion[SequencerC
       v30.SequencerChannelMetadata
     )(
       supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     ),
   )
 

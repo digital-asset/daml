@@ -36,7 +36,7 @@ object PartyReplicationSourceMessage
       v30.PartyReplicationSourceMessage
     )(
       supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     ),
   )
 

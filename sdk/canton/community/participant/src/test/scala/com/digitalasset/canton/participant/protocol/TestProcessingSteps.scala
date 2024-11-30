@@ -131,7 +131,7 @@ class TestProcessingSteps(
       override def batch: Batch[DefaultOpenEnvelope] =
         Batch.of(testedProtocolVersion, (envelope, Recipients.cc(recipient)))
       override def pendingSubmissionId: Int = submissionParam
-      override def maxSequencingTimeO: OptionT[Future, CantonTimestamp] = OptionT.none
+      override def maxSequencingTimeO: OptionT[FutureUnlessShutdown, CantonTimestamp] = OptionT.none
 
       override def embedSubmissionError(
           err: ProtocolProcessor.SubmissionProcessingError
@@ -205,18 +205,19 @@ class TestProcessingSteps(
       mediator: MediatorGroupRecipient,
       snapshot: DomainSnapshotSyncCryptoApi,
       domainParameters: DynamicDomainParametersWithValidity,
-  )(implicit traceContext: TraceContext): Future[TestParsedRequest] = Future.successful(
-    TestParsedRequest(
-      rc,
-      ts,
-      sc,
-      malformedPayloads,
-      snapshot,
-      mediator,
-      isFreshOwnTimelyRequest,
-      domainParameters,
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[TestParsedRequest] =
+    FutureUnlessShutdown.pure(
+      TestParsedRequest(
+        rc,
+        ts,
+        sc,
+        malformedPayloads,
+        snapshot,
+        mediator,
+        isFreshOwnTimelyRequest,
+        domainParameters,
+      )
     )
-  )
 
   override def computeActivenessSet(
       parsedRequest: ParsedRequestType

@@ -158,14 +158,13 @@ private[backend] trait StorageBackendTestsCompletions
 
   it should "correctly persist and retrieve command deduplication offsets" in {
     val party = someParty
-    val anOffset = 0L
-    val anOffsetHex = Offset.firstOffset.decrement.toHexString
+    val anOffset = 1L
 
     val dtos = Vector(
       dtoCompletion(
         offset(1),
         submitters = Set(party),
-        deduplicationOffset = Some(anOffsetHex),
+        deduplicationOffset = Some(anOffset),
       ),
       dtoCompletion(offset(2), submitters = Set(party), deduplicationOffset = None),
     )

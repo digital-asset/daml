@@ -106,12 +106,23 @@ class InFlightSubmissionTracker(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[InFlightSubmissionDomainTracker] = {
-    val unsequencedSubmissionMap: UnsequencedSubmissionMap = new UnsequencedSubmissionMap(
-      domainId = domainId,
-      sizeWarnThreshold = 1000000,
-      unsequencedInFlightGauge = metrics.inFlightSubmissionDomainTracker.unsequencedInFlight,
-      loggerFactory = loggerFactory,
-    )
+    val unsequencedSubmissionMap: UnsequencedSubmissionMap[SubmissionTrackingData] =
+      new UnsequencedSubmissionMap(
+        domainId = domainId,
+        sizeWarnThreshold = 1000000,
+        unsequencedInFlightGauge = metrics.inFlightSubmissionDomainTracker.unsequencedInFlight,
+        loggerFactory = loggerFactory,
+      )
+    def pullTimelyRejectEvent(
+        messageId: MessageId,
+        recordTime: CantonTimestamp,
+    ): Option[Update] =
+      unsequencedSubmissionMap
+        .pull(messageId)
+        .map { entry =>
+          implicit val traceContext: TraceContext = entry.traceContext
+          entry.trackingData.rejectionEvent(recordTime, entry.messageUuid)
+        }
 
     for {
       unsequencedInFlights <- store.value.lookupUnsequencedUptoUnordered(
@@ -136,8 +147,7 @@ class InFlightSubmissionTracker(
         recordOrderPublisher
           .scheduleFloatingEventPublication( // first try to schedule with the recovered timeout
             timestamp = unsequencedInFlight.sequencingInfo.timeout,
-            eventFactory =
-              unsequencedSubmissionMap.pullTimelyRejectEvent(unsequencedInFlight.messageId, _),
+            eventFactory = pullTimelyRejectEvent(unsequencedInFlight.messageId, _),
           )(submissionTraceContext)
           .valueOr { ropIsAlreadyAt =>
             logger.debug(
@@ -145,8 +155,7 @@ class InFlightSubmissionTracker(
             )
             recordOrderPublisher
               .scheduleFloatingEventPublicationImmediately( // if the first try fails (timeout already expired), scheduling immediately
-                eventFactory = unsequencedSubmissionMap
-                  .pullTimelyRejectEvent(unsequencedInFlight.messageId, _)
+                eventFactory = pullTimelyRejectEvent(unsequencedInFlight.messageId, _)
               )(submissionTraceContext)
               .discard
           }
@@ -169,7 +178,7 @@ class InFlightSubmissionDomainTracker(
     deduplicator: CommandDeduplicator,
     recordOrderPublisher: RecordOrderPublisher,
     timeTracker: DomainTimeTracker,
-    unsequencedSubmissionMap: UnsequencedSubmissionMap,
+    unsequencedSubmissionMap: UnsequencedSubmissionMap[SubmissionTrackingData],
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends NamedLogging {
@@ -192,7 +201,7 @@ class InFlightSubmissionDomainTracker(
     for {
       _ <- recordOrderPublisher.scheduleFloatingEventPublication(
         timestamp = submission.sequencingInfo.timeout,
-        eventFactory = unsequencedSubmissionMap.pullTimelyRejectEvent(submission.messageId, _),
+        eventFactory = pullTimelyRejectEvent(submission.messageId, _),
         onScheduled = { () =>
           store.value
             .register(submission)
@@ -260,7 +269,7 @@ class InFlightSubmissionDomainTracker(
       .observeSequencing(domainId, sequenceds)
       .map(_ =>
         sequenceds.keysIterator
-          .foreach(unsequencedSubmissionMap.pull)
+          .foreach(unsequencedSubmissionMap.pull(_).discard)
       )
   // nothing else to do: the scheduled task will execute in ROP, and will produce no event
 
@@ -305,11 +314,11 @@ class InFlightSubmissionDomainTracker(
       .map { _ =>
         unsequencedSubmissionMap.changeIfExists(
           key = messageId,
-          submissionTrackingData = newTrackingData,
+          trackingData = newTrackingData,
         )
         recordOrderPublisher
           .scheduleFloatingEventPublicationImmediately(
-            eventFactory = unsequencedSubmissionMap.pullTimelyRejectEvent(messageId, _)
+            eventFactory = pullTimelyRejectEvent(messageId, _)
           )
           .discard
       }
@@ -358,13 +367,13 @@ class InFlightSubmissionDomainTracker(
             _ =>
               unsequencedSubmissionMap.changeIfExists(
                 key = messageId,
-                submissionTrackingData = newTrackingData.trackingData,
+                trackingData = newTrackingData.trackingData,
               )
               recordOrderPublisher
                 .scheduleFloatingEventPublication(
                   timestamp =
                     newTrackingData.timeout, // this is the delivery error's timeout, we publish before ticking this sequencer counter + timestamp (no need to request a tick)
-                  eventFactory = unsequencedSubmissionMap.pullTimelyRejectEvent(messageId, _),
+                  eventFactory = pullTimelyRejectEvent(messageId, _),
                 )(submissionTraceContext)
                 .leftMap(ropIsAlreadyAt =>
                   throw new IllegalStateException(
@@ -377,6 +386,16 @@ class InFlightSubmissionDomainTracker(
       } yield ()
   }
 
+  private def pullTimelyRejectEvent(
+      messageId: MessageId,
+      recordTime: CantonTimestamp,
+  ): Option[Update] =
+    unsequencedSubmissionMap
+      .pull(messageId)
+      .map { entry =>
+        implicit val traceContext: TraceContext = entry.traceContext
+        entry.trackingData.rejectionEvent(recordTime, entry.messageUuid)
+      }
 }
 
 object InFlightSubmissionTracker {
@@ -402,14 +421,14 @@ object InFlightSubmissionTracker {
     * @param sizeWarnThreshold defines an upper size-limit for the in-memory storage which above WARN messages will be emitted
     * @param unsequencedInFlightGauge for tracking the size of the in-memory storage
     */
-  final class UnsequencedSubmissionMap(
+  final class UnsequencedSubmissionMap[T](
       domainId: DomainId,
       sizeWarnThreshold: Int,
       unsequencedInFlightGauge: Gauge[Int],
       override val loggerFactory: NamedLoggerFactory,
   ) extends NamedLogging {
 
-    private val mutableUnsequencedMap: mutable.Map[MessageId, Entry] =
+    private val mutableUnsequencedMap: mutable.Map[MessageId, Entry[T]] =
       mutable.Map()
     private val rootHashMap: mutable.Map[RootHash, MessageId] =
       mutable.Map()
@@ -417,13 +436,13 @@ object InFlightSubmissionTracker {
     // only change if exists, if not exists do nothing
     def changeIfExists(
         key: MessageId,
-        submissionTrackingData: SubmissionTrackingData,
+        trackingData: T,
     ): Unit = blocking(
       synchronized(
         mutableUnsequencedMap
           .updateWith(key) {
             case Some(entry) =>
-              Some(entry.copy(submissionTrackingData = submissionTrackingData))
+              Some(entry.copy(trackingData = trackingData))
 
             case None => None
           }
@@ -452,14 +471,14 @@ object InFlightSubmissionTracker {
     // only add if not exists, if exists do nothing
     def pushIfNotExists(
         messageUuid: UUID,
-        submissionTrackingData: SubmissionTrackingData,
+        trackingData: T,
         submissionTraceContext: TraceContext,
         rootHash: Option[RootHash],
     )(implicit traceContext: TraceContext): Unit = blocking(synchronized {
       val messageId = MessageId.fromUuid(messageUuid)
       if (!mutableUnsequencedMap.contains(MessageId.fromUuid(messageUuid))) {
         mutableUnsequencedMap += messageId -> Entry(
-          submissionTrackingData,
+          trackingData,
           messageUuid,
           submissionTraceContext,
           rootHash,
@@ -473,32 +492,10 @@ object InFlightSubmissionTracker {
       }
     })
 
-    // Only the first call returns an event, further calls result in None (meaning: timely rejected event was already pulled).
+    // Only the first call returns an entry, further calls result in None (meaning: already pulled).
     // This is needed as corresponding scheduled tasks are not getting removed, but rather those task will do nothing on perform()
     // if an earlier task already emitted the corresponding event.
-    def pullTimelyRejectEvent(
-        key: MessageId,
-        recordTime: CantonTimestamp,
-    ): Option[Update] =
-      remove(key)
-        .map { entry =>
-          implicit val traceContext: TraceContext = entry.traceContext
-          entry.submissionTrackingData.rejectionEvent(recordTime, entry.messageUuid)
-        }
-
-    def pull(key: MessageId): Unit =
-      remove(key).discard
-
-    def pullByHash(rootHash: RootHash): Unit =
-      blocking(
-        synchronized(
-          rootHashMap
-            .get(rootHash)
-            .foreach(remove)
-        )
-      )
-
-    private def remove(key: MessageId): Option[Entry] =
+    def pull(key: MessageId): Option[Entry[T]] =
       blocking(
         synchronized(
           mutableUnsequencedMap
@@ -510,10 +507,19 @@ object InFlightSubmissionTracker {
             }
         )
       )
+
+    def pullByHash(rootHash: RootHash): Unit =
+      blocking(
+        synchronized(
+          rootHashMap
+            .get(rootHash)
+            .foreach(pull)
+        )
+      )
   }
 
-  private final case class Entry(
-      submissionTrackingData: SubmissionTrackingData,
+  final case class Entry[T](
+      trackingData: T,
       messageUuid: UUID,
       traceContext: TraceContext,
       rootHashO: Option[RootHash],

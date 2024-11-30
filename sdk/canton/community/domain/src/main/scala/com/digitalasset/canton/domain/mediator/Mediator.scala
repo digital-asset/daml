@@ -185,9 +185,7 @@ private[mediator] class Mediator(
         .right(
           topologyClient
             .awaitSnapshotUS(timestamp)
-            .flatMap(snapshot =>
-              FutureUnlessShutdown.outcomeF(snapshot.listDynamicDomainParametersChanges())
-            )
+            .flatMap(snapshot => snapshot.listDynamicDomainParametersChanges())
         )
 
       _ <- NonEmptySeq.fromSeq(domainParametersChanges) match {
@@ -265,11 +263,9 @@ private[mediator] class Mediator(
 
         for {
           snapshot <- syncCrypto.awaitSnapshotUS(timestamp)
-          domainParameters <- FutureUnlessShutdown.outcomeF(
-            snapshot.ipsSnapshot
-              .findDynamicDomainParameters()
-              .flatMap(_.toFuture(new RuntimeException(_)))
-          )
+          domainParameters <- snapshot.ipsSnapshot
+            .findDynamicDomainParameters()
+            .flatMap(_.toFutureUS(new RuntimeException(_)))
 
           decisionTime <- domainParameters.decisionTimeForF(timestamp)
           _ <- verdictSender.sendReject(

@@ -8,6 +8,7 @@ import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.*
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.EngineController.GetEngineAbortStatus
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
@@ -104,9 +105,9 @@ object ReassignmentValidation {
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[Future, ReassignmentProcessorError, Unit] =
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     for {
-      _ <- EitherTUtil.condUnitET[Future](
+      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
         stakeholders.contains(submitter),
         SubmitterMustBeStakeholder(
           reference,
@@ -121,9 +122,9 @@ object ReassignmentValidation {
           .map(_.get(submitter))
           .flatMap {
             case Some(_) =>
-              Future.successful(Either.unit)
+              FutureUnlessShutdown.pure(Either.unit)
             case None =>
-              Future.successful(
+              FutureUnlessShutdown.pure(
                 Left(
                   NotHostedOnParticipant(
                     reference,

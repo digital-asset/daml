@@ -62,17 +62,6 @@ object CumulativeFilter {
 
 }
 
-object types {
-  type ParticipantOffset = Ref.HexString
-}
-
-object ParticipantOffset {
-  val ParticipantBegin: types.ParticipantOffset = Ref.HexString.assertFromString("")
-
-  def fromString(str: String): types.ParticipantOffset =
-    Ref.HexString.assertFromString(str)
-}
-
 final case class Commands(
     workflowId: Option[WorkflowId],
     applicationId: Ref.ApplicationId,

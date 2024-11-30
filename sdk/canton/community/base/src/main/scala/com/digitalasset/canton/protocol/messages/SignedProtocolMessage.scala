@@ -33,7 +33,7 @@ import com.digitalasset.canton.version.{
 }
 import com.google.common.annotations.VisibleForTesting
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** There can be any number of signatures.
   * Every signature covers the serialization of the `typedMessage` and needs to be valid.
@@ -57,7 +57,7 @@ case class SignedProtocolMessage[+M <: SignedProtocolMessageContent](
   def verifySignature(
       snapshot: SyncCryptoApi,
       member: Member,
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
     ClosedEnvelope.verifySignatures(
       snapshot,
       member,
@@ -68,7 +68,7 @@ case class SignedProtocolMessage[+M <: SignedProtocolMessageContent](
   def verifyMediatorSignatures(
       snapshot: SyncCryptoApi,
       mediatorGroupIndex: MediatorGroupIndex,
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
     ClosedEnvelope.verifyMediatorSignatures(
       snapshot,
       mediatorGroupIndex,
@@ -78,7 +78,7 @@ case class SignedProtocolMessage[+M <: SignedProtocolMessageContent](
 
   def verifySequencerSignatures(
       snapshot: SyncCryptoApi
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
     ClosedEnvelope.verifySequencerSignatures(
       snapshot,
       typedMessage.getCryptographicEvidence,
@@ -123,7 +123,7 @@ object SignedProtocolMessage
       ProtocolVersion.v33
     )(v30.SignedProtocolMessage)(
       supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 

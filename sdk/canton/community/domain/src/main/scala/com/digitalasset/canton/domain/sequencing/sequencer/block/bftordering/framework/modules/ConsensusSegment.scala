@@ -281,7 +281,7 @@ object ConsensusSegment {
               supportedProtoVersionMemoized(_)(
                 PrePrepare.fromProtoConsensusMessage
               ),
-              _.toProto.toByteString,
+              _.toProto,
             )
         )
     }
@@ -378,7 +378,7 @@ object ConsensusSegment {
               supportedProtoVersionMemoized(_)(
                 Prepare.fromProtoConsensusMessage
               ),
-              _.toProto.toByteString,
+              _.toProto,
             )
         )
     }
@@ -472,7 +472,7 @@ object ConsensusSegment {
               supportedProtoVersionMemoized(_)(
                 Commit.fromProtoConsensusMessage
               ),
-              _.toProto.toByteString,
+              _.toProto,
             )
         )
     }
@@ -577,7 +577,7 @@ object ConsensusSegment {
               supportedProtoVersionMemoized(_)(
                 ViewChange.fromProtoConsensusMessage
               ),
-              _.toProto.toByteString,
+              _.toProto,
             )
         )
     }
@@ -703,7 +703,7 @@ object ConsensusSegment {
               supportedProtoVersionMemoized(_)(
                 NewView.fromProtoConsensusMessage
               ),
-              _.toProto.toByteString,
+              _.toProto,
             )
         )
 

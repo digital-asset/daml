@@ -23,6 +23,7 @@ object ContractsStateCache {
   ): StateCache[ContractId, ContractStateValue] =
     StateCache(
       initialCacheIndex = initialCacheIndex,
+      emptyLedgerState = ContractStateValue.NotFound,
       cache = SizedCache.from[ContractId, ContractStateValue](
         SizedCache.Configuration(cacheSize),
         metrics.execution.cache.contractState.stateCache,

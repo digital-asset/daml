@@ -230,10 +230,8 @@ final case class GenTransactionTree private (
         for {
           viewRecipients <- viewWitnesses
             .toRecipients(topologySnapshot)
-            .mapK(FutureUnlessShutdown.outcomeK)
           parentRecipients <- parentWitnessesO
             .traverse(_.toRecipients(topologySnapshot))
-            .mapK(FutureUnlessShutdown.outcomeK)
         } yield ViewWithWitnessesAndRecipients(tvt, viewWitnesses, viewRecipients, parentRecipients)
       }
     } yield allViewsWithMetadata

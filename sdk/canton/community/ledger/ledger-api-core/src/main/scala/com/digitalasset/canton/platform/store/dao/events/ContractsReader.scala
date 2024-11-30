@@ -52,7 +52,7 @@ private[dao] sealed class ContractsReader(
       ),
     )
 
-  override def lookupContractState(contractId: ContractId, before: Option[Offset])(implicit
+  override def lookupContractState(contractId: ContractId, before: Offset)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Option[ContractState]] =
     Timed.future(

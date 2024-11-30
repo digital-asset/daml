@@ -27,7 +27,7 @@ trait DbActiveContractStoreTest extends AsyncWordSpec with BaseTest with ActiveC
       DBIO.seq(
         sqlu"truncate table par_active_contracts",
         sqlu"truncate table par_active_contract_pruning",
-        sqlu"delete from par_contracts where domain_idx >= $domainIndex and domain_idx <= $maxDomainIndex",
+        sqlu"delete from par_contracts",
       ),
       functionFullName,
     )
@@ -54,14 +54,12 @@ trait DbActiveContractStoreTest extends AsyncWordSpec with BaseTest with ActiveC
           loggerFactory,
         )(ec)
       },
-      _ =>
+      ec =>
         createDbContractStoreForTesting(
           storage,
-          acsDomainId,
           testedProtocolVersion,
-          domainIndex,
           loggerFactory,
-        ),
+        )(ec),
     )
 
   }

@@ -8,6 +8,7 @@ import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonError
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
@@ -17,7 +18,6 @@ import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.{DomainId, MemberCode, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{MonadUtil, OptionUtil}
 import com.google.protobuf.timestamp.Timestamp as ProtoTimestamp
 
@@ -44,9 +44,9 @@ class GrpcTopologyAggregationService(
 
   private def snapshots(filterStore: String, asOf: Option[ProtoTimestamp])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CantonError, List[(DomainId, TopologySnapshotLoader)]] =
+  ): EitherT[FutureUnlessShutdown, CantonError, List[(DomainId, TopologySnapshotLoader)]] =
     for {
-      asOfO <- wrapErr(asOf.traverse(CantonTimestamp.fromProtoTimestamp))
+      asOfO <- wrapErrUS(asOf.traverse(CantonTimestamp.fromProtoTimestamp))
     } yield {
       stores.collect {
         case store if store.storeId.filterName.startsWith(filterStore) =>
@@ -80,9 +80,9 @@ class GrpcTopologyAggregationService(
       filterParty: String,
       filterParticipant: String,
       limit: Int,
-  )(implicit traceContext: TraceContext): Future[Set[PartyId]] = MonadUtil
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PartyId]] = MonadUtil
     .foldLeftM((Set.empty[PartyId], false), clients) { case ((res, isDone), (_, client)) =>
-      if (isDone) Future.successful((res, true))
+      if (isDone) FutureUnlessShutdown.pure((res, true))
       else
         client.inspectKnownParties(filterParty, filterParticipant).map { found =>
           val tmp = found ++ res
@@ -96,7 +96,7 @@ class GrpcTopologyAggregationService(
       partyId: PartyId,
   )(implicit
       traceContext: TraceContext
-  ): Future[Map[ParticipantId, Map[DomainId, ParticipantPermission]]] =
+  ): FutureUnlessShutdown[Map[ParticipantId, Map[DomainId, ParticipantPermission]]] =
     clients
       .parFlatTraverse { case (domainId, client) =>
         client
@@ -115,7 +115,7 @@ class GrpcTopologyAggregationService(
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val v30.ListPartiesRequest(asOfP, limit, filterDomain, filterParty, filterParticipant) =
       request
-    val res: EitherT[Future, CantonError, v30.ListPartiesResponse] = for {
+    val res: EitherT[FutureUnlessShutdown, CantonError, v30.ListPartiesResponse] = for {
       matched <- snapshots(filterDomain, asOfP)
       parties <- EitherT.right(
         findMatchingParties(matched, filterParty, filterParticipant, limit)
@@ -143,19 +143,19 @@ class GrpcTopologyAggregationService(
         }
       )
     }
-    CantonGrpcUtil.mapErrNew(res)
+    CantonGrpcUtil.mapErrNewEUS(res)
   }
 
   override def listKeyOwners(
       request: v30.ListKeyOwnersRequest
   ): Future[v30.ListKeyOwnersResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val res: EitherT[Future, CantonError, v30.ListKeyOwnersResponse] = for {
-      keyOwnerTypeO <- wrapErr(
+    val res: EitherT[FutureUnlessShutdown, CantonError, v30.ListKeyOwnersResponse] = for {
+      keyOwnerTypeO <- wrapErrUS(
         OptionUtil
           .emptyStringAsNone(request.filterKeyOwnerType)
           .traverse(code => MemberCode.fromProtoPrimitive(code, "filterKeyOwnerType"))
-      ): EitherT[Future, CantonError, Option[MemberCode]]
+      ): EitherT[FutureUnlessShutdown, CantonError, Option[MemberCode]]
       matched <- snapshots(request.filterDomain, request.asOf)
       res <- EitherT.right(matched.parTraverse { case (storeId, client) =>
         client.inspectKeys(request.filterKeyOwnerUid, keyOwnerTypeO, request.limit).map { res =>
@@ -181,6 +181,6 @@ class GrpcTopologyAggregationService(
         }
       )
     }
-    CantonGrpcUtil.mapErrNew(res)
+    CantonGrpcUtil.mapErrNewEUS(res)
   }
 }

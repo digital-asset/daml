@@ -151,5 +151,7 @@ private[backend] trait StorageBackendTestsParameters
     executeSql(backend.parameter.postProcessingEnd) shouldBe Some(offset(10))
     executeSql(backend.parameter.updatePostProcessingEnd(Some(offset(20))))
     executeSql(backend.parameter.postProcessingEnd) shouldBe Some(offset(20))
+    executeSql(backend.parameter.updatePostProcessingEnd(None))
+    executeSql(backend.parameter.postProcessingEnd) shouldBe None
   }
 }

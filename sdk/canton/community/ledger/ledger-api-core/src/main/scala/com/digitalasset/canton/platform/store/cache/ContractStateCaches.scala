@@ -14,6 +14,7 @@ import com.digitalasset.canton.platform.store.cache.ContractStateValue.{
   ExistingContractValue,
 }
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
+import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent.ReassignmentAccepted
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.transaction.GlobalKey
 
@@ -61,20 +62,21 @@ class ContractStateCaches(
               driverMetadata = created.driverMetadata,
             )
         )
+
       case archived: ContractStateEvent.Archived =>
         archived.globalKey.foreach { key =>
           keyMappingsBuilder.addOne(key -> Unassigned)
         }
         contractMappingsBuilder.addOne(archived.contractId -> Archived(archived.stakeholders))
+
+      case _: ReassignmentAccepted => ()
     }
 
     val keyMappings = keyMappingsBuilder.result()
     val contractMappings = contractMappingsBuilder.result()
 
     val validAt = eventsBatch.last.eventOffset
-    if (keyMappings.nonEmpty) {
-      keyState.putBatch(validAt, keyMappings)
-    }
+    keyState.putBatch(validAt, keyMappings)
     contractState.putBatch(validAt, contractMappings)
   }
 

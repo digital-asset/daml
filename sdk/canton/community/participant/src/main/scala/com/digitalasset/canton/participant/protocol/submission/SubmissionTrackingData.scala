@@ -78,7 +78,7 @@ object SubmissionTrackingData
       ProtoVersion(30) -> VersionedProtoConverter
         .storage(ReleaseProtocolVersion(ProtocolVersion.v33), v30.SubmissionTrackingData)(
           supportedProtoVersion(_)(fromProtoV30),
-          _.toProtoV30.toByteString,
+          _.toProtoV30,
         )
     )
 

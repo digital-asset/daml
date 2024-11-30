@@ -20,6 +20,7 @@ import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v2.update_service.GetUpdatesResponse.Update
 import com.daml.logging.LoggingContextOf
+import com.digitalasset.canton.fetchcontracts.domain.Offset
 import com.digitalasset.canton.http.LedgerClientJwt.Grpc
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
 import com.digitalasset.canton.ledger.api.domain.PartyDetails as domainPartyDetails
@@ -36,7 +37,6 @@ import com.digitalasset.canton.ledger.client.services.state.StateServiceClient
 import com.digitalasset.canton.ledger.client.services.updates.UpdateServiceClient
 import com.digitalasset.canton.ledger.service.Grpc.StatusEnvelope
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
 import com.google.protobuf
@@ -109,7 +109,7 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
             .map(Some(_))
         case Terminates.Never => Source.single(None)
         case Terminates.AtAbsolute(off) =>
-          Source.single(Some(ApiOffset.assertFromStringToLong(off)))
+          Source.single(Some(Offset.assertFromStringToLong(off)))
       }
       endSource.flatMapConcat { end =>
         if (skipRequest(offset, end))

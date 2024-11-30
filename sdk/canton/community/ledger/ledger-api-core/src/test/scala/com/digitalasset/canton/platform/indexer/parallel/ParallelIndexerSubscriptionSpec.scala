@@ -69,7 +69,7 @@ class ParallelIndexerSubscriptionSpec
   implicit val materializer: Materializer = Materializer(actorSystem)
 
   private val someParty = DbDto.PartyEntry(
-    ledger_offset = "",
+    ledger_offset = 1,
     recorded_at = 0,
     submission_id = null,
     party = Some("party"),
@@ -95,7 +95,7 @@ class ParallelIndexerSubscriptionSpec
   private val metrics = LedgerApiServerMetrics.ForTesting
 
   private val someEventCreated = DbDto.EventCreate(
-    event_offset = "",
+    event_offset = 1,
     update_id = "",
     ledger_effective_time = 15,
     command_id = None,
@@ -126,7 +126,7 @@ class ParallelIndexerSubscriptionSpec
 
   private val someEventExercise = DbDto.EventExercise(
     consuming = true,
-    event_offset = "",
+    event_offset = 1,
     update_id = "",
     ledger_effective_time = 15,
     command_id = None,
@@ -155,7 +155,7 @@ class ParallelIndexerSubscriptionSpec
   )
 
   private val someEventAssign = DbDto.EventAssign(
-    event_offset = "",
+    event_offset = 1,
     update_id = "",
     command_id = None,
     workflow_id = None,
@@ -185,7 +185,7 @@ class ParallelIndexerSubscriptionSpec
   )
 
   private val someEventUnassign = DbDto.EventUnassign(
-    event_offset = "",
+    event_offset = 1,
     update_id = "",
     command_id = None,
     workflow_id = None,
@@ -205,7 +205,7 @@ class ParallelIndexerSubscriptionSpec
   )
 
   private val someCompletion = DbDto.CommandCompletion(
-    completion_offset = "",
+    completion_offset = 1,
     record_time = 0,
     publication_time = 0,
     application_id = "",
@@ -327,7 +327,7 @@ class ParallelIndexerSubscriptionSpec
         application_id = applicationId,
         action_count = 0,
         metering_timestamp = timestamp,
-        ledger_offset = offset.toHexString,
+        ledger_offset = offset.unwrap,
       )
     )
 
@@ -414,20 +414,20 @@ class ParallelIndexerSubscriptionSpec
           DbDto.IdFilterNonConsumingInformee(0L, ""),
           someEventCreated,
           someEventCreated,
-          DbDto.TransactionMeta("", "", 0L, 0L, "x::sourcedomain", 0L, 0L),
+          DbDto.TransactionMeta("", 1, 0L, 0L, "x::sourcedomain", 0L, 0L),
           someParty,
           someEventExercise,
-          DbDto.TransactionMeta("", "", 0L, 0L, "x::sourcedomain", 0L, 0L),
+          DbDto.TransactionMeta("", 1, 0L, 0L, "x::sourcedomain", 0L, 0L),
           someParty,
           someEventAssign,
           DbDto.IdFilterAssignStakeholder(0L, "", ""),
           DbDto.IdFilterAssignStakeholder(0L, "", ""),
-          DbDto.TransactionMeta("", "", 0L, 0L, "x::sourcedomain", 0L, 0L),
+          DbDto.TransactionMeta("", 1, 0L, 0L, "x::sourcedomain", 0L, 0L),
           someParty,
           someEventUnassign,
           DbDto.IdFilterUnassignStakeholder(0L, "", ""),
           DbDto.IdFilterUnassignStakeholder(0L, "", ""),
-          DbDto.TransactionMeta("", "", 0L, 0L, "x::sourcedomain", 0L, 0L),
+          DbDto.TransactionMeta("", 1, 0L, 0L, "x::sourcedomain", 0L, 0L),
           someParty,
           someCompletion,
         ),

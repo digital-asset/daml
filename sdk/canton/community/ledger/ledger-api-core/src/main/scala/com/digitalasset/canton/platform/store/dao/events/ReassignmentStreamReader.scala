@@ -10,6 +10,7 @@ import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.TemplatePartiesFilter
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   Entry,
@@ -31,7 +32,6 @@ import com.digitalasset.canton.platform.store.utils.{
   ConcurrencyLimiter,
   QueueBasedConcurrencyLimiter,
 }
-import com.digitalasset.canton.platform.{ApiOffset, TemplatePartiesFilter}
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
@@ -192,7 +192,7 @@ class ReassignmentStreamReader(
           updateId = rawUnassignEntry.updateId,
           commandId = rawUnassignEntry.commandId.getOrElse(""),
           workflowId = rawUnassignEntry.workflowId.getOrElse(""),
-          offset = ApiOffset.assertFromStringToLong(rawUnassignEntry.offset),
+          offset = rawUnassignEntry.offset,
           event = Reassignment.Event.UnassignedEvent(
             TransactionsReader.toUnassignedEvent(rawUnassignEntry.event)
           ),
@@ -216,7 +216,7 @@ class ReassignmentStreamReader(
               updateId = rawAssignEntry.updateId,
               commandId = rawAssignEntry.commandId.getOrElse(""),
               workflowId = rawAssignEntry.workflowId.getOrElse(""),
-              offset = ApiOffset.assertFromStringToLong(rawAssignEntry.offset),
+              offset = rawAssignEntry.offset,
               event = Reassignment.Event.AssignedEvent(
                 TransactionsReader.toAssignedEvent(
                   rawAssignEntry.event,

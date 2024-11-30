@@ -207,7 +207,7 @@ private object MutableCacheBackedContractStoreRaceTests {
             )
         }
       _ <- indexViewContractsReader
-        .lookupContractState(event.contractId, Some(event.offset))
+        .lookupContractState(event.contractId, event.offset)
         .map {
           case Some(ActiveContract(actualContract, _, _, _, _, _, _))
               if event.created && event.contract == actualContract =>
@@ -419,7 +419,7 @@ private object MutableCacheBackedContractStoreRaceTests {
         }
       }
 
-    override def lookupContractState(contractId: ContractId, validAt: Option[Offset])(implicit
+    override def lookupContractState(contractId: ContractId, validAt: Offset)(implicit
         loggingContext: LoggingContextWithTrace
     ): Future[Option[ContractState]] =
       Future {
@@ -427,8 +427,8 @@ private object MutableCacheBackedContractStoreRaceTests {
         contractStateStore
           .get(contractId)
           .flatMap { case ContractLifecycle(_, contract, createdAt, maybeArchivedAt) =>
-            if (validAt < Some(createdAt)) None
-            else if (maybeArchivedAt.forall(Option(_) > validAt))
+            if (validAt < createdAt) None
+            else if (maybeArchivedAt.forall(_ > validAt))
               Some(
                 ActiveContract(
                   contract,

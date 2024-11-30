@@ -388,14 +388,9 @@ class ClockTest extends AnyWordSpec with BaseTest with HasExecutionContext {
       val nowF = Future(env.clock.now)
 
       firstRequestObserved.future.futureValue
-      loggerFactory.assertLogs(
-        {
-          env.close()
-          nowF.futureValue shouldBe CantonTimestamp.MinValue.immediateSuccessor
-        },
-        // TODO(#21278): Ensure that shutdown works as expected
-        _.warningMessage should include("shutdown did not complete gracefully in allotted"),
-      )
+      env.close()
+      nowF.futureValue shouldBe CantonTimestamp.MinValue.immediateSuccessor
+
     }
   }
 

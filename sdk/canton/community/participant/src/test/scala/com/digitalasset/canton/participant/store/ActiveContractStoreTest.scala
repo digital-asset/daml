@@ -2133,8 +2133,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
 
       "there is one active contract for the package" in {
         for {
-          resO <-
-            activateMaybeDeactivate()
+          resO <- activateMaybeDeactivate()
         } yield { resO shouldBe Some(coid00) }
       }
 

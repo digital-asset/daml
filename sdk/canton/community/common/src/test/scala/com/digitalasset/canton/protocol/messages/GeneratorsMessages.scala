@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.protocol.messages
 
-import com.digitalasset.canton.config.GeneratorsConfig
 import com.digitalasset.canton.crypto.{
   AsymmetricEncrypted,
   Encrypted,
@@ -21,10 +20,14 @@ import com.digitalasset.canton.data.{
   ViewPosition,
   ViewType,
 }
-import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast.Broadcast
 import com.digitalasset.canton.protocol.{GeneratorsProtocol, RequestId, RootHash, ViewHash}
 import com.digitalasset.canton.time.PositiveSeconds
-import com.digitalasset.canton.topology.transaction.GeneratorsTransaction
+import com.digitalasset.canton.topology.transaction.{
+  GeneratorsTransaction,
+  SignedTopologyTransaction,
+  TopologyChangeOp,
+  TopologyMapping,
+}
 import com.digitalasset.canton.topology.{DomainId, GeneratorsTopology, ParticipantId}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{Generators, LfPartyId}
@@ -234,18 +237,13 @@ final class GeneratorsMessages(
       )
     )
 
-  implicit val broadcast: Arbitrary[Broadcast] = Arbitrary(
-    for {
-      id <- GeneratorsConfig.string255Arb.arbitrary
-      transactions <- Gen.listOfN(10, signedTopologyTransactionArb.arbitrary)
-    } yield Broadcast(id, transactions)
-  )
-
   implicit val topologyTransactionsBroadcast: Arbitrary[TopologyTransactionsBroadcast] = Arbitrary(
     for {
       domainId <- Arbitrary.arbitrary[DomainId]
-      broadcast <- broadcast.arbitrary
-    } yield TopologyTransactionsBroadcast.create(domainId, Seq(broadcast), protocolVersion)
+      transactions <- Gen.listOf(
+        Arbitrary.arbitrary[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]]
+      )
+    } yield TopologyTransactionsBroadcast(domainId, transactions, protocolVersion)
   )
 
   // TODO(#14515) Check that the generator is exhaustive

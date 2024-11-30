@@ -7,8 +7,8 @@ import cats.data.NonEmptyChain
 import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDetector.LockedStates
 import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTracker.*
 import com.digitalasset.canton.participant.store.ActiveContractStore
@@ -22,7 +22,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import java.time.Instant
 import scala.concurrent.Future
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 private[conflictdetection] trait RequestTrackerTest {
   this: AsyncWordSpec & BaseTest & ConflictDetectionHelpers =>
@@ -36,6 +36,9 @@ private[conflictdetection] trait RequestTrackerTest {
   private val initialReassignmentCounter: ReassignmentCounter = ReassignmentCounter.Genesis
 
   private val active = Active(initialReassignmentCounter)
+  protected def toSuccess(cs: CommitSet): Try[UnlessShutdown[CommitSet]] = Success(
+    UnlessShutdown.Outcome(cs)
+  )
 
   protected def requestTracker(
       genMk: (
@@ -464,7 +467,7 @@ private[conflictdetection] trait RequestTrackerTest {
         _ <- loggerFactory.suppressWarningsAndErrors {
           for {
             finalizationResult <- rt
-              .addCommitSet(RequestCounter(1), Success(commitSet))
+              .addCommitSet(RequestCounter(1), toSuccess(commitSet))
               .value
               .value
               .failed
@@ -512,7 +515,7 @@ private[conflictdetection] trait RequestTrackerTest {
         _ <- loggerFactory.suppressWarningsAndErrors {
           for {
             finalize <- rt
-              .addCommitSet(RequestCounter(1), Success(commitSet))
+              .addCommitSet(RequestCounter(1), toSuccess(commitSet))
               .value
               .value
               .failed
@@ -736,11 +739,20 @@ private[conflictdetection] trait RequestTrackerTest {
           ofEpochMilli(2),
         )
         _ = assert(resTR1 == Either.unit, "transaction result call succeeds")
-        finalize1 = rt.addCommitSet(RequestCounter(0), Success(CommitSet.empty))
+        finalize1 = rt.addCommitSet(
+          RequestCounter(0),
+          toSuccess(CommitSet.empty),
+        )
         _ = assert(finalize1.isRight, "first call to commit set succeeds")
-        finalize2 = rt.addCommitSet(RequestCounter(0), Success(CommitSet.empty))
+        finalize2 = rt.addCommitSet(
+          RequestCounter(0),
+          toSuccess(CommitSet.empty),
+        )
         finalize3 = loggerFactory.suppressWarningsAndErrors(
-          rt.addCommitSet(RequestCounter(0), Success(mkCommitSet(arch = Set(coid00))))
+          rt.addCommitSet(
+            RequestCounter(0),
+            toSuccess(mkCommitSet(arch = Set(coid00))),
+          )
         )
         _ = assert(
           finalize3 == Left(CommitSetAlreadyExists(RequestCounter(0))),
@@ -789,7 +801,7 @@ private[conflictdetection] trait RequestTrackerTest {
           ActivenessSet.empty,
         )
         _ <- checkConflictResult(RequestCounter(0), cdF, mkActivenessResult())
-        resCS = rt.addCommitSet(RequestCounter(0), Success(CommitSet.empty))
+        resCS = rt.addCommitSet(RequestCounter(0), toSuccess(CommitSet.empty))
         _ = assert(
           resCS == Left(ResultNotFound(RequestCounter(0))),
           "transaction result is missing",
@@ -898,7 +910,7 @@ private[conflictdetection] trait RequestTrackerTest {
           sc + 5,
           ts.plusMillis(22),
         ) // check that a missing commit set does not cause deadlock
-        resCS = rt.addCommitSet(rc + 1, Success(CommitSet.empty))
+        resCS = rt.addCommitSet(rc + 1, toSuccess(CommitSet.empty))
         _ = assert(resCS.isRight, "adding the missing commit set succeeded")
         res2 <- resCS.value.value.failOnShutdown
         _ = assert(res2 == Either.unit, "finalizing the second request succeeded")
@@ -1092,7 +1104,10 @@ private[conflictdetection] trait RequestTrackerTest {
               // The commit set failure of RC 100 shuts down conflict detection
               _ = to1 shouldBe AbortedDueToShutdown
               commitF1 = valueOrFail(
-                rt.addCommitSet(rc + 1, Success(mkCommitSet(create = Set(coid10))))
+                rt.addCommitSet(
+                  rc + 1,
+                  toSuccess(mkCommitSet(create = Set(coid10))),
+                )
               )("no commit set error expected for second request")
               _ <- rt.taskScheduler.flush()
             } yield (commit0, commitF1)
@@ -1226,7 +1241,7 @@ private[conflictdetection] trait RequestTrackerTest {
     for {
       timeout <- timeoutFuture
       _ = assert(!timeout.timedOut, s"timeout promise for request $rc is kept with NoTimeout")
-      resCS = rt.addCommitSet(rc, Success(commitSet))
+      resCS = rt.addCommitSet(rc, toSuccess(commitSet))
     } yield resCS.value.value.failOnShutdown("add commit set")
   }
 

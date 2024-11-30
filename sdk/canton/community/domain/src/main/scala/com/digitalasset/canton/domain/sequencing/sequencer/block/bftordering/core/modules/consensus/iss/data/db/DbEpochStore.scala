@@ -87,9 +87,6 @@ class DbEpochStore(
   private implicit val readPbftMessage: GetResult[SignedMessage[PbftNetworkMessage]] =
     GetResult(parseSignedMessage(from => IssConsensusModule.parseNetworkMessage(from, _)))
 
-  private implicit val tryReadPrePrepareMessage: GetResult[SignedMessage[PrePrepare]] =
-    GetResult(parseSignedMessage(_ => PrePrepare.fromProtoConsensusMessage))
-
   private implicit val tryReadPrePrepareMessageAndEpochInfo: GetResult[(PrePrepare, EpochInfo)] =
     GetResult { r =>
       val prePrepare = parseSignedMessage(_ => PrePrepare.fromProtoConsensusMessage)(r)
@@ -382,22 +379,45 @@ class DbEpochStore(
         )
     }
 
-  override def loadPrePreparesForCompleteBlocks(
+  @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
+  override def loadCompleteBlocks(
       startEpochNumberInclusive: EpochNumber,
       endEpochNumberInclusive: EpochNumber,
   )(implicit
       traceContext: TraceContext
-  ): PekkoFutureUnlessShutdown[Seq[SignedMessage[PrePrepare]]] =
+  ): PekkoFutureUnlessShutdown[Seq[Block]] =
     createFuture(loadPrePreparesActionName(startEpochNumberInclusive, endEpochNumberInclusive)) {
       storage
         .query(
-          sql"""select completed_message.message
-                from ord_pbft_messages_completed completed_message
-                where completed_message.discriminator = $PrePrepareMessageDiscriminator
-                  and completed_message.epoch_number >= $startEpochNumberInclusive
-                  and completed_message.epoch_number <= $endEpochNumberInclusive
-                order by completed_message.block_number
-             """.as[SignedMessage[PrePrepare]](tryReadPrePrepareMessage),
+          for {
+            completeBlockMessages <-
+              sql"""select message
+                    from ord_pbft_messages_completed
+                    where epoch_number >= $startEpochNumberInclusive
+                      and epoch_number <= $endEpochNumberInclusive
+                    order by from_sequencer_id, block_number
+                 """.as[SignedMessage[PbftNetworkMessage]](readPbftMessage)
+          } yield {
+            val commits = completeBlockMessages
+              .collect { case s @ SignedMessage(_: Commit, _) =>
+                s.asInstanceOf[SignedMessage[Commit]]
+              }
+              .groupBy(_.message.blockMetadata.blockNumber)
+
+            completeBlockMessages
+              .collect { case s @ SignedMessage(pp: PrePrepare, _) =>
+                val blockNumber = pp.blockMetadata.blockNumber
+                Block(
+                  pp.blockMetadata.epochNumber,
+                  blockNumber,
+                  CommitCertificate(
+                    s.asInstanceOf[SignedMessage[PrePrepare]],
+                    commits.getOrElse(blockNumber, Seq.empty),
+                  ),
+                )
+              }
+              .sortBy(_.blockNumber)
+          },
           functionFullName,
         )
     }

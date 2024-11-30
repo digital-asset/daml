@@ -4,14 +4,13 @@
 package com.digitalasset.canton.ledger.api.services
 
 import com.digitalasset.canton.ledger.api.messages.command.submission.SubmitRequest
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-
-import scala.concurrent.Future
 
 trait CommandSubmissionService {
   def submit(
       request: SubmitRequest
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 }

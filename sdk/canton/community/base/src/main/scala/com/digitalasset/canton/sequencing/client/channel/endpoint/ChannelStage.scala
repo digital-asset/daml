@@ -114,10 +114,9 @@ private[endpoint] class ChannelStageBootstrap(
     }
 
   private def createSessionKey(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
+      traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, AsymmetricEncrypted[SymmetricKey]] =
-    data.security.generateSessionKey(connectTo).mapK(FutureUnlessShutdown.outcomeK)
+    data.security.generateSessionKey(connectTo)
 }
 
 private[endpoint] class ChannelStageConnected(data: InternalData)(implicit

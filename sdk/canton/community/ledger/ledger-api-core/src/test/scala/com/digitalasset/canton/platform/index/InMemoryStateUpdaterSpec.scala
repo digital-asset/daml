@@ -197,6 +197,24 @@ class InMemoryStateUpdaterSpec
     inOrder.verifyNoMoreInteractions()
   }
 
+  "update" should "update the caches even if it only has reassignments" in new Scope {
+    InMemoryStateUpdater.update(inMemoryState, logger)(prepareResultOnlyReassignment, false)
+
+    inOrder
+      .verify(inMemoryFanoutBuffer)
+      .push(
+        assignLogUpdate
+      )
+    inOrder
+      .verify(contractStateCaches)
+      .push(any[NonEmptyVector[ContractStateEvent]])(any[TraceContext])
+    inOrder
+      .verify(ledgerEndCache)
+      .set(Some(lastLedgerEnd))
+    inOrder.verify(dispatcher).signalNewHead(lastOffset)
+    inOrder.verifyNoMoreInteractions()
+  }
+
   "update" should "update the in-memory state, but not the ledger-end and the dispatcher in repair mode" in new Scope {
     InMemoryStateUpdater.update(inMemoryState, logger)(prepareResult, true)
 
@@ -588,6 +606,11 @@ object InMemoryStateUpdaterSpec {
       )
     val prepareResult: PrepareResult = PrepareResult(
       updates = updates,
+      ledgerEnd = lastLedgerEnd,
+      emptyTraceContext,
+    )
+    val prepareResultOnlyReassignment: PrepareResult = PrepareResult(
+      updates = Vector(assignLogUpdate),
       ledgerEnd = lastLedgerEnd,
       emptyTraceContext,
     )

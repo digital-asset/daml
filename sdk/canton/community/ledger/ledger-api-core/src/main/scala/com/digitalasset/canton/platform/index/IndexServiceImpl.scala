@@ -18,7 +18,6 @@ import com.daml.tracing.{Event, SpanAttribute, Spans}
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.api.domain.types.ParticipantOffset
 import com.digitalasset.canton.ledger.api.domain.{CumulativeFilter, TransactionFilter, UpdateId}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.api.{TraceIdentifiers, domain}
@@ -98,8 +97,8 @@ private[index] class IndexServiceImpl(
     contractStore.lookupContractKey(readers, key)
 
   override def transactions(
-      startExclusive: ParticipantOffset,
-      endInclusive: Option[ParticipantOffset],
+      startExclusive: Option[Offset],
+      endInclusive: Option[Offset],
       transactionFilter: domain.TransactionFilter,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdatesResponse, NotUsed] = {
@@ -193,8 +192,8 @@ private[index] class IndexServiceImpl(
       }
 
   override def transactionTrees(
-      startExclusive: ParticipantOffset,
-      endInclusive: Option[ParticipantOffset],
+      startExclusive: Option[Offset],
+      endInclusive: Option[Offset],
       transactionFilter: domain.TransactionFilter,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdateTreesResponse, NotUsed] = {
@@ -269,11 +268,12 @@ private[index] class IndexServiceImpl(
   }
 
   override def getCompletions(
-      startExclusive: ParticipantOffset,
+      startExclusive: Option[Offset],
       applicationId: Ref.ApplicationId,
       parties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContextWithTrace): Source[CompletionStreamResponse, NotUsed] =
-    convertOffset(startExclusive)
+    Source
+      .single(startExclusive)
       .flatMapConcat { beginOpt =>
         dispatcher()
           .startingAt(
@@ -407,10 +407,10 @@ private[index] class IndexServiceImpl(
     ledgerDao.listKnownParties(fromExcl, maxResults)
 
   override def partyEntries(
-      startExclusive: ParticipantOffset
+      startExclusive: Option[Offset]
   )(implicit loggingContext: LoggingContextWithTrace): Source[PartyEntry, NotUsed] =
     Source
-      .future(concreteOffset(startExclusive))
+      .single(startExclusive)
       .flatMapConcat(offset =>
         dispatcher().startingAt(
           startExclusive = offset,
@@ -450,42 +450,20 @@ private[index] class IndexServiceImpl(
       applicationId: Option[ApplicationId],
     )
 
-  override def currentLedgerEnd(): Future[ParticipantOffset] = {
-    val absoluteApiOffset = toApiOffset(ledgerEnd())
-    Future.successful(absoluteApiOffset)
-  }
-
-  private def toApiOffset(ledgerDomainOffsetO: Option[Offset]): ParticipantOffset =
-    ledgerDomainOffsetO.toHexString
+  override def currentLedgerEnd(): Future[Option[Offset]] =
+    Future.successful(ledgerEnd())
 
   private def ledgerEnd(): Option[Offset] = dispatcher().getHead()
 
-  // Returns a function that memoizes the current end
-  // Can be used directly or shared throughout a request processing
-  private def convertOffset: ParticipantOffset => Source[Option[Offset], NotUsed] = {
-    ledgerOffset =>
-      Offset.tryFromString(ledgerOffset).fold(Source.failed, off => Source.single(off))
-  }
-
-  // TODO(#22293) when participant offset is replaced by an optional type, deduplicate with the above convertOffset
-  private def convertOffsetInclusive: ParticipantOffset => Source[Offset, NotUsed] = {
-    ledgerOffset =>
-      Offset
-        .tryFromString(ledgerOffset)
-        .map(_.getOrElse(throw new IllegalArgumentException("Inclusive offset was not positive")))
-        .fold(Source.failed, off => Source.single(off))
-  }
-
   private def between[A](
-      startExclusive: ParticipantOffset,
-      endInclusive: Option[ParticipantOffset],
+      startExclusive: Option[Offset],
+      endInclusive: Option[Offset],
   )(f: (Option[Offset], Option[Offset]) => Source[A, NotUsed])(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[A, NotUsed] = {
-    val convert = convertOffset
-    convert(startExclusive).flatMapConcat { begin =>
+  ): Source[A, NotUsed] =
+    Source.single(startExclusive).flatMapConcat { begin =>
       endInclusive
-        .map(convertOffsetInclusive(_).map(Some(_)))
+        .map(off => Source.single(Some(off)))
         .getOrElse(Source.single(None))
         .flatMapConcat {
           case Some(end) if begin.contains(end) =>
@@ -502,10 +480,6 @@ private[index] class IndexServiceImpl(
             f(begin, endOpt)
         }
     }
-  }
-
-  private def concreteOffset(startExclusive: ParticipantOffset): Future[Option[Offset]] =
-    Future.fromTry(Offset.tryFromString(startExclusive))
 
   private def shutdownError(implicit
       loggingContext: LoggingContextWithTrace

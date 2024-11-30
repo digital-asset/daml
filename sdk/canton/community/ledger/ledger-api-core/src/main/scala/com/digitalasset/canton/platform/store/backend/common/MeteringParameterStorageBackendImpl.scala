@@ -6,11 +6,7 @@ package com.digitalasset.canton.platform.store.backend.common
 import anorm.{RowParser, ~}
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
-import com.digitalasset.canton.platform.store.backend.Conversions.{
-  OffsetOToStatement,
-  offsetO,
-  timestampFromMicros,
-}
+import com.digitalasset.canton.platform.store.backend.Conversions.{offset, timestampFromMicros}
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
@@ -35,7 +31,7 @@ private[backend] object MeteringParameterStorageBackendImpl
               ledger_metering_end,
               ledger_metering_timestamp
             ) values (
-              ${init.offset},
+              ${init.offset.map(_.unwrap)},
               ${init.timestamp}
             )"""
             .execute()(connection)
@@ -48,8 +44,7 @@ private[backend] object MeteringParameterStorageBackendImpl
   def ledgerMeteringEnd(connection: Connection): Option[LedgerMeteringEnd] = {
 
     val LedgerMeteringEndParser: RowParser[LedgerMeteringEnd] = (
-      offsetO("ledger_metering_end").?.map(_.flatten) ~
-        timestampFromMicros("ledger_metering_timestamp")
+      offset("ledger_metering_end").? ~ timestampFromMicros("ledger_metering_timestamp")
     ) map { case ledgerMeteringEnd ~ ledgerMeteringTimestamp =>
       LedgerMeteringEnd(ledgerMeteringEnd, ledgerMeteringTimestamp)
     }
@@ -73,7 +68,7 @@ private[backend] object MeteringParameterStorageBackendImpl
         UPDATE
           lapi_metering_parameters
         SET
-          ledger_metering_end = ${ledgerMeteringEnd.offset},
+          ledger_metering_end = ${ledgerMeteringEnd.offset.map(_.unwrap)},
           ledger_metering_timestamp = ${ledgerMeteringEnd.timestamp}
         """
         .execute()(connection)

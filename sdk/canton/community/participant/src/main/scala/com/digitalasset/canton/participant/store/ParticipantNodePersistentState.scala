@@ -10,7 +10,7 @@ import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,
 }
-import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout, StorageConfig}
+import com.digitalasset.canton.config.{ProcessingTimeout, StorageConfig}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{
   HasLoggerName,
@@ -18,6 +18,7 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
   NamedLoggingContext,
 }
+import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
@@ -42,6 +43,7 @@ class ParticipantNodePersistentState private (
     val inFlightSubmissionStore: InFlightSubmissionStore,
     val commandDeduplicationStore: CommandDeduplicationStore,
     val pruningStore: ParticipantPruningStore,
+    val contractStore: ContractStore,
     override val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 ) extends FlagCloseable
@@ -53,6 +55,7 @@ class ParticipantNodePersistentState private (
       commandDeduplicationStore,
       pruningStore,
       ledgerApiStore,
+      contractStore,
     )(logger)
 }
 
@@ -63,25 +66,26 @@ object ParticipantNodePersistentState extends HasLoggerName {
   def create(
       storage: Storage,
       storageConfig: StorageConfig,
-      exitOnFatalFailures: Boolean,
       maxDeduplicationDurationO: Option[NonNegativeFiniteDuration],
-      batching: BatchingConfig,
+      parameters: ParticipantNodeParameters,
       releaseProtocolVersion: ReleaseProtocolVersion,
       metrics: ParticipantMetrics,
       ledgerParticipantId: LedgerParticipantId,
       ledgerApiServerConfig: LedgerApiServerConfig,
-      timeouts: ProcessingTimeout,
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       ec: ExecutionContextIdlenessExecutorService,
       traceContext: TraceContext,
   ): FutureUnlessShutdown[ParticipantNodePersistentState] = {
+    val timeouts = parameters.processingTimeouts
+    val batching = parameters.batchingConfig
+
     val settingsStore = ParticipantSettingsStore(
       storage,
       timeouts,
       futureSupervisor,
-      exitOnFatalFailures = exitOnFatalFailures,
+      exitOnFatalFailures = parameters.exitOnFatalFailures,
       loggerFactory,
     )
     val inFlightSubmissionStore = InFlightSubmissionStore(
@@ -97,6 +101,10 @@ object ParticipantNodePersistentState extends HasLoggerName {
       releaseProtocolVersion,
       loggerFactory,
     )
+
+    val contractStore =
+      ContractStore.create(storage, releaseProtocolVersion, parameters, loggerFactory)
+
     val pruningStore = ParticipantPruningStore(storage, timeouts, loggerFactory)
 
     implicit val loggingContext: NamedLoggingContext =
@@ -180,6 +188,7 @@ object ParticipantNodePersistentState extends HasLoggerName {
         inFlightSubmissionStore,
         commandDeduplicationStore,
         pruningStore,
+        contractStore,
         timeouts,
         loggerFactory,
       )

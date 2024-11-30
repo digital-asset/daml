@@ -38,7 +38,6 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.platform.apiserver.ApiException
 import com.digitalasset.canton.platform.apiserver.services.logging
 import com.digitalasset.canton.tracing.TraceContext
@@ -222,7 +221,7 @@ final class ApiParticipantPruningService private (
       ledgerEnd <- readBackend.currentLedgerEnd()
       _ <-
         // NOTE: This constraint should be relaxed to (pruneUpToString <= ledgerEnd.value) TODO(#18685) clarify this
-        if (pruneUpToLong < ApiOffset.assertFromStringToLong(ledgerEnd)) Future.successful(())
+        if (pruneUpToLong < ledgerEnd.fold(0L)(_.unwrap)) Future.successful(())
         else
           Future.failed(
             RequestValidationErrors.OffsetOutOfRange

@@ -59,7 +59,7 @@ message Completion {
   oneof deduplication_period {
     // Specifies the start of the deduplication period by a completion stream offset (exclusive).
     //
-    // Must be a valid absolute offset (positive integer).
+    // Must be a valid absolute offset (positive integer) or participant begin (zero).
     int64 deduplication_offset = 7;
 
     // Specifies the length of the deduplication period.

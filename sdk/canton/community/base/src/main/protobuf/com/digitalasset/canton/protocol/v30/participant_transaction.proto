@@ -18,7 +18,7 @@ import "scalapb/scalapb.proto";
 message DeduplicationPeriod {
   oneof period {
     google.protobuf.Duration duration = 1;
-    bytes offset = 2;
+    int64 offset = 2; // if specified, it must be a valid absolute offset (positive integer) or zero (ledger begin offset)
   }
 }
 

@@ -164,7 +164,7 @@ object MerkleSeq
     SupportedProtoVersions(
       ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.MerkleSeq)(
         supportedProtoVersion(_)(fromProtoV30),
-        _.toProtoV30.toByteString,
+        _.toProtoV30,
       )
     )
 
@@ -410,7 +410,7 @@ object MerkleSeq
       SupportedProtoVersions(
         ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.MerkleSeqElement)(
           supportedProtoVersion(_)(fromProtoV30),
-          _.toProtoV30.toByteString,
+          _.toProtoV30,
         )
       )
 

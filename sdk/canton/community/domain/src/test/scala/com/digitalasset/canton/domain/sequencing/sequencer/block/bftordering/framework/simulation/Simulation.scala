@@ -18,6 +18,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   Module,
   ModuleName,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.simulation.topology.SimulationTopologyHelpers.sequencerBecomeOnlineTime
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.time.SimClock
@@ -54,7 +55,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
     .foreach { case (onboardingTime, (endpoint, _)) =>
       agenda.addOne(
         OnboardSequencer(endpoint),
-        at = onboardingTime.value,
+        at = sequencerBecomeOnlineTime(onboardingTime, simSettings),
         ScheduledCommand.DefaultPriority,
       )
     }

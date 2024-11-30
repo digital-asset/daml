@@ -405,17 +405,18 @@ trait HasSupportedProtoVersions[ValueClass] {
         protoCompanion: scalapb.GeneratedMessageCompanion[ProtoClass] & Status
     )(
         parser: scalapb.GeneratedMessageCompanion[ProtoClass] => Deserializer,
-        serializer: Serializer,
+        serializer: ValueClass => scalapb.GeneratedMessage,
     ): VersionedProtoConverter =
-      raw(fromInclusive, parser(protoCompanion), serializer)
+      raw(fromInclusive, parser(protoCompanion), serializer(_).toByteString)
 
     def storage[ProtoClass <: scalapb.GeneratedMessage](
         fromInclusive: ReleaseProtocolVersion,
         protoCompanion: scalapb.GeneratedMessageCompanion[ProtoClass] & StorageProtoVersion,
     )(
         parser: scalapb.GeneratedMessageCompanion[ProtoClass] => Deserializer,
-        serializer: Serializer,
-    ): VersionedProtoConverter = raw(fromInclusive.v, parser(protoCompanion), serializer)
+        serializer: ValueClass => scalapb.GeneratedMessage,
+    ): VersionedProtoConverter =
+      raw(fromInclusive.v, parser(protoCompanion), serializer(_).toByteString)
 
     @VisibleForTesting
     def raw(
@@ -503,6 +504,7 @@ trait HasSupportedProtoVersions[ValueClass] {
   }
 
   object SupportedProtoVersions {
+
     def apply(
         head: (ProtoVersion, ProtoCodec),
         tail: (ProtoVersion, ProtoCodec)*

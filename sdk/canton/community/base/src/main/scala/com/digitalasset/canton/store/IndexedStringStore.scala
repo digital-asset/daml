@@ -176,7 +176,7 @@ class IndexedStringCache(
             idx
           }
       },
-    )(logger)
+    )(logger, "str2Index")
 
   // (index,typ)
   private val index2strFUS
@@ -194,7 +194,7 @@ class IndexedStringCache(
               case None => None
             }
         },
-      )(logger)
+      )(logger, "index2str")
 
   override def getForIndex(
       dbTyp: IndexedStringType,

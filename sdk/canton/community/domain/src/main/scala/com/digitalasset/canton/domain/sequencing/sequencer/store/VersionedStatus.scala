@@ -32,7 +32,7 @@ object VersionedStatus extends HasProtocolVersionedCompanion2[VersionedStatus, V
         v30.VersionedStatus.messageCompanion,
       )(
         supportedProtoVersion(_)(fromProtoV30),
-        _.toProtoV30.toByteString,
+        _.toProtoV30,
       )
   )
 

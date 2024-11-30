@@ -134,7 +134,7 @@ object DomainConnectionConfig
     ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v33,
       supportedProtoVersion(v30.DomainConnectionConfig)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
   override def name: String = "domain connection config"

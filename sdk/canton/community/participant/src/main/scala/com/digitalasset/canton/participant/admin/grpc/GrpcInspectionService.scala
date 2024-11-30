@@ -516,13 +516,11 @@ class GrpcInspectionService(
 
         counterParticipantParties <- EitherTUtil
           .fromFuture(
-            FutureUnlessShutdown.outcomeF(
-              snapshot
-                .inspectKnownParties(
-                  filterParty = "",
-                  filterParticipant = counterParticipant.filterString,
-                )
-            ),
+            snapshot
+              .inspectKnownParties(
+                filterParty = "",
+                filterParticipant = counterParticipant.filterString,
+              ),
             err => InspectionServiceError.InternalServerError.Error(err.toString),
           )
           .leftWiden[CantonError]

@@ -112,7 +112,7 @@ trait Sequencer
 
   def read(member: Member, offset: SequencerCounter)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CreateSubscriptionError, Sequencer.EventSource]
+  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource]
 
   /** Return a snapshot state that other newly onboarded sequencers can use as an initial state
     * from which to support serving events. This state depends on the provided timestamp
@@ -249,7 +249,7 @@ trait SequencerPruning {
     */
   def acknowledgeSigned(signedAcknowledgeRequest: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Unit]
+  ): EitherT[FutureUnlessShutdown, String, Unit]
 
   /** Return a structure containing the members registered with the sequencer and the latest positions of clients
     * reading events.

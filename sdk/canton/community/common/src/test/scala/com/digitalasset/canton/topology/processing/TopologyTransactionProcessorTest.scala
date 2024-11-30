@@ -4,7 +4,6 @@
 package com.digitalasset.canton.topology.processing
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
@@ -13,7 +12,6 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.DynamicDomainParameters
 import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast
-import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast.Broadcast
 import com.digitalasset.canton.sequencing.SubscriptionStart.FreshSubscription
 import com.digitalasset.canton.sequencing.protocol.{AllMembersOfDomain, OpenEnvelope, Recipients}
 import com.digitalasset.canton.store.db.{DbTest, PostgresTest}
@@ -31,13 +29,14 @@ import com.digitalasset.canton.topology.store.{
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, SequencerCounter}
 import org.scalatest.wordspec.AnyWordSpec
 
 abstract class TopologyTransactionProcessorTest
     extends AnyWordSpec
     with BaseTest
-    with HasExecutionContext {
+    with HasExecutionContext
+    with FailOnShutdown {
 
   private val crypto = new SymbolicPureCrypto()
 
@@ -86,7 +85,7 @@ abstract class TopologyTransactionProcessorTest
         None,
         None,
       )
-      .futureValue
+      .futureValueUS
 
   private def process(
       proc: TopologyTransactionProcessor,
@@ -131,7 +130,7 @@ abstract class TopologyTransactionProcessorTest
 
       // finds the most recently stored version of a transaction, including rejected ones
       val rejected_ns1k1_k1O =
-        store.findStored(CantonTimestamp.MaxValue, ns1k1_k1, includeRejected = true).futureValue
+        store.findStored(CantonTimestamp.MaxValue, ns1k1_k1, includeRejected = true).futureValueUS
       val rejected_ns1k1_k1 =
         rejected_ns1k1_k1O.valueOrFail("Unable to find ns1k1_k1 in the topology store")
       // the rejected ns1k1_k1 should not be valid
@@ -191,7 +190,7 @@ abstract class TopologyTransactionProcessorTest
       process(proc, ts(3), 3, block4)
       process(proc, ts(4), 4, block5)
       process(proc, ts(5), 5, block6)
-      val storeAfterProcessing = store.dumpStoreContent().futureValue
+      val storeAfterProcessing = store.dumpStoreContent().futureValueUS
       val DNDafterProcessing = fetch(store, ts(5).immediateSuccessor)
         .find(_.code == TopologyMapping.Code.DecentralizedNamespaceDefinition)
         .valueOrFail("Couldn't find DND")
@@ -206,7 +205,7 @@ abstract class TopologyTransactionProcessorTest
       process(proc2, ts(3), 3, block4)
       process(proc2, ts(4), 4, block5)
       process(proc2, ts(5), 5, block6)
-      val storeAfterReplay = store.dumpStoreContent().futureValue
+      val storeAfterReplay = store.dumpStoreContent().futureValueUS
 
       storeAfterReplay.result.size shouldBe storeAfterProcessing.result.size
       storeAfterReplay.result.zip(storeAfterProcessing.result).foreach {
@@ -362,7 +361,7 @@ abstract class TopologyTransactionProcessorTest
       ) = {
         val dopInStore = store
           .findStored(ts, dop, includeRejected = false)
-          .futureValue
+          .futureValueUS
           .value
 
         dopInStore.mapping shouldBe dopMapping
@@ -407,7 +406,7 @@ abstract class TopologyTransactionProcessorTest
       // but we can check that it was immediately invalidated (validFrom == validUntil) which happens for rejected transactions.
       val rejectedDopInStoreAtTs2 = store
         .findStored(ts(2).immediateSuccessor, extraDop, includeRejected = true)
-        .futureValue
+        .futureValueUS
         .value
       rejectedDopInStoreAtTs2.validFrom shouldBe rejectedDopInStoreAtTs2.validUntil.value
       rejectedDopInStoreAtTs2.validFrom shouldBe EffectiveTime(ts(2))
@@ -458,7 +457,7 @@ abstract class TopologyTransactionProcessorTest
             )
           )
         )
-        .futureValue
+        .futureValueUS
 
       // add proposal to add ns2 to dnd signed by k2
       val block1 = List[GenericSignedTopologyTransaction](dnd_add_ns2_k2)
@@ -488,7 +487,7 @@ abstract class TopologyTransactionProcessorTest
       val rejected_dnd_add_ns3_k1 =
         store
           .findStored(CantonTimestamp.MaxValue, dnd_add_ns3_k1, includeRejected = true)
-          .futureValue
+          .futureValueUS
           .value
       rejected_dnd_add_ns3_k1.transaction shouldBe dnd_add_ns3_k1
       rejected_dnd_add_ns3_k1.validUntil shouldBe Some(EffectiveTime(ts(3)))
@@ -565,7 +564,7 @@ abstract class TopologyTransactionProcessorTest
       ) = {
         val dopInStore = store
           .findStored(ts, transactionToLookUp, includeRejected = false)
-          .futureValue
+          .futureValueUS
           .value
 
         dopInStore.mapping shouldBe transactionToLookUp.mapping
@@ -650,7 +649,7 @@ abstract class TopologyTransactionProcessorTest
       )
       store
         .findStored(asOfExclusive = ts(3).immediateSuccessor, dop1_k1k7)
-        .futureValue
+        .futureValueUS
         .value
         .validUntil
         .value
@@ -728,13 +727,13 @@ abstract class TopologyTransactionProcessorTest
         )
       )
 
-      def mkEnvelope(transactions: GenericSignedTopologyTransaction) =
+      def mkEnvelope(transaction: GenericSignedTopologyTransaction) =
         Traced(
           List(
             OpenEnvelope(
-              TopologyTransactionsBroadcast.create(
+              TopologyTransactionsBroadcast(
                 domainId,
-                Seq(Broadcast(String255.tryCreate("topology request id"), List(transactions))),
+                List(transaction),
                 testedProtocolVersion,
               ),
               recipients = Recipients.cc(AllMembersOfDomain),
@@ -752,7 +751,7 @@ abstract class TopologyTransactionProcessorTest
       val block3 = mkEnvelope(ns3k3_k3)
 
       val store = mkStore(domainId)
-      store.bootstrap(initialTopologyState).futureValue
+      store.bootstrap(initialTopologyState).futureValueUS
 
       val (proc, _) = mk(store, domainId)
 
@@ -821,6 +820,7 @@ class TopologyTransactionProcessorTestInMemory extends TopologyTransactionProces
   ): TopologyStore[TopologyStoreId.DomainStore] =
     new InMemoryTopologyStore(
       TopologyStoreId.DomainStore(domainId),
+      testedProtocolVersion,
       loggerFactory,
       timeouts,
     )

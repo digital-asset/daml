@@ -200,7 +200,6 @@ class TransactionConfirmationRequestFactory(
       )
       notHosted <- EitherT
         .liftF(cryptoSnapshot.ipsSnapshot.hasNoConfirmer(signedAs))
-        .mapK(FutureUnlessShutdown.outcomeK)
       _ <- EitherT.cond[FutureUnlessShutdown](
         notHosted.isEmpty,
         (),
@@ -258,7 +257,7 @@ class TransactionConfirmationRequestFactory(
             )
             .void
         }
-    ).mapK(FutureUnlessShutdown.outcomeK)
+    )
 
   private def createTransactionViewEnvelopes(
       transactionTree: GenTransactionTree,

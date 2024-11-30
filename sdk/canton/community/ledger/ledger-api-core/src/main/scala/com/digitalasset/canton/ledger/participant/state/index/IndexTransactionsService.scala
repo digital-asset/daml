@@ -10,7 +10,6 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdatesResponse,
 }
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.api.domain.types.ParticipantOffset
 import com.digitalasset.canton.ledger.api.domain.{TransactionFilter, UpdateId}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.daml.lf.data.Ref
@@ -24,15 +23,15 @@ import scala.concurrent.Future
   */
 trait IndexTransactionsService extends LedgerEndService {
   def transactions(
-      begin: ParticipantOffset,
-      endAt: Option[ParticipantOffset],
+      begin: Option[Offset],
+      endAt: Option[Offset],
       filter: TransactionFilter,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdatesResponse, NotUsed]
 
   def transactionTrees(
-      begin: ParticipantOffset,
-      endAt: Option[ParticipantOffset],
+      begin: Option[Offset],
+      endAt: Option[Offset],
       filter: TransactionFilter,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdateTreesResponse, NotUsed]
