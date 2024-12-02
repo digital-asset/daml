@@ -165,7 +165,8 @@ tests TestArgs{..} = testGroup ("LF " <> LF.renderVersion lfVersion)
             , "name: test-project"
             , "source: daml"
             , "version: 0.0.1"
-            , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: [" <> show scriptDar <> "]"
             ]
           for_ initial $ \(file, content) -> do
               createDirectoryIfMissing True (takeDirectory $ dir </> file)

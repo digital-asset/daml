@@ -1502,8 +1502,8 @@ execRepl dars importPkgs mbLedgerConfig mbAuthToken mbAppId mbSslConf mbMaxInbou
                     , "dependencies:"
                     , "- daml-prim"
                     , "- daml-stdlib"
-                    , "- " <> show scriptDar
                     , "data-dependencies:"
+                    , "- " <> show scriptDar
                     ] ++ ["- " <> show dar | dar <- dars]
                 installDepsAndInitPackageDb opts (InitPkgDb True)
                 replLogger <- Repl.newReplLogger
@@ -1739,7 +1739,7 @@ execDocTest opts scriptDar (ImportSource importSource) files =
             wrapErr "running doc test" $
               resolveReleaseVersionUnsafe (envUseCache damlEnv) SdkVersion.Class.unresolvedBuiltinSdkVersion
           else pure (unsafeResolveReleaseVersion SdkVersion.Class.unresolvedBuiltinSdkVersion)
-      installDependencies "." opts releaseVersion [scriptDar] []
+      installDependencies "." opts releaseVersion [] [scriptDar]
       createProjectPackageDb "." opts mempty
 
       opts <- pure opts

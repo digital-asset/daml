@@ -6,7 +6,7 @@
 module Daml.Script.Internal.Questions.Packages where
 
 import Daml.Script.Internal.LowLevel
-import Daml.Script.Internal.Questions.PartyManagement (ParticipantName (..))
+import Daml.Script.Stable (ParticipantName (..))
 import Daml.Script.Internal.Questions.Time (sleep)
 import DA.Stack
 import DA.Time

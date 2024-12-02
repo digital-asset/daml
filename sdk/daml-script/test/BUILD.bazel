@@ -224,7 +224,7 @@ da_scala_library(
 daml_compile(
     name = "try-submit-test-1.15",
     srcs = [":daml/Daml3ScriptTrySubmit15.daml"],
-    dependencies = [
+    data_dependencies = [
         "//daml-script/daml3:daml3-script-1.15.dar",
     ],
     project_name = "try-submit-test",
@@ -235,7 +235,7 @@ daml_compile(
 daml_compile(
     name = "upgrade-test-lib",
     srcs = [":daml/UpgradeTestLib.daml"],
-    dependencies = [
+    data_dependencies = [
         "//daml-script/daml3:daml3-script-1.dev.dar",
     ],
     project_name = "upgrade-test-lib",
@@ -272,6 +272,7 @@ da_scala_test_suite(
         exclude = [
             "src/com/**/*Dev*.scala",
             "src/com/digitalasset/daml/lf/engine/script/test/UpgradesIT.scala",
+            "src/com/digitalasset/daml/lf/engine/script/test/DamlScriptUtilityPackage.scala",
         ],
     ),
     data = [
@@ -371,6 +372,29 @@ da_scala_test(
     ],
 ) if not is_windows else None
 # skipping windows for now, it doesn't seem to like the filegroup `:upgrade-test-files`
+
+da_scala_test(
+    name = "utility-package-test",
+    size = "small",
+    srcs = ["src/com/digitalasset/daml/lf/engine/script/test/DamlScriptUtilityPackage.scala"],
+    data = [
+        "//daml-script/daml:daml-script-1.14.dar",
+        "//daml-script/daml:daml-script-1.15.dar",
+        "//daml-script/daml:daml-script-1.17.dar",
+        "//daml-script/daml:daml-script-1.dev.dar",
+        "//daml-script/daml3:daml3-script-1.14.dar",
+        "//daml-script/daml3:daml3-script-1.15.dar",
+        "//daml-script/daml3:daml3-script-1.17.dar",
+        "//daml-script/daml3:daml3-script-1.dev.dar",
+    ],
+    resources = glob(["src/main/resources/**/*"]),
+    deps = [
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//daml-lf/language",
+    ],
+)
 
 da_scala_binary(
     name = "compile-upgrade-test-cases",
