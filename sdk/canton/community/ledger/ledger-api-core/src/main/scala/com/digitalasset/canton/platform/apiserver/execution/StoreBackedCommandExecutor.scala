@@ -300,7 +300,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
               )
             }
 
-        case ResultInterruption(continue) =>
+        case ResultInterruption(continue, abort) =>
           // We want to prevent the interpretation to run indefinitely and use all the resources.
           // For this purpose, we check the following condition:
           //
@@ -342,6 +342,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
                   .InterpretationTimeExceeded(
                     ledgerEffectiveTime,
                     ledgerTimeRecordTimeTolerance,
+                    abort(),
                   )
                 FutureUnlessShutdown.pure(Left(error))
               } else resume()

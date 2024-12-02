@@ -184,11 +184,14 @@ class StoreBackedCommandExecutorSpec
   private def mkInterruptedResult(
       nbSteps: Int
   ): Result[(SubmittedTransaction, Transaction.Metadata)] =
-    ResultInterruption { () =>
-      Threading.sleep(100)
-      if (nbSteps == 0) resultDone
-      else mkInterruptedResult(nbSteps - 1)
-    }
+    ResultInterruption(
+      { () =>
+        Threading.sleep(100)
+        if (nbSteps == 0) resultDone
+        else mkInterruptedResult(nbSteps - 1)
+      },
+      () => None,
+    )
 
   "StoreBackedCommandExecutor" should {
     "add interpretation time and used disclosed contracts to result" in {
@@ -250,7 +253,7 @@ class StoreBackedCommandExecutorSpec
           executionContext,
         )
         .map {
-          case Left(InterpretationTimeExceeded(`let`, `tolerance`)) => succeed
+          case Left(InterpretationTimeExceeded(`let`, `tolerance`, _)) => succeed
           case _ => fail()
         }
     }
