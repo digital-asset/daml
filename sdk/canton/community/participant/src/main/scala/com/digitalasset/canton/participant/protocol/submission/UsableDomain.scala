@@ -23,7 +23,7 @@ import com.digitalasset.canton.version.{
 import com.digitalasset.canton.{LfPackageId, LfPartyId}
 import com.digitalasset.daml.lf.transaction.TransactionVersion
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 object UsableDomain {
 
@@ -38,21 +38,22 @@ object UsableDomain {
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[Future, DomainNotUsedReason, Unit] = {
+  ): EitherT[FutureUnlessShutdown, DomainNotUsedReason, Unit] = {
 
-    val packageVetted: EitherT[Future, UnknownPackage, Unit] =
+    val packageVetted: EitherT[FutureUnlessShutdown, UnknownPackage, Unit] =
       checkPackagesVetted(
         domainId,
         snapshot,
         requiredPackagesByParty,
         ledgerTime,
       )
-        .failOnShutdownToAbortException("Usable domain checking")
-    val partiesConnected: EitherT[Future, MissingActiveParticipant, Unit] =
+    val partiesConnected: EitherT[FutureUnlessShutdown, MissingActiveParticipant, Unit] =
       checkConnectedParties(domainId, snapshot, requiredPackagesByParty.keySet)
-    val compatibleProtocolVersion: EitherT[Future, UnsupportedMinimumProtocolVersion, Unit] =
+    val compatibleProtocolVersion
+        : EitherT[FutureUnlessShutdown, UnsupportedMinimumProtocolVersion, Unit] =
       checkProtocolVersion(domainId, protocolVersion, transactionVersion)
-    val compatibleInteractiveSubmissionVersion: EitherT[Future, DomainNotUsedReason, Unit] =
+    val compatibleInteractiveSubmissionVersion
+        : EitherT[FutureUnlessShutdown, DomainNotUsedReason, Unit] =
       checkInteractiveSubmissionVersion(domainId, interactiveSubmissionVersionO, protocolVersion)
         .leftWiden[DomainNotUsedReason]
 
@@ -71,10 +72,14 @@ object UsableDomain {
       protocolVersion: ProtocolVersion,
   )(implicit
       ec: ExecutionContext
-  ): EitherT[Future, UnsupportedMinimumProtocolVersionForInteractiveSubmission, Unit] = versionO
+  ): EitherT[
+    FutureUnlessShutdown,
+    UnsupportedMinimumProtocolVersionForInteractiveSubmission,
+    Unit,
+  ] = versionO
     .map { version =>
       val minProtocolVersion = HashingSchemeVersion.minProtocolVersionForHSV(version)
-      EitherT.cond[Future](
+      EitherT.cond[FutureUnlessShutdown](
         minProtocolVersion.exists(protocolVersion >= _),
         (),
         UnsupportedMinimumProtocolVersionForInteractiveSubmission(
@@ -96,7 +101,7 @@ object UsableDomain {
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[Future, MissingActiveParticipant, Unit] =
+  ): EitherT[FutureUnlessShutdown, MissingActiveParticipant, Unit] =
     snapshot
       .allHaveActiveParticipants(parties)
       .leftMap(MissingActiveParticipant(domainId, _))
@@ -119,7 +124,7 @@ object UsableDomain {
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[Future, Nothing, Map[ParticipantId, Set[LfPackageId]]] = EitherT.right(
+  ): EitherT[FutureUnlessShutdown, Nothing, Map[ParticipantId, Set[LfPackageId]]] = EitherT.right(
     snapshot.activeParticipantsOfParties(requiredPackagesByParty.keySet.toSeq).map {
       partyToParticipants =>
         requiredPackagesByParty.toList.foldLeft(Map.empty[ParticipantId, Set[LfPackageId]]) {
@@ -164,7 +169,6 @@ object UsableDomain {
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, UnknownPackage, Unit] =
     resolveParticipants(snapshot, requiredPackagesByParty)
-      .mapK(FutureUnlessShutdown.outcomeK)
       .flatMap(
         checkPackagesVetted(domainId, snapshot, ledgerTime, _)
       )
@@ -190,7 +194,7 @@ object UsableDomain {
       transactionVersion: TransactionVersion,
   )(implicit
       ec: ExecutionContext
-  ): EitherT[Future, UnsupportedMinimumProtocolVersion, Unit] = {
+  ): EitherT[FutureUnlessShutdown, UnsupportedMinimumProtocolVersion, Unit] = {
     val minimumPVForTransaction =
       DamlLfVersionToProtocolVersions.getMinimumSupportedProtocolVersion(
         transactionVersion

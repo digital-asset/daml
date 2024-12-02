@@ -174,7 +174,7 @@ object SubmissionRequest
       ProtocolVersion.v33
     )(v30.SubmissionRequest)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 

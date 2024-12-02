@@ -232,7 +232,7 @@ abstract class BootstrapStageWithStorage[
   /** test whether the stage is completed already through a previous init. if so, return result */
   protected def stageCompleted(implicit
       traceContext: TraceContext
-  ): Future[Option[M]]
+  ): FutureUnlessShutdown[Option[M]]
 
   /** given the result of this stage, create the next stage */
   protected def buildNextStage(result: M): EitherT[FutureUnlessShutdown, String, StageResult]
@@ -261,7 +261,7 @@ abstract class BootstrapStageWithStorage[
         EitherT.pure[FutureUnlessShutdown, String][Option[StageResult]](None)
       } else {
         EitherT
-          .right[String](performUnlessClosingF("check-already-init")(stageCompleted))
+          .right[String](performUnlessClosingUSF("check-already-init")(stageCompleted))
           .flatMap[String, Option[StageResult]] {
             case Some(result) =>
               logger.info(
@@ -294,7 +294,7 @@ abstract class BootstrapStageWithStorage[
         } else
           {
             for {
-              current <- performUnlessClosingEitherU(s"check-already-init-$description")(
+              current <- performUnlessClosingEitherUSF(s"check-already-init-$description")(
                 EitherT.right[String](stageCompleted)
               )
               _ <- EitherT.cond[FutureUnlessShutdown](
@@ -331,7 +331,7 @@ abstract class BootstrapStageWithStorage[
   ): EitherT[FutureUnlessShutdown, String, Option[StageResult]] =
     performUnlessClosingEitherUSF(description) {
       for {
-        result <- EitherT.right(stageCompleted).mapK(FutureUnlessShutdown.outcomeK)
+        result <- EitherT.right(stageCompleted)
         stageO <- result match {
           case Some(result) =>
             buildNextStage(result).map(Some(_))

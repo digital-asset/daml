@@ -225,7 +225,7 @@ object AsymmetricEncrypted extends HasVersionedMessageCompanion[AsymmetricEncryp
     ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v33,
       supportedProtoVersion(v30.AsymmetricEncrypted)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 
@@ -501,7 +501,7 @@ object SymmetricKey extends HasVersionedMessageCompanion[SymmetricKey] {
     ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v33,
       supportedProtoVersion(v30.SymmetricKey)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 
@@ -604,7 +604,7 @@ object EncryptionPublicKey
     ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v33,
       supportedProtoVersion(v30.EncryptionPublicKey)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 
@@ -690,7 +690,7 @@ object EncryptionPrivateKey extends HasVersionedMessageCompanion[EncryptionPriva
     ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v33,
       supportedProtoVersion(v30.EncryptionPrivateKey)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 

@@ -72,7 +72,7 @@ object SetTrafficPurchasedMessage
       v30.SetTrafficPurchasedMessage
     )(
       supportedProtoVersionMemoized(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 

@@ -11,6 +11,7 @@ import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, SyncCryptoEr
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.LocalRejectionGroup
 import com.digitalasset.canton.error.{Alarm, AlarmErrorCode}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidation.InvalidUnassignmentResult.DeliveredUnassignmentResultError
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidation.{
@@ -33,7 +34,7 @@ import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
 import com.google.common.annotations.VisibleForTesting
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 private[reassignment] class AssignmentValidation(
     domainId: Target[DomainId],
@@ -61,7 +62,9 @@ private[reassignment] class AssignmentValidation(
       isConfirming: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ReassignmentProcessorError, Option[AssignmentValidationResult]] = {
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Option[
+    AssignmentValidationResult
+  ]] = {
     val reassignmentId = assignmentRequest.unassignmentResultEvent.reassignmentId
     val targetSnapshot = targetCrypto.map(_.ipsSnapshot)
 
@@ -70,7 +73,9 @@ private[reassignment] class AssignmentValidation(
         val sourceDomain = reassignmentData.unassignmentRequest.sourceDomain
         val unassignmentTs = reassignmentData.unassignmentTs
         for {
-          sourceStaticDomainParam <- reassignmentCoordination.getStaticDomainParameter(sourceDomain)
+          sourceStaticDomainParam <- reassignmentCoordination
+            .getStaticDomainParameter(sourceDomain)
+            .mapK(FutureUnlessShutdown.outcomeK)
           _ready <- {
             logger.info(
               s"Waiting for topology state at $unassignmentTs on unassignment domain $sourceDomain ..."
@@ -81,15 +86,17 @@ private[reassignment] class AssignmentValidation(
                 sourceStaticDomainParam,
                 unassignmentTs,
               )
-          }
+          }.mapK(FutureUnlessShutdown.outcomeK)
 
-          sourceCrypto <- reassignmentCoordination.cryptoSnapshot(
-            sourceDomain,
-            sourceStaticDomainParam,
-            unassignmentTs,
-          )
+          sourceCrypto <- reassignmentCoordination
+            .cryptoSnapshot(
+              sourceDomain,
+              sourceStaticDomainParam,
+              unassignmentTs,
+            )
+            .mapK(FutureUnlessShutdown.outcomeK)
 
-          _ <- condUnitET[Future](
+          _ <- condUnitET[FutureUnlessShutdown](
             reassignmentData.unassignmentRequest.reassigningParticipants == assignmentRequest.reassigningParticipants,
             ReassigningParticipantsMismatch(
               ReassignmentRef(reassignmentId),
@@ -101,12 +108,12 @@ private[reassignment] class AssignmentValidation(
           // TODO(i12926): Validate the shipped unassignment result w.r.t. stakeholders
           // TODO(i12926): Validate that the unassignment result received matches the unassignment result in reassignmentData
 
-          _ <- condUnitET[Future](
+          _ <- condUnitET[FutureUnlessShutdown](
             assignmentRequest.contract == reassignmentData.contract,
             ContractDataMismatch(reassignmentId),
           )
 
-          _ <- EitherT.fromEither[Future](
+          _ <- EitherT.fromEither[FutureUnlessShutdown](
             serializableContractAuthenticator
               .authenticate(assignmentRequest.contract)
               .leftMap[ReassignmentProcessorError](ContractError.apply)
@@ -122,6 +129,7 @@ private[reassignment] class AssignmentValidation(
               staticDomainParameters,
               targetTimeProof,
             )
+            .mapK(FutureUnlessShutdown.outcomeK)
 
           _ <- DeliveredUnassignmentResultValidation(
             unassignmentRequest = reassignmentData.unassignmentRequest,
@@ -147,7 +155,7 @@ private[reassignment] class AssignmentValidation(
             )
             .leftMap[ReassignmentProcessorError](ReassignmentParametersError(domainId.unwrap, _))
 
-          _ <- condUnitET[Future](
+          _ <- condUnitET[FutureUnlessShutdown](
             assignmentRequestTs >= exclusivityLimit.unwrap || unassignmentSubmitter == assignmentRequest.submitter,
             NonInitiatorSubmitsBeforeExclusivityTimeout(
               reassignmentId,
@@ -167,7 +175,7 @@ private[reassignment] class AssignmentValidation(
           )
           confirmingParties = sourceConfirmingParties.intersect(targetConfirmingParties)
 
-          _ <- EitherT.cond[Future](
+          _ <- EitherT.cond[FutureUnlessShutdown](
             // reassignment counter is the same in unassignment and assignment requests
             assignmentRequest.reassignmentCounter == reassignmentData.reassignmentCounter,
             (),
@@ -197,14 +205,16 @@ private[reassignment] class AssignmentValidation(
               assignmentRequest.stakeholders.signatories,
             )
 
-          _ <- EitherT.fromEither[Future](
+          _ <- EitherT.fromEither[FutureUnlessShutdown](
             serializableContractAuthenticator
               .authenticate(assignmentRequest.contract)
               .leftMap[ReassignmentProcessorError](ContractError.apply)
           )
 
           confirmingParties <- EitherT
-            .liftF[Future, ReassignmentProcessorError, Set[LfPartyId]](confirmingPartiesF)
+            .liftF[FutureUnlessShutdown, ReassignmentProcessorError, Set[LfPartyId]](
+              confirmingPartiesF
+            )
 
           res <-
             if (isConfirming) {
@@ -212,10 +222,10 @@ private[reassignment] class AssignmentValidation(
               // OR if the reassignment data has been pruned.
               // The assignment should be rejected due to other validations (e.g. conflict detection), but
               // we could code this more defensively at some point
-              EitherT.rightT[Future, ReassignmentProcessorError](
+              EitherT.rightT[FutureUnlessShutdown, ReassignmentProcessorError](
                 Some(AssignmentValidationResult(confirmingParties))
               )
-            } else EitherT.rightT[Future, ReassignmentProcessorError](None)
+            } else EitherT.rightT[FutureUnlessShutdown, ReassignmentProcessorError](None)
         } yield res
     }
   }

@@ -128,7 +128,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
     )(any[TraceContext])
   )
     .thenReturn(
-      Future.successful(
+      FutureUnlessShutdown.pure(
         TestDomainParameters.defaultDynamic(
           confirmationRequestsMaxRate = confirmationRequestsMaxRate,
           maxRequestSize = maxRequestSize,
@@ -197,6 +197,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
         fingerprints <- cryptoApi.ips.currentSnapshotApproximation
           .signingKeys(participant, SigningKeyUsage.All)
           .map(_.map(_.fingerprint).toList)
+          .onShutdown(throw new Exception("Aborted due to shutdown."))
       } yield v30.SequencerAuthentication.ChallengeResponse(
         ReleaseVersion.current.toProtoPrimitive,
         Nonce.generate(cryptoApi.pureCrypto).toProtoPrimitive,
@@ -315,7 +316,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
     )
       .thenAnswer {
         subscribeCallback(())
-        EitherT.rightT[Future, CreateSubscriptionError] {
+        EitherT.rightT[FutureUnlessShutdown, CreateSubscriptionError] {
           new SequencerSubscription[NotUsed] {
             override protected def loggerFactory: NamedLoggerFactory = Env.this.loggerFactory
             override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = Seq(

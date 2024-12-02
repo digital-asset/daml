@@ -10,9 +10,8 @@ import com.daml.ledger.api.v2.update_service.{
   GetTransactionByIdRequest,
   GetUpdatesRequest,
 }
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.ParticipantOffset
-import com.digitalasset.canton.ledger.api.domain.types.ParticipantOffset
 import com.digitalasset.canton.ledger.api.messages.transaction
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.daml.lf.data.Ref
@@ -29,8 +28,8 @@ class UpdateServiceRequestValidator(partyValidator: PartyValidator) {
 
   case class PartialValidation(
       transactionFilter: TransactionFilter,
-      begin: ParticipantOffset,
-      end: Option[ParticipantOffset],
+      begin: Option[Offset],
+      end: Option[Offset],
       knownParties: Set[Ref.Party],
   )
 
@@ -41,20 +40,19 @@ class UpdateServiceRequestValidator(partyValidator: PartyValidator) {
       filter <- requirePresence(req.filter, "filter")
       begin <- ParticipantOffsetValidator
         .validateNonNegative(req.beginExclusive, "begin_exclusive")
-        .map(ParticipantOffset.fromString)
-      convertedEnd <- ParticipantOffsetValidator
+      end <- ParticipantOffsetValidator
         .validateOptionalPositive(req.endInclusive, "end_inclusive")
       knownParties <- partyValidator.requireKnownParties(req.getFilter.filtersByParty.keySet)
     } yield PartialValidation(
       filter,
       begin,
-      convertedEnd,
+      end,
       knownParties,
     )
 
   def validate(
       req: GetUpdatesRequest,
-      ledgerEnd: ParticipantOffset,
+      ledgerEnd: Option[Offset],
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Result[transaction.GetTransactionsRequest] =

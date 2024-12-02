@@ -32,7 +32,7 @@ object PartyReplicationInstruction
       v30.PartyReplicationInstruction
     )(
       supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     ),
   )
 

@@ -48,7 +48,7 @@ import scala.util.Try
 
 class SimulationCryptoProvider(
     val thisPeer: SequencerId,
-    val peerIdsToOnboardingInformation: Map[SequencerId, SimulationOnboardingInformation],
+    val peerIdsToTopologyData: Map[SequencerId, SimulationTopologyData],
     val crypto: SymbolicCrypto,
     val timestamp: CantonTimestamp,
     val loggerFactory: NamedLoggerFactory,
@@ -56,18 +56,18 @@ class SimulationCryptoProvider(
   private def fetchSigningKey(): Either[SyncCryptoError, Fingerprint] = {
     val keyNotFound = Left(SyncCryptoError.KeyNotAvailable(thisPeer, Signing, timestamp, Seq.empty))
 
-    peerIdsToOnboardingInformation.get(thisPeer) match {
-      case Some(onboardInformation) =>
-        Right(onboardInformation.signingPublicKey.fingerprint)
+    peerIdsToTopologyData.get(thisPeer) match {
+      case Some(topologyData) =>
+        Right(topologyData.signingPublicKey.fingerprint)
       case None =>
         keyNotFound
     }
   }
 
   private def validKeys(member: SequencerId): Map[Fingerprint, SigningPublicKey] =
-    peerIdsToOnboardingInformation.get(member) match {
-      case Some(onboardInformation) =>
-        Map(onboardInformation.signingPublicKey.fingerprint -> onboardInformation.signingPublicKey)
+    peerIdsToTopologyData.get(member) match {
+      case Some(topologyData) =>
+        Map(topologyData.signingPublicKey.fingerprint -> topologyData.signingPublicKey)
       case None => Map.empty
     }
 
@@ -79,7 +79,7 @@ class SimulationCryptoProvider(
     }
   }
 
-  override def signMessage[MessageT <: ProtocolVersionedMemoizedEvidence with MessageFrom](
+  override def signMessage[MessageT <: ProtocolVersionedMemoizedEvidence & MessageFrom](
       message: MessageT,
       hashPurpose: HashPurpose,
   )(implicit
@@ -132,8 +132,8 @@ class SimulationCryptoProvider(
 
 object SimulationCryptoProvider {
   def create(
-      me: SequencerId,
-      sequencerOnboardInformation: Map[SequencerId, SimulationOnboardingInformation],
+      thisPeer: SequencerId,
+      sequencerToTopologyData: Map[SequencerId, SimulationTopologyData],
       timestamp: CantonTimestamp,
       loggerFactory: NamedLoggerFactory,
   ): SimulationCryptoProvider = {
@@ -148,13 +148,13 @@ object SimulationCryptoProvider {
     val privateCrypto =
       new SymbolicPrivateCrypto(pureCrypto, cryptoPrivateStore, ProcessingTimeout(), loggerFactory)
 
-    implicit val traceContext = TraceContext.empty
+    implicit val traceContext: TraceContext = TraceContext.empty
 
-    sequencerOnboardInformation
-      .get(me)
-      .foreach { onBoardInfo =>
+    sequencerToTopologyData
+      .get(thisPeer)
+      .foreach { topologyData =>
         Await.result(
-          cryptoPrivateStore.storePrivateKey(onBoardInfo.signingPrivateKey, None).value.unwrap,
+          cryptoPrivateStore.storePrivateKey(topologyData.signingPrivateKey, None).value.unwrap,
           10.seconds,
         )
       }
@@ -169,6 +169,12 @@ object SimulationCryptoProvider {
         loggerFactory,
       )
 
-    new SimulationCryptoProvider(me, sequencerOnboardInformation, crypto, timestamp, loggerFactory)
+    new SimulationCryptoProvider(
+      thisPeer,
+      sequencerToTopologyData,
+      crypto,
+      timestamp,
+      loggerFactory,
+    )
   }
 }

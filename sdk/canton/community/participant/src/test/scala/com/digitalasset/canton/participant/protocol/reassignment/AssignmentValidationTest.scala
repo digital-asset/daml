@@ -37,7 +37,8 @@ class AssignmentValidationTest
     with BaseTest
     with ProtocolVersionChecksAsyncWordSpec
     with HasActorSystem
-    with HasExecutionContext {
+    with HasExecutionContext
+    with FailOnShutdown {
   private val sourceDomain = Source(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::source"))
   )
@@ -151,7 +152,8 @@ class AssignmentValidationTest
           Target(cryptoSnapshot),
           isConfirming = false,
         )
-        .futureValue shouldBe None
+        .futureValueUS
+        .value shouldBe None
     }
 
     "succeed without errors when reassignment data is valid" in {
@@ -165,7 +167,8 @@ class AssignmentValidationTest
           Target(cryptoSnapshot),
           isConfirming = isConfirmingReassigningParticipant,
         )
-        .futureValue
+        .futureValueUS
+        .value
 
       validate(isConfirmingReassigningParticipant = true).value.confirmingParties shouldBe
         Set(signatory, submittingAdminParty)
@@ -218,7 +221,7 @@ class AssignmentValidationTest
           isConfirming = true,
         )
         .value
-        .futureValue
+        .futureValueUS
         .left
         .value shouldBe InconsistentReassignmentCounter(
         reassignmentId,
@@ -245,7 +248,7 @@ class AssignmentValidationTest
             isConfirming = true,
           )
           .value
-          .futureValue
+          .futureValueUS
       }
 
       val unauthenticatedContractId = ExampleTransactionFactory
@@ -304,7 +307,7 @@ class AssignmentValidationTest
             isConfirming = true,
           )
           .value
-          .futureValue
+          .futureValueUS
       }
 
       val unauthenticatedContractId = ExampleTransactionFactory
@@ -349,7 +352,7 @@ class AssignmentValidationTest
             isConfirming = true,
           )
           .value
-          .futureValue
+          .futureValueUS
       }
 
       // Happy path / control
@@ -405,7 +408,7 @@ class AssignmentValidationTest
             isConfirming = true,
           )
           .value
-          .futureValue
+          .futureValueUS
       }
 
       // Happy path / control

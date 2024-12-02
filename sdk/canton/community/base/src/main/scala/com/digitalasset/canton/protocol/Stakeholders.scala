@@ -46,7 +46,7 @@ object Stakeholders extends HasVersionedMessageCompanion[Stakeholders] {
     ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v33,
       supportedProtoVersion(v30.Stakeholders)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 

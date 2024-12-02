@@ -9,8 +9,8 @@ import com.digitalasset.canton.caching.ScaffeineCache.TracedAsyncLoadingCache
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle, PromiseUnlessShutdown}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.{
   DynamicDomainParametersWithValidity,
   DynamicSequencingParametersWithValidity,
@@ -31,13 +31,12 @@ import com.digitalasset.canton.topology.store.{
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
 import com.digitalasset.daml.lf.data.Ref.PackageId
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.Duration
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future}
 
 final class CachingDomainTopologyClient(
     delegate: StoreBasedDomainTopologyClient,
@@ -77,7 +76,7 @@ final class CachingDomainTopologyClient(
   ](
     cache = cachingConfigs.domainClientMaxTimestamp.buildScaffeine(),
     loader = traceContext => delegate.awaitMaxTimestampUS(_)(traceContext),
-  )(logger)
+  )(logger, "maxTimestampCache")
 
   /** An entry with a given `timestamp` refers to the topology snapshot at the same `timestamp`.
     *  This is the snapshot that covers all committed topology transactions with `validFrom < timestamp` and
@@ -114,6 +113,7 @@ final class CachingDomainTopologyClient(
         cachingConfigs,
         batchingConfig,
         loggerFactory,
+        futureSupervisor,
       )
     }
 
@@ -186,9 +186,25 @@ final class CachingDomainTopologyClient(
   ): FutureUnlessShutdown[
     Boolean
   ] = // we use our implementation such that we can benefit from cached data
+    delegate.scheduleAwait(
+      FutureUnlessShutdown.outcomeF(condition(currentSnapshotApproximation)),
+      timeout,
+    )
+
+  override def awaitUS(
+      condition: TopologySnapshot => FutureUnlessShutdown[Boolean],
+      timeout: Duration,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[
+    Boolean
+  ] = // we use our implementation such that we can benefit from cached data
     delegate.scheduleAwait(condition(currentSnapshotApproximation), timeout)
 
-  override private[topology] def scheduleAwait(condition: => Future[Boolean], timeout: Duration) =
+  override private[topology] def scheduleAwait(
+      condition: => FutureUnlessShutdown[Boolean],
+      timeout: Duration,
+  ) =
     delegate.scheduleAwait(condition, timeout)
 
   override def close(): Unit =
@@ -239,7 +255,7 @@ object CachingDomainTopologyClient {
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[DomainTopologyClientWithInit] = {
+  ): FutureUnlessShutdown[DomainTopologyClientWithInit] = {
     val dbClient =
       new StoreBasedDomainTopologyClient(
         clock,
@@ -272,31 +288,37 @@ private class ForwardingTopologySnapshotClient(
     extends TopologySnapshotLoader {
 
   override def referenceTime: CantonTimestamp = parent.timestamp
-  override def allKeys(owner: Member)(implicit traceContext: TraceContext): Future[KeyCollection] =
+  override def allKeys(owner: Member)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[KeyCollection] =
     parent.allKeys(owner)
   override def allKeys(members: Seq[Member])(implicit
       traceContext: TraceContext
-  ): Future[Map[Member, KeyCollection]] = parent.allKeys(members)
+  ): FutureUnlessShutdown[Map[Member, KeyCollection]] = parent.allKeys(members)
   override def loadParticipantStates(
       participants: Seq[ParticipantId]
-  )(implicit traceContext: TraceContext): Future[Map[ParticipantId, ParticipantAttributes]] =
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[ParticipantId, ParticipantAttributes]] =
     parent.loadParticipantStates(participants)
   override private[client] def loadActiveParticipantsOf(
       party: PartyId,
-      participantStates: Seq[ParticipantId] => Future[Map[ParticipantId, ParticipantAttributes]],
-  )(implicit traceContext: TraceContext): Future[PartyInfo] =
+      participantStates: Seq[ParticipantId] => FutureUnlessShutdown[
+        Map[ParticipantId, ParticipantAttributes]
+      ],
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[PartyInfo] =
     parent.loadActiveParticipantsOf(party, participantStates)
 
   override def inspectKeys(
       filterOwner: String,
       filterOwnerType: Option[MemberCode],
       limit: Int,
-  )(implicit traceContext: TraceContext): Future[Map[Member, KeyCollection]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Map[Member, KeyCollection]] =
     parent.inspectKeys(filterOwner, filterOwnerType, limit)
   override def inspectKnownParties(
       filterParty: String,
       filterParticipant: String,
-  )(implicit traceContext: TraceContext): Future[Set[PartyId]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PartyId]] =
     parent.inspectKnownParties(filterParty, filterParticipant)
 
   override private[client] def loadVettedPackages(participant: ParticipantId)(implicit
@@ -317,48 +339,56 @@ private class ForwardingTopologySnapshotClient(
     )
 
   /** returns the list of currently known mediators */
-  override def mediatorGroups()(implicit traceContext: TraceContext): Future[Seq[MediatorGroup]] =
+  override def mediatorGroups()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Seq[MediatorGroup]] =
     parent.mediatorGroups()
 
   /** returns the sequencer group if known */
   override def sequencerGroup()(implicit
       traceContext: TraceContext
-  ): Future[Option[SequencerGroup]] = parent.sequencerGroup()
+  ): FutureUnlessShutdown[Option[SequencerGroup]] = parent.sequencerGroup()
 
-  override def allMembers()(implicit traceContext: TraceContext): Future[Set[Member]] =
+  override def allMembers()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Set[Member]] =
     parent.allMembers()
 
-  override def isMemberKnown(member: Member)(implicit traceContext: TraceContext): Future[Boolean] =
+  override def isMemberKnown(member: Member)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Boolean] =
     parent.isMemberKnown(member)
 
   override def areMembersKnown(members: Set[Member])(implicit
       traceContext: TraceContext
-  ): Future[Set[Member]] = parent.areMembersKnown(members)
+  ): FutureUnlessShutdown[Set[Member]] = parent.areMembersKnown(members)
 
   override def memberFirstKnownAt(member: Member)(implicit
       traceContext: TraceContext
-  ): Future[Option[(SequencedTime, EffectiveTime)]] =
+  ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] =
     parent.memberFirstKnownAt(member)
 
   override def findDynamicDomainParameters()(implicit
       traceContext: TraceContext
-  ): Future[Either[String, DynamicDomainParametersWithValidity]] =
+  ): FutureUnlessShutdown[Either[String, DynamicDomainParametersWithValidity]] =
     parent.findDynamicDomainParameters()
 
   override def findDynamicSequencingParameters()(implicit
       traceContext: TraceContext
-  ): Future[Either[String, DynamicSequencingParametersWithValidity]] =
+  ): FutureUnlessShutdown[Either[String, DynamicSequencingParametersWithValidity]] =
     parent.findDynamicSequencingParameters()
 
   /** List all the dynamic domain parameters (past and current) */
   override def listDynamicDomainParametersChanges()(implicit
       traceContext: TraceContext
-  ): Future[Seq[DynamicDomainParametersWithValidity]] =
+  ): FutureUnlessShutdown[Seq[DynamicDomainParametersWithValidity]] =
     parent.listDynamicDomainParametersChanges()
 
   override private[client] def loadBatchActiveParticipantsOf(
       parties: Seq[PartyId],
-      loadParticipantStates: Seq[ParticipantId] => Future[Map[ParticipantId, ParticipantAttributes]],
+      loadParticipantStates: Seq[ParticipantId] => FutureUnlessShutdown[
+        Map[ParticipantId, ParticipantAttributes]
+      ],
   )(implicit traceContext: TraceContext) =
     parent.loadBatchActiveParticipantsOf(parties, loadParticipantStates)
 
@@ -373,6 +403,7 @@ class CachingTopologySnapshot(
     cachingConfigs: CachingConfigs,
     batchingConfig: BatchingConfig,
     val loggerFactory: NamedLoggerFactory,
+    val futureSupervisor: FutureSupervisor,
 )(implicit
     val executionContext: ExecutionContext
 ) extends TopologySnapshotLoader
@@ -380,31 +411,33 @@ class CachingTopologySnapshot(
 
   override def timestamp: CantonTimestamp = parent.timestamp
 
-  private val partyCache: TracedAsyncLoadingCache[Future, PartyId, PartyInfo] =
-    ScaffeineCache.buildTracedAsync[Future, PartyId, PartyInfo](
+  private val partyCache: TracedAsyncLoadingCache[FutureUnlessShutdown, PartyId, PartyInfo] =
+    ScaffeineCache.buildTracedAsync[FutureUnlessShutdown, PartyId, PartyInfo](
       cache = cachingConfigs.partyCache.buildScaffeine(),
       loader = implicit traceContext =>
         party => parent.loadActiveParticipantsOf(party, loadParticipantStates(_)),
       allLoader = Some(implicit traceContext =>
         parties => parent.loadBatchActiveParticipantsOf(parties.toSeq, loadParticipantStates(_))
       ),
-    )(logger)
+    )(logger, "partyCache")
 
-  private val participantCache
-      : TracedAsyncLoadingCache[Future, ParticipantId, Option[ParticipantAttributes]] =
-    ScaffeineCache.buildTracedAsync[Future, ParticipantId, Option[ParticipantAttributes]](
-      cache = cachingConfigs.participantCache.buildScaffeine(),
-      loader = implicit traceContext => pid => parent.findParticipantState(pid),
-      allLoader = Some(implicit traceContext =>
-        pids =>
-          parent.loadParticipantStates(pids.toSeq).map { attributes =>
-            // make sure that the returned map contains an entry for each input element
-            pids.map(pid => pid -> attributes.get(pid)).toMap
-          }
-      ),
-    )(logger)
-  private val keyCache: TracedAsyncLoadingCache[Future, Member, KeyCollection] =
-    ScaffeineCache.buildTracedAsync[Future, Member, KeyCollection](
+  private val participantCache: TracedAsyncLoadingCache[FutureUnlessShutdown, ParticipantId, Option[
+    ParticipantAttributes
+  ]] =
+    ScaffeineCache
+      .buildTracedAsync[FutureUnlessShutdown, ParticipantId, Option[ParticipantAttributes]](
+        cache = cachingConfigs.participantCache.buildScaffeine(),
+        loader = implicit traceContext => pid => parent.findParticipantState(pid),
+        allLoader = Some(implicit traceContext =>
+          pids =>
+            parent.loadParticipantStates(pids.toSeq).map { attributes =>
+              // make sure that the returned map contains an entry for each input element
+              pids.map(pid => pid -> attributes.get(pid)).toMap
+            }
+        ),
+      )(logger, "participantCache")
+  private val keyCache: TracedAsyncLoadingCache[FutureUnlessShutdown, Member, KeyCollection] =
+    ScaffeineCache.buildTracedAsync[FutureUnlessShutdown, Member, KeyCollection](
       cache = cachingConfigs.keyCache.buildScaffeine(),
       loader = implicit traceContext => member => parent.allKeys(member),
       allLoader = Some(implicit traceContext =>
@@ -418,7 +451,7 @@ class CachingTopologySnapshot(
                 .toMap
             )
       ),
-    )(logger)
+    )(logger, "keyCache")
 
   private val packageVettingCache: TracedAsyncLoadingCache[
     FutureUnlessShutdown,
@@ -428,16 +461,17 @@ class CachingTopologySnapshot(
     .buildTracedAsync[FutureUnlessShutdown, ParticipantId, Map[PackageId, VettedPackage]](
       cache = cachingConfigs.packageVettingCache.buildScaffeine(),
       loader = implicit traceContext => x => parent.loadVettedPackages(x),
-    )(logger)
+    )(logger, "packageVettingCache")
 
-  private val mediatorsCache = new AtomicReference[Option[Future[Seq[MediatorGroup]]]](None)
+  private val mediatorsCache =
+    new AtomicReference[Option[FutureUnlessShutdown[Seq[MediatorGroup]]]](None)
 
   private val sequencerGroupCache =
-    new AtomicReference[Option[Future[Option[SequencerGroup]]]](None)
+    new AtomicReference[Option[FutureUnlessShutdown[Option[SequencerGroup]]]](None)
 
-  private val allMembersCache = new AtomicReference[Option[Future[Set[Member]]]](None)
-  private val memberCache: TracedAsyncLoadingCache[Future, Member, Boolean] =
-    ScaffeineCache.buildTracedAsync[Future, Member, Boolean](
+  private val allMembersCache = new AtomicReference[Option[FutureUnlessShutdown[Set[Member]]]](None)
+  private val memberCache: TracedAsyncLoadingCache[FutureUnlessShutdown, Member, Boolean] =
+    ScaffeineCache.buildTracedAsync[FutureUnlessShutdown, Member, Boolean](
       cache = cachingConfigs.memberCache.buildScaffeine(),
       loader = implicit traceContext => member => parent.isMemberKnown(member),
       allLoader = Some(implicit traceContext =>
@@ -446,19 +480,23 @@ class CachingTopologySnapshot(
             .areMembersKnown(members.toSet)
             .map(knownMembers => members.map(m => m -> knownMembers.contains(m)).toMap)
       ),
-    )(logger)
+    )(logger, "memberCache")
 
   private val domainParametersCache =
-    new AtomicReference[Option[Future[Either[String, DynamicDomainParametersWithValidity]]]](None)
+    new AtomicReference[
+      Option[FutureUnlessShutdown[Either[String, DynamicDomainParametersWithValidity]]]
+    ](None)
 
   private val sequencingDynamicParametersCache =
-    new AtomicReference[Option[Future[Either[String, DynamicSequencingParametersWithValidity]]]](
+    new AtomicReference[
+      Option[FutureUnlessShutdown[Either[String, DynamicSequencingParametersWithValidity]]]
+    ](
       None
     )
 
   private val domainParametersChangesCache =
     new AtomicReference[
-      Option[Future[Seq[DynamicDomainParametersWithValidity]]]
+      Option[FutureUnlessShutdown[Seq[DynamicDomainParametersWithValidity]]]
     ](None)
 
   private val partyAuthorizationsCache: TracedAsyncLoadingCache[
@@ -472,25 +510,31 @@ class CachingTopologySnapshot(
   ](
     cache = cachingConfigs.partyCache.buildScaffeine(),
     loader = implicit traceContext => party => parent.partyAuthorization(party),
-  )(logger)
+  )(logger, "partyAuthorizationsCache")
 
-  override def allKeys(owner: Member)(implicit traceContext: TraceContext): Future[KeyCollection] =
+  override def allKeys(owner: Member)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[KeyCollection] =
     keyCache.get(owner)
 
   override def allKeys(
       members: Seq[Member]
-  )(implicit traceContext: TraceContext): Future[Map[Member, KeyCollection]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Map[Member, KeyCollection]] =
     keyCache.getAll(members)
 
   override def loadActiveParticipantsOf(
       party: PartyId,
-      participantStates: Seq[ParticipantId] => Future[Map[ParticipantId, ParticipantAttributes]],
-  )(implicit traceContext: TraceContext): Future[PartyInfo] =
+      participantStates: Seq[ParticipantId] => FutureUnlessShutdown[
+        Map[ParticipantId, ParticipantAttributes]
+      ],
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[PartyInfo] =
     partyCache.get(party)
 
   override private[client] def loadBatchActiveParticipantsOf(
       parties: Seq[PartyId],
-      loadParticipantStates: Seq[ParticipantId] => Future[Map[ParticipantId, ParticipantAttributes]],
+      loadParticipantStates: Seq[ParticipantId] => FutureUnlessShutdown[
+        Map[ParticipantId, ParticipantAttributes]
+      ],
   )(implicit traceContext: TraceContext) =
     // split up the request into separate chunks so that we don't block the cache for too long
     // when loading very large batches
@@ -502,7 +546,9 @@ class CachingTopologySnapshot(
 
   override def loadParticipantStates(
       participants: Seq[ParticipantId]
-  )(implicit traceContext: TraceContext): Future[Map[ParticipantId, ParticipantAttributes]] =
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[ParticipantId, ParticipantAttributes]] =
     participantCache.getAll(participants).map(_.collect { case (k, Some(v)) => (k, v) })
 
   override private[client] def loadVettedPackages(participant: ParticipantId)(implicit
@@ -528,74 +574,82 @@ class CachingTopologySnapshot(
       filterOwner: String,
       filterOwnerType: Option[MemberCode],
       limit: Int,
-  )(implicit traceContext: TraceContext): Future[Map[Member, KeyCollection]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Map[Member, KeyCollection]] =
     parent.inspectKeys(filterOwner, filterOwnerType, limit)
 
   override def inspectKnownParties(
       filterParty: String,
       filterParticipant: String,
-  )(implicit traceContext: TraceContext): Future[Set[PartyId]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PartyId]] =
     parent.inspectKnownParties(filterParty, filterParticipant)
 
   /** returns the list of currently known mediators */
-  override def mediatorGroups()(implicit traceContext: TraceContext): Future[Seq[MediatorGroup]] =
+  override def mediatorGroups()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Seq[MediatorGroup]] =
     getAndCache(mediatorsCache, parent.mediatorGroups())
 
   /** returns the sequencer group if known */
   override def sequencerGroup()(implicit
       traceContext: TraceContext
-  ): Future[Option[SequencerGroup]] =
+  ): FutureUnlessShutdown[Option[SequencerGroup]] =
     getAndCache(sequencerGroupCache, parent.sequencerGroup())
 
   /** returns the set of all known members */
-  override def allMembers()(implicit traceContext: TraceContext): Future[Set[Member]] =
+  override def allMembers()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Set[Member]] =
     getAndCache(allMembersCache, parent.allMembers())
 
-  override def isMemberKnown(member: Member)(implicit traceContext: TraceContext): Future[Boolean] =
+  override def isMemberKnown(member: Member)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Boolean] =
     memberCache.get(member)
 
   override def areMembersKnown(members: Set[Member])(implicit
       traceContext: TraceContext
-  ): Future[Set[Member]] =
+  ): FutureUnlessShutdown[Set[Member]] =
     memberCache.getAll(members).map(_.collect { case (member, _isKnown @ true) => member }.toSet)
 
   override def memberFirstKnownAt(
       member: Member
-  )(implicit traceContext: TraceContext): Future[Option[(SequencedTime, EffectiveTime)]] =
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] =
     isMemberKnown(member).flatMap {
       // TODO(#18394): Consider caching this call as well,
       //  should only happen during topology transactions with potential new members: DTC/SDS/MDS
       case true => parent.memberFirstKnownAt(member)
-      case false => Future.successful(None)
+      case false => FutureUnlessShutdown.pure(None)
     }
 
   /** Returns the value if it is present in the cache. Otherwise, use the
     * `getter` to fetch it and cache the result.
     */
   private def getAndCache[T](
-      cache: AtomicReference[Option[Future[T]]],
-      getter: => Future[T],
-  ): Future[T] = {
-    val promise = Promise[T]()
-    val previousO = cache.getAndSet(Some(promise.future))
+      cache: AtomicReference[Option[FutureUnlessShutdown[T]]],
+      getter: => FutureUnlessShutdown[T],
+  )(implicit errorLoggingContext: ErrorLoggingContext): FutureUnlessShutdown[T] = {
+    val promise = new PromiseUnlessShutdown[T]("getAndCache", futureSupervisor)
+    val previousO = cache.getAndSet(Some(promise.futureUS))
     promise.completeWith(previousO.getOrElse(getter))
-    promise.future
+    promise.futureUS
   }
 
   override def findDynamicDomainParameters()(implicit
       traceContext: TraceContext
-  ): Future[Either[String, DynamicDomainParametersWithValidity]] =
+  ): FutureUnlessShutdown[Either[String, DynamicDomainParametersWithValidity]] =
     getAndCache(domainParametersCache, parent.findDynamicDomainParameters())
 
   override def findDynamicSequencingParameters()(implicit
       traceContext: TraceContext
-  ): Future[Either[String, DynamicSequencingParametersWithValidity]] =
+  ): FutureUnlessShutdown[Either[String, DynamicSequencingParametersWithValidity]] =
     getAndCache(sequencingDynamicParametersCache, parent.findDynamicSequencingParameters())
 
   /** List all the dynamic domain parameters (past and current) */
   override def listDynamicDomainParametersChanges()(implicit
       traceContext: TraceContext
-  ): Future[Seq[DynamicDomainParametersWithValidity]] =
+  ): FutureUnlessShutdown[Seq[DynamicDomainParametersWithValidity]] =
     getAndCache(domainParametersChangesCache, parent.listDynamicDomainParametersChanges())
 
   override def partyAuthorization(party: PartyId)(implicit

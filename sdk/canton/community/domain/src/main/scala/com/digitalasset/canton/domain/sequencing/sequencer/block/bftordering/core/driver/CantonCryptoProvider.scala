@@ -20,7 +20,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   PekkoEnv,
   PekkoFutureUnlessShutdown,
 }
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
@@ -55,6 +54,6 @@ class CantonCryptoProvider(cryptoApi: DomainSnapshotSyncCryptoApi)(implicit ec: 
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Either[SignatureCheckError, Unit]] = PekkoFutureUnlessShutdown(
     "verifying signature",
-    FutureUnlessShutdown.outcomeF(cryptoApi.verifySignature(hash, member, signature).value),
+    cryptoApi.verifySignature(hash, member, signature).value,
   )
 }

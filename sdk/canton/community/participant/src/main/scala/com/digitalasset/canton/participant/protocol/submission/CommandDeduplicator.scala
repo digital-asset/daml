@@ -15,7 +15,6 @@ import com.digitalasset.canton.participant.protocol.submission.CommandDeduplicat
   AlreadyExists,
   DeduplicationFailed,
   DeduplicationPeriodTooEarly,
-  MalformedOffset,
 }
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.CommandDeduplicationStore.OffsetAndPublicationTime
@@ -59,8 +58,6 @@ trait CommandDeduplicator {
 
 object CommandDeduplicator {
   sealed trait DeduplicationFailed extends Product with Serializable
-
-  final case class MalformedOffset(error: String) extends DeduplicationFailed
 
   final case class AlreadyExists(
       completionOffset: Offset,
@@ -120,18 +117,9 @@ class CommandDeduplicatorImpl(
         ),
       )
 
-    // If we haven't pruned the command deduplication store, this store contains all command deduplication entries
-    // and can handle any reasonable timestamp and offset.
-    // Ideally, we would report the predecessor to the first ledger offset
-    // as deduplication offsets are exclusive, but this would be an invalid Canton global offset.
-    // So we report the first ledger offset as the deduplication start instead.
-    // This difference does not matter in practice for command deduplication
-    // as the first offset always contains the ledger configuration and can therefore never be a command completion.
-    def unprunedDedupOffset: Offset = Offset.firstOffset
-
     def dedupDuration(
         duration: java.time.Duration
-    ): EitherT[FutureUnlessShutdown, DeduplicationFailed, Offset] = {
+    ): EitherT[FutureUnlessShutdown, DeduplicationFailed, Option[Offset]] = {
       // Convert the duration into a timestamp based on the local participant clock
       // and check against the publication time of the definite answer events.
       //
@@ -149,12 +137,12 @@ class CommandDeduplicatorImpl(
 
       def checkAgainstPruning(
           deduplicationStart: CantonTimestamp
-      ): EitherT[FutureUnlessShutdown, DeduplicationFailed, Offset] =
-        EitherTUtil.leftSubflatMap(store.value.latestPruning().toLeft(unprunedDedupOffset)) {
+      ): EitherT[FutureUnlessShutdown, DeduplicationFailed, Option[Offset]] =
+        EitherTUtil.leftSubflatMap(store.value.latestPruning().toLeft(Option.empty[Offset])) {
           case OffsetAndPublicationTime(prunedOffset, prunedPublicationTime) =>
             Either.cond(
               deduplicationStart > prunedPublicationTime,
-              prunedOffset,
+              Some(prunedOffset),
               dedupPeriodTooEarly(prunedOffset),
             )
         }
@@ -185,7 +173,7 @@ class CommandDeduplicatorImpl(
                   acceptance.publicationTime < deduplicationStart,
                   // Use the found offset rather than deduplicationStart
                   // so that we don't have to check whether deduplicationStart is at most the ledger end
-                  acceptance.offset,
+                  Some(acceptance.offset),
                   AlreadyExists(
                     acceptance.offset,
                     accepted = true,
@@ -198,38 +186,31 @@ class CommandDeduplicatorImpl(
     }
 
     def dedupOffset(
-        offset: Option[Offset]
-    ): EitherT[FutureUnlessShutdown, DeduplicationFailed, Offset] = {
-      def checkAgainstPruning(
-          dedupOffset: Offset
-      ): EitherT[FutureUnlessShutdown, DeduplicationFailed, Offset] =
-        EitherTUtil.leftSubflatMap(store.value.latestPruning().toLeft(unprunedDedupOffset)) {
+        dedupOffset: Option[Offset]
+    ): EitherT[FutureUnlessShutdown, DeduplicationFailed, Option[Offset]] = {
+      def checkAgainstPruning()
+          : EitherT[FutureUnlessShutdown, DeduplicationFailed, Option[Offset]] =
+        EitherTUtil.leftSubflatMap(store.value.latestPruning().toLeft(Option.empty[Offset])) {
           case OffsetAndPublicationTime(prunedOffset, _prunedPublicationTime) =>
             Either.cond(
-              prunedOffset <= dedupOffset,
-              prunedOffset,
+              Option(prunedOffset) <= dedupOffset,
+              Some(prunedOffset),
               dedupPeriodTooEarly(prunedOffset),
             )
         }
 
       for {
-        dedupOffset <- EitherT.fromEither[FutureUnlessShutdown](
-          Offset
-            .fromLong(offset.fold(0L)(_.unwrap))
-            .leftMap[DeduplicationFailed](err => MalformedOffset(err))
-        )
         dedupEntryO <- EitherT.right(store.value.lookup(changeIdHash).value)
         reportedDedupOffset <- dedupEntryO match {
-          case None =>
-            checkAgainstPruning(dedupOffset)
+          case None => checkAgainstPruning()
           case Some(CommandDeduplicationData(_changeId, _latestDefiniteAnswer, latestAcceptance)) =>
             // TODO(#7348) add submission rank check using latestDefiniteAnswer
             latestAcceptance match {
-              case None => checkAgainstPruning(dedupOffset)
+              case None => checkAgainstPruning()
               case Some(acceptance) =>
                 EitherT.cond[FutureUnlessShutdown](
-                  acceptance.offset <= dedupOffset,
-                  acceptance.offset,
+                  Option(acceptance.offset) <= dedupOffset,
+                  Some(acceptance.offset),
                   AlreadyExists(
                     acceptance.offset,
                     accepted = true,
@@ -245,6 +226,6 @@ class CommandDeduplicatorImpl(
       case DeduplicationPeriod.DeduplicationDuration(duration) => dedupDuration(duration)
       case DeduplicationPeriod.DeduplicationOffset(offset) => dedupOffset(offset)
     }
-    dedupOffsetE.map(dedupOffset => DeduplicationPeriod.DeduplicationOffset(Some(dedupOffset)))
+    dedupOffsetE.map(dedupOffset => DeduplicationPeriod.DeduplicationOffset(dedupOffset))
   }
 }

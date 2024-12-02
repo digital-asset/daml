@@ -9,7 +9,6 @@ import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.ReassignmentRef
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
 import com.digitalasset.canton.participant.protocol.reassignment.{
@@ -118,12 +117,11 @@ private[routing] class DomainRankComputation(
                   participantId,
                   contract.stakeholders.all,
                 )
-                .mapK(FutureUnlessShutdown.outcomeK)
               _ <- new ReassigningParticipantsComputation(
                 stakeholders = contract.stakeholders,
                 sourceSnapshot,
                 targetSnapshot,
-              ).compute.mapK(FutureUnlessShutdown.outcomeK).leftWiden[ReassignmentProcessorError]
+              ).compute.leftWiden[ReassignmentProcessorError]
             } yield ()
           result
             .onShutdown(Left(UnassignmentProcessorError.AbortedDueToShutdownOut(contract.id)))

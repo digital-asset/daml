@@ -38,7 +38,7 @@ class SortedReconciliationIntervalsProviderFactory(
         )
       )
       topologyFactory <- syncDomainPersistentStateManager
-        .topologyFactoryFor(domainId)
+        .topologyFactoryFor(domainId, staticDomainParameters.protocolVersion)
         .toRight(s"Can not obtain topology factory for $domainId")
         .toEitherT[Future]
     } yield {

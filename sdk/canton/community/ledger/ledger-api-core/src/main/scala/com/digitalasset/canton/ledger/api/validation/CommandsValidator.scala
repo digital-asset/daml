@@ -322,21 +322,21 @@ final class CommandsValidator(
           .validateNonNegativeDuration(deduplicationDuration)
           .map(DeduplicationPeriod.DeduplicationDuration.apply)
       case Commands.DeduplicationPeriod.DeduplicationOffset(offset) =>
-        // TODO(#21634) allow zero when participant begin is valid
-        if (offset <= 0L)
+        if (offset < 0L)
           Left(
-            RequestValidationErrors.NonPositiveOffset
+            RequestValidationErrors.NegativeOffset
               .Error(
                 fieldName = "deduplication_period",
                 offsetValue = offset,
-                message = s"the deduplication offset has to be a positive integer and not $offset",
+                message =
+                  s"the deduplication offset has to be a non-negative integer and not $offset",
               )
               .asGrpcError
           )
         else
           Right(
             DeduplicationPeriod.DeduplicationOffset(
-              Option(Offset.tryFromLong(offset))
+              Offset.tryOffsetOrParticipantBegin(offset)
             )
           )
     }

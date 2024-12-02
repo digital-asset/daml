@@ -109,11 +109,11 @@ object EventStorageBackendTemplate {
     baseColumnsForFlatTransactionsExercise.mkString(", ")
 
   private type SharedRow =
-    String ~ String ~ Int ~ Long ~ String ~ Timestamp ~ Int ~ Int ~ Option[String] ~
+    Long ~ String ~ Int ~ Long ~ String ~ Timestamp ~ Int ~ Int ~ Option[String] ~
       Option[String] ~ Array[Int] ~ Option[Array[Int]] ~ Int ~ Option[Array[Byte]] ~ Timestamp
 
   private val sharedRow: RowParser[SharedRow] =
-    str("event_offset") ~
+    long("event_offset") ~
       str("update_id") ~
       int("node_index") ~
       long("event_sequential_id") ~
@@ -469,7 +469,7 @@ object EventStorageBackendTemplate {
   val assignEventRow =
     str("command_id").? ~
       str("workflow_id").? ~
-      str("event_offset") ~
+      long("event_offset") ~
       int("source_domain_id") ~
       int("target_domain_id") ~
       str("unassign_id") ~
@@ -577,7 +577,7 @@ object EventStorageBackendTemplate {
   val unassignEventRow =
     str("command_id").? ~
       str("workflow_id").? ~
-      str("event_offset") ~
+      long("event_offset") ~
       int("source_domain_id") ~
       int("target_domain_id") ~
       str("unassign_id") ~
@@ -908,7 +908,7 @@ abstract class EventStorageBackendTemplate(
       SQL"""
           -- Create temporary table for storing incomplete reassignment offsets
           CREATE LOCAL TEMPORARY TABLE IF NOT EXISTS temp_incomplete_reassignment_offsets (
-            incomplete_offset varchar PRIMARY KEY NOT NULL
+            incomplete_offset bigint PRIMARY KEY NOT NULL
           ) ON COMMIT DELETE ROWS
           """.execute()
     val incompleteOffsetBatches = incompletReassignmentOffsets.distinct
@@ -920,7 +920,7 @@ abstract class EventStorageBackendTemplate(
     ) { preparedStatement =>
       incompleteOffsetBatches.zipWithIndex.foreach { case (batch, index) =>
         batch.foreach { offset =>
-          preparedStatement.setString(1, offset.toHexString)
+          preparedStatement.setLong(1, offset.unwrap)
           preparedStatement.addBatch()
         }
         val _ = preparedStatement.executeBatch()
@@ -1188,7 +1188,6 @@ abstract class EventStorageBackendTemplate(
               ${QueryStrategy.limitClause(Some(1))}
             )
           )"""
-
   private def reassignmentIsNotIncomplete(eventTableName: String): CompositeSql =
     cSQL"""
           not exists (
@@ -1442,25 +1441,25 @@ abstract class EventStorageBackendTemplate(
     )(connection)
 
   override def lookupAssignSequentialIdByOffset(
-      offsets: Iterable[String]
+      offsets: Iterable[Long]
   )(connection: Connection): Vector[Long] =
     SQL"""
         SELECT event_sequential_id
         FROM lapi_events_assign
         WHERE
-          event_offset ${queryStrategy.anyOfStrings(offsets)}
+          event_offset ${queryStrategy.anyOf(offsets)}
         ORDER BY event_sequential_id -- deliver in index order
         """
       .asVectorOf(long("event_sequential_id"))(connection)
 
   override def lookupUnassignSequentialIdByOffset(
-      offsets: Iterable[String]
+      offsets: Iterable[Long]
   )(connection: Connection): Vector[Long] =
     SQL"""
         SELECT event_sequential_id
         FROM lapi_events_unassign
         WHERE
-          event_offset ${queryStrategy.anyOfStrings(offsets)}
+          event_offset ${queryStrategy.anyOf(offsets)}
         ORDER BY event_sequential_id -- deliver in index order
         """
       .asVectorOf(long("event_sequential_id"))(connection)

@@ -248,7 +248,7 @@ object FieldValidator {
   ): Either[StatusRuntimeException, Option[Offset]] =
     Either.cond(
       offset >= 0,
-      Option.unless(offset == 0)(Offset.tryFromLong(offset)),
+      Offset.tryOffsetOrParticipantBegin(offset),
       RequestValidationErrors.NegativeOffset
         .Error(
           fieldName = fieldName,

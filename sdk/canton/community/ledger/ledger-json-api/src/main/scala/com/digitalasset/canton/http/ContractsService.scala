@@ -31,13 +31,13 @@ import com.digitalasset.canton.http.domain.{
   ContractTypeId,
   GetActiveContractsRequest,
   JwtPayload,
+  Offset,
 }
 import com.digitalasset.canton.http.json.JsonProtocol.LfValueCodec
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.http.util.FutureUtil.{either, eitherT}
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.daml.lf
 import org.apache.pekko.NotUsed
@@ -444,7 +444,7 @@ class ContractsService(
       getCreatesAndArchivesSince(
         jwt,
         txnFilter,
-        ApiOffset.assertFromStringToLong(off),
+        Offset.assertFromStringToLong(off),
         terminates,
       )(lc) via logTermination(logger, "transactions upstream")
 

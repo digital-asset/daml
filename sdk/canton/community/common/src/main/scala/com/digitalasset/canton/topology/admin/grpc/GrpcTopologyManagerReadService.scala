@@ -16,7 +16,7 @@ import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
-import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.{wrapErr, wrapErrUS}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.wrapErrUS
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -35,7 +35,6 @@ import com.digitalasset.canton.topology.store.{
 }
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils, OptionUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{ProtoDeserializationError, topology}
@@ -166,7 +165,9 @@ class GrpcTopologyManagerReadService(
 
   private def collectStores(
       filterStoreO: Option[TopologyStore]
-  ): EitherT[Future, CantonError, Seq[topology.store.TopologyStore[TopologyStoreId]]] =
+  ): EitherT[FutureUnlessShutdown, CantonError, Seq[
+    topology.store.TopologyStore[TopologyStoreId]
+  ]] =
     filterStoreO match {
       case Some(filterStore) =>
         EitherT.rightT(stores.filter(_.storeId.filterName.startsWith(filterStore.filterString)))
@@ -177,7 +178,7 @@ class GrpcTopologyManagerReadService(
       filterStoreO: Option[TopologyStore]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CantonError, topology.store.TopologyStore[TopologyStoreId]] = {
+  ): EitherT[FutureUnlessShutdown, CantonError, topology.store.TopologyStore[TopologyStoreId]] = {
     val domainStores: Either[CantonError, store.TopologyStore[TopologyStoreId]] =
       filterStoreO match {
         case Some(filterStore) =>
@@ -201,7 +202,7 @@ class GrpcTopologyManagerReadService(
           }
       }
 
-    EitherT.fromEither[Future](domainStores)
+    EitherT.fromEither[FutureUnlessShutdown](domainStores)
 
   }
 
@@ -271,18 +272,15 @@ class GrpcTopologyManagerReadService(
     ): FutureUnlessShutdown[Seq[(TransactionSearchResult, TopologyMapping)]] = {
       val storeId = store.storeId
 
-      FutureUnlessShutdown
-        .outcomeF(
-          store
-            .inspect(
-              proposals = baseQuery.proposals,
-              timeQuery = baseQuery.timeQuery,
-              asOfExclusiveO = getApproximateTimestamp(storeId),
-              op = baseQuery.ops,
-              types = Seq(typ),
-              idFilter = idFilter,
-              namespaceFilter = namespaceFilter,
-            )
+      store
+        .inspect(
+          proposals = baseQuery.proposals,
+          timeQuery = baseQuery.timeQuery,
+          asOfExclusiveO = getApproximateTimestamp(storeId),
+          op = baseQuery.ops,
+          types = Seq(typ),
+          idFilter = idFilter,
+          namespaceFilter = namespaceFilter,
         )
         .flatMap { col =>
           col.result
@@ -325,7 +323,7 @@ class GrpcTopologyManagerReadService(
 
     for {
       baseQuery <- wrapErrUS(BaseQuery.fromProto(baseQueryProto))
-      stores <- collectStores(baseQuery.filterStore).mapK(FutureUnlessShutdown.outcomeK)
+      stores <- collectStores(baseQuery.filterStore)
       results <- EitherT.right(stores.parTraverse { store =>
         fromStore(baseQuery, store)
       })
@@ -695,8 +693,8 @@ class GrpcTopologyManagerReadService(
   override def listAll(request: adminProto.ListAllRequest): Future[adminProto.ListAllResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val res = for {
-      baseQuery <- wrapErr(BaseQuery.fromProto(request.baseQuery))
-      excludeTopologyMappings <- wrapErr(
+      baseQuery <- wrapErrUS(BaseQuery.fromProto(request.baseQuery))
+      excludeTopologyMappings <- wrapErrUS(
         request.excludeMappings.traverse(TopologyMapping.Code.fromString)
       )
       types = TopologyMapping.Code.all.diff(excludeTopologyMappings)
@@ -708,7 +706,7 @@ class GrpcTopologyManagerReadService(
     } yield {
       adminProto.ListAllResponse(result = Some(storedTopologyTransactions.toProtoV30))
     }
-    CantonGrpcUtil.mapErrNew(res)
+    CantonGrpcUtil.mapErrNewEUS(res)
   }
 
   override def exportTopologySnapshot(
@@ -716,8 +714,8 @@ class GrpcTopologyManagerReadService(
   ): Future[ExportTopologySnapshotResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val res = for {
-      baseQuery <- wrapErr(BaseQuery.fromProto(request.baseQuery))
-      excludeTopologyMappings <- wrapErr(
+      baseQuery <- wrapErrUS(BaseQuery.fromProto(request.baseQuery))
+      excludeTopologyMappings <- wrapErrUS(
         request.excludeMappings.traverse(TopologyMapping.Code.fromString)
       )
       types = TopologyMapping.Code.all.diff(excludeTopologyMappings)
@@ -733,7 +731,7 @@ class GrpcTopologyManagerReadService(
         storedTopologyTransactions.toByteString(protocolVersion)
       )
     }
-    CantonGrpcUtil.mapErrNew(res)
+    CantonGrpcUtil.mapErrNewEUS(res)
   }
 
   private def listAllStoredTopologyTransactions(
@@ -742,7 +740,7 @@ class GrpcTopologyManagerReadService(
       filterNamespace: String,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CantonError, GenericStoredTopologyTransactions] =
+  ): EitherT[FutureUnlessShutdown, CantonError, GenericStoredTopologyTransactions] =
     for {
       stores <- collectStores(baseQuery.filterStore)
       results <- EitherT.right(
@@ -758,7 +756,7 @@ class GrpcTopologyManagerReadService(
               namespaceFilter = Some(filterNamespace),
             )
         }
-      ): EitherT[Future, CantonError, Seq[GenericStoredTopologyTransactions]]
+      ): EitherT[FutureUnlessShutdown, CantonError, Seq[GenericStoredTopologyTransactions]]
     } yield {
       val res = results.foldLeft(StoredTopologyTransactions.empty) { case (acc, elem) =>
         StoredTopologyTransactions(
@@ -793,32 +791,32 @@ class GrpcTopologyManagerReadService(
   ): Future[Unit] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
-    val res: EitherT[Future, CantonError, Unit] =
+    val res: EitherT[FutureUnlessShutdown, CantonError, Unit] =
       for {
         _ <- member match {
           case _: ParticipantId =>
-            wrapErr(
+            wrapErrUS(
               ProtoConverter
                 .required("filter_domain_store", filterDomainStore)
             )
 
-          case _ => EitherT.rightT[Future, CantonError](())
+          case _ => EitherT.rightT[FutureUnlessShutdown, CantonError](())
         }
-        topologyStoreO <- wrapErr(
+        topologyStoreO <- wrapErrUS(
           filterDomainStore.traverse(TopologyStore.fromProto(_, "filter_domain_store"))
         )
         domainTopologyStore <- collectDomainStore(topologyStoreO)
-        timestampO <- wrapErr(
+        timestampO <- wrapErrUS(
           timestamp
             .traverse(CantonTimestamp.fromProtoTimestamp)
         )
 
         sequencedTimestamp <- timestampO match {
-          case Some(value) => EitherT.rightT[Future, CantonError](value)
+          case Some(value) => EitherT.rightT[FutureUnlessShutdown, CantonError](value)
           case None =>
             val sequencedTimeF = domainTopologyStore
               .maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true)
-              .collect {
+              .map {
                 case Some((sequencedTime, _)) =>
                   Right(sequencedTime.value)
 
@@ -855,7 +853,7 @@ class GrpcTopologyManagerReadService(
       } yield {
         genesisState.toByteString(ProtocolVersion.latest).writeTo(out)
       }
-    CantonGrpcUtil.mapErrNew(res)
+    CantonGrpcUtil.mapErrNewEUS(res)
   }
 
   override def listPurgeTopologyTransaction(

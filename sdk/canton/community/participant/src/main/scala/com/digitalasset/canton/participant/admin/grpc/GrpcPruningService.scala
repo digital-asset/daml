@@ -311,7 +311,7 @@ class GrpcPruningService(
       _ <- FutureUnlessShutdown.unit
       domainTopoClient = ips.tryForDomain(domainId)
       ipsSnapshot <- domainTopoClient.awaitSnapshotUS(domainTopoClient.approximateTimestamp)
-      allMembers <- FutureUnlessShutdown.outcomeF(ipsSnapshot.allMembers())
+      allMembers <- ipsSnapshot.allMembers()
       allParticipants = allMembers
         .filter(_.code == ParticipantId.Code)
         .map(member => ParticipantId.apply(member.uid))

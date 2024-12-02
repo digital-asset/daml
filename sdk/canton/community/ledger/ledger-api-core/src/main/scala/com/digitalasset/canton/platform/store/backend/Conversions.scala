@@ -96,28 +96,18 @@ private[backend] object Conversions {
 
   implicit object OffsetToStatement extends ToStatement[Offset] {
     override def set(s: PreparedStatement, index: Int, v: Offset): Unit =
-      s.setString(index, v.toHexString)
-  }
-
-  implicit object OffsetOToStatement extends ToStatement[Option[Offset]] {
-    override def set(s: PreparedStatement, index: Int, v: Option[Offset]): Unit =
-      s.setString(index, v.toHexString)
+      s.setLong(index, v.unwrap)
   }
 
   def offset(name: String): RowParser[Offset] =
     SqlParser
-      .get[String](name)
-      .map(v => Offset.fromHexString(Ref.HexString.assertFromString(v)))
+      .get[Long](name)
+      .map(Offset.tryFromLong)
 
-  def offsetO(name: String): RowParser[Option[Offset]] =
+  def offset(position: Int): RowParser[Offset] =
     SqlParser
-      .get[String](name)
-      .map(v => Offset.fromHexStringO(Ref.HexString.assertFromString(v)))
-
-  def offsetO(position: Int): RowParser[Option[Offset]] =
-    SqlParser
-      .get[String](position)
-      .map(v => Offset.fromHexStringO(Ref.HexString.assertFromString(v)))
+      .get[Long](position)
+      .map(Offset.tryFromLong)
 
   // Timestamp
 

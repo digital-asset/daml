@@ -53,8 +53,10 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
     new Fixture(dedup, store)
   }
 
-  private def dedupOffset(longOffset: Long): DeduplicationPeriod.DeduplicationOffset =
-    DeduplicationPeriod.DeduplicationOffset(Option(Offset.tryFromLong(longOffset)))
+  private def dedupOffset(l: Long): DeduplicationPeriod.DeduplicationOffset =
+    DeduplicationPeriod.DeduplicationOffset(
+      Offset.tryOffsetOrParticipantBegin(l)
+    )
 
   private def mkPublicationInternal(
       longOffset: Long,
@@ -106,8 +108,8 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
           .checkDuplication(changeId2Hash, dedupOffset(100L))
           .valueOrFail("dedup 3")
       } yield {
-        offset1 shouldBe dedupOffset(Offset.firstOffset.unwrap)
-        offset3 shouldBe dedupOffset(Offset.firstOffset.unwrap)
+        offset1 shouldBe dedupOffset(0L)
+        offset3 shouldBe dedupOffset(0L)
       }
     }.failOnShutdown
 
@@ -198,6 +200,9 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
         errorOffset <- fix.dedup
           .checkDuplication(changeId1Hash, dedupOffset(2L))
           .leftOrFail("dedup conflict by offset")
+        errorOffset0 <- fix.dedup
+          .checkDuplication(changeId1Hash, dedupOffset(0L))
+          .leftOrFail("dedup conflict by offset")
         okOffset4 <- fix.dedup
           .checkDuplication(changeId1Hash, dedupOffset(3L))
           .valueOrFail("no dedup conflict by offset 3")
@@ -205,7 +210,7 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
           .checkDuplication(changeId1Hash, dedupOffset(4L))
           .valueOrFail("no dedup conflict by offset 4")
         okOther <- fix.dedup
-          .checkDuplication(changeId2Hash, dedupOffset(offset1.toLong))
+          .checkDuplication(changeId2Hash, dedupOffset(offset1))
           .valueOrFail("do dedup conflict for other change ID")
       } yield {
         errorTime shouldBe AlreadyExists(
@@ -213,15 +218,20 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
           accepted = true,
           submissionId1,
         )
-        okTime shouldBe dedupOffset(offset1.toLong)
+        okTime shouldBe dedupOffset(offset1)
         errorOffset shouldBe AlreadyExists(
           offset1,
           accepted = true,
           submissionId1,
         )
-        okOffset4 shouldBe dedupOffset(offset1.toLong)
-        okOffset5 shouldBe dedupOffset(offset1.toLong)
-        okOther shouldBe dedupOffset(Offset.firstOffset.unwrap)
+        errorOffset0 shouldBe AlreadyExists(
+          offset1,
+          accepted = true,
+          submissionId1,
+        )
+        okOffset4 shouldBe dedupOffset(offset1)
+        okOffset5 shouldBe dedupOffset(offset1)
+        okOther shouldBe dedupOffset(0L)
       }
     }.failOnShutdown
 
@@ -250,7 +260,7 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
           .checkDuplication(changeId1Hash, dedupTime1Day)
           .valueOrFail("no dedup conflict by time")
         okOffset <- fix.dedup
-          .checkDuplication(changeId1Hash, dedupOffset(offset1.toLong - 1))
+          .checkDuplication(changeId1Hash, dedupOffset(offset1 - 1))
           .valueOrFail("no dedup conflict by offset")
         _ <- fix.dedup.processPublications(Seq(publication2, publication3))
         okTimeAfter <- fix.dedup
@@ -263,21 +273,21 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
           )
           .leftOrFail("dedup conflict by time")
         okOffsetAfter <- fix.dedup
-          .checkDuplication(changeId1Hash, dedupOffset(offset2.toLong))
+          .checkDuplication(changeId1Hash, dedupOffset(offset2))
           .valueOrFail("no dedup conflict by offset at accept")
         errorOffset <- fix.dedup
-          .checkDuplication(changeId1Hash, dedupOffset(offset2.toLong - 1))
+          .checkDuplication(changeId1Hash, dedupOffset(offset2 - 1))
           .leftOrFail("dedup conflict by offset before accept")
       } yield {
-        okTime shouldBe dedupOffset(Offset.firstOffset.unwrap)
-        okOffset shouldBe dedupOffset(Offset.firstOffset.unwrap)
-        okTimeAfter shouldBe dedupOffset(offset2.toLong)
+        okTime shouldBe dedupOffset(0L)
+        okOffset shouldBe dedupOffset(0L)
+        okTimeAfter shouldBe dedupOffset(offset2)
         errorTime shouldBe AlreadyExists(
           offset2,
           accepted = true,
           submissionId1,
         )
-        okOffsetAfter shouldBe dedupOffset(offset2.toLong)
+        okOffsetAfter shouldBe dedupOffset(offset2)
         errorOffset shouldBe AlreadyExists(
           offset2,
           accepted = true,
@@ -302,6 +312,9 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
         errorOffset <- fix.dedup
           .checkDuplication(changeId1Hash, dedupOffset(pruningOffset - 1))
           .leftOrFail("dedup offset too early")
+        errorOffset0 <- fix.dedup
+          .checkDuplication(changeId1Hash, dedupOffset(0L))
+          .leftOrFail("dedup offset too early")
         okOffset <- fix.dedup
           .checkDuplication(changeId1Hash, dedupOffset(pruningOffset))
           .valueOrFail("dedup offset OK")
@@ -313,6 +326,10 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
         okTime shouldBe dedupOffset(pruningOffset)
         errorOffset shouldBe DeduplicationPeriodTooEarly(
           dedupOffset(pruningOffset - 1),
+          dedupOffset(pruningOffset),
+        )
+        errorOffset0 shouldBe DeduplicationPeriodTooEarly(
+          dedupOffset(0L),
           dedupOffset(pruningOffset),
         )
         okOffset shouldBe dedupOffset(pruningOffset)
@@ -338,7 +355,7 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
         _ = clock.advance(java.time.Duration.ofHours(23))
         // This shouldn't prune the entry because the most recent definite answer is after the pruning offset
         // So we can still specify dedup periods that start before the pruning
-        pruningOffset = offset1.toLong + 2L
+        pruningOffset = offset1 + 2L
         _ <- fix.store.prune(pruningOffset, publicationTime1.plusSeconds(10))
         okTime <- fix.dedup
           .checkDuplication(changeId1Hash, dedupTimeAlmost1Day)
@@ -347,10 +364,13 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
           .checkDuplication(changeId1Hash, dedupTime1Day)
           .leftOrFail("dedup conflict on time")
         okOffset <- fix.dedup
-          .checkDuplication(changeId1Hash, dedupOffset(offset1.toLong))
+          .checkDuplication(changeId1Hash, dedupOffset(offset1))
           .valueOrFail("no dedup conflict on offset")
         errorOffset <- fix.dedup
-          .checkDuplication(changeId1Hash, dedupOffset(offset1.toLong - 1))
+          .checkDuplication(changeId1Hash, dedupOffset(offset1 - 1L))
+          .leftOrFail("dedup conflict on offset")
+        errorOffset0 <- fix.dedup
+          .checkDuplication(changeId1Hash, dedupOffset(0L))
           .leftOrFail("dedup conflict on offset")
         otherTime <- fix.dedup
           .checkDuplication(changeId2Hash, dedupTimeAlmost1Day)
@@ -359,10 +379,11 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
           .checkDuplication(changeId2Hash, dedupOffset(pruningOffset - 1L))
           .leftOrFail("dedup time conflict on pre-pruning offset")
       } yield {
-        okTime shouldBe dedupOffset(offset1.toLong)
-        errorTime shouldBe AlreadyExists(offset1.toLong, accepted = true, submissionId1)
-        okOffset shouldBe dedupOffset(offset1.toLong)
-        errorOffset shouldBe AlreadyExists(offset1.toLong, accepted = true, submissionId1)
+        okTime shouldBe dedupOffset(offset1)
+        errorTime shouldBe AlreadyExists(offset1, accepted = true, submissionId1)
+        okOffset shouldBe dedupOffset(offset1)
+        errorOffset shouldBe AlreadyExists(offset1, accepted = true, submissionId1)
+        errorOffset0 shouldBe AlreadyExists(offset1, accepted = true, submissionId1)
         otherTime shouldBe DeduplicationPeriodTooEarly(
           dedupTimeAlmost1Day,
           dedupOffset(pruningOffset),
@@ -394,8 +415,8 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
           .checkDuplication(changeId1Hash, dedupTime1Day)
           .leftOrFail("dedup conflict on time")
       } yield {
-        okTime shouldBe dedupOffset(offset1.toLong)
-        errorTime shouldBe AlreadyExists(offset1.toLong, accepted = true, submissionId1)
+        okTime shouldBe dedupOffset(offset1)
+        errorTime shouldBe AlreadyExists(offset1, accepted = true, submissionId1)
       }
     }.failOnShutdown
   }

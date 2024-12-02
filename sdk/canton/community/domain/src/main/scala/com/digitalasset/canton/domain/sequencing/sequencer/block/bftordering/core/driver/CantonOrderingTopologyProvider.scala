@@ -19,7 +19,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   PekkoEnv,
   PekkoFutureUnlessShutdown,
 }
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -68,24 +67,21 @@ private[driver] final class CantonOrderingTopologyProvider(
 
       maxTimestamp <- maxTimestampF
 
-      maybeSequencerGroup <- FutureUnlessShutdown.outcomeF(snapshot.ipsSnapshot.sequencerGroup())
+      maybeSequencerGroup <- snapshot.ipsSnapshot.sequencerGroup()
       _ = logger.debug(
         s"Sequencer group queried successfully on snapshot at $snapshotTimestamp: $maybeSequencerGroup"
       )
 
       maybePeers = maybeSequencerGroup.map(_.active)
-      maybePeersFirstKnownAt <- FutureUnlessShutdown.outcomeF(
+      maybePeersFirstKnownAt <-
         maybePeers
           .map(computeFirstKnownAtTimestamps(_, snapshot))
           .sequence
-      )
       _ = logger.debug(
         s"Peer \"first known at\" timestamps queried successfully on snapshot at $snapshotTimestamp: $maybePeersFirstKnownAt"
       )
 
-      sequencingDynamicParameters <- FutureUnlessShutdown.outcomeF(
-        getDynamicSequencingParameters(snapshot.ipsSnapshot)
-      )
+      sequencingDynamicParameters <- getDynamicSequencingParameters(snapshot.ipsSnapshot)
       _ = logger.debug(
         s"Dynamic sequencing parameters queried successfully on snapshot at $snapshotTimestamp: $sequencingDynamicParameters"
       )

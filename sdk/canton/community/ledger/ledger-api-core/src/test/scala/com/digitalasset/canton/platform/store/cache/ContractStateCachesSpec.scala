@@ -69,7 +69,7 @@ class ContractStateCachesSpec
     verify(keyStateCache).putBatch(offset(4), expectedKeyStateUpdates)
   }
 
-  "push" should "not update the key state cache if no key updates" in new TestScope {
+  "push" should "update the key state cache even if no key updates" in new TestScope {
     val create1 = createEvent(offset = offset(2), withKey = false)
 
     val batch = NonEmptyVector.of(create1)
@@ -77,7 +77,17 @@ class ContractStateCachesSpec
 
     contractStateCaches.push(batch)
     verify(contractStateCache).putBatch(offset(2), expectedContractStateUpdates)
-    verifyZeroInteractions(keyStateCache)
+    verify(keyStateCache).putBatch(offset(2), Map.empty)
+  }
+
+  "push" should "update the key state cache even if only reassignment updates" in new TestScope {
+    val assign1 = ContractStateEvent.ReassignmentAccepted(offset(2))
+
+    val batch = NonEmptyVector.of(assign1)
+
+    contractStateCaches.push(batch)
+    verify(contractStateCache).putBatch(offset(2), Map.empty)
+    verify(keyStateCache).putBatch(offset(2), Map.empty)
   }
 
   "reset" should "reset the caches on `reset`" in new TestScope {

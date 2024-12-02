@@ -320,7 +320,6 @@ class EnterpriseSequencerRateLimitManager(
       parameters <- OptionT(snapshot.trafficControlParameters(protocolVersion))
       groupToMembers <- OptionT
         .liftF(GroupAddressResolver.resolveGroupsToMembers(groups.toSet, snapshot))
-        .mapK(FutureUnlessShutdown.outcomeK)
       eventCostDetails = eventCostCalculator.computeEventCost(
         batch,
         parameters.readVsWriteScalingFactor,

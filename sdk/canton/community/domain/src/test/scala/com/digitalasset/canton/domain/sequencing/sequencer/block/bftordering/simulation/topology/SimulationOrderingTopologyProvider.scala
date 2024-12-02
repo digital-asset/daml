@@ -26,7 +26,7 @@ import scala.util.Success
 
 class SimulationOrderingTopologyProvider(
     thisPeer: SequencerId,
-    peerEndpointsToOnboardingInformation: Map[Endpoint, SimulationOnboardingInformation],
+    peerEndpointsToTopologyData: Map[Endpoint, SimulationTopologyData],
     loggerFactory: NamedLoggerFactory,
 ) extends OrderingTopologyProvider[SimulationEnv] {
 
@@ -34,19 +34,19 @@ class SimulationOrderingTopologyProvider(
       traceContext: TraceContext
   ): SimulationFuture[Option[(OrderingTopology, CryptoProvider[SimulationEnv])]] =
     SimulationFuture { () =>
-      val activeSequencerOnboardInformation =
-        peerEndpointsToOnboardingInformation.view
-          .filter { case (_, onboardingInformation) =>
-            onboardingInformation.onboardingTime.value <= activationTime.value
+      val activeSequencerTopologyData =
+        peerEndpointsToTopologyData.view
+          .filter { case (_, topologyData) =>
+            topologyData.onboardingTime.value <= activationTime.value
           }
-          .map { case (endpoint, onboardInformation) =>
-            SimulationP2PNetworkManager.fakeSequencerId(endpoint) -> onboardInformation
+          .map { case (endpoint, topologyData) =>
+            SimulationP2PNetworkManager.fakeSequencerId(endpoint) -> topologyData
           }
           .toMap
 
       val topology =
         OrderingTopology(
-          activeSequencerOnboardInformation.view.mapValues(_.onboardingTime).toMap,
+          activeSequencerTopologyData.view.mapValues(_.onboardingTime).toMap,
           SequencingParameters.Default,
           activationTime,
           // Switch the value deterministically so that we trigger all code paths.
@@ -56,7 +56,7 @@ class SimulationOrderingTopologyProvider(
         Some(
           topology -> SimulationCryptoProvider.create(
             thisPeer,
-            activeSequencerOnboardInformation,
+            activeSequencerTopologyData,
             activationTime.value,
             loggerFactory,
           )

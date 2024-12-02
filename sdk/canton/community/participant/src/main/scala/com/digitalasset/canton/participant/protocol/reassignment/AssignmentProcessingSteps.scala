@@ -58,7 +58,6 @@ import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.ProtocolVersion
@@ -143,7 +142,7 @@ private[reassignment] class AssignmentProcessingSteps(
 
     def activeParticipantsOfParty(
         parties: Seq[LfPartyId]
-    ): EitherT[Future, ReassignmentProcessorError, Set[ParticipantId]] = EitherT(
+    ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Set[ParticipantId]] = EitherT(
       topologySnapshot.unwrap.activeParticipantsOfParties(parties).map {
         partyToParticipantAttributes =>
           partyToParticipantAttributes.toSeq
@@ -184,7 +183,6 @@ private[reassignment] class AssignmentProcessingSteps(
           participantId,
           stakeholders = stakeholders.all,
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       assignmentUuid = seedGenerator.generateUuid()
       seed = seedGenerator.generateSaltSeed()
@@ -211,9 +209,7 @@ private[reassignment] class AssignmentProcessingSteps(
         .sign(rootHash.unwrap)
         .leftMap(ReassignmentSigningError.apply)
       mediatorMessage = fullTree.mediatorMessage(submittingParticipantSignature)
-      recipientsSet <- activeParticipantsOfParty(stakeholders.all.toSeq).mapK(
-        FutureUnlessShutdown.outcomeK
-      )
+      recipientsSet <- activeParticipantsOfParty(stakeholders.all.toSeq)
       recipients <- EitherT.fromEither[FutureUnlessShutdown](
         Recipients
           .ofSet(recipientsSet)
@@ -399,11 +395,9 @@ private[reassignment] class AssignmentProcessingSteps(
 
     for {
       hostedStakeholders <- EitherT.right[ReassignmentProcessorError](
-        FutureUnlessShutdown.outcomeF(
-          targetCrypto.ipsSnapshot
-            .hostedOn(fullViewTree.contract.metadata.stakeholders, participantId)
-            .map(_.keySet)
-        )
+        targetCrypto.ipsSnapshot
+          .hostedOn(fullViewTree.contract.metadata.stakeholders, participantId)
+          .map(_.keySet)
       )
 
       reassignmentDataO <- EitherT
@@ -414,7 +408,7 @@ private[reassignment] class AssignmentProcessingSteps(
       authenticationErrorO <- EitherT
         .right(AuthenticationValidator.verifyViewSignature(parsedRequest))
 
-      confirmingSignatories <- EitherTUtil.rightUS(
+      confirmingSignatories <- EitherT.right(
         targetCrypto.ipsSnapshot.canConfirm(
           participantId,
           fullViewTree.confirmingParties,
@@ -432,7 +426,6 @@ private[reassignment] class AssignmentProcessingSteps(
           Target(targetCrypto),
           isConfirming,
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       activenessResult <- EitherT.right[ReassignmentProcessorError](activenessResultFuture)
     } yield {
@@ -640,7 +633,7 @@ private[reassignment] class AssignmentProcessingSteps(
               )
           ),
         )
-        val commitSetO = Some(Future.successful(commitSet))
+        val commitSetO = Some(FutureUnlessShutdown.pure(commitSet))
         val contractsToBeStored = Seq(contract)
 
         for {

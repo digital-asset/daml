@@ -105,7 +105,6 @@ private[reassignment] object UnassignmentValidationReassigningParticipant {
     for {
       unassignmentRequestRecipients <- sourceTopology.unwrap
         .activeParticipantsOfAll(expectedStakeholders.all.toList)
-        .mapK(FutureUnlessShutdown.outcomeK)
         .leftMap(inactiveParties =>
           StakeholderHostingErrors(s"The following stakeholders are not active: $inactiveParties")
         )
@@ -114,7 +113,7 @@ private[reassignment] object UnassignmentValidationReassigningParticipant {
         stakeholders = expectedStakeholders,
         sourceTopology,
         targetTopology,
-      ).compute.mapK(FutureUnlessShutdown.outcomeK)
+      ).compute
       _ <- validation.checkRecipients(unassignmentRequestRecipients)
       _ <- validation.checkReassigningParticipants(reassigningParticipants)
       _ <- validation.checkVetted(expectedStakeholders.all, expectedTemplateId)

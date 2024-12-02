@@ -327,7 +327,7 @@ object TransactionView
     SupportedProtoVersions(
       ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.ViewNode)(
         supportedProtoVersion(_)(fromProtoV30),
-        _.toProtoV30.toByteString,
+        _.toProtoV30,
       )
     )
 

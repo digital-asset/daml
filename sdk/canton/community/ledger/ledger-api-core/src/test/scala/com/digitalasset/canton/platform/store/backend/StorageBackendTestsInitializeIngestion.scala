@@ -225,7 +225,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           val contractsAssigned =
             executeSql(
               backend.contract
-                .assignedContracts(List(hashCid("#103"), hashCid("#203")))
+                .assignedContracts(List(hashCid("#103"), hashCid("#203")), offset(1000))
             )
           val assignedEvents =
             executeSql(
@@ -240,7 +240,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           contractsArchived.get(hashCid("#101")) shouldBe empty
           contractsArchived.get(hashCid("#201")) shouldBe empty
           contractsAssigned.get(hashCid("#103")) should not be empty
-          contractsAssigned.get(hashCid("#203")) shouldBe empty // constrained by ledger end
+          contractsAssigned.get(hashCid("#203")) should not be empty
           assignedEvents shouldBe List(hashCid("#103"), hashCid("#203")).map(
             _.coid
           ) // not constrained by ledger end
@@ -275,7 +275,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           val contractsAssigned =
             executeSql(
               backend.contract
-                .assignedContracts(List(hashCid("#103"), hashCid("#203")))
+                .assignedContracts(List(hashCid("#103"), hashCid("#203")), offset(1000))
             )
           val assignedEvents =
             executeSql(
@@ -323,7 +323,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           val contractsAssigned =
             executeSql(
               backend.contract
-                .assignedContracts(List(hashCid("#103"), hashCid("#203")))
+                .assignedContracts(List(hashCid("#103"), hashCid("#203")), offset(1000))
             )
           val assignedEvents =
             executeSql(

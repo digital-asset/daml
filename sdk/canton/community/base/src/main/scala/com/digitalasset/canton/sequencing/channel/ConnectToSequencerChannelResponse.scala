@@ -45,7 +45,7 @@ object ConnectToSequencerChannelResponse
       v30.ConnectToSequencerChannelResponse
     )(
       supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     ),
   )
 

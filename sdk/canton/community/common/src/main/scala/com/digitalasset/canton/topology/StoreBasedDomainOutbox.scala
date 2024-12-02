@@ -44,7 +44,7 @@ import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.concurrent.duration.*
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Promise}
 import scala.util.chaining.*
 
 class StoreBasedDomainOutbox(
@@ -173,7 +173,7 @@ class StoreBasedDomainOutbox(
   final def startup()(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
-    val loadWatermarksF = performUnlessClosingF(functionFullName)(for {
+    val loadWatermarksF = performUnlessClosingUSF(functionFullName)(for {
       // find the current target watermark
       watermarkTsO <- targetStore.currentDispatchingWatermark
       watermarkTs = watermarkTsO.getOrElse(CantonTimestamp.MinValue)
@@ -238,7 +238,7 @@ class StoreBasedDomainOutbox(
       if (initialize)
         initialized.set(true)
       if (cur.hasPending) {
-        val pendingAndApplicableF = performUnlessClosingF(functionFullName)(for {
+        val pendingAndApplicableF = performUnlessClosingUSF(functionFullName)(for {
           // find pending transactions
           pending <- findPendingTransactions(cur)
           // filter out applicable
@@ -316,7 +316,9 @@ class StoreBasedDomainOutbox(
         )
       }.discard
       logger.debug(s"Updating dispatching watermark to $newWatermark")
-      performUnlessClosingF(functionFullName)(targetStore.updateDispatchingWatermark(newWatermark))
+      performUnlessClosingUSF(functionFullName)(
+        targetStore.updateDispatchingWatermark(newWatermark)
+      )
     } else {
       FutureUnlessShutdown.unit
     }
@@ -332,7 +334,7 @@ class StoreBasedDomainOutbox(
 
   private def findPendingTransactions(watermarks: Watermarks)(implicit
       traceContext: TraceContext
-  ): Future[PendingTransactions] =
+  ): FutureUnlessShutdown[PendingTransactions] =
     authorizedStore
       .findDispatchingTransactionsAfter(
         timestampExclusive = watermarks.dispatched,
@@ -347,7 +349,7 @@ class StoreBasedDomainOutbox(
 
   private def maxAuthorizedStoreTimestamp()(implicit
       traceContext: TraceContext
-  ): Future[Option[(SequencedTime, EffectiveTime)]] =
+  ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] =
     authorizedStore.maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true)
 
   override protected def onClosed(): Unit = {

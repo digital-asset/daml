@@ -28,7 +28,7 @@ object UpdateToMeteringDbDto {
     if (input.nonEmpty) {
 
       @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
-      val ledgerOffset = input.last._1.toHexString
+      val ledgerOffset: Long = input.last._1.unwrap
 
       (for {
         (completionInfo, transactionAccepted) <- input.iterator

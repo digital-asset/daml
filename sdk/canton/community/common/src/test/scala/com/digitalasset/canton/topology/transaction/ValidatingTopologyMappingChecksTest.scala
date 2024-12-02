@@ -26,7 +26,12 @@ import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.Ge
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Replace
 import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
 import com.digitalasset.canton.topology.transaction.TopologyMappingChecks.PendingChangesLookup
-import com.digitalasset.canton.{BaseTest, HasExecutionContext, ProtocolVersionChecksAnyWordSpec}
+import com.digitalasset.canton.{
+  BaseTest,
+  FailOnShutdown,
+  HasExecutionContext,
+  ProtocolVersionChecksAnyWordSpec,
+}
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.time
@@ -38,7 +43,8 @@ class ValidatingTopologyMappingChecksTest
     extends AnyWordSpec
     with BaseTest
     with HasExecutionContext
-    with ProtocolVersionChecksAnyWordSpec {
+    with ProtocolVersionChecksAnyWordSpec
+    with FailOnShutdown {
 
   private lazy val factory = new TestingOwnerWithKeys(
     DefaultTestIdentities.mediatorId,
@@ -47,7 +53,8 @@ class ValidatingTopologyMappingChecksTest
   )
 
   def mk() = {
-    val store = new InMemoryTopologyStore(AuthorizedStore, loggerFactory, timeouts)
+    val store =
+      new InMemoryTopologyStore(AuthorizedStore, testedProtocolVersion, loggerFactory, timeouts)
     val check = new ValidatingTopologyMappingChecks(store, loggerFactory)
     (check, store)
   }
@@ -65,7 +72,7 @@ class ValidatingTopologyMappingChecksTest
       checks
         .checkTransaction(EffectiveTime.MaxValue, toValidate, inStore, pendingChangesLookup)
         .value
-        .futureValue
+        .futureValueUS
 
     implicit def toHostingParticipant(
         participantToPermission: (ParticipantId, ParticipantPermission)
@@ -153,7 +160,7 @@ class ValidatingTopologyMappingChecksTest
             removeTxs = Set.empty,
             additions = Seq(nsd1Replace_1, nsd2Replace_1).map(ValidatedTopologyTransaction(_)),
           )
-          .futureValue
+          .futureValueUS
 
         store
           .update(
@@ -163,7 +170,7 @@ class ValidatingTopologyMappingChecksTest
             removeTxs = Set.empty,
             additions = Seq(ValidatedTopologyTransaction(nsd1Remove_2)),
           )
-          .futureValue
+          .futureValueUS
 
         store
           .update(
@@ -173,7 +180,7 @@ class ValidatingTopologyMappingChecksTest
             removeTxs = Set.empty,
             additions = Seq(ValidatedTopologyTransaction(nsd1ReplaceProposal_3)),
           )
-          .futureValue
+          .futureValueUS
 
         /*
          * The store contains the following transactions:
@@ -189,7 +196,8 @@ class ValidatingTopologyMappingChecksTest
             codes = Set(Code.NamespaceDelegation),
             pendingChangesLookup = Map.empty,
           )
-          .futureValue should contain theSameElementsAs Seq(nsd1Replace_1, nsd2Replace_1)
+          .futureValueUS
+          .value should contain theSameElementsAs Seq(nsd1Replace_1, nsd2Replace_1)
 
         // TS0: load with Removal NS2 as pending change
         checks
@@ -198,7 +206,8 @@ class ValidatingTopologyMappingChecksTest
             codes = Set(Code.NamespaceDelegation),
             Map(nsd2Remove_2.mapping.uniqueKey -> nsd2Remove_2),
           )
-          .futureValue shouldBe Seq(nsd1Replace_1)
+          .futureValueUS
+          .value shouldBe Seq(nsd1Replace_1)
 
         // TS0: load with Replace NS3 as pending change without prior transactions in the store
         checks
@@ -207,7 +216,8 @@ class ValidatingTopologyMappingChecksTest
             codes = Set(Code.NamespaceDelegation),
             pendingChangesLookup = Map(nsd3Replace_1.mapping.uniqueKey -> nsd3Replace_1),
           )
-          .futureValue should contain theSameElementsAs Seq(
+          .futureValueUS
+          .value should contain theSameElementsAs Seq(
           nsd1Replace_1,
           nsd2Replace_1,
           nsd3Replace_1,
@@ -222,7 +232,8 @@ class ValidatingTopologyMappingChecksTest
             pendingChangesLookup = Map(nsd3Replace_1.mapping.uniqueKey -> nsd3Replace_1),
             filterNamespace = Some(Seq(ns2, ns3)),
           )
-          .futureValue should contain theSameElementsAs Seq(nsd2Replace_1, nsd3Replace_1)
+          .futureValueUS
+          .value should contain theSameElementsAs Seq(nsd2Replace_1, nsd3Replace_1)
 
         // TS1: don't load Remove NS1 from the store
         checks
@@ -231,7 +242,8 @@ class ValidatingTopologyMappingChecksTest
             codes = Set(Code.NamespaceDelegation),
             Map.empty,
           )
-          .futureValue shouldBe Seq(nsd2Replace_1)
+          .futureValueUS
+          .value shouldBe Seq(nsd2Replace_1)
 
         // TS1: don't load Remove NS1 from the store mixed with Remove NS2 as pending change
         checks
@@ -240,7 +252,8 @@ class ValidatingTopologyMappingChecksTest
             codes = Set(Code.NamespaceDelegation),
             Map(nsd2Remove_2.mapping.uniqueKey -> nsd2Remove_2),
           )
-          .futureValue shouldBe Seq.empty
+          .futureValueUS
+          .value shouldBe Seq.empty
 
         // TS2: don't load proposals
         checks
@@ -249,7 +262,8 @@ class ValidatingTopologyMappingChecksTest
             codes = Set(Code.NamespaceDelegation),
             Map.empty,
           )
-          .futureValue shouldBe Seq(nsd2Replace_1)
+          .futureValueUS
+          .value shouldBe Seq(nsd2Replace_1)
 
       }
     }
@@ -843,7 +857,7 @@ class ValidatingTopologyMappingChecksTest
               ValidatedTopologyTransaction(group1RemoveMed2),
             ),
           )
-          .futureValue
+          .futureValueUS
 
         val Seq(med1RejoinsGroup0, med2RejoinsGroup0) = mkGroups(
           PositiveInt.three,
@@ -957,7 +971,7 @@ class ValidatingTopologyMappingChecksTest
               ValidatedTopologyTransaction(sds_S1)
             ),
           )
-          .futureValue
+          .futureValueUS
 
         val sds_S1_rejoining_S2 = mkSDS(PositiveInt.three, seq1, seq2)
 
@@ -1068,7 +1082,7 @@ class ValidatingTopologyMappingChecksTest
           )
         )
       )
-      .futureValue
+      .futureValueUS
 
   private def setUpRootCerts(keys: SigningPublicKey*): (
       NonEmpty[Seq[SigningPublicKey]],

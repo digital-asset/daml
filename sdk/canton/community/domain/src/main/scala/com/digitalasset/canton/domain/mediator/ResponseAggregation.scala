@@ -19,6 +19,7 @@ import com.digitalasset.canton.data.{
 import com.digitalasset.canton.domain.mediator.MediatorVerdict.MediatorApprove
 import com.digitalasset.canton.domain.mediator.ResponseAggregation.ViewState
 import com.digitalasset.canton.error.MediatorError
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.RequestId
@@ -26,12 +27,11 @@ import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.collection.immutable.SortedSet
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Aggregates the responses for a request that the mediator has processed so far.
   *
@@ -87,7 +87,7 @@ final case class ResponseAggregation[VKEY](
   )(implicit
       loggingContext: NamedLoggingContext,
       ec: ExecutionContext,
-  ): Future[Option[ResponseAggregation[VKEY]]] = {
+  ): FutureUnlessShutdown[Option[ResponseAggregation[VKEY]]] = {
     val ConfirmationResponse(
       requestId,
       sender,
@@ -113,7 +113,7 @@ final case class ResponseAggregation[VKEY](
       // This comes last so that the validation also runs for responses to finalized requests. Benefits:
       // - more exhaustive security alerts
       // - avoid race conditions in security tests
-      statesOfViews <- OptionT.fromOption[Future](state.leftMap { s => // move down
+      statesOfViews <- OptionT.fromOption[FutureUnlessShutdown](state.leftMap { s => // move down
         loggingContext.info(
           s"Request ${requestId.unwrap} has already been finalized with verdict $s before response $responseTimestamp from $sender with $localVerdict for view $viewKeyO arrives"
         )
@@ -360,7 +360,7 @@ object ResponseAggregation {
   )(implicit
       requestTraceContext: TraceContext,
       ec: ExecutionContext,
-  ): Future[ResponseAggregation[?]] =
+  ): FutureUnlessShutdown[ResponseAggregation[?]] =
     for {
       initialState <- mkInitialState(
         request.informeesAndConfirmationParamsByViewPosition,
@@ -379,7 +379,7 @@ object ResponseAggregation {
   private def mkInitialState[K](
       informeesAndConfirmationParamsByViewPosition: Map[K, ViewConfirmationParameters],
       topologySnapshot: TopologySnapshot,
-  )(implicit ec: ExecutionContext, tc: TraceContext): Future[Map[K, ViewState]] =
+  )(implicit ec: ExecutionContext, tc: TraceContext): FutureUnlessShutdown[Map[K, ViewState]] =
     informeesAndConfirmationParamsByViewPosition.toSeq
       .parTraverse {
         case (viewKey, viewConfirmationParameters @ ViewConfirmationParameters(_, quorumsState)) =>

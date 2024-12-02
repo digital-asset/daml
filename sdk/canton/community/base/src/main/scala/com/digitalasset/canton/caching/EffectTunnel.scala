@@ -31,7 +31,7 @@ trait EffectTunnel[F[_], G[_]] {
   /** Converts the effect `F` into the effect `G`.
     * Must be the right-inverse of [[exit]], i.e., `exit(enter(fa)) == fa`.
     */
-  def enter[A](fa: F[A]): G[A]
+  def enter[A](fa: F[A], context: String): G[A]
 
   /** Converts the effect `G` into the effect `F`.
     * Must be the left-inverse of [[enter]], i.e., `exit(enter(fa)) == fa`.
@@ -46,7 +46,8 @@ trait EffectTunnel[F[_], G[_]] {
   /** Composes this effect tunnel with another effect tunnel. */
   def andThen[H[_]](tunnel: EffectTunnel[G, H]): EffectTunnel[F, H] =
     new EffectTunnel[F, H] {
-      override def enter[A](fa: F[A]): H[A] = tunnel.enter(EffectTunnel.this.enter(fa))
+      override def enter[A](fa: F[A], context: String): H[A] =
+        tunnel.enter(EffectTunnel.this.enter(fa, context), context)
       override def exit[A](fa: H[A]): F[A] = EffectTunnel.this.exit(tunnel.exit(fa))
     }
 }
@@ -55,7 +56,7 @@ object EffectTunnel {
 
   implicit def id[F[_]]: EffectTunnel[F, F] =
     new EffectTunnel[F, F] {
-      override def enter[A](fa: F[A]): F[A] = fa
+      override def enter[A](fa: F[A], context: String): F[A] = fa
       override def exit[A](fa: F[A]): F[A] = fa
     }
 
@@ -63,8 +64,8 @@ object EffectTunnel {
       ec: ExecutionContext
   ): EffectTunnel[FutureUnlessShutdown, Future] =
     new EffectTunnel[FutureUnlessShutdown, Future] {
-      override def enter[A](fa: FutureUnlessShutdown[A]): Future[A] =
-        fa.failOnShutdownToAbortException("effectTunnelFutureUnlessShutdown.enter")
+      override def enter[A](fa: FutureUnlessShutdown[A], context: String): Future[A] =
+        fa.failOnShutdownToAbortException(s"Entering effect tunnel for $context")
 
       override def exit[A](fa: Future[A]): FutureUnlessShutdown[A] =
         FutureUnlessShutdown.recoverFromAbortException(fa)
@@ -75,8 +76,8 @@ object EffectTunnel {
   ): EffectTunnel[EitherT[Future, A, *], Future] = {
     val tag = new Object
     new EffectTunnel[EitherT[Future, A, *], Future] {
-      override def enter[B](fa: EitherT[Future, A, B]): Future[B] =
-        leftAsExceptionEitherT(fa, tag)
+      override def enter[B](fa: EitherT[Future, A, B], context: String): Future[B] =
+        leftAsExceptionEitherT(fa, tag, context)
 
       override def exit[B](fa: Future[B]): EitherT[Future, A, B] =
         exceptionAsLeftEitherT(fa, tag)
@@ -88,8 +89,8 @@ object EffectTunnel {
       tunnel: EffectTunnel[F, G]
   ): EffectTunnel[EitherT[F, A, *], EitherT[G, A, *]] =
     new EffectTunnel[EitherT[F, A, *], EitherT[G, A, *]] {
-      override def enter[B](fa: EitherT[F, A, B]): EitherT[G, A, B] =
-        EitherT(tunnel.enter(fa.value))
+      override def enter[B](fa: EitherT[F, A, B], context: String): EitherT[G, A, B] =
+        EitherT(tunnel.enter(fa.value, context))
 
       override def exit[B](fa: EitherT[G, A, B]): EitherT[F, A, B] =
         EitherT(tunnel.exit(fa.value))
@@ -100,18 +101,19 @@ object EffectTunnel {
     Future,
   ] = effectTunnelEitherTLift(effectTunnelFutureUnlessShutdown).andThen(effectTunnelEitherTFuture)
 
-  private final case class LeftDisguisedAsAnException[A](left: A, tag: AnyRef)
-      extends RuntimeException
+  private final case class LeftDisguisedAsAnException[A](left: A, tag: AnyRef)(context: String)
+      extends RuntimeException(s"Tunnelling a left value through $context")
       with NoStackTrace
 
-  private def leftAsException[A, B](either: Either[A, B], tag: AnyRef): Try[B] =
-    either.leftMap(LeftDisguisedAsAnException(_, tag)).toTry
+  private def leftAsException[A, B](either: Either[A, B], tag: AnyRef, context: String): Try[B] =
+    either.leftMap(LeftDisguisedAsAnException(_, tag)(context)).toTry
 
   private def leftAsExceptionEitherT[A, B](
       x: EitherT[Future, A, B],
       tag: AnyRef,
+      context: String,
   )(implicit ec: ExecutionContext): Future[B] =
-    x.value.transform(_.flatMap(leftAsException(_, tag)))
+    x.value.transform(_.flatMap(leftAsException(_, tag, context)))
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   private def exceptionAsLeft[A, B](x: Try[B], expectedTag: AnyRef): Try[Either[A, B]] =

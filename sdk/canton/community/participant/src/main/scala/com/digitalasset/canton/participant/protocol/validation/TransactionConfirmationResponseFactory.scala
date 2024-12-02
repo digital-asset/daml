@@ -20,7 +20,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, checked}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class TransactionConfirmationResponseFactory(
     participantId: ParticipantId,
@@ -45,7 +45,7 @@ class TransactionConfirmationResponseFactory(
 
     def hostedConfirmingPartiesOfView(
         viewValidationResult: ViewValidationResult
-    ): Future[Set[LfPartyId]] = {
+    ): FutureUnlessShutdown[Set[LfPartyId]] = {
       val confirmingParties =
         viewValidationResult.view.viewCommonData.viewConfirmationParameters.confirmers
       topologySnapshot.canConfirm(participantId, confirmingParties)
@@ -137,9 +137,9 @@ class TransactionConfirmationResponseFactory(
       transactionValidationResult.viewValidationResults.toSeq.parTraverseFilter {
         case (viewPosition, viewValidationResult) =>
           for {
-            hostedConfirmingParties <- FutureUnlessShutdown.outcomeF(
+            hostedConfirmingParties <-
               hostedConfirmingPartiesOfView(viewValidationResult)
-            )
+
             modelConformanceResultE <- transactionValidationResult.modelConformanceResultET.value
           } yield {
 

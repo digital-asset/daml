@@ -14,6 +14,7 @@ import com.daml.ledger.api.v2.commands.Command
 import com.daml.ledger.api.v2.completion.Completion
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -129,7 +130,9 @@ trait CommandResultHandle {
   def failedSync(err: StatusRuntimeException): Unit
   def internalErrorSync(err: Throwable): Unit
 
-  def extractFailure[T](f: Future[T])(implicit executionContext: ExecutionContext): Future[T] =
+  def extractFailure[T](
+      f: FutureUnlessShutdown[T]
+  )(implicit executionContext: ExecutionContext): FutureUnlessShutdown[T] =
     f.transform {
       case ff @ Failure(err: StatusRuntimeException) =>
         failedSync(err)

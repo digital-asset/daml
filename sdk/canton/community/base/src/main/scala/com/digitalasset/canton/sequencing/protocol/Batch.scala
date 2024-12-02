@@ -93,7 +93,7 @@ object Batch extends HasProtocolVersionedCompanion2[Batch[Envelope[?]], Batch[Cl
         // TODO(i10428) Prevent zip bombing when decompressing the request
         Batch.fromProtoV30(_, maxRequestSize = MaxRequestSizeToDeserialize.NoLimit)
       ),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 

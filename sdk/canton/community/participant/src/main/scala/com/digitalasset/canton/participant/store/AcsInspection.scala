@@ -197,7 +197,6 @@ class AcsInspection(
               .hostedOn(allStakeholders, participantId)
               .map(_.keysIterator.toSeq)
           )
-          .mapK(FutureUnlessShutdown.outcomeK)
 
       remainingHostedStakeholders = hostedStakeholders.diff(offboardedParties.toSeq)
 

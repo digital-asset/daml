@@ -297,10 +297,10 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         Entry(
           commandId = Some("command id 1"),
           workflowId = Some("workflow_id"),
-          offset = offset(1).toHexString,
+          offset = offset(1).unwrap,
           traceContext = Some(emptyTraceContext),
           recordTime = someTime,
-          updateId = offset(1).toHexString,
+          updateId = offset(1).toDecimalString,
           eventSequentialId = 0L,
           ledgerEffectiveTime = Timestamp.MinValue,
           domainId = "x::targetdomain",
@@ -311,7 +311,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
             submitter = Option(someParty),
             reassignmentCounter = 1000L,
             rawCreatedEvent = RawCreatedEvent(
-              updateId = offset(1).toHexString,
+              updateId = offset(1).toDecimalString,
               nodeIndex = 0,
               contractId = hashCid("#1").coid,
               templateId = someTemplateId,
@@ -334,10 +334,10 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         Entry(
           commandId = Some("command id 2"),
           workflowId = Some("workflow_id"),
-          offset = offset(2).toHexString,
+          offset = offset(2).unwrap,
           traceContext = Some(emptyTraceContext),
           recordTime = someTime,
-          updateId = offset(2).toHexString,
+          updateId = offset(2).toDecimalString,
           eventSequentialId = 0L,
           ledgerEffectiveTime = Timestamp.MinValue,
           domainId = "x::targetdomain",
@@ -348,7 +348,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
             submitter = Option(someParty),
             reassignmentCounter = 1000L,
             rawCreatedEvent = RawCreatedEvent(
-              updateId = offset(2).toHexString,
+              updateId = offset(2).toDecimalString,
               nodeIndex = 0,
               contractId = hashCid("#2").coid,
               templateId = someTemplateId,
@@ -406,10 +406,10 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       Entry(
         commandId = Some("command id 1"),
         workflowId = Some("workflow_id"),
-        offset = offset(1).toHexString,
+        offset = offset(1).unwrap,
         traceContext = Some(emptyTraceContext),
         recordTime = someTime,
-        updateId = offset(1).toHexString,
+        updateId = offset(1).toDecimalString,
         eventSequentialId = 0L,
         ledgerEffectiveTime = Timestamp.MinValue,
         domainId = "x::targetdomain",
@@ -429,10 +429,10 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       Entry(
         commandId = Some("command id 2"),
         workflowId = Some("workflow_id"),
-        offset = offset(2).toHexString,
+        offset = offset(2).unwrap,
         traceContext = Some(emptyTraceContext),
         recordTime = someTime,
-        updateId = offset(2).toHexString,
+        updateId = offset(2).toDecimalString,
         eventSequentialId = 0L,
         ledgerEffectiveTime = Timestamp.MinValue,
         domainId = "x::targetdomain",
@@ -594,7 +594,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         domainId = "x::domain1",
         reassignmentCounter = 0L,
         rawCreatedEvent = RawCreatedEvent(
-          updateId = offset(1).toHexString,
+          updateId = offset(1).toDecimalString,
           nodeIndex = 0,
           contractId = hashCid("#1").coid,
           templateId = someTemplateId,
@@ -619,7 +619,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         domainId = "x::domain1",
         reassignmentCounter = 0L,
         rawCreatedEvent = RawCreatedEvent(
-          updateId = offset(2).toHexString,
+          updateId = offset(2).toDecimalString,
           nodeIndex = 0,
           contractId = hashCid("#2").coid,
           templateId = someTemplateId,
@@ -648,7 +648,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         allFilterParties = Some(Set(Ref.Party.assertFromString("observer"))),
         endInclusive = 6,
       )
-    ).map(_.rawCreatedEvent.updateId) shouldBe List(1L, 2L).map(x => offset(x).toHexString)
+    ).map(_.rawCreatedEvent.updateId) shouldBe List(1L, 2L).map(x => offset(x).toDecimalString)
 
     // archive in the same domain renders it inactive
     executeSql(
@@ -657,7 +657,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         allFilterParties = Some(Set(Ref.Party.assertFromString("observer"))),
         endInclusive = 10,
       )
-    ).map(_.rawCreatedEvent.updateId) shouldBe List(1L).map(x => offset(x).toHexString)
+    ).map(_.rawCreatedEvent.updateId) shouldBe List(1L).map(x => offset(x).toDecimalString)
 
     // unassignment in the same domain renders it inactive
     executeSql(
@@ -743,7 +743,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         domainId = "x::domain1",
         reassignmentCounter = 1000L,
         rawCreatedEvent = RawCreatedEvent(
-          updateId = offset(2).toHexString,
+          updateId = offset(2).toDecimalString,
           nodeIndex = 0,
           contractId = hashCid("#1").coid,
           templateId = someTemplateId,
@@ -768,7 +768,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         domainId = "x::domain1",
         reassignmentCounter = 1000L,
         rawCreatedEvent = RawCreatedEvent(
-          updateId = offset(3).toHexString,
+          updateId = offset(3).toDecimalString,
           nodeIndex = 0,
           contractId = hashCid("#2").coid,
           templateId = someTemplateId,
@@ -797,7 +797,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         allFilterParties = Some(Set(Ref.Party.assertFromString("observer"))),
         endInclusive = 6,
       )
-    ).map(_.rawCreatedEvent.updateId) shouldBe List(2L, 3L).map(x => offset(x).toHexString)
+    ).map(_.rawCreatedEvent.updateId) shouldBe List(2L, 3L).map(x => offset(x).toDecimalString)
 
     // archive in the same domain renders it inactive
     executeSql(
@@ -806,7 +806,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         allFilterParties = Some(Set(Ref.Party.assertFromString("observer"))),
         endInclusive = 10,
       )
-    ).map(_.rawCreatedEvent.updateId) shouldBe List(2L).map(x => offset(x).toHexString)
+    ).map(_.rawCreatedEvent.updateId) shouldBe List(2L).map(x => offset(x).toDecimalString)
 
     // unassignment in the same domain renders it inactive
     executeSql(
@@ -889,14 +889,14 @@ private[backend] trait StorageBackendTestsReassignmentEvents
           5L,
           6L,
           7L,
-        ).map(offset).map(_.toHexString)
+        )
       )
     ) shouldBe Vector(5L, 6L)
     executeSql(
       backend.event.lookupUnassignSequentialIdByOffset(
         List(
           1L, 4L, 6L, 7L, 11L,
-        ).map(offset).map(_.toHexString)
+        )
       )
     ) shouldBe Vector(4L, 11L)
     executeSql(

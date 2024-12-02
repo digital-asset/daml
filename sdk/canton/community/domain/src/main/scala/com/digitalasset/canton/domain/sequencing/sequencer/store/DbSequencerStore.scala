@@ -385,7 +385,7 @@ class DbSequencerStore(
         payloadId => readPayloadsFromStore(Seq(payloadId)).map(_(payloadId)),
       allLoader =
         Some(implicit traceContext => payloadIds => readPayloadsFromStore(payloadIds.toSeq)),
-    )(logger)
+    )(logger, "payloadCache")
 
   override def registerMember(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext

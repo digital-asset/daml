@@ -36,9 +36,13 @@ package object domain {
 
 package domain {
 
+  import com.digitalasset.canton.data.Offset as CoreOffset
   import com.digitalasset.canton.http.domain.{ContractTypeId, ResolvedQuery}
-  import com.digitalasset.canton.platform.ApiOffset
+  import com.digitalasset.daml.lf.data.{Bytes, Ref}
+  import com.google.protobuf.ByteString
   import scalaz.-\/
+
+  import java.nio.{ByteBuffer, ByteOrder}
 
   final case class Error(id: Symbol, message: String)
 
@@ -54,7 +58,7 @@ package domain {
     val tag = Tag.of[OffsetTag]
 
     def apply(s: String): Offset = tag(s)
-    def apply(l: Long): Offset = tag(ApiOffset.fromLong(l))
+    def apply(l: Long): Offset = tag(fromLong(l))
 
     def unwrap(x: Offset): String = tag.unwrap(x)
 
@@ -63,7 +67,40 @@ package domain {
     def fromLedgerApi(tx: lav2.transaction.Transaction): Offset = Offset(tx.offset)
 
     implicit val semigroup: Semigroup[Offset] = Tag.unsubst(Semigroup[Offset @@ Tags.LastVal])
-    implicit val `Offset ordering`: Order[Offset] = Order.orderBy[Offset, String](Offset.unwrap(_))
+    implicit val `Offset ordering`: Order[Offset] = Order.orderBy[Offset, String](Offset.unwrap)
+
+    private def fromOldHexString(s: Ref.HexString): Long = {
+      val bytes = Bytes.fromHexString(s)
+      // first byte was the version byte, so we must remove it
+      ByteBuffer.wrap(bytes.toByteArray).getLong(1)
+    }
+
+    def assertFromStringToLong(s: String): Long =
+      if (s.isEmpty) 0L
+      else {
+        val hex = Ref.HexString.assertFromString(s)
+        fromOldHexString(hex)
+      }
+
+    private def toOldHexString(offset: Long): Ref.HexString = {
+      val longBasedByteLength: Int = 9 // One byte for the version plus 8 bytes for Long
+      val versionUpstreamOffsetsAsLong: Byte = 0
+
+      com.digitalasset.daml.lf.data.Bytes
+        .fromByteString(
+          ByteString.copyFrom(
+            ByteBuffer
+              .allocate(longBasedByteLength)
+              .order(ByteOrder.BIG_ENDIAN)
+              .put(0, versionUpstreamOffsetsAsLong)
+              .putLong(1, offset)
+          )
+        )
+        .toHexString
+    }
+
+    def fromLong(l: Long): String =
+      toOldHexString(CoreOffset.tryFromLong(l).unwrap)
   }
 
   final case class ActiveContract[+CtTyId, +LfV](

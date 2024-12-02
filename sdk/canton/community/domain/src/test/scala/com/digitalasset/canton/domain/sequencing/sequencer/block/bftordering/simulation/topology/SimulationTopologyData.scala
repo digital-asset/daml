@@ -6,7 +6,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.si
 import com.digitalasset.canton.crypto.{SigningPrivateKey, SigningPublicKey}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.TopologyActivationTime
 
-final case class SimulationOnboardingInformation(
+final case class SimulationTopologyData(
     onboardingTime: TopologyActivationTime,
     signingPublicKey: SigningPublicKey,
     signingPrivateKey: SigningPrivateKey,

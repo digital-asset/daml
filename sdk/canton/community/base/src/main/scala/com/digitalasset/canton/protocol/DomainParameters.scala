@@ -99,7 +99,7 @@ object StaticDomainParameters
         v30.StaticDomainParameters
       )(
         supportedProtoVersion(_)(fromProtoV30),
-        _.toProtoV30.toByteString,
+        _.toProtoV30,
       )
     )
 
@@ -466,7 +466,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
         v30.DynamicDomainParameters
       )(
         supportedProtoVersion(_)(fromProtoV30),
-        _.toProtoV30.toByteString,
+        _.toProtoV30,
       )
     )
 

@@ -89,7 +89,6 @@ class PartyReplicationCoordinator(
               .map(sg => NonEmpty.from(sg.toList.flatMap(_.active))),
             s"No active sequencer for domain $domainId",
           )
-          .mapK(FutureUnlessShutdown.outcomeK)
         sequencerCandidates <- selectSequencerCandidates(
           domainId,
           sequencerIds,
@@ -212,7 +211,6 @@ class PartyReplicationCoordinator(
           topologySnapshot.sequencerGroup().map(_.map(_.active)),
           s"No sequencer group for domain $domainId",
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
       sequencerIdsTopologyIntersection <- EitherT.fromEither[FutureUnlessShutdown](
         NonEmpty
           .from(
@@ -404,7 +402,6 @@ class PartyReplicationCoordinator(
       .right(
         snapshot.activeParticipantsOf(partyId.toLf).map(_.keySet)
       )
-      .mapK(FutureUnlessShutdown.outcomeK)
     _ <- EitherT.cond[FutureUnlessShutdown](
       activeParticipantsOfParty.contains(sourceParticipantId),
       (),

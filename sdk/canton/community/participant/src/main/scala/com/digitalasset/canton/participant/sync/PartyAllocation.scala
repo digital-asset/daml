@@ -12,6 +12,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.*
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.parallelInstanceFutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.ParticipantNodeEphemeralState
@@ -68,21 +69,21 @@ private[sync] class PartyAllocation(
     val result =
       for {
         _ <- EitherT
-          .cond[Future](isActive(), (), SyncServiceError.Synchronous.PassiveNode)
+          .cond[FutureUnlessShutdown](isActive(), (), SyncServiceError.Synchronous.PassiveNode)
           .leftWiden[SubmissionResult]
         id <- UniqueIdentifier
           .create(partyName, participantId.uid.namespace)
           .leftMap(SyncServiceError.Synchronous.internalError)
-          .toEitherT[Future]
+          .toEitherT[FutureUnlessShutdown]
         partyId = PartyId(id)
-        validatedSubmissionId <- EitherT.fromEither[Future](
+        validatedSubmissionId <- EitherT.fromEither[FutureUnlessShutdown](
           String255
             .fromProtoPrimitive(rawSubmissionId, "LedgerSubmissionId")
             .leftMap(err => SyncServiceError.Synchronous.internalError(err.toString))
         )
         // Allow party allocation via ledger API only if the participant is connected to a domain
         // Otherwise the gRPC call will just timeout without a meaningful error message
-        _ <- EitherT.cond[Future](
+        _ <- EitherT.cond[FutureUnlessShutdown](
           connectedDomainsLookup.snapshot.nonEmpty,
           (),
           SubmissionResult.SynchronousError(
@@ -98,7 +99,7 @@ private[sync] class PartyAllocation(
           .leftMap[SubmissionResult] { err =>
             reject(err, SubmissionResult.Acknowledged)
           }
-          .toEitherT[Future]
+          .toEitherT[FutureUnlessShutdown]
         _ <- partyOps
           .allocateParty(partyId, participantId, protocolVersion)
           .leftMap[SubmissionResult] {
@@ -118,7 +119,6 @@ private[sync] class PartyAllocation(
             )
             x
           }
-          .onShutdown(Left(SyncServiceError.Synchronous.shutdownError))
 
         // TODO(i21341) remove this waiting logic once topology events are published on the ledger api
         // wait for parties to be available on the currently connected domains
@@ -126,7 +126,7 @@ private[sync] class PartyAllocation(
           .right[SubmissionResult](
             connectedDomainsLookup.snapshot.toSeq.parTraverse { case (domainId, syncDomain) =>
               syncDomain.topologyClient
-                .await(
+                .awaitUS(
                   _.inspectKnownParties(partyId.filterString, participantId.filterString)
                     .map(_.nonEmpty),
                   timeouts.network.duration,
@@ -134,7 +134,6 @@ private[sync] class PartyAllocation(
                 .map(domainId -> _)
             }
           )
-          .onShutdown(Left(SyncServiceError.Synchronous.shutdownError))
         _ = waitingSuccessful.foreach { case (domainId, successful) =>
           if (!successful)
             logger.warn(s"Waiting for allocation of $partyId on domain $domainId timed out.")
@@ -152,7 +151,7 @@ private[sync] class PartyAllocation(
         logger.debug(s"Allocated party $partyName::${participantId.namespace}")
       },
     )
-  }
+  }.failOnShutdownToAbortException("Party Allocation")
 
   private def publishReject(
       reason: String,

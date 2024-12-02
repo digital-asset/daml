@@ -67,7 +67,7 @@ object TypedSignedProtocolMessageContent
       ProtocolVersion.v33
     )(v30.TypedSignedProtocolMessageContent)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 

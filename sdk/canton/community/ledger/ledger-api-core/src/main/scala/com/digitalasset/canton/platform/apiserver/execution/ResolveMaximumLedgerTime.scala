@@ -9,12 +9,13 @@ import com.digitalasset.canton.ledger.participant.state.index.{
   MaximumLedgerTime,
   MaximumLedgerTimeService,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.value.Value.ContractId
 
-import scala.concurrent.Future
+import scala.concurrent.ExecutionContext
 
 /** Computes the maximum ledger time of all used contracts in a submission by:
   * * Using the client-provided disclosed contracts `createdAt` timestamp
@@ -33,7 +34,10 @@ class ResolveMaximumLedgerTime(
   def apply(
       processedDisclosedContracts: ImmArray[ProcessedDisclosedContract],
       usedContractIds: Set[ContractId],
-  )(implicit lc: LoggingContextWithTrace): Future[MaximumLedgerTime] = {
+  )(implicit
+      lc: LoggingContextWithTrace,
+      ec: ExecutionContext,
+  ): FutureUnlessShutdown[MaximumLedgerTime] = FutureUnlessShutdown.outcomeF {
     val usedDisclosedContractIds = processedDisclosedContracts.iterator.map(_.contractId).toSet
 
     val contractIdsToBeLookedUp = usedContractIds -- usedDisclosedContractIds

@@ -47,7 +47,7 @@ class ConsoleMacrosTest extends AnyWordSpec with BaseTest {
 
       // Upper bound derivation:
       // - There is 1 invocation up front.
-      // - There is 1 invocation after sleeping for 2^0 .. 2^9 milliseconds.
+      // - There is 1 invocation after sleeping for 2^0 ... 2^9 milliseconds.
       // - Total time slept is 2^0 + ... + 2^9 = 1^10 - 1 = 1023 milliseconds. So the time out must have elapsed.
       // - Total number of invocations is 1 + 10 = 11.
       // - Sometimes, it might be 12, as the deadline stuff is working on the nanosecond level

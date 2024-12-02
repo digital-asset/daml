@@ -201,7 +201,7 @@ object Signature
     ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v33,
       supportedProtoVersion(v30.Signature)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 
@@ -882,7 +882,7 @@ object SigningPublicKey
     ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v33,
       supportedProtoVersion(v30.SigningPublicKey)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 
@@ -1059,7 +1059,7 @@ object SigningPrivateKey extends HasVersionedMessageCompanion[SigningPrivateKey]
     ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v33,
       supportedProtoVersion(v30.SigningPrivateKey)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 

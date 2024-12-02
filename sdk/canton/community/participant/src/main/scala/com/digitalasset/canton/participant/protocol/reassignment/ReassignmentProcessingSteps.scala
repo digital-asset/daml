@@ -202,7 +202,9 @@ trait ReassignmentProcessingSteps[
       mediator: MediatorGroupRecipient,
       snapshot: DomainSnapshotSyncCryptoApi,
       domainParameters: DynamicDomainParametersWithValidity,
-  )(implicit traceContext: TraceContext): Future[ParsedReassignmentRequest[FullView]] = {
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[ParsedReassignmentRequest[FullView]] = {
 
     val numberOfViews = rootViewsWithMetadata.size
     if (numberOfViews > 1) {
@@ -218,7 +220,7 @@ trait ReassignmentProcessingSteps[
 
     val (WithRecipients(viewTree, recipients), signature) = rootViewsWithMetadata.head1
 
-    Future.successful(
+    FutureUnlessShutdown.pure(
       ParsedReassignmentRequest(
         rc,
         ts,
@@ -324,7 +326,7 @@ trait ReassignmentProcessingSteps[
       override val pendingSubmissionId: PendingSubmissionId,
   ) extends UntrackedSubmission {
 
-    override def maxSequencingTimeO: OptionT[Future, CantonTimestamp] = OptionT.none
+    override def maxSequencingTimeO: OptionT[FutureUnlessShutdown, CantonTimestamp] = OptionT.none
 
     override def embedSubmissionError(
         err: ProtocolProcessor.SubmissionProcessingError

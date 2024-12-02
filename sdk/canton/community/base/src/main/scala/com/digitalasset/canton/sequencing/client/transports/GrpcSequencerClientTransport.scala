@@ -15,8 +15,8 @@ import com.digitalasset.canton.domain.api.v30.VersionedSubscriptionResponse
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
-  LifeCycle,
   OnShutdownRunner,
+  RunOnShutdown,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.GrpcError.GrpcServiceUnavailable
@@ -70,6 +70,18 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
 
   private val managedChannel: GrpcManagedChannel =
     GrpcManagedChannel("grpc-sequencer-transport", channel, this, logger)
+
+  locally {
+    // Make sure that the authentication channels are closed before the transport channel
+    // Otherwise the forced shutdownNow() on the transport channel will time out if the authentication interceptor
+    // is in a retry loop to refresh the token
+    import TraceContext.Implicits.Empty.*
+    managedChannel.runOnShutdown_(new RunOnShutdown() {
+      override def name: String = "grpc-sequencer-transport-shutdown-auth"
+      override def done: Boolean = clientAuth.isClosing
+      override def run(): Unit = clientAuth.close()
+    })
+  }
 
   protected val sequencerServiceClient: GrpcClient[SequencerServiceStub] = GrpcClient.create(
     managedChannel,
@@ -227,12 +239,6 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
         TopologyStateForInitResponse(Traced(storedTxs))
       }
   }
-
-  override protected def onClosed(): Unit =
-    LifeCycle.close(
-      clientAuth,
-      managedChannel,
-    )(logger)
 }
 
 trait GrpcClientTransportHelpers {

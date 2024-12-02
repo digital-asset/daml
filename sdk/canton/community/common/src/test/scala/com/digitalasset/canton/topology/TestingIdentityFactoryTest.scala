@@ -7,22 +7,28 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.{DomainParameters, DynamicDomainParameters}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.transaction.{ParticipantAttributes, ParticipantPermission}
-import com.digitalasset.canton.{BaseTest, HasExecutionContext}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext}
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.concurrent.Await
 import scala.concurrent.duration.*
-import scala.concurrent.{Await, Future}
 
-class TestingIdentityFactoryTest extends AnyWordSpec with BaseTest with HasExecutionContext {
+class TestingIdentityFactoryTest
+    extends AnyWordSpec
+    with BaseTest
+    with HasExecutionContext
+    with FailOnShutdown {
 
   import DefaultTestIdentities.*
 
   private def getMyHash(hashOps: HashOps, message: String = "dummySignature"): Hash =
     hashOps.build(TestHash.testHashPurpose).addWithoutLengthPrefix(message).finish()
-  def await(eitherT: EitherT[Future, SignatureCheckError, Unit]) = eitherT.value.futureValue
+  def await(eitherT: EitherT[FutureUnlessShutdown, SignatureCheckError, Unit]) =
+    eitherT.value.futureValueUS
 
   private def increaseConfirmationResponseTimeout(old: DynamicDomainParameters) =
     old.tryUpdate(confirmationResponseTimeout =
@@ -84,13 +90,13 @@ class TestingIdentityFactoryTest extends AnyWordSpec with BaseTest with HasExecu
         Seq(p1, p2).foreach(
           _.currentSnapshotApproximation.ipsSnapshot
             .isParticipantActive(participant1)
-            .futureValue shouldBe true
+            .futureValueUS shouldBe true
         )
       }
       "party1 is active" in {
         p1.currentSnapshotApproximation.ipsSnapshot
           .activeParticipantsOf(party1.toLf)
-          .futureValue shouldBe Map(
+          .futureValueUS shouldBe Map(
           participant1 -> ParticipantAttributes(ParticipantPermission.Confirmation)
         )
       }
@@ -110,7 +116,7 @@ class TestingIdentityFactoryTest extends AnyWordSpec with BaseTest with HasExecu
         val allMembers = sequencers ++ mediators
         val membersToKeys = p1.currentSnapshotApproximation.ipsSnapshot
           .signingKeys(allMembers)
-          .futureValue
+          .futureValueUS
         allMembers
           .flatMap(membersToKeys.get(_))
           .foreach(_ should have length expectedLength.toLong)
@@ -119,12 +125,12 @@ class TestingIdentityFactoryTest extends AnyWordSpec with BaseTest with HasExecu
       "domain entities have keys" in {
         val sequencers = p1.currentSnapshotApproximation.ipsSnapshot
           .sequencerGroup()
-          .futureValue
+          .futureValueUS
           .valueOrFail("did not find SequencerDomainState")
           .active
 
         val mediators =
-          p1.currentSnapshotApproximation.ipsSnapshot.mediatorGroups().futureValue.flatMap(_.all)
+          p1.currentSnapshotApproximation.ipsSnapshot.mediatorGroups().futureValueUS.flatMap(_.all)
         checkDomainKeys(sequencers, mediators, 1)
       }
       "invalid domain entities don't have keys" in {
@@ -140,9 +146,9 @@ class TestingIdentityFactoryTest extends AnyWordSpec with BaseTest with HasExecu
       "serve domain parameters corresponding to correct timestamp" in {
         def getParameters(ts: CantonTimestamp): DynamicDomainParameters =
           p1.ips
-            .awaitSnapshot(ts)
+            .awaitSnapshotUS(ts)
             .flatMap(_.findDynamicDomainParametersOrDefault(testedProtocolVersion))
-            .futureValue
+            .futureValueUS
 
         val transitionTs = domainParameters1.validUntil.value
 
@@ -187,7 +193,7 @@ class TestingIdentityFactoryTest extends AnyWordSpec with BaseTest with HasExecu
         def check(p: ParticipantId) =
           p1.currentSnapshotApproximation.ipsSnapshot
             .activeParticipantsOf(p.adminParty.toLf)
-            .futureValue
+            .futureValueUS
             .keys shouldBe Set(p)
         check(participant1)
         check(participant2)
@@ -241,12 +247,12 @@ class TestingIdentityFactoryTest extends AnyWordSpec with BaseTest with HasExecu
             .currentSnapshotApproximation
         def ol(permission: ParticipantPermission) =
           ParticipantAttributes(permission)
-        syncCryptoApi.ipsSnapshot.activeParticipantsOf(party1.toLf).futureValue shouldBe Map(
+        syncCryptoApi.ipsSnapshot.activeParticipantsOf(party1.toLf).futureValueUS shouldBe Map(
           participant1 -> ol(ParticipantPermission.Observation),
           participant2 -> ol(ParticipantPermission.Submission),
         )
-        syncCryptoApi.ipsSnapshot.activeParticipantsOf(party3.toLf).futureValue shouldBe Map()
-        syncCryptoApi.ipsSnapshot.activeParticipantsOf(party2.toLf).futureValue shouldBe Map(
+        syncCryptoApi.ipsSnapshot.activeParticipantsOf(party3.toLf).futureValueUS shouldBe Map()
+        syncCryptoApi.ipsSnapshot.activeParticipantsOf(party2.toLf).futureValueUS shouldBe Map(
           participant1 -> ol(ParticipantPermission.Confirmation)
         )
       }

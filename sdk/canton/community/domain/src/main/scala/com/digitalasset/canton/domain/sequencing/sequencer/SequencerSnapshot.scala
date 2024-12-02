@@ -107,7 +107,7 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.SequencerSnapshot)(
       supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 

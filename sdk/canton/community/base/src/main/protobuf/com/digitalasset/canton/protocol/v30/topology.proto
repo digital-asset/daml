@@ -353,6 +353,13 @@ message SignedTopologyTransaction {
   bool proposal = 3;
 }
 
+message SignedTopologyTransactions {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+
+  // serialized signed topology transaction (protobuf bytestring)
+  repeated bytes signed_transaction = 1;
+}
+
 /** Accepted topology transaction
  *
  * A member sends topology transactions to the topology transaction broadcast address.
@@ -362,11 +369,6 @@ message SignedTopologyTransaction {
 message TopologyTransactionsBroadcast {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
-  message Broadcast {
-    string broadcast_id = 1;
-    repeated SignedTopologyTransaction transactions = 2;
-  }
-
   string domain = 1;
-  repeated Broadcast broadcasts = 2;
+  SignedTopologyTransactions signed_transactions = 2;
 }

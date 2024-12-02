@@ -4,6 +4,7 @@
 package com.digitalasset.canton.domain.mediator
 
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggingContext
 import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.protocol.messages.{
@@ -14,7 +15,7 @@ import com.digitalasset.canton.protocol.messages.{
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 final case class FinalizedResponse(
     override val requestId: RequestId,
@@ -34,7 +35,7 @@ final case class FinalizedResponse(
   )(implicit
       loggingContext: NamedLoggingContext,
       ec: ExecutionContext,
-  ): Future[Option[ResponseAggregation[VKey]]] = {
+  ): FutureUnlessShutdown[Option[ResponseAggregation[VKey]]] = {
     val ConfirmationResponse(
       _requestId,
       sender,
@@ -45,7 +46,7 @@ final case class FinalizedResponse(
       _domainId,
     ) = response
 
-    def go[VKEY: ViewKey](viewKeyO: Option[VKEY]): Future[Option[Nothing]] =
+    def go[VKEY: ViewKey](viewKeyO: Option[VKEY]): FutureUnlessShutdown[Option[Nothing]] =
       (for {
         _ <- validateResponse(
           viewKeyO,

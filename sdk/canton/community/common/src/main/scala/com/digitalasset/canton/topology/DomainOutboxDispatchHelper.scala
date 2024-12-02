@@ -22,13 +22,12 @@ import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.retry.AllExceptionRetryPolicy
 import com.digitalasset.canton.util.{FutureUnlessShutdownUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
-import scala.concurrent.{ExecutionContext, Future}
 
 trait DomainOutboxDispatchHelper extends NamedLogging {
   protected def domainId: DomainId
@@ -46,10 +45,10 @@ trait DomainOutboxDispatchHelper extends NamedLogging {
 
   protected def filterTransactions(
       transactions: Seq[GenericSignedTopologyTransaction],
-      predicate: GenericSignedTopologyTransaction => Future[Boolean],
+      predicate: GenericSignedTopologyTransaction => FutureUnlessShutdown[Boolean],
   )(implicit
       executionContext: ExecutionContext
-  ): Future[Seq[GenericSignedTopologyTransaction]] =
+  ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]] =
     transactions.parFilterA(tx => predicate(tx))
 
   protected def topologyTransaction(
@@ -58,8 +57,8 @@ trait DomainOutboxDispatchHelper extends NamedLogging {
 
   protected def onlyApplicable(
       transactions: Seq[GenericSignedTopologyTransaction]
-  ): Future[Seq[GenericSignedTopologyTransaction]] =
-    Future.successful(
+  ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]] =
+    FutureUnlessShutdown.pure(
       transactions.filter(x => x.mapping.restrictedToDomain.forall(_ == domainId))
     )
 
@@ -96,7 +95,7 @@ trait StoreBasedDomainOutboxDispatchHelper extends DomainOutboxDispatchHelper {
               tx.transaction,
               protocolVersion,
             )
-          ).mapK(FutureUnlessShutdown.outcomeK)
+          )
             .map(_.transaction)
             .toRight("")
             .leftFlatMap { _ =>
@@ -149,7 +148,7 @@ trait DomainOutboxDispatch extends NamedLogging with FlagCloseable {
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): Future[Seq[GenericSignedTopologyTransaction]] = {
+  ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]] = {
     val doesNotAlreadyExistPredicate = (tx: GenericSignedTopologyTransaction) =>
       targetStore.providesAdditionalSignatures(tx)
     filterTransactions(transactions, doesNotAlreadyExistPredicate)

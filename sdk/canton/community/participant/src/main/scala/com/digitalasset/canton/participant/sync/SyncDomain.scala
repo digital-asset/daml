@@ -271,14 +271,13 @@ class SyncDomain(
         futureSupervisor,
         persistent.activeContractStore,
         participantNodePersistentState.value.acsCounterParticipantConfigStore,
-        persistent.contractStore,
+        participantNodePersistentState.value.contractStore,
         persistent.enableAdditionalConsistencyChecks,
         loggerFactory,
         testingConfig,
         clock,
         exitOnFatalFailures = parameters.exitOnFatalFailures,
       )
-      _ = ephemeral.recordOrderPublisher.setAcsChangeListener(listener)
     } yield listener
   }
 
@@ -382,7 +381,7 @@ class SyncDomain(
     def liftF[A](f: Future[A]): EitherT[Future, SyncDomainInitializationError, A] = EitherT.right(f)
 
     def withMetadataSeq(cids: Seq[LfContractId]): Future[Seq[StoredContract]] =
-      persistent.contractStore
+      participantNodePersistentState.value.contractStore
         .lookupManyExistingUncached(cids)
         .valueOr { missingContractId =>
           ErrorUtil.internalError(
@@ -451,7 +450,6 @@ class SyncDomain(
               acp.initializeTicksOnStartup(changes.map(_.validFrom).toList)
             }
           })
-          .mapK(FutureUnlessShutdown.outcomeK)
       } yield ()
     }
 
@@ -509,11 +507,9 @@ class SyncDomain(
       topologyClient
         .awaitSnapshotUS(resubscriptionTs)
         .flatMap(snapshot =>
-          FutureUnlessShutdown.outcomeF(
-            snapshot.findDynamicDomainParametersOrDefault(
-              staticDomainParameters.protocolVersion,
-              warnOnUsingDefault = false,
-            )
+          snapshot.findDynamicDomainParametersOrDefault(
+            staticDomainParameters.protocolVersion,
+            warnOnUsingDefault = false,
           )
         )
         .map(_.topologyChangeDelay)
@@ -534,7 +530,7 @@ class SyncDomain(
 
     for {
       // Prepare missing key alerter
-      _ <- EitherT.right(missingKeysAlerter.init()).mapK(FutureUnlessShutdown.outcomeK)
+      _ <- EitherT.right(missingKeysAlerter.init())
 
       // Phase 0: Initialise topology client at current clean head
       _ <- EitherT.right(initializeClientAtCleanHead())
@@ -575,11 +571,7 @@ class SyncDomain(
         } else EitherT.pure[FutureUnlessShutdown, SyncDomainInitializationError](Seq.empty)
       acp <- EitherT.right[SyncDomainInitializationError](acsCommitmentProcessor)
       _ = acsChangesToReplay.foreach { case (toc, change) =>
-        acp.publish(
-          toc,
-          change,
-          Future.unit, // corresponding publications already happened
-        )
+        acp.publish(toc, change)
       }
     } yield ()
   }
@@ -619,7 +611,7 @@ class SyncDomain(
       ): EitherT[FutureUnlessShutdown, SyncDomainInitializationError, Unit] =
         EitherT(
           domainHandle.topologyClient
-            .await(_.isParticipantActive(participantId), timeouts.verifyActive.duration)
+            .awaitUS(_.isParticipantActive(participantId), timeouts.verifyActive.duration)
             .map(isActive =>
               Either.cond(
                 isActive,
@@ -749,7 +741,7 @@ class SyncDomain(
           .sequentialTraverse(pendingReassignments) { data =>
             logger.debug(s"Complete ${data.reassignmentId} after startup")
             val eitherF =
-              performUnlessClosingEitherU[ReassignmentProcessorError, Unit](functionFullName)(
+              performUnlessClosingEitherUSF[ReassignmentProcessorError, Unit](functionFullName)(
                 AutomaticAssignment.perform(
                   data.reassignmentId,
                   Target(domainId),
@@ -797,7 +789,7 @@ class SyncDomain(
           .getOrElse(Future.unit)
       )
 
-      _params <- performUnlessClosingF(functionFullName)(
+      _params <- performUnlessClosingUSF(functionFullName)(
         topologyClient.currentSnapshotApproximation.findDynamicDomainParametersOrDefault(
           staticDomainParameters.protocolVersion
         )

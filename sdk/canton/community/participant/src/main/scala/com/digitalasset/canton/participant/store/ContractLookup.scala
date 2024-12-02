@@ -57,13 +57,6 @@ trait ContractLookup {
   def lookupStakeholders(ids: Set[LfContractId])(implicit
       traceContext: TraceContext
   ): EitherT[Future, UnknownContracts, Map[LfContractId, Set[LfPartyId]]]
-
-}
-
-object ContractLookup {
-  def noContracts(logger: NamedLoggerFactory): ContractLookup =
-    ContractLookupAndVerification.noContracts(logger)
-
 }
 
 trait ContractAndKeyLookup extends ContractLookup {
@@ -76,7 +69,6 @@ trait ContractAndKeyLookup extends ContractLookup {
   def lookupKey(key: LfGlobalKey)(implicit
       traceContext: TraceContext
   ): OptionT[Future, Option[LfContractId]]
-
 }
 
 trait ContractLookupAndVerification extends ContractAndKeyLookup {

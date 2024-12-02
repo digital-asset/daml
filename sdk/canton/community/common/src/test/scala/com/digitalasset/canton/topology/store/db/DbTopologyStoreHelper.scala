@@ -39,6 +39,7 @@ trait DbTopologyStoreHelper {
     new DbTopologyStore(
       storage,
       TopologyStoreId.DomainStore(domainId, discriminator.str),
+      testedProtocolVersion,
       timeouts,
       loggerFactory,
       maxItemsInSqlQuery = maxItemsInSqlQuery,

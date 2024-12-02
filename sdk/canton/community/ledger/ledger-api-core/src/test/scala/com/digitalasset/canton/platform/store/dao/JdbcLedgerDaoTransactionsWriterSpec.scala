@@ -67,7 +67,7 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement with 
       (offset, tx) <- store(offsetAndTx = singleCreate)
       result <- ledgerDao.contractsReader.lookupContractState(
         nonTransient(tx).loneElement,
-        Some(offset),
+        offset,
       )
     } yield {
       result.collect { case active: LedgerDaoContractsReader.ActiveContract =>

@@ -48,7 +48,7 @@ object LocalVerdict extends HasProtocolVersionedCompanion[LocalVerdict] {
     SupportedProtoVersions(
       ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.LocalVerdict)(
         supportedProtoVersion(_)(fromProtoV30),
-        _.toProtoV30.toByteString,
+        _.toProtoV30,
       )
     )
 

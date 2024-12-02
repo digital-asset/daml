@@ -101,16 +101,11 @@ class DbReassignmentStore(
   ): FutureUnlessShutdown[IndexedDomain] =
     IndexedDomain
       .fromDbIndexOT(s"par_reassignments attribute $attributeName", indexedStringStore)(idx)
-      .value
-      .flatMap {
-        case Some(sourceDomainId) => FutureUnlessShutdown.pure(sourceDomainId)
-        case None =>
-          FutureUnlessShutdown.failed(
-            new RuntimeException(
-              s"Unable to find domain ID for domain with index $idx"
-            )
-          )
-      }
+      .getOrElse(
+        throw new RuntimeException(
+          s"Unable to find domain ID for domain with index $idx"
+        )
+      )
 
   private def getResultFullUnassignmentTree(
       sourceDomainProtocolVersion: Source[ProtocolVersion]

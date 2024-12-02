@@ -17,7 +17,6 @@ import com.digitalasset.canton.platform.store.backend.Conversions.{
   timestampFromMicros,
 }
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
-import com.digitalasset.canton.platform.store.cache.LedgerEndCache
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.{
   KeyAssigned,
   KeyState,
@@ -30,7 +29,6 @@ import java.sql.Connection
 
 class ContractStorageBackendTemplate(
     queryStrategy: QueryStrategy,
-    ledgerEndCache: LedgerEndCache,
     stringInterning: StringInterning,
 ) extends ContractStorageBackend {
 
@@ -153,22 +151,21 @@ class ContractStorageBackendTemplate(
         .toMap
     }
 
-  override def assignedContracts(contractIds: Seq[ContractId])(
+  override def assignedContracts(
+      contractIds: Seq[ContractId],
+      before: Offset,
+  )(
       connection: Connection
   ): Map[ContractId, RawCreatedContract] =
     if (contractIds.isEmpty) Map.empty
     else {
-      import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
-      val ledgerEndOffsetO = ledgerEndCache().map(_.lastOffset)
-      ledgerEndOffsetO match {
-        case Some(ledgerEndOffset) =>
-          SQL"""
+      SQL"""
          WITH min_event_sequential_ids_of_assign AS (
              SELECT MIN(event_sequential_id) min_event_sequential_id
              FROM lapi_events_assign
              WHERE
                contract_id ${queryStrategy.anyOfStrings(contractIds.map(_.coid))}
-               AND event_offset <= $ledgerEndOffset
+               AND event_offset <= $before
              GROUP BY contract_id
            )
          SELECT
@@ -188,9 +185,7 @@ class ContractStorageBackendTemplate(
          FROM lapi_events_assign, min_event_sequential_ids_of_assign
          WHERE
            event_sequential_id = min_event_sequential_ids_of_assign.min_event_sequential_id"""
-            .as(rawCreatedContractRowParser.*)(connection)
-            .toMap
-        case None => Map.empty
-      }
+        .as(rawCreatedContractRowParser.*)(connection)
+        .toMap
     }
 }

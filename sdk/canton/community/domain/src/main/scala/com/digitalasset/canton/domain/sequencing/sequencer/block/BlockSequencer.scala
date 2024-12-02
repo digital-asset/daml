@@ -181,12 +181,12 @@ class BlockSequencer(
 
   private def validateMaxSequencingTime(
       submission: SubmissionRequest
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] = {
     val estimatedSequencingTimestamp = clock.now
     submission.aggregationRule match {
       case Some(_) =>
         for {
-          _ <- EitherTUtil.condUnitET[Future](
+          _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
             submission.maxSequencingTime > estimatedSequencingTimestamp,
             SendAsyncError.RequestInvalid(
               s"The sequencer clock timestamp $estimatedSequencingTimestamp is already past the max sequencing time ${submission.maxSequencingTime} for submission with id ${submission.messageId}"
@@ -200,7 +200,7 @@ class BlockSequencer(
           topologyTimestamp = cryptoApi.approximateTimestamp.min(
             submission.topologyTimestamp.getOrElse(CantonTimestamp.MaxValue)
           )
-          snapshot <- EitherT.right(cryptoApi.snapshot(topologyTimestamp))
+          snapshot <- EitherT.right(cryptoApi.snapshotUS(topologyTimestamp))
           domainParameters <- EitherT(
             snapshot.ipsSnapshot.findDynamicDomainParameters()
           )
@@ -210,14 +210,14 @@ class BlockSequencer(
           maxSequencingTimeUpperBound = estimatedSequencingTimestamp.add(
             domainParameters.parameters.sequencerAggregateSubmissionTimeout.duration
           )
-          _ <- EitherTUtil.condUnitET[Future](
+          _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
             submission.maxSequencingTime < maxSequencingTimeUpperBound,
             SendAsyncError.RequestInvalid(
               s"Max sequencing time ${submission.maxSequencingTime} for submission with id ${submission.messageId} is too far in the future, currently bounded at $maxSequencingTimeUpperBound"
             ): SendAsyncError,
           )
         } yield ()
-      case None => EitherT.right[SendAsyncError](Future.unit)
+      case None => EitherT.right[SendAsyncError](FutureUnlessShutdown.unit)
     }
   }
 
@@ -315,7 +315,7 @@ class BlockSequencer(
     for {
       // TODO(i17584): revisit the consequences of no longer enforcing that
       //  aggregated submissions with signed envelopes define a topology snapshot
-      _ <- validateMaxSequencingTime(submission).mapK(FutureUnlessShutdown.outcomeK)
+      _ <- validateMaxSequencingTime(submission)
       memberCheck <- EitherT
         .right[SendAsyncError](
           // Using currentSnapshotApproximation due to members registration date
@@ -324,7 +324,6 @@ class BlockSequencer(
             .allMembers()
             .map(allMembers => (member: Member) => allMembers.contains(member))
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
       // TODO(#19476): Why we don't check group recipients here?
       _ <- SequencerValidations
         .checkSenderAndRecipientsAreRegistered(
@@ -355,14 +354,14 @@ class BlockSequencer(
 
   override protected def acknowledgeSignedInternal(
       signedAcknowledgeRequest: SignedContent[AcknowledgeRequest]
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val req = signedAcknowledgeRequest.content
     logger.debug(s"Request for member ${req.member} to acknowledge timestamp ${req.timestamp}")
     val waitForAcknowledgementF =
       stateManager.waitForAcknowledgementToComplete(req.member, req.timestamp)
     for {
-      _ <- blockOrderer.acknowledge(signedAcknowledgeRequest)
-      _ <- waitForAcknowledgementF
+      _ <- FutureUnlessShutdown.outcomeF(blockOrderer.acknowledge(signedAcknowledgeRequest))
+      _ <- FutureUnlessShutdown.outcomeF(waitForAcknowledgementF)
     } yield ()
   }
 
@@ -612,17 +611,13 @@ class BlockSequencer(
       members <-
         if (requestedMembers.isEmpty) {
           // If requestedMembers is not set get the traffic states of all known members
-          FutureUnlessShutdown.outcomeF(
-            cryptoApi.currentSnapshotApproximation.ipsSnapshot.allMembers()
-          )
+          cryptoApi.currentSnapshotApproximation.ipsSnapshot.allMembers()
         } else {
-          FutureUnlessShutdown.outcomeF(
-            cryptoApi.currentSnapshotApproximation.ipsSnapshot
-              .allMembers()
-              .map { registered =>
-                requestedMembers.toSet.intersect(registered)
-              }
-          )
+          cryptoApi.currentSnapshotApproximation.ipsSnapshot
+            .allMembers()
+            .map { registered =>
+              requestedMembers.toSet.intersect(registered)
+            }
         }
       trafficState <- trafficStatesForMembers(
         members,

@@ -165,7 +165,7 @@ trait ProcessingSteps[
       * If possible, set it to the upper limit when the event could be successfully processed.
       * If [[scala.None]], then the sequencer client default will be used.
       */
-    def maxSequencingTimeO: OptionT[Future, CantonTimestamp]
+    def maxSequencingTimeO: OptionT[FutureUnlessShutdown, CantonTimestamp]
   }
 
   /** Submission to be sent off without tracking the in-flight submission and without deduplication. */
@@ -380,7 +380,7 @@ trait ProcessingSteps[
       mediator: MediatorGroupRecipient,
       snapshot: DomainSnapshotSyncCryptoApi,
       domainParameters: DynamicDomainParametersWithValidity,
-  )(implicit traceContext: TraceContext): Future[ParsedRequestType]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[ParsedRequestType]
 
   /** Phase 3, step 2 (some good views) */
   def computeActivenessSet(parsedRequest: ParsedRequestType)(implicit
@@ -514,7 +514,7 @@ trait ProcessingSteps[
     * @param maybeEvent          The event to be published via the [[com.digitalasset.canton.participant.event.RecordOrderPublisher]]
     */
   case class CommitAndStoreContractsAndPublishEvent(
-      commitSet: Option[Future[CommitSet]],
+      commitSet: Option[FutureUnlessShutdown[CommitSet]],
       contractsToBeStored: Seq[SerializableContract],
       maybeEvent: Option[SequencedUpdate],
   )
@@ -545,12 +545,12 @@ object ProcessingSteps {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, String, Target[CantonTimestamp]] =
+  ): EitherT[FutureUnlessShutdown, String, Target[CantonTimestamp]] =
     for {
       domainParameters <- EitherT(topologySnapshot.unwrap.findDynamicDomainParameters())
 
       assignmentExclusivity <- EitherT
-        .fromEither[Future](domainParameters.assignmentExclusivityLimitFor(ts))
+        .fromEither[FutureUnlessShutdown](domainParameters.assignmentExclusivityLimitFor(ts))
     } yield Target(assignmentExclusivity)
 
   def getDecisionTime(
@@ -559,10 +559,10 @@ object ProcessingSteps {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, String, CantonTimestamp] =
+  ): EitherT[FutureUnlessShutdown, String, CantonTimestamp] =
     for {
       domainParameters <- EitherT(topologySnapshot.findDynamicDomainParameters())
-      decisionTime <- EitherT.fromEither[Future](domainParameters.decisionTimeFor(ts))
+      decisionTime <- EitherT.fromEither[FutureUnlessShutdown](domainParameters.decisionTimeFor(ts))
     } yield decisionTime
 
   trait RequestType {

@@ -9,8 +9,8 @@ import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
-  LifeCycle,
   OnShutdownRunner,
+  RunOnShutdown,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, GrpcClient, GrpcManagedChannel}
@@ -52,6 +52,18 @@ private[channel] final class SequencerChannelClientTransport(
         ),
     )
 
+  locally {
+    // Make sure that the authentication channels are closed before the transport channel
+    // Otherwise the forced shutdownNow() on the transport channel will time out if the authentication interceptor
+    // is in a retry loop to refresh the token
+    import TraceContext.Implicits.Empty.*
+    managedChannel.runOnShutdown_(new RunOnShutdown() {
+      override def name: String = "grpc-sequencer-transport-shutdown-auth"
+      override def done: Boolean = clientAuth.isClosing
+      override def run(): Unit = clientAuth.close()
+    })
+  }
+
   /** Issue the GRPC request to connect to a sequencer channel.
     */
   def connectToSequencerChannel(
@@ -88,10 +100,4 @@ private[channel] final class SequencerChannelClientTransport(
     response.bimap(_.toString, _ => ())
 
   }
-
-  override protected def onClosed(): Unit =
-    LifeCycle.close(
-      clientAuth,
-      managedChannel,
-    )(logger)
 }

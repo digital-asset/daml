@@ -17,6 +17,11 @@ class InMemoryDownloadTopologyStateForInitializationServiceTest
       domainId: DomainId
   ): TopologyStore[TopologyStoreId.DomainStore] = {
     val storeId = DomainStore(domainId, getClass.getSimpleName.take(40))
-    new InMemoryTopologyStore[TopologyStoreId.DomainStore](storeId, loggerFactory, timeouts)
+    new InMemoryTopologyStore[TopologyStoreId.DomainStore](
+      storeId,
+      testedProtocolVersion,
+      loggerFactory,
+      timeouts,
+    )
   }
 }

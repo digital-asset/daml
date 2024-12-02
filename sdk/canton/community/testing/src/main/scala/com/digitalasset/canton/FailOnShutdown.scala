@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton
 
+import cats.data.EitherT
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import org.scalactic.source.Position
 import org.scalatest.Assertion
@@ -19,6 +20,13 @@ trait FailOnShutdown {
   )(implicit ec: ExecutionContext, pos: Position): Future[Assertion] =
     fus.onShutdown(fail("Unexpected shutdown"))
 
+  implicit def convertEitherFus2Future[A](
+      EitherTFus: EitherT[FutureUnlessShutdown, A, Assertion]
+  )(implicit ec: ExecutionContext, pos: Position): Future[Assertion] =
+    EitherTFus.onShutdown(fail("Unexpected shutdown")).value.map {
+      case Left(a) => fail(a.toString)
+      case Right(b) => b
+    }
 }
 
 object FailOnShutdown extends FailOnShutdown

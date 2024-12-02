@@ -116,11 +116,9 @@ object UnassignmentRequest {
           participantId,
           stakeholders = stakeholders.all,
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       unassignmentRequestRecipients <- sourceTopology.unwrap
         .activeParticipantsOfAll(stakeholders.all.toList)
-        .mapK(FutureUnlessShutdown.outcomeK)
         .leftMap(inactiveParties =>
           StakeholderHostingErrors(s"The following stakeholders are not active: $inactiveParties")
         )
@@ -129,7 +127,7 @@ object UnassignmentRequest {
         stakeholders = stakeholders,
         sourceTopology,
         targetTopology,
-      ).compute.mapK(FutureUnlessShutdown.outcomeK)
+      ).compute
 
       _ <- UsableDomain
         .checkPackagesVetted(

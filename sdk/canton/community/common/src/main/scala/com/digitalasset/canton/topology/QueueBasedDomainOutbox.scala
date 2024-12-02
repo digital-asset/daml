@@ -27,7 +27,7 @@ import com.digitalasset.canton.version.ProtocolVersion
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.concurrent.duration.*
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Promise}
 
 class QueueBasedDomainOutbox(
     domain: DomainAlias,
@@ -56,8 +56,8 @@ class QueueBasedDomainOutbox(
 
   protected def findPendingTransactions()(implicit
       traceContext: TraceContext
-  ): Future[Seq[GenericSignedTopologyTransaction]] =
-    Future.successful(
+  ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]] =
+    FutureUnlessShutdown.pure(
       domainOutboxQueue
         .dequeue(broadcastBatchSize)
     )
@@ -129,7 +129,7 @@ class QueueBasedDomainOutbox(
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
-  ): Future[Seq[GenericSignedTopologyTransaction]] = {
+  ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]] = {
     val doesNotAlreadyExistPredicate = (tx: GenericSignedTopologyTransaction) =>
       targetStore.providesAdditionalSignatures(tx)
     filterTransactions(transactions, doesNotAlreadyExistPredicate)
@@ -210,7 +210,7 @@ class QueueBasedDomainOutbox(
       if (initialize)
         initialized.set(true)
       if (hasUnsentTransactions) {
-        val pendingAndApplicableF = performUnlessClosingF(functionFullName)(for {
+        val pendingAndApplicableF = performUnlessClosingUSF(functionFullName)(for {
           // find pending transactions
           pending <- findPendingTransactions()
           // filter out applicable

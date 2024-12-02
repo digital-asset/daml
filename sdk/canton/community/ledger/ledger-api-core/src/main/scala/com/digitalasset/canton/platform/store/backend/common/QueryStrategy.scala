@@ -51,7 +51,7 @@ object QueryStrategy {
 
   /** Expression for `(offset > startExclusive)`
     *
-    * The offset column must only contain valid offsets (no NULL, no Offset.beforeBegin)
+    * The offset column must only contain valid offsets (no NULLs)
     */
   def offsetIsGreater(
       nonNullableColumn: String,

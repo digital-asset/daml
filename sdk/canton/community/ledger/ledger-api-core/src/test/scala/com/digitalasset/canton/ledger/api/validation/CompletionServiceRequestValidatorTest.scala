@@ -5,9 +5,7 @@ package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRequest as GrpcCompletionStreamRequest
-import com.digitalasset.canton.ledger.api.domain.ParticipantOffset
 import com.digitalasset.canton.ledger.api.messages.command.completion.CompletionStreamRequest
-import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.daml.lf.data.Ref
 import io.grpc.Status.Code.*
 import org.mockito.MockitoSugar
@@ -61,7 +59,7 @@ class CompletionServiceRequestValidatorTest
         inside(
           validator.validateGrpcCompletionStreamRequest(grpcCompletionReq.withBeginExclusive(0))
         ) { case Right(req) =>
-          req shouldBe completionReq.copy(offset = ParticipantOffset.fromString(""))
+          req shouldBe completionReq.copy(offset = None)
         }
       }
 
@@ -93,7 +91,7 @@ class CompletionServiceRequestValidatorTest
         ) { case Right(req) =>
           req.applicationId shouldEqual expectedApplicationId
           req.parties shouldEqual Set(party)
-          req.offset shouldEqual ""
+          req.offset shouldBe empty
         }
       }
 
@@ -126,17 +124,12 @@ class CompletionServiceRequestValidatorTest
       "return the correct error when offset is after ledger end" in {
         requestMustFailWith(
           request = validator.validateCompletionStreamRequest(
-            completionReq.copy(offset =
-              ParticipantOffset.fromString(
-                ApiOffset.fromLong(ApiOffset.assertFromStringToLong(ledgerEnd) + 1)
-              )
-            ),
+            completionReq.copy(offset = ledgerEnd.map(_.increment)),
             ledgerEnd,
           ),
           code = OUT_OF_RANGE,
-          description = s"OFFSET_AFTER_LEDGER_END(12,0): Begin offset (${ApiOffset
-              .assertFromStringToLong(ledgerEnd) + 1}) is after ledger end (${ApiOffset
-              .assertFromStringToLong(ledgerEnd)})",
+          description =
+            s"OFFSET_AFTER_LEDGER_END(12,0): Begin offset (${ledgerEnd.value.unwrap + 1}) is after ledger end (${ledgerEnd.value.unwrap})",
           metadata = Map.empty,
         )
       }
@@ -144,13 +137,13 @@ class CompletionServiceRequestValidatorTest
       "tolerate empty offset (participant begin)" in {
         inside(
           validator.validateCompletionStreamRequest(
-            completionReq.copy(offset = ParticipantOffset.ParticipantBegin),
+            completionReq.copy(offset = None),
             ledgerEnd,
           )
         ) { case Right(req) =>
           req.applicationId shouldEqual expectedApplicationId
           req.parties shouldEqual Set(party)
-          req.offset shouldEqual ""
+          req.offset shouldBe empty
         }
       }
     }

@@ -16,8 +16,6 @@ import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DomainAlias, LfPartyId}
 
-import scala.concurrent.Future
-
 /** An interface to change a ledger via a participant.
   * '''Please note that this interface is unstable and may significantly change.'''
   *
@@ -49,7 +47,7 @@ trait SyncService
   // temporary implementation, will be removed as topology events on Ledger API proceed
   def getConnectedDomains(request: ConnectedDomainRequest)(implicit
       traceContext: TraceContext
-  ): Future[ConnectedDomainResponse] =
+  ): FutureUnlessShutdown[ConnectedDomainResponse] =
     throw new UnsupportedOperationException()
 
   // TODO(i20688): Temporary until prepared transactions run through the domain router

@@ -56,10 +56,8 @@ private[reassignment] class RecentTimeProofProvider(
       )
 
       parameters <- EitherT(
-        FutureUnlessShutdown
-          .outcomeF(
-            crypto.ips.currentSnapshotApproximation.findDynamicDomainParameters()
-          )
+        crypto.ips.currentSnapshotApproximation
+          .findDynamicDomainParameters()
           .map(
             _.leftMap(err =>
               NoTimeProofFromDomain(domain, s"unable to find domain parameters: $err")

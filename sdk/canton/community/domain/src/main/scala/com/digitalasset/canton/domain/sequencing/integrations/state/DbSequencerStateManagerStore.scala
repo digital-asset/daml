@@ -197,7 +197,7 @@ object DbSequencerStateManagerStore {
         v30.AggregatedSignaturesOfSender,
       )(
         supportedProtoVersion(_)(fromProtoV30),
-        _.toProtoV30.toByteString,
+        _.toProtoV30,
       )
     )
 

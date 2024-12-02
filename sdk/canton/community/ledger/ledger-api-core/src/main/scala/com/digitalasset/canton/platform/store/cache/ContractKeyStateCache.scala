@@ -22,6 +22,7 @@ object ContractKeyStateCache {
   ): StateCache[GlobalKey, ContractKeyStateValue] =
     StateCache(
       initialCacheIndex = initialCacheIndex,
+      emptyLedgerState = ContractKeyStateValue.Unassigned,
       cache = SizedCache.from[GlobalKey, ContractKeyStateValue](
         SizedCache.Configuration(cacheSize),
         metrics.execution.cache.keyState.stateCache,

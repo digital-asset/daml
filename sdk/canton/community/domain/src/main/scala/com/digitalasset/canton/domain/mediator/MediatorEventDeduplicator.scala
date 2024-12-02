@@ -91,11 +91,10 @@ private[mediator] object MediatorEventDeduplicator {
       tracedRequestTime.withTraceContext { implicit traceContext => requestTime =>
         for {
           snapshot <- topologyClient.awaitSnapshotUS(requestTime)
-          domainParameters <- FutureUnlessShutdown.outcomeF(
+          domainParameters <-
             snapshot
               .findDynamicDomainParameters()
-              .flatMap(_.toFuture(new RuntimeException(_)))
-          )
+              .flatMap(_.toFutureUS(new RuntimeException(_)))
         } yield domainParameters
       }
 

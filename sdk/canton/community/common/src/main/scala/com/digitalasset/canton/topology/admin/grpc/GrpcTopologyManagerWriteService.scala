@@ -290,9 +290,6 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
         manager <- targetManagerET(store)
         existingTransaction <- manager
           .findExistingTransaction(mapping)
-          .mapK(
-            FutureUnlessShutdown.outcomeK
-          )
         transaction <- manager
           .build(
             op,

@@ -337,12 +337,8 @@ final class SyncStateInspection(
       }
   }
 
-  def contractCount(domain: DomainAlias)(implicit traceContext: TraceContext): Future[Int] = {
-    val state = syncDomainPersistentStateManager
-      .getByAlias(domain)
-      .getOrElse(throw new IllegalArgumentException(s"Unable to find contract store for $domain."))
-    state.contractStore.contractCount()
-  }
+  def contractCount(implicit traceContext: TraceContext): Future[Int] =
+    participantNodePersistentState.value.contractStore.contractCount()
 
   def contractCountInAcs(domain: DomainAlias, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -394,7 +390,7 @@ final class SyncStateInspection(
         } else FutureUnlessShutdown.unit
 
       contracts <- FutureUnlessShutdown.outcomeF(
-        state.contractStore
+        participantNodePersistentState.value.contractStore
           .lookupManyExistingUncached(snapshot.keys.toSeq)
           .valueOr { missingContractId =>
             ErrorUtil.invalidState(
@@ -946,7 +942,7 @@ final class SyncStateInspection(
       _ <- FutureUnlessShutdown.unit
       domainTopoClient = syncCrypto.ips.tryForDomain(domainId)
       ipsSnapshot <- domainTopoClient.awaitSnapshotUS(domainTopoClient.approximateTimestamp)
-      allMembers <- FutureUnlessShutdown.outcomeF(ipsSnapshot.allMembers())
+      allMembers <- ipsSnapshot.allMembers()
       allParticipants = allMembers
         .filter(_.code == ParticipantId.Code)
         .map(member => ParticipantId.apply(member.uid))

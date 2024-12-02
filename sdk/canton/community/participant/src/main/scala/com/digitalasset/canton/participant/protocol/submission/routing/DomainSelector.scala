@@ -9,6 +9,7 @@ import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyColl.*
 import com.digitalasset.canton.LfPartyId
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.submission.{DomainsFilter, UsableDomain}
 import com.digitalasset.canton.participant.sync.TransactionRoutingError
@@ -21,7 +22,7 @@ import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ReassignmentTag.Target
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 private[routing] class DomainSelectorFactory(
     admissibleDomains: AdmissibleDomains,
@@ -34,7 +35,7 @@ private[routing] class DomainSelectorFactory(
       transactionData: TransactionData
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransactionRoutingError, DomainSelector] =
+  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, DomainSelector] =
     for {
       admissibleDomains <- admissibleDomains.forParties(
         submitters = transactionData.actAs -- transactionData.externallySignedSubmissionO.fold(
@@ -81,18 +82,20 @@ private[routing] class DomainSelector(
     */
   def forMultiDomain(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransactionRoutingError, DomainRank] = {
+  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, DomainRank] = {
     val contracts = transactionData.inputContractsDomainData.withDomainData
 
     transactionData.prescribedDomainO match {
       case Some(prescribedDomain) =>
         for {
           _ <- validatePrescribedDomain(prescribedDomain, transactionData.version)
-          domainRank <- domainRankComputation.compute(
-            contracts,
-            Target(prescribedDomain),
-            transactionData.readers,
-          )
+          domainRank <- domainRankComputation
+            .compute(
+              contracts,
+              Target(prescribedDomain),
+              transactionData.readers,
+            )
+            .mapK(FutureUnlessShutdown.outcomeK)
         } yield domainRank
 
       case None =>
@@ -111,7 +114,7 @@ private[routing] class DomainSelector(
     */
   def forSingleDomain(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransactionRoutingError, DomainRank] =
+  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, DomainRank] =
     for {
       inputContractsDomainIdO <- chooseDomainOfInputContracts
 
@@ -149,7 +152,7 @@ private[routing] class DomainSelector(
       admissibleDomains: NonEmpty[Set[DomainId]]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransactionRoutingError, NonEmpty[Set[DomainId]]] = {
+  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[Set[DomainId]]] = {
 
     val (unableToFetchStateDomains, domainStates) = admissibleDomains.forgetNE.toList.map {
       domainId =>
@@ -177,7 +180,7 @@ private[routing] class DomainSelector(
       _ = logger.debug(s"Not considering the following domains for routing: $allUnusableDomains")
 
       usableDomainsNE <- EitherT
-        .pure[Future, TransactionRoutingError](usableDomains)
+        .pure[FutureUnlessShutdown, TransactionRoutingError](usableDomains)
         .map(NonEmpty.from)
         .subflatMap(
           _.toRight[TransactionRoutingError](NoDomainForSubmission.Error(allUnusableDomains))
@@ -191,11 +194,14 @@ private[routing] class DomainSelector(
       domainId: DomainId,
       transactionVersion: LfLanguageVersion,
       inputContractsDomainIdO: Option[DomainId],
-  )(implicit traceContext: TraceContext): EitherT[Future, TransactionRoutingError, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, Unit] = {
     /*
       If there are input contracts, then they should be on domain `domainId`
      */
-    def validateContainsInputContractsDomainId: EitherT[Future, TransactionRoutingError, Unit] =
+    def validateContainsInputContractsDomainId
+        : EitherT[FutureUnlessShutdown, TransactionRoutingError, Unit] =
       inputContractsDomainIdO match {
         case Some(inputContractsDomainId) =>
           EitherTUtil.condUnitET(
@@ -224,15 +230,15 @@ private[routing] class DomainSelector(
     */
   private def validatePrescribedDomain(domainId: DomainId, transactionVersion: LfLanguageVersion)(
       implicit traceContext: TraceContext
-  ): EitherT[Future, TransactionRoutingError, Unit] =
+  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, Unit] =
     for {
-      domainState <- EitherT.fromEither[Future](
+      domainState <- EitherT.fromEither[FutureUnlessShutdown](
         domainStateProvider.getTopologySnapshotAndPVFor(domainId)
       )
       (snapshot, protocolVersion) = domainState
 
       // Informees and submitters should reside on the selected domain
-      _ <- EitherTUtil.condUnitET[Future](
+      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
         admissibleDomains.contains(domainId),
         TransactionRoutingError.ConfigurationErrors.InvalidPrescribedDomainId
           .NotAllInformeeAreOnDomain(
@@ -264,34 +270,35 @@ private[routing] class DomainSelector(
       domains: NonEmpty[Set[DomainId]],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransactionRoutingError, DomainRank] = {
-    val rankedDomainOpt = for {
-      rankedDomains <- domains.forgetNE.toList
-        .parTraverseFilter(targetDomain =>
-          domainRankComputation
-            .compute(
-              contracts,
-              Target(targetDomain),
-              transactionData.readers,
-            )
-            .toOption
-            .value
+  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, DomainRank] = {
+    val rankedDomainOpt = FutureUnlessShutdown.outcomeF {
+      for {
+        rankedDomains <- domains.forgetNE.toList
+          .parTraverseFilter(targetDomain =>
+            domainRankComputation
+              .compute(
+                contracts,
+                Target(targetDomain),
+                transactionData.readers,
+              )
+              .toOption
+              .value
+          )
+        // Priority of domain
+        // Number of reassignments if we use this domain
+        // pick according to the least amount of reassignments
+      } yield rankedDomains.minOption
+        .toRight(
+          TransactionRoutingError.AutomaticReassignmentForTransactionFailure.Failed(
+            s"None of the following $domains is suitable for automatic reassignment."
+          )
         )
-      // Priority of domain
-      // Number of reassignments if we use this domain
-      // pick according to the least amount of reassignments
-    } yield rankedDomains.minOption
-      .toRight(
-        TransactionRoutingError.AutomaticReassignmentForTransactionFailure.Failed(
-          s"None of the following $domains is suitable for automatic reassignment."
-        )
-      )
-
+    }
     EitherT(rankedDomainOpt)
   }
 
   private def chooseDomainOfInputContracts
-      : EitherT[Future, TransactionRoutingError, Option[DomainId]] = {
+      : EitherT[FutureUnlessShutdown, TransactionRoutingError, Option[DomainId]] = {
     val inputContractsDomainData = transactionData.inputContractsDomainData
 
     inputContractsDomainData.domains.size match {
@@ -299,7 +306,7 @@ private[routing] class DomainSelector(
       // Input contracts reside on different domains
       // Fail..
       case _ =>
-        EitherT.leftT[Future, Option[DomainId]](
+        EitherT.leftT[FutureUnlessShutdown, Option[DomainId]](
           RoutingInternalError
             .InputContractsOnDifferentDomains(inputContractsDomainData.domains)
         )

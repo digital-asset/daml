@@ -30,7 +30,7 @@ object SequencerChannelConnectedToAllEndpoints
       v30.SequencerChannelConnectedToAllEndpoints
     )(
       supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     ),
   )
 

@@ -180,13 +180,11 @@ create or replace view debug.common_crypto_public_keys as
 
 create or replace view debug.par_contracts as
   select
-    debug.resolve_common_static_string(domain_idx) as domain_idx,
     contract_id,
     instance,
     metadata,
     ledger_create_time,
     request_counter,
-    is_divulged,
     package_id,
     template_id,
     contract_salt

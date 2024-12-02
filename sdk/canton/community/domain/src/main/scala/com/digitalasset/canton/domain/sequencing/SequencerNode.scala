@@ -95,7 +95,6 @@ import org.apache.pekko.actor.ActorSystem
 
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.Future
 
 object SequencerNodeBootstrap {
   trait Factory[C <: SequencerNodeConfigCommon] {
@@ -264,8 +263,10 @@ class SequencerNodeBootstrap(
 
     override protected def stageCompleted(implicit
         traceContext: TraceContext
-    ): Future[Option[StageResult]] =
-      domainConfigurationStore.fetchConfiguration.toOption
+    ): FutureUnlessShutdown[Option[StageResult]] =
+      domainConfigurationStore.fetchConfiguration
+        .mapK(FutureUnlessShutdown.outcomeK)
+        .toOption
         .map {
           case Some(existing) =>
             Some(
@@ -277,7 +278,10 @@ class SequencerNodeBootstrap(
                   clock,
                   crypto,
                   existing.domainParameters,
-                  store = createDomainTopologyStore(existing.domainId),
+                  store = createDomainTopologyStore(
+                    existing.domainId,
+                    existing.domainParameters.protocolVersion,
+                  ),
                   outboxQueue = new DomainOutboxQueue(loggerFactory),
                   exitOnFatalFailures = parameters.exitOnFatalFailures,
                   timeouts,
@@ -295,9 +299,12 @@ class SequencerNodeBootstrap(
         .value
         .map(_.flatten)
 
-    private def createDomainTopologyStore(domainId: DomainId): TopologyStore[DomainStore] = {
+    private def createDomainTopologyStore(
+        domainId: DomainId,
+        protocolVersion: ProtocolVersion,
+    ): TopologyStore[DomainStore] = {
       val store =
-        TopologyStore(DomainStore(domainId), storage, timeouts, loggerFactory)
+        TopologyStore(DomainStore(domainId), storage, protocolVersion, timeouts, loggerFactory)
       addCloseable(store)
       store
     }
@@ -382,7 +389,7 @@ class SequencerNodeBootstrap(
                 logger.debug("Skipping sequencer snapshot")
                 EitherT.rightT[FutureUnlessShutdown, String](())
               }
-            store = createDomainTopologyStore(domainId)
+            store = createDomainTopologyStore(domainId, request.domainParameters.protocolVersion)
             outboxQueue = new DomainOutboxQueue(loggerFactory)
             topologyManager = new DomainTopologyManager(
               sequencerId.uid,
@@ -401,7 +408,6 @@ class SequencerNodeBootstrap(
             )
             _ <- EitherT
               .right(store.bootstrap(request.topologySnapshot))
-              .mapK(FutureUnlessShutdown.outcomeK)
             _ = if (logger.underlying.isDebugEnabled()) {
               logger.debug(
                 s"Bootstrapped sequencer topology domain store with transactions ${request.topologySnapshot.result}"
@@ -496,7 +502,6 @@ class SequencerNodeBootstrap(
                 new SequencerSnapshotBasedTopologyHeadInitializer(sequencerSnapshot),
               )
             )
-            .mapK(FutureUnlessShutdown.outcomeK)
           (topologyProcessor, topologyClient) = processorAndClient
           _ = addCloseable(topologyProcessor)
           _ = addCloseable(topologyClient)
@@ -514,21 +519,18 @@ class SequencerNodeBootstrap(
               // Therefore, we fetch all members who have a registered role on the domain and pass them
               // to the underlying sequencer driver to register them as known members.
               EitherT.right[String](
-                FutureUnlessShutdown
-                  .outcomeF(
-                    domainTopologyStore
-                      .findPositiveTransactions(
-                        tsInit,
-                        asOfInclusive = false,
-                        isProposal = false,
-                        types = Seq(
-                          DomainTrustCertificate.code,
-                          SequencerDomainState.code,
-                          MediatorDomainState.code,
-                        ),
-                        filterUid = None,
-                        filterNamespace = None,
-                      )
+                domainTopologyStore
+                  .findPositiveTransactions(
+                    tsInit,
+                    asOfInclusive = false,
+                    isProposal = false,
+                    types = Seq(
+                      DomainTrustCertificate.code,
+                      SequencerDomainState.code,
+                      MediatorDomainState.code,
+                    ),
+                    filterUid = None,
+                    filterNamespace = None,
                   )
                   .map { transactions =>
                     val participants = transactions
@@ -573,7 +575,6 @@ class SequencerNodeBootstrap(
             topologyClient,
             crypto,
             arguments.parameterConfig.sessionSigningKeys,
-            parameters.cachingConfigs,
             staticDomainParameters,
             parameters.processingTimeouts,
             futureSupervisor,
@@ -704,7 +705,7 @@ class SequencerNodeBootstrap(
             domainLoggerFactory,
             runtimeReadyPromise,
           )
-          _ <- sequencerRuntime.initializeAll().mapK(FutureUnlessShutdown.outcomeK)
+          _ <- sequencerRuntime.initializeAll()
           _ = addCloseable(sequencer)
           server <- createSequencerServer(
             sequencerRuntime,
@@ -712,7 +713,7 @@ class SequencerNodeBootstrap(
             preinitializedServer,
             healthReporter,
             adminServerRegistry,
-          ).mapK(FutureUnlessShutdown.outcomeK)
+          )
         } yield {
           // if close handle hasn't been registered yet, register it now
           if (preinitializedServer.isEmpty) {
@@ -803,7 +804,7 @@ class SequencerNodeBootstrap(
       server: Option[DynamicGrpcServer],
       healthReporter: GrpcHealthReporter,
       adminServerRegistry: CantonMutableHandlerRegistry,
-  ): EitherT[Future, String, DynamicGrpcServer] = {
+  ): EitherT[FutureUnlessShutdown, String, DynamicGrpcServer] = {
     runtime.registerAdminGrpcServices(service => adminServerRegistry.addServiceU(service))
     for {
       maxRequestSize <- EitherT

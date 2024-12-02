@@ -4,6 +4,7 @@
 package com.digitalasset.canton.topology.store
 
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.processing.SequencedTime
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
@@ -12,13 +13,13 @@ import com.digitalasset.canton.topology.{MediatorId, Member, ParticipantId, Sequ
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.Status
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait TopologyStateForInitializationService {
   def initialSnapshot(member: Member)(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[GenericStoredTopologyTransactions]
+  ): FutureUnlessShutdown[GenericStoredTopologyTransactions]
 }
 
 final class StoreBasedTopologyStateForInitializationService(
@@ -55,7 +56,7 @@ final class StoreBasedTopologyStateForInitializationService(
   override def initialSnapshot(member: Member)(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[GenericStoredTopologyTransactions] = {
+  ): FutureUnlessShutdown[GenericStoredTopologyTransactions] = {
     val effectiveFromF = member match {
       case participant @ ParticipantId(_) =>
         domainTopologyStore
@@ -64,7 +65,7 @@ final class StoreBasedTopologyStateForInitializationService(
       case mediator @ MediatorId(_) =>
         domainTopologyStore.findFirstMediatorStateForMediator(mediator).map(_.map(_.validFrom))
       case SequencerId(_) =>
-        Future.failed(
+        FutureUnlessShutdown.failed(
           Status.INVALID_ARGUMENT
             .withDescription(
               s"Downloading the initial topology snapshot for sequencers is not supported."
@@ -86,7 +87,7 @@ final class StoreBasedTopologyStateForInitializationService(
           domainTopologyStore
             .maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true)
             .flatMap { maxTimestamp =>
-              Future.failed(
+              FutureUnlessShutdown.failed(
                 Status.FAILED_PRECONDITION
                   .withDescription(
                     s"No onboarding transaction found for $member as of $maxTimestamp"

@@ -16,6 +16,7 @@ import com.digitalasset.canton.ledger.api.validation.{
   CommandsValidator,
   ValidateUpgradingPackageResolutions,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.apiserver.services.command.CommandServiceImplSpec.*
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker.SubmissionKey
@@ -71,7 +72,7 @@ class CommandServiceImplSpec
           verify(submissionTracker).track(
             eqTo(expectedSubmissionKey),
             eqTo(config.NonNegativeFiniteDuration.ofSeconds(1000L)),
-            any[TraceContext => Future[Any]],
+            any[TraceContext => FutureUnlessShutdown[Any]],
           )(any[ContextualizedErrorLogger], any[TraceContext])
           response.updateId should be("transaction ID")
           response.completionOffset shouldBe offset
@@ -106,7 +107,7 @@ class CommandServiceImplSpec
             verify(submissionTracker).track(
               eqTo(expectedSubmissionKey),
               eqTo(config.NonNegativeFiniteDuration.ofSeconds(3600L)),
-              any[TraceContext => Future[Any]],
+              any[TraceContext => FutureUnlessShutdown[Any]],
             )(any[ContextualizedErrorLogger], any[TraceContext])
             response.updateId should be("transaction ID")
             succeed
@@ -141,7 +142,7 @@ class CommandServiceImplSpec
               verify(submissionTracker, never).track(
                 any[SubmissionKey],
                 any[config.NonNegativeFiniteDuration],
-                any[TraceContext => Future[Any]],
+                any[TraceContext => FutureUnlessShutdown[Any]],
               )(any[ContextualizedErrorLogger], any[TraceContext])
 
               response.failed.map(inside(_) { case RpcProtoExtractors.Exception(status) =>
@@ -160,7 +161,7 @@ class CommandServiceImplSpec
         submissionTracker.track(
           eqTo(expectedSubmissionKey),
           any[config.NonNegativeFiniteDuration],
-          any[TraceContext => Future[Any]],
+          any[TraceContext => FutureUnlessShutdown[Any]],
         )(
           any[ContextualizedErrorLogger],
           any[TraceContext],
@@ -214,12 +215,12 @@ class CommandServiceImplSpec
     )
     val commands = someCommands()
     val submissionTracker = mock[SubmissionTracker]
-    val submit = mock[Traced[SubmitRequest] => Future[SubmitResponse]]
+    val submit = mock[Traced[SubmitRequest] => FutureUnlessShutdown[SubmitResponse]]
     when(
       submissionTracker.track(
         eqTo(expectedSubmissionKey),
         any[config.NonNegativeFiniteDuration],
-        any[TraceContext => Future[Any]],
+        any[TraceContext => FutureUnlessShutdown[Any]],
       )(
         any[ContextualizedErrorLogger],
         any[TraceContext],

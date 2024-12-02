@@ -8,6 +8,7 @@ import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRespons
 import com.daml.ledger.api.v2.completion.Completion
 import com.digitalasset.canton.ledger.error.groups.ConsistencyErrors
 import com.digitalasset.canton.ledger.error.{CommonErrors, LedgerApiErrors}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LedgerErrorLoggingContext
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker.{
@@ -450,8 +451,10 @@ class SubmissionTrackerSpec
     )
     val otherSubmissionKey: SubmissionKey = submissionKey.copy(commandId = "cId_2")
     val failureInSubmit = new RuntimeException("failure in submit")
-    val submitFails: TraceContext => Future[Any] = _ => Future.failed(failureInSubmit)
-    val submitSucceeds: TraceContext => Future[Any] = _ => Future.successful(())
+    val submitFails: TraceContext => FutureUnlessShutdown[Any] = _ =>
+      FutureUnlessShutdown.failed(failureInSubmit)
+    val submitSucceeds: TraceContext => FutureUnlessShutdown[Any] = _ =>
+      FutureUnlessShutdown.pure(())
 
     val submitters: Set[String] = (actAs :+ party).toSet
 

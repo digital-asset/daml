@@ -32,7 +32,6 @@ trait SyncDomainPersistentState extends NamedLogging with AutoCloseable {
   def indexedDomain: IndexedDomain
   def staticDomainParameters: StaticDomainParameters
   def enableAdditionalConsistencyChecks: Boolean
-  def contractStore: ContractStore
   def reassignmentStore: ReassignmentStore
   def activeContractStore: ActiveContractStore
   def sequencedEventStore: SequencedEventStore
@@ -63,6 +62,7 @@ object SyncDomainPersistentState {
       acsCounterParticipantConfigStore: AcsCounterParticipantConfigStore,
       packageDependencyResolver: PackageDependencyResolver,
       ledgerApiStore: Eval[LedgerApiStore],
+      contractStore: Eval[ContractStore],
       loggerFactory: NamedLoggerFactory,
       futureSupervisor: FutureSupervisor,
   )(implicit ec: ExecutionContext): SyncDomainPersistentState = {
@@ -77,6 +77,7 @@ object SyncDomainPersistentState {
           staticDomainParameters,
           parameters.enableAdditionalConsistencyChecks,
           indexedStringStore,
+          contractStore.value,
           acsCounterParticipantConfigStore,
           exitOnFatalFailures = parameters.exitOnFatalFailures,
           packageDependencyResolver,
@@ -95,6 +96,7 @@ object SyncDomainPersistentState {
           crypto,
           parameters,
           indexedStringStore,
+          contractStore.value,
           acsCounterParticipantConfigStore,
           packageDependencyResolver,
           ledgerApiStore,

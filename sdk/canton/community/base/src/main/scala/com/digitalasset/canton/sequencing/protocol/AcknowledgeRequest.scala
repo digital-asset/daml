@@ -49,7 +49,7 @@ object AcknowledgeRequest extends HasMemoizedProtocolVersionedWrapperCompanion[A
         supportedProtoVersionMemoized(_) { req => bytes =>
           fromProtoV30(req)(Some(bytes))
         },
-        _.toProtoV30.toByteString,
+        _.toProtoV30,
       )
     )
 

@@ -29,7 +29,6 @@ final case class TransactionValidationResult(
     internalConsistencyResultE: Either[ErrorWithInternalConsistencyCheck, Unit],
     consumedInputsOfHostedParties: Map[LfContractId, Set[LfPartyId]],
     witnessed: Map[LfContractId, SerializableContract],
-    divulged: Map[LfContractId, SerializableContract],
     createdContracts: Map[LfContractId, SerializableContract],
     transient: Map[LfContractId, Set[LfPartyId]],
     activenessResult: ActivenessResult,

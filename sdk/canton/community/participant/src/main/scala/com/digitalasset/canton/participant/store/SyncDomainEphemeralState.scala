@@ -45,6 +45,7 @@ class SyncDomainEphemeralState(
     val inFlightSubmissionDomainTracker: InFlightSubmissionDomainTracker,
     persistentState: SyncDomainPersistentState,
     val ledgerApiIndexer: LedgerApiIndexer,
+    val contractStore: ContractStore,
     val startingPoints: ProcessingStartingPoints,
     metrics: SyncDomainMetrics,
     exitOnFatalFailures: Boolean,
@@ -84,8 +85,6 @@ class SyncDomainEphemeralState(
     startingPoints.cleanReplay.nextSequencerCounter,
     loggerFactory,
   )
-
-  val contractStore: ContractStore = persistentState.contractStore
 
   val reassignmentCache = new ReassignmentCache(
     persistentState.reassignmentStore,

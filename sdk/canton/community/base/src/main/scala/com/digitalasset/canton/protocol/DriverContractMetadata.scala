@@ -40,7 +40,7 @@ object DriverContractMetadata extends HasVersionedMessageCompanion[DriverContrac
     ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v33,
       supportedProtoVersion(v30.DriverContractMetadata)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 

@@ -52,7 +52,7 @@ object Verdict
     SupportedProtoVersions(
       ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.Verdict)(
         supportedProtoVersion(_)(fromProtoV30),
-        _.toProtoV30.toByteString,
+        _.toProtoV30,
       )
     )
 

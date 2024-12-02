@@ -333,9 +333,7 @@ abstract class SequencerClientImpl(
         case _ => false
       }
       val domainParamsF = EitherT.liftF(
-        FutureUnlessShutdown.outcomeF(
-          domainParametersLookup.getApproximateOrDefaultValue(warnOnUsingDefaults)
-        )
+        domainParametersLookup.getApproximateOrDefaultValue(warnOnUsingDefaults)
       )
 
       if (replayEnabled) {
@@ -1360,12 +1358,12 @@ class RichSequencerClientImpl(
 
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] =
     Seq(
+      SyncCloseable("sequencer-client-subscription", sequencersTransportState.close()),
       SyncCloseable("sequencer-aggregator", sequencerAggregator.close()),
       SyncCloseable("sequencer-send-tracker", sendTracker.close()),
       // see comments above why we need two flushes
       flushCloseable("sequencer-client-flush-sync", timeouts.shutdownProcessing),
       flushCloseable("sequencer-client-flush-async", timeouts.shutdownProcessing),
-      SyncCloseable("sequencer-client-subscription", sequencersTransportState.close()),
       SyncCloseable("handler-becomes-idle", waitForHandlerToComplete()),
       SyncCloseable(
         "sequencer-client-periodic-ack",

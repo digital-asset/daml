@@ -327,28 +327,27 @@ class DbActiveContractStore(
     // TODO(i9480): Integrate with performance tests to check that we can remove packages when there are many contracts.
 
     val query =
-      (sql"""
-                with ordered_changes(contract_id, package_id, change, ts, request_counter, remote_domain_idx, row_num) as (
-                  select par_active_contracts.contract_id, par_contracts.package_id, change, ts, par_active_contracts.request_counter, remote_domain_idx,
-                     ROW_NUMBER() OVER (
-                     partition by par_active_contracts.domain_idx, par_active_contracts.contract_id
-                     order by
-                        ts desc,
-                        par_active_contracts.request_counter desc,
-                        change asc
-                     )
-                   from par_active_contracts join par_contracts
-                       on par_active_contracts.contract_id = par_contracts.contract_id
-                              and par_active_contracts.domain_idx = par_contracts.domain_idx
-                   where par_active_contracts.domain_idx = $indexedDomain
-                    and par_contracts.package_id = $pkg
-                )
-                select contract_id, package_id
-                from ordered_changes
-                where row_num = 1
-                and change = 'activation'
-                limit 1
-                """).as[(LfContractId)]
+      sql"""
+          with ordered_changes(contract_id, package_id, change, ts, request_counter, remote_domain_idx, row_num) as (
+            select par_active_contracts.contract_id, par_contracts.package_id, change, ts, par_active_contracts.request_counter, remote_domain_idx,
+               ROW_NUMBER() OVER (
+               partition by par_active_contracts.domain_idx, par_active_contracts.contract_id
+               order by
+                  ts desc,
+                  par_active_contracts.request_counter desc,
+                  change asc
+               )
+             from par_active_contracts join par_contracts
+              on par_active_contracts.contract_id = par_contracts.contract_id
+             where par_active_contracts.domain_idx = $indexedDomain
+              and par_contracts.package_id = $pkg
+          )
+          select contract_id, package_id
+          from ordered_changes
+          where row_num = 1
+          and change = 'activation'
+          limit 1
+          """.as[(LfContractId)]
 
     val queryResult = storage.queryUnlessShutdown(query, functionFullName)
     queryResult.map(_.headOption)

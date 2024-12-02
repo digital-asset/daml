@@ -15,12 +15,11 @@ import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.
   ExecuteRequest,
   PrepareRequest,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.topology.{DomainId, PartyId}
 import com.digitalasset.canton.version.HashingSchemeVersion
 import com.digitalasset.daml.lf.data.Ref.{ApplicationId, SubmissionId}
-
-import scala.concurrent.Future
 
 object InteractiveSubmissionService {
   final case class PrepareRequest(commands: domain.Commands, verboseHashing: Boolean)
@@ -39,9 +38,11 @@ object InteractiveSubmissionService {
 trait InteractiveSubmissionService {
   def prepare(request: PrepareRequest)(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[PrepareSubmissionResponse]
+  ): FutureUnlessShutdown[PrepareSubmissionResponse]
 
   def execute(
       request: ExecuteRequest
-  )(implicit loggingContext: LoggingContextWithTrace): Future[ExecuteSubmissionResponse]
+  )(implicit
+      loggingContext: LoggingContextWithTrace
+  ): FutureUnlessShutdown[ExecuteSubmissionResponse]
 }

@@ -167,7 +167,7 @@ class GrpcSequencerAdministrationService(
         CantonTimestamp.fromProtoTimestamp(referenceEffectiveTime).map(Right(_))
     }
     val res = for {
-      memberOrTimestamp <- wrapErr(parseMemberOrTimestamp)
+      memberOrTimestamp <- wrapErrUS(parseMemberOrTimestamp)
       referenceEffective <- memberOrTimestamp match {
         case Left(sequencerId) =>
           EitherT(
@@ -183,13 +183,14 @@ class GrpcSequencerAdministrationService(
               )
           )
         case Right(timestamp) =>
-          EitherT.rightT[Future, BaseCantonError](EffectiveTime(timestamp))
+          EitherT.rightT[FutureUnlessShutdown, CantonError](EffectiveTime(timestamp))
       }
 
       _ <- domainTimeTracker
         .awaitTick(referenceEffective.value)
         .map(EitherT.right[CantonError](_).void)
-        .getOrElse(EitherTUtil.unit[BaseCantonError])
+        .getOrElse(EitherTUtil.unit[CantonError])
+        .mapK(FutureUnlessShutdown.outcomeK)
 
       /* find the sequencer snapshot that contains a sequenced timestamp that is >= to the reference/onboarding effective time
        if we take the sequencing time here, we might miss out topology transactions between sequencerSnapshot.lastTs and effectiveTime
@@ -208,17 +209,23 @@ class GrpcSequencerAdministrationService(
         d) the onboarding sequencer will properly subscribe from its own minimum counter that it gets initialized with from the sequencer snapshot
        */
 
-      sequencerSnapshot <- sequencer.snapshot(referenceEffective.value)
+      sequencerSnapshot <- sequencer
+        .snapshot(referenceEffective.value)
+        .mapK(FutureUnlessShutdown.outcomeK)
 
       // wait for the snapshot's lastTs to be processed by the topology client,
       // which implies that all topology transactions will have been properly processed and stored.
-      _ <- EitherT.right(
-        topologyClient.awaitTimestamp(sequencerSnapshot.lastTs).getOrElse(Future.unit)
-      )
+      _ <- EitherT
+        .right(
+          topologyClient.awaitTimestamp(sequencerSnapshot.lastTs).getOrElse(Future.unit)
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
 
-      topologySnapshot <- EitherT.right[BaseCantonError](
-        topologyStore.findEssentialStateAtSequencedTime(SequencedTime(sequencerSnapshot.lastTs))
-      )
+      topologySnapshot <-
+        EitherT.right[BaseCantonError](
+          topologyStore.findEssentialStateAtSequencedTime(SequencedTime(sequencerSnapshot.lastTs))
+        )
+
     } yield OnboardingStateForSequencer(
       topologySnapshot,
       staticDomainParameters,
@@ -226,7 +233,7 @@ class GrpcSequencerAdministrationService(
       staticDomainParameters.protocolVersion,
     ).toByteString.writeTo(out)
 
-    mapErrNew(res)
+    mapErrNewEUS(res)
   }
 
   override def disableMember(

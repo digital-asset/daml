@@ -20,7 +20,7 @@ import com.digitalasset.canton.platform.store.backend.Conversions.{
 }
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.interning.StringInterning
-import com.digitalasset.canton.platform.{ApiOffset, ApplicationId, Party}
+import com.digitalasset.canton.platform.{ApplicationId, Party}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -106,8 +106,8 @@ class CompletionStorageBackendTemplate(
   ] =
     sharedColumns ~ str("update_id")
 
-  private val deduplicationOffsetColumn: RowParser[Option[String]] =
-    str("deduplication_offset").?
+  private val deduplicationOffsetColumn: RowParser[Option[Long]] =
+    long("deduplication_offset").?
   private val deduplicationDurationSecondsColumn: RowParser[Option[Long]] =
     long("deduplication_duration_seconds").?
   private val deduplicationDurationNanosColumn: RowParser[Option[Int]] =
@@ -135,7 +135,7 @@ class CompletionStorageBackendTemplate(
             updateId = updateId,
             applicationId = applicationId,
             optSubmissionId = submissionId,
-            optDeduplicationOffset = deduplicationOffset.map(ApiOffset.assertFromStringToLong),
+            optDeduplicationOffset = deduplicationOffset,
             optDeduplicationDurationSeconds = deduplicationDurationSeconds,
             optDeduplicationDurationNanos = deduplicationDurationNanos,
             domainId = stringInterning.domainId.unsafe.externalize(internedDomainId),
@@ -174,7 +174,7 @@ class CompletionStorageBackendTemplate(
             status = status,
             applicationId = applicationId,
             optSubmissionId = submissionId,
-            optDeduplicationOffset = deduplicationOffset.map(ApiOffset.assertFromStringToLong),
+            optDeduplicationOffset = deduplicationOffset,
             optDeduplicationDurationSeconds = deduplicationDurationSeconds,
             optDeduplicationDurationNanos = deduplicationDurationNanos,
             domainId = stringInterning.domainId.unsafe.externalize(internedDomainId),

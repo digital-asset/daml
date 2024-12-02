@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.apiserver.services
 import com.daml.logging.entries.LoggingValue.OfString
 import com.daml.logging.entries.ToLoggingKey.*
 import com.daml.logging.entries.{LoggingEntries, LoggingEntry, LoggingKey, LoggingValue}
-import com.digitalasset.canton.ledger.api.domain.types.ParticipantOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.{
   Commands,
   CumulativeFilter,
@@ -51,11 +51,11 @@ package object logging {
   private[services] def readAsStrings(partyNames: Iterable[String]): LoggingEntry =
     readAs(partyNames.asInstanceOf[Iterable[Party]])
 
-  private[services] def startExclusive(offset: ParticipantOffset): LoggingEntry =
-    "startExclusive" -> offset
+  private[services] def startExclusive(offset: Option[Offset]): LoggingEntry =
+    "startExclusive" -> offset.fold(0L)(_.unwrap)
 
   private[services] def endInclusive(
-      offset: Option[ParticipantOffset]
+      offset: Option[Offset]
   ): LoggingEntry =
     "endInclusive" -> offset
 

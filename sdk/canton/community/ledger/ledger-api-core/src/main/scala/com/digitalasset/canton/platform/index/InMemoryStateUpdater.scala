@@ -21,6 +21,7 @@ import com.digitalasset.canton.platform.store.CompletionFromTransaction
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.cache.OffsetCheckpoint
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
+import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent.ReassignmentAccepted
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.platform.{Contract, InMemoryState, Key, Party}
 import com.digitalasset.canton.tracing.TraceContext
@@ -145,9 +146,10 @@ private[platform] object InMemoryStateUpdaterFlow {
                     }
                   case commandRejected: Update.CommandRejected =>
                     Some((commandRejected.domainId, commandRejected.recordTime))
-                  case sim: Update.SequencerIndexMoved => Some((sim.domainId, sim.recordTime))
-                  case _: Update.CommitRepair => None
                   case tt: Update.TopologyTransactionEffective => Some((tt.domainId, tt.recordTime))
+                  case sim: Update.SequencerIndexMoved => Some((sim.domainId, sim.recordTime))
+                  case _: Update.EmptyAcsPublicationRequired => None
+                  case _: Update.CommitRepair => None
                 }
 
                 val lastDomainTimes = lastOffsetCheckpointO.map(_.domainTimes).getOrElse(Map.empty)
@@ -361,6 +363,8 @@ private[platform] object InMemoryStateUpdater {
     tx match {
       case tx: TransactionLogUpdate.TransactionAccepted =>
         tx.events.iterator.collect(convertLogToStateEvent).toVector
+      case tx: TransactionLogUpdate.ReassignmentAccepted =>
+        Vector(ReassignmentAccepted(tx.offset))
       case _ => Vector.empty
     }
 
@@ -403,13 +407,10 @@ private[platform] object InMemoryStateUpdater {
           createKeyHash = create.keyOpt.map(_.globalKey.hash),
           createKey = create.keyOpt.map(_.globalKey),
           createKeyMaintainers = create.keyOpt.map(_.maintainers),
-          driverMetadata = txAccepted.contractMetadata
-            .getOrElse(
-              create.coid,
-              throw new IllegalStateException(
-                s"missing driver metadata for contract ${create.coid}"
-              ),
-            ),
+          driverMetadata = txAccepted.contractMetadata.getOrElse(
+            create.coid,
+            throw new IllegalStateException(s"missing driver metadata for contract ${create.coid}"),
+          ),
         )
       case (nodeId, exercise: Exercise) =>
         TransactionLogUpdate.ExercisedEvent(

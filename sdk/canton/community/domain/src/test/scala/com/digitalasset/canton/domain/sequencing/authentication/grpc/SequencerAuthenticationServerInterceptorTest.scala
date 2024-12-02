@@ -68,13 +68,13 @@ class SequencerAuthenticationServerInterceptorTest
       JDuration.ofHours(1),
       useExponentialRandomTokenExpiration = false,
       _ => (),
-      Future.unit,
+      FutureUnlessShutdown.unit,
       DefaultProcessingTimeouts.testing,
       loggerFactory,
     ) {
       override protected def isParticipantActive(participant: ParticipantId)(implicit
           traceContext: TraceContext
-      ): Future[Boolean] = Future.successful(true)
+      ): FutureUnlessShutdown[Boolean] = FutureUnlessShutdown.pure(true)
     }
     lazy val serverInterceptor =
       new SequencerAuthenticationServerInterceptor(authService, loggerFactory)

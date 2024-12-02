@@ -19,7 +19,6 @@ import com.daml.ledger.api.v2.update_service.{
 }
 import com.daml.ledger.api.v2.value.Identifier
 import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.TypeConRef
 import io.grpc.Status.Code.*
@@ -91,8 +90,8 @@ class UpdateServiceRequestValidatorTest
 
       "accept simple requests" in {
         inside(validator.validate(txReq, ledgerEnd)) { case Right(req) =>
-          req.startExclusive shouldBe domain.ParticipantOffset.ParticipantBegin
-          req.endInclusive shouldBe Some(offset)
+          req.startExclusive shouldBe None
+          req.endInclusive shouldBe offset
           val filtersByParty = req.filter.filtersByParty
           filtersByParty should have size 1
           hasExpectedFilters(req)
@@ -146,16 +145,12 @@ class UpdateServiceRequestValidatorTest
       "return the correct error when begin offset is after ledger end" in {
         requestMustFailWith(
           request = validator.validate(
-            txReq.withBeginExclusive(
-              ApiOffset.assertFromStringToLong(ledgerEnd) + 10L
-            ),
+            txReq.withBeginExclusive(ledgerEnd.value.unwrap + 10L),
             ledgerEnd,
           ),
           code = OUT_OF_RANGE,
           description =
-            s"OFFSET_AFTER_LEDGER_END(12,0): Begin offset (${ApiOffset.assertFromStringToLong(
-                ledgerEnd
-              ) + 10L}) is after ledger end (${ApiOffset.assertFromStringToLong(ledgerEnd)})",
+            s"OFFSET_AFTER_LEDGER_END(12,0): Begin offset (${ledgerEnd.value.unwrap + 10L}) is after ledger end (${ledgerEnd.value.unwrap})",
           metadata = Map.empty,
         )
       }
@@ -163,14 +158,12 @@ class UpdateServiceRequestValidatorTest
       "return the correct error when end offset is after ledger end" in {
         requestMustFailWith(
           request = validator.validate(
-            txReq.withEndInclusive(ApiOffset.assertFromStringToLongO(ledgerEnd).getOrElse(0L) + 10),
+            txReq.withEndInclusive(ledgerEnd.value.unwrap + 10),
             ledgerEnd,
           ),
           code = OUT_OF_RANGE,
           description =
-            s"OFFSET_AFTER_LEDGER_END(12,0): End offset (${ApiOffset.assertFromStringToLong(
-                ledgerEnd
-              ) + 10L}) is after ledger end (${ApiOffset.assertFromStringToLong(ledgerEnd)})",
+            s"OFFSET_AFTER_LEDGER_END(12,0): End offset (${ledgerEnd.value.unwrap + 10L}) is after ledger end (${ledgerEnd.value.unwrap})",
           metadata = Map.empty,
         )
       }
@@ -220,7 +213,7 @@ class UpdateServiceRequestValidatorTest
       "tolerate missing end" in {
         inside(validator.validate(txReq.update(_.optionalEndInclusive := None), ledgerEnd)) {
           case Right(req) =>
-            req.startExclusive shouldEqual domain.ParticipantOffset.ParticipantBegin
+            req.startExclusive shouldEqual None
             req.endInclusive shouldEqual None
             val filtersByParty = req.filter.filtersByParty
             filtersByParty should have size 1
@@ -238,8 +231,8 @@ class UpdateServiceRequestValidatorTest
             ledgerEnd,
           )
         ) { case Right(req) =>
-          req.startExclusive shouldEqual domain.ParticipantOffset.ParticipantBegin
-          req.endInclusive shouldEqual Some(offset)
+          req.startExclusive shouldEqual None
+          req.endInclusive shouldEqual offset
           val filtersByParty = req.filter.filtersByParty
           filtersByParty should have size 1
           inside(filtersByParty.headOption.value) { case (p, filters) =>
@@ -259,8 +252,8 @@ class UpdateServiceRequestValidatorTest
             ledgerEnd,
           )
         ) { case Right(req) =>
-          req.startExclusive shouldEqual domain.ParticipantOffset.ParticipantBegin
-          req.endInclusive shouldEqual Some(offset)
+          req.startExclusive shouldEqual None
+          req.endInclusive shouldEqual offset
           val filtersByParty = req.filter.filtersByParty
           filtersByParty should have size 1
           inside(filtersByParty.headOption.value) { case (p, filters) =>
@@ -273,8 +266,8 @@ class UpdateServiceRequestValidatorTest
 
       "tolerate all fields filled out" in {
         inside(validator.validate(txReq, ledgerEnd)) { case Right(req) =>
-          req.startExclusive shouldEqual domain.ParticipantOffset.ParticipantBegin
-          req.endInclusive shouldEqual Some(offset)
+          req.startExclusive shouldEqual None
+          req.endInclusive shouldEqual offset
           hasExpectedFilters(req)
           req.verbose shouldEqual verbose
         }
@@ -282,8 +275,8 @@ class UpdateServiceRequestValidatorTest
 
       "allow package-name scoped templates" in {
         inside(validator.validate(txReqWithPackageNameScoping, ledgerEnd)) { case Right(req) =>
-          req.startExclusive shouldEqual domain.ParticipantOffset.ParticipantBegin
-          req.endInclusive shouldEqual Some(offset)
+          req.startExclusive shouldEqual None
+          req.endInclusive shouldEqual offset
           hasExpectedFilters(
             req,
             expectedTemplates =
@@ -295,8 +288,8 @@ class UpdateServiceRequestValidatorTest
 
       "still allow populated packageIds in templateIds (for backwards compatibility)" in {
         inside(validator.validate(txReq, ledgerEnd)) { case Right(req) =>
-          req.startExclusive shouldEqual domain.ParticipantOffset.ParticipantBegin
-          req.endInclusive shouldEqual Some(offset)
+          req.startExclusive shouldEqual None
+          req.endInclusive shouldEqual offset
           hasExpectedFilters(req)
           req.verbose shouldEqual verbose
         }

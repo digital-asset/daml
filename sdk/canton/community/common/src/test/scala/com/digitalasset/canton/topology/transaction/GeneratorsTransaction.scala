@@ -187,4 +187,10 @@ final class GeneratorsTransaction(
     )
   )
 
+  implicit val signedTopologyTransactionsArb
+      : Arbitrary[SignedTopologyTransactions[TopologyChangeOp, TopologyMapping]] = Arbitrary(
+    for {
+      transactions <- Gen.listOf(signedTopologyTransactionArb.arbitrary)
+    } yield SignedTopologyTransactions(transactions, protocolVersion)
+  )
 }

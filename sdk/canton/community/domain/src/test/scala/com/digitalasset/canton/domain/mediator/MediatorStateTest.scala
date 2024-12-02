@@ -16,6 +16,7 @@ import com.digitalasset.canton.domain.mediator.store.{
 }
 import com.digitalasset.canton.domain.metrics.MediatorTestMetrics
 import com.digitalasset.canton.error.MediatorError
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.InformeeMessage
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
@@ -108,7 +109,7 @@ class MediatorStateTest
     val mockTopologySnapshot = mock[TopologySnapshot]
     when(mockTopologySnapshot.consortiumThresholds(any[Set[LfPartyId]])(anyTraceContext))
       .thenAnswer { (parties: Set[LfPartyId]) =>
-        Future.successful(parties.map(x => x -> PositiveInt.one).toMap)
+        FutureUnlessShutdown.pure(parties.map(x => x -> PositiveInt.one).toMap)
       }
     val currentVersion =
       ResponseAggregation
@@ -118,7 +119,7 @@ class MediatorStateTest
           requestId.unwrap.plusSeconds(300),
           mockTopologySnapshot,
         )(traceContext, executorService)
-        .futureValue // without explicit ec it deadlocks on AnyTestSuite.serialExecutionContext
+        .futureValueUS // without explicit ec it deadlocks on AnyTestSuite.serialExecutionContext
 
     def mediatorState: MediatorState = {
       val sut = new MediatorState(

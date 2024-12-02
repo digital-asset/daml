@@ -297,8 +297,8 @@ class SequencersTransportState(
       sequencerState: SequencerTransportState,
   )(implicit traceContext: TraceContext): Unit = {
     logger.debug(s"Closing sequencer subscription $sequencerId...")
-    sequencerState.subscription.foreach(_.close())
     sequencerState.transport.clientTransport.close()
+    sequencerState.subscription.foreach(_.close())
     val closeReason = sequencerState.subscription
       .map(_.resilientSequencerSubscription.closeReason)
       .getOrElse(Future.unit)

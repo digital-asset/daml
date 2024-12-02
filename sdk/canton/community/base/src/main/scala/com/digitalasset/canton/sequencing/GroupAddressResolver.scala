@@ -3,12 +3,13 @@
 
 package com.digitalasset.canton.sequencing
 
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{MediatorGroup, Member}
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 object GroupAddressResolver {
 
@@ -18,8 +19,8 @@ object GroupAddressResolver {
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[Map[GroupRecipient, Set[Member]]] =
-    if (groupRecipients.isEmpty) Future.successful(Map.empty)
+  ): FutureUnlessShutdown[Map[GroupRecipient, Set[Member]]] =
+    if (groupRecipients.isEmpty) FutureUnlessShutdown.pure(Map.empty)
     else
       for {
         mediatorGroupByMember <- {
@@ -27,7 +28,7 @@ object GroupAddressResolver {
             group
           }.toSeq
           if (mediatorGroups.isEmpty)
-            Future.successful(Map.empty[GroupRecipient, Set[Member]])
+            FutureUnlessShutdown.pure(Map.empty[GroupRecipient, Set[Member]])
           else
             for {
               groups <- topologyOrSequencingSnapshot
@@ -38,7 +39,7 @@ object GroupAddressResolver {
         }
         allRecipients <- {
           if (!groupRecipients.contains(AllMembersOfDomain)) {
-            Future.successful(Map.empty[GroupRecipient, Set[Member]])
+            FutureUnlessShutdown.pure(Map.empty[GroupRecipient, Set[Member]])
           } else {
             topologyOrSequencingSnapshot
               .allMembers()
@@ -59,7 +60,7 @@ object GroupAddressResolver {
                   )
             } yield Map((SequencersOfDomain: GroupRecipient) -> sequencers)
           } else
-            Future.successful(Map.empty[GroupRecipient, Set[Member]])
+            FutureUnlessShutdown.pure(Map.empty[GroupRecipient, Set[Member]])
         }
       } yield mediatorGroupByMember ++ sequencersOfDomain ++ allRecipients
 

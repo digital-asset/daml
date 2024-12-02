@@ -14,7 +14,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Computes the effective timestamps of topology transactions
   *
@@ -82,7 +82,7 @@ class TopologyTimestampPlusEpsilonTracker(
     // initialize the tracker, if necessary
     _ <-
       if (maximumEffectiveTime.get() == EffectiveTime.MaxValue)
-        FutureUnlessShutdown.outcomeF(initialize(sequencedTime))
+        initialize(sequencedTime)
       else FutureUnlessShutdown.unit
   } yield {
     cleanup(sequencedTime)
@@ -117,7 +117,7 @@ class TopologyTimestampPlusEpsilonTracker(
       sequencedTime: SequencedTime
   )(implicit
       traceContext: TraceContext
-  ): Future[Unit] = for {
+  ): FutureUnlessShutdown[Unit] = for {
     // find the current and upcoming change delays
     currentAndUpcomingChangeDelays <- store.findCurrentAndUpcomingChangeDelays(sequencedTime.value)
     currentChangeDelay = currentAndUpcomingChangeDelays.last1

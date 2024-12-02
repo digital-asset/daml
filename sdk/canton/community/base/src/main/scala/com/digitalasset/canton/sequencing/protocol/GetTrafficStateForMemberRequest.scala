@@ -38,7 +38,7 @@ object GetTrafficStateForMemberRequest
       v30.GetTrafficStateForMemberRequest
     )(
       supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 

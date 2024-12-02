@@ -49,7 +49,7 @@ object PasswordBasedEncrypted extends HasVersionedMessageCompanion[PasswordBased
     ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v33,
       supportedProtoVersion(v30.PasswordBasedEncrypted)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 

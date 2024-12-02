@@ -80,7 +80,7 @@ object UntypedVersionedMessageTest {
       ProtoVersion(30) -> ProtoCodec(
         ProtocolVersion.v33,
         supportedProtoVersion(DummyMessage)(fromProtoV30),
-        _.toProtoV30.toByteString,
+        _.toProtoV30,
       )
     )
 

@@ -183,7 +183,8 @@ object RejectionGenerators {
           .Reject(s"Could not find a suitable ledger time after $retries retries")
       case ErrorCause.InterpretationTimeExceeded(let, tolerance, transactionTrace) =>
         CommandExecutionErrors.TimeExceeded.Reject(
-          s"Time exceeds limit of Ledger Effective Time ($let) + tolerance ($tolerance). Interpretation aborted" + transactionTrace.fold("")("\n" + _) + "."
+          s"Time exceeds limit of Ledger Effective Time ($let) + tolerance ($tolerance). Interpretation aborted" + transactionTrace
+            .fold("")("\n" + _) + "."
         )
       case ErrorCause.DisclosedContractsDomainIdsMismatch(mismatchingDisclosedContractDomainIds) =>
         CommandExecutionErrors.DisclosedContractsDomainIdMismatch.Reject(

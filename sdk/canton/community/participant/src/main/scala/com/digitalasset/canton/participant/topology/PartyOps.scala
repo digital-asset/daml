@@ -52,7 +52,6 @@ class PartyOps(
             filterNamespace = None,
           )
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       uniqueByKey = storedTransactions
         .collectOfMapping[PartyToParticipant]

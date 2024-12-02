@@ -50,7 +50,7 @@ object OnboardingStateForSequencer
       v30.OnboardingStateForSequencer
     )(
       supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 

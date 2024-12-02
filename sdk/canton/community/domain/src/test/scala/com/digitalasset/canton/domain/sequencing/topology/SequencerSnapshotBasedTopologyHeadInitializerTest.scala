@@ -8,19 +8,20 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   SequencerPruningStatus,
   SequencerSnapshot,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
-import com.digitalasset.canton.{BaseTest, HasExecutionContext}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.time.Instant
-import scala.concurrent.Future
 
 class SequencerSnapshotBasedTopologyHeadInitializerTest
     extends AsyncWordSpec
     with BaseTest
-    with HasExecutionContext {
+    with HasExecutionContext
+    with FailOnShutdown {
 
   "initialize" should {
     "update the head state using the sequencer snapshot" in {
@@ -53,7 +54,7 @@ class SequencerSnapshotBasedTopologyHeadInitializerTest
         val topologyStoreMock = mock[TopologyStore[TopologyStoreId.DomainStore]]
         when(topologyStoreMock.maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true))
           .thenReturn(
-            Future.successful(
+            FutureUnlessShutdown.pure(
               maxTopologyStoreEffectiveTimeO.map(maxTopologyStoreEffectiveTime =>
                 SequencedTime(CantonTimestamp.MinValue /* not used */ ) -> EffectiveTime(
                   maxTopologyStoreEffectiveTime
@@ -73,6 +74,7 @@ class SequencerSnapshotBasedTopologyHeadInitializerTest
             )
             succeed
           }
+          .failOnShutdown
       }
     }
 
@@ -85,7 +87,7 @@ class SequencerSnapshotBasedTopologyHeadInitializerTest
       val maxEffectiveTimestamp = maxSequencedTimestamp.plusMillis(250)
       when(topologyStoreMock.maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true))
         .thenReturn(
-          Future.successful(
+          FutureUnlessShutdown.pure(
             Some(SequencedTime(maxSequencedTimestamp) -> EffectiveTime(maxEffectiveTimestamp))
           )
         )

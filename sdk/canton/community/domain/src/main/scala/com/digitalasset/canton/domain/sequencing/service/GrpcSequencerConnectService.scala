@@ -24,8 +24,10 @@ import com.digitalasset.canton.domain.api.v30.SequencerConnect.{
 }
 import com.digitalasset.canton.domain.sequencing.authentication.grpc.IdentityContextHelper
 import com.digitalasset.canton.domain.service.HandshakeValidator
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcFUSExtended
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.TopologyStore
@@ -80,7 +82,7 @@ class GrpcSequencerConnectService(
   def verifyActive(request: VerifyActiveRequest): Future[VerifyActiveResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val resultF = for {
-      participant <- EitherT.fromEither[Future](getParticipantFromGrpcContext())
+      participant <- EitherT.fromEither[FutureUnlessShutdown](getParticipantFromGrpcContext())
       isActive <- EitherT(
         cryptoApi.ips.currentSnapshotApproximation
           .isParticipantActive(participant)
@@ -95,6 +97,7 @@ class GrpcSequencerConnectService(
           VerifyActiveResponse.Value.Success(VerifyActiveResponse.Success(success.isActive)),
       )
       .map(VerifyActiveResponse(_))
+      .asGrpcResponse
   }
 
   override def handshake(request: HandshakeRequest): Future[HandshakeResponse] =
@@ -126,8 +129,10 @@ class GrpcSequencerConnectService(
           invalidRequest("Unable to find member id in gRPC context")
         )
       )
-      isKnown <- EitherT.right(
-        cryptoApi.ips.headSnapshot.isMemberKnown(member)
+      isKnown <- CantonGrpcUtil.mapErrNewETUS(
+        EitherT.right(
+          cryptoApi.ips.headSnapshot.isMemberKnown(member)
+        )
       )
       _ <- EitherTUtil.condUnitET[Future](
         !isKnown,
@@ -149,7 +154,8 @@ class GrpcSequencerConnectService(
       )
     } yield RegisterOnboardingTopologyTransactionsResponse.defaultInstance
 
-    EitherTUtil.toFuture(resultET)
+    EitherTUtil
+      .toFuture(resultET)
   }
 
   private def checkForOnlyOnboardingTransactions(

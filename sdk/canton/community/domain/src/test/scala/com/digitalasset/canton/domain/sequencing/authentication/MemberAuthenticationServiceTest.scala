@@ -5,9 +5,9 @@ package com.digitalasset.canton.domain.sequencing.authentication
 
 import cats.data.EitherT
 import cats.implicits.*
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.crypto.Nonce
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.{
   AuthenticationError,
@@ -19,13 +19,13 @@ import com.digitalasset.canton.sequencing.authentication.grpc.AuthenticationToke
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.time.Duration as JDuration
-import scala.concurrent.Future
 
 @SuppressWarnings(Array("org.wartremover.warts.Null"))
-class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest {
+class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest with FailOnShutdown {
 
   import DefaultTestIdentities.*
 
@@ -53,14 +53,14 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest {
       tokenDuration,
       useExponentialRandomTokenExpiration = useExponentialRandomTokenExpiration,
       memberT => invalidateMemberCallback(memberT.value),
-      Future.unit,
+      FutureUnlessShutdown.unit,
       DefaultProcessingTimeouts.testing,
       loggerFactory,
     ) {
       override def isParticipantActive(participant: ParticipantId)(implicit
           traceContext: TraceContext
-      ): Future[Boolean] =
-        Future.successful(participantIsActive)
+      ): FutureUnlessShutdown[Boolean] =
+        FutureUnlessShutdown.pure(participantIsActive)
     }
 
   private def getMemberAuthentication(member: Member): MemberAuthentication =
@@ -74,7 +74,6 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest {
         (nonce, fingerprints) = challenge
         signature <- getMemberAuthentication(p1)
           .signDomainNonce(p1, nonce, domainId, fingerprints, syncCrypto.crypto)
-          .failOnShutdown
         tokenAndExpiry <- sut.validateSignature(p1, signature, nonce)
       } yield tokenAndExpiry
 
@@ -89,7 +88,7 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest {
       for {
         tokenAndExpiry <- generateToken(sut)
         AuthenticationTokenWithExpiry(token, expiry) = tokenAndExpiry
-        _ <- EitherT.fromEither[Future](sut.validateToken(domainId, p1, token))
+        _ <- EitherT.fromEither[FutureUnlessShutdown](sut.validateToken(domainId, p1, token))
       } yield {
         expiry should be(clock.now.plus(JDuration.ofHours(1)))
       }
@@ -100,7 +99,7 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest {
       for {
         tokenAndExpiry <- generateToken(sut)
         AuthenticationTokenWithExpiry(token, expiry) = tokenAndExpiry
-        _ <- EitherT.fromEither[Future](sut.validateToken(domainId, p1, token))
+        _ <- EitherT.fromEither[FutureUnlessShutdown](sut.validateToken(domainId, p1, token))
       } yield {
         expiry should be >= clock.now.plus(JDuration.ofMinutes(30))
         expiry should be <= clock.now.plus(JDuration.ofHours(1))
@@ -150,7 +149,7 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest {
       for {
         tokenAndExpiry <- generateToken(sut)
         AuthenticationTokenWithExpiry(token, _expiry) = tokenAndExpiry
-        _ <- EitherT.fromEither[Future](sut.validateToken(domainId, p1, token))
+        _ <- EitherT.fromEither[FutureUnlessShutdown](sut.validateToken(domainId, p1, token))
         // Generate a second token for p1
         _ <- generateToken(sut)
 

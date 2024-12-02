@@ -388,8 +388,8 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
         endpoint -> Genesis.GenesisTopologyActivationTime
       }.toMap
 
-      val peerEndpointsSimulationOnboardingInformation =
-        SimulationTopologyHelpers.generateSimulationOnboardingInformation(
+      val peerEndpointsSimulationTopologyData =
+        SimulationTopologyHelpers.generateSimulationTopologyData(
           peerEndpointsToOnboardingTimes,
           loggerFactory,
         )
@@ -401,7 +401,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
         val orderingTopologyProvider =
           new SimulationOrderingTopologyProvider(
             sequencerId,
-            peerEndpointsSimulationOnboardingInformation,
+            peerEndpointsSimulationTopologyData,
             loggerFactory,
           )
         val (_, cryptoProvider) = SimulationTopologyHelpers.resolveOrderingTopology(

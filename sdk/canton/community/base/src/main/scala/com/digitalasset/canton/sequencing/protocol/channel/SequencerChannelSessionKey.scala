@@ -33,7 +33,7 @@ object SequencerChannelSessionKey
       v30.SequencerChannelSessionKey
     )(
       supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     ),
   )
 

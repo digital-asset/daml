@@ -29,4 +29,8 @@ object ContractStateEvent {
       stakeholders: Set[Party],
       eventOffset: Offset,
   ) extends ContractStateEvent
+  // This is merely an offset placeholder for now, sole purpose is to tick the StateCaches internal offset
+  final case class ReassignmentAccepted(
+      eventOffset: Offset
+  ) extends ContractStateEvent
 }

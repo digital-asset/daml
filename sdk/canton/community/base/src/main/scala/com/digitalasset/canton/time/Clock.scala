@@ -532,8 +532,7 @@ class RemoteClock(
   override protected def onClosed(): Unit =
     LifeCycle.close(
       // stopping the scheduler before the channel, so we don't get a failed call on shutdown
-      SyncCloseable("remote clock scheduler", scheduler.shutdown()),
-      managedChannel,
+      SyncCloseable("remote clock scheduler", scheduler.shutdown())
     )(logger)
 }
 

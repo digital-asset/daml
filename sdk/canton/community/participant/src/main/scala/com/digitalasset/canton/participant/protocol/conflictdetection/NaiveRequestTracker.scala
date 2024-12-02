@@ -238,7 +238,7 @@ private[participant] class NaiveRequestTracker(
     }
   }
 
-  override def addCommitSet(rc: RequestCounter, commitSet: Try[CommitSet])(implicit
+  override def addCommitSet(rc: RequestCounter, commitSet: Try[UnlessShutdown[CommitSet]])(implicit
       traceContext: TraceContext
   ): Either[CommitSetError, EitherT[FutureUnlessShutdown, NonEmptyChain[
     RequestTrackerStoreError
@@ -254,7 +254,7 @@ private[participant] class NaiveRequestTracker(
     ], Unit]] =
       // Complete the promise only if we're not shutting down.
       performUnlessClosing(functionFullName) {
-        commitSetPromise.tryComplete(commitSet.map(UnlessShutdown.Outcome(_)))
+        commitSetPromise.tryComplete(commitSet)
       } match {
         case UnlessShutdown.AbortedDueToShutdown =>
           // Try to clean up as good as possible even though recovery of the ephemeral state will ultimately
@@ -271,7 +271,7 @@ private[participant] class NaiveRequestTracker(
                 withRC(rc, s"Completed commit set promise does not contain a value")
               )
             )
-          if (oldCommitSet == commitSet.map(UnlessShutdown.Outcome(_))) {
+          if (oldCommitSet == commitSet) {
             logger.debug(withRC(rc, s"Commit set added a second time."))
             Right(EitherT(finalizationResult))
           } else if (oldCommitSet.toEither.contains(AbortedDueToShutdown)) {

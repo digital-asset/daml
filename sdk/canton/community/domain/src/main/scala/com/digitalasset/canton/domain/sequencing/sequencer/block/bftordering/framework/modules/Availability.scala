@@ -144,7 +144,7 @@ object Availability {
               supportedProtoVersionMemoized(_)(
                 RemoteBatch.fromProtoAvailabilityMessage
               ),
-              _.toProtoV30.toByteString,
+              _.toProtoV30,
             )
         )
 
@@ -221,7 +221,7 @@ object Availability {
               supportedProtoVersionMemoized(_)(
                 RemoteBatchAcknowledged.fromAvailabilityMessage
               ),
-              _.toProtoV30.toByteString,
+              _.toProtoV30,
             )
         )
 
@@ -340,7 +340,7 @@ object Availability {
               supportedProtoVersionMemoized(_)(
                 FetchRemoteBatchData.fromAvailabilityMessage
               ),
-              _.toProtoV30.toByteString,
+              _.toProtoV30,
             )
         )
       def fromAvailabilityMessage(
@@ -415,7 +415,7 @@ object Availability {
               supportedProtoVersionMemoized(_)(
                 RemoteBatchDataFetched.fromAvailabilityMessage
               ),
-              _.toProtoV30.toByteString,
+              _.toProtoV30,
             )
         )
       def fromAvailabilityMessage(

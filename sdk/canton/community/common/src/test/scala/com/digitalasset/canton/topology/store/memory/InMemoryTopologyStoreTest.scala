@@ -11,6 +11,7 @@ class InMemoryTopologyStoreTest extends TopologyStoreTest {
     behave like topologyStore(() =>
       new InMemoryTopologyStore(
         TopologyStoreId.AuthorizedStore,
+        testedProtocolVersion,
         loggerFactory,
         timeouts,
       )

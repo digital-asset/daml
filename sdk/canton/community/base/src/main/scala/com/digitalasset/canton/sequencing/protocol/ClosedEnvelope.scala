@@ -16,6 +16,7 @@ import com.digitalasset.canton.crypto.{
   SignatureCheckError,
   SyncCryptoApi,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.messages.{
   DefaultOpenEnvelope,
@@ -41,7 +42,7 @@ import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import monocle.Lens
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** A [[ClosedEnvelope]]'s contents are serialized as a [[com.google.protobuf.ByteString]].
   *
@@ -114,7 +115,7 @@ final case class ClosedEnvelope private (
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, SignatureCheckError, Unit] =
+  ): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
     NonEmpty
       .from(signatures)
       .traverse_(ClosedEnvelope.verifySignatures(snapshot, sender, bytes, _))
@@ -132,7 +133,7 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
     )(v30.Envelope)(
       protoCompanion =>
         ProtoConverter.protoParser(protoCompanion.parseFrom)(_).flatMap(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 
@@ -209,7 +210,9 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
       sender: Member,
       content: ByteString,
       signatures: NonEmpty[Seq[Signature]],
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] = {
     val hash = snapshot.pureCrypto.digest(HashPurpose.SignedProtocolMessageSignature, content)
     snapshot.verifySignatures(hash, sender, signatures)
   }
@@ -219,7 +222,9 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
       mediatorGroupIndex: MediatorGroupIndex,
       content: ByteString,
       signatures: NonEmpty[Seq[Signature]],
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] = {
     val hash = snapshot.pureCrypto.digest(HashPurpose.SignedProtocolMessageSignature, content)
     snapshot.verifyMediatorSignatures(hash, mediatorGroupIndex, signatures)
   }
@@ -228,7 +233,9 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
       snapshot: SyncCryptoApi,
       content: ByteString,
       signatures: NonEmpty[Seq[Signature]],
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] = {
     val hash = snapshot.pureCrypto.digest(HashPurpose.SignedProtocolMessageSignature, content)
     snapshot.verifySequencerSignatures(hash, signatures)
   }

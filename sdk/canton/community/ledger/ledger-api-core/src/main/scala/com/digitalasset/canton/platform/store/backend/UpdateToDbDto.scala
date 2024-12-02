@@ -94,6 +94,9 @@ object UpdateToDbDto {
         // nothing to persist, this is only a synthetic DbDto to facilitate updating the StringInterning
         Iterator(DbDto.SequencerIndexMoved(u.domainId.toProtoPrimitive))
 
+      case _: EmptyAcsPublicationRequired =>
+        Iterator.empty
+
       case _: CommitRepair =>
         Iterator.empty
     }
@@ -165,7 +168,7 @@ object UpdateToDbDto {
     )
     Iterator(
       DbDto.PartyEntry(
-        ledger_offset = offset.toHexString,
+        ledger_offset = offset.unwrap,
         recorded_at = partyAddedToParticipant.recordTime.toMicros,
         submission_id = partyAddedToParticipant.submissionId,
         party = Some(partyAddedToParticipant.party),
@@ -188,7 +191,7 @@ object UpdateToDbDto {
     )
     Iterator(
       DbDto.PartyEntry(
-        ledger_offset = offset.toHexString,
+        ledger_offset = offset.unwrap,
         recorded_at = partyAllocationRejected.recordTime.toMicros,
         submission_id = Some(partyAllocationRejected.submissionId),
         party = None,
@@ -220,7 +223,7 @@ object UpdateToDbDto {
 
     val transactionMeta = DbDto.TransactionMeta(
       update_id = topologyTransaction.updateId,
-      event_offset = offset.toHexString,
+      event_offset = offset.unwrap,
       publication_time = 0, // this is filled later
       record_time = topologyTransaction.recordTime.toMicros,
       domain_id = topologyTransaction.domainId.toProtoPrimitive,
@@ -232,7 +235,7 @@ object UpdateToDbDto {
       case TopologyEvent.PartyToParticipantAuthorization(party, participant, level) =>
         DbDto.EventPartyToParticipant(
           event_sequential_id = 0, // this is filled later
-          event_offset = offset.toHexString,
+          event_offset = offset.unwrap,
           update_id = topologyTransaction.updateId,
           party_id = party,
           participant_id = participant,
@@ -272,7 +275,7 @@ object UpdateToDbDto {
 
     val transactionMeta = DbDto.TransactionMeta(
       update_id = transactionAccepted.updateId,
-      event_offset = offset.toHexString,
+      event_offset = offset.unwrap,
       publication_time = 0, // this is filled later
       record_time = transactionAccepted.recordTime.toMicros,
       domain_id = transactionAccepted.domainId.toProtoPrimitive,
@@ -353,7 +356,7 @@ object UpdateToDbDto {
     val nonStakeholderInformees = informees.diff(stakeholders)
     Iterator(
       DbDto.EventCreate(
-        event_offset = offset.toHexString,
+        event_offset = offset.unwrap,
         update_id = transactionAccepted.updateId,
         ledger_effective_time = transactionAccepted.transactionMeta.ledgerEffectiveTime.micros,
         command_id = transactionAccepted.completionInfoO.map(_.commandId),
@@ -423,7 +426,7 @@ object UpdateToDbDto {
     Iterator(
       DbDto.EventExercise(
         consuming = exercise.consuming,
-        event_offset = offset.toHexString,
+        event_offset = offset.unwrap,
         update_id = transactionAccepted.updateId,
         ledger_effective_time = transactionAccepted.transactionMeta.ledgerEffectiveTime.micros,
         command_id = transactionAccepted.completionInfoO.map(_.commandId),
@@ -539,7 +542,7 @@ object UpdateToDbDto {
 
     val transactionMeta = DbDto.TransactionMeta(
       update_id = reassignmentAccepted.updateId,
-      event_offset = offset.toHexString,
+      event_offset = offset.unwrap,
       publication_time = 0, // this is filled later
       record_time = reassignmentAccepted.recordTime.toMicros,
       domain_id = reassignmentAccepted.domainId.toProtoPrimitive,
@@ -564,7 +567,7 @@ object UpdateToDbDto {
     val templateId = unassign.templateId.toString
     Iterator(
       DbDto.EventUnassign(
-        event_offset = offset.toHexString,
+        event_offset = offset.unwrap,
         update_id = reassignmentAccepted.updateId,
         command_id = reassignmentAccepted.optCompletionInfo.map(_.commandId),
         workflow_id = reassignmentAccepted.workflowId,
@@ -607,7 +610,7 @@ object UpdateToDbDto {
     val (createArgument, createKeyValue) = translation.serialize(assign.createNode)
     Iterator(
       DbDto.EventAssign(
-        event_offset = offset.toHexString,
+        event_offset = offset.unwrap,
         update_id = reassignmentAccepted.updateId,
         command_id = reassignmentAccepted.optCompletionInfo.map(_.commandId),
         workflow_id = reassignmentAccepted.workflowId,
@@ -687,14 +690,18 @@ object UpdateToDbDto {
       completionInfo.optDeduplicationPeriod
         .map {
           case DeduplicationOffset(offset) =>
-            (Some(offset.toHexString), None, None)
+            (
+              Some(offset.fold(0L)(_.unwrap)),
+              None,
+              None,
+            )
           case DeduplicationDuration(duration) =>
             (None, Some(duration.getSeconds), Some(duration.getNano))
         }
         .getOrElse((None, None, None))
 
     DbDto.CommandCompletion(
-      completion_offset = offset.toHexString,
+      completion_offset = offset.unwrap,
       record_time = recordTime.micros,
       publication_time = 0L, // will be filled later
       application_id = completionInfo.applicationId,

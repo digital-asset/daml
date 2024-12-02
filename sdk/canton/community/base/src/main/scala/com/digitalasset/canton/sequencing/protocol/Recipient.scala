@@ -9,6 +9,7 @@ import com.digitalasset.canton.ProtoDeserializationError.{
   ValueConversionError,
 }
 import com.digitalasset.canton.config.CantonRequireTypes.{String3, String300}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -17,7 +18,7 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{Member, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 sealed trait Recipient extends Product with Serializable with PrettyPrinting {
 
@@ -26,7 +27,7 @@ sealed trait Recipient extends Product with Serializable with PrettyPrinting {
   def isAuthorized(snapshot: TopologySnapshot)(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
-  ): Future[Boolean]
+  ): FutureUnlessShutdown[Boolean]
 
   def toProtoPrimitive: String = toLengthLimitedString.unwrap
 
@@ -130,7 +131,7 @@ final case class MemberRecipient(member: Member) extends Recipient {
   override def isAuthorized(snapshot: TopologySnapshot)(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
-  ): Future[Boolean] = snapshot.isMemberKnown(member)
+  ): FutureUnlessShutdown[Boolean] = snapshot.isMemberKnown(member)
 
   override protected def pretty: Pretty[MemberRecipient] =
     prettyOfClass(
@@ -144,8 +145,11 @@ case object SequencersOfDomain extends GroupRecipient {
 
   override def isAuthorized(
       snapshot: TopologySnapshot
-  )(implicit traceContext: TraceContext, executionContext: ExecutionContext): Future[Boolean] =
-    Future.successful(true)
+  )(implicit
+      traceContext: TraceContext,
+      executionContext: ExecutionContext,
+  ): FutureUnlessShutdown[Boolean] =
+    FutureUnlessShutdown.pure(true)
 
   override protected def pretty: Pretty[SequencersOfDomain.type] =
     prettyOfObject[SequencersOfDomain.type]
@@ -164,7 +168,7 @@ final case class MediatorGroupRecipient(group: MediatorGroupIndex) extends Group
   override def isAuthorized(snapshot: TopologySnapshot)(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
-  ): Future[Boolean] = snapshot.isMediatorActive(this)
+  ): FutureUnlessShutdown[Boolean] = snapshot.isMediatorActive(this)
 
   override protected def pretty: Pretty[MediatorGroupRecipient] =
     prettyOfClass(
@@ -200,7 +204,7 @@ case object AllMembersOfDomain extends GroupRecipient {
   override def isAuthorized(snapshot: TopologySnapshot)(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
-  ): Future[Boolean] = Future.successful(true)
+  ): FutureUnlessShutdown[Boolean] = FutureUnlessShutdown.pure(true)
 
   override protected def pretty: Pretty[AllMembersOfDomain.type] =
     prettyOfString(_ => suffix)

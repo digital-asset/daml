@@ -40,13 +40,13 @@ trait HasVersionedWrapper[ValueClass] extends HasVersionedToByteString {
     companionObj.supportedProtoVersions.converters
       .collectFirst {
         case (protoVersion, supportedVersion) if version >= supportedVersion.fromInclusive =>
-          VersionedMessage(supportedVersion.serializer(self), protoVersion.v)
+          VersionedMessage(supportedVersion.serializer(self).toByteString, protoVersion.v)
       }
       .getOrElse(serializeToHighestVersion)
 
   private def serializeToHighestVersion: VersionedMessage[ValueClass] =
     VersionedMessage(
-      companionObj.supportedProtoVersions.higherConverter.serializer(self),
+      companionObj.supportedProtoVersions.higherConverter.serializer(self).toByteString,
       companionObj.supportedProtoVersions.higherProtoVersion.v,
     )
 
@@ -89,7 +89,7 @@ trait HasVersionedMessageCompanionCommon[ValueClass] {
   case class ProtoCodec(
       fromInclusive: ProtocolVersion,
       deserializer: Deserializer,
-      serializer: Serializer,
+      serializer: ValueClass => scalapb.GeneratedMessage,
   )
 
   case class SupportedProtoVersions private (

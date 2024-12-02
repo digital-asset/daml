@@ -213,8 +213,7 @@ class StartableStoppableLedgerApiServer(
         import config.cantonParameterConfig.ledgerApiServerParameters.contractLoader.*
         ContractLoader.create(
           contractStorageBackend = dbSupport.storageBackendFactory.createContractStorageBackend(
-            inMemoryState.ledgerEndCache,
-            inMemoryState.stringInterningView,
+            inMemoryState.stringInterningView
           ),
           dbDispatcher = dbSupport.dbDispatcher,
           metrics = config.metrics,

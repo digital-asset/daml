@@ -14,8 +14,6 @@ import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.concurrent.Future
-
 class SortedReconciliationIntervalsProviderTest
     extends AnyWordSpec
     with BaseTest
@@ -37,7 +35,7 @@ class SortedReconciliationIntervalsProviderTest
 
       val topologySnapshot = mock[TopologySnapshot]
       when(topologySnapshot.listDynamicDomainParametersChanges())
-        .thenAnswer(Future.successful(domainParameters.filter(_.validFrom <= clock.now)))
+        .thenAnswer(FutureUnlessShutdown.pure(domainParameters.filter(_.validFrom <= clock.now)))
 
       val topologyClient = mock[DomainTopologyClient]
 
@@ -75,7 +73,7 @@ class SortedReconciliationIntervalsProviderTest
 
       val topologySnapshot = mock[TopologySnapshot]
       when(topologySnapshot.listDynamicDomainParametersChanges())
-        .thenAnswer(Future.successful(Nil))
+        .thenAnswer(FutureUnlessShutdown.pure(Nil))
 
       val topologyClient = mock[DomainTopologyClient]
       when(topologyClient.approximateTimestamp).thenReturn(topologyKnownAt)
@@ -117,7 +115,7 @@ class SortedReconciliationIntervalsProviderTest
 
       val topologySnapshot = mock[TopologySnapshot]
       when(topologySnapshot.listDynamicDomainParametersChanges())
-        .thenAnswer(Future.successful(domainParameters.filter(_.validFrom <= clock.now)))
+        .thenAnswer(FutureUnlessShutdown.pure(domainParameters.filter(_.validFrom <= clock.now)))
 
       val topologyClient = mock[DomainTopologyClient]
 

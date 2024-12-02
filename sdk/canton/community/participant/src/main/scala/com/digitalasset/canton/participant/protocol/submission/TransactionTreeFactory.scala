@@ -72,7 +72,7 @@ trait TransactionTreeFactory {
       rbContext: RollbackContext,
       keyResolver: LfKeyResolver,
   )(implicit traceContext: TraceContext): EitherT[
-    Future,
+    FutureUnlessShutdown,
     TransactionTreeConversionError,
     (TransactionView, WellFormedTransaction[WithSuffixes]),
   ]

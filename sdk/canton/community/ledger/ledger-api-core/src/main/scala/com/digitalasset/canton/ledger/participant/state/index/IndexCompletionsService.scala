@@ -4,7 +4,7 @@
 package com.digitalasset.canton.ledger.participant.state.index
 
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
-import com.digitalasset.canton.ledger.api.domain.types.ParticipantOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.daml.lf.data.Ref
 import org.apache.pekko.NotUsed
@@ -15,7 +15,7 @@ import org.apache.pekko.stream.scaladsl.Source
   */
 trait IndexCompletionsService extends LedgerEndService {
   def getCompletions(
-      begin: ParticipantOffset,
+      begin: Option[Offset],
       applicationId: Ref.ApplicationId,
       parties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContextWithTrace): Source[CompletionStreamResponse, NotUsed]
