@@ -5,77 +5,13 @@ module Daml.Script.Internal.Questions.UserManagement where
 
 import Daml.Script.Internal.LowLevel
 import Daml.Script.Internal.Questions.Commands
-import Daml.Script.Internal.Questions.PartyManagement
 import Daml.Script.Internal.Questions.Submit
 import DA.Stack
 import DA.Exception
 import Daml.Script.Internal.Questions.Exceptions ()
+import Daml.Script.Stable
 import GHC.Types (primitive)
 import DA.Record
-
--- | MOVE Daml.Script
--- Identifier for a user in the user management service.
-newtype UserId = UserId Text deriving (Eq, Ord)
-
--- | MOVE Daml.Script
-instance Show UserId where show (UserId text) = "'" <> text <> "'"
-
--- | MOVE Daml.Script
--- Extract the name-text from a user identitifer.
-userIdToText : UserId -> Text
-userIdToText (UserId text) = text
-
--- | MOVE Daml.Script
--- User-info record for a user in the user management service.
-data User = User
-  with
-    userId : UserId
-    primaryParty : Optional Party
-  deriving (Show, Eq, Ord)
-
--- | MOVE Daml.Script
--- The rights of a user.
-data UserRight
-  = ParticipantAdmin
-  | CanActAs Party
-  | CanReadAs Party
-  | CanReadAsAnyParty
-  | CanExecuteAs Party
-  | CanExecuteAsAnyParty
-  | CanActAsAnyParty
-  deriving (Show, Eq)
-
--- Pseudo exception that daml-script can throw/catch, but that isn't seen as an exception in the dar
--- and as such, does not need to be serializable/cannot be thrown in Update
--- | MOVE Daml.Script
--- Thrown if text for a user identifier does not conform to the format restriction.
-data InvalidUserId = InvalidUserId with
-    m : Text
-  deriving (Eq, Show)
-
--- | MOVE Daml.Script
-instance HasThrow InvalidUserId where
-    throwPure _ = error "Tried to throw daml-script pseudo-exception"
-
--- | MOVE Daml.Script
-instance GetField "message" InvalidUserId Text where
-    getField (InvalidUserId m) = m
-
--- | MOVE Daml.Script
-instance HasMessage InvalidUserId where
-    message (InvalidUserId m) = m
-
--- These primitives do not check that the type arguments are real templates
--- they also use the same internal representation in the engine as exceptions
--- (SBToAny, SBFromAny)
--- So we hijack them until Daml 3.4, where either exceptions are removed, or not serializable
--- | MOVE Daml.Script
-instance HasToAnyException InvalidUserId where
-    toAnyException = anyToAnyException . primitive @"EToAnyTemplate"
-
--- | MOVE Daml.Script
-instance HasFromAnyException InvalidUserId where
-    fromAnyException = primitive @"EFromAnyTemplate" . anyExceptionToAny
 
 -- | HIDE
 mkUserId : Text -> Script (Optional Text) -> Script UserId
@@ -84,76 +20,12 @@ mkUserId name validateScript = do
     None -> pure (UserId name)
     Some msg -> throw (InvalidUserId msg)
 
--- Pseudo exception that daml-script can throw/catch, but that isn't seen as an exception in the dar
--- and as such, does not need to be serializable/cannot be thrown in Update
--- | MOVE Daml.Script
--- Thrown if a user to be created already exists.
-data UserAlreadyExists = UserAlreadyExists with
-    userId : UserId
-  deriving (Eq, Show)
-
--- | MOVE Daml.Script
-instance HasThrow UserAlreadyExists where
-    throwPure _ = error "Tried to throw daml-script pseudo-exception"
-
--- | MOVE Daml.Script
-instance GetField "message" UserAlreadyExists Text where
-    getField (UserAlreadyExists userId) = userIdToText userId
-
--- | MOVE Daml.Script
-instance HasMessage UserAlreadyExists where
-    message (UserAlreadyExists userId) = userIdToText userId
-
--- These primitives do not check that the type arguments are real templates
--- they also use the same internal representation in the engine as exceptions
--- (SBToAny, SBFromAny)
--- So we hijack them until Daml 3.4, where either exceptions are removed, or not serializable
--- | MOVE Daml.Script
-instance HasToAnyException UserAlreadyExists where
-    toAnyException = anyToAnyException . primitive @"EToAnyTemplate"
-
--- | MOVE Daml.Script
-instance HasFromAnyException UserAlreadyExists where
-    fromAnyException = primitive @"EFromAnyTemplate" . anyExceptionToAny
-
 -- | HIDE
 checkUserAlreadyExists : UserId -> Script (Optional ()) -> Script ()
 checkUserAlreadyExists userId script = do
   script >>= \case
     None -> throw (UserAlreadyExists userId)
     Some x -> pure x
-
--- Pseudo exception that daml-script can throw/catch, but that isn't seen as an exception in the dar
--- and as such, does not need to be serializable/cannot be thrown in Update
--- | MOVE Daml.Script
--- Thrown if a user cannot be located for a given user identifier.
-data UserNotFound = UserNotFound with
-    userId : UserId
-  deriving (Eq, Show)
-
--- | MOVE Daml.Script
-instance HasThrow UserNotFound where
-    throwPure _ = error "Tried to throw daml-script pseudo-exception"
-
--- | MOVE Daml.Script
-instance GetField "message" UserNotFound Text where
-    getField (UserNotFound userId) = userIdToText userId
-
--- | MOVE Daml.Script
-instance HasMessage UserNotFound where
-    message (UserNotFound userId) = userIdToText userId
-
--- These primitives do not check that the type arguments are real templates
--- they also use the same internal representation in the engine as exceptions
--- (SBToAny, SBFromAny)
--- So we hijack them until Daml 3.4, where either exceptions are removed, or not serializable
--- | MOVE Daml.Script
-instance HasToAnyException UserNotFound where
-    toAnyException = anyToAnyException . primitive @"EToAnyTemplate"
-
--- | MOVE Daml.Script
-instance HasFromAnyException UserNotFound where
-    fromAnyException = primitive @"EFromAnyTemplate" . anyExceptionToAny
 
 -- | HIDE
 checkUserNotFound : UserId -> Script (Optional a) -> Script a
@@ -357,3 +229,80 @@ submitUser' userId participant cmds = do
   let actors = [ p | CanActAs p <- rights ]
   let readers = [ p | CanReadAs p <- rights ]
   (actAs actors <> readAs readers) `submit` cmds
+
+-- Typeclass instances for stable pseudo exceptions
+
+-- | MOVE Daml.Script
+instance HasThrow InvalidUserId where
+    throwPure _ = error "Tried to throw daml-script pseudo-exception"
+
+-- | MOVE Daml.Script
+instance GetField "message" InvalidUserId Text where
+    getField (InvalidUserId m) = m
+
+-- | MOVE Daml.Script
+instance HasMessage InvalidUserId where
+    message (InvalidUserId m) = m
+
+-- These primitives do not check that the type arguments are real templates
+-- they also use the same internal representation in the engine as exceptions
+-- (SBToAny, SBFromAny)
+-- So we hijack them until Daml 3.4, where either exceptions are removed, or not serializable
+-- | MOVE Daml.Script
+instance HasToAnyException InvalidUserId where
+    toAnyException = anyToAnyException . primitive @"EToAnyTemplate"
+
+-- | MOVE Daml.Script
+instance HasFromAnyException InvalidUserId where
+    fromAnyException = primitive @"EFromAnyTemplate" . anyExceptionToAny
+
+
+-- | MOVE Daml.Script
+instance HasThrow UserAlreadyExists where
+    throwPure _ = error "Tried to throw daml-script pseudo-exception"
+
+-- | MOVE Daml.Script
+instance GetField "message" UserAlreadyExists Text where
+    getField (UserAlreadyExists userId) = userIdToText userId
+
+-- | MOVE Daml.Script
+instance HasMessage UserAlreadyExists where
+    message (UserAlreadyExists userId) = userIdToText userId
+
+-- These primitives do not check that the type arguments are real templates
+-- they also use the same internal representation in the engine as exceptions
+-- (SBToAny, SBFromAny)
+-- So we hijack them until Daml 3.4, where either exceptions are removed, or not serializable
+-- | MOVE Daml.Script
+instance HasToAnyException UserAlreadyExists where
+    toAnyException = anyToAnyException . primitive @"EToAnyTemplate"
+
+-- | MOVE Daml.Script
+instance HasFromAnyException UserAlreadyExists where
+    fromAnyException = primitive @"EFromAnyTemplate" . anyExceptionToAny
+
+
+-- | MOVE Daml.Script
+instance HasThrow UserNotFound where
+    throwPure _ = error "Tried to throw daml-script pseudo-exception"
+
+-- | MOVE Daml.Script
+instance GetField "message" UserNotFound Text where
+    getField (UserNotFound userId) = userIdToText userId
+
+-- | MOVE Daml.Script
+instance HasMessage UserNotFound where
+    message (UserNotFound userId) = userIdToText userId
+
+-- These primitives do not check that the type arguments are real templates
+-- they also use the same internal representation in the engine as exceptions
+-- (SBToAny, SBFromAny)
+-- So we hijack them until Daml 3.4, where either exceptions are removed, or not serializable
+-- | MOVE Daml.Script
+instance HasToAnyException UserNotFound where
+    toAnyException = anyToAnyException . primitive @"EToAnyTemplate"
+
+-- | MOVE Daml.Script
+instance HasFromAnyException UserNotFound where
+    fromAnyException = primitive @"EFromAnyTemplate" . anyExceptionToAny
+
