@@ -18,7 +18,7 @@ repos:
       name: scalafmt
       language: system
       require_serial: true
-      entry: "scalafmt --respect-project-filters"
+      entry: "scalafmt -c sdk/.scalafmt.conf --respect-project-filters"
       types: [scala]
     - id: javafmt
       name: javafmt
