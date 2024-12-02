@@ -38,3 +38,4 @@ module Daml.Script.Internal
   ) where
 
 import Daml.Script.Internal.Questions
+import Daml.Script.Stable
