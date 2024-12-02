@@ -45,7 +45,8 @@ jobs:
         is_release: variables.is_release
         test_mode: ${{parameters.test_mode}}
     # Do not upload metrics for m1
-    - template: upload-bazel-metrics.yml
+    - ${{ if eq(parameters.name, 'macos') }}:
+      - template: upload-bazel-metrics.yml
     - template: tell-slack-failed.yml
       parameters:
        trigger_sha: '$(trigger_sha)'
