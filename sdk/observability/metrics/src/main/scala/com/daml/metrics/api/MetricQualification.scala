@@ -7,6 +7,9 @@ package com.daml.metrics.api
 sealed trait MetricQualification
 object MetricQualification {
 
+  /** All possible metric qualifications */
+  lazy val All: Seq[MetricQualification] = Seq(Latency, Traffic, Errors, Saturation, Debug)
+
   /** Any metric measuring processing time of some sort */
   case object Latency extends MetricQualification
 
