@@ -12,4 +12,4 @@ dependencies:
 data-dependencies:
   - ../interfaces/.daml/dist/__PROJECT_NAME__-interfaces-1.0.0.dar
 build-options:
-- --target=1.dev
+- --target=1.17

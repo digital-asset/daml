@@ -7,10 +7,10 @@ template IOU with
     issuer: Party
     owner: Party
     value: Int
-    version: Text
+    name: Text
   where
     signatory issuer, owner
 
     interface instance Asset for IOU where
-      view = Asset.View owner ("IOU (" <> version <> ")")
+      view = Asset.View owner ("IOU (" <> name <> ")")
       getOwner = owner
