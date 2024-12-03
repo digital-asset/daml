@@ -715,7 +715,6 @@ object UpdateToDbDto {
       deduplication_offset = deduplicationOffset,
       deduplication_duration_seconds = deduplicationDurationSeconds,
       deduplication_duration_nanos = deduplicationDurationNanos,
-      deduplication_start = None,
       domain_id = domainId,
       message_uuid = messageUuid.map(_.toString),
       request_sequencer_counter = requestSequencerCounter.map(_.unwrap),

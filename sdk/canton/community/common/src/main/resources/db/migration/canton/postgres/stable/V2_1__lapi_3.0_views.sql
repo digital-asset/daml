@@ -145,7 +145,6 @@ create or replace view debug.lapi_command_completions as
     deduplication_offset,
     deduplication_duration_seconds,
     deduplication_duration_nanos,
-    debug.canton_timestamp(deduplication_start) as deduplication_start,
     debug.lapi_rejection_status_code(rejection_status_code) as rejection_status_code,
     rejection_status_message,
     rejection_status_details,

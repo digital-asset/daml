@@ -86,7 +86,6 @@ CREATE TABLE lapi_command_completions (
     deduplication_offset BIGINT,
     deduplication_duration_seconds BIGINT,
     deduplication_duration_nanos INT,
-    deduplication_start BIGINT,
     -- The three columns below are `NULL` if the completion is for an accepted transaction.
     -- The `rejection_status_details` column contains a Protocol-Buffers-serialized message of type
     -- `daml.platform.index.StatusDetails`, containing the code, message, and further details

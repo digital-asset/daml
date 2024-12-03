@@ -172,7 +172,6 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       deduplication_offset = Some(73),
       deduplication_duration_seconds = Some(1),
       deduplication_duration_nanos = Some(1),
-      deduplication_start = Some(1),
       domain_id = "domain4",
       message_uuid = None,
       request_sequencer_counter = None,
