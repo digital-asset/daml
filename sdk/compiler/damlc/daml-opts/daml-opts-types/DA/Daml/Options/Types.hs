@@ -21,6 +21,7 @@ module DA.Daml.Options.Types
     , ModRenaming(..)
     , PackageArg(..)
     , ErrorOrWarning
+    , ForceUtilityPackage(..)
     , IgnoreDataDepVisibility(..)
     , defaultOptions
     , damlArtifactDir
@@ -143,6 +144,7 @@ data Options = Options
   -- unit-id, as script + scenario service assume it will be "main"
   , optUpgradeInfo :: UpgradeInfo
   , optDamlWarningFlags :: WarningFlags.DamlWarningFlags ErrorOrWarning
+  , optForceUtilityPackage :: ForceUtilityPackage
   , optIgnoreDataDepVisibility :: IgnoreDataDepVisibility
   }
 
@@ -213,6 +215,9 @@ newtype EnableScenarios = EnableScenarios { getEnableScenarios :: Bool }
     deriving Show
 
 newtype StudioAutorunAllScenarios = StudioAutorunAllScenarios { getStudioAutorunAllScenarios :: Bool }
+    deriving Show
+
+newtype ForceUtilityPackage = ForceUtilityPackage { getForceUtilityPackage :: Bool }
     deriving Show
 
 damlArtifactDir :: FilePath
@@ -295,6 +300,7 @@ defaultOptions mbVersion =
         , optHideUnitId = False
         , optUpgradeInfo = defaultUpgradeInfo
         , optDamlWarningFlags = WarningFlags.mkDamlWarningFlags damlWarningFlagParser []
+        , optForceUtilityPackage = ForceUtilityPackage False
         , optIgnoreDataDepVisibility = IgnoreDataDepVisibility False
         }
 

@@ -176,8 +176,8 @@ withVersionedDamlScriptDep packageFlagName darPath mLfVer extraPackages cont = d
         projDir
         (defaultOptions mLfVer)
         (unsafeResolveReleaseVersion (either throw id (parseUnresolvedVersion (T.pack sdkVersion))))
-        ["daml-prim", "daml-stdlib", scriptDar]
-        extraDars
+        ["daml-prim", "daml-stdlib"]
+        (scriptDar : extraDars)
       createProjectPackageDb
         projDir
         (defaultOptions mLfVer)

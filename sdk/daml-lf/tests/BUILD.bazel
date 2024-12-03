@@ -10,49 +10,44 @@ load(
     "//daml-lf/language:daml-lf.bzl",
     "LF_MAJOR_VERSIONS",
     "lf_version_default_or_latest",
+    "mangle_for_damlc",
 )
 load("@os_info//:os_info.bzl", "is_intel")
 
-[
-    daml_compile(
-        name = "Exceptions-v{}".format(major),
-        srcs = ["Exceptions.daml"],
-        target = lf_version_default_or_latest(major),
-        visibility = ["//daml-lf:__subpackages__"],
-    )
-    for major in LF_MAJOR_VERSIONS
+VERSIONS_TO_TEST = [
+    "1.15",
+    "1.17",
 ]
 
 [
     daml_compile(
-        name = "Interfaces-v{}".format(major),
-        srcs = ["Interfaces.daml"],
-        target = lf_version_default_or_latest(major),
+        name = "{name}-{version}".format(
+            name = name,
+            version = mangle_for_damlc(version),
+        ),
+        srcs = ["%s.daml" % name],
+        target = version,
         visibility = ["//daml-lf:__subpackages__"],
     )
-    for major in LF_MAJOR_VERSIONS
+    for name in [
+        "Exceptions",
+        "InterfaceViews",
+        "Interfaces",
+        "MultiKeys",
+    ]
+    for version in VERSIONS_TO_TEST
 ]
 
 [
     daml_build_test(
-        name = "InterfaceRetro-v{}".format(major),
+        name = "InterfaceRetro-%s" % mangle_for_damlc(version),
         dar_dict = {
-            "//daml-lf/tests:Interfaces-v{}.dar".format(major): "interfaces.dar",
+            "//daml-lf/tests:Interfaces-%s.dar" % mangle_for_damlc(version): "interfaces.dar",
         },
-        project_dir = "interface-retro-v{}".format(major),
+        project_dir = "interface-retro",
         visibility = ["//daml-lf:__subpackages__"],
     )
-    for major in LF_MAJOR_VERSIONS
-]
-
-[
-    daml_compile(
-        name = "InterfaceViews-v{}".format(major),
-        srcs = ["InterfaceViews.daml"],
-        target = lf_version_default_or_latest(major),
-        visibility = ["//daml-lf:__subpackages__"],
-    )
-    for major in LF_MAJOR_VERSIONS
+    for version in ["1.15"]
 ]
 
 daml_build_test(
@@ -78,13 +73,3 @@ daml_compile(
     target = "1.14",
     visibility = ["//daml-lf:__subpackages__"],
 )
-
-[
-    daml_compile(
-        name = "MultiKeys-v{}".format(major),
-        srcs = ["MultiKeys.daml"],
-        target = lf_version_default_or_latest(major),
-        visibility = ["//daml-lf:__subpackages__"],
-    )
-    for major in LF_MAJOR_VERSIONS
-]

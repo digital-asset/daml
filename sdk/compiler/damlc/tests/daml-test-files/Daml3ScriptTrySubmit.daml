@@ -3,9 +3,7 @@
 
 -- @ SCRIPT-V2
 
--- @ WARN since-lf=1.17 2.0; -Werror=upgrade-interfaces
--- @ WARN since-lf=1.17 2.0; -Werror=upgrade-interfaces
--- @ WARN range=15:1-15:28; Import of internal module Daml.Script.Internal of package daml3-script is discouraged, as this module will change without warning.
+-- @ WARN range=13:1-13:28; Import of internal module Daml.Script.Internal of package daml3-script is discouraged, as this module will change without warning.
 
 {-# LANGUAGE ApplicativeDo #-}
 
@@ -20,14 +18,6 @@ import DA.Text
 data View = View with
   i_p : Party
 
-interface ExerciseGuardedInterface where
-  viewtype View
-  nonconsuming choice ExerciseGuarded : () with
-      shouldArchive : Bool
-    controller (view this).i_p
-    do
-      exerciseGuarded (const shouldArchive) self Archive
-
 template T1 with
     t1_p : Party
   where
@@ -35,9 +25,6 @@ template T1 with
   
   key t1_p : Party
   maintainer key
-
-  interface instance ExerciseGuardedInterface for T1 where
-    view = View with i_p = t1_p
 
 template T2 with
     t2_p : Party
@@ -204,16 +191,6 @@ wronglyTypedContract = script do
 -- NonComparableValues: Can't do this from daml-script with IDELedger
 -- ContractIdInContractKey: Can't do this from daml-script with IDELedger
 -- ContractIdComparability: Can't do this from daml-script with IDELedger
-
-devError : Script ()
-devError = script do
-  alice <- allocateParty "alice"
-  cid <- alice `submit` createCmd T1 with t1_p = alice
-  res <- alice `trySubmit` exerciseCmd (toInterfaceContractId @ExerciseGuardedInterface cid) ExerciseGuarded with shouldArchive = False
-  case res of
-    Left (DevError ChoiceGuardFailed msg) -> assert $ "Choice guard failed for" `isInfixOf` msg
-    Left e -> error $ "devError incorrect error: " <> show e
-    Right _ -> error "devError incorrectly succeeded"
 
 -- UnknownError: Shouldn't be testable, we should know all the possible errors.
 -- Can reproduce right now with a timeout, or package vetting test.

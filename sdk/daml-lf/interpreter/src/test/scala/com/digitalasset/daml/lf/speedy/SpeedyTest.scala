@@ -17,7 +17,7 @@ import org.scalactic.Equality
 import org.scalatest.matchers.should.Matchers
 import SpeedyTestLib.loggingContext
 import com.daml.lf.language.LanguageDevConfig.{LeftToRight, RightToLeft}
-import com.daml.lf.language.LanguageMajorVersion
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.speedy.Speedy.ContractInfo
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.GlobalKey
@@ -28,20 +28,16 @@ import org.scalatest.freespec.AnyFreeSpec
 
 import scala.util.{Failure, Success, Try}
 
-class SpeedyTestV1 extends SpeedyTest(LanguageMajorVersion.V1)
-//class SpeedyTestV2 extends SpeedyTest(LanguageMajorVersion.V2)
+class SpeedyTestPreUpgrade extends SpeedyTest(LanguageVersion.v1_15)
+class SpeedyTestPostUpgrade extends SpeedyTest(LanguageVersion.v1_17)
 
-class SpeedyTest(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyFreeSpec
-    with Matchers
-    with Inside {
+class SpeedyTest(langVersion: LanguageVersion) extends AnyFreeSpec with Matchers with Inside {
 
   import SpeedyTest._
 
+  val pkgId = Ref.PackageId.assertFromString(s"-pkgId-${getClass.getSimpleName}")
   implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
-
-  val pkgId = parserParameters.defaultPackageId
+    ParserParameters(defaultPackageId = pkgId, languageVersion = langVersion)
 
   def qualify(name: String): Ref.ValueRef =
     Identifier(parserParameters.defaultPackageId, QualifiedName.assertFromString(name))
@@ -509,7 +505,7 @@ module M {
           )
         )
       )
-      val expectation = majorLanguageVersion.evaluationOrder match {
+      val expectation = langVersion.major.evaluationOrder match {
         case LeftToRight => partialAnfExpectation
         case RightToLeft => fullAnfExpectation
       }
@@ -570,7 +566,7 @@ module M {
   "checkContractVisibility" - {
 
     "warn about non-visible local contracts" in new VisibilityChecking(
-      majorLanguageVersion
+      langVersion
     ) {
       machine.checkContractVisibility(localContractId, localContractInfo)
 
@@ -578,7 +574,7 @@ module M {
     }
 
     "accept non-visible disclosed contracts" in new VisibilityChecking(
-      majorLanguageVersion
+      langVersion
     ) {
       machine.checkContractVisibility(disclosedContractId, disclosedContractInfo)
 
@@ -586,7 +582,7 @@ module M {
     }
 
     "warn about non-visible global contracts" in new VisibilityChecking(
-      majorLanguageVersion
+      langVersion
     ) {
       machine.checkContractVisibility(globalContractId, globalContractInfo)
 
@@ -599,7 +595,7 @@ module M {
       (contractId: ContractId) => Speedy.Control.Value(SContractId(contractId))
 
     "accept non-visible local contract keys" in new VisibilityChecking(
-      majorLanguageVersion
+      langVersion
     ) {
       val result = Try {
         machine.checkKeyVisibility(
@@ -616,7 +612,7 @@ module M {
     }
 
     "accept non-visible disclosed contract keys" in new VisibilityChecking(
-      majorLanguageVersion
+      langVersion
     ) {
       val result = Try {
         machine.checkKeyVisibility(
@@ -633,7 +629,7 @@ module M {
     }
 
     "reject non-visible global contract keys" in new VisibilityChecking(
-      majorLanguageVersion
+      langVersion
     ) {
       val result = Try {
         machine.checkKeyVisibility(
@@ -694,10 +690,8 @@ object SpeedyTest {
     case _ => false
   }
 
-  abstract class VisibilityChecking(
-      majorLanguageVersion: LanguageMajorVersion
-  ) {
-    val explicitDisclosureLib = new ExplicitDisclosureLib(majorLanguageVersion)
+  abstract class VisibilityChecking(langVersion: LanguageVersion) {
+    val explicitDisclosureLib = new ExplicitDisclosureLib(langVersion)
     import explicitDisclosureLib._
     import SpeedyTestLib.Implicits._
 

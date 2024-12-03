@@ -30,20 +30,17 @@ main = withSdkVersions $ do
     setEnv "TASTY_NUM_THREADS" "1" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
+    script117Dar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script-1.17.dar")
 
-    -- TODO https://github.com/digital-asset/daml/issues/12051
-    --   Remove once Daml-LF 1.15 is the default compiler output
-    script1DevDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script-1.dev.dar")
-
-    defaultMain (tests damlc scriptDar script1DevDar)
+    defaultMain (tests damlc scriptDar script117Dar)
 
 
--- TODO https://github.com/digital-asset/daml/issues/12051
---   Remove script1DevDar arg once Daml-LF 1.15 is the default compiler output
+-- TODO
+--   Remove script117Dar arg once Daml-LF 1.17 is the default compiler output
 tests :: SdkVersioned => FilePath -> FilePath -> FilePath -> TestTree
-tests damlc scriptDar script1DevDar = testGroup "damlc"
+tests damlc scriptDar script117Dar = testGroup "damlc"
   [ testsForDamlcValidate damlc
-  , testsForDamlcTest damlc scriptDar script1DevDar
+  , testsForDamlcTest damlc scriptDar script117Dar
   ]
 
 testsForDamlcValidate :: SdkVersioned => FilePath -> TestTree
@@ -190,9 +187,6 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
         ]
       writeFileUTF8 (projDir </> "Good.daml") $ unlines
         [ "{-# OPTIONS -Wno-retroactive-interface-instances #-}"
-        -- TODO(https://github.com/digital-asset/daml/issues/18049):
-        -- Retroactive interface instances will be removed in LF 2.x, after which
-        -- this test will no longer make sense.
         , "module Good where"
         , "import Template"
         , "data MyIView = MyIView {}"
@@ -273,8 +267,8 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
 
   ]
 
--- TODO https://github.com/digital-asset/daml/issues/12051
---   Remove script1DevDar arg once Daml-LF 1.15 is the default compiler output
+-- TODO
+--   Remove script117Dar arg once Daml-LF 1.15 is the default compiler output
 testsForDamlcTest :: SdkVersioned => FilePath -> FilePath -> FilePath -> TestTree
 testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
     [ testCase "Non-existent file" $ do

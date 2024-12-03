@@ -3,7 +3,7 @@
 
 {-# LANGUAGE ApplicativeDo #-}
 
-module Daml3ScriptTrySubmit15 where
+module Daml3ScriptTrySubmit where
 
 import Daml.Script
 import Daml.Script.Internal

@@ -59,6 +59,7 @@ da_haskell_test(
     data = [
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
+        "//daml-script/daml:daml-script-1.17.dar",
     ],
     hackage_deps = [
         "base",
@@ -211,12 +212,12 @@ da_haskell_library(
 ]
 
 da_haskell_test(
-    name = "integration-v1dev-script2",
+    name = "integration-v117-script2",
     size = "large",
     srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
     args = [
         "--daml-lf-version",
-        "1.dev",
+        "1.17",
         "--daml-script-v2",
         "true",
     ],
@@ -230,7 +231,7 @@ da_haskell_test(
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
         "//compiler/scenario-service/server:scenario_service_jar",
-        "//daml-script/daml3:daml3-script-1.dev.dar",
+        "//daml-script/daml3:daml3-script-1.17.dar",
         "@jq_dev_env//:jq",
         ghc_pkg,
     ],
@@ -739,8 +740,8 @@ da_haskell_test(
             "//compiler/damlc",
             "@damlc_legacy",
             "//compiler/damlc/tests:generate-simple-dalf",
-            "//daml-script/daml:daml-script-1.dev.dar",
-            "//daml-script/daml3:daml3-script-1.dev.dar",
+            "//daml-script/daml:daml-script-1.17.dar",
+            "//daml-script/daml3:daml3-script-1.17.dar",
             # Feel free to update this to 0.13.55 once that is frozen.
             ":dars/old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar",
         ],
@@ -1464,7 +1465,7 @@ daml_compile(
     name = "package-vetting-package-a",
     srcs = ["daml-test-files/external-packages/package-vetting-test-files/PackageAModule.daml"],
     project_name = "package-vetting-package-a",
-    target = "1.dev",
+    target = "1.17",
     version = "1.0.0",
 )
 
@@ -1472,38 +1473,38 @@ daml_compile(
     name = "package-vetting-package-b",
     srcs = ["daml-test-files/external-packages/package-vetting-test-files/PackageBModule.daml"],
     project_name = "package-vetting-package-b",
-    target = "1.dev",
+    target = "1.17",
     version = "1.0.0",
 )
 
 daml_compile(
     name = "try-submit-test",
     srcs = ["daml-test-files/Daml3ScriptTrySubmit.daml"],
-    dependencies = [
-        "//daml-script/daml3:daml3-script-1.dev.dar",
+    data_dependencies = [
+        "//daml-script/daml3:daml3-script-1.17.dar",
     ],
     project_name = "try-submit-test",
-    target = "1.dev",
+    target = "1.17",
     visibility = ["//visibility:public"],
 )
 
 daml_compile(
     name = "try-submit-concurrently-test",
     srcs = ["daml-test-files/Daml3ScriptTrySubmitConcurrently.daml"],
-    dependencies = [
-        "//daml-script/daml3:daml3-script-1.dev.dar",
+    data_dependencies = [
+        "//daml-script/daml3:daml3-script-1.17.dar",
     ],
     project_name = "try-submit-concurrently-test",
-    target = "1.dev",
+    target = "1.17",
     visibility = ["//visibility:public"],
 )
 
 daml_compile(
     name = "query-test",
     srcs = ["daml-test-files/Query.daml"],
-    dependencies = [
-        "//daml-script/daml3:daml3-script-1.dev.dar",
+    data_dependencies = [
+        "//daml-script/daml3:daml3-script-1.17.dar",
     ],
-    target = "1.dev",
+    target = "1.17",
     visibility = ["//visibility:public"],
 )

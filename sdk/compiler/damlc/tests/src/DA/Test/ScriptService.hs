@@ -73,6 +73,7 @@ withScriptService lfVersion action =
             "dependencies:",
             "- daml-prim",
             "- daml-stdlib",
+            "data-dependencies:",
             "- " <> show scriptDar
           ]
       withPackageConfig (ProjectPath ".") $ \PackageConfigFields {..} -> do

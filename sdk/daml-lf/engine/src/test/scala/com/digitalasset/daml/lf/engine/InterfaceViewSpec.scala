@@ -9,7 +9,7 @@ import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref.{Identifier, PackageId, Party, QualifiedName}
 import com.daml.lf.data.ImmArray
 import com.daml.lf.language.Ast.Package
-import com.daml.lf.language.LanguageMajorVersion
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.Versioned
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ValueBool, ValueInt64, ValueParty, ValueRecord}
@@ -23,8 +23,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
-class InterfaceViewSpecV1 extends InterfaceViewSpec(LanguageMajorVersion.V1)
-//class InterfaceViewSpecV2 extends InterfaceViewSpec(LanguageMajorVersion.V2)
+class InterfaceViewSpecPreUpgrade extends InterfaceViewSpec(LanguageVersion.v1_15)
+class InterfaceViewSpecPostUpgrade extends InterfaceViewSpec(LanguageVersion.v1_17)
 
 @SuppressWarnings(
   Array(
@@ -33,7 +33,7 @@ class InterfaceViewSpecV1 extends InterfaceViewSpec(LanguageMajorVersion.V1)
     "org.wartremover.warts.Product",
   )
 )
-class InterfaceViewSpec(majorLanguageVersion: LanguageMajorVersion)
+class InterfaceViewSpec(langVersion: LanguageVersion)
     extends AnyWordSpec
     with Matchers
     with EitherValues
@@ -46,16 +46,16 @@ class InterfaceViewSpec(majorLanguageVersion: LanguageMajorVersion)
   private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
     val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
     val (mainPkgId, mainPkg) = packages.main
+    assert(mainPkg.languageVersion == langVersion)
     (mainPkgId, mainPkg, packages.all.toMap)
   }
 
-  private val (interfaceviewsPkgId, interfaceviewsPkg, allPackages) = loadPackage(
-    s"daml-lf/tests/InterfaceViews-v${majorLanguageVersion.pretty}.dar"
-  )
+  private val (interfaceviewsPkgId, interfaceviewsPkg, allPackages) =
+    loadPackage(s"daml-lf/tests/InterfaceViews-v${langVersion.pretty.replaceAll(raw"\.", "")}.dar")
 
   val interfaceviewsSignatures =
     language.PackageInterface(Map(interfaceviewsPkgId -> interfaceviewsPkg))
-  val engine = Engine.DevEngine(majorLanguageVersion)
+  val engine = Engine.StableEngine()
 
   private def id(s: String) = Identifier(interfaceviewsPkgId, s"InterfaceViews:$s")
 

@@ -7,7 +7,7 @@ package speedy
 import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref.{IdString, Party}
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Struct}
-import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
+import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.speedy.SExpr.SEMakeClo
 import com.daml.lf.speedy.SValue.SToken
 import com.daml.lf.speedy.Speedy.{CachedKey, ContractInfo}
@@ -20,10 +20,11 @@ import org.scalatest.matchers.{MatchResult, Matcher}
 
 /** Shared test data and functions for testing explicit disclosure.
   */
-private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersion) {
+private[lf] class ExplicitDisclosureLib(langVersion: LanguageVersion) {
 
+  val pkgId = Ref.PackageId.assertFromString(s"-pkgId-${getClass.getSimpleName}")
   implicit val defaultParserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+    ParserParameters(defaultPackageId = pkgId, languageVersion = langVersion)
 
   val testKeyName: String = "test-key"
   private val pkg =
@@ -92,12 +93,12 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
     Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-disclosure-contract-id"))
   val altDisclosureContractId: ContractId =
     Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-alternative-disclosure-contract-id"))
-  val invalidTemplateId: Ref.Identifier = Ref.Identifier.assertFromString("-pkgId-:TestMod:Invalid")
-  val houseTemplateId: Ref.Identifier = Ref.Identifier.assertFromString("-pkgId-:TestMod:House")
-  val houseTemplateType: Ref.TypeConName = Ref.TypeConName.assertFromString("-pkgId-:TestMod:House")
-  val caveTemplateId: Ref.Identifier = Ref.Identifier.assertFromString("-pkgId-:TestMod:Cave")
-  val caveTemplateType: Ref.TypeConName = Ref.TypeConName.assertFromString("-pkgId-:TestMod:Cave")
-  val keyType: Ref.TypeConName = Ref.TypeConName.assertFromString("-pkgId-:TestMod:Key")
+  val invalidTemplateId: Ref.Identifier = Ref.Identifier.assertFromString(s"$pkgId:TestMod:Invalid")
+  val houseTemplateId: Ref.Identifier = Ref.Identifier.assertFromString(s"$pkgId:TestMod:House")
+  val houseTemplateType: Ref.TypeConName = Ref.TypeConName.assertFromString(s"$pkgId:TestMod:House")
+  val caveTemplateId: Ref.Identifier = Ref.Identifier.assertFromString(s"$pkgId:TestMod:Cave")
+  val caveTemplateType: Ref.TypeConName = Ref.TypeConName.assertFromString(s"$pkgId:TestMod:Cave")
+  val keyType: Ref.TypeConName = Ref.TypeConName.assertFromString(s"$pkgId:TestMod:Key")
   val contractKey: GlobalKey = buildContractKey(maintainerParty)
   val contractSStructKey: SValue =
     SValue.SStruct(
@@ -331,6 +332,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
           if (setupArgs.isEmpty) contextSExpr
           else SExpr.SEApp(contextSExpr, setupArgs),
         committers = committers,
+        packageResolution = pkg.name.map(_ -> pkgId).toList.toMap,
       )
     disclosures.foreach { case (cid, contract) => machine.addDisclosedContracts(cid, contract) }
     val setupResult = SpeedyTestLib.run(

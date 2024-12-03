@@ -28,11 +28,12 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
-class ExceptionTestV1 extends ExceptionTest(LanguageMajorVersion.V1)
-//class ExceptionTestV2 extends ExceptionTest(LanguageMajorVersion.V2)
+class ExceptionTestPreUpgrade extends ExceptionTest(LanguageVersion.v1_15)
+class ExceptionTestPostUpgrade extends ExceptionTest(LanguageVersion.v1_17)
+//class ExceptionTestV2 extends ExceptionTest(LanguageVersion.V2)
 
 // TEST_EVIDENCE: Integrity: Exceptions, throw/catch.
-class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
+class ExceptionTest(langVersion: LanguageVersion)
     extends AnyFreeSpec
     with Inside
     with Matchers
@@ -40,10 +41,12 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
 
   import SpeedyTestLib.loggingContext
 
+  val defaultPackageId = Ref.PackageId.assertFromString(s"-pkgId-")
   implicit val defaultParserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
-  val defaultPackageId = defaultParserParameters.defaultPackageId
-
+    ParserParameters(
+      defaultPackageId = defaultPackageId,
+      languageVersion = langVersion,
+    )
   private def applyToParty(pkgs: CompiledPackages, e: Expr, p: Party): SExpr = {
     val se = pkgs.compiler.unsafeCompile(e)
     SEApp(se, Array(SParty(p)))
@@ -145,7 +148,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
         .map(tyCon => TTyCon(tyCon) -> ValueRecord(Some(tyCon), data.ImmArray.Empty))
     val divZeroE =
       ValueRecord(
-        Some(StablePackages(majorLanguageVersion).ArithmeticError),
+        Some(StablePackages(langVersion.major).ArithmeticError),
         data.ImmArray(
           Some(data.Ref.Name.assertFromString("message")) ->
             ValueText("ArithmeticError while evaluating (DIV_INT64 1 0).")
@@ -162,7 +165,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
         "M:divZero",
         SErrorDamlException(
           IE.UnhandledException(
-            TTyCon(StablePackages(majorLanguageVersion).ArithmeticError),
+            TTyCon(StablePackages(langVersion.major).ArithmeticError),
             divZeroE,
           )
         ),
@@ -549,7 +552,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       ("M:example3", "UNHANDLED"),
       (
         "M:example4",
-        majorLanguageVersion.evaluationOrder match {
+        langVersion.major.evaluationOrder match {
           case LeftToRight => "HANDLED: left"
           case RightToLeft => "HANDLED: right"
         },
@@ -571,7 +574,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
   "uncatchable exceptions" - {
     "not be caught" in {
 
-      val pkgs: PureCompiledPackages = typeAndCompile(p""" metadata ( 'pkg' : '1.0.0' )
+      val pkg =
+        p""" metadata ( 'pkg' : '1.0.0' )
 
    module M {
 
@@ -628,7 +632,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
        };
      };
    }
-  """)
+  """
+      val pkgs: PureCompiledPackages = typeAndCompile(pkg)
 
       val transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
 
@@ -693,7 +698,13 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
           """
 
         val res = Speedy.Machine
-          .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, expr, alice), Set(alice))
+          .fromUpdateSExpr(
+            compiledPackages = pkgs,
+            transactionSeed = transactionSeed,
+            updateSE = applyToParty(pkgs, expr, alice),
+            committers = Set(alice),
+            packageResolution = pkg.name.map(_ -> defaultPackageId).toList.toMap,
+          )
           .run()
         if (description.contains("can be caught"))
           inside(res) { case SResultFinal(SUnit) =>
@@ -716,7 +727,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
 
     "works as expected for a contract version POST-dating exceptions" - {
 
-      val pkgs = mkPackagesAtVersion(majorLanguageVersion.dev)
+      val pkgs = mkPackagesAtVersion(langVersion.major.dev)
       val res = Speedy.Machine
         .fromUpdateSExpr(
           pkgs,
@@ -1217,7 +1228,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
           metadataTestsPkgId -> metadataTestsPkg,
         ),
         // TODO: revert to the default compiler config once it supports upgrades
-        Compiler.Config.Dev(LanguageMajorVersion.V1),
+        Compiler.Config.Default(langVersion.major),
       )
 
     sealed trait ContractOrigin {
@@ -1398,7 +1409,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   // These tests only make sense for V1 as all V2 versions support exceptions.
-  if (majorLanguageVersion == LanguageMajorVersion.V1) {
+  if (langVersion.major == LanguageMajorVersion.V1) {
     "rollback of creates (mixed versions)" - {
 
       val oldPid: PackageId = Ref.PackageId.assertFromString("OldPackage")
@@ -1426,7 +1437,7 @@ template (record : OldT) = {
         val parserParameters: parser.ParserParameters[this.type] = {
           parser.ParserParameters(
             defaultPackageId = newPid,
-            languageVersion = majorLanguageVersion.dev,
+            languageVersion = langVersion.major.dev,
           )
         }
         p""" metadata ( 'newPackage' : '1.0.0' )
@@ -1513,14 +1524,14 @@ val causeUncatchable2 : Party -> Update Unit = \(party: Party) ->
       }
       val pkgs =
         SpeedyTestLib.typeAndCompile(
-          majorLanguageVersion,
+          langVersion.major,
           Map(oldPid -> oldPackage, newPid -> newPackage),
         )
 
       val parserParameters: parser.ParserParameters[this.type] = {
         parser.ParserParameters(
           defaultPackageId = newPid,
-          languageVersion = majorLanguageVersion.dev,
+          languageVersion = langVersion.major.dev,
         )
       }
 
