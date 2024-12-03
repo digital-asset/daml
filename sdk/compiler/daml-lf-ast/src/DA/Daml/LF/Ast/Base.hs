@@ -762,6 +762,9 @@ data Update
     , tryCatchVar :: !ExprVarName
     , tryCatchHandler :: !Expr
     }
+  | UPrefetchContracts
+    { contracts :: !Expr
+    }
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Expression in the scenario monad

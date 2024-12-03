@@ -734,6 +734,7 @@ Then we can define our kinds, types, and expressions::
        |  'lookup_by_key' @τ e                      -- UpdateLookUpByKey
        |  'embed_expr' @τ e                         -- UpdateEmbedExpr
        |  'try' @τ e₁ 'catch' x. e₂                 -- UpdateTryCatch [Daml-LF ≥ 1.14]
+       |  'prefetch_contracts' e                    -- UpdatePrefetchContracts
 
   Scenario
     s ::= 'spure' @τ e                              -- ScenarioPure
@@ -2062,6 +2063,7 @@ need to be evaluated further. ::
          | 'lookup_by_key' @Mod:T v                  -- ValUpdateLookupByKey
          | 'embed_expr' @τ e                         -- ValUpdateEmbedExpr
          | 'try' @τ e₁ 'catch' x. e₂                 -- ValUpdateTryCatch
+         | 'prefetch_contracts' v                    -- ValPrefetchContracts
 
                            ┌────┐
    Scenario Values         │ sv │
@@ -2378,6 +2380,7 @@ grammar below. ::
         |  'exercise_interface' @Mod:I Ch v₁ v₂ E₃
         |  'fetch_by_key' @τ E
         |  'lookup_by_key' @τ E
+        |  'prefetch_contracts' E
 
   Scenario Evaluation Context
     SE ::= 'spure' @τ E
@@ -3624,6 +3627,9 @@ as described by the ledger model::
      'try' @τ e₁ 'catch' x. e₂ ‖ S₀
        ⇓ᵤ
      (Err err, ('rollback' tr₁))
+
+   —————————————————————————————————————————————————————————————————————— EvUpdPrefetchContracts
+     'prefetch_contracts' v ‖ (st, keys)  ⇓ᵤ  (Ok (), ε) ‖ (st, keys)
 
 
 Transaction normalization

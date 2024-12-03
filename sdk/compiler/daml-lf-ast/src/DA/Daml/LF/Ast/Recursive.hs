@@ -86,6 +86,7 @@ data UpdateF expr
   | UFetchByKeyF !(Qualified TypeConName)
   | ULookupByKeyF !(Qualified TypeConName)
   | UTryCatchF !Type !expr !ExprVarName !expr
+  | UPrefetchContractsF !expr
   deriving (Foldable, Functor, Traversable)
 
 data ScenarioF expr
@@ -130,6 +131,7 @@ projectUpdate = \case
   ULookupByKey a -> ULookupByKeyF a
   UFetchByKey a -> UFetchByKeyF a
   UTryCatch a b c d -> UTryCatchF a b c d
+  UPrefetchContracts a -> UPrefetchContractsF a
 
 embedUpdate :: UpdateF Expr -> Update
 embedUpdate = \case
@@ -148,6 +150,7 @@ embedUpdate = \case
   UFetchByKeyF a -> UFetchByKey a
   ULookupByKeyF a -> ULookupByKey a
   UTryCatchF a b c d -> UTryCatch a b c d
+  UPrefetchContractsF a -> UPrefetchContracts a
 
 projectScenario :: Scenario -> ScenarioF Expr
 projectScenario = \case
