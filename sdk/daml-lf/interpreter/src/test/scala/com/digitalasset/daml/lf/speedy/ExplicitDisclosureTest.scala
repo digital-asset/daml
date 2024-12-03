@@ -6,7 +6,7 @@ package speedy
 
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.interpretation.Error.{ContractKeyNotFound, ContractNotActive}
-import com.daml.lf.language.LanguageMajorVersion
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.speedy.SExpr.SEValue
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -19,15 +19,15 @@ import com.daml.lf.speedy.Speedy.ContractInfo
 import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.testing.parser.Implicits._
 
-class ExplicitDisclosureTestV1 extends ExplicitDisclosureTest(LanguageMajorVersion.V1)
-//class ExplicitDisclosureTestV2 extends ExplicitDisclosureTest(LanguageMajorVersion.V2)
+class ExplicitDisclosureTestPreUpgrade extends ExplicitDisclosureTest(LanguageVersion.v1_15)
+class ExplicitDisclosureTestPostUpgrade extends ExplicitDisclosureTest(LanguageVersion.v1_17)
 
-private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVersion)
+private[lf] class ExplicitDisclosureTest(langVersion: LanguageVersion)
     extends AnyFreeSpec
     with Inside
     with Matchers {
 
-  val explicitDisclosureLib = new ExplicitDisclosureLib(majorLanguageVersion)
+  val explicitDisclosureLib = new ExplicitDisclosureLib(langVersion)
 
   import explicitDisclosureLib._
 

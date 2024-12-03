@@ -13,7 +13,7 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.value.Value
 import Value._
 import com.daml.lf.command.ApiCommand
-import com.daml.lf.language.LanguageMajorVersion
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.transaction.Transaction
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
@@ -27,8 +27,8 @@ import interpretation.{Error => IE}
 
 import scala.language.implicitConversions
 
-class InterfacesTestV1 extends InterfacesTest(LanguageMajorVersion.V1)
-//class InterfacesTestV2 extends InterfacesTest(LanguageMajorVersion.V2)
+class InterfacesTestPreUpgrade extends InterfacesTest(LanguageVersion.v1_15)
+class InterfacesTestPostUpgrade extends InterfacesTest(LanguageVersion.v1_17)
 
 @SuppressWarnings(
   Array(
@@ -37,7 +37,7 @@ class InterfacesTestV1 extends InterfacesTest(LanguageMajorVersion.V1)
     "org.wartremover.warts.Product",
   )
 )
-class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
+class InterfacesTest(langVersion: LanguageVersion)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
@@ -46,30 +46,33 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
 
   import InterfacesTest._
 
-  private[this] val engine = Engine.DevEngine(majorLanguageVersion)
+  private[this] val engine = Engine.StableEngine()
   private[this] val compiledPackages = ConcurrentCompiledPackages(engine.config.getCompilerConfig)
   private[this] val preprocessor = new preprocessing.Preprocessor(compiledPackages)
 
   private def loadAndAddPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
     val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
     val (mainPkgId, mainPkg) = packages.main
+    assert(mainPkg.languageVersion == langVersion)
     assert(
       compiledPackages.addPackage(mainPkgId, mainPkg).consume(pkgs = packages.all.toMap).isRight
     )
     (mainPkgId, mainPkg, packages.all.toMap)
   }
 
+  val darSuffix = s"-v${langVersion.pretty.replaceAll(raw"\.", "")}.dar"
+
   "interfaces" should {
-    val (interfacesPkgId, interfacesPkg, _) =
-      loadAndAddPackage(s"daml-lf/tests/Interfaces-v${majorLanguageVersion.pretty}.dar")
+    val (interfacesPkgId, interfacesPkg, allInterfacesPkgs) =
+      loadAndAddPackage(s"daml-lf/tests/Interfaces$darSuffix")
 
     val packageNameMap = interfacesPkg.name.toList.map(n => n -> interfacesPkgId).toMap
 
-    val (interfaceRetroPkgId, _, allInterfacesPkgs) =
-      loadAndAddPackage(s"daml-lf/tests/InterfaceRetro-v${majorLanguageVersion.pretty}.dar")
+    lazy val (interfaceRetroPkgId, _, allInterfacesRetroPkgs) =
+      loadAndAddPackage(s"daml-lf/tests/InterfaceRetro$darSuffix")
     val idI1 = Identifier(interfacesPkgId, "Interfaces:I1")
     val idI2 = Identifier(interfacesPkgId, "Interfaces:I2")
-    val idI5 = Identifier(interfaceRetroPkgId, "InterfaceRetro:I5")
+    lazy val idI5 = Identifier(interfaceRetroPkgId, "InterfaceRetro:I5")
     val idT1 = Identifier(interfacesPkgId, "Interfaces:T1")
     val idT2 = Identifier(interfacesPkgId, "Interfaces:T2")
     val let = Time.Timestamp.now()
@@ -93,8 +96,8 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
         )
       ),
     )
-    def consume[X](x: Result[X]) =
-      x.consume(contracts, allInterfacesPkgs)
+    def consume[X](x: Result[X], pkgs: Map[PackageId, Package] = allInterfacesPkgs) =
+      x.consume(contracts, pkgs)
 
     def preprocessApi(cmd: ApiCommand) = consume(preprocessor.preprocessApiCommand(Map.empty, cmd))
     def run[Cmd](cmd: Cmd)(preprocess: Cmd => Result[speedy.Command]) =
@@ -113,8 +116,11 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
             packageResolution = packageNameMap,
           )
       } yield result
-    def runApi(cmd: ApiCommand): Either[Error, (SubmittedTransaction, Transaction.Metadata)] =
-      consume(run(cmd)(preprocessor.preprocessApiCommand(Map.empty, _)))
+    def runApi(
+        cmd: ApiCommand,
+        pkgs: Map[Ref.PackageId, Package] = allInterfacesPkgs,
+    ): Either[Error, (SubmittedTransaction, Transaction.Metadata)] =
+      consume(run(cmd)(preprocessor.preprocessApiCommand(Map.empty, _)), pkgs)
 
     /* generic exercise tests */
     "be able to exercise interface I1 on a T1 contract" in {
@@ -195,13 +201,16 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
     }
 
     "be able to exercise T2 by interface I5 and usedPackages should include I5's packageId" in {
+      assume(langVersion == LanguageVersion.v1_15)
       val command = ApiCommand.Exercise(
         idI5.toRef,
         cid2,
         "C5",
         ValueRecord(None, ImmArray.empty),
       )
-      runApi(command).value._2.usedPackages should contain(interfaceRetroPkgId)
+      runApi(command, allInterfacesRetroPkgs).value._2.usedPackages should contain(
+        interfaceRetroPkgId
+      )
     }
   }
 }

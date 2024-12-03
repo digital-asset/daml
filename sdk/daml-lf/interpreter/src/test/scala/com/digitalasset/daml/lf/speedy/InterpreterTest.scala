@@ -7,7 +7,7 @@ package speedy
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Numeric, Ref}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageMajorVersion}
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.language.Util._
 import com.daml.lf.speedy.SExpr.LfDefRef
 import com.daml.lf.speedy.SResult._
@@ -21,10 +21,10 @@ import com.daml.logging.ContextualizedLogger
 
 import scala.language.implicitConversions
 
-class InterpreterTestV1 extends InterpreterTest(LanguageMajorVersion.V1)
-//class InterpreterTestV2 extends InterpreterTest(LanguageMajorVersion.V2)
+class InterpreterTestPreUpgrade extends InterpreterTest(LanguageVersion.v1_15)
+class InterpreterTestPostUpgrade extends InterpreterTest(LanguageVersion.v1_17)
 
-class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
+class InterpreterTest(langVersion: LanguageVersion)
     extends AnyWordSpec
     with Inside
     with Matchers
@@ -34,10 +34,11 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
 
   private implicit def id(s: String): Ref.Name = Name.assertFromString(s)
 
-  private implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+  val pkgId = Ref.PackageId.assertFromString(s"-pkgId-${getClass.getSimpleName}")
+  implicit val parserParameters: ParserParameters[this.type] =
+    ParserParameters(defaultPackageId = pkgId, languageVersion = langVersion)
 
-  private val compilerConfig = Compiler.Config.Default(majorLanguageVersion)
+  private val compilerConfig = Compiler.Config.Default(langVersion.major)
   private val languageVersion = compilerConfig.allowedLanguageVersions.max
 
   private def runExpr(e: Expr): SValue = {
