@@ -12,6 +12,7 @@ genrule(
             "default-dlint.yaml",
             "skeleton/**",
             "empty-skeleton/**",
+            "upgrades-example/**",
             "quickstart-java/**",
         ],
         exclude = ["**/NO_AUTO_COPYRIGHT"],
@@ -38,6 +39,7 @@ genrule(
         # templates in templates dir
         for d in skeleton \
                  empty-skeleton \
+                 upgrades-example \
                  quickstart-java; do
             mkdir -p $$OUT/$$d
             cp -rL $$SRC/$$d/* $$OUT/$$d/
