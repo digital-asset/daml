@@ -317,7 +317,7 @@ tests damlc =
             --, test
             --      "WarnsWhenExpressionChangesBindingOrder"
             --      (SucceedWithWarning ".*refer to different bindings in the environment")
-            --      version1_dev
+            --      version1_17
             --      (SeparateDeps False)
             --      False
             --      True
@@ -379,28 +379,28 @@ tests damlc =
                   )
                   "my-package"
                   "0.0.1"
-                  LF.version1_dev
+                  LF.version1_17
                   "my-package2"
                   "0.0.2"
-                  LF.version1_dev
+                  LF.version1_17
             , testMetadata
                   "FailsWhenUpgradesPackageHasEqualVersion"
                   (FailWithError "\ESC\\[0;91mMain package \\(v0.0.1\\) cannot have the same package version as Upgraded package \\(v0.0.1\\)")
                   "my-package"
                   "0.0.1"
-                  LF.version1_dev
+                  LF.version1_17
                   "my-package"
                   "0.0.1"
-                  LF.version1_dev
+                  LF.version1_17
             , testMetadata
                   "FailsWhenUpgradesPackageHasHigherVersion"
                   (FailWithError "\ESC\\[0;91mUpgraded package \\(v0.0.2\\) cannot have a higher package version than Main package \\(v0.0.1\\)")
                   "my-package"
                   "0.0.2"
-                  LF.version1_dev
+                  LF.version1_17
                   "my-package"
                   "0.0.1"
-                  LF.version1_dev
+                  LF.version1_17
             , testMetadata
                   "FailsWhenUpgradesPackageDoesNotSupportUpgrades"
                   (FailWithError "\ESC\\[0;91mUpgraded package \\(v0.0.1\\) LF Version \\(1.15\\) does not support Smart Contract Upgrades")
@@ -409,13 +409,13 @@ tests damlc =
                   LF.version1_15
                   "my-package"
                   "0.0.2"
-                  LF.version1_dev
+                  LF.version1_17
             , testMetadata
                   "FailsWhenMainPackageDoesNotSupportUpgrades"
                   (FailWithError "\ESC\\[0;91mMain package \\(v0.0.2\\) LF Version \\(1.15\\) does not support Smart Contract Upgrades")
                   "my-package"
                   "0.0.1"
-                  LF.version1_dev
+                  LF.version1_17
                   "my-package"
                   "0.0.2"
                   LF.version1_15
@@ -436,7 +436,7 @@ tests damlc =
                   LF.version1_17
                   "my-package"
                   "0.0.2"
-                  LF.version1_dev
+                  LF.version1_17
             , testUpgradeCheck
                   "SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage"
                   Succeed
@@ -688,7 +688,7 @@ testOptions =
     }
 
 versionDefault :: LF.Version
-versionDefault = LF.version1_dev
+versionDefault = LF.version1_17
 
 data Expectation
   = Succeed

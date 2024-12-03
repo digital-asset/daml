@@ -19,12 +19,6 @@ load(
     "mangle_for_damlc",
 )
 
-DEV_LF_VERSION = "1.dev"
-
-UPGRADE_LF_VERSION = "1.16"
-
-NON_UPGRADE_LF_VERSION = "1.15"
-
 [
     genrule(
         name = "script-test",
@@ -121,12 +115,11 @@ EOF
         tools = ["//compiler/damlc"],
         visibility = ["//visibility:public"],
     )
-    for tag in [
-        "latest",
-        "preview",
-        "dev",
+    for lf_version in [
+        "1.15",
+        "1.17",
+        "1.dev",
     ]
-    for lf_version in [lf_version_configuration.get(tag)]
 ]
 
 # A variant of script-test that has not been uploaded to the ledger
@@ -223,7 +216,7 @@ da_scala_library(
 
 daml_compile(
     name = "try-submit-test-1.15",
-    srcs = [":daml/Daml3ScriptTrySubmit15.daml"],
+    srcs = [":daml/Daml3ScriptTrySubmit.daml"],
     data_dependencies = [
         "//daml-script/daml3:daml3-script-1.15.dar",
     ],
@@ -279,6 +272,7 @@ da_scala_test_suite(
         ":script-test.dar",
         ":script-test-no-ledger.dar",
         ":try-submit-test-1.15.dar",
+        "//compiler/damlc/tests:try-submit-test.dar",
         "//daml-script/runner:daml-script-binary",
         "//daml-script/test:retrointerface.dar",
         "//daml-script/test:template.dar",
@@ -425,7 +419,6 @@ da_scala_test_suite(
         ":script-test-1.dev.dar",
         "//compiler/damlc/tests:query-test.dar",
         "//compiler/damlc/tests:try-submit-concurrently-test.dar",
-        "//compiler/damlc/tests:try-submit-test.dar",
         "//daml-script/runner:daml-script-binary",
     ],
     resources = glob(["src/main/resources/**/*"]),
