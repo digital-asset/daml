@@ -35,10 +35,10 @@ main = withSdkVersions $ do
     damlcLegacy <- locateRunfiles ("damlc_legacy" </> exe "damlc_legacy")
     let validate dar = callProcessSilent damlc ["validate-dar", dar]
     v1TestArgs <- do
-        let targetDevVersion = LF.version1_dev
+        let targetDevVersion = LF.version1_17
         let exceptionsVersion = minExceptionVersion LF.V1
         let simpleDalfLfVersion = LF.defaultOrLatestStable LF.V1
-        scriptDevDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script-1.dev.dar")
+        scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script-1.17.dar")
         oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar")
         let lfVersionTestPairs = lfVersionTestPairsV1
         return TestArgs{..}
@@ -46,7 +46,7 @@ main = withSdkVersions $ do
         let targetDevVersion = LF.version2_dev
         let exceptionsVersion = minExceptionVersion LF.V2
         let simpleDalfLfVersion = LF.defaultOrLatestStable LF.V2
-        scriptDevDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml3" </> "daml3-script-1.dev.dar")
+        scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml3" </> "daml3-script-1.dev.dar")
         oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "old-proj-1.1.dar")
         let lfVersionTestPairs = lfVersionTestPairsV2
         return TestArgs{..}
@@ -65,7 +65,7 @@ data TestArgs = TestArgs
   , lfVersionTestPairs :: [(LF.Version, LF.Version)]
   , damlc :: FilePath
   , damlcLegacy :: FilePath
-  , scriptDevDar :: FilePath
+  , scriptDar :: FilePath
   , validate :: FilePath -> IO ()
   , oldProjDar :: FilePath
   }
@@ -96,7 +96,7 @@ lfVersionTestPairsV1 =
                 filter (hasMajorVersion LF.V1) LF.supportedOutputVersions
         legacyPairs = map (,LF.version1_14) (supportedInputVersions \\ supportedOutputVersions)
         nPlusOnePairs = zip supportedOutputVersions (tail supportedOutputVersions)
-        selfPair = (LF.version1_dev, LF.version1_dev)
+        selfPair = (LF.version1_17, LF.version1_17)
      in selfPair : concat [legacyPairs, nPlusOnePairs]
   where
     hasMajorVersion major v = LF.versionMajor v == major
@@ -697,7 +697,7 @@ tests TestArgs{..} =
           , "version: 0.1.0"
           , "source: ."
           , "dependencies: [daml-prim, daml-stdlib]"
-          , "data-dependencies: [simple-dalf-1.0.0.dalf, " <> show scriptDevDar <> "]"
+          , "data-dependencies: [simple-dalf-1.0.0.dalf, " <> show scriptDar <> "]"
           , "build-options: [--package=simple-dalf-1.0.0]"
           ]
         writeFileUTF8 (projDir </> "A.daml") $ unlines
@@ -2411,7 +2411,7 @@ tests TestArgs{..} =
             [ dar tokenProj
             , dar fancyTokenProj
             , dar assetProj
-            , scriptDevDar
+            , scriptDar
             ]
         step mainProj >> do
           createDirectoryIfMissing True (path mainProj)
@@ -2419,7 +2419,7 @@ tests TestArgs{..} =
             [ dar tokenProj
             , dar fancyTokenProj
             , dar assetProj
-            , scriptDevDar
+            , scriptDar
             ]
           writeFileUTF8 (damlMod mainProj "Main") $ unlines
             [ "{-# LANGUAGE ApplicativeDo #-}"
@@ -2718,7 +2718,7 @@ tests TestArgs{..} =
             , "version: 0.1.0"
             , "dependencies: [daml-prim, daml-stdlib]"
             , "data-dependencies: "
-            , "  - " <> show scriptDevDar
+            , "  - " <> show scriptDar
             , "  - " <> (tmpDir </> "lib" </> "lib.dar")
             ]
         writeFileUTF8 (tmpDir </> "main" </> "Main.daml") $ unlines
@@ -2799,7 +2799,7 @@ tests TestArgs{..} =
     optionsDevScript :: DataDependenciesTestOptions
     optionsDevScript = defTestOptions
         { buildOptions = ["--target=" <> LF.renderVersion targetDevVersion, "-Wupgrade-interfaces"]
-        , dataDeps = [scriptDevDar]
+        , dataDeps = [scriptDar]
         }
 
     simpleImportTest :: String -> [String] -> [String] -> TestTree
