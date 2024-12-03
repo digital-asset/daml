@@ -647,17 +647,20 @@ object UpgradeTest {
     }
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: changed precondition expression, evaluates to true, upgrade succeeds
   case object UnchangedPrecondition extends TestCase("UnchangedPrecondition", ExpectSuccess) {
     override def v1Precondition = "True"
     override def v2Precondition = "case () of () -> True"
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: changed precondition expression, evaluates to false, upgrade fails
   case object ChangedPrecondition
       extends TestCase("ChangedPrecondition", ExpectPreconditionViolated) {
     override def v1Precondition = "True"
     override def v2Precondition = "False"
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: errors thrown by the precondition expressions cannot be caught
   case object ThrowingPrecondition
       extends TestCase("ThrowingPrecondition", ExpectUnhandledException) {
     override def v1Precondition = "True"
@@ -665,18 +668,21 @@ object UpgradeTest {
       s"""throw @Bool @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "Precondition"})"""
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: changed signatories expression, evaluates to the same value, upgrade succeeds
   case object UnchangedSignatories extends TestCase("UnchangedSignatories", ExpectSuccess) {
     override def v1Signatories = s"Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)"
     override def v2Signatories =
       s"case () of () -> Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)"
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: changed signatories expression, evaluates to a different value, upgrade fails
   case object ChangedSignatories extends TestCase("ChangedSignatories", ExpectUpgradeError) {
     override def v1Signatories = s"Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)"
     override def v2Signatories =
       s"Cons @Party [Mod:${templateName} {p1} this, Mod:${templateName} {p2} this] (Nil @Party)"
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: errors thrown by the signatories expression cannot be caught
   case object ThrowingSignatories
       extends TestCase("ThrowingSignatories", ExpectUnhandledException) {
     override def v1Signatories = s"Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)"
@@ -684,38 +690,45 @@ object UpgradeTest {
       s"""throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "Signatories"})"""
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: changed observers expression, evaluates to the same value, upgrade succeeds
   case object UnchangedObservers extends TestCase("UnchangedObservers", ExpectSuccess) {
     override def v1Observers = "Nil @Party"
     override def v2Observers = "case () of () -> Nil @Party"
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: changed observers expression, evaluates to a different value, upgrade fails
   case object ChangedObservers extends TestCase("ChangedObservers", ExpectUpgradeError) {
     override def v1Observers = "Nil @Party"
     override def v2Observers = s"Cons @Party [Mod:${templateName} {p2} this] (Nil @Party)"
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: errors thrown by the observers expression cannot be caught
   case object ThrowingObservers extends TestCase("ThrowingObservers", ExpectUnhandledException) {
     override def v1Observers = "Nil @Party"
     override def v2Observers =
       s"""throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "Observers"})"""
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: changed agreement expression, evaluates to the same value, upgrade succeeds
   case object UnchangedAgreement extends TestCase("UnchangedAgreement", ExpectSuccess) {
     override def v1Agreement = """ "agreement" """
     override def v2Agreement = """ case () of () -> "agreement" """
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: changed agreement expression, evaluates to a different value, upgrade succeeds
   case object ChangedAgreement extends TestCase("ChangedAgreement", ExpectSuccess) {
     override def v1Agreement = """ "agreement" """
     override def v2Agreement = """ "text changed, but we don't care" """
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: errors thrown by the agreement expression cannot be caught
   case object ThrowingAgreement extends TestCase("ThrowingAgreement", ExpectUnhandledException) {
     override def v1Agreement = """ "agreement" """
     override def v2Agreement =
       s"""throw @Text @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "Agreement"})"""
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: the new version of the template defines an additional choice, upgrade succeeds
   case object AdditionalChoices extends TestCase("AdditionalChoices", ExpectSuccess) {
     override def v1AdditionalChoices: String = ""
     override def v2AdditionalChoices: String =
@@ -727,6 +740,7 @@ object UpgradeTest {
          |""".stripMargin
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: the new version of the module defines an additional template, upgrade succeeds
   case object AdditionalTemplates extends TestCase("AdditionalTemplates", ExpectSuccess) {
     override def v1AdditionalDefinitions = ""
     override def v2AdditionalDefinitions =
@@ -741,6 +755,7 @@ object UpgradeTest {
          |""".stripMargin
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: changed key expression, evaluates to the same value, upgrade succeeds
   case object UnchangedKey extends TestCase("UnchangedKey", ExpectSuccess) {
     override def v1Key = s"""
                             |  Mod:${templateName}Key {
@@ -754,6 +769,7 @@ object UpgradeTest {
                             |    }""".stripMargin
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: changed key expression, evaluates to a different value, upgrade fails
   case object ChangedKey extends TestCase("ChangedKey", ExpectUpgradeError) {
     override def v1Key = s"""
                             |  Mod:${templateName}Key {
@@ -767,6 +783,7 @@ object UpgradeTest {
                             |    }""".stripMargin
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: errors thrown by the key expression cannot be caught
   case object ThrowingKey extends TestCase("ThrowingKey", ExpectUnhandledException) {
     override def v1Key = s"""
                             |  Mod:${templateName}Key {
@@ -777,6 +794,7 @@ object UpgradeTest {
       s"""throw @Mod:${templateName}Key @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "Key"})"""
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: changed maintainers expression, evaluates to the same value, upgrade succeeds
   case object UnchangedMaintainers extends TestCase("UnchangedMaintainers", ExpectSuccess) {
     override def v1Maintainers =
       s"\\(key: Mod:${templateName}Key) -> (Mod:${templateName}Key {maintainers} key)"
@@ -784,6 +802,7 @@ object UpgradeTest {
       s"\\(key: Mod:${templateName}Key) -> case () of () -> (Mod:${templateName}Key {maintainers} key)"
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: changed maintainers expression, evaluates to a different value, upgrade fails
   case object ChangedMaintainers extends TestCase("ChangedMaintainers", ExpectUpgradeError) {
     override def v1AdditionalKeyFields: String = ", maintainers2: List Party"
     override def v2AdditionalKeyFields: String = v1AdditionalKeyFields
@@ -816,6 +835,7 @@ object UpgradeTest {
       s"\\(key: Mod:${templateName}Key) -> (Mod:${templateName}Key {maintainers2} key)"
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: errors thrown by the maintainers expression cannot be caught
   case object ThrowingMaintainers
       extends TestCase("ThrowingMaintainers", ExpectUnhandledException) {
     override def v1Maintainers =
@@ -824,6 +844,7 @@ object UpgradeTest {
       s"""throw @(Mod:${templateName}Key -> List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "Maintainers"})"""
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: errors thrown by the maintainers function body cannot be caught
   case object ThrowingMaintainersBody
       extends TestCase("ThrowingMaintainersBody", ExpectUnhandledException) {
     override def v1Maintainers =
@@ -832,6 +853,7 @@ object UpgradeTest {
       s"""\\(key: Mod:${templateName}Key) -> throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "MaintainersBody"})"""
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional optional field in record used as choice parameter, upgrade succeeds
   case object AdditionalFieldInChoiceArgRecordField
       extends TestCase("AdditionalFieldInChoiceArgRecordField", ExpectSuccess) {
 
@@ -857,6 +879,7 @@ object UpgradeTest {
       )
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional optional field in record used as choice parameter, None value, downgrade succeeds
   case object ValidDowngradeAdditionalFieldInChoiceArgRecordField
       extends TestCase("ValidDowngradeAdditionalFieldInChoiceArgRecordField", ExpectSuccess) {
 
@@ -882,6 +905,7 @@ object UpgradeTest {
       )
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional optional field in record used as choice parameter, Some value, downgrade fails
   case object InvalidDowngradeAdditionalFieldInChoiceArgRecordField
       extends TestCase(
         "InvalidDowngradeAdditionalFieldInChoiceArgRecordField",
@@ -910,6 +934,7 @@ object UpgradeTest {
       )
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional constructor in variant used as choice parameter, upgrade succeeds
   case object AdditionalConstructorInChoiceArgVariantField
       extends TestCase("AdditionalConstructorInChoiceArgVariantField", ExpectSuccess) {
 
@@ -929,6 +954,7 @@ object UpgradeTest {
       )
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional constructor in variant used as choice parameter, unused constructor, downgrade succeeds
   case object ValidDowngradeAdditionalConstructorInChoiceArgVariantField
       extends TestCase(
         "ValidDowngradeAdditionalConstructorInChoiceArgVariantField",
@@ -951,6 +977,7 @@ object UpgradeTest {
       )
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional constructor in variant used as choice parameter, used constructor, downgrade fails
   case object InvalidDowngradeAdditionalConstructorInChoiceArgVariantField
       extends TestCase(
         "InvalidDowngradeAdditionalConstructorInChoiceArgVariantField",
@@ -973,6 +1000,7 @@ object UpgradeTest {
       )
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional constructor in enum used as choice parameter, upgrade succeeds
   case object AdditionalConstructorInChoiceArgEnumField
       extends TestCase("AdditionalConstructorInChoiceArgEnumField", ExpectSuccess) {
 
@@ -992,6 +1020,7 @@ object UpgradeTest {
       )
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional constructor in enum used as choice parameter, unused constructor, downgrade succeeds
   case object ValidDowngradeAdditionalConstructorInChoiceArgEnumField
       extends TestCase("ValidDowngradeAdditionalConstructorInChoiceArgEnumField", ExpectSuccess) {
 
@@ -1011,6 +1040,7 @@ object UpgradeTest {
       )
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional constructor in enum used as choice parameter, used constructor, downgrade fails
   case object InvalidDowngradeAdditionalConstructorInChoiceArgEnumField
       extends TestCase(
         "InvalidDowngradeAdditionalConstructorInChoiceArgEnumField",
@@ -1033,6 +1063,7 @@ object UpgradeTest {
       )
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional choice parameter, upgrade succeeds
   case object AdditionalChoiceArg extends TestCase("AdditionalChoiceArg", ExpectSuccess) {
 
     override def v1ChoiceArgTypeDef = s"{ n : Int64 }"
@@ -1044,6 +1075,7 @@ object UpgradeTest {
       )
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional choice parameter, None arg, downgrade succeeds
   case object ValidDowngradeAdditionalChoiceArg
       extends TestCase("ValidDowngradeAdditionalChoiceArg", ExpectSuccess) {
 
@@ -1057,6 +1089,7 @@ object UpgradeTest {
       )
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional choice parameter, Some arg, downgrade fails
   case object InvalidDowngradeAdditionalChoiceArg
       extends TestCase("InvalidDowngradeAdditionalChoiceArg", ExpectPreprocessingError) {
 
@@ -1070,6 +1103,7 @@ object UpgradeTest {
       )
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional optional field in record used as template parameter, upgrade succeeds
   case object AdditionalFieldInRecordArg
       extends TestCase("AdditionalFieldInRecordArg", ExpectSuccess) {
 
@@ -1102,6 +1136,7 @@ object UpgradeTest {
     }
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional constructor in variant used as template parameter, upgrade succeeds
   case object AdditionalConstructorInVariantArg
       extends TestCase("AdditionalConstructorInVariantArg", ExpectSuccess) {
 
@@ -1133,6 +1168,7 @@ object UpgradeTest {
     }
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional constructor in enum used as template parameter, upgrade succeeds
   case object AdditionalConstructorInEnumArg
       extends TestCase("AdditionalConstructorInEnumArg", ExpectSuccess) {
 
@@ -1162,11 +1198,13 @@ object UpgradeTest {
     }
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional template parameter, upgrade succeeds
   case object AdditionalTemplateArg extends TestCase("AdditionalTemplateArg", ExpectSuccess) {
     override def v1AdditionalFields = ""
     override def v2AdditionalFields = ", extra: Option Unit"
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: errors thrown by the choice controllers expression cannot be caught
   case object ThrowingInterfaceChoiceControllers
       extends TestCase("ThrowingInterfaceChoiceControllers", ExpectUnhandledException) {
     override def v1InterfaceChoiceControllers =
@@ -1175,6 +1213,7 @@ object UpgradeTest {
       s"""throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "InterfaceChoiceControllers"})"""
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: errors thrown by the choice observers expression cannot be caught
   case object ThrowingInterfaceChoiceObservers
       extends TestCase("ThrowingInterfaceChoiceObservers", ExpectUnhandledException) {
     override def v1InterfaceChoiceObservers =
@@ -1183,6 +1222,7 @@ object UpgradeTest {
       s"""throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "InterfaceChoiceObservers"})"""
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: errors thrown by interface view cannot be caught
   case object ThrowingView extends TestCase("ThrowingView", ExpectUnhandledException) {
     override def v1View = s"'$commonDefsPkgId':Mod:MyView { value = 0 }"
     override def v2View =
@@ -1204,6 +1244,7 @@ object UpgradeTest {
     }
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional template parameter, None arg, downgrade succeeds
   case object InvalidDowngradeAdditionalTemplateArg
       extends TestCase("InvalidDowngradeAdditionalTemplateArg", ExpectUpgradeError) {
     override def v1AdditionalFields = ", extra: Option Unit"
@@ -1219,6 +1260,7 @@ object UpgradeTest {
     }
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional optional field in record used as template parameter, None value, downgrade succeeds
   case object ValidDowngradeAdditionalFieldInRecordArg
       extends TestCase("ValidDowngradeAdditionalFieldInRecordArg", ExpectSuccess) {
 
@@ -1252,6 +1294,7 @@ object UpgradeTest {
     }
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional optional field in record used as template parameter, Some value, downgrade fails
   case object InvalidDowngradeAdditionalFieldInRecordArg
       extends TestCase("InvalidDowngradeAdditionalFieldInRecordArg", ExpectUpgradeError) {
 
@@ -1285,6 +1328,7 @@ object UpgradeTest {
     }
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional constructor in variant used as template parameter, unused constructor, downgrade succeeds
   case object ValidDowngradeAdditionalConstructorInVariantArg
       extends TestCase("ValidDowngradeAdditionalConstructorInVariantArg", ExpectSuccess) {
 
@@ -1316,6 +1360,7 @@ object UpgradeTest {
     }
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional constructor in variant used as template parameter, used constructor, downgrade fails
   case object InvalidDowngradeAdditionalConstructorInVariantArg
       extends TestCase(
         "InvalidDowngradeAdditionalConstructorInVariantArg",
@@ -1350,6 +1395,7 @@ object UpgradeTest {
     }
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional constructor in enum used as template parameter, unused constructor, downgrade succeeds
   case object ValidDowngradeAdditionalConstructorInEnumArg
       extends TestCase("ValidDowngradeAdditionalConstructorInEnumArg", ExpectSuccess) {
 
@@ -1379,6 +1425,7 @@ object UpgradeTest {
     }
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional constructor in enum used as template parameter, used constructor, downgrade fails
   case object InvalidDowngradeAdditionalConstructorInEnumArg
       extends TestCase(
         "InvalidDowngradeAdditionalConstructorInEnumArg",
@@ -1411,6 +1458,7 @@ object UpgradeTest {
     }
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional optional field in key type, None value, upgrade succeeds
   case object ValidKeyUpgradeAdditionalField
       extends TestCase("ValidKeyUpgradeAdditionalField", ExpectSuccess) {
     override def v1AdditionalKeyFields: String = ""
@@ -1436,6 +1484,7 @@ object UpgradeTest {
                             |  }""".stripMargin
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional optional field in key type, Some value, upgrade fails
   case object InvalidKeyUpgradeAdditionalField
       extends TestCase("InvalidKeyUpgradeAdditionalField", ExpectUpgradeError) {
     override def v1AdditionalKeyFields: String = ""
@@ -1461,6 +1510,7 @@ object UpgradeTest {
                             |  }""".stripMargin
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional optional field in key type, None value, downgrade succeeds
   case object ValidKeyDowngradeAdditionalField
       extends TestCase("ValidKeyDowngradeAdditionalField", ExpectSuccess) {
     override def v1AdditionalKeyFields: String = ", extra: Option Unit"
@@ -1479,6 +1529,7 @@ object UpgradeTest {
                             |  }""".stripMargin
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional optional field in key type, Some value, downgrade fails
   case object InvalidKeyDowngradeAdditionalField
       extends TestCase("InvalidKeyDowngradeAdditionalField", ExpectUpgradeError) {
     override def v1AdditionalKeyFields: String = ", extra: Option Unit"
