@@ -27,6 +27,7 @@ import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
 import com.daml.lf.value.Value
 import com.daml.lf.speedy.Compiler
+import com.daml.lf.transaction.GlobalKey
 import com.daml.nameof.NameOf.qualifiedNameOfMember
 
 class PreprocessorSpecV1 extends PreprocessorSpec(LanguageMajorVersion.V1)
@@ -364,6 +365,74 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
         }
       }
 
+    }
+
+    "prefetchKeys" should {
+      "extract the keys from ExerciseByKey commands" in {
+        val compiledPkgs = ConcurrentCompiledPackages(compilerConfig)
+        val preprocessor = new preprocessing.Preprocessor(compiledPkgs)
+
+        val priority = Map(pkgName.get -> defaultPackageId)
+        val bob: Party = Ref.Party.assertFromString("Bob")
+        val bobKey = ValueList(FrontStack(ValueParty(bob)))
+
+        val commands = {
+          val recordFields = Value.ValueRecord(
+            None,
+            ImmArray(
+              None -> parties,
+              None -> Value.ValueInt64(42L),
+            ),
+          )
+          ImmArray(
+            ApiCommand.Create(
+              templateRef = withKeyTmplRef,
+              argument = recordFields,
+            ),
+            ApiCommand.Exercise(
+              typeRef = withKeyTmplRef,
+              contractId = contractId,
+              choiceId = choiceId,
+              argument = Value.ValueUnit,
+            ),
+            ApiCommand.ExerciseByKey(
+              templateRef = withKeyTmplRef,
+              contractKey = parties,
+              choiceId = choiceId,
+              argument = Value.ValueUnit,
+            ),
+            ApiCommand.ExerciseByKey(
+              templateId = withKeyTmplId,
+              contractKey = bobKey,
+              choiceId = choiceId,
+              argument = Value.ValueUnit,
+            ),
+          )
+        }
+
+        val globalKey1 = GlobalKey.assertBuild(
+          withKeyTmplId,
+          parties,
+          KeyPackageName(pkg.name, pkg.languageVersion),
+        )
+        val globalKey2 = GlobalKey.assertBuild(
+          withKeyTmplId,
+          bobKey,
+          KeyPackageName(pkg.name, pkg.languageVersion),
+        )
+
+        val Right(preprocessedCommands) = preprocessor
+          .preprocessApiCommands(
+            priority,
+            commands,
+          )
+          .consume(pkgs = pkgs)
+        val result = preprocessor.prefetchKeys(preprocessedCommands)
+        inside(result) { case ResultPrefetch(keys, resume) =>
+          keys shouldBe Seq(globalKey1, globalKey2)
+          resume() shouldBe ResultDone.Unit
+        }
+      }
     }
   }
 }
