@@ -277,6 +277,8 @@ object Generators {
       createEventBlob <- byteStringGen
       interfaceViews <- Gen.listOf(interfaceViewGen)
       eventId <- eventIdGen
+      offset <- Arbitrary.arbLong.arbitrary
+      nodeId <- Arbitrary.arbInt.arbitrary
       witnessParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
       signatories <- Gen.listOf(Gen.asciiPrintableStr)
       observers <- Gen.listOf(Gen.asciiPrintableStr)
@@ -289,6 +291,8 @@ object Generators {
       .setCreatedEventBlob(createEventBlob)
       .addAllInterfaceViews(interfaceViews.asJava)
       .setEventId(eventId)
+      .setOffset(offset)
+      .setNodeId(nodeId)
       .addAllWitnessParties(witnessParties.asJava)
       .addAllSignatories(signatories.asJava)
       .addAllObservers(observers.asJava)
@@ -299,6 +303,8 @@ object Generators {
       contractId <- contractIdValueGen.map(_.getContractId)
       templateId <- identifierGen
       eventId <- eventIdGen
+      offset <- Arbitrary.arbLong.arbitrary
+      nodeId <- Arbitrary.arbInt.arbitrary
       witnessParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
 
     } yield v2.EventOuterClass.ArchivedEvent
@@ -306,6 +312,8 @@ object Generators {
       .setContractId(contractId)
       .setTemplateId(templateId)
       .setEventId(eventId)
+      .setOffset(offset)
+      .setNodeId(nodeId)
       .addAllWitnessParties(witnessParties.asJava)
       .build()
 
@@ -315,6 +323,8 @@ object Generators {
       templateId <- identifierGen
       actingParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
       eventId <- eventIdGen
+      offset <- Arbitrary.arbLong.arbitrary
+      nodeId <- Arbitrary.arbInt.arbitrary
       choice <- Arbitrary.arbString.arbitrary
       choiceArgument <- valueGen
       isConsuming <- Arbitrary.arbBool.arbitrary
@@ -329,6 +339,8 @@ object Generators {
       .setChoiceArgument(choiceArgument)
       .setConsuming(isConsuming)
       .setEventId(eventId)
+      .setOffset(offset)
+      .setNodeId(nodeId)
       .addAllWitnessParties(witnessParties.asJava)
       .setExerciseResult(exerciseResult)
       .build()

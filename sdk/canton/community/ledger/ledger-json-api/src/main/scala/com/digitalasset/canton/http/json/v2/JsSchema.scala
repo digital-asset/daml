@@ -80,6 +80,8 @@ object JsSchema {
 
     final case class CreatedEvent(
         event_id: String,
+        offset: Long,
+        node_id: Int,
         contract_id: String,
         template_id: String,
         contract_key: Option[Json],
@@ -95,6 +97,8 @@ object JsSchema {
 
     final case class ArchivedEvent(
         event_id: String,
+        offset: Long,
+        node_id: Int,
         contract_id: String,
         template_id: String,
         witness_parties: Seq[String],
@@ -122,6 +126,8 @@ object JsSchema {
 
     final case class ExercisedTreeEvent(
         event_id: String,
+        offset: Long,
+        node_id: Int,
         contract_id: String,
         template_id: String,
         interface_id: Option[String],

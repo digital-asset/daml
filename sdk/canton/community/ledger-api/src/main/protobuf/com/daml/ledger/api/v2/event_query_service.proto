@@ -49,6 +49,9 @@ message GetEventsByContractIdResponse {
 
 message Created {
   // Required
+  // The event as it appeared in the context of its original update (i.e. daml transaction or
+  // reassignment) on this participant node. You can use its offset and node_id to find the
+  // corresponding update and the node within it.
   CreatedEvent created_event = 1;
 
   // The domain which sequenced the creation of the contract

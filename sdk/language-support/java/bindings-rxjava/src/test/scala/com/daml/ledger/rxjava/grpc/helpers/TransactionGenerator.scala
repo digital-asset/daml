@@ -210,6 +210,8 @@ object TransactionGenerator {
 
   val createdEventGen: Gen[(Created, data.CreatedEvent)] = for {
     eventId <- nonEmptyId
+    offset <- Gen.posNum[Long]
+    nodeId <- Gen.posNum[Int]
     contractId <- nonEmptyId
     packageName <- nonEmptyId
     contractKey <- Gen.option(valueGen(0))
@@ -224,6 +226,8 @@ object TransactionGenerator {
     Created(
       CreatedEvent(
         eventId = eventId,
+        offset = offset,
+        nodeId = nodeId,
         contractId = contractId,
         templateId = Some(scalaTemplateId),
         contractKey = contractKey.map(_._1),
@@ -240,6 +244,8 @@ object TransactionGenerator {
     new data.CreatedEvent(
       witnessParties = (signatories ++ observers).asJava,
       eventId = eventId,
+      offset = offset,
+      nodeId = nodeId,
       templateId = javaTemplateId,
       packageName = packageName,
       contractId = contractId,
@@ -258,6 +264,8 @@ object TransactionGenerator {
 
   val archivedEventGen: Gen[(Archived, data.ArchivedEvent)] = for {
     eventId <- nonEmptyId
+    offset <- Gen.posNum[Long]
+    nodeId <- Gen.posNum[Int]
     pkgName <- nonEmptyId
     contractId <- nonEmptyId
     (scalaTemplateId, javaTemplateId) <- identifierGen
@@ -266,17 +274,29 @@ object TransactionGenerator {
     Archived(
       ArchivedEvent(
         eventId = eventId,
+        offset = offset,
+        nodeId = nodeId,
         contractId = contractId,
         templateId = Some(scalaTemplateId),
         witnessParties = parties,
         packageName = pkgName,
       )
     ),
-    new data.ArchivedEvent(parties.asJava, eventId, javaTemplateId, pkgName, contractId),
+    new data.ArchivedEvent(
+      parties.asJava,
+      eventId,
+      offset,
+      nodeId,
+      javaTemplateId,
+      pkgName,
+      contractId,
+    ),
   )
 
   val exercisedEventGen: Gen[(Exercised, data.ExercisedEvent)] = for {
     eventId <- nonEmptyId
+    offset <- Gen.posNum[Long]
+    nodeId <- Gen.posNum[Int]
     contractId <- nonEmptyId
     (scalaTemplateId, javaTemplateId) <- identifierGen
     pkgName <- nonEmptyId
@@ -294,6 +314,8 @@ object TransactionGenerator {
     Exercised(
       ExercisedEvent(
         eventId = eventId,
+        offset = offset,
+        nodeId = nodeId,
         contractId = contractId,
         templateId = Some(scalaTemplateId),
         interfaceId = scalaInterfaceId,
@@ -310,6 +332,8 @@ object TransactionGenerator {
     new data.ExercisedEvent(
       witnessParties.asJava,
       eventId,
+      offset,
+      nodeId,
       javaTemplateId,
       pkgName,
       javaInterfaceId.toJava,

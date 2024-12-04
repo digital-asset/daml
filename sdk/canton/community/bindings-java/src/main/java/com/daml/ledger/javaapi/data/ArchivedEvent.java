@@ -14,6 +14,10 @@ public final class ArchivedEvent implements Event {
 
   private final String eventId;
 
+  private final Long offset;
+
+  private final Integer nodeId;
+
   private final Identifier templateId;
 
   private final String packageName;
@@ -23,11 +27,15 @@ public final class ArchivedEvent implements Event {
   public ArchivedEvent(
       @NonNull List<@NonNull String> witnessParties,
       @NonNull String eventId,
+      @NonNull Long offset,
+      @NonNull Integer nodeId,
       @NonNull Identifier templateId,
       @NonNull String packageName,
       @NonNull String contractId) {
     this.witnessParties = witnessParties;
     this.eventId = eventId;
+    this.offset = offset;
+    this.nodeId = nodeId;
     this.templateId = templateId;
     this.packageName = packageName;
     this.contractId = contractId;
@@ -43,6 +51,18 @@ public final class ArchivedEvent implements Event {
   @Override
   public String getEventId() {
     return eventId;
+  }
+
+  @NonNull
+  @Override
+  public Long getOffset() {
+    return offset;
+  }
+
+  @NonNull
+  @Override
+  public Integer getNodeId() {
+    return nodeId;
   }
 
   @NonNull
@@ -70,6 +90,8 @@ public final class ArchivedEvent implements Event {
     ArchivedEvent that = (ArchivedEvent) o;
     return Objects.equals(witnessParties, that.witnessParties)
         && Objects.equals(eventId, that.eventId)
+        && Objects.equals(offset, that.offset)
+        && Objects.equals(nodeId, that.nodeId)
         && Objects.equals(templateId, that.templateId)
         && Objects.equals(packageName, that.packageName)
         && Objects.equals(contractId, that.contractId);
@@ -77,7 +99,8 @@ public final class ArchivedEvent implements Event {
 
   @Override
   public int hashCode() {
-    return Objects.hash(witnessParties, eventId, templateId, packageName, contractId);
+    return Objects.hash(
+        witnessParties, eventId, offset, nodeId, templateId, packageName, contractId);
   }
 
   @Override
@@ -88,6 +111,10 @@ public final class ArchivedEvent implements Event {
         + ", eventId='"
         + eventId
         + '\''
+        + ", offset="
+        + offset
+        + ", nodeId="
+        + nodeId
         + ", packageName="
         + packageName
         + ", templateId="
@@ -102,9 +129,11 @@ public final class ArchivedEvent implements Event {
     return EventOuterClass.ArchivedEvent.newBuilder()
         .setContractId(getContractId())
         .setEventId(getEventId())
+        .setOffset(getOffset())
+        .setNodeId(getNodeId())
         .setTemplateId(getTemplateId().toProto())
         .setPackageName(getPackageName())
-        .addAllWitnessParties(this.getWitnessParties())
+        .addAllWitnessParties(getWitnessParties())
         .build();
   }
 
@@ -112,6 +141,8 @@ public final class ArchivedEvent implements Event {
     return new ArchivedEvent(
         archivedEvent.getWitnessPartiesList(),
         archivedEvent.getEventId(),
+        archivedEvent.getOffset(),
+        archivedEvent.getNodeId(),
         Identifier.fromProto(archivedEvent.getTemplateId()),
         archivedEvent.getPackageName(),
         archivedEvent.getContractId());
