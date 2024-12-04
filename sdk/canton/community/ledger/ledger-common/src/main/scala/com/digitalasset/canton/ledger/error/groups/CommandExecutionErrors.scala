@@ -681,7 +681,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
         "An optional contract field with a value of Some may not be dropped during downgrading"
       )
       @Resolution(
-        "There is data that is newer than the implementation it is being used it, and thus is not compatible. Ensure new data (i.e. those with additional fields as `Some`) is only used with new choices"
+        "There is data that is newer than the implementation using it, and thus is not compatible. Ensure new data (i.e. those with additional fields as `Some`) is only used with new/compatible choices"
       )
       object DowngradeDropDefinedField
           extends ErrorCode(
