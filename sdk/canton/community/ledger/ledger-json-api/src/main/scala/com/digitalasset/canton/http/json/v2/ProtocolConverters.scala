@@ -460,6 +460,8 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
               )
             } yield JsTreeEvent.ExercisedTreeEvent(
               event_id = exercised.eventId,
+              offset = exercised.offset,
+              node_id = exercised.nodeId,
               contract_id = exercised.contractId,
               template_id = IdentifierConverter.toJson(apiTemplateId),
               interface_id = exercised.interfaceId.map(IdentifierConverter.toJson),
@@ -714,6 +716,8 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
   object ArchivedEvent extends ProtocolConverter[lapi.event.ArchivedEvent, JsEvent.ArchivedEvent] {
     def toJson(e: lapi.event.ArchivedEvent): JsEvent.ArchivedEvent = JsEvent.ArchivedEvent(
       event_id = e.eventId,
+      offset = e.offset,
+      node_id = e.nodeId,
       contract_id = e.contractId,
       template_id = IdentifierConverter.toJson(e.getTemplateId),
       witness_parties = e.witnessParties,
@@ -758,6 +762,8 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         interfaceViews <- Future.sequence(created.interfaceViews.map(InterfaceView.toJson))
       } yield JsEvent.CreatedEvent(
         event_id = created.eventId,
+        offset = created.offset,
+        node_id = created.nodeId,
         contract_id = created.contractId,
         template_id = IdentifierConverter.toJson(created.getTemplateId),
         contract_key = contractKey.map(toCirce),
