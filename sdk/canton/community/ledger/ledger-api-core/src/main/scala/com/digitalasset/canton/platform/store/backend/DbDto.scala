@@ -161,7 +161,6 @@ object DbDto {
       deduplication_offset: Option[Long],
       deduplication_duration_seconds: Option[Long],
       deduplication_duration_nanos: Option[Int],
-      deduplication_start: Option[Long],
       domain_id: String,
       message_uuid: Option[String],
       request_sequencer_counter: Option[Long],

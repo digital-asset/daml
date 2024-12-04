@@ -120,6 +120,7 @@ final case class SimulationSettings(
     durationOfFirstPhaseWithFaults: FiniteDuration,
     durationOfSecondPhaseWithoutFaults: FiniteDuration = 30.seconds,
     clientRequestInterval: Option[FiniteDuration] = Some(1.second),
+    livenessCheckInterval: FiniteDuration = 15.seconds,
     peerOnboardingTimes: Iterable[TopologyActivationTime] = Iterable.empty,
     becomingOnlineAfterOnboardingDelay: FiniteDuration =
       SimulationSettings.defaultBecomingOnlineAfterOnboardingDelay,

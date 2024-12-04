@@ -347,7 +347,6 @@ private[backend] object AppendOnlySchema {
         "deduplication_duration_nanos" -> fieldStrategy.intOptional(_ =>
           _.deduplication_duration_nanos
         ),
-        "deduplication_start" -> fieldStrategy.bigintOptional(_ => _.deduplication_start),
         "domain_id" -> fieldStrategy.int(stringInterning =>
           dbDto => stringInterning.domainId.unsafe.internalize(dbDto.domain_id)
         ),

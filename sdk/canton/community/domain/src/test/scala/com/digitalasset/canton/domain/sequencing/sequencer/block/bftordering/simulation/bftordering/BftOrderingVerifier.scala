@@ -32,7 +32,9 @@ class BftOrderingVerifier(
     simSettings: SimulationSettings,
 ) extends SimulationVerifier
     with Matchers {
+
   private val currentLog = ArrayBuffer[BlockFormat.Block]()
+
   private var previousTimestamp = 0L
 
   private val peanoQueues = mutable.Map.empty[SequencerId, PeanoQueue[BlockFormat.Block]]
@@ -41,12 +43,16 @@ class BftOrderingVerifier(
 
   private var livenessState: LivenessState = LivenessState.NotChecking
 
-  override def simulationIsGoingHealthy(at: CantonTimestamp): Unit =
-    livenessState = LivenessState.BecameHealthy(
-      at,
-      currentLog.size,
-      peanoQueues.view.mapValues(_.head.unwrap).toMap,
-    )
+  override def resumeCheckingLiveness(at: CantonTimestamp): Unit =
+    livenessState match {
+      case LivenessState.NotChecking =>
+        livenessState = LivenessState.Checking(
+          at,
+          currentLog.size,
+          peanoQueues.view.mapValues(_.head.unwrap).toMap,
+        )
+      case _ => // already checking, ignore
+    }
 
   override def checkInvariants(at: CantonTimestamp): Unit = {
     checkLiveness(at)
@@ -59,22 +65,21 @@ class BftOrderingVerifier(
   private def checkLiveness(at: CantonTimestamp): Unit =
     livenessState match {
       case LivenessState.NotChecking => ()
-      case LivenessState.BecameHealthy(healthyAt, logSizeAtTime, peanoQueueSnapshots) =>
-        val haveAllPeersMadeProgress = peanoQueueSnapshots.foldLeft(true) {
-          case (acc, (peerId, peanoQueueHead)) =>
-            acc && peanoQueues(peerId).head.unwrap > peanoQueueHead
+      case LivenessState.Checking(startedAt, logSizeAtStart, peanoQueueSnapshots) =>
+        val haveAllPeersMadeProgress = peanoQueueSnapshots.forall { case (peerId, peanoQueueHead) =>
+          peanoQueues(peerId).head.unwrap > peanoQueueHead
         }
-        if (currentLog.sizeIs > logSizeAtTime && haveAllPeersMadeProgress) {
+        if (currentLog.sizeIs > logSizeAtStart && haveAllPeersMadeProgress) {
           // There has been progress since the simulation became healthy, so we don't need to check anymore
           livenessState = LivenessState.NotChecking
         } else {
           withClue(
-            s"previous log size = $logSizeAtTime, current log size = ${currentLog.size}, " +
+            s"previous log size = $logSizeAtStart, current log size = ${currentLog.size}, " +
               s"previous peano queue heads = $peanoQueueSnapshots, " +
               s"current peano queue heads = ${peanoQueues.view.mapValues(_.head.unwrap).toMap}; " +
               "liveness timeout occurred"
           ) {
-            at should be <= healthyAt.add(livenessRecoveryTimeout.toJava)
+            at should be <= startedAt.add(livenessRecoveryTimeout.toJava)
           }
         }
     }
@@ -86,7 +91,7 @@ class BftOrderingVerifier(
         if (sequencerBecomeOnlineTime(onboardingTime, simSettings) < timestamp) {
           implicit val traceContext: TraceContext = TraceContext.empty
           // Find the most advanced store
-          val store = stores.values.maxBy( // throws
+          val store = stores.values.maxBy( // `maxBy` can throw, it's fine for tests
             _.getLastConsecutive
               .resolveValue()
               .toOption
@@ -142,9 +147,9 @@ object BftOrderingVerifier {
 
   object LivenessState {
     case object NotChecking extends LivenessState
-    final case class BecameHealthy(
-        healthyAt: CantonTimestamp,
-        logSizeAtTime: Int,
+    final case class Checking(
+        startedAt: CantonTimestamp,
+        logSizeAtStart: Int,
         peanoQueueSnapshots: Map[SequencerId, PeanoQueueHead],
     ) extends LivenessState
   }

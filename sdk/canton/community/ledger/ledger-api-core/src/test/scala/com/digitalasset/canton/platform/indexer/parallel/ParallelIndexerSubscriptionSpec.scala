@@ -219,7 +219,6 @@ class ParallelIndexerSubscriptionSpec
     deduplication_offset = None,
     deduplication_duration_seconds = None,
     deduplication_duration_nanos = None,
-    deduplication_start = None,
     domain_id = "x::sourcedomain",
     message_uuid = None,
     request_sequencer_counter = None,

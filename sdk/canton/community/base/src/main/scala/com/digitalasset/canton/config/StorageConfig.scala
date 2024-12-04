@@ -71,6 +71,7 @@ final case class DbParametersConfig(
   *                                   Canton-internal store pruning happens at the smaller batch size of "maxPruningBatchSize" to minimize memory usage
   *                                   whereas ledger-api-server index-db pruning needs sufficiently large batches to amortize the database overhead of
   *                                   "skipping over" active contracts.
+  * @param maxAcsImportBatchSize  maximum number of active contracts in a batch to be imported
   * @param parallelism            number of parallel queries to the db. defaults to 8
   * @param aggregator             batching configuration for DB queries
   */
@@ -79,6 +80,7 @@ final case class BatchingConfig(
     maxPruningBatchSize: PositiveNumeric[Int] = BatchingConfig.defaultMaxPruningBatchSize,
     ledgerApiPruningBatchSize: PositiveNumeric[Int] =
       BatchingConfig.defaultLedgerApiPruningBatchSize,
+    maxAcsImportBatchSize: PositiveNumeric[Int] = BatchingConfig.defaultMaxAcsImportBatchSize,
     parallelism: PositiveNumeric[Int] = BatchingConfig.defaultBatchingParallelism,
     aggregator: BatchAggregatorConfig = BatchingConfig.defaultAggregator,
 )
@@ -88,6 +90,7 @@ object BatchingConfig {
   private val defaultBatchingParallelism: PositiveInt = PositiveNumeric.tryCreate(8)
   private val defaultMaxPruningBatchSize: PositiveInt = PositiveNumeric.tryCreate(1000)
   private val defaultLedgerApiPruningBatchSize: PositiveInt = PositiveNumeric.tryCreate(50000)
+  private val defaultMaxAcsImportBatchSize: PositiveNumeric[Int] = PositiveNumeric.tryCreate(1000)
   private val defaultAggregator: BatchAggregatorConfig.Batching = BatchAggregatorConfig.Batching()
 }
 

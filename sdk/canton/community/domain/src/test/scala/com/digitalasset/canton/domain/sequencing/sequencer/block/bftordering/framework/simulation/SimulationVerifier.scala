@@ -9,7 +9,7 @@ import com.digitalasset.canton.topology.SequencerId
 trait SimulationVerifier {
   def checkInvariants(at: CantonTimestamp): Unit
 
-  def simulationIsGoingHealthy(at: CantonTimestamp): Unit
+  def resumeCheckingLiveness(at: CantonTimestamp): Unit
 
   def aFutureHappened(peer: SequencerId): Unit
 }
@@ -17,7 +17,7 @@ trait SimulationVerifier {
 case object NoVerification extends SimulationVerifier {
   override def checkInvariants(at: CantonTimestamp): Unit = ()
 
-  override def simulationIsGoingHealthy(at: CantonTimestamp): Unit = ()
+  override def resumeCheckingLiveness(at: CantonTimestamp): Unit = ()
 
   override def aFutureHappened(peer: SequencerId): Unit = ()
 }
@@ -27,7 +27,7 @@ object SimulationVerifier {
     new SimulationVerifier {
       override def checkInvariants(at: CantonTimestamp): Unit = checker(at)
 
-      override def simulationIsGoingHealthy(at: CantonTimestamp): Unit = ()
+      override def resumeCheckingLiveness(at: CantonTimestamp): Unit = ()
 
       override def aFutureHappened(peer: SequencerId): Unit = ()
     }

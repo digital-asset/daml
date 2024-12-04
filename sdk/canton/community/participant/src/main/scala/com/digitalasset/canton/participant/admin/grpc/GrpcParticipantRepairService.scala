@@ -8,13 +8,15 @@ import cats.syntax.all.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError.TimestampConversionError
 import com.digitalasset.canton.admin.participant.v30.*
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp.fromProtoPrimitive
 import com.digitalasset.canton.data.{CantonTimestamp, RepairContract}
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
+import com.digitalasset.canton.participant.ParticipantNodeParameters
+import com.digitalasset.canton.participant.admin.data
 import com.digitalasset.canton.participant.admin.data.ActiveContract.loadFromByteString
 import com.digitalasset.canton.participant.admin.grpc.GrpcParticipantRepairService.ValidExportAcsRequest
 import com.digitalasset.canton.participant.admin.repair.RepairServiceError.ImportAcsError
@@ -26,7 +28,7 @@ import com.digitalasset.canton.topology.{DomainId, PartyId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils, ResourceUtil}
+import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils, MonadUtil, ResourceUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DomainAlias, LfPartyId, SequencerCounter, protocol}
 import com.google.protobuf.ByteString
@@ -40,13 +42,17 @@ import scala.util.{Failure, Success, Try}
 
 final class GrpcParticipantRepairService(
     sync: CantonSyncService,
-    processingTimeout: ProcessingTimeout,
+    parameters: ParticipantNodeParameters,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends ParticipantRepairServiceGrpc.ParticipantRepairService
     with NamedLogging {
 
   private val domainMigrationInProgress = new AtomicReference[Boolean](false)
+
+  private val processingTimeout: ProcessingTimeout = parameters.processingTimeouts
+
+  private val batching: BatchingConfig = parameters.batchingConfig
 
   /** purge contracts
     */
@@ -183,6 +189,35 @@ final class GrpcParticipantRepairService(
         outputStream.close()
       }
 
+      private def writeContracts(
+          workflowIdPrefixO: Option[String]
+      )(domainId: DomainId, contracts: Seq[data.ActiveContract])(implicit
+          traceContext: TraceContext
+      ): EitherT[Future, String, Unit] =
+        for {
+          alias <- EitherT.fromEither[Future](
+            sync.aliasManager
+              .aliasForDomainId(domainId)
+              .toRight(s"Not able to find domain alias for ${domainId.toString}")
+          )
+
+          _ <- EitherT.fromEither[Future](
+            sync.repairService.addContracts(
+              alias,
+              contracts.map(c =>
+                RepairContract(
+                  c.contract,
+                  Set.empty,
+                  c.reassignmentCounter,
+                )
+              ),
+              ignoreAlreadyAdded = true,
+              ignoreStakeholderCheck = true,
+              workflowIdPrefix = workflowIdPrefixO,
+            )
+          )
+        } yield ()
+
       // TODO(i12481): implement a solution to prevent the client from sending infinite streams
       override def onCompleted(): Unit = {
         val res = TraceContext.withNewTraceContext { implicit traceContext =>
@@ -191,46 +226,25 @@ final class GrpcParticipantRepairService(
               loadFromByteString(ByteString.copyFrom(outputStream.toByteArray))
             )
             (workflowIdPrefix, allowContractIdSuffixRecomputation) = tryArgs
-            activeContractsWithRemapping <- EnsureValidContractIds(
-              loggerFactory,
-              sync.protocolVersionGetter,
-              Option.when(allowContractIdSuffixRecomputation)(sync.pureCryptoApi),
-            )(activeContracts)
+            workflowIdPrefixO = Option.when(workflowIdPrefix != "")(workflowIdPrefix)
+
+            activeContractsWithRemapping <-
+              EnsureValidContractIds( // TODO(#22803) - Make this optional or 0 secs operation since it should be a no-op
+                loggerFactory,
+                sync.protocolVersionGetter,
+                Option.when(allowContractIdSuffixRecomputation)(sync.pureCryptoApi),
+              )(activeContracts)
             (activeContractsWithValidContractIds, contractIdRemapping) =
               activeContractsWithRemapping
-            contractsByDomain = activeContractsWithValidContractIds
-              .grouped(GrpcParticipantRepairService.DefaultBatchSize)
-              .map(_.groupBy(_.domainId)) // TODO(#14822): group by domain first, and then batch
-            _ <- LazyList
-              .from(contractsByDomain)
-              .parTraverse(_.toList.parTraverse {
-                case (
-                      domainId,
-                      contracts,
-                    ) => // TODO(#12481): large number of groups = large number of requests
-                  for {
-                    alias <- EitherT.fromEither[Future](
-                      sync.aliasManager
-                        .aliasForDomainId(domainId)
-                        .toRight(s"Not able to find domain alias for ${domainId.toString}")
-                    )
-                    _ <- EitherT.fromEither[Future](
-                      sync.repairService.addContracts(
-                        alias,
-                        contracts.map(c =>
-                          RepairContract(
-                            c.contract,
-                            Set.empty,
-                            c.reassignmentCounter,
-                          )
-                        ),
-                        ignoreAlreadyAdded = true,
-                        ignoreStakeholderCheck = true,
-                        workflowIdPrefix = Option.when(workflowIdPrefix != "")(workflowIdPrefix),
-                      )
-                    )
-                  } yield ()
-              })
+
+            _ <- activeContractsWithValidContractIds.groupBy(_.domainId).toSeq.parTraverse_ {
+              case (domainId, contracts) =>
+                MonadUtil.batchedSequentialTraverse_(
+                  batching.parallelism,
+                  batching.maxAcsImportBatchSize,
+                )(contracts)(writeContracts(workflowIdPrefixO)(domainId, _))
+            }
+
           } yield contractIdRemapping
 
           resultE.value.flatMap {
@@ -400,8 +414,6 @@ final class GrpcParticipantRepairService(
 }
 
 object GrpcParticipantRepairService {
-
-  private val DefaultBatchSize = 1000
 
   private object ValidExportAcsRequest {
 

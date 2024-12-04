@@ -66,7 +66,6 @@ class CompletionStorageBackendTemplate(
           deduplication_offset,
           deduplication_duration_seconds,
           deduplication_duration_nanos,
-          deduplication_start,
           domain_id,
           trace_context
         FROM
@@ -112,18 +111,15 @@ class CompletionStorageBackendTemplate(
     long("deduplication_duration_seconds").?
   private val deduplicationDurationNanosColumn: RowParser[Option[Int]] =
     int("deduplication_duration_nanos").?
-  private val deduplicationStartColumn: RowParser[Option[Timestamp]] =
-    timestampFromMicros("deduplication_start").?
 
   private def acceptedCommandParser(
       internedParties: Set[Int]
   ): RowParser[(Array[Int], CompletionStreamResponse)] =
     acceptedCommandSharedColumns ~
       deduplicationOffsetColumn ~
-      deduplicationDurationSecondsColumn ~ deduplicationDurationNanosColumn ~
-      deduplicationStartColumn map {
+      deduplicationDurationSecondsColumn ~ deduplicationDurationNanosColumn map {
         case submitters ~ offset ~ recordTime ~ commandId ~ applicationId ~ submissionId ~ internedDomainId ~ traceContext ~ updateId ~
-            deduplicationOffset ~ deduplicationDurationSeconds ~ deduplicationDurationNanos ~ _ =>
+            deduplicationOffset ~ deduplicationDurationSeconds ~ deduplicationDurationNanos =>
           submitters -> CompletionFromTransaction.acceptedCompletion(
             submitters = submitters.iterator
               .filter(internedParties)
@@ -154,12 +150,11 @@ class CompletionStorageBackendTemplate(
     sharedColumns ~
       deduplicationOffsetColumn ~
       deduplicationDurationSecondsColumn ~ deduplicationDurationNanosColumn ~
-      deduplicationStartColumn ~
       rejectionStatusCodeColumn ~
       rejectionStatusMessageColumn ~
       rejectionStatusDetailsColumn map {
         case submitters ~ offset ~ recordTime ~ commandId ~ applicationId ~ submissionId ~ internedDomainId ~ traceContext ~
-            deduplicationOffset ~ deduplicationDurationSeconds ~ deduplicationDurationNanos ~ _ ~
+            deduplicationOffset ~ deduplicationDurationSeconds ~ deduplicationDurationNanos ~
             rejectionStatusCode ~ rejectionStatusMessage ~ rejectionStatusDetails =>
           val status =
             buildStatusProto(rejectionStatusCode, rejectionStatusMessage, rejectionStatusDetails)

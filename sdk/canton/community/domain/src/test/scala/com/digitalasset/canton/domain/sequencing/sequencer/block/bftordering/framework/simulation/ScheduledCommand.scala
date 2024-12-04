@@ -55,6 +55,7 @@ final case class SpawnReactor(peer: SequencerId, name: ModuleName, reactor: Reac
 final case class StopReactor(peer: SequencerId, name: ModuleName) extends Command
 final case class CrashRestartPeer(peer: SequencerId) extends Command
 case object MakeSystemHealthy extends Command
+case object ResumeLivenessChecks extends Command
 final case class ScheduledCommand(
     command: Command,
     at: CantonTimestamp,

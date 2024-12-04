@@ -794,7 +794,7 @@ class ParticipantNodeBootstrap(
             ParticipantRepairServiceGrpc.bindService(
               new GrpcParticipantRepairService(
                 sync,
-                parameterConfig.processingTimeouts,
+                parameterConfig,
                 loggerFactory,
               ),
               executionContext,
