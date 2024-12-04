@@ -102,6 +102,8 @@ public class TemplateMethodTest {
       new CreatedEvent(
           Collections.emptyList(),
           "eventId",
+          1L,
+          0,
           SimpleTemplate.TEMPLATE_ID,
           "package-name",
           "cid",
