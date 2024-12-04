@@ -106,6 +106,10 @@ module Daml.Script
   , submitUser
   , submitUserOn
   , tryToEither
+
+  , -- Upgrades features
+    PackageId (..)  
+  , packagePreference
   ) where
 
 import Daml.Script.Internal.LowLevel
