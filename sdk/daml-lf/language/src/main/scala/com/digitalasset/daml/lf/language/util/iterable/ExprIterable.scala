@@ -127,6 +127,8 @@ private[lf] object ExprIterable {
         Iterator(body)
       case UpdateTryCatch(typ @ _, body, binder @ _, handler) =>
         Iterator(body, handler)
+      case UpdatePrefetchContracts(contracts) =>
+        Iterator(contracts)
     }
   }
 

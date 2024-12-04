@@ -519,6 +519,9 @@ alphaUpdate env = \case
             && alphaExpr' env e1a e2a
             && alphaExpr' (bindExprVar x1 x2 env) e1b e2b
         _ -> structuralMismatch
+    UPrefetchContracts e1 -> \case
+        UPrefetchContracts e2 -> alphaExpr' env e1 e2
+        _ -> structuralMismatch
 
 alphaScenario :: AlphaEnv reason -> Scenario -> Scenario -> Mismatches reason
 alphaScenario env = \case

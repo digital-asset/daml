@@ -422,6 +422,7 @@ instance Pretty Update where
       pPrintAppKeyword lvl prec "ulookup_by_key" [tplArg tmplId]
     UTryCatch t e1 x e2 -> keyword_ "try" <-> pPrintTyArg lvl t <-> pPrintTmArg lvl e1
       <-> keyword_ "catch" <-> pPrintPrec lvl precParam x <-> keyword_ "." <-> pPrintTmArg lvl e2
+    UPrefetchContracts e -> pPrintAppKeyword lvl prec "prefetch_contracts" [TmArg e]
 
 instance Pretty Scenario where
   pPrintPrec lvl prec = \case

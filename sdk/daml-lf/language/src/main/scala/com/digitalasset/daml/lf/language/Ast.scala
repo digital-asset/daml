@@ -608,6 +608,7 @@ object Ast {
       binder: ExprVarName,
       handler: Expr,
   ) extends Update
+  final case class UpdatePrefetchContracts(contracts: Expr) extends Update
 
   //
   // Scenario expressions

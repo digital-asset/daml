@@ -657,6 +657,9 @@ typeOfUpdate = \case
     introExprVar var TAnyException $ do
         checkExpr handler (TOptional (TUpdate typ))
     pure (TUpdate typ)
+  UPrefetchContracts expr -> do
+    checkExpr expr (TList (TContractId TUnit))
+    pure (TUpdate TUnit)
 
 typeOfScenario :: MonadGamma m => Scenario -> m Type
 typeOfScenario = \case

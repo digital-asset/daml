@@ -315,6 +315,8 @@ applySubstInUpdate subst = \case
             (applySubstInExpr subst e1)
             x'
             (applySubstInExpr subst' e2)
+    UPrefetchContracts e -> UPrefetchContracts
+        (applySubstInExpr subst e)
 
 applySubstInScenario :: Subst -> Scenario -> Scenario
 applySubstInScenario subst = \case
