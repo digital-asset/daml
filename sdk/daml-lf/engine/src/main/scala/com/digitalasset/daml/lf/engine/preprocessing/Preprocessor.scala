@@ -6,10 +6,12 @@ package engine
 package preprocessing
 
 import com.daml.lf.command.ReplayCommand
-import com.daml.lf.data.{Ref, ImmArray}
+import com.daml.lf.crypto.Hash.KeyPackageName
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.{Ast, LookupError}
+import com.daml.lf.speedy.SError.{SErrorCrash, SErrorDamlException}
 import com.daml.lf.speedy.SValue
-import com.daml.lf.transaction.{SubmittedTransaction, Node}
+import com.daml.lf.transaction.{GlobalKey, Node, SubmittedTransaction, TransactionVersion => TxVersion}
 import com.daml.lf.value.Value
 import com.daml.nameof.NameOf
 
@@ -260,6 +262,19 @@ private[engine] final class Preprocessor(
     ) {
       commandPreprocessor.unsafePreprocessInterfaceView(templateId, argument, interfaceId)
     }
+
+  def prefetchKeys(
+      commands: ImmArray[speedy.Command]
+  ): Result[Unit] = {
+    val keys = commands.iterator.collect {
+      case speedy.Command.ExerciseByKey(templateId, contractKey, _, _) =>
+        val packageTxVersion = speedy.Speedy.Machine.tmplId2TxVersion(compiledPackages, templateId)
+        val pkgName = speedy.Speedy.Machine.tmplId2PackageName(compiledPackages, templateId, packageTxVersion)
+        speedy.Speedy.Machine.toGlobalKey(packageTxVersion, pkgName, templateId, contractKey)
+    }
+    if (keys.nonEmpty) ResultPrefetch(keys.toSeq, () => ResultDone.Unit)
+    else ResultDone.Unit
+  }
 }
 
 private[preprocessing] object Preprocessor {

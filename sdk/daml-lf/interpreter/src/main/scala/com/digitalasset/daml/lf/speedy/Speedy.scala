@@ -9,7 +9,7 @@ import com.daml.lf.crypto.Hash.KeyPackageName
 import java.util
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, NoCopy, Ref, Time}
-import com.daml.lf.interpretation.{Error => IError}
+import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LookupError, StablePackages, Util => AstUtil}
 import com.daml.lf.language.LanguageVersionRangeOps._
@@ -21,16 +21,7 @@ import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue.SArithmeticError
 import com.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
 import com.daml.lf.transaction.ContractStateMachine.KeyMapping
-import com.daml.lf.transaction.GlobalKeyWithMaintainers
-import com.daml.lf.transaction.{
-  ContractKeyUniquenessMode,
-  GlobalKey,
-  Node,
-  NodeId,
-  SubmittedTransaction,
-  IncompleteTransaction => IncompleteTx,
-  TransactionVersion => TxVersion,
-}
+import com.daml.lf.transaction.{ContractKeyUniquenessMode, GlobalKey, GlobalKeyWithMaintainers, Node, NodeId, SubmittedTransaction, TransactionVersion, IncompleteTransaction => IncompleteTx, TransactionVersion => TxVersion}
 import com.daml.lf.value.Value.{ContractId, ValueArithmeticError}
 import com.daml.lf.value.{Value => V}
 import com.daml.nameof.NameOf
@@ -991,25 +982,10 @@ private[lf] object Speedy {
     }
 
     final def tmplId2TxVersion(tmplId: TypeConName): TxVersion =
-      TxVersion.assignNodeVersion(
-        compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
-      )
+      Machine.tmplId2TxVersion(compiledPackages, tmplId)
 
-    final def tmplId2PackageName(tmplId: TypeConName, version: TxVersion): Option[PackageName] = {
-      import Ordering.Implicits._
-      if (version < TxVersion.minUpgrade)
-        None
-      else
-        compiledPackages.pkgInterface.signatures(tmplId.packageId).metadata match {
-          case Some(value) => Some(value.name)
-          case None =>
-            val version = compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
-            throw SErrorCrash(
-              NameOf.qualifiedNameOfCurrentFunc,
-              s"unexpected ${version.pretty} package without metadata",
-            )
-        }
-    }
+    final def tmplId2PackageName(tmplId: TypeConName, version: TxVersion): Option[PackageName] =
+      Machine.tmplId2PackageName(compiledPackages, tmplId, version)
 
     private[lf] def abort(): Unit = {
       // We make sure the interpretation cannot be resumed
@@ -1727,9 +1703,38 @@ private[lf] object Speedy {
     )(implicit loggingContext: LoggingContext): Either[SError, SValue] =
       fromPureSExpr(compiledPackages, expr, iterationsBetweenInterruptions).runPure()
 
-  }
+    def tmplId2TxVersion(compiledPackages: CompiledPackages, tmplId: TypeConName): TxVersion =
+      TxVersion.assignNodeVersion(
+        compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
+      )
 
-  // Environment
+    def tmplId2PackageName(compiledPackages: CompiledPackages, tmplId: TypeConName, version: TxVersion): Option[PackageName] = {
+      import Ordering.Implicits._
+      if (version < TxVersion.minUpgrade)
+        None
+      else
+        compiledPackages.pkgInterface.signatures(tmplId.packageId).metadata match {
+          case Some(value) => Some(value.name)
+          case None =>
+            val version = compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
+            throw SErrorCrash(
+              NameOf.qualifiedNameOfCurrentFunc,
+              s"unexpected ${version.pretty} package without metadata",
+            )
+        }
+    }
+
+    private[lf] def toGlobalKey(packageTxVersion: TransactionVersion, pkgName: Option[PackageName], templateId: TypeConName, keyValue: SValue) = {
+      val lfValue = keyValue.toNormalizedValue(packageTxVersion)
+      GlobalKey
+        .build(templateId, lfValue, KeyPackageName(pkgName, packageTxVersion))
+        .getOrElse(
+          throw SErrorDamlException(IE.ContractIdInContractKey(keyValue.toUnnormalizedValue))
+        )
+    }
+
+
+    // Environment
   //
   // NOTE(JM): We use ArrayList instead of ArrayBuffer as
   // it is significantly faster.

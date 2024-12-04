@@ -155,7 +155,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
     for {
       pkgResolution <- preprocessor.buildPackageResolution(packageMap, packagePreference)
       processedCmds <- preprocessor.preprocessApiCommands(pkgResolution, cmds.commands)
-      _ <- prefetchKeys(processedCmds)
+      _ <- preprocessor.prefetchKeys(processedCmds)
       processedDiscs <- preprocessor.preprocessDisclosedContracts(disclosures)
       result <-
         interpretCommands(
@@ -172,44 +172,6 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
         )
       (tx, meta) = result
     } yield tx -> meta.copy(submissionSeed = Some(submissionSeed))
-  }
-
-  private def prefetchKeys(commands: ImmArray[speedy.Command]): Result[Unit] = {
-    val keys = commands.iterator.collect {
-      case speedy.Command.ExerciseByKey(templateId, contractKey, _, _) =>
-        // Extracted from com.daml.lf.speedy.SBuiltin.extractKey
-
-        // Copied from com.daml.lf.speedy.Speedy.Machine.tmplId2TxVersion
-        val packageTxVersion = TxVersion.assignNodeVersion(
-          compiledPackages.pkgInterface.packageLanguageVersion(templateId.packageId)
-        )
-        // Copied from com.daml.lf.speedy.Speedy.Machine.tmplId2PackageName
-        val pkgName = {
-          import Ordering.Implicits._
-          if (packageTxVersion < TxVersion.minUpgrade)
-            None
-          else
-            compiledPackages.pkgInterface.signatures(templateId.packageId).metadata match {
-              case Some(value) => Some(value.name)
-              case None =>
-                val version =
-                  compiledPackages.pkgInterface.packageLanguageVersion(templateId.packageId)
-                throw SErrorCrash(
-                  NameOf.qualifiedNameOfCurrentFunc,
-                  s"unexpected ${version.pretty} package without metadata",
-                )
-            }
-        }
-        val lfValue = contractKey.toNormalizedValue(packageTxVersion)
-        import com.daml.lf.interpretation.{Error => IE}
-        val gkey = GlobalKey
-          .build(templateId, lfValue, KeyPackageName(pkgName, packageTxVersion))
-          .getOrElse(
-            throw SErrorDamlException(IE.ContractIdInContractKey(contractKey.toUnnormalizedValue))
-          )
-        gkey
-    }
-    ResultPrefetch(keys.toSeq, () => Result.unit)
   }
 
   /** Behaves like `submit`, but it takes a single `ReplayCommand` (instead of `ApiCommands`) as input.

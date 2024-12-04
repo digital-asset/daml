@@ -2282,12 +2282,7 @@ private[lf] object SBuiltin {
     v match {
       case SStruct(_, vals) =>
         val keyValue = vals.get(keyIdx)
-        val lfValue = keyValue.toNormalizedValue(packageTxVersion)
-        val gkey = GlobalKey
-          .build(templateId, lfValue, KeyPackageName(pkgName, packageTxVersion))
-          .getOrElse(
-            throw SErrorDamlException(IE.ContractIdInContractKey(keyValue.toUnnormalizedValue))
-          )
+        val gkey = Speedy.Machine.toGlobalKey(packageTxVersion, pkgName, templateId, keyValue)
         CachedKey(
           keyPackageName = KeyPackageName(pkgName, packageTxVersion),
           globalKeyWithMaintainers = GlobalKeyWithMaintainers(
