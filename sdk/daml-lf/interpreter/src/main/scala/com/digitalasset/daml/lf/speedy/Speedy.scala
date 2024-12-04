@@ -11,7 +11,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, NoCopy, Ref, Time}
 import com.daml.lf.interpretation.{Error => IError}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LookupError, StablePackages, Util => AstUtil}
+import com.daml.lf.language.{LookupError, PackageInterface, StablePackages, Util => AstUtil}
 import com.daml.lf.language.LanguageVersionRangeOps._
 import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.daml.lf.speedy.PartialTransaction.NodeSeeds
@@ -991,10 +991,10 @@ private[lf] object Speedy {
     }
 
     final def tmplId2TxVersion(tmplId: TypeConName): TxVersion =
-      Machine.tmplId2TxVersion(compiledPackages, tmplId)
+      Machine.tmplId2TxVersion(compiledPackages.pkgInterface, tmplId)
 
     final def tmplId2PackageName(tmplId: TypeConName, version: TxVersion): Option[PackageName] =
-      Machine.tmplId2PackageName(compiledPackages, tmplId, version)
+      Machine.tmplId2PackageName(compiledPackages.pkgInterface, tmplId, version)
 
     private[lf] def abort(): Unit = {
       // We make sure the interpretation cannot be resumed
@@ -1714,13 +1714,13 @@ private[lf] object Speedy {
     )(implicit loggingContext: LoggingContext): Either[SError, SValue] =
       fromPureSExpr(compiledPackages, expr, iterationsBetweenInterruptions).runPure()
 
-    def tmplId2TxVersion(compiledPackages: CompiledPackages, tmplId: TypeConName): TxVersion =
+    def tmplId2TxVersion(pkgInterface: PackageInterface, tmplId: TypeConName): TxVersion =
       TxVersion.assignNodeVersion(
-        compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
+        pkgInterface.packageLanguageVersion(tmplId.packageId)
       )
 
     def tmplId2PackageName(
-        compiledPackages: CompiledPackages,
+        pkgInterface: PackageInterface,
         tmplId: TypeConName,
         version: TxVersion,
     ): Option[PackageName] = {
@@ -1728,10 +1728,10 @@ private[lf] object Speedy {
       if (version < TxVersion.minUpgrade)
         None
       else
-        compiledPackages.pkgInterface.signatures(tmplId.packageId).metadata match {
+        pkgInterface.signatures(tmplId.packageId).metadata match {
           case Some(value) => Some(value.name)
           case None =>
-            val version = compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
+            val version = pkgInterface.packageLanguageVersion(tmplId.packageId)
             throw SErrorCrash(
               NameOf.qualifiedNameOfCurrentFunc,
               s"unexpected ${version.pretty} package without metadata",
@@ -1739,7 +1739,17 @@ private[lf] object Speedy {
         }
     }
 
-    private[lf] def toGlobalKey(
+    private[lf] def assertGlobalKey(
+        pkgInterface: PackageInterface,
+        templateId: Ref.Identifier,
+        contractKey: SValue,
+    ): GlobalKey = {
+      val packageTxVersion = tmplId2TxVersion(pkgInterface, templateId)
+      val pkgName = tmplId2PackageName(pkgInterface, templateId, packageTxVersion)
+      assertGlobalKey(packageTxVersion, pkgName, templateId, contractKey)
+    }
+
+    private[lf] def assertGlobalKey(
         packageTxVersion: TxVersion,
         pkgName: Option[PackageName],
         templateId: TypeConName,

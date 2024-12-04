@@ -2282,7 +2282,7 @@ private[lf] object SBuiltin {
     v match {
       case SStruct(_, vals) =>
         val keyValue = vals.get(keyIdx)
-        val gkey = Speedy.Machine.toGlobalKey(packageTxVersion, pkgName, templateId, keyValue)
+        val gkey = Speedy.Machine.assertGlobalKey(packageTxVersion, pkgName, templateId, keyValue)
         CachedKey(
           keyPackageName = KeyPackageName(pkgName, packageTxVersion),
           globalKeyWithMaintainers = GlobalKeyWithMaintainers(

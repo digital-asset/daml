@@ -214,7 +214,7 @@ private[engine] final class Preprocessor(
 
   def preprocessDisclosedContracts(
       discs: data.ImmArray[command.DisclosedContract]
-  ): Result[ImmArray[speedy.DisclosedContract]] =
+  ): Result[(ImmArray[speedy.DisclosedContract], Set[crypto.Hash])] =
     safelyRun(pullPackage(discs.toSeq.view.map(_.templateId))) {
       commandPreprocessor.unsafePreprocessDisclosedContracts(discs)
     }
@@ -261,17 +261,16 @@ private[engine] final class Preprocessor(
       commandPreprocessor.unsafePreprocessInterfaceView(templateId, argument, interfaceId)
     }
 
-  def prefetchKeys(
-      commands: ImmArray[speedy.Command]
+  private[engine] def prefetchKeys(
+      commands: ImmArray[speedy.Command],
+      disclosedKeyHashes: Set[crypto.Hash],
   ): Result[Unit] = {
     val keys = commands.iterator.collect {
       case speedy.Command.ExerciseByKey(templateId, contractKey, _, _) =>
-        val packageTxVersion = speedy.Speedy.Machine.tmplId2TxVersion(compiledPackages, templateId)
-        val pkgName =
-          speedy.Speedy.Machine.tmplId2PackageName(compiledPackages, templateId, packageTxVersion)
-        speedy.Speedy.Machine.toGlobalKey(packageTxVersion, pkgName, templateId, contractKey)
+        speedy.Speedy.Machine.assertGlobalKey(pkgInterface, templateId, contractKey)
     }
-    if (keys.nonEmpty) ResultPrefetch(keys.toSeq, () => ResultDone.Unit)
+    val undisclosedKeys = keys.filterNot(key => disclosedKeyHashes.contains(key.hash))
+    if (undisclosedKeys.nonEmpty) ResultPrefetch(undisclosedKeys.toSeq, () => ResultDone.Unit)
     else ResultDone.Unit
   }
 }

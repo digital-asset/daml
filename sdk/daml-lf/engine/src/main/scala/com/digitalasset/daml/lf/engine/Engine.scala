@@ -151,8 +151,9 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
     for {
       pkgResolution <- preprocessor.buildPackageResolution(packageMap, packagePreference)
       processedCmds <- preprocessor.preprocessApiCommands(pkgResolution, cmds.commands)
-      _ <- preprocessor.prefetchKeys(processedCmds)
-      processedDiscs <- preprocessor.preprocessDisclosedContracts(disclosures)
+      processedDiscsAndKeys <- preprocessor.preprocessDisclosedContracts(disclosures)
+      (processedDiscs, disclosedKeys) = processedDiscsAndKeys
+      _ <- preprocessor.prefetchKeys(processedCmds, disclosedKeys)
       result <-
         interpretCommands(
           validating = false,

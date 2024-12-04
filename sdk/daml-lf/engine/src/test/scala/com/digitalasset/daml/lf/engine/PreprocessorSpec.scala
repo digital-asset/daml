@@ -322,6 +322,32 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
         }
       }
 
+      "return the set of disclosed contract key hashes" in {
+        val preprocessor =
+          new preprocessing.Preprocessor(ConcurrentCompiledPackages(compilerConfig))
+        val contract1 =
+          buildDisclosedContract(contractId, templateId = withKeyTmplId, keyHash = Some(keyHash))
+        val contractId2 =
+          Value.ContractId.V1.assertBuild(
+            crypto.Hash.hashPrivateKey("another-contract-id"),
+            Bytes.assertFromString("cafe"),
+          )
+
+        val contract2 =
+          buildDisclosedContract(
+            contractId2,
+            templateId = withKeyTmplId,
+            keyHash = Some(keyBobHash),
+          )
+        val finalResult = preprocessor
+          .preprocessDisclosedContracts(ImmArray(contract1, contract2))
+          .consume(pkgs = pkgs)
+
+        inside(finalResult) { case Right((_, keyHashes)) =>
+          keyHashes shouldBe Set(keyHash, keyBobHash)
+        }
+      }
+
       "reject disclosed contract of a type without key but with a key hash " in {
         val preprocessor =
           new preprocessing.Preprocessor(ConcurrentCompiledPackages(compilerConfig))
@@ -364,11 +390,10 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
             succeed
         }
       }
-
     }
 
     "prefetchKeys" should {
-      "extract the keys from ExerciseByKey commands" in {
+      "extract the undisclosed keys from ExerciseByKey commands" in {
         val compiledPkgs = ConcurrentCompiledPackages(compilerConfig)
         val preprocessor = new preprocessing.Preprocessor(compiledPkgs)
 
@@ -427,11 +452,16 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
             commands,
           )
           .consume(pkgs = pkgs)
-        val result = preprocessor.prefetchKeys(preprocessedCommands)
-        inside(result) { case ResultPrefetch(keys, resume) =>
+
+        val resultAllUndisclosed = preprocessor.prefetchKeys(preprocessedCommands, Set.empty)
+        inside(resultAllUndisclosed) { case ResultPrefetch(keys, resume) =>
           keys shouldBe Seq(globalKey1, globalKey2)
           resume() shouldBe ResultDone.Unit
         }
+
+        val resultAllDisclosed =
+          preprocessor.prefetchKeys(preprocessedCommands, Set(globalKey1.hash, globalKey2.hash))
+        resultAllDisclosed shouldBe ResultDone.Unit
       }
     }
   }
@@ -486,6 +516,7 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
   val pkgName = pkg.name
   val pkgs = Map(defaultPackageId -> pkg)
   val alice: Party = Ref.Party.assertFromString("Alice")
+  val bob: Party = Ref.Party.assertFromString("Bob")
   val parties: ValueList = ValueList(FrontStack(ValueParty(alice)))
   val testKeyName: String = "test-key"
   val contractId: ContractId =
@@ -509,6 +540,19 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
     crypto.Hash.assertHashContractKey(
       withKeyTmplId,
       key,
+      KeyPackageName(pkg.name, pkg.languageVersion),
+    )
+  val keyBob: Value.ValueRecord = Value.ValueRecord(
+    None,
+    ImmArray(
+      None -> Value.ValueText(testKeyName),
+      None -> Value.ValueList(FrontStack.from(ImmArray(ValueParty(bob)))),
+    ),
+  )
+  val keyBobHash =
+    crypto.Hash.assertHashContractKey(
+      withKeyTmplId,
+      keyBob,
       KeyPackageName(pkg.name, pkg.languageVersion),
     )
   val choiceId = Ref.Name.assertFromString("Noop")
@@ -543,12 +587,14 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
       "org.wartremover.warts.JavaSerializable",
     )
   )
-  def acceptDisclosedContract(result: Either[Error, ImmArray[DisclosedContract]]): Assertion = {
+  def acceptDisclosedContract(
+      result: Either[Error, (ImmArray[DisclosedContract], Set[crypto.Hash])]
+  ): Assertion = {
     import Inside._
     import Inspectors._
     import Matchers._
 
-    inside(result) { case Right(disclosedContracts) =>
+    inside(result) { case Right((disclosedContracts, keyHashes)) =>
       forAll(disclosedContracts.toList) {
         _.argument match {
           case SValue.SRecord(`withoutKeyTmplId`, fields, values) =>
@@ -565,6 +611,7 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
             fail()
         }
       }
+      keyHashes shouldBe Set.empty
     }
   }
 }
