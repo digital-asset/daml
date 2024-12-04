@@ -11,7 +11,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, NoCopy, Ref, Time}
 import com.daml.lf.interpretation.{Error => IError}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LookupError, StablePackages, Util => AstUtil}
+import com.daml.lf.language.{LookupError, PackageInterface, StablePackages, Util => AstUtil}
 import com.daml.lf.language.LanguageVersionRangeOps._
 import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.daml.lf.speedy.PartialTransaction.NodeSeeds
@@ -21,10 +21,10 @@ import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue.SArithmeticError
 import com.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
 import com.daml.lf.transaction.ContractStateMachine.KeyMapping
-import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.transaction.{
   ContractKeyUniquenessMode,
   GlobalKey,
+  GlobalKeyWithMaintainers,
   Node,
   NodeId,
   SubmittedTransaction,
@@ -991,25 +991,10 @@ private[lf] object Speedy {
     }
 
     final def tmplId2TxVersion(tmplId: TypeConName): TxVersion =
-      TxVersion.assignNodeVersion(
-        compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
-      )
+      Machine.tmplId2TxVersion(compiledPackages.pkgInterface, tmplId)
 
-    final def tmplId2PackageName(tmplId: TypeConName, version: TxVersion): Option[PackageName] = {
-      import Ordering.Implicits._
-      if (version < TxVersion.minUpgrade)
-        None
-      else
-        compiledPackages.pkgInterface.signatures(tmplId.packageId).metadata match {
-          case Some(value) => Some(value.name)
-          case None =>
-            val version = compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
-            throw SErrorCrash(
-              NameOf.qualifiedNameOfCurrentFunc,
-              s"unexpected ${version.pretty} package without metadata",
-            )
-        }
-    }
+    final def tmplId2PackageName(tmplId: TypeConName, version: TxVersion): Option[PackageName] =
+      Machine.tmplId2PackageName(compiledPackages.pkgInterface, tmplId, version)
 
     private[lf] def abort(): Unit = {
       // We make sure the interpretation cannot be resumed
@@ -1589,7 +1574,9 @@ private[lf] object Speedy {
     private[this] val damlWarnings = ContextualizedLogger.createFor("daml.warnings")
 
     def newProfile: Profile = new Profile()
+
     def newTraceLog: TraceLog = new RingBufferTraceLog(damlTraceLog, 100)
+
     def newWarningLog: WarningLog = new WarningLog(damlWarnings)
 
     @throws[PackageNotFound]
@@ -1727,6 +1714,54 @@ private[lf] object Speedy {
     )(implicit loggingContext: LoggingContext): Either[SError, SValue] =
       fromPureSExpr(compiledPackages, expr, iterationsBetweenInterruptions).runPure()
 
+    def tmplId2TxVersion(pkgInterface: PackageInterface, tmplId: TypeConName): TxVersion =
+      TxVersion.assignNodeVersion(
+        pkgInterface.packageLanguageVersion(tmplId.packageId)
+      )
+
+    def tmplId2PackageName(
+        pkgInterface: PackageInterface,
+        tmplId: TypeConName,
+        version: TxVersion,
+    ): Option[PackageName] = {
+      import Ordering.Implicits._
+      if (version < TxVersion.minUpgrade)
+        None
+      else
+        pkgInterface.signatures(tmplId.packageId).metadata match {
+          case Some(value) => Some(value.name)
+          case None =>
+            val version = pkgInterface.packageLanguageVersion(tmplId.packageId)
+            throw SErrorCrash(
+              NameOf.qualifiedNameOfCurrentFunc,
+              s"unexpected ${version.pretty} package without metadata",
+            )
+        }
+    }
+
+    private[lf] def assertGlobalKey(
+        pkgInterface: PackageInterface,
+        templateId: Ref.Identifier,
+        contractKey: SValue,
+    ): GlobalKey = {
+      val packageTxVersion = tmplId2TxVersion(pkgInterface, templateId)
+      val pkgName = tmplId2PackageName(pkgInterface, templateId, packageTxVersion)
+      assertGlobalKey(packageTxVersion, pkgName, templateId, contractKey)
+    }
+
+    private[lf] def assertGlobalKey(
+        packageTxVersion: TxVersion,
+        pkgName: Option[PackageName],
+        templateId: TypeConName,
+        keyValue: SValue,
+    ) = {
+      val lfValue = keyValue.toNormalizedValue(packageTxVersion)
+      GlobalKey
+        .build(templateId, lfValue, KeyPackageName(pkgName, packageTxVersion))
+        .getOrElse(
+          throw SErrorDamlException(IError.ContractIdInContractKey(keyValue.toUnnormalizedValue))
+        )
+    }
   }
 
   // Environment

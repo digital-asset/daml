@@ -23,7 +23,6 @@ import com.daml.lf.transaction.{
 import java.nio.file.Files
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-
 import com.daml.lf.language.{
   LanguageMajorVersion,
   LanguageVersion,
@@ -152,7 +151,9 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
     for {
       pkgResolution <- preprocessor.buildPackageResolution(packageMap, packagePreference)
       processedCmds <- preprocessor.preprocessApiCommands(pkgResolution, cmds.commands)
-      processedDiscs <- preprocessor.preprocessDisclosedContracts(disclosures)
+      processedDiscsAndKeys <- preprocessor.preprocessDisclosedContracts(disclosures)
+      (processedDiscs, disclosedKeys) = processedDiscsAndKeys
+      _ <- preprocessor.prefetchKeys(processedCmds, disclosedKeys)
       result <-
         interpretCommands(
           validating = false,
