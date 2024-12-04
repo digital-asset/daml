@@ -14,7 +14,7 @@ import "scalapb/scalapb.proto";
 
 // Compared to v4: action_description changed type from v3.ActionDescription to v4.ActionDescription
 message ViewParticipantData {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
   com.digitalasset.canton.crypto.v0.Salt salt = 1;
   repeated v2.InputContract core_inputs = 2;
   repeated v2.CreatedContract created_core = 3;

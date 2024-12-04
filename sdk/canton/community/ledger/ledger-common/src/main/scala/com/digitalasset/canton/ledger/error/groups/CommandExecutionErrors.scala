@@ -739,22 +739,26 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
         }
       }
 
-      @Explanation("ContractNotUpgradable explanation")
-      @Resolution("ContractNotUpgradable resolution")
+      @Explanation(
+        "An attempt was made to upgrade a template compiled with a daml language version before 1.17"
+      )
+      @Resolution(
+        "If possible archive this contract and re-create it with a template compiled with daml 1.17 or above"
+      )
       object ContractNotUpgradable
-        extends ErrorCode(
-          id = "CONTRACT_NOT_UPGRADABLE",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther,
-        ) {
+          extends ErrorCode(
+            id = "CONTRACT_NOT_UPGRADABLE",
+            ErrorCategory.InvalidGivenCurrentSystemStateOther,
+          ) {
 
         final case class Reject(
-                                 override val cause: String,
-                                 err: LfInterpretationError.Upgrade.ContractNotUpgradable,
-                               )(implicit
-                                 loggingContext: ContextualizedErrorLogger
-                               ) extends DamlErrorWithDefiniteAnswer(
-          cause = cause
-        ) {
+            override val cause: String,
+            err: LfInterpretationError.Upgrade.ContractNotUpgradable,
+        )(implicit
+            loggingContext: ContextualizedErrorLogger
+        ) extends DamlErrorWithDefiniteAnswer(
+              cause = cause
+            ) {
 
           override def resources: Seq[(ErrorResource, String)] =
             Seq(
@@ -764,7 +768,9 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
             )
         }
       }
+
     }
+
     @Explanation(
       """This error is a catch-all for errors thrown by in-development features, and should never be thrown in production."""
     )

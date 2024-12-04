@@ -13,6 +13,5 @@ object TestProtocolVersions {
 
   /** A valid, supported protocol version that is not part of the released protocol versions.
     */
-  val UnreleasedValidPV: ProtocolVersion =
-    ProtocolVersion.unstable.filter(_ != ProtocolVersion.dev).head
+  val UnreleasedValidPV: ProtocolVersion = ProtocolVersion.unstable.head
 }

@@ -389,9 +389,8 @@ object BaseTest {
     protocolVersion = protocolVersion,
   )
 
-  // TODO(#21009) default protocol version should be a stable one
   private lazy val defaultTestProtocolVersion: ProtocolVersion =
-    ProtocolVersion.unstable.sorted.filter(_ != ProtocolVersion.dev).last
+    ProtocolVersion.latestStable
 
   lazy val testedProtocolVersion: ProtocolVersion =
     tryGetProtocolVersionFromEnv.getOrElse(defaultTestProtocolVersion)
