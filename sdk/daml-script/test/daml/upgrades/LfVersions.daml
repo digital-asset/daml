@@ -73,10 +73,14 @@ main = tests
   , ("Call a LF < 1.15 choice on a LF >= 1.15 contract, expect LF 1.15 implementation to attempt to be used, but fail upgrade", exerciseNonUpgradingLfFail)
   ]
 
-assertIsUpgradeError : Either SubmitError a -> Script ()
-assertIsUpgradeError (Left (UpgradeError ContractNotUpgradable _)) = pure ()
-assertIsUpgradeError (Left e) = fail $ "Expected upgrade error but got " <> show e
-assertIsUpgradeError _ = fail "Expected upgrade error but got success"
+assertIsUpgradeError : ContractId V2.LfTemplate -> Either SubmitError a -> Script ()
+assertIsUpgradeError contractId (Left (UpgradeError (ContractNotUpgradable foundContractId foundTargetTemplateId foundActualTemplateId) _))
+ | fromAnyContractId @V2.LfTemplate foundContractId == Some contractId &&
+   foundTargetTemplateId == templateTypeRep @V2.LfTemplate &&
+   foundActualTemplateId == templateTypeRep @V1.LfTemplate
+    = pure ()
+assertIsUpgradeError _ (Left e) = fail $ "Expected upgrade error but got " <> show e
+assertIsUpgradeError _ _ = fail "Expected upgrade error but got success"
 
 mustBeWronglyTypedContract : Either SubmitError r -> Script ()
 mustBeWronglyTypedContract (Left (WronglyTypedContract {})) = pure ()
@@ -89,7 +93,7 @@ fetchNonUpgradableLfFail = test $ do
   v1Cid <- alice `submit` createExactCmd V1.LfTemplate with party = alice
   let v2Cid = coerceContractId @V1.LfTemplate @V2.LfTemplate v1Cid
   res <- alice `trySubmit` createAndExerciseCmd (LfTemplateHelper with party = alice) (FetchV2 with cid = v2Cid)
-  assertIsUpgradeError res
+  assertIsUpgradeError v2Cid res
 
 fetchNonUpgradingLfFail : Test
 fetchNonUpgradingLfFail = test $ do
@@ -105,7 +109,7 @@ exerciseNonUpgradableLfFail = test $ do
     v1Cid <- alice `submit` createExactCmd V1.LfTemplate with party = alice
     let v2Cid = coerceContractId @V1.LfTemplate @V2.LfTemplate v1Cid
     res <- alice `trySubmit` exerciseExactCmd @V2.LfTemplate v2Cid V2.Noop
-    assertIsUpgradeError res
+    assertIsUpgradeError v2Cid res
 
 exerciseNonUpgradingLfFail: Test
 exerciseNonUpgradingLfFail = test $ do
