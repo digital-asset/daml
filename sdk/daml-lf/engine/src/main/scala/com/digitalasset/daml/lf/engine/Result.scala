@@ -188,6 +188,9 @@ final case class ResultNeedUpgradeVerification[A](
     resume: Option[String] => Result[A],
 ) extends Result[A]
 
+/** Indicates that the interpretation will likely need to resolve the given contract keys.
+  * The caller may resolve the keys in parallel to the interpretation, but does not have to.
+  */
 final case class ResultPrefetch[A](
     keys: Seq[GlobalKey],
     resume: () => Result[A],

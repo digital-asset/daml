@@ -9,7 +9,7 @@ import com.daml.lf.crypto.Hash.KeyPackageName
 import java.util
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, NoCopy, Ref, Time}
-import com.daml.lf.interpretation.{Error => IE}
+import com.daml.lf.interpretation.{Error => IError}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LookupError, StablePackages, Util => AstUtil}
 import com.daml.lf.language.LanguageVersionRangeOps._
@@ -21,7 +21,16 @@ import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue.SArithmeticError
 import com.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
 import com.daml.lf.transaction.ContractStateMachine.KeyMapping
-import com.daml.lf.transaction.{ContractKeyUniquenessMode, GlobalKey, GlobalKeyWithMaintainers, Node, NodeId, SubmittedTransaction, TransactionVersion, IncompleteTransaction => IncompleteTx, TransactionVersion => TxVersion}
+import com.daml.lf.transaction.{
+  ContractKeyUniquenessMode,
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+  Node,
+  NodeId,
+  SubmittedTransaction,
+  IncompleteTransaction => IncompleteTx,
+  TransactionVersion => TxVersion,
+}
 import com.daml.lf.value.Value.{ContractId, ValueArithmeticError}
 import com.daml.lf.value.{Value => V}
 import com.daml.nameof.NameOf
@@ -1565,7 +1574,9 @@ private[lf] object Speedy {
     private[this] val damlWarnings = ContextualizedLogger.createFor("daml.warnings")
 
     def newProfile: Profile = new Profile()
+
     def newTraceLog: TraceLog = new RingBufferTraceLog(damlTraceLog, 100)
+
     def newWarningLog: WarningLog = new WarningLog(damlWarnings)
 
     @throws[PackageNotFound]
@@ -1708,7 +1719,11 @@ private[lf] object Speedy {
         compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
       )
 
-    def tmplId2PackageName(compiledPackages: CompiledPackages, tmplId: TypeConName, version: TxVersion): Option[PackageName] = {
+    def tmplId2PackageName(
+        compiledPackages: CompiledPackages,
+        tmplId: TypeConName,
+        version: TxVersion,
+    ): Option[PackageName] = {
       import Ordering.Implicits._
       if (version < TxVersion.minUpgrade)
         None
@@ -1724,17 +1739,22 @@ private[lf] object Speedy {
         }
     }
 
-    private[lf] def toGlobalKey(packageTxVersion: TransactionVersion, pkgName: Option[PackageName], templateId: TypeConName, keyValue: SValue) = {
+    private[lf] def toGlobalKey(
+        packageTxVersion: TxVersion,
+        pkgName: Option[PackageName],
+        templateId: TypeConName,
+        keyValue: SValue,
+    ) = {
       val lfValue = keyValue.toNormalizedValue(packageTxVersion)
       GlobalKey
         .build(templateId, lfValue, KeyPackageName(pkgName, packageTxVersion))
         .getOrElse(
-          throw SErrorDamlException(IE.ContractIdInContractKey(keyValue.toUnnormalizedValue))
+          throw SErrorDamlException(IError.ContractIdInContractKey(keyValue.toUnnormalizedValue))
         )
     }
+  }
 
-
-    // Environment
+  // Environment
   //
   // NOTE(JM): We use ArrayList instead of ArrayBuffer as
   // it is significantly faster.

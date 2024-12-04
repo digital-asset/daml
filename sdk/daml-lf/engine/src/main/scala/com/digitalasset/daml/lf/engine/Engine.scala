@@ -5,7 +5,6 @@ package com.daml.lf
 package engine
 
 import com.daml.lf.command._
-import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
@@ -14,13 +13,11 @@ import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.daml.lf.speedy.Speedy.{Machine, PureMachine, UpdateMachine}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{
-  GlobalKey,
   Node,
   SubmittedTransaction,
   Versioned,
   VersionedTransaction,
   Transaction => Tx,
-  TransactionVersion => TxVersion,
 }
 
 import java.nio.file.Files
@@ -33,7 +30,6 @@ import com.daml.lf.language.{
   PackageInterface,
   StablePackages,
 }
-import com.daml.lf.speedy.SError.{SErrorCrash, SErrorDamlException}
 import com.daml.lf.speedy.Speedy.Machine.newTraceLog
 import com.daml.lf.validation.Validation
 import com.daml.logging.LoggingContext
