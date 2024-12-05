@@ -33,6 +33,7 @@ import com.digitalasset.canton.topology.transaction.{
   TopologyMapping,
   TopologyTransaction,
 }
+import com.digitalasset.canton.util.GrpcStreamingUtils
 import com.digitalasset.canton.version.ProtocolVersionValidation
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
@@ -544,13 +545,14 @@ object TopologyAdminCommands {
           }
     }
     final case class ExportTopologySnapshot(
+        observer: StreamObserver[ExportTopologySnapshotResponse],
         query: BaseQuery,
         excludeMappings: Seq[String],
         filterNamespace: String,
     ) extends BaseCommand[
           v30.ExportTopologySnapshotRequest,
-          v30.ExportTopologySnapshotResponse,
-          ByteString,
+          CancellableContext,
+          CancellableContext,
         ] {
       override protected def createRequest(): Either[String, v30.ExportTopologySnapshotRequest] =
         Right(
@@ -564,12 +566,18 @@ object TopologyAdminCommands {
       override protected def submitRequest(
           service: TopologyManagerReadServiceStub,
           request: v30.ExportTopologySnapshotRequest,
-      ): Future[v30.ExportTopologySnapshotResponse] = service.exportTopologySnapshot(request)
+      ): Future[CancellableContext] = {
+        val context = Context.current().withCancellation()
+        context.run(() => service.exportTopologySnapshot(request, observer))
+        Future.successful(context)
+      }
 
       override protected def handleResponse(
-          response: v30.ExportTopologySnapshotResponse
-      ): Either[String, ByteString] =
-        Right(response.result)
+          response: CancellableContext
+      ): Either[String, CancellableContext] =
+        Right(response)
+
+      override def timeoutType: TimeoutType = DefaultUnboundedTimeout
     }
 
     final case class GenesisState(
@@ -746,7 +754,12 @@ object TopologyAdminCommands {
       override protected def submitRequest(
           service: TopologyManagerWriteServiceStub,
           request: ImportTopologySnapshotRequest,
-      ): Future[ImportTopologySnapshotResponse] = service.importTopologySnapshot(request)
+      ): Future[ImportTopologySnapshotResponse] =
+        GrpcStreamingUtils.streamToServer(
+          service.importTopologySnapshot,
+          bytes => ImportTopologySnapshotRequest(ByteString.copyFrom(bytes), store),
+          topologySnapshot,
+        )
       override protected def handleResponse(
           response: ImportTopologySnapshotResponse
       ): Either[String, Unit] = Either.unit

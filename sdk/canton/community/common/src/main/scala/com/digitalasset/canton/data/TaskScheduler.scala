@@ -47,7 +47,8 @@ import scala.util.control.NonFatal
   * The tasks execute sequentially in [[scala.concurrent.Future]].
   *
   * @param initSc The first sequencer counter to be processed
-  * @param initTimestamp Only timestamps after this timestamp can be used
+  * @param initTimestamp Only timestamps after this timestamp can be used for scheduling tasks and for adding ticks.
+  *                      This timestamp will be the timestamp for immediate tasks initially.
   * @param equalTimestampTaskOrdering The ordering for tasks with the same timestamps;
   *                                   tasks that are smaller w.r.t this order are processed earlier.
   */
@@ -95,7 +96,7 @@ class TaskScheduler[Task <: TimedTask](
   private[this] val taskQueue: mutable.PriorityQueue[BarrierOrTask] =
     mutable.PriorityQueue()(Ordering[BarrierOrTask].reverse)
 
-  /** Keeps track of all sequence counters and their associated timestamps.
+  /** Keeps track of all sequencer counters and their associated timestamps.
     *
     * Invariant for public methods: The head is always the front. Timestamps strictly increase with sequencer counters.
     */
@@ -191,10 +192,10 @@ class TaskScheduler[Task <: TimedTask](
   def scheduleTask(task: Task): Unit = blocking {
     lock.synchronized {
       implicit val traceContext: TraceContext = task.traceContext
-      if (task.timestamp < latestPolledTimestamp.get) {
+      if (task.timestamp <= latestPolledTimestamp.get) {
         ErrorUtil.internalError(
           new IllegalArgumentException(
-            s"Timestamp ${task.timestamp} of new task $task lies before current time $latestPolledTimestamp."
+            s"Timestamp ${task.timestamp} of new task $task is not later than current time $latestPolledTimestamp."
           )
         )
       }
@@ -290,9 +291,9 @@ class TaskScheduler[Task <: TimedTask](
     }
   }
 
-  /** Signals that the sequence counter with the given timestamp has been observed.
+  /** Signals that the sequencer counter with the given timestamp has been observed.
     *
-    * Eventually, all sequencer counters above `initSc` must be added with their timestamp using this method.
+    * Eventually, all sequencer counters above and equal to `initSc` must be added with their timestamp using this method.
     * Every sequencer counter must be added once and timestamps must strictly increase with
     * sequencer counters.
     *
@@ -327,13 +328,12 @@ class TaskScheduler[Task <: TimedTask](
         "Sequencer counter Long.MaxValue signalled to task scheduler.",
       )
 
-      // We lock the whole method here
       val latestTime = latestPolledTimestamp.get
 
       if (timestamp <= latestTime && sequencerCounter >= sequencerCounterQueue.front) {
         ErrorUtil.internalError(
           new IllegalArgumentException(
-            s"Timestamp $timestamp for sequence counter $sequencerCounter is not after current time $latestPolledTimestamp."
+            s"Timestamp $timestamp for sequencer counter $sequencerCounter is not after current time $latestPolledTimestamp."
           )
         )
       }
@@ -364,7 +364,7 @@ class TaskScheduler[Task <: TimedTask](
           if (timestamp > latestTime)
             ErrorUtil.internalError(
               new IllegalArgumentException(
-                s"Timestamp $timestamp for outdated sequencer counter $sequencerCounter is after current time $latestPolledTimestamp."
+                s"Timestamp $timestamp for outdated sequencer counter $sequencerCounter is after current time $latestTime."
               )
             )
         case InsertedValue(oldTimestamp) =>

@@ -9,6 +9,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerConfig
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.{
+  MultiDomain,
   SequencerDomainGroups,
   SingleDomain,
 }
@@ -34,15 +35,18 @@ abstract class UseReferenceBlockSequencerBase[
 
   protected final def dbNameForGroup(group: Int): String = s"${driverSingleWordName}_db_$group"
 
-  protected val dbNames: NonEmpty[List[String]] = NonEmpty(
-    List,
-    dbNameForGroup(0), // db 0 is the default one
-    (1 to sequencerGroups.numberOfDomains).map(i => dbNameForGroup(i)).toList *,
-  )
+  protected val dbNames: NonEmpty[List[String]] = sequencerGroups match {
+    case SingleDomain => NonEmpty(List, dbNameForGroup(0))
+    case MultiDomain(_) =>
+      NonEmpty(
+        List,
+        dbNameForGroup(0), // db 0 is the default one
+        (1 to sequencerGroups.numberOfDomains).map(i => dbNameForGroup(i)).toList *,
+      )
+  }
 
   protected def driverConfigs(
       config: EnvT#Config,
-      defaultStorageConfig: StorageConfigT,
       storageConfigs: Map[InstanceName, StorageConfigT],
   ): Map[InstanceName, SequencerConfigT]
 }

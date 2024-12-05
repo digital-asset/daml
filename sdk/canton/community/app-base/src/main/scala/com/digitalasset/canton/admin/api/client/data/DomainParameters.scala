@@ -44,6 +44,7 @@ import com.google.common.annotations.VisibleForTesting
 import io.scalaland.chimney.dsl.*
 
 import scala.Ordering.Implicits.*
+import scala.annotation.nowarn
 
 final case class StaticDomainParameters(
     requiredSigningSpecs: RequiredSigningSpecs,
@@ -57,7 +58,9 @@ final case class StaticDomainParameters(
     BinaryFileUtil.writeByteStringToFile(outputFile, toInternal.toByteString)
 
   private[canton] def toInternal: StaticDomainParametersInternal =
-    this.transformInto[StaticDomainParametersInternal]
+    this.transformInto[StaticDomainParametersInternal]: @nowarn(
+      "msg=Der in object CryptoKeyFormat is deprecated"
+    )
 }
 
 object StaticDomainParameters {
@@ -97,7 +100,9 @@ object StaticDomainParameters {
   def apply(
       domain: StaticDomainParametersInternal
   ): StaticDomainParameters =
-    domain.transformInto[StaticDomainParameters]
+    domain.transformInto[StaticDomainParameters]: @nowarn(
+      "msg=Der in object CryptoKeyFormat is deprecated"
+    )
 
   def tryReadFromFile(inputFile: String): StaticDomainParameters = {
     val staticDomainParametersInternal = StaticDomainParametersInternal

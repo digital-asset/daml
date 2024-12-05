@@ -18,6 +18,8 @@ import org.bouncycastle.asn1.edec.EdECObjectIdentifiers
 import org.bouncycastle.asn1.x509.{AlgorithmIdentifier, SubjectPublicKeyInfo}
 import org.scalacheck.*
 
+import scala.annotation.nowarn
+
 object GeneratorsCrypto {
   import Generators.*
   import com.digitalasset.canton.data.GeneratorsDataTime.*
@@ -31,6 +33,7 @@ object GeneratorsCrypto {
   implicit val encryptionKeySpecArb: Arbitrary[EncryptionKeySpec] = genArbitrary
   implicit val hashAlgorithmArb: Arbitrary[HashAlgorithm] = genArbitrary
   implicit val saltAlgorithmArb: Arbitrary[SaltAlgorithm] = genArbitrary
+  @nowarn("msg=Der in object CryptoKeyFormat is deprecated")
   implicit val cryptoKeyFormatArb: Arbitrary[CryptoKeyFormat] = genArbitrary
 
   implicit val signingKeySpecsNESArb: Arbitrary[NonEmpty[Set[SigningKeySpec]]] =
@@ -66,8 +69,6 @@ object GeneratorsCrypto {
 
       signingKeySpec <- Arbitrary
         .arbitrary[SigningKeySpec]
-        // TODO(#22209): Remove this when DerX509Spki becomes the standard for all key specifications, particularly for EcP256 and EcP384.
-        .retryUntil(_ == SigningKeySpec.EcCurve25519)
 
       /** The session signing keys inside the signature delegation are a special type of signing key where
         * the format is fixed (i.e. DerX509Spki) and their scheme is identified by the 'sessionKeySpec' protobuf field.

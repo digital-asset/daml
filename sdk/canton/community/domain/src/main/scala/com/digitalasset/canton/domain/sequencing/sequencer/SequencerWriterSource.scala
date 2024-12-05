@@ -30,25 +30,20 @@ import com.digitalasset.canton.logging.{
   TracedLogger,
 }
 import com.digitalasset.canton.resource.DbExceptionRetryPolicy
-import com.digitalasset.canton.sequencing.protocol.{
-  Batch,
-  ClosedEnvelope,
-  SendAsyncError,
-  SequencerErrors,
-  SubmissionRequest,
-}
+import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.BatchTracing.withTracedBatch
 import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext, Traced}
-import com.digitalasset.canton.util.EitherTUtil
+import com.digitalasset.canton.util.BatchN.MaximizeBatchSize
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.PekkoUtil.{CombinedKillSwitch, KillSwitchFlagCloseable}
+import com.digitalasset.canton.util.{BatchN, EitherTUtil, ErrorUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import org.apache.pekko.stream.*
-import org.apache.pekko.stream.scaladsl.{Flow, GraphDSL, Keep, Merge, Sink, Source}
+import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
 import org.apache.pekko.{Done, NotUsed}
 
 import java.sql.SQLTransientConnectionException
@@ -142,8 +137,7 @@ class SequencerWriterQueues private[sequencer] (
     protected val loggerFactory: NamedLoggerFactory,
 )(
     @VisibleForTesting
-    private[sequencer] val deliverEventQueue: BoundedSourceQueue[Presequenced[StoreEvent[Payload]]],
-    keepAliveKillSwitch: UniqueKillSwitch,
+    private[sequencer] val deliverEventQueue: BoundedSourceQueue[Presequenced[StoreEvent[Payload]]]
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
   private val closing = new AtomicBoolean(false)
@@ -182,8 +176,6 @@ class SequencerWriterQueues private[sequencer] (
     // the queue completions throw IllegalStateExceptions if you call close more than once
     // so guard to ensure they're only called once
     if (closing.compareAndSet(false, true)) {
-      logger.debug(s"Shutting down keep-alive kill switch")
-      keepAliveKillSwitch.shutdown()
       logger.debug(s"Completing deliver event queue")
       deliverEventQueue.complete()
     }
@@ -207,6 +199,7 @@ object SequencerWriterSource {
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
+      errorLoggingContext: ErrorLoggingContext,
   ): Source[Traced[BatchWritten], SequencerWriterQueues] = {
     val logger = TracedLogger(SequencerWriterSource.getClass, loggerFactory)
 
@@ -235,35 +228,29 @@ object SequencerWriterSource {
     // Take deliver events with full payloads and first write them before adding them to the events queue
     val deliverEventSource = Source
       .queue[Presequenced[StoreEvent[Payload]]](writerConfig.payloadQueueSize)
-      .via(WritePayloadsFlow(writerConfig, store, instanceDiscriminator, loggerFactory))
-      .map(Write.Event.apply)
+
+    val payloadsWritten = deliverEventSource
+      .via(
+        WritePayloadsFlow(
+          writerConfig,
+          store,
+          instanceDiscriminator,
+          loggerFactory,
+          blockSequencerMode,
+        )
+      )
+      .map[Write](Write.Event.apply)
+      .async // async boundary after writing the payloads for better pipelining
 
     // push keep alive writes at the specified interval, or never if not set
-    val keepAliveSource = keepAliveInterval
-      .fold(Source.never[Write.KeepAlive.type]) { frequency =>
-        Source.repeat(Write.KeepAlive).throttle(1, frequency.toScala)
+    val payloadsWrittenWithKeepAlive = keepAliveInterval
+      .fold(payloadsWritten) { frequency =>
+        payloadsWritten
+          .keepAlive(frequency.toScala, () => Write.KeepAlive)
       }
-      .viaMat(KillSwitches.single)(Keep.right)
 
-    val mkMaterialized = new SequencerWriterQueues(eventGenerator, loggerFactory)(_, _)
-
-    // merge the sources of deliver events and keep-alive writes
-    val mergedEventsSource =
-      Source.fromGraph(
-        GraphDSL.createGraph(deliverEventSource, keepAliveSource)(mkMaterialized) {
-          implicit builder => (deliverEventSourceS, keepAliveSourceS) =>
-            import GraphDSL.Implicits.*
-
-            val merge = builder.add(Merge[Write](inputPorts = 2))
-
-            deliverEventSourceS ~> merge.in(0)
-            keepAliveSourceS ~> merge.in(1)
-
-            SourceShape(merge.out)
-        }
-      )
-
-    mergedEventsSource
+    val eventsSequenced = payloadsWrittenWithKeepAlive
+      .mapMaterializedValue(new SequencerWriterQueues(eventGenerator, loggerFactory)(_))
       .via(
         AssertMonotonicBlockSequencerTimestampsFlow(loggerFactory)
       )
@@ -274,8 +261,12 @@ object SequencerWriterSource {
           eventTimestampGenerator,
           loggerFactory,
           protocolVersion,
+          blockSequencerMode,
         )
       )
+      .async // async boundary after sequencing and writing events for better pipelining
+
+    eventsSequenced
       // Merge watermark updating in case we are running slow here
       .conflate[Traced[BatchWritten]] { case (tracedLeft, tracedRight) =>
         tracedLeft.withTraceContext { _ => left =>
@@ -511,7 +502,11 @@ object SequenceWritesFlow {
       eventTimestampGenerator: PartitionedTimestampGenerator,
       loggerFactory: NamedLoggerFactory,
       protocolVersion: ProtocolVersion,
-  )(implicit executionContext: ExecutionContext): Flow[Write, Traced[BatchWritten], NotUsed] = {
+      blockSequencerMode: Boolean,
+  )(implicit
+      executionContext: ExecutionContext,
+      errorLoggingContext: ErrorLoggingContext,
+  ): Flow[Write, Traced[BatchWritten], NotUsed] = {
     val logger = TracedLogger(WritePayloadsFlow.getClass, loggerFactory)
 
     def sequenceWritesAndStoreEvents(writes: Seq[Write]): Future[Traced[Option[BatchWritten]]] =
@@ -535,24 +530,33 @@ object SequenceWritesFlow {
           }
         }
 
-    def sequenceWrite(write: Write): SequencedWrite = {
-      val timestamp = eventTimestampGenerator.generateNext
-
+    def sequenceWrite(write: Write): SequencedWrite =
       write match {
-        case Write.KeepAlive => SequencedWrite.KeepAlive(timestamp)
+        case Write.KeepAlive => SequencedWrite.KeepAlive(eventTimestampGenerator.generateNext)
         // if we opt not to write the event as we're past the max-sequencing-time, just replace with a keep alive as we're still alive
         case Write.Event(event) =>
-          // TODO(#18401): Explode if a unified sequencer flow has an empty blockSequencerTimestampO
-          val sequencingTimestamp = event.blockSequencerTimestampO match {
-            case Some(blockSequencerTimestamp) => blockSequencerTimestamp
-            case None => timestamp
-          }
+          val sequencingTimestamp =
+            if (blockSequencerMode)
+              event.blockSequencerTimestampO match {
+                case Some(blockSequencerTimestamp) => blockSequencerTimestamp
+                case None =>
+                  ErrorUtil.invalidState(
+                    "Did not find a blockSequencerTimestamp for an event in blocksequencer mode."
+                  )
+              }
+            else
+              event.blockSequencerTimestampO match {
+                case Some(_) =>
+                  ErrorUtil.invalidState(
+                    "Encountered a blockSequencerTimestamp for an event in non-blocksequencer mode."
+                  )
+                case None => eventTimestampGenerator.generateNext
+              }
 
           sequenceEvent(sequencingTimestamp, event)
             .map(SequencedWrite.Event.apply)
             .getOrElse[SequencedWrite](SequencedWrite.KeepAlive(sequencingTimestamp))
       }
-    }
 
     /* Performs checks and validations that require knowing the sequencing timestamp of the event.
      * May transform the event into an error (if the requested signing timestamp is out of bounds).
@@ -659,12 +663,27 @@ object SequenceWritesFlow {
       }
     }
 
-    Flow[Write]
-      .groupedWithin(
+    val batching =
+      BatchN[Write](
         writerConfig.eventWriteBatchMaxSize,
-        writerConfig.eventWriteBatchMaxDuration.underlying,
+        maxBatchCount =
+          // only blocksequencers can write events parallel, because the sequencing had already happened at this point
+          if (blockSequencerMode) writerConfig.eventWriteMaxConcurrency
+          // in line with mapAsync(1) in non blocksequencer mode
+          else 1,
+        // for the sequencer, we'd rather optimize for writing fewer but fuller batches
+        catchUpMode = BatchN.MaximizeBatchSize,
       )
-      .mapAsync(1)(sequenceWritesAndStoreEvents)
+
+    val storingEvents = if (blockSequencerMode) {
+      // we can write multiple events at the same time, because the sequencing had already happened at this point.
+      batching.mapAsync(writerConfig.eventWriteMaxConcurrency)(batch =>
+        sequenceWritesAndStoreEvents(batch.toSeq)
+      )
+    } else {
+      batching.mapAsync(1)(batch => sequenceWritesAndStoreEvents(batch.toSeq))
+    }
+    storingEvents
       .collect { case tew @ Traced(Some(ew)) => tew.map(_ => ew) }
       .named("sequenceAndWriteEvents")
   }
@@ -681,6 +700,7 @@ object WritePayloadsFlow {
       store: SequencerWriterStore,
       instanceDiscriminator: UUID,
       loggerFactory: NamedLoggerFactory,
+      blockSequencerMode: Boolean,
   )(implicit
       executionContext: ExecutionContext
   ): Flow[Presequenced[StoreEvent[Payload]], Presequenced[StoreEvent[Payload]], NotUsed] = {
@@ -715,18 +735,31 @@ object WritePayloadsFlow {
       case _other => None
     }
 
-    Flow[Presequenced[StoreEvent[Payload]]]
-      .groupedWithin(
-        writerConfig.payloadWriteBatchMaxSize,
-        writerConfig.payloadWriteBatchMaxDuration.underlying,
-      )
-      .mapAsync(writerConfig.payloadWriteMaxConcurrency)(
-        writePayloads(_)
-      ) // TODO(#18394): make a switch with the flag for .mapAsyncUnordered, if this affects performance
+    val batching = BatchN[Presequenced[StoreEvent[Payload]]](
+      writerConfig.payloadWriteBatchMaxSize,
+      writerConfig.payloadWriteMaxConcurrency,
+      // for the sequencer, we'd rather optimize for writing fewer but fuller batches
+      catchUpMode = MaximizeBatchSize,
+    )
+    val writingPayloads =
+      if (blockSequencerMode) {
+        // the block sequencer MUST NOT reorder the events during processing, because the
+        // events are already in sequenced order and this order MUST be maintained.
+        batching.mapAsync(writerConfig.payloadWriteMaxConcurrency)(batch =>
+          writePayloads(batch.toSeq)
+        )
+      } else {
+        // the database sequencer is still allowed to reorder the events during processing,
+        // because the sequencing happens in a follow-up step.
+        batching
+          .mapAsyncUnordered(writerConfig.payloadWriteMaxConcurrency)(batch =>
+            writePayloads(batch.toSeq)
+          )
+      }
+    writingPayloads
       .mapConcat(identity)
       .named("writePayloads")
   }
-
 }
 
 object UpdateWatermarkFlow {

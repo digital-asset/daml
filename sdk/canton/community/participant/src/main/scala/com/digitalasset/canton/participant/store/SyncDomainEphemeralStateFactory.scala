@@ -88,7 +88,7 @@ class SyncDomainEphemeralStateFactoryImpl(
       recordOrderPublisher = new RecordOrderPublisher(
         persistentState.indexedDomain.domainId,
         startingPoints.processing.nextSequencerCounter,
-        startingPoints.processing.prenextTimestamp,
+        startingPoints.processing.currentRecordTime,
         ledgerApiIndexer.value,
         metrics.recordOrderPublisher,
         exitOnFatalFailures = exitOnFatalFailures,
@@ -160,27 +160,36 @@ object SyncDomainEphemeralStateFactory {
   def startingPoints(
       requestJournalStore: RequestJournalStore,
       sequencedEventStore: SequencedEventStore,
-      domainIndex: DomainIndex,
+      domainIndexO: Option[DomainIndex],
   )(implicit
       ec: ExecutionContext,
       loggingContext: ErrorLoggingContext,
   ): Future[ProcessingStartingPoints] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
     val messageProcessingStartingPoint = MessageProcessingStartingPoint(
-      nextRequestCounter = domainIndex.requestIndex
+      nextRequestCounter = domainIndexO
+        .flatMap(_.requestIndex)
         .map(_.counter + 1)
         .getOrElse(RequestCounter.Genesis),
-      nextSequencerCounter = domainIndex.sequencerIndex
+      nextSequencerCounter = domainIndexO
+        .flatMap(_.sequencerIndex)
         .map(_.counter + 1)
         .getOrElse(SequencerCounter.Genesis),
-      prenextTimestamp = domainIndex.sequencerIndex
+      lastSequencerTimestamp = domainIndexO
+        .flatMap(_.sequencerIndex)
         .map(_.timestamp)
+        .getOrElse(CantonTimestamp.MinValue),
+      currentRecordTime = domainIndexO
+        .map(_.recordTime)
         .getOrElse(CantonTimestamp.MinValue),
     )
     for {
       replayOpt <- requestJournalStore
         .firstRequestWithCommitTimeAfter(
-          messageProcessingStartingPoint.prenextTimestamp
+          // We need to follow the repair requests which might come between sequencer timestamps hence we
+          // use here messageProcessingStartingPoint.currentRecordTime.
+          // MessageProcessingStartingPoint.currentRecordTime is always before the next sequencer timestamp.
+          messageProcessingStartingPoint.currentRecordTime
         )
       cleanReplayStartingPoint <- replayOpt
         .filter(_.rc < messageProcessingStartingPoint.nextRequestCounter)
@@ -226,7 +235,7 @@ object SyncDomainEphemeralStateFactory {
     */
   def crashRecoveryPruningBoundInclusive(
       requestJournalStore: RequestJournalStore,
-      cleanDomainIndex: DomainIndex,
+      cleanDomainIndexO: Option[DomainIndex],
   )(implicit ec: ExecutionContext, traceContext: TraceContext): Future[CantonTimestamp] =
     // Crash recovery cleans up the stores before replay starts,
     // however we may have used some of the deleted information to determine the starting points for the replay.
@@ -239,7 +248,7 @@ object SyncDomainEphemeralStateFactory {
     // * The first request whose commit time is after the clean domain index timestamp
     // * The clean sequencer counter prehead timestamp
     for {
-      requestReplayTs <- cleanDomainIndex.requestIndex match {
+      requestReplayTs <- cleanDomainIndexO.flatMap(_.requestIndex) match {
         case None =>
           // No request is known to be clean, nothing can be pruned
           Future.successful(CantonTimestamp.MinValue)
@@ -252,7 +261,8 @@ object SyncDomainEphemeralStateFactory {
           }
       }
       // TODO(i21246): Note for unifying crashRecoveryPruningBoundInclusive and startingPoints: This minimum building is not needed anymore, as the request timestamp is also smaller than the sequencer timestamp.
-      cleanSequencerIndexTs = cleanDomainIndex.sequencerIndex
+      cleanSequencerIndexTs = cleanDomainIndexO
+        .flatMap(_.sequencerIndex)
         .fold(CantonTimestamp.MinValue)(_.timestamp.immediatePredecessor)
     } yield requestReplayTs.min(cleanSequencerIndexTs)
 
@@ -278,7 +288,7 @@ object SyncDomainEphemeralStateFactory {
       )
       _ = logger.debug("Deleting registered fresh requests")
       _ <- persistentState.submissionTrackerStore.deleteSince(
-        processingStartingPoint.prenextTimestamp.immediateSuccessor
+        processingStartingPoint.lastSequencerTimestamp.immediateSuccessor
       )
     } yield ()
   }

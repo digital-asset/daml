@@ -55,7 +55,7 @@ import slick.jdbc.canton.ActionBasedSQLInterpolation.Implicits.actionBasedSQLInt
 import slick.jdbc.hikaricp.HikariCPJdbcDataSource
 import slick.jdbc.{ActionBasedSQLInterpolation as _, SQLActionBuilder as _, *}
 import slick.lifted.Aliases
-import slick.util.{AsyncExecutor, AsyncExecutorWithMetrics, ClassLoaderUtil}
+import slick.util.{AsyncExecutor, AsyncExecutorWithMetrics, ClassLoaderUtil, QueryCostTrackerImpl}
 
 import java.sql.{Blob, SQLException, SQLTransientException, Statement}
 import java.util.UUID
@@ -833,7 +833,6 @@ object DbStorage {
       val numThreads = config.getIntOr("numThreads", 20)
       val maxConnections = source.maxConnections.getOrElse(numThreads)
       val registerMbeans = config.getBooleanOr("registerMbeans", false)
-
       val executor = metrics match {
         // inject our own Canton Async executor with metrics
         case Some(m) =>
@@ -851,19 +850,24 @@ object DbStorage {
               }
             case _ =>
           }
+          val tracker = new QueryCostTrackerImpl(
+            logQueryCost,
+            m,
+            scheduler,
+            warnOnSlowQueryO = parameters.warnOnSlowQuery.map(_.toInternal),
+            warnInterval = parameters.warnOnSlowQueryInterval.toInternal,
+            numThreads,
+            logger,
+          )
           new AsyncExecutorWithMetrics(
             poolName,
             numThreads,
             numThreads,
             queueSize = config.getIntOr("queueSize", 2000),
+            logger,
+            tracker,
             maxConnections = maxConnections,
             registerMbeans = registerMbeans,
-            logQueryCost = logQueryCost,
-            metrics = m,
-            scheduler = scheduler,
-            warnOnSlowQueryO = parameters.warnOnSlowQuery.map(_.toInternal),
-            warnInterval = parameters.warnOnSlowQueryInterval.toInternal,
-            logger = logger,
           )
         case None =>
           AsyncExecutor(

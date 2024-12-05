@@ -34,7 +34,6 @@ import com.digitalasset.canton.topology.processing.{
   SequencedTime,
   TopologyTransactionProcessingSubscriber,
 }
-import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.SingleUseCell
@@ -706,43 +705,6 @@ trait DomainTopologyClientWithInit
       condition: => FutureUnlessShutdown[Boolean],
       timeout: Duration,
   ): FutureUnlessShutdown[Boolean]
-}
-
-object DomainTopologyClientWithInit {
-
-  /** Responsible for calling [[DomainTopologyClientWithInit.updateHead]] for the first time. */
-  trait HeadStateInitializer {
-    def initialize(
-        client: DomainTopologyClientWithInit,
-        store: TopologyStore[TopologyStoreId.DomainStore],
-    )(implicit
-        executionContext: ExecutionContext,
-        traceContext: TraceContext,
-    ): FutureUnlessShutdown[DomainTopologyClientWithInit]
-  }
-
-  object DefaultHeadStateInitializer extends HeadStateInitializer {
-    override def initialize(
-        client: DomainTopologyClientWithInit,
-        store: TopologyStore[TopologyStoreId.DomainStore],
-    )(implicit
-        executionContext: ExecutionContext,
-        traceContext: TraceContext,
-    ): FutureUnlessShutdown[DomainTopologyClientWithInit] =
-      store
-        .maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true)
-        .map { maxTimestamp =>
-          maxTimestamp.foreach { case (sequenced, effective) =>
-            client.updateHead(
-              sequenced,
-              effective,
-              effective.toApproximate,
-              potentialTopologyChange = true,
-            )
-          }
-          client
-        }
-  }
 }
 
 /** An internal interface with a simpler lookup function which can be implemented efficiently with caching and reading from a store */

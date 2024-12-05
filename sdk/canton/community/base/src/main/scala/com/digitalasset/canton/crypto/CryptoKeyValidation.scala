@@ -8,6 +8,7 @@ import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateErro
 import com.digitalasset.canton.crypto.provider.jce.JceJavaKeyConverter
 
 import java.security.PublicKey as JPublicKey
+import scala.annotation.nowarn
 import scala.collection.concurrent.TrieMap
 
 object CryptoKeyValidation {
@@ -33,14 +34,16 @@ object CryptoKeyValidation {
       publicKey: PublicKey,
       errFn: String => E,
   ): Either[E, Unit] = {
+    @nowarn("msg=Der in object CryptoKeyFormat is deprecated")
     lazy val parseRes = publicKey.format match {
-      case CryptoKeyFormat.DerX509Spki | CryptoKeyFormat.Der =>
+      case CryptoKeyFormat.DerX509Spki =>
         // We check the cache first and if it's not there we convert to Java Key
         // (and consequently check the key format)
         parseAndValidateDerKey(publicKey).map(_ => ())
       case CryptoKeyFormat.Symbolic =>
         Either.unit
-      case format => Left(KeyParseAndValidateError(s"Invalid format for public key: $format"))
+      case format @ (CryptoKeyFormat.Der | CryptoKeyFormat.Raw | CryptoKeyFormat.DerPkcs8Pki) =>
+        Left(KeyParseAndValidateError(s"Invalid format for public key: $format"))
     }
 
     // If the result is already in the cache it means the key has already been validated.

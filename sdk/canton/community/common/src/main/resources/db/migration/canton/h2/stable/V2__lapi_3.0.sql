@@ -34,7 +34,8 @@ CREATE TABLE lapi_ledger_end_domain_index (
   sequencer_timestamp BIGINT,
   request_counter BIGINT,
   request_timestamp BIGINT,
-  request_sequencer_counter BIGINT
+  request_sequencer_counter BIGINT,
+  record_time BIGINT NOT NULL
 );
 
 ---------------------------------------------------------------------------------------------------

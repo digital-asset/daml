@@ -84,7 +84,7 @@ sealed trait DomainIndexUpdate extends DomainUpdate {
     sequencerCounterO.map(SequencerIndex(_, recordTime))
 
   final def domainIndex: (DomainId, DomainIndex) =
-    domainId -> DomainIndex(requestIndexO, sequencerIndexO)
+    domainId -> DomainIndex(requestIndexO, sequencerIndexO, recordTime)
 }
 
 sealed trait SequencedUpdate extends DomainIndexUpdate {
@@ -97,6 +97,13 @@ sealed trait RequestUpdate extends DomainIndexUpdate {
   def requestCounter: RequestCounter
 
   final override def requestCounterO: Option[RequestCounter] = Some(requestCounter)
+}
+
+sealed trait FloatingUpdate extends DomainIndexUpdate {
+
+  final override def requestCounterO: Option[RequestCounter] = None
+
+  final override def sequencerCounterO: Option[SequencerCounter] = None
 }
 
 sealed trait RepairUpdate extends RequestUpdate {
@@ -468,7 +475,7 @@ object Update {
 
   /** Signal that a command submitted via [[SyncService]] was rejected.
     */
-  sealed trait CommandRejected extends DomainUpdate {
+  sealed trait CommandRejected extends DomainIndexUpdate {
 
     /** The completion information for the submission
       */
@@ -517,6 +524,7 @@ object Update {
       persisted: Promise[Unit] = Promise(),
   )(implicit override val traceContext: TraceContext)
       extends CommandRejected
+      with FloatingUpdate
 
   object CommandRejected {
 

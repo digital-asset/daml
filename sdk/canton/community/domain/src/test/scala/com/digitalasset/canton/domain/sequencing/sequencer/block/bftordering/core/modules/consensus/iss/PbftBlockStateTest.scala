@@ -27,9 +27,11 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
   Commit,
+  PbftNetworkMessage,
   PrePrepare,
   Prepare,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusStatus
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.SequencerId
 import com.google.protobuf.ByteString
@@ -330,19 +332,16 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
       // Commit with BAD hash (won't count)
       assertNoLogs(blockState.processMessage(createCommit(otherPeer1, wrongHash))) shouldBe true
-      suppressProblemLogs(blockState.advance(), count = 2 /* 2 wrong hashes */ ) shouldBe empty
+      suppressProblemLogs(blockState.advance()) shouldBe empty
 
       // Commit with GOOD hash. Normally now we should have enough votes to complete the block, but the vote with bad hash did not count
       assertNoLogs(blockState.processMessage(createCommit(otherPeer2))) shouldBe true
-      suppressProblemLogs(blockState.advance(), count = 2) shouldBe empty
+      suppressProblemLogs(blockState.advance()) shouldBe empty
       blockState.isBlockComplete shouldBe false
 
       // Commit with GOOD hash. Now block can be completed.
       assertNoLogs(blockState.processMessage(createCommit(otherPeer3))) shouldBe true
-      suppressProblemLogs(
-        blockState.advance(),
-        count = 2,
-      ) should contain theSameElementsInOrderAs List(
+      suppressProblemLogs(blockState.advance()) should contain theSameElementsInOrderAs List(
         CompletedBlock(
           prePrepare,
           Seq(createCommit(otherPeer2), createCommit(otherPeer3), createCommit(myId)),
@@ -514,6 +513,110 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           // but that didn't happen, we know the rehydrated prepare was picked
           p.localTimestamp shouldBe CantonTimestamp.Epoch
       }
+      clock.reset()
+      succeed
+    }
+
+    "create status message and messages to retransmit" in {
+      val numberOfpeers = 4
+      val peers = (1 until numberOfpeers).map { index =>
+        fakeSequencerId(
+          s"peer$index"
+        )
+      }.toSet
+      val membership = Membership(myId, peers)
+      val blockState = createBlockState(peers)
+      val strongQuorum = membership.orderingTopology.strongQuorum
+      val noProgressBlockStatus = ConsensusStatus.BlockStatus.InProgress(
+        prePrepared = false,
+        preparesPresent = Seq.fill(numberOfpeers)(false),
+        commitsPresent = Seq.fill(numberOfpeers)(false),
+      )
+
+      blockState.status shouldBe noProgressBlockStatus
+
+      assertNoLogs(blockState.processMessage(prePrepare)) shouldBe true
+      blockState.advance() should not be empty
+
+      blockState.status shouldBe ConsensusStatus.BlockStatus.InProgress(
+        prePrepared = true,
+        preparesPresent = Seq.fill(numberOfpeers - 1)(false) ++ Seq(true),
+        commitsPresent = Seq.fill(numberOfpeers)(false),
+      )
+
+      val myPrepare = createPrepare(myId)
+      val peerPrepares = peers.toSeq.sorted.map(createPrepare(_))
+      val myCommit = createCommit(myId)
+      val peerCommits = peers.toSeq.sorted.map(createCommit(_))
+
+      blockState.messagesToRetransmit(noProgressBlockStatus) shouldBe empty
+
+      // only retransmit pre-prepare and local prepare after confirming pre-prepare has been stored
+      blockState.confirmPrePrepareStored()
+      blockState.advance()
+      blockState.messagesToRetransmit(
+        noProgressBlockStatus
+      ) should contain theSameElementsInOrderAs Seq[SignedMessage[PbftNetworkMessage]](
+        prePrepare,
+        myPrepare,
+      )
+
+      peerPrepares.zipWithIndex.map { case (prepare, index) =>
+        assertNoLogs(blockState.processMessage(prepare)) shouldBe true
+        blockState.status shouldBe ConsensusStatus.BlockStatus.InProgress(
+          prePrepared = true,
+          preparesPresent =
+            Seq.fill(index + 1)(true) ++ Seq.fill(numberOfpeers - index - 2)(false) ++ Seq(true),
+          commitsPresent = Seq.fill(numberOfpeers)(false),
+        )
+
+        blockState.messagesToRetransmit(
+          noProgressBlockStatus
+        ) should contain theSameElementsAs Seq[SignedMessage[PbftNetworkMessage]](
+          prePrepare
+        ) ++ (peerPrepares.take(index + 1) ++ Seq(myPrepare))
+          .take(strongQuorum)
+      }
+
+      blockState.advance() should not be empty
+      blockState.status shouldBe ConsensusStatus.BlockStatus.InProgress(
+        prePrepared = true,
+        preparesPresent = Seq.fill(numberOfpeers)(true),
+        commitsPresent = Seq.fill(numberOfpeers - 1)(false) ++ Seq(true),
+      )
+
+      // we only retransmit local commit after the prepares were stored
+      val noCommitsBlockStatus = ConsensusStatus.BlockStatus.InProgress(
+        prePrepared = true,
+        preparesPresent = Seq.fill(numberOfpeers)(true),
+        commitsPresent = Seq.fill(numberOfpeers)(false),
+      )
+      blockState.messagesToRetransmit(noCommitsBlockStatus) shouldBe empty
+      blockState.confirmPreparesStored()
+      blockState.advance() shouldBe empty
+      blockState.messagesToRetransmit(noCommitsBlockStatus) should contain only myCommit
+
+      // Receive all but one needed Commit to make progress
+      peerCommits.zipWithIndex.take(strongQuorum - 2).foreach { case (commit, index) =>
+        assertNoLogs(blockState.processMessage(commit)) shouldBe true
+        blockState.status shouldBe ConsensusStatus.BlockStatus.InProgress(
+          prePrepared = true,
+          preparesPresent = Seq.fill(numberOfpeers)(true),
+          commitsPresent =
+            Seq.fill(index + 1)(true) ++ Seq.fill(numberOfpeers - index - 2)(false) ++ Seq(true),
+        )
+
+        blockState.messagesToRetransmit(
+          noCommitsBlockStatus
+        ) should contain theSameElementsAs (peerCommits.take(index + 1) ++ Seq(myCommit))
+          .take(strongQuorum)
+      }
+      blockState.advance() shouldBe empty
+
+      assertNoLogs(blockState.processMessage(peerCommits(strongQuorum - 2))) shouldBe true
+      blockState.advance() should not be empty
+
+      blockState.status shouldBe ConsensusStatus.BlockStatus.Complete
     }
 
   }

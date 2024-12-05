@@ -19,7 +19,7 @@ import com.digitalasset.canton.lifecycle.{
   FlagCloseableAsync,
   SyncCloseable,
 }
-import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, SimClock}
 import com.digitalasset.canton.topology.{Member, ParticipantId, SequencerId, UniqueIdentifier}
@@ -145,7 +145,7 @@ class SequencerWriterSourceTest
         SequencerMetrics.noop(suiteName),
         timeouts,
         blockSequencerMode = true,
-      )(executorService, implicitly[TraceContext])
+      )(executorService, implicitly[TraceContext], implicitly[ErrorLoggingContext])
         .toMat(Sink.ignore)(Keep.both),
       errorLogMessagePrefix = "Writer flow failed",
     )
@@ -197,14 +197,9 @@ class SequencerWriterSourceTest
 
   "payload to event time bound" should {
 
+    // this test doesn't work with block sequencers
     "prevent sequencing deliver events if their payloads are too old" in withEnv() { env =>
       import env.*
-
-      // setup advancing the clock past the payload to event bound immediately after the payload is persisted
-      // (but before the event time is generated which will then be beyond a valid bound).
-      store.setClockAdvanceBeforeSavePayloads(
-        testWriterConfig.payloadToEventMargin.asJava.plusSeconds(1)
-      )
 
       val nowish = clock.now.plusSeconds(10)
       clock.advanceTo(nowish)
@@ -221,7 +216,16 @@ class SequencerWriterSourceTest
         )
         _ <- loggerFactory.assertLogs(
           {
-            offerDeliverOrFail(Presequenced.alwaysValid(deliver1))
+            offerDeliverOrFail(
+              Presequenced.alwaysValid(
+                deliver1,
+                blockSequencerTimestamp = Some(
+                  nowish.plus(
+                    testWriterConfig.payloadToEventMargin.asJava.plusSeconds(1)
+                  )
+                ),
+              )
+            )
             completeFlow()
           },
           _.shouldBeCantonErrorCode(PayloadToEventTimeBoundExceeded),
@@ -259,8 +263,20 @@ class SequencerWriterSourceTest
           None,
         )
         _ <- {
-          offerDeliverOrFail(Presequenced.withMaxSequencingTime(deliver1, beforeNow, None))
-          offerDeliverOrFail(Presequenced.withMaxSequencingTime(deliver2, longAfterNow, None))
+          offerDeliverOrFail(
+            Presequenced.withMaxSequencingTime(
+              deliver1,
+              beforeNow,
+              Some(nowish),
+            )
+          )
+          offerDeliverOrFail(
+            Presequenced.withMaxSequencingTime(
+              deliver2,
+              longAfterNow,
+              Some(nowish),
+            )
+          )
           completeFlow()
         }
 
@@ -304,8 +320,15 @@ class SequencerWriterSourceTest
           Some(invalidTopologyTimestamp),
           None,
         )
-        _ = offerDeliverOrFail(Presequenced.alwaysValid(deliver1))
-        _ = offerDeliverOrFail(Presequenced.alwaysValid(deliver2))
+        _ = offerDeliverOrFail(
+          Presequenced.alwaysValid(deliver1, Some(nowish))
+        )
+        _ = offerDeliverOrFail(
+          Presequenced.alwaysValid(
+            deliver2,
+            Some(nowish.immediateSuccessor),
+          )
+        )
         _ <- completeFlow()
         events <- store.readEvents(aliceId)
       } yield {
@@ -354,25 +377,33 @@ class SequencerWriterSourceTest
 
       for {
         aliceId <- store.registerMember(alice, CantonTimestamp.Epoch)
+        batch = Batch.fromClosed(
+          testedProtocolVersion,
+          ClosedEnvelope.create(
+            ByteString.EMPTY,
+            Recipients.cc(bob),
+            Seq.empty,
+            testedProtocolVersion,
+          ),
+        )
         _ <- valueOrFail(
-          writer.send(
-            SubmissionRequest.tryCreate(
-              alice,
-              MessageId.tryCreate("test-unknown-recipients"),
-              batch = Batch.fromClosed(
-                testedProtocolVersion,
-                ClosedEnvelope.create(
-                  ByteString.EMPTY,
-                  Recipients.cc(bob),
-                  Seq.empty,
-                  testedProtocolVersion,
-                ),
+          writer.blockSequencerWrite(
+            SubmissionOutcome.Deliver(
+              SubmissionRequest.tryCreate(
+                alice,
+                MessageId.tryCreate("test-unknown-recipients"),
+                batch = batch,
+                maxSequencingTime = CantonTimestamp.MaxValue,
+                topologyTimestamp = None,
+                aggregationRule = None,
+                submissionCost = None,
+                protocolVersion = testedProtocolVersion,
               ),
-              maxSequencingTime = CantonTimestamp.MaxValue,
-              topologyTimestamp = None,
-              aggregationRule = None,
-              submissionCost = None,
-              protocolVersion = testedProtocolVersion,
+              sequencingTime = CantonTimestamp.Epoch.immediateSuccessor,
+              deliverToMembers = Set(alice, bob),
+              batch = batch,
+              submissionTraceContext = TraceContext.empty,
+              trafficReceiptO = None,
             )
           )
         )("send to unknown recipient")
@@ -395,6 +426,7 @@ class SequencerWriterSourceTest
   "notifies the event signaller of writes" in withEnv() { implicit env =>
     import env.*
 
+    val runningSequencingTimestamp = new AtomicLong(CantonTimestamp.Epoch.toProtoPrimitive)
     def deliverEvent(memberId: SequencerMemberId): Unit =
       offerDeliverOrFail(
         Presequenced.alwaysValid(
@@ -405,7 +437,8 @@ class SequencerWriterSourceTest
             generatePayload(),
             None,
             None,
-          )
+          ),
+          Some(CantonTimestamp.assertFromLong(runningSequencingTimestamp.incrementAndGet())),
         )
       )
 
@@ -520,25 +553,33 @@ class SequencerWriterSourceTest
         aliceId <- store.registerMember(alice, CantonTimestamp.Epoch)
         _ <- store.registerMember(bob, CantonTimestamp.Epoch)
         _ <- store.registerMember(charlie, CantonTimestamp.Epoch)
+        batch = Batch.fromClosed(
+          testedProtocolVersion,
+          ClosedEnvelope.create(
+            ByteString.EMPTY,
+            Recipients.cc(bob),
+            Seq.empty,
+            testedProtocolVersion,
+          ),
+        )
         _ <- valueOrFail(
-          writer.send(
-            SubmissionRequest.tryCreate(
-              alice,
-              MessageId.tryCreate("test-deliver"),
-              batch = Batch.fromClosed(
-                testedProtocolVersion,
-                ClosedEnvelope.create(
-                  ByteString.EMPTY,
-                  Recipients.cc(bob),
-                  Seq.empty,
-                  testedProtocolVersion,
-                ),
+          writer.blockSequencerWrite(
+            SubmissionOutcome.Deliver(
+              SubmissionRequest.tryCreate(
+                alice,
+                MessageId.tryCreate("test-deliver"),
+                batch = batch,
+                maxSequencingTime = CantonTimestamp.MaxValue,
+                topologyTimestamp = None,
+                aggregationRule = None,
+                submissionCost = None,
+                protocolVersion = testedProtocolVersion,
               ),
-              maxSequencingTime = CantonTimestamp.MaxValue,
-              topologyTimestamp = None,
-              aggregationRule = None,
-              submissionCost = None,
-              protocolVersion = testedProtocolVersion,
+              sequencingTime = CantonTimestamp.Epoch.immediateSuccessor,
+              deliverToMembers = Set(alice, bob),
+              batch = batch,
+              submissionTraceContext = TraceContext.empty,
+              trafficReceiptO = None,
             )
           )
         )("send")

@@ -178,7 +178,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
   protected def timeouts: ProcessingTimeout = config.parameters.timeouts.processing
 
   protected val futureSupervisor =
-    if (config.monitoring.logSlowFutures)
+    if (config.monitoring.logging.logSlowFutures)
       new FutureSupervisor.Impl(timeouts.slowFutureWarn)
     else FutureSupervisor.Noop
 

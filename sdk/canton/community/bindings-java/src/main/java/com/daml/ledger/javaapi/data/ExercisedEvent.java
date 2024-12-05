@@ -15,6 +15,10 @@ public final class ExercisedEvent implements TreeEvent {
 
   private final String eventId;
 
+  private final Long offset;
+
+  private final Integer nodeId;
+
   private final Identifier templateId;
 
   private final String packageName;
@@ -38,6 +42,8 @@ public final class ExercisedEvent implements TreeEvent {
   public ExercisedEvent(
       @NonNull List<@NonNull String> witnessParties,
       @NonNull String eventId,
+      @NonNull Long offset,
+      @NonNull Integer nodeId,
       @NonNull Identifier templateId,
       @NonNull String packageName,
       @NonNull Optional<Identifier> interfaceId,
@@ -50,6 +56,8 @@ public final class ExercisedEvent implements TreeEvent {
       @NonNull Value exerciseResult) {
     this.witnessParties = witnessParties;
     this.eventId = eventId;
+    this.offset = offset;
+    this.nodeId = nodeId;
     this.templateId = templateId;
     this.packageName = packageName;
     this.interfaceId = interfaceId;
@@ -72,6 +80,18 @@ public final class ExercisedEvent implements TreeEvent {
   @Override
   public String getEventId() {
     return eventId;
+  }
+
+  @NonNull
+  @Override
+  public Long getOffset() {
+    return offset;
+  }
+
+  @NonNull
+  @Override
+  public Integer getNodeId() {
+    return nodeId;
   }
 
   @NonNull
@@ -133,6 +153,8 @@ public final class ExercisedEvent implements TreeEvent {
     return consuming == that.consuming
         && Objects.equals(witnessParties, that.witnessParties)
         && Objects.equals(eventId, that.eventId)
+        && Objects.equals(offset, that.offset)
+        && Objects.equals(nodeId, that.nodeId)
         && Objects.equals(templateId, that.templateId)
         && Objects.equals(packageName, that.packageName)
         && Objects.equals(interfaceId, that.interfaceId)
@@ -150,6 +172,8 @@ public final class ExercisedEvent implements TreeEvent {
     return Objects.hash(
         witnessParties,
         eventId,
+        offset,
+        nodeId,
         templateId,
         packageName,
         interfaceId,
@@ -170,6 +194,10 @@ public final class ExercisedEvent implements TreeEvent {
         + ", eventId='"
         + eventId
         + '\''
+        + ", offset="
+        + offset
+        + ", nodeId="
+        + nodeId
         + ", templateId="
         + templateId
         + ", packageName="
@@ -198,6 +226,8 @@ public final class ExercisedEvent implements TreeEvent {
   public EventOuterClass.@NonNull ExercisedEvent toProto() {
     EventOuterClass.ExercisedEvent.Builder builder = EventOuterClass.ExercisedEvent.newBuilder();
     builder.setEventId(getEventId());
+    builder.setOffset(getOffset());
+    builder.setNodeId(getNodeId());
     builder.setChoice(getChoice());
     builder.setChoiceArgument(getChoiceArgument().toProto());
     builder.setConsuming(isConsuming());
@@ -216,6 +246,8 @@ public final class ExercisedEvent implements TreeEvent {
     return new ExercisedEvent(
         exercisedEvent.getWitnessPartiesList(),
         exercisedEvent.getEventId(),
+        exercisedEvent.getOffset(),
+        exercisedEvent.getNodeId(),
         Identifier.fromProto(exercisedEvent.getTemplateId()),
         exercisedEvent.getPackageName(),
         exercisedEvent.hasInterfaceId()

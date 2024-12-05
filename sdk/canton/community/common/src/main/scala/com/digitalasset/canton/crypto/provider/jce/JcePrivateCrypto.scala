@@ -66,9 +66,9 @@ class JcePrivateCrypto(
   ): SigningKeyPair = {
     val javaEncodedKeyPair = fromJavaKeyPair(javaKeyPair)
     SigningKeyPair.create(
-      publicFormat = CryptoKeyFormat.Der,
+      publicFormat = CryptoKeyFormat.DerX509Spki,
       publicKeyBytes = javaEncodedKeyPair.publicKey,
-      privateFormat = CryptoKeyFormat.Der,
+      privateFormat = CryptoKeyFormat.DerPkcs8Pki,
       privateKeyBytes = javaEncodedKeyPair.privateKey,
       keySpec = keySpec,
       usage = usage,
@@ -95,8 +95,9 @@ class JcePrivateCrypto(
     ): EncryptionKeyPair = {
       val rawKeyPair = fromJavaKeyPair(javaKeyPair)
       EncryptionKeyPair.create(
-        format = CryptoKeyFormat.Der,
+        publicFormat = CryptoKeyFormat.DerX509Spki,
         publicKeyBytes = rawKeyPair.publicKey,
+        privateFormat = CryptoKeyFormat.DerPkcs8Pki,
         privateKeyBytes = rawKeyPair.privateKey,
         keySpec = keySpec,
       )

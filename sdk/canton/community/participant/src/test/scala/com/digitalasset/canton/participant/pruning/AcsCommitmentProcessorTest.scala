@@ -1434,11 +1434,13 @@ class AcsCommitmentProcessorTest
         res <- PruningProcessor
           .latestSafeToPruneTick(
             requestJournalStore,
-            DomainIndex.of(
-              RequestIndex(
-                counter = RequestCounter(0L),
-                sequencerCounter = Some(SequencerCounter(0L)),
-                timestamp = CantonTimestamp.Epoch,
+            Some(
+              DomainIndex.of(
+                RequestIndex(
+                  counter = RequestCounter(0L),
+                  sequencerCounter = Some(SequencerCounter(0L)),
+                  timestamp = CantonTimestamp.Epoch,
+                )
               )
             ),
             constantSortedReconciliationIntervalsProvider(defaultReconciliationInterval),
@@ -1472,7 +1474,7 @@ class AcsCommitmentProcessorTest
         res <- PruningProcessor
           .latestSafeToPruneTick(
             requestJournalStore,
-            DomainIndex.empty,
+            None,
             constantSortedReconciliationIntervalsProvider(defaultReconciliationInterval),
             acsCommitmentStore,
             inFlightSubmissionStore,
@@ -1537,20 +1539,23 @@ class AcsCommitmentProcessorTest
         res1 <- PruningProcessor
           .latestSafeToPruneTick(
             requestJournalStore,
-            DomainIndex(
-              Some(
-                RequestIndex(
-                  counter = RequestCounter(2L),
-                  sequencerCounter = None,
-                  timestamp = ts2,
-                )
-              ),
-              Some(
-                SequencerIndex(
-                  counter = SequencerCounter(3L),
-                  timestamp = ts3,
-                )
-              ),
+            Some(
+              DomainIndex(
+                Some(
+                  RequestIndex(
+                    counter = RequestCounter(2L),
+                    sequencerCounter = None,
+                    timestamp = ts2,
+                  )
+                ),
+                Some(
+                  SequencerIndex(
+                    counter = SequencerCounter(3L),
+                    timestamp = ts3,
+                  )
+                ),
+                recordTime = ts3,
+              )
             ),
             sortedReconciliationIntervalsProvider,
             acsCommitmentStore,
@@ -1568,20 +1573,23 @@ class AcsCommitmentProcessorTest
         res2 <- PruningProcessor
           .latestSafeToPruneTick(
             requestJournalStore,
-            DomainIndex(
-              Some(
-                RequestIndex(
-                  counter = RequestCounter(3L),
-                  sequencerCounter = None,
-                  timestamp = ts3,
-                )
-              ),
-              Some(
-                SequencerIndex(
-                  counter = SequencerCounter(4L),
-                  timestamp = ts4,
-                )
-              ),
+            Some(
+              DomainIndex(
+                Some(
+                  RequestIndex(
+                    counter = RequestCounter(3L),
+                    sequencerCounter = None,
+                    timestamp = ts3,
+                  )
+                ),
+                Some(
+                  SequencerIndex(
+                    counter = SequencerCounter(4L),
+                    timestamp = ts4,
+                  )
+                ),
+                recordTime = ts4,
+              )
             ),
             sortedReconciliationIntervalsProvider,
             acsCommitmentStore,
@@ -1637,20 +1645,23 @@ class AcsCommitmentProcessorTest
         res <- PruningProcessor
           .latestSafeToPruneTick(
             requestJournalStore,
-            DomainIndex(
-              Some(
-                RequestIndex(
-                  counter = RequestCounter(2L),
-                  sequencerCounter = None,
-                  timestamp = tsCleanRequest,
-                )
-              ),
-              Some(
-                SequencerIndex(
-                  counter = SequencerCounter(4L),
-                  timestamp = ts3,
-                )
-              ),
+            Some(
+              DomainIndex(
+                Some(
+                  RequestIndex(
+                    counter = RequestCounter(2L),
+                    sequencerCounter = None,
+                    timestamp = tsCleanRequest,
+                  )
+                ),
+                Some(
+                  SequencerIndex(
+                    counter = SequencerCounter(4L),
+                    timestamp = ts3,
+                  )
+                ),
+                recordTime = ts3,
+              )
             ),
             sortedReconciliationIntervalsProvider,
             acsCommitmentStore,
@@ -1736,20 +1747,23 @@ class AcsCommitmentProcessorTest
           PruningProcessor
             .latestSafeToPruneTick(
               requestJournalStore,
-              DomainIndex(
-                Some(
-                  RequestIndex(
-                    counter = RequestCounter(3L),
-                    sequencerCounter = None,
-                    timestamp = tsCleanRequest2,
-                  )
-                ),
-                Some(
-                  SequencerIndex(
-                    counter = SequencerCounter(1L),
-                    timestamp = tsCleanRequest2,
-                  )
-                ),
+              Some(
+                DomainIndex(
+                  Some(
+                    RequestIndex(
+                      counter = RequestCounter(3L),
+                      sequencerCounter = None,
+                      timestamp = tsCleanRequest2,
+                    )
+                  ),
+                  Some(
+                    SequencerIndex(
+                      counter = SequencerCounter(1L),
+                      timestamp = tsCleanRequest2,
+                    )
+                  ),
+                  recordTime = tsCleanRequest2,
+                )
               ),
               sortedReconciliationIntervalsProvider,
               acsCommitmentStore,

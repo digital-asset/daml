@@ -6,6 +6,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.co
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.block.BlockFormat
 import com.digitalasset.canton.domain.block.BlockFormat.OrderedRequest
 import com.digitalasset.canton.domain.block.LedgerBlockEvent.deserializeSignedOrderingRequest
@@ -68,6 +69,7 @@ import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
+import scala.collection.mutable
 import scala.util.{Failure, Success}
 
 /** A module responsible for calculating the [[com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.time.BftTime]],
@@ -121,6 +123,8 @@ class OutputModule[E <: Env[E]](
 
   private val snapshotAdditionalInfoProvider =
     new SequencerSnapshotAdditionalInfoProvider[E](store, loggerFactory)
+
+  private val blocksBeingFetched = mutable.Set[BlockNumber]()
 
   @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
   override def receiveInternal(message: Output.Message[E])(implicit
@@ -203,24 +207,33 @@ class OutputModule[E <: Env[E]](
             )
           ) =>
         logger.debug(
-          s"output received from local consensus ordered block (mode = $mode) " +
-            s"with batch IDs ${orderedBlock.batchRefs}, retrieving data from local availability"
+          s"output received from local consensus ordered block (mode = $mode) with batch IDs ${orderedBlock.batchRefs}"
         )
-
-        // Block batches will be fetched by the availability module either from the local store or,
-        //  if unavailable, from remote peers.
-        //  We need to fetch the batches to provide requests, and their BFT sequencing time,
-        //  to the sequencer runtime, but this also ensures that all batches are stored locally
-        //  when the epoch ends, so that we can provide past block data (e.g. to a re-subscription from
-        //  the sequencer runtime after a crash) even if the topology changes drastically.
-        availability.asyncSend(
-          Availability.LocalOutputFetch.FetchBlockData(orderedBlockForOutput)
-        )
+        val blockNumber = orderedBlock.metadata.blockNumber
+        if (completedBlocksPeanoQueue.head.v > blockNumber) {
+          // This can happen if we start catching up in the middle of an epoch, as state transfer has epoch granularity.
+          logger.debug(s"Skipping block $blockNumber as it's been provided already")
+        } else if (!blocksBeingFetched.contains(blockNumber)) {
+          // Block batches will be fetched by the availability module either from the local store or,
+          //  if unavailable, from remote peers.
+          //  We need to fetch the batches to provide requests, and their BFT sequencing time,
+          //  to the sequencer runtime, but this also ensures that all batches are stored locally
+          //  when the epoch ends, so that we can provide past block data (e.g. to a re-subscription from
+          //  the sequencer runtime after a crash) even if the topology changes drastically afterward.
+          logger.debug(s"Fetching data for block $blockNumber through local availability")
+          availability.asyncSend(
+            Availability.LocalOutputFetch.FetchBlockData(orderedBlockForOutput)
+          )
+          blocksBeingFetched.add(blockNumber).discard
+        } else {
+          logger.debug(s"Block $blockNumber is already being fetched")
+        }
 
       // From availability
       case Output.BlockDataFetched(completedBlockData) =>
         val orderedBlock = completedBlockData.orderedBlockForOutput.orderedBlock
         val blockNumber = orderedBlock.metadata.blockNumber
+        blocksBeingFetched.remove(blockNumber).discard
         logger.debug(
           s"output received completed block; epoch: ${orderedBlock.metadata.epochNumber}, " +
             s"blockID: $blockNumber, batchIDs: ${completedBlockData.batches.map(_._1)}"

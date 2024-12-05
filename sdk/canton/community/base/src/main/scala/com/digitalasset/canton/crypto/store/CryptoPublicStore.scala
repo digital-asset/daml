@@ -147,7 +147,7 @@ trait CryptoPublicStore extends AutoCloseable { this: NamedLogging =>
   private def retrieveKeyAndUpdateCache[KN <: PublicKeyWithName](
       cache: TrieMap[Fingerprint, KN],
       readKey: Fingerprint => OptionT[FutureUnlessShutdown, KN],
-  )(keyId: Fingerprint): OptionT[FutureUnlessShutdown, KN#K] =
+  )(keyId: Fingerprint): OptionT[FutureUnlessShutdown, KN#PK] =
     cache.get(keyId) match {
       case Some(key) => OptionT.some(key.publicKey)
       case None =>
@@ -160,7 +160,7 @@ trait CryptoPublicStore extends AutoCloseable { this: NamedLogging =>
   private def retrieveKeysAndUpdateCache[KN <: PublicKeyWithName](
       keysFromDb: FutureUnlessShutdown[Set[KN]],
       cache: TrieMap[Fingerprint, KN],
-  ): FutureUnlessShutdown[Set[KN#K]] =
+  ): FutureUnlessShutdown[Set[KN#PK]] =
     for {
       // we always rebuild the cache here just in case new keys have been added by another process
       // this should not be a problem since these operations to get all keys are infrequent and
@@ -188,25 +188,26 @@ trait CryptoPublicStore extends AutoCloseable { this: NamedLogging =>
 
     for {
       signingKeysWithNames <- EitherT.right(listSigningKeys)
-      migratedKeys = signingKeysWithNames.toSeq.collect {
-        case SigningPublicKeyWithName(
-              publicKey @ SigningPublicKey(
-                _format,
-                _key,
-                _scheme,
-                _usage,
-                _dataForFingerprint,
-              ),
-              name,
-            ) if publicKey.migrated =>
-          publicKey
+      migratedSigningKeys = signingKeysWithNames.toSeq.collect {
+        case SigningPublicKeyWithName(publicKey, _name) if publicKey.migrated => publicKey
       }
-      _ <- EitherT.right(replaceSigningPublicKeys(migratedKeys))
+      _ <- EitherT.right(replaceSigningPublicKeys(migratedSigningKeys))
       _ = logger.info(
-        s"Migrated ${migratedKeys.size} of ${signingKeysWithNames.size} public keys"
+        s"Migrated ${migratedSigningKeys.size} of ${signingKeysWithNames.size} signing public keys"
       )
       // Remove migrated keys from the cache
-      _ = signingKeyMap.filterInPlace((fp, _) => !migratedKeys.map(_.id).contains(fp))
+      _ = signingKeyMap.filterInPlace((fp, _) => !migratedSigningKeys.map(_.id).contains(fp))
+
+      encryptionKeysWithNames <- EitherT.right(listEncryptionKeys)
+      migratedEncryptionKeys = encryptionKeysWithNames.toSeq.collect {
+        case EncryptionPublicKeyWithName(publicKey, _name) if publicKey.migrated => publicKey
+      }
+      _ <- EitherT.right(replaceEncryptionPublicKeys(migratedEncryptionKeys))
+      _ = logger.info(
+        s"Migrated ${migratedEncryptionKeys.size} of ${encryptionKeysWithNames.size} encryption public keys"
+      )
+      // Remove migrated keys from the cache
+      _ = encryptionKeyMap.filterInPlace((fp, _) => !migratedEncryptionKeys.map(_.id).contains(fp))
     } yield ()
   }
 
@@ -234,17 +235,22 @@ trait CryptoPublicStore extends AutoCloseable { this: NamedLogging =>
   private def allPublicKeysConverted()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Boolean] = {
-    // Ensure we don't read from the cache
+    // Ensure we don't read from the caches
     signingKeyMap.clear()
+    encryptionKeyMap.clear()
 
     for {
       signingKeysWithNames <- listSigningKeys
-    } yield signingKeysWithNames.forall {
-      case SigningPublicKeyWithName(
-            key @ SigningPublicKey(_format, _rawKey, _scheme, _usage, _dataForFingerprint),
-            _name,
-          ) =>
-        !key.migrated
+      encryptionKeysWithNames <- listEncryptionKeys
+    } yield {
+      val noSigningKeysMigrated = signingKeysWithNames.forall {
+        case SigningPublicKeyWithName(key, _name) => !key.migrated
+      }
+      val noEncryptionKeysMigrated = encryptionKeysWithNames.forall {
+        case EncryptionPublicKeyWithName(key, _name) => !key.migrated
+      }
+
+      noSigningKeysMigrated && noEncryptionKeysMigrated
     }
   }
 
@@ -255,20 +261,32 @@ trait CryptoPublicStore extends AutoCloseable { this: NamedLogging =>
   ): EitherT[FutureUnlessShutdown, CryptoPublicStoreError, Seq[Fingerprint]] = {
     logger.info("Reverse-migrating keys in public key store")
 
+    def reverseMigrateKeys[PKN <: PublicKeyWithName](keys: Set[PKN]): Seq[PKN#PK#K] =
+      keys.toSeq.mapFilter(keyWithName => keyWithName.publicKey.reverseMigrate())
+
     for {
       signingKeysWithNames <- EitherT.right(listSigningKeys)
-      migratedKeys = signingKeysWithNames.toSeq.mapFilter { keyWithName =>
-        keyWithName.publicKey.reverseMigrate()
-      }
-      _ <- EitherT.right(replaceSigningPublicKeys(migratedKeys))
+      migratedSigningKeys = reverseMigrateKeys(signingKeysWithNames)
+      _ <- EitherT.right(replaceSigningPublicKeys(migratedSigningKeys))
       _ = logger.info(
-        s"Reverse-migrated ${migratedKeys.size} of ${signingKeysWithNames.size} public keys"
+        s"Reverse-migrated ${migratedSigningKeys.size} of ${signingKeysWithNames.size} signing public keys"
+      )
+
+      encryptionKeysWithNames <- EitherT.right(listEncryptionKeys)
+      migratedEncryptionKeys = reverseMigrateKeys(encryptionKeysWithNames)
+      _ <- EitherT.right(replaceEncryptionPublicKeys(migratedEncryptionKeys))
+      _ = logger.info(
+        s"Reverse-migrated ${migratedEncryptionKeys.size} of ${encryptionKeysWithNames.size} encryption public keys"
       )
     } yield {
-      val migratedKeyIds = migratedKeys.map(_.id)
+      val migratedSigningKeyIds = migratedSigningKeys.map(_.id)
+      val migratedEncryptionKeyIds = migratedEncryptionKeys.map(_.id)
+
       // Remove migrated keys from the cache
-      signingKeyMap.filterInPlace((fp, _) => !migratedKeys.map(_.id).contains(fp))
-      migratedKeyIds
+      signingKeyMap.filterInPlace((fp, _) => !migratedSigningKeyIds.contains(fp))
+      encryptionKeyMap.filterInPlace((fp, _) => !migratedEncryptionKeyIds.contains(fp))
+
+      migratedSigningKeyIds ++ migratedEncryptionKeyIds
     }
   }
 }

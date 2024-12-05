@@ -32,7 +32,7 @@ import scala.util.{Failure, Success}
   * The events are published only after the [[com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker]]
   * has observed the timestamp.
   *
-  * All sequencer counters above `initSc` must eventually be signalled to the [[RecordOrderPublisher]] using [[tick]].
+  * All sequencer counters above and including `initSc` must eventually be signalled to the [[RecordOrderPublisher]] using [[tick]].
   * An event is published only when all sequencer counters between `initSc` and its associated sequencer counter
   * have been signalled.
   *
@@ -88,7 +88,7 @@ class RecordOrderPublisher(
   /** Schedules the given `eventO` to be published on the `eventLog`, and schedules the causal "tick" defined by `clock`.
     * Tick must be called exactly once for all sequencer counters higher than initTimestamp.
     *
-    * @param event The update event to be published, or if absent the SequencerCounterMoved event will be published.
+    * @param event The update event to be published.
     */
   def tick(event: SequencedUpdate)(implicit traceContext: TraceContext): Future[Unit] =
     ifNotClosedYet {
@@ -174,7 +174,7 @@ class RecordOrderPublisher(
     *                     This function will be executed as the scheduled task is executing.
     *                     This function will be called with the realized domain timestamp.
     * @param traceContext Should be the TraceContext of the event
-    * @return
+    * @return The timestamp used for the publication.
     */
   def scheduleFloatingEventPublicationImmediately(
       eventFactory: CantonTimestamp => Option[Update]
@@ -231,10 +231,12 @@ class RecordOrderPublisher(
   private object PublicationTask {
     def orderingSameTimestamp: Ordering[PublicationTask] = Ordering.by(rankSameTimestamp)
 
-    private def rankSameTimestamp(x: PublicationTask): Option[SequencerCounter] =
+    // For each tick we have exactly one EventPublicationTask, which always should precede all the other scheduled
+    // floating events.
+    private def rankSameTimestamp(x: PublicationTask): (Int, Option[SequencerCounter]) =
       x match {
-        case _: FloatingEventPublicationTask[_] => None
-        case task: EventPublicationTask => Some(task.sequencerCounter)
+        case task: EventPublicationTask => 0 -> Some(task.sequencerCounter)
+        case _: FloatingEventPublicationTask[_] => 1 -> None
       }
   }
 

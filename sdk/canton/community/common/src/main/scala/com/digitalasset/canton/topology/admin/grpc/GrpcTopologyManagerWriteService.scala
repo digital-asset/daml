@@ -23,13 +23,17 @@ import com.digitalasset.canton.topology.admin.v30.{
   GenerateTransactionsRequest,
   GenerateTransactionsResponse,
   ImportTopologySnapshotRequest,
+  ImportTopologySnapshotResponse,
 }
 import com.digitalasset.canton.topology.store.{StoredTopologyTransactions, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
+import com.digitalasset.canton.util.GrpcStreamingUtils
 import com.digitalasset.canton.version.ProtocolVersionValidation
+import com.google.protobuf.ByteString
+import io.grpc.stub.StreamObserver
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -211,17 +215,29 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
   }
 
   override def importTopologySnapshot(
-      request: ImportTopologySnapshotRequest
-  ): Future[v30.ImportTopologySnapshotResponse] = {
+      responseObserver: StreamObserver[ImportTopologySnapshotResponse]
+  ): StreamObserver[ImportTopologySnapshotRequest] =
+    GrpcStreamingUtils
+      .streamFromClient[ImportTopologySnapshotRequest, ImportTopologySnapshotResponse, String](
+        _.topologySnapshot,
+        _.store,
+        (topologySnapshot, store) => doImportTopologySnapshot(topologySnapshot, store),
+        responseObserver,
+      )
+
+  private def doImportTopologySnapshot(
+      topologySnapshot: ByteString,
+      store: String,
+  ): Future[ImportTopologySnapshotResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val res = for {
       storedTxs <- EitherT.fromEither[FutureUnlessShutdown](
         StoredTopologyTransactions
-          .fromTrustedByteString(request.topologySnapshot)
+          .fromTrustedByteString(topologySnapshot)
           .leftMap(ProtoDeserializationFailure.Wrap(_): CantonError)
       )
       signedTxs = storedTxs.result.map(_.transaction)
-      _ <- addTransactions(signedTxs, request.store, ForceFlags.all)
+      _ <- addTransactions(signedTxs, store, ForceFlags.all)
     } yield v30.ImportTopologySnapshotResponse()
     CantonGrpcUtil.mapErrNewEUS(res)
   }

@@ -710,8 +710,20 @@ class GrpcTopologyManagerReadService(
   }
 
   override def exportTopologySnapshot(
-      request: ExportTopologySnapshotRequest
-  ): Future[ExportTopologySnapshotResponse] = {
+      request: ExportTopologySnapshotRequest,
+      responseObserver: StreamObserver[ExportTopologySnapshotResponse],
+  ): Unit =
+    GrpcStreamingUtils.streamToClient[ExportTopologySnapshotResponse](
+      (out: OutputStream) => getTopologySnapshot(request, out),
+      responseObserver,
+      byteString => ExportTopologySnapshotResponse(byteString),
+      processingTimeout.unbounded.duration,
+    )
+
+  private def getTopologySnapshot(
+      request: ExportTopologySnapshotRequest,
+      out: OutputStream,
+  ): Future[Unit] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val res = for {
       baseQuery <- wrapErrUS(BaseQuery.fromProto(request.baseQuery))
@@ -727,9 +739,7 @@ class GrpcTopologyManagerReadService(
 
     } yield {
       val protocolVersion = baseQuery.protocolVersion.getOrElse(ProtocolVersion.latest)
-      adminProto.ExportTopologySnapshotResponse(result =
-        storedTopologyTransactions.toByteString(protocolVersion)
-      )
+      storedTopologyTransactions.toByteString(protocolVersion).writeTo(out)
     }
     CantonGrpcUtil.mapErrNewEUS(res)
   }

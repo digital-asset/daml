@@ -23,6 +23,7 @@ import com.digitalasset.canton.serialization.{
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.*
+import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import slick.jdbc.GetResult
 
@@ -527,13 +528,19 @@ final case class EncryptionKeyPair(
 object EncryptionKeyPair {
 
   private[crypto] def create(
-      format: CryptoKeyFormat,
+      publicFormat: CryptoKeyFormat,
       publicKeyBytes: ByteString,
+      privateFormat: CryptoKeyFormat,
       privateKeyBytes: ByteString,
       keySpec: EncryptionKeySpec,
   ): EncryptionKeyPair = {
-    val publicKey = new EncryptionPublicKey(format, publicKeyBytes, keySpec)()
-    val privateKey = new EncryptionPrivateKey(publicKey.id, format, privateKeyBytes, keySpec)()
+    val publicKey = EncryptionPublicKey
+      .create(publicFormat, publicKeyBytes, keySpec)
+      .valueOr(err =>
+        throw new IllegalStateException(s"Failed to create public encryption key: $err")
+      )
+    val privateKey =
+      EncryptionPrivateKey.create(publicKey.id, privateFormat, privateKeyBytes, keySpec)
     new EncryptionKeyPair(publicKey, privateKey)
   }
 
@@ -563,6 +570,8 @@ final case class EncryptionPublicKey private[crypto] (
 ) extends PublicKey
     with PrettyPrinting
     with HasVersionedWrapper[EncryptionPublicKey] {
+
+  override type K = EncryptionPublicKey
 
   override protected def companionObj: EncryptionPublicKey.type = EncryptionPublicKey
 
@@ -594,6 +603,29 @@ final case class EncryptionPublicKey private[crypto] (
 
   override val pretty: Pretty[EncryptionPublicKey] =
     prettyOfClass(param("id", _.id), param("format", _.format), param("keySpec", _.keySpec))
+
+  @nowarn("msg=Der in object CryptoKeyFormat is deprecated")
+  private def migrate(): Option[EncryptionPublicKey] =
+    (keySpec, format) match {
+      case (EncryptionKeySpec.EcP256, CryptoKeyFormat.Der) |
+          (EncryptionKeySpec.Rsa2048, CryptoKeyFormat.Der) =>
+        Some(EncryptionPublicKey(CryptoKeyFormat.DerX509Spki, key, keySpec)(migrated = true))
+
+      case _ => None
+    }
+
+  @VisibleForTesting
+  @nowarn("msg=Der in object CryptoKeyFormat is deprecated")
+  override private[canton] def reverseMigrate(): Option[K] =
+    (keySpec, format) match {
+      case (EncryptionKeySpec.EcP256, CryptoKeyFormat.DerX509Spki) |
+          (EncryptionKeySpec.Rsa2048, CryptoKeyFormat.DerX509Spki) =>
+        Some(
+          EncryptionPublicKey(CryptoKeyFormat.Der, key, keySpec)()
+        )
+
+      case _ => None
+    }
 }
 
 object EncryptionPublicKey
@@ -612,8 +644,12 @@ object EncryptionPublicKey
       format: CryptoKeyFormat,
       key: ByteString,
       keySpec: EncryptionKeySpec,
-  ): Either[ProtoDeserializationError.CryptoDeserializationError, EncryptionPublicKey] =
-    new EncryptionPublicKey(format, key, keySpec)().validated
+  ): Either[ProtoDeserializationError.CryptoDeserializationError, EncryptionPublicKey] = {
+    val keyBeforeMigration = EncryptionPublicKey(format, key, keySpec)()
+    val keyAfterMigration = keyBeforeMigration.migrate().getOrElse(keyBeforeMigration)
+
+    keyAfterMigration.validated
+  }
 
   @nowarn("cat=deprecation")
   def fromProtoV30(
@@ -639,7 +675,7 @@ final case class EncryptionPublicKeyWithName(
 ) extends PublicKeyWithName
     with PrettyPrinting {
 
-  type K = EncryptionPublicKey
+  type PK = EncryptionPublicKey
 
   override val id: Fingerprint = publicKey.id
 
@@ -656,7 +692,7 @@ object EncryptionPublicKeyWithName {
     }
 }
 
-final case class EncryptionPrivateKey private[crypto] (
+final case class EncryptionPrivateKey private (
     id: Fingerprint,
     format: CryptoKeyFormat,
     protected[crypto] val key: ByteString,
@@ -666,6 +702,8 @@ final case class EncryptionPrivateKey private[crypto] (
 ) extends PrivateKey
     with HasVersionedWrapper[EncryptionPrivateKey]
     with NoCopy {
+
+  override type K = EncryptionPrivateKey
 
   override protected def companionObj: EncryptionPrivateKey.type = EncryptionPrivateKey
 
@@ -683,6 +721,29 @@ final case class EncryptionPrivateKey private[crypto] (
 
   override protected def toProtoPrivateKeyKeyV30: v30.PrivateKey.Key =
     v30.PrivateKey.Key.EncryptionPrivateKey(toProtoV30)
+
+  @nowarn("msg=Der in object CryptoKeyFormat is deprecated")
+  private def migrate(): Option[EncryptionPrivateKey] =
+    (keySpec, format) match {
+      case (EncryptionKeySpec.EcP256, CryptoKeyFormat.Der) |
+          (EncryptionKeySpec.Rsa2048, CryptoKeyFormat.Der) =>
+        Some(EncryptionPrivateKey(id, CryptoKeyFormat.DerPkcs8Pki, key, keySpec)(migrated = true))
+
+      case _ => None
+    }
+
+  @VisibleForTesting
+  @nowarn("msg=Der in object CryptoKeyFormat is deprecated")
+  override private[canton] def reverseMigrate(): Option[K] =
+    (keySpec, format) match {
+      case (EncryptionKeySpec.EcP256, CryptoKeyFormat.DerPkcs8Pki) |
+          (EncryptionKeySpec.Rsa2048, CryptoKeyFormat.DerPkcs8Pki) =>
+        Some(
+          EncryptionPrivateKey(id, CryptoKeyFormat.Der, key, keySpec)()
+        )
+
+      case _ => None
+    }
 }
 
 object EncryptionPrivateKey extends HasVersionedMessageCompanion[EncryptionPrivateKey] {
@@ -696,6 +757,18 @@ object EncryptionPrivateKey extends HasVersionedMessageCompanion[EncryptionPriva
 
   override def name: String = "encryption private key"
 
+  private[crypto] def create(
+      id: Fingerprint,
+      format: CryptoKeyFormat,
+      key: ByteString,
+      keySpec: EncryptionKeySpec,
+  ): EncryptionPrivateKey = {
+    val keyBeforeMigration = EncryptionPrivateKey(id, format, key, keySpec)()
+    val keyAfterMigration = keyBeforeMigration.migrate().getOrElse(keyBeforeMigration)
+
+    keyAfterMigration
+  }
+
   @nowarn("cat=deprecation")
   def fromProtoV30(
       privateKeyP: v30.EncryptionPrivateKey
@@ -707,7 +780,7 @@ object EncryptionPrivateKey extends HasVersionedMessageCompanion[EncryptionPriva
         privateKeyP.keySpec,
         privateKeyP.scheme,
       )
-    } yield new EncryptionPrivateKey(id, format, privateKeyP.privateKey, keySpec)()
+    } yield EncryptionPrivateKey.create(id, format, privateKeyP.privateKey, keySpec)
 }
 
 sealed trait EncryptionError extends Product with Serializable with PrettyPrinting

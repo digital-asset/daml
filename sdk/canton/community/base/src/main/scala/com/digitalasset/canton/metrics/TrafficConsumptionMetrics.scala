@@ -6,7 +6,6 @@ package com.digitalasset.canton.metrics
 import cats.Eval
 import com.daml.metrics.api.*
 import com.daml.metrics.api.MetricHandle.{Counter, Gauge, LabeledMetricsFactory}
-import com.daml.metrics.api.MetricQualification.Traffic
 import com.daml.metrics.api.noop.NoOpMetricsFactory
 
 import scala.collection.concurrent.TrieMap
@@ -127,11 +126,6 @@ class TrafficConsumptionMetrics(
   private val extraTrafficConsumedMetrics: TrieMap[MetricsContext, Eval[Gauge[Long]]] =
     TrieMap.empty[MetricsContext, Eval[Gauge[Long]]]
 
-  @MetricDoc.Tag(
-    summary = "Extra traffic consumed.",
-    description = """Total extra traffic consumed.""",
-    qualification = Traffic,
-  )
   def extraTrafficConsumed(context: MetricsContext): Gauge[Long] = {
     def createExtraTrafficConsumedGauge: Gauge[Long] =
       labeledMetricsFactory.gauge[Long](

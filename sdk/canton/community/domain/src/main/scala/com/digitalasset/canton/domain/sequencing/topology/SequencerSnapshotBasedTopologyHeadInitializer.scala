@@ -6,51 +6,48 @@ package com.digitalasset.canton.domain.sequencing.topology
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerSnapshot
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
-import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit.DefaultHeadStateInitializer
+import com.digitalasset.canton.topology.client.{
+  DomainTopologyClientHeadStateInitializer,
+  DomainTopologyClientWithInit,
+}
 import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
 
-/** If a snapshot is provided, updates the topology client's head state up to
+/** For a provided sequencer snapshot, updates the topology client's head state up to
   * [[com.digitalasset.canton.domain.sequencing.sequencer.SequencerSnapshot.lastTs]], because this is up to where
-  * the topology store is queried for the onboarding state. Otherwise, uses the default initializer.
+  * the topology store is queried for the onboarding state.
   * See [[com.digitalasset.canton.domain.sequencing.service.GrpcSequencerAdministrationService.onboardingState]] for details.
   */
 final class SequencerSnapshotBasedTopologyHeadInitializer(
-    sequencerSnapshot: Option[SequencerSnapshot]
-) extends DomainTopologyClientWithInit.HeadStateInitializer {
+    snapshot: SequencerSnapshot,
+    topologyStore: TopologyStore[TopologyStoreId.DomainStore],
+) extends DomainTopologyClientHeadStateInitializer {
 
   override def initialize(
-      client: DomainTopologyClientWithInit,
-      store: TopologyStore[TopologyStoreId.DomainStore],
+      client: DomainTopologyClientWithInit
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
   ): FutureUnlessShutdown[DomainTopologyClientWithInit] =
-    sequencerSnapshot match {
-      case Some(snapshot) =>
-        store
-          .maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true)
-          .map { maxTopologyStoreTimestamp =>
-            val snapshotLastTsEffective = EffectiveTime(snapshot.lastTs)
-            // Use the highest possible effective time.
-            val maxEffectiveTime = maxTopologyStoreTimestamp
-              .fold(snapshotLastTsEffective) { case (_, maxStoreEffectiveTime) =>
-                maxStoreEffectiveTime.max(snapshotLastTsEffective)
-              }
-
-            client.updateHead(
-              SequencedTime(snapshot.lastTs),
-              maxEffectiveTime,
-              ApproximateTime(snapshot.lastTs),
-              potentialTopologyChange = true,
-            )
-            client
+    topologyStore
+      .maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true)
+      .map { maxTopologyStoreTimestamp =>
+        val snapshotLastTsEffective = EffectiveTime(snapshot.lastTs)
+        // Use the highest possible effective time.
+        val maxEffectiveTime = maxTopologyStoreTimestamp
+          .fold(snapshotLastTsEffective) { case (_, maxStoreEffectiveTime) =>
+            maxStoreEffectiveTime.max(snapshotLastTsEffective)
           }
-      case None =>
-        DefaultHeadStateInitializer.initialize(client, store)
-    }
+
+        client.updateHead(
+          SequencedTime(snapshot.lastTs),
+          maxEffectiveTime,
+          ApproximateTime(snapshot.lastTs),
+          potentialTopologyChange = true,
+        )
+        client
+      }
 }

@@ -21,6 +21,9 @@ final case class CanonicalCommitSet(private val commits: Set[SignedMessage[Commi
 }
 
 object CanonicalCommitSet {
+
+  val empty: CanonicalCommitSet = CanonicalCommitSet(Set.empty)
+
   def fromProto(canonicalCommitSet: v1.CanonicalCommitSet): ParsingResult[CanonicalCommitSet] =
     canonicalCommitSet.canonicalCommits
       .traverse(

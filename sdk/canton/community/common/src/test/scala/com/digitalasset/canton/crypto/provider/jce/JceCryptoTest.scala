@@ -21,7 +21,8 @@ class JceCryptoTest
     with PrivateKeySerializationTest
     with PasswordBasedEncryptionTest
     with RandomTest
-    with PublicKeyValidationTest {
+    with PublicKeyValidationTest
+    with CryptoKeyFormatMigrationTest {
 
   "JceCrypto" can {
 
@@ -39,7 +40,7 @@ class JceCryptoTest
         )
         .valueOrFail("failed to create crypto")
 
-    behave like migrationTest(jceCrypto())
+    behave like migrationTest(Jce.signingKeys.supported, Jce.encryptionKeys.supported, jceCrypto())
 
     behave like signingProvider(Jce.signingAlgorithms.supported, jceCrypto())
     behave like encryptionProvider(

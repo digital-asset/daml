@@ -25,6 +25,8 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.*
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusStatus
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusStatus.RetransmissionResult
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.SequencerId
@@ -169,6 +171,120 @@ class SegmentState(
 
   def leader: SequencerId = currentLeader
 
+  def status: ConsensusStatus.SegmentStatus =
+    if (isSegmentComplete) ConsensusStatus.SegmentStatus.Complete
+    else if (inViewChange)
+      ConsensusStatus.SegmentStatus.InViewChange(
+        currentViewNumber,
+        viewChangeMessages = viewChangeState
+          .get(currentViewNumber)
+          .map(_.viewChangeMessageReceivedStatus)
+          .getOrElse(Seq.empty),
+        segment.slotNumbers.map(isBlockComplete),
+      )
+    else
+      ConsensusStatus.SegmentStatus.InProgress(
+        currentViewNumber,
+        pbftBlocks
+          .get(currentViewNumber)
+          .map { blocks =>
+            blocks.map(_.status).forgetNE
+          }
+          .getOrElse(Seq.empty),
+      )
+
+  def messagesToRetransmit(
+      from: SequencerId,
+      remoteStatus: ConsensusStatus.SegmentStatus.Incomplete,
+  )(implicit
+      traceContext: TraceContext
+  ): RetransmissionResult =
+    if (remoteStatus.viewNumber > currentViewNumber) {
+      logger.debug(
+        s"Node $from is in view ${remoteStatus.viewNumber}, which is higher than our current view $currentViewNumber, so we can't help with retransmissions"
+      )
+      RetransmissionResult.empty
+    } else if (inViewChange) {
+      // if we are in a view change, we help others make progress to complete the view change
+      val vcState = viewChangeState(currentViewNumber)
+      val msgsToRetransmit = remoteStatus match {
+        case status if (status.viewNumber < currentViewNumber) =>
+          // if remote node is in an earlier view change, retransmit all view change messages we have
+          vcState.viewChangeMessagesToRetransmit(Seq.empty)
+        case ConsensusStatus.SegmentStatus.InViewChange(_, remoteVcMsgs, _) =>
+          // if remote node is in the same view change, retransmit view change messages we have that they don't
+          vcState.viewChangeMessagesToRetransmit(remoteVcMsgs)
+        case _ =>
+          // if they've completed the view change, we don't need to do anything (they are ahead of us)
+          Seq.empty
+      }
+      // we do not retransmit commit certs in this case, since most relevant commit certs shall eventually be included
+      // in the new-view message when the view change completes
+      RetransmissionResult(msgsToRetransmit)
+    } else {
+      val localBlockStates = pbftBlocks(currentViewNumber)
+
+      remoteStatus match {
+        // remote node is making progress on the same view, so we send them what we can to help complete blocks
+        case ConsensusStatus.SegmentStatus.InProgress(viewNumber, remoteBlocksStatuses)
+            if viewNumber == currentViewNumber =>
+          localBlockStates
+            .zip(remoteBlocksStatuses)
+            .collect { case (localBlockState, inProgress: ConsensusStatus.BlockStatus.InProgress) =>
+              (localBlockState, inProgress) // only look at blocks they haven't completed yet
+            }
+            .foldLeft(RetransmissionResult.empty) {
+              case (result, (localBlockState, remoteBlockStatus)) =>
+                localBlockState.consensusCertificate match {
+                  case Some(cc: CommitCertificate) =>
+                    // TODO(#18788): just send a few commits in cases that's enough for remote node to complete quorum
+                    result.copy(commitCertsToRetransmit = cc +: result.commitCertsToRetransmit)
+                  case _ =>
+                    result.copy(messagesToRetransmit =
+                      result.messagesToRetransmit ++ localBlockState
+                        .messagesToRetransmit(remoteBlockStatus)
+                    )
+                }
+            }
+
+        // remote node is either is a previous view, or in the same view but in an unfinished view change that we've completed.
+        // so we give them the new-view message and all messages we have for blocks they haven't completed yet
+        case _ =>
+          val newView = viewChangeState(currentViewNumber).newViewMessage.toList
+          val remoteBlockStatusNoPreparesOrCommits = {
+            val allMissing = Seq.fill(membership.sortedPeers.size)(false)
+            ConsensusStatus.BlockStatus.InProgress(
+              prePrepared = true,
+              preparesPresent = allMissing,
+              commitsPresent = allMissing,
+            )
+          }
+          localBlockStates
+            .zip(remoteStatus.areBlocksComplete)
+            .collect {
+              case (localBlockState, isRemoteComplete) if !isRemoteComplete => localBlockState
+            }
+            .foldLeft(RetransmissionResult(newView)) { (result, localBlockState) =>
+              localBlockState.consensusCertificate match {
+                case Some(cc: CommitCertificate) =>
+                  // TODO(#18788): rethink commit certs here, considering that some certs will be in the new-view message.
+                  // we could either: exclude sending commit certs that are already in the new-view,
+                  // not take that into account and just send commit certs regardless (which means we may send the same cert twice),
+                  // or not send any certs at all considering that the new-view message will likely contain most if not all of them
+                  result.copy(commitCertsToRetransmit = cc +: result.commitCertsToRetransmit)
+                case _ =>
+                  result.copy(messagesToRetransmit =
+                    result.messagesToRetransmit ++
+                      localBlockState
+                        .messagesToRetransmit(
+                          remoteBlockStatusNoPreparesOrCommits
+                        )
+                  )
+              }
+            }
+      }
+    }
+
   private def sumOverInProgressBlocks(
       getVoters: InProgress => Iterable[SequencerId]
   ): Map[SequencerId, Long] = {
@@ -301,6 +417,99 @@ class SegmentState(
   @VisibleForTesting
   private[iss] def futureQueueSize: Int = futureViewMessagesQueue.size
 
+  private final class ViewChangeAction(
+      condition: (ViewNumber, PbftViewChangeState) => TraceContext => Boolean,
+      action: (ViewNumber, PbftViewChangeState) => TraceContext => Seq[ProcessResult],
+  ) {
+    def run(viewNumber: ViewNumber, state: PbftViewChangeState)(implicit
+        traceContext: TraceContext
+    ): Seq[ProcessResult] =
+      if (condition(viewNumber, state)(traceContext)) {
+        action(viewNumber, state)(traceContext)
+      } else {
+        Seq.empty
+      }
+  }
+
+  private def viewChangeAction(
+      condition: (ViewNumber, PbftViewChangeState) => TraceContext => Boolean
+  )(
+      action: (ViewNumber, PbftViewChangeState) => TraceContext => Seq[ProcessResult]
+  ): ViewChangeAction = new ViewChangeAction(condition, action)
+
+  private val startViewChangeAction = viewChangeAction { case (viewNumber, _) =>
+    _ =>
+      val hasStartedThisViewChange = currentViewNumber >= viewNumber
+      !hasStartedThisViewChange
+  } { case (viewNumber, viewState) =>
+    implicit traceContext =>
+      currentViewNumber = viewNumber
+      currentLeader = computeLeader(viewNumber)
+      inViewChange = true
+      strongQuorumReachedForCurrentView = false
+      // if we got the new-view message before anything else (common during rehydration),
+      // then no need to create a view-change message
+      if (viewState.newViewMessage.isDefined) Seq.empty
+      else {
+        Seq(viewState.viewChangeFromSelf match {
+          // if we rehydrated a view-change message from self, we don't need to create or store it again
+          case Some(rehydratedViewChangeMessage) =>
+            SendPbftMessage(
+              rehydratedViewChangeMessage,
+              None,
+            )
+          case None =>
+            val viewChangeMessage = startViewChange(viewNumber)
+            SendPbftMessage(
+              viewChangeMessage,
+              Some(StoreViewChangeMessage(viewChangeMessage)),
+            )
+        })
+      }
+  }
+
+  private val startNestedViewChangeTimerAction = viewChangeAction { case (_, viewState) =>
+    _ => !strongQuorumReachedForCurrentView && viewState.reachedStrongQuorum
+  } { case (viewNumber, _) =>
+    _ =>
+      strongQuorumReachedForCurrentView = true
+      Seq(
+        ViewChangeStartNestedTimer(viewChangeBlockMetadata, viewNumber)
+      )
+  }
+
+  private val createNewViewAction = viewChangeAction { case (viewNumber, viewState) =>
+    _ =>
+      val thisViewChangeIsInProgress = currentViewNumber == viewNumber && inViewChange
+      viewState.shouldCreateNewView && thisViewChangeIsInProgress
+  } { case (_, viewState) =>
+    _ =>
+      val newViewMessage = viewState
+        .createNewViewMessage(
+          viewChangeBlockMetadata,
+          segmentIdx = originalLeaderIndex,
+          clock.now,
+        )
+      Seq(
+        SendPbftMessage(
+          newViewMessage,
+          Some(StoreViewChangeMessage(newViewMessage)),
+        )
+      )
+  }
+
+  private val completeViewChangeAction = viewChangeAction { case (viewNumber, _) =>
+    _ =>
+      val thisViewChangeIsInProgress = currentViewNumber == viewNumber && inViewChange
+      thisViewChangeIsInProgress
+  } { case (_, viewState) =>
+    implicit traceContext =>
+      viewState.newViewMessage match {
+        case Some(value) => completeViewChange(value)
+        case None => Seq.empty
+      }
+  }
+
   private def advanceViewChange(
       viewNumber: ViewNumber
   )(implicit traceContext: TraceContext): Seq[ProcessResult] = {
@@ -309,72 +518,14 @@ class SegmentState(
     // Note that each result (startViewChange, startNestedViewChangeTimer, createNewView, completeViewChange)
     // should occur at most once per view number
     // TODO(#16820): add validation that each result is only executed (true) once per viewNumber
-
-    val hasStartedThisViewChange = currentViewNumber >= viewNumber
-    val startViewChangeResult =
-      if (!hasStartedThisViewChange) {
-        currentViewNumber = viewNumber
-        currentLeader = computeLeader(viewNumber)
-        inViewChange = true
-        strongQuorumReachedForCurrentView = false
-        // if we got the new-view message before anything else (common during rehydration),
-        // then no need to create a view-change message
-        if (viewState.newViewMessage.isDefined) Seq.empty
-        else {
-          Seq(viewState.viewChangeFromSelf match {
-            // if we rehydrated a view-change message from self, we don't need to create or store it again
-            case Some(rehydratedViewChangeMessage) =>
-              SendPbftMessage(
-                rehydratedViewChangeMessage,
-                None,
-              )
-            case None =>
-              val viewChangeMessage = startViewChange(viewNumber)
-              SendPbftMessage(
-                viewChangeMessage,
-                Some(StoreViewChangeMessage(viewChangeMessage)),
-              )
-          })
-        }
-      } else
-        Seq.empty
-
-    val startNestedViewChangeTimerResult =
-      if (!strongQuorumReachedForCurrentView && viewState.reachedStrongQuorum) {
-        strongQuorumReachedForCurrentView = true
-        Seq(
-          ViewChangeStartNestedTimer(viewChangeBlockMetadata, viewNumber)
-        )
-      } else
-        Seq.empty
-
-    val thisViewChangeIsInProgress = currentViewNumber == viewNumber && inViewChange
-    val createNewViewResult =
-      if (viewState.shouldCreateNewView && thisViewChangeIsInProgress) {
-        val newViewMessage = viewState
-          .createNewViewMessage(
-            viewChangeBlockMetadata,
-            segmentIdx = originalLeaderIndex,
-            clock.now,
-          )
-        Seq(
-          SendPbftMessage(
-            newViewMessage,
-            Some(StoreViewChangeMessage(newViewMessage)),
-          )
-        )
-      } else
-        Seq.empty
-
-    val completeViewChangeResult =
-      Option
-        .when(thisViewChangeIsInProgress) {
-          viewState.newViewMessage.map(completeViewChange)
-        }
-        .flatten
-        .getOrElse(Seq.empty)
-
-    startViewChangeResult ++ startNestedViewChangeTimerResult ++ createNewViewResult ++ completeViewChangeResult
+    Seq(
+      startViewChangeAction,
+      startNestedViewChangeTimerAction,
+      createNewViewAction,
+      completeViewChangeAction,
+    ).flatMap { action =>
+      action.run(viewNumber, viewState)
+    }
   }
 
   private def startViewChange(

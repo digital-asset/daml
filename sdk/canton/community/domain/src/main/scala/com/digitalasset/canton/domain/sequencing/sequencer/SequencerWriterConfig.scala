@@ -35,11 +35,9 @@ object CommitMode {
   *                         return a overloaded error and reject the request.
   * @param payloadWriteBatchMaxSize max payload batch size to flush to the database.
   *                                 will trigger a write when this batch size is reached.
-  * @param payloadWriteBatchMaxDuration max duration to collect payloads for a batch before triggering a write if
-  *                                     payloadWriteBatchMaxSize is not hit first.
   * @param payloadWriteMaxConcurrency limit how many payload batches can be written concurrently.
   * @param eventWriteBatchMaxSize max event batch size to flush to the database.
-  * @param eventWriteBatchMaxDuration max duration to collect events for a batch before triggering a write.
+  * @param eventWriteMaxConcurrency limit how many event batches can be written concurrently for block sequencers.
   * @param commitMode optional commit mode that if set will be validated to ensure that the connection/db settings have been configured. Defaults to [[CommitMode.Synchronous]].
   * @param commitModeValidation optional commit mode that if set will be validated to ensure that the connection/db settings have been configured. Defaults to [[CommitMode.Synchronous]].
   * @param checkpointInterval an interval at which to generate sequencer counter checkpoints for all members.
@@ -52,11 +50,10 @@ sealed trait SequencerWriterConfig {
     def copy(
         payloadQueueSize: Int,
         payloadWriteBatchMaxSize: Int,
-        payloadWriteBatchMaxDuration: NonNegativeFiniteDuration,
         payloadWriteMaxConcurrency: Int,
         payloadToEventMargin: NonNegativeFiniteDuration,
         eventWriteBatchMaxSize: Int,
-        eventWriteBatchMaxDuration: NonNegativeFiniteDuration,
+        eventWriteMaxConcurrency: Int,
         commitModeValidation: Option[CommitMode],
         checkpointInterval: NonNegativeFiniteDuration,
         checkpointBackfillParallelism: Int,
@@ -66,11 +63,10 @@ sealed trait SequencerWriterConfig {
 
   val payloadQueueSize: Int
   val payloadWriteBatchMaxSize: Int
-  val payloadWriteBatchMaxDuration: NonNegativeFiniteDuration
   val payloadWriteMaxConcurrency: Int
   val payloadToEventMargin: NonNegativeFiniteDuration
   val eventWriteBatchMaxSize: Int
-  val eventWriteBatchMaxDuration: NonNegativeFiniteDuration
+  val eventWriteMaxConcurrency: Int
   val commitModeValidation: Option[CommitMode]
   val maxBufferedEventsSize: NonNegativeInt
 
@@ -81,11 +77,10 @@ sealed trait SequencerWriterConfig {
   def modify(
       payloadQueueSize: Int = this.payloadQueueSize,
       payloadWriteBatchMaxSize: Int = this.payloadWriteBatchMaxSize,
-      payloadWriteBatchMaxDuration: NonNegativeFiniteDuration = this.payloadWriteBatchMaxDuration,
       payloadWriteMaxConcurrency: Int = this.payloadWriteMaxConcurrency,
       payloadToEventMargin: NonNegativeFiniteDuration = this.payloadToEventMargin,
       eventWriteBatchMaxSize: Int = this.eventWriteBatchMaxSize,
-      eventWriteBatchMaxDuration: NonNegativeFiniteDuration = this.eventWriteBatchMaxDuration,
+      eventWriteMaxConcurrency: Int = this.eventWriteMaxConcurrency,
       commitModeValidation: Option[CommitMode] = this.commitModeValidation,
       checkpointInterval: NonNegativeFiniteDuration = this.checkpointInterval,
       checkpointBackfillParallelism: Int = this.checkpointBackfillParallelism,
@@ -94,11 +89,10 @@ sealed trait SequencerWriterConfig {
     copy(
       payloadQueueSize,
       payloadWriteBatchMaxSize,
-      payloadWriteBatchMaxDuration,
       payloadWriteMaxConcurrency,
       payloadToEventMargin,
       eventWriteBatchMaxSize,
-      eventWriteBatchMaxDuration,
+      eventWriteMaxConcurrency,
       commitModeValidation,
       checkpointInterval,
       checkpointBackfillParallelism,
@@ -127,13 +121,10 @@ object SequencerWriterConfig {
   final case class LowLatency(
       override val payloadQueueSize: Int = 1000,
       override val payloadWriteBatchMaxSize: Int = 1,
-      override val payloadWriteBatchMaxDuration: NonNegativeFiniteDuration =
-        NonNegativeFiniteDuration.ofMillis(10),
       override val payloadWriteMaxConcurrency: Int = 2,
       override val payloadToEventMargin: NonNegativeFiniteDuration = DefaultPayloadTimestampMargin,
       override val eventWriteBatchMaxSize: Int = 1,
-      override val eventWriteBatchMaxDuration: NonNegativeFiniteDuration =
-        NonNegativeFiniteDuration.ofMillis(20),
+      override val eventWriteMaxConcurrency: Int = 1,
       override val commitModeValidation: Option[CommitMode] = CommitMode.Default.some,
       override val checkpointInterval: NonNegativeFiniteDuration = DefaultCheckpointInterval,
       override val checkpointBackfillParallelism: Int = DefaultCheckpointBackfillParallelism,
@@ -147,13 +138,10 @@ object SequencerWriterConfig {
   final case class HighThroughput(
       override val payloadQueueSize: Int = 1000,
       override val payloadWriteBatchMaxSize: Int = 50,
-      override val payloadWriteBatchMaxDuration: NonNegativeFiniteDuration =
-        NonNegativeFiniteDuration.ofMillis(5),
       override val payloadWriteMaxConcurrency: Int = 4,
       override val payloadToEventMargin: NonNegativeFiniteDuration = DefaultPayloadTimestampMargin,
       override val eventWriteBatchMaxSize: Int = 100,
-      override val eventWriteBatchMaxDuration: NonNegativeFiniteDuration =
-        NonNegativeFiniteDuration.ofMillis(5),
+      override val eventWriteMaxConcurrency: Int = 1,
       override val commitModeValidation: Option[CommitMode] = CommitMode.Default.some,
       override val checkpointInterval: NonNegativeFiniteDuration = DefaultCheckpointInterval,
       override val checkpointBackfillParallelism: Int = DefaultCheckpointBackfillParallelism,

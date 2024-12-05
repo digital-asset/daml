@@ -17,7 +17,7 @@ service TopologyManagerWriteService {
 
   rpc AddTransactions(AddTransactionsRequest) returns (AddTransactionsResponse);
 
-  rpc ImportTopologySnapshot(ImportTopologySnapshotRequest) returns (ImportTopologySnapshotResponse);
+  rpc ImportTopologySnapshot(stream ImportTopologySnapshotRequest) returns (ImportTopologySnapshotResponse);
 
   rpc SignTransactions(SignTransactionsRequest) returns (SignTransactionsResponse);
 

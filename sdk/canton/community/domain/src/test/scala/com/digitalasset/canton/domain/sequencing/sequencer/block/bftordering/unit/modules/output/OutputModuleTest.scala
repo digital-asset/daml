@@ -76,6 +76,7 @@ import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, HasActorSystem, HasExecutionContext}
 import com.google.protobuf.ByteString
 import org.apache.pekko.stream.scaladsl.Sink
+import org.mockito.Mockito.clearInvocations
 import org.scalatest.wordspec.AsyncWordSpecLike
 
 import java.time.Instant
@@ -95,20 +96,82 @@ class OutputModuleTest
   "OutputModule" should {
     val initialBlock = anOrderedBlockForOutput()
 
-    "fetch block from availability" in {
-      implicit val context: IgnoringUnitTestContext[Output.Message[IgnoringUnitTestEnv]] =
-        IgnoringUnitTestContext()
+    "fetch block from availability" when {
+      "a block hasn't been provided yet and is not being fetched" in {
+        implicit val context: IgnoringUnitTestContext[Output.Message[IgnoringUnitTestEnv]] =
+          IgnoringUnitTestContext()
 
-      val availabilityRef = mock[ModuleRef[Availability.Message[IgnoringUnitTestEnv]]]
-      val output =
-        createOutputModule[IgnoringUnitTestEnv](availabilityRef = availabilityRef)()
+        val outputBlockMetadataStore = createOutputBlockMetadataStore[IgnoringUnitTestEnv]
+        val availabilityRef = mock[ModuleRef[Availability.Message[IgnoringUnitTestEnv]]]
+        val output =
+          createOutputModule[IgnoringUnitTestEnv](
+            blockMetadataStore = outputBlockMetadataStore,
+            availabilityRef = availabilityRef,
+          )()
 
-      output.receive(Output.BlockOrdered(initialBlock))
+        output.receive(Output.Start)
+        output.receive(Output.BlockOrdered(initialBlock))
 
-      verify(availabilityRef, times(1)).asyncSend(
-        Availability.LocalOutputFetch.FetchBlockData(initialBlock)
-      )
-      succeed
+        verify(availabilityRef, times(1)).asyncSend(
+          Availability.LocalOutputFetch.FetchBlockData(initialBlock)
+        )
+        succeed
+      }
+    }
+
+    "do nothing" when {
+      "a block hasn't been provided yet but is already being fetched" in {
+        implicit val context: IgnoringUnitTestContext[Output.Message[IgnoringUnitTestEnv]] =
+          IgnoringUnitTestContext()
+
+        val outputBlockMetadataStore = createOutputBlockMetadataStore[IgnoringUnitTestEnv]
+        val availabilityRef = mock[ModuleRef[Availability.Message[IgnoringUnitTestEnv]]]
+        val output =
+          createOutputModule[IgnoringUnitTestEnv](
+            blockMetadataStore = outputBlockMetadataStore,
+            availabilityRef = availabilityRef,
+          )()
+
+        output.receive(Output.Start)
+        output.receive(Output.BlockOrdered(initialBlock))
+
+        verify(availabilityRef, times(1)).asyncSend(
+          Availability.LocalOutputFetch.FetchBlockData(initialBlock)
+        )
+
+        clearInvocations(availabilityRef)
+        output.receive(Output.BlockOrdered(initialBlock))
+
+        verify(availabilityRef, never).asyncSend(
+          Availability.LocalOutputFetch.FetchBlockData(initialBlock)
+        )
+        succeed
+      }
+
+      "a block has already been provided" in {
+        implicit val context: IgnoringUnitTestContext[Output.Message[IgnoringUnitTestEnv]] =
+          IgnoringUnitTestContext()
+
+        val outputBlockMetadataStore = createOutputBlockMetadataStore[IgnoringUnitTestEnv]
+        val availabilityRef = mock[ModuleRef[Availability.Message[IgnoringUnitTestEnv]]]
+        val output =
+          createOutputModule[IgnoringUnitTestEnv](
+            blockMetadataStore = outputBlockMetadataStore,
+            availabilityRef = availabilityRef,
+          )()
+
+        output.receive(Output.Start)
+        output.receive(Output.BlockOrdered(initialBlock))
+        output.receiveInternal(Output.BlockDataFetched(CompleteBlockData(initialBlock, Seq.empty)))
+
+        clearInvocations(availabilityRef)
+        output.receive(Output.BlockOrdered(initialBlock))
+
+        verify(availabilityRef, never).asyncSend(
+          Availability.LocalOutputFetch.FetchBlockData(initialBlock)
+        )
+        succeed
+      }
     }
 
     "store ordered block" in {

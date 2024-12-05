@@ -105,13 +105,17 @@ object CryptoProvider {
         CryptoKeyFormat.Raw,
         CryptoKeyFormat.DerX509Spki,
         CryptoKeyFormat.DerPkcs8Pki,
-        CryptoKeyFormat.Der,
       )
 
     override def supportedCryptoKeyFormatsForProtocol(
         protocolVersion: ProtocolVersion
     ): NonEmpty[Set[CryptoKeyFormat]] =
-      NonEmpty(Set, CryptoKeyFormat.Raw, CryptoKeyFormat.Der)
+      NonEmpty(
+        Set,
+        CryptoKeyFormat.Raw,
+        CryptoKeyFormat.DerX509Spki,
+        CryptoKeyFormat.DerPkcs8Pki,
+      )
   }
 
 }

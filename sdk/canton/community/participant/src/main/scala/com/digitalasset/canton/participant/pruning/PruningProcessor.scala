@@ -235,7 +235,10 @@ class PruningProcessor(
         sortedReconciliationIntervalsProvider <- sortedReconciliationIntervalsProviderFactory
           .get(
             domainId,
-            domainIndex.sequencerIndex.map(_.timestamp).getOrElse(CantonTimestamp.MinValue),
+            domainIndex
+              .flatMap(_.sequencerIndex)
+              .map(_.timestamp)
+              .getOrElse(CantonTimestamp.MinValue),
           )
           .leftMap(LedgerPruningInternalError.apply)
           .mapK(FutureUnlessShutdown.outcomeK)
@@ -747,7 +750,7 @@ private[pruning] object PruningProcessor extends HasLoggerName {
   /** The latest commitment tick before or at the given time at which it is safe to prune. */
   def latestSafeToPruneTick(
       requestJournalStore: RequestJournalStore,
-      domainIndex: DomainIndex,
+      domainIndexO: Option[DomainIndex],
       sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
       acsCommitmentStore: AcsCommitmentStore,
       inFlightSubmissionStore: InFlightSubmissionStore,
@@ -759,7 +762,7 @@ private[pruning] object PruningProcessor extends HasLoggerName {
   ): FutureUnlessShutdown[Option[CantonTimestampSecond]] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
     val cleanReplayF = SyncDomainEphemeralStateFactory
-      .crashRecoveryPruningBoundInclusive(requestJournalStore, domainIndex)
+      .crashRecoveryPruningBoundInclusive(requestJournalStore, domainIndexO)
 
     val commitmentsPruningBound =
       if (checkForOutstandingCommitments)

@@ -37,7 +37,7 @@ private[backend] trait StorageBackendTestsParameters
     executeSql(backend.parameter.ledgerEnd) shouldBe LedgerEnd.beforeBegin
     executeSql(
       backend.parameter.cleanDomainIndex(StorageBackendTestValues.someDomainId)
-    ) shouldBe DomainIndex.empty
+    ) shouldBe None
     val someDomainIdInterned =
       backend.stringInterningSupport.domainId.internalize(StorageBackendTestValues.someDomainId)
     executeSql(connection =>
@@ -53,7 +53,7 @@ private[backend] trait StorageBackendTestsParameters
     )
     executeSql(
       backend.parameter.cleanDomainIndex(StorageBackendTestValues.someDomainId2)
-    ) shouldBe DomainIndex.empty
+    ) shouldBe None
     val someDomainIdInterned2 =
       backend.stringInterningSupport.domainId.internalize(StorageBackendTestValues.someDomainId2)
     executeSql(connection =>
@@ -93,10 +93,11 @@ private[backend] trait StorageBackendTestsParameters
     val resultDomainIndex = executeSql(
       backend.parameter.cleanDomainIndex(StorageBackendTestValues.someDomainId)
     )
-    resultDomainIndex.requestIndex shouldBe someDomainIndex.requestIndex
-    resultDomainIndex.sequencerIndex shouldBe someDomainIndex.sequencerIndex
+    resultDomainIndex.value.requestIndex shouldBe someDomainIndex.requestIndex
+    resultDomainIndex.value.sequencerIndex shouldBe someDomainIndex.sequencerIndex
+    resultDomainIndex.value.recordTime shouldBe someDomainIndex.recordTime
 
-    // updateing ledger end and inserting two domain index (one is updating just the request index part, the other is inserting just a sequencer index)
+    // updating ledger end and inserting two domain index (one is updating just the request index part, the other is inserting just a sequencer index)
     val someDomainIndexSecond = DomainIndex.of(
       RequestIndex(
         counter = RequestCounter(11),
@@ -135,13 +136,47 @@ private[backend] trait StorageBackendTestsParameters
     val resultDomainIndexSecond = executeSql(
       backend.parameter.cleanDomainIndex(StorageBackendTestValues.someDomainId)
     )
-    resultDomainIndexSecond.requestIndex shouldBe someDomainIndexSecond.requestIndex
-    resultDomainIndexSecond.sequencerIndex shouldBe someDomainIndex.sequencerIndex
+    resultDomainIndexSecond.value.requestIndex shouldBe someDomainIndexSecond.requestIndex
+    resultDomainIndexSecond.value.sequencerIndex shouldBe someDomainIndex.sequencerIndex
     val resultDomainIndexSecond2 = executeSql(
       backend.parameter.cleanDomainIndex(StorageBackendTestValues.someDomainId2)
     )
-    resultDomainIndexSecond2.requestIndex shouldBe None
-    resultDomainIndexSecond2.sequencerIndex shouldBe someDomainIndex2.sequencerIndex
+    resultDomainIndexSecond.value.recordTime shouldBe someDomainIndexSecond.recordTime
+    resultDomainIndexSecond2.value.requestIndex shouldBe None
+    resultDomainIndexSecond2.value.sequencerIndex shouldBe someDomainIndex2.sequencerIndex
+    resultDomainIndexSecond2.value.recordTime shouldBe someDomainIndex2.recordTime
+
+    // updating ledger end and inserting one domain index only overriding the record time
+    val someDomainIndexThird = DomainIndex.of(
+      someSequencerTime.plusSeconds(20)
+    )
+    executeSql(
+      backend.parameter.updateLedgerEnd(
+        ledgerEnd = LedgerEnd(
+          lastOffset = offset(200),
+          lastEventSeqId = 200,
+          lastStringInterningId = 200,
+          lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(200),
+        ),
+        lastDomainIndex = Map(
+          StorageBackendTestValues.someDomainId -> someDomainIndexThird
+        ),
+      )
+    )
+    executeSql(backend.parameter.ledgerEnd) shouldBe Some(
+      LedgerEnd(
+        lastOffset = offset(200),
+        lastEventSeqId = 200,
+        lastStringInterningId = 200,
+        lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(200),
+      )
+    )
+    val resultDomainIndexThird = executeSql(
+      backend.parameter.cleanDomainIndex(StorageBackendTestValues.someDomainId)
+    )
+    resultDomainIndexThird.value.requestIndex shouldBe someDomainIndexSecond.requestIndex
+    resultDomainIndexThird.value.sequencerIndex shouldBe someDomainIndex.sequencerIndex
+    resultDomainIndexThird.value.recordTime shouldBe someSequencerTime.plusSeconds(20)
   }
 
   it should "store and retrieve post processing end correctly" in {

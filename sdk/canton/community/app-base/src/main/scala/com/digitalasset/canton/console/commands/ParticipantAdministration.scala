@@ -1683,6 +1683,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           domain - A local domain or sequencer reference
           alias - The name you will be using to refer to this domain. Can not be changed anymore.
           handshake only - If yes, only the handshake will be performed (no domain connection)
+          manualConnect - Whether this connection should be handled manually and also excluded from automatic re-connect.
           maxRetryDelayMillis - Maximal amount of time (in milliseconds) between two connection attempts.
           priority - The priority of the domain. The higher the more likely a domain will be used.
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
@@ -1692,6 +1693,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         domain: SequencerReference,
         alias: DomainAlias,
         handshakeOnly: Boolean = false,
+        manualConnect: Boolean = false,
         maxRetryDelayMillis: Option[Long] = None,
         priority: Int = 0,
         synchronize: Option[NonNegativeDuration] = Some(
@@ -1702,7 +1704,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       val config = ParticipantCommands.domains.reference_to_config(
         NonEmpty.mk(Seq, SequencerAlias.Default -> domain).toMap,
         alias,
-        manualConnect = false,
+        manualConnect = manualConnect,
         maxRetryDelayMillis.map(NonNegativeFiniteDuration.tryOfMillis),
         priority,
       )

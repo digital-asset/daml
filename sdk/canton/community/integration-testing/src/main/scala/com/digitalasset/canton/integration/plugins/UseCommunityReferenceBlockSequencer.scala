@@ -3,12 +3,14 @@
 
 package com.digitalasset.canton.integration.plugins
 
+import com.digitalasset.canton
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.{
   CantonCommunityConfig,
   CantonRequireTypes,
   CommunityDbConfig,
   CommunityStorageConfig,
+  DbParametersConfig,
 }
 import com.digitalasset.canton.domain.sequencing.config.CommunitySequencerNodeConfig
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.{
@@ -20,15 +22,16 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   CommunitySequencerConfig,
 }
 import com.digitalasset.canton.environment.CommunityEnvironment
-import com.digitalasset.canton.integration.CommunityConfigTransforms
+import com.digitalasset.canton.integration.CommunityConfigTransforms.generateUniqueH2DatabaseName
 import com.digitalasset.canton.integration.CommunityTests.CommunityTestConsoleEnvironment
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.{
   MultiDomain,
   SequencerDomainGroups,
   SingleDomain,
 }
-import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
 import com.digitalasset.canton.store.db.DbStorageSetup.DbBasicConfig
+import com.digitalasset.canton.util.ErrorUtil
 import monocle.macros.syntax.lens.*
 import pureconfig.ConfigCursor
 
@@ -49,9 +52,10 @@ class UseCommunityReferenceBlockSequencer[S <: CommunityStorageConfig](
 
   override def driverConfigs(
       config: CantonCommunityConfig,
-      defaultStorageConfig: S,
       storageConfigs: Map[CantonRequireTypes.InstanceName, S],
-  ): Map[InstanceName, CommunitySequencerConfig] =
+  ): Map[InstanceName, CommunitySequencerConfig] = {
+    implicit val errorLoggingContext: ErrorLoggingContext =
+      ErrorLoggingContext.forClass(loggerFactory, classOf[UseCommunityReferenceBlockSequencer[S]])
     config.sequencers.keys.map { sequencerName =>
       sequencerName -> CommunitySequencerConfig.External(
         driverFactory.name,
@@ -61,65 +65,72 @@ class UseCommunityReferenceBlockSequencer[S <: CommunityStorageConfig](
             .configWriter(confidential = false)
             .to(
               ReferenceSequencerDriver
-                .Config(storageConfigs.getOrElse(sequencerName, defaultStorageConfig))
+                .Config(
+                  storageConfigs.getOrElse(
+                    sequencerName,
+                    ErrorUtil.invalidState(s"Missing storage config for $sequencerName"),
+                  )
+                )
             ),
           List(),
         ),
       )
     }.toMap
+  }
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   override def beforeEnvironmentCreated(config: CantonCommunityConfig): CantonCommunityConfig = {
-    val dbToStorageConfig: Map[String, S] =
+    // in H2 we need to make db name unique, but it has to be matching for all sequencers, so we cache it
+    lazy val dbNamesH2: Map[String, String] = dbNames.forgetNE.map { dbName =>
+      dbName -> generateUniqueH2DatabaseName(dbName)
+    }.toMap
+
+    def dbToStorageConfig(dbName: String, dbParametersConfig: DbParametersConfig): S =
       c.runtimeClass match {
         case cl if cl == classOf[CommunityDbConfig.H2] =>
-          dbNames
-            .map(db =>
-              (
-                db,
-                CommunityDbConfig.H2(
-                  CommunityConfigTransforms
-                    .withUniqueDbName(
-                      db,
-                      DbBasicConfig("user", "pass", db, "", 0).toH2DbConfig,
-                      CommunityDbConfig.H2(_),
-                    )
-                    .config
-                ),
-              )
-            )
-            .forgetNE
-            .toMap
-            .asInstanceOf[Map[String, S]]
-        case cl if cl == classOf[CommunityStorageConfig.Memory] =>
-          dbNames.forgetNE
-            .map(db => (db, CommunityStorageConfig.Memory()))
-            .toMap
-            .asInstanceOf[Map[String, S]]
+          val h2DbName = dbNamesH2.getOrElse(
+            dbName,
+            throw new IllegalStateException(
+              s"Impossible code path: dbName $dbName not found in $dbNamesH2"
+            ),
+          )
+          DbBasicConfig("user", "pass", h2DbName, "", 0).toH2DbConfig
+            .copy(parameters = dbParametersConfig)
+            .asInstanceOf[S]
+        case cl if cl == classOf[canton.config.CommunityStorageConfig.Memory] =>
+          CommunityStorageConfig.Memory(parameters = dbParametersConfig).asInstanceOf[S]
         case other =>
           // E.g. Nothing; we need to check and fail b/c the Scala compiler doesn't enforce
           //  passing the ClassTag-reified type parameter, if it's only used for a ClassTag implicit
           sys.error(
-            s"The reference sequencer driver doesn't recognize and/or support storage type $other"
+            s"The reference sequencer driver doesn't recognize storage type $other"
           )
       }
 
-    lazy val defaultDriverConfig: S = {
-      val defaultDbName = dbNames.head1
-      dbToStorageConfig(defaultDbName)
-    }
-
     val storageConfigMap: Map[InstanceName, S] = sequencerGroups match {
+      case SingleDomain =>
+        config.sequencers.map { case (name, sequencerConfig) =>
+          val dbParameters = sequencerConfig.storage.parameters
+          (name, dbToStorageConfig(dbNames.head1, dbParameters))
+        }
       case MultiDomain(groups) =>
         groups.zipWithIndex.flatMap { case (sequencers, i) =>
           val dbName = dbNameForGroup(i + 1)
-          sequencers.map(name => (name, dbToStorageConfig(dbName)))
+          sequencers.map { name =>
+            val dbParameters = config.sequencers
+              .get(name)
+              .map(
+                _.storage.parameters
+              )
+              .getOrElse(DbParametersConfig())
+
+            (name, dbToStorageConfig(dbName, dbParameters))
+          }
         }.toMap
-      case _ => Map.empty
     }
 
     val sequencersToConfig: Map[InstanceName, CommunitySequencerConfig] =
-      driverConfigs(config, defaultDriverConfig, storageConfigMap)
+      driverConfigs(config, storageConfigMap)
 
     def mapSequencerConfigs(
         kv: (InstanceName, CommunitySequencerNodeConfig)

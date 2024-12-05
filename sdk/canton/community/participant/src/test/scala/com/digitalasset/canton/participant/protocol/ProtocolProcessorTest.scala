@@ -601,6 +601,7 @@ class ProtocolProcessorTest
               rc + 1,
               requestSc + 1,
               CantonTimestamp.Epoch.minusSeconds(10),
+              CantonTimestamp.Epoch.minusSeconds(10),
             ),
           ),
         )
@@ -1086,6 +1087,7 @@ class ProtocolProcessorTest
           MessageProcessingStartingPoint(
             rc + 5,
             requestSc + 10,
+            CantonTimestamp.Epoch.plusSeconds(30),
             CantonTimestamp.Epoch.plusSeconds(30),
           ),
         )

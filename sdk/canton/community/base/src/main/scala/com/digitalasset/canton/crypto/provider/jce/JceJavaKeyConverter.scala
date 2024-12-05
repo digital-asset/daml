@@ -27,15 +27,16 @@ object JceJavaKeyConverter {
   ): Either[JceJavaKeyConversionError, JPublicKey] = {
 
     def convertFromX509Spki(
-        format: CryptoKeyFormat,
         x509PublicKey: Array[Byte],
         keyInstance: String,
-    ): Either[JceJavaKeyConversionError, JPublicKey] =
+    ): Either[JceJavaKeyConversionError, JPublicKey] = {
+      val expectedFormat = CryptoKeyFormat.DerX509Spki
+
       for {
         _ <- CryptoKeyValidation.ensureFormat(
           publicKey.format,
-          Set(format),
-          _ => JceJavaKeyConversionError.UnsupportedKeyFormat(publicKey.format, format),
+          Set(expectedFormat),
+          _ => JceJavaKeyConversionError.UnsupportedKeyFormat(publicKey.format, expectedFormat),
         )
         x509KeySpec = new X509EncodedKeySpec(x509PublicKey)
         keyFactory <- Either
@@ -47,21 +48,22 @@ object JceJavaKeyConverter {
           .catchOnly[InvalidKeySpecException](keyFactory.generatePublic(x509KeySpec))
           .leftMap(err => JceJavaKeyConversionError.InvalidKey(show"$err"))
       } yield javaPublicKey
+    }
 
     (publicKey: @unchecked) match {
       case sigKey: SigningPublicKey =>
         sigKey.keySpec match {
           case SigningKeySpec.EcCurve25519 =>
-            convertFromX509Spki(CryptoKeyFormat.DerX509Spki, publicKey.key.toByteArray, "Ed25519")
+            convertFromX509Spki(publicKey.key.toByteArray, "Ed25519")
           case SigningKeySpec.EcP256 | SigningKeySpec.EcP384 =>
-            convertFromX509Spki(CryptoKeyFormat.Der, publicKey.key.toByteArray, "EC")
+            convertFromX509Spki(publicKey.key.toByteArray, "EC")
         }
       case encKey: EncryptionPublicKey =>
         encKey.keySpec match {
           case EncryptionKeySpec.EcP256 =>
-            convertFromX509Spki(CryptoKeyFormat.Der, publicKey.key.toByteArray, "EC")
+            convertFromX509Spki(publicKey.key.toByteArray, "EC")
           case EncryptionKeySpec.Rsa2048 =>
-            convertFromX509Spki(CryptoKeyFormat.Der, publicKey.key.toByteArray, "RSA")
+            convertFromX509Spki(publicKey.key.toByteArray, "RSA")
         }
     }
   }
@@ -74,8 +76,15 @@ object JceJavaKeyConverter {
         pkcs8PrivateKey: Array[Byte],
         keyInstance: String,
     ): Either[JceJavaKeyConversionError, JPrivateKey] = {
-      val pkcs8KeySpec = new PKCS8EncodedKeySpec(pkcs8PrivateKey)
+      val expectedFormat = CryptoKeyFormat.DerPkcs8Pki
+
       for {
+        _ <- CryptoKeyValidation.ensureFormat(
+          privateKey.format,
+          Set(expectedFormat),
+          _ => JceJavaKeyConversionError.UnsupportedKeyFormat(privateKey.format, expectedFormat),
+        )
+        pkcs8KeySpec = new PKCS8EncodedKeySpec(pkcs8PrivateKey)
         keyFactory <- Either
           .catchOnly[NoSuchAlgorithmException](KeyFactory.getInstance(keyInstance, "BC"))
           .leftMap(JceJavaKeyConversionError.GeneralError.apply)
@@ -100,33 +109,18 @@ object JceJavaKeyConverter {
     (privateKey: @unchecked) match {
       case sigKey: SigningPrivateKey =>
         sigKey.keySpec match {
-          case SigningKeySpec.EcCurve25519 if sigKey.format == CryptoKeyFormat.DerPkcs8Pki =>
+          case SigningKeySpec.EcCurve25519 =>
             convertFromPkcs8(privateKey.key.toByteArray, "Ed25519")
-          case SigningKeySpec.EcP256 if sigKey.format == CryptoKeyFormat.Der =>
+          case SigningKeySpec.EcP256 | SigningKeySpec.EcP384 =>
             convertFromPkcs8(privateKey.key.toByteArray, "EC")
-          case SigningKeySpec.EcP384 if sigKey.format == CryptoKeyFormat.Der =>
-            convertFromPkcs8(privateKey.key.toByteArray, "EC")
-          case _ =>
-            val expectedFormat = sigKey.keySpec match {
-              case SigningKeySpec.EcCurve25519 => CryptoKeyFormat.DerPkcs8Pki
-              case SigningKeySpec.EcP256 => CryptoKeyFormat.Der
-              case SigningKeySpec.EcP384 => CryptoKeyFormat.Der
-            }
-            Either.left[JceJavaKeyConversionError, JPrivateKey](
-              JceJavaKeyConversionError.UnsupportedKeyFormat(sigKey.format, expectedFormat)
-            )
         }
       case encKey: EncryptionPrivateKey =>
         encKey.keySpec match {
           // EcP384 is not a supported encryption key because the current accepted encryption algorithms do not support it
-          case EncryptionKeySpec.EcP256 if encKey.format == CryptoKeyFormat.Der =>
+          case EncryptionKeySpec.EcP256 =>
             convertFromPkcs8(privateKey.key.toByteArray, "EC")
-          case EncryptionKeySpec.Rsa2048 if encKey.format == CryptoKeyFormat.Der =>
+          case EncryptionKeySpec.Rsa2048 =>
             convertFromPkcs8(privateKey.key.toByteArray, "RSA")
-          case _ =>
-            Either.left[JceJavaKeyConversionError, JPrivateKey](
-              JceJavaKeyConversionError.UnsupportedKeyFormat(encKey.format, CryptoKeyFormat.Der)
-            )
         }
     }
   }

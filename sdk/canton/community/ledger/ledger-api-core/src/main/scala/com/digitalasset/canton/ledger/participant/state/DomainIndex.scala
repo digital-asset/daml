@@ -9,6 +9,7 @@ import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 final case class DomainIndex(
     requestIndex: Option[RequestIndex],
     sequencerIndex: Option[SequencerIndex],
+    recordTime: CantonTimestamp,
 ) {
   def max(otherDomainIndex: DomainIndex): DomainIndex =
     new DomainIndex(
@@ -17,10 +18,11 @@ final case class DomainIndex(
       sequencerIndex = sequencerIndex.iterator
         .++(otherDomainIndex.sequencerIndex.iterator)
         .maxByOption(_.counter),
+      recordTime = recordTime max otherDomainIndex.recordTime,
     )
 
   override def toString: String =
-    s"DomainIndex(requestIndex=$requestIndex, sequencerIndex=$sequencerIndex)"
+    s"DomainIndex(requestIndex=$requestIndex, sequencerIndex=$sequencerIndex, recordTime=$recordTime)"
 }
 
 object DomainIndex {
@@ -30,15 +32,22 @@ object DomainIndex {
       requestIndex.sequencerCounter.map(
         SequencerIndex(_, requestIndex.timestamp)
       ),
+      requestIndex.timestamp,
     )
 
   def of(sequencerIndex: SequencerIndex): DomainIndex =
     DomainIndex(
       None,
       Some(sequencerIndex),
+      sequencerIndex.timestamp,
     )
 
-  val empty: DomainIndex = new DomainIndex(None, None)
+  def of(recordTime: CantonTimestamp): DomainIndex =
+    DomainIndex(
+      None,
+      None,
+      recordTime,
+    )
 }
 
 final case class SequencerIndex(counter: SequencerCounter, timestamp: CantonTimestamp)

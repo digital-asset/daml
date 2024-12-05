@@ -300,7 +300,10 @@ object Presequenced {
       blockSequencerTimestampO: Option[CantonTimestamp],
   ): Presequenced[E] =
     Presequenced(event, Some(maxSequencingTime), blockSequencerTimestampO)
-  def alwaysValid[E <: StoreEvent[_]](event: E): Presequenced[E] = Presequenced(event, None)
+  def alwaysValid[E <: StoreEvent[_]](
+      event: E,
+      blockSequencerTimestamp: Option[CantonTimestamp] = None,
+  ): Presequenced[E] = Presequenced(event, None, blockSequencerTimestamp)
 }
 
 /** Wrapper to assign a timestamp to a event. Useful to structure this way as events are only timestamped

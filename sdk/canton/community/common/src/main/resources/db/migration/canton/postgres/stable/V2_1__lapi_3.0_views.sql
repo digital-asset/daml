@@ -447,7 +447,8 @@ create or replace view debug.lapi_ledger_end_domain_index as
     debug.canton_timestamp(sequencer_timestamp) as sequencer_timestamp,
     request_counter,
     debug.canton_timestamp(request_timestamp) as request_timestamp,
-    request_sequencer_counter
+    request_sequencer_counter,
+    debug.canton_timestamp(record_time) as record_time
   from lapi_ledger_end_domain_index;
 
 create or replace view debug.lapi_post_processing_end as

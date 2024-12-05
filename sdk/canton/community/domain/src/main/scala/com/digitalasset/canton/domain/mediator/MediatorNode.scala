@@ -562,7 +562,7 @@ class MediatorNodeBootstrap(
               arguments.clock,
               arguments.futureSupervisor,
               domainLoggerFactory,
-            )
+            )()
           )
       (topologyProcessor, topologyClient) = topologyProcessorAndClient
       _ = ips.add(topologyClient)

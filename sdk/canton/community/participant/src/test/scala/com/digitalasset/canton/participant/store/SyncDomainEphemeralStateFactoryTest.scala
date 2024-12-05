@@ -49,7 +49,7 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
           startingPoints <- SyncDomainEphemeralStateFactory.startingPoints(
             rjs,
             ses,
-            DomainIndex(None, None),
+            None,
           )
         } yield {
           startingPoints shouldBe ProcessingStartingPoints.tryCreate(
@@ -73,18 +73,20 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
           withCleanSc <- SyncDomainEphemeralStateFactory.startingPoints(
             rjs,
             ses,
-            DomainIndex.of(
-              RequestIndex(
-                counter = rc,
-                sequencerCounter = Some(sc),
-                timestamp = ts,
+            Some(
+              DomainIndex.of(
+                RequestIndex(
+                  counter = rc,
+                  sequencerCounter = Some(sc),
+                  timestamp = ts,
+                )
               )
             ),
           )
         } yield {
           val cleanReplay = MessageCleanReplayStartingPoint(rc, sc, ts.immediatePredecessor)
           val processing =
-            MessageProcessingStartingPoint(rc + 1L, sc + 1L, ts)
+            MessageProcessingStartingPoint(rc + 1L, sc + 1L, ts, ts)
           withCleanSc shouldBe ProcessingStartingPoints.tryCreate(
             cleanReplay,
             processing,
@@ -103,6 +105,7 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
         val ts1 = CantonTimestamp.ofEpochSecond(1)
         val ts2 = CantonTimestamp.ofEpochSecond(2)
         val ts3 = CantonTimestamp.ofEpochSecond(5)
+        val ts3plus = CantonTimestamp.ofEpochSecond(6)
         val ts4 = CantonTimestamp.ofEpochSecond(7)
         val ts5 = CantonTimestamp.ofEpochSecond(8)
         val ts6 = CantonTimestamp.ofEpochSecond(9)
@@ -124,44 +127,56 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
           sp1 <- SyncDomainEphemeralStateFactory.startingPoints(
             rjs,
             ses,
-            DomainIndex.of(
-              RequestIndex(
-                counter = rc,
-                sequencerCounter = Some(sc),
-                timestamp = ts0,
+            Some(
+              DomainIndex.of(
+                RequestIndex(
+                  counter = rc,
+                  sequencerCounter = Some(sc),
+                  timestamp = ts0,
+                )
               )
             ),
           )
           sp2 <- SyncDomainEphemeralStateFactory.startingPoints(
             rjs,
             ses,
-            DomainIndex.of(
-              RequestIndex(
-                counter = rc + 1L,
-                sequencerCounter = Some(sc + 1L),
-                timestamp = ts1,
+            Some(
+              DomainIndex.of(
+                RequestIndex(
+                  counter = rc + 1L,
+                  sequencerCounter = Some(sc + 1L),
+                  timestamp = ts1,
+                )
               )
             ),
           )
-          domainIndex = DomainIndex(
-            requestIndex = Some(
-              RequestIndex(
-                counter = rc + 2L,
-                sequencerCounter = Some(sc + 2L),
-                timestamp = ts2,
-              )
-            ),
-            sequencerIndex = Some(
-              SequencerIndex(
-                counter = sc + 3L,
-                timestamp = ts3,
-              )
-            ),
+          domainIndex = Some(
+            DomainIndex(
+              requestIndex = Some(
+                RequestIndex(
+                  counter = rc + 2L,
+                  sequencerCounter = Some(sc + 2L),
+                  timestamp = ts2,
+                )
+              ),
+              sequencerIndex = Some(
+                SequencerIndex(
+                  counter = sc + 3L,
+                  timestamp = ts3,
+                )
+              ),
+              recordTime = ts3,
+            )
           )
           sp3 <- SyncDomainEphemeralStateFactory.startingPoints(
             rjs,
             ses,
             domainIndex,
+          )
+          sp3WithRecordTimeIncrease <- SyncDomainEphemeralStateFactory.startingPoints(
+            rjs,
+            ses,
+            domainIndex.map(_.copy(recordTime = ts3plus)),
           )
           _ <- rjs.insert(RequestData.initial(rc + 4L, ts6))
           _ <- rjs.insert(RequestData.initial(rc + 3L, ts5))
@@ -173,20 +188,23 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
           sp3b <- SyncDomainEphemeralStateFactory.startingPoints(
             rjs,
             ses,
-            DomainIndex(
-              requestIndex = Some(
-                RequestIndex(
-                  counter = rc + 2L,
-                  sequencerCounter = Some(sc + 2L),
-                  timestamp = ts2,
-                )
-              ),
-              sequencerIndex = Some(
-                SequencerIndex(
-                  counter = sc + 4L,
-                  timestamp = ts4,
-                )
-              ),
+            Some(
+              DomainIndex(
+                requestIndex = Some(
+                  RequestIndex(
+                    counter = rc + 2L,
+                    sequencerCounter = Some(sc + 2L),
+                    timestamp = ts2,
+                  )
+                ),
+                sequencerIndex = Some(
+                  SequencerIndex(
+                    counter = sc + 4L,
+                    timestamp = ts4,
+                  )
+                ),
+                recordTime = ts4,
+              )
             ),
           )
         } yield {
@@ -196,6 +214,7 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
             rc + 1L,
             sc + 1L,
             ts0,
+            ts0,
           )
 
           // start with request 0 because its commit time is after ts1
@@ -203,6 +222,7 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
           sp2.processing shouldBe MessageProcessingStartingPoint(
             rc + 2L,
             sc + 2L,
+            ts1,
             ts1,
           )
 
@@ -213,6 +233,23 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
             ts2.immediatePredecessor,
           )
           sp3.processing shouldBe MessageProcessingStartingPoint(
+            rc + 3L,
+            sc + 4L,
+            ts3,
+            ts3,
+          )
+
+          // processing starting points propagate the floating record-time from the DomainIndex
+          sp3WithRecordTimeIncrease.processing shouldBe MessageProcessingStartingPoint(
+            rc + 3L,
+            sc + 4L,
+            ts3,
+            ts3plus,
+          )
+          // increase in record-time also affects replay-calculation (for example successfully excludes repair)
+          // in this case the record time increase results in not taking RC=2 into consideration and replay is
+          // computed from the processing starting point as no other commit-time is after
+          sp3WithRecordTimeIncrease.cleanReplay shouldBe MessageCleanReplayStartingPoint(
             rc + 3L,
             sc + 4L,
             ts3,
@@ -229,6 +266,7 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
             rc + 3L,
             sc + 4L,
             ts3,
+            ts3,
           )
 
           // we don't have to replay the latest clean request
@@ -239,6 +277,7 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
           sp3b.processing shouldBe MessageProcessingStartingPoint(
             rc + 3L,
             sc + 5L,
+            ts4,
             ts4,
           )
         }
@@ -270,22 +309,26 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
             sp0 <- SyncDomainEphemeralStateFactory.startingPoints(
               rjs,
               ses,
-              DomainIndex.of(
-                RequestIndex(
-                  counter = rc,
-                  sequencerCounter = Some(sc),
-                  timestamp = ts0,
+              Some(
+                DomainIndex.of(
+                  RequestIndex(
+                    counter = rc,
+                    sequencerCounter = Some(sc),
+                    timestamp = ts0,
+                  )
                 )
               ),
             )
             sp2 <- SyncDomainEphemeralStateFactory.startingPoints(
               rjs,
               ses,
-              DomainIndex.of(
-                RequestIndex(
-                  counter = rc + 1L,
-                  sequencerCounter = Some(sc + 1L),
-                  timestamp = ts1,
+              Some(
+                DomainIndex.of(
+                  RequestIndex(
+                    counter = rc + 1L,
+                    sequencerCounter = Some(sc + 1L),
+                    timestamp = ts1,
+                  )
                 )
               ),
             )
@@ -300,6 +343,7 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
               rc + 1L,
               sc + 1L,
               ts0,
+              ts0,
             )
             // replay from request 0 because request 2 starts before request 0 commits
             sp2.cleanReplay shouldBe MessageCleanReplayStartingPoint(
@@ -310,6 +354,7 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
             sp2.processing shouldBe MessageProcessingStartingPoint(
               rc + 2L,
               sc + 2L,
+              ts1,
               ts1,
             )
           }
@@ -335,14 +380,17 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
             noCleanRepair <- SyncDomainEphemeralStateFactory.startingPoints(
               rjs,
               ses,
-              DomainIndex(
-                requestIndex = None,
-                sequencerIndex = Some(
-                  SequencerIndex(
-                    counter = sc,
-                    timestamp = ts0,
-                  )
-                ),
+              Some(
+                DomainIndex(
+                  requestIndex = None,
+                  sequencerIndex = Some(
+                    SequencerIndex(
+                      counter = sc,
+                      timestamp = ts0,
+                    )
+                  ),
+                  recordTime = ts0,
+                )
               ),
             )
             _ <- rjs.insert(
@@ -351,30 +399,35 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
             withDirtyRepair <- SyncDomainEphemeralStateFactory.startingPoints(
               rjs,
               ses,
-              DomainIndex(
-                requestIndex = Some(
-                  RequestIndex(
-                    counter = rc,
-                    sequencerCounter = None,
-                    timestamp = ts0,
-                  )
-                ),
-                sequencerIndex = Some(
-                  SequencerIndex(
-                    counter = sc + 1L,
-                    timestamp = ts1,
-                  )
-                ),
+              Some(
+                DomainIndex(
+                  requestIndex = Some(
+                    RequestIndex(
+                      counter = rc,
+                      sequencerCounter = None,
+                      timestamp = ts0,
+                    )
+                  ),
+                  sequencerIndex = Some(
+                    SequencerIndex(
+                      counter = sc + 1L,
+                      timestamp = ts1,
+                    )
+                  ),
+                  recordTime = ts1,
+                )
               ),
             )
             withCleanRepair <- SyncDomainEphemeralStateFactory.startingPoints(
               rjs,
               ses,
-              DomainIndex.of(
-                RequestIndex(
-                  counter = rc + 1L,
-                  sequencerCounter = Some(sc + 1L),
-                  timestamp = ts1,
+              Some(
+                DomainIndex.of(
+                  RequestIndex(
+                    counter = rc + 1L,
+                    sequencerCounter = Some(sc + 1L),
+                    timestamp = ts1,
+                  )
                 )
               ),
             )
@@ -388,6 +441,7 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
               RequestCounter.Genesis,
               sc + 1L,
               ts0,
+              ts0,
             )
 
             withDirtyRepair.cleanReplay shouldBe MessageCleanReplayStartingPoint(
@@ -399,6 +453,7 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
               rc + 1L,
               sc + 2L,
               ts1,
+              ts1,
             )
             withCleanRepair.cleanReplay shouldBe MessageCleanReplayStartingPoint(
               rc + 2L,
@@ -408,6 +463,7 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
             withCleanRepair.processing shouldBe MessageProcessingStartingPoint(
               rc + 2L,
               sc + 2L,
+              ts1,
               ts1,
             )
           }
@@ -432,15 +488,18 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
             oneRepair <- SyncDomainEphemeralStateFactory.startingPoints(
               rjs,
               ses,
-              DomainIndex(
-                requestIndex = Some(
-                  RequestIndex(
-                    counter = RequestCounter.Genesis,
-                    sequencerCounter = None,
-                    timestamp = repairTs,
-                  )
-                ),
-                sequencerIndex = None,
+              Some(
+                DomainIndex(
+                  requestIndex = Some(
+                    RequestIndex(
+                      counter = RequestCounter.Genesis,
+                      sequencerCounter = None,
+                      timestamp = repairTs,
+                    )
+                  ),
+                  sequencerIndex = None,
+                  recordTime = repairTs,
+                )
               ),
             )
             _ <- rjs.insert(
@@ -451,15 +510,18 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
                 Some(RepairContext.tryCreate("repair1")),
               )
             )
-            domainIndex = DomainIndex(
-              requestIndex = Some(
-                RequestIndex(
-                  counter = RequestCounter.Genesis + 1L,
-                  sequencerCounter = None,
-                  timestamp = repairTs,
-                )
-              ),
-              sequencerIndex = None,
+            domainIndex = Some(
+              DomainIndex(
+                requestIndex = Some(
+                  RequestIndex(
+                    counter = RequestCounter.Genesis + 1L,
+                    sequencerCounter = None,
+                    timestamp = repairTs,
+                  )
+                ),
+                sequencerIndex = None,
+                recordTime = repairTs,
+              )
             )
             twoRepairs <- SyncDomainEphemeralStateFactory.startingPoints(
               rjs,
@@ -486,6 +548,7 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
               RequestCounter.Genesis + 1L,
               SequencerCounter.Genesis,
               CantonTimestamp.MinValue,
+              CantonTimestamp.MinValue,
             )
 
             oneRepair shouldBe ProcessingStartingPoints.tryCreate(
@@ -496,6 +559,7 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
             val startTwo = MessageProcessingStartingPoint(
               RequestCounter.Genesis + 2L,
               SequencerCounter.Genesis,
+              CantonTimestamp.MinValue,
               CantonTimestamp.MinValue,
             )
 

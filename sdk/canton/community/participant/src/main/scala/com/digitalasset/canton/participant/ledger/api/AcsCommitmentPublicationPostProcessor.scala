@@ -30,18 +30,9 @@ class AcsCommitmentPublicationPostProcessor(
       connectedDomainsLookupContainer
         // not publishing if no domain active: it means subsequent crash recovery will establish consistency again
         .get(domainId)
-        .flatMap(
-          _.acsCommitmentProcessor.unwrap.value
-            .getOrElse(
-              // failing if the AcsCommitmentProcessor is still initializing: that should not be the case
-              ErrorUtil.invalidState("AcsCommitmentProcessor still initializing")
-            )
-            .toOption
-        )
         // not publishing anything if the AcsCommitmentProcessor initialization succeeded with AbortedDueToShutdown or failed
-        .flatMap(_.toRight(()).toOption)
         .foreach(
-          _.publish(
+          _.acsCommitmentProcessor.publish(
             sequencerTimestamp,
             requestCounterCommitSetPairO,
           )(

@@ -83,16 +83,16 @@ object KmsDriverTestUtils {
       case spec: SigningKeySpec => spec.transformInto[crypto.SigningKeySpec]
       case _: EncryptionKeySpec => sys.error("public key is not a signing public key")
     }
-    SigningPublicKey(CryptoKeyFormat.Der, key, spec)()
+    SigningPublicKey(CryptoKeyFormat.DerX509Spki, key, spec)()
   }
 
   def encryptionPublicKey(publicKey: PublicKey): EncryptionPublicKey = {
     val key = ByteString.copyFrom(publicKey.key)
     val spec = publicKey.spec match {
       case spec: EncryptionKeySpec => spec.transformInto[crypto.EncryptionKeySpec]
-      case _: SigningKeySpec => sys.error("public key is not a encryption public key")
+      case _: SigningKeySpec => sys.error("public key is not an encryption public key")
     }
-    EncryptionPublicKey(CryptoKeyFormat.Der, key, spec)()
+    EncryptionPublicKey(CryptoKeyFormat.DerX509Spki, key, spec)()
   }
 
 }

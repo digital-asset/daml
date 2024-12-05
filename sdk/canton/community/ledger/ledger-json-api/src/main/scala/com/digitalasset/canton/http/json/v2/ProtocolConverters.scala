@@ -6,6 +6,7 @@ package com.digitalasset.canton.http.json.v2
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2 as lapi
 import com.digitalasset.canton.http.json.v2.JsContractEntry.JsContractEntry
+import com.digitalasset.canton.http.json.v2.JsPrepareSubmissionRequest
 import com.digitalasset.canton.http.json.v2.JsReassignmentEvent.JsReassignmentEvent
 import com.digitalasset.canton.http.json.v2.JsSchema.{
   JsEvent,
@@ -17,6 +18,7 @@ import com.digitalasset.canton.http.json.v2.JsSchema.{
   JsTransactionTree,
   JsTreeEvent,
 }
+import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.daml.lf.data.Ref
 import com.google.rpc.status.Status
 import ujson.StringRenderer
@@ -40,6 +42,88 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
 
   implicit def toCirce(js: ujson.Value): io.circe.Json = CirceJson(js)
 
+  def convertCommands(commands: Seq[JsCommand.Command])(implicit
+      token: Option[String],
+      contextualizedErrorLogger: ContextualizedErrorLogger,
+  ): Future[Seq[lapi.commands.Command.Command]] = Future.sequence(commands.map {
+    case JsCommand.CreateCommand(template_id, create_arguments) =>
+      for {
+        protoCreateArgsRecord <-
+          schemaProcessors
+            .contractArgFromJsonToProto(
+              template = IdentifierConverter.fromJson(template_id),
+              jsonArgsValue = create_arguments,
+            )
+
+      } yield lapi.commands.Command.Command.Create(
+        lapi.commands.CreateCommand(
+          templateId = Some(IdentifierConverter.fromJson(template_id)),
+          createArguments = Some(protoCreateArgsRecord.getRecord),
+        )
+      )
+    case JsCommand.ExerciseCommand(template_id, contract_id, choice, choice_argument) =>
+      val lfChoiceName = Ref.ChoiceName.assertFromString(choice)
+      for {
+        choiceArgs <-
+          schemaProcessors.choiceArgsFromJsonToProto(
+            template = IdentifierConverter.fromJson(template_id),
+            choiceName = lfChoiceName,
+            jsonArgsValue = choice_argument,
+          )
+      } yield lapi.commands.Command.Command.Exercise(
+        lapi.commands.ExerciseCommand(
+          templateId = Some(IdentifierConverter.fromJson(template_id)),
+          contractId = contract_id,
+          choiceArgument = Some(choiceArgs),
+          choice = choice,
+        )
+      )
+
+    case cmd: JsCommand.ExerciseByKeyCommand =>
+      for {
+        choiceArgs <-
+          schemaProcessors.choiceArgsFromJsonToProto(
+            template = IdentifierConverter.fromJson(cmd.template_id),
+            choiceName = Ref.ChoiceName.assertFromString(cmd.choice),
+            jsonArgsValue = cmd.choice_argument,
+          )
+        contractKey <-
+          schemaProcessors.contractArgFromJsonToProto(
+            template = IdentifierConverter.fromJson(cmd.template_id),
+            jsonArgsValue = cmd.contract_key,
+          )
+      } yield lapi.commands.Command.Command.ExerciseByKey(
+        lapi.commands.ExerciseByKeyCommand(
+          templateId = Some(IdentifierConverter.fromJson(cmd.template_id)),
+          contractKey = Some(contractKey),
+          choice = cmd.choice,
+          choiceArgument = Some(choiceArgs),
+        )
+      )
+    case cmd: JsCommand.CreateAndExerciseCommand =>
+      for {
+        createArgs <-
+          schemaProcessors
+            .contractArgFromJsonToProto(
+              template = IdentifierConverter.fromJson(cmd.template_id),
+              jsonArgsValue = cmd.create_arguments,
+            )
+        choiceArgs <-
+          schemaProcessors.choiceArgsFromJsonToProto(
+            template = IdentifierConverter.fromJson(cmd.template_id),
+            choiceName = Ref.ChoiceName.assertFromString(cmd.choice),
+            jsonArgsValue = cmd.choice_argument,
+          )
+      } yield lapi.commands.Command.Command.CreateAndExercise(
+        lapi.commands.CreateAndExerciseCommand(
+          templateId = Some(IdentifierConverter.fromJson(cmd.template_id)),
+          createArguments = Some(createArgs.getRecord),
+          choice = cmd.choice,
+          choiceArgument = Some(choiceArgs),
+        )
+      )
+  })
+
   object Commands extends ProtocolConverter[lapi.commands.Commands, JsCommands] {
 
     def fromJson(jsCommands: JsCommands)(implicit
@@ -48,86 +132,8 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     ): Future[lapi.commands.Commands] = {
       import jsCommands.*
 
-      val convertedCommands: Seq[Future[lapi.commands.Command.Command]] = commands.map {
-        case JsCommand.CreateCommand(template_id, create_arguments) =>
-          for {
-            protoCreateArgsRecord <-
-              schemaProcessors
-                .contractArgFromJsonToProto(
-                  template = IdentifierConverter.fromJson(template_id),
-                  jsonArgsValue = create_arguments,
-                )
-
-          } yield lapi.commands.Command.Command.Create(
-            lapi.commands.CreateCommand(
-              templateId = Some(IdentifierConverter.fromJson(template_id)),
-              createArguments = Some(protoCreateArgsRecord.getRecord),
-            )
-          )
-        case JsCommand.ExerciseCommand(template_id, contract_id, choice, choice_argument) =>
-          val lfChoiceName = Ref.ChoiceName.assertFromString(choice)
-          for {
-            choiceArgs <-
-              schemaProcessors.choiceArgsFromJsonToProto(
-                template = IdentifierConverter.fromJson(template_id),
-                choiceName = lfChoiceName,
-                jsonArgsValue = choice_argument,
-              )
-          } yield lapi.commands.Command.Command.Exercise(
-            lapi.commands.ExerciseCommand(
-              templateId = Some(IdentifierConverter.fromJson(template_id)),
-              contractId = contract_id,
-              choiceArgument = Some(choiceArgs),
-              choice = choice,
-            )
-          )
-
-        case cmd: JsCommand.ExerciseByKeyCommand =>
-          for {
-            choiceArgs <-
-              schemaProcessors.choiceArgsFromJsonToProto(
-                template = IdentifierConverter.fromJson(cmd.template_id),
-                choiceName = Ref.ChoiceName.assertFromString(cmd.choice),
-                jsonArgsValue = cmd.choice_argument,
-              )
-            contractKey <-
-              schemaProcessors.contractArgFromJsonToProto(
-                template = IdentifierConverter.fromJson(cmd.template_id),
-                jsonArgsValue = cmd.contract_key,
-              )
-          } yield lapi.commands.Command.Command.ExerciseByKey(
-            lapi.commands.ExerciseByKeyCommand(
-              templateId = Some(IdentifierConverter.fromJson(cmd.template_id)),
-              contractKey = Some(contractKey),
-              choice = cmd.choice,
-              choiceArgument = Some(choiceArgs),
-            )
-          )
-        case cmd: JsCommand.CreateAndExerciseCommand =>
-          for {
-            createArgs <-
-              schemaProcessors
-                .contractArgFromJsonToProto(
-                  template = IdentifierConverter.fromJson(cmd.template_id),
-                  jsonArgsValue = cmd.create_arguments,
-                )
-            choiceArgs <-
-              schemaProcessors.choiceArgsFromJsonToProto(
-                template = IdentifierConverter.fromJson(cmd.template_id),
-                choiceName = Ref.ChoiceName.assertFromString(cmd.choice),
-                jsonArgsValue = cmd.choice_argument,
-              )
-          } yield lapi.commands.Command.Command.CreateAndExercise(
-            lapi.commands.CreateAndExerciseCommand(
-              templateId = Some(IdentifierConverter.fromJson(cmd.template_id)),
-              createArguments = Some(createArgs.getRecord),
-              choice = cmd.choice,
-              choiceArgument = Some(choiceArgs),
-            )
-          )
-      }
-      Future
-        .sequence(convertedCommands)
+      val convertedCommands = convertCommands(jsCommands.commands)
+      convertedCommands
         .map(cc =>
           lapi.commands.Commands(
             workflowId = workflow_id,
@@ -140,14 +146,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
             actAs = act_as,
             readAs = read_as,
             submissionId = submission_id,
-            disclosedContracts = disclosed_contracts.map(js =>
-              lapi.commands.DisclosedContract(
-                templateId = Some(IdentifierConverter.fromJson(js.template_id)),
-                contractId = js.contract_id,
-                createdEventBlob = js.created_event_blob,
-                domainId = js.domain_id.getOrElse(""),
-              )
-            ),
+            disclosedContracts = disclosed_contracts,
             domainId = domain_id,
             packageIdSelectionPreference = package_id_selection_preference,
           )
@@ -233,14 +232,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
             application_id = lapiCommands.applicationId,
             command_id = lapiCommands.commandId,
             deduplication_period = lapiCommands.deduplicationPeriod,
-            disclosed_contracts = lapiCommands.disclosedContracts.map { disclosedContract =>
-              JsDisclosedContract(
-                template_id = IdentifierConverter.toJson(disclosedContract.getTemplateId),
-                contract_id = disclosedContract.contractId,
-                created_event_blob = disclosedContract.createdEventBlob,
-                domain_id = Option(disclosedContract.domainId).filter(_.nonEmpty),
-              )
-            },
+            disclosed_contracts = lapiCommands.disclosedContracts,
             act_as = lapiCommands.actAs,
             read_as = lapiCommands.readAs,
             submission_id = lapiCommands.submissionId,
@@ -460,6 +452,8 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
               )
             } yield JsTreeEvent.ExercisedTreeEvent(
               event_id = exercised.eventId,
+              offset = exercised.offset,
+              node_id = exercised.nodeId,
               contract_id = exercised.contractId,
               template_id = IdentifierConverter.toJson(apiTemplateId),
               interface_id = exercised.interfaceId.map(IdentifierConverter.toJson),
@@ -714,6 +708,8 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
   object ArchivedEvent extends ProtocolConverter[lapi.event.ArchivedEvent, JsEvent.ArchivedEvent] {
     def toJson(e: lapi.event.ArchivedEvent): JsEvent.ArchivedEvent = JsEvent.ArchivedEvent(
       event_id = e.eventId,
+      offset = e.offset,
+      node_id = e.nodeId,
       contract_id = e.contractId,
       template_id = IdentifierConverter.toJson(e.getTemplateId),
       witness_parties = e.witnessParties,
@@ -758,6 +754,8 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         interfaceViews <- Future.sequence(created.interfaceViews.map(InterfaceView.toJson))
       } yield JsEvent.CreatedEvent(
         event_id = created.eventId,
+        offset = created.offset,
+        node_id = created.nodeId,
         contract_id = created.contractId,
         template_id = IdentifierConverter.toJson(created.getTemplateId),
         contract_key = contractKey.map(toCirce),
@@ -1240,6 +1238,75 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         .fromJson(obj.transaction)
         .map(tr => lapi.update_service.GetTransactionResponse(Some(tr)))
   }
+
+  object PrepareSubmissionRequest
+      extends ProtocolConverter[
+        lapi.interactive.interactive_submission_service.PrepareSubmissionRequest,
+        JsPrepareSubmissionRequest,
+      ] {
+    def fromJson(obj: JsPrepareSubmissionRequest)(implicit
+        token: Option[String],
+        contextualizedErrorLogger: ContextualizedErrorLogger,
+    ): Future[lapi.interactive.interactive_submission_service.PrepareSubmissionRequest] = for {
+      commands <- convertCommands(obj.commands)
+    } yield lapi.interactive.interactive_submission_service.PrepareSubmissionRequest(
+      applicationId = obj.application_id,
+      commandId = obj.command_id,
+      commands = commands.map(lapi.commands.Command(_)),
+      minLedgerTime = obj.min_ledger_time,
+      actAs = obj.act_as,
+      readAs = obj.read_as,
+      disclosedContracts = obj.disclosed_contracts,
+      domainId = obj.domain_id,
+      packageIdSelectionPreference = obj.package_id_selection_preference,
+      verboseHashing = obj.verbose_hashing,
+    )
+  }
+
+  object PrepareSubmissionResponse
+      extends ProtocolConverter[
+        lapi.interactive.interactive_submission_service.PrepareSubmissionResponse,
+        JsPrepareSubmissionResponse,
+      ] {
+    def toJson(
+        obj: lapi.interactive.interactive_submission_service.PrepareSubmissionResponse
+    ): Future[JsPrepareSubmissionResponse] = Future.successful(
+      JsPrepareSubmissionResponse(
+        prepared_transaction = obj.preparedTransaction.map(_.toByteString),
+        prepared_transaction_hash = obj.preparedTransactionHash,
+        hashing_scheme_version = obj.hashingSchemeVersion,
+        hashing_details = obj.hashingDetails,
+      )
+    )
+  }
+
+  object ExecuteSubmissionRequest
+      extends ProtocolConverter[
+        lapi.interactive.interactive_submission_service.ExecuteSubmissionRequest,
+        JsExecuteSubmissionRequest,
+      ] {
+    def fromJson(
+        obj: JsExecuteSubmissionRequest
+    ): Future[lapi.interactive.interactive_submission_service.ExecuteSubmissionRequest] =
+      Future {
+        val preparedTransaction = obj.prepared_transaction.map { proto =>
+          ProtoConverter
+            .protoParser(
+              lapi.interactive.interactive_submission_service.PreparedTransaction.parseFrom
+            )(proto)
+            .getOrElse(jsFail("Cannot parse prepared_transaction"))
+        }
+        lapi.interactive.interactive_submission_service.ExecuteSubmissionRequest(
+          preparedTransaction = preparedTransaction,
+          partySignatures = obj.party_signatures,
+          deduplicationPeriod = obj.deduplication_period,
+          submissionId = obj.submission_id,
+          applicationId = obj.application_id,
+          hashingSchemeVersion = obj.hashing_scheme_version,
+        )
+      }
+  }
+
 }
 
 object IdentifierConverter extends ProtocolConverter[lapi.value.Identifier, String] {

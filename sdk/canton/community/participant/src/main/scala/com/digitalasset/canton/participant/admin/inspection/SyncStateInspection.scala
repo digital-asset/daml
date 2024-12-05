@@ -61,7 +61,13 @@ import com.digitalasset.canton.util.ReassignmentTag.Source
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{DomainAlias, LfPartyId, ReassignmentCounter, RequestCounter}
+import com.digitalasset.canton.{
+  DomainAlias,
+  LfPartyId,
+  ReassignmentCounter,
+  RequestCounter,
+  SequencerCounter,
+}
 import com.google.common.annotations.VisibleForTesting
 
 import java.io.OutputStream
@@ -693,11 +699,11 @@ final class SyncStateInspection(
       traceContext: TraceContext
   ): Either[String, Future[Option[RequestIndex]]] =
     lookupCleanDomainIndex(domain)
-      .map(_.map(_.requestIndex))
+      .map(_.map(_.flatMap(_.requestIndex)))
 
   def lookupCleanDomainIndex(domain: DomainAlias)(implicit
       traceContext: TraceContext
-  ): Either[String, Future[DomainIndex]] =
+  ): Either[String, Future[Option[DomainIndex]]] =
     getPersistentStateE(domain)
       .map(state =>
         participantNodePersistentState.value.ledgerApiStore
@@ -952,6 +958,34 @@ final class SyncStateInspection(
 
     FutureUnlessShutdown.sequence(result).map(_.toMap)
   }
+
+  def cleanSequencedEventStoreAboveCleanDomainIndex(domainAlias: DomainAlias)(implicit
+      traceContext: TraceContext
+  ): Unit =
+    getOrFail(
+      getPersistentState(domainAlias).map { domainState =>
+        timeouts.inspection.await(functionFullName)(
+          participantNodePersistentState.value.ledgerApiStore
+            .cleanDomainIndex(domainState.indexedDomain.domainId)
+            .flatMap { domainIndexO =>
+              val nextSequencerCounter = domainIndexO
+                .flatMap(_.sequencerIndex)
+                .map(
+                  _.counter.increment
+                    .getOrElse(
+                      throw new IllegalStateException("sequencer counter cannot be increased")
+                    )
+                )
+                .getOrElse(SequencerCounter.Genesis)
+              logger.info(
+                s"Deleting events from SequencedEventStore for domain $domainAlias fromInclusive $nextSequencerCounter"
+              )
+              domainState.sequencedEventStore.delete(nextSequencerCounter)
+            }
+        )
+      },
+      domainAlias,
+    )
 }
 
 object SyncStateInspection {
