@@ -120,8 +120,8 @@
                 },
                 "daml.multiPackageIdeSupport": {
                     "type": "boolean",
-                    "default": false,
-                    "description": "Enables the Initial Access support for multi-package compatibility in the IDE."
+                    "default": true,
+                    "description": "Enables support for multi-package projects in the IDE."
                 },
                 "daml.multiPackageIdeGradleSupport": {
                     "type": "boolean",
