@@ -133,3 +133,9 @@ final case class DisclosedContract(
     argument: Value,
     keyHash: Option[crypto.Hash],
 )
+
+/** A contract key passed in over the ledger API command submission */
+final case class ApiContractKey(
+    templateRef: TypeConRef,
+    contractKey: Value,
+)

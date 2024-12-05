@@ -5,11 +5,11 @@ package com.daml.lf
 package engine
 package preprocessing
 
-import com.daml.lf.command.ReplayCommand
+import com.daml.lf.command.{ApiContractKey, ReplayCommand}
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.speedy.SValue
-import com.daml.lf.transaction.{Node, SubmittedTransaction}
+import com.daml.lf.transaction.{GlobalKey, Node, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.nameof.NameOf
 
@@ -261,15 +261,25 @@ private[engine] final class Preprocessor(
       commandPreprocessor.unsafePreprocessInterfaceView(templateId, argument, interfaceId)
     }
 
+  def preprocessApiContractKeys(
+      pkgResolution: Map[Ref.PackageName, Ref.PackageId],
+      keys: Seq[ApiContractKey],
+  ): Result[Seq[GlobalKey]] =
+    safelyRun(pullPackage(pkgResolution, keys.view.map(_.templateRef))) {
+      commandPreprocessor.unsafePreprocessApiContractKeys(pkgResolution, keys)
+    }
+
   private[engine] def prefetchKeys(
       commands: ImmArray[speedy.Command],
+      prefetchKeys: Seq[GlobalKey],
       disclosedKeyHashes: Set[crypto.Hash],
   ): Result[Unit] = {
     val keys = commands.iterator.collect {
       case speedy.Command.ExerciseByKey(templateId, contractKey, _, _) =>
         speedy.Speedy.Machine.assertGlobalKey(pkgInterface, templateId, contractKey)
     }
-    val undisclosedKeys = keys.filterNot(key => disclosedKeyHashes.contains(key.hash))
+    val undisclosedKeys =
+      (keys ++ prefetchKeys).filterNot(key => disclosedKeyHashes.contains(key.hash))
     if (undisclosedKeys.nonEmpty) ResultPrefetch(undisclosedKeys.toSeq, () => ResultDone.Unit)
     else ResultDone.Unit
   }
