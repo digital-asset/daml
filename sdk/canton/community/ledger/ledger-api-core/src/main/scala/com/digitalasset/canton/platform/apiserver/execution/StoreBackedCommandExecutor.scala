@@ -19,6 +19,7 @@ import com.daml.lf.engine.{
   ResultNeedContract,
   ResultNeedKey,
   ResultNeedPackage,
+  ResultPrefetch,
   ResultNeedUpgradeVerification,
 }
 import com.daml.lf.transaction.*
@@ -373,6 +374,8 @@ private[apiserver] final class StoreBackedCommandExecutor(
                 )
               )
             }
+
+        case ResultPrefetch(_, resume) => resolveStep(resume())
       }
 
     resolveStep(result).andThen { case _ =>

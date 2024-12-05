@@ -381,6 +381,8 @@ class DAMLe(
         contracts.authenticateForUpgradeValidation(coid, metadata).value.flatMap { verification =>
           handleResult(contracts, resume(verification))
         }
+
+      case ResultPrefetch(_, resume) => handleResult(contracts, resume())
     }
   }
 
