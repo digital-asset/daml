@@ -361,10 +361,35 @@ class IdeLedgerClient(
       case ContractIdInContractKey(_) => submitErrors.ContractIdInContractKey()
       case ContractIdComparability(cid) => submitErrors.ContractIdComparability(cid.toString)
       case ValueNesting(limit) => submitErrors.ValueNesting(limit)
-      case e: Upgrade =>
-        // TODO https://github.com/digital-asset/daml/issues/18616: ensure relevant structured data is capturec
-        submitErrors.UpgradeError(
-          Pretty.prettyDamlException(e).renderWideStream.mkString
+      case e @ Upgrade(innerError: Upgrade.ValidationFailed) =>
+        submitErrors.UpgradeError.ValidationFailed(
+          innerError.coid,
+          innerError.srcTemplateId,
+          innerError.dstTemplateId,
+          innerError.signatories,
+          innerError.observers,
+          innerError.keyOpt,
+          Pretty.prettyDamlException(e).renderWideStream.mkString,
+        )
+      case e @ Upgrade(innerError: Upgrade.DowngradeDropDefinedField) =>
+        submitErrors.UpgradeError.DowngradeDropDefinedField(
+          innerError.expectedType.pretty,
+          Pretty.prettyDamlException(e).renderWideStream.mkString,
+        )
+      case e @ Upgrade(innerError: Upgrade.ViewMismatch) =>
+        submitErrors.UpgradeError.ViewMismatch(
+          innerError.coid,
+          innerError.iterfaceId,
+          innerError.srcTemplateId,
+          innerError.dstTemplateId,
+          Pretty.prettyDamlException(e).renderWideStream.mkString,
+        )
+      case e @ Upgrade(innerError: Upgrade.ContractNotUpgradable) =>
+        submitErrors.UpgradeError.ContractNotUpgradable(
+          innerError.coid,
+          innerError.target,
+          innerError.actual,
+          Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
       case e @ Dev(_, innerError) =>
         submitErrors.DevError(
@@ -629,6 +654,13 @@ class IdeLedgerClient(
           )
         } catch {
           case Error.Preprocessing.Lookup(err) => Left(makeLookupError(err))
+          // Expose type mismatches as unknown errors to match canton behaviour. Later this should be fully expressed as a SubmitError
+          case Error.Preprocessing.TypeMismatch(_, _, msg) =>
+            Left(
+              makeEmptySubmissionError(
+                scenario.Error.Internal("COMMAND_PREPROCESSING_FAILED(0, 00000000): " + msg)
+              )
+            )
         }
 
       val eitherSpeedyDisclosures
@@ -654,7 +686,9 @@ class IdeLedgerClient(
           )
           disclosures <-
             try {
-              Right(preprocessor.unsafePreprocessDisclosedContracts(contracts))
+              val (preprocessedDisclosed, _) =
+                preprocessor.unsafePreprocessDisclosedContracts(contracts)
+              Right(preprocessedDisclosed)
             } catch {
               case Error.Preprocessing.Lookup(err) => Left(makeLookupError(err))
             }
@@ -712,14 +746,22 @@ class IdeLedgerClient(
         optLocation,
       ) match {
         case Right(ScenarioRunner.Commit(result, _, tx)) =>
+          val commandResultPackageIds = commands.flatMap(toCommandPackageIds(_))
+
           _ledger = result.newLedger
           val transaction = result.richTransaction.transaction
-          def convEvent(id: NodeId): Option[ScriptLedgerClient.TreeEvent] =
+          def convEvent(
+              id: NodeId,
+              oIntendedPackageId: Option[PackageId],
+          ): Option[ScriptLedgerClient.TreeEvent] =
             transaction.nodes(id) match {
               case create: Node.Create =>
                 Some(
                   ScriptLedgerClient.Created(
-                    create.templateId,
+                    oIntendedPackageId
+                      .fold(create.templateId)(intendedPackageId =>
+                        create.templateId.copy(packageId = intendedPackageId)
+                      ),
                     create.coid,
                     create.arg,
                     blob(create, result.richTransaction.effectiveAt),
@@ -728,19 +770,24 @@ class IdeLedgerClient(
               case exercise: Node.Exercise =>
                 Some(
                   ScriptLedgerClient.Exercised(
-                    exercise.templateId,
+                    oIntendedPackageId
+                      .fold(exercise.templateId)(intendedPackageId =>
+                        exercise.templateId.copy(packageId = intendedPackageId)
+                      ),
                     exercise.interfaceId,
                     exercise.targetCoid,
                     exercise.choiceId,
                     exercise.chosenValue,
                     exercise.exerciseResult.get,
-                    exercise.children.collect(Function.unlift(convEvent(_))).toList,
+                    exercise.children.collect(Function.unlift(convEvent(_, None))).toList,
                   )
                 )
               case _: Node.Fetch | _: Node.LookupByKey | _: Node.Rollback => None
             }
           val tree = ScriptLedgerClient.TransactionTree(
-            transaction.roots.collect(Function.unlift(convEvent(_))).toList
+            transaction.roots.toList
+              .zip(commandResultPackageIds)
+              .collect(Function.unlift { case (id, pkgId) => convEvent(id, Some(pkgId)) })
           )
           val results = ScriptLedgerClient.transactionTreeToCommandResults(tree)
           if (errorBehaviour == ScriptLedgerClient.SubmissionErrorBehaviour.MustFail)
@@ -766,6 +813,15 @@ class IdeLedgerClient(
       }
     }
   }
+
+  // Note that CreateAndExerciseCommand gives two results, so we duplicate the package id
+  private def toCommandPackageIds(cmd: ScriptLedgerClient.CommandWithMeta): List[PackageId] =
+    cmd.command match {
+      case command.CreateAndExerciseCommand(tmplRef, _, _, _) =>
+        List(tmplRef.assertToTypeConName.packageId, tmplRef.assertToTypeConName.packageId)
+      case cmd =>
+        List(cmd.typeRef.assertToTypeConName.packageId)
+    }
 
   override def allocateParty(partyIdHint: String, displayName: String)(implicit
       ec: ExecutionContext,

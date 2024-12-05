@@ -308,7 +308,7 @@ object ProtocolVersion {
       .map(pv => ProtocolVersion.createBeta(pv.v))
 
   val unstable: NonEmpty[List[ProtocolVersionWithStatus[Unstable]]] =
-    NonEmpty.mk(List, ProtocolVersion.v7, ProtocolVersion.dev)
+    NonEmpty.mk(List, ProtocolVersion.dev)
 
   val supported: NonEmpty[List[ProtocolVersion]] =
     stable ++ beta ++ unstable
@@ -323,7 +323,7 @@ object ProtocolVersion {
   lazy val v4: ProtocolVersionWithStatus[Stable] = ProtocolVersion.createStable(4)
   lazy val v5: ProtocolVersionWithStatus[Stable] = ProtocolVersion.createStable(5)
   lazy val v6: ProtocolVersionWithStatus[Unstable] = ProtocolVersion.createUnstable(6) // Deleted
-  lazy val v7: ProtocolVersionWithStatus[Unstable] = ProtocolVersion.createUnstable(7)
+  lazy val v7: ProtocolVersionWithStatus[Stable] = ProtocolVersion.createStable(7)
   /*
   If you add a new protocol version, ensure that you add the corresponding CI
   jobs (`test_protocol_version_X`) so that tests are run with this new protocol version.

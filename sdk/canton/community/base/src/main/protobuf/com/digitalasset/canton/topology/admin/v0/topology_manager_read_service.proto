@@ -26,6 +26,7 @@ service TopologyManagerReadService {
   rpc ListParticipantDomainState(ListParticipantDomainStateRequest) returns (ListParticipantDomainStateResult);
   rpc ListMediatorDomainState(ListMediatorDomainStateRequest) returns (ListMediatorDomainStateResult);
   rpc ListVettedPackages(ListVettedPackagesRequest) returns (ListVettedPackagesResult);
+  rpc ListCheckOnlyPackages(ListCheckOnlyPackagesRequest) returns (ListCheckOnlyPackagesResult);
   rpc ListDomainParametersChanges(ListDomainParametersChangesRequest) returns (ListDomainParametersChangesResult);
   rpc ListAll(ListAllRequest) returns (ListAllResponse);
 }
@@ -151,6 +152,19 @@ message ListVettedPackagesResult {
   message Result {
     BaseResult context = 1;
     com.digitalasset.canton.protocol.v0.VettedPackages item = 2;
+  }
+  repeated Result results = 1;
+}
+
+message ListCheckOnlyPackagesRequest {
+  BaseQuery base_query = 1;
+  string filter_participant = 2;
+}
+
+message ListCheckOnlyPackagesResult {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v0.CheckOnlyPackages item = 2;
   }
   repeated Result results = 1;
 }

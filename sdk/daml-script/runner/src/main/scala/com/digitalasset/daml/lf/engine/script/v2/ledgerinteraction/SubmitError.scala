@@ -5,12 +5,12 @@ package com.daml.lf.engine.script
 package v2
 package ledgerinteraction
 
-import com.daml.lf.data.FrontStack
+import com.daml.lf.data.{FrontStack, ImmArray}
 import com.daml.lf.data.Ref.{Identifier, Name}
 import com.daml.lf.language.{Ast, LanguageMajorVersion, StablePackagesV2}
-import com.daml.lf.speedy.SValue
+import com.daml.lf.speedy.{ArrayList, SValue}
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.nonempty.NonEmpty
@@ -403,14 +403,131 @@ class SubmitErrors(majorLanguageVersion: LanguageMajorVersion) {
       )
   }
 
-  sealed case class UpgradeError(message: String) extends SubmitError {
-    override def toDamlSubmitError(env: Env): SValue = {
-      SubmitErrorConverters(env).damlScriptError(
-        "UpgradeError",
-        20,
-        ("errorMessage", SText(message)),
+  object UpgradeError {
+    private def damlScriptUpgradeErrorType(
+        env: Env,
+        variantName: String,
+        rank: Int,
+        fields: (String, SValue)*
+    ): SVariant =
+      SubmitErrorConverters(env).damlScriptVariant(
+        "Daml.Script.Internal.Questions.Submit.Error.UpgradeErrorType",
+        variantName,
+        rank,
+        fields: _*
       )
+
+    sealed case class ValidationFailed(
+        coid: ContractId,
+        srcTemplateId: Identifier,
+        dstTemplateId: Identifier,
+        signatories: Set[Party],
+        observers: Set[Party],
+        optKey: Option[GlobalKeyWithMaintainers],
+        message: String,
+    ) extends SubmitError {
+      override def toDamlSubmitError(env: Env): SValue = {
+        val upgradeErrorType =
+          damlScriptUpgradeErrorType(
+            env,
+            "ValidationFailed",
+            0,
+            ("coid", fromAnyContractId(env.scriptIds, toApiIdentifier(srcTemplateId), coid)),
+            ("srcTemplateId", fromTemplateTypeRep(srcTemplateId)),
+            ("dstTemplateId", fromTemplateTypeRep(dstTemplateId)),
+            ("signatories", SList(signatories.toList.map(SParty).to(FrontStack))),
+            ("observers", SList(observers.toList.map(SParty).to(FrontStack))),
+            (
+              "optKey",
+              SOptional(optKey.map(key => {
+                val globalKey = globalKeyToAnyContractKey(env, key.globalKey)
+                val maintainers = SList(key.maintainers.toList.map(SParty).to(FrontStack))
+
+                SRecord(
+                  env.scriptIds.damlScriptModule("DA.Types", "Tuple2"),
+                  fields = ImmArray(Name.assertFromString("_1"), Name.assertFromString("_2")),
+                  values = ArrayList(globalKey, maintainers),
+                )
+              })),
+            ),
+          )
+        SubmitErrorConverters(env).damlScriptError(
+          "UpgradeError",
+          20,
+          ("errorType", upgradeErrorType),
+          ("errorMessage", SText(message)),
+        )
+      }
     }
+
+    sealed case class DowngradeDropDefinedField(expectedType: String, message: String)
+        extends SubmitError {
+      override def toDamlSubmitError(env: Env): SValue = {
+        val upgradeErrorType = damlScriptUpgradeErrorType(
+          env,
+          "DowngradeDropDefinedField",
+          1,
+          ("expectedType", SText(expectedType)),
+        )
+        SubmitErrorConverters(env).damlScriptError(
+          "UpgradeError",
+          20,
+          ("errorType", upgradeErrorType),
+          ("errorMessage", SText(message)),
+        )
+      }
+    }
+
+    sealed case class ViewMismatch(
+        coid: ContractId,
+        interfaceId: Identifier,
+        srcTemplateId: Identifier,
+        dstTemplateId: Identifier,
+        message: String,
+    ) extends SubmitError {
+      override def toDamlSubmitError(env: Env): SValue = {
+        val upgradeErrorType = damlScriptUpgradeErrorType(
+          env,
+          "ViewMismatch",
+          2,
+          ("coid", fromAnyContractId(env.scriptIds, toApiIdentifier(srcTemplateId), coid)),
+          ("interfaceId", fromTemplateTypeRep(interfaceId)),
+          ("srcTemplateId", fromTemplateTypeRep(srcTemplateId)),
+          ("dstTemplateId", fromTemplateTypeRep(dstTemplateId)),
+        )
+        SubmitErrorConverters(env).damlScriptError(
+          "UpgradeError",
+          20,
+          ("errorType", upgradeErrorType),
+          ("errorMessage", SText(message)),
+        )
+      }
+    }
+
+    sealed case class ContractNotUpgradable(
+        contractId: ContractId,
+        targetTemplateId: Identifier,
+        actualTemplateId: Identifier,
+        message: String,
+    ) extends SubmitError {
+      override def toDamlSubmitError(env: Env): SValue = {
+        val upgradeErrorType = damlScriptUpgradeErrorType(
+          env,
+          "ContractNotUpgradable",
+          3,
+          ("coid", fromAnyContractId(env.scriptIds, toApiIdentifier(targetTemplateId), contractId)),
+          ("target", fromTemplateTypeRep(targetTemplateId)),
+          ("actual", fromTemplateTypeRep(actualTemplateId)),
+        )
+        SubmitErrorConverters(env).damlScriptError(
+          "UpgradeError",
+          20,
+          ("errorType", upgradeErrorType),
+          ("errorMessage", SText(message)),
+        )
+      }
+    }
+
   }
 
   sealed case class DevError(errorType: String, message: String) extends SubmitError {

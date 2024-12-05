@@ -400,7 +400,7 @@ tests Tools{damlc} = testGroup "Packaging" $
               , "source: ."
               , "dependencies: [daml-prim, daml-stdlib]"
               ]
-          withCurrentDirectory projDir $ callProcessSilent damlc ["build", "-o", "foobar.dar", "--target=1.dev"]
+          withCurrentDirectory projDir $ callProcessSilent damlc ["build", "-o", "foobar.dar", "--target=1.17"]
           Right Dalfs{..} <- readDalfs . Zip.toArchive <$> BSL.readFile (projDir </> "foobar.dar")
           (_pkgId, pkg) <- either (fail . show) pure (LFArchive.decodeArchive LFArchive.DecodeAsMain (BSL.toStrict mainDalf))
           LF.packageMetadata pkg @?= Just (LF.PackageMetadata (LF.PackageName "foobar") (LF.PackageVersion "1.2.3") Nothing)
@@ -417,7 +417,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           writeFileUTF8 (projDir </> "A.daml") $ unlines
               [ "module A where"
               ]
-          withCurrentDirectory projDir $ callProcessSilent damlc ["build", "-o", "foobar.dar", "--target=1.dev"]
+          withCurrentDirectory projDir $ callProcessSilent damlc ["build", "-o", "foobar.dar", "--target=1.17"]
           Right Dalfs{..} <- readDalfs . Zip.toArchive <$> BSL.readFile (projDir </> "foobar.dar")
           (_pkgId, pkg) <- either (fail . show) pure (LFArchive.decodeArchive LFArchive.DecodeAsMain (BSL.toStrict mainDalf))
           LF.packageMetadata pkg @?= Just (LF.PackageMetadata (LF.PackageName "foobar") (LF.PackageVersion "1.2.3") Nothing)
@@ -623,7 +623,7 @@ tests Tools{damlc} = testGroup "Packaging" $
               , "name: a"
               , "source: ."
               , "dependencies: [daml-prim, daml-stdlib]"
-              , "build-options: [--target=1.dev]"
+              , "build-options: [--target=1.17]"
               ]
           writeFileUTF8 (tmpDir </> "a" </> "A.daml") $ unlines
               [ "module A where"
@@ -659,7 +659,7 @@ tests Tools{damlc} = testGroup "Packaging" $
               , "name: a"
               , "source: ."
               , "dependencies: [daml-prim, daml-stdlib]"
-              , "build-options: [--target=1.dev]"
+              , "build-options: [--target=1.17]"
               ]
           writeFileUTF8 (tmpDir </> "a" </> "A.daml") $ unlines
               [ "module A where"
@@ -712,13 +712,13 @@ tests Tools{damlc} = testGroup "Packaging" $
               , "  - daml-prim"
               , "  - daml-stdlib"
               , "  - " <> show (tmpDir </> "a" </> "a.dar")
-              , "build-options: [--target=1.dev]"
+              , "build-options: [--target=1.17]"
               ]
           writeFileUTF8 (tmpDir </> "b" </> "B.daml") $ unlines
               [ "module B where"
               , "import A ()"
               ]
-          buildProjectError (tmpDir </> "b") "" "Targeted LF version 1.dev but dependencies have different LF versions"
+          buildProjectError (tmpDir </> "b") "" "Targeted LF version 1.17 but dependencies have different LF versions"
 
     , testCase "build-options + project-root" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "src")

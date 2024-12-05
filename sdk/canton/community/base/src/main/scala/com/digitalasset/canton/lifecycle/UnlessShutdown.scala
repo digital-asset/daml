@@ -4,8 +4,10 @@
 package com.digitalasset.canton.lifecycle
 
 import cats.{Applicative, Eval, Monad, Monoid, Traverse}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.AbortedDueToShutdownException
 
 import scala.annotation.tailrec
+import scala.util.{Failure, Success, Try}
 
 /** The outcome of a computation ([[UnlessShutdown.Outcome]])
   * unless the computation has aborted due to a shutdown ([[UnlessShutdown.AbortedDueToShutdown]]).
@@ -70,6 +72,15 @@ object UnlessShutdown {
 
   def fromOption[A](x: Option[A]): UnlessShutdown[A] =
     x.fold[UnlessShutdown[A]](AbortedDueToShutdown)(Outcome.apply)
+
+  def recoverFromAbortException[A](x: Try[A]): Try[UnlessShutdown[A]] =
+    x.transform(
+      value => Success(UnlessShutdown.Outcome(value)),
+      {
+        case AbortedDueToShutdownException(_) => Success(UnlessShutdown.AbortedDueToShutdown)
+        case other => Failure(other)
+      },
+    )
 
   /** Cats traverse and monad instance for [[UnlessShutdown]].
     *

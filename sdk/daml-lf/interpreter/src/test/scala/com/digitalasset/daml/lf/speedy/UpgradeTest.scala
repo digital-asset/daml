@@ -231,6 +231,9 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       val do_fetch: ContractId M:T -> Update M:T =
         \(cId: ContractId M:T) ->
           fetch_template @M:T cId;
+
+      val do_exercise: ContractId M:T -> Update Unit  =
+        \(cId: ContractId M:T) -> exercise @M:T NoOp cId ();
       }
     """
   }
@@ -259,6 +262,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         \(cId: ContractId M:T) ->
           fetch_template @M:T cId;
 
+      val do_exercise: ContractId M:T -> Update Unit  =
+        \(cId: ContractId M:T) -> exercise @M:T NoOp cId ();
       }
     """
   }
@@ -384,7 +389,11 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   // The given contractSValue is wrapped as a disclosedContract
-  def goDisclosed(e: Expr, contractSValue: SValue): Either[SError, Success] = {
+  def goDisclosed(
+      e: Expr,
+      templateId: Ref.TypeConName,
+      contractSValue: SValue,
+  ): Either[SError, Success] = {
 
     val se: SExpr = pkgs.compiler.unsafeCompile(e)
     val args = Array[SValue](SContractId(theCid))
@@ -399,7 +408,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       Speedy.ContractInfo(
         version = V17,
         packageName = pkgName,
-        templateId = i"'-unknown-':M:T",
+        templateId = templateId,
         value = contractSValue,
         agreementText = "meh",
         signatories = Set.empty,
@@ -494,79 +503,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         v shouldBe v_missingField
       }
     }
-
-    "missing non-optional field -- should be rejected" in {
-      // should be caught by package upgradability check
-      val v_missingField = makeRecord(ValueParty(alice))
-
-      inside(
-        go(e"'-pkg1-':M:do_fetch", ContractInstance(pkgName, i"'-unknow-':M:T", v_missingField))
-      ) { case Left(SError.SErrorCrash(_, reason)) =>
-        reason should include(
-          "Unexpected non-optional extra template field type encountered during upgrading"
-        )
-      }
-    }
-
-    "mismatching qualified name -- should be rejected" in {
-      val v =
-        makeRecord(
-          ValueParty(alice),
-          ValueParty(bob),
-          ValueInt64(100),
-          ValueOptional(None),
-        )
-
-      val expectedTyCon = i"'-pkg3-':M:T"
-      val negativeTestCase = i"'-pkg2-':M:T"
-      val positiveTestCases = Table("tyCon", i"'-pkg2-':M1:T", i"'-pkg2-':M2:T")
-      go(e"'-pkg3-':M:do_fetch", ContractInstance(pkgName, negativeTestCase, v)) shouldBe a[
-        Right[_, _]
-      ]
-
-      forEvery(positiveTestCases) { tyCon =>
-        inside(go(e"'-pkg3-':M:do_fetch", ContractInstance(pkgName, tyCon, v))) {
-          case Left(SError.SErrorDamlException(e)) =>
-            e shouldBe IE.WronglyTypedContract(theCid, expectedTyCon, tyCon)
-        }
-      }
-    }
-
-    "unknown record constructor -- should be rejected" in {
-      val expectedRef = Reference.DataRecord(i"'-record-':M:Invalid")
-
-      inside(go(
-        e"from_interface @'-record-':M:T @'-record-':M:I { }",
-        packageResolution = Map(Ref.PackageName.assertFromString("-upgrade-test-") -> recordPkgId),
-      )) {
-        case Left(SError.SErrorDamlException(e)) =>
-          e shouldBe IE.Upgrade.LookupNotFound(expectedRef, expectedRef)
-      }
-    }
-
-    "unknown variant constructor -- should be rejected" in {
-      val expectedRef = Reference.DataVariantConstructor(i"'-variant-':M:T", n"'-variant-':M:T")
-
-      inside(go(
-        e"from_interface @'-variant-':M:T @'-variant-':M:I { }",
-        packageResolution = Map(Ref.PackageName.assertFromString("-upgrade-test-") -> variantPkgId),
-      )) {
-        case Left(SError.SErrorDamlException(e)) =>
-          e shouldBe IE.Upgrade.LookupNotFound(expectedRef, expectedRef)
-      }
-    }
-
-    "unknown enum constructor -- should be rejected" in {
-      val expectedRef = Reference.DataEnumConstructor(i"'-enum-':M:T", n"'-enum-':M:T")
-
-      inside(go(
-        e"from_interface @'-enum-':M:T @'-enum-':M:I { }",
-        packageResolution = Map(Ref.PackageName.assertFromString("-upgrade-test-") -> enumPkgId),
-      )) {
-        case Left(SError.SErrorDamlException(e)) =>
-          e shouldBe IE.Upgrade.LookupNotFound(expectedRef, expectedRef)
-      }
-    }
   }
 
   "downgrade attempted" - {
@@ -578,28 +514,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       inside(res) { case Right((_, v, _)) =>
         v shouldBe v1_base
       }
-    }
-
-    "extra field (text) - something is very wrong" in {
-      // should be caught by package upgradability check
-
-      val v1_extraText =
-        makeRecord(
-          ValueParty(alice),
-          ValueParty(bob),
-          ValueInt64(100),
-          ValueText("extra"),
-        )
-
-      val res =
-        go(e"'-pkg1-':M:do_fetch", ContractInstance(pkgName, i"'-unknown-':M:T", v1_extraText))
-
-      inside(res) { case Left(SError.SErrorCrash(_, reason)) =>
-        reason should include(
-          "Unexpected non-optional extra contract field encountered during downgrading"
-        )
-      }
-
     }
 
     "extra field (Some) - cannot be dropped" in {
@@ -630,7 +544,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         )
 
       val res =
-        go(e"'-pkg2-':M:do_fetch", ContractInstance(pkgName, i"'-unknow-':M:T", v1_extraNone))
+        go(e"'-pkg1-':M:do_fetch", ContractInstance(pkgName, i"'-pkg3-':M:T", v1_extraNone))
 
       inside(res) { case Right((_, v, _)) =>
         v shouldBe v1_base
@@ -665,10 +579,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((_, ValueContractId(cid), verificationRequests)) =>
-        verificationRequests shouldBe List(
-          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v1_key))
-        )
+      inside(res) { case Right((_, v, List())) =>
+        v shouldBe a[ValueContractId]
       }
     }
 
@@ -681,11 +593,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((_, ValueContractId(cid), verificationRequests)) =>
-        verificationRequests shouldBe List(
-          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
-          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
-        )
+      inside(res) { case Right((_, v, List())) =>
+        v shouldBe a[ValueContractId]
       }
     }
 
@@ -697,10 +606,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((_, ValueContractId(cid), verificationRequests)) =>
-        verificationRequests shouldBe List(
-          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v1_key))
-        )
+      inside(res) { case Right((_, v, List())) =>
+        v shouldBe a[ValueContractId]
       }
     }
 
@@ -713,16 +620,12 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
                in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((_, ValueContractId(cid), verificationRequests)) =>
-        verificationRequests shouldBe List(
-          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
-          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
-        )
+      inside(res) { case Right((_, v, List())) =>
+        v shouldBe a[ValueContractId]
       }
     }
 
-    // TODO(https://github.com/digital-asset/daml/issues/20099): re-enable this test once fixed
-    "be able to exercise by interface locally created contract using different versions" ignore {
+    "be able to exercise by interface locally created contract using different versions" in {
       val res = go(
         e"""let alice : Party = '-pkg1-':M:mkParty "alice"
             in ubind
@@ -735,10 +638,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           """,
         packageResolution = Map(Ref.PackageName.assertFromString("-upgrade-test-") -> pkgId2),
       )
-      inside(res) { case Right((_, ValueContractId(cid), verificationRequests)) =>
-        verificationRequests shouldBe List(
-          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v1_key))
-        )
+      inside(res) { case Right((_, v, List())) =>
+        v shouldBe a[ValueContractId]
       }
     }
 
@@ -748,79 +649,13 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         e"""\(cid: ContractId '-pkg1-':M:T) ->
                ubind
                  x1: Unit <- '-pkg2-':M:do_fetch cid;
-                 x2: Unit <- '-pkg4-':M:do_fetch cid
+                 x2: Unit <- '-pkg3-':M:do_fetch cid
                in upure @Unit ()
           """,
         ContractInstance(pkgName, i"'-pkg1-':M:T", v1_base),
       )
-      inside(res) { case Right((_, _, verificationRequests)) =>
-        val v4_key = GlobalKeyWithMaintainers.assertBuild(
-          i"'-pkg1-':M:T",
-          ValueParty(bob),
-          Set(bob),
-          crypto.Hash.KeyPackageName.assertBuild(pkgName, V17),
-        )
-        verificationRequests shouldBe List(
-          UpgradeVerificationRequest(theCid, Set(alice), Set(bob), Some(v1_key)),
-          UpgradeVerificationRequest(theCid, Set(bob), Set(alice), Some(v4_key)),
-        )
-      }
+      res shouldBe a[Right[_, _]]
     }
-  }
-
-  "Correct calls to ResultNeedUpgradeVerification" in {
-
-    implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-no-pkg-")
-
-    val v_alice_none =
-      makeRecord(
-        ValueParty(alice),
-        ValueParty(bob),
-        ValueInt64(100),
-        ValueOptional(None),
-      )
-
-    val v_alice_no_none =
-      makeRecord(
-        ValueParty(alice),
-        ValueParty(bob),
-        ValueInt64(100),
-      )
-
-    val v_alice_some =
-      makeRecord(
-        ValueParty(alice),
-        ValueParty(bob),
-        ValueInt64(100),
-        ValueOptional(Some(ValueParty(bob))),
-      )
-
-    inside(
-      go(
-        e"'-pkg3-':M:do_fetch",
-        ContractInstance(pkgName, i"'-misspelled-pkg3-':M:T", v_alice_none),
-      )
-    ) { case Right((_, v, List(uv))) =>
-      v shouldBe v_alice_no_none
-      uv.coid shouldBe theCid
-      uv.signatories.toList shouldBe List(alice)
-      uv.observers.toList shouldBe List(bob)
-      uv.keyOpt shouldBe Some(v1_key)
-    }
-
-    inside(
-      go(
-        e"'-pkg3-':M:do_fetch",
-        ContractInstance(pkgName, i"'-misspelled-pkg3-':M:T", v_alice_some),
-      )
-    ) { case Right((_, v, List(uv))) =>
-      v shouldBe v_alice_some
-      uv.coid shouldBe theCid
-      uv.signatories.toList shouldBe List(alice, bob)
-      uv.observers.toList shouldBe List(bob)
-      uv.keyOpt shouldBe Some(v1_key)
-    }
-
   }
 
   "Disclosed contracts" - {
@@ -845,8 +680,9 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
         SValue.SRecord(i"'-pkg1-':M:T", fields, values)
       }
-      inside(goDisclosed(e"'-pkg1-':M:do_fetch", sv1_base)) { case Right((_, v, _)) =>
-        v shouldBe v1_base
+      inside(goDisclosed(e"'-pkg1-':M:do_fetch", i"'-pkg1-':M:T", sv1_base)) {
+        case Right((_, v, _)) =>
+          v shouldBe v1_base
       }
     }
 
@@ -869,8 +705,9 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
         SValue.SRecord(i"'-unknown-':M:T", fields, values)
       }
-      inside(goDisclosed(e"'-pkg1-':M:do_fetch", sv1_base)) { case Right((_, v, _)) =>
-        v shouldBe v1_base
+      inside(goDisclosed(e"'-pkg1-':M:do_fetch", i"'-pkg1-':M:T", sv1_base)) {
+        case Right((_, v, _)) =>
+          v shouldBe v1_base
       }
     }
   }
@@ -886,7 +723,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           ValueOptional(None),
         )
 
-      val se: SExpr = pkgs.compiler.unsafeCompile(e"'-pkg4-':M:do_exercise")
+      val se: SExpr = pkgs.compiler.unsafeCompile(e"'-pkg3-':M:do_exercise")
       val args: Array[SValue] = Array(SContractId(theCid))
       val sexprToEval: SExpr = SEApp(se, args)
 
@@ -899,13 +736,13 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         SpeedyTestLib.buildTransactionCollectRequests(
           machine,
           getContract =
-            Map(theCid -> Versioned(V17, ContractInstance(pkgName, i"'-pkg3-':M:T", v_alice_none))),
+            Map(theCid -> Versioned(V17, ContractInstance(pkgName, i"'-pkg2-':M:T", v_alice_none))),
         )
 
       inside(res.map(_._1.nodes.values.toList)) { case Right(List(exe: Node.Exercise)) =>
         exe.packageName shouldBe Some("-upgrade-test-")
-        exe.creationPackageId shouldBe Some("-pkg3-")
-        exe.templateId.packageId shouldBe "-pkg4-"
+        exe.creationPackageId shouldBe Some("-pkg2-")
+        exe.templateId.packageId shouldBe "-pkg3-"
       }
     }
   }

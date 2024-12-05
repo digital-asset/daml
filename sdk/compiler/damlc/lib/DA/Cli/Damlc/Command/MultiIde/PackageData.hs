@@ -24,6 +24,7 @@ import Data.Foldable (traverse_)
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes, isJust)
 import qualified Data.Set as Set
+import qualified Data.Text.Extended as T
 import qualified Language.LSP.Types as LSP
 import System.Directory (doesFileExist)
 import System.FilePath.Posix ((</>))
@@ -56,9 +57,16 @@ updatePackageData miState = do
       damlYamlExists <- doesFileExist $ ideRoot </> projectConfigName
       if damlYamlExists
         then do
-          logDebug miState "Found daml.yaml"
-          -- Treat a workspace with only daml.yaml as a multi-package project with only one package
-          deriveAndWriteMappings [PackageHome ideRoot] []
+          isFullDamlYaml <- shouldHandleDamlYamlChange <$> T.readFileUtf8 (ideRoot </> projectConfigName)
+          if isFullDamlYaml
+            then do
+              logDebug miState "Found daml.yaml"
+              -- Treat a workspace with only daml.yaml as a multi-package project with only one package
+              deriveAndWriteMappings [PackageHome ideRoot] []
+            else do
+              logDebug miState "Found daml.yaml, but not full package."
+              -- Treat as though no daml.yaml exists
+              deriveAndWriteMappings [] []    
         else do
           logDebug miState "No daml.yaml found either"
           -- Without a multi-package or daml.yaml, no mappings can be made. Passing empty lists here will give empty mappings

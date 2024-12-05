@@ -11,7 +11,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, NoCopy, Ref, Time}
 import com.daml.lf.interpretation.{Error => IError}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LookupError, StablePackages, Util => AstUtil}
+import com.daml.lf.language.{LookupError, PackageInterface, StablePackages, Util => AstUtil}
 import com.daml.lf.language.LanguageVersionRangeOps._
 import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.daml.lf.speedy.PartialTransaction.NodeSeeds
@@ -21,10 +21,10 @@ import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue.SArithmeticError
 import com.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
 import com.daml.lf.transaction.ContractStateMachine.KeyMapping
-import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.transaction.{
   ContractKeyUniquenessMode,
   GlobalKey,
+  GlobalKeyWithMaintainers,
   Node,
   NodeId,
   SubmittedTransaction,
@@ -416,32 +416,35 @@ private[lf] object Speedy {
       * producing a text message.
       */
     private[speedy] override def handleException(excep: SValue.SAny): Control[Nothing] = {
-      @tailrec def unwind(): Option[KTryCatchHandler] =
+      @tailrec
+      def unwind(ptx: PartialTransaction): Option[KTryCatchHandler] =
         if (kontDepth() == 0) {
           None
         } else {
           popKont() match {
             case handler: KTryCatchHandler =>
-              ptx = ptx.rollbackTry
+              // The machine's ptx is updated even if the handler does not catch the exception.
+              // This may cause the transaction trace to report the error from the handler's location.
+              // Ideally we should embed the trace into the exception directly.
+              this.ptx = ptx.rollbackTry
               Some(handler)
             case _: KCloseExercise =>
-              ptx = ptx.abortExercises
-              unwind()
+              unwind(ptx.abortExercises)
             case k: KCheckChoiceGuard =>
               // We must abort, because the transaction has failed in a way that is
               // unrecoverable (it depends on the state of an input contract that
               // we may not have the authority to fetch).
-              clearKontStack()
-              clearEnv()
+              abort()
               k.abort()
             case KPreventException() =>
+              abort()
               None
             case _ =>
-              unwind()
+              unwind(ptx)
           }
         }
 
-      unwind() match {
+      unwind(ptx) match {
         case Some(kh) =>
           kh.restore()
           popTempStackToBase()
@@ -730,6 +733,57 @@ private[lf] object Speedy {
         }
       }
     }
+
+    private[speedy] var lastCommand: Option[Command] = None
+
+    def transactionTrace(maxLength: Int): String = {
+      def prettyTypeId(typeId: TypeConName): String =
+        s"${typeId.packageId.take(8)}:${typeId.qualifiedName}"
+      def prettyCoid(coid: ContractId): String = coid.coid.take(10)
+      def prettyValue(v: SValue) = Pretty.prettyValue(false)(v.toUnnormalizedValue)
+      val stringBuilder = new StringBuilder()
+      def addLine(s: String) = {
+        val _ = stringBuilder.addAll("    ").addAll(s).addAll("\n")
+      }
+
+      val traceIterator = ptx.transactionTrace
+
+      traceIterator
+        .take(maxLength)
+        .map { case (NodeId(nid), exe) =>
+          val typeId = prettyTypeId(exe.interfaceId.getOrElse(exe.templateId))
+          s"in choice $typeId:${exe.choiceId} on contract ${exe.targetCoid.coid.take(10)} (#$nid)"
+        }
+        .foreach(addLine)
+
+      if (traceIterator.hasNext) {
+        addLine("...")
+      }
+
+      lastCommand
+        .map {
+          case Command.Create(tmplId, _) =>
+            s"in create command ${prettyTypeId(tmplId)}."
+          case Command.ExerciseTemplate(tmplId, coid, choiceId, _) =>
+            s"in exercise command ${prettyTypeId(tmplId)}:$choiceId on contract ${prettyCoid(coid.value)}."
+          case Command.ExerciseInterface(ifaceId, coid, choiceId, _) =>
+            s"in exercise command ${prettyTypeId(ifaceId)}:$choiceId on contract ${prettyCoid(coid.value)}."
+          case Command.ExerciseByKey(tmplId, key, choiceId, _) =>
+            s"in exercise-by-key command ${prettyTypeId(tmplId)}:$choiceId on key ${prettyValue(key)}."
+          case Command.FetchTemplate(tmplId, coid) =>
+            s"in fetch command ${prettyTypeId(tmplId)} on contract ${prettyCoid(coid.value)}."
+          case Command.FetchInterface(ifaceId, coid) =>
+            s"in fecth-by-interface command ${prettyTypeId(ifaceId)} on contract ${prettyCoid(coid.value)}."
+          case Command.FetchByKey(tmplId, key) =>
+            s"in fetch-by-key command ${prettyTypeId(tmplId)} on key ${prettyValue(key)}."
+          case Command.CreateAndExercise(tmplId, _, choiceId, _) =>
+            s"in create-and-exercise command ${prettyTypeId(tmplId)}:$choiceId."
+          case Command.LookupByKey(tmplId, key) =>
+            s"in lookup-by-key command ${prettyTypeId(tmplId)} on key ${prettyValue(key)}."
+        }
+        .foreach(addLine)
+      stringBuilder.result()
+    }
   }
 
   object UpdateMachine {
@@ -888,8 +942,7 @@ private[lf] object Speedy {
     private[speedy] def handleException(excep: SValue.SAny): Control[Nothing]
 
     protected final def unhandledException(excep: SValue.SAny): Control.Error = {
-      clearKontStack()
-      clearEnv()
+      abort()
       Control.Error(IError.UnhandledException(excep.ty, excep.value.toUnnormalizedValue))
     }
 
@@ -938,24 +991,17 @@ private[lf] object Speedy {
     }
 
     final def tmplId2TxVersion(tmplId: TypeConName): TxVersion =
-      TxVersion.assignNodeVersion(
-        compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
-      )
+      Machine.tmplId2TxVersion(compiledPackages.pkgInterface, tmplId)
 
-    final def tmplId2PackageName(tmplId: TypeConName, version: TxVersion): Option[PackageName] = {
-      import Ordering.Implicits._
-      if (version < TxVersion.minUpgrade)
-        None
-      else
-        compiledPackages.pkgInterface.signatures(tmplId.packageId).metadata match {
-          case Some(value) => Some(value.name)
-          case None =>
-            val version = compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
-            throw SErrorCrash(
-              NameOf.qualifiedNameOfCurrentFunc,
-              s"unexpected ${version.pretty} package without metadata",
-            )
-        }
+    final def tmplId2PackageName(tmplId: TypeConName, version: TxVersion): Option[PackageName] =
+      Machine.tmplId2PackageName(compiledPackages.pkgInterface, tmplId, version)
+
+    private[lf] def abort(): Unit = {
+      // We make sure the interpretation cannot be resumed
+      // For update machine, this preserves the partial transaction
+      clearKontStack()
+      clearEnv()
+      setControl(Control.WeAreUnset)
     }
 
     /* kont manipulation... */
@@ -1132,6 +1178,7 @@ private[lf] object Speedy {
                 if (enableInstrumentation) track.print()
                 SResultFinal(value)
               case Control.Error(ie) =>
+                abort()
                 SResultError(SErrorDamlException(ie))
               case Control.WeAreUnset =>
                 sys.error("**attempt to run a machine with unset control")
@@ -1554,7 +1601,9 @@ private[lf] object Speedy {
     private[this] val damlWarnings = ContextualizedLogger.createFor("daml.warnings")
 
     def newProfile: Profile = new Profile()
+
     def newTraceLog: TraceLog = new RingBufferTraceLog(damlTraceLog, 100)
+
     def newWarningLog: WarningLog = new WarningLog(damlWarnings)
 
     @throws[PackageNotFound]
@@ -1692,6 +1741,54 @@ private[lf] object Speedy {
     )(implicit loggingContext: LoggingContext): Either[SError, SValue] =
       fromPureSExpr(compiledPackages, expr, iterationsBetweenInterruptions).runPure()
 
+    def tmplId2TxVersion(pkgInterface: PackageInterface, tmplId: TypeConName): TxVersion =
+      TxVersion.assignNodeVersion(
+        pkgInterface.packageLanguageVersion(tmplId.packageId)
+      )
+
+    def tmplId2PackageName(
+        pkgInterface: PackageInterface,
+        tmplId: TypeConName,
+        version: TxVersion,
+    ): Option[PackageName] = {
+      import Ordering.Implicits._
+      if (version < TxVersion.minUpgrade)
+        None
+      else
+        pkgInterface.signatures(tmplId.packageId).metadata match {
+          case Some(value) => Some(value.name)
+          case None =>
+            val version = pkgInterface.packageLanguageVersion(tmplId.packageId)
+            throw SErrorCrash(
+              NameOf.qualifiedNameOfCurrentFunc,
+              s"unexpected ${version.pretty} package without metadata",
+            )
+        }
+    }
+
+    private[lf] def assertGlobalKey(
+        pkgInterface: PackageInterface,
+        templateId: Ref.Identifier,
+        contractKey: SValue,
+    ): GlobalKey = {
+      val packageTxVersion = tmplId2TxVersion(pkgInterface, templateId)
+      val pkgName = tmplId2PackageName(pkgInterface, templateId, packageTxVersion)
+      assertGlobalKey(packageTxVersion, pkgName, templateId, contractKey)
+    }
+
+    private[lf] def assertGlobalKey(
+        packageTxVersion: TxVersion,
+        pkgName: Option[PackageName],
+        templateId: TypeConName,
+        keyValue: SValue,
+    ) = {
+      val lfValue = keyValue.toNormalizedValue(packageTxVersion)
+      GlobalKey
+        .build(templateId, lfValue, KeyPackageName(pkgName, packageTxVersion))
+        .getOrElse(
+          throw SErrorDamlException(IError.ContractIdInContractKey(keyValue.toUnnormalizedValue))
+        )
+    }
   }
 
   // Environment

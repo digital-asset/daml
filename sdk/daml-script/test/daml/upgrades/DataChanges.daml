@@ -14,6 +14,8 @@ import qualified V1.NonOptionalFieldsAddedNested as V1
 import qualified V1.EnumUnchanged as V1
 import qualified V1.EnumRemoved as V1
 import qualified V1.EnumAdditional as V1
+import qualified V1.OptionalFieldsAdded as V1
+import qualified V1.OptionalFieldOnChoiceAdded as V1
 
 import qualified V2.NameChanges as V2
 import qualified V2.FieldsRemoved as V2
@@ -23,7 +25,14 @@ import qualified V2.NonOptionalFieldsAddedNested as V2
 import qualified V2.EnumUnchanged as V2
 import qualified V2.EnumRemoved as V2
 import qualified V2.EnumAdditional as V2
+import qualified V2.OptionalFieldsAdded as V2
+import qualified V2.OptionalFieldOnChoiceAdded as V2
 import DA.Text
+import DA.Optional (fromSome)
+import PackageIds
+
+import V1.OptionalFieldsAddedIface
+import V1.DataChangesDummy
 
 main : TestTree
 main = tests
@@ -37,6 +46,25 @@ main = tests
   , ("Succeeds if a nested enum is an old case when downgrading", templateEnumDowngradeFromOld)
   , ("Fails if a nested enum is a removed case", templateEnumUpgradeToRemoved)
   , ("Fails if a nested enum is an additional case when downgrading", templateEnumDowngradeFromNew)
+  , ("Fails if an optional field is set on a choice when downgrading", templateOptionalFieldOnChoiceSetWhenDowngrading)
+  -- Template optional field set when downgrading
+  , tofswdViaInterfaceInCommandLocal
+  , tofswdViaInterfaceInCommandGlobal
+  , tofswdViaInterfaceInChoiceGlobal
+  , tofswdViaInterfaceInCommandDisclosed
+  , tofswdViaInterfaceInChoiceDisclosed
+    -- no such thing as ViaCIDExercise, InCommand, and Local
+  , tofswdViaKeyExerciseInCommandLocal
+  , tofswdViaCIDExerciseInChoiceLocal
+  , tofswdViaKeyExerciseInChoiceLocal
+  , tofswdViaCIDExerciseInCommandGlobal
+  , tofswdViaKeyExerciseInCommandGlobal
+  , tofswdViaCIDExerciseInChoiceGlobal
+  , tofswdViaKeyExerciseInChoiceGlobal
+  , tofswdViaCIDExerciseInCommandDisclosed
+  , tofswdViaKeyExerciseInCommandDisclosed
+  , tofswdViaCIDExerciseInChoiceDisclosed
+  , tofswdViaKeyExerciseInChoiceDisclosed
   ]
 
 templateInvalidChange : forall t2 t1 c2. (Template t1, HasAgreement t1, Choice t2 c2 Text) => Bool -> (Party -> t1) -> c2 -> Test
@@ -57,6 +85,7 @@ templateInvalidChange shouldSucceed makeV1Contract v2Choice = test $ do
 {- PACKAGE
 name: data-changes
 versions: 2
+depends: data-changes-iface-1.0.0
 -}
 
 {- MODULE
@@ -290,3 +319,310 @@ templateEnumDowngradeFromOld =
     (`V2.EnumAdditional` V2.EnumAdditionalData1)
     V1.EnumAdditionalCall
 
+{- MODULE
+package: data-changes
+contents: |
+  module OptionalFieldOnChoiceAdded where
+
+  template OptionalFieldOnChoiceAdded
+    with
+      party : Party
+    where
+      signatory party
+      choice OptionalFieldOnChoiceAddedCall : Text
+        with
+          existingField : Text
+          newField : Optional Text                 -- @V  2
+        controller party
+        do pure "V1"                           -- @V 1
+        do pure "V2"                           -- @V  2
+-}
+
+templateOptionalFieldOnChoiceSetWhenDowngrading : Test
+templateOptionalFieldOnChoiceSetWhenDowngrading = test $ do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createExactCmd V1.OptionalFieldOnChoiceAdded with party = a
+
+  let cidV2 = coerceContractId @V1.OptionalFieldOnChoiceAdded @V2.OptionalFieldOnChoiceAdded cid
+  res <- (actAs a <> packagePreference [dataChangesV1]) `trySubmit` exerciseCmd cidV2 V2.OptionalFieldOnChoiceAddedCall { existingField = "V2", newField = Some "V2" }
+
+  case res of
+    Left (UnknownError msg) | "An optional contract field (\"newField\") with a value of Some may not be dropped during downgrading." `isInfixOf` msg -> pure ()
+    _ -> assertFail $ "Expected specific failure but got " <> show res
+
+{- PACKAGE
+name: data-changes-iface
+versions: 1
+-}
+
+{- MODULE
+package: data-changes-iface
+contents: |
+  module OptionalFieldsAddedIface where
+
+  data MyUnit = MyUnit {}
+
+  interface OptionalFieldsAddedIface where
+    viewtype MyUnit
+
+    nonconsuming choice OptionalFieldsAddedIfaceChoice : ()
+      with
+        ctl : Party
+      controller ctl
+      do
+        assertFail "aaa"
+        pure ()
+-}
+
+{- MODULE
+package: data-changes
+contents: |
+  module OptionalFieldsAdded where
+
+  import OptionalFieldsAddedIface
+
+  data OptionalFieldsAddedKey = OptionalFieldsAddedKey
+    { party : Party
+    }
+    deriving (Eq, Show)
+
+  template OptionalFieldsAdded
+    with
+      party : Party
+      newField : Optional Text                 -- @V  2
+    where
+      signatory party
+      key (OptionalFieldsAddedKey party) : OptionalFieldsAddedKey
+      maintainer key.party
+      choice OptionalFieldsAddedCall : Text
+        controller party
+        do pure "V1"                           -- @V 1
+        do pure "V2"                           -- @V  2
+      choice OptionalFieldsAddedCallWithCtl : Text
+        with
+          ctl: Party
+        controller ctl
+        do pure "V1"                           -- @V 1
+        do pure "V2"                           -- @V  2
+      interface instance OptionalFieldsAddedIface for OptionalFieldsAdded where
+        view = MyUnit {}
+
+  template OptionalFieldsAddedCallHelper
+    with
+      party : Party
+    where
+      signatory party
+      choice OptionalFieldsAddedCallHelperCall : ()
+        with
+          cid : ContractId OptionalFieldsAdded
+          ctl : Party
+        controller ctl
+        do
+          exercise cid (OptionalFieldsAddedCallWithCtl ctl)
+          pure ()
+
+      choice OptionalFieldsAddedCallHelperMake : ContractId OptionalFieldsAdded
+        with
+          dat : OptionalFieldsAdded
+          ctl : Party
+        controller ctl
+        do
+          create dat
+
+      choice OptionalFieldsAddedCallHelperCallViaKey : ()
+        with
+          k : OptionalFieldsAddedKey
+          ctl : Party
+        controller ctl
+        do
+          exerciseByKey @OptionalFieldsAdded k (OptionalFieldsAddedCallWithCtl ctl)
+          pure ()
+
+  template IChoiceBodyCall
+    with
+      party : Party
+    where
+      signatory party
+      choice IChoiceBodyCallChoice : ()
+        with
+          cidI : ContractId OptionalFieldsAddedIface
+          ctl : Party
+        controller ctl
+        do
+          exercise cidI (OptionalFieldsAddedIfaceChoice ctl)
+-}
+
+{- PACKAGE
+name: data-changes-dummy
+versions: 1
+depends: |
+  data-changes-1.0.0
+  data-changes-2.0.0
+  data-changes-iface-1.0.0
+-}
+
+{- MODULE
+package: data-changes-dummy
+contents: |
+  module DataChangesDummy where
+
+  import OptionalFieldsAddedIface
+  import qualified V1.OptionalFieldsAdded as V1
+  import qualified V2.OptionalFieldsAdded as V2
+
+  template OptionalFieldsLocalDummy
+    with
+      party : Party
+    where
+      signatory party
+      choice OptionalFieldsLocalTemplateDummyChoice : ()
+        controller party
+        do
+          cid <- create
+            (V2.OptionalFieldsAdded
+              party
+              (Some "V2")
+            )
+          let cidV1 = coerceContractId @V2.OptionalFieldsAdded @V1.OptionalFieldsAdded cid
+          exercise cidV1 (V1.OptionalFieldsAddedCallWithCtl party)
+          pure ()
+
+      choice OptionalFieldsLocalTemplateDummyChoiceByKey : ()
+        controller party
+        do
+          cid <- create
+            (V2.OptionalFieldsAdded
+              party
+              (Some "V2")
+            )
+          let cidV1 = coerceContractId @V2.OptionalFieldsAdded @V1.OptionalFieldsAdded cid
+          exerciseByKey @V1.OptionalFieldsAdded (V1.OptionalFieldsAddedKey party) (V1.OptionalFieldsAddedCallWithCtl party)
+          pure ()
+
+      choice OptionalFieldsLocalIfaceDummyChoice : ()
+        controller party
+        do
+          cid <- create (V2.OptionalFieldsAdded party (Some "V2"))
+          let cidIface = toInterfaceContractId @OptionalFieldsAddedIface cid
+          exercise cidIface (OptionalFieldsAddedIfaceChoice party)
+-}
+
+dataChangesV1 : PackageId
+dataChangesV1 = getPackageId "data-changes-1.0.0"
+
+templateOptionalFieldsSetWhenDowngradingTest : Show b => Text -> (Party -> Party -> Script (Either SubmitError b)) -> (Text, Test)
+templateOptionalFieldsSetWhenDowngradingTest trailer f = ("Fails if an optional field is set when downgrading (" <> trailer <> ")", s)
+  where
+  s = test $ do
+    a <- allocatePartyOn "alice" participant0
+    b <- allocatePartyOn "bob" participant0
+    res <- f a b
+    case res of
+      Left (UpgradeError _ msg) | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg -> pure ()
+      _ -> assertFail $ "Expected specific failure but got " <> show res
+
+tofswdViaCIDExerciseInCommandGlobal : (Text, Test)
+tofswdViaCIDExerciseInCommandGlobal = templateOptionalFieldsSetWhenDowngradingTest "static,  global,    in command, cid" $ \a b -> do
+  cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V2"
+
+  let cidV1 = coerceContractId @V2.OptionalFieldsAdded @V1.OptionalFieldsAdded cid
+  a `trySubmit` exerciseExactCmd cidV1 V1.OptionalFieldsAddedCall
+
+tofswdViaInterfaceInCommandGlobal : (Text, Test)
+tofswdViaInterfaceInCommandGlobal = templateOptionalFieldsSetWhenDowngradingTest "dynamic, global,    in command" $ \a b -> do
+  cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V2"
+  let cidIface = toInterfaceContractId @OptionalFieldsAddedIface cid
+  (actAs a <> packagePreference [dataChangesV1]) `trySubmit` exerciseExactCmd cidIface (OptionalFieldsAddedIfaceChoice a)
+
+tofswdViaInterfaceInChoiceGlobal : (Text, Test)
+tofswdViaInterfaceInChoiceGlobal = templateOptionalFieldsSetWhenDowngradingTest "dynamic, global,    in choice" $ \a b -> do
+  cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V2"
+  let cidIface = toInterfaceContractId @OptionalFieldsAddedIface cid
+  (actAs a <> packagePreference [dataChangesV1]) `trySubmit` createAndExerciseExactCmd (V2.IChoiceBodyCall a) (V2.IChoiceBodyCallChoice cidIface a)
+
+tofswdViaInterfaceInCommandLocal : (Text, Test)
+tofswdViaInterfaceInCommandLocal = templateOptionalFieldsSetWhenDowngradingTest "dynamic, local,     in command" $ \a b -> do
+  (actAs a <> packagePreference [dataChangesV1]) `trySubmit` createAndExerciseExactCmd (OptionalFieldsLocalDummy a) OptionalFieldsLocalIfaceDummyChoice
+
+tofswdViaInterfaceInCommandDisclosed : (Text, Test)
+tofswdViaInterfaceInCommandDisclosed = templateOptionalFieldsSetWhenDowngradingTest "dynamic, disclosed, in command" $ \a b -> do
+  cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V2"
+  let cidIface = toInterfaceContractId @OptionalFieldsAddedIface cid
+
+  disclosure <- fromSome <$> queryDisclosure a cid
+  (actAs b <> packagePreference [dataChangesV1] <> disclose disclosure) `trySubmit` exerciseExactCmd cidIface (OptionalFieldsAddedIfaceChoice b)
+
+tofswdViaInterfaceInChoiceDisclosed : (Text, Test)
+tofswdViaInterfaceInChoiceDisclosed = templateOptionalFieldsSetWhenDowngradingTest "dynamic, disclosed, in choice" $ \a b -> do
+  cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V2"
+  let cidIface = toInterfaceContractId @OptionalFieldsAddedIface cid
+
+  disclosure <- fromSome <$> queryDisclosure a cid
+  (actAs b <> packagePreference [dataChangesV1] <> disclose disclosure) `trySubmit` createAndExerciseExactCmd (V2.IChoiceBodyCall b) (V2.IChoiceBodyCallChoice cidIface b)
+
+tofswdViaKeyExerciseInCommandGlobal : (Text, Test)
+tofswdViaKeyExerciseInCommandGlobal = templateOptionalFieldsSetWhenDowngradingTest "static,  global,    in command, key" $ \a b -> do
+  cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V2"
+
+  -- Ensure we can only call the V1 choice
+  a `trySubmit` exerciseByKeyExactCmd @V1.OptionalFieldsAdded (V1.OptionalFieldsAddedKey a) V1.OptionalFieldsAddedCall
+
+tofswdViaCIDExerciseInChoiceGlobal : (Text, Test)
+tofswdViaCIDExerciseInChoiceGlobal = templateOptionalFieldsSetWhenDowngradingTest "static,  global,    in choice,  cid" $ \a b -> do
+  cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V2"
+  let cidV1 = coerceContractId @V2.OptionalFieldsAdded @V1.OptionalFieldsAdded cid
+  (actAs a) `trySubmit` createAndExerciseExactCmd (V1.OptionalFieldsAddedCallHelper a) (V1.OptionalFieldsAddedCallHelperCall cidV1 a)
+
+tofswdViaKeyExerciseInChoiceGlobal : (Text, Test)
+tofswdViaKeyExerciseInChoiceGlobal = templateOptionalFieldsSetWhenDowngradingTest "static,  global,    in choice,  key" $ \a b -> do
+  cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V2"
+  (actAs a) `trySubmit` createAndExerciseExactCmd (V1.OptionalFieldsAddedCallHelper a) (V1.OptionalFieldsAddedCallHelperCallViaKey (V1.OptionalFieldsAddedKey a) a)
+
+tofswdViaKeyExerciseInCommandLocal : (Text, Test)
+tofswdViaKeyExerciseInCommandLocal = templateOptionalFieldsSetWhenDowngradingTest "static,  local,     in command, key" $ \a b -> do
+  trySubmit (actAs a) $ (,) <$>
+    createAndExerciseExactCmd (V2.OptionalFieldsAddedCallHelper a) (V2.OptionalFieldsAddedCallHelperMake (V2.OptionalFieldsAdded a (Some "V2")) a) <*>
+    createAndExerciseExactCmd (V1.OptionalFieldsAddedCallHelper a) (V1.OptionalFieldsAddedCallHelperCallViaKey (V1.OptionalFieldsAddedKey a) a)
+
+tofswdViaCIDExerciseInCommandDisclosed : (Text, Test)
+tofswdViaCIDExerciseInCommandDisclosed = templateOptionalFieldsSetWhenDowngradingTest "static,  disclosed, in command, cid" $ \a b -> do
+  cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V2"
+
+  disclosure <- fromSome <$> queryDisclosure a cid
+
+  let cidV1 = coerceContractId @V2.OptionalFieldsAdded @V1.OptionalFieldsAdded cid
+  (actAs b <> disclose disclosure) `trySubmit` exerciseExactCmd cidV1 (V1.OptionalFieldsAddedCallWithCtl b)
+
+tofswdViaKeyExerciseInCommandDisclosed : (Text, Test)
+tofswdViaKeyExerciseInCommandDisclosed = templateOptionalFieldsSetWhenDowngradingTest "static,  disclosed, in command, key" $ \a b -> do
+  cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V2"
+
+  disclosure <- fromSome <$> queryDisclosure a cid
+
+  let cidV1 = coerceContractId @V2.OptionalFieldsAdded @V1.OptionalFieldsAdded cid
+  (actAs b <> disclose disclosure) `trySubmit` exerciseByKeyExactCmd @V1.OptionalFieldsAdded (V1.OptionalFieldsAddedKey a) (V1.OptionalFieldsAddedCallWithCtl b)
+
+tofswdViaCIDExerciseInChoiceLocal : (Text, Test)
+tofswdViaCIDExerciseInChoiceLocal = templateOptionalFieldsSetWhenDowngradingTest "static,  local,     in choice,  cid" $ \a b -> do
+  (actAs a) `trySubmit` createAndExerciseExactCmd (OptionalFieldsLocalDummy a) OptionalFieldsLocalTemplateDummyChoice
+
+tofswdViaKeyExerciseInChoiceLocal : (Text, Test)
+tofswdViaKeyExerciseInChoiceLocal = templateOptionalFieldsSetWhenDowngradingTest "static,  local,     in choice,  key" $ \a b -> do
+  (actAs a) `trySubmit` createAndExerciseExactCmd (OptionalFieldsLocalDummy a) OptionalFieldsLocalTemplateDummyChoiceByKey
+
+tofswdViaCIDExerciseInChoiceDisclosed : (Text, Test)
+tofswdViaCIDExerciseInChoiceDisclosed = templateOptionalFieldsSetWhenDowngradingTest "static,  disclosed, in choice,  cid" $ \a b -> do
+  cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V2"
+
+  disclosure <- fromSome <$> queryDisclosure a cid
+
+  let cidV1 = coerceContractId @V2.OptionalFieldsAdded @V1.OptionalFieldsAdded cid
+  (actAs b <> disclose disclosure) `trySubmit` createAndExerciseExactCmd (V1.OptionalFieldsAddedCallHelper b) (V1.OptionalFieldsAddedCallHelperCall cidV1 b)
+
+tofswdViaKeyExerciseInChoiceDisclosed : (Text, Test)
+tofswdViaKeyExerciseInChoiceDisclosed = templateOptionalFieldsSetWhenDowngradingTest "static,  disclosed, in choice,  key" $ \a b -> do
+  cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V2"
+
+  disclosure <- fromSome <$> queryDisclosure a cid
+
+  (actAs b <> disclose disclosure) `trySubmit` createAndExerciseExactCmd (V1.OptionalFieldsAddedCallHelper b) (V1.OptionalFieldsAddedCallHelperCallViaKey (V1.OptionalFieldsAddedKey a) b)

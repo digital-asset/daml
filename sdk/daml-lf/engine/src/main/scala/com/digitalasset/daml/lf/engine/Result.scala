@@ -7,7 +7,7 @@ package engine
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{BackStack, FrontStack, ImmArray}
 import com.daml.lf.language.Ast._
-import com.daml.lf.transaction.GlobalKeyWithMaintainers
+import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers}
 import com.daml.lf.value.Value._
 import scalaz.Monad
 
@@ -19,7 +19,8 @@ import scala.annotation.tailrec
   */
 sealed trait Result[+A] extends Product with Serializable {
   def map[B](f: A => B): Result[B] = this match {
-    case ResultInterruption(continue) => ResultInterruption(() => continue().map(f))
+    case ResultInterruption(continue, abort) =>
+      ResultInterruption(() => continue().map(f), abort)
     case ResultDone(x) => ResultDone(f(x))
     case ResultError(err) => ResultError(err)
     case ResultNeedContract(acoid, resume) =>
@@ -32,10 +33,13 @@ sealed trait Result[+A] extends Product with Serializable {
       ResultNeedAuthority(holding, requesting, bool => resume(bool).map(f))
     case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>
       ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, x => resume(x).map(f))
+    case ResultPrefetch(keys, resume) =>
+      ResultPrefetch(keys, () => resume().map(f))
   }
 
   def flatMap[B](f: A => Result[B]): Result[B] = this match {
-    case ResultInterruption(continue) => ResultInterruption(() => continue().flatMap(f))
+    case ResultInterruption(continue, abort) =>
+      ResultInterruption(() => continue().flatMap(f), abort)
     case ResultDone(x) => f(x)
     case ResultError(err) => ResultError(err)
     case ResultNeedContract(acoid, resume) =>
@@ -48,6 +52,8 @@ sealed trait Result[+A] extends Product with Serializable {
       ResultNeedAuthority(holding, requesting, bool => resume(bool).flatMap(f))
     case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>
       ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, x => resume(x).flatMap(f))
+    case ResultPrefetch(keys, resume) =>
+      ResultPrefetch(keys, () => resume().flatMap(f))
   }
 
   private[lf] def consume(
@@ -61,7 +67,7 @@ sealed trait Result[+A] extends Product with Serializable {
     def go(res: Result[A]): Either[Error, A] =
       res match {
         case ResultDone(x) => Right(x)
-        case ResultInterruption(continue) => go(continue())
+        case ResultInterruption(continue, _) => go(continue())
         case ResultError(err) => Left(err)
         case ResultNeedContract(acoid, resume) => go(resume(pcs.lift(acoid)))
         case ResultNeedPackage(pkgId, resume) => go(resume(pkgs.lift(pkgId)))
@@ -69,12 +75,14 @@ sealed trait Result[+A] extends Product with Serializable {
         case ResultNeedAuthority(_, _, resume) => go(resume(grantNeedAuthority))
         case ResultNeedUpgradeVerification(_, _, _, _, resume) =>
           go(resume(grantUpgradeVerification))
+        case ResultPrefetch(_, result) => go(result())
       }
     go(this)
   }
 }
 
-final case class ResultInterruption[A](continue: () => Result[A]) extends Result[A]
+final case class ResultInterruption[A](continue: () => Result[A], abort: () => Option[String])
+    extends Result[A]
 
 /** Indicates that the command (re)interpretation was successful.
   */
@@ -180,6 +188,14 @@ final case class ResultNeedUpgradeVerification[A](
     resume: Option[String] => Result[A],
 ) extends Result[A]
 
+/** Indicates that the interpretation will likely need to resolve the given contract keys.
+  * The caller may resolve the keys in parallel to the interpretation, but does not have to.
+  */
+final case class ResultPrefetch[A](
+    keys: Seq[GlobalKey],
+    resume: () => Result[A],
+) extends Result[A]
+
 object Result {
 
   val unit: ResultDone[Unit] = ResultDone(())
@@ -276,13 +292,23 @@ object Result {
                       .map(otherResults => (okResults :+ x) :++ otherResults)
                   ),
               )
-            case ResultInterruption(continue) =>
-              ResultInterruption(() =>
-                continue().flatMap(x =>
-                  Result
-                    .sequence(results_)
-                    .map(otherResults => (okResults :+ x) :++ otherResults)
-                )
+            case ResultInterruption(continue, abort) =>
+              ResultInterruption(
+                () =>
+                  continue().flatMap(x =>
+                    Result
+                      .sequence(results_)
+                      .map(otherResults => (okResults :+ x) :++ otherResults)
+                  ),
+                abort,
+              )
+            case ResultPrefetch(keys, resume) =>
+              ResultPrefetch(
+                keys,
+                () =>
+                  resume().flatMap(x =>
+                    Result.sequence(results_).map(otherResults => (okResults :+ x) :++ otherResults)
+                  ),
               )
           }
       }

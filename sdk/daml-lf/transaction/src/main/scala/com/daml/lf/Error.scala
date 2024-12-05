@@ -183,7 +183,13 @@ object Error {
         dstView: Value,
     ) extends Error
 
-    final case class LookupNotFound(notFound: Reference, context: Reference) extends Error
+    /** An attempt was made to upgrade a contract from a LF version that does not support upgrading */
+    final case class ContractNotUpgradable(
+        coid: ContractId,
+        target: TypeConName,
+        actual: TypeConName,
+    ) extends Error
+
   }
 
   // Error that can be thrown by dev or PoC feature only

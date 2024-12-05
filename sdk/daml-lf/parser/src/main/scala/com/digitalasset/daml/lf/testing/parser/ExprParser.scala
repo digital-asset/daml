@@ -42,6 +42,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       eFromAnyException |
       eToTextTypeConName |
       eThrow |
+      eViewInterface |
       eCallInterface |
       eToInterface |
       eFromInterface |
@@ -229,6 +230,11 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
   private lazy val eThrow: Parser[EThrow] =
     `throw` ~>! argTyp ~ argTyp ~ expr0 ^^ { case retType ~ excepType ~ exception =>
       EThrow(retType, excepType, exception)
+    }
+
+  private lazy val eViewInterface: Parser[EViewInterface] =
+    `view_interface` ~! `@` ~> fullIdentifier ~ expr0 ^^ { case ifaceId ~ expr0 =>
+      EViewInterface(ifaceId, expr0)
     }
 
   private lazy val eToTextTypeConName: Parser[Expr] =

@@ -3,13 +3,13 @@
 
 package com.daml.lf.engine
 
-import com.daml.lf.data._
+import cats.implicits.catsSyntaxSemigroup
 import com.daml.lf.data.Ref.{PackageId, Party}
-import com.daml.lf.transaction.Node
-import com.daml.lf.transaction.{BlindingInfo, NodeId, Transaction, VersionedTransaction}
+import com.daml.lf.data._
 import com.daml.lf.ledger._
-import com.daml.lf.data.Relation
+import com.daml.lf.transaction._
 import com.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.transaction.PackageRequirements
 
 import scala.annotation.tailrec
 
@@ -22,7 +22,7 @@ object Blinding {
     * typical engine already has a way to look those up and we do not
     * want to reinvent the wheel.
     *
-    *  @param tx transaction to be blinded
+    * @param tx transaction to be blinded
     */
   def blind(tx: VersionedTransaction): BlindingInfo =
     BlindingTransaction.calculateBlindingInfo(tx)
@@ -81,6 +81,7 @@ object Blinding {
     )
   }
 
+  // TODO(#21671): Remove once the Canton implementation uses partyPackageRequirements
   private[engine] def partyPackages(
       tx: VersionedTransaction,
       disclosure: Relation[NodeId, Party],
@@ -99,7 +100,7 @@ object Blinding {
       contractVisibility: Relation[ContractId, Party],
   ): Iterable[(Party, PackageId)] = {
     for {
-      (contractId, packageId) <- contractPackages
+      (contractId, packageId) <- contractPackages.view
       party <- contractVisibility.getOrElse(contractId, Set.empty)
     } yield party -> packageId
   }
@@ -111,6 +112,7 @@ object Blinding {
   ): Seq[(Party, PackageId)] = {
     disclosure.view.flatMap { case (nodeId, parties) =>
       def toEntries(tyCon: Ref.TypeConName) = parties.view.map(_ -> tyCon.packageId)
+
       tx.nodes(nodeId) match {
         case fetch: Node.Fetch =>
           toEntries(fetch.templateId) ++ fetch.interfaceId.toList.view.flatMap(toEntries)
@@ -129,7 +131,7 @@ object Blinding {
     * This needs to include both packages needed by the engine at reinterpretation time
     * and the originating contract package needed for contract model conformance checking.
     *
-    * @param tx transaction whose packages are required
+    * @param tx               transaction whose packages are required
     * @param contractPackages the contracts used by the transaction together with their creating packages
     */
   def partyPackages(
@@ -137,8 +139,39 @@ object Blinding {
       contractPackages: Map[ContractId, Ref.PackageId] = Map.empty,
   ): Relation[Party, PackageId] = {
     val (BlindingInfo(disclosure, _), contractVisibility) =
-      BlindingTransaction.calculateBlindingInfoWithContactVisibility(tx)
+      BlindingTransaction.calculateBlindingInfoWithContractVisibility(tx)
     partyPackages(tx, disclosure, contractVisibility, contractPackages)
   }
 
+  private[engine] def partyPackageRequirements(
+      tx: VersionedTransaction,
+      disclosure: Relation[NodeId, Party],
+      contractVisibility: Relation[ContractId, Party],
+      contractPackages: Map[ContractId, Ref.PackageId],
+  ): Map[Party, PackageRequirements] = {
+    disclosedPartyPackages(tx, disclosure).view.map { case (party, usedPackage) =>
+      party -> PackageRequirements.vetted(usedPackage)
+    } ++ contractPartyPackages(contractPackages, contractVisibility).view.map {
+      case (party, inputContractPackage) =>
+        party -> PackageRequirements.checkOnly(inputContractPackage)
+    }
+  }.groupMapReduce(_._1)(_._2)(_ |+| _).view.mapValues(_.normalized).toMap
+
+  /** Calculate the package requirements needed by each party in order to reinterpret its projection.
+    *
+    * This needs to include:
+    * - packages used by the Engine for evaluating transaction nodes at reinterpretation time
+    * - originating contract packages needed for contract create consistency checking.
+    *
+    * @param tx               transaction whose packages are required
+    * @param contractPackages the contracts used by the transaction together with their creating packages
+    */
+  def partyPackageRequirements(
+      tx: VersionedTransaction,
+      contractPackages: Map[ContractId, Ref.PackageId] = Map.empty,
+  ): Map[Party, PackageRequirements] = {
+    val (BlindingInfo(disclosure, _), contractVisibility) =
+      BlindingTransaction.calculateBlindingInfoWithContractVisibility(tx)
+    partyPackageRequirements(tx, disclosure, contractVisibility, contractPackages)
+  }
 }

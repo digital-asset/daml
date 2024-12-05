@@ -192,6 +192,21 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
       )
     }
 
+    "Fails when a package embeds two versions of a package that are not in an upgrade relationship" in {
+      testPackages(
+        Seq("test-common/upgrades-FailsWhenDepsAreIncompatible-v1.dar"),
+        Seq(
+          (
+            "test-common/upgrades-FailsWhenDepsAreIncompatible-dep-v1.dar",
+            "test-common/upgrades-FailsWhenDepsAreIncompatible-dep-v2.dar",
+            Some(
+              "The upgraded data type Dep has added new fields, but those fields are not Optional"
+            ),
+          )
+        ),
+      )
+    }
+
     "Succeeds when a package embeds a previous version of itself it is a valid upgrade of" in {
       testPackages(
         Seq("test-common/upgrades-SucceedsWhenDepIsValidPreviousVersionOfSelf-v2.dar"),
@@ -456,6 +471,21 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
         ),
       )
     }
+    s"succeed when adding a choice to a template in upgrading package" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-TemplateAddedChoice-v1.dar",
+          "test-common/upgrades-TemplateAddedChoice-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-TemplateAddedChoice-v1.dar",
+            "test-common/upgrades-TemplateAddedChoice-v2.dar",
+            None,
+          )
+        ),
+      )
+    }
     s"report error when key type changes" in {
       testPackages(
         Seq(
@@ -676,16 +706,61 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
         ),
       )
     }
-    s"Succeeds when template choice input argument has changed" in {
+    s"Succeeds when template choice input argument template has changed" in {
       testPackages(
         Seq(
-          "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentHasChanged-v1.dar",
-          "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentHasChanged-v2.dar",
+          "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentTemplateHasChanged-v1.dar",
+          "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentTemplateHasChanged-v2.dar",
         ),
         Seq(
           (
-            "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentHasChanged-v1.dar",
-            "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentHasChanged-v2.dar",
+            "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentTemplateHasChanged-v1.dar",
+            "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentTemplateHasChanged-v2.dar",
+            None,
+          )
+        ),
+      )
+    }
+    s"Succeeds when template choice input argument enum has changed" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentEnumHasChanged-v1.dar",
+          "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentEnumHasChanged-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentEnumHasChanged-v1.dar",
+            "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentEnumHasChanged-v2.dar",
+            None,
+          )
+        ),
+      )
+    }
+    s"Succeeds when template choice input argument struct has changed" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentStructHasChanged-v1.dar",
+          "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentStructHasChanged-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentStructHasChanged-v1.dar",
+            "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentStructHasChanged-v2.dar",
+            None,
+          )
+        ),
+      )
+    }
+    s"Succeeds when template choice input argument variant has changed" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentVariantHasChanged-v1.dar",
+          "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentVariantHasChanged-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentVariantHasChanged-v1.dar",
+            "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentVariantHasChanged-v2.dar",
             None,
           )
         ),
@@ -838,6 +913,22 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
             "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAConstructorsType-v1.dar",
             "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAConstructorsType-v2.dar",
             None,
+          )
+        ),
+      )
+    }
+
+    "Fails when a top-level enum drops a constructor" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-FailsWhenAnEnumDropsAConstructor-v1.dar",
+          "test-common/upgrades-FailsWhenAnEnumDropsAConstructor-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-FailsWhenAnEnumDropsAConstructor-v1.dar",
+            "test-common/upgrades-FailsWhenAnEnumDropsAConstructor-v2.dar",
+            Some("The upgraded data type MyEnum has removed an existing variant."),
           )
         ),
       )
@@ -1054,6 +1145,24 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
             "test-common/upgrades-FailsWhenAnInstanceIsAddedUpgradedPackage-v2.dar",
             Some(
               "Implementation of interface .*:Main:I by template T appears in this package, but does not appear in package that is being upgraded."
+            ),
+          )
+        ),
+      )
+    }
+
+    "Fails when an instance is replaced with a different instance of an identically named interface." in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-v1.dar",
+          "test-common/upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-v1.dar",
+            "test-common/upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-v2.dar",
+            Some(
+              "Implementation of interface .*:Dep:I by template T appears in package that is being upgraded, but does not appear in this package."
             ),
           )
         ),

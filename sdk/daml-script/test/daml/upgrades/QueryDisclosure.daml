@@ -38,6 +38,9 @@ main = tests
   [ ( "Disclosure retrieved with an upgraded template ID are valid disclosures"
     , queriedDisclosuresAreValid
     )
+  , ( "Disclosures cannot downgrade when an optional field is set"
+    , queriedDisclosuresCannotDropOptionalFieldWhenDowngrading
+    )
   ]
 
 queriedDisclosuresAreValid : Test
@@ -49,3 +52,16 @@ queriedDisclosuresAreValid = test $ do
   let v2Cid = coerceContractId @V1.QueryDisclosureTemplate @V2.QueryDisclosureTemplate cid
   disclosure <- fromSome <$> queryDisclosure a v2Cid
   submitWithDisclosures b [disclosure] $ exerciseCmd v2Cid (V2.QueryDisclosureChoice b)
+
+queriedDisclosuresCannotDropOptionalFieldWhenDowngrading : Test
+queriedDisclosuresCannotDropOptionalFieldWhenDowngrading = test $ do
+  a <- allocatePartyOn "alice" participant0
+  b <- allocatePartyOn "bob" participant0
+
+  cid <- a `submit` createExactCmd V2.QueryDisclosureTemplate with party = a, newField = Just "V1"
+  let v1Cid = coerceContractId @V2.QueryDisclosureTemplate @V1.QueryDisclosureTemplate cid
+  res <- tryCommands $ queryDisclosure a v1Cid
+  case res of
+    Left (FailedCmd (CommandName "QueryContractId") _ _) -> pure ()
+    Left msg -> assertFail $ "Expected FailedCmd QueryContractId, but got different error: " <> show msg
+    Right _ -> assertFail $ "Expected FailedCmd QueryContractId, but succeeded instead"

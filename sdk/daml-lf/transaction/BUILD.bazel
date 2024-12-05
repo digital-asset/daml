@@ -46,6 +46,8 @@ da_scala_library(
     srcs = glob(["src/main/**/*.scala"]),
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_kernel",
     ],
     scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-transaction:__VERSION__"],

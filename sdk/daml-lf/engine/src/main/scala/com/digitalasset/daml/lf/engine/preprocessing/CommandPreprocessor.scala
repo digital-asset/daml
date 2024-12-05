@@ -293,11 +293,11 @@ private[lf] final class CommandPreprocessor(
   @throws[Error.Preprocessing.Error]
   def unsafePreprocessDisclosedContracts(
       discs: ImmArray[command.DisclosedContract]
-  ): ImmArray[speedy.DisclosedContract] = {
+  ): (ImmArray[speedy.DisclosedContract], Set[crypto.Hash]) = {
     var contractIds: Set[Value.ContractId] = Set.empty
     var contractKeys: Set[crypto.Hash] = Set.empty
 
-    discs.map { disclosedContract =>
+    val processedDiscs = discs.map { disclosedContract =>
       if (contractIds.contains(disclosedContract.contractId))
         throw Error.Preprocessing.DuplicateDisclosedContractId(disclosedContract.contractId)
       contractIds += disclosedContract.contractId
@@ -308,6 +308,7 @@ private[lf] final class CommandPreprocessor(
       }
       unsafePreprocessDisclosedContract(disclosedContract)
     }
+    processedDiscs -> contractKeys
   }
 
   @throws[Error.Preprocessing.Error]

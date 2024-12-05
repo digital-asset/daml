@@ -10,7 +10,7 @@ import com.daml.lf.command.{ApiCommand, ApiCommands}
 import com.daml.lf.data.{Bytes, FrontStack, ImmArray, Time}
 import com.daml.lf.data.Ref.{Identifier, Name, PackageId, ParticipantId, Party, QualifiedName}
 import com.daml.lf.language.Ast.Package
-import com.daml.lf.language.LanguageMajorVersion
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.ledger.FailedAuthorization.{
   CreateMissingAuthorization,
   ExerciseMissingAuthorization,
@@ -35,10 +35,10 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.language.implicitConversions
 
-class AuthPropagationSpecV1 extends AuthPropagationSpec(LanguageMajorVersion.V1)
-//class AuthPropagationSpecV2 extends AuthPropagationSpec(LanguageMajorVersion.V2)
+class AuthPropagationSpecPreUpgrade extends AuthPropagationSpec(LanguageVersion.v1_15)
+class AuthPropagationSpePostUpgrade extends AuthPropagationSpec(LanguageVersion.v1_17)
 
-class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
+class AuthPropagationSpec(langVersion: LanguageVersion)
     extends AnyFreeSpec
     with Matchers
     with Inside
@@ -52,11 +52,12 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
   private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
     val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
     val (mainPkgId, mainPkg) = packages.main
+    assert(mainPkg.languageVersion == langVersion)
     (mainPkgId, mainPkg, packages.all.toMap)
   }
 
   private val (pkgId, pkg, allPackages) = loadPackage(
-    s"daml-lf/engine/AuthTests-v${majorLanguageVersion.pretty}.dar"
+    s"daml-lf/engine/AuthTests-v${langVersion.pretty.replaceAll(raw"\.", "")}.dar"
   )
 
   implicit private def toIdentifier(s: String): Identifier =
@@ -107,7 +108,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
   private val submissionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("submissionSeed")
 
   private val testEngine: Engine =
-    Engine.DevEngine(majorLanguageVersion)
+    Engine.DevEngine(langVersion.major)
 
   private def go(
       submitters: Set[Party],

@@ -96,6 +96,9 @@ tests damlc =
                   "MissingChoice"
                   (FailWithError "error type checking template Main.T :\n  Choice C2 appears in package that is being upgraded, but does not appear in this package.")
             , testUpgradeCheck
+                  "TemplateAddedChoice"
+                  Succeed
+            , testUpgradeCheck
                   "TemplateChangedKeyType"
                   (FailWithError "error type checking template Main.T key:\n  The upgraded template T cannot change its key type.")
             , testUpgradeCheck
@@ -171,7 +174,16 @@ tests damlc =
                   "SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged"
                   Succeed
             , testUpgradeCheck
-                  "SucceedsWhenTemplateChoiceInputArgumentHasChanged"
+                  "SucceedsWhenTemplateChoiceInputArgumentTemplateHasChanged"
+                  Succeed
+            , testUpgradeCheck
+                  "SucceedsWhenTemplateChoiceInputArgumentEnumHasChanged"
+                  Succeed
+            , testUpgradeCheck
+                  "SucceedsWhenTemplateChoiceInputArgumentStructHasChanged"
+                  Succeed
+            , testUpgradeCheck
+                  "SucceedsWhenTemplateChoiceInputArgumentVariantHasChanged"
                   Succeed
             , testUpgradeCheck
                   "SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice"
@@ -203,6 +215,9 @@ tests damlc =
             , testUpgradeCheck
                   "SucceedWhenATopLevelEnumAddsAField"
                   Succeed
+            , testUpgradeCheck
+                  "FailsWhenAnEnumDropsAConstructor"
+                  (FailWithError "error type checking data type Main.MyEnum:\n  The upgraded data type MyEnum is missing some of its original constructors: MyEnumCon3")
             , testUpgradeCheck
                   "FailWhenATopLevelEnumChangesChangesTheOrderOfItsConstructors"
                   (FailWithError "error type checking data type Main.A:\n  The upgraded data type A has changed the order of its constructors - any new enum constructor must be added at the end of the enum.")
@@ -242,6 +257,9 @@ tests damlc =
             , testUpgradeCheck
                   "FailsWhenAnInstanceIsAddedUpgradedPackage"
                   (FailWithError "error type checking template Main.T :\n  Implementation of interface I by template T appears in this package, but does not appear in package that is being upgraded.")
+            , testUpgradeCheck
+                  "FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface"
+                  (FailWithError "error type checking template Main.T :\n  Implementation of interface I by template T appears in package that is being upgraded, but does not appear in this package.")
             , testUpgradeCheck
                   "SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep"
                   Succeed
@@ -299,7 +317,7 @@ tests damlc =
             --, test
             --      "WarnsWhenExpressionChangesBindingOrder"
             --      (SucceedWithWarning ".*refer to different bindings in the environment")
-            --      version1_dev
+            --      version1_17
             --      (SeparateDeps False)
             --      False
             --      True
@@ -361,28 +379,28 @@ tests damlc =
                   )
                   "my-package"
                   "0.0.1"
-                  LF.version1_dev
+                  LF.version1_17
                   "my-package2"
                   "0.0.2"
-                  LF.version1_dev
+                  LF.version1_17
             , testMetadata
                   "FailsWhenUpgradesPackageHasEqualVersion"
                   (FailWithError "\ESC\\[0;91mMain package \\(v0.0.1\\) cannot have the same package version as Upgraded package \\(v0.0.1\\)")
                   "my-package"
                   "0.0.1"
-                  LF.version1_dev
+                  LF.version1_17
                   "my-package"
                   "0.0.1"
-                  LF.version1_dev
+                  LF.version1_17
             , testMetadata
                   "FailsWhenUpgradesPackageHasHigherVersion"
                   (FailWithError "\ESC\\[0;91mUpgraded package \\(v0.0.2\\) cannot have a higher package version than Main package \\(v0.0.1\\)")
                   "my-package"
                   "0.0.2"
-                  LF.version1_dev
+                  LF.version1_17
                   "my-package"
                   "0.0.1"
-                  LF.version1_dev
+                  LF.version1_17
             , testMetadata
                   "FailsWhenUpgradesPackageDoesNotSupportUpgrades"
                   (FailWithError "\ESC\\[0;91mUpgraded package \\(v0.0.1\\) LF Version \\(1.15\\) does not support Smart Contract Upgrades")
@@ -391,13 +409,13 @@ tests damlc =
                   LF.version1_15
                   "my-package"
                   "0.0.2"
-                  LF.version1_dev
+                  LF.version1_17
             , testMetadata
                   "FailsWhenMainPackageDoesNotSupportUpgrades"
                   (FailWithError "\ESC\\[0;91mMain package \\(v0.0.2\\) LF Version \\(1.15\\) does not support Smart Contract Upgrades")
                   "my-package"
                   "0.0.1"
-                  LF.version1_dev
+                  LF.version1_17
                   "my-package"
                   "0.0.2"
                   LF.version1_15
@@ -418,7 +436,7 @@ tests damlc =
                   LF.version1_17
                   "my-package"
                   "0.0.2"
-                  LF.version1_dev
+                  LF.version1_17
             , testUpgradeCheck
                   "SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage"
                   Succeed
@@ -670,7 +688,7 @@ testOptions =
     }
 
 versionDefault :: LF.Version
-versionDefault = LF.version1_dev
+versionDefault = LF.version1_17
 
 data Expectation
   = Succeed

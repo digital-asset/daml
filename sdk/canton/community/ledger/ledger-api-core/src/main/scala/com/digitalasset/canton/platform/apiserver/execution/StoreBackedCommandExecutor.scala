@@ -19,6 +19,7 @@ import com.daml.lf.engine.{
   ResultNeedContract,
   ResultNeedKey,
   ResultNeedPackage,
+  ResultPrefetch,
   ResultNeedUpgradeVerification,
 }
 import com.daml.lf.transaction.*
@@ -295,7 +296,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
               )
             }
 
-        case ResultInterruption(continue) =>
+        case ResultInterruption(continue, abort) =>
           // We want to prevent the interpretation to run indefinitely and use all the resources.
           // For this purpose, we check the following condition:
           //
@@ -333,6 +334,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
                   .InterpretationTimeExceeded(
                     ledgerEffectiveTime,
                     ledgerTimeRecordTimeTolerance,
+                    abort(),
                   )
                 Future.successful(Left(error))
               } else resume()
@@ -372,6 +374,8 @@ private[apiserver] final class StoreBackedCommandExecutor(
                 )
               )
             }
+
+        case ResultPrefetch(_, resume) => resolveStep(resume())
       }
 
     resolveStep(result).andThen { case _ =>

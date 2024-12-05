@@ -4,10 +4,10 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.data.FrontStack
+import com.daml.lf.data.{FrontStack, Ref}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.interpretation.Error.FailedAuthorization
-import com.daml.lf.language.LanguageMajorVersion
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.ledger.FailedAuthorization.{CreateMissingAuthorization, NoAuthorizers}
 import com.daml.lf.speedy.SError.SError
 import com.daml.lf.speedy.SExpr.SEApp
@@ -19,20 +19,22 @@ import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers._
 
-class ChoiceAuthorityTestV1 extends ChoiceAuthorityTest(LanguageMajorVersion.V1)
+class ChoiceAuthorityTestPreUpgrade extends ChoiceAuthorityTest(LanguageVersion.v1_15)
+class ChoiceAuthorityTestPostUpgrade extends ChoiceAuthorityTest(LanguageVersion.v1_17)
 //class ChoiceAuthorityTestV2 extends ChoiceAuthorityTest(LanguageMajorVersion.V2)
 
-class ChoiceAuthorityTest(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyFreeSpec
-    with Inside {
+class ChoiceAuthorityTest(langVersion: LanguageVersion) extends AnyFreeSpec with Inside {
   import SpeedyTestLib.AuthRequest
 
   val transactionSeed = crypto.Hash.hashPrivateKey("ChoiceAuthorityTest.scala")
 
   implicit val defaultParserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+    ParserParameters(
+      defaultPackageId = Ref.PackageId.assertFromString(s"-pkgId-${getClass.getSimpleName}"),
+      languageVersion = langVersion,
+    )
 
-  val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(p""" metadata ( 'pkg' : '1.0.0' )
+  lazy val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(p""" metadata ( 'pkg' : '1.0.0' )
   module M {
 
     record @serializable Goal = { goal: Party } ;

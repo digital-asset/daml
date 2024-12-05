@@ -19,12 +19,6 @@ load(
     "mangle_for_damlc",
 )
 
-DEV_LF_VERSION = "1.dev"
-
-UPGRADE_LF_VERSION = "1.16"
-
-NON_UPGRADE_LF_VERSION = "1.15"
-
 [
     genrule(
         name = "script-test",
@@ -121,12 +115,11 @@ EOF
         tools = ["//compiler/damlc"],
         visibility = ["//visibility:public"],
     )
-    for tag in [
-        "latest",
-        "preview",
-        "dev",
+    for lf_version in [
+        "1.15",
+        "1.17",
+        "1.dev",
     ]
-    for lf_version in [lf_version_configuration.get(tag)]
 ]
 
 # A variant of script-test that has not been uploaded to the ledger
@@ -223,8 +216,8 @@ da_scala_library(
 
 daml_compile(
     name = "try-submit-test-1.15",
-    srcs = [":daml/Daml3ScriptTrySubmit15.daml"],
-    dependencies = [
+    srcs = [":daml/Daml3ScriptTrySubmit.daml"],
+    data_dependencies = [
         "//daml-script/daml3:daml3-script-1.15.dar",
     ],
     project_name = "try-submit-test",
@@ -235,7 +228,7 @@ daml_compile(
 daml_compile(
     name = "upgrade-test-lib",
     srcs = [":daml/UpgradeTestLib.daml"],
-    dependencies = [
+    data_dependencies = [
         "//daml-script/daml3:daml3-script-1.dev.dar",
     ],
     project_name = "upgrade-test-lib",
@@ -272,12 +265,14 @@ da_scala_test_suite(
         exclude = [
             "src/com/**/*Dev*.scala",
             "src/com/digitalasset/daml/lf/engine/script/test/UpgradesIT.scala",
+            "src/com/digitalasset/daml/lf/engine/script/test/DamlScriptUtilityPackage.scala",
         ],
     ),
     data = [
         ":script-test.dar",
         ":script-test-no-ledger.dar",
         ":try-submit-test-1.15.dar",
+        "//compiler/damlc/tests:try-submit-test.dar",
         "//daml-script/runner:daml-script-binary",
         "//daml-script/test:retrointerface.dar",
         "//daml-script/test:template.dar",
@@ -372,6 +367,29 @@ da_scala_test(
 ) if not is_windows else None
 # skipping windows for now, it doesn't seem to like the filegroup `:upgrade-test-files`
 
+da_scala_test(
+    name = "utility-package-test",
+    size = "small",
+    srcs = ["src/com/digitalasset/daml/lf/engine/script/test/DamlScriptUtilityPackage.scala"],
+    data = [
+        "//daml-script/daml:daml-script-1.14.dar",
+        "//daml-script/daml:daml-script-1.15.dar",
+        "//daml-script/daml:daml-script-1.17.dar",
+        "//daml-script/daml:daml-script-1.dev.dar",
+        "//daml-script/daml3:daml3-script-1.14.dar",
+        "//daml-script/daml3:daml3-script-1.15.dar",
+        "//daml-script/daml3:daml3-script-1.17.dar",
+        "//daml-script/daml3:daml3-script-1.dev.dar",
+    ],
+    resources = glob(["src/main/resources/**/*"]),
+    deps = [
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//daml-lf/language",
+    ],
+)
+
 da_scala_binary(
     name = "compile-upgrade-test-cases",
     srcs = ["src/com/digitalasset/daml/lf/engine/script/CompileUpgradeTestCases.scala"],
@@ -401,7 +419,6 @@ da_scala_test_suite(
         ":script-test-1.dev.dar",
         "//compiler/damlc/tests:query-test.dar",
         "//compiler/damlc/tests:try-submit-concurrently-test.dar",
-        "//compiler/damlc/tests:try-submit-test.dar",
         "//daml-script/runner:daml-script-binary",
     ],
     resources = glob(["src/main/resources/**/*"]),

@@ -97,7 +97,7 @@ pattern GHC_Types <- ModuleIn DamlPrim "GHC.Types"
 pattern GHC_Show <- ModuleIn DamlPrim "GHC.Show"
 
 -- daml-stdlib module patterns
-pattern DA_Action, DA_Internal_LF, DA_Internal_Prelude, DA_Internal_Record, DA_Internal_Desugar, DA_Internal_Template_Functions, DA_Internal_Exception, DA_Internal_Interface, DA_Internal_Template :: GHC.Module
+pattern DA_Action, DA_Internal_LF, DA_Internal_Prelude, DA_Internal_Record, DA_Internal_Desugar, DA_Internal_Template_Functions, DA_Internal_Exception, DA_Internal_Interface, DA_Internal_Template, DA_Internal_Compatible :: GHC.Module
 pattern DA_Action <- ModuleIn DamlStdlib "DA.Action"
 pattern DA_Internal_LF <- ModuleIn DamlStdlib "DA.Internal.LF"
 pattern DA_Internal_Prelude <- ModuleIn DamlStdlib "DA.Internal.Prelude"
@@ -107,6 +107,7 @@ pattern DA_Internal_Template_Functions <- ModuleIn DamlStdlib "DA.Internal.Templ
 pattern DA_Internal_Exception <- ModuleIn DamlStdlib "DA.Internal.Exception"
 pattern DA_Internal_Interface <- ModuleIn DamlStdlib "DA.Internal.Interface"
 pattern DA_Internal_Template <- ModuleIn DamlStdlib "DA.Internal.Template"
+pattern DA_Internal_Compatible <- ModuleIn DamlStdlib "DA.Internal.Compatible"
 
 -- | Deconstruct a dictionary function (DFun) identifier into a tuple
 -- containing, in order:

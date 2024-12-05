@@ -35,10 +35,10 @@ main = withSdkVersions $ do
     damlcLegacy <- locateRunfiles ("damlc_legacy" </> exe "damlc_legacy")
     let validate dar = callProcessSilent damlc ["validate-dar", dar]
     v1TestArgs <- do
-        let targetDevVersion = LF.version1_dev
+        let targetDevVersion = LF.version1_17
         let exceptionsVersion = minExceptionVersion LF.V1
         let simpleDalfLfVersion = LF.defaultOrLatestStable LF.V1
-        scriptDevDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script-1.dev.dar")
+        scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script-1.17.dar")
         oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar")
         let lfVersionTestPairs = lfVersionTestPairsV1
         return TestArgs{..}
@@ -46,7 +46,7 @@ main = withSdkVersions $ do
         let targetDevVersion = LF.version2_dev
         let exceptionsVersion = minExceptionVersion LF.V2
         let simpleDalfLfVersion = LF.defaultOrLatestStable LF.V2
-        scriptDevDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml3" </> "daml3-script-1.dev.dar")
+        scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml3" </> "daml3-script-1.dev.dar")
         oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "old-proj-1.1.dar")
         let lfVersionTestPairs = lfVersionTestPairsV2
         return TestArgs{..}
@@ -65,14 +65,14 @@ data TestArgs = TestArgs
   , lfVersionTestPairs :: [(LF.Version, LF.Version)]
   , damlc :: FilePath
   , damlcLegacy :: FilePath
-  , scriptDevDar :: FilePath
+  , scriptDar :: FilePath
   , validate :: FilePath -> IO ()
   , oldProjDar :: FilePath
   }
 
 data DataDependenciesTestOptions = DataDependenciesTestOptions
   { buildOptions :: [String]
-  , extraDeps :: [FilePath]
+  , dataDeps :: [FilePath]
   }
 
 darPackageIds :: FilePath -> IO [LF.PackageId]
@@ -96,7 +96,7 @@ lfVersionTestPairsV1 =
                 filter (hasMajorVersion LF.V1) LF.supportedOutputVersions
         legacyPairs = map (,LF.version1_14) (supportedInputVersions \\ supportedOutputVersions)
         nPlusOnePairs = zip supportedOutputVersions (tail supportedOutputVersions)
-        selfPair = (LF.version1_dev, LF.version1_dev)
+        selfPair = (LF.version1_17, LF.version1_17)
      in selfPair : concat [legacyPairs, nPlusOnePairs]
   where
     hasMajorVersion major v = LF.versionMajor v == major
@@ -696,8 +696,8 @@ tests TestArgs{..} =
           , "name: proj"
           , "version: 0.1.0"
           , "source: ."
-          , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDevDar <> "]"
-          , "data-dependencies: [simple-dalf-1.0.0.dalf]"
+          , "dependencies: [daml-prim, daml-stdlib]"
+          , "data-dependencies: [simple-dalf-1.0.0.dalf, " <> show scriptDar <> "]"
           , "build-options: [--package=simple-dalf-1.0.0]"
           ]
         writeFileUTF8 (projDir </> "A.daml") $ unlines
@@ -1615,6 +1615,33 @@ tests TestArgs{..} =
             ]
         ]
 
+    , simpleImportTest "Using explicit exports"
+        [ "module Lib (myDef, MyDataHiddenConstructor, mkMyDataHiddenConstructor, MyData(MyData)) where"
+        , "data MyDataHidden = MyDataHidden"
+        , "data MyDataHiddenConstructor = MyDataHiddenConstructor"
+        , "data MyData = MyData"
+        , "myDef : Int"
+        , "myDef = 4"
+        , "mkMyDataHiddenConstructor : MyDataHiddenConstructor"
+        , "mkMyDataHiddenConstructor = MyDataHiddenConstructor"
+        ]
+        [ "module Main where"
+        , "import Lib"
+        , "data MyDataHidden = MyDataHidden Int"
+        , "myHiddenData : MyDataHidden"
+          -- Lack of "ambiguous type" error proves MyDataHidden isn't exported from Lib
+        , "myHiddenData = MyDataHidden myDef"
+          -- While use of myDef show intended exports do work
+        , "data MyDataProveHiddenConstructor = MyDataHiddenConstructor"
+          -- Overloads the hidden constructor
+        , "myDataProveHiddenConstructor : MyDataProveHiddenConstructor"
+        , "myDataProveHiddenConstructor = MyDataHiddenConstructor"
+          -- Lack of "ambiguous constructor" error proves MyDataHiddenConstructor isn't exported from Lib
+        , "myDataHiddenConstructor : MyDataHiddenConstructor"
+          -- Proves the MyDataHiddenConstructor type was exported
+        , "myDataHiddenConstructor = mkMyDataHiddenConstructor"
+        ]
+
     , simpleImportTest "Constraint synonym context on instance"
         [ "{-# LANGUAGE UndecidableInstances #-}"
         , "module Lib where"
@@ -2257,9 +2284,8 @@ tests TestArgs{..} =
             , "source: ."
             , "version: 0.1.0"
             , "dependencies: [" <> intercalate ", " (["daml-prim", "daml-stdlib"] <> fmap show extraDeps) <> "]"
-            , "data-dependencies: [" <> intercalate ", " (fmap dar dataDeps) <> "]"
+            , "data-dependencies: [" <> intercalate ", " dataDeps <> "]"
             ]
-
         step tokenProj >> do
           createDirectoryIfMissing True (path tokenProj)
           writeFileUTF8 (damlYaml tokenProj) $ damlYamlBody tokenProj [] []
@@ -2307,7 +2333,7 @@ tests TestArgs{..} =
         step fancyTokenProj >> do
           createDirectoryIfMissing True (path fancyTokenProj)
           writeFileUTF8 (damlYaml fancyTokenProj) $ damlYamlBody fancyTokenProj []
-            [ tokenProj
+            [ dar tokenProj
             ]
           writeFileUTF8 (damlMod fancyTokenProj "FancyToken") $ unlines
             [ "module FancyToken where"
@@ -2335,8 +2361,8 @@ tests TestArgs{..} =
         step assetProj >> do
           createDirectoryIfMissing True (path assetProj)
           writeFileUTF8 (damlYaml assetProj) $ damlYamlBody assetProj []
-            [ tokenProj
-            , fancyTokenProj
+            [ dar tokenProj
+            , dar fancyTokenProj
             ]
           writeFileUTF8 (damlMod assetProj "Asset") $ unlines
             [ "module Asset where"
@@ -2381,13 +2407,19 @@ tests TestArgs{..} =
             , "--project-root", path assetProj
             , "-o", dar assetProj
             ]
-
+        step' $ damlYamlBody mainProj []
+            [ dar tokenProj
+            , dar fancyTokenProj
+            , dar assetProj
+            , scriptDar
+            ]
         step mainProj >> do
           createDirectoryIfMissing True (path mainProj)
-          writeFileUTF8 (damlYaml mainProj) $ damlYamlBody mainProj [scriptDevDar]
-            [ tokenProj
-            , fancyTokenProj
-            , assetProj
+          writeFileUTF8 (damlYaml mainProj) $ damlYamlBody mainProj []
+            [ dar tokenProj
+            , dar fancyTokenProj
+            , dar assetProj
+            , scriptDar
             ]
           writeFileUTF8 (damlMod mainProj "Main") $ unlines
             [ "{-# LANGUAGE ApplicativeDo #-}"
@@ -2684,8 +2716,9 @@ tests TestArgs{..} =
             , "name: main"
             , "source: ."
             , "version: 0.1.0"
-            , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDevDar <> "]"
+            , "dependencies: [daml-prim, daml-stdlib]"
             , "data-dependencies: "
+            , "  - " <> show scriptDar
             , "  - " <> (tmpDir </> "lib" </> "lib.dar")
             ]
         writeFileUTF8 (tmpDir </> "main" </> "Main.daml") $ unlines
@@ -2766,7 +2799,7 @@ tests TestArgs{..} =
     optionsDevScript :: DataDependenciesTestOptions
     optionsDevScript = defTestOptions
         { buildOptions = ["--target=" <> LF.renderVersion targetDevVersion, "-Wupgrade-interfaces"]
-        , extraDeps = [scriptDevDar]
+        , dataDeps = [scriptDar]
         }
 
     simpleImportTest :: String -> [String] -> [String] -> TestTree
@@ -2780,11 +2813,11 @@ tests TestArgs{..} =
     dataDependenciesTest title = dataDependenciesTestOptions title defTestOptions
 
     dataDependenciesTestOptions :: String -> DataDependenciesTestOptions -> [(FilePath, [String])] -> [(FilePath, [String])] -> TestTree
-    dataDependenciesTestOptions title (DataDependenciesTestOptions buildOptions extraDeps) libModules mainModules =
+    dataDependenciesTestOptions title (DataDependenciesTestOptions buildOptions dataDeps) libModules mainModules =
         testCaseSteps title $ \step -> withTempDir $ \tmpDir -> do
             step "building project to be imported via data-dependencies"
             createDirectoryIfMissing True (tmpDir </> "lib")
-            let deps = ["daml-prim", "daml-stdlib"] <> fmap show extraDeps
+            let deps = ["daml-prim", "daml-stdlib"]
             writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
                 [ "sdk-version: " <> sdkVersion
                 , "name: lib"
@@ -2792,6 +2825,7 @@ tests TestArgs{..} =
                 , "source: ."
                 , "version: 0.1.0"
                 , "dependencies: [" <> intercalate ", " deps <> "]"
+                , "data-dependencies: [" <> intercalate ", " (fmap show dataDeps) <> "]"
                 ]
             forM_ libModules $ \(path, contents) ->
                 writeFileUTF8 (tmpDir </> "lib" </> path) $ unlines contents
@@ -2809,8 +2843,7 @@ tests TestArgs{..} =
                 , "source: ."
                 , "version: 0.1.0"
                 , "dependencies: [" <> intercalate ", " deps <> "]"
-                , "data-dependencies: "
-                , "  - " <> (tmpDir </> "lib" </> "lib.dar")
+                , "data-dependencies: [" <> intercalate ", " (fmap show $ (tmpDir </> "lib" </> "lib.dar") : dataDeps) <> "]"
                 ]
             forM_ mainModules $ \(path, contents) ->
                 writeFileUTF8 (tmpDir </> "main" </> path) $ unlines contents

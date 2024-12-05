@@ -13,7 +13,7 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.transaction.{Node, NodeId, SubmittedTransaction, Transaction}
 import com.daml.lf.value.Value._
 import com.daml.lf.command.ReplayCommand
-import com.daml.lf.language.LanguageMajorVersion
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.logging.LoggingContext
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -23,10 +23,9 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.language.implicitConversions
 
-class ReinterpretTestV1 extends ReinterpretTest(LanguageMajorVersion.V1)
-//class ReinterpretTestV2 extends ReinterpretTest(LanguageMajorVersion.V2)
+class ReinterpretTestV1 extends ReinterpretTest(LanguageVersion.v1_15)
 
-class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
+class ReinterpretTest(langVersion: LanguageVersion)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
@@ -41,11 +40,12 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
 
   private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
     val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
+    assert(packages.main._2.languageVersion == langVersion)
     (packages.main._1, packages.main._2, packages.all.toMap)
   }
 
   private val (miniTestsPkgId, miniTestsPkg, allPackages) = loadPackage(
-    s"daml-lf/tests/ReinterpretTests-v${majorLanguageVersion.pretty}.dar"
+    s"daml-lf/tests/ReinterpretTests-v1.dar"
   )
 
   private val defaultContracts: Map[ContractId, VersionedContractInstance] =
@@ -63,12 +63,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
         )
     )
 
-  private def freshEngine = new Engine(
-    EngineConfig(
-      allowedLanguageVersions = language.LanguageVersion.AllVersions(majorLanguageVersion),
-      requireSuffixedGlobalContractId = true,
-    )
-  )
+  private def freshEngine = Engine.StableEngine()
 
   private val engine = freshEngine
 
@@ -155,7 +150,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
 
     "rollback version 14 contract creation" in {
       // LF v2 does not need to ensure compatibility with v1.14
-      assume(majorLanguageVersion == LanguageMajorVersion.V1)
+      assume(langVersion.major == LanguageMajorVersion.V1)
 
       val choiceName = "Contract14ThenThrow"
       val theCommand = {

@@ -308,7 +308,7 @@ generateDalfRule opts =
         rawDalf <- use_ GenerateRawDalf file
         upgradedPackage <- join <$> useNoFile ExtractUpgradedPackage
         setPriority priorityGenerateDalf
-        pure $! case Serializability.inferModule world lfVersion rawDalf of
+        pure $! case Serializability.inferModule world lfVersion (getForceUtilityPackage $ optForceUtilityPackage opts) rawDalf of
             Left err -> ([ideErrorPretty file err], Nothing)
             Right dalf ->
                 let lfDiags = LF.checkModule world lfVersion dalf
@@ -453,7 +453,7 @@ generateSerializedDalfRule options =
                                         -- use ABI changes to determine whether to rebuild the module, so if an implementaion
                                         -- changes without a corresponding ABI change, we would end up with an outdated
                                         -- implementation.
-                                    case Serializability.inferModule world lfVersion simplified of
+                                    case Serializability.inferModule world lfVersion (getForceUtilityPackage $ optForceUtilityPackage options) simplified of
                                         Left err -> pure (conversionWarnings ++ [ideErrorPretty file err], Nothing)
                                         Right dalf -> do
                                             let (diags, checkResult) = diagsToIdeResult file $ LF.checkModule world lfVersion dalf

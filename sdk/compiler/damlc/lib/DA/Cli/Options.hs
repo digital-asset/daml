@@ -275,6 +275,14 @@ enableScenariosOpt = EnableScenarios <$>
             "Enable/disable support for scenarios as a language feature. \
             \If disabled, defining top-level scenarios is a compile-time error"
 
+forceUtilityPackageOpt :: Parser ForceUtilityPackage
+forceUtilityPackageOpt = ForceUtilityPackage <$>
+    flagYesNoAuto "force-utility-package" False desc internal
+    where
+        desc =
+            "Force a given package to compile as a utility package. \
+            \This will make all data types unserializable, and will reject template/exception definitions"
+
 dlintRulesFileParser :: Parser DlintRulesFile
 dlintRulesFileParser =
   lastOr DefaultDlintRulesFile $
@@ -438,6 +446,8 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
     let optHideUnitId = False
     optUpgradeInfo <- optUpgradeInfo
     optDamlWarningFlags <- optDamlWarningFlags
+    optForceUtilityPackage <- forceUtilityPackageOpt
+    optIgnoreDataDepVisibility <- optIgnoreDataDepVisibility
 
     return Options{..}
   where
@@ -647,6 +657,17 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
       uiTypecheckUpgrades <- optTypecheckUpgrades
       uiUpgradedPackagePath <- optUpgradeDar
       pure UpgradeInfo {..}
+
+    optIgnoreDataDepVisibility :: Parser IgnoreDataDepVisibility
+    optIgnoreDataDepVisibility =
+      IgnoreDataDepVisibility <$>
+        flagYesNoAuto
+          "ignore-data-deps-visibility"
+          False
+          ( "Ignore explicit exports on data-dependencies, and instead allow importing of all definitions from that package\n"
+            <> "(This was the default behaviour before Daml 2.10)"
+          )
+          idm
 
 optGhcCustomOptions :: Parser [String]
 optGhcCustomOptions =

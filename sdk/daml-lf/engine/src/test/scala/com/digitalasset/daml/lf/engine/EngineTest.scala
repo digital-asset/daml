@@ -34,12 +34,7 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.engine.Error.Interpretation
 import com.daml.lf.engine.Error.Interpretation.DamlException
-import com.daml.lf.language.{
-  LanguageMajorVersion,
-  LanguageVersion,
-  PackageInterface,
-  StablePackages,
-}
+import com.daml.lf.language.{LanguageVersion, PackageInterface, StablePackages}
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.logging.LoggingContext
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.tagToContainer
@@ -59,8 +54,8 @@ import scala.language.implicitConversions
 import scala.math.Ordered.orderingToOrdered
 import scala.util.Right
 
-class EngineTestV1 extends EngineTest(LanguageMajorVersion.V1)
-//class EngineTestV2 extends EngineTest(LanguageMajorVersion.V2)
+class EngineTestPreUpgrade extends EngineTest(LanguageVersion.v1_15)
+class EngineTestPostUpgrade extends EngineTest(LanguageVersion.v1_17)
 
 @SuppressWarnings(
   Array(
@@ -69,14 +64,14 @@ class EngineTestV1 extends EngineTest(LanguageMajorVersion.V1)
     "org.wartremover.warts.Product",
   )
 )
-class EngineTest(majorLanguageVersion: LanguageMajorVersion)
+class EngineTest(langVersion: LanguageVersion)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
     with EitherValues
     with SecurityTestSuite {
 
-  val helpers = new EngineTestHelpers(majorLanguageVersion)
+  val helpers = new EngineTestHelpers(langVersion)
   import helpers._
 
   "minimal create command" should {
@@ -767,7 +762,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         key = usedContractSKey,
       )
 
-      val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
+      val transactionVersion = TxVersions.assignNodeVersion(langVersion)
       val expectedProcessedDisclosedContract = Node.Create(
         coid = usedDisclosedContract.contractId,
         packageName = getPackageName(basicTestsPkg),
@@ -1619,7 +1614,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         contractKey = usedContractSKey,
       )
 
-      val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
+      val transactionVersion = TxVersions.assignNodeVersion(langVersion)
       val expectedDisclosedEvent = Node.Create(
         coid = usedDisclosedContract.contractId,
         packageName = getPackageName(basicTestsPkg),
@@ -1673,7 +1668,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         coid = SContractId(usedDisclosedContract.contractId),
       )
 
-      val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
+      val transactionVersion = TxVersions.assignNodeVersion(langVersion)
       val expectedDisclosedEvent = Node.Create(
         coid = usedDisclosedContract.contractId,
         packageName = getPackageName(basicTestsPkg),
@@ -2232,7 +2227,8 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   lazy val (exceptionsPkgId, exceptionsPkg, allExceptionsPkgs) =
-    loadAndAddPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}.dar")
+    loadAndAddPackage(s"daml-lf/tests/Exceptions$darSuffix")
+  assert(exceptionsPkg.languageVersion == langVersion)
 
   "global key lookups" should {
     val kId = Identifier(exceptionsPkgId, "Exceptions:K")
@@ -2337,12 +2333,11 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         )
       )
 
-    val devVersion = majorLanguageVersion.dev
-    val (_, _, allPackagesDev) = new EngineTestHelpers(majorLanguageVersion).loadAndAddPackage(
-      s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}dev.dar"
-    )
-    val compatibleLanguageVersions = LanguageVersion.All.filter(_.major == majorLanguageVersion)
-    val stablePackages = StablePackages(majorLanguageVersion).allPackages
+    val devVersion = langVersion.major.dev
+    val (_, _, allPackagesDev) =
+      loadAndAddPackage(s"daml-lf/engine/BasicTests-v1dev.dar")
+    val compatibleLanguageVersions = LanguageVersion.All.filter(_.major == langVersion)
+    val stablePackages = StablePackages(langVersion.major).allPackages
 
     s"accept stable packages from ${devVersion} even if version is smaller than min version" in {
       for {
@@ -2415,9 +2410,11 @@ class EngineTestAllVersions extends AnyWordSpec with Matchers with TableDrivenPr
   }
 }
 
-class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
+class EngineTestHelpers(langVersion: LanguageVersion) {
 
   import Matchers._
+
+  val darSuffix = s"-v${langVersion.pretty.replaceAll(raw"\.", "")}.dar"
 
   implicit val logContext: LoggingContext = LoggingContext.ForTesting
 
@@ -2448,11 +2445,10 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
     (mainPkgId, mainPkg, packages.all.toMap)
   }
 
-  val (basicTestsPkgId, basicTestsPkg, allPackages) = loadAndAddPackage(
-    s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}.dar"
-  )
+  val (basicTestsPkgId, basicTestsPkg, allPackages) =
+    loadAndAddPackage(s"daml-lf/engine/BasicTests$darSuffix")
   val basicTestsPkgName: KeyPackageName =
-    KeyPackageName(basicTestsPkg.name, basicTestsPkg.languageVersion)
+    KeyPackageName(basicTestsPkg.name, langVersion)
   val basicTestsSignatures: PackageInterface =
     language.PackageInterface(Map(basicTestsPkgId -> basicTestsPkg))
 
@@ -2545,7 +2541,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
     tx.nodes.collect { case (nodeId, node: Node.Action) if node.byKey => nodeId }.toSet
 
   def getPackageName(basicTestsPkg: Package): Option[PackageName] = {
-    if (basicTestsPkg.languageVersion < LanguageVersion.Features.smartContractUpgrade)
+    if (langVersion < LanguageVersion.Features.smartContractUpgrade)
       None
     else
       Some(basicTestsPkg.metadata.get.name)
@@ -2554,7 +2550,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   def newEngine(requireCidSuffixes: Boolean = false) =
     new Engine(
       EngineConfig(
-        allowedLanguageVersions = language.LanguageVersion.AllVersions(majorLanguageVersion),
+        allowedLanguageVersions = language.LanguageVersion.AllVersions(langVersion.major),
         requireSuffixedGlobalContractId = requireCidSuffixes,
       )
     )

@@ -579,7 +579,11 @@ expandSdkPackages logger lfVersion dars = do
       | isSdkPackage fp = fp : Map.findWithDefault [] fp sdkDependencies
       | otherwise = [fp]
     sdkDependencies = Map.fromList
-      [ ("daml-trigger", ["daml-script"]) ]
+      [ ("daml-trigger", ["daml-script"])
+      , -- Daml3-script is now split into 2 packages, we need to bring that transitive dep in.
+        ("daml3-script", ["daml3-script-stable"])
+      , ("daml-script-beta", ["daml3-script-stable"])
+      ]
 
 
 mkPackageFlag :: UnitId -> PackageFlag

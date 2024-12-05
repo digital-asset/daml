@@ -27,6 +27,8 @@ da_scala_library(
     srcs = glob(["src/main/**/*.scala"]),
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_kernel",
         "@maven//:org_typelevel_paiges_core",
     ],
     scalacopts = lf_scalacopts_stricter,
@@ -45,6 +47,11 @@ da_scala_library(
     ],
 )
 
+VERSIONS_TO_TEST = [
+    "1.15",
+    "1.17",
+]
+
 ENGINE_TEST_FILES = \
     [
         "BasicTests",
@@ -54,15 +61,15 @@ ENGINE_TEST_FILES = \
 
 [
     daml_compile(
-        name = "{name}-v{major}".format(
+        name = "{name}-{version}".format(
             name = name,
-            major = major,
+            version = mangle_for_damlc(version),
         ),
         srcs = ["src/test/daml/%s.daml" % name],
-        target = lf_version_default_or_latest(major),
+        target = version,
     )
     for name in ENGINE_TEST_FILES
-    for major in LF_MAJOR_VERSIONS
+    for version in VERSIONS_TO_TEST
 ]
 
 [
@@ -84,31 +91,24 @@ da_scala_test_suite(
         exclude = [
             "src/test/**/LargeTransactionTest.scala",
             "src/test/**/MinVersionTest.scala",
+            "src/test/**/UpgradeTest.scala",
         ],
     ),
     data = [
-        "{name}-v{major}.dar".format(
+        ":BasicTests-v1dev.dar",
+        "//daml-lf/tests:InterfaceRetro-v115.dar",
+    ] + (["//daml-lf/tests:ReinterpretTests-v1.dar"] if is_intel else []) + [
+        "{name}-{major}.dar".format(
             name = name,
-            major = major,
+            major = mangle_for_damlc(version),
         )
         for name in [
             "//daml-lf/tests:Exceptions",
             "//daml-lf/tests:Interfaces",
-            "//daml-lf/tests:InterfaceRetro",
             "//daml-lf/tests:InterfaceViews",
             "//daml-lf/tests:MultiKeys",
-        ] + (["//daml-lf/tests:ReinterpretTests"] if is_intel else [])
-        for major in LF_MAJOR_VERSIONS
-    ] + [
-        ":{name}-v{major}.dar".format(
-            name = name,
-            major = major,
-        )
-        for name in ENGINE_TEST_FILES
-        for major in LF_MAJOR_VERSIONS
-    ] + [
-        ":BasicTests-{}.dar".format(mangle_for_damlc(version))
-        for version in LF_DEV_VERSIONS
+        ] + ENGINE_TEST_FILES
+        for version in VERSIONS_TO_TEST
     ],
     scala_deps = [
         "@maven//:com_storm_enroute_scalameter_core",
@@ -182,6 +182,33 @@ da_scala_test(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//libs-scala/contextualized-logging",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
+da_scala_test(
+    name = "upgrade-test",
+    timeout = "moderate",
+    srcs = glob([
+        "src/test/**/UpgradeTest.scala",
+    ]),
+    args = ["-P"],  # run the test cases in parallel
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":engine",
+        "//daml-lf/data",
+        "//daml-lf/language",
+        "//daml-lf/parser",
+        "//daml-lf/transaction",
+        "//daml-lf/transaction-test-lib",
+        "//libs-scala/contextualized-logging",
+        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

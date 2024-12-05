@@ -7,7 +7,7 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.Engine
-import com.daml.lf.language.LanguageMajorVersion
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.lf.transaction.{Node, NodeId, Versioned}
 import com.daml.lf.value.Value
@@ -17,23 +17,27 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import java.io.File
 
-class NodeSeedsTestV1 extends NodeSeedsTest(LanguageMajorVersion.V1)
-//class NodeSeedsTestV2 extends NodeSeedsTest(LanguageMajorVersion.V2)
+class NodeSeedsTestPreUpgrade extends NodeSeedsTest(LanguageVersion.v1_15)
+class NodeSeedsTestPostUpgrade extends NodeSeedsTest(LanguageVersion.v1_17)
 
-class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordSpec with Matchers {
+class NodeSeedsTest(langVersion: LanguageVersion) extends AnyWordSpec with Matchers {
 
   // Test for https://github.com/DACH-NY/canton/issues/14712
 
   val (mainPkgId, mainPkg, packages) = {
     val packages = UniversalArchiveDecoder.assertReadFile(
       new File(
-        BazelRunfiles.rlocation(s"daml-lf/engine/Demonstrator-v${majorLanguageVersion.pretty}.dar")
+        BazelRunfiles.rlocation(
+          s"daml-lf/engine/Demonstrator-v${langVersion.pretty.replaceAll(raw"\.", "")}.dar"
+        )
       )
     )
-    (packages.main._1, packages.main._2, packages.all.toMap)
+    val (mainPkgId, mainPkg) = packages.main
+    assert(mainPkg.languageVersion == langVersion)
+    (mainPkgId, mainPkg, packages.all.toMap)
   }
 
-  val engine = Engine.DevEngine(majorLanguageVersion)
+  val engine = Engine.StableEngine()
 
   val operator = Ref.Party.assertFromString("operator")
   val investor = Ref.Party.assertFromString("investor")

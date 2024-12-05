@@ -20,7 +20,6 @@ import com.digitalasset.canton.logging.{
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.TemplatePartiesFilter
 import com.digitalasset.canton.platform.config.ActiveContractsServiceStreamsConfig
-import com.digitalasset.canton.platform.indexer.parallel.BatchN
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.IdPaginationState
 import com.digitalasset.canton.platform.store.dao.events.EventsTable.TransactionConversions
@@ -38,6 +37,7 @@ import com.digitalasset.canton.platform.store.utils.{
   QueueBasedConcurrencyLimiter,
   Telemetry,
 }
+import com.digitalasset.canton.util.BatchN
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.Attributes

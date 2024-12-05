@@ -85,7 +85,7 @@ test_dars = merge_test_dars_versioned(
     general_test_dars = general_test_dars,
     lf_versions = testtool_lf_versions,
     upgrading_test_dars = upgrading_test_dars,
-    upgrading_test_dars_v1_minor_version_range = ("16", "dev"),
+    upgrading_test_dars_v1_minor_version_range = ("17", "dev"),
     upgrading_test_dars_v2_minor_version_range = ("0", "dev"),
 )
 
@@ -120,13 +120,14 @@ da_scala_dar_resources_library(
         name = "upgrades-{}-dep-{}".format(test_name, project_name),
         srcs = glob(["src/main/daml/upgrades/{}/dep/Dep.daml".format(test_name)]),
         project_name = project_name,
-        target = "1.dev",
+        target = "1.17",
         version = "1.0.0",
         visibility = ["//visibility:public"],
     )
     for test_name in [
         "FailsWhenUpgradedFieldFromDifferentPackageName",
         "WarnsWhenExpressionChangesPackageId",
+        "FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface",
     ]
     for project_name in [
         "name1",
@@ -144,20 +145,20 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-dep-v1".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/dep-v1/*.daml".format(identifier)]),
-            dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
+            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}-dep".format(identifier),
-            target = "1.dev",
+            target = "1.17",
             version = "1.0.0",
             visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-dep-v2".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/dep-v2/*.daml".format(identifier)]),
-            dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
+            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}-dep".format(identifier),
-            target = "1.dev",
+            target = "1.17",
             # We want to check the validity of this upgrade on the ledger
             # client, not during compilation
             typecheck_upgrades = False,
@@ -169,10 +170,10 @@ da_scala_dar_resources_library(
             name = "upgrades-{}-v1".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/v1/*.daml".format(identifier)]),
             data_dependencies = ["//test-common:upgrades-{}-dep-v1.dar".format(identifier)],
-            dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
+            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}".format(identifier),
-            target = "1.dev",
+            target = "1.17",
             version = "1.0.0",
             visibility = ["//visibility:public"],
         ),
@@ -180,10 +181,10 @@ da_scala_dar_resources_library(
             name = "upgrades-{}-v2".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/v2/*.daml".format(identifier)]),
             data_dependencies = ["//test-common:upgrades-{}-dep-v2.dar".format(identifier)],
-            dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
+            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}".format(identifier),
-            target = "1.dev",
+            target = "1.17",
             # We want to check the validity of this upgrade on the ledger
             # client, not during compilation
             typecheck_upgrades = False,
@@ -206,10 +207,10 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-dep".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/dep/*.daml".format(identifier)]),
-            dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
+            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}-dep".format(identifier),
-            target = "1.dev",
+            target = "1.17",
             version = "1.0.0",
             visibility = ["//visibility:public"],
         ),
@@ -223,8 +224,8 @@ da_scala_dar_resources_library(
 ]
 
 # Two dars with an empty main module whose only point is to depend on the standard library.
-# They are compiled to to two different LF versions: 1.16 and 1.dev, which means they
-# embark two different versions of the standard library: 1.16 and 1.dev. The packages have
+# They are compiled to to two different LF versions: 1.17 and 1.dev, which means they
+# embark two different versions of the standard library: 1.17 and 1.dev. The packages have
 # different names on purpose: the goal is not to check that they are valid upgrades of each
 # other, but rather to check that the package upgrade map is not confused when trying to
 # compare the different versions of the standard library that they embark upon uploading.
@@ -253,20 +254,20 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-dep-v1".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/dep-v1/*.daml".format(identifier)]),
-            dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
+            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}-dep".format(identifier),
-            target = "1.dev",
+            target = "1.17",
             version = "1.0.0",
             visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-dep-v2".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/dep-v2/*.daml".format(identifier)]),
-            dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
+            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}-dep".format(identifier),
-            target = "1.dev",
+            target = "1.17",
             # We want to check the validity of this upgrade on the ledger
             # client, not during compilation
             typecheck_upgrades = False,
@@ -278,10 +279,10 @@ da_scala_dar_resources_library(
             name = "upgrades-{}-v1".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/v1/*.daml".format(identifier)]),
             data_dependencies = ["//test-common:upgrades-{}-dep-v2.dar".format(identifier)],
-            dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
+            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}".format(identifier),
-            target = "1.dev",
+            target = "1.17",
             version = "1.0.0",
             visibility = ["//visibility:public"],
         ),
@@ -289,10 +290,10 @@ da_scala_dar_resources_library(
             name = "upgrades-{}-v2".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/v2/*.daml".format(identifier)]),
             data_dependencies = ["//test-common:upgrades-{}-dep-v1.dar".format(identifier)],
-            dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
+            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}".format(identifier),
-            target = "1.dev",
+            target = "1.17",
             # We want to check the validity of this upgrade on the ledger
             # client, not during compilation
             typecheck_upgrades = False,
@@ -366,6 +367,7 @@ da_scala_dar_resources_library(
         ("MissingDataCon", {}, {}),
         ("MissingChoice", {}, {}),
         ("RecordFieldsNewNonOptional", {}, {}),
+        ("TemplateAddedChoice", {}, {}),
         ("TemplateChangedKeyType", {}, {}),
         ("TemplateChangedKeyType2", {}, {}),
         ("ValidUpgrade", {}, {}),
@@ -418,7 +420,10 @@ da_scala_dar_resources_library(
         ("FailsWhenTemplateRemovesKeyType", {}, {}),
         ("SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplate", {}, {}),
         ("SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice", {}, {}),
-        ("SucceedsWhenTemplateChoiceInputArgumentHasChanged", {}, {}),
+        ("SucceedsWhenTemplateChoiceInputArgumentTemplateHasChanged", {}, {}),
+        ("SucceedsWhenTemplateChoiceInputArgumentEnumHasChanged", {}, {}),
+        ("SucceedsWhenTemplateChoiceInputArgumentStructHasChanged", {}, {}),
+        ("SucceedsWhenTemplateChoiceInputArgumentVariantHasChanged", {}, {}),
         ("SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged", {}, {}),
         ("SucceedsWhenNonSerializableTypesAreIncompatible", {}, {}),
         (
@@ -489,6 +494,7 @@ da_scala_dar_resources_library(
         ("FailsWhenMakingTypeUnserializable", {}, {}),
         ("FailsWithSynonymReturnTypeChange", {}, {}),
         ("SucceedWhenATopLevelEnumAddsAField", {}, {}),
+        ("FailsWhenAnEnumDropsAConstructor", {}, {}),
         ("SucceedsWhenATopLevelEnumChanges", {}, {}),
         ("SucceedsWhenATopLevelVariantAddsAConstructor", {}, {}),
         ("SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAConstructorsType", {}, {}),
@@ -526,6 +532,11 @@ da_scala_dar_resources_library(
             {"lf_version": "1.17"},
             {"lf_version": "1.dev"},
         ),
+        (
+            "FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface",
+            {"data_dependencies": ["//test-common:upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-dep-name1.dar"]},
+            {"data_dependencies": ["//test-common:upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-dep-name2.dar"]},
+        ),
     ]
 ]
 
@@ -536,7 +547,7 @@ da_scala_dar_resources_library(
         name = "upgrades-MissingTemplateDifferentPackageName",
         srcs = glob(["src/main/daml/upgrades/MissingTemplateDifferentPackageName/*.daml"]),
         project_name = "upgrades-MissingTemplateDifferentPackageName",
-        target = "1.dev",
+        target = "1.17",
         version = "1.1.0",
         visibility = ["//visibility:public"],
     ),
@@ -570,18 +581,18 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-v1a".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/v1a/*.daml".format(identifier)]),
-            dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
+            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
             project_name = "upgrades-example-{}".format(identifier),
-            target = "1.dev",
+            target = "1.17",
             version = "1.0.0",
             visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-v1b".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/v1b/*.daml".format(identifier)]),
-            dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
+            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
             project_name = "upgrades-example-{}".format(identifier),
-            target = "1.dev",
+            target = "1.17",
             version = "1.0.0",
             visibility = ["//visibility:public"],
         ),
@@ -601,18 +612,18 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-v1".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/v1/*.daml".format(identifier)]),
-            dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
+            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
             project_name = "upgrades-example-{}".format(identifier),
-            target = "1.dev",
+            target = "1.17",
             version = "1.0.0",
             visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-v2".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/v2/*.daml".format(identifier)]),
-            dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
+            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
             project_name = "upgrades-example-{}".format(identifier),
-            target = "1.dev",
+            target = "1.17",
             # We want to check the validity of this upgrade on the ledger
             # client, not during compilation
             typecheck_upgrades = False,
@@ -623,9 +634,9 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-v3".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/v3/*.daml".format(identifier)]),
-            dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
+            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
             project_name = "upgrades-example-{}".format(identifier),
-            target = "1.dev",
+            target = "1.17",
             # We want to check the validity of this upgrade on the ledger
             # client, not during compilation
             typecheck_upgrades = False,
@@ -639,6 +650,60 @@ da_scala_dar_resources_library(
         "SuccessUpgradingV3ThenV2",
         "FailsWhenUpgradingV2ThenV3",
         "FailsWhenUpgradingV3ThenV2",
+    ]
+]
+
+# test cases where there's only one v1 of a package depending on both v1 and v2 of a dep
+[
+    [
+        filegroup(
+            name = "upgrades-{}-files".format(identifier),
+            srcs = glob(["src/main/daml/upgrades/{}/*/*.daml".format(identifier)]),
+            visibility = ["//visibility:public"],
+        ),
+        daml_compile(
+            name = "upgrades-{}-dep-v1".format(identifier),
+            srcs = glob(["src/main/daml/upgrades/{}/dep-v1/*.daml".format(identifier)]),
+            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
+            project_name = "upgrades-example-{}-dep".format(identifier),
+            target = "1.17",
+            version = "1.0.0",
+            visibility = ["//visibility:public"],
+        ),
+        daml_compile(
+            name = "upgrades-{}-dep-v2".format(identifier),
+            srcs = glob(["src/main/daml/upgrades/{}/dep-v2/*.daml".format(identifier)]),
+            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
+            project_name = "upgrades-example-{}-dep".format(identifier),
+            target = "1.17",
+            # We want to check the validity of this upgrade on the ledger
+            # client, not during compilation
+            typecheck_upgrades = False,
+            upgrades = "//test-common:upgrades-{}-dep-v1.dar".format(identifier),
+            version = "2.0.0",
+            visibility = ["//visibility:public"],
+        ),
+        daml_compile(
+            name = "upgrades-{}-v1".format(identifier),
+            srcs = glob(["src/main/daml/upgrades/{}/v1/*.daml".format(identifier)]),
+            data_dependencies = [
+                "//test-common:upgrades-{}-dep-v1.dar".format(identifier),
+                "//test-common:upgrades-{}-dep-v2.dar".format(identifier),
+            ],
+            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
+            ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
+            module_prefixes = {
+                "upgrades-example-{}-dep-1.0.0".format(identifier): "V1",
+                "upgrades-example-{}-dep-2.0.0".format(identifier): "V2",
+            },
+            project_name = "upgrades-example-{}".format(identifier),
+            target = "1.17",
+            version = "1.0.0",
+            visibility = ["//visibility:public"],
+        ),
+    ]
+    for identifier in [
+        "FailsWhenDepsAreIncompatible",
     ]
 ]
 

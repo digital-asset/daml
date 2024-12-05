@@ -43,7 +43,7 @@ private[lf] object Pretty {
     char('\'') + text(p) + char('\'')
 
   def prettyParties(p: Set[Party]): Doc =
-    char('{') & intercalate(char(','), p.map(prettyParty)) & char('{')
+    char('{') & intercalate(char(','), p.map(prettyParty)) & char('}')
 
   def prettyDamlException(error: interpretation.Error): Doc = {
     import interpretation.Error._
@@ -198,8 +198,14 @@ private[lf] object Pretty {
                 "in the destination contract is"
               ) & prettyValue(false)(dstViewValue)
           }
-          case Upgrade.LookupNotFound(_, _) =>
-            text("Lookup error") // FIXME:
+          case Upgrade.ContractNotUpgradable(coid, target, actual) => {
+            text("Attempt to upgrade non-upgradable contract id") & prettyContractId(coid) /
+              text("to target package") & prettyTypeConName(target) & text(
+                "from"
+              ) & prettyTypeConName(
+                actual
+              )
+          }
         }
       case Dev(_, error) =>
         error match {

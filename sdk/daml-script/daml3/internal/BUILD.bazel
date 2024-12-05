@@ -1,0 +1,47 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@build_environment//:configuration.bzl", "ghc_version")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS")
+load("//rules_daml:daml.bzl", "daml_compile")
+
+# These packages contain all internal logic and data types for daml-script.
+# They are forced to be utility packages (i.e. have no serializable types) for ease of development in future
+[
+    daml_compile(
+        name = "daml3-script-{}".format(lf_version),
+        srcs = glob(["**/*.daml"]),
+        dependencies = [
+            "//daml-script/daml3/stable:daml3-script-stable-{}.dar".format(lf_version),
+        ],
+        force_utility_package = True,
+        # Force daml files to be under `daml` directory, to match previous behaviour
+        generated_daml_source_directory = "daml",
+        project_name = "daml3-script",
+        target = lf_version,
+        version = ghc_version,
+        visibility = ["//daml-script/daml3:__pkg__"],
+    )
+    for lf_version in COMPILER_LF_VERSIONS
+]
+
+# Documentation for daml-script is generated as though the `Daml.Script.Stable` module is part of the main package, for ease of navigation
+genrule(
+    name = "daml-script-json-docs",
+    srcs = ["//daml-script/daml3/stable:daml3-script-stable-source"] + glob(["**/*.daml"]),
+    outs = ["daml-script.json"],
+    # Include daml-script/daml3/stable path hard coded, as extracting from rule is ugly and this path should never change
+    cmd = """
+        $(location //compiler/damlc) -- docs \
+            --output=$(OUTS) \
+            --package-name=daml3-script \
+            --format=Json \
+            --target=1.dev \
+            --include=daml-script/daml3/stable \
+            $(location Daml/Script.daml)
+    """,
+    tools = [
+        "//compiler/damlc",
+    ],
+    visibility = ["//daml-script/daml3:__pkg__"],
+)

@@ -3,18 +3,8 @@
 
 package com.digitalasset.canton.ledger.error.groups
 
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlErrorWithDefiniteAnswer,
-  ErrorCategory,
-  ErrorCategoryRetry,
-  ErrorCode,
-  ErrorGroup,
-  ErrorResource,
-  Explanation,
-  Resolution,
-}
-import com.daml.lf.data.Ref
+import com.daml.error.{ContextualizedErrorLogger, DamlErrorWithDefiniteAnswer, ErrorCategory, ErrorCategoryRetry, ErrorCode, ErrorGroup, ErrorResource, Explanation, Resolution}
+import com.daml.lf.data.{FrontStack, Ref}
 import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine.Error as LfError
 import com.daml.lf.interpretation.Error as LfInterpretationError
@@ -50,6 +40,9 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
       },
       f,
     )
+
+  def encodeParties(parties: Set[Ref.Party]): Seq[(ErrorResource, String)] =
+    Seq((ErrorResource.Parties, parties.mkString(",")))
 
   @Explanation(
     """This error occurs if the participant fails to determine the max ledger time of the used
@@ -649,30 +642,125 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
       ) extends DamlErrorWithDefiniteAnswer(cause = cause) {}
     }
 
-    @Explanation("Upgrade validation fails when trying to upgrade the contract")
-    @Resolution(
-      "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed"
-    )
-    object UpgradeError
-        extends ErrorCode(
-          id = "INTERPRETATION_UPGRADE_ERROR",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther,
-        ) {
-      final case class Reject(
-          override val cause: String,
-          err: LfInterpretationError.Upgrade.Error,
-      )(implicit
-          loggingContext: ContextualizedErrorLogger
-      ) extends DamlErrorWithDefiniteAnswer(
-            cause = cause
+    @Explanation("Errors that occur when trying to upgrade a contract")
+    object UpgradeError extends ErrorGroup {
+      @Explanation("Validation fails when trying to upgrade the contract")
+      @Resolution(
+        "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed"
+      )
+      object ValidationFailed
+          extends ErrorCode(
+            id = "INTERPRETATION_UPGRADE_ERROR_VALIDATION_FAILED",
+            ErrorCategory.InvalidGivenCurrentSystemStateOther,
+          ) {
+        final case class Reject(
+            override val cause: String,
+            err: LfInterpretationError.Upgrade.ValidationFailed,
+        )(implicit
+            loggingContext: ContextualizedErrorLogger
+        ) extends DamlErrorWithDefiniteAnswer(
+              cause = cause
+            ) {
+
+          override def resources: Seq[(ErrorResource, String)] = {
+            val optKeyResources = err.keyOpt.fold(Seq.empty[(ErrorResource, String)])(key =>
+              withEncodedValue(key.globalKey.key) { encodedKey =>
+                Seq((ErrorResource.ContractKey, encodedKey)) ++ encodeParties(key.maintainers)
+            })
+
+            Seq(
+              (ErrorResource.ContractId, err.coid.coid),
+              (ErrorResource.TemplateId, err.srcTemplateId.toString),
+              (ErrorResource.TemplateId, err.dstTemplateId.toString),
+            ) ++ encodeParties(err.signatories) ++ encodeParties(err.observers) ++ optKeyResources
+          }
+        }
+      }
+
+      @Explanation(
+        "An optional contract field with a value of Some may not be dropped during downgrading"
+      )
+      @Resolution(
+        "There is data that is newer than the implementation using it, and thus is not compatible. Ensure new data (i.e. those with additional fields as `Some`) is only used with new/compatible choices"
+      )
+      object DowngradeDropDefinedField
+          extends ErrorCode(
+            id = "INTERPRETATION_UPGRADE_ERROR_DOWNGRADE_DROP_DEFINED_FIELD",
+            ErrorCategory.InvalidGivenCurrentSystemStateOther,
+          ) {
+        final case class Reject(
+            override val cause: String,
+            err: LfInterpretationError.Upgrade.DowngradeDropDefinedField,
+        )(implicit
+            loggingContext: ContextualizedErrorLogger
+        ) extends DamlErrorWithDefiniteAnswer(
+              cause = cause
+            ) {
+          override def resources: Seq[(ErrorResource, String)] =
+            Seq(
+              (ErrorResource.FieldType, err.expectedType.pretty)
+            )
+        }
+      }
+
+      @Explanation("View mismatch when trying to upgrade the contract")
+      @Resolution(
+        "Verify that the interface views of the contract have not changed"
+      )
+      object ViewMismatch
+          extends ErrorCode(
+            id = "INTERPRETATION_UPGRADE_ERROR_VIEW_MISMATCH",
+            ErrorCategory.InvalidGivenCurrentSystemStateOther,
+          ) {
+        final case class Reject(
+            override val cause: String,
+            err: LfInterpretationError.Upgrade.ViewMismatch,
+        )(implicit
+            loggingContext: ContextualizedErrorLogger
+        ) extends DamlErrorWithDefiniteAnswer(
+              cause = cause
+            ) {
+
+          override def resources: Seq[(ErrorResource, String)] =
+            Seq(
+              (ErrorResource.ContractId, err.coid.coid),
+              (ErrorResource.InterfaceId, err.iterfaceId.toString),
+              (ErrorResource.TemplateId, err.srcTemplateId.toString),
+              (ErrorResource.TemplateId, err.dstTemplateId.toString),
+            )
+        }
+      }
+
+      @Explanation(
+        "An attempt was made to upgrade a template compiled with a daml language version before 1.17"
+      )
+      @Resolution(
+        "If possible archive this contract and re-create it with a template compiled with daml 1.17 or above"
+      )
+      object ContractNotUpgradable
+          extends ErrorCode(
+            id = "CONTRACT_NOT_UPGRADABLE",
+            ErrorCategory.InvalidGivenCurrentSystemStateOther,
           ) {
 
-        override def resources: Seq[(ErrorResource, String)] =
-          Seq(
-            // Class name is reported to help clients (e.g. daml-script) discriminate the type of upgrade error
-            (ErrorResource.UpgradeErrorType, err.getClass.getSimpleName)
-          )
+        final case class Reject(
+            override val cause: String,
+            err: LfInterpretationError.Upgrade.ContractNotUpgradable,
+        )(implicit
+            loggingContext: ContextualizedErrorLogger
+        ) extends DamlErrorWithDefiniteAnswer(
+              cause = cause
+            ) {
+
+          override def resources: Seq[(ErrorResource, String)] =
+            Seq(
+              (ErrorResource.ContractId, err.coid.coid),
+              (ErrorResource.TemplateId, err.target.toString),
+              (ErrorResource.TemplateId, err.actual.toString),
+            )
+        }
       }
+
     }
 
     @Explanation(

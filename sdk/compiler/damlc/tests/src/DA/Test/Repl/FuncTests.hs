@@ -138,8 +138,8 @@ initPackageConfig options scriptDar dars = do
         , "dependencies:"
         , "- daml-prim"
         , "- daml-stdlib"
-        , "- " <> show scriptDar
         , "data-dependencies:"
+        , "- " <> show scriptDar
         ] ++ ["- " <> show dar | dar <- dars]
     withPackageConfig (ProjectPath ".") $ \PackageConfigFields {..} -> do
         dir <- getCurrentDirectory
