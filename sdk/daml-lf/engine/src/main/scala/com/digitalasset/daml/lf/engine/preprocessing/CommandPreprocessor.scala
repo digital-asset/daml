@@ -336,7 +336,7 @@ private[lf] final class CommandPreprocessor(
     keys.map(unsafePreprocessApiContractKey(pkgResolution, _))
 
   @throws[Error.Preprocessing.Error]
-  def unsafePreprocessApiContractKey(
+  private def unsafePreprocessApiContractKey(
       pkgResolution: Map[Ref.PackageName, Ref.PackageId],
       key: ApiContractKey,
   ): GlobalKey = {
