@@ -97,6 +97,7 @@ class EngineTest(langVersion: LanguageVersion)
         disclosures = ImmArray.empty,
         participantId = participant,
         submissionSeed = submissionSeed,
+        prefetchKeys = Seq.empty,
       )
       .consume(lookupContract, lookupPackage, lookupKey)
 
@@ -193,6 +194,7 @@ class EngineTest(langVersion: LanguageVersion)
           disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = submissionSeed,
+          prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
     }
@@ -324,6 +326,7 @@ class EngineTest(langVersion: LanguageVersion)
           disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = submissionSeed,
+          prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
       isReplayedBy(tx, rtx) shouldBe Right(())
@@ -391,6 +394,7 @@ class EngineTest(langVersion: LanguageVersion)
           disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = submissionSeed,
+          prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
       inside(submitResult) { case Left(Error.Interpretation(err, _)) =>
@@ -457,6 +461,7 @@ class EngineTest(langVersion: LanguageVersion)
           disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = submissionSeed,
+          prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
 
@@ -1088,6 +1093,7 @@ class EngineTest(langVersion: LanguageVersion)
         disclosures = ImmArray.empty,
         participantId = participant,
         submissionSeed = submissionSeed,
+        prefetchKeys = Seq.empty,
       )
       .consume(lookupContract, lookupPackage, lookupKey)
 
@@ -1449,6 +1455,7 @@ class EngineTest(langVersion: LanguageVersion)
           disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = seed,
+          prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
 
@@ -1478,6 +1485,7 @@ class EngineTest(langVersion: LanguageVersion)
           disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = seed,
+          prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
       val nodeSeedMap = HashMap(txMeta.nodeSeeds.toSeq: _*)
@@ -1517,6 +1525,7 @@ class EngineTest(langVersion: LanguageVersion)
           disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = seed,
+          prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
 
@@ -1712,6 +1721,7 @@ class EngineTest(langVersion: LanguageVersion)
           disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = submissionSeed,
+          prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
     }
@@ -1886,6 +1896,7 @@ class EngineTest(langVersion: LanguageVersion)
           disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = submissionSeed,
+          prefetchKeys = Seq.empty,
         )
         .consume(contracts, lookupPackage, lookupKey)
 
@@ -1945,6 +1956,7 @@ class EngineTest(langVersion: LanguageVersion)
           disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = submissionSeed,
+          prefetchKeys = Seq.empty,
         )
         .consume(PartialFunction.empty, lookupPackage, PartialFunction.empty)
     }

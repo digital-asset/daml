@@ -214,6 +214,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           disclosures = commands.disclosedContracts.map(_.toLf),
           participantId = participant,
           submissionSeed = submissionSeed,
+          prefetchKeys = Seq.empty,
           config.toEngineLogger(loggerFactory.append("phase", "submission")),
         )
       }),
