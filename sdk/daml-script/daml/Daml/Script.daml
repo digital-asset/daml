@@ -7,7 +7,7 @@
 module Daml.Script
   ( Script
 --  , submit
-  , submitMustFail
+--  , submitMustFail
   , submitMulti
   , submitMultiMustFail
   , submitWithDisclosures
