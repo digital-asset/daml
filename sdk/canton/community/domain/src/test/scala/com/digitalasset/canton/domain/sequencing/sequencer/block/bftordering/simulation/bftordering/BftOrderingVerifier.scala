@@ -90,7 +90,9 @@ class BftOrderingVerifier(
         val onboardingTime = onboardingTimes(sequencer)
         if (sequencerBecomeOnlineTime(onboardingTime, simSettings) < timestamp) {
           implicit val traceContext: TraceContext = TraceContext.empty
-          // Find the most advanced store
+          // Conservatively, find the most advanced store to increase certainty that it contains the onboarding block.
+          // If the right onboarding block is not found, the simulation is supposed to fail on liveness due to a gap
+          //  in the relevant peano queue.
           val store = stores.values.maxBy( // `maxBy` can throw, it's fine for tests
             _.getLastConsecutive
               .resolveValue()

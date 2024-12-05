@@ -11,7 +11,6 @@ import com.digitalasset.canton.config.RequireTypes.{ExistingFile, Port}
 import com.digitalasset.canton.crypto.X509CertificatePem
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnection}
-import com.google.protobuf.ByteString
 
 /** Definition provided by the domain node to members with details on how to connect to the domain sequencer. * */
 sealed trait SequencerConnectionConfig {
@@ -20,24 +19,9 @@ sealed trait SequencerConnectionConfig {
 
 object SequencerConnectionConfig {
 
-  // TODO(i3804) consolidate with TlsClientCertificate
-  sealed trait CertificateConfig extends Product with Serializable {
-    def pem: X509CertificatePem
-  }
-
   /** Throws an exception if the file does not exist or cannot be loaded. */
-  final case class CertificateFile(pemFile: ExistingFile) extends CertificateConfig {
-    override val pem: X509CertificatePem = X509CertificatePem.tryFromFile(pemFile.unwrap.toScala)
-  }
-
-  /** Throws an exception if the string containing the PEM certificate cannot be loaded. */
-  final case class CertificateString(pemString: String) extends CertificateConfig {
-    override val pem: X509CertificatePem = X509CertificatePem.tryFromString(pemString)
-  }
-
-  object CertificateConfig {
-    def apply(bytes: ByteString): CertificateConfig =
-      CertificateString(bytes.toStringUtf8)
+  final case class CertificateFile(pemFile: ExistingFile) {
+    val pem: X509CertificatePem = X509CertificatePem.tryFromFile(pemFile.unwrap.toScala)
   }
 
   /** Grpc connection using a real grpc channel.

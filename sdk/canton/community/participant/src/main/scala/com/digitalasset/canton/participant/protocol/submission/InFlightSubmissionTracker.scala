@@ -151,7 +151,7 @@ class InFlightSubmissionTracker(
           )(submissionTraceContext)
           .valueOr { ropIsAlreadyAt =>
             logger.debug(
-              s"Unsequenced Inflight Submission's sequencing timeout ${unsequencedInFlight.sequencingInfo.timeout} is expired: sequencer index is already at $ropIsAlreadyAt, scheduling timely rejection as soon as possible at domain startup. [message ID: ${unsequencedInFlight.messageId}]"
+              s"Unsequenced Inflight Submission's sequencing timeout ${unsequencedInFlight.sequencingInfo.timeout} is expired: record time is already at $ropIsAlreadyAt, scheduling timely rejection as soon as possible at domain startup. [message ID: ${unsequencedInFlight.messageId}]"
             )
             recordOrderPublisher
               .scheduleFloatingEventPublicationImmediately( // if the first try fails (timeout already expired), scheduling immediately

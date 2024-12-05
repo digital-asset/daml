@@ -37,4 +37,5 @@ object BatchAggregatorConfig {
   ) extends BatchAggregatorConfig
 
   final case object NoBatching extends BatchAggregatorConfig
+
 }

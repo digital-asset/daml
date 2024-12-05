@@ -725,6 +725,8 @@ class ParallelIndexerSubscriptionSpec
     sequencerCounter = None,
     timestamp = CantonTimestamp.ofEpochMicro(156),
   )
+  private val someRecordTime1 = CantonTimestamp.ofEpochMicro(100)
+  private val someRecordTime2 = CantonTimestamp.ofEpochMicro(300)
 
   it should "populate correct ledger-end from batches for a sequencer counter moved" in {
     ParallelIndexerSubscription.ledgerEndDomainIndexFrom(
@@ -746,14 +748,17 @@ class ParallelIndexerSubscriptionSpec
     ParallelIndexerSubscription.ledgerEndDomainIndexFrom(
       Vector(
         someDomainId -> DomainIndex.of(someSequencerIndex1),
+        someDomainId -> DomainIndex.of(someRecordTime1),
         someDomainId -> DomainIndex.of(someSequencerIndex2),
         someDomainId2 -> DomainIndex.of(someRequestIndex1),
         someDomainId2 -> DomainIndex.of(someRequestIndex2),
+        someDomainId2 -> DomainIndex.of(someRecordTime1),
       )
     ) shouldBe Map(
       someDomainId -> DomainIndex(
         None,
         Some(someSequencerIndex2),
+        someSequencerIndex2.timestamp,
       ),
       someDomainId2 -> DomainIndex(
         Some(someRequestIndex2),
@@ -763,6 +768,7 @@ class ParallelIndexerSubscriptionSpec
             timestamp = CantonTimestamp.ofEpochMicro(153),
           )
         ),
+        someRequestIndex2.timestamp,
       ),
     )
   }
@@ -772,6 +778,7 @@ class ParallelIndexerSubscriptionSpec
       Vector(
         someDomainId -> DomainIndex.of(someSequencerIndex1),
         someDomainId -> DomainIndex.of(someRequestIndex1),
+        someDomainId -> DomainIndex.of(someRecordTime2),
         someDomainId2 -> DomainIndex.of(someSequencerIndex1),
         someDomainId2 -> DomainIndex.of(someRequestIndex2),
       )
@@ -784,10 +791,12 @@ class ParallelIndexerSubscriptionSpec
             timestamp = CantonTimestamp.ofEpochMicro(153),
           )
         ),
+        someRecordTime2,
       ),
       someDomainId2 -> DomainIndex(
         Some(someRequestIndex2),
         Some(someSequencerIndex1),
+        someRequestIndex2.timestamp,
       ),
     )
   }
@@ -810,6 +819,7 @@ class ParallelIndexerSubscriptionSpec
               timestamp = CantonTimestamp.ofEpochMicro(5),
             )
           ),
+          CantonTimestamp.ofEpochMicro(5),
         ),
         someDomainId2 -> DomainIndex(
           Some(someRequestIndex2),
@@ -819,6 +829,7 @@ class ParallelIndexerSubscriptionSpec
               timestamp = CantonTimestamp.ofEpochMicro(4),
             )
           ),
+          CantonTimestamp.ofEpochMicro(4),
         ),
       )
     )
@@ -908,10 +919,12 @@ class ParallelIndexerSubscriptionSpec
           someDomainId -> DomainIndex(
             None,
             Some(someSequencerIndex2),
+            someSequencerIndex2.timestamp,
           ),
           someDomainId2 -> DomainIndex(
             None,
             Some(someSequencerIndex2),
+            someSequencerIndex2.timestamp,
           ),
         )
       )
@@ -936,10 +949,12 @@ class ParallelIndexerSubscriptionSpec
           someDomainId -> DomainIndex(
             None,
             Some(someSequencerIndex2),
+            someSequencerIndex2.timestamp,
           ),
           someDomainId2 -> DomainIndex(
             Some(someRequestIndex2),
             Some(someSequencerIndex2),
+            someSequencerIndex2.timestamp,
           ),
         )
       )

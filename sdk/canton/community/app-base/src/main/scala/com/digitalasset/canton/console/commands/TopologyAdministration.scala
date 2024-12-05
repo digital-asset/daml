@@ -41,7 +41,10 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.TopologyStore.Authorized
 import com.digitalasset.canton.topology.admin.grpc.{BaseQuery, TopologyStore}
-import com.digitalasset.canton.topology.admin.v30.GenesisStateResponse
+import com.digitalasset.canton.topology.admin.v30.{
+  ExportTopologySnapshotResponse,
+  GenesisStateResponse,
+}
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransaction,
@@ -365,6 +368,7 @@ class TopologyAdministrationGroup(
         filterAuthorizedKey: Option[Fingerprint] = None,
         protocolVersion: Option[String] = None,
         filterNamespace: String = "",
+        timeout: NonNegativeDuration = timeouts.unbounded,
     ): ByteString = {
       if (filterMappings.nonEmpty && excludeMappings.nonEmpty) {
         consoleEnvironment.run(
@@ -378,19 +382,30 @@ class TopologyAdministrationGroup(
 
       consoleEnvironment
         .run {
-          adminCommand(
-            TopologyAdminCommands.Read.ExportTopologySnapshot(
-              BaseQuery(
-                filterStore,
-                proposals,
-                timeQuery,
-                operation,
-                filterSigningKey = filterAuthorizedKey.map(_.toProtoPrimitive).getOrElse(""),
-                protocolVersion.map(ProtocolVersion.tryCreate),
-              ),
-              excludeMappings = excludeMappingsCodes,
-              filterNamespace = filterNamespace,
+          val responseObserver =
+            new ByteStringStreamObserver[ExportTopologySnapshotResponse](_.chunk)
+
+          def call: ConsoleCommandResult[Context.CancellableContext] =
+            adminCommand(
+              TopologyAdminCommands.Read.ExportTopologySnapshot(
+                responseObserver,
+                BaseQuery(
+                  filterStore,
+                  proposals,
+                  timeQuery,
+                  operation,
+                  filterSigningKey = filterAuthorizedKey.map(_.toProtoPrimitive).getOrElse(""),
+                  protocolVersion.map(ProtocolVersion.tryCreate),
+                ),
+                excludeMappings = excludeMappingsCodes,
+                filterNamespace = filterNamespace,
+              )
             )
+          processResult(
+            call,
+            responseObserver.resultBytes,
+            timeout,
+            s"Exporting the topology state from store $filterStore",
           )
         }
     }

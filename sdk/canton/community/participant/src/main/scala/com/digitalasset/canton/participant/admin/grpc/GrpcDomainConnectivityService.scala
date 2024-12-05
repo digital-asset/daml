@@ -23,10 +23,10 @@ import com.digitalasset.canton.participant.domain.{
   DomainRegistryError,
   DomainRegistryHelpers,
 }
+import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.participant.sync.CantonSyncService.ConnectDomain
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceInternalError.DomainIsMissingInternally
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceUnknownDomain
-import com.digitalasset.canton.participant.sync.{CantonSyncService, SyncServiceError}
 import com.digitalasset.canton.sequencing.SequencerConnectionValidation
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
@@ -192,24 +192,21 @@ class GrpcDomainConnectivityService(
       validation <- EitherT.fromEither[FutureUnlessShutdown](
         parseSequencerConnectionValidation(sequencerConnectionValidationPO)
       )
-      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
-        !(config.manualConnect && handshakeOnly),
-        SyncServiceError.InvalidArgument
-          .Error("For handshakeOnly to be useful, manualConnect should be set to false"),
-      )
       _ = logger.info(show"Registering new domain $config")
       _ <- sync.addDomain(config, validation)
       _ <-
-        if (!config.manualConnect) for {
-          success <-
-            sync.connectDomain(
-              config.domain,
-              keepRetrying = false,
-              connectDomain = connectDomain,
-            )
-          _ <- waitUntilActiveIfSuccess(success, config.domain)
-        } yield ()
-        else EitherT.rightT[FutureUnlessShutdown, BaseCantonError](())
+        if (!config.manualConnect) {
+          logger.info(s"Connecting to domain $config")
+          for {
+            success <-
+              sync.connectDomain(
+                domainAlias = config.domain,
+                keepRetrying = false,
+                connectDomain = connectDomain,
+              )
+            _ <- waitUntilActiveIfSuccess(success, config.domain)
+          } yield ()
+        } else EitherT.rightT[FutureUnlessShutdown, BaseCantonError](())
     } yield v30.RegisterDomainResponse()
     CantonGrpcUtil.mapErrNewEUS(ret)
   }

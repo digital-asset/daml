@@ -121,6 +121,8 @@ class SyncDomain(
     reassignmentCoordination: ReassignmentCoordination,
     commandProgressTracker: CommandProgressTracker,
     messageDispatcherFactory: MessageDispatcher.Factory[MessageDispatcher],
+    journalGarbageCollector: JournalGarbageCollector,
+    val acsCommitmentProcessor: AcsCommitmentProcessor,
     clock: Clock,
     metrics: SyncDomainMetrics,
     futureSupervisor: FutureSupervisor,
@@ -234,58 +236,8 @@ class SyncDomain(
     this,
   )
 
-  private val sortedReconciliationIntervalsProvider = new SortedReconciliationIntervalsProvider(
-    topologyClient,
-    futureSupervisor,
-    loggerFactory,
-  )
-
-  private val journalGarbageCollector = new JournalGarbageCollector(
-    persistent.requestJournalStore,
-    tc => ephemeral.ledgerApiIndexer.ledgerApiStore.value.cleanDomainIndex(domainId)(tc),
-    sortedReconciliationIntervalsProvider,
-    persistent.acsCommitmentStore,
-    persistent.activeContractStore,
-    persistent.submissionTrackerStore,
-    participantNodePersistentState.map(_.inFlightSubmissionStore),
-    domainId,
-    parameters.journalGarbageCollectionDelay,
-    timeouts,
-    loggerFactory,
-  )
-
-  private[canton] val acsCommitmentProcessor = {
-    import TraceContext.Implicits.Empty.*
-    for {
-      listener <- AcsCommitmentProcessor(
-        domainId,
-        participantId,
-        sequencerClient,
-        domainCrypto,
-        sortedReconciliationIntervalsProvider,
-        persistent.acsCommitmentStore,
-        journalGarbageCollector.observer,
-        metrics.commitments,
-        staticDomainParameters.protocolVersion,
-        timeouts,
-        futureSupervisor,
-        persistent.activeContractStore,
-        participantNodePersistentState.value.acsCounterParticipantConfigStore,
-        participantNodePersistentState.value.contractStore,
-        persistent.enableAdditionalConsistencyChecks,
-        loggerFactory,
-        testingConfig,
-        clock,
-        exitOnFatalFailures = parameters.exitOnFatalFailures,
-      )
-    } yield listener
-  }
-
   private val topologyProcessor =
-    for {
-      acp <- acsCommitmentProcessor
-      tp = topologyProcessorFactory.create(acp.scheduleTopologyTick)
-    } yield tp
+    topologyProcessorFactory.create(acsCommitmentProcessor.scheduleTopologyTick)
 
   private val trafficProcessor =
     new TrafficControlProcessor(
@@ -331,30 +283,27 @@ class SyncDomain(
     sequencerClient,
   )
 
-  private val messageDispatcher: FutureUnlessShutdown[MessageDispatcher] =
-    for {
-      acp <- acsCommitmentProcessor
-      tp <- topologyProcessor
-      md = messageDispatcherFactory.create(
-        staticDomainParameters.protocolVersion,
-        domainId,
-        participantId,
-        ephemeral.requestTracker,
-        transactionProcessor,
-        unassignmentProcessor,
-        assignmentProcessor,
-        tp,
-        trafficProcessor,
-        acp.processBatch,
-        ephemeral.requestCounterAllocator,
-        ephemeral.recordOrderPublisher,
-        badRootHashMessagesRequestProcessor,
-        repairProcessor,
-        ephemeral.inFlightSubmissionDomainTracker,
-        loggerFactory,
-        metrics,
-      )
-    } yield md
+  // MARK
+  private val messageDispatcher: MessageDispatcher =
+    messageDispatcherFactory.create(
+      staticDomainParameters.protocolVersion,
+      domainId,
+      participantId,
+      ephemeral.requestTracker,
+      transactionProcessor,
+      unassignmentProcessor,
+      assignmentProcessor,
+      topologyProcessor,
+      trafficProcessor,
+      acsCommitmentProcessor.processBatch,
+      ephemeral.requestCounterAllocator,
+      ephemeral.recordOrderPublisher,
+      badRootHashMessagesRequestProcessor,
+      repairProcessor,
+      ephemeral.inFlightSubmissionDomainTracker,
+      loggerFactory,
+      metrics,
+    )
 
   def addJournalGarageCollectionLock()(implicit
       traceContext: TraceContext
@@ -440,14 +389,13 @@ class SyncDomain(
     ): EitherT[FutureUnlessShutdown, SyncDomainInitializationError, Unit] = {
       val store = domainHandle.domainPersistentState.topologyStore
       for {
-        acp <- EitherT.right[SyncDomainInitializationError](acsCommitmentProcessor)
         _ <- EitherT
           .right(store.findUpcomingEffectiveChanges(timestamp).map { changes =>
             changes.headOption.foreach { head =>
               logger.debug(
                 s"Initialising the acs commitment processor with ${changes.length} effective times starting from: ${head.validFrom}"
               )
-              acp.initializeTicksOnStartup(changes.map(_.validFrom).toList)
+              acsCommitmentProcessor.initializeTicksOnStartup(changes.map(_.validFrom).toList)
             }
           })
       } yield ()
@@ -494,7 +442,7 @@ class SyncDomain(
       // once the first event is dispatched.
       // however, this is bad for reassignment processing as we need to be able to access the topology state
       // across domains and this requires that the clients are separately initialised on the participants
-      val resubscriptionTs = ephemeral.startingPoints.processing.prenextTimestamp
+      val resubscriptionTs = ephemeral.startingPoints.processing.lastSequencerTimestamp
       logger.debug(s"Initialising topology client at clean head=$resubscriptionTs")
       // startup with the resubscription-ts
       topologyClient.updateHead(
@@ -526,7 +474,7 @@ class SyncDomain(
 
     val startingPoints = ephemeral.startingPoints
     val cleanHeadRc = startingPoints.processing.nextRequestCounter
-    val cleanHeadPrets = startingPoints.processing.prenextTimestamp
+    val cleanHeadPrets = startingPoints.processing.lastSequencerTimestamp
 
     for {
       // Prepare missing key alerter
@@ -569,9 +517,8 @@ class SyncDomain(
             TimeOfChange(cleanHeadRc, cleanHeadPrets),
           ).mapK(FutureUnlessShutdown.outcomeK)
         } else EitherT.pure[FutureUnlessShutdown, SyncDomainInitializationError](Seq.empty)
-      acp <- EitherT.right[SyncDomainInitializationError](acsCommitmentProcessor)
       _ = acsChangesToReplay.foreach { case (toc, change) =>
-        acp.publish(toc, change)
+        acsCommitmentProcessor.publish(toc, change)
       }
     } yield ()
   }
@@ -597,7 +544,7 @@ class SyncDomain(
           .fold(_ => SequencerCounter.Genesis, _.counter + 1)
 
       val cleanProcessingTs =
-        ephemeral.startingPoints.processing.prenextTimestamp
+        ephemeral.startingPoints.processing.lastSequencerTimestamp
       // note: we need the optional here, since it changes the behavior inside (subscribing from Some(CantonTimestamp.MinValue) would result in timeouts at requesting topology snapshot ... has not completed after...)
       val cleanProcessingTsO = Some(cleanProcessingTs)
         .filterNot(_ == CantonTimestamp.MinValue)
@@ -629,8 +576,6 @@ class SyncDomain(
         firstUnpersistedEventSc <- EitherT
           .liftF(firstUnpersistedEventScF)
           .mapK(FutureUnlessShutdown.outcomeK)
-        md <- EitherT
-          .liftF(messageDispatcher)
         monitor = new SyncDomain.EventProcessingMonitor(
           ephemeral.startingPoints,
           firstUnpersistedEventSc,
@@ -649,10 +594,7 @@ class SyncDomain(
                 domainTimeTracker: DomainTimeTracker,
             )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
               Seq(
-                for {
-                  tp <- topologyProcessor
-                  _ <- tp.subscriptionStartsAt(start, domainTimeTracker)(traceContext)
-                } yield (),
+                topologyProcessor.subscriptionStartsAt(start, domainTimeTracker)(traceContext),
                 trafficProcessor.subscriptionStartsAt(start, domainTimeTracker)(traceContext),
               ).parSequence_
 
@@ -680,7 +622,7 @@ class SyncDomain(
                   openedEvent
                 }
 
-                md.handleAll(Traced(openEvents)(traceContext))
+                messageDispatcher.handleAll(Traced(openEvents)(traceContext))
               }
           }
         _ <- EitherT
@@ -694,7 +636,7 @@ class SyncDomain(
                 FutureUnlessShutdown.outcomeF(
                   participantNodePersistentState.value.ledgerApiStore
                     .cleanDomainIndex(domainId)(tc)
-                    .map(_.sequencerIndex.map(_.timestamp))
+                    .map(_.flatMap(_.sequencerIndex).map(_.timestamp))
                 ),
             )(initializationTraceContext)
           )
@@ -926,8 +868,7 @@ class SyncDomain(
   def logout()(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Status, Unit] =
     sequencerClient.logout()
 
-  override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {
-    import TraceContext.Implicits.Empty.*
+  override protected def closeAsync(): Seq[AsyncOrSyncCloseable] =
     // As the commitment and protocol processors use the sequencer client to send messages, close
     // them before closing the domainHandle. Both of them will ignore the requests from the message dispatcher
     // after they get closed.
@@ -941,27 +882,18 @@ class SyncDomain(
           // their shutdown is initiated.
           sequencerClient,
           journalGarbageCollector,
-          AsyncCloseable(
-            "acsCommitmentProcessor",
-            acsCommitmentProcessor.unwrap.map(_.map(_.close())),
-            timeouts.shutdownShort,
-          ),
+          acsCommitmentProcessor,
           transactionProcessor,
           unassignmentProcessor,
           assignmentProcessor,
           badRootHashMessagesRequestProcessor,
-          AsyncCloseable(
-            "topologyProcessor",
-            topologyProcessor.unwrap.map(_.map(_.close())),
-            timeouts.shutdownShort,
-          ),
+          topologyProcessor,
           ephemeral.timeTracker, // need to close time tracker before domain handle, as it might otherwise send messages
           domainHandle,
           ephemeral,
         )(logger),
       )
     )
-  }
 
   override def toString: String = s"SyncDomain(domain=$domainId, participant=$participantId)"
 }
@@ -1035,7 +967,7 @@ object SyncDomain {
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
         testingConfig: TestingConfigInternal,
-    )(implicit ec: ExecutionContext, mat: Materializer, tracer: Tracer): T
+    )(implicit ec: ExecutionContext, mat: Materializer, tracer: Tracer): FutureUnlessShutdown[T]
   }
 
   object DefaultFactory extends Factory[SyncDomain] {
@@ -1060,8 +992,53 @@ object SyncDomain {
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
         testingConfig: TestingConfigInternal,
-    )(implicit ec: ExecutionContext, mat: Materializer, tracer: Tracer): SyncDomain =
-      new SyncDomain(
+    )(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        tracer: Tracer,
+    ): FutureUnlessShutdown[SyncDomain] = {
+      import TraceContext.Implicits.Empty.*
+      val sortedReconciliationIntervalsProvider = new SortedReconciliationIntervalsProvider(
+        domainHandle.topologyClient,
+        futureSupervisor,
+        loggerFactory,
+      )
+      val journalGarbageCollector = new JournalGarbageCollector(
+        persistentState.requestJournalStore,
+        tc => ephemeralState.ledgerApiIndexer.ledgerApiStore.value.cleanDomainIndex(domainId)(tc),
+        sortedReconciliationIntervalsProvider,
+        persistentState.acsCommitmentStore,
+        persistentState.activeContractStore,
+        persistentState.submissionTrackerStore,
+        participantNodePersistentState.map(_.inFlightSubmissionStore),
+        domainId,
+        parameters.journalGarbageCollectionDelay,
+        parameters.processingTimeouts,
+        loggerFactory,
+      )
+      for {
+        acsCommitmentProcessor <- AcsCommitmentProcessor(
+          domainId,
+          participantId,
+          domainHandle.sequencerClient,
+          domainCrypto,
+          sortedReconciliationIntervalsProvider,
+          persistentState.acsCommitmentStore,
+          journalGarbageCollector.observer,
+          syncDomainMetrics.commitments,
+          domainHandle.staticParameters.protocolVersion,
+          parameters.processingTimeouts,
+          futureSupervisor,
+          persistentState.activeContractStore,
+          participantNodePersistentState.value.acsCounterParticipantConfigStore,
+          participantNodePersistentState.value.contractStore,
+          persistentState.enableAdditionalConsistencyChecks,
+          loggerFactory,
+          testingConfig,
+          clock,
+          exitOnFatalFailures = parameters.exitOnFatalFailures,
+        )
+      } yield new SyncDomain(
         domainId,
         domainHandle,
         participantId,
@@ -1078,12 +1055,15 @@ object SyncDomain {
         reassignmentCoordination,
         commandProgressTracker,
         ParallelMessageDispatcherFactory,
+        journalGarbageCollector,
+        acsCommitmentProcessor,
         clock,
         syncDomainMetrics,
         futureSupervisor,
         loggerFactory,
         testingConfig,
       )
+    }
   }
 }
 

@@ -23,6 +23,12 @@ public interface TreeEvent {
   String getEventId();
 
   @NonNull
+  Long getOffset();
+
+  @NonNull
+  Integer getNodeId();
+
+  @NonNull
   Identifier getTemplateId();
 
   @NonNull

@@ -302,9 +302,8 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
       signingKeys <- storedSigningKeys.toSeq.parTraverseFilter(spk =>
         signingKey(spk.id).map(_.map(spk -> _))
       )
-      migratedKeys = signingKeys.collect {
-        case (stored, privateKey @ SigningPrivateKey(_id, _format, _key, _scheme, _usage))
-            if privateKey.migrated =>
+      migratedSigningKeys = signingKeys.collect {
+        case (stored, privateKey) if privateKey.migrated =>
           new StoredPrivateKey(
             id = privateKey.id,
             data = privateKey.toByteString(releaseProtocolVersion.v),
@@ -313,10 +312,33 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
             wrapperKeyId = stored.wrapperKeyId,
           )
       }
-      _ <- replaceStoredPrivateKeys(migratedKeys)
-      _ = logger.info(s"Migrated ${migratedKeys.size} of ${storedSigningKeys.size} private keys")
+      _ <- replaceStoredPrivateKeys(migratedSigningKeys)
+      _ = logger.info(
+        s"Migrated ${migratedSigningKeys.size} of ${storedSigningKeys.size} private signing keys"
+      )
       // Remove migrated keys from the cache
-      _ = signingKeyMap.filterInPlace((fp, _) => !migratedKeys.map(_.id).contains(fp))
+      _ = signingKeyMap.filterInPlace((fp, _) => !migratedSigningKeys.map(_.id).contains(fp))
+
+      storedEncryptionKeys <- listPrivateKeys(KeyPurpose.Encryption)
+      encryptionKeys <- storedEncryptionKeys.toSeq.parTraverseFilter(spk =>
+        decryptionKey(spk.id).map(_.map(spk -> _))
+      )
+      migratedEncryptionKeys = encryptionKeys.collect {
+        case (stored, privateKey) if privateKey.migrated =>
+          new StoredPrivateKey(
+            id = privateKey.id,
+            data = privateKey.toByteString(releaseProtocolVersion.v),
+            purpose = privateKey.purpose,
+            name = stored.name,
+            wrapperKeyId = stored.wrapperKeyId,
+          )
+      }
+      _ <- replaceStoredPrivateKeys(migratedEncryptionKeys)
+      _ = logger.info(
+        s"Migrated ${migratedEncryptionKeys.size} of ${storedEncryptionKeys.size} private encryption keys"
+      )
+      // Remove migrated keys from the cache
+      _ = decryptionKeyMap.filterInPlace((fp, _) => !migratedEncryptionKeys.map(_.id).contains(fp))
     } yield ()
   }
 
@@ -342,16 +364,24 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
   private def allPrivateKeysConverted()(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Boolean] = {
-    // Ensure we don't read from the cache
+    // Ensure we don't read from the caches
     signingKeyMap.clear()
+    decryptionKeyMap.clear()
 
     for {
       storedSigningKeys <- listPrivateKeys(KeyPurpose.Signing)
       signingKeys <- storedSigningKeys.toSeq.parTraverseFilter(spk =>
         signingKey(spk.id).map(_.map(spk -> _))
       )
-    } yield signingKeys.forall {
-      case (_stored, key @ SigningPrivateKey(_id, _format, _key, _scheme, _usage)) => !key.migrated
+      storedEncryptionKeys <- listPrivateKeys(KeyPurpose.Encryption)
+      encryptionKeys <- storedEncryptionKeys.toSeq.parTraverseFilter(spk =>
+        decryptionKey(spk.id).map(_.map(spk -> _))
+      )
+    } yield {
+      val noSigningKeysMigrated = signingKeys.forall { case (_stored, key) => !key.migrated }
+      val noEncryptionKeysMigrated = encryptionKeys.forall { case (_stored, key) => !key.migrated }
+
+      noSigningKeysMigrated && noEncryptionKeysMigrated
     }
   }
 
@@ -362,12 +392,10 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Seq[Fingerprint]] = {
     logger.info("Reverse-migrating keys in private key store")
 
-    for {
-      storedSigningKeys <- listPrivateKeys(KeyPurpose.Signing)
-      signingKeys <- storedSigningKeys.toSeq.parTraverseFilter(spk =>
-        signingKey(spk.id).map(_.map(spk -> _))
-      )
-      migratedKeys = signingKeys.mapFilter { case (stored, privateKey) =>
+    def reverseMigrateKeys[K <: PrivateKey](
+        keys: Seq[(StoredPrivateKey, K)]
+    ): Seq[StoredPrivateKey] =
+      keys.mapFilter { case (stored, privateKey) =>
         for {
           legacyPrivateKey <- privateKey.reverseMigrate()
         } yield new StoredPrivateKey(
@@ -378,15 +406,36 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
           wrapperKeyId = stored.wrapperKeyId,
         )
       }
-      _ <- replaceStoredPrivateKeys(migratedKeys)
+
+    for {
+      storedSigningKeys <- listPrivateKeys(KeyPurpose.Signing)
+      signingKeys <- storedSigningKeys.toSeq.parTraverseFilter(spk =>
+        signingKey(spk.id).map(_.map(spk -> _))
+      )
+      migratedSigningKeys = reverseMigrateKeys(signingKeys)
+      _ <- replaceStoredPrivateKeys(migratedSigningKeys)
       _ = logger.info(
-        s"Reverse-migrated ${migratedKeys.size} of ${storedSigningKeys.size} private keys"
+        s"Reverse-migrated ${migratedSigningKeys.size} of ${storedSigningKeys.size} private keys"
+      )
+
+      storedEncryptionKeys <- listPrivateKeys(KeyPurpose.Encryption)
+      encryptionKeys <- storedEncryptionKeys.toSeq.parTraverseFilter(spk =>
+        decryptionKey(spk.id).map(_.map(spk -> _))
+      )
+      migratedEncryptionKeys = reverseMigrateKeys(encryptionKeys)
+      _ <- replaceStoredPrivateKeys(migratedEncryptionKeys)
+      _ = logger.info(
+        s"Reverse-migrated ${migratedEncryptionKeys.size} of ${storedEncryptionKeys.size} encryption keys"
       )
     } yield {
-      val migratedKeyIds = migratedKeys.map(_.id)
+      val migratedSigningKeyIds = migratedSigningKeys.map(_.id)
+      val migratedEncryptionKeyIds = migratedEncryptionKeys.map(_.id)
+
       // Remove migrated keys from the cache
-      signingKeyMap.filterInPlace((fp, _) => !migratedKeys.map(_.id).contains(fp))
-      migratedKeyIds
+      signingKeyMap.filterInPlace((fp, _) => !migratedSigningKeyIds.contains(fp))
+      decryptionKeyMap.filterInPlace((fp, _) => !migratedEncryptionKeyIds.contains(fp))
+
+      migratedSigningKeyIds ++ migratedEncryptionKeyIds
     }
   }
 }

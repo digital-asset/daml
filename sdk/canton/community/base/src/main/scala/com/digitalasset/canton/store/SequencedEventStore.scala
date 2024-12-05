@@ -134,6 +134,10 @@ object SequencedEventStore {
   /** Finds the event with the highest timestamp before or at `inclusive` */
   final case class LatestUpto(inclusive: CantonTimestamp) extends SearchCriterion
 
+  object SearchCriterion {
+    val Latest: SearchCriterion = LatestUpto(CantonTimestamp.MaxValue)
+  }
+
   /** Finds a sequence of events within a range */
   sealed trait RangeCriterion extends Product with Serializable with PrettyPrinting
 

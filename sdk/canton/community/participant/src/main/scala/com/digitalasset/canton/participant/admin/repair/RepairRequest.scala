@@ -21,7 +21,7 @@ private[repair] final case class RepairRequest(
     context: RepairContext,
 ) {
 
-  val timestamp: CantonTimestamp = domain.startingPoints.processing.prenextTimestamp
+  val timestamp: CantonTimestamp = domain.startingPoints.processing.currentRecordTime
 
   def firstTimeOfChange: TimeOfChange = TimeOfChange(requestCounters.head1, timestamp)
 

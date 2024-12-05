@@ -143,6 +143,11 @@ class DatabaseSequencer(
     )
     with FlagCloseable {
 
+  require(
+    blockSequencerMode || config.writer.eventWriteMaxConcurrency == 1,
+    "The database sequencer must be configured with writer.event-write-max-concurrency = 1",
+  )
+
   private val writer = SequencerWriter(
     config.writer,
     writerStorageFactory,

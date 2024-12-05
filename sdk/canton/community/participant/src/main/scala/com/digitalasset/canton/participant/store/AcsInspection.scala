@@ -82,7 +82,7 @@ class AcsInspection(
       ec: ExecutionContext,
   ): Future[Option[AcsSnapshot[SortedMap[LfContractId, (CantonTimestamp, ReassignmentCounter)]]]] =
     for {
-      requestIndex <- ledgerApiStore.value.cleanDomainIndex(domainId).map(_.requestIndex)
+      requestIndex <- ledgerApiStore.value.cleanDomainIndex(domainId).map(_.flatMap(_.requestIndex))
       snapshot <- requestIndex
         .traverse { cursorHead =>
           val ts = cursorHead.timestamp
@@ -113,7 +113,7 @@ class AcsInspection(
           TimestampValidation
             .beforeRequestIndex(
               domainId,
-              ledgerApiStore.value.cleanDomainIndex(domainId).map(_.requestIndex),
+              ledgerApiStore.value.cleanDomainIndex(domainId).map(_.flatMap(_.requestIndex)),
               timestamp,
             )
             .mapK(FutureUnlessShutdown.outcomeK)

@@ -8,6 +8,7 @@ import com.google.common.annotations.VisibleForTesting
 
 final case class Membership(myId: SequencerId, orderingTopology: OrderingTopology) {
   val otherPeers: Set[SequencerId] = orderingTopology.peers - myId
+  val sortedPeers = orderingTopology.peers.toList.sorted
 }
 
 object Membership {

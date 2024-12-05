@@ -111,7 +111,7 @@ trait ParameterStorageBackend {
     */
   def ledgerEnd(connection: Connection): Option[ParameterStorageBackend.LedgerEnd]
 
-  def cleanDomainIndex(domainId: DomainId)(connection: Connection): DomainIndex
+  def cleanDomainIndex(domainId: DomainId)(connection: Connection): Option[DomainIndex]
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */

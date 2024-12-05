@@ -797,6 +797,8 @@ final case class SigningPublicKey private[crypto] (
     with PrettyPrinting
     with HasVersionedWrapper[SigningPublicKey] {
 
+  override type K = SigningPublicKey
+
   override val purpose: KeyPurpose = KeyPurpose.Signing
 
   override protected def companionObj: SigningPublicKey.type = SigningPublicKey
@@ -827,50 +829,60 @@ final case class SigningPublicKey private[crypto] (
   override protected def pretty: Pretty[SigningPublicKey] =
     prettyOfClass(param("id", _.id), param("format", _.format), param("keySpec", _.keySpec))
 
-  private def migrate(): Either[KeyParseAndValidateError, Option[SigningPublicKey]] =
+  @nowarn("msg=Der in object CryptoKeyFormat is deprecated")
+  private def migrate(): Either[KeyParseAndValidateError, Option[SigningPublicKey]] = {
+    def mkNewKeyO(
+        newKey: ByteString
+    ): Either[KeyParseAndValidateError, Option[SigningPublicKey]] = {
+      val newFormat = CryptoKeyFormat.DerX509Spki
+      getDataForFingerprint(keySpec, newFormat, newKey).map(dataForFpO =>
+        Some(SigningPublicKey(newFormat, newKey, keySpec, usage, dataForFpO)(migrated = true))
+      )
+    }
+
     (keySpec, format) match {
       case (SigningKeySpec.EcCurve25519, CryptoKeyFormat.Raw) =>
+        // The key is stored as pure bytes; we need to convert it to a SubjectPublicKeyInfo structure
         val algoId = new AlgorithmIdentifier(EdECObjectIdentifiers.id_Ed25519)
         val subjectPublicKeyInfo =
           new SubjectPublicKeyInfo(algoId, key.toByteArray).getEncoded
 
-        val newFormat = CryptoKeyFormat.DerX509Spki
-        val newKey = ByteString.copyFrom(subjectPublicKeyInfo)
+        mkNewKeyO(ByteString.copyFrom(subjectPublicKeyInfo))
 
-        for {
-          dataForFingerprintO <- getDataForFingerprint(keySpec, newFormat, newKey)
-        } yield Some(
-          SigningPublicKey(newFormat, newKey, keySpec, usage, dataForFingerprintO)(migrated = true)
-        )
+      case (SigningKeySpec.EcP256, CryptoKeyFormat.Der) |
+          (SigningKeySpec.EcP384, CryptoKeyFormat.Der) =>
+        mkNewKeyO(key)
 
       case _ => Right(None)
     }
+  }
 
   @VisibleForTesting
-  // Inverse operation from migrate(): used in tests to produce legacy keys.
-  private[canton] def reverseMigrate(): Option[SigningPublicKey] = this match {
-    case SigningPublicKey(
-          CryptoKeyFormat.DerX509Spki,
-          key,
-          SigningKeySpec.EcCurve25519,
-          usage,
-          _dataForFingerprintO,
-        ) =>
-      val subjectPublicKeyInfo = SubjectPublicKeyInfo.getInstance(key.toByteArray)
-      val publicKeyData = subjectPublicKeyInfo.getPublicKeyData.getBytes
+  @nowarn("msg=Der in object CryptoKeyFormat is deprecated")
+  override private[canton] def reverseMigrate(): Option[K] =
+    (keySpec, format) match {
+      case (SigningKeySpec.EcCurve25519, CryptoKeyFormat.DerX509Spki) =>
+        val subjectPublicKeyInfo = SubjectPublicKeyInfo.getInstance(key.toByteArray)
+        val publicKeyData = subjectPublicKeyInfo.getPublicKeyData.getBytes
 
-      Some(
-        SigningPublicKey(
-          CryptoKeyFormat.Raw,
-          ByteString.copyFrom(publicKeyData),
-          SigningKeySpec.EcCurve25519,
-          usage,
-          dataForFingerprintO = None,
-        )()
-      )
+        Some(
+          SigningPublicKey(
+            CryptoKeyFormat.Raw,
+            ByteString.copyFrom(publicKeyData),
+            SigningKeySpec.EcCurve25519,
+            usage,
+            dataForFingerprintO = None,
+          )()
+        )
 
-    case _ => None
-  }
+      case (SigningKeySpec.EcP256, CryptoKeyFormat.DerX509Spki) |
+          (SigningKeySpec.EcP384, CryptoKeyFormat.DerX509Spki) =>
+        Some(
+          SigningPublicKey(CryptoKeyFormat.Der, key, keySpec, usage, dataForFingerprintO = None)()
+        )
+
+      case _ => None
+    }
 }
 
 object SigningPublicKey
@@ -965,7 +977,7 @@ final case class SigningPublicKeyWithName(
 ) extends PublicKeyWithName
     with PrettyPrinting {
 
-  type K = SigningPublicKey
+  type PK = SigningPublicKey
 
   override val id: Fingerprint = publicKey.id
 
@@ -992,6 +1004,8 @@ final case class SigningPrivateKey private (
 ) extends PrivateKey
     with HasVersionedWrapper[SigningPrivateKey] {
 
+  override type K = SigningPrivateKey
+
   override protected def companionObj: SigningPrivateKey.type = SigningPrivateKey
 
   def toProtoV30: v30.SigningPrivateKey =
@@ -1010,48 +1024,59 @@ final case class SigningPrivateKey private (
   override protected def toProtoPrivateKeyKeyV30: v30.PrivateKey.Key =
     v30.PrivateKey.Key.SigningPrivateKey(toProtoV30)
 
-  private def migrate(): Option[SigningPrivateKey] = (keySpec, format) match {
-    case (SigningKeySpec.EcCurve25519, CryptoKeyFormat.Raw) =>
-      val algoId = new AlgorithmIdentifier(EdECObjectIdentifiers.id_Ed25519)
-      val privateKeyInfo = new PrivateKeyInfo(
-        algoId,
-        new DEROctetString(key.toByteArray),
-      ).getEncoded
-
+  @nowarn("msg=Der in object CryptoKeyFormat is deprecated")
+  private[crypto] def migrate(): Option[SigningPrivateKey] = {
+    def mkNewKeyO(newKey: ByteString): Option[SigningPrivateKey] = {
       val newFormat = CryptoKeyFormat.DerPkcs8Pki
-      val newKey = ByteString.copyFrom(privateKeyInfo)
-
       Some(SigningPrivateKey(id, newFormat, newKey, keySpec, usage)(migrated = true))
+    }
 
-    case _ => None
+    (keySpec, format) match {
+      case (SigningKeySpec.EcCurve25519, CryptoKeyFormat.Raw) =>
+        // The key is stored as pure bytes; we need to convert it to a PrivateKeyInfo structure
+        val algoId = new AlgorithmIdentifier(EdECObjectIdentifiers.id_Ed25519)
+        val privateKeyInfo = new PrivateKeyInfo(
+          algoId,
+          new DEROctetString(key.toByteArray),
+        ).getEncoded
+
+        mkNewKeyO(ByteString.copyFrom(privateKeyInfo))
+
+      case (SigningKeySpec.EcP256, CryptoKeyFormat.Der) |
+          (SigningKeySpec.EcP384, CryptoKeyFormat.Der) =>
+        mkNewKeyO(key)
+
+      case _ => None
+    }
   }
 
   @VisibleForTesting
-  // Inverse operation from migrate(): used in tests to produce legacy keys.
-  private[canton] def reverseMigrate(): Option[SigningPrivateKey] = this match {
-    case SigningPrivateKey(
-          id,
-          CryptoKeyFormat.DerPkcs8Pki,
-          key,
-          SigningKeySpec.EcCurve25519,
-          usage,
-        ) =>
-      val privateKeyInfo = PrivateKeyInfo.getInstance(key.toByteArray)
-      val privateKeyData =
-        ASN1OctetString.getInstance(privateKeyInfo.getPrivateKey.getOctets).getOctets
+  @nowarn("msg=Der in object CryptoKeyFormat is deprecated")
+  override private[canton] def reverseMigrate(): Option[K] =
+    (keySpec, format) match {
+      case (SigningKeySpec.EcCurve25519, CryptoKeyFormat.DerPkcs8Pki) =>
+        val privateKeyInfo = PrivateKeyInfo.getInstance(key.toByteArray)
+        val privateKeyData =
+          ASN1OctetString.getInstance(privateKeyInfo.getPrivateKey.getOctets).getOctets
 
-      Some(
-        new SigningPrivateKey(
-          id,
-          CryptoKeyFormat.Raw,
-          ByteString.copyFrom(privateKeyData),
-          SigningKeySpec.EcCurve25519,
-          usage,
-        )()
-      )
+        Some(
+          new SigningPrivateKey(
+            id,
+            CryptoKeyFormat.Raw,
+            ByteString.copyFrom(privateKeyData),
+            SigningKeySpec.EcCurve25519,
+            usage,
+          )()
+        )
 
-    case _ => None
-  }
+      case (SigningKeySpec.EcP256, CryptoKeyFormat.DerPkcs8Pki) |
+          (SigningKeySpec.EcP384, CryptoKeyFormat.DerPkcs8Pki) =>
+        Some(
+          SigningPrivateKey(id, CryptoKeyFormat.Der, key, keySpec, usage)()
+        )
+
+      case _ => None
+    }
 }
 
 object SigningPrivateKey extends HasVersionedMessageCompanion[SigningPrivateKey] {

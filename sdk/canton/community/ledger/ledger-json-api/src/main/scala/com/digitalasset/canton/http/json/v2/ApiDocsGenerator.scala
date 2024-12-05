@@ -31,6 +31,7 @@ object ApiDocsGenerator {
         JsUserManagementService,
         JsIdentityProviderService,
         JsMeteringService,
+        JsInteractiveSubmissionService,
       )
     services.flatMap(service => service.documentation)
   }

@@ -9,6 +9,7 @@ import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.api.v2.{
   command_completion_service,
   command_submission_service,
+  commands,
   completion,
   reassignment_command,
 }
@@ -234,15 +235,9 @@ final case class JsCommands(
     act_as: Seq[String],
     read_as: Seq[String],
     submission_id: String,
-    disclosed_contracts: Seq[JsDisclosedContract],
+    disclosed_contracts: Seq[com.daml.ledger.api.v2.commands.DisclosedContract],
     domain_id: String,
     package_id_selection_preference: Seq[String],
-)
-final case class JsDisclosedContract(
-    template_id: String,
-    contract_id: String,
-    created_event_blob: com.google.protobuf.ByteString,
-    domain_id: Option[String],
 )
 
 object JsCommandService extends DocumentationEndpoints {
@@ -337,8 +332,6 @@ object JsCommandServiceCodecs {
   implicit val jsCommandCreateRW: Codec[JsCommand.CreateCommand] = deriveCodec
   implicit val jsCommandExerciseRW: Codec[JsCommand.ExerciseCommand] = deriveCodec
 
-  implicit val jsDisclosedContractRW: Codec[JsDisclosedContract] = deriveCodec
-
   implicit val jsSubmitAndWaitResponseRW: Codec[JsSubmitAndWaitResponse] =
     deriveCodec
 
@@ -382,6 +375,10 @@ object JsCommandServiceCodecs {
 
   implicit val completionDeduplicationPeriodRW: Codec[
     completion.Completion.DeduplicationPeriod
+  ] = deriveCodec
+
+  implicit val disclosedContractRW: Codec[
+    commands.DisclosedContract
   ] = deriveCodec
 
   // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs

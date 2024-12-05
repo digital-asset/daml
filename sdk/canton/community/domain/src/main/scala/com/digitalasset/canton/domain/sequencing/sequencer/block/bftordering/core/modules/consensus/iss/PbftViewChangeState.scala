@@ -49,6 +49,37 @@ class PbftViewChangeState(
   private val viewChangeMap = mutable.HashMap[SequencerId, SignedMessage[ViewChange]]()
   private var newView: Option[SignedMessage[NewView]] = None
 
+  def viewChangeMessageReceivedStatus: Seq[Boolean] =
+    membership.sortedPeers.map(viewChangeMap.contains)
+
+  /** Compute which view change messages we must retransmit based on which view change messages the remote node already has
+    */
+  def viewChangeMessagesToRetransmit(
+      remoteNodeViewChangeMessages: Seq[Boolean]
+  ): Seq[SignedMessage[ViewChange]] = {
+    val messagesRemoteDoesNotHave =
+      if (remoteNodeViewChangeMessages.isEmpty)
+        // if they have nothing, we give them all the ones we have
+        viewChangeMap.values.toSeq
+      else
+        // otherwise we give the ones we have that they don't have
+        membership.sortedPeers
+          .zip(remoteNodeViewChangeMessages)
+          .flatMap { case (peer, hasIt) =>
+            if (!hasIt) viewChangeMap.get(peer) else None
+          }
+
+    (messagesRemoteDoesNotHave
+      .partition(_.from == membership.myId) match {
+      case (fromSelf, fromOthers) =>
+        // we put our own message first to make sure it gets included
+        fromSelf ++ fromOthers
+    }).take(
+      // and we give only at most enough for them to complete a strong quorum
+      membership.orderingTopology.strongQuorum - remoteNodeViewChangeMessages.count(identity)
+    )
+  }
+
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   def processMessage(
       msg: SignedMessage[PbftViewChangeMessage]

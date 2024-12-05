@@ -44,6 +44,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   PreparesStored,
   ViewChange,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusStatus
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.SequencerId
 import org.scalatest.wordspec.AsyncWordSpec
@@ -87,9 +88,7 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           SendPbftMessage(prePrepare, Some(StorePrePrepare(prePrepare))),
           SendPbftMessage(myPrepare, None),
         )
-        segmentState.processEvent(
-          PrePrepareStored(BlockMetadata.mk(epochInfo.number, blockNumber), ViewNumber.First)
-        )
+        segmentState.processEvent(prePrepare.message.stored)
         otherPeers.foreach { peer =>
           val prepare = createPrepare(blockNumber, ViewNumber.First, peer, prePrepare.message.hash)
           val commit = createCommit(blockNumber, ViewNumber.First, peer, prePrepare.message.hash)
@@ -1214,6 +1213,94 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
       segment.currentView shouldBe view2
       segment.isViewChangeInProgress shouldBe true
+    }
+
+    "create status message and messages to retransmit" in {
+      val segmentState = createSegmentState()
+
+      val zeroProgressBlockStatus = ConsensusStatus.BlockStatus
+        .InProgress(
+          prePrepared = false,
+          preparesPresent = Seq(false, false, false, false),
+          commitsPresent = Seq(false, false, false, false),
+        )
+      val zeroProgressSegmentStatus = ConsensusStatus.SegmentStatus.InProgress(
+        ViewNumber.First,
+        Seq.fill(slotNumbers.size)(zeroProgressBlockStatus),
+      )
+      segmentState.status shouldBe zeroProgressSegmentStatus
+
+      val prePrepares =
+        slotNumbers.map(blockNumber => createPrePrepare(blockNumber, ViewNumber.First, myId))
+
+      prePrepares.foreach { prePrepare =>
+        segmentState.processEvent(PbftSignedNetworkMessage(prePrepare))
+        segmentState.processEvent(prePrepare.message.stored)
+      }
+
+      prePrepares.drop(1).foreach { prePrepare =>
+        val blockNumber = prePrepare.message.blockMetadata.blockNumber
+        otherPeers.foreach { peer =>
+          val prepare = createPrepare(blockNumber, ViewNumber.First, peer, prePrepare.message.hash)
+          segmentState.processEvent(PbftSignedNetworkMessage(prepare))
+        }
+        segmentState.processEvent(
+          PreparesStored(BlockMetadata.mk(epochInfo.number, blockNumber), ViewNumber.First)
+        )
+      }
+
+      prePrepares.drop(2).foreach { prePrepare =>
+        val blockNumber = prePrepare.message.blockMetadata.blockNumber
+        otherPeers.foreach { peer =>
+          val commit = createCommit(blockNumber, ViewNumber.First, peer, prePrepare.message.hash)
+          segmentState.processEvent(PbftSignedNetworkMessage(commit))
+        }
+      }
+
+      segmentState.status shouldBe ConsensusStatus.SegmentStatus.InProgress(
+        ViewNumber.First,
+        Seq(
+          ConsensusStatus.BlockStatus
+            .InProgress(
+              prePrepared = true,
+              preparesPresent = Seq(false, false, false, true),
+              commitsPresent = Seq(false, false, false, false),
+            ),
+          ConsensusStatus.BlockStatus
+            .InProgress(
+              prePrepared = true,
+              preparesPresent = Seq(true, true, true, true),
+              commitsPresent = Seq(false, false, false, true),
+            ),
+          ConsensusStatus.BlockStatus.Complete,
+        ),
+      )
+
+      // retransmit all messages remote node doesn't have
+      val retransmissionResult =
+        segmentState.messagesToRetransmit(otherPeer1, zeroProgressSegmentStatus)
+      retransmissionResult.commitCertsToRetransmit shouldBe empty
+      retransmissionResult.messagesToRetransmit.map(_.message) should matchPattern {
+        case Seq(
+              // first block
+              _: PrePrepare,
+              _: Prepare,
+              // second block
+              _: PrePrepare,
+              _: Prepare,
+              _: Prepare,
+              _: Prepare,
+              _: Commit,
+              // third block
+              _: PrePrepare,
+              _: Prepare,
+              _: Prepare,
+              _: Prepare,
+              _: Commit,
+              _: Commit,
+              _: Commit,
+            ) =>
+      }
     }
   }
 

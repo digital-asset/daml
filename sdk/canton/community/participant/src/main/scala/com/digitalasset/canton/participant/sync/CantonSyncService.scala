@@ -1270,42 +1270,43 @@ class CantonSyncService(
           domainLoggerFactory,
         )
 
-        syncDomain = syncDomainFactory.create(
-          domainId,
-          domainHandle,
-          participantId,
-          engine,
-          parameters,
-          participantNodePersistentState,
-          persistent,
-          ephemeral,
-          packageService,
-          domainCrypto,
-          identityPusher,
-          domainHandle.topologyFactory
-            .createTopologyProcessorFactory(
-              domainHandle.staticParameters,
-              partyNotifier,
-              missingKeysAlerter,
-              domainHandle.topologyClient,
-              ephemeral.recordOrderPublisher,
-              parameters.experimentalEnableTopologyEvents,
-            ),
-          missingKeysAlerter,
-          reassignmentCoordination,
-          commandProgressTracker,
-          clock,
-          domainMetrics,
-          futureSupervisor,
-          domainLoggerFactory,
-          testingConfig,
+        syncDomain <- EitherT.right(
+          syncDomainFactory.create(
+            domainId,
+            domainHandle,
+            participantId,
+            engine,
+            parameters,
+            participantNodePersistentState,
+            persistent,
+            ephemeral,
+            packageService,
+            domainCrypto,
+            identityPusher,
+            domainHandle.topologyFactory
+              .createTopologyProcessorFactory(
+                domainHandle.staticParameters,
+                partyNotifier,
+                missingKeysAlerter,
+                domainHandle.topologyClient,
+                ephemeral.recordOrderPublisher,
+                parameters.experimentalEnableTopologyEvents,
+              ),
+            missingKeysAlerter,
+            reassignmentCoordination,
+            commandProgressTracker,
+            clock,
+            domainMetrics,
+            futureSupervisor,
+            domainLoggerFactory,
+            testingConfig,
+          )
         )
 
         _ = syncDomainHealth.set(syncDomain)
         _ = ephemeralHealth.set(syncDomain.ephemeral)
         _ = sequencerClientHealth.set(syncDomain.sequencerClient.healthComponent)
-        acp <- EitherT.right[SyncServiceError](syncDomain.acsCommitmentProcessor)
-        _ = acsCommitmentProcessorHealth.set(acp.healthComponent)
+        _ = acsCommitmentProcessorHealth.set(syncDomain.acsCommitmentProcessor.healthComponent)
         _ = syncDomain.resolveUnhealthy()
 
         _ = connectedDomainsMap += (domainId -> syncDomain)
@@ -1480,7 +1481,7 @@ class CantonSyncService(
           )
         )
         _ <- repairService
-          .awaitCleanHeadForTimestamp(syncService.domainId, tick)
+          .awaitCleanSequencerTimestamp(syncService.domainId, tick)
           .leftMap(err =>
             SyncServiceError.SyncServiceInternalError.CleanHeadAwaitFailed(alias, tick, err)
           )

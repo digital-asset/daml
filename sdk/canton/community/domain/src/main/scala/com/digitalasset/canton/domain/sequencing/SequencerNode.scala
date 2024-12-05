@@ -36,7 +36,10 @@ import com.digitalasset.canton.domain.sequencing.service.{
   GrpcSequencerInitializationService,
   GrpcSequencerStatusService,
 }
-import com.digitalasset.canton.domain.sequencing.topology.SequencerSnapshotBasedTopologyHeadInitializer
+import com.digitalasset.canton.domain.sequencing.topology.{
+  SequencedEventStoreBasedTopologyHeadInitializer,
+  SequencerSnapshotBasedTopologyHeadInitializer,
+}
 import com.digitalasset.canton.domain.server.DynamicGrpcServer
 import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.health.*
@@ -489,6 +492,25 @@ class SequencerNodeBootstrap(
         )
         addCloseable(indexedStringStore)
         for {
+          indexedDomain <- EitherT.right[String](
+            IndexedDomain.indexed(indexedStringStore)(domainId)
+          )
+          sequencedEventStore = SequencedEventStore(
+            storage,
+            indexedDomain,
+            staticDomainParameters.protocolVersion,
+            timeouts,
+            loggerFactory,
+          )
+          topologyHeadInitializer = sequencerSnapshot match {
+            case Some(snapshot) =>
+              new SequencerSnapshotBasedTopologyHeadInitializer(snapshot, domainTopologyStore)
+            case None =>
+              new SequencedEventStoreBasedTopologyHeadInitializer(
+                sequencedEventStore,
+                domainTopologyStore,
+              )
+          }
           processorAndClient <- EitherT
             .right(
               TopologyTransactionProcessor.createProcessorAndClientForDomain(
@@ -499,8 +521,7 @@ class SequencerNodeBootstrap(
                 clock,
                 futureSupervisor,
                 domainLoggerFactory,
-                new SequencerSnapshotBasedTopologyHeadInitializer(sequencerSnapshot),
-              )
+              )(topologyHeadInitializer)
             )
           (topologyProcessor, topologyClient) = processorAndClient
           _ = addCloseable(topologyProcessor)
@@ -603,16 +624,6 @@ class SequencerNodeBootstrap(
             staticDomainParameters,
             config.publicApi.overrideMaxRequestSize,
             topologyClient,
-            loggerFactory,
-          )
-          indexedDomain <- EitherT.right[String](
-            IndexedDomain.indexed(indexedStringStore)(domainId)
-          )
-          sequencedEventStore = SequencedEventStore(
-            storage,
-            indexedDomain,
-            staticDomainParameters.protocolVersion,
-            timeouts,
             loggerFactory,
           )
           firstSequencerCounterServeableForSequencer <-

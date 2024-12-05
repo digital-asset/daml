@@ -26,7 +26,7 @@ final class CommunityReferenceSequencerDriverFactory extends BaseReferenceSequen
 
   override def configParser: ConfigReader[ConfigType] = {
     import pureconfig.generic.semiauto.*
-
+    import com.digitalasset.canton.config.BaseCantonConfig.Readers.*
     implicit val communityMemoryStorageConfigReader: ConfigReader[CommunityStorageConfig.Memory] =
       deriveReader[CommunityStorageConfig.Memory]
     implicit val communityH2StorageConfigReader: ConfigReader[CommunityDbConfig.H2] =
@@ -40,6 +40,7 @@ final class CommunityReferenceSequencerDriverFactory extends BaseReferenceSequen
   }
 
   override def configWriter(confidential: Boolean): ConfigWriter[ConfigType] = {
+    import com.digitalasset.canton.config.BaseCantonConfig.Writers.*
     import pureconfig.generic.semiauto.*
 
     implicit val communityMemoryStorageConfigWriter: ConfigWriter[CommunityStorageConfig.Memory] =

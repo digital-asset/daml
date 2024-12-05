@@ -79,7 +79,7 @@ class LedgerApiStore(
 
   def cleanDomainIndex(domainId: DomainId)(implicit
       traceContext: TraceContext
-  ): Future[DomainIndex] =
+  ): Future[Option[DomainIndex]] =
     executeSql(metrics.index.db.getCleanDomainIndex)(
       parameterStorageBackend.cleanDomainIndex(domainId)
     )

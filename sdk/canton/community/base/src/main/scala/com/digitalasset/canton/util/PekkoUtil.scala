@@ -27,6 +27,7 @@ import com.digitalasset.canton.logging.{
   NamedLoggerFactory,
   NamedLoggingContext,
 }
+import com.digitalasset.canton.util.BatchN.{CatchUpMode, MaximizeConcurrency}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.SingletonTraverse.syntax.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
@@ -818,8 +819,12 @@ object PekkoUtil extends HasLoggerName {
       )(implicit loggingContext: NamedLoggingContext): U#Repr[B] =
         PekkoUtil.mapAsyncAndDrainUS(graph, parallelism)(f)
 
-      def batchN(maxBatchSize: Int, maxBatchCount: Int): U#Repr[immutable.Iterable[A]] =
-        graph.via(BatchN(maxBatchSize, maxBatchCount))
+      def batchN(
+          maxBatchSize: Int,
+          maxBatchCount: Int,
+          catchUpMode: CatchUpMode = MaximizeConcurrency,
+      ): U#Repr[immutable.Iterable[A]] =
+        graph.via(BatchN(maxBatchSize, maxBatchCount, catchUpMode))
 
       def dropIf(count: Int)(condition: A => Boolean): U#Repr[A] =
         PekkoUtil.dropIf(graph, count, condition)

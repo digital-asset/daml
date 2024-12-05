@@ -61,7 +61,7 @@ message SignatureDelegation {
   // The validity period starts from `validity_period_from_inclusive` above.
   uint32 validity_period_duration_inclusive = 4;
 
-  // TODO(#22209) remove after format is standardized
+  // TODO(#20066) remove after format is standardized
   SignatureFormat format = 5;
 
   // The signature of the combined hash of the session key fingerprint, validity period, and domain ID, by the

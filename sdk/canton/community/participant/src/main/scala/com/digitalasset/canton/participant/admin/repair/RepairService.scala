@@ -293,7 +293,7 @@ final class RepairService(
         .toEitherT[FutureUnlessShutdown]
 
       topologySnapshot = topologyFactory.createTopologySnapshot(
-        startingPoints.processing.prenextTimestamp,
+        startingPoints.processing.currentRecordTime,
         packageDependencyResolver,
         preferCaching = true,
       )
@@ -1157,8 +1157,8 @@ final class RepairService(
         )
     } yield ()
 
-  /** Allows to wait until clean head has progressed up to a certain timestamp */
-  def awaitCleanHeadForTimestamp(
+  /** Allows to wait until clean sequencer index has progressed up to a certain timestamp */
+  def awaitCleanSequencerTimestamp(
       domainId: DomainId,
       timestamp: CantonTimestamp,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] = {
@@ -1173,18 +1173,16 @@ final class RepairService(
           )
         )
         .map { startingPoints =>
-          if (startingPoints.processing.prenextTimestamp >= timestamp) {
+          if (startingPoints.processing.lastSequencerTimestamp >= timestamp) {
             logger.debug(
-              s"Clean head reached ${startingPoints.processing.prenextTimestamp}, clearing $timestamp"
+              s"Clean sequencer index reached ${startingPoints.processing.lastSequencerTimestamp}, clearing $timestamp"
             )
             Either.unit
           } else {
-            logger.debug(
-              s"Clean head is still at ${startingPoints.processing.prenextTimestamp} which is not yet $timestamp"
-            )
-            Left(
-              s"Clean head is still at ${startingPoints.processing.prenextTimestamp} which is not yet $timestamp"
-            )
+            val errMsg =
+              s"Clean sequencer index is still at ${startingPoints.processing.lastSequencerTimestamp} which is not yet $timestamp"
+            logger.debug(errMsg)
+            Left(errMsg)
           }
         }
     EitherT
@@ -1249,7 +1247,7 @@ final class RepairService(
     val rtRepair = RecordTime.fromTimeOfChange(
       TimeOfChange(
         domain.startingPoints.processing.nextRequestCounter,
-        domain.startingPoints.processing.prenextTimestamp,
+        domain.startingPoints.processing.currentRecordTime,
       )
     )
     logger

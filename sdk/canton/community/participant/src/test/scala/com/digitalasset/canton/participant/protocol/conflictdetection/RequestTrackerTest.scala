@@ -200,7 +200,7 @@ private[conflictdetection] trait RequestTrackerTest {
       loggerFactory
         .assertInternalError[IllegalArgumentException](
           rt1.tick(SequencerCounter(0), CantonTimestamp.Epoch),
-          _.getMessage shouldBe "Timestamp 1970-01-01T00:00:00Z for sequence counter 0 is not after current time 1970-01-01T00:00:00Z.",
+          _.getMessage shouldBe "Timestamp 1970-01-01T00:00:00Z for sequencer counter 0 is not after current time 1970-01-01T00:00:00Z.",
         )
 
       val rt2 = mk(SequencerCounter(0), CantonTimestamp.Epoch)
@@ -217,7 +217,7 @@ private[conflictdetection] trait RequestTrackerTest {
         _ = loggerFactory
           .assertInternalError[IllegalArgumentException](
             rt2.tick(SequencerCounter(1), ofEpochMilli(1)),
-            _.getMessage shouldBe "Timestamp 1970-01-01T00:00:00.001Z for sequence counter 1 is not after current time 1970-01-01T00:00:00.001Z.",
+            _.getMessage shouldBe "Timestamp 1970-01-01T00:00:00.001Z for sequencer counter 1 is not after current time 1970-01-01T00:00:00.001Z.",
           )
       } yield succeed
     }

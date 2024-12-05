@@ -69,7 +69,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       val startEpoch = EpochNumber(7L)
       stateTransferManager.startStateTransfer(
         membership,
-        latestCompletedEpoch = genesisEpoch,
+        latestCompletedEpoch = Genesis.GenesisEpoch,
         startEpoch,
       )(abort = fail(_))
 
@@ -92,7 +92,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       // Try to start state transfer (with no effect) while another one is in progress.
       stateTransferManager.startStateTransfer(
         membership,
-        latestCompletedEpoch = genesisEpoch,
+        latestCompletedEpoch = Genesis.GenesisEpoch,
         startEpoch,
       )(abort = fail(_))
       context.extractSelfMessages() shouldBe empty
@@ -111,7 +111,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
         )
 
       // Initiate state transfer so that it's in progress.
-      val latestCompletedEpoch = genesisEpoch
+      val latestCompletedEpoch = Genesis.GenesisEpoch
       val startEpoch = EpochNumber(7L)
       stateTransferManager.startStateTransfer(
         membership,
@@ -159,27 +159,25 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       )
       context.runPipedMessages() // store ordered block data
 
-      // Handle a block transfer request from genesis.
       val latestCompletedEpochLocally = EpochStore.Epoch(
         EpochInfo.mk(EpochNumber.First, startBlockNumber = BlockNumber.First, length = 1),
         lastBlockCommitMessages = Seq.empty,
       )
-      val latestCompletedEpochRemotely = Genesis.GenesisEpochNumber
 
+      // Handle a block transfer request from genesis.
       stateTransferManager.handleStateTransferMessage(
         NetworkMessage(
-          StateTransferMessage.BlockTransferRequest
-            .create(
-              startEpoch = EpochNumber.First,
-              latestCompletedEpoch = latestCompletedEpochRemotely,
-              from = otherSequencerId,
-            )
+          StateTransferMessage.BlockTransferRequest.create(
+            startEpoch = EpochNumber.First,
+            latestCompletedEpoch = Genesis.GenesisEpochNumber,
+            from = otherSequencerId,
+          )
         ),
         membership,
         latestCompletedEpoch = latestCompletedEpochLocally,
       )(abort = fail(_)) shouldBe StateTransferMessageResult.Continue
 
-      context.runPipedMessages() // retrieve pre-prepares and output metadata
+      context.runPipedMessages() // retrieve blocks
 
       // Should have never referenced self, e.g., to send new epoch state.
       context.selfMessages shouldBe empty
@@ -191,7 +189,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
             P2PNetworkOut.BftOrderingNetworkMessage.StateTransferMessage(
               StateTransferMessage.BlockTransferResponse
                 .create(
-                  latestCompletedEpoch = EpochNumber.First,
+                  latestCompletedEpochLocally.info.number,
                   Seq(commitCertificate),
                   from = mySequencerId,
                 )
@@ -215,7 +213,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       )
 
     // Initiate state transfer so that it's in progress.
-    val latestCompletedEpochLocally = genesisEpoch
+    val latestCompletedEpochLocally = Genesis.GenesisEpoch
     stateTransferManager.startStateTransfer(
       membership,
       latestCompletedEpochLocally,
@@ -335,8 +333,6 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 object StateTransferManagerTest {
   private type ContextType = ProgrammableUnitTestContext[Consensus.Message[ProgrammableUnitTestEnv]]
 
-  private val genesisEpoch: EpochStore.Epoch =
-    EpochStore.Epoch(Genesis.GenesisEpochInfo, lastBlockCommitMessages = Seq.empty)
   private val mySequencerId = fakeSequencerId("self")
   private val otherSequencerId = fakeSequencerId("other")
   private val membership = Membership(mySequencerId, Set(otherSequencerId))
@@ -350,7 +346,7 @@ object StateTransferManagerTest {
         viewNumber = ViewNumber.First,
         localTimestamp = CantonTimestamp.Epoch,
         block = OrderingBlock(Seq.empty),
-        canonicalCommitSet = CanonicalCommitSet(Set.empty),
+        canonicalCommitSet = CanonicalCommitSet.empty,
         from = mySequencerId,
       )
       .fakeSign

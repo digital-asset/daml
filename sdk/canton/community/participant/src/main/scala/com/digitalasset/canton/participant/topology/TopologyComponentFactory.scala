@@ -117,7 +117,7 @@ class TopologyComponentFactory(
     timeouts,
     futureSupervisor,
     loggerFactory,
-  )
+  )()
 
   def createTopologySnapshot(
       asOf: CantonTimestamp,

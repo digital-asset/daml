@@ -221,7 +221,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     ): ParameterStorageBackend.PruneUptoInclusiveAndLedgerEnd =
       throw new UnsupportedOperationException
 
-    override def cleanDomainIndex(domainId: DomainId)(connection: Connection): DomainIndex =
+    override def cleanDomainIndex(domainId: DomainId)(connection: Connection): Option[DomainIndex] =
       throw new UnsupportedOperationException
 
     override def updatePostProcessingEnd(postProcessingEnd: Option[Offset])(

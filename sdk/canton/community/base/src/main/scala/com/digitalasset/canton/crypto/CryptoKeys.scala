@@ -23,9 +23,12 @@ import com.digitalasset.canton.version.{
   ProtoVersion,
   ProtocolVersion,
 }
+import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import io.circe.Encoder
 import slick.jdbc.{GetResult, SetParameter}
+
+import scala.annotation.nowarn
 
 trait CryptoKey extends Product with Serializable {
   def format: CryptoKeyFormat
@@ -92,6 +95,8 @@ object Fingerprint {
 }
 
 trait CryptoKeyPairKey extends CryptoKey {
+  type K <: CryptoKeyPairKey
+
   def id: Fingerprint
 
   def isPublicKey: Boolean
@@ -106,6 +111,10 @@ trait CryptoKeyPairKey extends CryptoKey {
     * this flag set if they were originally stored in a legacy format.
     */
   def migrated: Boolean
+
+  @VisibleForTesting
+  // Inverse operation from migrate(): used in tests to produce legacy keys.
+  private[canton] def reverseMigrate(): Option[K]
 }
 
 trait CryptoKeyPair[+PK <: PublicKey, +SK <: PrivateKey]
@@ -167,6 +176,8 @@ object CryptoKeyPair extends HasVersionedMessageCompanion[CryptoKeyPair[PublicKe
 }
 
 trait PublicKey extends CryptoKeyPairKey {
+  type K <: PublicKey
+
   def toByteString(version: ProtocolVersion): ByteString
 
   def fingerprint: Fingerprint = id
@@ -229,8 +240,8 @@ trait PublicKeyWithName
     extends Product
     with Serializable
     with HasVersionedWrapper[PublicKeyWithName] {
-  type K <: PublicKey
-  def publicKey: K
+  type PK <: PublicKey
+  def publicKey: PK
   def name: Option[KeyName]
 
   def id: Fingerprint
@@ -277,6 +288,8 @@ object PublicKeyWithName extends HasVersionedMessageCompanion[PublicKeyWithName]
 
 // The private key id must match the corresponding public key's one
 trait PrivateKey extends CryptoKeyPairKey {
+  type K <: PrivateKey & HasVersionedWrapper[K]
+
   def purpose: KeyPurpose
 
   override def isPublicKey: Boolean = false
@@ -314,37 +327,36 @@ object CryptoKeyFormat {
     Order.by[CryptoKeyFormat, String](_.name)
 
   /** ASN.1 + DER-encoding of X.509 SubjectPublicKeyInfo structure: [[https://datatracker.ietf.org/doc/html/rfc5280#section-4.1 RFC 5280]]
+    *
+    * Used for all the signing and encryption public keys.
     */
   case object DerX509Spki extends CryptoKeyFormat {
-    // Used for:
-    // - SigningPublicKey of spec EcCurve25519
     override val name: String = "DER-encoded X.509 SubjectPublicKeyInfo"
     override def toProtoEnum: v30.CryptoKeyFormat =
       v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_DER_X509_SUBJECT_PUBLIC_KEY_INFO
   }
 
   /** ASN.1 + DER-encoding of PKCS #8 PrivateKeyInfo structure: [[https://datatracker.ietf.org/doc/html/rfc5208#section-5 RFC 5208]]
+    *
+    * Used for all the signing and encryption private keys.
     */
   case object DerPkcs8Pki extends CryptoKeyFormat {
-    // Used for:
-    // - SigningPrivateKey of spec EcCurve25519
     override val name: String = "DER-encoded PKCS #8 PrivateKeyInfo"
     override def toProtoEnum: v30.CryptoKeyFormat =
       v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_DER_PKCS8_PRIVATE_KEY_INFO
   }
 
+  /** For public keys: ASN.1 + DER-encoding of X.509 SubjectPublicKeyInfo structure: [[https://datatracker.ietf.org/doc/html/rfc5280#section-4.1 RFC 5280]]
+    *
+    * For private keys: ASN.1 + DER-encoding of PKCS #8 PrivateKeyInfo structure: [[https://datatracker.ietf.org/doc/html/rfc5208#section-5 RFC 5208]]
+    *
+    * Legacy format no longer used, except in the migration methods.
+    */
+  @deprecated(
+    message = "Use the more specific `DerX509Spki` or `DerPkcs8Pki` formats instead.",
+    since = "3.3",
+  )
   case object Der extends CryptoKeyFormat {
-    // For public keys:
-    // - DER-encoded SubjectPublicKeyInfo of X.509
-    // For private keys:
-    // - DER-encoded PKCS #8
-    // Used for:
-    // - SigningPublicKey of spec EcP256 and EcP384
-    // - SigningPrivateKey of spec EcP256 and EcP384
-    // - SigningPublicKey coming from AWS KMS, GCP KMS and Driver KMS
-    // - EncryptionPublicKey of spec EcP256 and Rsa2048
-    // - EncryptionPrivateKey of spec EcP256 and Rsa2048
-    // - EncryptionPublicKey coming from AWS KMS, GCP KMS and Driver KMS
     override val name: String = "DER"
     override def toProtoEnum: v30.CryptoKeyFormat = v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_DER
   }
@@ -374,7 +386,8 @@ object CryptoKeyFormat {
         Right(CryptoKeyFormat.DerX509Spki)
       case v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_DER_PKCS8_PRIVATE_KEY_INFO =>
         Right(CryptoKeyFormat.DerPkcs8Pki)
-      case v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_DER => Right(CryptoKeyFormat.Der)
+      case v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_DER =>
+        Right(CryptoKeyFormat.Der: @nowarn("cat=deprecation"))
       case v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_RAW => Right(CryptoKeyFormat.Raw)
       case v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_SYMBOLIC => Right(CryptoKeyFormat.Symbolic)
     }

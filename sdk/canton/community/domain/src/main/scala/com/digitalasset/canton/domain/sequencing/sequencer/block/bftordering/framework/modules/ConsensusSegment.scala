@@ -599,7 +599,8 @@ object ConsensusSegment {
 
       private lazy val sortedViewChanges: Seq[SignedMessage[ViewChange]] = viewChanges.sorted
 
-      lazy val computedCertificatePerBlock = computeCertificatePerBlock(viewChanges.map(_.message))
+      lazy val computedCertificatePerBlock: Map[BlockNumber, ConsensusCertificate] =
+        computeCertificatePerBlock(viewChanges.map(_.message))
 
       lazy val stored = NewViewStored(blockMetadata, viewNumber)
 

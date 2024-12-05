@@ -17,10 +17,6 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit.{
-  DefaultHeadStateInitializer,
-  HeadStateInitializer,
-}
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.PartyInfo
 import com.digitalasset.canton.topology.processing.*
 import com.digitalasset.canton.topology.store.{
@@ -251,7 +247,9 @@ object CachingDomainTopologyClient {
       timeouts: ProcessingTimeout,
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
-      headStateInitializer: HeadStateInitializer = DefaultHeadStateInitializer,
+  )(
+      headStateInitializer: DomainTopologyClientHeadStateInitializer =
+        new DefaultHeadStateInitializer(store)
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
@@ -275,7 +273,7 @@ object CachingDomainTopologyClient {
         futureSupervisor,
         loggerFactory,
       )
-    headStateInitializer.initialize(caching, store)
+    headStateInitializer.initialize(caching)
   }
 }
 

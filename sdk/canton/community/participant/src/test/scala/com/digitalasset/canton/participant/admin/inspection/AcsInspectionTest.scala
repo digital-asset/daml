@@ -231,7 +231,7 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
   private val mockLedgerApiStore: LedgerApiStore = {
     val mockStore = mock[LedgerApiStore]
     when(mockStore.cleanDomainIndex(same(FakeDomainId))(any[TraceContext]))
-      .thenAnswer(Future.successful(MaxDomainIndex))
+      .thenAnswer(Future.successful(Some(MaxDomainIndex)))
     mockStore
   }
 

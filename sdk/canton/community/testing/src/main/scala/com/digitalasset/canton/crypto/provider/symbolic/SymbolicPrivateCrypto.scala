@@ -79,7 +79,13 @@ class SymbolicPrivateCrypto(
   ): EitherT[FutureUnlessShutdown, EncryptionKeyGenerationError, EncryptionKeyPair] =
     EitherT.rightT(
       genKeyPair((pubKey, privKey) =>
-        EncryptionKeyPair.create(CryptoKeyFormat.Symbolic, pubKey, privKey, keySpec)
+        EncryptionKeyPair.create(
+          CryptoKeyFormat.Symbolic,
+          pubKey,
+          CryptoKeyFormat.Symbolic,
+          privKey,
+          keySpec,
+        )
       )
     )
 

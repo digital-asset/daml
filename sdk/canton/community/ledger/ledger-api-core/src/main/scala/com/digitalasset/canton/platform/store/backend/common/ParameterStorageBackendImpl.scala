@@ -50,9 +50,9 @@ private[backend] class ParameterStorageBackendImpl(
     batchUpsert(
       """INSERT INTO
         |  lapi_ledger_end_domain_index
-        |  (domain_id, sequencer_counter, sequencer_timestamp, request_counter, request_timestamp, request_sequencer_counter)
+        |  (domain_id, sequencer_counter, sequencer_timestamp, request_counter, request_timestamp, request_sequencer_counter, record_time)
         |VALUES
-        |  ({internalizedDomainId}, {sequencerCounter}, {sequencerTimestampMicros}, {requestCounter}, {requestTimestampMicros}, {requestSequencerCounter})
+        |  ({internalizedDomainId}, {sequencerCounter}, {sequencerTimestampMicros}, {requestCounter}, {requestTimestampMicros}, {requestSequencerCounter}, {recordTimeMicros})
         |""".stripMargin,
       """UPDATE
         |  lapi_ledger_end_domain_index
@@ -61,7 +61,8 @@ private[backend] class ParameterStorageBackendImpl(
         |  sequencer_timestamp = case when {sequencerCounter} is null then sequencer_timestamp else {sequencerTimestampMicros} end,
         |  request_counter = case when {requestCounter} is null then request_counter else {requestCounter} end,
         |  request_timestamp = case when {requestCounter} is null then request_timestamp else {requestTimestampMicros} end,
-        |  request_sequencer_counter = case when {requestCounter} is null then request_sequencer_counter else {requestSequencerCounter} end
+        |  request_sequencer_counter = case when {requestCounter} is null then request_sequencer_counter else {requestSequencerCounter} end,
+        |  record_time = {recordTimeMicros}
         |WHERE
         |  domain_id = {internalizedDomainId}
         |""".stripMargin,
@@ -75,6 +76,7 @@ private[backend] class ParameterStorageBackendImpl(
           "requestSequencerCounter" -> domainIndex.requestIndex
             .flatMap(_.sequencerCounter)
             .map(_.unwrap),
+          "recordTimeMicros" -> domainIndex.recordTime.toMicros,
         )
       },
     )(connection)
@@ -262,7 +264,7 @@ private[backend] class ParameterStorageBackendImpl(
 
   override def cleanDomainIndex(domainId: DomainId)(
       connection: Connection
-  ): DomainIndex =
+  ): Option[DomainIndex] =
     // not using stringInterning here to allow broader usage with tricky state inspection integration tests
     SQL"""
       SELECT internal_id
@@ -277,7 +279,8 @@ private[backend] class ParameterStorageBackendImpl(
               sequencer_timestamp,
               request_counter,
               request_timestamp,
-              request_sequencer_counter
+              request_sequencer_counter,
+              record_time
             FROM
               lapi_ledger_end_domain_index
             WHERE
@@ -290,6 +293,7 @@ private[backend] class ParameterStorageBackendImpl(
               requestSequencerCounterO <- long("request_sequencer_counter").?
               sequencerCounterO <- long("sequencer_counter").?
               sequencerTimestampO <- long("sequencer_timestamp").?
+              recordTime <- long("record_time")
             } yield {
               val requestIndex = (requestCounterO, requestTimestampO) match {
                 case (Some(requestCounter), Some(requestTimestamp)) =>
@@ -330,8 +334,10 @@ private[backend] class ParameterStorageBackendImpl(
                     s"Invalid persisted data in lapi_ledger_end_domain_index table: either both sequencer_counter and sequencer_timestamp should be defined or none of them, but an invalid combination found for domain:${domainId.toProtoPrimitive} sequencer_counter: $sequencerCounterO, sequencer_timestamp: $sequencerTimestampO"
                   )
               }
-              requestIndex
-                .++(sequencerIndex)
+              val recordTimeDomainIndex = DomainIndex.of(
+                CantonTimestamp.ofEpochMicro(recordTime)
+              )
+              (recordTimeDomainIndex :: requestIndex ::: sequencerIndex)
                 .reduceOption(_ max _)
                 .getOrElse(
                   throw new IllegalStateException(
@@ -341,7 +347,6 @@ private[backend] class ParameterStorageBackendImpl(
             }
           )(connection)
       )
-      .getOrElse(DomainIndex.empty)
 
   override def updatePostProcessingEnd(postProcessingEnd: Option[Offset])(
       connection: Connection
