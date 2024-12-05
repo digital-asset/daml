@@ -124,8 +124,9 @@ installDependencies ::
    -> IO ()
 installDependencies projRoot opts releaseVersion pDeps pDataDeps = do
     logger <- getLogger opts "install-dependencies"
-    deps <- expandSdkPackages logger (optDamlLfVersion opts) (filter (`notElem` basePackages) pDeps)
-    DataDeps {dataDepsDars, dataDepsDalfs, dataDepsPkgIds, dataDepsNameVersion} <- readDataDeps pDataDeps
+    (deps, expandedDataDeps) <- expandSdkPackages logger (optDamlLfVersion opts) (filter (`notElem` basePackages) pDeps)
+    DataDeps {dataDepsDars=declaredDataDepsDars, dataDepsDalfs, dataDepsPkgIds, dataDepsNameVersion} <- readDataDeps pDataDeps
+    let dataDepsDars = declaredDataDepsDars ++ expandedDataDeps
     (needsUpdate, newFingerprint) <-
         depsNeedUpdate
             depsDir

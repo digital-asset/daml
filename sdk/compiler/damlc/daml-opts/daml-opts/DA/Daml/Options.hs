@@ -548,30 +548,34 @@ checkDFlags Options {..} dflags@DynFlags {..}
             \ or the dependency."
 
 -- Expand SDK package dependencies using the SDK root path.
--- E.g. `daml-trigger` --> `$DAML_SDK/daml-libs/daml-trigger.dar`
--- When invoked outside of the SDK, we will only error out
--- if there is actually an SDK package so that
--- When there is no SDK
-expandSdkPackages :: Logger.Handle IO -> LF.Version -> [FilePath] -> IO [FilePath]
+-- E.g. `daml-trigger` --> `$DAML_SDK/daml-libs/daml-trigger.dar`.
+-- Some deps expand to other deps, while some expand to to dars meant to be added as data deps.
+-- Returns a pair (expanded_deps, expanded_data_deps).
+expandSdkPackages :: Logger.Handle IO -> LF.Version -> [FilePath] -> IO ([FilePath], [FilePath])
 expandSdkPackages logger lfVersion dars = do
     mbSdkPath <- handleIO (\_ -> pure Nothing) $ Just <$> getSdkPath
-    mapM (expand mbSdkPath) (nubOrd $ concatMap addDep dars)
+    mconcat <$> mapM (expand mbSdkPath) (nubOrd $ concatMap addDep dars)
   where
     isSdkPackage fp = takeExtension fp `notElem` [".dar", ".dalf"]
     sdkSuffix = "-" <> LF.renderVersion lfVersion
+    pureDep fp = pure ([fp], [])
+    pureDataDep fp = pure ([], [fp])
     expand mbSdkPath fp
-      | fp `elem` basePackages = pure fp
+      | fp `elem` basePackages = pureDep fp
       | isSdkPackage fp = case mbSdkPath of
             Just sdkPath | fp == "daml-script-beta" -> do
               Logger.logWarning logger "daml-script-beta is beta software and may change APIs in the future."
-              pure $ sdkPath </> "daml-libs" </> "daml3-script" <> sdkSuffix <.> "dar"
+              pureDep $ sdkPath </> "daml-libs" </> "daml3-script" <> sdkSuffix <.> "dar"
+            Just sdkPath | fp == "daml-script" && not (lfVersion `LF.supports` LF.featureLegacyDamlScript) -> do
+              Logger.logWarning logger "daml-script is capped to 1.15"
+              pureDataDep $ sdkPath </> "daml-libs" </> "daml-script-" <> LF.renderVersion LF.maxLegacyDamlScriptVersion <.> "dar"
             Just sdkPath -> do
               when (fp == "daml3-script")
                 $ Logger.logWarning logger
                     "You are using an unreleased and unstable version of daml-script intended for daml3. This will break without warning."
-              pure $ sdkPath </> "daml-libs" </> fp <> sdkSuffix <.> "dar"
+              pureDep $ sdkPath </> "daml-libs" </> fp <> sdkSuffix <.> "dar"
             Nothing -> fail $ "Cannot resolve SDK dependency '" ++ fp ++ "'. Use daml assistant."
-      | otherwise = pure fp
+      | otherwise = pureDep fp
     -- For `dependencies` you need to specify all transitive dependencies.
     -- However, for the packages in the SDK that is an implementation detail
     -- so we automagically insert `daml-script` if you’ve specified `daml-trigger`.

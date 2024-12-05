@@ -6,7 +6,7 @@
 
 module Daml.Script
   ( Script
-  , submit
+--  , submit
   , submitMustFail
   , submitMulti
   , submitMultiMustFail
