@@ -201,7 +201,7 @@ private[script] object RunnerMainConfigIntermediate {
       .optional()
       .action((t, c) => c.copy(adminPort = Some(t)))
       .text(
-        "EXPERIMENTAL: Admin port. Used only for vetting and unvetting dars in daml3-script."
+        "EXPERIMENTAL: Admin port. Used only for vetting and unvetting dars in daml-script-lts."
       )
 
     opt[File]("participant-config")
@@ -255,7 +255,7 @@ private[script] object RunnerMainConfigIntermediate {
       }
       .text(
         """Run Daml Script via the HTTP JSON API instead of via gRPC; use --ledger-host and --ledger-port for JSON API host and port. The JSON API requires an access token."
-          |Deprecated, removed in daml3-script.
+          |Deprecated, removed in daml-script-lts.
           """.stripMargin
       )
 

@@ -63,7 +63,7 @@ withScriptService lfVersion action =
       -- Package DB setup, we only need to do this once so we do it at the beginning.
       scriptDar <- locateRunfiles $ case LF.versionMajor lfVersion of
           LF.V1 -> mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar"
-          LF.V2 -> mainWorkspace </> "daml-script" </> "daml3" </> "daml3-script.dar"
+          LF.V2 -> mainWorkspace </> "daml-script" </> "daml-lts" </> "daml-script-lts.dar"
       writeFileUTF8 "daml.yaml" $
         unlines
           [ "sdk-version: " <> sdkVersion,

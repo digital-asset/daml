@@ -26,7 +26,7 @@ if [ "$(uname)-$(uname -m)" = "Linux-x86_64" ]; then
   extra_build_targets="//release:protobufs \
                        //daml-script/runner:daml-script-binary_distribute.jar \
                        //daml-script/daml:daml-script-dars \
-                       //daml-script/daml3:daml3-script-dars \
+                       //daml-script/daml-lts:daml-script-lts-dars \
                        //ledger-service/http-json:http-json-binary_distribute.jar \
                        //ledger-service/http-json:http-json-binary-ee_distribute.jar \
                        //triggers/service:trigger-service-binary-ce_distribute.jar \

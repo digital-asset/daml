@@ -3,9 +3,9 @@
 
 -- @ SCRIPT-V2
 
--- @ WARN range=11:1-11:28; Import of internal module Daml.Script.Internal of package daml3-script is discouraged, as this module will change without warning.
+-- @ WARN range=11:1-11:28; Import of internal module Daml.Script.Internal of package daml-script-lts is discouraged, as this module will change without warning.
 
-module Daml3ScriptPackageVetting where
+module DamlScriptLtsPackageVetting where
 
 import Daml.Script
 import Daml.Script.Internal
@@ -105,7 +105,7 @@ listPackagesIsCorrect = script do
   -- 6 packages in daml-prim (5 specific modules + prim itself)
   -- 6 packages in daml-stdlib (5 specific modules + stdlib itself)
   -- 1 packages in ghc-stdlib
-  -- 2 packages for daml3-script (main/internal + stable)
+  -- 2 packages for daml-script-lts (main/internal + stable)
   -- the current package
   packages <- listVettedPackages
   length packages === 15

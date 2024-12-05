@@ -15,7 +15,7 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-class Daml3ScriptDevIT extends AsyncWordSpec with AbstractScriptTest with Inside with Matchers {
+class DamlScriptLtsDevIT extends AsyncWordSpec with AbstractScriptTest with Inside with Matchers {
   final override protected lazy val devMode = true
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
 
@@ -44,7 +44,7 @@ class Daml3ScriptDevIT extends AsyncWordSpec with AbstractScriptTest with Inside
         r <-
           run(
             clients,
-            QualifiedName.assertFromString("Daml3ScriptTrySubmitConcurrently:resultsMatchInputs"),
+            QualifiedName.assertFromString("DamlScriptLtsTrySubmitConcurrently:resultsMatchInputs"),
             dar = trySubmitConcurrentlyTestDar,
           )
       } yield r shouldBe SUnit
@@ -56,7 +56,7 @@ class Daml3ScriptDevIT extends AsyncWordSpec with AbstractScriptTest with Inside
         r <-
           run(
             clients,
-            QualifiedName.assertFromString("Daml3ScriptTrySubmitConcurrently:keyCollision"),
+            QualifiedName.assertFromString("DamlScriptLtsTrySubmitConcurrently:keyCollision"),
             dar = trySubmitConcurrentlyTestDar,
           )
       } yield r shouldBe SUnit
@@ -68,7 +68,7 @@ class Daml3ScriptDevIT extends AsyncWordSpec with AbstractScriptTest with Inside
         r <-
           run(
             clients,
-            QualifiedName.assertFromString("Daml3ScriptTrySubmitConcurrently:noDoubleSpend"),
+            QualifiedName.assertFromString("DamlScriptLtsTrySubmitConcurrently:noDoubleSpend"),
             dar = trySubmitConcurrentlyTestDar,
           )
       } yield r shouldBe SUnit

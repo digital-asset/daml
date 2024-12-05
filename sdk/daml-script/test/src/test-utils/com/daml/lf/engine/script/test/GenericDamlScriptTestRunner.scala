@@ -14,7 +14,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.nio.file.Files
 import java.nio.file.Path
 
-trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers {
+trait GenericDamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers {
   self: Suite =>
 
   final override protected lazy val timeProviderType = TimeProviderType.Static

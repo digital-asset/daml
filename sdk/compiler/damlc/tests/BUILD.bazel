@@ -231,7 +231,7 @@ da_haskell_test(
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
         "//compiler/scenario-service/server:scenario_service_jar",
-        "//daml-script/daml3:daml3-script-1.17.dar",
+        "//daml-script/daml-lts:daml-script-lts-1.17.dar",
         "@jq_dev_env//:jq",
         ghc_pkg,
     ],
@@ -387,7 +387,7 @@ da_haskell_test(
     data = [
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
-        "//daml-script/daml3:daml3-script.dar",
+        "//daml-script/daml-lts:daml-script-lts.dar",
         "//daml-script/runner:daml-script-binary",
     ],
     hackage_deps = [
@@ -741,7 +741,7 @@ da_haskell_test(
             "@damlc_legacy",
             "//compiler/damlc/tests:generate-simple-dalf",
             "//daml-script/daml:daml-script-1.17.dar",
-            "//daml-script/daml3:daml3-script-1.17.dar",
+            "//daml-script/daml-lts:daml-script-lts-1.17.dar",
             # Feel free to update this to 0.13.55 once that is frozen.
             ":dars/old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar",
         ],
@@ -943,7 +943,7 @@ da_haskell_test(
     ]] + [
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
-        "//daml-script/daml3:daml3-script.dar",
+        "//daml-script/daml-lts:daml-script-lts.dar",
         "//test-common/test-certificates",
     ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
@@ -989,7 +989,7 @@ da_haskell_test(
             "//compiler/damlc/stable-packages",
             "//compiler/repl-service/server:repl_service_jar",
             "//daml-script/daml:daml-script.dar",
-            "//daml-script/daml3:daml3-script.dar",
+            "//daml-script/daml-lts:daml-script-lts.dar",
         ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
         "async",
@@ -1224,7 +1224,7 @@ da_haskell_test(
         "//compiler/damlc/stable-packages",
         "//compiler/scenario-service/server:scenario_service_jar",
         "//daml-script/daml:daml-script.dar",
-        "//daml-script/daml3:daml3-script.dar",
+        "//daml-script/daml-lts:daml-script-lts.dar",
         ghc_pkg,
     ],
     hackage_deps = [
@@ -1479,9 +1479,9 @@ daml_compile(
 
 daml_compile(
     name = "try-submit-test",
-    srcs = ["daml-test-files/Daml3ScriptTrySubmit.daml"],
+    srcs = ["daml-test-files/DamlScriptLtsTrySubmit.daml"],
     data_dependencies = [
-        "//daml-script/daml3:daml3-script-1.17.dar",
+        "//daml-script/daml-lts:daml-script-lts-1.17.dar",
     ],
     project_name = "try-submit-test",
     target = "1.17",
@@ -1490,9 +1490,9 @@ daml_compile(
 
 daml_compile(
     name = "try-submit-concurrently-test",
-    srcs = ["daml-test-files/Daml3ScriptTrySubmitConcurrently.daml"],
+    srcs = ["daml-test-files/DamlScriptLtsTrySubmitConcurrently.daml"],
     data_dependencies = [
-        "//daml-script/daml3:daml3-script-1.17.dar",
+        "//daml-script/daml-lts:daml-script-lts-1.17.dar",
     ],
     project_name = "try-submit-concurrently-test",
     target = "1.17",
@@ -1503,7 +1503,7 @@ daml_compile(
     name = "query-test",
     srcs = ["daml-test-files/Query.daml"],
     data_dependencies = [
-        "//daml-script/daml3:daml3-script-1.17.dar",
+        "//daml-script/daml-lts:daml-script-lts-1.17.dar",
     ],
     target = "1.17",
     visibility = ["//visibility:public"],

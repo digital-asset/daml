@@ -1,4 +1,4 @@
-module Daml3ScriptCannotInspectContractNotFoundAdditionalInfo where
+module DamlScriptLtsCannotInspectContractNotFoundAdditionalInfo where
 
 -- @ SCRIPT-V2
 
