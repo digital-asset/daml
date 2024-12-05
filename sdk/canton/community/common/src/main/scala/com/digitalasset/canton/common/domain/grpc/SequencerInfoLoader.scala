@@ -225,29 +225,43 @@ class SequencerInfoLoader(
       sequencerAlias: SequencerAlias,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SequencerInfoLoaderError, Unit] =
-    for {
-      success <- sequencerConnectClient
+  ): EitherT[Future, SequencerInfoLoaderError, Unit] = {
+    def handshake(
+        pvs: Seq[ProtocolVersion]
+    ): Future[Either[SequencerInfoLoaderError, HandshakeResponse.Success]] =
+      sequencerConnectClient
         .handshake(
           alias,
           HandshakeRequest(
-            clientProtocolVersions,
+            pvs,
             minimumProtocolVersion,
           ),
           dontWarnOnDeprecatedPV,
         )
         .leftMap(SequencerInfoLoader.fromSequencerConnectClientError(alias))
         .subflatMap {
-          case success: HandshakeResponse.Success => success.asRight
+          case success: HandshakeResponse.Success =>
+            success.asRight
           case HandshakeResponse.Failure(_, reason) =>
             SequencerInfoLoaderError.HandshakeFailedError(reason).asLeft
         }
-    } yield {
+        .value
+
+    EitherT {
+      handshake(clientProtocolVersions)
+        // This fallback allows to remove protocol version 7 if it is unsupported by the domain.
+        // This is helpful for a domain running 2.8.11
+        .flatMap[Either[SequencerInfoLoaderError, HandshakeResponse.Success]] {
+          case Left(error) if error.cause.startsWith("Protocol version 7 is not supported") =>
+            handshake(clientProtocolVersions.filterNot(_ == ProtocolVersion.v7))
+          case res => Future.successful(res)
+        }
+    }.map(success =>
       logger.info(
         s"Version handshake with sequencer $sequencerAlias and domain using protocol version ${success.serverProtocolVersion} succeeded."
       )
-      ()
-    }
+    )
+  }
 
   def loadSequencerEndpoints(
       domainAlias: DomainAlias,
