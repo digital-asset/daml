@@ -565,11 +565,10 @@ expandSdkPackages logger lfVersion dars = do
             Just sdkPath | fp == "daml-script-beta" -> do
               Logger.logWarning logger "daml-script-beta is no longer beta and has been renamed. Please use daml-script-lts"
               pure $ sdkPath </> "daml-libs" </> "daml-script-lts" <> sdkSuffix <.> "dar"
-            Just sdkPath -> do
-              when (fp == "daml3-script")
-                $ Logger.logWarning logger
-                    "daml3-script has been renamed. Please use daml-script-lts"
+            Just sdkPath | fp == "daml3-script" -> do
+              Logger.logWarning logger "daml3-script has been renamed. Please use daml-script-lts"
               pure $ sdkPath </> "daml-libs" </> "daml-script-lts" <> sdkSuffix <.> "dar"
+            Just sdkPath -> pure $ sdkPath </> "daml-libs" </> fp <> sdkSuffix <.> "dar"
             Nothing -> fail $ "Cannot resolve SDK dependency '" ++ fp ++ "'. Use daml assistant."
       | otherwise = pure fp
     -- For `dependencies` you need to specify all transitive dependencies.
