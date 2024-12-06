@@ -273,7 +273,25 @@ private[engine] final class Preprocessor(
       commands: ImmArray[speedy.Command],
       prefetchKeys: Seq[GlobalKey],
       disclosedKeyHashes: Set[crypto.Hash],
-  ): Result[Unit] = {
+  ): Result[Unit] =
+    safelyRun(
+      ResultError(
+        Error.Preprocessing.Internal(
+          NameOf.qualifiedNameOfCurrentFunc,
+          "unsafePrefetchKeys should not need packages",
+          None,
+        )
+      )
+    )(unsafePrefetchKeys(commands, prefetchKeys, disclosedKeyHashes)).flatMap { undisclosedKeys =>
+      if (undisclosedKeys.nonEmpty) ResultPrefetch(undisclosedKeys.toSeq, () => ResultDone.Unit)
+      else ResultDone.Unit
+    }
+
+  private def unsafePrefetchKeys(
+      commands: ImmArray[speedy.Command],
+      prefetchKeys: Seq[GlobalKey],
+      disclosedKeyHashes: Set[crypto.Hash],
+  ): Seq[GlobalKey] = {
     val exercisedKeys = commands.iterator.collect {
       case speedy.Command.ExerciseByKey(templateId, contractKey, _, _) =>
         speedy.Speedy.Machine
@@ -284,8 +302,7 @@ private[engine] final class Preprocessor(
     }
     val undisclosedKeys =
       (exercisedKeys ++ prefetchKeys).filterNot(key => disclosedKeyHashes.contains(key.hash))
-    if (undisclosedKeys.nonEmpty) ResultPrefetch(undisclosedKeys.toSeq, () => ResultDone.Unit)
-    else ResultDone.Unit
+    undisclosedKeys.distinct.toSeq
   }
 }
 
