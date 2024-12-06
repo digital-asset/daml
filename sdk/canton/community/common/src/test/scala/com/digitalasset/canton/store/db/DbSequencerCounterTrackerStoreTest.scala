@@ -8,6 +8,7 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.{IndexedDomain, SequencerCounterTrackerStoreTest}
 import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
+import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
@@ -20,7 +21,7 @@ trait DbSequencerCounterTrackerStoreTest
 
   val domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("da::default"))
 
-  override def cleanDb(storage: DbStorage): Future[Unit] = {
+  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
     import storage.api.*
     storage.update(
       DBIO.seq(sqlu"truncate table #${DbSequencerCounterTrackerStore.cursorTable}"),

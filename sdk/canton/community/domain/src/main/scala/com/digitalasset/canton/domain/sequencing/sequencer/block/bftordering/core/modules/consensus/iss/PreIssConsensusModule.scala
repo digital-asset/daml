@@ -55,7 +55,7 @@ final class PreIssConsensusModule[E <: Env[E]](
         val (initialEpochState, latestCompletedEpoch) = restoreEpochStateFromDB()
         val consensus = new IssConsensusModule(
           epochLength,
-          IssConsensusModule.StartupState(
+          IssConsensusModule.InitialState(
             sequencerSnapshotAdditionalInfo,
             initialMembership,
             initialCryptoProvider,
@@ -70,7 +70,7 @@ final class PreIssConsensusModule[E <: Env[E]](
           dependencies,
           loggerFactory,
           timeouts,
-        )()
+        )()()
         context.become(consensus)
         // This will send all queued messages to the proper Consensus module.
         initCompleted(consensus.receive(_))

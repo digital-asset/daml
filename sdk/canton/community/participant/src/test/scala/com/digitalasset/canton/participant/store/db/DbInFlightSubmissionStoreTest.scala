@@ -8,6 +8,7 @@ import com.digitalasset.canton.config.BatchAggregatorConfig
 import com.digitalasset.canton.participant.store.InFlightSubmissionStoreTest
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
+import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
@@ -18,7 +19,7 @@ trait DbInFlightSubmissionStoreTest
     with InFlightSubmissionStoreTest {
   this: DbTest =>
 
-  override def cleanDb(storage: DbStorage): Future[Unit] = {
+  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
     import storage.api.*
     storage.update(
       DBIO.seq(sqlu"truncate table par_in_flight_submission"),

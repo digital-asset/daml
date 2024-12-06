@@ -13,6 +13,7 @@ import com.digitalasset.canton.domain.sequencing.traffic.store.db.DbTrafficConsu
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.DbTest
 import com.digitalasset.canton.topology.{DefaultTestIdentities, Member}
+import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
@@ -33,7 +34,7 @@ trait DbTrafficConsumedStoreTest extends AsyncWordSpec with BaseTest with Traffi
   def registerMemberInSequencerStore(member: Member): Future[Unit] =
     sequencerStore.registerMember(member, CantonTimestamp.Epoch).map(_ => ())
 
-  override def cleanDb(storage: DbStorage): Future[Unit] = {
+  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
     import storage.api.*
     storage.update(
       DBIO.seq(sqlu"truncate table seq_traffic_control_consumed_journal"),

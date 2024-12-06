@@ -17,6 +17,10 @@ import scala.reflect.ClassTag
   * `import `[[com.daml.nonempty.catsinstances]]`._` when necessary.
   */
 object NonEmptyUtil {
+
+  def fromElement[A](xs: A): NonEmpty[Set[A]] =
+    fromUnsafe(Set(xs))
+
   def fromUnsafe[A](xs: A with immutable.Iterable[_]): NonEmpty[A] =
     NonEmpty.from(xs).getOrElse(throw new NoSuchElementException)
 

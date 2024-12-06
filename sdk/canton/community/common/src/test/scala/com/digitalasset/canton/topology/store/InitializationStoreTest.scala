@@ -7,6 +7,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, MigrationMode, PostgresTest}
 import com.digitalasset.canton.topology.UniqueIdentifier
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -61,7 +62,7 @@ trait DbInitializationStoreTest extends InitializationStoreTest {
 
   override def myMigrationMode: MigrationMode = migrationMode
 
-  def cleanDb(storage: DbStorage): Future[Int] = {
+  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Int] = {
     import storage.api.*
     storage.update(
       sqlu"truncate table common_node_id",

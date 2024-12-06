@@ -9,6 +9,7 @@ final case class HttpServerConfig(
     address: String = HttpServerConfig.defaultAddress,
     port: Option[Int] = None,
     portFile: Option[Path] = None,
+    pathPrefix: Option[String] = None,
 )
 
 object HttpServerConfig {

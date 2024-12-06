@@ -8,6 +8,7 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.participant.store.DomainConnectionConfigStoreTest
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
+import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
@@ -18,7 +19,7 @@ trait DbDomainConnectionConfigStoreTest
     with DomainConnectionConfigStoreTest {
   this: DbTest =>
 
-  override def cleanDb(storage: DbStorage): Future[_] = {
+  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[_] = {
     import storage.api.*
     storage.update_(sqlu"truncate table par_domain_connection_configs", functionFullName)
   }

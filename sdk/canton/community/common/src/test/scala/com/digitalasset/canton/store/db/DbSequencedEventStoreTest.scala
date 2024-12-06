@@ -8,6 +8,7 @@ import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.{IndexedDomain, SequencedEventStoreTest}
 import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
@@ -15,7 +16,7 @@ import scala.concurrent.Future
 trait DbSequencedEventStoreTest extends AsyncWordSpec with BaseTest with SequencedEventStoreTest {
   this: DbTest =>
 
-  def cleanDb(storage: DbStorage): Future[Unit] = {
+  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
     import storage.api.*
 
     storage.update(

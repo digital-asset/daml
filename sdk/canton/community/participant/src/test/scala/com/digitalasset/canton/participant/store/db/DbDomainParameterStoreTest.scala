@@ -8,6 +8,7 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.participant.store.DomainParameterStoreTest
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
+import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
@@ -15,7 +16,7 @@ import scala.concurrent.Future
 trait DbDomainParameterStoreTest extends AsyncWordSpec with BaseTest with DomainParameterStoreTest {
   this: DbTest =>
 
-  override def cleanDb(storage: DbStorage): Future[Int] = {
+  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Int] = {
     import storage.api.*
     storage.update(sqlu"truncate table par_static_domain_parameters", functionFullName)
   }

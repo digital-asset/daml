@@ -9,7 +9,6 @@ import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.event.RecordTime
-import com.digitalasset.canton.participant.pruning.SortedReconciliationIntervalsProvider
 import com.digitalasset.canton.protocol.messages.AcsCommitment.CommitmentType
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
@@ -35,8 +34,11 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
   ): FutureUnlessShutdown[Unit] =
     incrementCounterAndErrUS()
 
-  override def markOutstanding(period: CommitmentPeriod, counterParticipants: Set[ParticipantId])(
-      implicit traceContext: TraceContext
+  override def markOutstanding(
+      period: NonEmpty[Set[CommitmentPeriod]],
+      counterParticipants: NonEmpty[Set[ParticipantId]],
+  )(implicit
+      traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
     incrementCounterAndErrUS()
 
@@ -52,8 +54,7 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
 
   override def markPeriod(
       counterParticipant: ParticipantId,
-      period: CommitmentPeriod,
-      sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
+      period: NonEmpty[Set[CommitmentPeriod]],
       matchingState: CommitmentPeriodState,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     incrementCounterAndErrUS()

@@ -52,9 +52,11 @@ import scala.collection.MapView
 import scala.collection.concurrent.TrieMap
 import scala.util.{Failure, Success, Try}
 
+/** An in-memory, non-thread safe [[EpochStore]] implementation for non-concurrent tests. */
 abstract class GenericInMemoryEpochStore[E <: Env[E]]
     extends EpochStore[E]
     with OrderedBlocksReader[E] {
+
   private val epochs: TrieMap[EpochNumber, EpochStatus] = TrieMap.empty
   private val blocks: TrieMap[BlockNumber, CompletedBlock] = TrieMap.empty
 
@@ -89,6 +91,7 @@ abstract class GenericInMemoryEpochStore[E <: Env[E]]
       storeType = s"$storeType(${message.message.blockMetadata.blockNumber})",
     )
   }
+
   private def putIfAbsent[K, V](
       store: TrieMap[K, V],
       key: K,

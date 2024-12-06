@@ -10,10 +10,6 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordTime
-import com.digitalasset.canton.participant.pruning.{
-  SortedReconciliationIntervals,
-  SortedReconciliationIntervalsProvider,
-}
 import com.digitalasset.canton.participant.store.AcsCommitmentStore.CommitmentData
 import com.digitalasset.canton.participant.store.{
   AcsCommitmentStore,
@@ -31,7 +27,7 @@ import com.digitalasset.canton.store.memory.InMemoryPrunableByTime
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
-import pprint.Tree
+import com.digitalasset.canton.util.IterableUtil.Ops
 
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.annotation.tailrec
@@ -118,12 +114,18 @@ class InMemoryAcsCommitmentStore(
     FutureUnlessShutdown.unit
   }
 
-  override def markOutstanding(period: CommitmentPeriod, counterParticipants: Set[ParticipantId])(
-      implicit traceContext: TraceContext
+  override def markOutstanding(
+      periods: NonEmpty[Set[CommitmentPeriod]],
+      counterParticipants: NonEmpty[Set[ParticipantId]],
+  )(implicit
+      traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
     if (counterParticipants.nonEmpty) {
       _outstanding.updateAndGet(os =>
-        os ++ counterParticipants.map(cp => (period, cp, CommitmentPeriodState.Outstanding))
+        os ++ periods.forgetNE.crossProductBy(counterParticipants).map {
+          case (period, participant) =>
+            (period, participant, CommitmentPeriodState.Outstanding)
+        }
       )
     }
     FutureUnlessShutdown.unit
@@ -142,111 +144,34 @@ class InMemoryAcsCommitmentStore(
   ): FutureUnlessShutdown[Option[CantonTimestampSecond]] =
     FutureUnlessShutdown.pure(lastComputed.get())
 
-  private def computeOutstanding(
-      counterParticipant: ParticipantId,
-      safePeriod: CommitmentPeriod,
-      currentOutstanding: Set[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)],
-      sortedReconciliationIntervals: SortedReconciliationIntervals,
-      matchingState: CommitmentPeriodState,
-  )(implicit
-      traceContext: TraceContext
-  ): Set[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)] = {
-    def stateFilter(state: CommitmentPeriodState): Boolean =
-      if (matchingState == CommitmentPeriodState.Matched)
-        state == CommitmentPeriodState.Matched || state == CommitmentPeriodState.Mismatched ||
-        state == CommitmentPeriodState.Outstanding
-      else if (matchingState == CommitmentPeriodState.Mismatched)
-        state == CommitmentPeriodState.Mismatched ||
-        state == CommitmentPeriodState.Outstanding
-      else
-        state == CommitmentPeriodState.Outstanding
-
-    val oldPeriods = currentOutstanding.filter { case (oldPeriod, participant, state) =>
-      oldPeriod.overlaps(
-        safePeriod
-      ) && participant == counterParticipant && stateFilter(state)
-    }
-
-    def containsTick(commitmentPeriod: CommitmentPeriod): Boolean = sortedReconciliationIntervals
-      .containsTick(
-        commitmentPeriod.fromExclusive.forgetRefinement,
-        commitmentPeriod.toInclusive.forgetRefinement,
-      )
-      .getOrElse {
-        logger.warn(s"Unable to determine whether $commitmentPeriod contains a tick.")
-
-        // We default to a safe value: the commitment period will not be marked as safe.
-        true
-      }
-
-    val periodsToAdd: Set[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)] = oldPeriods
-      .flatMap { case (oldPeriod, _, oldState) =>
-        Set(
-          (
-            CommitmentPeriod.create(oldPeriod.fromExclusive, safePeriod.fromExclusive),
-            oldState,
-          ),
-          (
-            CommitmentPeriod.create(safePeriod.toInclusive, oldPeriod.toInclusive),
-            oldState,
-          ),
-          (
-            CommitmentPeriod.create(safePeriod.fromExclusive, safePeriod.toInclusive),
-            matchingState,
-          ),
-        )
-      }
-      .collect {
-        case (Right(commitmentPeriod), state) if containsTick(commitmentPeriod) =>
-          (commitmentPeriod, counterParticipant, state)
-      }
-
-    val newPeriods = currentOutstanding.diff(oldPeriods).union(periodsToAdd)
-
-    import com.digitalasset.canton.logging.pretty.Pretty.*
-    def prettyNewPeriods = newPeriods.map { case (period, participants, state) =>
-      Tree.Infix(participants.toTree, "-", Tree.Infix(period.toTree, "-", state.toTree))
-    }
-    logger.debug(
-      show"Marked period $safePeriod safe for participant $counterParticipant; new outstanding commitment periods: $prettyNewPeriods"
-    )
-    newPeriods
-  }
+  private def updateStateIfPossible(
+      currentState: CommitmentPeriodState,
+      newState: CommitmentPeriodState,
+  ): CommitmentPeriodState =
+    if (currentState == CommitmentPeriodState.Outstanding) newState
+    else if (
+      currentState == CommitmentPeriodState.Mismatched && newState == CommitmentPeriodState.Matched
+    ) newState
+    else currentState
 
   override def markPeriod(
       counterParticipant: ParticipantId,
-      period: CommitmentPeriod,
-      sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
+      periods: NonEmpty[Set[CommitmentPeriod]],
       matchingState: CommitmentPeriodState,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    val approxInterval = sortedReconciliationIntervalsProvider.approximateReconciliationIntervals
-
-    val intervals = approxInterval
-      .flatMap(
-        // the domain parameters at the approximate topology timestamp is recent enough for the period
-        interval =>
-          if (interval.validUntil >= period.toInclusive.forgetRefinement) approxInterval
-          else
-            // it is safe to wait for the topology timestamp period.toInclusive.forgetRefinement because we validate
-            // that it is before the sequencing timestamp when we process incoming commitments
-            sortedReconciliationIntervalsProvider.reconciliationIntervals(
-              period.toInclusive.forgetRefinement
-            )
-      )
-
-    intervals
-      .map { sortedReconciliationIntervals =>
-        _outstanding.updateAndGet(currentOutstanding =>
-          computeOutstanding(
-            counterParticipant,
-            period,
-            currentOutstanding,
-            sortedReconciliationIntervals,
-            matchingState,
+    _outstanding.updateAndGet { currentOutstanding =>
+      currentOutstanding.map { case (currentPeriod, currentCounterParticipant, currentState) =>
+        if (periods.contains(currentPeriod) && currentCounterParticipant == counterParticipant)
+          (
+            currentPeriod,
+            currentCounterParticipant,
+            updateStateIfPossible(currentState, matchingState),
           )
-        )
-        ()
+        else
+          (currentPeriod, currentCounterParticipant, currentState)
       }
+    }
+    FutureUnlessShutdown.unit
   }
 
   override def noOutstandingCommitments(
@@ -365,7 +290,6 @@ class InMemoryAcsCommitmentStore(
       _outstanding.updateAndGet { currentOutstanding =>
         val newOutstanding = currentOutstanding.filter {
           case (period, _counterParticipant, state) =>
-            (state != CommitmentPeriodState.Matched && period.toInclusive < before) ||
             period.toInclusive >= before
         }
         counter.addAndGet(currentOutstanding.size - newOutstanding.size)

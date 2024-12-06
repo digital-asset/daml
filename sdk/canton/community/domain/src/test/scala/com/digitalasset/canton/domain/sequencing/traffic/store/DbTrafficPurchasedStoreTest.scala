@@ -9,6 +9,7 @@ import com.digitalasset.canton.config.BatchAggregatorConfig
 import com.digitalasset.canton.domain.sequencing.traffic.store.db.DbTrafficPurchasedStore
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.DbTest
+import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
@@ -18,7 +19,7 @@ trait DbTrafficPurchasedStoreTest
     with BaseTest
     with TrafficPurchasedStoreTest {
   this: DbTest =>
-  override def cleanDb(storage: DbStorage): Future[Unit] = {
+  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
     import storage.api.*
     storage.update(
       DBIO.seq(sqlu"truncate table seq_traffic_control_balance_updates"),

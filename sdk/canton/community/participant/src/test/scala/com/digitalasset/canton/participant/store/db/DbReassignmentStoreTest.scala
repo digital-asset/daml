@@ -10,6 +10,7 @@ import com.digitalasset.canton.participant.store.ReassignmentStoreTest
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag
 import com.digitalasset.canton.util.ReassignmentTag.Target
 import org.scalatest.wordspec.AsyncWordSpec
@@ -19,7 +20,7 @@ import scala.concurrent.Future
 trait DbReassignmentStoreTest extends AsyncWordSpec with BaseTest with ReassignmentStoreTest {
   this: DbTest =>
 
-  override def cleanDb(storage: DbStorage): Future[Int] = {
+  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Int] = {
     import storage.api.*
     storage.update(sqlu"truncate table par_reassignments", functionFullName)
   }

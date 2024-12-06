@@ -22,11 +22,12 @@ final case class EpochInfo(
   def relativeBlockIndex(blockNumber: BlockNumber): Int =
     (blockNumber - startBlockNumber).toInt
 
-  def next(length: EpochLength): EpochInfo =
+  def next(length: EpochLength, topologyActivationTime: TopologyActivationTime): EpochInfo =
     copy(
       EpochNumber(number + 1),
-      startBlockNumber = startOfNextEpochBlockNumber,
-      length = length,
+      startOfNextEpochBlockNumber,
+      length,
+      topologyActivationTime,
     )
 
   def startOfNextEpochBlockNumber: BlockNumber =

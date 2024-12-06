@@ -293,6 +293,20 @@ class IssSegmentModule[E <: Env[E]](
             s"Received a completed epoch message for epoch $epochNumber but we are in epoch ${epoch.info.number}"
           )
 
+      case ConsensusSegment.ConsensusMessage.CancelEpoch(epochNumber) =>
+        if (epoch.info.number == epochNumber) {
+          viewChangeTimeoutManager.cancelTimeout()
+          context.stop { () =>
+            logger.info(
+              s"Segment module ${segmentState.segment.firstBlockNumber} cancelled epoch $epochNumber"
+            )
+            parent.asyncSend(Consensus.CatchUpMessage.SegmentCancelledEpoch)
+          }
+        } else
+          logger.warn(
+            s"Received a cancel epoch message for epoch $epochNumber but we are in epoch ${epoch.info.number}"
+          )
+
       case ConsensusSegment.Internal.AsyncException(e: Throwable) =>
         logAsyncException(e)
 

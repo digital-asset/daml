@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.store
 
-import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{LtHash16, Signature, SigningPublicKey, TestHash}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -71,7 +71,13 @@ trait CommitmentStoreBaseTest
   lazy val remoteId4: ParticipantId = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant4::domain")
   )
-  lazy val interval: PositiveSeconds = PositiveSeconds.tryOfSeconds(1)
+
+  lazy val remoteIdNESet: NonEmpty[Set[ParticipantId]] = NonEmptyUtil.fromElement(remoteId).toSet
+  lazy val remoteId1And2NESet: NonEmpty[Set[ParticipantId]] =
+    NonEmptyUtil.fromUnsafe(Set(remoteId, remoteId2))
+
+  lazy val intervalInt: Int = 1
+  lazy val interval: PositiveSeconds = PositiveSeconds.tryOfSeconds(intervalInt.toLong)
 
   def ts(time: Int): CantonTimestamp = CantonTimestamp.ofEpochSecond(time.toLong)
   def meta(stakeholders: LfPartyId*): ContractMetadata =
@@ -82,6 +88,25 @@ trait CommitmentStoreBaseTest
     )
   def period(fromExclusive: Int, toInclusive: Int): CommitmentPeriod =
     CommitmentPeriod.create(ts(fromExclusive), ts(toInclusive), interval).value
+  def periods(fromExclusive: Int, toInclusive: Int): NonEmpty[Set[CommitmentPeriod]] =
+    NonEmptyUtil
+      .fromUnsafe(
+        (fromExclusive until toInclusive by intervalInt).map { i =>
+          CommitmentPeriod.create(ts(i), ts(i + intervalInt), interval).value
+        }
+      )
+      .toSet
+
+  def deriveFullPeriod(commitmentPeriods: NonEmpty[Set[CommitmentPeriod]]): CommitmentPeriod = {
+    val fromExclusive = commitmentPeriods.minBy1(_.fromExclusive).fromExclusive
+    val toInclusive = commitmentPeriods.maxBy1(_.toInclusive).toInclusive
+    new CommitmentPeriod(
+      fromExclusive,
+      PositiveSeconds
+        .create(toInclusive - fromExclusive)
+        .valueOrFail(s"could not convert ${(toInclusive - fromExclusive)} to PositiveSeconds"),
+    )
+  }
 
   lazy val dummyCommitment: AcsCommitment.CommitmentType = {
     val h = LtHash16()
@@ -123,7 +148,7 @@ trait CommitmentStoreBaseTest
       domainId,
       remoteId,
       localId,
-      period(0, 1),
+      deriveFullPeriod(periods(0, 1)),
       dummyCommitment,
       testedProtocolVersion,
     )
@@ -155,10 +180,10 @@ trait AcsCommitmentStoreTest
 
       for {
         _ <- NonEmpty
-          .from(List(CommitmentData(remoteId, period(0, 1), dummyCommitment)))
+          .from(List(CommitmentData(remoteId, deriveFullPeriod(periods(0, 1)), dummyCommitment)))
           .fold(FutureUnlessShutdown.unit)(store.storeComputed(_))
         _ <- NonEmpty
-          .from(List(CommitmentData(remoteId, period(1, 2), dummyCommitment)))
+          .from(List(CommitmentData(remoteId, deriveFullPeriod(periods(1, 2)), dummyCommitment)))
           .fold(FutureUnlessShutdown.unit)(store.storeComputed(_))
         found1 <- store.getComputed(period(0, 1), remoteId)
         found2 <- store.getComputed(period(0, 2), remoteId)
@@ -178,41 +203,41 @@ trait AcsCommitmentStoreTest
 
       for {
         outstanding0 <- store.outstanding(ts(0), ts(10))
-        _ <- store.markOutstanding(period(1, 5), Set(remoteId, remoteId2))
+        _ <- store.markOutstanding(periods(1, 5), remoteId1And2NESet)
         outstanding1 <- store.outstanding(ts(0), ts(10))
-        _ <- store.markSafe(remoteId, period(1, 2), srip)
+        _ <- store.markSafe(remoteId, periods(1, 2))
         outstanding2 <- store.outstanding(ts(0), ts(10))
-        _ <- store.markSafe(remoteId2, period(2, 3), srip)
+        _ <- store.markSafe(remoteId2, periods(2, 3))
         outstanding3 <- store.outstanding(ts(0), ts(10))
-        _ <- store.markSafe(remoteId, period(4, 6), srip)
+        _ <- store.markSafe(remoteId, periods(4, 6))
         outstanding4 <- store.outstanding(ts(0), ts(10))
-        _ <- store.markSafe(remoteId2, period(1, 5), srip)
+        _ <- store.markSafe(remoteId2, periods(1, 5))
         outstanding5 <- store.outstanding(ts(0), ts(10))
-        _ <- store.markSafe(remoteId, period(2, 4), srip)
+        _ <- store.markSafe(remoteId, periods(2, 4))
         outstanding6 <- store.outstanding(ts(0), ts(10))
       } yield {
         outstanding0.toSet shouldBe Set.empty
         outstanding1.toSet shouldBe Set(
-          (period(1, 5), remoteId, CommitmentPeriodState.Outstanding),
-          (period(1, 5), remoteId2, CommitmentPeriodState.Outstanding),
-        )
+          periods(1, 5).map((_, remoteId, CommitmentPeriodState.Outstanding)),
+          periods(1, 5).map((_, remoteId2, CommitmentPeriodState.Outstanding)),
+        ).flatten
         outstanding2.toSet shouldBe Set(
-          (period(1, 5), remoteId2, CommitmentPeriodState.Outstanding),
-          (period(2, 5), remoteId, CommitmentPeriodState.Outstanding),
-        )
+          periods(1, 5).map((_, remoteId2, CommitmentPeriodState.Outstanding)),
+          periods(2, 5).map((_, remoteId, CommitmentPeriodState.Outstanding)),
+        ).flatten
         outstanding3.toSet shouldBe Set(
-          (period(2, 5), remoteId, CommitmentPeriodState.Outstanding),
-          (period(1, 2), remoteId2, CommitmentPeriodState.Outstanding),
-          (period(3, 5), remoteId2, CommitmentPeriodState.Outstanding),
-        )
+          periods(2, 5).map((_, remoteId, CommitmentPeriodState.Outstanding)),
+          periods(1, 2).map((_, remoteId2, CommitmentPeriodState.Outstanding)),
+          periods(3, 5).map((_, remoteId2, CommitmentPeriodState.Outstanding)),
+        ).flatten
         outstanding4.toSet shouldBe Set(
-          (period(2, 4), remoteId, CommitmentPeriodState.Outstanding),
-          (period(1, 2), remoteId2, CommitmentPeriodState.Outstanding),
-          (period(3, 5), remoteId2, CommitmentPeriodState.Outstanding),
-        )
+          periods(2, 4).map((_, remoteId, CommitmentPeriodState.Outstanding)),
+          periods(1, 2).map((_, remoteId2, CommitmentPeriodState.Outstanding)),
+          periods(3, 5).map((_, remoteId2, CommitmentPeriodState.Outstanding)),
+        ).flatten
         outstanding5.toSet shouldBe Set(
-          (period(2, 4), remoteId, CommitmentPeriodState.Outstanding)
-        )
+          periods(2, 4).map((_, remoteId, CommitmentPeriodState.Outstanding))
+        ).flatten
         outstanding6.toSet shouldBe Set.empty
       }
     }
@@ -221,18 +246,18 @@ trait AcsCommitmentStoreTest
       val store = mk()
       for {
         outstanding <- store.outstanding(ts(0), ts(10), Seq.empty, includeMatchedPeriods = true)
-        _ <- store.markOutstanding(period(1, 5), Set(remoteId, remoteId2))
+        _ <- store.markOutstanding(periods(1, 5), remoteId1And2NESet)
         outstandingMarked <- store.outstanding(
           ts(0),
           ts(10),
           Seq.empty,
           includeMatchedPeriods = true,
         )
-        _ <- store.markSafe(remoteId, period(1, 2), srip)
-        _ <- store.markSafe(remoteId2, period(2, 3), srip)
-        _ <- store.markSafe(remoteId, period(4, 5), srip)
-        _ <- store.markSafe(remoteId2, period(1, 5), srip)
-        _ <- store.markSafe(remoteId, period(2, 4), srip)
+        _ <- store.markSafe(remoteId, periods(1, 2))
+        _ <- store.markSafe(remoteId2, periods(2, 3))
+        _ <- store.markSafe(remoteId, periods(4, 5))
+        _ <- store.markSafe(remoteId2, periods(1, 5))
+        _ <- store.markSafe(remoteId, periods(2, 4))
         outstandingAfter <- store.outstanding(
           ts(0),
           ts(10),
@@ -242,15 +267,15 @@ trait AcsCommitmentStoreTest
       } yield {
         outstanding.toSet shouldBe Set.empty
         outstandingMarked.toSet shouldBe Set(
-          (period(1, 5), remoteId, CommitmentPeriodState.Outstanding),
-          (period(1, 5), remoteId2, CommitmentPeriodState.Outstanding),
-        )
+          periods(1, 5).map((_, remoteId, CommitmentPeriodState.Outstanding)),
+          periods(1, 5).map((_, remoteId2, CommitmentPeriodState.Outstanding)),
+        ).flatten
         outstandingAfter.toSet shouldBe Set(
-          (period(1, 5), remoteId2, CommitmentPeriodState.Matched),
-          (period(2, 4), remoteId, CommitmentPeriodState.Matched),
-          (period(4, 5), remoteId, CommitmentPeriodState.Matched),
-          (period(1, 2), remoteId, CommitmentPeriodState.Matched),
-        )
+          periods(1, 5).map((_, remoteId2, CommitmentPeriodState.Matched)),
+          periods(2, 4).map((_, remoteId, CommitmentPeriodState.Matched)),
+          periods(4, 5).map((_, remoteId, CommitmentPeriodState.Matched)),
+          periods(1, 2).map((_, remoteId, CommitmentPeriodState.Matched)),
+        ).flatten
       }
     }
 
@@ -258,9 +283,9 @@ trait AcsCommitmentStoreTest
       val store = mk()
       for {
         outstanding <- store.outstanding(ts(0), ts(10), Seq.empty, includeMatchedPeriods = true)
-        _ <- store.markOutstanding(period(1, 5), Set(remoteId))
-        _ <- store.markUnsafe(remoteId, period(1, 5), srip)
-        _ <- store.markSafe(remoteId, period(2, 4), srip)
+        _ <- store.markOutstanding(periods(1, 5), remoteIdNESet)
+        _ <- store.markUnsafe(remoteId, periods(1, 5))
+        _ <- store.markSafe(remoteId, periods(2, 4))
         outstandingAfter <- store.outstanding(
           ts(0),
           ts(10),
@@ -270,10 +295,10 @@ trait AcsCommitmentStoreTest
       } yield {
         outstanding.toSet shouldBe Set.empty
         outstandingAfter.toSet shouldBe Set(
-          (period(1, 2), remoteId, CommitmentPeriodState.Mismatched),
-          (period(2, 4), remoteId, CommitmentPeriodState.Matched),
-          (period(4, 5), remoteId, CommitmentPeriodState.Mismatched),
-        )
+          periods(1, 2).map((_, remoteId, CommitmentPeriodState.Mismatched)),
+          periods(2, 4).map((_, remoteId, CommitmentPeriodState.Matched)),
+          periods(4, 5).map((_, remoteId, CommitmentPeriodState.Mismatched)),
+        ).flatten
       }
     }
 
@@ -281,8 +306,8 @@ trait AcsCommitmentStoreTest
       val store = mk()
       for {
         outstanding <- store.outstanding(ts(0), ts(10), Seq.empty, includeMatchedPeriods = true)
-        _ <- store.markOutstanding(period(1, 5), Set(remoteId))
-        _ <- store.markUnsafe(remoteId, period(1, 5), srip)
+        _ <- store.markOutstanding(periods(1, 5), remoteIdNESet)
+        _ <- store.markUnsafe(remoteId, periods(1, 5))
         outstandingUnsafe <- store.outstanding(
           ts(0),
           ts(10),
@@ -290,69 +315,28 @@ trait AcsCommitmentStoreTest
           includeMatchedPeriods = true,
         )
         // we are allowed to transition from state Mismatched to state Matched
-        _ <- store.markSafe(remoteId, period(1, 5), srip)
+        _ <- store.markSafe(remoteId, periods(1, 5))
         outstandingSafe <- store.outstanding(ts(0), ts(10), Seq.empty, includeMatchedPeriods = true)
         // we are not allowed to transition from state Matched to state Mismatch
-        _ <- store.markUnsafe(remoteId, period(1, 5), srip)
+        _ <- store.markUnsafe(remoteId, periods(1, 5))
         outstandingStillSafe <- store.outstanding(
           ts(0),
           ts(10),
           Seq.empty,
           includeMatchedPeriods = true,
         )
-        _ <- store.markOutstanding(period(1, 5), Set(remoteId))
+        _ <- store.markOutstanding(periods(1, 5), remoteIdNESet)
       } yield {
         outstanding.toSet shouldBe Set.empty
         outstandingUnsafe.toSet shouldBe Set(
-          (period(1, 5), remoteId, CommitmentPeriodState.Mismatched)
-        )
+          periods(1, 5).map((_, remoteId, CommitmentPeriodState.Mismatched))
+        ).flatten
         outstandingSafe.toSet shouldBe Set(
-          (period(1, 5), remoteId, CommitmentPeriodState.Matched)
-        )
+          periods(1, 5).map((_, remoteId, CommitmentPeriodState.Matched))
+        ).flatten
         outstandingStillSafe.toSet shouldBe Set(
-          (period(1, 5), remoteId, CommitmentPeriodState.Matched)
-        )
-      }
-    }
-    /*
-     This test is disabled for protocol versions for which the reconciliation interval is
-     static because the described setting cannot occur.
-     */
-    "correctly compute outstanding commitments when intersection contains no tick" in {
-      /*
-        This copies the scenario of the test
-        `work when commitment tick falls between two participants connection to the domain`
-        in ACSCommitmentProcessorTest.
-
-        We check that when markSafe yield an outstanding interval which contains no tick,
-        then this "empty" interval is not inserted in the store.
-       */
-      val store = mk()
-
-      lazy val sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider =
-        constantSortedReconciliationIntervalsProvider(interval, domainBootstrappingTime = ts(6))
-
-      for {
-        outstanding0 <- store.outstanding(ts(0), ts(10))
-        _ <- store.markOutstanding(period(0, 10), Set(remoteId))
-        outstanding1 <- store.outstanding(ts(0), ts(10))
-        _ <- store.markSafe(
-          remoteId,
-          period(5, 10),
-          sortedReconciliationIntervalsProvider,
-        )
-        outstanding2 <- store.outstanding(ts(0), ts(10))
-      } yield {
-        outstanding0.toSet shouldBe Set.empty
-        outstanding1.toSet shouldBe Set(
-          (period(0, 10), remoteId, CommitmentPeriodState.Outstanding)
-        )
-
-        /*
-          Period (0, 5) is not explicitly marked as safe but since it contains no tick
-          (because domainBootstrapping=6), then it is dropped and we get an empty result.
-         */
-        outstanding2.toSet shouldBe Set.empty
+          periods(1, 5).map((_, remoteId, CommitmentPeriodState.Matched))
+        ).flatten
       }
     }
 
@@ -362,18 +346,18 @@ trait AcsCommitmentStoreTest
       val endOfTime = ts(10)
       for {
         limit0 <- store.noOutstandingCommitments(endOfTime)
-        _ <- store.markComputedAndSent(period(0, 2))
+        _ <- store.markComputedAndSent(deriveFullPeriod(periods(0, 2)))
         limit1 <- store.noOutstandingCommitments(endOfTime)
-        _ <- store.markOutstanding(period(2, 4), Set(remoteId, remoteId2))
-        _ <- store.markComputedAndSent(period(2, 4))
+        _ <- store.markOutstanding(periods(2, 4), remoteId1And2NESet)
+        _ <- store.markComputedAndSent(deriveFullPeriod(periods(2, 4)))
         limit2 <- store.noOutstandingCommitments(endOfTime)
-        _ <- store.markSafe(remoteId, period(2, 3), srip)
+        _ <- store.markSafe(remoteId, periods(2, 3))
         limit3 <- store.noOutstandingCommitments(endOfTime)
-        _ <- store.markSafe(remoteId2, period(3, 4), srip)
+        _ <- store.markSafe(remoteId2, periods(3, 4))
         limit4 <- store.noOutstandingCommitments(endOfTime)
-        _ <- store.markSafe(remoteId2, period(2, 3), srip)
+        _ <- store.markSafe(remoteId2, periods(2, 3))
         limit5 <- store.noOutstandingCommitments(endOfTime)
-        _ <- store.markSafe(remoteId, period(3, 4), srip)
+        _ <- store.markSafe(remoteId, periods(3, 4))
         limit6 <- store.noOutstandingCommitments(endOfTime)
       } yield {
         limit0 shouldBe None
@@ -402,14 +386,16 @@ trait AcsCommitmentStoreTest
       )
       val endOfTime = ts(10)
       for {
-        _ <- store.markOutstanding(period(0, 2), Set())
-        _ <- store.markComputedAndSent(period(0, 2))
-        _ <- store.markOutstanding(period(2, 4), Set(remoteId))
-        _ <- store.markComputedAndSent(period(2, 4))
-        _ <- store.markOutstanding(period(4, 6), Set(remoteId, remoteId2))
-        _ <- store.markComputedAndSent(period(4, 6))
-        _ <- store.markOutstanding(period(6, 8), Set(remoteId, remoteId2, remoteId3))
-        _ <- store.markComputedAndSent(period(6, 8))
+        _ <- store.markComputedAndSent(deriveFullPeriod(periods(0, 2)))
+        _ <- store.markOutstanding(periods(2, 4), remoteIdNESet)
+        _ <- store.markComputedAndSent(deriveFullPeriod(periods(2, 4)))
+        _ <- store.markOutstanding(periods(4, 6), remoteId1And2NESet)
+        _ <- store.markComputedAndSent(deriveFullPeriod(periods(4, 6)))
+        _ <- store.markOutstanding(
+          periods(6, 8),
+          NonEmptyUtil.fromUnsafe(Set(remoteId, remoteId2, remoteId3)),
+        )
+        _ <- store.markComputedAndSent(deriveFullPeriod(periods(6, 8)))
         limitNoIgnore <- store.noOutstandingCommitments(endOfTime)
         _ <- store.acsCounterParticipantConfigStore
           .addNoWaitCounterParticipant(Seq(configRemoteId1))
@@ -443,38 +429,37 @@ trait AcsCommitmentStoreTest
       val endOfTime = ts(10)
       for {
         limit0 <- store.noOutstandingCommitments(endOfTime)
-        _ <- store.markComputedAndSent(period(0, 2))
+        _ <- store.markComputedAndSent(deriveFullPeriod(periods(0, 2)))
         limit1 <- store.noOutstandingCommitments(endOfTime)
         limit11 <- store.noOutstandingCommitments(ts(1))
-        _ <- store.markOutstanding(period(2, 4), Set(remoteId, remoteId2))
-        _ <- store.markComputedAndSent(period(2, 4))
+        _ <- store.markOutstanding(periods(2, 4), remoteId1And2NESet)
+        _ <- store.markComputedAndSent(deriveFullPeriod(periods(2, 4)))
         limit2 <- store.noOutstandingCommitments(endOfTime)
         limit21 <- store.noOutstandingCommitments(ts(2))
         limit22 <- store.noOutstandingCommitments(ts(3))
         limit23 <- store.noOutstandingCommitments(ts(4))
-        _ <- store.markSafe(remoteId, period(2, 3), srip)
+        _ <- store.markSafe(remoteId, periods(2, 3))
         limit3 <- store.noOutstandingCommitments(endOfTime)
         limit31 <- store.noOutstandingCommitments(ts(2))
         limit32 <- store.noOutstandingCommitments(ts(3))
         limit33 <- store.noOutstandingCommitments(ts(4))
-        _ <- store.markSafe(remoteId2, period(3, 4), srip)
+        _ <- store.markSafe(remoteId2, periods(3, 4))
         limit4 <- store.noOutstandingCommitments(endOfTime)
         limit41 <- store.noOutstandingCommitments(ts(2))
         limit42 <- store.noOutstandingCommitments(ts(3))
         limit43 <- store.noOutstandingCommitments(ts(4))
-        _ <- store.markSafe(remoteId, period(3, 4), srip)
+        _ <- store.markSafe(remoteId, periods(3, 4))
         limit5 <- store.noOutstandingCommitments(endOfTime)
         limit51 <- store.noOutstandingCommitments(ts(2))
         limit52 <- store.noOutstandingCommitments(ts(3))
         limit53 <- store.noOutstandingCommitments(ts(4))
-        _ <- store.markSafe(remoteId2, period(2, 3), srip)
+        _ <- store.markSafe(remoteId2, periods(2, 3))
         limit6 <- store.noOutstandingCommitments(endOfTime)
         limit61 <- store.noOutstandingCommitments(ts(3))
-        _ <- store.markOutstanding(period(4, 6), Set(remoteId, remoteId2))
-        _ <- store.markComputedAndSent(period(4, 6))
+        _ <- store.markOutstanding(periods(4, 6), remoteId1And2NESet)
+        _ <- store.markComputedAndSent(deriveFullPeriod(periods(4, 6)))
         limit7 <- store.noOutstandingCommitments(endOfTime)
-        _ <- store.markOutstanding(period(6, 10), Set())
-        _ <- store.markComputedAndSent(period(6, 10))
+        _ <- store.markComputedAndSent(deriveFullPeriod(periods(6, 10)))
         limit8 <- store.noOutstandingCommitments(endOfTime)
         limit81 <- store.noOutstandingCommitments(ts(6))
       } yield {
@@ -511,16 +496,16 @@ trait AcsCommitmentStoreTest
       val endOfTime = ts(10)
       for {
         limit0 <- store.noOutstandingCommitments(endOfTime)
-        _ <- store.markComputedAndSent(period(0, 2))
+        _ <- store.markComputedAndSent(deriveFullPeriod(periods(0, 2)))
         limit1 <- store.noOutstandingCommitments(endOfTime)
-        _ <- store.markOutstanding(period(2, 5), Set(remoteId, remoteId2))
-        _ <- store.markComputedAndSent(period(2, 5))
+        _ <- store.markOutstanding(periods(2, 5), remoteId1And2NESet)
+        _ <- store.markComputedAndSent(deriveFullPeriod(periods(2, 5)))
         limit2 <- store.noOutstandingCommitments(endOfTime)
-        _ <- store.markSafe(remoteId, period(2, 3), srip)
-        _ <- store.markSafe(remoteId2, period(2, 3), srip)
+        _ <- store.markSafe(remoteId, periods(2, 3))
+        _ <- store.markSafe(remoteId2, periods(2, 3))
         limit3 <- store.noOutstandingCommitments(endOfTime)
-        _ <- store.markSafe(remoteId, period(3, 4), srip)
-        _ <- store.markUnsafe(remoteId2, period(3, 4), srip)
+        _ <- store.markSafe(remoteId, periods(3, 4))
+        _ <- store.markUnsafe(remoteId2, periods(3, 4))
         limit4 <- store.noOutstandingCommitments(endOfTime)
       } yield {
         limit0 shouldBe None
@@ -536,16 +521,16 @@ trait AcsCommitmentStoreTest
 
       for {
         _ <- NonEmpty
-          .from(List(CommitmentData(remoteId, period(0, 1), dummyCommitment)))
+          .from(List(CommitmentData(remoteId, deriveFullPeriod(periods(0, 1)), dummyCommitment)))
           .fold(FutureUnlessShutdown.unit)(store.storeComputed(_))
         _ <- NonEmpty
-          .from(List(CommitmentData(remoteId2, period(1, 2), dummyCommitment)))
+          .from(List(CommitmentData(remoteId2, deriveFullPeriod(periods(1, 2)), dummyCommitment)))
           .fold(FutureUnlessShutdown.unit)(store.storeComputed(_))
         _ <- NonEmpty
-          .from(List(CommitmentData(remoteId, period(1, 2), dummyCommitment)))
+          .from(List(CommitmentData(remoteId, deriveFullPeriod(periods(1, 2)), dummyCommitment)))
           .fold(FutureUnlessShutdown.unit)(store.storeComputed(_))
         _ <- NonEmpty
-          .from(List(CommitmentData(remoteId, period(2, 3), dummyCommitment)))
+          .from(List(CommitmentData(remoteId, deriveFullPeriod(periods(2, 3)), dummyCommitment)))
           .fold(FutureUnlessShutdown.unit)(store.storeComputed(_))
         found1 <- store.searchComputedBetween(ts(0), ts(1), Seq(remoteId))
 
@@ -577,7 +562,7 @@ trait AcsCommitmentStoreTest
         domainId,
         remoteId,
         localId,
-        period(2, 3),
+        deriveFullPeriod(periods(2, 3)),
         dummyCommitment,
         testedProtocolVersion,
       )
@@ -587,7 +572,7 @@ trait AcsCommitmentStoreTest
         domainId,
         remoteId2,
         localId,
-        period(0, 1),
+        deriveFullPeriod(periods(0, 1)),
         dummyCommitment,
         testedProtocolVersion,
       )
@@ -610,22 +595,21 @@ trait AcsCommitmentStoreTest
       }
     }
 
-    // currently it should only prune matching state, this might change in the future
     "correctly prune the outstanding table" in {
       val store = mk()
 
       val endOfTime = ts(10)
       for {
         start <- store.noOutstandingCommitments(endOfTime)
-        _ <- store.markOutstanding(period(0, 10), Set(remoteId, remoteId2))
-        _ <- store.markComputedAndSent(period(0, 10))
-        _ <- store.markSafe(remoteId, period(0, 2), srip)
-        _ <- store.markSafe(remoteId, period(2, 4), srip)
-        _ <- store.markSafe(remoteId, period(4, 6), srip)
+        _ <- store.markOutstanding(periods(0, 10), remoteId1And2NESet)
+        _ <- store.markComputedAndSent(deriveFullPeriod(periods(0, 10)))
+        _ <- store.markSafe(remoteId, periods(0, 2))
+        _ <- store.markSafe(remoteId, periods(2, 4))
+        _ <- store.markSafe(remoteId, periods(4, 6))
 
-        _ <- store.markSafe(remoteId2, period(0, 2), srip)
-        _ <- store.markUnsafe(remoteId2, period(2, 4), srip)
-        _ <- store.markUnsafe(remoteId2, period(4, 6), srip)
+        _ <- store.markSafe(remoteId2, periods(0, 2))
+        _ <- store.markUnsafe(remoteId2, periods(2, 4))
+        _ <- store.markUnsafe(remoteId2, periods(4, 6))
 
         _ <- store.prune(ts(3))
         prune1 <- store.outstanding(ts(0), ts(10), includeMatchedPeriods = true)
@@ -633,21 +617,24 @@ trait AcsCommitmentStoreTest
         prune2 <- store.outstanding(ts(0), ts(10), includeMatchedPeriods = true)
       } yield {
         start shouldBe None
+        // we pruned everything that has a toInclusive timestamp < 3
+        // this means all periods(0, 2) since periods(2,4) gets split into Period(2,3) & Period(3,4)
         prune1.toSet shouldBe Set(
-          (period(2, 4), remoteId, CommitmentPeriodState.Matched),
-          (period(4, 6), remoteId, CommitmentPeriodState.Matched),
-          (period(6, 10), remoteId, CommitmentPeriodState.Outstanding),
-          (period(2, 4), remoteId2, CommitmentPeriodState.Mismatched),
-          (period(4, 6), remoteId2, CommitmentPeriodState.Mismatched),
-          (period(6, 10), remoteId2, CommitmentPeriodState.Outstanding),
-        )
+          periods(2, 4).map((_, remoteId, CommitmentPeriodState.Matched)),
+          periods(4, 6).map((_, remoteId, CommitmentPeriodState.Matched)),
+          periods(6, 10).map((_, remoteId, CommitmentPeriodState.Outstanding)),
+          periods(2, 4).map((_, remoteId2, CommitmentPeriodState.Mismatched)),
+          periods(4, 6).map((_, remoteId2, CommitmentPeriodState.Mismatched)),
+          periods(6, 10).map((_, remoteId2, CommitmentPeriodState.Outstanding)),
+        ).flatten
+        // we pruned everything that has a toInclusive timestamp < 6
+        // this means all periods(0, 2), all periods(2, 4) and half the periods(4,6) since periods(4,6) gets split into period(4,5) (which is less than 6) and period(5,6)
         prune2.toSet shouldBe Set(
-          (period(4, 6), remoteId, CommitmentPeriodState.Matched),
-          (period(6, 10), remoteId, CommitmentPeriodState.Outstanding),
-          (period(4, 6), remoteId2, CommitmentPeriodState.Mismatched),
-          (period(6, 10), remoteId2, CommitmentPeriodState.Outstanding),
-          (period(2, 4), remoteId2, CommitmentPeriodState.Mismatched),
-        )
+          periods(5, 6).map((_, remoteId, CommitmentPeriodState.Matched)),
+          periods(6, 10).map((_, remoteId, CommitmentPeriodState.Outstanding)),
+          periods(5, 6).map((_, remoteId2, CommitmentPeriodState.Mismatched)),
+          periods(6, 10).map((_, remoteId2, CommitmentPeriodState.Outstanding)),
+        ).flatten
       }
     }
 
@@ -658,7 +645,7 @@ trait AcsCommitmentStoreTest
         domainId,
         remoteId,
         localId,
-        period(0, 1),
+        deriveFullPeriod(periods(0, 1)),
         dummyCommitment2,
         testedProtocolVersion,
       )
@@ -691,10 +678,10 @@ trait AcsCommitmentStoreTest
 
       for {
         _ <- NonEmpty
-          .from(List(CommitmentData(remoteId, period(0, 1), dummyCommitment)))
+          .from(List(CommitmentData(remoteId, deriveFullPeriod(periods(0, 1)), dummyCommitment)))
           .fold(FutureUnlessShutdown.unit)(store.storeComputed(_))
         _ <- NonEmpty
-          .from(List(CommitmentData(remoteId, period(0, 1), dummyCommitment)))
+          .from(List(CommitmentData(remoteId, deriveFullPeriod(periods(0, 1)), dummyCommitment)))
           .fold(FutureUnlessShutdown.unit)(store.storeComputed(_))
         found1 <- store.searchComputedBetween(ts(0), ts(1))
       } yield {
@@ -709,10 +696,14 @@ trait AcsCommitmentStoreTest
         recoverToSucceededIf[Throwable] {
           (for {
             _ <- NonEmpty
-              .from(List(CommitmentData(remoteId, period(0, 1), dummyCommitment)))
+              .from(
+                List(CommitmentData(remoteId, deriveFullPeriod(periods(0, 1)), dummyCommitment))
+              )
               .fold(FutureUnlessShutdown.unit)(store.storeComputed(_))
             _ <- NonEmpty
-              .from(List(CommitmentData(remoteId, period(0, 1), dummyCommitment2)))
+              .from(
+                List(CommitmentData(remoteId, deriveFullPeriod(periods(0, 1)), dummyCommitment2))
+              )
               .fold(FutureUnlessShutdown.unit)(store.storeComputed(_))
           } yield ()).failOnShutdown
         }
@@ -756,9 +747,9 @@ trait AcsCommitmentStoreTest
       val store = mk()
 
       for {
-        _ <- store.markOutstanding(period(0, 1), Set(remoteId))
-        _ <- store.markOutstanding(period(0, 2), Set(remoteId))
-        _ <- store.markSafe(remoteId, period(1, 2), srip)
+        _ <- store.markOutstanding(periods(0, 1), remoteIdNESet)
+        _ <- store.markOutstanding(periods(0, 2), remoteIdNESet)
+        _ <- store.markSafe(remoteId, periods(1, 2))
         outstandingWithId <- store.outstanding(ts(0), ts(2), Seq(remoteId))
 
         outstandingWithoutId <- store.outstanding(ts(0), ts(2))
@@ -777,13 +768,13 @@ trait AcsCommitmentStoreTest
 
       for {
         outstanding0 <- store.outstanding(ts(0), ts(10))
-        _ <- store.markOutstanding(period(0, 5), Set(remoteId, remoteId2))
+        _ <- store.markOutstanding(periods(0, 5), remoteId1And2NESet)
 
-        _ <- store.markSafe(remoteId, period(1, 2), srip)
-        _ <- store.markUnsafe(remoteId2, period(1, 2), srip)
+        _ <- store.markSafe(remoteId, periods(1, 2))
+        _ <- store.markUnsafe(remoteId2, periods(1, 2))
         outstanding1 <- store.outstanding(ts(0), ts(10))
-        _ <- store.markSafe(remoteId, period(2, 3), srip)
-        _ <- store.markUnsafe(remoteId2, period(2, 3), srip)
+        _ <- store.markSafe(remoteId, periods(2, 3))
+        _ <- store.markUnsafe(remoteId2, periods(2, 3))
         outstanding2 <- store.outstanding(ts(0), ts(10))
         outstanding3 <- store.outstanding(ts(0), ts(10), includeMatchedPeriods = true)
 
@@ -791,40 +782,37 @@ trait AcsCommitmentStoreTest
         outstanding0.toSet shouldBe Set.empty
         outstanding1.toSet shouldBe Set(
           // remoteId & remoteId2 one still has period (0,1) outstanding
-          (period(0, 1), remoteId, CommitmentPeriodState.Outstanding),
-          (period(0, 1), remoteId2, CommitmentPeriodState.Outstanding),
+          periods(0, 1).map((_, remoteId, CommitmentPeriodState.Outstanding)),
+          periods(0, 1).map((_, remoteId2, CommitmentPeriodState.Outstanding)),
           // remoteId2 has an outstanding period (1,2) in state mismatched
-          (period(1, 2), remoteId2, CommitmentPeriodState.Mismatched),
+          periods(1, 2).map((_, remoteId2, CommitmentPeriodState.Mismatched)),
           // remoteId & remoteId2 one still has period (2,5) outstanding
-          (period(2, 5), remoteId, CommitmentPeriodState.Outstanding),
-          (period(2, 5), remoteId2, CommitmentPeriodState.Outstanding),
-        )
+          periods(2, 5).map((_, remoteId, CommitmentPeriodState.Outstanding)),
+          periods(2, 5).map((_, remoteId2, CommitmentPeriodState.Outstanding)),
+        ).flatten
         outstanding2.toSet shouldBe Set(
           // remoteId & remoteId2 one still has period (0,1) outstanding
-          (period(0, 1), remoteId, CommitmentPeriodState.Outstanding),
-          (period(0, 1), remoteId2, CommitmentPeriodState.Outstanding),
+          periods(0, 1).map((_, remoteId, CommitmentPeriodState.Outstanding)),
+          periods(0, 1).map((_, remoteId2, CommitmentPeriodState.Outstanding)),
           // remoteId2 has a period (1,2) & (2,3) that is mismatched
-          (period(1, 2), remoteId2, CommitmentPeriodState.Mismatched),
-          (period(2, 3), remoteId2, CommitmentPeriodState.Mismatched),
+          periods(1, 3).map((_, remoteId2, CommitmentPeriodState.Mismatched)),
           // remoteId & remoteId2 one still has period (3,5) outstanding
-          (period(3, 5), remoteId, CommitmentPeriodState.Outstanding),
-          (period(3, 5), remoteId2, CommitmentPeriodState.Outstanding),
-        )
+          periods(3, 5).map((_, remoteId, CommitmentPeriodState.Outstanding)),
+          periods(3, 5).map((_, remoteId2, CommitmentPeriodState.Outstanding)),
+        ).flatten
 
         outstanding3.toSet shouldBe Set(
           // remoteId & remoteId2 one still has period (0,1) outstanding
-          (period(0, 1), remoteId, CommitmentPeriodState.Outstanding),
-          (period(0, 1), remoteId2, CommitmentPeriodState.Outstanding),
+          periods(0, 1).map((_, remoteId, CommitmentPeriodState.Outstanding)),
+          periods(0, 1).map((_, remoteId2, CommitmentPeriodState.Outstanding)),
           // remoteId has a period (1,2) & (2,3) that is matched, but we are including matched periods
-          (period(1, 2), remoteId, CommitmentPeriodState.Matched),
-          (period(2, 3), remoteId, CommitmentPeriodState.Matched),
+          periods(1, 3).map((_, remoteId, CommitmentPeriodState.Matched)),
           // remoteId2 has a period (1,2) & (2,3) that is mismatched
-          (period(1, 2), remoteId2, CommitmentPeriodState.Mismatched),
-          (period(2, 3), remoteId2, CommitmentPeriodState.Mismatched),
+          periods(1, 3).map((_, remoteId2, CommitmentPeriodState.Mismatched)),
           // remoteId & remoteId2 one still has period (3,5) outstanding
-          (period(3, 5), remoteId, CommitmentPeriodState.Outstanding),
-          (period(3, 5), remoteId2, CommitmentPeriodState.Outstanding),
-        )
+          periods(3, 5).map((_, remoteId, CommitmentPeriodState.Outstanding)),
+          periods(3, 5).map((_, remoteId2, CommitmentPeriodState.Outstanding)),
+        ).flatten
       }
     }
 
@@ -1032,7 +1020,7 @@ trait CommitmentQueueTest extends CommitmentStoreBaseTest {
           domainId,
           remoteId,
           localId,
-          period(0, 5),
+          deriveFullPeriod(periods(0, 5)),
           dummyCommitment,
           testedProtocolVersion,
         )
@@ -1042,7 +1030,7 @@ trait CommitmentQueueTest extends CommitmentStoreBaseTest {
           domainId,
           remoteId,
           localId,
-          period(10, 15),
+          deriveFullPeriod(periods(10, 15)),
           dummyCommitment2,
           testedProtocolVersion,
         )
@@ -1052,7 +1040,7 @@ trait CommitmentQueueTest extends CommitmentStoreBaseTest {
           domainId,
           remoteId,
           localId,
-          period(0, 10),
+          deriveFullPeriod(periods(0, 10)),
           dummyCommitment3,
           testedProtocolVersion,
         )
@@ -1068,30 +1056,51 @@ trait CommitmentQueueTest extends CommitmentStoreBaseTest {
         _ <- queue.enqueue(c11)
         _ <- queue.enqueue(c12)
         _ <- queue.enqueue(c21)
-        at05 <- queue.peekOverlapsForCounterParticipant(period(0, 5), remoteId)(
+        at05 <- queue.peekOverlapsForCounterParticipant(deriveFullPeriod(periods(0, 5)), remoteId)(
           nonEmptyTraceContext1
         )
-        at010 <- queue.peekOverlapsForCounterParticipant(period(0, 10), remoteId)(
+        at010 <- queue.peekOverlapsForCounterParticipant(
+          deriveFullPeriod(periods(0, 10)),
+          remoteId,
+        )(
           nonEmptyTraceContext1
         )
-        at510 <- queue.peekOverlapsForCounterParticipant(period(5, 10), remoteId)(
+        at510 <- queue.peekOverlapsForCounterParticipant(
+          deriveFullPeriod(periods(5, 10)),
+          remoteId,
+        )(
           nonEmptyTraceContext1
         )
-        at1015 <- queue.peekOverlapsForCounterParticipant(period(10, 15), remoteId)(
+        at1015 <- queue.peekOverlapsForCounterParticipant(
+          deriveFullPeriod(periods(10, 15)),
+          remoteId,
+        )(
           nonEmptyTraceContext1
         )
         _ <- queue.enqueue(c13)
         _ <- queue.enqueue(c22)
-        at1015after <- queue.peekOverlapsForCounterParticipant(period(10, 15), remoteId)(
+        at1015after <- queue.peekOverlapsForCounterParticipant(
+          deriveFullPeriod(periods(10, 15)),
+          remoteId,
+        )(
           nonEmptyTraceContext1
         )
-        at510after <- queue.peekOverlapsForCounterParticipant(period(5, 10), remoteId)(
+        at510after <- queue.peekOverlapsForCounterParticipant(
+          deriveFullPeriod(periods(5, 10)),
+          remoteId,
+        )(
           nonEmptyTraceContext1
         )
-        at515after <- queue.peekOverlapsForCounterParticipant(period(5, 15), remoteId)(
+        at515after <- queue.peekOverlapsForCounterParticipant(
+          deriveFullPeriod(periods(5, 15)),
+          remoteId,
+        )(
           nonEmptyTraceContext1
         )
-        at015after <- queue.peekOverlapsForCounterParticipant(period(0, 15), remoteId)(
+        at015after <- queue.peekOverlapsForCounterParticipant(
+          deriveFullPeriod(periods(0, 15)),
+          remoteId,
+        )(
           nonEmptyTraceContext1
         )
       } yield {

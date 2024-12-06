@@ -11,6 +11,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.pekko.PekkoModuleSystem.PekkoEnv
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test}
+import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.duration.DurationInt
@@ -22,7 +23,7 @@ trait ModelBasedTest extends AnyWordSpec with BftSequencerBaseTest { this: DbTes
   def createStore(): AvailabilityStore[PekkoEnv] =
     new DbAvailabilityStore(storage, timeouts, loggerFactory)(implicitly[ExecutionContext])
 
-  override def cleanDb(storage: DbStorage): Future[Unit] = {
+  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
     import storage.api.*
     storage.update_(
       sqlu"truncate table ord_availability_batch",

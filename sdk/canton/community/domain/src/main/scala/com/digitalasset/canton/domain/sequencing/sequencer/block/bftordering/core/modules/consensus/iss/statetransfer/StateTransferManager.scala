@@ -405,10 +405,10 @@ class StateTransferManager[E <: Env[E]](
     @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
     val lastBlockCommits =
       commitCertificates.maxBy(_.prePrepare.message.blockMetadata.blockNumber).commits
-    val lastEpoch = EpochStore.Epoch(lastEpochInfo, lastBlockCommits)
-    val newEpochState =
+    val lastStoredEpoch = EpochStore.Epoch(lastEpochInfo, lastBlockCommits)
+    val newEpoch =
       EpochState.Epoch(lastEpochInfo, activeMembership, DefaultLeaderSelectionPolicy)
-    StateTransferMessageResult.BlockTransferCompleted(newEpochState, lastEpoch)
+    StateTransferMessageResult.BlockTransferCompleted(newEpoch, lastStoredEpoch)
   }
 
   private def sendBlockToOutput(prePrepare: PrePrepare, endEpoch: EpochNumber): Unit = {
@@ -477,9 +477,11 @@ object StateTransferMessageResult {
 
   case object NothingToStateTransfer extends StateTransferMessageResult
 
-  // Usually an inconclusive result
+  // Signals that state transfer is still in progress
   case object Continue extends StateTransferMessageResult
 
-  final case class BlockTransferCompleted(newEpochState: EpochState.Epoch, epoch: EpochStore.Epoch)
-      extends StateTransferMessageResult
+  final case class BlockTransferCompleted(
+      lastCompletedEpoch: EpochState.Epoch,
+      lastCompletedEpochStored: EpochStore.Epoch,
+  ) extends StateTransferMessageResult
 }

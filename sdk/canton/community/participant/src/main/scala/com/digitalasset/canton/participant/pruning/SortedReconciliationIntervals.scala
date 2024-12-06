@@ -113,9 +113,27 @@ final case class SortedReconciliationIntervals private (
     periodLength.toOption.map(CommitmentPeriod(periodStart, _))
   }
 
-  /** Check whether the given interval contains a tick */
-  def containsTick(fromExclusive: CantonTimestamp, toInclusive: CantonTimestamp): Option[Boolean] =
-    tickBeforeOrAt(toInclusive).map(fromExclusive < _)
+  /** calls `commitPeriodPreceding`
+    *
+    *  however in the case the `endOfPreviousPeriod` is undefined then it calculates a single period that spans from `periodEnd - reconciliationInterval` to `periodEnd`.
+    *
+    *  This prevents us from computing all periods from `CantonTimestamp.MinValue` to `periodEnd`
+    */
+  def commitmentPeriodPrecedingFixedLowerBound(
+      periodEnd: CantonTimestampSecond,
+      endOfPreviousPeriod: Option[CantonTimestampSecond],
+  ): Option[CommitmentPeriod] =
+    if (endOfPreviousPeriod.isDefined)
+      commitmentPeriodPreceding(periodEnd, endOfPreviousPeriod)
+    else {
+      val validInterval = intervals.find(b => b.isValidAt(periodEnd.forgetRefinement))
+
+      validInterval match {
+        case Some(interval) =>
+          commitmentPeriodPreceding(periodEnd, Some(periodEnd - interval.intervalLength))
+        case None => commitmentPeriodPreceding(periodEnd, endOfPreviousPeriod)
+      }
+    }
 
   /** Returns the tick before or at the specified timestamp `ts` considering the
     * reconciliation interval `intervalLength`.
@@ -154,7 +172,7 @@ object SortedReconciliationIntervals {
       validUntil: Option[CantonTimestamp],
       intervalLength: PositiveSeconds,
   ) {
-    def isValidAt(ts: CantonTimestamp) = validFrom < ts && validUntil.forall(ts <= _)
+    def isValidAt(ts: CantonTimestamp): Boolean = validFrom < ts && validUntil.forall(ts <= _)
   }
 
   def create(

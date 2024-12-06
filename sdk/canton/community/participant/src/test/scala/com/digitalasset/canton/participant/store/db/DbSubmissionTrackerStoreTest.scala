@@ -8,13 +8,14 @@ import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.store.{IndexedDomain, PrunableByTimeParameters}
 import com.digitalasset.canton.topology.DefaultTestIdentities
+import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.Future
 
 trait DbSubmissionTrackerStoreTest extends SubmissionTrackerStoreTest {
   this: DbTest =>
 
-  override def cleanDb(storage: DbStorage): Future[Unit] = {
+  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
     import storage.api.*
     storage.update(
       DBIO.seq(

@@ -13,6 +13,7 @@ import com.digitalasset.canton.store.db.DbTest
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
+import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.Future
 
@@ -23,7 +24,7 @@ trait DbTopologyStoreHelper {
   // Using test name as discriminator to avoid db-unit-test clashes such as non-X DbTopologyStoreTest.
   // We reuse the `topology_dispatching` table from non-X topology management.
   private val discriminator = String68.tryCreate(getClass.getSimpleName.takeRight(40))
-  override def cleanDb(storage: DbStorage): Future[Unit] = {
+  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
     import storage.api.*
     storage.update(
       DBIO.seq(

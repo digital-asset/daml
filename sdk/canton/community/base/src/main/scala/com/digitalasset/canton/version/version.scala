@@ -13,10 +13,25 @@ package object version {
   type HasMemoizedProtocolVersionedWithContextCompanion[
       ValueClass <: HasRepresentativeProtocolVersion,
       Context,
-  ] = HasMemoizedProtocolVersionedWithContextCompanion2[ValueClass, ValueClass, Context]
+  ] = HasMemoizedProtocolVersionedWithContextCompanion2WithoutDependency[
+    ValueClass,
+    ValueClass,
+    Context,
+    Unit,
+  ]
+
+  type HasMemoizedProtocolVersionedWithContextAndDependencyCompanion[
+      ValueClass <: HasRepresentativeProtocolVersion,
+      Context,
+      Dependency,
+  ] = HasMemoizedProtocolVersionedWithContextCompanion2[ValueClass, ValueClass, Context, Dependency]
+
+  type HasProtocolVersionedWrapperCompanion[
+      ValueClass <: HasRepresentativeProtocolVersion,
+      DeserializedValueClass <: HasRepresentativeProtocolVersion,
+  ] = HasProtocolVersionedWrapperCompanionWithDependency[ValueClass, DeserializedValueClass, ?]
 
   type HasProtocolVersionedCompanion[
       ValueClass <: HasRepresentativeProtocolVersion
   ] = HasProtocolVersionedCompanion2[ValueClass, ValueClass]
-
 }

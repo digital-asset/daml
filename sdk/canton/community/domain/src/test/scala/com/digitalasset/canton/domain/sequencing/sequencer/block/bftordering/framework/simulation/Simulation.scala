@@ -109,7 +109,6 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
       case NodeCollector.TickEvent(duration, tickId, to, msg) =>
         local.scheduleTick(peer, to, tickId, duration, msg)
       case NodeCollector.SendNetworkEvent(toPeer, msg) =>
-        logger.debug(s"$peer will send $toPeer msg=$msg")
         network.scheduleNetworkEvent(fromPeer = peer, toPeer, msg)
       case NodeCollector.AddFuture(to, future, errorMessage) =>
         local.scheduleFuture(peer, to, clock.now, future, errorMessage)
@@ -267,7 +266,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
       while (continueToRun) {
         val whatToDo = nextThingTodo()
 
-        clock.advanceTo(whatToDo.at)(TraceContext.empty)
+        clock.advanceTo(whatToDo.at, logAdvancement = false)(TraceContext.empty)
         local.tick(clock.now)
         network.tick()
         val _ = currentHistory.addOne(whatToDo.command)

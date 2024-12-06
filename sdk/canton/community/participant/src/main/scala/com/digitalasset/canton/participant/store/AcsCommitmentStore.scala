@@ -8,7 +8,6 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.event.RecordTime
-import com.digitalasset.canton.participant.pruning.SortedReconciliationIntervalsProvider
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
   CommitmentPeriod,
@@ -41,8 +40,14 @@ trait AcsCommitmentStore extends AcsCommitmentLookup with PrunableByTime with Au
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 
-  /** Mark that remote commitments are outstanding for a period */
-  def markOutstanding(period: CommitmentPeriod, counterParticipants: Set[ParticipantId])(implicit
+  /** Mark that remote commitments are outstanding for a period
+    *
+    * Caller needs to ensure the periods are valid.
+    */
+  def markOutstanding(
+      periods: NonEmpty[Set[CommitmentPeriod]],
+      counterParticipants: NonEmpty[Set[ParticipantId]],
+  )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 
@@ -73,6 +78,8 @@ trait AcsCommitmentStore extends AcsCommitmentLookup with PrunableByTime with Au
 
   /** Mark a period as safe for a counterparticipant. To be called by the ACS commitment processor only.
     *
+    * Caller needs to ensure the periods are valid.
+    *
     * "Safe" here means that the received commitment matches the locally computed commitment.
     * The `toInclusive` field of the period must not be higher than that of the last period passed to
     * [[markComputedAndSent]].
@@ -83,17 +90,17 @@ trait AcsCommitmentStore extends AcsCommitmentLookup with PrunableByTime with Au
     */
   def markSafe(
       counterParticipant: ParticipantId,
-      period: CommitmentPeriod,
-      sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
+      periods: NonEmpty[Set[CommitmentPeriod]],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     markPeriod(
       counterParticipant,
-      period,
-      sortedReconciliationIntervalsProvider,
+      periods,
       CommitmentPeriodState.Matched,
     )
 
   /** Mark a period as unsafe for a counterparticipant. To be called by the ACS commitment processor only.
+    *
+    * Caller needs to ensure the periods are valid.
     *
     * "Unsafe" here means that the received commitment does not match the locally computed commitment.
     * The `toInclusive` field of the period must not be higher than that of the last period passed to
@@ -105,17 +112,17 @@ trait AcsCommitmentStore extends AcsCommitmentLookup with PrunableByTime with Au
     */
   def markUnsafe(
       counterParticipant: ParticipantId,
-      period: CommitmentPeriod,
-      sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
+      periods: NonEmpty[Set[CommitmentPeriod]],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     markPeriod(
       counterParticipant,
-      period,
-      sortedReconciliationIntervalsProvider,
+      periods,
       CommitmentPeriodState.Mismatched,
     )
 
   /** Mark a period with the given commitment match state for a counter participant. To be called by the ACS commitment processor only.
+    *
+    * Caller needs to ensure the periods are valid.
     *
     * May be called with the same parameters again, after a restart or a domain reconnect.
     * Marking a period may change return value of [[outstanding]].
@@ -124,8 +131,7 @@ trait AcsCommitmentStore extends AcsCommitmentLookup with PrunableByTime with Au
     */
   protected def markPeriod(
       counterParticipant: ParticipantId,
-      period: CommitmentPeriod,
-      sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
+      periods: NonEmpty[Set[CommitmentPeriod]],
       matchingState: CommitmentPeriodState,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 

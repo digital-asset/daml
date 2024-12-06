@@ -20,6 +20,7 @@ import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.util.LoggerUtil
 
 import scala.concurrent.duration.Duration
+import scala.jdk.DurationConverters.*
 
 sealed trait SequencerError extends BaseCantonError
 object SequencerError extends SequencerErrorGroup {
@@ -57,28 +58,6 @@ object SequencerError extends SequencerErrorGroup {
           val ack = signedAcknowledgeRequest.content
           s"Member ${ack.member} has acknowledged the timestamp ${ack.timestamp} but signature from ${signedAcknowledgeRequest.timestampOfSigningKey} failed to be verified at $latestValidTimestamp: $error"
         })
-        with LogOnCreation
-  }
-
-  @Explanation("""
-                 |This error indicates that some sequencer node has distributed an invalid sequencer pruning request via the blockchain.
-                 |Either the sequencer nodes got out of sync or one of the sequencer nodes is buggy.
-                 |The sequencer node will stop processing to prevent the danger of severe data corruption.
-                 |""")
-  @Resolution(
-    """Stop using the domain involving the sequencer nodes. Contact support."""
-  )
-  object InvalidPruningRequestOnChain
-      extends AlarmErrorCode("INVALID_SEQUENCER_PRUNING_REQUEST_ON_CHAIN") {
-    final case class Error(
-        blockHeight: Long,
-        blockLatestTimestamp: CantonTimestamp,
-        safePruningTimestamp: CantonTimestamp,
-        invalidPruningRequests: Seq[CantonTimestamp],
-    )(implicit override val logger: ContextualizedErrorLogger)
-        extends Alarm(
-          s"Pruning requests in block $blockHeight are unsafe: previous block's latest timestamp $blockLatestTimestamp, safe pruning timestamp $safePruningTimestamp, unsafe pruning timestamps: $invalidPruningRequests"
-        )
         with LogOnCreation
   }
 
@@ -162,8 +141,6 @@ object SequencerError extends SequencerErrorGroup {
         with LogOnCreation
   }
 
-  import scala.jdk.DurationConverters.*
-
   // TODO(#15603) modify resolution once fixed
   @Explanation("""
       |This error indicates that a request was not sequenced because the sequencing time would exceed the
@@ -219,6 +196,7 @@ object SequencerError extends SequencerErrorGroup {
             s"The payload to event time bound [$bound] has been been exceeded by payload time [$payloadTs] and sequenced event time [$sequencedTs]: $messageId"
         )
   }
+
   @Explanation(
     """This error indicates that no sequencer snapshot can be found for the given timestamp."""
   )

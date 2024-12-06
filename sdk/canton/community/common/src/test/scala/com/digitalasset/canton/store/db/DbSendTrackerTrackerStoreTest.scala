@@ -8,6 +8,7 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.{IndexedDomain, SendTrackerStoreTest}
 import com.digitalasset.canton.topology.DefaultTestIdentities
+import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
@@ -15,7 +16,7 @@ import scala.concurrent.Future
 trait DbSendTrackerTrackerStoreTest extends AsyncWordSpec with BaseTest with SendTrackerStoreTest {
   this: DbTest =>
 
-  override def cleanDb(storage: DbStorage): Future[Unit] = {
+  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
     import storage.api.*
     storage.update(DBIO.seq(sqlu"truncate table sequencer_client_pending_sends"), functionFullName)
   }
