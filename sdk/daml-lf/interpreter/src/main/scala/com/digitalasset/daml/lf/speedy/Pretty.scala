@@ -198,6 +198,9 @@ private[lf] object Pretty {
                 "in the destination contract is"
               ) & prettyValue(false)(dstViewValue)
           }
+          case Upgrade.DowngradeFailed(expectedType, actualValue) =>
+            text("Attempt to downgrade ") & prettyValue(false)(actualValue) /
+              text(s" to the variant or enum constructor type ${expectedType.pretty}")
           case Upgrade.ContractNotUpgradable(coid, target, actual) => {
             text("Attempt to upgrade non-upgradable contract id") & prettyContractId(coid) /
               text("to target package") & prettyTypeConName(target) & text(

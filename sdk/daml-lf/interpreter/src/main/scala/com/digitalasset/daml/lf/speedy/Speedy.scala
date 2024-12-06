@@ -1368,7 +1368,10 @@ private[lf] object Speedy {
     // Raises an exception if missing a package.
     private[speedy] final def importValue(typ0: Type, value0: V): Control.Value = {
 
-      def assertRight[X](x: Either[LookupError, X], withLookupError: PartialFunction[LookupError, X]): X =
+      def assertRight[X](
+          x: Either[LookupError, X],
+          withLookupError: PartialFunction[LookupError, X] = PartialFunction.empty,
+      ): X =
         x match {
           case Right(value) => value
           case Left(error) if withLookupError.isDefinedAt(error) => withLookupError(error)
@@ -1452,15 +1455,7 @@ private[lf] object Speedy {
             value match {
               case V.ValueRecord(_, sourceElements) => { // This _ is the source typecon, which we ignore.
                 val lookupResult = assertRight(
-                  compiledPackages.pkgInterface.lookupDataRecord(tyCon),
-                  withLookupError = {
-                    case LookupError.NotFound(ref, ctxt) =>
-                      throw SErrorDamlException(
-                        IError.Upgrade(
-                          IError.Upgrade.LookupNotFound(ref, ctxt)
-                        )
-                      )
-                  },
+                  compiledPackages.pkgInterface.lookupDataRecord(tyCon)
                 )
                 val targetFieldsAndTypes: ImmArray[(Name, Type)] = lookupResult.dataRecord.fields
                 lazy val subst = lookupResult.subst(argTypes)
@@ -1556,13 +1551,12 @@ private[lf] object Speedy {
                 val info =
                   assertRight(
                     compiledPackages.pkgInterface.lookupVariantConstructor(tyCon, constructor),
-                    withLookupError = {
-                      case LookupError.NotFound(ref, ctxt) =>
-                        throw SErrorDamlException(
-                          IError.Upgrade(
-                            IError.Upgrade.LookupNotFound(ref, ctxt)
-                          )
+                    withLookupError = { case LookupError.NotFound(_, _) =>
+                      throw SErrorDamlException(
+                        IError.Upgrade(
+                          IError.Upgrade.DowngradeFailed(ty, value)
                         )
+                      )
                     },
                   )
                 val valType = info.concreteType(argTypes)
@@ -1572,13 +1566,12 @@ private[lf] object Speedy {
                 val rank =
                   assertRight(
                     compiledPackages.pkgInterface.lookupEnumConstructor(tyCon, constructor),
-                    withLookupError = {
-                      case LookupError.NotFound(ref, ctxt) =>
-                        throw SErrorDamlException(
-                          IError.Upgrade(
-                            IError.Upgrade.LookupNotFound(ref, ctxt)
-                          )
+                    withLookupError = { case LookupError.NotFound(_, _) =>
+                      throw SErrorDamlException(
+                        IError.Upgrade(
+                          IError.Upgrade.DowngradeFailed(ty, value)
                         )
+                      )
                     },
                   )
                 SValue.SEnum(tyCon, constructor, rank)
