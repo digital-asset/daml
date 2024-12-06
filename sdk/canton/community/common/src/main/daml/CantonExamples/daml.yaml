@@ -1,4 +1,4 @@
-sdk-version: 2.10.0-snapshot.20241129.13110.0.v8614d753
+sdk-version: 2.10.0-snapshot.20241202.13113.0.vc1ba0f69
 build-options: 
 - --target=1.14
 name: CantonExamples

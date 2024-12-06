@@ -93,25 +93,38 @@ class AuthenticationTokenProvider(
 
   private def getChallenge(
       authenticationClient: SequencerAuthenticationServiceStub
-  ): EitherT[Future, Status, Challenge.Success] = EitherT {
+  ): EitherT[Future, Status, Challenge.Success] = {
     import com.digitalasset.canton.domain.api.v0.Challenge.Response.Value.{Empty, Failure, Success}
-    authenticationClient
-      .challenge(
-        Challenge
-          .Request(member.toProtoPrimitive, supportedProtocolVersions.map(_.toProtoPrimitiveS))
-      )
-      .map(response => response.value)
-      .map {
-        case Success(success) => Right(success)
-        case Failure(Challenge.Failure(code, reason)) =>
-          Left(Status.fromCodeValue(code).withDescription(reason))
-        case Empty =>
-          Left(
-            Status.INTERNAL.withDescription(
-              "Problem with domain handshake with challenge. Received empty response from domain."
+    def challenge(pvs: Seq[ProtocolVersion]): Future[Either[Status, Challenge.Success]] =
+      authenticationClient
+        .challenge(
+          Challenge
+            .Request(member.toProtoPrimitive, pvs.map(_.toProtoPrimitiveS))
+        )
+        .map(response => response.value)
+        .map {
+          case Success(success) => Right(success)
+          case Failure(Challenge.Failure(code, reason)) =>
+            Left(Status.fromCodeValue(code).withDescription(reason))
+          case Empty =>
+            Left(
+              Status.INTERNAL.withDescription(
+                "Problem with domain handshake with challenge. Received empty response from domain."
+              )
             )
-          )
-      }
+        }
+
+    EitherT {
+      challenge(supportedProtocolVersions)
+        // This fallback allows to remove protocol version 7 if it is unsupported by the domain.
+        // This is helpful for a domain running 2.8.11
+        .flatMap[Either[Status, Challenge.Success]] {
+          case Left(status)
+              if status.getDescription.startsWith("Protocol version 7 is not supported") =>
+            challenge(supportedProtocolVersions.filterNot(_ == ProtocolVersion.v7))
+          case res => Future.successful(res)
+        }
+    }
   }
   import cats.syntax.traverse.*
   private def authenticate(

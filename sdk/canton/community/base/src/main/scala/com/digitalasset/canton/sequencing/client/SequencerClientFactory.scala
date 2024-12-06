@@ -259,6 +259,21 @@ object SequencerClientFactory {
               processingTimeout,
               loggerFactory,
             )
+            // This fallback allows to remove protocol version 7 if it is unsupported by the domain.
+            // This is helpful for a domain running 2.8.11
+            .leftFlatMap[Unit, String] {
+              case error if error.startsWith("Protocol version 7 is not supported") =>
+                SequencerHandshake
+                  .handshake(
+                    supportedProtocolVersions.filterNot(_ == ProtocolVersion.v7),
+                    minimumProtocolVersion,
+                    transport,
+                    config,
+                    processingTimeout,
+                    loggerFactory,
+                  )
+              case error => EitherT.leftT(error)
+            }
             .leftMap { error =>
               // make sure to close transport in case of handshake failure
               transport.close()
