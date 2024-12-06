@@ -1316,11 +1316,10 @@ object UpgradeTest {
     }
   }
 
-  // TODO(https://github.com/digital-asset/daml/issues/17647): This should be an upgrade or lookup error.
   case object InvalidDowngradeAdditionalConstructorInVariantArg
       extends TestCase(
         "InvalidDowngradeAdditionalConstructorInVariantArg",
-        ExpectInternalInterpretationError,
+        ExpectUpgradeError,
       ) {
 
     val variantName = s"${templateName}Variant"
@@ -1380,11 +1379,10 @@ object UpgradeTest {
     }
   }
 
-  // TODO(https://github.com/digital-asset/daml/issues/17647): This should be an upgrade or lookup error.
   case object InvalidDowngradeAdditionalConstructorInEnumArg
       extends TestCase(
         "InvalidDowngradeAdditionalConstructorInEnumArg",
-        ExpectInternalInterpretationError,
+        ExpectUpgradeError,
       ) {
 
     val enumName = s"${templateName}Enum"

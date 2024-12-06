@@ -77,7 +77,7 @@ templateInvalidChange shouldSucceed makeV1Contract v2Choice = test $ do
   case (res, shouldSucceed) of
     (Right "V2", True) -> pure ()
     (Left (WronglyTypedContract {}), False) -> pure ()
-    -- IDE Ledger doesn't apply obfuscation, instead the lookup error is wrapped in SCrash
+    (Left (UpgradeError (DowngradeFailed _) msg), False) -> pure ()
     (Left (UnknownError msg), False) | "SErrorCrash" `isInfixOf` msg -> pure ()
     (Left (UnknownError msg), False) | "An error occurred." `isInfixOf` msg -> pure ()
     _ -> assertFail $ "Expected " <> (if shouldSucceed then "success" else "specific failure") <> " but got " <> show res
@@ -298,8 +298,7 @@ templateEnumDowngradeFromNew = test $ do
   res <- a `trySubmit` exerciseExactCmd cidV1 V1.EnumAdditionalCall
 
   case res of
-    -- IDE Ledger doesn't apply obfuscation, instead the lookup error is wrapped in SCrash
-    Left (UnknownError msg) | "SErrorCrash" `isInfixOf` msg -> pure ()
+    Left (UpgradeError (DowngradeFailed _) msg) -> pure ()
     Left (UnknownError msg) | "An error occurred." `isInfixOf` msg -> pure ()
     _ -> assertFail $ "Expected specific failure but got " <> show res
 
