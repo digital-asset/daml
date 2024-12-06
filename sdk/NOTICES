@@ -214,7 +214,7 @@ defined 1.0.1: https://github.com/inspect-js/defined : MIT License
 define-data-property 1.1.4: https://github.com/ljharb/define-data-property#readme : MIT License
 define-properties 1.2.1: https://github.com/ljharb/define-properties : MIT License
 dependency_2.13 0.2.3 : BSD 3-clause "New" or "Revised" License
-dependency-interface_2.13 0.2.3: https://github.com/coursier/dependency : BSD 3-clause "New" or "Revised" License
+dependency-interface_2.13 0.2.3 : BSD 3-clause "New" or "Revised" License
 dependent-map 0.4.0.0: https://github.com/mokus0/dependent-map : (Haskell Language Report License AND BSD 3-clause "New" or "Revised" License)
 dependent-sum 0.7.1.0: https://github.com/mokus0/dependent-sum : Public Domain
 deps-sort 2.0.1: https://github.com/substack/deps-sort : MIT License
@@ -1063,8 +1063,8 @@ xml-types 0.3.8: https://john-millikin.com/software/haskell-xml/ : MIT License
 xtend 4.0.2: https://github.com/Raynos/xtend : MIT License
 Xtend Macro Interfaces 2.28.0 : Eclipse Public License 2.0
 yallist 4.0.0: https://github.com/isaacs/yallist#readme : ISC License
-yaml for Go 20200512-snapshot-9f266ea9: https://github.com/go-yaml/yaml/tree/v2 : Apache License 2.0
-yaml for Go v2.2.2: https://github.com/go-yaml/yaml/tree/v2 : Apache License 2.0
+yaml for Go 20200512-snapshot-9f266ea9: https://github.com/go-yaml/yaml : Apache License 2.0
+yaml for Go v2.2.2: https://github.com/go-yaml/yaml : Apache License 2.0
 yuin/goldmark v1.3.5: https://pkg.go.dev/github.com/go-text/typesetting : MIT License
 zip 1.7.1: https://github.com/mrkkrp/zip : BSD 3-clause "New" or "Revised" License
 Zipkin Reporter: Core 3.3.0 : Apache License 2.0
