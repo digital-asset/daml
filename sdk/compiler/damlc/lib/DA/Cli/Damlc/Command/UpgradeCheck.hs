@@ -191,7 +191,7 @@ runUpgradeCheck rawPaths = do
     parentsFirst <- sortPackagesParentFirstM packages
     let dependenciesFirst = reverse parentsFirst
     -- Given sorted packages p1, p2, p3, ... this gives you (p1, []), (p2,[p1]), (p3,[p2,p1]), ...
-    let sortedPackagesWithPastPackages = mapMaybe go (reverse (tails (reverse sortedPackages)))
+    let sortedPackagesWithPastPackages = mapMaybe go (reverse (tails (reverse dependenciesFirst)))
           where
           go [] = Nothing
           go (x:xs) = Just (x, xs)
