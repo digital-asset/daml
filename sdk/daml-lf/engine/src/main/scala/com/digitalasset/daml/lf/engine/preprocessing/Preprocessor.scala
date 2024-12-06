@@ -278,7 +278,7 @@ private[engine] final class Preprocessor(
       ResultError(
         Error.Preprocessing.Internal(
           NameOf.qualifiedNameOfCurrentFunc,
-          "unsafeExtractExercisedKey should not need packages",
+          "unsafePrefetchKeys should not need packages",
           None,
         )
       )
