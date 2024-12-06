@@ -627,6 +627,10 @@ da_haskell_test(
         "//test-common:upgrades-WarnsWhenTemplateChangesSignatories-v2.dar",
         "//test-common:upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-v1.dar",
         "//test-common:upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-v2.dar",
+        "//test-common:upgrades-UploadSucceedsWhenDepsAreValidUpgrades-v1.dar",
+        "//test-common:upgrades-UploadSucceedsWhenDepsAreValidUpgrades-v2.dar",
+        "//test-common:upgrades-UploadSucceedsWhenDepsAreValidUpgradesDep-v1.dar",
+        "//test-common:upgrades-UploadSucceedsWhenDepsAreValidUpgradesDep-v2.dar",
     ],
     hackage_deps = [
         "base",

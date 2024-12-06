@@ -305,6 +305,9 @@ tests damlc =
             , testUpgradeCheck
                   "FailsWhenMakingTypeUnserializable"
                   (FailWithError "error type checking data type Main.MyData:\n  The upgraded data type MyData was serializable and is now unserializable. Datatypes cannot change their serializability via upgrades.")
+            , testUpgradeCheck
+                  "UploadSucceedsWhenDepsAreValidUpgrades"
+                  Succeed
             -- TODO https://github.com/digital-asset/daml/issues/19980
             -- Currently there is no good way to test BindingMismatch errors
             -- in upgrades, because LF turns lambdas into their own
