@@ -143,9 +143,8 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
         persistedPackageId,
         // If fileName not provided, the "default" is populated for descriptions
         sourceDescription = String256M("default")(None),
-        // Max stable version now is 1.15, which won't store the name + version, as upgrades isn't supported on 1.15
-        packageName = None,
-        packageVersion = None,
+        packageName = Some(Ref.PackageName.assertFromString("SomePkg")),
+        packageVersion = Some(Ref.PackageVersion.assertFromString("0.0.3")),
       )
 
       damlPackageStore.listDars().futureValue shouldBe empty

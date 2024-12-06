@@ -19,7 +19,6 @@ import com.daml.lf.engine.{
   ResultNeedContract,
   ResultNeedKey,
   ResultNeedPackage,
-  ResultPrefetch,
   ResultNeedUpgradeVerification,
 }
 import com.daml.lf.transaction.*
@@ -214,7 +213,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
           disclosures = commands.disclosedContracts.map(_.toLf),
           participantId = participant,
           submissionSeed = submissionSeed,
-          prefetchKeys = Seq.empty,
           config.toEngineLogger(loggerFactory.append("phase", "submission")),
         )
       }),
@@ -375,8 +373,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
                 )
               )
             }
-
-        case ResultPrefetch(_, resume) => resolveStep(resume())
       }
 
     resolveStep(result).andThen { case _ =>
