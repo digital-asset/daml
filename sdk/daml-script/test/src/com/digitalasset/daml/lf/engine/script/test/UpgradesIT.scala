@@ -41,7 +41,7 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
 
   val testFileDir: Path = rlocation(Paths.get("daml-script/test/daml/upgrades/"))
   val testCases: Seq[TestCase] =
-    UpgradeTestUtil.getTestCases(testFileDir).filter(_.name == "DataChanges")
+    UpgradeTestUtil.getTestCases(testFileDir)
 
   private def traverseSequential[A, B](elems: Seq[A])(f: A => Future[B]): Future[Seq[B]] =
     elems.foldLeft(Future.successful(Seq.empty[B])) { case (comp, elem) =>
