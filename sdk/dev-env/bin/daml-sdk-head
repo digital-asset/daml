@@ -109,7 +109,7 @@ sha_version() {
     echo "0.0.0-head.${date}.${nr}.${sha8}${dirty}"
 }
 if [ $SHA = 0 ]; then
-    export DAML_SDK_RELEASE_VERSION=3.2.0-snapshot.20241111.13401.0.v7e9180fc
+    export DAML_SDK_RELEASE_VERSION=0.0.0
 else
     export DAML_SDK_RELEASE_VERSION=$(sha_version)
 fi
@@ -180,10 +180,10 @@ if [[ "$SKIP_SDK" -eq 0 ]]; then
     readonly DAML_CMD="$(command -v daml)"
     if [[ -x "$DAML_CMD" && "$DAML_CMD" == "$DAML_HOME/bin/daml" ]]; then
       # A Daml installation already exists, so just install SDK version $DAML_SDK_RELEASE_VERSION.
-      "${DAML_HOME}/bin/daml" install "$SDK_DIR" --force --set-path=no --install-with-internal-version yes
+      "${DAML_HOME}/bin/daml" install "$SDK_DIR" --force --set-path=no
     else
       # No daml installation detected, so install the tarball normally but disable auto-install.
-      "${SDK_DIR}/install.sh" --force --set-path=no --install-with-internal-version yes
+      "${SDK_DIR}/install.sh" --force --set-path=no
       echo "auto-install: false" > "${DAML_HOME}/daml-config.yaml"
     fi
 
