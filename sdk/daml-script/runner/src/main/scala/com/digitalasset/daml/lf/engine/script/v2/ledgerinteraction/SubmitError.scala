@@ -528,6 +528,23 @@ class SubmitErrors(majorLanguageVersion: LanguageMajorVersion) {
       }
     }
 
+    sealed case class DowngradeFailed(expectedType: String, message: String) extends SubmitError {
+      override def toDamlSubmitError(env: Env): SValue = {
+        val upgradeErrorType = damlScriptUpgradeErrorType(
+          env,
+          "DowngradeFailed",
+          4,
+          ("expectedType", SText(expectedType)),
+        )
+        SubmitErrorConverters(env).damlScriptError(
+          "UpgradeError",
+          20,
+          ("errorType", upgradeErrorType),
+          ("errorMessage", SText(message)),
+        )
+      }
+    }
+
   }
 
   sealed case class DevError(errorType: String, message: String) extends SubmitError {
