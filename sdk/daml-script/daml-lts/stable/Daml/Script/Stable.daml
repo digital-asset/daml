@@ -1,7 +1,7 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- This module contains all serializable types for the daml3-script library.
+-- This module contains all serializable types for the daml-script-lts library.
 -- This includes any "exposed" data types (which a user could realistically use in a template)
 -- as well as exceptions, and any types that the exceptions depend on
 

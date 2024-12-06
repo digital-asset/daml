@@ -88,7 +88,7 @@ object ScriptLedgerClient {
           compiledPackages,
         )
       case _: abstractLedgers.JsonLedgerClient =>
-        throw new IllegalArgumentException("Daml3-script does not support the JSON interface")
+        throw new IllegalArgumentException("daml-script-lts does not support the JSON interface")
       case abstractLedgers.IdeLedgerClient(pureCompiledPackages, traceLog, warningLog, canceled) =>
         new IdeLedgerClient(
           pureCompiledPackages,

@@ -216,9 +216,9 @@ da_scala_library(
 
 daml_compile(
     name = "try-submit-test-1.15",
-    srcs = [":daml/Daml3ScriptTrySubmit.daml"],
+    srcs = [":daml/DamlScriptLtsTrySubmit.daml"],
     data_dependencies = [
-        "//daml-script/daml3:daml3-script-1.15.dar",
+        "//daml-script/daml-lts:daml-script-lts-1.15.dar",
     ],
     project_name = "try-submit-test",
     target = "1.15",
@@ -229,7 +229,7 @@ daml_compile(
     name = "upgrade-test-lib",
     srcs = [":daml/UpgradeTestLib.daml"],
     data_dependencies = [
-        "//daml-script/daml3:daml3-script-1.dev.dar",
+        "//daml-script/daml-lts:daml-script-lts-1.dev.dar",
     ],
     project_name = "upgrade-test-lib",
     # TODO(https://github.com/digital-asset/daml/issues/18457): split the lib into modules that use
@@ -336,7 +336,7 @@ da_scala_test(
         ":upgrade-test-files",
         ":upgrade-test-lib.dar",
         "//compiler/damlc",
-        "//daml-script/daml3:daml3-script-1.dev.dar",
+        "//daml-script/daml-lts:daml-script-lts-1.dev.dar",
     ],
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [
@@ -376,10 +376,10 @@ da_scala_test(
         "//daml-script/daml:daml-script-1.15.dar",
         "//daml-script/daml:daml-script-1.17.dar",
         "//daml-script/daml:daml-script-1.dev.dar",
-        "//daml-script/daml3:daml3-script-1.14.dar",
-        "//daml-script/daml3:daml3-script-1.15.dar",
-        "//daml-script/daml3:daml3-script-1.17.dar",
-        "//daml-script/daml3:daml3-script-1.dev.dar",
+        "//daml-script/daml-lts:daml-script-lts-1.14.dar",
+        "//daml-script/daml-lts:daml-script-lts-1.15.dar",
+        "//daml-script/daml-lts:daml-script-lts-1.17.dar",
+        "//daml-script/daml-lts:daml-script-lts-1.dev.dar",
     ],
     resources = glob(["src/main/resources/**/*"]),
     deps = [
@@ -397,7 +397,7 @@ da_scala_binary(
         ":upgrade-test-files",
         ":upgrade-test-lib.dar",
         "//compiler/damlc",
-        "//daml-script/daml3:daml3-script-1.dev.dar",
+        "//daml-script/daml-lts:daml-script-lts-1.dev.dar",
     ],
     main_class = "com.digitalasset.daml.lf.engine.script.CompileUpgradeTestCases",
     resources = glob(["src/main/resources/**/*"]),

@@ -423,7 +423,7 @@ checkKinds (GHC.L _ m) = do
 -- Module name spaces should be unique and non-overlapping
 warnInternalPackages :: [(LF.PackageName, GHC.ModuleName)]
 warnInternalPackages = fmap (bimap LF.PackageName GHC.mkModuleName)
-  [ ("daml3-script", "Daml.Script")
+  [ ("daml-script-lts", "Daml.Script")
   ]
 
 -- | Check imports of internal modules of packages in warnInternalPackages given warnings

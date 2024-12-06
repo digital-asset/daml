@@ -526,7 +526,7 @@ private[lf] class Runner(
   // lack of existential types.
   val extendedCompiledPackages = {
     val damlScriptDefs: PartialFunction[SDefinitionRef, SDefinition] = {
-      // Daml3 script
+      // Daml script Lts
       // Generalised version of the various unsafe casts we need in daml scripts,
       // casting various types involving LedgerValue to/from their real types.
       case LfDefRef(id)
@@ -579,11 +579,11 @@ private[lf] class Runner(
     ) match {
       case "daml-script" =>
         new v1.Runner(this).runWithClients(initialClients, traceLog, warningLog, profile, canceled)
-      case "daml3-script" =>
+      case "daml-script-lts" =>
         new v2.Runner(this, initialClients, traceLog, warningLog, profile, canceled).getResult()
       case pkgName =>
         throw new IllegalArgumentException(
-          "Invalid daml script package name. Expected daml-script or daml3-script, got " + pkgName
+          "Invalid daml script package name. Expected daml-script or daml-script-lts, got " + pkgName
         )
     }
   }

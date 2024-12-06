@@ -29,7 +29,7 @@ import DA.Text (isPrefixOf)
   You define a data type to use as the payload for your question.
     IMPORTANT: This type must be a record in LF, so either give it fields, or use the `data MyRecord = MyRecord {}` syntax.
     Note that if all the fields in your record are of the form `() -> ...`, you'll need to add a `dummy : ()` field
-      due to old-style typeclasses, if you want daml3-script to be usable as a data dependency.
+      due to old-style typeclasses, if you want daml-script-lts to be usable as a data dependency.
       `Catch` is a good example of this.
   e.g.
   ```
@@ -88,7 +88,7 @@ getExposedCallStack = dropInternalFrames $ getCallStack callStack
 
 isInternalSrcLoc : SrcLoc -> Bool
 isInternalSrcLoc SrcLoc {srcLocPackage, srcLocModule} =
-  "daml3-script-" `isPrefixOf` srcLocPackage && "Daml.Script" `isPrefixOf` srcLocModule
+  "daml-script-lts-" `isPrefixOf` srcLocPackage && "Daml.Script" `isPrefixOf` srcLocModule
 
 -- We don't care about the type information once its a full ScriptF, as scala side will work that out.
 -- So, we use our danger cast to turn the req and res into LedgerValues

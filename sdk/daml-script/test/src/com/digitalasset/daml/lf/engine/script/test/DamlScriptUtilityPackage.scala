@@ -23,11 +23,19 @@ class DamlScriptUtilityPackage extends AnyWordSpec with Matchers {
   //   "be a utility package in LF 1.dev" in testUtility("daml-script/daml/daml-script-1.dev.dar")
   // }
 
-  "Daml3-script" should {
-    "be a utility package in LF 1.14" in testUtility("daml-script/daml3/daml3-script-1.14.dar")
-    "be a utility package in LF 1.15" in testUtility("daml-script/daml3/daml3-script-1.15.dar")
-    "be a utility package in LF 1.17" in testUtility("daml-script/daml3/daml3-script-1.17.dar")
-    "be a utility package in LF 1.dev" in testUtility("daml-script/daml3/daml3-script-1.dev.dar")
+  "daml-script-lts" should {
+    "be a utility package in LF 1.14" in testUtility(
+      "daml-script/daml-lts/daml-script-lts-1.14.dar"
+    )
+    "be a utility package in LF 1.15" in testUtility(
+      "daml-script/daml-lts/daml-script-lts-1.15.dar"
+    )
+    "be a utility package in LF 1.17" in testUtility(
+      "daml-script/daml-lts/daml-script-lts-1.17.dar"
+    )
+    "be a utility package in LF 1.dev" in testUtility(
+      "daml-script/daml-lts/daml-script-lts-1.dev.dar"
+    )
   }
 
   def testUtility(location: String): Assertion = {

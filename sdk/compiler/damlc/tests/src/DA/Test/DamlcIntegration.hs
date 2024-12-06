@@ -140,9 +140,9 @@ withDamlScriptV2Dep' :: SdkVersioned => Maybe Version -> [(String, String)] -> (
 withDamlScriptV2Dep' mLfVer extraPackages =
   let
     lfVerStr = maybe "" (\lfVer -> "-" <> renderVersion lfVer) mLfVer
-    darPath = "daml-script" </> "daml3" </> "daml3-script" <> lfVerStr <> ".dar"
+    darPath = "daml-script" </> "daml-lts" </> "daml-script-lts" <> lfVerStr <> ".dar"
   in withVersionedDamlScriptDep
-       ("daml3-script-" <> sdkPackageVersion)
+       ("daml-script-lts-" <> sdkPackageVersion)
        darPath
        mLfVer
        extraPackages

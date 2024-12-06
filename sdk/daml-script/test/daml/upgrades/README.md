@@ -67,7 +67,7 @@ depends:
 ```
 
 ## UpgradeTestLib
-It is expected that all daml script test files import the `UpgradeTestLib` module, which will transitively import daml3-script and various assertion/utility modules.  
+It is expected that all daml script test files import the `UpgradeTestLib` module, which will transitively import daml-script-lts and various assertion/utility modules.  
 This testing module exposes the `tests` function as such  
 ```
 tests : [(Text, Script ())] -> Script ()
@@ -104,7 +104,7 @@ participant0 : ParticipantName
 participant1 : ParticipantName
 ```
 These allow running a computation with a dar unvetted, and handle re-vetting the dar afterwards, even in the case of failure. The first `Text` field is the dar names discussed in the Generated packages section, i.e. `my-package-1.0.0`.
-Avoid using the daml3-script internal vetting primitives, and use these functions instead.
+Avoid using the daml-script-lts internal vetting primitives, and use these functions instead.
 
 ## PackageIds
 If you need to know the package ids of any of the packages defined in a given file, you can use the following
