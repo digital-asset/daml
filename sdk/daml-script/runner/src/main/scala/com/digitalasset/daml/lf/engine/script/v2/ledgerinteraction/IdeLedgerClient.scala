@@ -376,6 +376,11 @@ class IdeLedgerClient(
           innerError.expectedType.pretty,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
+      case e @ Upgrade(innerError: Upgrade.DowngradeFailed) =>
+        submitErrors.UpgradeError.DowngradeFailed(
+          innerError.expectedType.pretty,
+          Pretty.prettyDamlException(e).renderWideStream.mkString,
+        )
       case e @ Upgrade(innerError: Upgrade.ViewMismatch) =>
         submitErrors.UpgradeError.ViewMismatch(
           innerError.coid,

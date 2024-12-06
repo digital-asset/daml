@@ -183,6 +183,8 @@ object Error {
         dstView: Value,
     ) extends Error
 
+    final case class DowngradeFailed(expectedType: Ast.Type, actualValue: Value) extends Error
+
     /** An attempt was made to upgrade a contract from a LF version that does not support upgrading */
     final case class ContractNotUpgradable(
         coid: ContractId,
