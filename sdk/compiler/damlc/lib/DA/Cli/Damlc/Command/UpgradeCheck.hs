@@ -132,9 +132,9 @@ readPathToArchive path = do
             let (pkgName, mbPkgVersion) = LF.safePackageMetadata pkg
             pure $ UpgradedPkgWithNameAndVersion pkgId pkg pkgName mbPkgVersion
 
-topoSortPackagesM :: [Archive] -> CheckM [Archive]
-topoSortPackagesM packages =
-  fmap (map withoutIdAndPkg) $ fromEither mkErr $ topoSortPackages (map withIdAndPkg packages)
+sortPackagesParentFirstM :: [Archive] -> CheckM [Archive]
+sortPackagesParentFirstM packages =
+  fmap (map withoutIdAndPkg) $ fromEither mkErr $ sortPackagesParentFirst (map withIdAndPkg packages)
     where
       cyclePkgToDep (_, UpgradedPkgWithNameAndVersion {upwnavPkgId, upwnavName, upwnavVersion}, _) = (upwnavPkgId, upwnavName, upwnavVersion)
       mkErr cyclePkgs =
@@ -188,7 +188,8 @@ runUpgradeCheck rawPaths = do
   let paths = map toNormalizedFilePath' rawPaths
   errsOrUnit <- runExceptT $ do
     packages <- fromValidate $ traverse (toValidate . readPathToArchive) paths
-    sortedPackages <- topoSortPackagesM packages
+    parentsFirst <- sortPackagesParentFirstM packages
+    let dependenciesFirst = reverse parentsFirst
     -- Given sorted packages p1, p2, p3, ... this gives you (p1, []), (p2,[p1]), (p3,[p2,p1]), ...
     let sortedPackagesWithPastPackages = mapMaybe go (reverse (tails (reverse sortedPackages)))
           where

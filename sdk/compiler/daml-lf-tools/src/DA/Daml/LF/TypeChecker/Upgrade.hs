@@ -13,6 +13,7 @@ import           Control.Monad (unless, forM, forM_, when)
 import           Control.Monad.Extra (unlessM)
 import           Control.Monad.Reader (withReaderT, ask)
 import           Control.Monad.Reader.Class (asks)
+import           Control.Monad.State.Class (modify')
 import           Control.Lens hiding (Context)
 import           DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Ast.Alpha as Alpha
@@ -32,6 +33,12 @@ import Data.Function (on)
 import Module (UnitId)
 import GHC.Generics (Generic)
 import Control.DeepSeq (NFData)
+
+import Debug.Trace (traceShow)
+import System.IO.Unsafe (unsafePerformIO)
+
+traceWrite :: Show b => b -> a -> a
+traceWrite str = seq (unsafePerformIO (appendFile "/home/dylanthinnes/log" (show str)))
 
 -- Allows us to split the world into upgraded and non-upgraded
 type TcUpgradeM = TcMF UpgradingEnv
@@ -128,7 +135,8 @@ checkPackageToDepth checkDepth pkg deps version upgradeInfo warningFlags mbUpgra
             checkPackageBoth checkDepth Nothing pkg ((upwnavPkgId upgradedPkg, upwnavPkg upgradedPkg), depsMap)
 
 checkPackageBoth :: CheckDepth -> Maybe Context -> LF.Package -> ((LF.PackageId, LF.Package), DepsMap) -> TcPreUpgradeM ()
-checkPackageBoth checkDepth mbContext pkg ((upgradedPkgId, upgradedPkg), depsMap) =
+checkPackageBoth _checkDepth mbContext pkg ((upgradedPkgId, upgradedPkg), depsMap) = do
+--checkPackageBoth checkDepth mbContext pkg ((upgradedPkgId, upgradedPkg), depsMap) = do
   let presentWorld = initWorldSelf [] pkg
       pastWorld = initWorldSelf [] upgradedPkg
       upgradingWorld = Upgrading { _past = pastWorld, _present = presentWorld }
@@ -137,10 +145,17 @@ checkPackageBoth checkDepth mbContext pkg ((upgradedPkgId, upgradedPkg), depsMap
         case mbContext of
           Nothing -> id
           Just context -> withContextF present' context
-  in
   withReaderT (\preEnv -> UpgradingEnv (mkGamma preEnv <$> upgradingWorld) depsMap) $
-    withMbContext $
-      checkPackageM checkDepth (UpgradedPackageId upgradedPkgId) (Upgrading upgradedPkg pkg)
+    withMbContext $ do
+      --warnWithContextF present' $ WInfo $ unlines
+      --  [ "Checking package " <> show (packageMetadata pkg)
+      --  , "against"
+      --  , show (upgradedPkgId, packageMetadata upgradedPkg)
+      --  , "with depsMap"
+      --  , show depsMap
+      --  ]
+      traceShow ("WARN 10" :: String, packageMetadata pkg, upgradedPkgId, packageMetadata upgradedPkg, depsMap) (pure ())
+      checkPackageM _checkDepth (UpgradedPackageId upgradedPkgId) (Upgrading upgradedPkg pkg)
 
 data CheckDepth = CheckAll | CheckOnlyMissingModules
   deriving (Show, Eq, Ord)
@@ -183,6 +198,13 @@ checkModule world0 module_ deps version upgradeInfo warningFlags mbUpgradedPkg =
                   let upgradingModule = Upgrading { _past = pastModule, _present = module_ }
                   checkModuleM upgradedPkgId upgradingModule
 
+getNameAndVersion :: UpgradedPkgWithNameAndVersion -> (LF.PackageId, LF.PackageName, Maybe LF.PackageVersion)
+getNameAndVersion UpgradedPkgWithNameAndVersion
+  { upwnavPkgId = presentPkgId
+  , upwnavName = packageName
+  , upwnavVersion = mbPkgVersion
+  } = (presentPkgId, packageName, mbPkgVersion)
+
 checkUpgradeDependenciesM
     :: [UpgradedPkgWithNameAndVersion]
     -> [UpgradedPkgWithNameAndVersion]
@@ -211,14 +233,15 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
         withoutIdAndPkg (_, pkg, _) = pkg
 
     -- TODO: https://github.com/digital-asset/daml/issues/19859
-    case topoSortPackages (map withIdAndPkg presentDeps) of
+    case sortPackagesParentFirst (map withIdAndPkg presentDeps) of
       Left badTrace -> do
         let placeholderPkg = let (_, _, pkg) = head badTrace in pkg
             getPkgIdAndMetadata (pkgId, _, pkg) = (pkgId, packageMetadata pkg)
         withPkgAsGamma placeholderPkg $
           throwWithContext $ EUpgradeDependenciesFormACycle $ map getPkgIdAndMetadata badTrace
-      Right sortedPresentDeps -> do
-        let dependenciesFirst = reverse (map withoutIdAndPkg sortedPresentDeps)
+      Right parentsFirst -> do
+        let dependenciesFirst = reverse (map withoutIdAndPkg parentsFirst)
+        traceShow ("WARN 11" :: String, map getNameAndVersion dependenciesFirst) (pure ())
         upgradeablePackageMap <- checkAllDeps initialUpgradeablePackageMap dependenciesFirst
         pure $ upgradeablePackageMapToDeps upgradeablePackageMap
     where
@@ -255,6 +278,7 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
     checkAllDeps upgradeablePackageMap [] = pure upgradeablePackageMap
     checkAllDeps upgradeablePackageMap (pkg:rest) = do
       mbNewDep <- checkOneDep upgradeablePackageMap pkg
+      modify' (WUnerrorableWarning (WInfo "ALERT 1") :)
       let newUpgradeablePackageMap =
             case mbNewDep of
               Nothing -> upgradeablePackageMap
@@ -273,7 +297,9 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
             , upwnavVersion = mbPkgVersion
             } = presentPkgWithNameAndVersion
       versionAndInfo <- ask
-      withPkgAsGamma presentPkg $
+      withPkgAsGamma presentPkg $ do
+        --warnWithContextF id (WInfo "ALERT 2")
+        traceShow ("WARN 12" :: String, getNameAndVersion presentPkgWithNameAndVersion) (pure ())
         case mbPkgVersion of
             Nothing -> do
               -- TODO: https://github.com/digital-asset/daml/issues/20046
@@ -291,6 +317,7 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
                     case HMS.lookup packageName upgradeablePackageMap of
                       Nothing -> pure ()
                       Just upgradeablePkgs -> do
+                        warnWithContextF id (WInfo "ALERT 3")
                         let filterUpgradeablePkgs pred = mapMaybe $ \case
                               (Just v, pkgId, pkg) | pred (v, pkgId, pkg) -> Just (v, pkgId, pkg)
                               _ -> Nothing
@@ -304,7 +331,9 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
                           else do
                             let otherDepsWithSelf = upgradeablePackageMapToDeps $ addDep result upgradeablePackageMap
                             case closestGreater of
-                              Just (greaterPkgVersion, _greaterPkgId, greaterPkg) -> withReaderT (const versionAndInfo) $ do
+                              Just (greaterPkgVersion, _greaterPkgId, greaterPkg) -> do
+                               warnWithContextF id (WInfo "ALERT 4")
+                               withReaderT (const versionAndInfo) $ do
                                 let context = ContextDefUpgrading { cduPkgName = packageName, cduPkgVersion = Upgrading greaterPkgVersion presentVersion, cduSubContext = ContextNone, cduIsDependency = True }
                                 checkPackageBoth
                                   CheckAll
@@ -317,7 +346,9 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
                               Nothing ->
                                 pure ()
                             case closestLesser of
-                              Just (lesserPkgVersion, lesserPkgId, lesserPkg) -> withReaderT (const versionAndInfo) $ do
+                              Just (lesserPkgVersion, lesserPkgId, lesserPkg) -> do
+                               warnWithContextF id (WInfo "ALERT 5")
+                               withReaderT (const versionAndInfo) $ do
                                 let context = ContextDefUpgrading { cduPkgName = packageName, cduPkgVersion = Upgrading lesserPkgVersion presentVersion, cduSubContext = ContextNone, cduIsDependency = True }
                                 checkPackageBoth
                                   CheckAll
