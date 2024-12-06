@@ -249,7 +249,7 @@ final class GeneratorsMessages(
   // TODO(#14515) Check that the generator is exhaustive
   implicit val unsignedProtocolMessageArb: Arbitrary[UnsignedProtocolMessage] =
     Arbitrary(
-      Gen.oneOf(
+      Gen.oneOf[UnsignedProtocolMessage](
         rootHashMessageArb.arbitrary,
         informeeMessageArb.arbitrary,
         encryptedViewMessage.arbitrary,

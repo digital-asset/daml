@@ -9,6 +9,7 @@ import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext}
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.DbStorageSetup.DbBasicConfig
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.*
@@ -42,7 +43,7 @@ trait DbTest
   protected def createSetup(): DbStorageSetup
 
   /** Hook for cleaning database before running next test. */
-  protected def cleanDb(storage: DbStorage): Future[_]
+  protected def cleanDb(storage: DbStorage)(implicit tc: TraceContext): Future[_]
 
   @SuppressWarnings(Array("org.wartremover.warts.Var", "org.wartremover.warts.Null"))
   private var setup: DbStorageSetup = _
@@ -53,15 +54,22 @@ trait DbTest
     new DbStorageIdempotency(s, timeouts, loggerFactory)
   }
 
-  override def beforeAll(): Unit = {
+  override def beforeAll(): Unit = TraceContext.withNewTraceContext { implicit tc =>
     // Non-standard order. Setup needs to be created first, because super can be MyDbTest and therefore super.beforeAll
     // may already access setup.
-    setup = createSetup().initialized()
-    setup.migrateDb()
-    super.beforeAll()
+    try {
+      setup = createSetup().initialized()
+      setup.migrateDb()
+      super.beforeAll()
+    } catch {
+      case NonFatal(e) =>
+        // Logging the error, as an exception in this method will abort the test suite with no log output.
+        logger.error("beforeAll failed", e)
+        throw e
+    }
   }
 
-  override def afterAll(): Unit =
+  override def afterAll(): Unit = TraceContext.withNewTraceContext { implicit tc =>
     try {
       // Non-standard order.
       // First delete test data.
@@ -76,16 +84,25 @@ trait DbTest
       setup.close()
     } catch {
       case NonFatal(e) =>
-        e.printStackTrace()
+        // Logging the error, as an exception in this method will abort the test suite with no log output.
+        logger.error("afterAll failed", e)
         throw e
     }
-
-  override def beforeEach(): Unit = {
-    cleanup()
-    super.beforeEach()
   }
 
-  private def cleanup(): Unit =
+  override def beforeEach(): Unit = TraceContext.withNewTraceContext { implicit tc =>
+    try {
+      cleanup()
+      super.beforeEach()
+    } catch {
+      case NonFatal(e) =>
+        // Logging the error, as an exception in this method will abort the test suite with no log output.
+        logger.error("beforeEach failed", e)
+        throw e
+    }
+  }
+
+  private def cleanup()(implicit tc: TraceContext): Unit =
     // Use the underlying storage for clean-up operations, so we don't run clean-ups twice
     Await.result(cleanDb(storage.underlying), 10.seconds)
 }

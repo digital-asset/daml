@@ -27,8 +27,7 @@ object AvailabilityAck {
       HashPurpose.BftAvailabilityAck,
       HashAlgorithm.Sha256,
     )
-    .add(batchId.toString.length)
-    .add(batchId.toString)
+    .add(batchId.getCryptographicEvidence)
     .add(from.toString.length)
     .add(from.toString)
     .finish()

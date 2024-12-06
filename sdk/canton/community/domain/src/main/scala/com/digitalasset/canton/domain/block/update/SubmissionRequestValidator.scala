@@ -552,7 +552,17 @@ private[update] final class SubmissionRequestValidator(
           SubmissionRequestOutcome.discardSubmissionRequest
         },
       )
-      aggregationIdO = submissionRequest.aggregationId(domainSyncCryptoApi.pureCrypto)
+      aggregationIdO <- EitherT.fromEither[FutureUnlessShutdown](
+        submissionRequest
+          .aggregationId(domainSyncCryptoApi.pureCrypto)
+          .leftMap { err =>
+            logger.error(
+              s"Internal error occurred when processing request $sequencingTimestamp: computation of aggregation id: ${err.message}"
+            )
+
+            SubmissionRequestOutcome.discardSubmissionRequest
+          }
+      )
       aggregationOutcome <-
         aggregationIdO
           .traverse { aggregationId =>

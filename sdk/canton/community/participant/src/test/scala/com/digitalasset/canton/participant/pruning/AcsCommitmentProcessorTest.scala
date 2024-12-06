@@ -1391,7 +1391,7 @@ class AcsCommitmentProcessorTest
         computed.size shouldBe 1
         inside(computed.headOption.value) { case (commitmentPeriod, participantId, _) =>
           commitmentPeriod shouldBe CommitmentPeriod
-            .create(CantonTimestampSecond.MinValue, ts(10))
+            .create(ts(10) - interval, ts(10))
             .value
           participantId shouldBe remoteId1
         }

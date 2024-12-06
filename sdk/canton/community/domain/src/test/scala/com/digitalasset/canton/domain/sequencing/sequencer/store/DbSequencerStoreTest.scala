@@ -16,7 +16,7 @@ import scala.concurrent.Future
 trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequencerStoreTest {
   this: DbTest =>
 
-  override def cleanDb(storage: DbStorage): Future[Unit] =
+  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] =
     DbSequencerStoreTest.cleanSequencerTables(storage)
 
   "DbSequencerStore" should {

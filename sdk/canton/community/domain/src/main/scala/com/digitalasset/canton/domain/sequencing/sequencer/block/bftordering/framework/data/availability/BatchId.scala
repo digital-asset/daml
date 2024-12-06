@@ -5,12 +5,15 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fr
 
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.OrderingRequestBatch
-import com.digitalasset.canton.serialization.DeserializationError
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.serialization.{DeserializationError, HasCryptographicEvidence}
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 
-final case class BatchId private (hash: Hash)
+final case class BatchId private (hash: Hash) extends HasCryptographicEvidence {
+
+  override def getCryptographicEvidence: ByteString = hash.getCryptographicEvidence
+}
 
 object BatchId {
   implicit val batchIdOrdering: Ordering[BatchId] =

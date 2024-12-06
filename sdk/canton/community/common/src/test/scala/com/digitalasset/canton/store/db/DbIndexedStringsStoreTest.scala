@@ -7,6 +7,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.{IndexedStringStore, IndexedStringType}
 import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.wordspec.AsyncWordSpec
@@ -22,7 +23,7 @@ trait DbIndexedStringsStoreTest
 
   import com.digitalasset.canton.topology.DefaultTestIdentities.*
 
-  override def cleanDb(storage: DbStorage): Future[Unit] = {
+  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
     import storage.api.*
     val query =
       sqlu"truncate table common_static_strings restart identity"

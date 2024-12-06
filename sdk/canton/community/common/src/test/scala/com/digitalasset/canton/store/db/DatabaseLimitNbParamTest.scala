@@ -5,6 +5,7 @@ package com.digitalasset.canton.store.db
 
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.resource.{DbExceptionRetryPolicy, DbStorage}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.retry.ErrorKind.FatalErrorKind
 import com.digitalasset.canton.{BaseTestWordSpec, HasExecutionContext}
 import org.scalatest.BeforeAndAfterAll
@@ -39,7 +40,7 @@ trait DatabaseLimitNbParamTest
       .futureValue
   }
 
-  override def cleanDb(storage: DbStorage): Future[Unit] =
+  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] =
     rawStorage.update_(
       sqlu"truncate table database_limit_nb_param_test",
       functionFullName,

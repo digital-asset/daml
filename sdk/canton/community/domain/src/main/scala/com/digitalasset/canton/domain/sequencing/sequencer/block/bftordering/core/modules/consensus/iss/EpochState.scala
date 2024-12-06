@@ -124,6 +124,9 @@ class EpochState[E <: Env[E]](
   def completeEpoch(epochNumber: EpochNumber)(implicit traceContext: TraceContext): Unit =
     sendMessageToSegmentModules(ConsensusSegment.ConsensusMessage.CompletedEpoch(epochNumber))
 
+  def cancelEpoch(epochNumber: EpochNumber)(implicit traceContext: TraceContext): Unit =
+    sendMessageToSegmentModules(ConsensusSegment.ConsensusMessage.CancelEpoch(epochNumber))
+
   def proposalCreated(orderingBlock: OrderingBlock, epochNumber: EpochNumber)(implicit
       traceContext: TraceContext
   ): Unit =
@@ -145,6 +148,8 @@ class EpochState[E <: Env[E]](
         blockToSegmentModule(pbftEvent.blockMetadata.blockNumber).asyncSend(pbftEvent)
       case ConsensusSegment.ConsensusMessage.CompletedEpoch(_) =>
         segmentModules.values.foreach(_.asyncSend(msg))
+      case cancelEpoch: ConsensusSegment.ConsensusMessage.CancelEpoch =>
+        mySegmentModule.foreach(_.asyncSend(cancelEpoch))
       case ConsensusSegment.ConsensusMessage.BlockOrdered(block) =>
         (for {
           segment <- mySegment

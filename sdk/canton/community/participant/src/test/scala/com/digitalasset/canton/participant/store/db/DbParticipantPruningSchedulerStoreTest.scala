@@ -7,6 +7,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.participant.store.ParticipantPruningSchedulerStoreTest
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -18,7 +19,7 @@ trait DbParticipantPruningSchedulerStoreTest
     with HasExecutionContext
     with ParticipantPruningSchedulerStoreTest {
   this: DbTest =>
-  override def cleanDb(storage: DbStorage): Future[Unit] = {
+  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
     import storage.api.*
     storage.update(DBIO.seq(sqlu"truncate table par_pruning_schedules"), functionFullName)
   }

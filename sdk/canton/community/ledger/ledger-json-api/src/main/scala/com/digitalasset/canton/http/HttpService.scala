@@ -38,7 +38,8 @@ import io.grpc.Channel
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthGrpc}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.http.scaladsl.Http.ServerBinding
-import org.apache.pekko.http.scaladsl.server.Route
+import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.http.scaladsl.server.{PathMatcher, Route}
 import org.apache.pekko.http.scaladsl.settings.ServerSettings
 import org.apache.pekko.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
 import org.apache.pekko.stream.Materializer
@@ -217,6 +218,13 @@ class HttpService(
             defaultEndpoints,
             EndpointsCompanion.notFound(logger),
           )
+          prefixedEndpoints = server.pathPrefix
+            .map(_.split("/").toList.dropWhile(_.isEmpty))
+            .collect { case head :: tl =>
+              val joinedPrefix = tl.foldLeft(PathMatcher(Uri.Path(head), ()))(_ slash _)
+              pathPrefix(joinedPrefix)(allEndpoints)
+            }
+            .getOrElse(allEndpoints)
 
           binding <- liftET[HttpService.Error] {
             val serverBuilder = Http()
@@ -228,7 +236,7 @@ class HttpService(
                 logger.info(s"Enabling HTTPS with $config")
                 serverBuilder.enableHttps(HttpService.httpsConnectionContext(config))
               }
-              .bind(allEndpoints)
+              .bind(prefixedEndpoints)
           }
 
           _ <- either(

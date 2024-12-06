@@ -95,10 +95,10 @@ final case class Hash private (private val hash: ByteString, private val algorit
       .concat(hash)
 
   // A serialization of the entire multi-hash to a hex string
-  val toHexString: String = HexString.toHexString(getCryptographicEvidence)
+  lazy val toHexString: String = HexString.toHexString(getCryptographicEvidence)
   // We assume/require that the HexString of a hash has at most 68 characters (for reference: outputs of our SHA256 algorithm have
   // exactly 68 HexString characters). If you want to increase this limit, please consult the team, see also documentation at `LengthLimitedString` for more details
-  val toLengthLimitedHexString: String68 =
+  lazy val toLengthLimitedHexString: String68 =
     String68.tryCreate(toHexString, Some("HexString of hash"))
 
   def compare(that: Hash): Int =

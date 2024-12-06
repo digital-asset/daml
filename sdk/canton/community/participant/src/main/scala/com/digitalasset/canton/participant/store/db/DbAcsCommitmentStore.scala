@@ -8,7 +8,7 @@ import com.daml.nameof.NameOf
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.concurrent.FutureSupervisor
+import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.setParameterLengthLimitedString
 import com.digitalasset.canton.config.CantonRequireTypes.String68
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
@@ -16,10 +16,6 @@ import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.event.RecordTime
-import com.digitalasset.canton.participant.pruning.{
-  SortedReconciliationIntervals,
-  SortedReconciliationIntervalsProvider,
-}
 import com.digitalasset.canton.participant.store.AcsCommitmentStore.CommitmentData
 import com.digitalasset.canton.participant.store.{
   AcsCommitmentStore,
@@ -45,7 +41,8 @@ import com.digitalasset.canton.store.IndexedDomain
 import com.digitalasset.canton.store.db.{DbDeserializationException, DbPrunableByTimeDomain}
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{ErrorUtil, SimpleExecutionQueue}
+import com.digitalasset.canton.util.ErrorUtil
+import com.digitalasset.canton.util.IterableUtil.Ops
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 import slick.jdbc.TransactionIsolation.Serializable
@@ -60,8 +57,6 @@ class DbAcsCommitmentStore(
     override val acsCounterParticipantConfigStore: AcsCounterParticipantConfigStore,
     protocolVersion: ProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
-    futureSupervisor: FutureSupervisor,
-    exitOnFatalFailures: Boolean,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends AcsCommitmentStore
@@ -72,14 +67,6 @@ class DbAcsCommitmentStore(
   import storage.converters.*
 
   override protected[this] val pruning_status_table = "par_commitment_pruning"
-
-  private val markSafeQueue = new SimpleExecutionQueue(
-    "db-acs-commitment-store-queue",
-    futureSupervisor,
-    timeouts,
-    loggerFactory,
-    crashOnFailure = exitOnFatalFailures,
-  )
 
   implicit val getSignedCommitment: GetResult[SignedProtocolMessage[AcsCommitment]] = GetResult(r =>
     SignedProtocolMessage
@@ -174,30 +161,36 @@ class DbAcsCommitmentStore(
     }
   }
 
-  override def markOutstanding(period: CommitmentPeriod, counterParticipants: Set[ParticipantId])(
-      implicit traceContext: TraceContext
+  override def markOutstanding(
+      periods: NonEmpty[Set[CommitmentPeriod]],
+      counterParticipants: NonEmpty[Set[ParticipantId]],
+  )(implicit
+      traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
     logger.debug(
-      s"Marking $period as outstanding for ${counterParticipants.size} remote participants"
+      s"Marking $periods as outstanding for ${counterParticipants.size} remote participants"
     )
-    if (counterParticipants.isEmpty) FutureUnlessShutdown.unit
-    else {
-      import DbStorage.Implicits.BuilderChain.*
-
-      // Slick doesn't support bulk insertions by default, so we have to stitch our own
-      val insertOutstanding =
-        (sql"""insert into par_outstanding_acs_commitments (domain_idx, from_exclusive, to_inclusive, counter_participant, matching_state) values """ ++
-          counterParticipants.toList
-            .map(p =>
-              sql"($indexedDomain, ${period.fromExclusive}, ${period.toInclusive}, $p,${CommitmentPeriodState.Outstanding})"
-            )
-            .intercalate(sql", ") ++ sql" on conflict do nothing").asUpdate
-
-      storage.updateUnlessShutdown_(
-        insertOutstanding,
-        operationName = "commitments: storeOutstanding",
-      )
+    def setParams(
+        pp: PositionedParameters
+    ): ((CommitmentPeriod, ParticipantId)) => Unit = { case (period, participant) =>
+      pp >> indexedDomain
+      pp >> period.fromExclusive
+      pp >> period.toInclusive
+      pp >> participant
+      pp >> CommitmentPeriodState.Outstanding
     }
+
+    val crossProduct = periods.forgetNE.crossProductBy(counterParticipants)
+
+    val insertOutstanding =
+      """insert into par_outstanding_acs_commitments (domain_idx, from_exclusive, to_inclusive, counter_participant, matching_state) values
+        ( ?, ?, ?, ?, ?)
+        on conflict do nothing"""
+
+    storage.queryAndUpdateUnlessShutdown(
+      DbStorage.bulkOperation_(insertOutstanding, crossProduct.toSeq, storage.profile)(setParams),
+      operationName = "commitments: storeOutstanding",
+    )
   }
 
   override def markComputedAndSent(
@@ -280,118 +273,59 @@ class DbAcsCommitmentStore(
 
   override def markPeriod(
       counterParticipant: ParticipantId,
-      period: CommitmentPeriod,
-      sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
+      periods: NonEmpty[Set[CommitmentPeriod]],
       matchingState: CommitmentPeriodState,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
-    def dbQueries(
-        sortedReconciliationIntervals: SortedReconciliationIntervals
-    ): DBIOAction[Unit, NoStream, Effect.All] = {
-      def containsTick(commitmentPeriod: CommitmentPeriod): Boolean =
-        sortedReconciliationIntervals
-          .containsTick(
-            commitmentPeriod.fromExclusive.forgetRefinement,
-            commitmentPeriod.toInclusive.forgetRefinement,
-          )
-          .getOrElse {
-            logger.warn(s"Unable to determine whether $commitmentPeriod contains a tick.")
-            true
-          }
 
-      val insertQuery =
-        """insert into par_outstanding_acs_commitments (domain_idx, from_exclusive, to_inclusive, counter_participant, matching_state)
-           values (?, ?, ?, ?, ?) on conflict do nothing"""
-
-      val stateUpdateFilter: SQLActionBuilderChain =
-        if (matchingState == CommitmentPeriodState.Matched)
-          sql"""(matching_state = ${CommitmentPeriodState.Outstanding} or matching_state = ${CommitmentPeriodState.Mismatched}
-               or matching_state = ${CommitmentPeriodState.Matched})"""
-        else if (matchingState == CommitmentPeriodState.Mismatched)
-          sql"""(matching_state = ${CommitmentPeriodState.Outstanding} or matching_state = ${CommitmentPeriodState.Mismatched})"""
-        else
-          sql"""matching_state = ${CommitmentPeriodState.Outstanding}"""
-      /*
-      This is a three steps process:
-      - First, we select the outstanding intervals that are overlapping with the new one.
-      - Then, we delete the overlapping intervals.
-      - Finally, we insert what we need (non-empty intersections)
-       */
-      for {
-        overlappingIntervals <-
-          (sql"""select from_exclusive, to_inclusive, matching_state from par_outstanding_acs_commitments
-          where domain_idx = $indexedDomain and counter_participant = $counterParticipant
-          and from_exclusive < ${period.toInclusive} and to_inclusive > ${period.fromExclusive}
-          and """ ++ stateUpdateFilter).toActionBuilder
-            .as[(CantonTimestampSecond, CantonTimestampSecond, CommitmentPeriodState)]
-
-        _ <-
-          (sql"""delete from par_outstanding_acs_commitments
-          where domain_idx = $indexedDomain and counter_participant = $counterParticipant
-          and from_exclusive < ${period.toInclusive} and to_inclusive > ${period.fromExclusive}
-          and """ ++ stateUpdateFilter).toActionBuilder.asUpdate
-
-        newPeriods = overlappingIntervals
-          .flatMap { case (from, to, oldState) =>
-            val leftOverlap = CommitmentPeriod.create(from, period.fromExclusive)
-            val rightOverlap = CommitmentPeriod.create(period.toInclusive, to)
-            val inbetween = CommitmentPeriod.create(period.fromExclusive, period.toInclusive)
-            leftOverlap.toSeq.map((_, oldState)) ++ rightOverlap.toSeq.map(
-              (_, oldState)
-            ) ++ inbetween.toSeq.map((_, matchingState))
-          }
-          .toList
-          .distinct
-          .filter(t => containsTick(t._1))
-
-        _ <- DbStorage.bulkOperation_(insertQuery, newPeriods, storage.profile) { pp => newPeriod =>
-          val (period, state) = newPeriod
-          pp >> indexedDomain
-          pp >> period.fromExclusive
-          pp >> period.toInclusive
-          pp >> counterParticipant
-          pp >> state
-        }
-
-      } yield ()
+    val upsertQuery = storage.profile match {
+      case _: DbStorage.Profile.H2 =>
+        s"""merge into par_outstanding_acs_commitments AS target
+            using (values(?,?,?,?,?)) as source (domain_idx, from_exclusive, to_inclusive, counter_participant, matching_state)
+              on (target.domain_idx = source.domain_idx
+              and target.from_exclusive = source.from_exclusive
+              and target.to_inclusive = source.to_inclusive
+              and target.counter_participant = source.counter_participant)
+            when matched then
+              update set matching_state = case
+                  when target.matching_state = ? then source.matching_state
+                  when target.matching_state = ? and source.matching_state = ? then source.matching_state
+                  else target.matching_state
+                end
+            when not matched then
+                insert (domain_idx, from_exclusive, to_inclusive, counter_participant, matching_state)
+                values (source.domain_idx, source.from_exclusive, source.to_inclusive, source.counter_participant, source.matching_state);
+            """
+      case _: DbStorage.Profile.Postgres =>
+        s"""insert into par_outstanding_acs_commitments(domain_idx, from_exclusive, to_inclusive, counter_participant, matching_state)
+               values (?, ?, ?, ?, ?)
+               on conflict (domain_idx, from_exclusive, to_inclusive, counter_participant)
+               do update set
+                  matching_state = case
+                      when par_outstanding_acs_commitments.matching_state = ? then excluded.matching_state
+                      when par_outstanding_acs_commitments.matching_state = ? and excluded.matching_state = ? then excluded.matching_state
+                      else par_outstanding_acs_commitments.matching_state
+                  end;
+          """
     }
 
-    markSafeQueue
-      .executeUS(
-        for {
-          /*
-          That could be wrong if a period is marked as outstanding between the point where we
-          fetch the approximate timestamp of the topology client and the query for the sorted
-          reconciliation intervals.
-          Such a period would be kept as outstanding even if it contains no tick. On the other
-          hand, only commitment periods around restarts could be "empty" (not contain any tick).
-           */
-          approxInterval <- sortedReconciliationIntervalsProvider.approximateReconciliationIntervals
-
-          sortedReconciliationIntervals <-
-            // the domain parameters at the approximate topology timestamp is recent enough for the period
-            if (approxInterval.validUntil >= period.toInclusive.forgetRefinement)
-              FutureUnlessShutdown.pure(approxInterval)
-            else {
-              // it is safe to wait for the topology timestamp period.toInclusive.forgetRefinement because we validate
-              // that it is before the sequencing timestamp when we process incoming commitments
-              sortedReconciliationIntervalsProvider.reconciliationIntervals(
-                period.toInclusive.forgetRefinement
-              )
-            }
-
-          _ <- storage.queryAndUpdateUnlessShutdown(
-            dbQueries(sortedReconciliationIntervals).transactionally.withTransactionIsolation(
-              TransactionIsolation.Serializable
-            ),
-            operationName =
-              s"commitments: mark period safe (${period.fromExclusive}, ${period.toInclusive}]",
-          )
-
-        } yield (),
-        "Run mark period safe DB query",
-      )
+    storage.queryAndUpdateUnlessShutdown(
+      DbStorage.bulkOperation_(upsertQuery, periods, storage.profile) { pp => period =>
+        pp >> indexedDomain
+        pp >> period.fromExclusive
+        pp >> period.toInclusive
+        pp >> counterParticipant
+        pp >> matchingState
+        // when par_outstanding_acs_commitments.matching_state = ? then excluded.matching_state
+        pp >> CommitmentPeriodState.Outstanding
+        //  when par_outstanding_acs_commitments.matching_state = ? and excluded.matching_state = ? then excluded.matching_state
+        pp >> CommitmentPeriodState.Mismatched
+        pp >> CommitmentPeriodState.Matched
+      },
+      operationName =
+        s"commitments: marking until ${periods.last1.toInclusive} with state $matchingState for $counterParticipant",
+    )
   }
 
   override def doPrune(
@@ -402,8 +336,10 @@ class DbAcsCommitmentStore(
       sqlu"delete from par_received_acs_commitments where domain_idx=$indexedDomain and to_inclusive < $before"
     val query2 =
       sqlu"delete from par_computed_acs_commitments where domain_idx=$indexedDomain and to_inclusive < $before"
+    // we completely prune the outstanding table, the matching is "best effort" and the assumption is that we achieved unison with all counter-participants somewhere after pruning time.
+    // we might lose old mismatches and outstanding, but we are not able to validate anything received before pruning time anyway (we cant recomputed, and we don't have it in the computed table).
     val query3 =
-      sqlu"delete from par_outstanding_acs_commitments where domain_idx=$indexedDomain and matching_state = ${CommitmentPeriodState.Matched} and to_inclusive < $before"
+      sqlu"delete from par_outstanding_acs_commitments where domain_idx=$indexedDomain and to_inclusive < $before"
     storage
       .queryAndUpdate(
         query1.zip(query2.zip(query3)),
@@ -527,7 +463,6 @@ class DbAcsCommitmentStore(
     LifeCycle.close(
       runningCommitments,
       queue,
-      markSafeQueue,
     )(logger)
 }
 

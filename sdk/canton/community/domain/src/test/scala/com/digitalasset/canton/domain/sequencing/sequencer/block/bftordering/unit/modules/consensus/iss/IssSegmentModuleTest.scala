@@ -1305,7 +1305,8 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
       epochInProgress: EpochStore.EpochInProgress = EpochStore.EpochInProgress(),
   ): IssSegmentModule[E] = {
     val initialLatestCompletedEpoch = EpochStore.Epoch(Genesis.GenesisEpochInfo, Seq.empty)
-    val epochInfo = initialLatestCompletedEpoch.info.next(epochLength)
+    val epochInfo =
+      initialLatestCompletedEpoch.info.next(epochLength, Genesis.GenesisTopologyActivationTime)
     val epoch = {
       val initialMembership = Membership(selfId, otherPeers = otherPeers)
       Epoch(

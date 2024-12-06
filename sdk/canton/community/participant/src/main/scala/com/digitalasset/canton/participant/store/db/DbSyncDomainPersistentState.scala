@@ -111,8 +111,6 @@ class DbSyncDomainPersistentState(
     acsCounterParticipantConfigStore,
     staticDomainParameters.protocolVersion,
     timeouts,
-    futureSupervisor,
-    exitOnFatalFailures = parameters.exitOnFatalFailures,
     loggerFactory,
   )
 

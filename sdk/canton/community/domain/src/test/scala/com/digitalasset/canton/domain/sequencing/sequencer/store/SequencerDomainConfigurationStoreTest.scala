@@ -8,6 +8,7 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.topology.DefaultTestIdentities
+import com.digitalasset.canton.tracing.TraceContext
 import monocle.macros.syntax.lens.*
 import org.scalatest.wordspec.{AsyncWordSpec, AsyncWordSpecLike}
 
@@ -79,7 +80,7 @@ trait DbSequencerDomainConfigurationStoreTest
     with SequencerDomainConfigurationStoreTest {
   this: DbTest =>
 
-  override def cleanDb(storage: DbStorage): Future[Unit] = {
+  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
     import storage.api.*
     storage.update(
       DBIO.seq(

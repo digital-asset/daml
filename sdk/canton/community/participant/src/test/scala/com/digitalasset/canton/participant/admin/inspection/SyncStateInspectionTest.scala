@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.admin.inspection
 
 import cats.Eval
 import com.daml.nameof.NameOf.functionFullName
-import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{
   LtHash16,
@@ -15,10 +15,7 @@ import com.digitalasset.canton.crypto.{
   TestHash,
 }
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.participant.pruning.{
-  SortedReconciliationIntervalsHelpers,
-  SortedReconciliationIntervalsProvider,
-}
+import com.digitalasset.canton.participant.pruning.SortedReconciliationIntervalsHelpers
 import com.digitalasset.canton.participant.store.AcsCommitmentStore.CommitmentData
 import com.digitalasset.canton.participant.store.db.DbAcsCommitmentStore
 import com.digitalasset.canton.participant.store.{
@@ -46,6 +43,7 @@ import com.digitalasset.canton.store.IndexedDomain
 import com.digitalasset.canton.store.db.{DbTest, PostgresTest}
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{
   BaseTest,
   CloseableTest,
@@ -68,10 +66,7 @@ sealed trait SyncStateInspectionTest
     with HasExecutionContext {
   this: DbTest =>
 
-  lazy val srip: SortedReconciliationIntervalsProvider =
-    constantSortedReconciliationIntervalsProvider(interval)
-
-  override def cleanDb(storage: DbStorage): Future[Unit] = {
+  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
     import storage.api.*
     storage.update(
       DBIO.seq(
@@ -92,9 +87,13 @@ sealed trait SyncStateInspectionTest
   lazy val remoteId: ParticipantId = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant::domain")
   )
+  lazy val remoteIdNESet: NonEmpty[Set[ParticipantId]] = NonEmptyUtil.fromElement(remoteId).toSet
+
   lazy val remoteId2: ParticipantId = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant2::domain")
   )
+
+  lazy val remoteId2NESet: NonEmpty[Set[ParticipantId]] = NonEmptyUtil.fromElement(remoteId2).toSet
 
   // values for domain1
   lazy val domainId: DomainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::domain"))
@@ -137,8 +136,6 @@ sealed trait SyncStateInspectionTest
       acsCounterParticipantConfigStore,
       testedProtocolVersion,
       timeouts,
-      futureSupervisor,
-      exitOnFatalFailures = true,
       loggerFactory,
     )
     when(persistentStateDomain.acsCommitmentStore).thenReturn(acsCommitmentStore)
@@ -177,8 +174,19 @@ sealed trait SyncStateInspectionTest
     )
   }
 
+  def deriveFullPeriod(commitmentPeriods: NonEmpty[Set[CommitmentPeriod]]): CommitmentPeriod = {
+    val fromExclusive = commitmentPeriods.minBy1(_.fromExclusive).fromExclusive
+    val toInclusive = commitmentPeriods.maxBy1(_.toInclusive).toInclusive
+    new CommitmentPeriod(
+      fromExclusive,
+      PositiveSeconds
+        .create(toInclusive - fromExclusive)
+        .valueOrFail(s"could not convert ${toInclusive - fromExclusive} to PositiveSeconds"),
+    )
+  }
+
   /** This message creates a dummy commitment that can be persisted with store.storeReceived method.
-    * It also return the corresponding ReceivedAcsCommitment for comparison.
+    * It also returns the corresponding ReceivedAcsCommitment for comparison.
     * The ReceivedAcsCommitment is in state Outstanding.
     */
   def createDummyReceivedCommitment(
@@ -188,6 +196,7 @@ sealed trait SyncStateInspectionTest
       hashingState: HashingState = new HashingState(),
       state: CommitmentPeriodState = CommitmentPeriodState.Outstanding,
   ): (ReceivedAcsCommitment, SignedProtocolMessage[AcsCommitment]) = {
+
     val dummyCommitment = createDummyHash(hashingState.isOwnDefault)
     val dummySignature: Signature =
       symbolicCrypto.sign(
@@ -217,7 +226,7 @@ sealed trait SyncStateInspectionTest
   }
 
   /** This message creates a dummy commitment that can be persisted with store.storeComputed method.
-    * It also return the corresponding SentAcsCommitment for comparison.
+    * It also returns the corresponding SentAcsCommitment for comparison.
     * The SentAcsCommitment is in state Outstanding.
     */
   def createDummyComputedCommitment(
@@ -227,6 +236,7 @@ sealed trait SyncStateInspectionTest
       hashingState: HashingState = new HashingState(),
       state: ValidSentPeriodState = CommitmentPeriodState.Outstanding,
   ): (SentAcsCommitment, AcsCommitmentStore.CommitmentData) = {
+
     val dummyCommitment = createDummyHash(hashingState.isOwnDefault)
     val commitmentData = CommitmentData(counterParticipant, period, dummyCommitment)
     val sent = SentAcsCommitment(
@@ -240,10 +250,20 @@ sealed trait SyncStateInspectionTest
     (sent, commitmentData)
   }
 
-  lazy val interval: PositiveSeconds = PositiveSeconds.tryOfSeconds(1)
+  lazy val intervalInt: Int = 1
+  lazy val interval: PositiveSeconds = PositiveSeconds.tryOfSeconds(intervalInt.toLong)
   def ts(time: Int): CantonTimestamp = CantonTimestamp.ofEpochSecond(time.toLong)
-  def period(fromExclusive: Int, toInclusive: Int): CommitmentPeriod =
-    CommitmentPeriod.create(ts(fromExclusive), ts(toInclusive), interval).value
+  def period(fromExclusive: Int, toInclusive: Int): CommitmentPeriod = CommitmentPeriod
+    .create(ts(fromExclusive), ts(toInclusive), interval)
+    .valueOrFail(s"could not create period $fromExclusive -> $toInclusive")
+  def periods(fromExclusive: Int, toInclusive: Int): NonEmpty[Set[CommitmentPeriod]] =
+    NonEmptyUtil
+      .fromUnsafe(
+        (fromExclusive until toInclusive by intervalInt).map { i =>
+          CommitmentPeriod.create(ts(i), ts(i + intervalInt), interval).value
+        }
+      )
+      .toSet
 
   lazy val symbolicCrypto: SymbolicCrypto = SymbolicCrypto.create(
     testedReleaseProtocolVersion,
@@ -303,7 +323,7 @@ sealed trait SyncStateInspectionTest
     val (received, dummyCommitment) =
       createDummyReceivedCommitment(domainId, remoteId, testPeriod)
     for {
-      _ <- store.markOutstanding(testPeriod, Set(remoteId))
+      _ <- store.markOutstanding(NonEmptyUtil.fromElement(testPeriod), remoteIdNESet)
       _ <- store.storeReceived(dummyCommitment)
 
       crossDomainReceived = syncStateInspection.crossDomainReceivedCommitmentMessages(
@@ -327,13 +347,14 @@ sealed trait SyncStateInspectionTest
       testPeriod.toInclusive.forgetRefinement,
     )
 
-    val (sent, dummyCommitment) = createDummyComputedCommitment(domainId, remoteId, testPeriod)
+    val (sent, dummyCommitment) =
+      createDummyComputedCommitment(domainId, remoteId, testPeriod)
     for {
-      _ <- store.markOutstanding(testPeriod, Set(remoteId)).failOnShutdown
+      _ <- store.markOutstanding(NonEmptyUtil.fromElement(testPeriod), remoteIdNESet)
       nonEmpty = NonEmpty
         .from(Seq(dummyCommitment))
         .getOrElse(throw new IllegalStateException("How is this empty?"))
-      _ <- store.storeComputed(nonEmpty).failOnShutdown
+      _ <- store.storeComputed(nonEmpty)
 
       crossDomainSent = syncStateInspection.crossDomainSentCommitmentMessages(
         Seq(domainSearchPeriod),
@@ -373,13 +394,13 @@ sealed trait SyncStateInspectionTest
       )
 
     for {
-      _ <- store.markOutstanding(testPeriod, Set(remoteId))
+      _ <- store.markOutstanding(NonEmptyUtil.fromElement(testPeriod), remoteIdNESet)
       nonEmpty = NonEmpty
         .from(Seq(dummySentCommitment))
         .getOrElse(throw new IllegalStateException("How is this empty?"))
       _ <- store.storeComputed(nonEmpty)
       _ <- store.storeReceived(dummyRecCommitment)
-      _ <- store.markSafe(remoteId, testPeriod, srip)
+      _ <- store.markSafe(remoteId, NonEmptyUtil.fromElement(testPeriod))
 
       crossDomainSent = syncStateInspection.crossDomainSentCommitmentMessages(
         Seq(domainSearchPeriod),
@@ -470,22 +491,22 @@ sealed trait SyncStateInspectionTest
       )
 
     for {
-      _ <- store.markOutstanding(testPeriod, Set(remoteId))
+      _ <- store.markOutstanding(NonEmptyUtil.fromElement(testPeriod), remoteIdNESet)
       nonEmpty = NonEmpty
         .from(Seq(dummySentCommitment))
         .getOrElse(throw new IllegalStateException("How is this empty?"))
       _ <- store.storeComputed(nonEmpty)
       _ <- store.storeReceived(dummyRecCommitment)
-      _ <- store.markSafe(remoteId, testPeriod, srip)
+      _ <- store.markSafe(remoteId, NonEmptyUtil.fromElement(testPeriod))
 
       // same thing, but for the second store
-      _ <- store2.markOutstanding(testPeriod, Set(remoteId))
+      _ <- store2.markOutstanding(NonEmptyUtil.fromElement(testPeriod), remoteIdNESet)
       nonEmpty2 = NonEmpty
         .from(Seq(dummySentCommitment2))
         .getOrElse(throw new IllegalStateException("How is this empty?"))
       _ <- store2.storeComputed(nonEmpty2)
       _ <- store2.storeReceived(dummyRecCommitment2)
-      _ <- store2.markSafe(remoteId, testPeriod, srip)
+      _ <- store2.markSafe(remoteId, NonEmptyUtil.fromElement(testPeriod))
 
       crossDomainSent = syncStateInspection.crossDomainSentCommitmentMessages(
         Seq(domainSearchPeriod),
@@ -566,31 +587,31 @@ sealed trait SyncStateInspectionTest
         state = CommitmentPeriodState.Matched,
       )
     for {
-      _ <- store.markOutstanding(testPeriod, Set(remoteId))
+      _ <- store.markOutstanding(NonEmptyUtil.fromElement(testPeriod), remoteIdNESet)
       nonEmpty = NonEmpty
         .from(Seq(dummySentCommitment))
         .getOrElse(throw new IllegalStateException("How is this empty?"))
       _ <- store.storeComputed(nonEmpty)
       _ <- store.storeReceived(dummyRecCommitment)
-      _ <- store.markSafe(remoteId, testPeriod, srip)
+      _ <- store.markSafe(remoteId, NonEmptyUtil.fromElement(testPeriod))
 
       // same thing, but for the second store
-      _ <- store2.markOutstanding(testPeriod, Set(remoteId))
+      _ <- store2.markOutstanding(NonEmptyUtil.fromElement(testPeriod), remoteIdNESet)
       nonEmpty2 = NonEmpty
         .from(Seq(dummySentCommitment2))
         .getOrElse(throw new IllegalStateException("How is this empty?"))
       _ <- store2.storeComputed(nonEmpty2)
       _ <- store2.storeReceived(dummyRecCommitment2)
-      _ <- store2.markSafe(remoteId, testPeriod, srip)
+      _ <- store2.markSafe(remoteId, NonEmptyUtil.fromElement(testPeriod))
 
       // introduce commitments for remoteId2, since we filter by remoteId then these should not appear
-      _ <- store2.markOutstanding(testPeriod, Set(remoteId2))
+      _ <- store2.markOutstanding(NonEmptyUtil.fromElement(testPeriod), remoteId2NESet)
       nonEmptyTrap = NonEmpty
         .from(Seq(dummySentCommitmentTrap))
         .getOrElse(throw new IllegalStateException("How is this empty?"))
       _ <- store2.storeComputed(nonEmptyTrap)
       _ <- store2.storeReceived(dummyRecCommitmentTrap)
-      _ <- store2.markSafe(remoteId2, testPeriod, srip)
+      _ <- store2.markSafe(remoteId2, NonEmptyUtil.fromElement(testPeriod))
 
       crossDomainSent = syncStateInspection.crossDomainSentCommitmentMessages(
         Seq(domainSearchPeriod, domainSearchPeriod2),
@@ -658,18 +679,17 @@ sealed trait SyncStateInspectionTest
       )
 
     for {
-      _ <- store.markOutstanding(period(1, 4), Set(remoteId))
-      nonEmpty = NonEmpty
-        .from(Seq(dummySentCommitment, dummySentCommitment2, dummySentCommitment3))
-        .getOrElse(throw new IllegalStateException("How is this empty?"))
+      _ <- store.markOutstanding(periods(1, 4), remoteIdNESet)
+      nonEmpty = NonEmptyUtil
+        .fromUnsafe(Seq(dummySentCommitment, dummySentCommitment2, dummySentCommitment3))
       _ <- store.storeComputed(nonEmpty)
       _ <- store.storeReceived(dummyRecCommitment)
       _ <- store.storeReceived(dummyRecCommitment2)
 
       // test period 1 is matched
-      _ <- store.markSafe(remoteId, testPeriod, srip)
+      _ <- store.markSafe(remoteId, NonEmptyUtil.fromElement(testPeriod))
       // test period 2 is mismatched
-      _ <- store.markUnsafe(remoteId, testPeriod2, srip)
+      _ <- store.markUnsafe(remoteId, NonEmptyUtil.fromElement(testPeriod2))
 
       crossDomainSentMatched = syncStateInspection.crossDomainSentCommitmentMessages(
         Seq(domainSearchPeriod),
@@ -766,7 +786,7 @@ sealed trait SyncStateInspectionTest
         state = CommitmentPeriodState.Outstanding,
       )
     for {
-      _ <- store.markOutstanding(testPeriod, Set(remoteId))
+      _ <- store.markOutstanding(NonEmptyUtil.fromElement(testPeriod), remoteIdNESet)
       nonEmpty = NonEmpty
         .from(Seq(dummySentCommitment))
         .getOrElse(throw new IllegalStateException("How is this empty?"))
@@ -794,7 +814,7 @@ sealed trait SyncStateInspectionTest
     val (_, dummyCommitment) =
       createDummyReceivedCommitment(domainId, remoteId, testPeriod)
     for {
-      _ <- store.markOutstanding(testPeriod, Set(remoteId))
+      _ <- store.markOutstanding(NonEmptyUtil.fromElement(testPeriod), remoteIdNESet)
       _ <- store.storeReceived(dummyCommitment)
 
       crossDomainReceived = syncStateInspection.crossDomainReceivedCommitmentMessages(

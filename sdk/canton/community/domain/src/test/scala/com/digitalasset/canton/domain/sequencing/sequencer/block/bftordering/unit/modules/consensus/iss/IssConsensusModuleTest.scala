@@ -8,9 +8,12 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultEpochLength
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisEpoch
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.memory.GenericInMemoryEpochStore
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.{
+  EpochStore,
+  Genesis,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.leaders.SimpleLeaderSelectionPolicy
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferManager
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.memory.GenericInMemoryOutputBlockMetadataStore
@@ -105,15 +108,17 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
 
       "start a new epoch when it hasn't been started" in {
         val epochStore = mock[EpochStore[ProgrammableUnitTestEnv]]
+        val latestTopologyActivationTime = TopologyActivationTime(aTimestamp)
         val latestCompletedEpochFromStore = EpochStore.Epoch(
           EpochInfo(
             EpochNumber.First,
             BlockNumber.First,
             epochLength,
-            TopologyActivationTime(aTimestamp),
+            latestTopologyActivationTime,
           ),
           Seq.empty,
         )
+
         when(epochStore.latestEpoch(anyBoolean)(any[TraceContext])).thenReturn(() =>
           latestCompletedEpochFromStore
         )
@@ -126,16 +131,25 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
           )
         implicit val ctx: ContextType = context
 
+        // emulate time advancing for the next epoch's ordering topology activation
+        val nextTopologyActivationTime =
+          TopologyActivationTime(latestTopologyActivationTime.value.immediateSuccessor)
+
         consensus.receive(Consensus.Start)
         consensus.receive(
           Consensus.NewEpochTopology(
             EpochNumber(1L),
-            OrderingTopology(allPeers.toSet),
+            OrderingTopology(
+              peers = allPeers.toSet,
+              activationTime = nextTopologyActivationTime,
+            ),
             fakeCryptoProvider,
           )
         )
 
-        verify(epochStore).startEpoch(latestCompletedEpochFromStore.info.next(epochLength))
+        verify(epochStore).startEpoch(
+          latestCompletedEpochFromStore.info.next(epochLength, nextTopologyActivationTime)
+        )
         succeed
       }
 
@@ -145,7 +159,8 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
         when(stateTransferManagerMock.inStateTransfer).thenReturn(true)
 
         val membership = Membership(selfId, otherPeers.toSet)
-        val aStartEpoch = GenesisEpoch.info.next(epochLength)
+        val aTopologyActivationTime = Genesis.GenesisTopologyActivationTime
+        val aStartEpoch = GenesisEpoch.info.next(epochLength, aTopologyActivationTime)
 
         val (context, consensus) =
           createIssConsensusModule(
@@ -158,7 +173,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
 
         consensus.receive(
           Consensus.NewEpochStored(
-            aStartEpoch.next(epochLength), // not important for the test
+            aStartEpoch.next(epochLength, aTopologyActivationTime), // not important for the test
             membership,
             fakeCryptoProvider,
           )
@@ -174,12 +189,13 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
 
       "do nothing if a new epoch is already in progress" in {
         val epochStore = mock[EpochStore[ProgrammableUnitTestEnv]]
+        val aTopologyActivationTime = TopologyActivationTime(aTimestamp)
         val latestCompletedEpochFromStore = EpochStore.Epoch(
           EpochInfo(
             EpochNumber.First,
             BlockNumber.First,
             epochLength,
-            TopologyActivationTime(aTimestamp),
+            aTopologyActivationTime,
           ),
           Seq.empty,
         )
@@ -188,11 +204,12 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
         )
         when(epochStore.latestEpoch(includeInProgress = true)).thenReturn(() =>
           EpochStore.Epoch(
-            latestCompletedEpochFromStore.info.next(epochLength),
+            latestCompletedEpochFromStore.info.next(epochLength, aTopologyActivationTime),
             Seq.empty,
           )
         )
-        val activeStartingEpochInfo = latestCompletedEpochFromStore.info.next(epochLength)
+        val activeStartingEpochInfo =
+          latestCompletedEpochFromStore.info.next(epochLength, aTopologyActivationTime)
         when(epochStore.loadEpochProgress(activeStartingEpochInfo)).thenReturn(() =>
           EpochStore.EpochInProgress(
             Seq.empty,
@@ -428,7 +445,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
         val segmentModuleMock = mock[ModuleRef[ConsensusSegment.Message]]
 
         val membership = Membership(selfId, otherPeers.toSet)
-        val aStartEpoch = GenesisEpoch.info.next(epochLength)
+        val aStartEpoch = GenesisEpoch.info.next(epochLength, Genesis.GenesisTopologyActivationTime)
 
         val (context, consensus) =
           createIssConsensusModule(
@@ -479,7 +496,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
         membership = Membership(selfId),
         SimpleLeaderSelectionPolicy,
       )
-    new EpochState(
+    new EpochState[ProgrammableUnitTestEnv](
       epoch = epochStateEpoch,
       clock,
       fail(_),
@@ -516,6 +533,8 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
       stateTransferManagerOpt: Option[StateTransferManager[ProgrammableUnitTestEnv]] = None,
   ): (ContextType, IssConsensusModule[ProgrammableUnitTestEnv]) = {
     implicit val context: ContextType = new ProgrammableUnitTestContext
+
+    implicit val metricsContext: MetricsContext = MetricsContext.Empty
 
     val dependencies = ConsensusModuleDependencies[ProgrammableUnitTestEnv](
       availabilityModuleRef,
@@ -558,10 +577,9 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
         loggerFactory,
       )
     )
-
     context -> new IssConsensusModule(
       epochLength = epochLength,
-      IssConsensusModule.StartupState(
+      IssConsensusModule.InitialState(
         sequencerSnapshotAdditionalInfo,
         initialMembership,
         fakeCryptoProvider,
@@ -576,7 +594,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
       dependencies,
       loggerFactory,
       timeouts,
-    )(stateTransferManager)(MetricsContext.Empty)
+    )(stateTransferManager)()
   }
 }
 

@@ -98,7 +98,11 @@ trait HasProtocolVersionedWrapper[ValueClass <: HasRepresentativeProtocolVersion
   self: ValueClass =>
 
   @transient
-  override protected val companionObj: HasProtocolVersionedWrapperCompanion[ValueClass, ?]
+  override protected val companionObj: HasProtocolVersionedWrapperCompanionWithDependency[
+    ValueClass,
+    ?,
+    ?,
+  ]
 
   def isEquivalentTo(protocolVersion: ProtocolVersion): Boolean =
     companionObj.protocolVersionRepresentativeFor(protocolVersion) == representativeProtocolVersion
@@ -173,6 +177,8 @@ trait HasProtocolVersionedWrapper[ValueClass <: HasRepresentativeProtocolVersion
             supportedVersion match {
               case companionObj.VersionedProtoConverter(_, _, serializer) =>
                 Right(VersionedMessage(serializer(self), protoVersion.v))
+              case companionObj.VersionedProtoConverterWithDependency(_, _, serializer, _) =>
+                Right(VersionedMessage(serializer(self), protoVersion.v))
               case other =>
                 Left(
                   s"Cannot call writeDelimitedTo on ${companionObj.name} in protocol version equivalent to ${other.fromInclusive.representative}"
@@ -199,7 +205,7 @@ trait HasProtocolVersionedWrapper[ValueClass <: HasRepresentativeProtocolVersion
     * This only succeeds if the versioning schemes are the same.
     */
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-  def castRepresentativeProtocolVersion[T <: HasSupportedProtoVersions[_]](
+  def castRepresentativeProtocolVersion[T <: HasSupportedProtoVersions[_, _]](
       target: T
   ): Either[String, RepresentativeProtocolVersion[T]] = {
     val sourceTable = companionObj.supportedProtoVersions.table
@@ -214,17 +220,20 @@ trait HasProtocolVersionedWrapper[ValueClass <: HasRepresentativeProtocolVersion
 }
 
 /** This trait has the logic to store proto (de)serializers and retrieve them by protocol version.
-  * @tparam ValueClass
+  * @tparam ValueClass Class that needs to be serialized
+  * @tparam Dependency Another class whose serialization is needed during the serialization of ValueClass
   */
-trait HasSupportedProtoVersions[ValueClass] {
+trait HasSupportedProtoVersions[ValueClass, Dependency] {
 
   /** The name of the class as used for pretty-printing and error reporting */
   def name: String
 
   // Deserializer: (Proto => ValueClass)
   type Deserializer
-  // Serializer: (ValueClass => Proto)
   type Serializer = ValueClass => ByteString
+  type DependencySerializer = Dependency => ByteString
+
+  type Codec <: ProtoCodec
 
   protected type ThisRepresentativeProtocolVersion = RepresentativeProtocolVersion[this.type]
 
@@ -353,6 +362,10 @@ trait HasSupportedProtoVersions[ValueClass] {
   ): ParsingResult[RepresentativeProtocolVersion[this.type]] =
     supportedProtoVersions.protocolVersionRepresentativeFor(protoVersion)
 
+  def converterFor(
+      protocolVersion: RepresentativeProtocolVersion[HasSupportedProtoVersions.this.type]
+  ): ParsingResult[Codec] = supportedProtoVersions.converterFor(protocolVersion)
+
   /** Return the Proto version corresponding to the representative protocol version
     */
   def protoVersionFor(
@@ -366,7 +379,7 @@ trait HasSupportedProtoVersions[ValueClass] {
 
   /** Base class for (de)serializing from/to protobuf of ValueClass from a specific PV
     */
-  sealed trait ProtoCodec {
+  sealed trait ProtoCodec extends PrettyPrinting {
     def fromInclusive: RepresentativeProtocolVersion[HasSupportedProtoVersions.this.type]
     def deserializer: Deserializer
     def serializer: Serializer
@@ -386,8 +399,29 @@ trait HasSupportedProtoVersions[ValueClass] {
       fromInclusive: RepresentativeProtocolVersion[HasSupportedProtoVersions.this.type],
       deserializer: Deserializer,
       serializer: Serializer,
-  ) extends ProtoCodec
-      with PrettyPrinting {
+  ) extends ProtoCodec {
+    override val isVersioned: Boolean = true
+    override val isSupported: Boolean = true
+
+    override protected def pretty: Pretty[this.type] =
+      prettyOfClass(
+        unnamedParam(_ => HasSupportedProtoVersions.this.getClass.getSimpleName.unquoted),
+        param("fromInclusive", _.fromInclusive),
+      )
+  }
+
+  /** Supported Proto version
+    * @param fromInclusive The protocol version when this Proto version was introduced
+    * @param deserializer Deserialization method
+    * @param serializer Serialization method
+    * @param dependencySerializer Serialization method for the dependency
+    */
+  protected[this] case class VersionedProtoConverterWithDependency private (
+      fromInclusive: RepresentativeProtocolVersion[HasSupportedProtoVersions.this.type],
+      deserializer: Deserializer,
+      serializer: Serializer,
+      dependencySerializer: DependencySerializer,
+  ) extends ProtoCodec {
     override val isVersioned: Boolean = true
     override val isSupported: Boolean = true
 
@@ -430,6 +464,39 @@ trait HasSupportedProtoVersions[ValueClass] {
     )
   }
 
+  object VersionedProtoConverterWithDependency {
+    def apply[
+        ProtoClass <: scalapb.GeneratedMessage,
+        Status <: ProtocolVersionAnnotation.Status,
+    ](
+        fromInclusive: ProtocolVersion.ProtocolVersionWithStatus[Status]
+    )(
+        protoCompanion: scalapb.GeneratedMessageCompanion[ProtoClass] & Status
+    )(
+        parser: scalapb.GeneratedMessageCompanion[ProtoClass] => Deserializer,
+        serializer: ValueClass => scalapb.GeneratedMessage,
+        dependencySerializer: Dependency => scalapb.GeneratedMessage,
+    ): VersionedProtoConverterWithDependency =
+      raw(
+        fromInclusive,
+        parser(protoCompanion),
+        serializer(_).toByteString,
+        dependencySerializer(_).toByteString,
+      )
+
+    def raw(
+        fromInclusive: ProtocolVersion,
+        deserializer: Deserializer,
+        serializer: Serializer,
+        dependencySerializer: DependencySerializer,
+    ): VersionedProtoConverterWithDependency = VersionedProtoConverterWithDependency(
+      new RepresentativeProtocolVersion[HasSupportedProtoVersions.this.type](fromInclusive) {},
+      deserializer,
+      serializer,
+      dependencySerializer,
+    )
+  }
+
   protected def deserializationErrorK(error: ProtoDeserializationError): Deserializer
 
   protected[this] case class UnsupportedProtoCodec(
@@ -448,6 +515,7 @@ trait HasSupportedProtoVersions[ValueClass] {
     override def serializer: Serializer = throw new UnsupportedOperationException(
       s"Cannot serialize $valueClassName in protocol version equivalent to ${fromInclusive.representative}"
     )
+
     override protected def pretty: Pretty[this.type] = prettyOfClass(
       unnamedParam(_.valueClassName.unquoted),
       param("fromInclusive", _.fromInclusive),
@@ -463,7 +531,7 @@ trait HasSupportedProtoVersions[ValueClass] {
 
   case class SupportedProtoVersions private (
       // Sorted with descending order
-      converters: NonEmpty[immutable.SortedMap[ProtoVersion, ProtoCodec]]
+      converters: NonEmpty[immutable.SortedMap[ProtoVersion, Codec]]
   ) {
     val (higherProtoVersion, higherConverter) = converters.head1
 
@@ -487,6 +555,19 @@ trait HasSupportedProtoVersions[ValueClass] {
       }
       .getOrElse(higherProtoVersion)
 
+    def converterFor(
+        protocolVersion: RepresentativeProtocolVersion[HasSupportedProtoVersions.this.type]
+    ): ParsingResult[Codec] = converters
+      .collectFirst {
+        case (_, converter) if protocolVersion >= converter.fromInclusive =>
+          converter
+      }
+      .toRight(
+        ProtoDeserializationError.OtherError(
+          s"Unable to find code for representative protocol version $protocolVersion"
+        )
+      )
+
     def protocolVersionRepresentativeFor(
         protoVersion: ProtoVersion
     ): ParsingResult[RepresentativeProtocolVersion[HasSupportedProtoVersions.this.type]] =
@@ -506,8 +587,8 @@ trait HasSupportedProtoVersions[ValueClass] {
   object SupportedProtoVersions {
 
     def apply(
-        head: (ProtoVersion, ProtoCodec),
-        tail: (ProtoVersion, ProtoCodec)*
+        head: (ProtoVersion, Codec),
+        tail: (ProtoVersion, Codec)*
     ): SupportedProtoVersions = SupportedProtoVersions.fromNonEmpty(
       NonEmpty.mk(Seq, head, tail*)
     )
@@ -557,7 +638,7 @@ trait HasSupportedProtoVersions[ValueClass] {
     }
 
     private def fromNonEmpty(
-        converters: NonEmpty[Seq[(ProtoVersion, ProtoCodec)]]
+        converters: NonEmpty[Seq[(ProtoVersion, Codec)]]
     ): SupportedProtoVersions = {
       ensureNoDuplicates(converters)
 
@@ -586,10 +667,11 @@ trait HasSupportedProtoVersions[ValueClass] {
   def supportedProtoVersions: SupportedProtoVersions
 }
 
-trait HasProtocolVersionedWrapperCompanion[
+trait HasProtocolVersionedWrapperCompanionWithDependency[
     ValueClass <: HasRepresentativeProtocolVersion,
     DeserializedValueClass <: HasRepresentativeProtocolVersion,
-] extends HasSupportedProtoVersions[ValueClass]
+    Dependency,
+] extends HasSupportedProtoVersions[ValueClass, Dependency]
     with Serializable {
 
   /** The name of the class as used for pretty-printing and error reporting */
@@ -614,7 +696,8 @@ trait HasProtocolVersionedWrapperCompanion[
       supportedProtoVersions.converterFor(rpv.representative)
 
     converter match {
-      case _: VersionedProtoConverter => deserializeVersionedProto
+      case _: VersionedProtoConverter | _: VersionedProtoConverterWithDependency =>
+        deserializeVersionedProto
       case unsupported: UnsupportedProtoCodec =>
         Left(unsupported.deserializationError)
     }
@@ -658,7 +741,11 @@ trait HasProtocolVersionedWrapperCompanion[
 trait HasProtocolVersionedWrapperWithoutContextCompanion[
     ValueClass <: HasRepresentativeProtocolVersion,
     DeserializedValueClass <: HasRepresentativeProtocolVersion,
-] extends HasProtocolVersionedWrapperCompanion[ValueClass, DeserializedValueClass] {
+] extends HasProtocolVersionedWrapperCompanionWithDependency[
+      ValueClass,
+      DeserializedValueClass,
+      Unit,
+    ] {
 
   /** Deserializes the given bytes and checks that the therein embedded proto version matches
     * the `expectedProtocolVersion`.
@@ -738,6 +825,8 @@ trait HasMemoizedProtocolVersionedWrapperCompanion2[
   override type Deserializer =
     (OriginalByteString, DataByteString) => ParsingResult[DeserializedValueClass]
 
+  override type Codec = ProtoCodec
+
   protected def supportedProtoVersionMemoized[Proto <: scalapb.GeneratedMessage](
       p: scalapb.GeneratedMessageCompanion[Proto]
   )(
@@ -794,7 +883,12 @@ trait HasProtocolVersionedWrapperWithContextCompanion[
     ValueClass <: HasRepresentativeProtocolVersion,
     DeserializedValueClass <: HasRepresentativeProtocolVersion,
     Context,
-] extends HasProtocolVersionedWrapperCompanion[ValueClass, DeserializedValueClass] {
+    Dependency,
+] extends HasProtocolVersionedWrapperCompanionWithDependency[
+      ValueClass,
+      DeserializedValueClass,
+      Dependency,
+    ] {
 
   /** Deserializes the given bytes and checks that the therein embedded proto version matches the
     * `expectedProtocolVersion`.
@@ -876,21 +970,30 @@ trait HasProtocolVersionedWrapperWithContextCompanion[
     )
 }
 
-/** Trait for companion objects of serializable classes with memoization and a (de)serialization context.
-  * Use this class if deserialization produces a different type than where serialization starts.
-  * For example, if a container can serialize its elements, but the container's deserializer
-  * does not deserialize the elements and instead leaves them as Bytestring.
-  *
-  * Use [[HasMemoizedProtocolVersionedWithContextCompanion]] if the type distinction between serialization and deserialization is not needed.
-  */
+trait HasMemoizedProtocolVersionedWithContextCompanion2WithoutDependency[
+    ValueClass <: HasRepresentativeProtocolVersion,
+    DeserializedValueClass <: HasRepresentativeProtocolVersion,
+    Context,
+    Dependency,
+] extends HasMemoizedProtocolVersionedWithContextCompanion2[
+      ValueClass,
+      DeserializedValueClass,
+      Context,
+      Dependency,
+    ] {
+  override type Codec = ProtoCodec
+}
+
 trait HasMemoizedProtocolVersionedWithContextCompanion2[
     ValueClass <: HasRepresentativeProtocolVersion,
     DeserializedValueClass <: HasRepresentativeProtocolVersion,
     Context,
+    Dependency,
 ] extends HasProtocolVersionedWrapperWithContextCompanion[
       ValueClass,
       DeserializedValueClass,
       Context,
+      Dependency,
     ] {
   override type Deserializer =
     (Context, OriginalByteString, DataByteString) => ParsingResult[DeserializedValueClass]
@@ -951,6 +1054,7 @@ trait HasProtocolVersionedCompanion2[
     DeserializedValueClass <: HasRepresentativeProtocolVersion,
 ] extends HasProtocolVersionedWrapperWithoutContextCompanion[ValueClass, DeserializedValueClass] {
   override type Deserializer = DataByteString => ParsingResult[DeserializedValueClass]
+  override type Codec = ProtoCodec
 
   protected def supportedProtoVersion[Proto <: scalapb.GeneratedMessage](
       p: scalapb.GeneratedMessageCompanion[Proto]
@@ -1070,8 +1174,15 @@ trait HasProtocolVersionedCompanion2[
 trait HasProtocolVersionedWithContextCompanion[
     ValueClass <: HasRepresentativeProtocolVersion,
     Context,
-] extends HasProtocolVersionedWrapperWithContextCompanion[ValueClass, ValueClass, Context] {
+] extends HasProtocolVersionedWrapperWithContextCompanion[
+      ValueClass,
+      ValueClass,
+      Context,
+      Unit,
+    ] {
   override type Deserializer = (Context, DataByteString) => ParsingResult[ValueClass]
+
+  override type Codec = ProtoCodec
 
   protected def supportedProtoVersion[Proto <: scalapb.GeneratedMessage](
       p: scalapb.GeneratedMessageCompanion[Proto]
@@ -1205,6 +1316,8 @@ trait HasProtocolVersionedWithContextAndValidationWithSourceProtocolVersionCompa
 trait HasProtocolVersionedWithValidationCompanion[
     ValueClass <: HasRepresentativeProtocolVersion
 ] extends HasProtocolVersionedWithContextCompanion[ValueClass, ProtocolVersion] {
+  override type Codec = ProtoCodec
+
   def fromByteString(expectedProtocolVersion: ProtocolVersion)(
       bytes: OriginalByteString
   ): ParsingResult[ValueClass] =
@@ -1237,7 +1350,10 @@ trait HasMemoizedProtocolVersionedWithValidationCompanion[
       ValueClass,
       ValueClass,
       ProtocolVersion,
+      Unit,
     ] {
+  override type Codec = ProtoCodec
+
   def fromByteString(expectedProtocolVersion: ProtocolVersion)(
       bytes: OriginalByteString
   ): ParsingResult[ValueClass] =

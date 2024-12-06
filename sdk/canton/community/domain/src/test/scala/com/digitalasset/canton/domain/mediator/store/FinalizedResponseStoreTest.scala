@@ -171,7 +171,7 @@ trait DbFinalizedResponseStoreTest
     with FinalizedResponseStoreTest {
   this: DbTest =>
 
-  def cleanDb(storage: DbStorage): Future[Int] = {
+  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Int] = {
     import storage.api.*
     storage.update(sqlu"truncate table med_response_aggregations", functionFullName)
   }

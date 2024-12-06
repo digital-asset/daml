@@ -8,6 +8,7 @@ import com.digitalasset.canton.config.CommunityDbConfig.Postgres
 import com.digitalasset.canton.config.DbParametersConfig
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.DbStorageSetup.DbBasicConfig
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTestWordSpec, HasExecutionContext}
 import org.scalatest.time.{Millis, Seconds, Span}
 import org.scalatest.{Assertion, BeforeAndAfterAll}
@@ -51,7 +52,7 @@ trait DatabaseDeadlockTest
       .futureValue
   }
 
-  override def cleanDb(storage: DbStorage): Future[Unit] =
+  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] =
     rawStorage.update_(
       sqlu"truncate table database_deadlock_test",
       functionFullName,

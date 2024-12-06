@@ -3,70 +3,77 @@
 
 package com.digitalasset.canton.http.json
 
-import com.digitalasset.canton.fetchcontracts.util.PekkoStreamsUtils
 import org.apache.pekko.NotUsed
-import org.apache.pekko.http.scaladsl.model.*
-import org.apache.pekko.stream.scaladsl.*
-import org.apache.pekko.stream.{FanOutShape2, SourceShape, UniformFanInShape}
+import org.apache.pekko.http.scaladsl.model.StatusCode
+import org.apache.pekko.http.scaladsl.model.StatusCodes.{InternalServerError, OK}
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.{Concat, Sink, Source}
 import org.apache.pekko.util.ByteString
 import scalaz.syntax.show.*
-import scalaz.{Show, \/}
+import scalaz.{-\/, Show, \/, \/-}
 import spray.json.*
+
+import scala.concurrent.{ExecutionContext, Future}
 
 object ResponseFormats {
   def resultJsObject[A: JsonWriter](a: A): JsObject =
     resultJsObject(a.toJson)
 
   def resultJsObject(a: JsValue): JsObject =
-    JsObject(statusField(StatusCodes.OK), ("result", a))
+    JsObject(("status", JsNumber(OK.intValue)), ("result", a))
 
   def resultJsObject[E: Show](
       jsVals: Source[E \/ JsValue, NotUsed],
       warnings: Option[JsValue],
-  ): Source[ByteString, NotUsed] = {
-
-    val graph = GraphDSL.create() { implicit b =>
-      import GraphDSL.Implicits.*
-
-      val partition: FanOutShape2[E \/ JsValue, E, JsValue] = b add PekkoStreamsUtils.partition
-      val concat: UniformFanInShape[ByteString, ByteString] = b add Concat(3)
-
-      // first produce optional warnings and result element
-      warnings match {
-        case Some(x) =>
-          Source.single(ByteString(s"""{"warnings":${x.compactPrint},"result":[""")) ~> concat.in(0)
-        case None =>
-          Source.single(ByteString("""{"result":[""")) ~> concat.in(0)
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[(Source[ByteString, NotUsed], StatusCode)] =
+    jsVals
+      .runWith {
+        Sink
+          // Collapse the stream of `E \/ JsValue` into a single pair of errors and results,
+          // only one of which may be non-empty.
+          .fold((Vector.empty[E], Vector.empty[JsValue])) {
+            case ((errors, results), \/-(r)) if errors.isEmpty => (Vector.empty, results :+ r)
+            case ((errors, _), \/-(_)) => (errors, Vector.empty)
+            case ((errors, _), -\/(e)) => (errors :+ e, Vector.empty)
+          }
+      }
+      .map { case (errors, results) =>
+        // Convert that into a stream containing the appropriate JSON response object
+        val (name, vals, statusCode): (String, Iterator[JsValue], StatusCode) =
+          if (errors.nonEmpty)
+            ("errors", errors.iterator.map(e => JsString(e.shows)), InternalServerError)
+          else
+            ("result", results.iterator, OK)
+        val payload = arrayField(name, vals)
+        val status = scalarField("status", JsNumber(statusCode.intValue))
+        val comma = single(",")
+        val jsonSource: Source[ByteString, NotUsed] = Source.combine(
+          single("{"),
+          warnings.fold(Source.empty[ByteString])(scalarField("warnings", _) ++ comma),
+          payload,
+          comma,
+          status,
+          single("}"),
+        )(Concat(_))
+        (jsonSource, statusCode)
       }
 
-      jsVals ~> partition.in
+  private def single(value: String): Source[ByteString, NotUsed] =
+    Source.single(ByteString(value))
 
-      // second consume all successes
-      partition.out1
-        // .zipWithIndex is broken in pekko 1.1.x (see https://github.com/apache/pekko/issues/1525)
-        //  We workaround using standard zip
-        .zip(Source.fromIterator(() => Iterator.iterate(0L)(_ + 1)))
-        .map(a => formatOneElement(a._1, a._2)) ~> concat.in(1)
+  private def scalarField(name: String, value: JsValue): Source[ByteString, NotUsed] =
+    single(s""""$name":${value.compactPrint}""")
 
-      // then consume all failures and produce the status and optional errors
-      partition.out0.fold(Vector.empty[E])((b, a) => b :+ a).map {
-        case Vector() =>
-          ByteString("""],"status":200}""")
-        case errors =>
-          val jsErrors: Vector[JsString] = errors.map(e => JsString(e.shows))
-          ByteString(s"""],"errors":${JsArray(jsErrors).compactPrint},"status":501}""")
-      } ~> concat.in(2)
-
-      SourceShape(concat.out)
-    }
-
-    Source.fromGraph(graph)
+  private def arrayField(name: String, items: Iterator[JsValue]): Source[ByteString, NotUsed] = {
+    val csv = Source.fromIterator(() =>
+      items.zipWithIndex.map { case (r, i) =>
+        val str = r.compactPrint
+        ByteString(if (i == 0) str else "," + str)
+      }
+    )
+    single(s""""$name":[""") ++ csv ++ single("]")
   }
-
-  private def formatOneElement(a: JsValue, index: Long): ByteString =
-    if (index == 0L) ByteString(a.compactPrint)
-    else ByteString("," + a.compactPrint)
-
-  def statusField(status: StatusCode): (String, JsNumber) =
-    ("status", JsNumber(status.intValue()))
 }

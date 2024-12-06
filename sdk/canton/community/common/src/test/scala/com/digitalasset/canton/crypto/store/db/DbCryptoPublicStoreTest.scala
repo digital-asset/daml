@@ -6,6 +6,7 @@ package com.digitalasset.canton.crypto.store.db
 import com.digitalasset.canton.crypto.store.CryptoPublicStoreTest
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
+import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
@@ -13,7 +14,7 @@ import scala.concurrent.Future
 trait DbCryptoPublicStoreTest extends AsyncWordSpec with CryptoPublicStoreTest {
   this: DbTest =>
 
-  override def cleanDb(storage: DbStorage): Future[Unit] = {
+  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
     import storage.api.*
 
     storage.update(

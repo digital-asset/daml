@@ -733,6 +733,7 @@ object ConsensusSegment {
     final case class BlockOrdered(metadata: BlockMetadata) extends ConsensusMessage
 
     final case class CompletedEpoch(epochNumber: EpochNumber) extends ConsensusMessage
-  }
 
+    final case class CancelEpoch(epochNumber: EpochNumber) extends ConsensusMessage
+  }
 }

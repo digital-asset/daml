@@ -273,6 +273,11 @@ object Consensus {
       membership: Membership,
       cryptoProvider: CryptoProvider[E],
   ) extends Message[E]
+
+  trait CatchUpMessage extends Message[Nothing]
+  object CatchUpMessage {
+    final case object SegmentCancelledEpoch extends CatchUpMessage
+  }
 }
 
 trait Consensus[E <: Env[E]] extends Module[E, Consensus.Message[E]] {
