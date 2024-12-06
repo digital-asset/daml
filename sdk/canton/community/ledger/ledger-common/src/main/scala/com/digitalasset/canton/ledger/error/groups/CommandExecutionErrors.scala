@@ -3,8 +3,18 @@
 
 package com.digitalasset.canton.ledger.error.groups
 
-import com.daml.error.{ContextualizedErrorLogger, DamlErrorWithDefiniteAnswer, ErrorCategory, ErrorCategoryRetry, ErrorCode, ErrorGroup, ErrorResource, Explanation, Resolution}
-import com.daml.lf.data.{FrontStack, Ref}
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  DamlErrorWithDefiniteAnswer,
+  ErrorCategory,
+  ErrorCategoryRetry,
+  ErrorCode,
+  ErrorGroup,
+  ErrorResource,
+  Explanation,
+  Resolution,
+}
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine.Error as LfError
 import com.daml.lf.interpretation.Error as LfInterpretationError
@@ -40,9 +50,6 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
       },
       f,
     )
-
-  def encodeParties(parties: Set[Ref.Party]): Seq[(ErrorResource, String)] =
-    Seq((ErrorResource.Parties, parties.mkString(",")))
 
   @Explanation(
     """This error occurs if the participant fails to determine the max ledger time of the used
@@ -643,7 +650,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
     }
 
     @Explanation("Errors that occur when trying to upgrade a contract")
-    object UpgradeError extends ErrorGroup {
+    object UpgradeError {
       @Explanation("Validation fails when trying to upgrade the contract")
       @Resolution(
         "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed"
@@ -662,18 +669,19 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
               cause = cause
             ) {
 
-          override def resources: Seq[(ErrorResource, String)] = {
-            val optKeyResources = err.keyOpt.fold(Seq.empty[(ErrorResource, String)])(key =>
-              withEncodedValue(key.globalKey.key) { encodedKey =>
-                Seq((ErrorResource.ContractKey, encodedKey)) ++ encodeParties(key.maintainers)
-            })
-
+          override def resources: Seq[(ErrorResource, String)] =
             Seq(
               (ErrorResource.ContractId, err.coid.coid),
               (ErrorResource.TemplateId, err.srcTemplateId.toString),
               (ErrorResource.TemplateId, err.dstTemplateId.toString),
-            ) ++ encodeParties(err.signatories) ++ encodeParties(err.observers) ++ optKeyResources
-          }
+              (ErrorResource.Parties, err.signatories.toString),
+              (ErrorResource.Parties, err.observers.toString),
+            ) ++ err.keyOpt.fold(Seq.empty[(ErrorResource, String)])(key =>
+              Seq(
+                (ErrorResource.ContractKey, key.globalKey.toString),
+                (ErrorResource.Parties, key.maintainers.toString),
+              )
+            )
         }
       }
 
@@ -681,7 +689,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
         "An optional contract field with a value of Some may not be dropped during downgrading"
       )
       @Resolution(
-        "There is data that is newer than the implementation using it, and thus is not compatible. Ensure new data (i.e. those with additional fields as `Some`) is only used with new/compatible choices"
+        "Ensure optional contract fields with a value of Some are not dropped"
       )
       object DowngradeDropDefinedField
           extends ErrorCode(
@@ -705,7 +713,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
 
       @Explanation("View mismatch when trying to upgrade the contract")
       @Resolution(
-        "Verify that the interface views of the contract have not changed"
+        "Verify that the views of the contract have not changed"
       )
       object ViewMismatch
           extends ErrorCode(

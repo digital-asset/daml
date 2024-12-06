@@ -124,7 +124,7 @@ final class QueryCostTrackerImpl(
       fst: Long = 0L,
       count: Long = 0L,
       totalDiff: Long = 0L,
-      totalDiffSq: Long = 0L,
+      totalDiffSq: Double = 0L,
   ) {
     def observe(runningTime: Long): QueryCostAccumulator = {
       // We are shifting the value measured by the first one to make the algorithm
@@ -140,14 +140,14 @@ final class QueryCostTrackerImpl(
     }
 
     def meanNanos: Long = (fst + totalDiff / Math.max(count, 1))
-    def meanMs: Double = meanNanos / 1e6
+    private def meanMs: Double = meanNanos / 1e6
     def stdDevNanos: Double = if (count > 2) {
       Math
         .sqrt(
-          (totalDiffSq - (totalDiff * totalDiff) / count).toDouble / (count - 1)
+          (totalDiffSq - (totalDiff * totalDiff) / count) / (count - 1)
         )
     } else 0
-    def stdDevMs: Double = stdDevNanos / 1e6
+    private def stdDevMs: Double = stdDevNanos / 1e6
     def totalNanos: Long = (totalDiff + count * fst)
     def totalSecs: Double = totalNanos / 1e9
 
