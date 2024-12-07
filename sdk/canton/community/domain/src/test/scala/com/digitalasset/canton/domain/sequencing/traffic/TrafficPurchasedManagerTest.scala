@@ -4,10 +4,7 @@
 package com.digitalasset.canton.domain.sequencing.traffic
 
 import cats.syntax.parallel.*
-import com.daml.metrics.HealthMetrics
-import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.metrics.api.{HistogramInventory, MetricName}
-import com.daml.metrics.grpc.DamlGrpcServerMetrics
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -42,11 +39,10 @@ class TrafficPurchasedManagerTest
   private val timestamp = clock.now
 
   val histogramInventory = new HistogramInventory
+  val sequencerHistograms = new SequencerHistograms(MetricName.Daml)(histogramInventory)
   val sequencerMetrics = new SequencerMetrics(
-    new SequencerHistograms(MetricName.Daml)(histogramInventory),
+    sequencerHistograms,
     metricsFactory(histogramInventory),
-    new DamlGrpcServerMetrics(NoOpMetricsFactory, "sequencer"),
-    new HealthMetrics(NoOpMetricsFactory),
   )
 
   private def mkManager = new TrafficPurchasedManager(

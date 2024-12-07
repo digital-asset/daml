@@ -186,7 +186,7 @@ trait KmsDriverTest extends AsyncWordSpec with BaseTest with HasExecutionContext
             publicKey = KmsDriverTestUtils.encryptionPublicKey(kmsPublicKey)
             testMessage = TestMessage(ByteString.copyFrom(testData))
             ciphertext = pureCrypto
-              .encryptWithVersion(testMessage, publicKey, testedProtocolVersion)
+              .encryptWith(testMessage, publicKey)
               .valueOrFail("encryption failed")
               .ciphertext
               .toByteArray

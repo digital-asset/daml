@@ -65,10 +65,8 @@ class SyncDomainEphemeralStateFactoryImpl(
       closeContext: CloseContext,
   ): FutureUnlessShutdown[SyncDomainEphemeralState] =
     for {
-      _ <- FutureUnlessShutdown.outcomeF(
-        ledgerApiIndexer.value.ensureNoProcessingForDomain(
-          persistentState.indexedDomain.domainId
-        )
+      _ <- ledgerApiIndexer.value.ensureNoProcessingForDomain(
+        persistentState.indexedDomain.domainId
       )
       domainIndex <- FutureUnlessShutdown.outcomeF(
         ledgerApiIndexer.value.ledgerApiStore.value

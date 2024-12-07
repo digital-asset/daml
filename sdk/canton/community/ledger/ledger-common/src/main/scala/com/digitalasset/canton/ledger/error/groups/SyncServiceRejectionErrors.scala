@@ -19,7 +19,7 @@ import com.digitalasset.daml.lf.transaction.GlobalKey
 @Explanation(
   "Generic submission rejection errors returned by the backing ledger's write service."
 )
-object SyncServiceRejectionErrors$ extends SyncServiceRejectionErrorGroup {
+object SyncServiceRejectionErrors extends SyncServiceRejectionErrorGroup {
   @Explanation("The submitting party has not been allocated.")
   @Resolution(
     "Check that the party identifier is correct, allocate the submitting party, " +

@@ -643,7 +643,7 @@ class TransactionProcessingSteps(
 
       def checkRandomnessMap(): Unit =
         allRandomnessMap.asScala.find { case (_, listRandomness) =>
-          listRandomness.distinct.sizeIs >= 2
+          listRandomness.distinct.sizeIs > 1
         } match {
           case Some((viewHash, _)) =>
             ErrorUtil.internalError(

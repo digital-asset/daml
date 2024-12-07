@@ -210,7 +210,7 @@ class OutputModule[E <: Env[E]](
           s"output received from local consensus ordered block (mode = $mode) with batch IDs ${orderedBlock.batchRefs}"
         )
         val blockNumber = orderedBlock.metadata.blockNumber
-        if (completedBlocksPeanoQueue.head.v > blockNumber) {
+        if (completedBlocksPeanoQueue.alreadyInserted(blockNumber)) {
           // This can happen if we start catching up in the middle of an epoch, as state transfer has epoch granularity.
           logger.debug(s"Skipping block $blockNumber as it's been provided already")
         } else if (!blocksBeingFetched.contains(blockNumber)) {

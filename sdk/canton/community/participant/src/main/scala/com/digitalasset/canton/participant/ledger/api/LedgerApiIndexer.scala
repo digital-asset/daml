@@ -11,6 +11,7 @@ import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorServic
 import com.digitalasset.canton.config.{ProcessingTimeout, StorageConfig}
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, Healthy, ReportsHealth, Unhealthy}
 import com.digitalasset.canton.ledger.participant.state.{RepairUpdate, Update}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
@@ -50,12 +51,12 @@ import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
 
 class LedgerApiIndexer(
     val indexerHealth: ReportsHealth,
-    val queue: FutureQueue[Update],
+    val enqueue: Update => FutureUnlessShutdown[Unit],
     val inMemoryState: InMemoryState,
     val ledgerApiStore: Eval[LedgerApiStore],
     val loggerFactory: NamedLoggerFactory,
@@ -65,11 +66,22 @@ class LedgerApiIndexer(
 ) extends ResourceCloseable {
   def withRepairIndexer(
       repairOperation: FutureQueue[RepairUpdate] => EitherT[Future, String, Unit]
-  )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] =
-    indexerState.withRepairIndexer(repairOperation)
+  )(implicit
+      traceContext: TraceContext,
+      executionContext: ExecutionContext,
+  ): EitherT[FutureUnlessShutdown, String, Unit] =
+    indexerState
+      .withRepairIndexer(repairOperation)
+      .mapK(IndexerState.ShutdownInProgress.functionK)
 
-  def ensureNoProcessingForDomain(domainId: DomainId): Future[Unit] =
-    indexerState.ensureNoProcessingForDomain(domainId)
+  def ensureNoProcessingForDomain(
+      domainId: DomainId
+  )(implicit
+      executionContext: ExecutionContext
+  ): FutureUnlessShutdown[Unit] =
+    IndexerState.ShutdownInProgress.transformToFUS(
+      indexerState.ensureNoProcessingForDomain(domainId)
+    )
 }
 
 final case class LedgerApiIndexerConfig(
@@ -200,7 +212,8 @@ object LedgerApiIndexer {
       initializationLogger.info("Ledger API Indexer started, initializing recoverable indexing.")
       new LedgerApiIndexer(
         indexerHealth = () => healthStatusRef.get(),
-        queue = new IndexerQueueProxy(indexerState.withStateUnlessShutdown),
+        enqueue = IndexerQueueProxy(indexerState.withStateUnlessShutdown)
+          .andThen(IndexerState.ShutdownInProgress.transformToFUS),
         inMemoryState = inMemoryState,
         ledgerApiStore = ledgerApiStore,
         loggerFactory = loggerFactory,

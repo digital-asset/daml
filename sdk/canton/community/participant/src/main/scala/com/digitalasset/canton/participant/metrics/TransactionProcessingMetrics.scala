@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.metrics
 import com.daml.metrics.api.HistogramInventory.Item
 import com.daml.metrics.api.MetricHandle.{Histogram, LabeledMetricsFactory, Timer}
 import com.daml.metrics.api.{HistogramInventory, MetricName, MetricQualification, MetricsContext}
+import com.digitalasset.canton.metrics.HasDocumentedMetrics
 
 class TransactionProcessingHistograms(val prefix: MetricName)(implicit
     inventory: HistogramInventory
@@ -45,9 +46,12 @@ class TransactionProcessingHistograms(val prefix: MetricName)(implicit
 class TransactionProcessingMetrics(
     histograms: TransactionProcessingHistograms,
     factory: LabeledMetricsFactory,
-)(implicit metricsContext: MetricsContext) {
+)(implicit metricsContext: MetricsContext)
+    extends HasDocumentedMetrics {
 
-  object protocolMessages {
+  override def docPoke(): Unit = protocolMessages.docPoke()
+
+  object protocolMessages extends HasDocumentedMetrics {
 
     val confirmationRequestCreation: Timer =
       factory.timer(histograms.confirmationRequestCreation.info)

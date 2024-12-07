@@ -182,20 +182,18 @@ class RecordOrderPublisher(
     taskScheduler
       .scheduleTaskImmediately(
         taskFactory = immediateTimestamp =>
-          FutureUnlessShutdown.outcomeF(
-            eventFactory(immediateTimestamp) match {
-              case Some(event) =>
-                logger.debug(
-                  s"Publish floating event immediately with timestamp $immediateTimestamp"
-                )
-                ledgerApiIndexer.queue.offer(event).map(_ => ())
-              case None =>
-                logger.debug(
-                  s"Skip publish-immediately floating event with timestamp $immediateTimestamp: nothing to publish"
-                )
-                Future.unit
-            }
-          ),
+          eventFactory(immediateTimestamp) match {
+            case Some(event) =>
+              logger.debug(
+                s"Publish floating event immediately with timestamp $immediateTimestamp"
+              )
+              ledgerApiIndexer.enqueue(event).map(_ => ())
+            case None =>
+              logger.debug(
+                s"Skip publish-immediately floating event with timestamp $immediateTimestamp: nothing to publish"
+              )
+              FutureUnlessShutdown.unit
+          },
         taskTraceContext = traceContext,
       )
   }
@@ -250,11 +248,9 @@ class RecordOrderPublisher(
 
     override def perform(): FutureUnlessShutdown[Unit] = {
       logger.debug(s"Publish event with domain index ${event.domainIndex}")
-      FutureUnlessShutdown.outcomeF(
-        ledgerApiIndexer.queue
-          .offer(event)
-          .map(_ => ())
-      )
+      ledgerApiIndexer
+        .enqueue(event)
+        .map(_ => ())
     }
 
     override protected def pretty: Pretty[this.type] =
@@ -279,18 +275,16 @@ class RecordOrderPublisher(
     override def perform(): FutureUnlessShutdown[Unit] =
       waitFor.transformWith {
         case Success(Outcome(_)) =>
-          FutureUnlessShutdown.outcomeF(
-            eventO() match {
-              case Some(event) =>
-                logger.debug(s"Publish floating event with timestamp $timestamp")
-                ledgerApiIndexer.queue.offer(event).map(_ => ())
-              case None =>
-                logger.debug(
-                  s"Skip publishing floating event with timestamp $timestamp: nothing to publish"
-                )
-                Future.unit
-            }
-          )
+          eventO() match {
+            case Some(event) =>
+              logger.debug(s"Publish floating event with timestamp $timestamp")
+              ledgerApiIndexer.enqueue(event).map(_ => ())
+            case None =>
+              logger.debug(
+                s"Skip publishing floating event with timestamp $timestamp: nothing to publish"
+              )
+              FutureUnlessShutdown.unit
+          }
 
         case Success(AbortedDueToShutdown) =>
           logger.debug(

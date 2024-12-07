@@ -65,12 +65,11 @@ class JceCryptoTest
 
             behave like hybridEncrypt(
               keySpec,
-              (message, publicKey, version) =>
+              (message, publicKey) =>
                 newCrypto.map(crypto =>
                   crypto.pureCrypto.encryptDeterministicWith(
                     message,
                     publicKey,
-                    version,
                     encryptionAlgorithmSpec,
                   )
                 ),
@@ -86,7 +85,6 @@ class JceCryptoTest
                   .encryptDeterministicWith(
                     message,
                     publicKey,
-                    testedProtocolVersion,
                     encryptionAlgorithmSpec,
                   )
                   .valueOrFail("encrypt")
@@ -95,7 +93,6 @@ class JceCryptoTest
                   .encryptDeterministicWith(
                     message,
                     publicKey,
-                    testedProtocolVersion,
                     encryptionAlgorithmSpec,
                   )
                   .valueOrFail("encrypt")

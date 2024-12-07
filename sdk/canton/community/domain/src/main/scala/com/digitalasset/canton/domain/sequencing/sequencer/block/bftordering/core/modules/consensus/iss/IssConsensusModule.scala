@@ -101,19 +101,28 @@ final class IssConsensusModule[E <: Env[E]](
     futurePbftMessageQueue: mutable.Queue[SignedMessage[PbftNetworkMessage]] = new mutable.Queue(),
     queuedConsensusMessages: Seq[Consensus.Message[E]] = Seq.empty,
 )(
-    stateTransferManager: StateTransferManager[E] = new StateTransferManager(
-      dependencies,
-      epochLength,
-      epochStore,
-      thisPeer,
-      loggerFactory,
-    ),
+    // Only tests pass the state manager as parameter, and it's convenient to have it as an option
+    //  to avoid two different constructor calls depending on whether the test want to customize it or not.
+    customOnboardingAndServerStateTransferManager: Option[StateTransferManager[E]] = None,
     private var activeMembership: Membership = initialState.membership,
 )(
-    catchupDetector: CatchupDetector = new CatchupDetector(activeMembership, stateTransferManager)
+    private var catchupDetector: CatchupDetector = new CatchupDetector(activeMembership)
 )(implicit mc: MetricsContext)
     extends Consensus[E]
     with HasDelayedInit[Consensus.ProtocolMessage] {
+
+  // An instance of state transfer manager to be used only once, if onboarding, in a client role and to
+  //  be reused as many times as needed in a server role.
+  private val onboardingAndServerStateTransferManager =
+    customOnboardingAndServerStateTransferManager.getOrElse(
+      new StateTransferManager(
+        dependencies,
+        epochLength,
+        epochStore,
+        thisPeer,
+        loggerFactory,
+      )
+    )
 
   private val validator = new IssConsensusValidator[E]
 
@@ -157,14 +166,13 @@ final class IssConsensusModule[E <: Env[E]](
         initialState.sequencerSnapshotAdditionalInfo match {
           case Some(snapshotAdditionalInfo)
               if latestCompletedEpoch == GenesisEpoch && activeMembership.otherPeers.sizeIs > 0 =>
-            stateTransferManager.clearStateTransferState()
             val startEpoch = snapshotAdditionalInfo.peerActiveAt
               .get(activeMembership.myId)
               .flatMap(_.epochNumber)
               .getOrElse(
                 abort("No starting epoch found for new node onboarding")
               )
-            stateTransferManager.startStateTransfer(
+            onboardingAndServerStateTransferManager.startStateTransfer(
               activeMembership,
               latestCompletedEpoch,
               startEpoch,
@@ -256,9 +264,7 @@ final class IssConsensusModule[E <: Env[E]](
           loggerFactory = loggerFactory,
           timeouts = timeouts,
         )
-        if (stateTransferManager.inStateTransfer) {
-          stateTransferManager.clearStateTransferState()
-        }
+
         startSegmentModulesAndCompleteInit()
         logger.debug(
           s"New epoch: ${epochState.epoch.info.number} has started with ordering topology ${activeMembership.orderingTopology}"
@@ -286,7 +292,7 @@ final class IssConsensusModule[E <: Env[E]](
     message match {
       case stateTransferMessage: Consensus.StateTransferMessage =>
         val maybeNewEpochState =
-          stateTransferManager.handleStateTransferMessage(
+          onboardingAndServerStateTransferManager.handleStateTransferMessage(
             stateTransferMessage,
             activeMembership,
             latestCompletedEpoch,
@@ -580,7 +586,6 @@ final class IssConsensusModule[E <: Env[E]](
         clock,
         metrics,
         segmentModuleRefFactory,
-        stateTransferManager,
         dependencies,
         loggerFactory,
         timeouts,

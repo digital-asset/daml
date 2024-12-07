@@ -593,7 +593,7 @@ class LocalSecretKeyAdministration(
         keyPairBytes = password match {
           case Some(password) =>
             crypto.pureCrypto
-              .encryptWithPassword(keyPair, password, protocolVersion)
+              .encryptWithPassword(keyPair.toByteString(protocolVersion), password)
               .fold(
                 err => sys.error(s"Failed to encrypt key pair for export: $err"),
                 _.toByteString(protocolVersion),

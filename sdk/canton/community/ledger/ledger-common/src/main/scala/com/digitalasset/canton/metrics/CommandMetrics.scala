@@ -49,7 +49,7 @@ class CommandHistograms(val prefix: MetricName)(implicit
 class CommandMetrics(
     inventory: CommandHistograms,
     factory: LabeledMetricsFactory,
-) {
+) extends HasDocumentedMetrics {
 
   import com.daml.metrics.api.MetricsContext.Implicits.empty
 

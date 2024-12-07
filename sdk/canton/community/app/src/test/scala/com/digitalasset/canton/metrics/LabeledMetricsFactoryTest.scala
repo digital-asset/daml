@@ -12,8 +12,7 @@ import org.scalatest.wordspec.AnyWordSpec
 class LabeledMetricsFactoryTest extends AnyWordSpec with BaseTest {
 
   "metrics factory" should {
-    // TODO(#17917) renable this test once the metrics docs have been re-enabled
-    "generate valid documentation" ignore {
+    "generate valid documentation" in {
       val inventory = new HistogramInventory()
       val histograms = new CantonHistograms()(inventory)
       val mf = MetricsRegistry(
