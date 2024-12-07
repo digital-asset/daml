@@ -30,13 +30,8 @@ trait WritePackagesService {
     * provide the size, and the size might potentially be different from the
     * original size, which would be quite confusing.
     *
-    * @param submissionId       Submitter chosen submission identifier.
-    * @param sourceDescription  Description provided by the backing participant
-    *   describing where it got the package from, e.g., when, where, or by whom
-    *   the packages were uploaded.
-    * @param archives           Daml-LF archives to be uploaded to the ledger.
-    *    All archives must be valid, i.e., they must successfully decode and pass
-    *    Daml engine validation.
+    * @param submissionId  Submitter chosen submission identifier.
+    * @param dar           The DAR payload as ByteString.
     *
     * @return an async result of a [[com.digitalasset.canton.ledger.participant.state.v2.SubmissionResult]]
     */

@@ -75,6 +75,7 @@ final case class CachingConfigs(
     keyCache: CacheConfig = CachingConfigs.defaultKeyCache,
     sessionKeyCacheConfig: SessionKeyCacheConfig = CachingConfigs.defaultSessionKeyCacheConfig,
     packageVettingCache: CacheConfig = CachingConfigs.defaultPackageVettingCache,
+    checkOnlyPackageCache: CacheConfig = CachingConfigs.defaultCheckOnlyPackageCache,
     mySigningKeyCache: CacheConfig = CachingConfigs.defaultMySigningKeyCache,
     trafficStatusCache: CacheConfig = CachingConfigs.defaultTrafficStatusCache,
     memberCache: CacheConfig = CachingConfigs.defaultMemberCache,
@@ -105,6 +106,8 @@ object CachingConfigs {
     ),
   )
   val defaultPackageVettingCache: CacheConfig =
+    CacheConfig(maximumSize = PositiveNumeric.tryCreate(10000))
+  val defaultCheckOnlyPackageCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(10000))
   val defaultMySigningKeyCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(5))

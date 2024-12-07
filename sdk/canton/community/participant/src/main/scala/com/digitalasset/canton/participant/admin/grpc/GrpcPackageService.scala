@@ -104,7 +104,7 @@ class GrpcPackageService(
     val ret = for {
       hash <- EitherT.fromEither[Future](extractHash(request.darHash))
       _unit <- service
-        .vetDar(hash, request.synchronize)
+        .enableDar(hash, request.synchronize)
         .leftMap(_.asGrpcError)
         .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError))
     } yield VetDarResponse()
@@ -118,7 +118,7 @@ class GrpcPackageService(
     val ret = for {
       hash <- EitherT.fromEither[Future](extractHash(request.darHash))
       _unit <- service
-        .unvetDar(hash)
+        .disableDar(hash, request.synchronize)
         .leftMap(_.asGrpcError)
         .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError))
     } yield UnvetDarResponse()

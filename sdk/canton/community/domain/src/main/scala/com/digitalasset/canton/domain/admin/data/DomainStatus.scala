@@ -44,7 +44,7 @@ final case class DomainStatus(
         s"Domain id: ${uid.toProtoPrimitive}",
         show"Uptime: $uptime",
         s"Ports: ${portsString(ports)}",
-        s"Connected Participants: ${multiline(connectedParticipants.map(_.toString))}",
+        s"Connected participants: ${multiline(connectedParticipants.map(_.toString))}",
         show"Sequencer: $sequencer",
         s"Components: ${multiline(components.map(_.toString))}",
         s"Version: ${version.fullVersion}",

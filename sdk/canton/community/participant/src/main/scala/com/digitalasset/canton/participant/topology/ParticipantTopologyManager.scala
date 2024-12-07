@@ -24,7 +24,7 @@ import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerEr
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.TopologyManagerError.ParticipantErrorGroup
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.client.DomainTopologyClient
+import com.digitalasset.canton.topology.client.{DomainTopologyClient, TopologySnapshot}
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
@@ -201,7 +201,10 @@ class ParticipantTopologyManager(
               TopologyStateUpdateElement(_, mapping: TopologyPackagesStateUpdateMapping),
             ) if !force =>
           checkAddPackagesTopologyTransaction(participantId, mapping)
-        case TopologyStateUpdate(op, TopologyStateUpdateElement(_, vp @ VettedPackages(_, _))) =>
+        case TopologyStateUpdate(
+              op,
+              TopologyStateUpdateElement(_, vp: TopologyPackagesStateUpdateMapping),
+            ) =>
           if (force) {
             logger.info(show"Using force to authorize $op of $vp")
             EitherT.rightT[FutureUnlessShutdown, ParticipantTopologyManagerError](())
@@ -385,7 +388,7 @@ class ParticipantTopologyManager(
 
   /** Return the packages in `packages` that are not check-only (i.e., vetted or unknown)
     */
-  private def packagesNotMarkedAsCheckOnly(pid: ParticipantId, packages: Set[PackageId])(implicit
+  def packagesNotMarkedAsCheckOnly(pid: ParticipantId, packages: Set[PackageId])(implicit
       traceContext: TraceContext
   ): Future[Set[PackageId]] =
     packagesNotMarkedAs(pid, packages, CheckOnlyPackages.dbType) {
@@ -417,12 +420,43 @@ class ParticipantTopologyManager(
           }
       }
 
-  /** @return A FutureUnlessShutdown that will return true if all the packages are
-    *         available following the timeout.network.duration.
+  /** @return true if all packages in the provided package set and their dependencies are available
+    *         as vetted within a predefined timeout window.
     */
   def waitForPackagesBeingVetted(
       packageSet: Set[LfPackageId],
       pid: ParticipantId,
+  )(implicit
+      tc: TraceContext
+  ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Boolean] =
+    waitForTopologyState(
+      _.findUnvettedPackagesOrDependencies(pid, packageSet)
+        .map(_.isEmpty) // false if some packages are not vetted
+        .getOrElse(false) // false if a package is unknown
+        .onShutdown(false)
+    )
+
+  /** @return true if all packages in the provided package set and their dependencies are available
+    *         as check-only within a predefined timeout window.
+    */
+  def waitForPackagesMarkedAsCheckOnly(
+      packageSet: Set[LfPackageId],
+      pid: ParticipantId,
+  )(implicit
+      tc: TraceContext
+  ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Boolean] =
+    waitForTopologyState(
+      _.findPackagesOrDependenciesNotDeclaredAsCheckOnly(pid, packageSet)
+        .map(_.isEmpty) // false if some packages are not check-only
+        .getOrElse(false) // false if a package is unknown
+        .onShutdown(false)
+    )
+
+  /** @return Returns true if the topology state on all domain topology clients is
+    *         satisfies the [[check]] following the timeout.network.duration.
+    */
+  private def waitForTopologyState(
+      check: TopologySnapshot => Future[Boolean]
   )(implicit
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Boolean] =
@@ -432,14 +466,8 @@ class ParticipantTopologyManager(
         EitherT.right[ParticipantTopologyManagerError](
           callbacks
             .clients()
-            .parTraverse {
-              _.await(
-                _.findUnvettedPackagesOrDependencies(pid, packageSet).value.unwrap
-                  .map(_.map(_.exists(_.isEmpty)).onShutdown(false)),
-                timeouts.network.duration,
-              )
-            }
-            .map(_ => true)
+            .parTraverse(_.await(check, timeouts.network.duration))
+            .map(_.forall(identity))
         )
       )
 
@@ -648,6 +676,21 @@ object ParticipantTopologyManagerError extends ParticipantErrorGroup {
           cause =
             show"Disable party $partyId failed because there are active contracts where the party is a stakeholder"
         )
+        with ParticipantTopologyManagerError
+  }
+
+  @Explanation(
+    """This error indicates that a package topology state update has timed out."""
+  )
+  @Resolution("Retry the operation.")
+  object PackageTopologyStateUpdateTimeout
+      extends ErrorCode(
+        id = "PACKAGE_TOPOLOGY_STATE_UPDATE_TIMEOUT",
+        ErrorCategory.DeadlineExceededRequestStateUnknown,
+      ) {
+    final case class Reject(override val cause: String)(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(cause)
         with ParticipantTopologyManagerError
   }
 

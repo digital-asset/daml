@@ -37,7 +37,7 @@ final case class PostgresStorageBackendFactory(loggerFactory: NamedLoggerFactory
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
   ): ContractStorageBackend =
-    new ContractStorageBackendTemplate(PostgresQueryStrategy, ledgerEndCache, stringInterning)
+    new PostgresContractStorageBackend(ledgerEndCache, stringInterning)
 
   override def createEventStorageBackend(
       ledgerEndCache: LedgerEndCache,

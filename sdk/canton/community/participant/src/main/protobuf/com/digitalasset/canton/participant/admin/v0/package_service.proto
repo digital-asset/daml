@@ -74,7 +74,7 @@ message RemovePackageResponse {
 
 message VetDarRequest {
   string dar_hash = 1;
-  // if set to true, the API call waits until the vetting transaction has been
+  // if set to true, the API call waits until the topology transactions have been
   // observed by this participant on all connected domains.
   bool synchronize = 2;
 }
@@ -83,6 +83,9 @@ message VetDarResponse {}
 
 message UnvetDarRequest {
   string dar_hash = 1;
+  // if set to true, the API call waits until the topology transactions have been
+  // observed by this participant on all connected domains.
+  bool synchronize = 2;
 }
 
 message UnvetDarResponse {}

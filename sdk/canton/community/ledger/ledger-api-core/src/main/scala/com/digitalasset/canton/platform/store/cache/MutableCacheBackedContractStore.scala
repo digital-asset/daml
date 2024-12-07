@@ -187,7 +187,15 @@ private[platform] class MutableCacheBackedContractStore(
   )(implicit loggingContext: LoggingContextWithTrace): Future[ContractKeyStateValue] = {
     val readThroughRequest = (validAt: Offset) =>
       contractsReader.lookupKeyState(key, validAt).map(toKeyCacheValue)
-    contractStateCaches.keyState.putAsync(key, readThroughRequest)
+    contractStateCaches.keyState.putAsync(key, readThroughRequest).flatMap {
+      case result: Assigned =>
+        // if we have a contract id, we'll also automatically trigger the loading of the contract
+        // as in almost all cases, the contract will be needed after the key lookup
+        lookupContractStateWithoutDivulgence(result.contractId).map { _ =>
+          result
+        }
+      case ContractKeyStateValue.Unassigned => Future.successful(ContractKeyStateValue.Unassigned)
+    }
   }
 
   private def nonEmptyIntersection[T](one: Set[T], other: Set[T]): Boolean =
