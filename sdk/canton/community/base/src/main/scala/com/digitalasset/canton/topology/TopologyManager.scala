@@ -64,6 +64,14 @@ abstract class TopologyManager[E <: CantonError](
   /** returns the current queue size (how many changes are being processed) */
   override def queueSize: Int = sequentialQueue.queueSize
 
+  /** @return A boolean reflecting whether the queried {@code mapping} exists in any
+    *         positive (ADD/REPLACE) topology transaction from the topology store
+    */
+  def mappingExists(
+      mapping: TopologyMapping
+  )(implicit traceContext: TraceContext): Future[Boolean] =
+    store.findPositiveTransactionsForMapping(mapping).map(_.nonEmpty)
+
   protected def checkTransactionNotAddedBefore(
       transaction: SignedTopologyTransaction[TopologyChangeOp]
   )(implicit traceContext: TraceContext): EitherT[Future, TopologyManagerError, Unit] = {

@@ -23,7 +23,7 @@ class PackageOpsForTesting(
     ec: ExecutionContext
 ) extends PackageOps {
 
-  override def isPackageVetted(packageId: PackageId)(implicit
+  override def isPackageKnown(packageId: PackageId)(implicit
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, CantonError, Boolean] =
     EitherT.rightT(false)
@@ -33,15 +33,30 @@ class PackageOpsForTesting(
   ): EitherT[Future, PackageInUse, Unit] =
     EitherT.rightT(())
 
-  override def revokeVettingForPackages(
+  def enableDarPackages(
+      mainPkg: LfPackageId,
+      dependencyPackageIds: Seq[PackageId],
+      darDescription: String,
+      synchronize: Boolean,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit] = EitherT.rightT(())
+
+  def disableDarPackages(
+      mainPkg: LfPackageId,
+      dependencyPackageIds: List[LfPackageId],
+      darDescription: String,
+      synchronize: Boolean = true,
+  )(implicit
+      tc: TraceContext
+  ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit] = EitherT.rightT(())
+
+  override def fullyUnvet(
       mainPkg: LfPackageId,
       packages: List[LfPackageId],
       darDescriptor: PackageService.DarDescriptor,
-  )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, CantonError, Unit] =
-    EitherT.rightT(())
-
-  override def vetPackages(packages: Seq[PackageId], synchronize: Boolean)(implicit
-      traceContext: TraceContext
+  )(implicit
+      tc: TraceContext
   ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit] =
     EitherT.rightT(())
 }

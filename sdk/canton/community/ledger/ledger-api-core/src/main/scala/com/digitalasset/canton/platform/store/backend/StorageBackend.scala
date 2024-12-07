@@ -229,7 +229,19 @@ trait CompletionStorageBackend {
 }
 
 trait ContractStorageBackend {
+
+  /** Returns true if the batch lookup is implemented */
+  def supportsBatchKeyStateLookups: Boolean
+
+  /** Batch lookup of key states
+    *
+    * If the backend does not support batch lookups, the implementation will fall back to sequential lookups
+    */
+  def keyStates(keys: Seq[Key], validAt: Offset)(connection: Connection): Map[Key, KeyState]
+
+  /** Sequential lookup of key states */
   def keyState(key: Key, validAt: Offset)(connection: Connection): KeyState
+
   def archivedContracts(contractIds: Seq[ContractId], before: Offset)(
       connection: Connection
   ): Map[ContractId, ContractStorageBackend.RawArchivedContract]

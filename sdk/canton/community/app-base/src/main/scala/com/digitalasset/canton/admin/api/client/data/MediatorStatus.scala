@@ -16,7 +16,7 @@ import com.digitalasset.canton.health.admin.v0
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{DomainId, MediatorId, UniqueIdentifier}
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseVersion}
 
 import java.time.Duration
@@ -32,6 +32,8 @@ final case class MediatorStatus(
     version: Option[ReleaseVersion],
     protocolVersion: Option[ProtocolVersion],
 ) extends NodeStatus.Status {
+
+  val id = MediatorId(uid)
 
   override def pretty: Pretty[MediatorStatus] =
     prettyOfString(_ =>

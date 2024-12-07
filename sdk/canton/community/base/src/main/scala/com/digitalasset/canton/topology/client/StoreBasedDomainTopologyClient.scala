@@ -704,17 +704,41 @@ class StoreBasedTopologySnapshot(
   override private[client] def loadUnvettedPackagesOrDependencies(
       participant: ParticipantId,
       packageId: PackageId,
+  ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
+    loadPackageTopologyState(
+      participant = participant,
+      packageId = packageId,
+      domainTopologyTransactionType = DomainTopologyTransactionType.VettedPackage,
+    ) { case VettedPackages(_, packageIds) => packageIds }
+
+  override private[client] def loadPackagesOrDependenciesNotDeclaredAsCheckOnly(
+      participantId: ParticipantId,
+      packageId: PackageId,
+  ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
+    loadPackageTopologyState(
+      participant = participantId,
+      packageId = packageId,
+      domainTopologyTransactionType = DomainTopologyTransactionType.CheckOnlyPackage,
+    ) { case CheckOnlyPackages(_, packageIds) => packageIds }
+
+  private def loadPackageTopologyState(
+      participant: ParticipantId,
+      packageId: PackageId,
+      domainTopologyTransactionType: DomainTopologyTransactionType,
+  )(
+      extractor: PartialFunction[TopologyStateUpdateMapping, Seq[PackageId]]
   ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] = {
-    val vettedF = FutureUnlessShutdown.outcomeF(
+    val packagesInQueriedTopologyMappings = FutureUnlessShutdown.outcomeF(
       findTransactions(
         asOfInclusive = false,
         includeSecondary = false,
-        types = Seq(DomainTopologyTransactionType.VettedPackage),
+        types = Seq(domainTopologyTransactionType),
         filterUid = Some(Seq(participant.uid)),
         filterNamespace = None,
       ).map { res =>
         res.toTopologyState.flatMap {
-          case TopologyStateUpdateElement(_, VettedPackages(_, packageIds)) => packageIds
+          case TopologyStateUpdateElement(_, topologyStateUpdateMapping) =>
+            extractor.lift(topologyStateUpdateMapping).getOrElse(Seq.empty)
           case _ => Seq()
         }.toSet
       }
@@ -723,14 +747,14 @@ class StoreBasedTopologySnapshot(
     lazy val dependenciesET = packageDependencies.packageDependencies(packageId).value
 
     EitherT(for {
-      vetted <- vettedF
-      // check that the main package is vetted
+      packages <- packagesInQueriedTopologyMappings
+      // check that the main package is included in the target topology mappings
       res <-
-        if (!vetted.contains(packageId))
-          FutureUnlessShutdown.pure(Right(Set(packageId))) // main package is not vetted
+        if (!packages.contains(packageId))
+          FutureUnlessShutdown.pure(Right(Set(packageId)))
         else {
-          // check which of the dependencies aren't vetted
-          dependenciesET.map(_.map(_ -- vetted))
+          // check which of the dependencies aren't included
+          dependenciesET.map(_.map(_ -- packages))
         }
     } yield res)
 

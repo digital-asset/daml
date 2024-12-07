@@ -34,8 +34,8 @@ import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, ParticipantEve
 import com.digitalasset.canton.protocol.PackageDescription
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.SimpleExecutionQueue
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
-import com.digitalasset.canton.util.{PathUtils, SimpleExecutionQueue}
 import com.digitalasset.canton.{
   DiscardOps,
   LedgerSubmissionId,
@@ -45,7 +45,6 @@ import com.digitalasset.canton.{
 }
 import com.google.protobuf.ByteString
 
-import java.nio.file.Paths
 import java.util.concurrent.atomic.AtomicReference
 import java.util.zip.ZipInputStream
 import scala.concurrent.{ExecutionContext, Future}
@@ -110,13 +109,15 @@ class PackageUploader(
 
   def validateAndStoreDar(
       darPayload: ByteString,
-      fileNameO: Option[String],
+      darNameO: Option[String],
       submissionId: LedgerSubmissionId,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, DamlError, List[Ref.PackageId]] = {
-    val darNameO =
-      fileNameO.map(fn => PathUtils.getFilenameWithoutExtension(Paths.get(fn).getFileName))
+  ): EitherT[
+    FutureUnlessShutdown,
+    DamlError,
+    (Ref.PackageId /* main package id */, List[Ref.PackageId] /* dependency package ids */ ),
+  ] = {
     val stream = new ZipInputStream(darPayload.newInput())
 
     for {
@@ -158,7 +159,7 @@ class PackageUploader(
           description = "store DAR",
         )
       )
-    } yield allPackages.map(_._2._1)
+    } yield mainPackage._2._1 -> dependencies.map(_._2._1)
   }
 
   // This stage must be run sequentially to exclude the possibility

@@ -136,16 +136,14 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
         )
         .valueOrFailShutdown("validateAndStorePackages failed")
         .futureValue
-        .headOption
-        .value
+        ._1
 
       damlPackageStore.listPackages().futureValue should contain only PackageDescription(
         persistedPackageId,
         // If fileName not provided, the "default" is populated for descriptions
         sourceDescription = String256M("default")(None),
-        // Max stable version now is 1.15, which won't store the name + version, as upgrades isn't supported on 1.15
-        packageName = None,
-        packageVersion = None,
+        packageName = Some(Ref.PackageName.assertFromString("SomePkg")),
+        packageVersion = Some(Ref.PackageVersion.assertFromString("0.0.3")),
       )
 
       damlPackageStore.listDars().futureValue shouldBe empty
@@ -188,8 +186,7 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
         )
         .valueOrFailShutdown("validateAndStorePackages failed")
         .futureValue
-        .headOption
-        .value
+        ._1
       val pkgId2 = sut
         .validateAndStoreDar(
           encodeDarArchive(another_pkg_lf_1_15),
@@ -198,8 +195,7 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
         )
         .valueOrFailShutdown("validateAndStorePackages failed")
         .futureValue
-        .headOption
-        .value
+        ._1
       val pkgId3 = sut
         .validateAndStoreDar(
           encodeDarArchive(pkg_lf_1_16),
@@ -208,8 +204,7 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
         )
         .valueOrFailShutdown("validateAndStorePackages failed")
         .futureValue
-        .headOption
-        .value
+        ._1
 
       // Check that the packages are properly persisted
       damlPackageStore.listPackages().futureValue should contain theSameElementsAs Seq(
@@ -368,7 +363,9 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
         .valueOrFailShutdown("validateAndStorePackages failed")
         .futureValue
 
-      val persistedPackageId = inside(persistedPackageIds) { case Seq(pkgId) => pkgId }
+      val persistedPackageId = inside(persistedPackageIds) { case (mainPkgId, _depPkgIds) =>
+        mainPkgId
+      }
 
       // Check Daml Package/Archive persisted
       damlPackageStore

@@ -17,7 +17,13 @@ import com.digitalasset.canton.health.{
   TopologyQueueStatus,
 }
 import com.digitalasset.canton.logging.pretty.Pretty
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{
+  DomainId,
+  MediatorId,
+  Member,
+  ParticipantId,
+  UniqueIdentifier,
+}
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseVersion}
 import io.scalaland.chimney.dsl.*
 
@@ -28,7 +34,7 @@ final case class SequencerNodeStatus(
     domainId: DomainId,
     uptime: Duration,
     ports: Map[String, Port],
-    connectedParticipants: Seq[ParticipantId],
+    connectedMembers: Seq[Member],
     sequencer: SequencerHealthStatus,
     topologyQueue: TopologyQueueStatus,
     admin: Option[SequencerAdminStatus],
@@ -36,6 +42,13 @@ final case class SequencerNodeStatus(
     version: ReleaseVersion,
     protocolVersion: ProtocolVersion,
 ) extends NodeStatus.Status {
+
+  private val connectedParticipants = connectedMembers.collect { case participant: ParticipantId =>
+    participant
+  }
+  private val connectedMediators = connectedMembers.collect { case mediator: MediatorId =>
+    mediator
+  }
 
   override def active: Boolean = sequencer.isActive
 
@@ -47,7 +60,8 @@ final case class SequencerNodeStatus(
           s"Domain id: ${domainId.toProtoPrimitive}",
           show"Uptime: $uptime",
           s"Ports: ${portsString(ports)}",
-          s"Connected Participants: ${multiline(connectedParticipants.map(_.toString))}",
+          s"Connected participants: ${multiline(connectedParticipants.map(_.toString))}",
+          s"Connected mediators: ${multiline(connectedMediators.map(_.toString))}",
           show"Sequencer: $sequencer",
           s"details-extra: ${sequencer.details}",
           s"Components: ${multiline(components.map(_.toString))}",
@@ -62,6 +76,7 @@ final case class SequencerNodeStatus(
 
   override def toProtoV0: v0.NodeStatus.Status = {
     val participants = connectedParticipants.map(_.toProtoPrimitive)
+    val mediators = connectedMediators.map(_.toProtoPrimitive)
 
     this
       .into[SimpleStatus]
@@ -72,6 +87,7 @@ final case class SequencerNodeStatus(
         extra = v0
           .SequencerNodeStatus(
             participants,
+            mediators,
             sequencer.toProtoV0.some,
             domainId.toProtoPrimitive,
             admin.map(_.toProtoV0),
@@ -84,6 +100,7 @@ final case class SequencerNodeStatus(
     domainV0.SequencerStatusResponse.SequencerStatusResponseStatus(
       commonStatus = toProtoV1.some,
       connectedParticipantsUid = connectedParticipants.map(_.uid.toProtoPrimitive),
+      connectedMediatorsUid = connectedMediators.map(_.uid.toProtoPrimitive),
       sequencer = sequencer.toProtoV0.some,
       domainId = domainId.toProtoPrimitive,
       admin = admin.map(_.toProtoV0),

@@ -312,13 +312,11 @@ object ParticipantAdminCommands {
         Right(())
     }
 
-    // TODO(#14432): Add `synchronize` flag which makes the call block until the unvetting operation
-    //               is observed by the participant on all connected domains.
-    final case class UnvetDar(darDash: String)
+    final case class UnvetDar(darDash: String, synchronize: Boolean)
         extends PackageCommand[UnvetDarRequest, UnvetDarResponse, Unit] {
 
       override def createRequest(): Either[String, UnvetDarRequest] = Right(
-        UnvetDarRequest(darDash)
+        UnvetDarRequest(darDash, synchronize)
       )
 
       override def submitRequest(

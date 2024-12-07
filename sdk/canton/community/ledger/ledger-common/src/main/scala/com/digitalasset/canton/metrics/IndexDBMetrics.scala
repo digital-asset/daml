@@ -12,7 +12,7 @@ import com.daml.metrics.api.MetricHandle.{
   MetricsFactory,
   Timer,
 }
-import com.daml.metrics.api.{MetricDoc, MetricName}
+import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 
 import scala.annotation.nowarn
 
@@ -116,6 +116,52 @@ trait TransactionStreamsDbMetrics {
   }
 }
 
+class BatchLoaderMetrics(
+    parent: MetricName,
+    labeledMetricsFactory: LabeledMetricsFactory,
+) {
+
+  private implicit val context: MetricsContext = MetricsContext.Empty
+  private val prefix = parent :+ "batch.active_contract_lookup"
+
+  @MetricDoc.Tag(
+    summary = "The number of the currently pending active contract lookups.",
+    description =
+      "The number of the currently pending active contract lookups in the batch-loading queue of the Contract Service.",
+    qualification = Debug,
+  )
+  val bufferLength: Counter =
+    labeledMetricsFactory.counter(prefix :+ "buffer_length")
+
+  @MetricDoc.Tag(
+    summary = "The capacity of the lookup queue.",
+    description = """The maximum number of elements that can be kept in the queue of lookups
+        |in the batch-loading queue of the Contract Service.""",
+    qualification = Debug,
+  )
+  val bufferCapacity: Counter =
+    labeledMetricsFactory.counter(prefix :+ "buffer_capacity")
+
+  @MetricDoc.Tag(
+    summary = "The queuing delay for the lookup queue.",
+    description =
+      "The queuing delay for the pending lookups in the batch-loading queue of the Contract Service.",
+    qualification = Debug,
+  )
+  val bufferDelay: Timer =
+    labeledMetricsFactory.timer(prefix :+ "buffer_delay")
+
+  @MetricDoc.Tag(
+    summary = "The batch sizes in the lookup batch-loading Contract Service.",
+    description =
+      """The number of lookups contained in a batch, used in the batch-loading Contract Service.""",
+    qualification = Debug,
+  )
+  val batchSize: Histogram =
+    labeledMetricsFactory.histogram(prefix :+ "batch_size")
+
+}
+
 class MainIndexDBMetrics(
     prefix: MetricName,
     @deprecated("Use LabeledMetricsFactory", since = "2.7.0") factory: MetricsFactory,
@@ -142,46 +188,10 @@ class MainIndexDBMetrics(
   @nowarn("cat=deprecation")
   val lookupActiveContract: Timer = factory.timer(prefix :+ "lookup_active_contract")
 
-  @MetricDoc.Tag(
-    summary = "The number of the currently pending active contract lookups.",
-    description =
-      "The number of the currently pending active contract lookups in the batch-loading queue of the Contract Service.",
-    qualification = Debug,
-  )
-  @nowarn("cat=deprecation")
-  val activeContractLookupBufferLength: Counter =
-    factory.counter(prefix :+ "active_contract_lookup_buffer_length")
-
-  @MetricDoc.Tag(
-    summary = "The capacity of the active contract lookup queue.",
-    description =
-      """The maximum number of elements that can be kept in the queue of active contract lookups
-        |in the batch-loading queue of the Contract Service.""",
-    qualification = Debug,
-  )
-  @nowarn("cat=deprecation")
-  val activeContractLookupBufferCapacity: Counter =
-    factory.counter(prefix :+ "active_contract_lookup_buffer_capacity")
-
-  @MetricDoc.Tag(
-    summary = "The queuing delay for the active contract lookup queue.",
-    description =
-      "The queuing delay for the pending active contract lookups in the batch-loading queue of the Contract Service.",
-    qualification = Debug,
-  )
-  @nowarn("cat=deprecation")
-  val activeContractLookupBufferDelay: Timer =
-    factory.timer(prefix :+ "active_contract_lookup_buffer_delay")
-
-  @MetricDoc.Tag(
-    summary = "The batch sizes in the active contract lookup batch-loading Contract Service.",
-    description =
-      """The number of active contract lookups contained in a batch, used in the batch-loading Contract Service.""",
-    qualification = Debug,
-  )
-  @nowarn("cat=deprecation")
-  val activeContractLookupBatchSize: Histogram =
-    factory.histogram(prefix :+ "active_contract_lookup_batch_size")
+  val activeContracts =
+    new BatchLoaderMetrics(prefix :+ "active_contract_lookup", labeledMetricsFactory)
+  val activeContractKeys =
+    new BatchLoaderMetrics(prefix :+ "active_contract_keys_lookup", labeledMetricsFactory)
 
   private val overall = createDbMetrics("all")
   val waitAll: Timer = overall.waitTimer

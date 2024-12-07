@@ -891,7 +891,9 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       @Help.Summary(
         "Vet all packages contained in the DAR archive identified by the provided DAR hash."
       )
+      // TODO(#21671): Document synchronization flag
       def enable(darHash: String, synchronize: Boolean = true): Unit =
+        // TODO(#21671): Consider removing the Preview feature-flag
         check(FeatureFlag.Preview)(consoleEnvironment.run {
           adminCommand(ParticipantAdminCommands.Package.VetDar(darHash, synchronize))
         })
@@ -902,12 +904,15 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           |was symmetric and resulted in a single vetting topology transaction for all the packages in the DAR.
           |This command is potentially dangerous and misuse
           |can lead the participant to fail in processing transactions""")
-      def disable(darHash: String): Unit =
+      // TODO(#21671): Update description and add mention synchronization flag
+      def disable(darHash: String, synchronize: Boolean = true): Unit =
+        // TODO(#21671): Consider removing the Preview feature-flag
         check(FeatureFlag.Preview)(consoleEnvironment.run {
-          adminCommand(ParticipantAdminCommands.Package.UnvetDar(darHash))
+          adminCommand(
+            ParticipantAdminCommands.Package.UnvetDar(darHash, synchronize = synchronize)
+          )
         })
     }
-
   }
 
   @Help.Summary("Manage raw Daml-LF packages")
@@ -970,7 +975,9 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     def synchronize_vetting(
         timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.bounded,
         // TODO(#21671): Use the protocol versions of the participants and domains to
-        //               check whether to synchronize check-only or not
+        //               check whether to synchronize check-only or not.
+        //               Otherwise, synchronization can hang on domains running older protocol versions
+        //               due to missing CheckOnly transactions
         alsoSynchronizeCheckOnly: Boolean = true,
     ): Unit = {
       val connected = domains.list_connected().map(_.domainId).toSet

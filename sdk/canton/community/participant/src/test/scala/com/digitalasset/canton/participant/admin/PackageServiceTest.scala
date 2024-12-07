@@ -327,18 +327,22 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest with HasExecutionCo
       .add("darhash")
       .finish()
 
-    "requested by PackageService.unvetDar" should {
+    "requested by PackageService.disableDar" should {
       "reject the request with an error" in withEnv(
-        rejectOnMissingDar(_.unvetDar(unknownDarHash), unknownDarHash, "DAR archive unvetting")
+        rejectOnMissingDar(
+          _.disableDar(unknownDarHash, synchronize = true),
+          unknownDarHash,
+          "disable DAR",
+        )
       )
     }
 
-    "requested by PackageService.vetDar" should {
+    "requested by PackageService.enableDar" should {
       "reject the request with an error" in withEnv(
         rejectOnMissingDar(
-          _.vetDar(unknownDarHash, synchronize = true),
+          _.enableDar(unknownDarHash, synchronize = true),
           unknownDarHash,
-          "DAR archive vetting",
+          "enable DAR",
         )
       )
     }

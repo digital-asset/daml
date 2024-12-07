@@ -11,7 +11,7 @@ class DamlPackageLoaderTest extends AnyWordSpec with BaseTest {
   "DamlPackageLoader" should {
     "find daml package" in {
       for {
-        packages <- DamlPackageLoader.getPackagesFromDarFile(CantonExamplesPath)
+        packages <- DamlPackageLoader.getPackagesFromDarFiles(Seq(CantonExamplesPath))
       } yield packages.values.flatMap(_.modules.keys.map(_.toString)) should contain.allOf(
         "CantonExamples",
         "Divulgence",

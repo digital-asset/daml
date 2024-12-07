@@ -116,7 +116,7 @@ class PackageService(
 
       val checkNotVetted =
         packageOps
-          .isPackageVetted(packageId)
+          .isPackageKnown(packageId)
           .flatMap[CantonError, Unit] {
             case true => EitherT.leftT(new PackageVetted(packageId))
             case false => EitherT.rightT(())
@@ -136,23 +136,32 @@ class PackageService(
   ): EitherT[FutureUnlessShutdown, CantonError, Unit] =
     ifDarExists(darHash)(removeDarLf(_, _))(ifNotExistsOperationFailed = "DAR archive removal")
 
-  def vetDar(darHash: Hash, synchronize: Boolean)(implicit
+  def enableDar(darHash: Hash, synchronize: Boolean)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CantonError, Unit] =
-    ifDarExists(darHash) { (_, darLf) =>
+    ifDarExists(darHash) { (darDescriptor, darLf) =>
+      val dependencyPackageIds = darLf.dependencies.map(readPackageId)
+      val mainPackageId = readPackageId(darLf.main)
       packageOps
-        .vetPackages(darLf.all.map(readPackageId), synchronize)
+        .enableDarPackages(
+          mainPackageId,
+          dependencyPackageIds,
+          darDescriptor.name.toString,
+          synchronize,
+        )
         .leftWiden[CantonError]
-    }(ifNotExistsOperationFailed = "DAR archive vetting")
+    }(ifNotExistsOperationFailed = "enable DAR")
 
-  def unvetDar(darHash: Hash)(implicit
+  def disableDar(darHash: Hash, synchronize: Boolean)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CantonError, Unit] =
     ifDarExists(darHash) { (descriptor, lfArchive) =>
-      val packages = lfArchive.all.map(readPackageId)
       val mainPkg = readPackageId(lfArchive.main)
-      revokeVettingForDar(mainPkg, packages, descriptor)
-    }(ifNotExistsOperationFailed = "DAR archive unvetting")
+      val dependencyPackages = lfArchive.dependencies.map(readPackageId)
+      packageOps
+        .disableDarPackages(mainPkg, dependencyPackages, descriptor.name.toString, synchronize)
+        .leftWiden
+    }(ifNotExistsOperationFailed = s"disable DAR")
 
   private def ifDarExists(darHash: Hash)(
       action: (
@@ -186,7 +195,7 @@ class PackageService(
       elc: ErrorLoggingContext
   ): EitherT[FutureUnlessShutdown, PackageRemovalError, Unit] =
     EitherTUtil.condUnitET(
-      !AdminWorkflowServices.AdminWorkflowPackages.keySet.contains(packageId),
+      !AdminWorkflowServices.AdminWorkflowPackages.allPackagesAsMap.contains(packageId),
       new PackageRemovalErrorCode.CannotRemoveAdminWorkflowPackage(packageId),
     )
 
@@ -205,9 +214,8 @@ class PackageService(
     //     - Already un-vetted
     //     - Or can be automatically un-vetted, by revoking a vetting transaction corresponding to all packages in the DAR
 
-    val packages = dar.all.map(readPackageId)
-
     val mainPkg = readPackageId(dar.main)
+    val dependencyPackages = dar.dependencies.map(readPackageId)
     for {
       _notAdminWf <- neededForAdminWorkflow(mainPkg)
 
@@ -217,7 +225,9 @@ class PackageService(
         .mapK(FutureUnlessShutdown.outcomeK)
 
       packageUsed <- EitherT
-        .liftF(packages.parTraverse(p => packageOps.checkPackageUnused(p).value))
+        .liftF(
+          (mainPkg +: dependencyPackages).parTraverse(packageOps.checkPackageUnused(_).value)
+        )
         .mapK(FutureUnlessShutdown.outcomeK)
 
       usedPackages = packageUsed.mapFilter {
@@ -231,7 +241,7 @@ class PackageService(
         .leftMap(p => new CannotRemoveOnlyDarForPackage(p, darDescriptor))
         .mapK(FutureUnlessShutdown.outcomeK)
 
-      _unit <- revokeVettingForDar(mainPkg, packages, darDescriptor)
+      _unit <- packageOps.fullyUnvet(mainPkg, dependencyPackages, darDescriptor).leftWiden
 
       _unit <-
         EitherT.liftF(packagesDarsStore.removePackage(mainPkg))
@@ -245,26 +255,6 @@ class PackageService(
       }
     } yield ()
   }
-
-  private def revokeVettingForDar(
-      mainPkg: PackageId,
-      packages: List[PackageId],
-      darDescriptor: DarDescriptor,
-  )(implicit
-      tc: TraceContext
-  ): EitherT[FutureUnlessShutdown, CantonError, Unit] =
-    packageOps
-      .isPackageVetted(mainPkg)
-      .flatMap { isVetted =>
-        if (!isVetted)
-          EitherT.pure[FutureUnlessShutdown, CantonError](
-            logger.info(
-              s"Package with id $mainPkg is already unvetted. Doing nothing for the unvet operation"
-            )
-          )
-        else
-          packageOps.revokeVettingForPackages(mainPkg, packages, darDescriptor).leftWiden
-      }
 
   /** Stores DAR file from given byte string with the provided filename.
     * All the Daml packages inside the DAR file are also stored.
@@ -308,11 +298,16 @@ class PackageService(
         .map(_.toRight(s"No such dar $darId").flatMap(PackageService.darToLf))
     )
 
-  def vetPackages(packages: Seq[PackageId], syncVetting: Boolean)(implicit
+  def enableDarPackages(
+      mainPackageId: PackageId,
+      dependencyPackageIds: Seq[PackageId],
+      darDescription: String,
+      syncVetting: Boolean,
+  )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, DamlError, Unit] =
     packageOps
-      .vetPackages(packages, syncVetting)
+      .enableDarPackages(mainPackageId, dependencyPackageIds, darDescription, syncVetting)
       .leftMap[DamlError] { err =>
         implicit val code = err.code
         CantonPackageServiceError.IdentityManagerParentError(err)
@@ -339,17 +334,23 @@ class PackageService(
       submissionId: LedgerSubmissionId,
       vetAllPackages: Boolean,
       synchronizeVetting: Boolean,
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, Unit] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, Unit] = {
+    val darNameO =
+      fileNameO.map(fn => PathUtils.getFilenameWithoutExtension(Paths.get(fn).getFileName))
+
     for {
       uploadedPackageIds <- packageUploader.value.validateAndStoreDar(
         darPayload = darBytes,
-        fileNameO = fileNameO,
+        darNameO = darNameO,
         submissionId = submissionId,
       )
-      _ <- EitherTUtil.ifThenET(vetAllPackages)(
-        vetPackages(uploadedPackageIds, synchronizeVetting)
-      )
+      (mainPackageId, dependencyPackageIds) = uploadedPackageIds
+      _ <- EitherTUtil.ifThenET(vetAllPackages) {
+        val darDescription = s"${darNameO.getOrElse("DAR_upload")}-$submissionId"
+        enableDarPackages(mainPackageId, dependencyPackageIds, darDescription, synchronizeVetting)
+      }
     } yield ()
+  }
 
   /** Decodes and validates the packages in the provided DAR payload.
     *

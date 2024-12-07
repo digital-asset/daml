@@ -313,6 +313,8 @@ class ParticipantNodeBootstrap(
             manager,
             topologyManager,
             parameterConfig.initialProtocolVersion,
+            futureSupervisor,
+            timeouts,
             loggerFactory,
           )
         }

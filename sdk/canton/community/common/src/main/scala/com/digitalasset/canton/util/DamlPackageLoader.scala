@@ -6,6 +6,7 @@ package com.digitalasset.canton.util
 import cats.implicits.*
 import com.daml.lf.archive.{DarDecoder, DarReader}
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast
 import com.google.protobuf.ByteString
 
@@ -16,9 +17,9 @@ import java.util.zip.ZipInputStream
   */
 object DamlPackageLoader {
 
-  def getPackagesFromDarFile(filename: String): Either[LoadError, Map[Ref.PackageId, Ast.Package]] =
-    getPackagesFromDarFiles(Seq(filename))
-
+  /** @return If Right, a mapping of package-ids to AST package definitions contained in the decoded DARs referenced by {@code filenames}
+    *         If Left, a DAR decode error
+    */
   def getPackagesFromDarFiles(
       filenames: Seq[String]
   ): Either[LoadError, Map[Ref.PackageId, Ast.Package]] =
@@ -30,13 +31,20 @@ object DamlPackageLoader {
       }
       .map(_.foldLeft(Map.empty[Ref.PackageId, Ast.Package])(_ ++ _))
 
+  /** @return The result of decoding the DAR archive from the {@code inputStream} into the main and dependency packages */
   def getPackagesFromInputStream(
       name: String,
       inputStream: InputStream,
-  ): Either[LoadError, Map[Ref.PackageId, Ast.Package]] =
+  ): Either[
+    LoadError,
+    (
+        (PackageId, Ast.Package) /* main package */,
+        List[(PackageId, Ast.Package)], /* dependency packages */
+    ),
+  ] =
     DarDecoder
       .readArchive(name, new ZipInputStream(inputStream))
-      .bimap(t => LoadError(t.toString), _.all.toMap)
+      .bimap(t => LoadError(t.toString), dar => dar.main -> dar.dependencies)
 
   final case class LoadError(message: String)
 

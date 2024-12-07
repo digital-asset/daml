@@ -44,7 +44,7 @@ final case class DomainNodeStatus(
         s"Domain id: ${uid.toProtoPrimitive}",
         show"Uptime: $uptime",
         s"Ports: ${portsString(ports)}",
-        s"Connected Participants: ${multiline(connectedParticipants.map(_.toString))}",
+        s"Connected participants: ${multiline(connectedParticipants.map(_.toString))}",
         show"Sequencer: $sequencer",
         s"Components: ${multiline(components.map(_.toString))}",
       ) ++ versionString(version) ++ protocolVersionString(protocolVersion))

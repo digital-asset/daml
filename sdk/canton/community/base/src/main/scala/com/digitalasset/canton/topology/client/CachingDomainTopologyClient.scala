@@ -298,6 +298,18 @@ private class ForwardingTopologySnapshotClient(
   ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
     parent.loadUnvettedPackagesOrDependencies(participant, packageId)
 
+  override def findPackagesOrDependenciesNotDeclaredAsCheckOnly(
+      participantId: ParticipantId,
+      packages: Set[PackageId],
+  ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
+    parent.findPackagesOrDependenciesNotDeclaredAsCheckOnly(participantId, packages)
+
+  override private[client] def loadPackagesOrDependenciesNotDeclaredAsCheckOnly(
+      participant: ParticipantId,
+      packageId: PackageId,
+  ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
+    parent.loadPackagesOrDependenciesNotDeclaredAsCheckOnly(participant, packageId)
+
   /** returns the list of currently known mediators */
   override def mediatorGroups(): Future[Seq[MediatorGroup]] = parent.mediatorGroups()
 
@@ -368,13 +380,24 @@ class CachingTopologySnapshot(
     .buildScaffeine()
     .buildAsyncFuture[KeyOwner, KeyCollection](parent.allKeys)
 
-  private val packageVettingCache =
+  // Caches whether the package-id or its dependants are unvetted for the given package-id and participant-id
+  private val vettedPackagesCache =
     TracedScaffeine
       .buildTracedAsync[FutureUnlessShutdown, (ParticipantId, PackageId), Either[PackageId, Set[
         PackageId
       ]]](
         cache = cachingConfigs.packageVettingCache.buildScaffeine(),
         _ => x => loadUnvettedPackagesOrDependencies(x._1, x._2).value,
+      )(logger)
+
+  // Caches whether the package-id or its dependants are not check-only for the given package-id and participant-id
+  private val checkOnlyPackageCache =
+    TracedScaffeine
+      .buildTracedAsync[FutureUnlessShutdown, (ParticipantId, PackageId), Either[PackageId, Set[
+        PackageId
+      ]]](
+        cache = cachingConfigs.checkOnlyPackageCache.buildScaffeine(),
+        _ => x => loadPackagesOrDependenciesNotDeclaredAsCheckOnly(x._1, x._2).value,
       )(logger)
 
   private val mediatorsCache = new AtomicReference[Option[Future[Seq[MediatorGroup]]]](None)
@@ -458,17 +481,33 @@ class CachingTopologySnapshot(
       participantId: ParticipantId,
       packages: Set[PackageId],
   ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
-    findUnvettedPackagesOrDependenciesUsingLoader(
-      participantId,
-      packages,
-      (x, y) => EitherT(packageVettingCache.get((x, y))),
-    )
+    packages.toList
+      .parFlatTraverse(pkgId =>
+        EitherT(vettedPackagesCache.get(participantId -> pkgId)).map(_.toList)
+      )
+      .map(_.toSet)
+
+  override def findPackagesOrDependenciesNotDeclaredAsCheckOnly(
+      participantId: ParticipantId,
+      packages: Set[PackageId],
+  ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
+    packages.toList
+      .parFlatTraverse(pkgId =>
+        EitherT(checkOnlyPackageCache.get(participantId -> pkgId)).map(_.toList)
+      )
+      .map(_.toSet)
 
   private[client] def loadUnvettedPackagesOrDependencies(
       participant: ParticipantId,
       packageId: PackageId,
   ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
     parent.loadUnvettedPackagesOrDependencies(participant, packageId)
+
+  override def loadPackagesOrDependenciesNotDeclaredAsCheckOnly(
+      participantId: ParticipantId,
+      packageId: PackageId,
+  ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
+    parent.loadPackagesOrDependenciesNotDeclaredAsCheckOnly(participantId, packageId)
 
   override def inspectKeys(
       filterOwner: String,
