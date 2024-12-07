@@ -224,7 +224,6 @@ class UnassignmentProcessingSteps(
           pureCrypto,
           sourceRecentSnapshot,
           ephemeralState.sessionKeyStoreLookup.convertStore,
-          targetProtocolVersion.unwrap,
         )
         .leftMap[ReassignmentProcessorError](EncryptionError(contractId, _))
       ViewKeyData(_, viewKey, viewKeyMap) = viewsToKeyMap(fullTree.viewHash)

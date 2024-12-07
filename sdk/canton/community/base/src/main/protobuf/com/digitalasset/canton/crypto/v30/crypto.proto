@@ -5,6 +5,8 @@ syntax = "proto3";
 
 package com.digitalasset.canton.crypto.v30;
 
+import "scalapb/scalapb.proto";
+
 enum HashAlgorithm {
   HASH_ALGORITHM_UNSPECIFIED = 0;
   HASH_ALGORITHM_SHA256 = 1;
@@ -301,6 +303,8 @@ message CryptoKeyPair {
 }
 
 message SymmetricKey {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+
   CryptoKeyFormat format = 1;
 
   bytes key = 2;

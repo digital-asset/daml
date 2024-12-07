@@ -6,6 +6,7 @@ package com.digitalasset.canton.domain.metrics
 import cats.Eval
 import com.daml.metrics.api.MetricHandle.{Gauge, Histogram, LabeledMetricsFactory, Meter}
 import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification, MetricsContext}
+import com.digitalasset.canton.metrics.HasDocumentedMetrics
 
 import scala.collection.concurrent.TrieMap
 
@@ -13,7 +14,11 @@ import scala.collection.concurrent.TrieMap
 class BlockMetrics(
     parent: MetricName,
     val openTelemetryMetricsFactory: LabeledMetricsFactory,
-) {
+) extends HasDocumentedMetrics {
+
+  override def docPoke(): Unit =
+    // create doc string for the ack gauge
+    updateAcknowledgementGauge("member", 0)
 
   private val prefix: MetricName = parent :+ "block"
 

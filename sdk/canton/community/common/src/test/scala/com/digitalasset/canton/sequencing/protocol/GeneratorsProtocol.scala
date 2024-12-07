@@ -6,8 +6,9 @@ package com.digitalasset.canton.sequencing.protocol
 import com.daml.nonempty.NonEmptyUtil
 import com.digitalasset.canton.config.CantonRequireTypes.String73
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong, PositiveInt}
-import com.digitalasset.canton.crypto.{AsymmetricEncrypted, Signature, SymmetricKey}
+import com.digitalasset.canton.crypto.{AsymmetricEncrypted, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.protocol.ProtocolSymmetricKey
 import com.digitalasset.canton.protocol.messages.{GeneratorsMessages, ProtocolMessage}
 import com.digitalasset.canton.sequencing.channel.{
   ConnectToSequencerChannelRequest,
@@ -160,7 +161,7 @@ final class GeneratorsProtocol(
 
   implicit val sequencerChannelSessionKeyArb: Arbitrary[SequencerChannelSessionKey] =
     Arbitrary(for {
-      encrypted <- Arbitrary.arbitrary[AsymmetricEncrypted[SymmetricKey]]
+      encrypted <- Arbitrary.arbitrary[AsymmetricEncrypted[ProtocolSymmetricKey]]
     } yield SequencerChannelSessionKey.apply(encrypted, protocolVersion))
 
   implicit val sequencerChannelSessionKeyAckArb: Arbitrary[SequencerChannelSessionKeyAck] =

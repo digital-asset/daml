@@ -167,7 +167,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
             p2pNetworkOutModuleRef = fakeIgnoringModule,
             otherPeers = membership.otherPeers,
             segmentModuleFactoryFunction = () => segmentModuleMock,
-            stateTransferManagerOpt = Some(stateTransferManagerMock),
+            maybeOnboardingStateTransferManager = Some(stateTransferManagerMock),
           )
         implicit val ctx: ContextType = context
 
@@ -180,7 +180,6 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
         )
 
         val order = Mockito.inOrder(stateTransferManagerMock, segmentModuleMock)
-        order.verify(stateTransferManagerMock).clearStateTransferState()
         order
           .verify(segmentModuleMock, times(membership.orderingTopology.peers.size))
           .asyncSend(ConsensusSegment.Start)
@@ -466,7 +465,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
               )
             ),
             segmentModuleFactoryFunction = () => segmentModuleMock,
-            stateTransferManagerOpt = Some(stateTransferManagerMock),
+            maybeOnboardingStateTransferManager = Some(stateTransferManagerMock),
           )
         implicit val ctx: ContextType = context
 
@@ -530,7 +529,8 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
       sequencerSnapshotAdditionalInfo: Option[SequencerSnapshotAdditionalInfo] = None,
       segmentModuleFactoryFunction: () => ModuleRef[ConsensusSegment.Message] = () =>
         fakeIgnoringModule,
-      stateTransferManagerOpt: Option[StateTransferManager[ProgrammableUnitTestEnv]] = None,
+      maybeOnboardingStateTransferManager: Option[StateTransferManager[ProgrammableUnitTestEnv]] =
+        None,
   ): (ContextType, IssConsensusModule[ProgrammableUnitTestEnv]) = {
     implicit val context: ContextType = new ProgrammableUnitTestContext
 
@@ -568,33 +568,29 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
           )(MetricsContext.Empty, context)
         )
 
-    val stateTransferManager = stateTransferManagerOpt.getOrElse(
-      new StateTransferManager(
-        dependencies,
-        epochLength,
-        epochStore,
-        selfId,
-        loggerFactory,
-      )
+    val initialState = IssConsensusModule.InitialState(
+      sequencerSnapshotAdditionalInfo,
+      initialMembership,
+      fakeCryptoProvider,
+      initialEpochState,
+      latestCompletedEpochFromStore,
     )
-    context -> new IssConsensusModule(
-      epochLength = epochLength,
-      IssConsensusModule.InitialState(
-        sequencerSnapshotAdditionalInfo,
-        initialMembership,
-        fakeCryptoProvider,
-        initialEpochState,
-        latestCompletedEpochFromStore,
-      ),
-      epochStore,
-      clock,
-      SequencerMetrics.noop(getClass.getSimpleName).bftOrdering,
-      createSegmentModuleRefFactory(segmentModuleFactoryFunction),
-      selfId,
-      dependencies,
-      loggerFactory,
-      timeouts,
-    )(stateTransferManager)()
+    val metrics = SequencerMetrics.noop(getClass.getSimpleName).bftOrdering
+    val moduleRefFactory = createSegmentModuleRefFactory(segmentModuleFactoryFunction)
+
+    context ->
+      new IssConsensusModule(
+        epochLength,
+        initialState,
+        epochStore,
+        clock,
+        metrics,
+        moduleRefFactory,
+        selfId,
+        dependencies,
+        loggerFactory,
+        timeouts,
+      )(maybeOnboardingStateTransferManager)()
   }
 }
 

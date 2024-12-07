@@ -8,7 +8,7 @@ import com.digitalasset.canton.serialization.{
   DeserializationError,
   HasCryptographicEvidence,
 }
-import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
+import com.digitalasset.canton.version.HasToByteString
 import com.google.protobuf.ByteString
 
 import scala.util.Random
@@ -31,8 +31,8 @@ trait RandomOps {
   */
 final case class SecureRandomness private[crypto] (unwrap: ByteString)
     extends HasCryptographicEvidence
-    with HasVersionedToByteString {
-  override def toByteString(version: ProtocolVersion): ByteString = getCryptographicEvidence
+    with HasToByteString {
+  override def toByteString: ByteString = getCryptographicEvidence
 
   override def getCryptographicEvidence: ByteString = unwrap
 }

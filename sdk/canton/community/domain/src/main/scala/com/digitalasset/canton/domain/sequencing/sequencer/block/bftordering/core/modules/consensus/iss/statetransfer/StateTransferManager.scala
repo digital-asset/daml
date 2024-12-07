@@ -43,10 +43,9 @@ import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success}
 
-/** A class handling state transfer instances (one at a time on the initiating/receiving side and potentially multiple
-  * ones on the serving side).
+/** Manages a single state transfer instance in a client role and multiple state transfer instances in a server role.
   *
-  * It is meant to be used by the main Consensus module only and is not thread-safe.
+  * It is meant to be used by Consensus behaviors only and is not thread-safe.
   *
   * Design document: https://docs.google.com/document/d/1oB1KtnpM7OiNDWQoRUL0NuoEFJYUjg58ECYIjSi4sIM
   */
@@ -56,8 +55,7 @@ class StateTransferManager[E <: Env[E]](
     epochStore: EpochStore[E],
     thisPeer: SequencerId,
     override val loggerFactory: NamedLoggerFactory,
-) extends NamedLogging
-    with StateTransferDetector {
+) extends NamedLogging {
 
   import StateTransferManager.*
 
@@ -74,16 +72,7 @@ class StateTransferManager[E <: Env[E]](
   private val blockTransferResponseTimeouts =
     mutable.Map[SequencerId, TimeoutManager[E, Consensus.Message[E], SequencerId]]()
 
-  override def inStateTransfer: Boolean = stateTransferStartEpoch.isDefined
-
-  def clearStateTransferState()(implicit traceContext: TraceContext): Unit = {
-    logger.info("State transfer: clearing state")
-    blockTransferResponseTimeouts.view.values.foreach(_.cancelTimeout())
-    blockTransferResponseTimeouts.clear()
-    blockTransferResponseQuorumBuilder = None
-    quorumOfMatchingBlockTransferResponses = None
-    stateTransferStartEpoch = None
-  }
+  def inStateTransfer: Boolean = stateTransferStartEpoch.isDefined
 
   def startStateTransfer(
       activeMembership: Membership,
@@ -353,7 +342,6 @@ class StateTransferManager[E <: Env[E]](
       // Serving nodes figure out that a new node is onboarded once the "start epoch" is completed.
       // So in that case, there is always at least 1 epoch to transfer.
     }
-    clearStateTransferState()
     StateTransferMessageResult.NothingToStateTransfer
   }
 

@@ -224,7 +224,6 @@ private[reassignment] class AssignmentProcessingSteps(
           pureCrypto,
           recentSnapshot,
           ephemeralState.sessionKeyStoreLookup.convertStore,
-          targetProtocolVersion.unwrap,
         )
         .leftMap[ReassignmentProcessorError](
           EncryptionError(reassignmentData.contract.contractId, _)

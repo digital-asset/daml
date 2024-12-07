@@ -302,10 +302,11 @@ class IssSegmentModule[E <: Env[E]](
             )
             parent.asyncSend(Consensus.CatchUpMessage.SegmentCancelledEpoch)
           }
-        } else
-          logger.warn(
+        } else {
+          abort(
             s"Received a cancel epoch message for epoch $epochNumber but we are in epoch ${epoch.info.number}"
           )
+        }
 
       case ConsensusSegment.Internal.AsyncException(e: Throwable) =>
         logAsyncException(e)

@@ -48,8 +48,10 @@ object StatusAdminCommands {
         kind: WaitingForExternalInput,
     ): Boolean =
       s match {
-        case _: NodeStatus.Failure | _: NodeStatus.Success[?] => false
-        case NodeStatus.NotInitialized(_active, waitingFor) => waitingFor.contains(kind)
+        case _: NodeStatus.Failure | _: NodeStatus.Success[?] =>
+          false
+        case NodeStatus.NotInitialized(_active, waitingFor) =>
+          waitingFor.contains(kind)
       }
   }
 

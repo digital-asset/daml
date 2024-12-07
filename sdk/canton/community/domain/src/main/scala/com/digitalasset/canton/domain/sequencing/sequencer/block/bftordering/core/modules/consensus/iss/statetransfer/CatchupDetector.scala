@@ -12,8 +12,7 @@ import com.digitalasset.canton.topology.SequencerId
 import scala.collection.mutable
 
 final class CatchupDetector(
-    initialMembership: Membership,
-    stateTransferDetector: StateTransferDetector,
+    initialMembership: Membership
 ) {
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
@@ -70,7 +69,7 @@ final class CatchupDetector(
         peerEpoch >= localEpoch + MinimumEpochDeltaToTriggerCatchUp
       } >= membership.orderingTopology.weakQuorum
 
-    behindEnoughPeers && !stateTransferDetector.inStateTransfer
+    behindEnoughPeers
   }
 }
 

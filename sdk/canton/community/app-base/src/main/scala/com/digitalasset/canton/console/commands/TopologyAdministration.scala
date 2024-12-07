@@ -356,7 +356,7 @@ class TopologyAdministrationGroup(
         |excludeMappings: a list of topology mapping codes to exclude from the export. If not provided, all mappings are included.
         |filterNamespace: the namespace to filter the transactions by.
         |protocolVersion: the protocol version used to serialize the topology transactions. If not provided, the latest protocol version is used.
-        |""".stripMargin
+        """
     )
     def export_topology_snapshot(
         filterStore: String = AuthorizedStore.filterName,
@@ -417,7 +417,7 @@ class TopologyAdministrationGroup(
       """Download the topology snapshot which includes the entire history of topology transactions to initialize a sequencer for a major domain upgrades. The validFrom and validUntil are set to SignedTopologyTransaction.InitialTopologySequencingTime.
         |filterDomainStore: Must be specified if the genesis state is requested from a participant node.
         |timestamp: If not specified, the max effective time of the latest topology transaction is used. Otherwise, the given timestamp is used.
-        |""".stripMargin
+        """
     )
     def genesis_state(
         filterDomainStore: String = "",

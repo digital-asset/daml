@@ -149,7 +149,7 @@ class EpochState[E <: Env[E]](
       case ConsensusSegment.ConsensusMessage.CompletedEpoch(_) =>
         segmentModules.values.foreach(_.asyncSend(msg))
       case cancelEpoch: ConsensusSegment.ConsensusMessage.CancelEpoch =>
-        mySegmentModule.foreach(_.asyncSend(cancelEpoch))
+        segmentModules.values.foreach(_.asyncSend(cancelEpoch))
       case ConsensusSegment.ConsensusMessage.BlockOrdered(block) =>
         (for {
           segment <- mySegment

@@ -45,11 +45,11 @@ object SequencerErrors extends SequencerErrorGroup {
       |This error occurs when the sequencer receives an invalid submission request, e.g. it has an
       |aggregation rule with an unreachable threshold.
       |Malformed requests will not emit any deliver event.
-      |""".stripMargin)
+      """)
   @Resolution("""
       |Check if the sender is running an attack.
       |If you can rule out an attack, please reach out to Canton support.
-      |""".stripMargin)
+      """)
   case object SubmissionRequestMalformed
       extends AlarmErrorCode(id = "SEQUENCER_SUBMISSION_REQUEST_MALFORMED") {
     final case class Error(

@@ -10,7 +10,8 @@ import com.daml.metrics.{CacheMetrics, DatabaseMetrics}
 class UserManagementMetrics(
     prefix: MetricName,
     labeledFactory: LabeledMetricsFactory,
-) extends DatabaseMetricsFactory(prefix, labeledFactory) {
+) extends DatabaseMetricsFactory(prefix, labeledFactory)
+    with HasDocumentedMetrics {
 
   val cache = new CacheMetrics(prefix :+ "cache", labeledFactory)
 

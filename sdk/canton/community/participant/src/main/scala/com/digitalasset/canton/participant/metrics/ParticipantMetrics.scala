@@ -21,7 +21,7 @@ import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.data.TaskSchedulerMetrics
 import com.digitalasset.canton.environment.BaseMetrics
 import com.digitalasset.canton.http.metrics.{HttpApiHistograms, HttpApiMetrics}
-import com.digitalasset.canton.metrics.*
+import com.digitalasset.canton.metrics.{HasDocumentedMetrics, *}
 import com.digitalasset.canton.participant.metrics.PruningMetrics as ParticipantPruningMetrics
 
 import scala.collection.concurrent.TrieMap
@@ -68,7 +68,19 @@ class ParticipantHistograms(val parent: MetricName)(implicit
 class ParticipantMetrics(
     inventory: ParticipantHistograms,
     override val openTelemetryMetricsFactory: LabeledMetricsFactory,
-) extends BaseMetrics {
+) extends BaseMetrics
+    with HasDocumentedMetrics {
+
+  override def docPoke(): Unit = {
+    dbStorage.docPoke()
+    consoleThroughput.docPoke()
+    pruning.docPoke()
+    (new SyncDomainMetrics(
+      DomainAlias.tryCreate("domain"),
+      inventory.syncDomain,
+      openTelemetryMetricsFactory,
+    )).docPoke()
+  }
 
   private implicit val mc: MetricsContext = MetricsContext.Empty
 
@@ -80,7 +92,7 @@ class ParticipantMetrics(
 
   object dbStorage extends DbStorageMetrics(inventory.dbStorage, openTelemetryMetricsFactory)
 
-  object consoleThroughput {
+  object consoleThroughput extends HasDocumentedMetrics {
     private val prefix = ParticipantMetrics.this.prefix :+ "console"
     val metric: Meter =
       openTelemetryMetricsFactory.meter(
@@ -184,11 +196,21 @@ class SyncDomainMetrics(
     domainAlias: DomainAlias,
     histograms: SyncDomainHistograms,
     factory: LabeledMetricsFactory,
-)(implicit metricsContext: MetricsContext) {
+)(implicit metricsContext: MetricsContext)
+    extends HasDocumentedMetrics {
+
+  override def docPoke(): Unit = {
+    sequencerClient.docPoke()
+    conflictDetection.docPoke()
+    commitments.docPoke()
+    transactionProcessing.docPoke()
+    recordOrderPublisher.docPoke()
+    inFlightSubmissionDomainTracker.docPoke()
+  }
 
   object sequencerClient extends SequencerClientMetrics(histograms.sequencerClient, factory)
 
-  object conflictDetection extends TaskSchedulerMetrics {
+  object conflictDetection extends TaskSchedulerMetrics with HasDocumentedMetrics {
 
     private val prefix = histograms.prefix :+ "conflict-detection"
 
@@ -238,7 +260,7 @@ class SyncDomainMetrics(
     )
   )
 
-  object recordOrderPublisher extends TaskSchedulerMetrics {
+  object recordOrderPublisher extends TaskSchedulerMetrics with HasDocumentedMetrics {
 
     private val prefix = histograms.prefix :+ "request-tracker"
 
@@ -268,7 +290,7 @@ class SyncDomainMetrics(
       factory.gaugeWithSupplier(taskQueueForDoc.info, size)
   }
 
-  object inFlightSubmissionDomainTracker {
+  object inFlightSubmissionDomainTracker extends HasDocumentedMetrics {
 
     private val prefix = histograms.prefix :+ "in-flight-submission-domain-tracker"
 

@@ -218,7 +218,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
         if (active) EitherT.pure[FutureUnlessShutdown, DomainRegistryError](())
         else {
           logger.debug(
-            s"Participant is not yet active on domain $domainId. Initialising topology"
+            s"Participant is not yet active on domain $domainId. Initializing topology"
           )
           val client = sequencerConnectClient(config.domain, sequencerAggregatedInfo)
           for {

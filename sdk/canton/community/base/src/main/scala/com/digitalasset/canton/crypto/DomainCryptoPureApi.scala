@@ -8,7 +8,7 @@ import com.digitalasset.canton.crypto.SignatureCheckError.UnsupportedKeySpec
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.serialization.DeserializationError
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.{HasToByteString, HasVersionedToByteString, ProtocolVersion}
+import com.digitalasset.canton.version.HasToByteString
 import com.google.protobuf.ByteString
 
 /** Wraps the CryptoPureApi to include static domain parameters, ensuring that during signature verification and
@@ -80,14 +80,6 @@ final class DomainCryptoPureApi(
   override def supportedEncryptionAlgorithmSpecs: NonEmpty[Set[EncryptionAlgorithmSpec]] =
     pureCrypto.supportedEncryptionAlgorithmSpecs
 
-  override def encryptWithVersion[M <: HasVersionedToByteString](
-      message: M,
-      publicKey: EncryptionPublicKey,
-      version: ProtocolVersion,
-      encryptionAlgorithmSpec: EncryptionAlgorithmSpec,
-  ): Either[EncryptionError, AsymmetricEncrypted[M]] =
-    pureCrypto.encryptWithVersion(message, publicKey, version, encryptionAlgorithmSpec)
-
   override def encryptWith[M <: HasToByteString](
       message: M,
       publicKey: EncryptionPublicKey,
@@ -95,24 +87,17 @@ final class DomainCryptoPureApi(
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
     pureCrypto.encryptWith(message, publicKey, encryptionAlgorithmSpec)
 
-  override def encryptDeterministicWith[M <: HasVersionedToByteString](
+  override def encryptDeterministicWith[M <: HasToByteString](
       message: M,
       publicKey: EncryptionPublicKey,
-      version: ProtocolVersion,
       encryptionAlgorithmSpec: EncryptionAlgorithmSpec,
   )(implicit traceContext: TraceContext): Either[EncryptionError, AsymmetricEncrypted[M]] =
-    pureCrypto.encryptDeterministicWith(message, publicKey, version, encryptionAlgorithmSpec)
+    pureCrypto.encryptDeterministicWith(message, publicKey, encryptionAlgorithmSpec)
 
-  override def encryptWith[M <: HasVersionedToByteString](
-      message: M,
+  override private[crypto] def encryptSymmetricWith(
+      data: ByteString,
       symmetricKey: SymmetricKey,
-      version: ProtocolVersion,
-  ): Either[EncryptionError, Encrypted[M]] = pureCrypto.encryptWith(message, symmetricKey, version)
-
-  override def encryptWith[M <: HasToByteString](
-      message: M,
-      symmetricKey: SymmetricKey,
-  ): Either[EncryptionError, Encrypted[M]] = pureCrypto.encryptWith(message, symmetricKey)
+  ): Either[EncryptionError, ByteString] = pureCrypto.encryptSymmetricWith(data, symmetricKey)
 
   override def decryptWith[M](
       encrypted: Encrypted[M],
@@ -146,4 +131,5 @@ final class DomainCryptoPureApi(
       signingKey: SigningPrivateKey,
       signingAlgorithmSpec: SigningAlgorithmSpec = defaultSigningAlgorithmSpec,
   ): Either[SigningError, Signature] = pureCrypto.signBytes(bytes, signingKey, signingAlgorithmSpec)
+
 }

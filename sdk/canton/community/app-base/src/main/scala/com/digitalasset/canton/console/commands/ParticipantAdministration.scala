@@ -751,7 +751,7 @@ class CommitmentsAdministrationGroup(
       | - timestamp: The timestamp of the commitment. Needs to correspond to a commitment tick.
       | - counterParticipant: The counter participant to whom we previously sent the commitment
       | - timeout: Time limit for the grpc call to complete
-      """.stripMargin
+      """
   )
   def open_commitment(
       commitment: AcsCommitment.CommitmentType,
@@ -816,7 +816,7 @@ class CommitmentsAdministrationGroup(
       | - expectedDomain: The domain that the contracts are expected to be active on
       | - downloadPayload: If true, the payload of the contracts is also downloaded
       | - timeout: Time limit for the grpc call to complete
-      """.stripMargin
+      """
   )
   def inspect_commitment_contracts(
       contracts: Seq[LfContractId],

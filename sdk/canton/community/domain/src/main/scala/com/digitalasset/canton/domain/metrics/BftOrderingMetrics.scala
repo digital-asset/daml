@@ -17,7 +17,7 @@ import com.daml.metrics.grpc.GrpcServerMetrics
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.BaseMetrics
 import com.digitalasset.canton.logging.pretty.PrettyNameOnlyCase
-import com.digitalasset.canton.metrics.{DbStorageHistograms, DbStorageMetrics}
+import com.digitalasset.canton.metrics.{DbStorageHistograms, DbStorageMetrics, HasDocumentedMetrics}
 import com.digitalasset.canton.topology.SequencerId
 
 import scala.collection.mutable
@@ -152,6 +152,23 @@ class BftOrderingMetrics(
     override val healthMetrics: HealthMetrics,
 ) extends BaseMetrics {
 
+  override def docPoke(): Unit =
+    Seq(
+      dbStorage,
+      global,
+      global.requestsOrderingLatency,
+      ingress,
+      mempool,
+      availability,
+      security,
+      consensus,
+      output,
+      topology,
+      p2p.connections,
+      p2p.send,
+      p2p.receive,
+    ).foreach(_.docPoke())
+
   object dbStorage extends DbStorageMetrics(histograms.dbStorage, openTelemetryMetricsFactory)
 
   private implicit val mc: MetricsContext = MetricsContext.Empty
@@ -160,7 +177,7 @@ class BftOrderingMetrics(
 
   override def storageMetrics: DbStorageMetrics = dbStorage
 
-  object global {
+  object global extends HasDocumentedMetrics {
 
     object labels {
       val ReportingSequencer: String = "reporting-sequencer"
@@ -177,7 +194,7 @@ class BftOrderingMetrics(
       )
     )
 
-    object requestsOrderingLatency {
+    object requestsOrderingLatency extends HasDocumentedMetrics {
       object labels {
         val ReceivingSequencer: String = "receiving-sequencer"
       }
@@ -187,7 +204,7 @@ class BftOrderingMetrics(
     }
   }
 
-  object ingress {
+  object ingress extends HasDocumentedMetrics {
     private val prefix = histograms.ingress.prefix
 
     object labels {
@@ -248,7 +265,7 @@ class BftOrderingMetrics(
       openTelemetryMetricsFactory.histogram(histograms.ingress.requestsSize.info)
   }
 
-  object mempool {
+  object mempool extends HasDocumentedMetrics {
     private val prefix = BftOrderingMetrics.this.prefix :+ "mempool"
 
     val requestedBatches: Gauge[Int] = openTelemetryMetricsFactory.gauge(
@@ -262,7 +279,7 @@ class BftOrderingMetrics(
     )
   }
 
-  object availability {
+  object availability extends HasDocumentedMetrics {
     private val prefix = BftOrderingMetrics.this.prefix :+ "availability"
 
     val requestedProposals: Gauge[Int] = openTelemetryMetricsFactory.gauge(
@@ -320,7 +337,7 @@ class BftOrderingMetrics(
     )
   }
 
-  object security {
+  object security extends HasDocumentedMetrics {
     private val prefix = BftOrderingMetrics.this.prefix :+ "security"
 
     object noncompliant {
@@ -359,7 +376,7 @@ class BftOrderingMetrics(
     }
   }
 
-  object consensus {
+  object consensus extends HasDocumentedMetrics {
     private val prefix = histograms.consensus.prefix
 
     val epoch: Gauge[Long] = openTelemetryMetricsFactory.gauge(
@@ -385,7 +402,7 @@ class BftOrderingMetrics(
     val commitLatency: Timer =
       openTelemetryMetricsFactory.timer(histograms.consensus.consensusCommitLatency.info)
 
-    object votes {
+    object votes extends HasDocumentedMetrics {
 
       object labels {
         val VotingSequencer: String = "voting-sequencer"
@@ -460,7 +477,7 @@ class BftOrderingMetrics(
     }
   }
 
-  object output {
+  object output extends HasDocumentedMetrics {
     val blockSizeBytes: Histogram =
       openTelemetryMetricsFactory.histogram(histograms.output.blockSizeBytes.info)
 
@@ -471,7 +488,7 @@ class BftOrderingMetrics(
       openTelemetryMetricsFactory.histogram(histograms.output.blockSizeBatches.info)
   }
 
-  object topology {
+  object topology extends HasDocumentedMetrics {
     private val prefix = histograms.topology.prefix
 
     val validators: Gauge[Int] = openTelemetryMetricsFactory.gauge(
@@ -488,10 +505,10 @@ class BftOrderingMetrics(
       openTelemetryMetricsFactory.timer(histograms.topology.queryLatency.info)
   }
 
-  object p2p {
+  object p2p extends HasDocumentedMetrics {
     private val prefix = histograms.p2p.prefix
 
-    object connections {
+    object connections extends HasDocumentedMetrics {
       private val prefix = p2p.prefix :+ "connections"
 
       val connected: Gauge[Int] = openTelemetryMetricsFactory.gauge(
@@ -515,7 +532,7 @@ class BftOrderingMetrics(
       )
     }
 
-    object send {
+    object send extends HasDocumentedMetrics {
       private val prefix = histograms.p2p.send.prefix
 
       object labels {
@@ -555,7 +572,7 @@ class BftOrderingMetrics(
         openTelemetryMetricsFactory.timer(histograms.p2p.send.networkWriteLatency.info)
     }
 
-    object receive {
+    object receive extends HasDocumentedMetrics {
       private val prefix = histograms.p2p.receive.prefix
 
       object labels {

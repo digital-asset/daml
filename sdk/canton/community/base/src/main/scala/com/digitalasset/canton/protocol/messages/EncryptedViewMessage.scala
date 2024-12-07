@@ -99,7 +99,7 @@ object EncryptedView {
       aViewType: VT,
   )(aViewTree: aViewType.View): Either[EncryptionError, EncryptedView[VT]] =
     encryptionOps
-      .encryptWith(CompressedView(aViewTree), viewKey)
+      .encryptSymmetricWith(CompressedView(aViewTree), viewKey)
       .map(apply(aViewType))
 
   def decrypt[VT <: ViewType](

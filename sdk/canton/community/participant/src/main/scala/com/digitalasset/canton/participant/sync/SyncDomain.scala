@@ -393,7 +393,7 @@ class SyncDomain(
           .right(store.findUpcomingEffectiveChanges(timestamp).map { changes =>
             changes.headOption.foreach { head =>
               logger.debug(
-                s"Initialising the acs commitment processor with ${changes.length} effective times starting from: ${head.validFrom}"
+                s"Initializing the acs commitment processor with ${changes.length} effective times starting from: ${head.validFrom}"
               )
               acsCommitmentProcessor.initializeTicksOnStartup(changes.map(_.validFrom).toList)
             }
@@ -443,7 +443,7 @@ class SyncDomain(
       // however, this is bad for reassignment processing as we need to be able to access the topology state
       // across domains and this requires that the clients are separately initialised on the participants
       val resubscriptionTs = ephemeral.startingPoints.processing.lastSequencerTimestamp
-      logger.debug(s"Initialising topology client at clean head=$resubscriptionTs")
+      logger.debug(s"Initializing topology client at clean head=$resubscriptionTs")
       // startup with the resubscription-ts
       topologyClient.updateHead(
         SequencedTime(resubscriptionTs),

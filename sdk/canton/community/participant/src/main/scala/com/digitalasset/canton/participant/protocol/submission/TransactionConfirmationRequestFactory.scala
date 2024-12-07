@@ -323,7 +323,6 @@ class TransactionConfirmationRequestFactory(
           pureCrypto,
           cryptoSnapshot,
           sessionKeyStore.convertStore,
-          protocolVersion,
         )
         .leftMap[TransactionConfirmationRequestCreationError](e =>
           EncryptedViewMessageCreationError(e)

@@ -318,9 +318,8 @@ class GrpcVaultService(
           for {
             encryptedKeyPair <- crypto.pureCrypto
               .encryptWithPassword(
-                keyPair,
+                keyPair.toByteString(protocolVersion),
                 password,
-                protocolVersion,
               )
           } yield v30.ExportKeyPairResponse(keyPair =
             encryptedKeyPair.toByteString(protocolVersion)

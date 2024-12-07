@@ -285,7 +285,6 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
       """This error indicates that a package with name daml-prim that isn't a utility package was uploaded. All daml-prim packages should be utility packages.""""
     )
     @Resolution("Contact the supplier of the Dar.")
-    @SuppressWarnings(Array("org.wartremover.warts.Serializable"))
     object UpgradeDamlPrimIsNotAUtilityPackage
         extends ErrorCode(
           id = "DAML_PRIM_NOT_UTILITY_PACKAGE",
@@ -308,12 +307,12 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
       """This error indicates that the Dar upload failed upgrade checks because a package with the same version and package name has been previously uploaded."""
     )
     @Resolution("Inspect the error message and contact support.")
-    @SuppressWarnings(Array("org.wartremover.warts.Serializable"))
     object UpgradeVersion
         extends ErrorCode(
           id = "KNOWN_DAR_VERSION",
           ErrorCategory.InvalidIndependentOfSystemState,
         ) {
+      @SuppressWarnings(Array("org.wartremover.warts.Serializable"))
       final case class Error(
           uploadedPackage: Util.PkgIdWithNameAndVersion,
           existingPackage: Ref.PackageId,

@@ -9,8 +9,7 @@ import com.daml.metrics.api.opentelemetry.{
   QualificationFilteringMetricsFactory,
 }
 import com.daml.metrics.api.{MetricQualification, MetricsContext, MetricsInfoFilter}
-import com.daml.metrics.grpc.DamlGrpcServerMetrics
-import com.daml.metrics.{HealthMetrics, HistogramDefinition, MetricsFilterConfig}
+import com.daml.metrics.{HistogramDefinition, MetricsFilterConfig}
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.{Port, PositiveInt}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -172,8 +171,6 @@ final case class MetricsRegistry(
         new SequencerMetrics(
           histograms.sequencer,
           labeledMetricsFactory,
-          new DamlGrpcServerMetrics(labeledMetricsFactory, "sequencer"),
-          new HealthMetrics(labeledMetricsFactory),
         )
       },
     )
@@ -187,8 +184,6 @@ final case class MetricsRegistry(
         new MediatorMetrics(
           histograms.mediator,
           labeledMetricsFactory,
-          new DamlGrpcServerMetrics(labeledMetricsFactory, "mediator"),
-          new HealthMetrics(labeledMetricsFactory),
         )
       },
     )
@@ -216,9 +211,18 @@ final case class MetricsRegistry(
     }
 
   /** returns the documented metrics by possibly creating fake participants / sequencers / mediators */
-  def metricsDoc(): (Seq[MetricDoc.Item], Seq[MetricDoc.Item], Seq[MetricDoc.Item]) =
-    // TODO(#17917) resurrect once the metrics docs have been re-enabled
-    (Seq.empty, Seq.empty, Seq.empty)
+  def metricsDoc(): (Seq[MetricDoc.Item], Seq[MetricDoc.Item], Seq[MetricDoc.Item]) = {
+    val generator = new MetricsDocGenerator()
+    (new ParticipantMetrics(histograms.participant, generator)).docPoke()
+    val participantMetrics = generator.getAll()
+    generator.reset()
+    (new SequencerMetrics(histograms.sequencer, generator)).docPoke()
+    val sequencerMetrics = generator.getAll()
+    generator.reset()
+    (new MediatorMetrics(histograms.mediator, generator)).docPoke()
+    val mediatorMetrics = generator.getAll()
+    (participantMetrics, sequencerMetrics, mediatorMetrics)
+  }
 
   override def close(): Unit = ()
 

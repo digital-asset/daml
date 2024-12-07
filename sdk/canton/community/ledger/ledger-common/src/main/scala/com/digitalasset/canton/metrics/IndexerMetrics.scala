@@ -42,7 +42,7 @@ class IndexerHistograms(val prefix: MetricName)(implicit
 class IndexerMetrics(
     histograms: IndexerHistograms,
     factory: LabeledMetricsFactory,
-) {
+) extends HasDocumentedMetrics {
 
   import MetricsContext.Implicits.empty
 

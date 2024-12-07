@@ -42,7 +42,6 @@ final class CatchupBehavior[E <: Env[E]](
     clock: Clock,
     metrics: BftOrderingMetrics,
     segmentModuleRefFactory: SegmentModuleRefFactory[E],
-    stateTransferManager: StateTransferManager[E],
     override val dependencies: ConsensusModuleDependencies[E],
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
@@ -50,6 +49,14 @@ final class CatchupBehavior[E <: Env[E]](
     extends Consensus[E] {
 
   private val postponedQueue = new mutable.Queue[Consensus.Message[E]]()
+
+  private val stateTransferManager = new StateTransferManager(
+    dependencies,
+    epochLength,
+    epochStore,
+    initialState.membership.myId,
+    loggerFactory,
+  )
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var cancelled = 0
@@ -172,7 +179,7 @@ final class CatchupBehavior[E <: Env[E]](
             timeouts,
             futurePbftMessageQueue = initialState.pbftMessageQueue,
             queuedConsensusMessages = postponedQueue.toSeq,
-          )(activeMembership = membership, stateTransferManager = stateTransferManager)(
+          )()(
             catchupDetector = initialState.catchupDetector
           )
         )

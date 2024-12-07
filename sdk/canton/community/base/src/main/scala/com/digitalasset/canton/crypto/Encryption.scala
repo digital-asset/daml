@@ -56,19 +56,7 @@ trait EncryptionOps {
   def defaultEncryptionAlgorithmSpec: EncryptionAlgorithmSpec
   def supportedEncryptionAlgorithmSpecs: NonEmpty[Set[EncryptionAlgorithmSpec]]
 
-  /** Encrypts the bytes of the serialized message using the given public key.
-    * The given protocol version determines the message serialization.
-    */
-  def encryptWithVersion[M <: HasVersionedToByteString](
-      message: M,
-      publicKey: EncryptionPublicKey,
-      version: ProtocolVersion,
-      encryptionAlgorithmSpec: EncryptionAlgorithmSpec = defaultEncryptionAlgorithmSpec,
-  ): Either[EncryptionError, AsymmetricEncrypted[M]]
-
-  /** Encrypts the bytes of the serialized message using the given public key.
-    * Where the message embedded protocol version determines the message serialization.
-    */
+  /** Encrypts the bytes of the serialized message using the given public key. */
   def encryptWith[M <: HasToByteString](
       message: M,
       publicKey: EncryptionPublicKey,
@@ -78,10 +66,9 @@ trait EncryptionOps {
   /** Deterministically encrypts the given bytes using the given public key.
     * This is unsafe for general use and it's only used to encrypt the decryption key of each view
     */
-  def encryptDeterministicWith[M <: HasVersionedToByteString](
+  def encryptDeterministicWith[M <: HasToByteString](
       message: M,
       publicKey: EncryptionPublicKey,
-      version: ProtocolVersion,
       encryptionAlgorithmSpec: EncryptionAlgorithmSpec = defaultEncryptionAlgorithmSpec,
   )(implicit traceContext: TraceContext): Either[EncryptionError, AsymmetricEncrypted[M]]
 
@@ -100,21 +87,20 @@ trait EncryptionOps {
   } yield message
 
   /** Encrypts the bytes of the serialized message using the given symmetric key.
-    * The given protocol version determines the message serialization.
-    */
-  def encryptWith[M <: HasVersionedToByteString](
-      message: M,
-      symmetricKey: SymmetricKey,
-      version: ProtocolVersion,
-  ): Either[EncryptionError, Encrypted[M]]
-
-  /** Encrypts the bytes of the serialized message using the given symmetric key.
     * Where the message embedded protocol version determines the message serialization.
     */
-  def encryptWith[M <: HasToByteString](
+  def encryptSymmetricWith[M <: HasToByteString](
       message: M,
       symmetricKey: SymmetricKey,
-  ): Either[EncryptionError, Encrypted[M]]
+  ): Either[EncryptionError, Encrypted[M]] =
+    encryptSymmetricWith(message.toByteString, symmetricKey).map { ciphertext =>
+      new Encrypted[M](ciphertext)
+    }
+
+  private[crypto] def encryptSymmetricWith(
+      data: ByteString,
+      symmetricKey: SymmetricKey,
+  ): Either[EncryptionError, ByteString]
 
   /** Decrypts a message encrypted using `encryptWith` */
   def decryptWith[M](encrypted: Encrypted[M], symmetricKey: SymmetricKey)(
@@ -491,7 +477,7 @@ final case class SymmetricKey(
     with NoCopy {
   override protected def companionObj: SymmetricKey.type = SymmetricKey
 
-  protected def toProtoV30: v30.SymmetricKey =
+  def toProtoV30: v30.SymmetricKey =
     v30.SymmetricKey(format = format.toProtoEnum, key = key, scheme = scheme.toProtoEnum)
 }
 
@@ -506,7 +492,7 @@ object SymmetricKey extends HasVersionedMessageCompanion[SymmetricKey] {
     )
   )
 
-  private def fromProtoV30(keyP: v30.SymmetricKey): ParsingResult[SymmetricKey] =
+  def fromProtoV30(keyP: v30.SymmetricKey): ParsingResult[SymmetricKey] =
     for {
       format <- CryptoKeyFormat.fromProtoEnum("format", keyP.format)
       scheme <- SymmetricKeyScheme.fromProtoEnum("scheme", keyP.scheme)

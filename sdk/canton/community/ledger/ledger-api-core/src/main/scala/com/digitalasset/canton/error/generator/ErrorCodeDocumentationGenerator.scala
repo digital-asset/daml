@@ -100,7 +100,7 @@ object ErrorCodeDocumentationGenerator {
           retryStrategy.set(parseAnnotationValue(annotation.tree), RetryStrategyTypeName)
         case otherAnnotationTypeName =>
           throw new IllegalArgumentException(
-            s"Unexpected annotation of type: $otherAnnotationTypeName"
+            s"Unexpected annotation of type: $otherAnnotationTypeName; at error category: $errorCategory"
           )
       }
     }
@@ -136,7 +136,7 @@ object ErrorCodeDocumentationGenerator {
           )
         case otherAnnotationTypeName =>
           throw new IllegalArgumentException(
-            s"Unexpected annotation of type: $otherAnnotationTypeName"
+            s"Unexpected annotation of type: $otherAnnotationTypeName; at error code $errorCode"
           )
       }
     }

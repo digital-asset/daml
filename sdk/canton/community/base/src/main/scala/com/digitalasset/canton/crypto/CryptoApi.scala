@@ -28,7 +28,7 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
+import com.digitalasset.canton.version.HasToByteString
 import com.google.protobuf.ByteString
 
 import scala.concurrent.ExecutionContext
@@ -150,8 +150,6 @@ object SyncCryptoError {
   }
 }
 
-// TODO(i8808): consider changing `encryptFor` API to
-//  `def encryptFor(message: ByteString, member: Member): EitherT[Future, SyncCryptoError, ByteString]`
 // architecture-handbook-entry-begin: SyncCryptoApi
 /** impure part of the crypto api with access to private key store and knowledge about the current entity to key assoc */
 trait SyncCryptoApi {
@@ -224,10 +222,9 @@ trait SyncCryptoApi {
     * Utility method to lookup a key on an IPS snapshot and then encrypt the given message with the
     * most suitable key for the respective key owner.
     */
-  def encryptFor[M <: HasVersionedToByteString, MemberType <: Member](
+  def encryptFor[M <: HasToByteString, MemberType <: Member](
       message: M,
       members: Seq[MemberType],
-      version: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, (MemberType, SyncCryptoError), Map[

@@ -37,7 +37,7 @@ import com.digitalasset.canton.topology.client.{
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.LoggerUtil
-import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
+import com.digitalasset.canton.version.{HasToByteString, ProtocolVersion}
 import com.google.protobuf.ByteString
 import org.slf4j.event.Level
 
@@ -538,10 +538,9 @@ class DomainSnapshotSyncCryptoApi(
     * Utility method to lookup a key on an IPS snapshot and then encrypt the given message with the
     * most suitable key for the respective member.
     */
-  override def encryptFor[M <: HasVersionedToByteString, MemberType <: Member](
+  override def encryptFor[M <: HasToByteString, MemberType <: Member](
       message: M,
       members: Seq[MemberType],
-      version: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, (MemberType, SyncCryptoError), Map[
@@ -562,7 +561,7 @@ class DomainSnapshotSyncCryptoApi(
       )
       .flatMap(k =>
         pureCrypto
-          .encryptWithVersion(message, k, version)
+          .encryptWith(message, k)
           .bimap(error => member -> SyncCryptoEncryptionError(error), member -> _)
       )
 

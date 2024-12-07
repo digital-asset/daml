@@ -10,7 +10,8 @@ import com.daml.metrics.{CacheMetrics, DatabaseMetrics}
 class IdentityProviderConfigStoreMetrics(
     prefix: MetricName,
     labeledMetricsFactory: LabeledMetricsFactory,
-) extends DatabaseMetricsFactory(prefix, labeledMetricsFactory) {
+) extends DatabaseMetricsFactory(prefix, labeledMetricsFactory)
+    with HasDocumentedMetrics {
 
   val idpConfigCache = new CacheMetrics(prefix :+ "idp_config_cache", labeledMetricsFactory)
   val verifierCache = new CacheMetrics(prefix :+ "verifier_cache", labeledMetricsFactory)

@@ -5,11 +5,12 @@ package com.digitalasset.canton.sequencing.client.channel.endpoint
 
 import cats.data.EitherT
 import cats.syntax.either.*
-import com.digitalasset.canton.crypto.{AsymmetricEncrypted, Encrypted, SymmetricKey}
+import com.digitalasset.canton.crypto.{AsymmetricEncrypted, Encrypted}
 import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.api.v30.ConnectToSequencerChannelResponse.Response
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.protocol.ProtocolSymmetricKey
 import com.digitalasset.canton.sequencing.channel.ConnectToSequencerChannelRequest
 import com.digitalasset.canton.sequencing.client.channel.SequencerChannelProtocolProcessor
 import com.digitalasset.canton.sequencing.client.channel.endpoint.ChannelStage.{
@@ -115,7 +116,7 @@ private[endpoint] class ChannelStageBootstrap(
 
   private def createSessionKey(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, AsymmetricEncrypted[SymmetricKey]] =
+  ): EitherT[FutureUnlessShutdown, String, AsymmetricEncrypted[ProtocolSymmetricKey]] =
     data.security.generateSessionKey(connectTo)
 }
 

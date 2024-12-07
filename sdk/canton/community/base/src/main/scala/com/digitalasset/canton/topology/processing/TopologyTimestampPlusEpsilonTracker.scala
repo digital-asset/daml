@@ -143,7 +143,7 @@ class TopologyTimestampPlusEpsilonTracker(
     val initialStates = currentAndUpcomingChangeDelays.map {
       case Change.TopologyDelay(_, validFrom, _, changeDelay) => State(changeDelay, validFrom)
     }
-    logger.info(s"Initialising with $initialStates...")
+    logger.info(s"Initializing with $initialStates...")
     states.set(initialStates)
 
     // Initialize maximumEffectiveTime based on the maximum effective time in the store.

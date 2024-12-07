@@ -59,7 +59,7 @@ import com.digitalasset.canton.lifecycle.{
   LifeCycle,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.DbStorageMetrics
+import com.digitalasset.canton.metrics.{DbStorageMetrics, HasDocumentedMetrics}
 import com.digitalasset.canton.networking.grpc.{
   CantonGrpcUtil,
   CantonMutableHandlerRegistry,
@@ -126,7 +126,7 @@ object CantonNodeBootstrap {
   type HealthDumpFunction = File => Future[Unit]
 }
 
-trait BaseMetrics {
+trait BaseMetrics extends HasDocumentedMetrics {
   def prefix: MetricName
 
   def openTelemetryMetricsFactory: LabeledMetricsFactory

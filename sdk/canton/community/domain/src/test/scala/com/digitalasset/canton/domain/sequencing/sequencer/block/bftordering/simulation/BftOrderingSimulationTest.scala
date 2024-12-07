@@ -325,6 +325,18 @@ class BftOrderingSimulationTest4NodesWithOnboardingNoFaults
   override val numberOfRandomlyOnboardedPeers: Int = 1
 }
 
+class BftOrderingSimulationTest4NodesWithOnboardingAndDelayNoFaults
+    extends BftOrderingSimulationTest4NodesWithOnboardingNoFaults {
+
+  override def generateSimulationSettings(): SimulationSettings =
+    super
+      .generateSimulationSettings()
+      .copy(
+        becomingOnlineAfterOnboardingDelay =
+          SimulationSettings.DefaultBecomingOnlineAfterOnboardingDelay
+      )
+}
+
 class BftOrderingSimulationTest2NodesBootstrap extends BftOrderingSimulationTest {
   override val numberOfRuns: Int = 100
   override val numberOfInitialPeers: Int = 2

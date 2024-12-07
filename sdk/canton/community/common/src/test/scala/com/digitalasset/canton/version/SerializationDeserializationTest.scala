@@ -104,6 +104,7 @@ class SerializationDeserializationTest
           version,
         )
         testProtocolVersionedAndValidation(SignedProtocolMessage, version)
+        testProtocolVersioned(ProtocolSymmetricKey, version)
 
         testProtocolVersioned(LocalVerdict, version)
         testProtocolVersionedWithCtxAndValidation(EnvelopeContent, TestHash, version)

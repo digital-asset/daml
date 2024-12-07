@@ -844,6 +844,7 @@ create table ord_pbft_messages_in_progress(
 
 -- final pbft messages stored only once for each block when it completes
 -- currently only commit messages and the pre-prepare used for that block
+-- overwrite attempts with different commit sets can happen during catch-up for already completed blocks and are ignored
 create table ord_pbft_messages_completed(
     -- global sequence number of the ordered block
     block_number bigint not null,
@@ -863,7 +864,7 @@ create table ord_pbft_messages_completed(
     -- for each block number, we only expect one message of each kind for the same sender.
     -- in the case of pre-prepare, we only expect one message for the whole block, but for simplicity
     -- we won't differentiate that at the database level.
-    primary key (block_number, from_sequencer_id, discriminator)
+    primary key (block_number, epoch_number, from_sequencer_id, discriminator)
 );
 
 -- Stores metadata for blocks that have been assigned timestamps in the output module

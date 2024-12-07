@@ -287,4 +287,12 @@ final class GeneratorsProtocol(
       hashingSchemeVersion <- Arbitrary.arbitrary[HashingSchemeVersion]
     } yield ExternalAuthorization.create(signatures, hashingSchemeVersion, protocolVersion)
   )
+
+  implicit val protocolSymmetricKeyArb: Arbitrary[ProtocolSymmetricKey] =
+    Arbitrary(
+      for {
+        key <- Arbitrary.arbitrary[SymmetricKey]
+      } yield ProtocolSymmetricKey(key, protocolVersion)
+    )
+
 }
