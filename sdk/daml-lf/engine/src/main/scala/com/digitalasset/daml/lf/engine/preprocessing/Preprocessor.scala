@@ -292,14 +292,13 @@ private[engine] final class Preprocessor(
       prefetchKeys: Seq[GlobalKey],
       disclosedKeyHashes: Set[crypto.Hash],
   ): Seq[GlobalKey] = {
+
     val exercisedKeys = commands.iterator.collect {
       case speedy.Command.ExerciseByKey(templateId, contractKey, _, _) =>
+        // Might return None in case the key is invalid (e.g. includes a ContractId)
         speedy.Speedy.Machine
           .globalKey(pkgInterface, templateId, contractKey)
-          .getOrElse(
-            throw Error.Preprocessing.ContractIdInContractKey(contractKey.toUnnormalizedValue)
-          )
-    }
+    }.flatten
     val undisclosedKeys =
       (exercisedKeys ++ prefetchKeys).filterNot(key => disclosedKeyHashes.contains(key.hash))
     undisclosedKeys.distinct.toSeq
