@@ -15,11 +15,16 @@ import com.daml.metrics.api.{
 class LAPIMetrics(
     val prefix: MetricName,
     val metricsFactory: LabeledMetricsFactory,
-) {
+) extends HasDocumentedMetrics {
+
+  override def docPoke(): Unit = {
+    threadpool.docPoke()
+    streams.docPoke()
+  }
 
   import MetricsContext.Implicits.empty
 
-  object threadpool {
+  object threadpool extends HasDocumentedMetrics {
     private val prefix: MetricName = LAPIMetrics.this.prefix :+ "threadpool"
 
     val apiReadServices: MetricName = prefix :+ "api_read_services"
@@ -31,7 +36,7 @@ class LAPIMetrics(
     }
   }
 
-  object streams {
+  object streams extends HasDocumentedMetrics {
     private val prefix: MetricName = LAPIMetrics.this.prefix :+ "streams"
 
     val transactionTrees: Counter = metricsFactory.counter(

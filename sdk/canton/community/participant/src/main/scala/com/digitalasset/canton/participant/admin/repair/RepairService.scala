@@ -728,7 +728,9 @@ final class RepairService(
     for {
       persistentState <- EitherT.fromEither[Future](lookUpDomainPersistence(domain, domain.show))
       _ <- EitherT.right(
-        ledgerApiIndexer.value.ensureNoProcessingForDomain(domain)
+        ledgerApiIndexer.value
+          .ensureNoProcessingForDomain(domain)
+          .failOnShutdownToAbortException("Ensure no processing on domain")
       )
       domainIndex <- EitherT.right(
         ledgerApiIndexer.value.ledgerApiStore.value.cleanDomainIndex(domain)
@@ -1400,7 +1402,6 @@ final class RepairService(
     } else {
       ledgerApiIndexer.value
         .withRepairIndexer(code)
-        .mapK(FutureUnlessShutdown.outcomeK)
     }
 }
 

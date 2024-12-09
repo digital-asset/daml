@@ -42,7 +42,17 @@ object LedgerApiServerMetrics extends LazyLogging {
 final class LedgerApiServerMetrics(
     inventory: LedgerApiServerHistograms,
     val openTelemetryMetricsFactory: LabeledMetricsFactory,
-) {
+) extends HasDocumentedMetrics {
+
+  override def docPoke(): Unit = {
+    commands.docPoke()
+    execution.docPoke()
+    lapi.docPoke()
+    userManagement.docPoke()
+    partyRecordStore.docPoke()
+    identityProviderConfigStore.docPoke()
+    services.docPoke()
+  }
 
   private val prefix = inventory.prefix
 

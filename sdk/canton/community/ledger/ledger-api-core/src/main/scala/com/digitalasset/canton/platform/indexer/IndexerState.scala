@@ -3,11 +3,15 @@
 
 package com.digitalasset.canton.platform.indexer
 
+import cats.arrow.FunctionK
 import cats.data.EitherT
 import com.daml.timer.RetryStrategy
+import com.daml.timer.RetryStrategy.UnhandledFailureException
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.Update.CommitRepair
 import com.digitalasset.canton.ledger.participant.state.{DomainUpdate, RepairUpdate, Update}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
@@ -18,6 +22,7 @@ import org.apache.pekko.Done
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future, blocking}
+import scala.util.control.NoStackTrace
 import scala.util.{Failure, Success, Try}
 
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
@@ -87,14 +92,26 @@ class IndexerState(
   )
 
   private def waitForEmptyIndexerQueue(queue: RecoveringFutureQueue[Update]): Future[Unit] =
-    RetryStrategy.constant(Some(100), Duration.create(100, "millis")) { case t: Throwable =>
-      t.getMessage.contains("Still indexing")
-    } { (_, _) =>
-      if (queue.uncommittedQueueSnapshot.nonEmpty)
-        Future.failed(new Exception(s"Still indexing"))
-      else
-        Future.unit
-    }
+    RetryStrategy
+      .constant(Some(100), Duration.create(100, "millis")) { case t: Throwable =>
+        t.getMessage.contains("Still indexing")
+      }((_, _) =>
+        withStateUnlessShutdown(_ =>
+          if (queue.uncommittedQueueSnapshot.nonEmpty)
+            Future.failed(new Exception(s"Still indexing"))
+          else
+            Future.unit
+        )
+      )
+      .recoverWith { case UnhandledFailureException(_, _, ShutdownInProgress) =>
+        Future.failed(ShutdownInProgress)
+      }
+      .recoverWith { err =>
+        // shutting down indexer anyway, as the most probably cause here is that we are shutting down
+        logger.info("Shutting down Indexer after waiting for empty indexer queue failed...")
+        queue.shutdown()
+        queue.done.transform(_ => Failure(err))
+      }
 
   private def onRepairFinished(): Future[Unit] = withStateUnlessShutdown {
     case Normal(normalIndexer, _) =>
@@ -207,23 +224,29 @@ class IndexerState(
 
   def ensureNoProcessingForDomain(domainId: DomainId): Future[Unit] = withStateUnlessShutdown {
     case Normal(recoveringQueue, _) =>
-      RetryStrategy.constant(None, Duration.create(200, "millis")) { case t: Throwable =>
-        t.getMessage.contains("Still uncommitted")
-      } { (_, _) =>
-        if (
-          recoveringQueue.uncommittedQueueSnapshot.iterator.map(_._2).exists {
-            case u: DomainUpdate => u.domainId == domainId
-            case _: Update.CommitRepair => false
-            case _: Update.PartyAddedToParticipant => false
-            case _: Update.PartyAllocationRejected => false
-          }
-        )
-          Future.failed(
-            new Exception(s"Still uncommitted activity for domain $domainId, waiting...")
+      RetryStrategy
+        .constant(None, Duration.create(200, "millis")) { case t: Throwable =>
+          t.getMessage.contains("Still uncommitted")
+        }((_, _) =>
+          withStateUnlessShutdown(_ =>
+            if (
+              recoveringQueue.uncommittedQueueSnapshot.iterator.map(_._2).exists {
+                case u: DomainUpdate => u.domainId == domainId
+                case _: Update.CommitRepair => false
+                case _: Update.PartyAddedToParticipant => false
+                case _: Update.PartyAllocationRejected => false
+              }
+            )
+              Future.failed(
+                new Exception(s"Still uncommitted activity for domain $domainId, waiting...")
+              )
+            else
+              Future.unit
           )
-        else
-          Future.unit
-      }
+        )
+        .recoverWith { case UnhandledFailureException(_, _, ShutdownInProgress) =>
+          Future.failed(ShutdownInProgress)
+        }
 
     case Repair(_, repairDone, _) =>
       Future.failed(new RepairInProgress(repairDone))
@@ -234,34 +257,31 @@ class IndexerState(
 
   def withStateUnlessShutdown[T](f: State => Future[T]): Future[T] =
     withState(s =>
-      if (s.shutdownInitiated) Future.failed(new IllegalStateException("Shutdown in progress"))
+      if (s.shutdownInitiated) Future.failed(ShutdownInProgress)
       else f(s)
     )
 }
 
-class IndexerQueueProxy(
-    withIndexerStateUnlessShutdown: (IndexerState.State => Future[Done]) => Future[Done]
-) extends FutureQueue[Update] {
+object IndexerQueueProxy {
   import IndexerState.*
 
-  override def offer(elem: Update): Future[Done] = withIndexerStateUnlessShutdown {
-    case Normal(queue, _) =>
-      elem match {
-        case _: CommitRepair =>
-          val failure = new IllegalStateException("CommitRepair should not be used")
-          elem.persisted.tryFailure(failure).discard
-          Future.failed(failure)
+  def apply(
+      withIndexerState: (IndexerState.State => Future[Unit]) => Future[Unit]
+  )(implicit executionContext: ExecutionContext): Update => Future[Unit] = elem =>
+    withIndexerState {
+      case Normal(queue, _) =>
+        elem match {
+          case _: CommitRepair =>
+            val failure = new IllegalStateException("CommitRepair should not be used")
+            elem.persisted.tryFailure(failure).discard
+            Future.failed(failure)
 
-        case _ => queue.offer(elem)
-      }
+          case _ => queue.offer(elem).map(_ => ())
+        }
 
-    case Repair(_, repairDone, _) =>
-      Future.failed(new RepairInProgress(repairDone))
-  }
-
-  override def shutdown(): Unit = throw new UnsupportedOperationException()
-
-  override def done: Future[Done] = throw new UnsupportedOperationException()
+      case Repair(_, repairDone, _) =>
+        Future.failed(new RepairInProgress(repairDone))
+    }
 }
 
 class RepairQueueProxy(
@@ -312,4 +332,25 @@ object IndexerState {
   // repairDone should never fail, and only complete if normal indexing is resumed
   class RepairInProgress(val repairDone: Future[Unit])
       extends RuntimeException("Repair in progress")
+
+  object ShutdownInProgress extends RuntimeException("Shutdown in progress") with NoStackTrace {
+    def transformToFUS[T](
+        f: Future[T]
+    )(implicit executionContext: ExecutionContext): FutureUnlessShutdown[T] =
+      FutureUnlessShutdown
+        .outcomeF(f)
+        .recover { case ShutdownInProgress =>
+          AbortedDueToShutdown
+        }
+
+    def functionK(implicit
+        executionContext: ExecutionContext
+    ): FunctionK[Future, FutureUnlessShutdown] =
+      new FunctionK[Future, FutureUnlessShutdown] {
+        override def apply[T](f: Future[T]): FutureUnlessShutdown[T] =
+          transformToFUS(f)
+      }
+
+  }
+
 }

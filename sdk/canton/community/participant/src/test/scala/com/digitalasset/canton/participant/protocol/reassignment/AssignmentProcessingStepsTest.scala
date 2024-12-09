@@ -887,7 +887,6 @@ class AssignmentProcessingStepsTest
           crypto.pureCrypto,
           cryptoSnapshot,
           sessionKeyStore,
-          testedProtocolVersion,
         )
         .valueOrFailShutdown("cannot generate encryption key for transfer-in request")
       ViewKeyData(_, viewKey, viewKeyMap) = viewsToKeyMap(tree.viewHash)

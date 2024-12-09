@@ -12,7 +12,6 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.{
   HasVersionedMessageCompanion,
   HasVersionedMessageCompanionCommon,
-  HasVersionedToByteString,
   HasVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
@@ -89,18 +88,17 @@ trait PasswordBasedEncryptionOps { this: EncryptionOps =>
       saltO: Option[SecureRandomness],
   ): Either[PasswordBasedEncryptionError, PasswordBasedEncryptionKey]
 
-  def encryptWithPassword[M <: HasVersionedToByteString](
-      message: M,
+  def encryptWithPassword(
+      message: ByteString,
       password: String,
-      protocolVersion: ProtocolVersion,
       symmetricKeyScheme: SymmetricKeyScheme = defaultSymmetricKeyScheme,
       pbkdfScheme: PbkdfScheme = defaultPbkdfScheme,
   ): Either[PasswordBasedEncryptionError, PasswordBasedEncrypted] = for {
     pbkey <- deriveSymmetricKey(password, symmetricKeyScheme, pbkdfScheme, saltO = None)
-    encrypted <- encryptWith(message, pbkey.key, protocolVersion).leftMap(
+    ciphertext <- encryptSymmetricWith(message, pbkey.key).leftMap(
       PasswordBasedEncryptionError.EncryptError.apply
     )
-  } yield PasswordBasedEncrypted(encrypted.ciphertext, symmetricKeyScheme, pbkdfScheme, pbkey.salt)
+  } yield PasswordBasedEncrypted(ciphertext, symmetricKeyScheme, pbkdfScheme, pbkey.salt)
 
   def decryptWithPassword[M](pbencrypted: PasswordBasedEncrypted, password: String)(
       deserialize: ByteString => Either[DeserializationError, M]

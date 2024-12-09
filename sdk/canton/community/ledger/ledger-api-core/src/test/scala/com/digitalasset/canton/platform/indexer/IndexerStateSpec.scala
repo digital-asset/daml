@@ -1272,7 +1272,9 @@ class IndexerStateSpec extends AnyFlatSpec with BaseTest with HasExecutionContex
     repairOperationF.futureValue
   }
 
-  it should "ensureNoProcessingForDomain works as expected" in {
+  behavior of "ensureNoProcessingForDomain"
+
+  it should "work as expected" in {
     val domain1 = DomainId.tryFromString("x::domain1")
     val domain2 = DomainId.tryFromString("x::domain2")
     val domain3 = DomainId.tryFromString("x::domain3")
@@ -1423,49 +1425,117 @@ class IndexerStateSpec extends AnyFlatSpec with BaseTest with HasExecutionContex
     indexerStateTerminated.futureValue
   }
 
-  behavior of "IndexerQueueProxy"
+  it should "stop waiting for empty indexing queue if getting a shutdown signal during waiting" in {
+    val initialIndexer = new TestRecoveringIndexer
 
-  it should "fail shutdown and done methods, as not supposed to be used" in {
-    val indexerQueueProxy = new IndexerQueueProxy(_ => Future.successful(Done))
-    assertThrows[UnsupportedOperationException](indexerQueueProxy.shutdown())
-    assertThrows[UnsupportedOperationException](indexerQueueProxy.done)
+    val indexerState = new IndexerState(
+      recoveringIndexerFactory = seqFactory(initialIndexer),
+      repairIndexerFactory = asyncSeqFactory(),
+      loggerFactory = loggerFactory,
+    )
+
+    // initial indexer is up and running
+    Threading.sleep(20)
+    initialIndexer.shutdownPromise.isCompleted shouldBe false
+    initialIndexer.donePromise.isCompleted shouldBe false
+    initialIndexer.uncommittedQueueSnapshotRef.set(
+      Vector(
+        1L -> update,
+        2L -> update,
+      )
+    )
+    // starting repair operation
+    val repairOperationStartedPromise = Promise[Unit]()
+    val repairOperationFinishedPromise = Promise[Unit]()
+    val repairOperationF = indexerState.withRepairIndexer { repairQueue =>
+      repairQueue.offer(repairUpdate).futureValue shouldBe Done
+      repairOperationStartedPromise.trySuccess(())
+      EitherT.right[String](repairOperationFinishedPromise.future)
+    }.value
+    // first we wait for empty indexer queue
+    initialIndexer.shutdownPromise.isCompleted shouldBe false
+    Threading.sleep(220)
+    initialIndexer.shutdownPromise.isCompleted shouldBe false
+    // and as shutting down the indexer state
+    val indexerStateTerminated = indexerState.shutdown()
+    // the initial Indexer is getting shut
+    initialIndexer.shutdownPromise.future.futureValue
+    Threading.sleep(20)
+    initialIndexer.donePromise.isCompleted shouldBe false
+    repairOperationF.isCompleted shouldBe false
+    // then initial Indexer completes
+    initialIndexer.donePromise.trySuccess(Done)
+    // indexer state should be terminated
+    indexerStateTerminated.futureValue
+    // finally repair operation should be finished
+    repairOperationF.failed.futureValue shouldBe IndexerState.ShutdownInProgress
   }
 
+  it should "stop waiting if shutting down" in {
+    val domain1 = DomainId.tryFromString("x::domain1")
+
+    val initialIndexer = new TestRecoveringIndexer
+
+    val indexerState = new IndexerState(
+      recoveringIndexerFactory = seqFactory(initialIndexer),
+      repairIndexerFactory = asyncSeqFactory(),
+      loggerFactory = loggerFactory,
+    )
+
+    // initial indexer is up and running
+    Threading.sleep(20)
+    initialIndexer.shutdownPromise.isCompleted shouldBe false
+    initialIndexer.donePromise.isCompleted shouldBe false
+    initialIndexer.uncommittedQueueSnapshotRef.set(
+      Vector(
+        1L -> update,
+        2L -> update,
+        3L -> update.copy(domainId = domain1),
+        4L -> update.copy(domainId = domain1),
+      )
+    )
+    val ensureDomain1 = indexerState.ensureNoProcessingForDomain(domain1)
+    Threading.sleep(300)
+    ensureDomain1.isCompleted shouldBe false
+    // and as shutting down the indexer state
+    val indexerStateTerminatedF = indexerState.shutdown()
+    initialIndexer.shutdownPromise.future.futureValue
+    initialIndexer.donePromise.trySuccess(Done)
+    indexerStateTerminatedF.futureValue
+    // ensureNoProcessingForDomain should also terminate
+    ensureDomain1.failed.futureValue shouldBe IndexerState.ShutdownInProgress
+  }
+
+  behavior of "IndexerQueueProxy"
+
   it should "allow offer for normal indexing" in {
-    val indexerQueueProxy =
-      new IndexerQueueProxy(stateF => stateF(IndexerState.Normal(new TestRecoveringIndexer, false)))
-    indexerQueueProxy.offer(update).futureValue
+    IndexerQueueProxy(stateF => stateF(IndexerState.Normal(new TestRecoveringIndexer, false)))(
+      implicitly
+    )(update).futureValue
   }
 
   it should "deny offer CommitRepair for normal indexing" in {
-    val indexerQueueProxy =
-      new IndexerQueueProxy(stateF => stateF(IndexerState.Normal(new TestRecoveringIndexer, false)))
     val commitRepair = Update.CommitRepair()
-    indexerQueueProxy
-      .offer(commitRepair)
-      .failed
-      .futureValue
-      .getMessage shouldBe "CommitRepair should not be used"
+    IndexerQueueProxy(stateF => stateF(IndexerState.Normal(new TestRecoveringIndexer, false)))(
+      implicitly
+    )(commitRepair).failed.futureValue.getMessage shouldBe "CommitRepair should not be used"
     commitRepair.persisted.future.failed.futureValue.getMessage shouldBe "CommitRepair should not be used"
   }
 
   it should "propagate any exception to offer calls" in {
-    val indexerQueueProxy = new IndexerQueueProxy(_ => throw new IllegalStateException("nah"))
     intercept[IllegalStateException](
-      indexerQueueProxy.offer(update)
+      IndexerQueueProxy(_ => throw new IllegalStateException("nah"))(implicitly)(update)
     ).getMessage shouldBe "nah"
   }
 
   it should "deny offer during repair indexing" in {
     val repairDone = Promise[Unit]()
-    val indexerQueueProxy = new IndexerQueueProxy(stateF =>
+    val repairDoneReturned = IndexerQueueProxy(stateF =>
       stateF(IndexerState.Repair(Future.never, repairDone.future, false))
-    )
-    val repairDoneReturned =
-      indexerQueueProxy.offer(update).failed.futureValue match {
-        case repairInProgress: RepairInProgress => repairInProgress.repairDone
-        case _ => fail()
-      }
+    )(implicitly)(update).failed.futureValue match {
+      case repairInProgress: RepairInProgress => repairInProgress.repairDone
+      case _ => fail()
+    }
     repairDoneReturned.isCompleted shouldBe false
     repairDone.trySuccess(())
     repairDoneReturned.futureValue

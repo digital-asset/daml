@@ -19,6 +19,9 @@ class PeanoQueue[T](initialHead: BlockNumber) {
 
   def head: Counter[BlockNumberCounterDiscriminator] = peanoQueue.head
 
+  def alreadyInserted(key: BlockNumber): Boolean =
+    peanoQueue.alreadyInserted(BlockNumberCounter(key))
+
   def insertAndPoll(blockNumber: BlockNumber, item: T): Seq[T] = {
     peanoQueue.insert(BlockNumberCounter(blockNumber), item).discard
     LazyList

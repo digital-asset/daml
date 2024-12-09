@@ -10,7 +10,8 @@ import com.daml.metrics.api.MetricName
 class PartyRecordStoreMetrics(
     prefix: MetricName,
     labeledMetricsFactory: LabeledMetricsFactory,
-) extends DatabaseMetricsFactory(prefix, labeledMetricsFactory) {
+) extends DatabaseMetricsFactory(prefix, labeledMetricsFactory)
+    with HasDocumentedMetrics {
 
   val getPartyRecord: DatabaseMetrics = createDbMetrics("get_party_record")
   val partiesExist: DatabaseMetrics = createDbMetrics("parties_exist")

@@ -14,6 +14,7 @@ import com.daml.metrics.api.{
   MetricsContext,
 }
 import com.digitalasset.canton.DomainAlias
+import com.digitalasset.canton.metrics.HasDocumentedMetrics
 import com.digitalasset.canton.topology.ParticipantId
 
 import scala.collection.concurrent.TrieMap
@@ -35,7 +36,7 @@ class CommitmentMetrics(
     domainAlias: DomainAlias,
     histograms: CommitmentHistograms,
     metricsFactory: LabeledMetricsFactory,
-) {
+) extends HasDocumentedMetrics {
   import MetricsContext.Implicits.empty
   private val prefix = histograms.prefix
 

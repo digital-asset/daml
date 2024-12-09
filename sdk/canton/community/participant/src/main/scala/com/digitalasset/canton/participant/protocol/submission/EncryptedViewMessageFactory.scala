@@ -21,7 +21,7 @@ import com.digitalasset.canton.store.SessionKeyStore.RecipientGroup
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
-import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
+import com.digitalasset.canton.version.{HasToByteString, ProtocolVersion}
 import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.ExecutionContext
@@ -206,7 +206,6 @@ object EncryptedViewMessageFactory {
       pureCrypto: CryptoPureApi,
       cryptoSnapshot: DomainSnapshotSyncCryptoApi,
       sessionKeyStore: ConfirmationRequestSessionKeyStore,
-      protocolVersion: ProtocolVersion,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -247,7 +246,6 @@ object EncryptedViewMessageFactory {
           informeeParticipants.forgetNE.to(LazyList),
           sessionKeyRandomness,
           cryptoSnapshot,
-          protocolVersion,
         ).map(_.values.toSeq)
       } yield ViewKeyData(sessionKeyRandomness, sessionKey, sessionKeyMap)
 
@@ -395,11 +393,10 @@ object EncryptedViewMessageFactory {
 
   }
 
-  private def createDataMap[M <: HasVersionedToByteString](
+  private def createDataMap[M <: HasToByteString](
       participants: LazyList[ParticipantId],
       data: M,
       cryptoSnapshot: DomainSnapshotSyncCryptoApi,
-      version: ProtocolVersion,
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
@@ -408,7 +405,7 @@ object EncryptedViewMessageFactory {
     AsymmetricEncrypted[M],
   ]] =
     cryptoSnapshot
-      .encryptFor(data, participants, version)
+      .encryptFor(data, participants)
       .leftMap { case (member, error) =>
         UnableToDetermineKey(
           member,

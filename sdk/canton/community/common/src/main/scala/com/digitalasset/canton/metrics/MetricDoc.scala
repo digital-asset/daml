@@ -9,8 +9,11 @@ object MetricDoc {
 
   final case class Item(
       name: String,
+      summary: String,
+      description: String,
       metricType: String,
       qualification: MetricQualification,
+      labelsWithDescription: Map[String, String],
   )
 
 }
