@@ -67,6 +67,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           val created = transaction.eventsById.values.loneElement.getCreated
           transaction.rootEventIds.loneElement shouldEqual created.eventId
           created.eventId shouldBe EventId(tx.updateId, nodeId).toLedgerString
+          created.offset shouldBe offset.unwrap
+          created.nodeId shouldBe nodeId.index
           created.witnessParties should contain only (tx.actAs*)
           created.contractKey shouldBe None
           created.createArguments shouldNot be(None)
@@ -101,6 +103,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             val exercised = transaction.eventsById.values.loneElement.getExercised
             transaction.rootEventIds.loneElement shouldEqual exercised.eventId
             exercised.eventId shouldBe EventId(transaction.updateId, nodeId).toLedgerString
+            exercised.offset shouldBe offset.unwrap
+            exercised.nodeId shouldBe nodeId.index
             exercised.witnessParties should contain only (exercise.actAs*)
             exercised.contractId shouldBe exerciseNode.targetCoid.coid
             exercised.templateId shouldNot be(None)
@@ -158,6 +162,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           .getExercised
 
         created.eventId shouldBe EventId(transaction.updateId, createNodeId).toLedgerString
+        created.offset shouldBe offset.unwrap
+        created.nodeId shouldBe createNodeId.index
         created.witnessParties should contain only (tx.actAs*)
         created.contractKey shouldBe None
         created.createArguments shouldNot be(None)
@@ -168,6 +174,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
         created.templateId shouldNot be(None)
 
         exercised.eventId shouldBe EventId(transaction.updateId, exerciseNodeId).toLedgerString
+        exercised.offset shouldBe offset.unwrap
+        exercised.nodeId shouldBe exerciseNodeId.index
         exercised.witnessParties should contain only (tx.actAs*)
         exercised.contractId shouldBe exerciseNode.targetCoid.coid
         exercised.templateId shouldNot be(None)
