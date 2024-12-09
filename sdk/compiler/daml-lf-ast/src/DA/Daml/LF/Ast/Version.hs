@@ -110,6 +110,9 @@ supportedInputVersions :: [Version]
 supportedInputVersions =
   [version1_8, version1_11, version1_12, version1_13] ++ supportedOutputVersions
 
+maxLegacyDamlScriptVersion :: Version
+maxLegacyDamlScriptVersion = version1_15
+
 -- | The Daml-LF version used by default by the compiler if it matches the
 -- provided major version, the latest non-dev version with that major version
 -- otherwise. This function is meant to be used in tests who want to test the
@@ -150,6 +153,11 @@ satisfies (Version major minor) (VersionReq req) = minor `R.elem` req major
 -- | The set of language versions made of only dev versions.
 devOnly :: VersionReq
 devOnly = VersionReq (\_ -> R.Inclusive PointDev PointDev)
+
+-- | The minor version range [1 .. v]. Shorthand used in the definition of
+-- features below.
+allMinorVersionsBefore :: MinorVersion -> R.Range MinorVersion
+allMinorVersionsBefore v = R.Inclusive (PointStable 1) v
 
 -- | The minor version range [v .. dev]. Shorthand used in the definition of
 -- features below.
@@ -313,6 +321,17 @@ featureScenarios = Feature
     , featureCppFlag = Just "DAML_SCENARIOS"
     }
 
+-- The maximal LF version that the legacy daml-script library supports is 1.15. We use this feature
+-- to resolve "deps: [daml-script]" to at most daml-script-1.15.dar when expanding daml.yaml.
+featureLegacyDamlScript :: Feature 
+featureLegacyDamlScript = Feature
+    { featureName = "Legacy daml-script"
+    , featureVersionReq = VersionReq \case
+          V1 -> allMinorVersionsBefore (versionMinor maxLegacyDamlScriptVersion)
+          V2 -> noMinorVersion
+    , featureCppFlag = Nothing
+    }
+
 featureExperimental :: Feature
 featureExperimental = Feature
     { featureName = "Daml Experimental"
@@ -341,6 +360,7 @@ allFeatures =
     , featurePackageUpgrades
     , featureNatTypeErasure
     , featureRightToLeftEvaluation
+    , featureLegacyDamlScript
     ]
 
 -- | A map from feature CPP flags to features.
