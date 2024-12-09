@@ -36,7 +36,9 @@ main v1PackageIdRaw = do
   -- A V2 contract tries to downgrade to V1, the downgrade fails because an
   -- upgraded field `description` was set to a non-null value
   errOrView4 <- v1SubmitOptions `trySubmit` exerciseCmd (toInterfaceContractId @Asset v2Cid1) Asset.GetView
-  err <- expectUpgradeError errOrView4 "DowngradeDropDefinedField"
+  err <- expectUpgradeError errOrView4 $ \case
+    DowngradeDropDefinedField { expectedType = "Main:IOU" } -> None
+    x -> Some (show (DowngradeDropDefinedField { expectedType = "Main:IOU" }), show x)
 
   pure ([view1, view2, view3], err)
 
@@ -47,10 +49,12 @@ expectView (Right view) description
 expectView (Left a) _ =
   assertFail ("Expected Asset.View, got SubmitError: " <> show a)
 
-expectUpgradeError : Either SubmitError Asset.View -> Text -> Script SubmitError
-expectUpgradeError (Left err@UpgradeError { errorType = actualErrorType }) expectedErrorType
-  | show actualErrorType == expectedErrorType = pure err
-  | otherwise = assertFail ("Expected UpgradeError with errorType = \"" <> expectedErrorType <> "\", got: " <> show err)
+expectUpgradeError : Either SubmitError Asset.View -> (UpgradeErrorType -> Maybe (Text, Text)) -> Script SubmitError
+expectUpgradeError (Left err@UpgradeError { errorType = upgradeErrorType }) testErrorType =
+  case testErrorType upgradeErrorType of
+    None -> pure err
+    Some (expectedMsg, actualMsg) ->
+      assertFail ("Expected " <> expectedMsg <> ", got: " <> actualMsg)
 expectUpgradeError (Left err) _ =
   assertFail ("Expected UpgradeError, got different error: " <> show err)
 expectUpgradeError (Right b) _ =
