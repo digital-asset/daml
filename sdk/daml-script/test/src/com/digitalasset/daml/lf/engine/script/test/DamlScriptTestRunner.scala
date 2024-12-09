@@ -8,7 +8,7 @@ import org.scalatest.Suite
 
 import java.nio.file.Paths
 
-class Daml2ScriptTestRunner extends DamlScriptTestRunner {
+class DamlScriptTestRunner extends GenericDamlScriptTestRunner {
   self: Suite =>
 
   val darPath = Paths.get(BazelRunfiles.rlocation("daml-script/test/script-test.dar"))
