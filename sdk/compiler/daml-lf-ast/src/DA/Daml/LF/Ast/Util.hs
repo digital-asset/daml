@@ -38,9 +38,10 @@ dvalType = snd . dvalBinder
 chcArgType :: TemplateChoice -> Type
 chcArgType = snd . chcArgBinder
 
--- Return topologically sorted packages, with the top-level parent package first
-topoSortPackages :: [(PackageId, a, Package)] -> Either [(PackageId, a, Package)] [(PackageId, a, Package)]
-topoSortPackages pkgs =
+-- Return topologically sorted packages, with the parent packages before their
+-- dependencies
+sortPackagesParentFirst :: [(PackageId, a, Package)] -> Either [(PackageId, a, Package)] [(PackageId, a, Package)]
+sortPackagesParentFirst pkgs =
   let toPkgNode x@(pkgId, _, pkg) =
         ( x
         , pkgId
@@ -55,7 +56,7 @@ topoSortPackages pkgs =
         G.CyclicSCC [pkg] -> Right pkg
         G.CyclicSCC pkgCycle -> Left (map fromPkgNode pkgCycle)
   in
-  map fromPkgNode <$> traverse isAcyclic sccs
+  reverse . map fromPkgNode <$> traverse isAcyclic sccs
 
 topoSortPackage :: Package -> Either [ModuleName] Package
 topoSortPackage pkg@Package{packageModules = mods} = do
