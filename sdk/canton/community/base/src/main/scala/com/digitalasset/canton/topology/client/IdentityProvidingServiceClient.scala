@@ -405,18 +405,30 @@ trait CertificateSnapshotClient {
 
 }
 
-trait VettedPackagesSnapshotClient {
+trait PackageTopologySnapshotClient {
 
   this: BaseTopologySnapshotClient =>
 
-  /** Returns the set of packages that are not vetted by the given participant
+  /** Returns the set of packages or their dependencies that are not vetted by the given participant.
     *
-    * @param participantId the participant for which we want to check the package vettings
-    * @param packages the set of packages that should be vetted
-    * @return Right the set of unvetted packages (which is empty if all packages are vetted)
+    * @param participantId the participant for which we want to check the package vetting state
+    * @param packages the set of packages, which together with their dependencies, should be vetted
+    * @return Right the set of unvetted packages or their dependencies (which is empty if all packages are vetted)
     *         Left if a package is missing locally such that we can not verify the vetting state of the package dependencies
     */
   def findUnvettedPackagesOrDependencies(
+      participantId: ParticipantId,
+      packages: Set[PackageId],
+  ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]]
+
+  /** Returns the set of packages or their dependencies that are not marked check-only by the given participant.
+    *
+    * @param participantId the participant for which we want to check the check-only package state
+    * @param packages the set of packages, which together with their dependencies, should be marked check-only
+    * @return Right the set of packages or their dependencies (which is empty if all packages are vetted) that are not check-only (i.e. they are vetted or unknown).
+    *         Left if a package is missing locally such that we can not verify the topology state of the package dependencies
+    */
+  def findPackagesOrDependenciesNotDeclaredAsCheckOnly(
       participantId: ParticipantId,
       packages: Set[PackageId],
   ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]]
@@ -470,7 +482,7 @@ trait TopologySnapshot
     with ParticipantTopologySnapshotClient
     with KeyTopologySnapshotClient
     with CertificateSnapshotClient
-    with VettedPackagesSnapshotClient
+    with PackageTopologySnapshotClient
     with MediatorDomainStateClient
     with SequencerDomainStateClient
     with DomainTrafficControlStateClient
@@ -731,7 +743,7 @@ private[client] trait PartyTopologySnapshotLoader
   ): Future[Map[PartyId, PartyInfo]]
 }
 
-trait VettedPackagesSnapshotLoader extends VettedPackagesSnapshotClient {
+trait PackageTopologySnapshotLoader extends PackageTopologySnapshotClient {
   this: BaseTopologySnapshotClient with PartyTopologySnapshotLoader =>
 
   private[client] def loadUnvettedPackagesOrDependencies(
@@ -739,24 +751,29 @@ trait VettedPackagesSnapshotLoader extends VettedPackagesSnapshotClient {
       packageId: PackageId,
   ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]]
 
-  protected def findUnvettedPackagesOrDependenciesUsingLoader(
-      participantId: ParticipantId,
-      packages: Set[PackageId],
-      loader: (ParticipantId, PackageId) => EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]],
-  ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
-    packages.toList
-      .parFlatTraverse(packageId => loader(participantId, packageId).map(_.toList))
-      .map(_.toSet)
-
   override def findUnvettedPackagesOrDependencies(
       participantId: ParticipantId,
       packages: Set[PackageId],
   ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
-    findUnvettedPackagesOrDependenciesUsingLoader(
-      participantId,
-      packages,
-      (pid, packId) => loadUnvettedPackagesOrDependencies(pid, packId),
-    )
+    packages.toList
+      .parFlatTraverse(loadUnvettedPackagesOrDependencies(participantId, _).map(_.toList))
+      .map(_.toSet)
+
+  private[client] def loadPackagesOrDependenciesNotDeclaredAsCheckOnly(
+      participantId: ParticipantId,
+      packages: PackageId,
+  ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]]
+
+  override def findPackagesOrDependenciesNotDeclaredAsCheckOnly(
+      participantId: ParticipantId,
+      packages: Set[PackageId],
+  ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
+    packages.toList
+      .parFlatTraverse(
+        loadPackagesOrDependenciesNotDeclaredAsCheckOnly(participantId, _)
+          .map(_.toList)
+      )
+      .map(_.toSet)
 
 }
 
@@ -776,7 +793,7 @@ trait TopologySnapshotLoader
     with BaseTopologySnapshotClient
     with ParticipantTopologySnapshotLoader
     with KeyTopologySnapshotClientLoader
-    with VettedPackagesSnapshotLoader
+    with PackageTopologySnapshotLoader
     with DomainGovernanceSnapshotLoader
     with DomainTrafficControlStateClient
     with NamedLogging

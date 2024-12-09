@@ -483,6 +483,10 @@ private object MutableCacheBackedContractStoreRaceTests {
       // Needs to return None for divulgence lookups
       Future.successful(None)
     }
+
+    override def lookupKeyStatesFromDb(keys: Seq[Key], notEarlierThanOffset: CreatedAt)(implicit
+        loggingContext: LoggingContextWithTrace
+    ): Future[Map[Key, KeyState]] = ??? // not used in this test
   }
 
   private def offset(idx: Long) = {

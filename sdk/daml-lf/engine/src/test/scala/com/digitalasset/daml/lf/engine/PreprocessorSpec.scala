@@ -492,6 +492,41 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
           preprocessor.prefetchKeys(ImmArray.empty, globalKeys, globalKeys.map(_.hash).toSet)
         resultAllDisclosed shouldBe ResultDone.Unit
       }
+
+      "fail on contract IDs in keys" in {
+        val compiledPkgs = ConcurrentCompiledPackages(compilerConfig)
+        val preprocessor = new preprocessing.Preprocessor(compiledPkgs)
+
+        val commands = ImmArray(
+          ApiCommand.ExerciseByKey(
+            templateRef = withKeyTmplRef,
+            contractKey = parties,
+            choiceId = choiceId,
+            argument = Value.ValueUnit,
+          )
+        )
+
+        val Right(preprocessedCommands) = preprocessor
+          .preprocessApiCommands(
+            priority,
+            commands,
+          )
+          .consume(pkgs = pkgs)
+
+        val commandsWithContractIdAsKey = preprocessedCommands.map {
+          case ex: speedy.Command.ExerciseByKey =>
+            ex.copy(contractKey = speedy.SValue.SContractId(contractId))
+          case other => other
+        }
+
+        val result = preprocessor.prefetchKeys(commandsWithContractIdAsKey, Seq.empty, Set.empty)
+        inside(result) {
+          case ResultError(
+                Error.Preprocessing(Error.Preprocessing.ContractIdInContractKey(value))
+              ) =>
+            value shouldBe Value.ValueContractId(contractId)
+        }
+      }
     }
   }
 }

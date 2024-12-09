@@ -1739,14 +1739,26 @@ private[lf] object Speedy {
         }
     }
 
-    private[lf] def assertGlobalKey(
+    private[lf] def globalKey(
         pkgInterface: PackageInterface,
         templateId: Ref.Identifier,
         contractKey: SValue,
-    ): GlobalKey = {
+    ): Option[GlobalKey] = {
       val packageTxVersion = tmplId2TxVersion(pkgInterface, templateId)
       val pkgName = tmplId2PackageName(pkgInterface, templateId, packageTxVersion)
-      assertGlobalKey(packageTxVersion, pkgName, templateId, contractKey)
+      globalKey(packageTxVersion, pkgName, templateId, contractKey)
+    }
+
+    private[lf] def globalKey(
+        packageTxVersion: TxVersion,
+        pkgName: Option[PackageName],
+        templateId: TypeConName,
+        keyValue: SValue,
+    ): Option[GlobalKey] = {
+      val lfValue = keyValue.toNormalizedValue(packageTxVersion)
+      GlobalKey
+        .build(templateId, lfValue, KeyPackageName(pkgName, packageTxVersion))
+        .toOption
     }
 
     private[lf] def assertGlobalKey(
@@ -1754,14 +1766,11 @@ private[lf] object Speedy {
         pkgName: Option[PackageName],
         templateId: TypeConName,
         keyValue: SValue,
-    ) = {
-      val lfValue = keyValue.toNormalizedValue(packageTxVersion)
-      GlobalKey
-        .build(templateId, lfValue, KeyPackageName(pkgName, packageTxVersion))
+    ) =
+      globalKey(packageTxVersion, pkgName, templateId, keyValue)
         .getOrElse(
           throw SErrorDamlException(IError.ContractIdInContractKey(keyValue.toUnnormalizedValue))
         )
-    }
   }
 
   // Environment
