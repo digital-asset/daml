@@ -25,6 +25,7 @@ message SequencerStatusResponse {
     com.digitalasset.canton.health.admin.v1.Status common_status = 1;
 
     repeated string connected_participants_uid = 2;
+    repeated string connected_mediators_uid = 7;
 
     // required - status of the sequencer component it is running
     com.digitalasset.canton.health.admin.v0.SequencerHealthStatus sequencer = 3;

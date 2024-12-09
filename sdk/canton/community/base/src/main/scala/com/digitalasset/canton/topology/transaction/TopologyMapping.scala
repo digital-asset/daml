@@ -633,6 +633,10 @@ object CheckOnlyPackages
     pt.participant -> pt.packageIds
   override protected def toDomainObj: (ParticipantId, Seq[LfPackageId]) => CheckOnlyPackages =
     CheckOnlyPackages(_, _)
+
+  val minimumSupportedProtocolVersion: ProtocolVersion = ProtocolVersion.v7
+  def supportedOnProtocolVersion(protocolVersion: ProtocolVersion): Boolean =
+    protocolVersion >= minimumSupportedProtocolVersion
 }
 
 final case class DomainParametersChange(
