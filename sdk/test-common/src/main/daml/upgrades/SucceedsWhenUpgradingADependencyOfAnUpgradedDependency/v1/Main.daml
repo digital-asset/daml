@@ -1,0 +1,23 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Main where
+
+import qualified Dep
+
+data D = D { field1 : Text }
+
+template T with
+    p: Party
+    t: ContractId Dep.T
+  where
+    signatory p
+    choice C1 : D
+      controller p
+      do
+        depD <- exercise t Dep.C1
+        pure $ D "field1"
+    choice C2 : Dep.DepDepWrapper
+      controller p
+      do Dep.DepDepWrapper . Dep.depDep <$> exercise t Dep.C1 -- only works when party is same
+

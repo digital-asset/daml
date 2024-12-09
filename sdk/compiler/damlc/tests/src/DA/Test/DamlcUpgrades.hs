@@ -225,6 +225,17 @@ tests damlc =
                   "SucceedsWhenUpgradingADependency"
                   Succeed
             , testUpgradeCheck
+                  "SucceedsWhenUpgradingADependencyOfAnUpgradedDependency"
+                  Succeed
+            , testUpgradeCheck
+                  "FailsWhenUpgradingAnUnupgradeableDependencyOfAnUpgradedDependency"
+                  (FailWithError (T.unlines
+                    [ "error while validating that dependency upgrades-example-FailsWhenUpgradingAnUnupgradeableDependencyOfAnUpgradedDependency-dep-dep version 2.0.0 is a valid upgrade of version 1.0.0"
+                    , "  error type checking data type DepDep.D:"
+                    , "    The upgraded data type D has added new fields, but the following new fields are not Optional:"
+                    , "      Field 'badField2' with type Text"
+                    ]))
+            , testUpgradeCheck
                   "FailsOnlyInModuleNotInReexports"
                   (FailWithError "error type checking data type Other.A:\n  The upgraded data type A has added new fields, but the following new fields are not Optional:\n    Field 'field2' with type Text")
             , testUpgradeCheck
