@@ -64,6 +64,102 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     """
   }
 
+  val variantPkgIdV1: Ref.PackageId = Ref.PackageId.assertFromString("-variant-v1-")
+  private lazy val variantPkgV1 = {
+    // unknown variant type constructor
+    implicit def pkgId: Ref.PackageId = variantPkgIdV1
+    p""" metadata ( '-upgrade-test-' : '1.0.0' )
+    module M {
+
+      variant @serializable D = tag : Int64 | label : Text;
+
+      record @serializable T = { sig: Party, obs: Party, data: M:D };
+      template (this: T) = {
+        precondition True;
+        signatories '-pkg1-':M:mkList (M:T {sig} this) (None @Party);
+        observers '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
+        agreement "Agreement";
+      };
+
+      val do_fetch: ContractId M:T -> Update M:T =
+        \(cId: ContractId M:T) ->
+          fetch_template @M:T cId;
+    }
+    """
+  }
+
+  val variantPkgIdV2: Ref.PackageId = Ref.PackageId.assertFromString("-variant-v2-")
+  private lazy val variantPkgV2 = {
+    // unknown variant type constructor
+    implicit def pkgId: Ref.PackageId = variantPkgIdV2
+    p""" metadata ( '-upgrade-test-' : '2.0.0' )
+    module M {
+
+      variant @serializable D = label : Text;
+
+      record @serializable T = { sig: Party, obs: Party, data: M:D };
+      template (this: T) = {
+        precondition True;
+        signatories '-pkg1-':M:mkList (M:T {sig} this) (None @Party);
+        observers '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
+        agreement "Agreement";
+      };
+
+      val do_fetch: ContractId M:T -> Update M:T =
+        \(cId: ContractId M:T) ->
+          fetch_template @M:T cId;
+    }
+    """
+  }
+
+  val enumPkgIdV1: Ref.PackageId = Ref.PackageId.assertFromString("-enum-v1-")
+  private lazy val enumPkgV1 = {
+    // unknown enum type constructor
+    implicit def pkgId: Ref.PackageId = enumPkgIdV1
+    p""" metadata ( '-upgrade-test-' : '1.0.0' )
+    module M {
+
+      enum @serializable D = Black | White;
+
+      record @serializable T = { sig: Party, obs: Party, data: M:D };
+      template (this: T) = {
+        precondition True;
+        signatories '-pkg1-':M:mkList (M:T {sig} this) (None @Party);
+        observers '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
+        agreement "Agreement";
+      };
+
+      val do_fetch: ContractId M:T -> Update M:T =
+        \(cId: ContractId M:T) ->
+          fetch_template @M:T cId;
+    }
+    """
+  }
+
+  val enumPkgIdV2: Ref.PackageId = Ref.PackageId.assertFromString("-enum-v2-")
+  private lazy val enumPkgV2 = {
+    // unknown enum type constructor
+    implicit def pkgId: Ref.PackageId = enumPkgIdV2
+    p""" metadata ( '-upgrade-test-' : '2.0.0' )
+  module M {
+
+    enum @serializable D = White;
+
+    record @serializable T = { sig: Party, obs: Party, data: M:D };
+    template (this: T) = {
+      precondition True;
+      signatories '-pkg1-':M:mkList (M:T {sig} this) (None @Party);
+      observers '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
+      agreement "Agreement";
+    };
+
+    val do_fetch: ContractId M:T -> Update M:T =
+      \(cId: ContractId M:T) ->
+        fetch_template @M:T cId;
+  }
+  """
+  }
+
   lazy val pkgId0 = Ref.PackageId.assertFromString("-pkg0-")
   private lazy val pkg0 = {
     implicit def parserParameters: ParserParameters[this.type] =
@@ -138,7 +234,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   val pkgId2: Ref.PackageId = Ref.PackageId.assertFromString("-pkg2-")
-
   private lazy val pkg2 = {
     // adds a choice to T
     implicit def pkgId: Ref.PackageId = pkgId2
@@ -245,6 +340,10 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     PureCompiledPackages.assertBuild(
       Map(
         ifacePkgId -> ifacePkg,
+        variantPkgIdV1 -> variantPkgV1,
+        variantPkgIdV2 -> variantPkgV2,
+        enumPkgIdV1 -> enumPkgV1,
+        enumPkgIdV2 -> enumPkgV2,
         pkgId0 -> pkg0,
         pkgId1 -> pkg1,
         pkgId2 -> pkg2,
@@ -460,7 +559,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       val res = go(e"'-pkg2-':M:do_fetch", ContractInstance(pkgName, i"'-pkg3-':M:T", v1_extraSome))
 
       inside(res) { case Left(SError.SErrorDamlException(IE.Upgrade(e))) =>
-        e shouldBe IE.Upgrade.DowngradeDropDefinedField(t"'-pkg2-':M:T", v1_extraSome)
+        e shouldBe IE.Upgrade.DowngradeDropDefinedField(t"'-pkg2-':M:T", 3, v1_extraSome)
       }
     }
 
@@ -481,11 +580,40 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         v shouldBe v1_base
       }
     }
+
+    "unknown variant constructor -- should be rejected" in {
+      val tag = ValueInt64(42)
+      val v1Arg = makeRecord(
+        ValueParty(alice),
+        ValueParty(bob),
+        ValueVariant(None, Ref.Name.assertFromString("tag"), tag),
+      )
+
+      inside(
+        go(e"'-variant-v2-':M:do_fetch", ContractInstance(pkgName, i"'-variant-v1-':M:T", v1Arg))
+      ) { case Left(SError.SErrorDamlException(IE.Upgrade(e))) =>
+        e shouldBe IE.Upgrade.DowngradeFailed(t"'-variant-v2-':M:D", tag)
+      }
+    }
+
+    "unknown enum constructor -- should be rejected" in {
+      val black = ValueEnum(None, Ref.Name.assertFromString("Black"))
+      val v1Arg = makeRecord(
+        ValueParty(alice),
+        ValueParty(bob),
+        black,
+      )
+
+      inside(go(e"'-enum-v2-':M:do_fetch", ContractInstance(pkgName, i"'-enum-v1-':M:T", v1Arg))) {
+        case Left(SError.SErrorDamlException(IE.Upgrade(e))) =>
+          e shouldBe IE.Upgrade.DowngradeFailed(t"'-enum-v2-':M:D", black)
+      }
+    }
   }
 
   "upgrade" - {
     "be able to fetch a same contract using different versions" in {
-      // The following code is not properly typed, but emulates two commands that fetch a same contract using different versions.
+      // The following code is not properly typed, but emulates two commands that fetch the same contract using different versions.
 
       val instance = ContractInstance(pkgName, i"'-pkg1-':M:T", v1_base)
       val res = goFinish(

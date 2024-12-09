@@ -1368,9 +1368,13 @@ private[lf] object Speedy {
     // Raises an exception if missing a package.
     private[speedy] final def importValue(typ0: Type, value0: V): Control.Value = {
 
-      def assertRight[X](x: Either[LookupError, X]): X =
+      def assertRight[X](
+          x: Either[LookupError, X],
+          withLookupError: PartialFunction[LookupError, X] = PartialFunction.empty,
+      ): X =
         x match {
           case Right(value) => value
+          case Left(error) if withLookupError.isDefinedAt(error) => withLookupError(error)
           case Left(error) => throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, error.pretty)
         }
 
@@ -1491,7 +1495,7 @@ private[lf] object Speedy {
                           case V.ValueOptional(Some(_)) =>
                             throw SErrorDamlException(
                               IError.Upgrade(
-                                IError.Upgrade.DowngradeDropDefinedField(ty, value)
+                                IError.Upgrade.DowngradeDropDefinedField(ty, i.toLong, value)
                               )
                             )
                           case _ =>
@@ -1546,16 +1550,32 @@ private[lf] object Speedy {
               case V.ValueVariant(_, constructor, value) =>
                 val info =
                   assertRight(
-                    compiledPackages.pkgInterface.lookupVariantConstructor(tyCon, constructor)
+                    compiledPackages.pkgInterface.lookupVariantConstructor(tyCon, constructor),
+                    withLookupError = { case LookupError.NotFound(_, _) =>
+                      throw SErrorDamlException(
+                        IError.Upgrade(
+                          IError.Upgrade.DowngradeFailed(ty, value)
+                        )
+                      )
+                    },
                   )
                 val valType = info.concreteType(argTypes)
                 SValue.SVariant(tyCon, constructor, info.rank, go(valType, value))
+
               case V.ValueEnum(_, constructor) =>
                 val rank =
                   assertRight(
-                    compiledPackages.pkgInterface.lookupEnumConstructor(tyCon, constructor)
+                    compiledPackages.pkgInterface.lookupEnumConstructor(tyCon, constructor),
+                    withLookupError = { case LookupError.NotFound(_, _) =>
+                      throw SErrorDamlException(
+                        IError.Upgrade(
+                          IError.Upgrade.DowngradeFailed(ty, value)
+                        )
+                      )
+                    },
                   )
                 SValue.SEnum(tyCon, constructor, rank)
+
               case _ =>
                 typeMismatch
             }

@@ -460,14 +460,18 @@ class SubmitErrors(majorLanguageVersion: LanguageMajorVersion) {
       }
     }
 
-    sealed case class DowngradeDropDefinedField(expectedType: String, message: String)
-        extends SubmitError {
+    sealed case class DowngradeDropDefinedField(
+        expectedType: String,
+        fieldIndex: Long,
+        message: String,
+    ) extends SubmitError {
       override def toDamlSubmitError(env: Env): SValue = {
         val upgradeErrorType = damlScriptUpgradeErrorType(
           env,
           "DowngradeDropDefinedField",
           1,
           ("expectedType", SText(expectedType)),
+          ("fieldIndex", SInt64(fieldIndex)),
         )
         SubmitErrorConverters(env).damlScriptError(
           "UpgradeError",
@@ -518,6 +522,23 @@ class SubmitErrors(majorLanguageVersion: LanguageMajorVersion) {
           ("coid", fromAnyContractId(env.scriptIds, toApiIdentifier(targetTemplateId), contractId)),
           ("target", fromTemplateTypeRep(targetTemplateId)),
           ("actual", fromTemplateTypeRep(actualTemplateId)),
+        )
+        SubmitErrorConverters(env).damlScriptError(
+          "UpgradeError",
+          20,
+          ("errorType", upgradeErrorType),
+          ("errorMessage", SText(message)),
+        )
+      }
+    }
+
+    sealed case class DowngradeFailed(expectedType: String, message: String) extends SubmitError {
+      override def toDamlSubmitError(env: Env): SValue = {
+        val upgradeErrorType = damlScriptUpgradeErrorType(
+          env,
+          "DowngradeFailed",
+          4,
+          ("expectedType", SText(expectedType)),
         )
         SubmitErrorConverters(env).damlScriptError(
           "UpgradeError",

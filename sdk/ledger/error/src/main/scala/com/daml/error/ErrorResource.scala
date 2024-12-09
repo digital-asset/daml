@@ -28,6 +28,7 @@ object ErrorResource {
     ExceptionText,
     ExceptionType,
     ExceptionValue,
+    FieldIndex,
     FieldType,
     IdentityProviderConfig,
     InterfaceId,
@@ -109,6 +110,9 @@ object ErrorResource {
   }
   object ExceptionText extends ErrorResource {
     def asString: String = "EXCEPTION_TEXT"
+  }
+  object FieldIndex extends ErrorResource {
+    def asString: String = "FIELD_INDEX"
   }
   object FieldType extends ErrorResource {
     def asString: String = "FIELD_TYPE"

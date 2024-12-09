@@ -25,6 +25,7 @@ data UpgradeErrorType
         keyOpt : Optional (AnyContractKey, [Party])
   | DowngradeDropDefinedField with
         expectedType : Text
+        fieldIndex : Int
   | ViewMismatch with
         coid : AnyContractId
         iterfaceId : TemplateTypeRep
@@ -34,6 +35,8 @@ data UpgradeErrorType
         coid : AnyContractId
         target : TemplateTypeRep
         actual : TemplateTypeRep
+  | DowngradeFailed with
+        expectedType : Text
   deriving Show
 
 -- | Errors that will be promoted to SubmitError once stable - code needs to be kept in sync with SubmitError.scala
