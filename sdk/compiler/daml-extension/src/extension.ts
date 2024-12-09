@@ -223,9 +223,9 @@ async function startLanguageServers(context: ExtensionContext) {
 
   if (envrcExistsWithoutExt) {
     const warningMessage =
-      "Found an .envrc file but the recommended direnv VSCode extension was not installed. Daml IDE may fail to start due to missing environment." +
-      "\nWould you like to install this extension or attempt to continue without it?";
-    const installAnswer = "Install extension";
+      "Found an .envrc file but the recommended direnv VSCode extension is not installed. Daml IDE may fail to start due to missing environment variables." +
+      "\nWould you like to install the recommended direnv extension or attempt to continue without it?";
+    const installAnswer = "Open marketplace";
     const doNotInstallAnswer = "Continue without";
     const neverInstallAnswer = "Do not ask again";
     const doNotInstallkey = "no-install-direnv";
