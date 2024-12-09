@@ -185,9 +185,7 @@ mkFetchDowngradedSome trailer f = ("Fail to downgrade a contract with Somes when
     b <- allocatePartyOn "bob" participant0
     res <- f a b
     case res of
-      Left (UpgradeError (DowngradeDropDefinedField _) msg)
-        | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg
-        -> pure ()
+      Left (UpgradeError (DowngradeDropDefinedField "Fetch:FetchTemplate" 1) _) -> pure ()
       res -> assertFail $ "Expected UpgradeError, got " <> show res
 
 fetchDowngradedSomeGlobal : (Text, Test)

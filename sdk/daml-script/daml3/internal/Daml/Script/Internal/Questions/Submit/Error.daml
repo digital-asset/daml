@@ -25,6 +25,7 @@ data UpgradeErrorType
         keyOpt : Optional (AnyContractKey, [Party])
   | DowngradeDropDefinedField with
         expectedType : Text
+        fieldIndex : Int
   | ViewMismatch with
         coid : AnyContractId
         iterfaceId : TemplateTypeRep

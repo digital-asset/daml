@@ -1495,7 +1495,7 @@ private[lf] object Speedy {
                           case V.ValueOptional(Some(_)) =>
                             throw SErrorDamlException(
                               IError.Upgrade(
-                                IError.Upgrade.DowngradeDropDefinedField(ty, value)
+                                IError.Upgrade.DowngradeDropDefinedField(ty, i.toLong, value)
                               )
                             )
                           case _ =>

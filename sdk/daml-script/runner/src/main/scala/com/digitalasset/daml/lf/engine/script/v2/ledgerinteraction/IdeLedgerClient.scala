@@ -374,6 +374,7 @@ class IdeLedgerClient(
       case e @ Upgrade(innerError: Upgrade.DowngradeDropDefinedField) =>
         submitErrors.UpgradeError.DowngradeDropDefinedField(
           innerError.expectedType.pretty,
+          innerError.fieldIndex,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
       case e @ Upgrade(innerError: Upgrade.DowngradeFailed) =>
