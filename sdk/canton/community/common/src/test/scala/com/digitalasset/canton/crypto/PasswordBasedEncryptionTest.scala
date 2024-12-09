@@ -58,9 +58,8 @@ trait PasswordBasedEncryptionTest extends FailOnShutdown {
               val password = "hello world"
               val encrypted = crypto
                 .encryptWithPassword(
-                  message,
+                  message.toByteString,
                   password,
-                  testedProtocolVersion,
                   symmetricKeyScheme,
                   pbkdfScheme,
                 )
@@ -79,9 +78,8 @@ trait PasswordBasedEncryptionTest extends FailOnShutdown {
               val message = TestMessage(ByteString.copyFromUtf8("foobar"))
               val encrypted = crypto
                 .encryptWithPassword(
-                  message,
+                  message.toByteString,
                   "hello world",
-                  testedProtocolVersion,
                   symmetricKeyScheme,
                   pbkdfScheme,
                 )

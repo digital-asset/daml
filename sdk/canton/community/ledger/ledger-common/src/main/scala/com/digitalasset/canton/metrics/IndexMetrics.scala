@@ -33,7 +33,7 @@ class IndexHistograms(val prefix: MetricName)(implicit
 class IndexMetrics(
     inventory: IndexHistograms,
     openTelemetryMetricsFactory: LabeledMetricsFactory,
-) {
+) extends HasDocumentedMetrics {
 
   import MetricsContext.Implicits.empty
   private val prefix = inventory.prefix

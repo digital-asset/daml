@@ -10,6 +10,7 @@ import com.digitalasset.canton.crypto.EncryptionError.FailedToEncrypt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.protocol.ProtocolSymmetricKey
 import com.digitalasset.canton.serialization.{DefaultDeserializationError, DeserializationError}
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
@@ -53,7 +54,7 @@ private[endpoint] final class SequencerChannelSecurity(
 
   private[endpoint] def generateSessionKey(connectTo: Member)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, AsymmetricEncrypted[SymmetricKey]] =
+  ): EitherT[FutureUnlessShutdown, String, AsymmetricEncrypted[ProtocolSymmetricKey]] =
     for {
       key <- EitherT
         .fromEither[FutureUnlessShutdown](pureCrypto.generateSymmetricKey())
@@ -64,31 +65,32 @@ private[endpoint] final class SequencerChannelSecurity(
       encryptedKey
     }
 
-  private[endpoint] def registerSessionKey(encrypted: AsymmetricEncrypted[SymmetricKey])(implicit
+  private[endpoint] def registerSessionKey(
+      encrypted: AsymmetricEncrypted[ProtocolSymmetricKey]
+  )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] =
     for {
       recentSnapshot <- EitherT.right(domainCryptoApi.snapshotUS(timestamp))
       key <- recentSnapshot
         .decrypt(encrypted)(bytes =>
-          SymmetricKey
-            .fromTrustedByteString(bytes) // this is fine because it's inside an encrypted message
+          ProtocolSymmetricKey
+            .fromByteString(protocolVersion)(bytes)
             .leftMap(error => DefaultDeserializationError(error.message))
         )
         .leftMap(_.toString)
-    } yield registerSessionKey(key)
+    } yield registerSessionKey(key.unwrap)
 
   private def encrypt(connectTo: Member, key: SymmetricKey)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, AsymmetricEncrypted[SymmetricKey]] =
+  ): EitherT[FutureUnlessShutdown, String, AsymmetricEncrypted[ProtocolSymmetricKey]] =
     for {
       recentSnapshot <- EitherT.right(domainCryptoApi.snapshotUS(timestamp))
       // asymmetrically encrypted for the connectTo member
       encryptedPerMember <- recentSnapshot
         .encryptFor(
-          key,
+          ProtocolSymmetricKey(key, protocolVersion),
           Seq(connectTo),
-          protocolVersion,
         )
         .leftMap(_.toString)
       encrypted <- EitherT.fromOption[FutureUnlessShutdown](
@@ -104,7 +106,7 @@ private[endpoint] final class SequencerChannelSecurity(
       key <- EitherT
         .fromOption[FutureUnlessShutdown](sessionKey.get, FailedToEncrypt("No session key found"))
       encryptedMessage <- EitherT.fromEither[FutureUnlessShutdown](
-        pureCrypto.encryptWith(message, key)
+        pureCrypto.encryptSymmetricWith(message, key)
       )
     } yield encryptedMessage
 

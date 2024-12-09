@@ -929,8 +929,12 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
     }
 
     @Help.Summary(
-      """Bootstraps a new domain with the given static domain parameters and members. Any participants as domain owners
-        |must still manually connect to the domain afterwards."""
+      "Bootstraps a new domain."
+    )
+    @Help.Description(
+      """Bootstraps a new domain with the given static domain parameters and members.
+        |Any participants as domain owners must still manually connect to the domain afterwards.
+        """
     )
     def domain(
         domainName: String,
@@ -953,8 +957,12 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       )
 
     @Help.Summary(
-      """Bootstraps a new domain with the given static domain parameters and members. Any participants as domain owners
-        |must still manually connect to the domain afterwards."""
+      "Bootstraps a new domain."
+    )
+    @Help.Description(
+      """Bootstraps a new domain with the given static domain parameters and members.
+        |Any participants as domain owners must still manually connect to the domain afterwards.
+        """
     )
     def domain(
         domainName: String,

@@ -3,14 +3,15 @@
 
 package com.digitalasset.canton.sequencing.protocol.channel
 
-import com.digitalasset.canton.crypto.{AsymmetricEncrypted, SymmetricKey, v30 as crypto_v30}
+import com.digitalasset.canton.crypto.{AsymmetricEncrypted, v30 as crypto_v30}
 import com.digitalasset.canton.domain.api.v30
+import com.digitalasset.canton.protocol.ProtocolSymmetricKey
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.*
 
 final case class SequencerChannelSessionKey(
-    encryptedSessionKey: AsymmetricEncrypted[SymmetricKey]
+    encryptedSessionKey: AsymmetricEncrypted[ProtocolSymmetricKey]
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
       SequencerChannelSessionKey.type
@@ -38,7 +39,7 @@ object SequencerChannelSessionKey
   )
 
   def apply(
-      encryptedSessionKey: AsymmetricEncrypted[SymmetricKey],
+      encryptedSessionKey: AsymmetricEncrypted[ProtocolSymmetricKey],
       protocolVersion: ProtocolVersion,
   ): SequencerChannelSessionKey =
     SequencerChannelSessionKey(encryptedSessionKey)(
@@ -60,9 +61,9 @@ object SequencerChannelSessionKey
 
   def parseEncryptedSessionKey(
       encryptedSessionKeyP: Option[crypto_v30.AsymmetricEncrypted]
-  ): ParsingResult[AsymmetricEncrypted[SymmetricKey]] =
+  ): ParsingResult[AsymmetricEncrypted[ProtocolSymmetricKey]] =
     ProtoConverter.parseRequired(
-      AsymmetricEncrypted.fromProtoV30[SymmetricKey],
+      AsymmetricEncrypted.fromProtoV30[ProtocolSymmetricKey],
       "encrypted_session_key",
       encryptedSessionKeyP,
     )

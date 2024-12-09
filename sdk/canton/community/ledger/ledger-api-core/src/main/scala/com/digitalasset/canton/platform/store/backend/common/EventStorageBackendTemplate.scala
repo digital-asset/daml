@@ -207,6 +207,7 @@ object EventStorageBackendTemplate {
           workflowId = workflowId,
           event = RawCreatedEvent(
             updateId = updateId,
+            offset = offset,
             nodeIndex = nodeIndex,
             contractId = contractId,
             templateId = stringInterning.templateId.externalize(templateId),
@@ -269,6 +270,7 @@ object EventStorageBackendTemplate {
           recordTime = recordTime,
           event = RawArchivedEvent(
             updateId = updateId,
+            offset = eventOffset,
             nodeIndex = nodeIndex,
             contractId = contractId,
             templateId = stringInterning.templateId.externalize(templateId),
@@ -329,6 +331,7 @@ object EventStorageBackendTemplate {
           recordTime = recordTime,
           event = RawExercisedEvent(
             updateId = updateId,
+            offset = eventOffset,
             nodeIndex = nodeIndex,
             contractId = contractId,
             templateId = stringInterning.templateId.externalize(templateId),
@@ -546,6 +549,7 @@ object EventStorageBackendTemplate {
             reassignmentCounter = reassignmentCounter,
             rawCreatedEvent = RawCreatedEvent(
               updateId = updateId,
+              offset = offset,
               nodeIndex = 0,
               contractId = contractId,
               templateId = stringInterning.templateId.externalize(templateId),
@@ -650,6 +654,7 @@ object EventStorageBackendTemplate {
       int("target_domain_id") ~
       long("reassignment_counter") ~
       str("update_id") ~
+      long("event_offset") ~
       str("contract_id") ~
       int("template_id") ~
       int("package_name") ~
@@ -676,6 +681,7 @@ object EventStorageBackendTemplate {
           targetDomainId ~
           reassignmentCounter ~
           updateId ~
+          offset ~
           contractId ~
           templateId ~
           packageName ~
@@ -698,6 +704,7 @@ object EventStorageBackendTemplate {
           reassignmentCounter = reassignmentCounter,
           rawCreatedEvent = RawCreatedEvent(
             updateId = updateId,
+            offset = offset,
             nodeIndex = 0,
             contractId = contractId,
             templateId = stringInterning.templateId.externalize(templateId),
@@ -730,6 +737,7 @@ object EventStorageBackendTemplate {
     str("workflow_id").? ~
       int("domain_id") ~
       str("update_id") ~
+      long("event_offset") ~
       str("contract_id") ~
       int("template_id") ~
       int("package_name") ~
@@ -756,6 +764,7 @@ object EventStorageBackendTemplate {
       case workflowId ~
           targetDomainId ~
           updateId ~
+          offset ~
           contractId ~
           templateId ~
           packageName ~
@@ -779,6 +788,7 @@ object EventStorageBackendTemplate {
           reassignmentCounter = 0L, // zero for create
           rawCreatedEvent = RawCreatedEvent(
             updateId = updateId,
+            offset = offset,
             nodeIndex = nodeIndex,
             contractId = contractId,
             templateId = stringInterning.templateId.externalize(templateId),

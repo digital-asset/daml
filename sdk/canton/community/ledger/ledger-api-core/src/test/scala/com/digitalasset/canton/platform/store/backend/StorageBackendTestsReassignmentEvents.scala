@@ -297,7 +297,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         Entry(
           commandId = Some("command id 1"),
           workflowId = Some("workflow_id"),
-          offset = offset(1).unwrap,
+          offset = 1,
           traceContext = Some(emptyTraceContext),
           recordTime = someTime,
           updateId = offset(1).toDecimalString,
@@ -312,6 +312,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
             reassignmentCounter = 1000L,
             rawCreatedEvent = RawCreatedEvent(
               updateId = offset(1).toDecimalString,
+              offset = 1,
               nodeIndex = 0,
               contractId = hashCid("#1").coid,
               templateId = someTemplateId,
@@ -334,7 +335,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         Entry(
           commandId = Some("command id 2"),
           workflowId = Some("workflow_id"),
-          offset = offset(2).unwrap,
+          offset = 2,
           traceContext = Some(emptyTraceContext),
           recordTime = someTime,
           updateId = offset(2).toDecimalString,
@@ -349,6 +350,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
             reassignmentCounter = 1000L,
             rawCreatedEvent = RawCreatedEvent(
               updateId = offset(2).toDecimalString,
+              offset = 2,
               nodeIndex = 0,
               contractId = hashCid("#2").coid,
               templateId = someTemplateId,
@@ -406,7 +408,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       Entry(
         commandId = Some("command id 1"),
         workflowId = Some("workflow_id"),
-        offset = offset(1).unwrap,
+        offset = 1,
         traceContext = Some(emptyTraceContext),
         recordTime = someTime,
         updateId = offset(1).toDecimalString,
@@ -429,7 +431,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       Entry(
         commandId = Some("command id 2"),
         workflowId = Some("workflow_id"),
-        offset = offset(2).unwrap,
+        offset = 2,
         traceContext = Some(emptyTraceContext),
         recordTime = someTime,
         updateId = offset(2).toDecimalString,
@@ -595,6 +597,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         reassignmentCounter = 0L,
         rawCreatedEvent = RawCreatedEvent(
           updateId = offset(1).toDecimalString,
+          offset = 1,
           nodeIndex = 0,
           contractId = hashCid("#1").coid,
           templateId = someTemplateId,
@@ -620,6 +623,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         reassignmentCounter = 0L,
         rawCreatedEvent = RawCreatedEvent(
           updateId = offset(2).toDecimalString,
+          offset = 2,
           nodeIndex = 0,
           contractId = hashCid("#2").coid,
           templateId = someTemplateId,
@@ -744,6 +748,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         reassignmentCounter = 1000L,
         rawCreatedEvent = RawCreatedEvent(
           updateId = offset(2).toDecimalString,
+          offset = 2,
           nodeIndex = 0,
           contractId = hashCid("#1").coid,
           templateId = someTemplateId,
@@ -769,6 +774,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         reassignmentCounter = 1000L,
         rawCreatedEvent = RawCreatedEvent(
           updateId = offset(3).toDecimalString,
+          offset = 3,
           nodeIndex = 0,
           contractId = hashCid("#2").coid,
           templateId = someTemplateId,

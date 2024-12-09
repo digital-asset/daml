@@ -617,6 +617,40 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
     }
   }
 
+  it should "serve the correct events" in {
+    for {
+      before <- ledgerDao.lookupLedgerEnd()
+      (offset1, t1) <- store(singleCreate)
+      after <- ledgerDao.lookupLedgerEnd()
+      activeContractsBefore <- activeContractsOf(
+        ledgerDao.transactionsReader
+          .getActiveContracts(
+            activeAt = before.map(_.lastOffset),
+            filter = TemplatePartiesFilter(Map.empty, Some(Set(alice, bob, charlie))),
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              templateWildcardWitnesses = Some(Set(alice, bob, charlie)),
+            ),
+          )
+      )
+      activeContractsAfter <- activeContractsOf(
+        ledgerDao.transactionsReader
+          .getActiveContracts(
+            activeAt = after.map(_.lastOffset),
+            filter = TemplatePartiesFilter(Map.empty, Some(Set(alice, bob, charlie))),
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              templateWildcardWitnesses = Some(Set(alice, bob, charlie)),
+            ),
+          )
+      )
+    } yield {
+      val activeContract = activeContractsAfter.toSet.diff(activeContractsBefore.toSet).loneElement
+      activeContract.offset shouldBe offset1.unwrap
+      activeContract.nodeId shouldBe 0
+    }
+  }
+
   private def activeContractsOf(
       source: Source[GetActiveContractsResponse, NotUsed]
   ): Future[Seq[CreatedEvent]] =

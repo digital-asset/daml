@@ -559,6 +559,7 @@ class ParticipantNodeBootstrap(
           arguments.futureSupervisor,
           mustTrackSubmissionIds = true,
           exitOnFatalFailures = parameters.exitOnFatalFailures,
+          parameterConfig.batchingConfig.maxItemsInBatch,
           parameterConfig.processingTimeouts,
           loggerFactory,
         )

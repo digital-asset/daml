@@ -288,6 +288,8 @@ final class LfValueTranslation(
         Ref.LedgerString.assertFromString(rawExercisedEvent.updateId),
         NodeId(rawExercisedEvent.nodeIndex),
       ).toLedgerString,
+      offset = rawExercisedEvent.offset,
+      nodeId = rawExercisedEvent.nodeIndex,
       contractId = rawExercisedEvent.contractId,
       templateId = Some(
         LfEngineToApi.toApiIdentifier(rawExercisedEvent.templateId)
@@ -313,6 +315,8 @@ final class LfValueTranslation(
         Ref.LedgerString.assertFromString(rawArchivedEvent.updateId),
         NodeId(rawArchivedEvent.nodeIndex),
       ).toLedgerString,
+      offset = rawArchivedEvent.offset,
+      nodeId = rawArchivedEvent.nodeIndex,
       contractId = rawArchivedEvent.contractId,
       templateId = Some(
         LfEngineToApi.toApiIdentifier(rawArchivedEvent.templateId)
@@ -394,6 +398,8 @@ final class LfValueTranslation(
         Ref.LedgerString.assertFromString(rawCreatedEvent.updateId),
         NodeId(rawCreatedEvent.nodeIndex),
       ).toLedgerString,
+      offset = rawCreatedEvent.offset,
+      nodeId = rawCreatedEvent.nodeIndex,
       contractId = rawCreatedEvent.contractId,
       templateId = Some(
         LfEngineToApi.toApiIdentifier(rawCreatedEvent.templateId)

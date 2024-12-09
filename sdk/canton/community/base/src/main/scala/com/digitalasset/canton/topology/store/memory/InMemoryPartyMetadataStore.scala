@@ -3,11 +3,10 @@
 
 package com.digitalasset.canton.topology.store.memory
 
-import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.store.{PartyMetadata, PartyMetadataStore}
-import com.digitalasset.canton.topology.{ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.concurrent.TrieMap
@@ -18,45 +17,36 @@ class InMemoryPartyMetadataStore extends PartyMetadataStore {
   private val store = TrieMap[PartyId, PartyMetadata]()
 
   override def insertOrUpdatePartyMetadata(
-      partyId: PartyId,
-      participantId: Option[ParticipantId],
-      effectiveTimestamp: CantonTimestamp,
-      submissionId: String255,
+      partiesMetadata: Seq[PartyMetadata]
   )(implicit traceContext: TraceContext): Future[Unit] = {
-    store
-      .put(
-        partyId,
-        PartyMetadata(partyId, participantId)(
-          effectiveTimestamp = effectiveTimestamp,
-          submissionId = submissionId,
-        ),
-      )
-      .discard
+    partiesMetadata.foreach(metadata => store.put(metadata.partyId, metadata).discard)
     Future.unit
-
   }
 
-  override def metadataForParty(partyId: PartyId)(implicit
+  override def metadataForParties(partyIds: Seq[PartyId])(implicit
       traceContext: TraceContext
-  ): Future[Option[PartyMetadata]] =
-    Future.successful(store.get(partyId))
+  ): Future[Seq[Option[PartyMetadata]]] =
+    Future.successful(partyIds.map(store.get))
 
   override def markNotified(
-      metadata: PartyMetadata
+      effectiveAt: CantonTimestamp,
+      partyIds: Seq[PartyId],
   )(implicit traceContext: TraceContext): Future[Unit] = {
-    store.get(metadata.partyId) match {
-      case Some(cur) if cur.effectiveTimestamp == metadata.effectiveTimestamp =>
-        store
-          .put(
-            metadata.partyId,
-            metadata.copy()(
-              effectiveTimestamp = metadata.effectiveTimestamp,
-              submissionId = metadata.submissionId,
-              notified = true,
-            ),
-          )
-          .discard
-      case _ => ()
+    partyIds.foreach { partyId =>
+      store.get(partyId) match {
+        case Some(cur) if cur.effectiveTimestamp == effectiveAt =>
+          store
+            .put(
+              partyId,
+              cur.copy()(
+                effectiveTimestamp = cur.effectiveTimestamp,
+                submissionId = cur.submissionId,
+                notified = true,
+              ),
+            )
+            .discard
+        case _ => ()
+      }
     }
     Future.unit
   }

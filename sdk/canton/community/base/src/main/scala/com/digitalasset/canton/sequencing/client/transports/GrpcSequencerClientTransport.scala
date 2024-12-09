@@ -234,7 +234,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
       .map { accumulated =>
         val storedTxs = StoredTopologyTransactions(accumulated)
         logger.debug(
-          s"Downloaded topology state for initialization with last change timestamp at ${storedTxs.lastChangeTimestamp}:\n${storedTxs.result}"
+          s"Downloaded topology state for initialization with last change timestamp at ${storedTxs.lastChangeTimestamp}: ${storedTxs.result.size} transactions"
         )
         TopologyStateForInitResponse(Traced(storedTxs))
       }

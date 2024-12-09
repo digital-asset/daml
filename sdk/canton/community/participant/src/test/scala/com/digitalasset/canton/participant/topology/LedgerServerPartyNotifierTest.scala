@@ -4,8 +4,8 @@
 package com.digitalasset.canton.participant.topology
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.{BatchingConfig, DefaultProcessingTimeouts}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.{ParticipantUpdate, Update}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -37,7 +37,7 @@ final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
   private final class Fixture {
     private val store = new InMemoryPartyMetadataStore()
     private val clock = new SimClock(CantonTimestamp.Epoch, loggerFactory)
-    private val observedEvents = ListBuffer[Update]()
+    private val observedEvents = ListBuffer[ParticipantUpdate]()
     private val eventPublisher = mock[ParticipantEventPublisher]
 
     val notifier: LedgerServerPartyNotifier =
@@ -49,6 +49,7 @@ final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
         FutureSupervisor.Noop,
         mustTrackSubmissionIds = false,
         exitOnFatalFailures = true,
+        BatchingConfig().maxItemsInBatch,
         DefaultProcessingTimeouts.testing,
         loggerFactory,
       )
@@ -93,10 +94,12 @@ final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
       )
 
     when(
-      eventPublisher.publishEventDelayableByRepairOperation(any[ParticipantUpdate])(anyTraceContext)
+      eventPublisher.publishEventsDelayableByRepairOperation(any[Seq[ParticipantUpdate]])(
+        anyTraceContext
+      )
     )
-      .thenAnswer { (update: Update) =>
-        observedEvents += update
+      .thenAnswer { (updates: Seq[ParticipantUpdate]) =>
+        observedEvents ++= updates
         FutureUnlessShutdown.unit
       }
 
@@ -111,7 +114,7 @@ final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
       }
     }
 
-    def observed: List[Update] = observedEvents.toList
+    def observed: List[ParticipantUpdate] = observedEvents.toList
 
   }
 

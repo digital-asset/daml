@@ -7,17 +7,18 @@ import cats.Eval
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.participant.state.{ParticipantUpdate, Update}
+import com.digitalasset.canton.ledger.participant.state.ParticipantUpdate
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.platform.indexer.IndexerState.RepairInProgress
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{ErrorUtil, LoggerUtil, SimpleExecutionQueue}
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.util.{ErrorUtil, LoggerUtil, MonadUtil, SimpleExecutionQueue}
 import org.slf4j.event.Level
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 /** Helper to publish participant events in a thread-safe way. For "regular" domain related events
   * thread safety is taken care of by the [[com.digitalasset.canton.participant.event.RecordOrderPublisher]].
@@ -48,19 +49,53 @@ class ParticipantEventPublisher(
     crashOnFailure = exitOnFatalFailures,
   )
 
-  private def publishInternal(event: Update)(implicit traceContext: TraceContext): Future[Unit] = {
-    logger.debug(s"Publishing event at record time ${event.recordTime}: ${event.show}")
-    ledgerApiIndexer.value.queue
-      .offer(event)
-      // waiting for the participant event to persisted by Indexer
-      .flatMap(_ => event.persisted.future)
-  }
+  private def publishInternal(
+      events: Seq[Traced[ParticipantUpdate]],
+      shouldRetryIfRepairInProgress: Boolean,
+  ): FutureUnlessShutdown[Unit] =
+    MonadUtil
+      .sequentialTraverse(events) { tracedEvent =>
+        implicit val traceContext: TraceContext = tracedEvent.traceContext
+        val event = tracedEvent.value
+        def publish(): FutureUnlessShutdown[Unit] = {
+          val timeCorrectedEvent = if (event.recordTime == ParticipantEventPublisher.now) {
+            event.withRecordTime(participantClock.uniqueTime())
+          } else {
+            event
+          }
+          logger.debug(
+            s"Publishing event at record time ${timeCorrectedEvent.recordTime}: ${timeCorrectedEvent.show}"
+          )
+          // Not waiting here for persisted, so we can submit subsequent events as soon as possible.
+          // This means the executionQueue tasks complete before the events are persisted,
+          // therefore we wait for the last persisted before completing the result FUS.
+          ledgerApiIndexer.value.enqueue(timeCorrectedEvent).map(_ => ())
+        }
+        executionQueue.executeUS(
+          if (shouldRetryIfRepairInProgress) retryIfRepairInProgress()(publish())
+          else publish(),
+          s"publish event ${event.show} with record time ${event.recordTime}",
+        )
+      }
+      .flatMap(_ =>
+        FutureUnlessShutdown.outcomeF(
+          // Only wait for the last one to be persisted,
+          // as that indicates that all previous events are persisted as well.
+          events.lastOption
+            .map(_.value.persisted.future)
+            .getOrElse(Future.unit)
+        )
+      )
 
   private def retryIfRepairInProgress(
       retryBeforeWarning: Int = 10
-  )(f: => Future[Unit])(implicit traceContext: TraceContext): Future[Unit] =
-    f.recoverWith {
-      case repairInProgress: RepairInProgress =>
+  )(
+      f: => FutureUnlessShutdown[Unit]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    f.transformWith {
+      case Success(result) => FutureUnlessShutdown.lift(result)
+
+      case Failure(repairInProgress: RepairInProgress) =>
         val logLevel =
           if (retryBeforeWarning <= 0) Level.WARN
           else Level.INFO
@@ -68,16 +103,20 @@ class ParticipantEventPublisher(
           logLevel,
           "Delaying the publication of participant event, as Repair operation is in progress. Waiting until Repair operation finished...",
         )
-        repairInProgress.repairDone.flatMap { _ =>
-          LoggerUtil.logAtLevel(
-            logLevel,
-            "Repair operation finished...try to publish participant event again.",
+        FutureUnlessShutdown
+          .outcomeF(
+            repairInProgress.repairDone
           )
-          retryIfRepairInProgress(retryBeforeWarning - 1)(f)
-        }
+          .flatMap { _ =>
+            LoggerUtil.logAtLevel(
+              logLevel,
+              "Repair operation finished...try to publish participant event again.",
+            )
+            retryIfRepairInProgress(retryBeforeWarning - 1)(f)
+          }
 
-      case t =>
-        Future.failed(t)
+      case Failure(t) =>
+        FutureUnlessShutdown.failed(t)
     }
 
   /** Events published this way will be delayed by ongoing repair-operations, meaning:
@@ -87,23 +126,21 @@ class ParticipantEventPublisher(
     *
     * @return A Future which will be only successful if the event is successfully persisted by the indexer
     */
-  def publishEventDelayableByRepairOperation(
-      event: ParticipantUpdate
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    ErrorUtil.requireArgument(
-      event.recordTime == ParticipantEventPublisher.now,
-      show"RecordTime not initialized with 'now' literal. Participant event: $event",
-    )
-    executionQueue.execute(
-      // this is hopefully a temporary measure, and is needed since we schedule party notifications upon the related topology change's effective time, so we can never be sure, even if the domain is already disconnected that the participant event publisher is not used
-      // in case that is not needed anymore (thanks to ledger api party and topology unification),
-      // we should be able to plainly fail the rest of the events
-      retryIfRepairInProgress()(
-        publishInternal(event.withRecordTime(participantClock.uniqueTime()))
-      ),
-      s"publish event ${event.show} with record time ${event.recordTime}",
-    )
-  }
+  def publishEventsDelayableByRepairOperation(
+      events: Seq[ParticipantUpdate]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = publishInternal(
+    events.map { event =>
+      ErrorUtil.requireArgument(
+        event.recordTime == ParticipantEventPublisher.now,
+        show"RecordTime not initialized with 'now' literal. Participant event: $event",
+      )
+      Traced(event)
+    },
+    // this is hopefully a temporary measure, and is needed since we schedule party notifications upon the related topology change's effective time, so we can never be sure, even if the domain is already disconnected that the participant event publisher is not used
+    // in case that is not needed anymore (thanks to ledger api party and topology unification),
+    // we should be able to plainly fail the rest of the events
+    shouldRetryIfRepairInProgress = true,
+  )
 
   override protected def onClosed(): Unit = LifeCycle.close(executionQueue)(logger)
 }

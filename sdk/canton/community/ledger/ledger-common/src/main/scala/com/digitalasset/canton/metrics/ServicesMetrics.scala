@@ -178,7 +178,7 @@ class ServicesHistograms(val prefix: MetricName)(implicit
 class ServicesMetrics(
     inventory: ServicesHistograms,
     openTelemetryMetricsFactory: LabeledMetricsFactory,
-) {
+) extends HasDocumentedMetrics {
 
   private val prefix = inventory.prefix
   private implicit val metricsContext: MetricsContext = MetricsContext.Empty

@@ -254,6 +254,8 @@ private[events] object TransactionLogUpdatesConversions {
         apiEvent.Event.Event.Archived(
           apiEvent.ArchivedEvent(
             eventId = exercisedEvent.eventId.toLedgerString,
+            offset = exercisedEvent.eventOffset.unwrap,
+            nodeId = exercisedEvent.nodeIndex,
             contractId = exercisedEvent.contractId.coid,
             templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
             packageName = exercisedEvent.packageName,
@@ -473,6 +475,8 @@ private[events] object TransactionLogUpdatesConversions {
         TreeEvent.Kind.Exercised(
           apiEvent.ExercisedEvent(
             eventId = exercisedEvent.eventId.toLedgerString,
+            offset = exercisedEvent.eventOffset.unwrap,
+            nodeId = exercisedEvent.nodeIndex,
             contractId = exercisedEvent.contractId.coid,
             templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
             packageName = exercisedEvent.packageName,
@@ -552,6 +556,8 @@ private[events] object TransactionLogUpdatesConversions {
       .map(apiContractData =>
         apiEvent.CreatedEvent(
           eventId = createdEvent.eventId.toLedgerString,
+          offset = createdEvent.eventOffset.unwrap,
+          nodeId = createdEvent.nodeIndex,
           contractId = createdEvent.contractId.coid,
           templateId = Some(LfEngineToApi.toApiIdentifier(createdEvent.templateId)),
           packageName = createdEvent.packageName,

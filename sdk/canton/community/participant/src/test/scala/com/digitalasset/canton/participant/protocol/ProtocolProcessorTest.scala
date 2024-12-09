@@ -73,7 +73,6 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
-import com.digitalasset.canton.util.PekkoUtil.FutureQueue
 import com.digitalasset.canton.version.{HasTestCloseContext, ProtocolVersion}
 import com.digitalasset.canton.{
   BaseTest,
@@ -83,7 +82,6 @@ import com.digitalasset.canton.{
   SequencerCounter,
 }
 import com.google.protobuf.ByteString
-import org.apache.pekko.Done
 import org.mockito.ArgumentMatchers.eq as isEq
 import org.scalatest.Tag
 import org.scalatest.wordspec.AnyWordSpec
@@ -93,7 +91,7 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.concurrent
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.language.implicitConversions
 
 class ProtocolProcessorTest
@@ -287,15 +285,7 @@ class ProtocolProcessorTest
 
     val ledgerApiIndexer = mock[LedgerApiIndexer]
 
-    when(ledgerApiIndexer.queue).thenAnswer(
-      new FutureQueue[Update] {
-        override def offer(elem: Update): Future[Done] = Future.successful(Done)
-
-        override def shutdown(): Unit = ()
-
-        override def done: Future[Done] = Future.successful(Done)
-      }
-    )
+    when(ledgerApiIndexer.enqueue).thenAnswer((_: Update) => FutureUnlessShutdown.unit)
     when(ledgerApiIndexer.onlyForTestingTransactionInMemoryStore).thenAnswer(None)
 
     val timeTracker = mock[DomainTimeTracker]

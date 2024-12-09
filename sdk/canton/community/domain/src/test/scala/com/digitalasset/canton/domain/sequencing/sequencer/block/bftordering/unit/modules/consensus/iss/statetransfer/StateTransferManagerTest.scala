@@ -55,7 +55,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
   import StateTransferManagerTest.*
 
   "StateTransferManager" should {
-    "start, try to restart, and clear state transfer" in {
+    "start and try to restart" in {
       implicit val context: ContextType = new ProgrammableUnitTestContext
 
       val p2pNetworkOutRef = mock[ModuleRef[P2PNetworkOut.Message]]
@@ -96,9 +96,6 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
         startEpoch,
       )(abort = fail(_))
       context.extractSelfMessages() shouldBe empty
-
-      stateTransferManager.clearStateTransferState()
-      stateTransferManager.inStateTransfer shouldBe false
     }
 
     "schedule a retry and send block transfer request" in {

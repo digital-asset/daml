@@ -94,7 +94,7 @@ class StoreBasedDomainTopologyInitializationCallback(
       // Update the topology client head not only with the onboarding transaction, but all subsequent topology
       // transactions as well. This ensures that the topology client can serve topology snapshots at timestamps between
       // post-onboarding topology changes.
-      _ = timestampsFromOnboardingTransactions
+      _ = timestampsFromOnboardingTransactions.distinct
         .foreach { case (sequenced, effective) =>
           updateTopologyClientHead(topologyClient, sequenced, effective)
         }

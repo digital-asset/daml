@@ -523,6 +523,8 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
               kind = lapi.transaction.TreeEvent.Kind.Exercised(
                 lapi.event.ExercisedEvent(
                   eventId = exercised.event_id,
+                  offset = exercised.offset,
+                  nodeId = exercised.node_id,
                   contractId = exercised.contract_id,
                   templateId = Some(apiTemplateId),
                   interfaceId = exercised.interface_id.map(IdentifierConverter.fromJson),
@@ -718,6 +720,8 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
 
     def fromJson(ev: JsEvent.ArchivedEvent): lapi.event.ArchivedEvent = lapi.event.ArchivedEvent(
       eventId = ev.event_id,
+      offset = ev.offset,
+      nodeId = ev.node_id,
       contractId = ev.contract_id,
       templateId = Some(IdentifierConverter.fromJson(ev.template_id)),
       witnessParties = ev.witness_parties,
@@ -792,6 +796,8 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         interfaceViews <- Future.sequence(createdEvent.interface_views.map(InterfaceView.fromJson))
       } yield lapi.event.CreatedEvent(
         eventId = createdEvent.event_id,
+        offset = createdEvent.offset,
+        nodeId = createdEvent.node_id,
         contractId = createdEvent.contract_id,
         templateId = Some(templateId),
         contractKey = contractKey,

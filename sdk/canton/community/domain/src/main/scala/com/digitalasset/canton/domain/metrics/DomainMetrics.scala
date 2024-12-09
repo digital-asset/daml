@@ -12,13 +12,14 @@ import com.daml.metrics.api.{
   MetricQualification,
   MetricsContext,
 }
-import com.daml.metrics.grpc.{DamlGrpcServerMetrics, GrpcServerMetrics}
+import com.daml.metrics.grpc.{DamlGrpcServerHistograms, DamlGrpcServerMetrics, GrpcServerMetrics}
 import com.daml.metrics.{CacheMetrics, HealthMetrics}
 import com.digitalasset.canton.environment.BaseMetrics
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.metrics.{
   DbStorageHistograms,
   DbStorageMetrics,
+  HasDocumentedMetrics,
   SequencerClientHistograms,
   SequencerClientMetrics,
   TrafficConsumptionMetrics,
@@ -34,10 +35,13 @@ import com.digitalasset.canton.topology.{MediatorId, Member, ParticipantId, Sequ
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 
+import scala.annotation.unused
+
 class SequencerHistograms(val parent: MetricName)(implicit
     inventory: HistogramInventory
 ) {
-
+  @unused
+  private val _grpc = new DamlGrpcServerHistograms()
   private[metrics] val prefix = parent :+ "sequencer"
   private[metrics] val sequencerClient = new SequencerClientHistograms(parent)
   private[metrics] val dbStorage = new DbStorageHistograms(parent)
@@ -47,11 +51,24 @@ class SequencerHistograms(val parent: MetricName)(implicit
 class SequencerMetrics(
     histograms: SequencerHistograms,
     val openTelemetryMetricsFactory: LabeledMetricsFactory,
-    val grpcMetrics: GrpcServerMetrics,
-    val healthMetrics: HealthMetrics,
-) extends BaseMetrics {
+) extends BaseMetrics
+    with HasDocumentedMetrics {
   override val prefix: MetricName = histograms.prefix
   private implicit val mc: MetricsContext = MetricsContext.Empty
+
+  override def docPoke(): Unit = {
+    bftOrdering.docPoke()
+    dbSequencer.docPoke()
+    dbStorage.docPoke()
+    block.docPoke()
+    sequencerClient.docPoke()
+    publicApi.docPoke()
+    trafficControl.docPoke()
+  }
+
+  override val grpcMetrics: GrpcServerMetrics =
+    new DamlGrpcServerMetrics(openTelemetryMetricsFactory, "sequencer")
+  override val healthMetrics: HealthMetrics = new HealthMetrics(openTelemetryMetricsFactory)
 
   lazy val bftOrdering: BftOrderingMetrics =
     new BftOrderingMetrics(
@@ -74,7 +91,7 @@ class SequencerMetrics(
   object sequencerClient
       extends SequencerClientMetrics(histograms.sequencerClient, openTelemetryMetricsFactory)
 
-  object publicApi {
+  object publicApi extends HasDocumentedMetrics {
     private val prefix = SequencerMetrics.this.prefix :+ "public-api"
     val subscriptionsGauge: Gauge[Int] =
       openTelemetryMetricsFactory.gauge[Int](
@@ -142,7 +159,7 @@ class SequencerMetrics(
   object dbStorage extends DbStorageMetrics(histograms.dbStorage, openTelemetryMetricsFactory)
 
   // TODO(i14580): add testing
-  object trafficControl {
+  object trafficControl extends HasDocumentedMetrics {
     private val prefix: MetricName = SequencerMetrics.this.prefix :+ "traffic-control"
 
     val trafficConsumption = new TrafficConsumptionMetrics(prefix, openTelemetryMetricsFactory)
@@ -226,8 +243,6 @@ object SequencerMetrics {
   def noop(testName: String) = new SequencerMetrics(
     new SequencerHistograms(MetricName(testName))(new HistogramInventory),
     NoOpMetricsFactory,
-    new DamlGrpcServerMetrics(NoOpMetricsFactory, "sequencer"),
-    new HealthMetrics(NoOpMetricsFactory),
   )
 
   private[domain] final case class RecipientStats(
@@ -310,9 +325,16 @@ class MediatorHistograms(val parent: MetricName)(implicit
 class MediatorMetrics(
     histograms: MediatorHistograms,
     val openTelemetryMetricsFactory: LabeledMetricsFactory,
-    val grpcMetrics: GrpcServerMetrics,
-    val healthMetrics: HealthMetrics,
 ) extends BaseMetrics {
+
+  override val grpcMetrics: GrpcServerMetrics =
+    new DamlGrpcServerMetrics(openTelemetryMetricsFactory, "mediator")
+  override val healthMetrics: HealthMetrics = new HealthMetrics(openTelemetryMetricsFactory)
+
+  override def docPoke(): Unit = {
+    dbStorage.docPoke()
+    sequencerClient.docPoke()
+  }
 
   override val prefix: MetricName = histograms.prefix
   private implicit val mc: MetricsContext = MetricsContext.Empty

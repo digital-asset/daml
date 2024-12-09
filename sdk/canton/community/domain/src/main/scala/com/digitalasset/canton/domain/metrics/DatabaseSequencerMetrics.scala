@@ -5,11 +5,12 @@ package com.digitalasset.canton.domain.metrics
 
 import com.daml.metrics.api.*
 import com.daml.metrics.api.MetricHandle.Gauge
+import com.digitalasset.canton.metrics.HasDocumentedMetrics
 
 class DatabaseSequencerMetrics(
     parent: MetricName,
     metricsFactory: MetricHandle.LabeledMetricsFactory,
-) {
+) extends HasDocumentedMetrics {
   private val prefix: MetricName = parent :+ "db"
 
   val watermarkDelay: Gauge[Long] = metricsFactory.gauge(

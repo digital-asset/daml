@@ -138,10 +138,14 @@ trait EpochStoreTest extends AsyncWordSpec {
         val activeEpoch0Info = EpochInfo.mk(EpochNumber.First, BlockNumber.First, 10)
         val activeEpoch1Info = EpochInfo.mk(1L, 10L, 10)
 
-        def addOrderedBlock(epochNumber: Long, blockNumber: Long) =
+        def addOrderedBlock(
+            epochNumber: Long,
+            blockNumber: Long,
+            viewNumber: Long = ViewNumber.First,
+        ) =
           store.addOrderedBlock(
-            prePrepare(epochNumber, blockNumber),
-            commitMessages(epochNumber, blockNumber),
+            prePrepare(epochNumber, blockNumber, viewNumber),
+            commitMessages(epochNumber, blockNumber, viewNumber),
           )
 
         for {
@@ -173,8 +177,12 @@ trait EpochStoreTest extends AsyncWordSpec {
 
           e0 <- store.loadEpochProgress(activeEpoch0Info)
 
-          // updating an existing row should result in a failure
-          _ <- addOrderedBlock(5L, BlockNumber.First).failed
+          // updating an existing row should be ignored
+          _ <- addOrderedBlock(
+            EpochNumber.First,
+            BlockNumber.First,
+            viewNumber = ViewNumber.First + 1,
+          )
 
           _ <- store.startEpoch(activeEpoch1Info)
 

@@ -982,7 +982,6 @@ final class UnassignmentProcessingStepsTest
           crypto.pureCrypto,
           cryptoSnapshot,
           sessionKeyStore,
-          testedProtocolVersion,
         )
         .valueOrFailShutdown("cannot generate encryption key for unassignment request")
       ViewKeyData(_, viewKey, viewKeyMap) = viewsToKeyMap(tree.viewHash)

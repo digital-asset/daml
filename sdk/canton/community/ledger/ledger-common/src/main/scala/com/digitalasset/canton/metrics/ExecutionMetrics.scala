@@ -114,7 +114,7 @@ class ExecutionHistograms(val prefix: MetricName)(implicit
 class ExecutionMetrics(
     inventory: ExecutionHistograms,
     openTelemetryMetricsFactory: LabeledMetricsFactory,
-) {
+) extends HasDocumentedMetrics {
 
   import com.daml.metrics.api.MetricsContext.Implicits.empty
   private val prefix = inventory.prefix

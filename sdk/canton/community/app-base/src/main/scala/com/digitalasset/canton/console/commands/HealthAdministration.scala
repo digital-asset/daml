@@ -31,6 +31,8 @@ import com.digitalasset.canton.console.{
   Helpful,
 }
 import com.digitalasset.canton.grpc.FileStreamObserver
+import com.digitalasset.canton.logging.NamedLogging
+import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.Context
 
 import java.util.concurrent.atomic.AtomicReference
@@ -38,7 +40,8 @@ import java.util.concurrent.atomic.AtomicReference
 abstract class HealthAdministration[S <: NodeStatus.Status](
     runner: AdminCommandRunner,
     consoleEnvironment: ConsoleEnvironment,
-) extends Helpful {
+) extends Helpful
+    with NamedLogging {
   private val initializedCache = new AtomicReference[Boolean](false)
   private def timeouts: ConsoleCommandTimeout = consoleEnvironment.commandTimeouts
 
@@ -109,7 +112,16 @@ abstract class HealthAdministration[S <: NodeStatus.Status](
       adminCommand(
         NodeStatusElement(
           nodeStatusCommand,
-          NodeStatusElement.isWaitingForExternalInput(_, WaitingForId),
+          {
+            case _: NodeStatus.Failure => false
+            case _: NodeStatus.Success[?] =>
+              logger.warn(
+                "Since node is already initialized, it will never be ready to have its if set"
+              )(TraceContext.empty)
+              false
+            case NodeStatus.NotInitialized(_active, waitingFor) =>
+              waitingFor.contains(WaitingForId)
+          },
         )
       )
     )
