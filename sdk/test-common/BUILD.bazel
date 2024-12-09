@@ -502,8 +502,8 @@ da_scala_dar_resources_library(
             name = "upgrades-{}-v1".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/v1/*.daml".format(identifier)]),
             data_dependencies = [
-              "//test-common:upgrades-{}-dep-v1.dar".format(identifier),
-              "//test-common:upgrades-{}-dep-dep-v1.dar".format(identifier)
+                "//test-common:upgrades-{}-dep-v1.dar".format(identifier),
+                "//test-common:upgrades-{}-dep-dep-v1.dar".format(identifier),
             ],
             dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
             enable_interfaces = True,
@@ -517,8 +517,8 @@ da_scala_dar_resources_library(
             name = "upgrades-{}-v2".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/v2/*.daml".format(identifier)]),
             data_dependencies = [
-              "//test-common:upgrades-{}-dep-v2.dar".format(identifier),
-              "//test-common:upgrades-{}-dep-dep-v2.dar".format(identifier)
+                "//test-common:upgrades-{}-dep-v2.dar".format(identifier),
+                "//test-common:upgrades-{}-dep-dep-v2.dar".format(identifier),
             ],
             dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
             enable_interfaces = True,
