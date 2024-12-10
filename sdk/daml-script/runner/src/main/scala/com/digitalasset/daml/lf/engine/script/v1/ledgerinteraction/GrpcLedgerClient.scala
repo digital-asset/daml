@@ -278,6 +278,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       ledgerId = grpcClient.ledgerId.unwrap,
       applicationId = applicationId.getOrElse(""),
       commandId = UUID.randomUUID.toString,
+      prefetchContractKeys = Seq.empty,
     )
     val request = SubmitAndWaitRequest(Some(apiCommands))
     val transactionTreeF = grpcClient.commandServiceClient
