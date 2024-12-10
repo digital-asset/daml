@@ -1368,13 +1368,9 @@ private[lf] object Speedy {
     // Raises an exception if missing a package.
     private[speedy] final def importValue(typ0: Type, value0: V): Control.Value = {
 
-      def assertRight[X](
-          x: Either[LookupError, X],
-          withLookupError: PartialFunction[LookupError, X] = PartialFunction.empty,
-      ): X =
+      def assertRight[X](x: Either[LookupError, X]): X =
         x match {
           case Right(value) => value
-          case Left(error) if withLookupError.isDefinedAt(error) => withLookupError(error)
           case Left(error) => throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, error.pretty)
         }
 
@@ -1549,31 +1545,33 @@ private[lf] object Speedy {
 
               case V.ValueVariant(_, constructor, value) =>
                 val info =
-                  assertRight(
-                    compiledPackages.pkgInterface.lookupVariantConstructor(tyCon, constructor),
-                    withLookupError = { case LookupError.NotFound(_, _) =>
-                      throw SErrorDamlException(
-                        IError.Upgrade(
-                          IError.Upgrade.DowngradeFailed(ty, value)
-                        )
-                      )
-                    },
-                  )
+                  compiledPackages.pkgInterface
+                    .unsafeLookupVariantConstructor(tyCon, constructor)
+                    .fold(
+                      _ =>
+                        throw SErrorDamlException(
+                          IError.Upgrade(
+                            IError.Upgrade.DowngradeFailed(ty, value)
+                          )
+                        ),
+                      assertRight,
+                    )
                 val valType = info.concreteType(argTypes)
                 SValue.SVariant(tyCon, constructor, info.rank, go(valType, value))
 
               case V.ValueEnum(_, constructor) =>
                 val rank =
-                  assertRight(
-                    compiledPackages.pkgInterface.lookupEnumConstructor(tyCon, constructor),
-                    withLookupError = { case LookupError.NotFound(_, _) =>
-                      throw SErrorDamlException(
-                        IError.Upgrade(
-                          IError.Upgrade.DowngradeFailed(ty, value)
-                        )
-                      )
-                    },
-                  )
+                  compiledPackages.pkgInterface
+                    .unsafeLookupEnumConstructor(tyCon, constructor)
+                    .fold(
+                      _ =>
+                        throw SErrorDamlException(
+                          IError.Upgrade(
+                            IError.Upgrade.DowngradeFailed(ty, value)
+                          )
+                        ),
+                      assertRight,
+                    )
                 SValue.SEnum(tyCon, constructor, rank)
 
               case _ =>
