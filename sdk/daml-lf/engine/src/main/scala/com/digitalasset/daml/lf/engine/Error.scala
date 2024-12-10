@@ -161,6 +161,20 @@ object Error {
       override def message: String =
         s"unresolved package name $pkgName " + LookupError.contextDetails(context)
     }
+
+    final case class UnexpectedContractKeyPrefetch(
+        templateId: Ref.TypeConRef,
+        key: Value,
+    ) extends Error {
+      override def message: String =
+        s"Template of prefetched contract key does not define a key: ${templateId} ($key)"
+    }
+
+    final case class ContractIdInContractKey(key: Value) extends Error {
+      override def message: String =
+        s"Contract IDs are not supported in contract keys: ${key.cids.head.coid}"
+    }
+
   }
 
   // Error happening during interpretation

@@ -24,7 +24,7 @@ import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerEr
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.TopologyManagerError.ParticipantErrorGroup
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.client.DomainTopologyClient
+import com.digitalasset.canton.topology.client.{DomainTopologyClient, TopologySnapshot}
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
@@ -201,7 +201,10 @@ class ParticipantTopologyManager(
               TopologyStateUpdateElement(_, mapping: TopologyPackagesStateUpdateMapping),
             ) if !force =>
           checkAddPackagesTopologyTransaction(participantId, mapping)
-        case TopologyStateUpdate(op, TopologyStateUpdateElement(_, vp @ VettedPackages(_, _))) =>
+        case TopologyStateUpdate(
+              op,
+              TopologyStateUpdateElement(_, vp: TopologyPackagesStateUpdateMapping),
+            ) =>
           if (force) {
             logger.info(show"Using force to authorize $op of $vp")
             EitherT.rightT[FutureUnlessShutdown, ParticipantTopologyManagerError](())
@@ -379,25 +382,64 @@ class ParticipantTopologyManager(
   def packagesNotVetted(pid: ParticipantId, packages: Set[PackageId])(implicit
       traceContext: TraceContext
   ): Future[Set[PackageId]] =
-    packagesNotMarkedAs(pid, packages, VettedPackages.dbType) {
-      case VettedPackages(_, packageIds) => packageIds
-    }
+    packagesOccurrencesInPositiveTransactions(
+      pid = pid,
+      queriedPackages = packages,
+      domainTopologyTransactionType = VettedPackages.dbType,
+      packageIdsExtractor = { case VettedPackages(_, pkgs) => pkgs },
+      processOccurrences = _.view.collect { case (pkg, 0) => pkg }.toSet,
+    )
 
   /** Return the packages in `packages` that are not check-only (i.e., vetted or unknown)
     */
-  private def packagesNotMarkedAsCheckOnly(pid: ParticipantId, packages: Set[PackageId])(implicit
+  def packagesNotMarkedAsCheckOnly(pid: ParticipantId, packages: Set[PackageId])(implicit
       traceContext: TraceContext
   ): Future[Set[PackageId]] =
-    packagesNotMarkedAs(pid, packages, CheckOnlyPackages.dbType) {
-      case CheckOnlyPackages(_, packageIds) => packageIds
-    }
+    packagesOccurrencesInPositiveTransactions(
+      pid = pid,
+      queriedPackages = packages,
+      domainTopologyTransactionType = CheckOnlyPackages.dbType,
+      packageIdsExtractor = { case CheckOnlyPackages(_, pkgs) => pkgs },
+      processOccurrences = _.view.collect { case (pkg, 0) => pkg }.toSet,
+    )
 
-  private def packagesNotMarkedAs(
+  /** @return false if the queried package-id does not appear in more than one vetting topology transaction
+    *         true otherwise
+    */
+  def isPackageContainedInMultipleVettedTransactions(
       pid: ParticipantId,
-      packages: Set[PackageId],
+      packageId: PackageId,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Boolean] =
+    FutureUnlessShutdown.outcomeF(
+      packagesOccurrencesInPositiveTransactions(
+        pid = pid,
+        queriedPackages = Set(packageId),
+        domainTopologyTransactionType = VettedPackages.dbType,
+        packageIdsExtractor = { case VettedPackages(_, pkgs) => pkgs },
+        processOccurrences = _.view.collect { case (pkg, count) if count > 1 => pkg }.toSet,
+      ).map(_.nonEmpty)
+    )
+
+  /** Computes a set of package-ids as a function of the input [[packages]]
+    * and their occurrence count in the [[store]]'s positive transactions.
+    *
+    * @param pid The participant it
+    * @param queriedPackages The queried packages
+    * @param domainTopologyTransactionType The [[DomainTopologyTransactionType]] used for filtering the positive transactions from the [[store]]
+    * @param packageIdsExtractor Partial function for extracting the package-ids referenced in the found transactions
+    * @param processOccurrences Function that processes the mapping of the queried package-ids (i.e. [[queriedPackages]] and their counts to the output set
+    */
+  private def packagesOccurrencesInPositiveTransactions(
+      pid: ParticipantId,
+      queriedPackages: Set[PackageId],
       domainTopologyTransactionType: DomainTopologyTransactionType,
-  )(
-      packageIdsExtractor: PartialFunction[TopologyStateUpdateMapping, Seq[PackageId]]
+      packageIdsExtractor: PartialFunction[TopologyPackagesStateUpdateMapping, Seq[PackageId]],
+      processOccurrences: Map[
+        PackageId,
+        Int, /* number of topology transactions referencing the key package-id */
+      ] => Set[PackageId],
   )(implicit traceContext: TraceContext): Future[Set[PackageId]] =
     this.store
       .findPositiveTransactions(
@@ -409,20 +451,72 @@ class ParticipantTopologyManager(
         filterNamespace = None,
       )
       .map { current =>
-        current.adds.toTopologyState
-          .foldLeft(packages) {
-            case (acc, TopologyStateUpdateElement(_, mapping)) =>
-              packageIdsExtractor.lift(mapping).map(acc -- _).getOrElse(acc)
-            case (acc, _) => acc
+        val packagesOccurrences = current.adds.toTopologyState.view
+          .collect {
+            case TopologyStateUpdateElement(_, mapping: TopologyPackagesStateUpdateMapping) =>
+              packageIdsExtractor(mapping).view
+                // We're only interested in the queried packages
+                .filter(queriedPackages)
           }
+          .flatten
+          .groupBy(identity)
+          .view
+          .mapValues(_.size)
+          .toMap
+
+        processOccurrences(
+          // Back-fill with 0-counts (i.e. not found) for queried packages that were not present in the store's transactions
+          queriedPackages.view.map(p => p -> packagesOccurrences.getOrElse(p, 0)).toMap
+        )
       }
 
-  /** @return A FutureUnlessShutdown that will return true if all the packages are
-    *         available following the timeout.network.duration.
+  /** @return true if the package does not appear vetted on any connected domain within the preconfigured timeout, false otherwise
     */
+  def waitForPackageBeingUnvetted(
+      packageId: LfPackageId,
+      pid: ParticipantId,
+  )(implicit
+      tc: TraceContext
+  ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Boolean] =
+    waitForTopologyState(
+      _.findUnvettedPackagesOrDependencies(pid, Set(packageId)).value.unwrap
+        .map(_.map(_.forall(_.contains(packageId))).onShutdown(false))
+    )
+
   def waitForPackagesBeingVetted(
       packageSet: Set[LfPackageId],
       pid: ParticipantId,
+  )(implicit
+      tc: TraceContext
+  ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Boolean] =
+    waitForTopologyState(
+      _.findUnvettedPackagesOrDependencies(pid, packageSet)
+        .map(_.isEmpty) // false if some packages are not vetted
+        .getOrElse(false) // false if a package is unknown
+        .onShutdown(false)
+    )
+
+  /** @return true if all packages in the provided package set and their dependencies are available
+    *         as check-only within a predefined timeout window.
+    */
+  def waitForPackagesMarkedAsCheckOnly(
+      packageSet: Set[LfPackageId],
+      pid: ParticipantId,
+  )(implicit
+      tc: TraceContext
+  ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Boolean] =
+    waitForTopologyState(
+      _.findPackagesOrDependenciesNotDeclaredAsCheckOnly(pid, packageSet)
+        .map(_.isEmpty) // false if some packages are not check-only
+        .getOrElse(false) // false if a package is unknown
+        .onShutdown(false)
+    )
+
+  /** @return Returns true if the topology state on all domain topology clients is
+    *         satisfies the [[check]] following the timeout.network.duration.
+    */
+  private def waitForTopologyState(
+      check: TopologySnapshot => Future[Boolean]
   )(implicit
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Boolean] =
@@ -432,14 +526,8 @@ class ParticipantTopologyManager(
         EitherT.right[ParticipantTopologyManagerError](
           callbacks
             .clients()
-            .parTraverse {
-              _.await(
-                _.findUnvettedPackagesOrDependencies(pid, packageSet).value.unwrap
-                  .map(_.map(_.exists(_.isEmpty)).onShutdown(false)),
-                timeouts.network.duration,
-              )
-            }
-            .map(_ => true)
+            .parTraverse(_.await(check, timeouts.topologySynchronization.duration))
+            .map(_.forall(identity))
         )
       )
 
@@ -647,6 +735,47 @@ object ParticipantTopologyManagerError extends ParticipantErrorGroup {
         extends CantonError.Impl(
           cause =
             show"Disable party $partyId failed because there are active contracts where the party is a stakeholder"
+        )
+        with ParticipantTopologyManagerError
+  }
+
+  @Explanation(
+    """This error indicates that a package topology state update has timed out."""
+  )
+  @Resolution(
+    "Retry the operation or check that no concurrent operations have affected the awaited topology state."
+  )
+  object PackageTopologyStateUpdateTimeout
+      extends ErrorCode(
+        id = "PACKAGE_TOPOLOGY_STATE_UPDATE_TIMEOUT",
+        ErrorCategory.DeadlineExceededRequestStateUnknown,
+      ) {
+    final case class Reject(override val cause: String)(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(cause)
+        with ParticipantTopologyManagerError
+  }
+
+  @Explanation(
+    """The operation has failed due to the DAR's main package being referenced in other uploaded and enabled DARs."""
+  )
+  @Resolution(
+    """First disable the other DARs or explicitly remove the offending topology transaction(s) referencing the main package.
+      |Then, re-try the operation."""
+  )
+  object MainDarPackageReferencedExternally
+      extends ErrorCode(
+        id = "MAIN_DAR_PACKAGE_REFERENCED_EXTERNALLY",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Reject(
+        operationName: String,
+        mainPackageId: LfPackageId,
+        darDescription: String,
+    )(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          s"Operation $operationName for DAR '$darDescription' failed due to its main package with packageId=$mainPackageId being vetted multiple times".show
         )
         with ParticipantTopologyManagerError
   }

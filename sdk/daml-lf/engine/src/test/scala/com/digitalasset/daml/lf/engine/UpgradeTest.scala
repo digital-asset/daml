@@ -1946,6 +1946,7 @@ object UpgradeTest {
           disclosures = disclosures,
           participantId = participant,
           submissionSeed = submissionSeed,
+          prefetchKeys = Seq.empty,
         )
         .consume(
           pcs = lookupContractById,

@@ -143,6 +143,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
       disclosures: ImmArray[DisclosedContract] = ImmArray.empty,
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
+      prefetchKeys: Seq[ApiContractKey],
       engineLogger: Option[EngineLogger] = None,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
 
@@ -152,8 +153,9 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
       pkgResolution <- preprocessor.buildPackageResolution(packageMap, packagePreference)
       processedCmds <- preprocessor.preprocessApiCommands(pkgResolution, cmds.commands)
       processedDiscsAndKeys <- preprocessor.preprocessDisclosedContracts(disclosures)
+      processedPrefetchKeys <- preprocessor.preprocessApiContractKeys(pkgResolution, prefetchKeys)
       (processedDiscs, disclosedKeys) = processedDiscsAndKeys
-      _ <- preprocessor.prefetchKeys(processedCmds, disclosedKeys)
+      _ <- preprocessor.prefetchKeys(processedCmds, processedPrefetchKeys, disclosedKeys)
       result <-
         interpretCommands(
           validating = false,

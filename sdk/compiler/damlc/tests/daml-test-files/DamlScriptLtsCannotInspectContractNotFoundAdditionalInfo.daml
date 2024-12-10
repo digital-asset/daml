@@ -1,0 +1,30 @@
+module DamlScriptLtsCannotInspectContractNotFoundAdditionalInfo where
+
+-- @ SCRIPT-V2
+
+import Daml.Script
+
+-- @ ERROR range=17:14-17:22; Not in scope: data constructor ‘NotFound’
+-- @ ERROR range=18:14-18:23; Not in scope: data constructor ‘NotActive’
+-- @ ERROR range=19:14-19:26; Not in scope: data constructor ‘NotEffective’
+-- @ ERROR range=20:14-20:24; Not in scope: data constructor ‘NotVisible’
+patternMatchShouldn'tCompile : ()
+patternMatchShouldn'tCompile =
+  case error "placeholder error for typechecking, should not be evaluated" of
+    ContractNotFound { additionalDebuggingInfo } ->
+      case additionalDebuggingInfo of
+        None -> ()
+        Just NotFound {} -> ()
+        Just NotActive {} -> ()
+        Just NotEffective {} -> ()
+        Just NotVisible {} -> ()
+    _ -> ()
+
+patternMatchShouldCompile : ()
+patternMatchShouldCompile =
+  case error "placeholder error for typechecking, should not be evaluated" of
+    ContractNotFound { additionalDebuggingInfo } ->
+      case additionalDebuggingInfo of
+        None -> ()
+        Just _ -> ()
+    _ -> ()

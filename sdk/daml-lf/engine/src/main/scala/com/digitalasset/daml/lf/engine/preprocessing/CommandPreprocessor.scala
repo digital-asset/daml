@@ -5,9 +5,11 @@ package com.daml.lf
 package engine
 package preprocessing
 
+import com.daml.lf.command.ApiContractKey
 import com.daml.lf.data.Ref.PackageRef
 import com.daml.lf.data._
 import com.daml.lf.language.Ast
+import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
 
@@ -324,6 +326,40 @@ private[lf] final class CommandPreprocessor(
     val arg = translateArg(Ast.TTyCon(templateId), argument)
 
     speedy.InterfaceView(templateId, arg, interfaceId)
+  }
+
+  @throws[Error.Preprocessing.Error]
+  def unsafePreprocessApiContractKeys(
+      pkgResolution: Map[Ref.PackageName, Ref.PackageId],
+      keys: Seq[ApiContractKey],
+  ): Seq[GlobalKey] =
+    keys.map(unsafePreprocessApiContractKey(pkgResolution, _))
+
+  @throws[Error.Preprocessing.Error]
+  private def unsafePreprocessApiContractKey(
+      pkgResolution: Map[Ref.PackageName, Ref.PackageId],
+      key: ApiContractKey,
+  ): GlobalKey = {
+    val templateRef = key.templateRef
+    val templateId = unsafeResolveTyConName(
+      pkgResolution,
+      templateRef,
+      language.Reference.Template(templateRef),
+    )
+    val tmpl = handleLookup(pkgInterface.lookupTemplate(templateId))
+    if (tmpl.key.isEmpty)
+      throw Error.Preprocessing.UnexpectedContractKeyPrefetch(
+        templateRef,
+        key.contractKey,
+      )
+    val ckTtype = handleLookup(pkgInterface.lookupTemplateKey(templateId)).typ
+    val preprocessedKey = translateArg(ckTtype, key.contractKey)
+
+    speedy.Speedy.Machine
+      .globalKey(pkgInterface, templateId, preprocessedKey)
+      .getOrElse(
+        throw Error.Preprocessing.ContractIdInContractKey(key.contractKey)
+      )
   }
 
 }

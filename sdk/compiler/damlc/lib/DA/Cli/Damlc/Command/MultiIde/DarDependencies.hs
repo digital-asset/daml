@@ -61,8 +61,8 @@ unpackDar miState darFile = do
     BSL.writeFile fullPath content
 
   let mainDalfContent = BSL.toStrict $ fromEntry mainDalf
-      ignoredPrefixes = ["daml-stdlib", "daml-prim", "daml-script", "daml3-script", mainPkgName <> "-" <> mainPkgVersion]
-      -- Filter dalfs first such that none start with `daml-stdlib` or `daml-prim`, `daml-script` or `daml3-script`
+      ignoredPrefixes = ["daml-stdlib", "daml-prim", "daml-script", "daml-script-lts", mainPkgName <> "-" <> mainPkgVersion]
+      -- Filter dalfs first such that none start with `daml-stdlib` or `daml-prim`, `daml-script` or `daml-script-lts`
       -- then that the package id of the dalf isn't in the LF for the main package
       dalfsToExpand =
         flip filter (zEntries archive) $ \entry ->
@@ -87,7 +87,7 @@ unpackDar miState darFile = do
   let isSdkPackage pkgName entry =
         takeExtension (eRelativePath entry) == ".dalf" && pkgName == fst3 (extractPackageMetadataFromEntry entry)
       includesSdkPackage pkgName = any (isSdkPackage pkgName) $ zEntries archive
-      sdkPackages = ["daml-script", "daml3-script", "daml-trigger"]
+      sdkPackages = ["daml-script", "daml-script-lts", "daml-trigger"]
       deps = ["daml-prim", "daml-stdlib"] <> filter includesSdkPackage sdkPackages
       packageMeta = getPackageMetadata mainPkg
       damlYamlContent = unlines $

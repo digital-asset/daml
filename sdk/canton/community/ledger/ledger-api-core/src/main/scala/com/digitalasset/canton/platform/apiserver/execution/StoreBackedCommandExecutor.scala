@@ -19,8 +19,8 @@ import com.daml.lf.engine.{
   ResultNeedContract,
   ResultNeedKey,
   ResultNeedPackage,
-  ResultPrefetch,
   ResultNeedUpgradeVerification,
+  ResultPrefetch,
 }
 import com.daml.lf.transaction.*
 import com.daml.lf.value.Value
@@ -57,6 +57,7 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.util.Checked
+import com.digitalasset.canton.util.FutureInstances.*
 import scalaz.syntax.tag.*
 
 import java.util.concurrent.TimeUnit
@@ -94,11 +95,33 @@ private[apiserver] final class StoreBackedCommandExecutor(
   ): Future[Either[ErrorCause, CommandExecutionResult]] = {
     val interpretationTimeNanos = new AtomicLong(0L)
     val start = System.nanoTime()
-    val coids = commands.commands.commands.toSeq.foldLeft(Set.empty[Value.ContractId]) {
-      case (acc, com.daml.lf.command.ApiCommand.Exercise(_, coid, _, argument)) =>
-        argument.collectCids(acc) + coid
-      case (acc, _) => acc
-    }
+    val coids =
+      commands.commands.commands.toSeq
+        .foldLeft((Set.empty[Value.ContractId])) {
+          case (
+                contractIds,
+                com.daml.lf.command.ApiCommand.Exercise(_, coid, _, argument),
+              ) =>
+            argument.collectCids(contractIds) + coid
+          case (
+                contractIds,
+                com.daml.lf.command.ApiCommand.ExerciseByKey(_, _, _, argument),
+              ) =>
+            argument.collectCids(contractIds)
+          case (acc, _) => acc
+        }
+        .diff(commands.disclosedContracts.map(_.contractId).toSeq.toSet)
+
+    // Trigger loading through the state cache and the batch aggregator.
+    // Loading of contracts is a multi-stage process.
+    // - start with N items
+    // - trigger a single load in contractStore (1:1)
+    // - visit the mutableStateCache which will use the read through lookup
+    // - the read through lookup will ask the contract reader
+    // - the contract reader will ask the batchLoader
+    // - the batch loader will put independent requests together into db batches and respond
+    val loadContractsF =
+      Future.sequence(coids.map(contractStore.lookupContractStateWithoutDivulgence))
     for {
       ledgerTimeRecordTimeToleranceO <- dynParamGetter
         // TODO(i15313):
@@ -111,7 +134,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
         }
         .value
         .map(_.toOption)
-      _ <- Future.sequence(coids.map(contractStore.lookupContractStateWithoutDivulgence))
+      _ <- loadContractsF
       submissionResult <- submitToEngine(commands, submissionSeed, interpretationTimeNanos)
       submission <- consume(
         commands.actAs,
@@ -214,6 +237,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           disclosures = commands.disclosedContracts.map(_.toLf),
           participantId = participant,
           submissionSeed = submissionSeed,
+          prefetchKeys = Seq.empty,
           config.toEngineLogger(loggerFactory.append("phase", "submission")),
         )
       }),
@@ -375,7 +399,11 @@ private[apiserver] final class StoreBackedCommandExecutor(
               )
             }
 
-        case ResultPrefetch(_, resume) => resolveStep(resume())
+        case ResultPrefetch(keys, resume) =>
+          // prefetch the contract keys via the mutable state cache / batch aggregator
+          keys.parTraverse_(contractStore.lookupContractKey(Set.empty, _)).flatMap { _ =>
+            resolveStep(resume())
+          }
       }
 
     resolveStep(result).andThen { case _ =>

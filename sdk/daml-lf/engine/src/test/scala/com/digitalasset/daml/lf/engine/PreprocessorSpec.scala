@@ -7,7 +7,7 @@ package engine
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{PackageId, PackageName, PackageVersion, Party}
 import com.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref}
-import com.daml.lf.command.ApiCommand
+import com.daml.lf.command.{ApiCommand, ApiContractKey}
 import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.language.{
   Ast,
@@ -393,13 +393,24 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
     }
 
     "prefetchKeys" should {
+      val priority = Map(pkgName.get -> defaultPackageId)
+      val bob: Party = Ref.Party.assertFromString("Bob")
+      val bobKey = ValueList(FrontStack(ValueParty(bob)))
+
+      val globalKey1 = GlobalKey.assertBuild(
+        withKeyTmplId,
+        parties,
+        KeyPackageName(pkg.name, pkg.languageVersion),
+      )
+      val globalKey2 = GlobalKey.assertBuild(
+        withKeyTmplId,
+        bobKey,
+        KeyPackageName(pkg.name, pkg.languageVersion),
+      )
+
       "extract the undisclosed keys from ExerciseByKey commands" in {
         val compiledPkgs = ConcurrentCompiledPackages(compilerConfig)
         val preprocessor = new preprocessing.Preprocessor(compiledPkgs)
-
-        val priority = Map(pkgName.get -> defaultPackageId)
-        val bob: Party = Ref.Party.assertFromString("Bob")
-        val bobKey = ValueList(FrontStack(ValueParty(bob)))
 
         val commands = {
           val recordFields = Value.ValueRecord(
@@ -435,15 +446,64 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
           )
         }
 
-        val globalKey1 = GlobalKey.assertBuild(
-          withKeyTmplId,
-          parties,
-          KeyPackageName(pkg.name, pkg.languageVersion),
+        val Right(preprocessedCommands) = preprocessor
+          .preprocessApiCommands(
+            priority,
+            commands,
+          )
+          .consume(pkgs = pkgs)
+
+        val resultAllUndisclosed =
+          preprocessor.prefetchKeys(preprocessedCommands, Seq.empty, Set.empty)
+        inside(resultAllUndisclosed) { case ResultPrefetch(keys, resume) =>
+          keys shouldBe Seq(globalKey1, globalKey2)
+          resume() shouldBe ResultDone.Unit
+        }
+
+        val resultAllDisclosed =
+          preprocessor.prefetchKeys(
+            preprocessedCommands,
+            Seq.empty,
+            Set(globalKey1.hash, globalKey2.hash),
+          )
+        resultAllDisclosed shouldBe ResultDone.Unit
+      }
+
+      "include explicitly specified keys" in {
+        val compiledPkgs = ConcurrentCompiledPackages(compilerConfig)
+        val preprocessor = new preprocessing.Preprocessor(compiledPkgs)
+
+        val prefetch = Seq(
+          ApiContractKey(withKeyTmplRef, parties),
+          ApiContractKey(withKeyTmplRef, bobKey),
         )
-        val globalKey2 = GlobalKey.assertBuild(
-          withKeyTmplId,
-          bobKey,
-          KeyPackageName(pkg.name, pkg.languageVersion),
+
+        val Right(globalKeys) =
+          preprocessor.preprocessApiContractKeys(priority, prefetch).consume(pkgs = pkgs)
+        globalKeys shouldBe Seq(globalKey1, globalKey2)
+
+        val resultAllUndisclosed = preprocessor.prefetchKeys(ImmArray.empty, globalKeys, Set.empty)
+        inside(resultAllUndisclosed) { case ResultPrefetch(keys, resume) =>
+          keys shouldBe Seq(globalKey1, globalKey2)
+          resume() shouldBe ResultDone.Unit
+        }
+
+        val resultAllDisclosed =
+          preprocessor.prefetchKeys(ImmArray.empty, globalKeys, globalKeys.map(_.hash).toSet)
+        resultAllDisclosed shouldBe ResultDone.Unit
+      }
+
+      "fail on contract IDs in keys" in {
+        val compiledPkgs = ConcurrentCompiledPackages(compilerConfig)
+        val preprocessor = new preprocessing.Preprocessor(compiledPkgs)
+
+        val commands = ImmArray(
+          ApiCommand.ExerciseByKey(
+            templateRef = withKeyTmplRef,
+            contractKey = parties,
+            choiceId = choiceId,
+            argument = Value.ValueUnit,
+          )
         )
 
         val Right(preprocessedCommands) = preprocessor
@@ -453,15 +513,19 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
           )
           .consume(pkgs = pkgs)
 
-        val resultAllUndisclosed = preprocessor.prefetchKeys(preprocessedCommands, Set.empty)
-        inside(resultAllUndisclosed) { case ResultPrefetch(keys, resume) =>
-          keys shouldBe Seq(globalKey1, globalKey2)
-          resume() shouldBe ResultDone.Unit
+        val commandsWithContractIdAsKey = preprocessedCommands.map {
+          case ex: speedy.Command.ExerciseByKey =>
+            ex.copy(contractKey = speedy.SValue.SContractId(contractId))
+          case other => other
         }
 
-        val resultAllDisclosed =
-          preprocessor.prefetchKeys(preprocessedCommands, Set(globalKey1.hash, globalKey2.hash))
-        resultAllDisclosed shouldBe ResultDone.Unit
+        val result = preprocessor.prefetchKeys(commandsWithContractIdAsKey, Seq.empty, Set.empty)
+        inside(result) {
+          case ResultError(
+                Error.Preprocessing(Error.Preprocessing.ContractIdInContractKey(value))
+              ) =>
+            value shouldBe Value.ValueContractId(contractId)
+        }
       }
     }
   }

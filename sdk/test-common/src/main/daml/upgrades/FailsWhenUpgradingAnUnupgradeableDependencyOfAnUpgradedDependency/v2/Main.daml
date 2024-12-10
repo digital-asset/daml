@@ -1,0 +1,25 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Main where
+
+import qualified Dep
+import qualified DepDep
+
+data D = D { field1 : Text, field2 : Optional Dep.D }
+
+template T with
+    p: Party
+    t: ContractId Dep.T
+    u: ContractId DepDep.T -- Import DepDep to make sure that main depending on depdep does not reorder dependency checking order to bring dep before depdep
+  where
+    signatory p
+    choice C1 : D
+      controller p
+      do
+        depD <- exercise t Dep.C1 -- only works when party is same
+        pure $ D "field1" (Some depD)
+    choice C2 : Dep.DepDepWrapper
+      controller p
+      do Dep.DepDepWrapper <$> exercise t Dep.C2 -- only works when party is same
+

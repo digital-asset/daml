@@ -159,23 +159,25 @@ class AdminWorkflowServices(
       conn
     }) { conn =>
       parameters.processingTimeouts.unbounded.await_(s"Load Daml packages") {
-        checkPackagesStatus(AdminWorkflowServices.AdminWorkflowPackages, conn).flatMap {
-          isAlreadyLoaded =>
-            if (!isAlreadyLoaded) EitherTUtil.toFuture(loadDamlArchiveResource())
+        checkPackagesStatus(AdminWorkflowServices.AdminWorkflowPackages.allPackagesAsMap, conn)
+          .flatMap { areAlreadyLoaded =>
+            if (!areAlreadyLoaded) EitherTUtil.toFuture(loadDamlArchiveResource())
             else {
               logger.debug("Admin workflow packages are already present. Skipping loading.")
               // vet any packages that have not yet been vetted
               EitherTUtil.toFuture(
                 handleDamlErrorDuringPackageLoading(
                   packageService
-                    .vetPackages(
-                      AdminWorkflowServices.AdminWorkflowPackages.keys.toSeq,
+                    .enableDarPackages(
+                      AdminWorkflowServices.AdminWorkflowPackages.mainPackage._1,
+                      AdminWorkflowServices.AdminWorkflowPackages.dependencyPackages.map(_._1),
+                      "AdminWorkflowPackages DAR",
                       syncVetting = false,
                     )
                 )
               )
             }
-        }
+          }
       }
     }
 
@@ -280,12 +282,15 @@ object AdminWorkflowServices extends AdminWorkflowServicesErrorGroup {
         )
     }
 
-  val AdminWorkflowPackages: Map[PackageId, Ast.Package] =
-    DamlPackageLoader
+  case object AdminWorkflowPackages {
+    val (mainPackage, dependencyPackages) = DamlPackageLoader
       .getPackagesFromInputStream("AdminWorkflows", adminWorkflowDarInputStream())
       .valueOr(err =>
         throw new IllegalStateException(s"Unable to load admin workflow packages: $err")
       )
+
+    val allPackagesAsMap: Map[PackageId, Ast.Package] = (dependencyPackages :+ mainPackage).toMap
+  }
 
   @Explanation(
     """This error indicates that the admin workflow package could not be vetted. The admin workflows is

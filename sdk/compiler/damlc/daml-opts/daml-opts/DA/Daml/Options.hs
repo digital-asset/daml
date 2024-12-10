@@ -563,13 +563,12 @@ expandSdkPackages logger lfVersion dars = do
       | fp `elem` basePackages = pure fp
       | isSdkPackage fp = case mbSdkPath of
             Just sdkPath | fp == "daml-script-beta" -> do
-              Logger.logWarning logger "daml-script-beta is beta software and may change APIs in the future."
-              pure $ sdkPath </> "daml-libs" </> "daml3-script" <> sdkSuffix <.> "dar"
-            Just sdkPath -> do
-              when (fp == "daml3-script")
-                $ Logger.logWarning logger
-                    "You are using an unreleased and unstable version of daml-script intended for daml3. This will break without warning."
-              pure $ sdkPath </> "daml-libs" </> fp <> sdkSuffix <.> "dar"
+              Logger.logWarning logger "daml-script-beta is no longer beta and has been renamed. Please use daml-script-lts"
+              pure $ sdkPath </> "daml-libs" </> "daml-script-lts" <> sdkSuffix <.> "dar"
+            Just sdkPath | fp == "daml3-script" -> do
+              Logger.logWarning logger "daml3-script has been renamed. Please use daml-script-lts"
+              pure $ sdkPath </> "daml-libs" </> "daml-script-lts" <> sdkSuffix <.> "dar"
+            Just sdkPath -> pure $ sdkPath </> "daml-libs" </> fp <> sdkSuffix <.> "dar"
             Nothing -> fail $ "Cannot resolve SDK dependency '" ++ fp ++ "'. Use daml assistant."
       | otherwise = pure fp
     -- For `dependencies` you need to specify all transitive dependencies.
@@ -580,9 +579,11 @@ expandSdkPackages logger lfVersion dars = do
       | otherwise = [fp]
     sdkDependencies = Map.fromList
       [ ("daml-trigger", ["daml-script"])
-      , -- Daml3-script is now split into 2 packages, we need to bring that transitive dep in.
-        ("daml3-script", ["daml3-script-stable"])
-      , ("daml-script-beta", ["daml3-script-stable"])
+      , -- daml-script-lts is now split into 2 packages, we need to bring that transitive dep in.
+        ("daml-script-lts", ["daml-script-lts-stable"])
+        -- Legacy names of daml-script-lts
+      , ("daml-script-beta", ["daml-script-lts-stable"])
+      , ("daml3-script", ["daml-script-lts-stable"])
       ]
 
 

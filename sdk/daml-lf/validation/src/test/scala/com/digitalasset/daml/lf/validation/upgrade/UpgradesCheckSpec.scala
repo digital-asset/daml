@@ -220,6 +220,71 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
       )
     }
 
+    "Succeeds when upgrading a dependency" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-SucceedsWhenUpgradingADependency-v1.dar",
+          "test-common/upgrades-SucceedsWhenUpgradingADependency-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-SucceedsWhenUpgradingADependency-dep-v1.dar",
+            "test-common/upgrades-SucceedsWhenUpgradingADependency-dep-v2.dar",
+            None,
+          ),
+          (
+            "test-common/upgrades-SucceedsWhenUpgradingADependency-v1.dar",
+            "test-common/upgrades-SucceedsWhenUpgradingADependency-v2.dar",
+            None,
+          ),
+        ),
+      )
+    }
+
+    "Succeeds when upgrading a dependency of a dependency" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-SucceedsWhenUpgradingADependencyOfAnUpgradedDependency-v1.dar",
+          "test-common/upgrades-SucceedsWhenUpgradingADependencyOfAnUpgradedDependency-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-SucceedsWhenUpgradingADependencyOfAnUpgradedDependency-dep-dep-v1.dar",
+            "test-common/upgrades-SucceedsWhenUpgradingADependencyOfAnUpgradedDependency-dep-dep-v2.dar",
+            None,
+          ),
+          (
+            "test-common/upgrades-SucceedsWhenUpgradingADependencyOfAnUpgradedDependency-dep-v1.dar",
+            "test-common/upgrades-SucceedsWhenUpgradingADependencyOfAnUpgradedDependency-dep-v2.dar",
+            None,
+          ),
+          (
+            "test-common/upgrades-SucceedsWhenUpgradingADependencyOfAnUpgradedDependency-v1.dar",
+            "test-common/upgrades-SucceedsWhenUpgradingADependencyOfAnUpgradedDependency-v2.dar",
+            None,
+          ),
+        ),
+      )
+    }
+
+    "Fails when upgrading an erroneous dependency of a dependency" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-FailsWhenUpgradingAnUnupgradeableDependencyOfAnUpgradedDependency-v1.dar",
+          "test-common/upgrades-FailsWhenUpgradingAnUnupgradeableDependencyOfAnUpgradedDependency-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-FailsWhenUpgradingAnUnupgradeableDependencyOfAnUpgradedDependency-dep-dep-v1.dar",
+            "test-common/upgrades-FailsWhenUpgradingAnUnupgradeableDependencyOfAnUpgradedDependency-dep-dep-v2.dar",
+            Some(
+              "The upgraded data type D has added new fields, but those fields are not Optional."
+            ),
+          )
+        ),
+      )
+    }
+
     s"Succeeds when v1 upgrades to v2 and then v3" in {
       testPackages(
         Seq(

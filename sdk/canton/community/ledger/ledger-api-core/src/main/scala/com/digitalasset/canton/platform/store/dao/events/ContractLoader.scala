@@ -4,8 +4,10 @@
 package com.digitalasset.canton.platform.store.dao.events
 
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.ContractId
 import com.daml.metrics.InstrumentedGraph
+import com.daml.metrics.api.MetricHandle.Histogram
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.ledger.offset.Offset
@@ -15,10 +17,14 @@ import com.digitalasset.canton.logging.{
   NamedLoggerFactory,
   NamedLogging,
 }
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.{BatchLoaderMetrics, Metrics}
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend.RawContractState
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
+import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.{
+  KeyState,
+  KeyUnassigned,
+}
 import com.digitalasset.canton.util.BatchN
 import io.grpc.{Metadata, StatusRuntimeException}
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
@@ -118,10 +124,45 @@ class PekkoStreamParallelBatchedLoader[KEY, VALUE](
   }
 }
 
-trait ContractLoader extends Loader[(ContractId, Offset), RawContractState]
+/** Efficient cross-request batching contract loader
+  *
+  * Note that both loaders operate on an identifier -> offset basis. The given offset of a request serves as a lower
+  * bound for the states. The states can be newer, but not older. We still need to have an upper bound of the
+  * requests as we don't want to read dirty states (due to parallel insertion).
+  */
+trait ContractLoader {
+  def contracts: Loader[(ContractId, Offset), RawContractState]
+  def keys: Loader[(GlobalKey, Offset), KeyState]
+}
 
 object ContractLoader {
-  def create(
+
+  private[events] def maxOffsetAndContextFromBatch[T](
+      batch: Seq[((T, Offset), LoggingContextWithTrace)],
+      histogram: Histogram,
+  ) = {
+    val ((_, latestValidAtOffset), usedLoggingContext) = batch
+      .maxByOption(_._1._2)
+      .getOrElse(
+        throw new IllegalStateException("A batch should never be empty")
+      )
+    histogram.update(batch.size)(MetricsContext.Empty)
+    (latestValidAtOffset, usedLoggingContext)
+  }
+
+  private[events] def createQueue[K, V](maxQueueSize: Int, metrics: BatchLoaderMetrics)(implicit
+      materializer: Materializer
+  ): Source[(K, LoggingContextWithTrace, Promise[Option[V]]), BoundedSourceQueue[
+    (K, LoggingContextWithTrace, Promise[Option[V]])
+  ]] =
+    InstrumentedGraph.queue(
+      bufferSize = maxQueueSize,
+      capacityCounter = metrics.bufferCapacity,
+      lengthCounter = metrics.bufferLength,
+      delayTimer = metrics.bufferDelay,
+    )
+
+  private def createContractBatchLoader(
       contractStorageBackend: ContractStorageBackend,
       dbDispatcher: DbDispatcher,
       metrics: Metrics,
@@ -132,7 +173,10 @@ object ContractLoader {
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
-  ): ResourceOwner[ContractLoader] =
+  ): ResourceOwner[PekkoStreamParallelBatchedLoader[
+    (ContractId, Offset),
+    RawContractState,
+  ]] =
     ResourceOwner
       .forReleasable(() =>
         new PekkoStreamParallelBatchedLoader[
@@ -140,13 +184,10 @@ object ContractLoader {
           RawContractState,
         ](
           batchLoad = { batch =>
-            val ((_, latestValidAtOffset), usedLoggingContext) = batch
-              .maxByOption(_._1._2)
-              .getOrElse(
-                throw new IllegalStateException("A batch should never be empty")
-              )
-            metrics.daml.index.db.activeContractLookupBatchSize
-              .update(batch.size)(MetricsContext.Empty)
+            val (latestValidAtOffset, usedLoggingContext) = maxOffsetAndContextFromBatch(
+              batch,
+              metrics.daml.index.db.activeContracts.batchSize,
+            )
             val contractIds = batch.map(_._1._1)
             val archivedContractsF =
               dbDispatcher
@@ -175,30 +216,166 @@ object ContractLoader {
                 .toList
             }.toMap
           },
-          createQueue = () =>
-            InstrumentedGraph.queue(
-              bufferSize = maxQueueSize,
-              capacityCounter = metrics.daml.index.db.activeContractLookupBufferCapacity,
-              lengthCounter = metrics.daml.index.db.activeContractLookupBufferLength,
-              delayTimer = metrics.daml.index.db.activeContractLookupBufferDelay,
-            ),
+          createQueue = () => createQueue(maxQueueSize, metrics.daml.index.db.activeContracts),
           maxBatchSize = maxBatchSize,
           parallelism = parallelism,
           loggerFactory = loggerFactory,
         )
       )(_.closeAsync())
-      .map(loader =>
-        new ContractLoader {
-          override def load(key: (ContractId, Offset))(implicit
-              loggingContext: LoggingContextWithTrace
-          ): Future[Option[RawContractState]] =
-            loader.load(key)
-        }
+
+  private def createContractKeyBatchLoader(
+      contractStorageBackend: ContractStorageBackend,
+      dbDispatcher: DbDispatcher,
+      metrics: Metrics,
+      maxQueueSize: Int,
+      maxBatchSize: Int,
+      parallelism: Int,
+      loggerFactory: NamedLoggerFactory,
+  )(implicit
+      materializer: Materializer,
+      executionContext: ExecutionContext,
+  ): ResourceOwner[PekkoStreamParallelBatchedLoader[
+    (GlobalKey, Offset),
+    KeyState,
+  ]] =
+    ResourceOwner
+      .forReleasable(() =>
+        new PekkoStreamParallelBatchedLoader[
+          (GlobalKey, Offset),
+          KeyState,
+        ](
+          batchLoad = { batch =>
+            // we can use the latest offset as the API only requires us to not return a state older than the given offset
+            val (latestValidAtOffset, usedLoggingContext) =
+              ContractLoader.maxOffsetAndContextFromBatch(
+                batch,
+                metrics.daml.index.db.activeContracts.batchSize,
+              )
+            val contractKeys = batch.map(_._1._1)
+            val contractKeysF =
+              dbDispatcher
+                .executeSql(metrics.daml.index.db.lookupContractByKeyDbMetrics)(
+                  contractStorageBackend.keyStates(
+                    keys = contractKeys,
+                    validAt = latestValidAtOffset,
+                  )
+                )(usedLoggingContext)
+
+            contractKeysF.map { keys =>
+              batch.view.map { case (key, _offset) =>
+                (key) -> keys
+                  .getOrElse(
+                    key._1, {
+                      loggerFactory
+                        .getLogger(getClass)
+                        .error(
+                          s"Key is absent (not even unassigned) in contract key lookup at the given offset: $key"
+                        )
+                      KeyUnassigned
+                    },
+                  )
+              }.toMap
+            }
+          },
+          createQueue =
+            () => ContractLoader.createQueue(maxQueueSize, metrics.daml.index.db.activeContracts),
+          maxBatchSize = maxBatchSize,
+          parallelism = parallelism,
+          loggerFactory = loggerFactory,
+        )
+      )(_.closeAsync())
+
+  private def fetchOneKey(
+      contractStorageBackend: ContractStorageBackend,
+      dbDispatcher: DbDispatcher,
+      metrics: Metrics,
+  )(
+      keyWithOffset: (GlobalKey, Offset)
+  )(implicit loggingContext: LoggingContextWithTrace) = {
+    val (key, offset) = keyWithOffset
+    dbDispatcher
+      .executeSql(metrics.daml.index.db.lookupContractByKeyDbMetrics)(
+        contractStorageBackend.keyState(
+          key = key,
+          validAt = offset,
+        )
+      )(loggingContext)
+  }
+
+  def create(
+      contractStorageBackend: ContractStorageBackend,
+      dbDispatcher: DbDispatcher,
+      metrics: Metrics,
+      maxQueueSize: Int,
+      maxBatchSize: Int,
+      parallelism: Int,
+      loggerFactory: NamedLoggerFactory,
+  )(implicit
+      materializer: Materializer,
+      executionContext: ExecutionContext,
+  ): ResourceOwner[ContractLoader] =
+    for {
+      contractsBatchLoader <- createContractBatchLoader(
+        contractStorageBackend,
+        dbDispatcher,
+        metrics,
+        maxQueueSize,
+        maxBatchSize,
+        parallelism,
+        loggerFactory,
       )
+      contractKeysBatchLoader <-
+        if (contractStorageBackend.supportsBatchKeyStateLookups)
+          createContractKeyBatchLoader(
+            contractStorageBackend,
+            dbDispatcher,
+            metrics,
+            maxQueueSize,
+            maxBatchSize,
+            parallelism,
+            loggerFactory,
+          ).map(Some(_))
+        else ResourceOwner.successful(None)
+    } yield {
+      new ContractLoader {
+        override final val contracts: Loader[(ContractId, Offset), RawContractState] =
+          new Loader[(ContractId, Offset), RawContractState] {
+            override def load(key: (ContractId, Offset))(implicit
+                loggingContext: LoggingContextWithTrace
+            ): Future[Option[RawContractState]] = contractsBatchLoader.load(key)
+          }
+        override final val keys: Loader[(GlobalKey, Offset), KeyState] =
+          contractKeysBatchLoader match {
+            case Some(batchLoader) =>
+              new Loader[(GlobalKey, Offset), KeyState] {
+                override def load(key: (GlobalKey, Offset))(implicit
+                    loggingContext: LoggingContextWithTrace
+                ): Future[Option[KeyState]] = batchLoader.load(key)
+              }
+            case None =>
+              new Loader[(GlobalKey, Offset), KeyState] {
+                override def load(key: (GlobalKey, Offset))(implicit
+                    loggingContext: LoggingContextWithTrace
+                ): Future[Option[KeyState]] =
+                  fetchOneKey(contractStorageBackend, dbDispatcher, metrics)(key).map(Some(_))
+              }
+          }
+      }
+    }
 
   val dummyLoader = new ContractLoader {
-    override def load(key: (ContractId, Offset))(implicit
-        loggingContext: LoggingContextWithTrace
-    ): Future[Option[RawContractState]] = Future.successful(None)
+    override final val contracts: Loader[(ContractId, Offset), RawContractState] =
+      new Loader[(ContractId, Offset), RawContractState] {
+        override def load(key: (ContractId, Offset))(implicit
+            loggingContext: LoggingContextWithTrace
+        ): Future[Option[RawContractState]] = Future.successful(None)
+      }
+    override final val keys: Loader[(GlobalKey, Offset), KeyState] =
+      new Loader[(GlobalKey, Offset), KeyState] {
+        override def load(key: (GlobalKey, Offset))(implicit
+            loggingContext: LoggingContextWithTrace
+        ): Future[Option[KeyState]] = Future.successful(None)
+      }
+
   }
 }

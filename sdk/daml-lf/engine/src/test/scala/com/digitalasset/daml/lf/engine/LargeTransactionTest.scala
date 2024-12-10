@@ -293,6 +293,7 @@ class LargeTransactionTest(majorLanguageVersion: LanguageMajorVersion)
         disclosures = ImmArray.empty,
         participantId = participant,
         submissionSeed = seed,
+        prefetchKeys = Seq.empty,
       )
       .consume(
         ledger.get(submitter, effectiveAt),

@@ -124,6 +124,7 @@ class AuthPropagationSpec(langVersion: LanguageVersion)
           disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = submissionSeed,
+          prefetchKeys = Seq.empty,
         )
         .consume(pcs = defaultContracts, pkgs = allPackages)
 

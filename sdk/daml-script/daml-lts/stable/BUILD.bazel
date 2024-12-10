@@ -1,0 +1,31 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@build_environment//:configuration.bzl", "ghc_version")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS")
+load("//rules_daml:daml.bzl", "daml_compile")
+
+# These packages contain only stable data types (and all exceptions) from daml-script-lts. See Daml/Script/Stable.daml for more information.
+[
+    daml_compile(
+        name = "daml-script-lts-stable-{}".format(lf_version),
+        srcs = glob(["**/*.daml"]),
+        # Force daml files to be under `daml` directory, to match previous behaviour
+        generated_daml_source_directory = "daml",
+        project_name = "daml-script-lts-stable",
+        target = lf_version,
+        version = ghc_version,
+        visibility = [
+            "//daml-script/daml-lts:__pkg__",
+            "//daml-script/daml-lts/internal:__pkg__",
+        ],
+    )
+    for lf_version in COMPILER_LF_VERSIONS
+]
+
+# Stable source files exposed for docs generation in //daml-script/daml-lts/internal
+filegroup(
+    name = "daml-script-lts-stable-source",
+    srcs = glob(["**/*.daml"]),
+    visibility = ["//daml-script/daml-lts/internal:__pkg__"],
+)
