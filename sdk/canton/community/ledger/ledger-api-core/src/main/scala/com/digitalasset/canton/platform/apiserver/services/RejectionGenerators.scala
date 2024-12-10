@@ -155,6 +155,11 @@ object RejectionGenerators {
         case LfInterpretationError.Upgrade(error: LfInterpretationError.Upgrade.ViewMismatch) =>
           CommandExecutionErrors.Interpreter.UpgradeError.ViewMismatch
             .Reject(renderedMessage, error)
+        case LfInterpretationError.Upgrade(
+              error: LfInterpretationError.Upgrade.DowngradeFailed
+            ) =>
+          CommandExecutionErrors.Interpreter.UpgradeError.DowngradeFailed
+            .Reject(renderedMessage, error)
         case LfInterpretationError.Dev(_, err) =>
           CommandExecutionErrors.Interpreter.InterpretationDevError
             .Reject(renderedMessage, err)

@@ -367,6 +367,12 @@ class IdeLedgerClient(
       case e @ Upgrade(innerError: Upgrade.DowngradeDropDefinedField) =>
         SubmitError.UpgradeError.DowngradeDropDefinedField(
           innerError.expectedType.pretty,
+          innerError.fieldIndex,
+          Pretty.prettyDamlException(e).renderWideStream.mkString,
+        )
+      case e @ Upgrade(innerError: Upgrade.DowngradeFailed) =>
+        SubmitError.UpgradeError.DowngradeFailed(
+          innerError.expectedType.pretty,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
       case e @ Upgrade(innerError: Upgrade.ViewMismatch) =>

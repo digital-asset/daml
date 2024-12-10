@@ -792,7 +792,8 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
             ) {
           override def resources: Seq[(ErrorResource, String)] =
             Seq(
-              (ErrorResource.ExpectedType, err.expectedType.pretty)
+              (ErrorResource.ExpectedType, err.expectedType.pretty),
+              (ErrorResource.FieldIndex, err.fieldIndex.toString),
             )
         }
       }
@@ -821,6 +822,32 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
               (ErrorResource.InterfaceId, err.iterfaceId.toString),
               (ErrorResource.TemplateId, err.srcTemplateId.toString),
               (ErrorResource.TemplateId, err.dstTemplateId.toString),
+            )
+        }
+      }
+
+      @Explanation(
+        "An optional contract field with a value of Some may not be dropped during downgrading"
+      )
+      @Resolution(
+        "There is data that is newer than the implementation using it, and thus is not compatible. Ensure new data (i.e. those with additional fields as `Some`) is only used with new/compatible choices"
+      )
+      object DowngradeFailed
+        extends ErrorCode(
+          id = "INTERPRETATION_UPGRADE_ERROR_DOWNGRADE_FAILED",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+        final case class Reject(
+            override val cause: String,
+            err: LfInterpretationError.Upgrade.DowngradeFailed,
+        )(implicit
+            loggingContext: ContextualizedErrorLogger
+        ) extends DamlErrorWithDefiniteAnswer(
+              cause = cause
+            ) {
+          override def resources: Seq[(ErrorResource, String)] =
+            Seq(
+              (ErrorResource.ExpectedType, err.expectedType.pretty),
             )
         }
       }

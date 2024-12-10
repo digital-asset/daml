@@ -158,8 +158,11 @@ object Error {
 
     // TODO https://github.com/digital-asset/daml/issues/17647:
     //  - add coid, srcTmplId (alternatively pkgId of srcTmplId), and dstTempId
-    final case class DowngradeDropDefinedField(expectedType: Ast.Type, actualValue: Value)
-        extends Error
+    final case class DowngradeDropDefinedField(
+        expectedType: Ast.Type,
+        fieldIndex: Long,
+        actualValue: Value,
+    ) extends Error
 
     final case class ViewMismatch(
         coid: ContractId,
@@ -169,6 +172,9 @@ object Error {
         srcView: Value,
         dstView: Value,
     ) extends Error
+
+    final case class DowngradeFailed(expectedType: Ast.Type, actualValue: Value) extends Error
+
   }
 
   // Error that can be thrown by dev or PoC feature only

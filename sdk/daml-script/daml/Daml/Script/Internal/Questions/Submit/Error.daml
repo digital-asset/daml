@@ -25,11 +25,14 @@ data UpgradeErrorType
         keyOpt : Optional (AnyContractKey, [Party])
   | DowngradeDropDefinedField with
         expectedType : Text
+        fieldIndex : Int
   | ViewMismatch with
         coid : AnyContractId
         iterfaceId : TemplateTypeRep
         srcTemplateId : TemplateTypeRep
         dstTemplateId : TemplateTypeRep
+  | DowngradeFailed with
+        expectedType : Text
 
 -- | Errors that will be promoted to SubmitError once stable - code needs to be kept in sync with SubmitError.scala
 data DevErrorType
@@ -200,7 +203,9 @@ instance Show UpgradeErrorType where
   show err = case err of
     ValidationFailed coid _srcTemplateId _dstTemplateId signatories observers _keyOpt ->
       "Validation failed for contract " <> show coid <> " (Signatories: " <> show signatories <> ", Observers: " <> show observers <> ")"
-    DowngradeDropDefinedField expectedType ->
-      "Cannot drop Some field in record to downgrade to " <> show expectedType
+    DowngradeDropDefinedField expectedType rank ->
+      "Cannot drop Some field at position " <> show rank <> " in record to downgrade to " <> show expectedType
     ViewMismatch coid _iterfaceId _srcTemplateId _dstTemplateId ->
       "Interface view mismatch between versions for contract " <> show coid
+    DowngradeFailed expectedType ->
+      "Could not downgrade from new variant/enum constructor to " <> show expectedType
