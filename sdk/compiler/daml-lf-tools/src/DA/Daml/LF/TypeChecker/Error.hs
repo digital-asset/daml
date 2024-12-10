@@ -245,6 +245,8 @@ data ErrorOrWarning
   | WEDependencyHasUnparseableVersion !PackageName !PackageVersion !PackageUpgradeOrigin
   | WEDependencyHasNoMetadataDespiteUpgradeability !PackageId !PackageUpgradeOrigin
   | WEUpgradeShouldDefineExceptionsAndTemplatesSeparately
+  | WEUpgradeDependsOnSerializableNonUpgradeableDataType (PackageId, Maybe PackageMetadata, Version) Version !(Qualified TypeConName)
+  | WEDependsOnDatatypeFromNewDamlScript (PackageId, PackageMetadata) Version !(Qualified TypeConName)
   deriving (Eq, Show)
 
 instance Pretty ErrorOrWarning where
@@ -276,6 +278,11 @@ instance Pretty ErrorOrWarning where
         , "It is recommended that exceptions are defined in their own package separate from their implementations."
         , "Ignore this error message with the -Wupgrade-exceptions flag."
         ]
+    WEUpgradeDependsOnSerializableNonUpgradeableDataType (depPkgId, depMeta, depLfVersion) lfVersion tcn -> "This package has LF version " <> pPrint lfVersion <> ", but it depends on a serializable type " <> pPrint tcn <> " from package " <> pprintDep (depPkgId, depMeta) <> " which has LF version " <> pPrint depLfVersion <> ". It is not recommended that >= LF1.17 packages depend on <= LF1.15 datatypes in serializable positions, since those datatypes will not be upgradeable."
+    WEDependsOnDatatypeFromNewDamlScript (depPkgId, depMeta) depLfVersion tcn -> "This package depends on a datatype " <> pPrint tcn <> " from " <> pprintDep (depPkgId, Just depMeta) <> " with LF version " <> pPrint depLfVersion <> ". It is not recommended that packages use datatypes from Daml Script in serializable positions."
+    where
+      pprintDep (pkgId, Just meta) = pPrint pkgId <> "(" <> pPrint (packageName meta) <> ", " <> pPrint (packageVersion meta) <> ")"
+      pprintDep (pkgId, Nothing) = pPrint pkgId
 
 damlWarningFlagParserTypeChecker :: DamlWarningFlagParser ErrorOrWarning
 damlWarningFlagParserTypeChecker = DamlWarningFlagParser
@@ -291,6 +298,8 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       WEUpgradeShouldDefineExceptionsAndTemplatesSeparately {} -> AsError
       WEDependencyHasUnparseableVersion {} -> AsWarning
       WEDependencyHasNoMetadataDespiteUpgradeability {} -> AsWarning
+      WEUpgradeDependsOnSerializableNonUpgradeableDataType {} -> AsWarning
+      WEDependsOnDatatypeFromNewDamlScript {} -> AsWarning
   }
 
 filterNameForErrorOrWarning :: ErrorOrWarning -> Maybe String

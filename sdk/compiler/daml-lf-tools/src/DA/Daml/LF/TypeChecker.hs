@@ -18,6 +18,7 @@ import           DA.Daml.LF.TypeChecker.Error
 import qualified DA.Daml.LF.TypeChecker.Keyability as Keyability
 import qualified DA.Daml.LF.TypeChecker.Recursion as Recursion
 import qualified DA.Daml.LF.TypeChecker.Serializability as Serializability
+import qualified DA.Daml.LF.TypeChecker.DeprecatedDamlScript as DeprecatedDamlScript
 import qualified DA.Daml.LF.TypeChecker.NameCollision as NameCollision
 import Development.IDE.Types.Diagnostics
 
@@ -52,6 +53,7 @@ checkModuleInWorld world version m =
         Check.checkModule m
         Serializability.checkModule m
         Keyability.checkModule m
+        DeprecatedDamlScript.checkModule m
 
 -- | Check whether the whole package satisfies the name collision condition.
 nameCheckPackage :: Package -> [Diagnostic]
