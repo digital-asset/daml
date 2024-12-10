@@ -697,25 +697,29 @@ da_scala_dar_resources_library(
 ]
 
 [
-  daml_compile(
-      name = "upgrades-{scriptType}-dep-lf{mainLf}-on-lf{scriptLf}".format(scriptType = scriptType, mainLf = mainLf, scriptLf = scriptLf),
-      srcs = ["src/main/daml/upgrades/DependsOnScript/Main.daml"],
-      data_dependencies = ["//daml-script/{scriptPrefix}:{scriptType}-1.{scriptLf}.dar".format(
-        scriptPrefix = scriptPrefix,
-        scriptType = scriptType,
-        scriptLf = scriptLf
-      )],
-      target = "1." + mainLf,
-      version = "1.0.0",
-      visibility = ["//visibility:public"],
-  )
-  for (mainLf, scriptLf, scriptPrefix, scriptType) in [
-    ("15", "15", "daml", "daml-script"),
-    ("17", "15", "daml", "daml-script"),
-    ("15", "15", "daml-lts", "daml-script-lts"),
-    ("17", "15", "daml-lts", "daml-script-lts"),
-    ("17", "17", "daml-lts", "daml-script-lts"),
-  ]
+    daml_compile(
+        name = "upgrades-{scriptType}-dep-lf{mainLf}-on-lf{scriptLf}".format(
+            mainLf = mainLf,
+            scriptLf = scriptLf,
+            scriptType = scriptType,
+        ),
+        srcs = ["src/main/daml/upgrades/DependsOnScript/Main.daml"],
+        data_dependencies = ["//daml-script/{scriptPrefix}:{scriptType}-1.{scriptLf}.dar".format(
+            scriptLf = scriptLf,
+            scriptPrefix = scriptPrefix,
+            scriptType = scriptType,
+        )],
+        target = "1." + mainLf,
+        version = "1.0.0",
+        visibility = ["//visibility:public"],
+    )
+    for (mainLf, scriptLf, scriptPrefix, scriptType) in [
+        ("15", "15", "daml", "daml-script"),
+        ("17", "15", "daml", "daml-script"),
+        ("15", "15", "daml-lts", "daml-script-lts"),
+        ("17", "15", "daml-lts", "daml-script-lts"),
+        ("17", "17", "daml-lts", "daml-script-lts"),
+    ]
 ]
 
 [
