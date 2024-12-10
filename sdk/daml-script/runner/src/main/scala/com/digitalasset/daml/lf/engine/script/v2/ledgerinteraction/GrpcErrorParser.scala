@@ -302,9 +302,14 @@ object GrpcErrorParser {
       case "INTERPRETATION_UPGRADE_ERROR_DOWNGRADE_DROP_DEFINED_FIELD" =>
         caseErr {
           case Seq(
-                (ErrorResource.ExpectedType, expectedType)
+                (ErrorResource.ExpectedType, expectedType),
+                (ErrorResource.FieldIndex, fieldIndex),
               ) =>
-            SubmitError.UpgradeError.DowngradeDropDefinedField(expectedType, message)
+            SubmitError.UpgradeError.DowngradeDropDefinedField(
+              expectedType,
+              fieldIndex.toLong,
+              message,
+            )
         }
       case "INTERPRETATION_UPGRADE_ERROR_VIEW_MISMATCH" =>
         caseErr {
@@ -322,6 +327,15 @@ object GrpcErrorParser {
               message,
             )
         }
+
+      case "INTERPRETATION_UPGRADE_ERROR_DOWNGRADE_FAILED" =>
+        caseErr {
+          case Seq(
+                (ErrorResource.ExpectedType, expectedType)
+              ) =>
+            SubmitError.UpgradeError.DowngradeFailed(expectedType, message)
+        }
+
       case "INTERPRETATION_DEV_ERROR" =>
         caseErr { case Seq((ErrorResource.DevErrorType, errorType)) =>
           SubmitError.DevError(errorType, message)

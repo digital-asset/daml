@@ -35,6 +35,7 @@ object ErrorResource {
   lazy val SynchronizerAlias: ErrorResource = ErrorResource("SYNCHRONIZER_ALIAS")
   lazy val Offset: ErrorResource = ErrorResource("OFFSET")
   lazy val ExpectedType: ErrorResource = ErrorResource("EXPECTED_TYPE")
+  lazy val FieldIndex: ErrorResource = ErrorResource("FIELD_INDEX")
 
   lazy val all: Seq[ErrorResource] = Seq(
     CommandId,
@@ -49,6 +50,7 @@ object ErrorResource {
     ExceptionType,
     ExceptionValue,
     ExpectedType,
+    FieldIndex,
     IdentityProviderConfig,
     InterfaceId,
     Offset,
