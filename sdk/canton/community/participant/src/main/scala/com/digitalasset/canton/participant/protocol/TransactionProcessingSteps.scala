@@ -1348,14 +1348,15 @@ class TransactionProcessingSteps(
     CommitAndStoreContractsAndPublishEvent,
   ] =
     for {
-      usedAndCreated <- EitherT.right(
-        ExtractUsedAndCreated(
-          participantId,
-          validSubViewsNE,
-          topologySnapshot,
-          loggerFactory,
+      usedAndCreated <- EitherT
+        .right(
+          ExtractUsedAndCreated(
+            participantId,
+            validSubViewsNE,
+            topologySnapshot,
+            loggerFactory,
+          )
         )
-      )
 
       createdContracts = usedAndCreated.contracts.created
 

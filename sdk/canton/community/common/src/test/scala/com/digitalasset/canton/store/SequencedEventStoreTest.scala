@@ -15,14 +15,13 @@ import com.digitalasset.canton.sequencing.{OrdinarySerializedEvent, SequencerTes
 import com.digitalasset.canton.store.SequencedEventStore.*
 import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.{BaseTest, CloseableTest, SequencerCounter}
+import com.digitalasset.canton.{BaseTest, CloseableTest, FailOnShutdown, SequencerCounter}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.ExecutionContext
 
-trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
+trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with FailOnShutdown {
   this: AsyncWordSpec with BaseTest =>
 
   private lazy val crypto: SymbolicCrypto =
@@ -320,7 +319,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
             ByTimestampRange(events(firstIndex).timestamp, events(lastIndex).timestamp),
             None,
           )
-          .failOnShutdown
+          .valueOrFail("")
       } yield {
         assert(found.toList == events.slice(firstIndex, lastIndex + 1))
       }
@@ -350,7 +349,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
             ByTimestampRange(events(firstIndex).timestamp, events.lastOption.value.timestamp),
             Some(limit),
           )
-          .failOnShutdown
+          .valueOrFail("")
       } yield {
         assert(foundByTs.toList == events.slice(firstIndex, firstIndex + limit))
       }
@@ -384,7 +383,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
             ),
             None,
           )
-          .failOnShutdown
+          .valueOrFail("")
         foundByTs2 <- store
           .findRange(
             ByTimestampRange(
@@ -393,7 +392,8 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
             ),
             None,
           )
-          .failOnShutdown
+          .valueOrFail("")
+
       } yield {
         assert(foundByTs1.toList == events.slice(firstIndex, lastIndex + 1))
         assert(foundByTs2.toList == events)
@@ -410,7 +410,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
       } yield {
         assert(foundByTs.toList == List.empty)
       }
-    }.failOnShutdown
+    }.valueOrFail("")
 
     "find range returns no values when range outside store values" in {
       val store = mk()
@@ -435,11 +435,12 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
         _ <- store.store(events)
         foundByTsAbove <- store
           .findRange(ByTimestampRange(getTs(max + 5), getTs(max + 10)), None)
-          .failOnShutdown
+          .valueOrFail("")
 
         foundByTsBelow <- store
           .findRange(ByTimestampRange(getTs(min - 10), getTs(min - 5)), None)
-          .failOnShutdown
+          .valueOrFail("")
+
       } yield {
         assert(foundByTsAbove.toList == List.empty)
         assert(foundByTsBelow.toList == List.empty)
@@ -490,15 +491,14 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
       val criterionBelow = ByTimestampRange(CantonTimestamp.MinValue, CantonTimestamp.Epoch)
       for {
         _ <- store.store(events)
-        _ <- store.prune(tsPrune).failOnShutdown
+        _ <- store.prune(tsPrune)
         succeed <- store
           .findRange(ByTimestampRange(tsPrune.immediateSuccessor, ts4), None)
           .valueOrFail("successful range query")
-          .failOnShutdown
-        fail2 <- leftOrFail(store.findRange(criterionAt, None))("at pruning point").failOnShutdown
+        fail2 <- leftOrFail(store.findRange(criterionAt, None))("at pruning point")
         failBelow <- leftOrFail(store.findRange(criterionBelow, None))(
           "before pruning point"
-        ).failOnShutdown
+        )
       } yield {
         val pruningStatus = PruningStatus(PruningPhase.Completed, tsPrune, Some(tsPrune))
         fail2 shouldBe SequencedEventRangeOverlapsWithPruning(
@@ -639,7 +639,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
 
       for {
         _ <- store.store(Seq(firstDeliver, secondDeliver, deliver1, thirdDeliver, deliver2))
-        _ <- store.prune(ts2).failOnShutdown
+        _ <- store.prune(ts2)
         eventsAfterPruningOrPurging <- store.sequencedEvents()
       } yield {
         assert(
@@ -738,13 +738,11 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
 
         for {
           _ <- store.store(Seq(deliver, secondDeliver, deliverError))
-          _ <- valueOrFail(store.ignoreEvents(SequencerCounter(11), SequencerCounter(11)))(
-            "ignoreEvents"
-          )
+          _ <- store.ignoreEvents(SequencerCounter(11), SequencerCounter(11)).valueOrFail("")
           events <- store.sequencedEvents()
           range <- valueOrFail(store.findRange(ByTimestampRange(ts(11), ts(12)), limit = None))(
             "findRange"
-          ).failOnShutdown
+          )
           byTimestamp <- valueOrFail(store.find(ByTimestamp(ts(11))))("find by timestamp")
           latestUpTo <- valueOrFail(store.find(LatestUpto(ts(11))))("find latest up to")
         } yield {
@@ -766,7 +764,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
           events <- store.sequencedEvents()
           range <- valueOrFail(store.findRange(ByTimestampRange(ts(12), ts(14)), limit = None))(
             "findRange"
-          ).failOnShutdown
+          )
           ignoredEventByTimestamp <- valueOrFail(store.find(ByTimestamp(ts(13))))(
             "find by timestamp"
           )
@@ -796,7 +794,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
           events <- store.sequencedEvents()
           range <- valueOrFail(store.findRange(ByTimestampRange(ts(11), ts(13)), limit = None))(
             "findRange"
-          ).failOnShutdown
+          )
           deliverByTimestamp <- valueOrFail(store.find(ByTimestamp(ts(10))))("find by timestamp")
           deliverLatestUpTo <- valueOrFail(store.find(LatestUpto(ts(10))))("find latest up to")
         } yield {

@@ -4,18 +4,27 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.unit.modules.consensus.iss
 
 import com.daml.metrics.api.MetricsContext
+import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultEpochLength
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisEpoch
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.{
+  GenesisEpoch,
+  GenesisEpochInfo,
+  GenesisEpochNumber,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.memory.GenericInMemoryEpochStore
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.{
   EpochStore,
   Genesis,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.leaders.SimpleLeaderSelectionPolicy
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferManager
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.{
+  CatchupBehavior,
+  CatchupDetector,
+  StateTransferManager,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.memory.GenericInMemoryOutputBlockMetadataStore
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.{
   CryptoProvider,
@@ -52,6 +61,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   Membership,
   OrderingTopology,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.Consensus.ConsensusMessage.PbftVerifiedNetworkMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.Consensus.NewEpochTopology
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
@@ -480,6 +490,71 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
         verify(segmentModuleMock, never).asyncSend(ConsensusSegment.Start)
         succeed
       }
+
+      "start catch-up if the detector says so" in {
+        val stateTransferManagerMock = mock[StateTransferManager[ProgrammableUnitTestEnv]]
+        val segmentModuleMock = mock[ModuleRef[ConsensusSegment.Message]]
+        val catchupDetectorMock = mock[CatchupDetector]
+        when(catchupDetectorMock.updateLatestKnownPeerEpoch(any[SequencerId], any[EpochNumber]))
+          .thenReturn(true)
+        when(catchupDetectorMock.shouldCatchUp(any[EpochNumber])).thenReturn(true)
+
+        val membership = Membership(selfId, otherPeers.toSet)
+
+        val (context, consensus) =
+          createIssConsensusModule(
+            p2pNetworkOutModuleRef = fakeIgnoringModule,
+            otherPeers = membership.otherPeers,
+            segmentModuleFactoryFunction = () => segmentModuleMock,
+            maybeOnboardingStateTransferManager = Some(stateTransferManagerMock),
+            maybeCatchupDetector = Some(catchupDetectorMock),
+          )
+        implicit val ctx: ContextType = context
+
+        val aPbftMessage = PrePrepare.create( // Just to trigger the catch-up check
+          blockMetadata4Nodes(1),
+          ViewNumber.First,
+          clock.now,
+          OrderingBlock(oneRequestOrderingBlock.proofs),
+          CanonicalCommitSet(Set.empty),
+          allPeers(1),
+        )
+        consensus.receive(Consensus.Start)
+        consensus.receive(
+          PbftVerifiedNetworkMessage(SignedMessage(aPbftMessage, Signature.noSignature))
+        )
+
+        verify(catchupDetectorMock, times(1))
+          .updateLatestKnownPeerEpoch(allPeers(1), EpochNumber.First)
+        verify(catchupDetectorMock, times(1)).shouldCatchUp(GenesisEpochNumber)
+        context.extractBecomes() should matchPattern {
+          case Seq(
+                CatchupBehavior(
+                  DefaultEpochLength, // epochLength
+                  CatchupBehavior.InitialState(
+                    `membership`,
+                    _, // cryptoProvider
+                    epochState,
+                    EpochStore.Epoch(GenesisEpochInfo, Seq()),
+                    _, // pbftMessageQueue
+                    _, // CatchupDetector
+                  ),
+                  _, // epochStore
+                  _, // clock
+                  _, // metrics
+                  _, // segmentModuleRefFactory
+                  _, // consensusModuleDependencies,
+                  _, // loggerFactory
+                  _, // timeouts
+                )
+              )
+              if epochState.epoch == EpochState.Epoch(
+                GenesisEpochInfo,
+                membership,
+                SimpleLeaderSelectionPolicy,
+              ) =>
+        }
+      }
     }
   }
 
@@ -531,6 +606,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
         fakeIgnoringModule,
       maybeOnboardingStateTransferManager: Option[StateTransferManager[ProgrammableUnitTestEnv]] =
         None,
+      maybeCatchupDetector: Option[CatchupDetector] = None,
   ): (ContextType, IssConsensusModule[ProgrammableUnitTestEnv]) = {
     implicit val context: ContextType = new ProgrammableUnitTestContext
 
@@ -590,31 +666,35 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
         dependencies,
         loggerFactory,
         timeouts,
-      )(maybeOnboardingStateTransferManager)()
+      )(maybeOnboardingStateTransferManager)(
+        catchupDetector = maybeCatchupDetector.getOrElse(new CatchupDetector(initialMembership))
+      )
   }
 }
 
-object IssConsensusModuleTest {
+private[iss] object IssConsensusModuleTest {
 
-  private type ContextType =
+  type ContextType =
     ProgrammableUnitTestContext[Consensus.Message[ProgrammableUnitTestEnv]]
-  private val epochLength = DefaultEpochLength
-  private val aTimestamp =
+  val epochLength: EpochLength = DefaultEpochLength
+  val aTimestamp: CantonTimestamp =
     CantonTimestamp.assertFromInstant(Instant.parse("2024-03-08T12:00:00.000Z"))
-  private val defaultBufferSize = 5
-  private val selfId = fakeSequencerId("self")
-  private val otherPeers: IndexedSeq[SequencerId] = (1 to 3).map { index =>
+  val defaultBufferSize = 5
+  val selfId: SequencerId = fakeSequencerId("self")
+  val otherPeers: IndexedSeq[SequencerId] = (1 to 3).map { index =>
     fakeSequencerId(
       s"peer$index"
     )
   }
-  private val allPeers = (selfId +: otherPeers).sorted
-  private val aBatchId = BatchId.createForTesting("A batch id")
-  private val oneRequestOrderingBlock = OrderingBlock(Seq(ProofOfAvailability(aBatchId, Seq.empty)))
+  val allPeers: Seq[SequencerId] = (selfId +: otherPeers).sorted
+  val aBatchId: BatchId = BatchId.createForTesting("A batch id")
+  val oneRequestOrderingBlock: OrderingBlock = OrderingBlock(
+    Seq(ProofOfAvailability(aBatchId, Seq.empty))
+  )
 
-  private def createSegmentModuleRefFactory(
+  def createSegmentModuleRefFactory(
       segmentModuleFactoryFunction: () => ModuleRef[ConsensusSegment.Message]
-  ) =
+  ): SegmentModuleRefFactory[ProgrammableUnitTestEnv] =
     new SegmentModuleRefFactory[ProgrammableUnitTestEnv] {
       override def apply(
           _context: ContextType,

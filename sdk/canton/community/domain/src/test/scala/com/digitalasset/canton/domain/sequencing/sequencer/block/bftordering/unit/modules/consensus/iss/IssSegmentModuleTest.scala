@@ -49,6 +49,8 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   Membership,
   OrderingTopology,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.Consensus.CatchUpMessage.SegmentCancelledEpoch
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.Consensus.ConsensusMessage.SegmentCompletedEpoch
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.{
   Availability,
@@ -56,11 +58,8 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   ConsensusSegment,
   P2PNetworkOut,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.unit.modules.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.unit.modules.UnitTestContext.DelayCount
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.unit.modules.{
-  fakeRecordingModule,
-  *,
-}
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
@@ -138,6 +137,44 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
   }
 
   "IssSegmentModule" when {
+
+    "receiving an epoch completion message" should {
+      "close and notify the " in {
+        implicit val context: ProgrammableUnitTestContext[ConsensusSegment.Message] =
+          new ProgrammableUnitTestContext
+        val parentCell =
+          new AtomicReference[Option[Consensus.Message[ProgrammableUnitTestEnv]]](None)
+        val consensus = createIssSegmentModule[ProgrammableUnitTestEnv](parentModuleRef =
+          fakeCellModule(parentCell)
+        )
+
+        // Upon receiving an EpochCompletion message, the module should simply close
+        consensus.receive(CompletedEpoch(EpochNumber.First))
+
+        context.runCloseAction()
+
+        parentCell.get() shouldBe Some(SegmentCompletedEpoch(BlockNumber.First, EpochNumber.First))
+      }
+    }
+
+    "receiving an epoch cancellation message" should {
+      "close and notify the parent" in {
+        implicit val context: ProgrammableUnitTestContext[ConsensusSegment.Message] =
+          new ProgrammableUnitTestContext
+        val parentCell =
+          new AtomicReference[Option[Consensus.Message[ProgrammableUnitTestEnv]]](None)
+        val consensus = createIssSegmentModule[ProgrammableUnitTestEnv](parentModuleRef =
+          fakeCellModule(parentCell)
+        )
+
+        // Upon receiving an EpochCompletion message, the module should simply close
+        consensus.receive(CancelEpoch(EpochNumber.First))
+
+        context.runCloseAction()
+
+        parentCell.get() shouldBe Some(SegmentCancelledEpoch)
+      }
+    }
 
     "started via explicit signal" should {
       // 1-node network block sequencing from start to finish

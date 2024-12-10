@@ -119,11 +119,12 @@ final class RepairService(
       aliasManager.domainIdForAlias(alias).toRight(s"Could not find $alias")
     )
 
-  private def domainNotConnected(domainId: DomainId): EitherT[Future, String, Unit] = EitherT.cond(
-    !domainLookup.isConnected(domainId),
-    (),
-    s"Participant is still connected to domain $domainId",
-  )
+  private def domainNotConnected(domainId: DomainId): EitherT[FutureUnlessShutdown, String, Unit] =
+    EitherT.cond(
+      !domainLookup.isConnected(domainId),
+      (),
+      s"Participant is still connected to domain $domainId",
+    )
 
   private def contractToAdd(
       repairContract: RepairContract,
@@ -276,7 +277,6 @@ final class RepairService(
         .right(
           ledgerApiIndexer.value.ledgerApiStore.value.cleanDomainIndex(domainId)
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
       startingPoints <- EitherT
         .right(
           SyncDomainEphemeralStateFactory.startingPoints(
@@ -285,7 +285,6 @@ final class RepairService(
             domainIndex,
           )
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       topologyFactory <- domainLookup
         .topologyFactoryFor(domainId)
@@ -653,7 +652,7 @@ final class RepairService(
       force: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Unit] = {
+  ): EitherT[FutureUnlessShutdown, String, Unit] = {
     logger.info(s"Ignoring sequenced events from $fromInclusive to $toInclusive (force = $force).")
     runConsecutive(
       "repair.skip_messages",
@@ -723,14 +722,15 @@ final class RepairService(
       from: SequencerCounter,
       force: Boolean,
   )(
-      action: SequencedEventStore => EitherT[Future, String, T]
-  )(implicit traceContext: TraceContext): EitherT[Future, String, T] =
+      action: SequencedEventStore => EitherT[FutureUnlessShutdown, String, T]
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, T] =
     for {
-      persistentState <- EitherT.fromEither[Future](lookUpDomainPersistence(domain, domain.show))
+      persistentState <- EitherT.fromEither[FutureUnlessShutdown](
+        lookUpDomainPersistence(domain, domain.show)
+      )
       _ <- EitherT.right(
         ledgerApiIndexer.value
           .ensureNoProcessingForDomain(domain)
-          .failOnShutdownToAbortException("Ensure no processing on domain")
       )
       domainIndex <- EitherT.right(
         ledgerApiIndexer.value.ledgerApiStore.value.cleanDomainIndex(domain)
@@ -743,7 +743,7 @@ final class RepairService(
         )
       )
       _ <- EitherTUtil
-        .condUnitET[Future](
+        .condUnitET[FutureUnlessShutdown](
           force || startingPoints.processing.nextSequencerCounter <= from,
           show"Unable to modify events between $from (inclusive) and ${startingPoints.processing.nextSequencerCounter} (exclusive), " +
             """as they have already been processed. Enable "force" to modify them nevertheless.""",
@@ -756,7 +756,7 @@ final class RepairService(
       fromInclusive: SequencerCounter,
       toInclusive: SequencerCounter,
       force: Boolean,
-  )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] = {
     logger.info(
       s"Unignoring sequenced events from $fromInclusive to $toInclusive (force = $force)."
     )
@@ -895,6 +895,13 @@ final class RepairService(
       FutureUtil.logOnFailure(f, errorMessage, level = Level.INFO)
     )
 
+  private def logOnFailureWithInfoLevelUS[T](f: FutureUnlessShutdown[T], errorMessage: => String)(
+      implicit traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, T] =
+    EitherT.right(
+      FutureUnlessShutdownUtil.logOnFailureUnlessShutdown(f, errorMessage, level = Level.INFO)
+    )
+
   /** Actual persistence work
     * @param repair           Repair request
     * @param contractsToAdd   Contracts to be added
@@ -943,7 +950,7 @@ final class RepairService(
       }
 
       // Now, we update the stores
-      _ <- logOnFailureWithInfoLevel(
+      _ <- logOnFailureWithInfoLevelUS(
         contractStore.value.storeCreatedContracts(missingContracts),
         "Unable to store missing contracts",
       )
@@ -1164,14 +1171,16 @@ final class RepairService(
       domainId: DomainId,
       timestamp: CantonTimestamp,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] = {
-    def check(persistentState: SyncDomainPersistentState): Future[Either[String, Unit]] =
+    def check(
+        persistentState: SyncDomainPersistentState
+    ): FutureUnlessShutdown[Either[String, Unit]] =
       ledgerApiIndexer.value.ledgerApiStore.value
         .cleanDomainIndex(domainId)
-        .flatMap(
+        .flatMap(d =>
           SyncDomainEphemeralStateFactory.startingPoints(
             persistentState.requestJournalStore,
             persistentState.sequencedEventStore,
-            _,
+            d,
           )
         )
         .map { startingPoints =>
@@ -1202,7 +1211,7 @@ final class RepairService(
               s"awaiting clean-head for=$domainId at ts=$timestamp",
             )
             .unlessShutdown(
-              FutureUnlessShutdown.outcomeF(check(persistentState)),
+              check(persistentState),
               AllExceptionRetryPolicy,
             )
         )
@@ -1262,7 +1271,6 @@ final class RepairService(
           SyncDomainEphemeralStateFactory
             .cleanupPersistentState(domain.persistentState, domain.startingPoints)
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       incrementalAcsSnapshotWatermark <- EitherT.right(
         domain.persistentState.acsCommitmentStore.runningCommitments.watermark
@@ -1294,7 +1302,6 @@ final class RepairService(
         .right[String](
           repair.requestData.parTraverse_(domain.persistentState.requestJournalStore.insert)
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
 
     } yield repair
   }
@@ -1371,16 +1378,15 @@ final class RepairService(
 
   private def runConsecutive[B](
       description: String,
-      code: => EitherT[Future, String, B],
+      code: => EitherT[FutureUnlessShutdown, String, B],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, B] = {
+  ): EitherT[FutureUnlessShutdown, String, B] = {
     logger.info(s"Queuing $description")
     EitherT(
       executionQueue
-        .executeE(code, description)
+        .executeEUS(code, description)
         .value
-        .onShutdown(Left(s"$description aborted due to shutdown"))
     )
   }
 

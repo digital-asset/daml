@@ -168,7 +168,7 @@ object ParticipantNodePersistentState extends HasLoggerName {
     for {
       _ <- settingsStore.refreshCache()
       _ <- maxDeduplicationDurationO.traverse_(checkOrSetMaxDedupDuration)
-      ledgerApiStore <- FutureUnlessShutdown.outcomeF(
+      ledgerApiStore <-
         LedgerApiStore.initialize(
           storageConfig = storageConfig,
           ledgerParticipantId = ledgerParticipantId,
@@ -178,7 +178,6 @@ object ParticipantNodePersistentState extends HasLoggerName {
           loggerFactory = loggerFactory,
           metrics = metrics.ledgerApiServer,
         )
-      )
       _ = flagCloseable.close()
     } yield {
       new ParticipantNodePersistentState(

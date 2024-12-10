@@ -98,7 +98,6 @@ class SyncDomainPersistentStateManager(
         persistentState = createPersistentState(domainIdIndexed, staticDomainParameters)
         _lastProcessedPresent <- persistentState.sequencedEventStore
           .find(SequencedEventStore.LatestUpto(CantonTimestamp.MaxValue))
-          .mapK(FutureUnlessShutdown.outcomeK)
           .leftMap(_ => "No persistent event")
         _ = logger.debug(s"Discovered existing state for $alias")
       } yield put(persistentState)

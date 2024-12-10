@@ -9,6 +9,7 @@ import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorServic
 import com.digitalasset.canton.config.{MemoryStorageConfig, ProcessingTimeout, StorageConfig}
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.DomainIndex
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.config.ServerRole
@@ -56,44 +57,63 @@ class LedgerApiStore(
       new LoggingContextWithTrace(LoggingEntries.empty, traceContext)
     )
 
+  private def executeSqlUS[T](databaseMetrics: DatabaseMetrics)(
+      sql: Connection => T
+  )(implicit traceContext: TraceContext, ec: ExecutionContext): FutureUnlessShutdown[T] =
+    FutureUnlessShutdown.outcomeF(
+      ledgerApiDbSupport.dbDispatcher.executeSql(databaseMetrics)(sql)(
+        new LoggingContextWithTrace(LoggingEntries.empty, traceContext)
+      )
+    )
+
   def onlyForTestingVerifyIntegrity(failForEmptyDB: Boolean = true)(implicit
-      traceContext: TraceContext
-  ): Future[Unit] =
-    executeSql(DatabaseMetrics.ForTesting("checkIntegrity"))(
+      traceContext: TraceContext,
+      ec: ExecutionContext,
+  ): FutureUnlessShutdown[Unit] =
+    executeSqlUS(DatabaseMetrics.ForTesting("checkIntegrity"))(
       integrityStorageBackend.onlyForTestingVerifyIntegrity(failForEmptyDB)
     )
 
   def onlyForTestingMoveLedgerEndBackToScratch()(implicit
-      traceContext: TraceContext
-  ): Future[Unit] =
-    executeSql(DatabaseMetrics.ForTesting("onlyForTestingMoveLedgerEndBackToScratch"))(
+      traceContext: TraceContext,
+      ec: ExecutionContext,
+  ): FutureUnlessShutdown[Unit] =
+    executeSqlUS(DatabaseMetrics.ForTesting("onlyForTestingMoveLedgerEndBackToScratch"))(
       integrityStorageBackend.onlyForTestingMoveLedgerEndBackToScratch()
     )
 
   def onlyForTestingNumberOfAcceptedTransactionsFor(domainId: DomainId)(implicit
-      traceContext: TraceContext
-  ): Future[Int] =
-    executeSql(DatabaseMetrics.ForTesting("numberOfAcceptedTransactionsFor"))(
+      traceContext: TraceContext,
+      ec: ExecutionContext,
+  ): FutureUnlessShutdown[Int] =
+    executeSqlUS(DatabaseMetrics.ForTesting("numberOfAcceptedTransactionsFor"))(
       integrityStorageBackend.onlyForTestingNumberOfAcceptedTransactionsFor(domainId)
     )
 
   def cleanDomainIndex(domainId: DomainId)(implicit
-      traceContext: TraceContext
-  ): Future[Option[DomainIndex]] =
-    executeSql(metrics.index.db.getCleanDomainIndex)(
+      traceContext: TraceContext,
+      ec: ExecutionContext,
+  ): FutureUnlessShutdown[Option[DomainIndex]] =
+    executeSqlUS(metrics.index.db.getCleanDomainIndex)(
       parameterStorageBackend.cleanDomainIndex(domainId)
     )
 
-  def ledgerEnd(implicit traceContext: TraceContext): Future[Option[LedgerEnd]] =
-    executeSql(metrics.index.db.getLedgerEnd)(
+  def ledgerEnd(implicit
+      traceContext: TraceContext,
+      ec: ExecutionContext,
+  ): FutureUnlessShutdown[Option[LedgerEnd]] =
+    executeSqlUS(metrics.index.db.getLedgerEnd)(
       parameterStorageBackend.ledgerEnd
     )
 
   def firstDomainOffsetAfterOrAt(
       domainId: DomainId,
       afterOrAtRecordTimeInclusive: CantonTimestamp,
-  )(implicit traceContext: TraceContext): Future[Option[DomainOffset]] =
-    executeSql(metrics.index.db.firstDomainOffsetAfterOrAt)(
+  )(implicit
+      traceContext: TraceContext,
+      ec: ExecutionContext,
+  ): FutureUnlessShutdown[Option[DomainOffset]] =
+    executeSqlUS(metrics.index.db.firstDomainOffsetAfterOrAt)(
       eventStorageBackend.firstDomainOffsetAfterOrAt(
         domainId,
         afterOrAtRecordTimeInclusive.underlying,
@@ -103,29 +123,39 @@ class LedgerApiStore(
   def lastDomainOffsetBeforeOrAt(
       domainId: DomainId,
       beforeOrAtOffsetInclusive: Offset,
-  )(implicit traceContext: TraceContext): Future[Option[DomainOffset]] =
-    executeSql(metrics.index.db.lastDomainOffsetBeforeOrAt)(
+  )(implicit
+      traceContext: TraceContext,
+      ec: ExecutionContext,
+  ): FutureUnlessShutdown[Option[DomainOffset]] =
+    executeSqlUS(metrics.index.db.lastDomainOffsetBeforeOrAt)(
       eventStorageBackend.lastDomainOffsetBeforeOrAt(Some(domainId), beforeOrAtOffsetInclusive)
     )
 
   def lastDomainOffsetBeforeOrAt(
       beforeOrAtOffsetInclusive: Offset
-  )(implicit traceContext: TraceContext): Future[Option[DomainOffset]] =
-    executeSql(metrics.index.db.lastDomainOffsetBeforeOrAt)(
+  )(implicit
+      traceContext: TraceContext,
+      ec: ExecutionContext,
+  ): FutureUnlessShutdown[Option[DomainOffset]] =
+    executeSqlUS(metrics.index.db.lastDomainOffsetBeforeOrAt)(
       eventStorageBackend.lastDomainOffsetBeforeOrAt(None, beforeOrAtOffsetInclusive)
     )
 
   def domainOffset(offset: Offset)(implicit
-      traceContext: TraceContext
-  ): Future[Option[DomainOffset]] =
-    executeSql(metrics.index.db.domainOffset)(
+      traceContext: TraceContext,
+      ec: ExecutionContext,
+  ): FutureUnlessShutdown[Option[DomainOffset]] =
+    executeSqlUS(metrics.index.db.domainOffset)(
       eventStorageBackend.domainOffset(offset)
     )
 
   def firstDomainOffsetAfterOrAtPublicationTime(
       afterOrAtPublicationTimeInclusive: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Option[DomainOffset]] =
-    executeSql(metrics.index.db.firstDomainOffsetAfterOrAtPublicationTime)(
+  )(implicit
+      traceContext: TraceContext,
+      ec: ExecutionContext,
+  ): FutureUnlessShutdown[Option[DomainOffset]] =
+    executeSqlUS(metrics.index.db.firstDomainOffsetAfterOrAtPublicationTime)(
       eventStorageBackend.firstDomainOffsetAfterOrAtPublicationTime(
         afterOrAtPublicationTimeInclusive.underlying
       )
@@ -133,33 +163,39 @@ class LedgerApiStore(
 
   def lastDomainOffsetBeforeOrAtPublicationTime(
       beforeOrAtPublicationTimeInclusive: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Option[DomainOffset]] =
-    executeSql(metrics.index.db.lastDomainOffsetBeforeOrAtPublicationTime)(
+  )(implicit
+      traceContext: TraceContext,
+      ec: ExecutionContext,
+  ): FutureUnlessShutdown[Option[DomainOffset]] =
+    executeSqlUS(metrics.index.db.lastDomainOffsetBeforeOrAtPublicationTime)(
       eventStorageBackend.lastDomainOffsetBeforeOrAtPublicationTime(
         beforeOrAtPublicationTimeInclusive.underlying
       )
     )
 
   def archivals(fromExclusive: Option[Offset], toInclusive: Offset)(implicit
-      traceContext: TraceContext
-  ): Future[Set[LfContractId]] =
-    executeSql(metrics.index.db.archivals)(
+      traceContext: TraceContext,
+      ec: ExecutionContext,
+  ): FutureUnlessShutdown[Set[LfContractId]] =
+    executeSqlUS(metrics.index.db.archivals)(
       eventStorageBackend.archivals(fromExclusive, toInclusive)
     )
 
   private[api] def initializeInMemoryState(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
-  ): Future[Unit] =
+  ): FutureUnlessShutdown[Unit] =
     for {
       currentLedgerEnd <- ledgerEnd
-      _ <- stringInterningView.update(
-        currentLedgerEnd.map(_.lastStringInterningId)
-      )((fromExclusive, toInclusive) =>
-        executeSql(metrics.index.db.loadStringInterningEntries)(
-          stringInterningStorageBackend.loadStringInterningEntries(
-            fromExclusive,
-            toInclusive,
+      _ <- FutureUnlessShutdown.outcomeF(
+        stringInterningView.update(
+          currentLedgerEnd.map(_.lastStringInterningId)
+        )((fromExclusive, toInclusive) =>
+          executeSql(metrics.index.db.loadStringInterningEntries)(
+            stringInterningStorageBackend.loadStringInterningEntries(
+              fromExclusive,
+              toInclusive,
+            )
           )
         )
       )
@@ -181,7 +217,7 @@ object LedgerApiStore {
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContextIdlenessExecutorService,
-  ): Future[LedgerApiStore] = {
+  ): FutureUnlessShutdown[LedgerApiStore] = {
     val initializationLogger = loggerFactory.getTracedLogger(LedgerApiStore.getClass)
     val ledgerApiStorage = LedgerApiStorage
       .fromStorageConfig(storageConfig, ledgerParticipantId)
@@ -204,11 +240,13 @@ object LedgerApiStore {
       _ <- storageConfig match {
         // ledger api server needs an H2 db to run in memory
         case _: MemoryStorageConfig =>
-          new FlywayMigrations(
-            ledgerApiStorage.jdbcUrl,
-            loggerFactory,
-          ).migrate()
-        case _ => Future.unit
+          FutureUnlessShutdown.outcomeF(
+            new FlywayMigrations(
+              ledgerApiStorage.jdbcUrl,
+              loggerFactory,
+            ).migrate()
+          )
+        case _ => FutureUnlessShutdown.unit
       }
       dbSupport = DbSupport
         .owner(
@@ -229,11 +267,13 @@ object LedgerApiStore {
           )
         )
 
-      ledgerApiStore <- new ResourceOwnerFlagCloseableOps(dbSupport).acquireFlagCloseable(
-        "Ledger API DB Support"
+      ledgerApiStore <- FutureUnlessShutdown.outcomeF(
+        new ResourceOwnerFlagCloseableOps(dbSupport).acquireFlagCloseable(
+          "Ledger API DB Support"
+        )
       )
       _ <-
-        if (onlyForTesting_DoNotInitializeInMemoryState) Future.unit
+        if (onlyForTesting_DoNotInitializeInMemoryState) FutureUnlessShutdown.unit
         else ledgerApiStore.initializeInMemoryState
     } yield ledgerApiStore
   }

@@ -3,22 +3,22 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer.store
 
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.topology.DefaultTestIdentities.participant1
+import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
-import scala.concurrent.Future
 
-class SequencerMemberCacheTest extends AsyncWordSpec with BaseTest {
+class SequencerMemberCacheTest extends AsyncWordSpec with BaseTest with FailOnShutdown {
   val testRunId = new AtomicInteger()
   "member cache" should {
     "only cache lookups when the member exists" in {
       val lookupMemberCallCount = new AtomicInteger(0)
       val registeredMemberRef = new AtomicReference[Option[RegisteredMember]](None)
       val cache = new SequencerMemberCache(_ =>
-        Future.successful {
+        FutureUnlessShutdown.pure {
           lookupMemberCallCount.incrementAndGet()
           registeredMemberRef.get()
         }

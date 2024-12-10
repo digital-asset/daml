@@ -20,6 +20,7 @@ import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
   HasCloseContext,
+  UnlessShutdown,
 }
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -38,7 +39,12 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, Member, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
-import com.digitalasset.canton.util.PekkoUtil.{CombinedKillSwitch, KillSwitchFlagCloseable}
+import com.digitalasset.canton.util.PekkoUtil.{
+  CombinedKillSwitch,
+  KillSwitchFlagCloseable,
+  WithKillSwitch,
+  sinkIgnoreFUS,
+}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -111,13 +117,13 @@ class SequencerReader(
     performUnlessClosingEitherUSF(functionFullName)(for {
       registeredTopologyClientMember <- EitherT
         .fromOptionF(
-          FutureUnlessShutdown.outcomeF(store.lookupMember(topologyClientMember)),
+          store.lookupMember(topologyClientMember),
           CreateSubscriptionError.UnknownMember(topologyClientMember),
         )
         .leftWiden[CreateSubscriptionError]
       registeredMember <- EitherT
         .fromOptionF(
-          FutureUnlessShutdown.outcomeF(store.lookupMember(member)),
+          store.lookupMember(member),
           CreateSubscriptionError.UnknownMember(member),
         )
         .leftWiden[CreateSubscriptionError]
@@ -150,7 +156,7 @@ class SequencerReader(
         )
       )
       // validate we are in the bounds of the data that this sequencer can serve
-      lowerBoundO <- EitherT.right(FutureUnlessShutdown.outcomeF(store.fetchLowerBound()))
+      lowerBoundO <- EitherT.right(store.fetchLowerBound())
       _ <- EitherT
         .cond[FutureUnlessShutdown](
           lowerBoundO.forall(_ <= initialReadState.nextReadTimestamp),
@@ -204,8 +210,9 @@ class SequencerReader(
       */
     private def recordCheckpointFlow(implicit
         traceContext: TraceContext
-    ): Flow[UnsignedEventData, UnsignedEventData, (KillSwitch, Future[Done])] = {
-      val recordCheckpointSink: Sink[UnsignedEventData, (KillSwitch, Future[Done])] = {
+    ): Flow[UnsignedEventData, UnsignedEventData, (KillSwitch, FutureUnlessShutdown[Done])] = {
+      val recordCheckpointSink
+          : Sink[UnsignedEventData, (KillSwitch, FutureUnlessShutdown[Done])] = {
         // in order to make sure database operations do not keep being retried (in case of connectivity issues)
         // after we start closing the subscription, we create a flag closeable that gets closed when this
         // subscriptions kill switch is activated. This flag closeable is wrapped in a close context below
@@ -222,16 +229,14 @@ class SequencerReader(
           .mapMaterializedValue(killSwitch =>
             new CombinedKillSwitch(killSwitch, closeContextKillSwitch)
           )
-          .mapAsync(parallelism = 1) { unsignedEventData =>
+          .mapAsyncUS(parallelism = 1) { unsignedEventData =>
             val event = unsignedEventData.event
             logger.debug(s"Preparing counter checkpoint for $member at ${event.timestamp}")
             val checkpoint =
               CounterCheckpoint(event, unsignedEventData.latestTopologyClientTimestamp)
-            performUnlessClosingF(functionFullName) {
+            performUnlessClosingUSF(functionFullName) {
               implicit val closeContext: CloseContext = CloseContext(killSwitchFlagCloseable)
               saveCounterCheckpoint(member, registeredMember.memberId, checkpoint)
-            }.onShutdown {
-              logger.info("Skip saving the counter checkpoint due to shutdown")
             }.recover {
               case e: SQLTransientConnectionException if killSwitchFlagCloseable.isClosing =>
                 // after the subscription is closed, any retries will stop and possibly return an error
@@ -241,9 +246,10 @@ class SequencerReader(
                   "Database connection problems while closing subscription. It can be safely ignored.",
                   e,
                 )
+                UnlessShutdown.unit
             }
           }
-          .toMat(Sink.ignore)(Keep.both)
+          .toMat(sinkIgnoreFUS)(Keep.both)
       }
 
       Flow[UnsignedEventData].wireTapMat(recordCheckpointSink)(Keep.right)
@@ -507,26 +513,30 @@ class SequencerReader(
 
     private def fetchPayloadsForEventsBatch()(implicit
         traceContext: TraceContext
-    ): Flow[ValidatedSnapshotWithEvent[IdOrPayload], UnsignedEventData, NotUsed] =
-      Flow[ValidatedSnapshotWithEvent[IdOrPayload]]
+    ): Flow[WithKillSwitch[ValidatedSnapshotWithEvent[IdOrPayload]], UnsignedEventData, NotUsed] =
+      Flow[WithKillSwitch[ValidatedSnapshotWithEvent[IdOrPayload]]]
         .groupedWithin(config.payloadBatchSize, config.payloadBatchWindow.underlying)
-        .mapAsync(config.payloadFetchParallelism) { snapshotsWithEvent =>
+        .mapAsyncAndDrainUS(config.payloadFetchParallelism) { snapshotsWithEvent =>
           // fetch payloads in bulk
-          val idOrPayloads = snapshotsWithEvent.flatMap(_.unvalidatedEvent.event.payloadO.toList)
-          store.readPayloads(idOrPayloads).map { loadedPayloads =>
-            snapshotsWithEvent.map(snapshotWithEvent =>
-              snapshotWithEvent.mapEventPayload {
-                case id: PayloadId =>
-                  loadedPayloads.getOrElse(
-                    id,
-                    ErrorUtil.invalidState(
-                      s"Event ${snapshotWithEvent.unvalidatedEvent.event.messageId} specified payloadId $id but no corresponding payload was found."
-                    ),
-                  )
-                case payload: Payload => payload
-              }
-            )
-          }
+          val idOrPayloads =
+            snapshotsWithEvent.flatMap(_.value.unvalidatedEvent.event.payloadO.toList)
+          store
+            .readPayloads(idOrPayloads)
+            .map { loadedPayloads =>
+              snapshotsWithEvent.map(snapshotWithEvent =>
+                snapshotWithEvent.value.mapEventPayload {
+                  case id: PayloadId =>
+                    loadedPayloads.getOrElse(
+                      id,
+                      ErrorUtil.invalidState(
+                        s"Event ${snapshotWithEvent.value.unvalidatedEvent.event.messageId} specified payloadId $id but no corresponding payload was found."
+                      ),
+                    )
+                  case payload: Payload => payload
+                }
+              )
+            }
+            .tapOnShutdown(snapshotsWithEvent.headOption.foreach(_.killSwitch.shutdown()))
         }
         // generate events must be called one-by-one on the events in the stream so that events are released as early as possible.
         // otherwise we might run into a deadlock, where one event is waiting (forever) for a previous event to be fully
@@ -547,6 +557,8 @@ class SequencerReader(
         validatedEventSrc
           // drop events we don't care about before fetching payloads
           .dropWhile(_.counter < startAt)
+          .viaMat(KillSwitches.single)(Keep.both)
+          .injectKillSwitch { case (_, killSwitch) => killSwitch }
           .via(fetchPayloadsForEventsBatch())
 
       eventsSource
@@ -555,7 +567,7 @@ class SequencerReader(
             // We don't need to reader-side checkpoints for the unified mode
             // TODO(#20910): Remove this in favor of periodic checkpoints
             Flow[UnsignedEventData].viaMat(KillSwitches.single) { case (_, killSwitch) =>
-              (killSwitch, Future.successful(Done))
+              (killSwitch, FutureUnlessShutdown.pure(Done))
             }
           } else {
             recordCheckpointFlow
@@ -579,7 +591,10 @@ class SequencerReader(
         member: Member,
         memberId: SequencerMemberId,
         checkpoint: CounterCheckpoint,
-    )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[Unit] = {
+    )(implicit
+        traceContext: TraceContext,
+        closeContext: CloseContext,
+    ): FutureUnlessShutdown[Unit] = {
       logger.debug(s"Saving counter checkpoint for [$member] with value [$checkpoint]")
 
       store.saveCounterCheckpoint(memberId, checkpoint).valueOr {
@@ -598,7 +613,7 @@ class SequencerReader(
         readState: ReadState
     )(implicit
         traceContext: TraceContext
-    ): Future[(ReadState, Seq[(SequencerCounter, Sequenced[IdOrPayload])])] =
+    ): FutureUnlessShutdown[(ReadState, Seq[(SequencerCounter, Sequenced[IdOrPayload])])] =
       for {
         readEvents <- store.readEvents(
           readState.memberId,
@@ -792,11 +807,9 @@ class SequencerReader(
       requestedCounter: SequencerCounter,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[ReadState] =
     for {
-      closestCheckpoint <- FutureUnlessShutdown.outcomeF(
-        store.fetchClosestCheckpointBefore(
-          readState.memberId,
-          requestedCounter,
-        )
+      closestCheckpoint <- store.fetchClosestCheckpointBefore(
+        readState.memberId,
+        requestedCounter,
       )
     } yield {
       val startText = closestCheckpoint.fold("the beginning")(_.toString)

@@ -358,7 +358,7 @@ final class GrpcParticipantRepairService(
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
     val res = for {
-      domainId <- EitherT.fromEither[Future](
+      domainId <- EitherT.fromEither[FutureUnlessShutdown](
         DomainId.fromProtoPrimitive(request.domainId, "domain_id").leftMap(_.message)
       )
       _ <- sync.repairService.ignoreEvents(
@@ -369,16 +369,18 @@ final class GrpcParticipantRepairService(
       )
     } yield IgnoreEventsResponse()
 
-    EitherTUtil.toFuture(
-      res.leftMap(err => io.grpc.Status.CANCELLED.withDescription(err).asRuntimeException())
-    )
+    EitherTUtil
+      .toFutureUnlessShutdown(
+        res.leftMap(err => io.grpc.Status.CANCELLED.withDescription(err).asRuntimeException())
+      )
+      .asGrpcResponse
   }
 
   override def unignoreEvents(request: UnignoreEventsRequest): Future[UnignoreEventsResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
     val res = for {
-      domainId <- EitherT.fromEither[Future](
+      domainId <- EitherT.fromEither[FutureUnlessShutdown](
         DomainId.fromProtoPrimitive(request.domainId, "domain_id").leftMap(_.message)
       )
       _ <- sync.repairService.unignoreEvents(
@@ -389,9 +391,11 @@ final class GrpcParticipantRepairService(
       )
     } yield UnignoreEventsResponse()
 
-    EitherTUtil.toFuture(
-      res.leftMap(err => io.grpc.Status.CANCELLED.withDescription(err).asRuntimeException())
-    )
+    EitherTUtil
+      .toFutureUnlessShutdown(
+        res.leftMap(err => io.grpc.Status.CANCELLED.withDescription(err).asRuntimeException())
+      )
+      .asGrpcResponse
   }
 
   override def rollbackUnassignment(

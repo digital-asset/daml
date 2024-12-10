@@ -135,14 +135,14 @@ private[mediator] class Mediator(
       nextTs = preheadO.fold(CantonTimestamp.MinValue)(_.timestamp.immediateSuccessor)
       _ <- state.deduplicationStore.initialize(nextTs)
 
-      _ <- FutureUnlessShutdown.outcomeF(
+      _ <-
         sequencerClient.subscribeTracking(
           sequencerCounterTrackerStore,
           DiscardIgnoredEvents(loggerFactory)(handler),
           timeTracker,
           onCleanHandler = onCleanSequencerCounterHandler,
         )
-      )
+
     } yield ()
   }
 

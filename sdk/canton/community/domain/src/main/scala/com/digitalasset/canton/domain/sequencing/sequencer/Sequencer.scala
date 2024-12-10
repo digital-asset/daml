@@ -43,8 +43,6 @@ import org.apache.pekko.Done
 import org.apache.pekko.stream.KillSwitch
 import org.apache.pekko.stream.scaladsl.Source
 
-import scala.concurrent.Future
-
 /** Errors from pruning */
 sealed trait PruningError {
   def message: String
@@ -92,15 +90,17 @@ trait Sequencer
 
   /** True if member is registered in sequencer persistent state / storage (i.e. database).
     */
-  def isRegistered(member: Member)(implicit traceContext: TraceContext): Future[Boolean]
+  def isRegistered(member: Member)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Boolean]
 
   /** True if registered member has not been disabled.
     */
-  def isEnabled(member: Member)(implicit traceContext: TraceContext): Future[Boolean]
+  def isEnabled(member: Member)(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean]
 
   private[sequencing] def registerMemberInternal(member: Member, timestamp: CantonTimestamp)(
       implicit traceContext: TraceContext
-  ): EitherT[Future, RegisterError, Unit]
+  ): EitherT[FutureUnlessShutdown, RegisterError, Unit]
 
   def sendAsyncSigned(signedSubmission: SignedContent[SubmissionRequest])(implicit
       traceContext: TraceContext
@@ -124,7 +124,7 @@ trait Sequencer
     */
   def snapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SequencerError, SequencerSnapshot]
+  ): EitherT[FutureUnlessShutdown, SequencerError, SequencerSnapshot]
 
   /** Disable the provided member. Should prevent them from reading or writing in the future (although they can still be addressed).
     * Their unread data can also be pruned.
@@ -132,7 +132,7 @@ trait Sequencer
     */
   def disableMember(member: Member)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SequencerAdministrationError, Unit]
+  ): EitherT[FutureUnlessShutdown, SequencerAdministrationError, Unit]
 
   /** The first [[com.digitalasset.canton.SequencerCounter]] that this sequencer can serve for its sequencer client
     * when the sequencer topology processor's [[com.digitalasset.canton.store.SequencedEventStore]] is empty.
@@ -144,7 +144,7 @@ trait Sequencer
     */
   private[sequencing] def firstSequencerCounterServeableForSequencer(implicit
       traceContext: TraceContext
-  ): Future[SequencerCounter]
+  ): FutureUnlessShutdown[SequencerCounter]
 
   /** Return the latest known status of the specified members, either at wall clock time of this sequencer or
     * latest known sequenced event, whichever is the most recent.
@@ -209,7 +209,7 @@ trait SequencerPruning {
     */
   def prune(requestedTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, PruningError, String]
+  ): EitherT[FutureUnlessShutdown, PruningError, String]
 
   /** Locate a timestamp relative to the earliest available sequencer event based on an index starting at one.
     *
@@ -219,7 +219,7 @@ trait SequencerPruning {
     */
   def locatePruningTimestamp(index: PositiveInt)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, PruningSupportError, Option[CantonTimestamp]]
+  ): EitherT[FutureUnlessShutdown, PruningSupportError, Option[CantonTimestamp]]
 
   /** Report the max-event-age metric based on the oldest event timestamp and the current clock time or
     * zero if no oldest timestamp exists (e.g. events fully pruned).
@@ -254,7 +254,9 @@ trait SequencerPruning {
   /** Return a structure containing the members registered with the sequencer and the latest positions of clients
     * reading events.
     */
-  def pruningStatus(implicit traceContext: TraceContext): Future[SequencerPruningStatus]
+  def pruningStatus(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[SequencerPruningStatus]
 }
 
 object Sequencer extends HasLoggerName {
@@ -263,7 +265,8 @@ object Sequencer extends HasLoggerName {
   /** The materialized future completes when all internal side-flows of the source have completed after the kill switch
     * was pulled. Termination of the main flow must be awaited separately.
     */
-  type EventSource = Source[OrdinarySerializedEventOrError, (KillSwitch, Future[Done])]
+  type EventSource =
+    Source[OrdinarySerializedEventOrError, (KillSwitch, FutureUnlessShutdown[Done])]
 
   /** Type alias for a content that is signed by the sender (as in, whoever sent the SubmissionRequest to the sequencer).
     * Note that the sequencer itself can be the "sender": for instance when processing balance updates for traffic control,

@@ -77,8 +77,6 @@ trait ParticipantTopologyValidation extends NamedLogging {
               case false =>
                 Either.unit
             }
-        ).mapK(
-          FutureUnlessShutdown.outcomeK
         )
       }
 

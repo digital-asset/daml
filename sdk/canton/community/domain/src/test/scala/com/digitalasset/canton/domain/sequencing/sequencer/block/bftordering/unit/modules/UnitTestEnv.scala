@@ -290,6 +290,8 @@ final class ProgrammableUnitTestContext[MessageT](resolveAwaits: Boolean = false
   private val delayedQueue = mutable.Queue.empty[MessageT]
   private var lastCancelledEventCell: Option[(Int, MessageT)] = None
   private val selfQueue = mutable.Queue.empty[MessageT]
+  private val becomesQueue = mutable.Queue.empty[Module[ProgrammableUnitTestEnv, MessageT]]
+  private var closeActionCell: Option[() => Unit] = None
 
   override def self: ModuleRef[MessageT] = (msg: MessageT) => selfQueue.addOne(msg)
 
@@ -365,4 +367,17 @@ final class ProgrammableUnitTestContext[MessageT](resolveAwaits: Boolean = false
 
   override def sequenceFuture[A, F[_]](futures: F[() => A])(implicit ev: Traverse[F]): () => F[A] =
     ev.sequence(futures)
+
+  override def become(module: Module[ProgrammableUnitTestEnv, MessageT]): Unit =
+    becomesQueue.enqueue(module)
+
+  def extractBecomes(): Seq[Module[ProgrammableUnitTestEnv, MessageT]] = {
+    val becomes = becomesQueue.toSeq
+    becomesQueue.clear()
+    becomes
+  }
+
+  override def stop(onStop: () => Unit): Unit = closeActionCell = Some(onStop)
+
+  def runCloseAction(): Unit = closeActionCell.getOrElse(abort("No close action defined"))()
 }

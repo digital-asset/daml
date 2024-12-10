@@ -625,7 +625,6 @@ class MediatorNodeBootstrap(
           info.sequencerConnections,
           info.expectedSequencers,
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       sequencerClientRef =
         GrpcSequencerConnectionService.setup[MediatorDomainConfiguration](mediatorId)(

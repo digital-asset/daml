@@ -335,9 +335,9 @@ class InMemoryActiveContractStore(
     Future.successful(counter.get())
   }
 
-  override def purge()(implicit traceContext: TraceContext): Future[Unit] = {
+  override def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     table.clear()
-    Future.unit
+    FutureUnlessShutdown.unit
   }
 
   override def deleteSince(

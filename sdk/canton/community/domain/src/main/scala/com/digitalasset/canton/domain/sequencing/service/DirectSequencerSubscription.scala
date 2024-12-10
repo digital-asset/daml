@@ -53,7 +53,7 @@ private[service] class DirectSequencerSubscription[E](
       .mapAsync(1) { eventOrError =>
         externalCompletionRef.get match {
           case None =>
-            performUnlessClosingF("direct-sequencer-subscription-handler") {
+            performUnlessClosingUSF("direct-sequencer-subscription-handler") {
               handler(eventOrError)
             }.onShutdown {
               Either.unit
@@ -121,7 +121,7 @@ private[service] class DirectSequencerSubscription[E](
     ),
     AsyncCloseable(
       s"flushing other sinks in direct-sequencer-subscription for $member",
-      sourceDone,
+      sourceDone.unwrap,
       timeouts.shutdownNetwork,
     ),
   )

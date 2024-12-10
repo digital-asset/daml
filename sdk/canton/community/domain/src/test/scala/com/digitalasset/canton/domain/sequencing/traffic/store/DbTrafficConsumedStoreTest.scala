@@ -10,6 +10,7 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerStore
 import com.digitalasset.canton.domain.sequencing.traffic.store.db.DbTrafficConsumedStore
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.DbTest
 import com.digitalasset.canton.topology.{DefaultTestIdentities, Member}
@@ -31,7 +32,7 @@ trait DbTrafficConsumedStoreTest extends AsyncWordSpec with BaseTest with Traffi
     sequencerMember = DefaultTestIdentities.sequencerId,
     cachingConfigs = CachingConfigs(),
   )
-  def registerMemberInSequencerStore(member: Member): Future[Unit] =
+  def registerMemberInSequencerStore(member: Member): FutureUnlessShutdown[Unit] =
     sequencerStore.registerMember(member, CantonTimestamp.Epoch).map(_ => ())
 
   override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {

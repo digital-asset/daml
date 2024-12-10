@@ -24,14 +24,17 @@ import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
 
 import java.util.concurrent.ScheduledExecutorService
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait SequencerFactory extends FlagCloseable with HasCloseContext {
 
   def initialize(
       initialState: SequencerInitialState,
       sequencerId: SequencerId,
-  )(implicit ec: ExecutionContext, traceContext: TraceContext): EitherT[Future, String, Unit]
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[FutureUnlessShutdown, String, Unit]
 
   def create(
       domainId: DomainId,
@@ -47,7 +50,7 @@ trait SequencerFactory extends FlagCloseable with HasCloseContext {
       traceContext: TraceContext,
       tracer: Tracer,
       actorMaterializer: Materializer,
-  ): Future[Sequencer]
+  ): FutureUnlessShutdown[Sequencer]
 }
 
 abstract class DatabaseSequencerFactory(
@@ -80,7 +83,10 @@ abstract class DatabaseSequencerFactory(
   override def initialize(
       initialState: SequencerInitialState,
       sequencerId: SequencerId,
-  )(implicit ec: ExecutionContext, traceContext: TraceContext): EitherT[Future, String, Unit] =
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[FutureUnlessShutdown, String, Unit] =
     sequencerStore.initializeFromSnapshot(initialState)
 }
 
@@ -117,7 +123,7 @@ class CommunityDatabaseSequencerFactory(
       traceContext: TraceContext,
       tracer: Tracer,
       actorMaterializer: Materializer,
-  ): Future[Sequencer] = {
+  ): FutureUnlessShutdown[Sequencer] = {
     val sequencer = DatabaseSequencer.single(
       config,
       None,
@@ -133,7 +139,9 @@ class CommunityDatabaseSequencerFactory(
       loggerFactory,
     )
 
-    Future.successful(config.testingInterceptor.map(_(clock)(sequencer)(ec)).getOrElse(sequencer))
+    FutureUnlessShutdown.pure(
+      config.testingInterceptor.map(_(clock)(sequencer)(ec)).getOrElse(sequencer)
+    )
   }
 
 }

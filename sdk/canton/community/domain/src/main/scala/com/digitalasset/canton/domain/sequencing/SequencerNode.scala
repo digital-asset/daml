@@ -44,6 +44,7 @@ import com.digitalasset.canton.domain.server.DynamicGrpcServer
 import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.health.*
 import com.digitalasset.canton.health.admin.data.{WaitingForExternalInput, WaitingForInitialization}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.*
 import com.digitalasset.canton.lifecycle.{
   FutureUnlessShutdown,
   HasCloseContext,
@@ -386,7 +387,6 @@ class SequencerNodeBootstrap(
                 // TODO(#14070) make initialize idempotent to support crash recovery during init
                 sequencerFactory
                   .initialize(initialState, sequencerId)
-                  .mapK(FutureUnlessShutdown.outcomeK)
               }
               .getOrElse {
                 logger.debug("Skipping sequencer snapshot")
@@ -619,7 +619,6 @@ class SequencerNodeBootstrap(
                 sequencerSnapshot,
               )
             )
-            .mapK(FutureUnlessShutdown.outcomeK)
           domainParamsLookup = DomainParametersLookup.forSequencerDomainParameters(
             staticDomainParameters,
             config.publicApi.overrideMaxRequestSize,
@@ -629,7 +628,6 @@ class SequencerNodeBootstrap(
           firstSequencerCounterServeableForSequencer <-
             EitherT
               .right[String](sequencer.firstSequencerCounterServeableForSequencer)
-              .mapK(FutureUnlessShutdown.outcomeK)
 
           _ = addCloseable(sequencedEventStore)
           sequencerClient = new SequencerClientImplPekko[

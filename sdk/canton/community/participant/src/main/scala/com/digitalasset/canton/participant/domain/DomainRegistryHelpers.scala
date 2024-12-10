@@ -260,7 +260,6 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
         .leftMap[DomainRegistryError](
           DomainRegistryError.ConnectionErrors.FailedToConnectToSequencer.Error(_)
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       _ <- downloadDomainTopologyStateForInitializationIfNeeded(
         syncDomainPersistentStateManager,

@@ -21,7 +21,7 @@ import com.digitalasset.canton.util.{ErrorUtil, SingletonTraverse}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Flow
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Transformer for [[com.digitalasset.canton.sequencing.OrdinaryApplicationHandler]]
   * that stores all event batches in the [[com.digitalasset.canton.store.SequencedEventStore]]
@@ -42,19 +42,20 @@ class StoreSequencedEvent(
     // Store the events as part of the flow
     .mapAsync(parallelism = 1)(_.traverseSingleton {
       // TODO(#13789) Properly deal with exceptions
-      (_, tracedEvents) => storeBatch(tracedEvents).map((_: Unit) => tracedEvents)
+      (_, tracedEvents) =>
+        storeBatch(tracedEvents)
+          .failOnShutdownToAbortException("StoreSequencedEvent store batch")
+          .map((_: Unit) => tracedEvents)
     })
 
   def apply(
       handler: OrdinaryApplicationHandler[ClosedEnvelope]
   ): OrdinaryApplicationHandler[ClosedEnvelope] =
-    handler.replace(tracedEvents =>
-      FutureUnlessShutdown.outcomeF(storeBatch(tracedEvents)).flatMap(_ => handler(tracedEvents))
-    )
+    handler.replace(tracedEvents => storeBatch(tracedEvents).flatMap(_ => handler(tracedEvents)))
 
   private def storeBatch(
       tracedEvents: BoxedEnvelope[OrdinaryEnvelopeBox, ClosedEnvelope]
-  ): Future[Unit] =
+  ): FutureUnlessShutdown[Unit] =
     tracedEvents.withTraceContext { implicit batchTraceContext => events =>
       val wrongDomainEvents = events.filter(_.signedEvent.content.domainId != domainId)
       ErrorUtil.requireArgument(

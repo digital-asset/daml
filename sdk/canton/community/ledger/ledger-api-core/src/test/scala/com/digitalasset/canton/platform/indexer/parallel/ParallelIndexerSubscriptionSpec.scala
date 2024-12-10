@@ -13,6 +13,7 @@ import com.digitalasset.canton.ledger.participant.state.{
   SequencerIndex,
   Update,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.SuppressionRule.LoggerNameContains
 import com.digitalasset.canton.logging.{
   LoggingContextWithTrace,
@@ -51,7 +52,7 @@ import org.slf4j.event.Level
 import java.sql.Connection
 import java.time.Instant
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
-import scala.concurrent.{Await, Future, Promise}
+import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 
 class ParallelIndexerSubscriptionSpec
     extends AnyFlatSpec
@@ -601,6 +602,11 @@ class ParallelIndexerSubscriptionSpec
         override def name: String = "test"
       }
 
+      override def executeSqlUS[T](databaseMetrics: DatabaseMetrics)(sql: Connection => T)(implicit
+          loggingContext: LoggingContextWithTrace,
+          ec: ExecutionContext,
+      ): FutureUnlessShutdown[T] =
+        FutureUnlessShutdown.pure(sql(connection))
     }
 
     val batchPayload = "Some batch payload"

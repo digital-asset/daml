@@ -33,7 +33,7 @@ import com.digitalasset.canton.tracing.{HasTraceContext, SerializableTraceContex
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Persistent store for [[com.digitalasset.canton.sequencing.protocol.SequencedEvent]]s received from the sequencer.
   * The store may assume that sequencer counters strictly increase with timestamps
@@ -52,7 +52,7 @@ trait SequencedEventStore extends PrunableByTime with NamedLogging with AutoClos
   def store(signedEvents: Seq[OrdinarySerializedEvent])(implicit
       traceContext: TraceContext,
       externalCloseContext: CloseContext,
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   /** Looks up an event by the given criterion.
     *
@@ -60,7 +60,7 @@ trait SequencedEventStore extends PrunableByTime with NamedLogging with AutoClos
     */
   def find(criterion: SearchCriterion)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SequencedEventNotFoundError, PossiblyIgnoredSerializedEvent]
+  ): EitherT[FutureUnlessShutdown, SequencedEventNotFoundError, PossiblyIgnoredSerializedEvent]
 
   /** Looks up a set of sequenced events within the given range.
     *
@@ -74,7 +74,7 @@ trait SequencedEventStore extends PrunableByTime with NamedLogging with AutoClos
 
   def sequencedEvents(limit: Option[Int] = None)(implicit
       traceContext: TraceContext
-  ): Future[Seq[PossiblyIgnoredSerializedEvent]]
+  ): FutureUnlessShutdown[Seq[PossiblyIgnoredSerializedEvent]]
 
   /** Marks events between `from` and `to` as ignored.
     * Fills any gap between `from` and `to` by empty ignored events, i.e. ignored events without any underlying real event.
@@ -83,7 +83,7 @@ trait SequencedEventStore extends PrunableByTime with NamedLogging with AutoClos
     */
   def ignoreEvents(fromInclusive: SequencerCounter, toInclusive: SequencerCounter)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ChangeWouldResultInGap, Unit]
+  ): EitherT[FutureUnlessShutdown, ChangeWouldResultInGap, Unit]
 
   /** Removes the ignored status from all events between `from` and `to`.
     *
@@ -91,18 +91,20 @@ trait SequencedEventStore extends PrunableByTime with NamedLogging with AutoClos
     */
   def unignoreEvents(fromInclusive: SequencerCounter, toInclusive: SequencerCounter)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ChangeWouldResultInGap, Unit]
+  ): EitherT[FutureUnlessShutdown, ChangeWouldResultInGap, Unit]
 
   /** Deletes all events with sequencer counter greater than or equal to `from`.
     */
   @VisibleForTesting
   private[canton] def delete(fromInclusive: SequencerCounter)(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   /** Purges all data from the store.
     */
-  def purge()(implicit traceContext: TraceContext): Future[Unit] = delete(SequencerCounter.Genesis)
+  def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = delete(
+    SequencerCounter.Genesis
+  )
 }
 
 object SequencedEventStore {

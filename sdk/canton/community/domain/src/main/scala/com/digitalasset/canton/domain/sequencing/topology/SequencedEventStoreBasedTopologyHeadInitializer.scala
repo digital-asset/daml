@@ -33,7 +33,6 @@ final class SequencedEventStoreBasedTopologyHeadInitializer(
     for {
       latestSequencedEvent <- sequencedEventStore
         .find(SearchCriterion.Latest)
-        .mapK(FutureUnlessShutdown.outcomeK)
         // If events cannot be found, an error is returned. Translate it into an `Option`.
         .map(Some(_))
         .getOrElse(None)

@@ -128,7 +128,7 @@ class SequencerWriterTest extends FixtureAsyncWordSpec with BaseTest {
     "wait for online timestamp to be reached" in { env =>
       import env.*
 
-      val startET = writer.start(None, SequencerWriter.ResetWatermarkToClockNow)
+      val startET = writer.start(None, SequencerWriter.ResetWatermarkToClockNow).failOnShutdown
 
       for {
         _ <- allowScheduledFuturesToComplete
@@ -159,7 +159,7 @@ class SequencerWriterTest extends FixtureAsyncWordSpec with BaseTest {
       for {
         _ <- valueOrFail(writer.start(None, SequencerWriter.ResetWatermarkToClockNow))(
           "Starting writer"
-        )
+        ).failOnShutdown
         _ = writer.isRunning shouldBe true
 
         // have the writer flow blow up with an exception saying we've been knocked offline
@@ -168,7 +168,9 @@ class SequencerWriterTest extends FixtureAsyncWordSpec with BaseTest {
         _ = writer.isRunning shouldBe false
         // attempting to write at this point should return unavailable errors that will eventually be used to signal to the
         // load balancers
-        sendError <- leftOrFail(writer.send(mockSubmissionRequest))("send when unavailable")
+        sendError <- leftOrFail(writer.send(mockSubmissionRequest))(
+          "send when unavailable"
+        ).failOnShutdown
         _ = sendError shouldBe SendAsyncError.Unavailable("Unavailable")
         // there may be a number of future hops to work its way through completing the second flow which we currently
         // can't capture via flushes, so just check it eventually happens

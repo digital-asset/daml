@@ -4,7 +4,6 @@
 package com.digitalasset.canton.domain.sequencing.service
 
 import cats.data.EitherT
-import cats.instances.future.*
 import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.functor.*
@@ -53,6 +52,8 @@ import org.apache.pekko.stream.Materializer
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
+
+import CantonGrpcUtil.*
 
 /** Authenticate the current user can perform an operation on behalf of the given member */
 private[sequencing] trait AuthenticationCheck {
@@ -497,21 +498,21 @@ class GrpcSequencerService(
       _ <- checkAuthenticatedMemberPermission(request.member)
         .leftMap(_.asException())
     } yield wrappedRequest
-    (for {
-      request <- validatedRequestE.toEitherT[Future]
+    val result = (for {
+      request <- validatedRequestE.toEitherT[FutureUnlessShutdown]
       _ <- (request match {
         case s: SignedAcknowledgeRequest =>
-          CantonGrpcUtil.shutdownAsGrpcErrorE(
-            sequencer
-              .acknowledgeSigned(s.signedRequest)
-          )
+          sequencer
+            .acknowledgeSigned(s.signedRequest)
       }).leftMap(e =>
         Status.INVALID_ARGUMENT.withDescription(s"Could not acknowledge $e").asException()
       )
     } yield ()).foldF[v30.AcknowledgeSignedResponse](
-      Future.failed,
-      _ => Future.successful(v30.AcknowledgeSignedResponse()),
+      FutureUnlessShutdown.failed,
+      _ => FutureUnlessShutdown.pure(v30.AcknowledgeSignedResponse()),
     )
+
+    result.asGrpcResponse
   }
 
   private def createSubscription[T](

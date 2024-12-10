@@ -70,9 +70,9 @@ class InMemorySubmissionTrackerStore(
     }
   }
 
-  override def purge()(implicit traceContext: TraceContext): Future[Unit] = {
+  override def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     freshSubmittedTransactions.clear()
-    Future.unit
+    FutureUnlessShutdown.unit
   }
 
   override def size(implicit

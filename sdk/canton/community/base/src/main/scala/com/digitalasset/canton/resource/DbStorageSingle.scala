@@ -109,28 +109,29 @@ final class DbStorageSingle private (
 
   private def checkConnectivity(implicit
       traceContext: TraceContext
-  ): Future[Unit] =
-    Future(blocking(try {
-      // FIXME(i11240): if db is backed by a connection pool, this can fail even if the db is healthy, because the pool is busy executing long-running queries
-      val connection =
-        // this will timeout and throw a SQLException if can't establish a connection
-        db.source.createConnection()
-      val valid = ResourceUtil.withResource(connection)(
-        _.isValid(dbConfig.parameters.connectionTimeout.duration.toSeconds.toInt)
-      )
-      if (valid) resolveUnhealthy()
-      valid
-    } catch {
-      case e: SQLException =>
-        failureOccurred(DatabaseConnectionLost(e.getMessage))
-        false
-    })).map { active =>
-      val old = isActiveRef.getAndSet(active)
-      val changed = old != active
-      if (changed)
-        logger.info(s"Changed db storage instance to ${if (active) "active" else "passive"}.")
-    }
-
+  ): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.outcomeF(
+      Future(blocking(try {
+        // FIXME(i11240): if db is backed by a connection pool, this can fail even if the db is healthy, because the pool is busy executing long-running queries
+        val connection =
+          // this will timeout and throw a SQLException if can't establish a connection
+          db.source.createConnection()
+        val valid = ResourceUtil.withResource(connection)(
+          _.isValid(dbConfig.parameters.connectionTimeout.duration.toSeconds.toInt)
+        )
+        if (valid) resolveUnhealthy()
+        valid
+      } catch {
+        case e: SQLException =>
+          failureOccurred(DatabaseConnectionLost(e.getMessage))
+          false
+      })).map { active =>
+        val old = isActiveRef.getAndSet(active)
+        val changed = old != active
+        if (changed)
+          logger.info(s"Changed db storage instance to ${if (active) "active" else "passive"}.")
+      }
+    )
 }
 
 object DbStorageSingle {
