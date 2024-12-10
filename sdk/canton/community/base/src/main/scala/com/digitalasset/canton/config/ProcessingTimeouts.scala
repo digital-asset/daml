@@ -26,6 +26,7 @@ import scala.concurrent.duration.*
   * @param sequencerInfo how long are we going to try to get the sequencer connection information. setting this high means that
   *                      connect calls will take quite a while if one of the sequencers is offline.
   * @param topologyDispatching how long we wait for the topology to retry the dispatching of a message
+  * @param topologySynchronization how long we wait for a topology update to be observed on connected domains
   */
 final case class ProcessingTimeout(
     unbounded: NonNegativeDuration = DefaultProcessingTimeouts.unbounded,
@@ -44,6 +45,7 @@ final case class ProcessingTimeout(
     activeInitRetryDelay: NonNegativeDuration = DefaultProcessingTimeouts.activeInitRetryDelay,
     sequencerInfo: NonNegativeDuration = DefaultProcessingTimeouts.sequencerInfo,
     topologyDispatching: NonNegativeDuration = DefaultProcessingTimeouts.topologyDispatching,
+    topologySynchronization: NonNegativeDuration = DefaultProcessingTimeouts.topologySynchronization,
 )
 
 /** Reasonable default timeouts */
@@ -83,6 +85,8 @@ object DefaultProcessingTimeouts {
   val sequencerInfo: NonNegativeDuration = NonNegativeDuration.tryFromDuration(30.seconds)
 
   val topologyDispatching: NonNegativeDuration = NonNegativeDuration.tryFromDuration(30.seconds)
+
+  val topologySynchronization: NonNegativeDuration = NonNegativeDuration.tryFromDuration(30.seconds)
 
   @VisibleForTesting
   lazy val testing: ProcessingTimeout = ProcessingTimeout()
