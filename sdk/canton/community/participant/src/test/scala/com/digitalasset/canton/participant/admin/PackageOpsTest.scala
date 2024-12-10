@@ -5,8 +5,8 @@ package com.digitalasset.canton.participant.admin
 
 import cats.data.EitherT
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
-import com.digitalasset.canton.lifecycle.UnlessShutdown
+import com.digitalasset.canton.crypto.{Fingerprint, Hash, HashAlgorithm, HashPurpose}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageMissingDependencies
 import com.digitalasset.canton.participant.store.{
   ActiveContractStore,
@@ -14,6 +14,7 @@ import com.digitalasset.canton.participant.store.{
   SyncDomainPersistentState,
 }
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
+import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError.MainDarPackageReferencedExternally
 import com.digitalasset.canton.participant.topology.{
   ParticipantTopologyManager,
   TopologyComponentFactory,
@@ -214,7 +215,6 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
   }
 }
 
-// TODO(#21671): Unit test synchronization of enable and disable once state is final
 class PackageOpsTest extends PackageOpsTestBase {
   protected type T = TestSetup
   protected def buildSetup: T = new TestSetup()
@@ -287,16 +287,6 @@ class PackageOpsTest extends PackageOpsTestBase {
           Seq((TopologyChangeOp.Remove, mapping, pvForCheckOnlyTxs) -> revocationTxMock),
       )
 
-      when(
-        topologyManager.authorize(
-          eqTo(revocationTxMock),
-          eqTo(None),
-          eqTo(pvForCheckOnlyTxs),
-          eqTo(true),
-          eqTo(false),
-        )(anyTraceContext)
-      ).thenReturn(EitherT.rightT(mock[SignedTopologyTransaction[Nothing]]))
-
       packageOps
         .enableDarPackages(pkgId1, depPkgs, "test DAR description", synchronize = false)
         .value
@@ -309,6 +299,36 @@ class PackageOpsTest extends PackageOpsTestBase {
             .genTransaction(TopologyChangeOp.Remove, mapping, pvForCheckOnlyTxs)
           verify(topologyManager)
             .authorize(revocationTxMock, None, pvForCheckOnlyTxs, force = true)
+          succeed
+        })
+    }
+
+    "wait for topology transactions observed on synchronize enabled" in withTestSetup { env =>
+      import env.*
+      val mapping = CheckOnlyPackages(participantId, packages)
+      arrange(
+        notVetted = Seq(packages.toSet -> Set.empty),
+        existingMappings = Seq(mapping -> true),
+        genTransaction =
+          Seq((TopologyChangeOp.Remove, mapping, pvForCheckOnlyTxs) -> revocationTxMock),
+      )
+
+      packageOps
+        .enableDarPackages(pkgId1, depPkgs, "test DAR description", synchronize = true)
+        .value
+        .unwrap
+        .map(inside(_) { case UnlessShutdown.Outcome(Right(_)) =>
+          verify(topologyManager).packagesNotVetted(participantId, packages.toSet)
+          verify(topologyManager).mappingExists(mapping)
+
+          verify(topologyManager)
+            .genTransaction(TopologyChangeOp.Remove, mapping, pvForCheckOnlyTxs)
+          verify(topologyManager)
+            .authorize(revocationTxMock, None, pvForCheckOnlyTxs, force = true)
+
+          verify(topologyManager)
+            .waitForPackagesBeingVetted(packages.toSet, participantId)
+          verifyNoMoreInteractions(topologyManager)
           succeed
         })
     }
@@ -382,16 +402,6 @@ class PackageOpsTest extends PackageOpsTestBase {
           Seq((TopologyChangeOp.Remove, mapping, testedProtocolVersion) -> revocationTxMock),
       )
 
-      when(
-        topologyManager.authorize(
-          eqTo(revocationTxMock),
-          eqTo(None),
-          eqTo(testedProtocolVersion),
-          eqTo(true),
-          eqTo(false),
-        )(anyTraceContext)
-      ).thenReturn(EitherT.rightT(mock[SignedTopologyTransaction[Nothing]]))
-
       packageOps
         .disableDarPackages(pkgId1, depPkgs, "test DAR description", synchronize = false)
         .value
@@ -403,6 +413,62 @@ class PackageOpsTest extends PackageOpsTestBase {
             .genTransaction(TopologyChangeOp.Remove, mapping, testedProtocolVersion)
           verify(topologyManager)
             .authorize(revocationTxMock, None, testedProtocolVersion, force = true)
+          succeed
+        })
+    }
+
+    "disallow disabling if the DAR's main package is vetted more than once" in withTestSetup {
+      env =>
+        import env.*
+        arrange(mainPackageVettedMultipleTimes = true)
+
+        packageOps
+          .disableDarPackages(pkgId1, depPkgs, "test DAR description", synchronize = false)
+          .value
+          .unwrap
+          .map(inside(_) {
+            case UnlessShutdown.Outcome(
+                  Left(
+                    MainDarPackageReferencedExternally
+                      .Reject("DAR disabling", `pkgId1`, "test DAR description")
+                  )
+                ) =>
+              verify(topologyManager)
+                .isPackageContainedInMultipleVettedTransactions(participantId, pkgId1)
+              verifyNoMoreInteractions(topologyManager)
+              succeed
+          })
+    }
+
+    "wait for topology transactions observed on synchronize enabled" in withTestSetup { env =>
+      import env.*
+      val mapping = VettedPackages(participantId, packages)
+      arrange(
+        notCheckOnly = Seq(packages.toSet -> Set.empty),
+        existingMappings = Seq(mapping -> true),
+        genTransaction =
+          Seq((TopologyChangeOp.Remove, mapping, testedProtocolVersion) -> revocationTxMock),
+      )
+
+      packageOps
+        .disableDarPackages(pkgId1, depPkgs, "test DAR description", synchronize = true)
+        .value
+        .unwrap
+        .map(inside(_) { case UnlessShutdown.Outcome(Right(_)) =>
+          verify(topologyManager)
+            .isPackageContainedInMultipleVettedTransactions(participantId, pkgId1)
+          verify(topologyManager).packagesNotMarkedAsCheckOnly(participantId, packages.toSet)
+          verify(topologyManager).mappingExists(mapping)
+          verify(topologyManager)
+            .genTransaction(TopologyChangeOp.Remove, mapping, testedProtocolVersion)
+          verify(topologyManager)
+            .authorize(revocationTxMock, None, testedProtocolVersion, force = true)
+          verify(topologyManager).waitForPackageBeingUnvetted(pkgId1, participantId)
+
+          if (testedProtocolVersion >= CheckOnlyPackages.minimumSupportedProtocolVersion) {
+            verify(topologyManager).waitForPackagesMarkedAsCheckOnly(packages.toSet, participantId)
+          }
+          verifyNoMoreInteractions(topologyManager)
           succeed
         })
     }
@@ -432,6 +498,10 @@ class PackageOpsTest extends PackageOpsTestBase {
               TopologyTransaction[TopologyChangeOp],
           )
         ] = Seq.empty,
+        mainPackageVettedMultipleTimes: Boolean = false,
+        waitForCheckOnly: Boolean = true,
+        waitForUnvetted: Boolean = true,
+        waitForVetted: Boolean = true,
     ): Unit = {
       notVetted.foreach { case (expectedArg, ret) =>
         when(
@@ -452,6 +522,18 @@ class PackageOpsTest extends PackageOpsTestBase {
       genTransaction.foreach { case ((op, mapping, pv), tx) =>
         when(topologyManager.genTransaction(op, mapping, pv)).thenReturn(EitherT.rightT(tx))
       }
+
+      when(topologyManager.isPackageContainedInMultipleVettedTransactions(participantId, pkgId1))
+        .thenReturn(FutureUnlessShutdown.pure(mainPackageVettedMultipleTimes))
+
+      when(topologyManager.waitForPackagesMarkedAsCheckOnly(packages.toSet, participantId))
+        .thenReturn(EitherT.rightT(waitForCheckOnly))
+
+      when(topologyManager.waitForPackageBeingUnvetted(pkgId1, participantId))
+        .thenReturn(EitherT.rightT(waitForUnvetted))
+
+      when(topologyManager.waitForPackagesBeingVetted(packages.toSet, participantId))
+        .thenReturn(EitherT.rightT(waitForVetted))
     }
 
     val revocationTxMock = mock[TopologyTransaction[Remove]]
@@ -460,5 +542,25 @@ class PackageOpsTest extends PackageOpsTestBase {
       testedProtocolVersion,
       CheckOnlyPackages.minimumSupportedProtocolVersion,
     )
+
+    when(
+      topologyManager.authorize(
+        eqTo(revocationTxMock),
+        any[Option[Fingerprint]],
+        eqTo(pvForCheckOnlyTxs),
+        anyBoolean,
+        anyBoolean,
+      )(anyTraceContext)
+    ).thenReturn(EitherT.rightT(mock[SignedTopologyTransaction[Nothing]]))
+
+    when(
+      topologyManager.authorize(
+        eqTo(revocationTxMock),
+        any[Option[Fingerprint]],
+        eqTo(testedProtocolVersion),
+        anyBoolean,
+        anyBoolean,
+      )(anyTraceContext)
+    ).thenReturn(EitherT.rightT(mock[SignedTopologyTransaction[Nothing]]))
   }
 }
