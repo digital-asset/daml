@@ -580,7 +580,9 @@ expandSdkPackages logger lfVersion dars = do
       | isSdkPackage fp = fp : Map.findWithDefault [] fp sdkDependencies
       | otherwise = [fp]
     sdkDependencies = Map.fromList
-      [ ("daml-trigger", ["daml-script"])
+      [ ("daml-trigger", if lfVersion `LF.supports` LF.featureLegacyDamlScript 
+                           then ["daml-script"] 
+                           else ["daml-script-lts", "daml-script-lts-stable"])
       , -- daml-script-lts is now split into 2 packages, we need to bring that transitive dep in.
         ("daml-script-lts", ["daml-script-lts-stable"])
         -- Legacy names of daml-script-lts

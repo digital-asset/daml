@@ -5,6 +5,7 @@ load("@oracle//:index.bzl", "oracle_tags")
 load("@build_environment//:configuration.bzl", "sdk_version")
 load(
     "//daml-lf/language:daml-lf.bzl",
+    "LEGACY_DAML_SCRIPT_LF_VERSIONS",
     "LF_DEV_VERSIONS",
     "LF_MAJOR_VERSIONS",
     "lf_version_default_or_latest",
@@ -359,7 +360,9 @@ da_scala_test_suite(
         srcs =
             glob(["test-model/*.daml"]) + [
                 "//triggers/daml:daml-trigger-{}".format(lf_version),
-                "//daml-script/daml:daml-script-{}".format(lf_version),
+            ] + [
+                src
+                for (src, _) in daml_script_dars
             ],
         outs = ["test-model-{}.dar".format(lf_version)],
         cmd = """
@@ -372,7 +375,7 @@ da_scala_test_suite(
           cp -L $(location :test-model/ReadAs.daml) $$TMP_DIR/daml
           cp -L $(location :test-model/Cats.daml) $$TMP_DIR/daml
           cp -L $(location {daml_trigger}) $$TMP_DIR/daml-trigger.dar
-          cp -L $(location {daml_script}) $$TMP_DIR/daml-script.dar
+          {daml_script_copy_cmds}
           cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: test-model
@@ -382,7 +385,7 @@ dependencies:
   - daml-stdlib
   - daml-prim
   - daml-trigger.dar
-  - daml-script.dar
+{daml_script_deps}
 build-options: {build_options}
 EOF
           $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$@
@@ -392,7 +395,14 @@ EOF
                 "--target",
                 lf_version,
             ]),
-            daml_script = "//daml-script/daml:daml-script-{}".format(lf_version),
+            daml_script_copy_cmds = "; ".join([
+                "cp -L $(location {src}) $$TMP_DIR/{dst}".format(
+                    src = src,
+                    dst = dst,
+                )
+                for (src, dst) in daml_script_dars
+            ]),
+            daml_script_deps = "\n".join(["  - {}".format(dst) for (_, dst) in daml_script_dars]),
             daml_trigger = "//triggers/daml:daml-trigger-{}".format(lf_version),
             sdk = sdk_version,
         ),
@@ -400,6 +410,25 @@ EOF
         visibility = ["//visibility:public"],
     )
     for lf_version in target_lf_versions
+    # A list of bazel targets for daml-script dars and the file name they should be copied to in
+    # the temporary directory. This file name is then declared as a dependency in the generated
+    # daml.yaml file. For LF versions that support the legacy daml script (which includes "", the
+    # default LF version), we only need one dar. For daml-script-lts we need two.
+    for daml_script_dars in [
+        [(
+            "//daml-script/daml:daml-script-{}".format(lf_version),
+            "daml-script.dar",
+        )] if lf_version == "" or lf_version in LEGACY_DAML_SCRIPT_LF_VERSIONS else [
+            (
+                "//daml-script/daml-lts:daml-script-lts-{}".format(lf_version),
+                "daml-script-lts.dar",
+            ),
+            (
+                "//daml-script/daml-lts:daml-script-lts-stable-{}".format(lf_version),
+                "daml-script-lts-stable.dar",
+            ),
+        ],
+    ]
 ]
 
 [

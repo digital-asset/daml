@@ -329,7 +329,7 @@ featureLegacyDamlScript = Feature
     , featureVersionReq = VersionReq \case
           V1 -> allMinorVersionsBefore (versionMinor maxLegacyDamlScriptVersion)
           V2 -> noMinorVersion
-    , featureCppFlag = Nothing
+    , featureCppFlag = Just "DAML_LEGACY_DAML_SCRIPT"
     }
 
 featureExperimental :: Feature
