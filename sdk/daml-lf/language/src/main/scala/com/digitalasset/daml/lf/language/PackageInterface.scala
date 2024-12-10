@@ -123,24 +123,42 @@ private[lf] class PackageInterface(val signatures: PartialFunction[PackageId, Pa
   def lookupDataVariant(tyCon: TypeConName): Either[LookupError, DataVariantInfo] =
     lookupDataVariant(tyCon, Reference.DataVariant(tyCon))
 
-  private[this] def lookupVariantConstructor(
+  private[this] def lookupVariantConstructorWithDowngradeChecks(
       tyCon: TypeConName,
       consName: VariantConName,
       context: => Reference,
-  ): Either[LookupError, VariantConstructorInfo] =
-    lookupDataVariant(tyCon, context).flatMap(variantInfo =>
-      variantInfo.dataVariant.constructorInfo.get(consName) match {
-        case Some((typ, rank)) => Right(VariantConstructorInfo(variantInfo, typ, rank))
-        case None =>
-          Left(LookupError.NotFound(Reference.DataVariantConstructor(tyCon, consName), context))
-      }
+  ): Either[LookupError.NotFound, Either[LookupError, VariantConstructorInfo]] =
+    lookupDataVariant(tyCon, context).fold(
+      notFound => Right(Left(notFound)),
+      variantInfo =>
+        variantInfo.dataVariant.constructorInfo.get(consName) match {
+          case Some((typ, rank)) =>
+            Right(Right(VariantConstructorInfo(variantInfo, typ, rank)))
+          case None =>
+            Left(LookupError.NotFound(Reference.DataVariantConstructor(tyCon, consName), context))
+        },
     )
 
   def lookupVariantConstructor(
       tyCon: TypeConName,
       consName: VariantConName,
   ): Either[LookupError, VariantConstructorInfo] =
-    lookupVariantConstructor(tyCon, consName, Reference.DataVariantConstructor(tyCon, consName))
+    lookupVariantConstructorWithDowngradeChecks(
+      tyCon,
+      consName,
+      Reference.DataVariantConstructor(tyCon, consName),
+    )
+      .fold(notFound => Left(notFound), identity)
+
+  def lookupVariantConstructorWithDowngradeChecks(
+      tyCon: TypeConName,
+      consName: VariantConName,
+  ): Either[LookupError.NotFound, Either[LookupError, VariantConstructorInfo]] =
+    lookupVariantConstructorWithDowngradeChecks(
+      tyCon,
+      consName,
+      Reference.DataVariantConstructor(tyCon, consName),
+    )
 
   private[this] def lookupDataEnum(
       tyCon: TypeConName,
@@ -156,21 +174,39 @@ private[lf] class PackageInterface(val signatures: PartialFunction[PackageId, Pa
   def lookupDataEnum(tyCon: TypeConName): Either[LookupError, DataEnumInfo] =
     lookupDataEnum(tyCon, Reference.DataEnum(tyCon))
 
-  private[this] def lookupEnumConstructor(
+  private[this] def lookupEnumConstructorWithDowngradeChecks(
       tyCon: TypeConName,
       consName: EnumConName,
       context: => Reference,
-  ): Either[LookupError, Int] =
-    lookupDataEnum(tyCon, context).flatMap { dataEnumInfo =>
-      dataEnumInfo.dataEnum.constructorRank.get(consName) match {
-        case Some(rank) => Right(rank)
-        case None =>
-          Left(LookupError.NotFound(Reference.DataEnumConstructor(tyCon, consName), context))
-      }
-    }
+  ): Either[LookupError.NotFound, Either[LookupError, Int]] =
+    lookupDataEnum(tyCon, context).fold(
+      notFound => Right(Left(notFound)),
+      dataEnumInfo =>
+        dataEnumInfo.dataEnum.constructorRank.get(consName) match {
+          case Some(rank) =>
+            Right(Right(rank))
+          case None =>
+            Left(LookupError.NotFound(Reference.DataEnumConstructor(tyCon, consName), context))
+        },
+    )
 
   def lookupEnumConstructor(tyCon: TypeConName, consName: EnumConName): Either[LookupError, Int] =
-    lookupEnumConstructor(tyCon, consName, Reference.DataEnumConstructor(tyCon, consName))
+    lookupEnumConstructorWithDowngradeChecks(
+      tyCon,
+      consName,
+      Reference.DataEnumConstructor(tyCon, consName),
+    )
+      .fold(notFound => Left(notFound), identity)
+
+  def lookupEnumConstructorWithDowngradeChecks(
+      tyCon: TypeConName,
+      consName: EnumConName,
+  ): Either[LookupError.NotFound, Either[LookupError, Int]] =
+    lookupEnumConstructorWithDowngradeChecks(
+      tyCon,
+      consName,
+      Reference.DataEnumConstructor(tyCon, consName),
+    )
 
   private[this] def lookupTemplate(
       name: TypeConName,
