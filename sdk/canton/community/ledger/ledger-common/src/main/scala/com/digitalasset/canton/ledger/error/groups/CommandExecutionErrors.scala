@@ -3,8 +3,18 @@
 
 package com.digitalasset.canton.ledger.error.groups
 
-import com.daml.error.{ContextualizedErrorLogger, DamlErrorWithDefiniteAnswer, ErrorCategory, ErrorCategoryRetry, ErrorCode, ErrorGroup, ErrorResource, Explanation, Resolution}
-import com.daml.lf.data.{FrontStack, Ref}
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  DamlErrorWithDefiniteAnswer,
+  ErrorCategory,
+  ErrorCategoryRetry,
+  ErrorCode,
+  ErrorGroup,
+  ErrorResource,
+  Explanation,
+  Resolution,
+}
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine.Error as LfError
 import com.daml.lf.interpretation.Error as LfInterpretationError
@@ -666,7 +676,8 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
             val optKeyResources = err.keyOpt.fold(Seq.empty[(ErrorResource, String)])(key =>
               withEncodedValue(key.globalKey.key) { encodedKey =>
                 Seq((ErrorResource.ContractKey, encodedKey)) ++ encodeParties(key.maintainers)
-            })
+              }
+            )
 
             Seq(
               (ErrorResource.ContractId, err.coid.coid),
@@ -681,7 +692,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
         "An optional contract field with a value of Some may not be dropped during downgrading"
       )
       @Resolution(
-        "There is data that is newer than the implementation using it, and thus is not compatible. Ensure new data (i.e. those with additional fields as `Some`) is only used with new/compatible choices"
+        "There is data that is newer than the implementation it is being used it, and thus is not compatible. Ensure new data (i.e. those with additional fields as `Some`) is only used with new choices"
       )
       object DowngradeDropDefinedField
           extends ErrorCode(

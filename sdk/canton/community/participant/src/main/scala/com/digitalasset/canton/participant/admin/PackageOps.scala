@@ -17,7 +17,10 @@ import com.digitalasset.canton.participant.admin.CantonPackageServiceError.Packa
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageRemovalErrorCode.PackageInUse
 import com.digitalasset.canton.participant.admin.PackageService.DarDescriptor
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
-import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError.IdentityManagerParentError
+import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError.{
+  IdentityManagerParentError,
+  MainDarPackageReferencedExternally,
+}
 import com.digitalasset.canton.participant.topology.{
   ParticipantTopologyManager,
   ParticipantTopologyManagerError,
@@ -177,11 +180,17 @@ class PackageOpsImpl(
       )
       _ <- onSynchronizeWaitForPackagesState(
         synchronize = synchronize,
+        subjectDescription = "packages of DAR",
         stateDescription = "vetted",
         darDescription = darDescription,
         waitForState = topologyManager
           .waitForPackagesBeingVetted(allPackageIds.toSet, participantId),
       )
+      // For simplicity, we do not synchronize on removal of the CheckOnlyPackages
+      // since it is not necessary for the transition from disabled to enabled to occur,
+      // which is observable by ledger clients by the synchronization of the VettedPackages
+      // to connected domains.
+      // Revoking of the CheckOnlyPackages mapping is done only for house-keeping
     } yield ()
   }
 
@@ -200,6 +209,7 @@ class PackageOpsImpl(
     for {
       _ <- topologyUpdatesSequentialQueue.executeEUS(
         for {
+          _ <- checkDarDisableAllowedByMainPackageVetting(mainPkg, darDescription)
           _ <- addMappingIfMissing(
             mapping = CheckOnlyPackages(participantId, allPackageIds),
             checkMissing = topologyManager
@@ -214,19 +224,56 @@ class PackageOpsImpl(
         } yield (),
         "disable DAR",
       )
-      _ <- onSynchronizeWaitForPackagesState(
+      checkOnlySyncF = onSynchronizeWaitForPackagesState(
         synchronize = synchronize && CheckOnlyPackages.supportedOnProtocolVersion(protocolVersion),
+        subjectDescription = "packages of DAR",
         stateDescription = "check-only",
         darDescription = darDescription,
         waitForState =
           topologyManager.waitForPackagesMarkedAsCheckOnly(allPackageIds.toSet, participantId),
       )
-      // TODO(#21671): Synchronize on the main package not vetted
+      vettedSyncF = onSynchronizeWaitForPackagesState(
+        synchronize = synchronize,
+        subjectDescription = "main package of DAR",
+        stateDescription = "vetted",
+        darDescription = darDescription,
+        waitForState = topologyManager.waitForPackageBeingUnvetted(mainPkg, participantId),
+      )
+      // Wait in parallel for synchronization
+      _ <- checkOnlySyncF
+      _ <- vettedSyncF
     } yield ()
   }
 
+  private def checkDarDisableAllowedByMainPackageVetting(
+      mainPkg: LfPackageId,
+      darDescription: String,
+  )(implicit
+      tc: TraceContext
+  ): EitherT[FutureUnlessShutdown, MainDarPackageReferencedExternally.Reject, Unit] =
+    EitherT
+      .right(
+        topologyManager.isPackageContainedInMultipleVettedTransactions(
+          pid = participantId,
+          packageId = mainPkg,
+        )
+      )
+      .subflatMap {
+        case true =>
+          Left(
+            MainDarPackageReferencedExternally
+              .Reject(
+                operationName = "DAR disabling",
+                mainPackageId = mainPkg,
+                darDescription = darDescription,
+              )
+          )
+        case false => Right(())
+      }
+
   private def onSynchronizeWaitForPackagesState(
       synchronize: => Boolean,
+      subjectDescription: String,
       stateDescription: String,
       darDescription: String,
       waitForState: => EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Boolean],
@@ -236,14 +283,14 @@ class PackageOpsImpl(
     EitherTUtil.ifThenET(synchronize)(waitForState.flatMap {
       case true =>
         logger.debug(
-          s"Packages of DAR '$darDescription' appeared as $stateDescription on all connected domains"
+          s"${subjectDescription.capitalize} '$darDescription' appeared as $stateDescription on all connected domains"
         )
         noOp
       case false =>
         EitherT.leftT[FutureUnlessShutdown, Unit](
           ParticipantTopologyManagerError.PackageTopologyStateUpdateTimeout
             .Reject(
-              s"Timed out while waiting for the packages of DAR '$darDescription' to appear as $stateDescription on all connected domains"
+              s"Timed out while waiting for the ${subjectDescription.capitalize} '$darDescription' to appear as $stateDescription on all connected domains"
             ): ParticipantTopologyManagerError
         )
     })

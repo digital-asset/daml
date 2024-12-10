@@ -66,6 +66,7 @@ import com.digitalasset.canton.sequencing.{
 }
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
+import com.digitalasset.canton.topology.transaction.CheckOnlyPackages
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ShowUtil.*
@@ -847,7 +848,6 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         path: String,
         vetAllPackages: Boolean = true,
         synchronizeVetting: Boolean = true,
-        alsoSynchronizeCheckOnly: Boolean = true,
     ): String = {
       val res = consoleEnvironment.runE {
         for {
@@ -857,7 +857,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         } yield hash
       }
       if (synchronizeVetting && vetAllPackages) {
-        packages.synchronize_vetting(alsoSynchronizeCheckOnly = alsoSynchronizeCheckOnly)
+        packages.synchronize_vetting()
       }
       res
     }
@@ -891,27 +891,30 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       @Help.Summary(
         "Vet all packages contained in the DAR archive identified by the provided DAR hash."
       )
-      // TODO(#21671): Document synchronization flag
+      @Help.Description(
+        s"""This command issues a vetting topology transaction for all the packages
+                          |referenced by the provided DAR hash. Additionally, if exists, the corresponding check-only packages topology transaction is revoked.
+                          |If used with synchronize enabled (default = true), the operation waits for the vetted packages topology transaction
+                          |to be observed on all connected domains"""
+      )
       def enable(darHash: String, synchronize: Boolean = true): Unit =
-        // TODO(#21671): Consider removing the Preview feature-flag
-        check(FeatureFlag.Preview)(consoleEnvironment.run {
+        consoleEnvironment.run {
           adminCommand(ParticipantAdminCommands.Package.VetDar(darHash, synchronize))
-        })
+        }
 
       @Help.Summary("""Revoke vetting for all packages contained in the DAR archive
           |identified by the provided DAR hash.""")
       @Help.Description("""This command succeeds if the vetting command used to vet the DAR's packages
           |was symmetric and resulted in a single vetting topology transaction for all the packages in the DAR.
-          |This command is potentially dangerous and misuse
-          |can lead the participant to fail in processing transactions""")
-      // TODO(#21671): Update description and add mention synchronization flag
+          |If used with synchronize enabled (default = true), the operation waits for the DAR to appear disabled topology-wise on all connected domains.
+          |This implies observing the addition of the relevant vetted packages
+          |and the revocation of the relevant check-only topology transactions.""")
       def disable(darHash: String, synchronize: Boolean = true): Unit =
-        // TODO(#21671): Consider removing the Preview feature-flag
-        check(FeatureFlag.Preview)(consoleEnvironment.run {
+        consoleEnvironment.run {
           adminCommand(
             ParticipantAdminCommands.Package.UnvetDar(darHash, synchronize = synchronize)
           )
-        })
+        }
     }
   }
 
@@ -973,12 +976,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         |that commands are only submitted once the package vetting has been observed by some other connected participant
         |known to the console. This command can be used in such cases.""")
     def synchronize_vetting(
-        timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.bounded,
-        // TODO(#21671): Use the protocol versions of the participants and domains to
-        //               check whether to synchronize check-only or not.
-        //               Otherwise, synchronization can hang on domains running older protocol versions
-        //               due to missing CheckOnly transactions
-        alsoSynchronizeCheckOnly: Boolean = true,
+        timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.bounded
     ): Unit = {
       val connected = domains.list_connected().map(_.domainId).toSet
 
@@ -1072,14 +1070,27 @@ trait ParticipantAdministration extends FeatureFlagFilter {
             .toSet
         }
 
+      // The boolean indicates whether the domain supports checked-only packages
+      val connectedDomains: Map[DomainId, (DomainReference, Boolean)] =
+        consoleEnvironment.domains.all.collect {
+          case d if d.health.running() && d.health.initialized() && connected.contains(d.id) =>
+            val supportsCheckOnlyPackages =
+              d.service.get_static_domain_parameters.protocolVersion >= CheckOnlyPackages.minimumSupportedProtocolVersion
+            d.id -> (d -> supportsCheckOnlyPackages)
+        }.toMap
+
       // for every domain this participant is connected to
-      consoleEnvironment.domains.all
-        .filter(d => d.health.running() && d.health.initialized() && connected.contains(d.id))
-        .foreach { domain =>
+      connectedDomains
+        .foreach { case (_, (domain, supportsCheckOnlyPackages)) =>
           waitForVettedPackages(domain.topology, s"Domain ${domain.name}", domain.id)
-          if (alsoSynchronizeCheckOnly) {
+          if (supportsCheckOnlyPackages) {
             waitForCheckOnlyPackages(domain.topology, s"Domain ${domain.name}", domain.id)
           }
+        }
+
+      def supportsCheckOnlyPackages(domainId: DomainId): Boolean =
+        connectedDomains.get(domainId).exists { case (_, supportCheckOnlyPackages) =>
+          supportCheckOnlyPackages
         }
 
       // for every participant
@@ -1094,7 +1105,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
                 s"Participant ${participant.name}",
                 item.domainId,
               )
-              if (alsoSynchronizeCheckOnly) {
+              if (supportsCheckOnlyPackages(item.domainId)) {
                 waitForCheckOnlyPackages(
                   participant.topology,
                   s"Participant ${participant.name}",

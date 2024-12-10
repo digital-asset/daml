@@ -382,7 +382,9 @@ class DAMLe(
           handleResult(contracts, resume(verification))
         }
 
-      case ResultPrefetch(_, resume) => handleResult(contracts, resume())
+      case ResultPrefetch(_, resume) =>
+        // we do not need to prefetch here as Canton includes the keys as a static map in Phase 3
+        handleResult(contracts, resume())
     }
   }
 

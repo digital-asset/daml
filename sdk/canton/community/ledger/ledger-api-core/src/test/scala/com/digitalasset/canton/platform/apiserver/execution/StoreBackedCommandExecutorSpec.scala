@@ -3,7 +3,11 @@
 
 package com.digitalasset.canton.platform.apiserver.execution
 
-import com.daml.lf.command.{ApiCommands as LfCommands, DisclosedContract as LfDisclosedContract}
+import com.daml.lf.command.{
+  ApiCommands as LfCommands,
+  ApiContractKey,
+  DisclosedContract as LfDisclosedContract,
+}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref.{Identifier, ParticipantId, Party}
@@ -101,6 +105,7 @@ class StoreBackedCommandExecutorSpec
         packageMap = any[Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]],
         packagePreference = any[Set[Ref.PackageId]],
         engineLogger = any[Option[EngineLogger]],
+        prefetchKeys = any[Seq[ApiContractKey]],
       )(any[LoggingContext])
     )
       .thenReturn(result)
@@ -314,6 +319,7 @@ class StoreBackedCommandExecutorSpec
           packageMap = any[Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]],
           packagePreference = any[Set[Ref.PackageId]],
           engineLogger = any[Option[EngineLogger]],
+          prefetchKeys = any[Seq[ApiContractKey]],
         )(any[LoggingContext])
       ).thenReturn(engineResult)
 
