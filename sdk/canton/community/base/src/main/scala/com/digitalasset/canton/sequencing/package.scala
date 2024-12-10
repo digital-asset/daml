@@ -18,8 +18,6 @@ import com.digitalasset.canton.store.SequencedEventStore.{
 }
 import com.digitalasset.canton.tracing.Traced
 
-import scala.concurrent.Future
-
 package object sequencing {
 
   /** It is convenient to consider the envelopes and all the structure around the envelopes (the box).
@@ -112,7 +110,8 @@ package object sequencing {
 
   /** Default type for handlers on serialized events with error reporting
     */
-  type SerializedEventHandler[Err] = OrdinarySerializedEvent => Future[Either[Err, Unit]]
+  type SerializedEventHandler[Err] =
+    OrdinarySerializedEvent => FutureUnlessShutdown[Either[Err, Unit]]
   type SerializedEventOrErrorHandler[Err] =
-    OrdinarySerializedEventOrError => Future[Either[Err, Unit]]
+    OrdinarySerializedEventOrError => FutureUnlessShutdown[Either[Err, Unit]]
 }

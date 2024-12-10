@@ -3,26 +3,12 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.unit
 
-import com.digitalasset.canton.crypto.{
-  Hash,
-  HashPurpose,
-  Signature,
-  SignatureCheckError,
-  SyncCryptoError,
-}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.CryptoProvider
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.{
-  MessageFrom,
-  SignedMessage,
-}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.{
   CancellableEvent,
   Env,
   ModuleRef,
 }
-import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
-import com.digitalasset.canton.topology.SequencerId
-import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.Assertions.fail
 
 import java.util.concurrent.atomic.AtomicReference
@@ -49,23 +35,5 @@ package object modules {
   private[unit] def fakeCancellableEventExpectingSilence: CancellableEvent =
     () => fail("Module should not cancel delayed event")
 
-  private[unit] def fakeCryptoProvider[E <: Env[E]]: CryptoProvider[E] = new CryptoProvider[E] {
-    override def sign(hash: Hash)(implicit
-        traceContext: TraceContext
-    ): E#FutureUnlessShutdownT[Either[SyncCryptoError, Signature]] =
-      fail("Module should not sign messages")
-
-    override def signMessage[MessageT <: ProtocolVersionedMemoizedEvidence with MessageFrom](
-        message: MessageT,
-        hashPurpose: HashPurpose,
-    )(implicit
-        traceContext: TraceContext
-    ): E#FutureUnlessShutdownT[Either[SyncCryptoError, SignedMessage[MessageT]]] =
-      fail("Module should not sign messages")
-
-    override def verifySignature(hash: Hash, member: SequencerId, signature: Signature)(implicit
-        traceContext: TraceContext
-    ): E#FutureUnlessShutdownT[Either[SignatureCheckError, Unit]] =
-      fail("Module should not verifySignature messages")
-  }
+  private[unit] def fakeCryptoProvider[E <: Env[E]]: CryptoProvider[E] = new FakeCryptoProvider()
 }

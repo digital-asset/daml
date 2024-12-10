@@ -7,6 +7,7 @@ import cats.data.{EitherT, OptionT}
 import cats.syntax.parallel.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.tracing.TraceContext
@@ -56,7 +57,7 @@ trait ContractLookup {
 
   def lookupStakeholders(ids: Set[LfContractId])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, UnknownContracts, Map[LfContractId, Set[LfPartyId]]]
+  ): EitherT[FutureUnlessShutdown, UnknownContracts, Map[LfContractId, Set[LfPartyId]]]
 }
 
 trait ContractAndKeyLookup extends ContractLookup {
@@ -108,7 +109,7 @@ object ContractLookupAndVerification {
 
       override def lookupStakeholders(ids: Set[LfContractId])(implicit
           traceContext: TraceContext
-      ): EitherT[Future, UnknownContracts, Map[LfContractId, Set[LfPartyId]]] =
+      ): EitherT[FutureUnlessShutdown, UnknownContracts, Map[LfContractId, Set[LfPartyId]]] =
         EitherT.cond(ids.isEmpty, Map.empty, UnknownContracts(ids))
 
       override def verifyMetadata(coid: LfContractId, metadata: ContractMetadata)(implicit

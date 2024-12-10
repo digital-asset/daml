@@ -9,8 +9,8 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.api.v30
-import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, *}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.GrpcError
 import com.digitalasset.canton.networking.grpc.GrpcError.GrpcServiceUnavailable
@@ -310,28 +310,24 @@ object GrpcSequencerSubscription {
   private def deserializingSubscriptionHandler[E, R](
       handler: SerializedEventHandler[E],
       fromProto: (R, TraceContext) => ParsingResult[SubscriptionResponse],
-  )(implicit
-      executionContext: ExecutionContext
   ): Traced[R] => EitherT[FutureUnlessShutdown, E, Unit] =
     withTraceContext { implicit traceContext => responseP =>
       EitherT(
-        FutureUnlessShutdown(
-          fromProto(responseP, traceContext)
-            .fold(
-              err =>
-                Future.failed(
-                  new RuntimeException(
-                    s"Unable to parse response from sequencer. Discarding message. Reason: $err"
-                  )
-                ),
-              response => {
-                val signedEvent = response.signedSequencedEvent
-                val ordinaryEvent =
-                  OrdinarySequencedEvent(signedEvent)(response.traceContext)
-                handler(ordinaryEvent).map(Outcome(_))
-              },
-            )
-        )
+        fromProto(responseP, traceContext)
+          .fold(
+            err =>
+              FutureUnlessShutdown.failed(
+                new RuntimeException(
+                  s"Unable to parse response from sequencer. Discarding message. Reason: $err"
+                )
+              ),
+            response => {
+              val signedEvent = response.signedSequencedEvent
+              val ordinaryEvent =
+                OrdinarySequencedEvent(signedEvent)(response.traceContext)
+              handler(ordinaryEvent)
+            },
+          )
       )
     }
 }

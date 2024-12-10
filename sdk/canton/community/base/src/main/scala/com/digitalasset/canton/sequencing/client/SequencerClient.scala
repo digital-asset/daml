@@ -28,9 +28,9 @@ import com.digitalasset.canton.health.{
   DelegatingMutableHealthComponent,
   HealthComponent,
 }
-import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.lifecycle.LifeCycle.toCloseableOption
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, *}
 import com.digitalasset.canton.logging.pretty.{CantonPrettyPrinter, Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.SequencerClientMetrics
@@ -123,7 +123,7 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
       eventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
       timeTracker: DomainTimeTracker,
       onCleanHandler: Traced[SequencerCounterCursorPrehead] => Unit = _ => (),
-  )(implicit traceContext: TraceContext): Future[Unit]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
   /** Create a subscription for sequenced events for this member,
     * starting after the last event in the [[com.digitalasset.canton.store.SequencedEventStore]] up to `priorTimestamp`.
@@ -151,7 +151,7 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
       eventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
       timeTracker: DomainTimeTracker,
       fetchCleanTimestamp: PeriodicAcknowledgements.FetchCleanTimestamp,
-  )(implicit traceContext: TraceContext): Future[Unit]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
   /** Acknowledge that we have successfully processed all events up to and including the given timestamp.
     * The client should then never subscribe for events from before this point.
@@ -175,19 +175,19 @@ trait RichSequencerClient extends SequencerClient {
 
   def changeTransport(
       sequencerTransports: SequencerTransports[?]
-  )(implicit traceContext: TraceContext): Future[Unit]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
   /** Future which is completed when the client is not functional any more and is ready to be closed.
     * The value with which the future is completed will indicate the reason for completion.
     */
-  def completion: Future[SequencerClient.CloseReason]
+  def completion: FutureUnlessShutdown[SequencerClient.CloseReason]
 
   /** Returns a future that completes after asynchronous processing has completed for all events
     * whose synchronous processing has been completed prior to this call. May complete earlier if event processing
     * has failed.
     */
   @VisibleForTesting
-  def flush(): Future[Unit]
+  def flush(): FutureUnlessShutdown[Unit]
 }
 
 abstract class SequencerClientImpl(
@@ -638,23 +638,24 @@ abstract class SequencerClientImpl(
       eventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
       timeTracker: DomainTimeTracker,
       onCleanHandler: Traced[SequencerCounterCursorPrehead] => Unit = _ => (),
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    sequencerCounterTrackerStore.preheadSequencerCounter.flatMap { cleanPrehead =>
-      val priorTimestamp = cleanPrehead.fold(CantonTimestamp.MinValue)(
-        _.timestamp
-      ) // Sequencer client will feed events right after this ts to the handler.
-      val cleanSequencerCounterTracker = new CleanSequencerCounterTracker(
-        sequencerCounterTrackerStore,
-        onCleanHandler,
-        loggerFactory,
-      )
-      subscribeAfter(
-        priorTimestamp,
-        cleanPrehead.map(_.timestamp),
-        cleanSequencerCounterTracker(eventHandler),
-        timeTracker,
-        PeriodicAcknowledgements.fetchCleanCounterFromStore(sequencerCounterTrackerStore),
-      )
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.outcomeF(sequencerCounterTrackerStore.preheadSequencerCounter).flatMap {
+      cleanPrehead =>
+        val priorTimestamp = cleanPrehead.fold(CantonTimestamp.MinValue)(
+          _.timestamp
+        ) // Sequencer client will feed events right after this ts to the handler.
+        val cleanSequencerCounterTracker = new CleanSequencerCounterTracker(
+          sequencerCounterTrackerStore,
+          onCleanHandler,
+          loggerFactory,
+        )
+        subscribeAfter(
+          priorTimestamp,
+          cleanPrehead.map(_.timestamp),
+          cleanSequencerCounterTracker(eventHandler),
+          timeTracker,
+          PeriodicAcknowledgements.fetchCleanCounterFromStore(sequencerCounterTrackerStore),
+        )
     }
 
   /** Create a subscription for sequenced events for this member,
@@ -683,7 +684,7 @@ abstract class SequencerClientImpl(
       eventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
       timeTracker: DomainTimeTracker,
       fetchCleanTimestamp: PeriodicAcknowledgements.FetchCleanTimestamp,
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val timeLimittedEventHandler = new TimeLimitingApplicationEventHandler(
       timeouts.sequencedEventProcessingBound,
       clock,
@@ -706,7 +707,7 @@ abstract class SequencerClientImpl(
       nonThrottledEventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
       timeTracker: DomainTimeTracker,
       fetchCleanTimestamp: PeriodicAcknowledgements.FetchCleanTimestamp,
-  )(implicit traceContext: TraceContext): Future[Unit]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
   /** Acknowledge that we have successfully processed all events up to and including the given timestamp.
     * The client should then never subscribe for events from before this point.
@@ -856,7 +857,7 @@ class RichSequencerClientImpl(
       nonThrottledEventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
       timeTracker: DomainTimeTracker,
       fetchCleanTimestamp: PeriodicAcknowledgements.FetchCleanTimestamp,
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val throttledEventHandler = ThrottlingApplicationEventHandler.throttle(
       config.maximumInFlightEventBatches,
       nonThrottledEventHandler,
@@ -864,12 +865,12 @@ class RichSequencerClientImpl(
     )
     val subscriptionF = performUnlessClosingUSF(functionFullName) {
       for {
-        initialPriorEventO <- FutureUnlessShutdown.outcomeF(
+        initialPriorEventO <-
           sequencedEventStore
             .find(SequencedEventStore.LatestUpto(priorTimestamp))
             .toOption
             .value
-        )
+
         _ = if (initialPriorEventO.isEmpty) {
           logger.info(s"No event found up to $priorTimestamp. Resubscribing from the beginning.")
         }
@@ -915,11 +916,11 @@ class RichSequencerClientImpl(
         _ <- throttledEventHandler.subscriptionStartsAt(subscriptionStartsAt, timeTracker)
 
         eventBatches = replayEvents.grouped(config.eventInboxSize.unwrap)
-        _ <- FutureUnlessShutdown.outcomeF(
+        _ <-
           MonadUtil
             .sequentialTraverse_(eventBatches)(processEventBatch(throttledEventHandler, _))
             .valueOr(err => throw SequencerClientSubscriptionException(err))
-        )
+
       } yield {
         val preSubscriptionEvent = replayEvents.lastOption.orElse(initialPriorEventO)
         // previously seen counter takes precedence over the lower bound
@@ -962,16 +963,10 @@ class RichSequencerClientImpl(
         )
       }
     }
-
-    // we may have actually not created a subscription if we have been closed
-    val loggedAbortF = subscriptionF.unwrap.map {
-      case UnlessShutdown.AbortedDueToShutdown =>
-        logger.info("Ignoring the sequencer subscription request as the client is being closed")
-      case UnlessShutdown.Outcome(_subscription) =>
-        // Everything is fine, so no need to log anything.
-        ()
-    }
-    FutureUtil.logOnFailure(loggedAbortF, "Sequencer subscription failed")
+    FutureUnlessShutdownUtil.logOnFailureUnlessShutdown(
+      subscriptionF,
+      "Sequencer subscription failed",
+    )
   }
 
   private def createSubscription(
@@ -1074,7 +1069,7 @@ class RichSequencerClientImpl(
 
     def handleEvent(
         serializedEvent: OrdinarySerializedEvent
-    ): Future[Either[SequencerClientSubscriptionError, Unit]] = {
+    ): FutureUnlessShutdown[Either[SequencerClientSubscriptionError, Unit]] = {
       implicit val traceContext: TraceContext = serializedEvent.traceContext
       // Process the event only if no failure has been detected
       val futureUS = applicationHandlerFailure.get.fold {
@@ -1129,7 +1124,7 @@ class RichSequencerClientImpl(
         }
       }(err => FutureUnlessShutdown.pure(Left(err)))
 
-      futureUS.onShutdown(Left(SequencerClientSubscriptionError.ApplicationHandlerShutdown))
+      futureUS
     }
 
     // Here is how shutdown works:
@@ -1163,13 +1158,15 @@ class RichSequencerClientImpl(
       }
       if (isIdle) {
         val handlingF = handleReceivedEventsUntilEmpty(eventHandler)
-        addToFlushAndLogError("invoking the application handler")(handlingF)
+        addToFlushAndLogError("invoking the application handler")(
+          handlingF.failOnShutdownToAbortException("sequencer client: flush and log errors")
+        )
       }
     }.discard
 
     private def handleReceivedEventsUntilEmpty(
         eventHandler: OrdinaryApplicationHandler[ClosedEnvelope]
-    ): Future[Unit] = {
+    ): FutureUnlessShutdown[Unit] = {
       val inboxSize = config.eventInboxSize.unwrap
       val javaEventList = new java.util.ArrayList[OrdinarySerializedEvent](inboxSize)
       if (sequencerAggregator.eventQueue.drainTo(javaEventList, inboxSize) > 0) {
@@ -1180,15 +1177,20 @@ class RichSequencerClientImpl(
           handlerIdleLock.synchronized { val _ = handlerIdle.get().success(()) }
         }
 
-        sendTracker
-          .update(handlerEvents)
+        FutureUnlessShutdown
+          .outcomeF(
+            sendTracker
+              .update(handlerEvents)
+          )
           .flatMap(_ => processEventBatch(eventHandler, handlerEvents).value)
           .transformWith {
-            case Success(Right(())) => handleReceivedEventsUntilEmpty(eventHandler)
-            case Success(Left(_)) | Failure(_) =>
+            case Success(UnlessShutdown.Outcome(Right(()))) =>
+              handleReceivedEventsUntilEmpty(eventHandler)
+            case Success(UnlessShutdown.Outcome(Left(_))) | Failure(_) |
+                Success(UnlessShutdown.AbortedDueToShutdown) =>
               // `processEventBatch` has already set `applicationHandlerFailure` so we don't need to propagate the error.
               stopHandler()
-              Future.unit
+              FutureUnlessShutdown.unit
           }
       } else {
         val stillBusy = blocking {
@@ -1206,7 +1208,7 @@ class RichSequencerClientImpl(
         if (stillBusy) {
           handleReceivedEventsUntilEmpty(eventHandler)
         } else {
-          Future.unit
+          FutureUnlessShutdown.unit
         }
       }
     }
@@ -1222,9 +1224,10 @@ class RichSequencerClientImpl(
   ](
       eventHandler: ApplicationHandler[Lambda[`+X <: Envelope[_]` => Traced[Seq[Box[X]]]], Env],
       eventBatch: Seq[Box[Env]],
-  ): EitherT[Future, ApplicationHandlerFailure, Unit] =
-    NonEmpty.from(eventBatch).fold(EitherT.pure[Future, ApplicationHandlerFailure](())) {
-      eventBatchNE =>
+  ): EitherT[FutureUnlessShutdown, ApplicationHandlerFailure, Unit] =
+    NonEmpty
+      .from(eventBatch)
+      .fold(EitherT.pure[FutureUnlessShutdown, ApplicationHandlerFailure](())) { eventBatchNE =>
         applicationHandlerFailure.get.fold {
           implicit val batchTraceContext: TraceContext = TraceContext.ofBatch(eventBatch)(logger)
           val lastSc = eventBatchNE.last1.counter
@@ -1239,7 +1242,7 @@ class RichSequencerClientImpl(
           val asyncResultFT =
             Try(
               Timed
-                .future(metrics.handler.applicationHandle, eventHandler(Traced(eventBatch)).unwrap)
+                .future(metrics.handler.applicationHandle, eventHandler(Traced(eventBatch)))
             )
 
           def putApplicationHandlerFailure(
@@ -1289,60 +1292,62 @@ class RichSequencerClientImpl(
           }
 
           def handleAsyncResult(
-              asyncResultF: Future[UnlessShutdown[AsyncResult]]
-          ): EitherT[Future, ApplicationHandlerFailure, Unit] =
-            EitherT(asyncResultF.transform {
-              case Success(UnlessShutdown.Outcome(asyncResult)) =>
-                val asyncSignalledF = asyncResult.unwrap.transformIntoSuccess { result =>
-                  // record errors and shutdown in `applicationHandlerFailure` and move on
+              asyncResultF: FutureUnlessShutdown[AsyncResult]
+          ): EitherT[FutureUnlessShutdown, ApplicationHandlerFailure, Unit] =
+            EitherT(asyncResultF.transformIntoSuccess {
+              case Success(UnlessShutdown.Outcome(result)) =>
+                val asyncSignalledF = result.unwrap.transformIntoSuccess { result =>
                   result match {
-                    case Success(outcome) =>
-                      outcome.onShutdown(
+                    case Success(value) =>
+                      value.onShutdown(
                         putApplicationHandlerFailure(ApplicationHandlerShutdown).discard
                       )
                     case Failure(error) =>
                       handleException(error, syncProcessing = false).discard
                   }
                   UnlessShutdown.unit
-                }.unwrap
-                // note, we are adding our async processing to the flush future, so we know once the async processing has finished
-                addToFlushAndLogError(
+                } // note, we are adding our async processing to the flush future, so we know once the async processing has finished
+                addToFlushAndLogErrorUS(
                   s"asynchronous event processing for event batch with sequencer counters $firstSc to $lastSc"
                 )(asyncSignalledF)
                 // we do not wait for the async results to finish, we are done here once the synchronous part is done
-                Success(Either.unit)
+                UnlessShutdown.Outcome(Either.unit)
+
               case Success(UnlessShutdown.AbortedDueToShutdown) =>
                 putApplicationHandlerFailure(ApplicationHandlerShutdown).discard
-                Success(Left(ApplicationHandlerShutdown))
+                UnlessShutdown.Outcome(Left(ApplicationHandlerShutdown))
               case Failure(ex) =>
                 val failure = handleException(ex, syncProcessing = true)
-                Success(Left(failure))
+                UnlessShutdown.Outcome(Left(failure))
             })
 
           // note, here, we created the asyncResultF, which means we've completed the synchronous processing part.
           asyncResultFT.fold(
-            error => EitherT.leftT[Future, Unit](handleException(error, syncProcessing = true)),
+            error =>
+              EitherT
+                .leftT[FutureUnlessShutdown, Unit](handleException(error, syncProcessing = true)),
             handleAsyncResult,
           )
-        }(EitherT.leftT[Future, Unit](_))
-    }
+        }(EitherT.leftT[FutureUnlessShutdown, Unit](_))
+      }
 
   def changeTransport(
       sequencerTransports: SequencerTransports[?]
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     sequencerAggregator.changeMessageAggregationConfig(
       MessageAggregationConfig(
         sequencerTransports.expectedSequencers,
         sequencerTransports.sequencerTrustThreshold,
       )
     )
-    sequencersTransportState.changeTransport(sequencerTransports)
+    FutureUnlessShutdown.outcomeF(sequencersTransportState.changeTransport(sequencerTransports))
   }
 
   /** Future which is completed when the client is not functional any more and is ready to be closed.
     * The value with which the future is completed will indicate the reason for completion.
     */
-  def completion: Future[SequencerClient.CloseReason] = sequencersTransportState.completion
+  def completion: FutureUnlessShutdown[SequencerClient.CloseReason] =
+    FutureUnlessShutdown.outcomeF(sequencersTransportState.completion)
 
   private def waitForHandlerToComplete(): Unit = {
     import TraceContext.Implicits.Empty.*
@@ -1350,7 +1355,7 @@ class RichSequencerClientImpl(
     // This logs a warn if the handle does not become idle within 60 seconds.
     // This happen because the handler is not making progress, for example due to a db outage.
     valueOrLog(
-      handlerIdle.get().future,
+      FutureUnlessShutdown.outcomeF(handlerIdle.get().future),
       timeoutMessage = s"Clean close of the sequencer subscriptions timed out",
       timeout = timeouts.shutdownProcessing.unwrap,
     ).discard
@@ -1378,7 +1383,7 @@ class RichSequencerClientImpl(
     * has failed.
     */
   @VisibleForTesting
-  def flush(): Future[Unit] = doFlush()
+  def flush(): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.outcomeF(doFlush())
 
   /** Await the completion of `future`. Log a message if the future does not complete within `timeout`.
     * If the `future` fails with an exception within `timeout`, this method rethrows the exception.
@@ -1388,7 +1393,7 @@ class RichSequencerClientImpl(
     * @return Optionally the completed value of `future` if it successfully completes in time.
     */
   private def valueOrLog[T](
-      future: Future[T],
+      future: FutureUnlessShutdown[T],
       timeoutMessage: => String,
       timeout: Duration,
       level: Level = Level.WARN,
@@ -1396,13 +1401,15 @@ class RichSequencerClientImpl(
   )(implicit loggingContext: ErrorLoggingContext): Option[T] = {
     // Use Await.ready instead of Await.result to be able to tell the difference between the awaitable throwing a
     // TimeoutException and a TimeoutException being thrown because the awaitable is not ready.
-    val ready = Try(Await.ready(future, timeout))
+    val ready = Try(Await.ready(future.unwrap, timeout))
     ready match {
       case Success(awaited) =>
         val result = awaited.value.getOrElse(
           throw new RuntimeException(s"Future $future not completed after successful Await.ready.")
         )
-        result.fold(throw _, Some(_))
+        Some(
+          result.fold(throw _, _.onShutdown(throw new RuntimeException("Aborted due to shutdown")))
+        )
 
       case Failure(timeoutExc: TimeoutException) =>
         val stackTraces = StackTraceUtil.formatStackTrace(stackTraceFilter)
@@ -1480,7 +1487,7 @@ class SequencerClientImplPekko[E: Pretty](
       nonThrottledEventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
       timeTracker: DomainTimeTracker,
       fetchCleanTimestamp: FetchCleanTimestamp,
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val throttledEventHandler = ThrottlingApplicationEventHandler.throttle(
       config.maximumInFlightEventBatches,
       nonThrottledEventHandler,
@@ -1488,12 +1495,12 @@ class SequencerClientImplPekko[E: Pretty](
     )
     val subscriptionF = performUnlessClosingUSF(functionFullName) {
       for {
-        initialPriorEventO <- FutureUnlessShutdown.outcomeF(
+        initialPriorEventO <-
           sequencedEventStore
             .find(SequencedEventStore.LatestUpto(priorTimestamp))
             .toOption
             .value
-        )
+
         _ = if (initialPriorEventO.isEmpty) {
           logger.info(s"No event found up to $priorTimestamp. Resubscribing from the beginning.")
         }
@@ -1632,13 +1639,13 @@ class SequencerClientImplPekko[E: Pretty](
           Either[SubscriptionControl[E], WithPromise[Traced[
             Seq[PossiblyIgnoredSerializedEvent]
           ]]],
-          (KillSwitch, Future[Done], HealthComponent),
+          (KillSwitch, FutureUnlessShutdown[Done], HealthComponent),
         ] = replayedEventsSource.concatLazyMat(persistedSubscriptionSource) {
           (replayedKillSwitch, subscriptionMat) =>
             val (subscriptionKillSwitch, (doneF, health)) = subscriptionMat
             val combinedKillSwitch =
               new CombinedKillSwitch(replayedKillSwitch, subscriptionKillSwitch)
-            (combinedKillSwitch, doneF, health)
+            (combinedKillSwitch, FutureUnlessShutdown.outcomeF(doneF), health)
         }
 
         type F2[+X] = WithKillSwitch[F1[X]]
@@ -1723,11 +1730,12 @@ class SequencerClientImplPekko[E: Pretty](
       }
     }
     // we may have actually not created a subscription if we have been closed
-    val loggedAbortF = subscriptionF.flatten.onShutdown {
-      logger.info("Ignoring the sequencer subscription request as the client is being closed")
-    }
+    val loggedAbortF = subscriptionF.flatten
 
-    FutureUtil.logOnFailure(loggedAbortF, "Sequencer subscription failed")
+    FutureUnlessShutdownUtil.logOnFailureUnlessShutdown(
+      loggedAbortF,
+      "Sequencer subscription failed",
+    )
   }
 
   private def dropPriorEvent[A, B](doDrop: Boolean): Flow[Either[A, B], Either[A, B], NotUsed] =
@@ -1763,7 +1771,7 @@ class SequencerClientImplPekko[E: Pretty](
         SyncCloseable("subscription kill switch", handle.killSwitch.shutdown()),
         AsyncCloseable(
           "subscription completion",
-          handle.sourceCompletion,
+          handle.sourceCompletion.unwrap,
           timeouts.shutdownProcessing,
         ),
         AsyncCloseable(
@@ -1789,7 +1797,7 @@ object SequencerClientImplPekko {
 
   private final case class SubscriptionHandle(
       killSwitch: KillSwitch,
-      sourceCompletion: Future[Done],
+      sourceCompletion: FutureUnlessShutdown[Done],
       applicationHandlerCompletion: FutureUnlessShutdown[ApplicationHandlerError],
   )
 

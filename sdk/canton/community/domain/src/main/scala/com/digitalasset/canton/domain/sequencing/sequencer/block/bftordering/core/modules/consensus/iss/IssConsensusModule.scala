@@ -6,7 +6,6 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.co
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.domain.metrics.BftOrderingMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
@@ -54,10 +53,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   Membership,
   OrderingTopology,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.Consensus.ConsensusMessage.{
-  PbftUnverifiedNetworkMessage,
-  PbftVerifiedNetworkMessage,
-}
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.Consensus.ConsensusMessage.PbftVerifiedNetworkMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.Consensus.NewEpochTopology
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PbftNetworkMessage.headerFromProto
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
@@ -87,7 +83,7 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.{Failure, Success}
 
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
-final class IssConsensusModule[E <: Env[E]](
+final case class IssConsensusModule[E <: Env[E]]( // It's a case class to better test `context.become` calls
     epochLength: EpochLength, // Currently fixed for all epochs
     initialState: InitialState[E],
     epochStore: EpochStore[E],
@@ -589,7 +585,7 @@ final class IssConsensusModule[E <: Env[E]](
         dependencies,
         loggerFactory,
         timeouts,
-      )
+      )()
     )
 
   private def completeEpoch()(implicit
@@ -678,16 +674,6 @@ object IssConsensusModule {
           Left(ProtoDeserializationError.OtherError("Empty Received"))
       }): ParsingResult[ConsensusSegment.ConsensusMessage.PbftNetworkMessage]
     } yield result
-
-  def parseUnverifiedNetworkMessage(
-      from: SequencerId,
-      message: v1.ConsensusMessage,
-  )(
-      originalByteString: ByteString
-  ): ParsingResult[Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage] =
-    parseNetworkMessage(from, message)(originalByteString).map(msg =>
-      PbftUnverifiedNetworkMessage(SignedMessage(msg, Signature.noSignature))
-    ) // TODO(#20458) Check that all consensus messages are valid
 
   def parseStateTransferMessage(
       from: SequencerId,

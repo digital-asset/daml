@@ -51,8 +51,8 @@ class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactor
 
   def store(
       events: Seq[OrdinarySerializedEvent]
-  )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[Unit] =
-    NonEmpty.from(events).fold(Future.unit) { events =>
+  )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[Unit] =
+    NonEmpty.from(events).fold(FutureUnlessShutdown.unit) { events =>
       logger.debug(
         show"Storing delivery events from ${events.head1.timestamp} to ${events.last1.timestamp}."
       )
@@ -63,12 +63,12 @@ class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactor
           timestampOfCounter.getOrElseUpdate(e.counter, e.timestamp).discard
         }
       })
-      Future.unit
+      FutureUnlessShutdown.unit
     }
 
   override def find(criterion: SequencedEventStore.SearchCriterion)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SequencedEventNotFoundError, PossiblyIgnoredSerializedEvent] = {
+  ): EitherT[FutureUnlessShutdown, SequencedEventNotFoundError, PossiblyIgnoredSerializedEvent] = {
 
     logger.debug(s"Looking to retrieve delivery event $criterion")
     val resO = blocking(lock.synchronized {
@@ -79,7 +79,7 @@ class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactor
           eventByTimestamp.rangeTo(inclusive).lastOption.map { case (_, event) => event }
       }
     })
-    EitherT(Future.successful(resO.toRight(SequencedEventNotFoundError(criterion))))
+    EitherT(FutureUnlessShutdown.pure(resO.toRight(SequencedEventNotFoundError(criterion))))
   }
 
   override def findRange(criterion: RangeCriterion, limit: Option[Int])(implicit
@@ -109,8 +109,10 @@ class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactor
 
   override def sequencedEvents(
       limit: Option[Int] = None
-  )(implicit traceContext: TraceContext): Future[Seq[PossiblyIgnoredSerializedEvent]] =
-    Future.successful(blocking(lock.synchronized {
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Seq[PossiblyIgnoredSerializedEvent]] =
+    FutureUnlessShutdown.pure(blocking(lock.synchronized {
       // Always copy the elements, as the returned iterator will otherwise explode if the underlying collection is modified.
       eventByTimestamp.values.take(limit.getOrElse(Int.MaxValue)).toList
     }))
@@ -132,7 +134,7 @@ class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactor
 
   override def ignoreEvents(fromInclusive: SequencerCounter, toInclusive: SequencerCounter)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ChangeWouldResultInGap, Unit] =
+  ): EitherT[FutureUnlessShutdown, ChangeWouldResultInGap, Unit] =
     EitherT.fromEither {
       blocking(lock.synchronized {
         for {
@@ -190,7 +192,7 @@ class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactor
 
   override def unignoreEvents(fromInclusive: SequencerCounter, toInclusive: SequencerCounter)(
       implicit traceContext: TraceContext
-  ): EitherT[Future, ChangeWouldResultInGap, Unit] =
+  ): EitherT[FutureUnlessShutdown, ChangeWouldResultInGap, Unit] =
     EitherT.fromEither {
       blocking(lock.synchronized {
         for {
@@ -230,13 +232,13 @@ class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactor
 
   private[canton] override def delete(
       fromInclusive: SequencerCounter
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     timestampOfCounter.rangeFrom(fromInclusive).foreach { case (sc, ts) =>
       timestampOfCounter.remove(sc).discard
       eventByTimestamp.remove(ts).discard
     }
 
-    Future.unit
+    FutureUnlessShutdown.unit
   }
 
   override def close(): Unit = ()

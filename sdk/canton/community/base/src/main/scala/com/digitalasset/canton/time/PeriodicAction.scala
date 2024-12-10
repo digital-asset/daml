@@ -5,11 +5,11 @@ package com.digitalasset.canton.time
 
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.FlagCloseable
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class PeriodicAction(
     clock: Clock,
@@ -17,7 +17,7 @@ class PeriodicAction(
     protected val loggerFactory: NamedLoggerFactory,
     protected val timeouts: ProcessingTimeout,
     description: String,
-)(check: TraceContext => Future[_])(implicit
+)(check: TraceContext => FutureUnlessShutdown[_])(implicit
     executionContext: ExecutionContext
 ) extends NamedLogging
     with FlagCloseable {
@@ -25,7 +25,7 @@ class PeriodicAction(
   TraceContext.withNewTraceContext(setupNextCheck()(_))
 
   private def runCheck()(implicit traceContext: TraceContext): Unit =
-    performUnlessClosingF(s"run-$description")(check(traceContext))
+    performUnlessClosingUSF(s"run-$description")(check(traceContext))
       .onComplete(_ => setupNextCheck())
 
   private def setupNextCheck()(implicit traceContext: TraceContext): Unit =

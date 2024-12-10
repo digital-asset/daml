@@ -17,12 +17,12 @@ import com.digitalasset.canton.protocol.{
   SerializableContract,
 }
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.{BaseTest, LfPartyId, RequestCounter}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, LfPartyId, RequestCounter}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.QualifiedName
 import org.scalatest.wordspec.AsyncWordSpec
 
-trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
+trait ContractStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest =>
 
   protected val alice: LfPartyId = LfPartyId.assertFromString("alice")
   protected val bob: LfPartyId = LfPartyId.assertFromString("bob")
@@ -77,7 +77,7 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
       val store = mk()
 
       for {
-        _ <- store.storeCreatedContract(rc, contract)
+        _ <- store.storeCreatedContract(rc, contract).failOnShutdown
         c <- store.lookupE(contractId)
         inst <- store.lookupContractE(contractId)
       } yield {
@@ -108,8 +108,8 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
         StoredContract(largeContract, rc2)
 
       for {
-        _ <- store.storeCreatedContract(rc, largeContract)
-        _ <- store.storeCreatedContract(rc2, largeContract)
+        _ <- store.storeCreatedContract(rc, largeContract).failOnShutdown
+        _ <- store.storeCreatedContract(rc2, largeContract).failOnShutdown
         c <- store.lookupE(contractId)
         inst <- store.lookupContractE(contractId)
       } yield {
@@ -130,8 +130,8 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
     "take the second created contract" in {
       val store = mk()
       for {
-        _ <- store.storeCreatedContract(rc, contract)
-        _ <- store.storeCreatedContract(rc2, contract)
+        _ <- store.storeCreatedContract(rc, contract).failOnShutdown
+        _ <- store.storeCreatedContract(rc2, contract).failOnShutdown
         c <- store.lookupE(contract.contractId)
       } yield c shouldBe StoredContract(contract, rc2)
     }
@@ -142,8 +142,8 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
         val store = mk()
 
         for {
-          _ <- store.storeCreatedContract(rc, contract)
-          _ <- store.storeCreatedContract(rc2, contract)
+          _ <- store.storeCreatedContract(rc, contract).failOnShutdown
+          _ <- store.storeCreatedContract(rc2, contract).failOnShutdown
           c <- store.lookupE(contract.contractId)
         } yield c shouldBe storedContract2
       }
@@ -152,8 +152,8 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
         val store = mk()
 
         for {
-          _ <- store.storeCreatedContract(rc2, contract)
-          _ <- store.storeCreatedContract(rc, contract)
+          _ <- store.storeCreatedContract(rc2, contract).failOnShutdown
+          _ <- store.storeCreatedContract(rc, contract).failOnShutdown
           c <- store.lookupE(contract.contractId)
         } yield c shouldBe storedContract2
       }
@@ -171,7 +171,10 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
       for {
         _ <- List(contract, contract2, contract4, contract5)
           .parTraverse(store.storeCreatedContract(rc, _))
-        _ <- store.deleteIgnoringUnknown(Seq(contractId, contractId2, contractId3, contractId4))
+          .failOnShutdown
+        _ <- store
+          .deleteIgnoringUnknown(Seq(contractId, contractId2, contractId3, contractId4))
+          .failOnShutdown
         notFounds <- List(contractId, contractId2, contractId3, contractId4).parTraverse(
           store.lookupE(_).value
         )
@@ -190,9 +193,9 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
     "purge contract store deletes all contracts" in {
       val store = mk()
       for {
-        _ <- store.storeCreatedContract(rc, contract)
-        _ <- store.storeCreatedContract(rc2, contract2)
-        _ <- store.storeCreatedContract(rc2, contract3)
+        _ <- store.storeCreatedContract(rc, contract).failOnShutdown
+        _ <- store.storeCreatedContract(rc2, contract2).failOnShutdown
+        _ <- store.storeCreatedContract(rc2, contract3).failOnShutdown
         contractsBeforePurge <- store
           .find(
             filterId = None,
@@ -201,7 +204,7 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
             limit = 5,
           )
           .failOnShutdown
-        _ <- store.purge()
+        _ <- store.purge().failOnShutdown
         contractsAfterPurge <- store
           .find(
             filterId = None,
@@ -220,25 +223,25 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
       val store = mk()
 
       for {
-        _ <- store.storeCreatedContract(rc, contract)
-        _ <- store.storeCreatedContract(rc, contract2)
-        _ <- store.storeCreatedContract(rc, contract3)
-        _ <- store.storeCreatedContract(rc, contract4)
-        _ <- store.storeCreatedContract(
-          rc,
-          contract2.copy(
-            contractId = contractId5,
-            ledgerCreateTime = LedgerCreateTime(CantonTimestamp.Epoch),
-          ),
-        )
+        _ <- store.storeCreatedContract(rc, contract).failOnShutdown
+        _ <- store.storeCreatedContract(rc, contract2).failOnShutdown
+        _ <- store.storeCreatedContract(rc, contract3).failOnShutdown
+        _ <- store.storeCreatedContract(rc, contract4).failOnShutdown
+        _ <- store
+          .storeCreatedContract(
+            rc,
+            contract2.copy(
+              contractId = contractId5,
+              ledgerCreateTime = LedgerCreateTime(CantonTimestamp.Epoch),
+            ),
+          )
+          .failOnShutdown
 
-        resId <- store.find(filterId = Some(contractId.coid), None, None, 100).failOnShutdown
+        resId <- store.find(filterId = Some(contractId.coid), None, None, 100)
         resPkg <- store
           .find(filterId = None, filterPackage = Some(pkgId2), None, 100)
-          .failOnShutdown
         resPkgLimit <- store
           .find(filterId = None, filterPackage = Some(pkgId2), None, 2)
-          .failOnShutdown
         resTemplatePkg <- store
           .find(
             filterId = None,
@@ -247,8 +250,7 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
               Some(contract4.contractInstance.unversioned.template.qualifiedName.toString()),
             100,
           )
-          .failOnShutdown
-        resTemplate <- store.find(None, None, Some(templateName3.toString), 100).failOnShutdown
+        resTemplate <- store.find(None, None, Some(templateName3.toString), 100)
       } yield {
         resId shouldEqual List(contract)
         resTemplatePkg shouldEqual List(contract4)
@@ -262,8 +264,8 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
       val store = mk()
 
       for {
-        _ <- store.storeCreatedContract(rc, contract)
-        _ <- store.storeCreatedContract(rc, contract2)
+        _ <- store.storeCreatedContract(rc, contract).failOnShutdown
+        _ <- store.storeCreatedContract(rc, contract2).failOnShutdown
         c1 <- store.lookup(contractId).value
         c1inst <- store.lookupContract(contractId).value
         c3 <- store.lookup(contractId3).value
@@ -279,11 +281,11 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
       val store = mk()
 
       for {
-        _ <- store.storeCreatedContract(rc, contract)
-        _ <- store.storeCreatedContract(rc, contract2)
-        _ <- store.storeCreatedContract(rc, contract3)
-        _ <- store.storeCreatedContract(rc, contract4)
-        res <- store.lookupStakeholders(Set(contractId, contractId2, contractId4))
+        _ <- store.storeCreatedContract(rc, contract).failOnShutdown
+        _ <- store.storeCreatedContract(rc, contract2).failOnShutdown
+        _ <- store.storeCreatedContract(rc, contract3).failOnShutdown
+        _ <- store.storeCreatedContract(rc, contract4).failOnShutdown
+        res <- store.lookupStakeholders(Set(contractId, contractId2, contractId4)).failOnShutdown
       } yield {
         res shouldBe Map(
           contractId -> contract.metadata.stakeholders,
@@ -307,9 +309,9 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
       val store = mk()
 
       for {
-        _ <- store.storeCreatedContract(rc, contract)
-        _ <- store.storeCreatedContract(rc, contract3)
-        _ <- store.storeCreatedContract(rc, contract4)
+        _ <- store.storeCreatedContract(rc, contract).failOnShutdown
+        _ <- store.storeCreatedContract(rc, contract3).failOnShutdown
+        _ <- store.storeCreatedContract(rc, contract4).failOnShutdown
         res <- store.lookupStakeholders(Set(contractId, contractId2, contractId4)).value
       } yield {
         res shouldBe Left(UnknownContracts(Set(contractId2)))

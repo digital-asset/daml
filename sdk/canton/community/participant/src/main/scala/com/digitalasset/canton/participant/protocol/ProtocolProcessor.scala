@@ -1072,7 +1072,7 @@ abstract class ProtocolProcessor[
         } else {
           for {
             _ <- EitherT.right(
-              FutureUnlessShutdown.outcomeF(ephemeral.requestJournal.insert(rc, ts))
+              ephemeral.requestJournal.insert(rc, ts)
             )
 
             pendingDataAndResponses <- steps.constructPendingDataAndResponse(
@@ -1193,7 +1193,6 @@ abstract class ProtocolProcessor[
       for {
         _ <- EitherT
           .right(ephemeral.requestJournal.insert(rc, ts))
-          .mapK(FutureUnlessShutdown.outcomeK)
 
         _ = ephemeral.requestTracker.tick(sc, ts)
 
@@ -1561,10 +1560,8 @@ abstract class ProtocolProcessor[
       ).leftMap(err => steps.embedResultError(RequestTrackerError(err)))
 
       _ <- EitherT.right(
-        FutureUnlessShutdown.outcomeF(
-          ephemeral.contractStore.storeCreatedContracts(
-            contractsToBeStored.map((_, requestCounter))
-          )
+        ephemeral.contractStore.storeCreatedContracts(
+          contractsToBeStored.map((_, requestCounter))
         )
       )
 

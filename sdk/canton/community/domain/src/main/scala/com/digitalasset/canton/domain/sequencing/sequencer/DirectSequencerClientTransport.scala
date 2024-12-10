@@ -185,13 +185,13 @@ class DirectSequencerClientTransport(
           Source
             .single(Left(SubscriptionCreationError(ShutdownError)))
             .mapMaterializedValue((_: NotUsed) =>
-              (PekkoUtil.noOpKillSwitch, Future.successful(Done))
+              (PekkoUtil.noOpKillSwitch, FutureUnlessShutdown.pure(Done))
             )
         case UnlessShutdown.Outcome(Left(creationError)) =>
           Source
             .single(Left(SubscriptionCreationError(creationError)))
             .mapMaterializedValue((_: NotUsed) =>
-              (PekkoUtil.noOpKillSwitch, Future.successful(Done))
+              (PekkoUtil.noOpKillSwitch, FutureUnlessShutdown.pure(Done))
             )
         case UnlessShutdown.Outcome(Right(source)) =>
           source.map(_.leftMap(SequencedEventError.apply))
@@ -204,7 +204,7 @@ class DirectSequencerClientTransport(
         val killSwitchF = matF.map { case (killSwitch, _) => killSwitch }(directExecutionContext)
         val killSwitch = new DelayedKillSwitch(killSwitchF, noTracingLogger)
         val doneF = matF
-          .flatMap { case (_, doneF) => doneF }(directExecutionContext)
+          .flatMap { case (_, doneF) => doneF.unwrap }(directExecutionContext)
           .flatMap(_ => terminationF)(directExecutionContext)
           .thereafter { _ =>
             logger.debug("Closing direct sequencer subscription transport")

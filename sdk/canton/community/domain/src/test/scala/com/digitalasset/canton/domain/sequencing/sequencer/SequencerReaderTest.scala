@@ -71,8 +71,8 @@ import scala.concurrent.{Future, Promise}
 class SequencerReaderTest
     extends FixtureAsyncWordSpec
     with BaseTest
-    with FailOnShutdown
-    with ProtocolVersionChecksFixtureAsyncWordSpec {
+    with ProtocolVersionChecksFixtureAsyncWordSpec
+    with FailOnShutdown {
 
   private val alice = ParticipantId("alice")
   private val bob = ParticipantId("bob")
@@ -240,24 +240,23 @@ class SequencerReaderTest
       storePayloadsAndWatermark(withPaylaods)
     }
 
-    def storePayloadsAndWatermark(events: Seq[Sequenced[Payload]]): FutureUnlessShutdown[Unit] =
-      FutureUnlessShutdown.outcomeF {
-        val eventsNE = NonEmptyUtil.fromUnsafe(events.map(_.map(_.id)))
-        val payloads = NonEmpty.from(events.mapFilter(_.event.payloadO))
+    def storePayloadsAndWatermark(events: Seq[Sequenced[Payload]]): FutureUnlessShutdown[Unit] = {
+      val eventsNE = NonEmptyUtil.fromUnsafe(events.map(_.map(_.id)))
+      val payloads = NonEmpty.from(events.mapFilter(_.event.payloadO))
 
-        for {
-          _ <- payloads
-            .traverse_(store.savePayloads(_, instanceDiscriminator))
-            .valueOrFail("Save payloads")
-          _ <- store.saveEvents(instanceIndex, eventsNE)
-          _ <- store
-            .saveWatermark(instanceIndex, eventsNE.last1.timestamp)
-            .valueOrFail("saveWatermark")
-        } yield {
-          // update the event signaller if auto signalling is enabled
-          if (autoPushLatestTimestamps.get()) eventSignaller.signalRead()
-        }
+      for {
+        _ <- payloads
+          .traverse_(store.savePayloads(_, instanceDiscriminator))
+          .valueOrFail("Save payloads")
+        _ <- store.saveEvents(instanceIndex, eventsNE)
+        _ <- store
+          .saveWatermark(instanceIndex, eventsNE.last1.timestamp)
+          .valueOrFail("saveWatermark")
+      } yield {
+        // update the event signaller if auto signalling is enabled
+        if (autoPushLatestTimestamps.get()) eventSignaller.signalRead()
       }
+    }
 
     override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = Seq(
       AsyncCloseable(
@@ -293,8 +292,8 @@ class SequencerReaderTest
       import env.*
 
       for {
-        _ <- store.registerMember(topologyClientMember, ts0)
-        aliceId <- store.registerMember(alice, ts0)
+        _ <- store.registerMember(topologyClientMember, ts0).failOnShutdown
+        aliceId <- store.registerMember(alice, ts0).failOnShutdown
         // generate 20 delivers starting at ts0+1s
         events = (1L to 20L)
           .map(ts0.plusSeconds)
@@ -312,8 +311,8 @@ class SequencerReaderTest
       import env.*
 
       for {
-        _ <- store.registerMember(topologyClientMember, ts0)
-        aliceId <- store.registerMember(alice, ts0)
+        _ <- store.registerMember(topologyClientMember, ts0).failOnShutdown
+        aliceId <- store.registerMember(alice, ts0).failOnShutdown
         delivers = (1L to 20L)
           .map(ts0.plusSeconds)
           .map(Sequenced(_, mockDeliverStoreEvent(sender = aliceId, traceContext = traceContext)()))
@@ -332,8 +331,8 @@ class SequencerReaderTest
       import env.*
 
       for {
-        _ <- store.registerMember(topologyClientMember, ts0)
-        aliceId <- store.registerMember(alice, ts0)
+        _ <- store.registerMember(topologyClientMember, ts0).failOnShutdown
+        aliceId <- store.registerMember(alice, ts0).failOnShutdown
         delivers = (1L to 5L)
           .map(ts0.plusSeconds)
           .map(Sequenced(_, mockDeliverStoreEvent(sender = aliceId, traceContext = traceContext)()))
@@ -402,8 +401,8 @@ class SequencerReaderTest
       val waitP = Promise[Unit]()
 
       for {
-        _ <- store.registerMember(topologyClientMember, ts0)
-        aliceId <- store.registerMember(alice, ts0)
+        _ <- store.registerMember(topologyClientMember, ts0).failOnShutdown
+        aliceId <- store.registerMember(alice, ts0).failOnShutdown
         // start reading for an event but don't wait for it
         eventsF = readAsSeq(alice, SequencerCounter(0), 1)
         // set a timer to wait for a little
@@ -449,7 +448,6 @@ class SequencerReaderTest
           // store a counter check point at 5s
           _ <- store
             .saveCounterCheckpoint(aliceId, checkpoint(SequencerCounter(5), ts(6)))
-            .mapK(FutureUnlessShutdown.outcomeK)
             .valueOrFail("saveCounterCheckpoint")
           events <- readAsSeq(alice, SequencerCounter(10), 15)
         } yield {
@@ -500,11 +498,9 @@ class SequencerReaderTest
           // close the queue before we make any assertions
           _ = queue.cancel()
           lastEventRead = readEvents.lastOption.value.value
-          checkpointForLastEventO <- FutureUnlessShutdown.outcomeF(
-            store.fetchClosestCheckpointBefore(
-              aliceId,
-              lastEventRead.counter + 1,
-            )
+          checkpointForLastEventO <- store.fetchClosestCheckpointBefore(
+            aliceId,
+            lastEventRead.counter + 1,
           )
         } yield {
           // check it created a checkpoint for the last event we read
@@ -547,7 +543,6 @@ class SequencerReaderTest
                 aliceId,
                 checkpoint(SequencerCounter(10), checkpointTimestamp),
               )
-              .mapK(FutureUnlessShutdown.outcomeK)
           )("saveCounterCheckpoint")
           // read from a point ahead of this checkpoint
           events <- readAsSeq(alice, SequencerCounter(15), 3)
@@ -575,8 +570,8 @@ class SequencerReaderTest
             "Subscription for PAR::alice::default@0 would require reading data from 1970-01-01T00:00:00Z but our lower bound is 1970-01-01T00:00:10Z."
 
           for {
-            _ <- store.registerMember(topologyClientMember, ts0)
-            aliceId <- store.registerMember(alice, ts0)
+            _ <- store.registerMember(topologyClientMember, ts0).failOnShutdown
+            aliceId <- store.registerMember(alice, ts0).failOnShutdown
             // write a bunch of events
             delivers = (1L to 20L)
               .map(ts0.plusSeconds)
@@ -586,7 +581,6 @@ class SequencerReaderTest
             _ <- storeAndWatermark(delivers)
             _ <- store
               .saveLowerBound(ts(10))
-              .mapK(FutureUnlessShutdown.outcomeK)
               .valueOrFail("saveLowerBound")
             error <- loggerFactory.assertLogs(
               leftOrFail(reader.read(alice, SequencerCounter(0)))("read"),
@@ -606,8 +600,8 @@ class SequencerReaderTest
             "Subscription for PAR::alice::default@9 would require reading data from 1970-01-01T00:00:00Z but our lower bound is 1970-01-01T00:00:10Z."
 
           for {
-            _ <- store.registerMember(topologyClientMember, ts0)
-            aliceId <- store.registerMember(alice, ts0)
+            _ <- store.registerMember(topologyClientMember, ts0).failOnShutdown
+            aliceId <- store.registerMember(alice, ts0).failOnShutdown
             // write a bunch of events
             delivers = (1L to 20L)
               .map(ts0.plusSeconds)
@@ -617,11 +611,9 @@ class SequencerReaderTest
             _ <- storeAndWatermark(delivers)
             _ <- store
               .saveCounterCheckpoint(aliceId, checkpoint(SequencerCounter(9), ts(10)))
-              .mapK(FutureUnlessShutdown.outcomeK)
               .valueOrFail("saveCounterCheckpoint")
             _ <- store
               .saveLowerBound(ts(10))
-              .mapK(FutureUnlessShutdown.outcomeK)
               .valueOrFail("saveLowerBound")
             error <- loggerFactory.assertLogs(
               leftOrFail(reader.read(alice, SequencerCounter(9)))("read"),
@@ -637,8 +629,8 @@ class SequencerReaderTest
         import env.*
 
         for {
-          _ <- store.registerMember(topologyClientMember, ts0)
-          aliceId <- store.registerMember(alice, ts0)
+          _ <- store.registerMember(topologyClientMember, ts0).failOnShutdown
+          aliceId <- store.registerMember(alice, ts0).failOnShutdown
           // write a bunch of events
           delivers = (1L to 20L)
             .map(ts0.plusSeconds)
@@ -646,11 +638,9 @@ class SequencerReaderTest
           _ <- storeAndWatermark(delivers)
           _ <- store
             .saveCounterCheckpoint(aliceId, checkpoint(SequencerCounter(11), ts(10)))
-            .mapK(FutureUnlessShutdown.outcomeK)
             .valueOrFail("saveCounterCheckpoint")
           _ <- store
             .saveLowerBound(ts(10))
-            .mapK(FutureUnlessShutdown.outcomeK)
             .valueOrFail("saveLowerBound")
           _ <- reader.read(alice, SequencerCounter(12)).valueOrFail("read")
         } yield succeed // the above not failing is enough of an assertion
@@ -668,9 +658,9 @@ class SequencerReaderTest
           topologyTimestampTolerance = domainParams.sequencerTopologyTimestampTolerance
           topologyTimestampToleranceInSec = topologyTimestampTolerance.duration.toSeconds
 
-          _ <- FutureUnlessShutdown.outcomeF(store.registerMember(topologyClientMember, ts0))
-          aliceId <- FutureUnlessShutdown.outcomeF(store.registerMember(alice, ts0))
-          bobId <- FutureUnlessShutdown.outcomeF(store.registerMember(bob, ts0))
+          _ <- store.registerMember(topologyClientMember, ts0)
+          aliceId <- store.registerMember(alice, ts0)
+          bobId <- store.registerMember(bob, ts0)
 
           recipients = NonEmpty(SortedSet, aliceId, bobId)
           testData = Seq(
@@ -846,15 +836,15 @@ class SequencerReaderTest
         import env.*
 
         for {
-          domainParamsO <- cryptoD.headSnapshot.ipsSnapshot.findDynamicDomainParameters()
+          domainParamsO <- cryptoD.headSnapshot.ipsSnapshot
+            .findDynamicDomainParameters()
+            .failOnShutdown
           domainParams = domainParamsO.valueOrFail("No domain parameters found")
           signingTolerance = domainParams.sequencerTopologyTimestampTolerance
           signingToleranceInSec = signingTolerance.duration.toSeconds
 
-          topologyClientMemberId <- FutureUnlessShutdown.outcomeF(
-            store.registerMember(topologyClientMember, ts0)
-          )
-          aliceId <- FutureUnlessShutdown.outcomeF(store.registerMember(alice, ts0))
+          topologyClientMemberId <- store.registerMember(topologyClientMember, ts0).failOnShutdown
+          aliceId <- store.registerMember(alice, ts0).failOnShutdown
 
           recipientsTopo = NonEmpty(SortedSet, aliceId, topologyClientMemberId)
           recipientsAlice = NonEmpty(SortedSet, aliceId)
@@ -897,12 +887,11 @@ class SequencerReaderTest
           _ = queue.cancel()
           lastEventRead = readEvents.lastOption.value.value
           _ = logger.debug(s"Fetching checkpoint for event with counter ${lastEventRead.counter}")
-          checkpointForLastEventO <- FutureUnlessShutdown.outcomeF(
+          checkpointForLastEventO <-
             store.fetchClosestCheckpointBefore(
               aliceId,
               lastEventRead.counter + 1,
             )
-          )
         } yield {
           // check it created a checkpoint for a recent event
           checkpointForLastEventO.value.counter should be >= SequencerCounter(10)

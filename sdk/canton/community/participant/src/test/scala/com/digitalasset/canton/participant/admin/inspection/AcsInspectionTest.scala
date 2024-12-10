@@ -9,6 +9,7 @@ import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.admin.inspection.AcsInspectionTest.{
   FakeDomainId,
   readAllVisibleActiveContracts,
@@ -230,8 +231,8 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
 
   private val mockLedgerApiStore: LedgerApiStore = {
     val mockStore = mock[LedgerApiStore]
-    when(mockStore.cleanDomainIndex(same(FakeDomainId))(any[TraceContext]))
-      .thenAnswer(Future.successful(Some(MaxDomainIndex)))
+    when(mockStore.cleanDomainIndex(same(FakeDomainId))(any[TraceContext], any[ExecutionContext]))
+      .thenAnswer(FutureUnlessShutdown.pure(Some(MaxDomainIndex)))
     mockStore
   }
 

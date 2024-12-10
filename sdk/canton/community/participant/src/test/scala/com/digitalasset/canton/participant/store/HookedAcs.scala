@@ -167,7 +167,8 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
   ): Future[Int] =
     acs.doPrune(beforeAndIncluding, lastPruning: Option[CantonTimestamp])
 
-  override def purge()(implicit traceContext: TraceContext): Future[Unit] = acs.purge()
+  override def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    acs.purge()
 
   override protected[canton] def advancePruningTimestamp(
       phase: PruningPhase,

@@ -946,9 +946,7 @@ abstract class SequencerApiTest
           // Need to send first request and wait for it to be processed to get the member registered in BS
           _ <- sequencer.sendAsyncSigned(sign(request)).valueOrFail("Send async failed")
           _ <- readForMembers(Seq(p7), sequencer)
-          _ <- FutureUnlessShutdown.outcomeF(
-            sequencer.disableMember(sender).valueOrFail("Disabling member failed")
-          )
+          _ <- sequencer.disableMember(sender).valueOrFail("Disabling member failed")
           sendError <- sequencer
             .sendAsyncSigned(sign(request))
             .leftOrFail("Send successful, expected error")
@@ -1159,16 +1157,17 @@ trait SequencerApiTestUtils
     */
   def registerAllTopologyMembers(headSnapshot: TopologySnapshot, sequencer: Sequencer): Unit =
     (for {
-      allMembers <- EitherT.right[Sequencer.RegisterError](headSnapshot.allMembers())
+      allMembers <- EitherT
+        .right[Sequencer.RegisterError](headSnapshot.allMembers())
       _ <- allMembers.toSeq
         .parTraverse_ { member =>
           for {
-            firstKnownAtO <- EitherT.right(headSnapshot.memberFirstKnownAt(member))
+            firstKnownAtO <- EitherT
+              .right(headSnapshot.memberFirstKnownAt(member))
             res <- firstKnownAtO match {
               case Some((_, firstKnownAtEffectiveTime)) =>
                 sequencer
                   .registerMemberInternal(member, firstKnownAtEffectiveTime.value)
-                  .mapK(FutureUnlessShutdown.outcomeK)
               case None =>
                 ErrorUtil.invalidState(
                   s"Member $member has no first known at time, despite being in the topology"

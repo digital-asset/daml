@@ -21,6 +21,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   InFlightAggregationUpdates,
   SequencerInitialState,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -75,7 +76,9 @@ class InMemorySequencerBlockStore(
       .put(block.height, block.lastTs -> block.latestSequencerEventTimestamp)
       .discard
 
-  override def readHead(implicit traceContext: TraceContext): Future[BlockEphemeralState] =
+  override def readHead(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[BlockEphemeralState] =
     for {
       watermarkO <- inMemorySequencerStore.safeWatermark
       blockInfoO = watermarkO match {
@@ -85,11 +88,13 @@ class InMemorySequencerBlockStore(
           None
       }
       state <- blockInfoO match {
-        case None => Future.successful(BlockEphemeralState.empty)
+        case None => FutureUnlessShutdown.pure(BlockEphemeralState.empty)
         case Some(blockInfo) =>
-          sequencerStore
-            .readInFlightAggregations(blockInfo.lastTs)
-            .map(inFlightAggregations => BlockEphemeralState(blockInfo, inFlightAggregations))
+          FutureUnlessShutdown.outcomeF(
+            sequencerStore
+              .readInFlightAggregations(blockInfo.lastTs)
+              .map(inFlightAggregations => BlockEphemeralState(blockInfo, inFlightAggregations))
+          )
       }
 
     } yield state

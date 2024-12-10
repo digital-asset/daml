@@ -30,7 +30,7 @@ class PeriodicActionTest extends AsyncWordSpec with BaseTest with HasExecutionCo
       "test",
     )(_ => {
       numberOfCalls.incrementAndGet()
-      clock.scheduleAfter(_ => (), actionDelay).unwrap
+      clock.scheduleAfter(_ => (), actionDelay)
     })
 
     // Sometimes we need to make sure that the asynchronous scheduling of the next task has happened (in real time)

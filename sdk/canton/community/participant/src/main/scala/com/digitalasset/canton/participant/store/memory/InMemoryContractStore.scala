@@ -96,11 +96,11 @@ class InMemoryContractStore(
 
   override def storeCreatedContracts(
       creations: Seq[(SerializableContract, RequestCounter)]
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     creations.foreach { case (creation, requestCounter) =>
       store(StoredContract(creation, requestCounter))
     }
-    Future.unit
+    FutureUnlessShutdown.unit
   }
 
   private def store(storedContract: StoredContract): Unit = {
@@ -114,25 +114,25 @@ class InMemoryContractStore(
 
   override def deleteIgnoringUnknown(
       ids: Iterable[LfContractId]
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     ids.foreach(id => contracts.remove(id).discard[Option[StoredContract]])
-    Future.unit
+    FutureUnlessShutdown.unit
   }
 
-  override def purge()(implicit traceContext: TraceContext): Future[Unit] = {
+  override def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     contracts.clear()
-    Future.unit
+    FutureUnlessShutdown.unit
   }
 
   override def lookupStakeholders(ids: Set[LfContractId])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, UnknownContracts, Map[LfContractId, Set[LfPartyId]]] = {
+  ): EitherT[FutureUnlessShutdown, UnknownContracts, Map[LfContractId, Set[LfPartyId]]] = {
     val res = contracts.filter { case (cid, _) => ids.contains(cid) }.map { case (cid, c) =>
       (cid, c.contract.metadata.stakeholders)
     }
     EitherT.cond(res.sizeCompare(ids) == 0, res.toMap, UnknownContracts(ids -- res.keySet))
   }
 
-  override def contractCount()(implicit traceContext: TraceContext): Future[Int] =
-    Future.successful(contracts.size)
+  override def contractCount()(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] =
+    FutureUnlessShutdown.pure(contracts.size)
 }

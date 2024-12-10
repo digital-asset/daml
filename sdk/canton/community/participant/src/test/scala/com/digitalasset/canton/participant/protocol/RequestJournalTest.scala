@@ -49,7 +49,7 @@ class RequestJournalTest
       commitTime: Option[CantonTimestamp] = None,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     for {
-      _ <- FutureUnlessShutdown.outcomeF(rj.insert(rc, requestTimestamp))
+      _ <- rj.insert(rc, requestTimestamp)
       cursorF <- transitTo(rj, rc, requestTimestamp, state, commitTime).getOrElse(
         fail(s"Request $rc: Cursor future for request state $state")
       )
@@ -99,7 +99,7 @@ class RequestJournalTest
 
     inserts
       .parTraverse_ { case (rc, timestamp) =>
-        FutureUnlessShutdown.outcomeF(rj.insert(rc, timestamp))
+        rj.insert(rc, timestamp)
       }
       .map(_ => rj)
   }
@@ -205,7 +205,7 @@ class RequestJournalTest
           _ <- FutureUnlessShutdown.outcomeF(MonadUtil.sequentialTraverse_(inserts) {
             case (rc, timestamp) =>
               loggerFactory.assertInternalErrorAsync[IllegalArgumentException](
-                rj.insert(rc, timestamp),
+                rj.insert(rc, timestamp).failOnShutdown,
                 _.getMessage should fullyMatch regex raw"The request .* is already pending\.",
               )
           })
@@ -215,7 +215,7 @@ class RequestJournalTest
           _ <- FutureUnlessShutdown.outcomeF(MonadUtil.sequentialTraverse_(inserts) {
             case (rc, timestamp) =>
               loggerFactory.assertInternalErrorAsync[IllegalStateException](
-                rj.insert(rc, timestamp),
+                rj.insert(rc, timestamp).failOnShutdown,
                 _.getMessage should fullyMatch regex raw"Map key .* already has value RequestData.* state = Clean.*\.",
               )
           })
@@ -239,7 +239,7 @@ class RequestJournalTest
       "fail" in {
         val rj = mk(initRc)
         for {
-          _ <- rj.insert(initRc, CantonTimestamp.Epoch)
+          _ <- rj.insert(initRc, CantonTimestamp.Epoch).failOnShutdown
           _failure <- loggerFactory.assertInternalErrorAsyncUS[IllegalStateException](
             rj.terminate(
               initRc,
@@ -285,7 +285,7 @@ class RequestJournalTest
         MonadUtil
           .sequentialTraverse_(insertsBelowCursor) { case (rc, timestamp) =>
             loggerFactory.assertInternalErrorAsync[IllegalArgumentException](
-              rj.insert(rc, timestamp),
+              rj.insert(rc, timestamp).failOnShutdown,
               _.getMessage should fullyMatch regex "The request counter .* is below the initial value .*",
             )
           }
@@ -329,18 +329,22 @@ class RequestJournalTest
       "correctly count the requests" in {
         for {
           rj <- setup().failOnShutdown
-          _ <- rj.insert(insertedRc, ts)
-          totalCount <- rj.size()
-          countUntilTs <- rj.size(end = Some(ts))
-          countFromTs <- rj.size(start = ts)
-          count45 <- rj.size(
-            CantonTimestamp.ofEpochSecond(4),
-            Some(CantonTimestamp.ofEpochSecond(5)),
-          )
-          count56 <- rj.size(
-            CantonTimestamp.ofEpochSecond(5),
-            Some(CantonTimestamp.ofEpochSecond(6)),
-          )
+          _ <- rj.insert(insertedRc, ts).failOnShutdown
+          totalCount <- rj.size().failOnShutdown
+          countUntilTs <- rj.size(end = Some(ts)).failOnShutdown
+          countFromTs <- rj.size(start = ts).failOnShutdown
+          count45 <- rj
+            .size(
+              CantonTimestamp.ofEpochSecond(4),
+              Some(CantonTimestamp.ofEpochSecond(5)),
+            )
+            .failOnShutdown
+          count56 <- rj
+            .size(
+              CantonTimestamp.ofEpochSecond(5),
+              Some(CantonTimestamp.ofEpochSecond(6)),
+            )
+            .failOnShutdown
         } yield {
           totalCount shouldBe 4
           countUntilTs shouldBe 2
@@ -360,7 +364,7 @@ class RequestJournalTest
     s"adding this request fails" in {
       for {
         _ <- loggerFactory.assertInternalErrorAsync[IllegalArgumentException](
-          rj.insert(initRc, CantonTimestamp.Epoch),
+          rj.insert(initRc, CantonTimestamp.Epoch).failOnShutdown,
           _.getMessage shouldBe "The request counter 9223372036854775807 cannot be used.",
         )
       } yield succeed

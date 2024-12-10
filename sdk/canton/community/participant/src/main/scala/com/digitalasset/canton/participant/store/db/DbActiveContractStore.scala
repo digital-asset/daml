@@ -611,8 +611,8 @@ class DbActiveContractStore(
         }
     } yield nrPruned).onShutdown(0)
 
-  override def purge()(implicit traceContext: TraceContext): Future[Unit] =
-    storage.update_(
+  override def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    storage.updateUnlessShutdown_(
       sqlu"delete from par_active_contracts where domain_idx = $indexedDomain",
       functionFullName,
     )

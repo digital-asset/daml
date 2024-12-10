@@ -367,28 +367,38 @@ class BlockSequencer(
 
   override def snapshot(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): EitherT[Future, SequencerError, SequencerSnapshot] =
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SequencerError, SequencerSnapshot] =
     // TODO(#12676) Make sure that we don't request a snapshot for a state that was already pruned
 
     for {
-      additionalInfo <- blockOrderer.sequencerSnapshotAdditionalInfo(timestamp)
+      additionalInfo <- blockOrderer
+        .sequencerSnapshotAdditionalInfo(timestamp)
+        .mapK(FutureUnlessShutdown.outcomeK)
       implementationSpecificInfo = additionalInfo.map(info =>
         SequencerSnapshot.ImplementationSpecificInfo(
           implementationName = "BlockSequencer",
           info.toByteString,
         )
       )
-      blockState <- store.readStateForBlockContainingTimestamp(timestamp)
+      blockState <- store
+        .readStateForBlockContainingTimestamp(timestamp)
+        .mapK(FutureUnlessShutdown.outcomeK)
       // Look up traffic info at the latest timestamp from the block,
       // because that's where the onboarded sequencer will start reading
-      trafficPurchased <- EitherT.right[SequencerError](
-        trafficPurchasedStore
-          .lookupLatestBeforeInclusive(blockState.latestBlock.lastTs)
-      )
-      trafficConsumed <- EitherT.right[SequencerError](
-        blockRateLimitManager.trafficConsumedStore
-          .lookupLatestBeforeInclusive(blockState.latestBlock.lastTs)
-      )
+      trafficPurchased <- EitherT
+        .right[SequencerError](
+          trafficPurchasedStore
+            .lookupLatestBeforeInclusive(blockState.latestBlock.lastTs)
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
+      trafficConsumed <- EitherT
+        .right[SequencerError](
+          blockRateLimitManager.trafficConsumedStore
+            .lookupLatestBeforeInclusive(blockState.latestBlock.lastTs)
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
 
       _ = if (logger.underlying.isDebugEnabled()) {
         logger.debug(
@@ -435,7 +445,7 @@ class BlockSequencer(
     */
   override def prune(requestedTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, PruningError, String] = {
+  ): EitherT[FutureUnlessShutdown, PruningError, String] = {
 
     val (isNewRequest, pruningF) = waitForPruningToComplete(requestedTimestamp)
     val supervisedPruningF = futureSupervisor.supervised(
@@ -446,16 +456,18 @@ class BlockSequencer(
     if (isNewRequest)
       for {
         status <- EitherT.right[PruningError](this.pruningStatus)
-        _ <- condUnitET[Future](
+        _ <- condUnitET[FutureUnlessShutdown](
           requestedTimestamp <= status.safePruningTimestamp,
           UnsafePruningPoint(requestedTimestamp, status.safePruningTimestamp): PruningError,
         )
         msg <- EitherT(
           pruningQueue
-            .execute(
+            .executeUS(
               for {
-                eventsMsg <- store.prune(requestedTimestamp)
-                trafficMsg <- blockRateLimitManager.prune(requestedTimestamp)
+                eventsMsg <- FutureUnlessShutdown.outcomeF(store.prune(requestedTimestamp))
+                trafficMsg <- FutureUnlessShutdown.outcomeF(
+                  blockRateLimitManager.prune(requestedTimestamp)
+                )
                 msgEither <-
                   super[DatabaseSequencer]
                     .prune(requestedTimestamp)
@@ -472,22 +484,24 @@ class BlockSequencer(
                 Right(s"pruning at $requestedTimestamp canceled because we're shutting down")
               )
             )
-        )
+        ).mapK(FutureUnlessShutdown.outcomeK)
         _ = resolveSequencerPruning(requestedTimestamp)
-        _ <- EitherT.right(supervisedPruningF)
+        _ <- EitherT.right(supervisedPruningF).mapK(FutureUnlessShutdown.outcomeK)
       } yield msg
     else
       EitherT.right(
-        supervisedPruningF.map(_ =>
-          s"Pruning at $requestedTimestamp is already happening due to an earlier request"
-        )
+        FutureUnlessShutdown
+          .outcomeF(supervisedPruningF)
+          .map(_ =>
+            s"Pruning at $requestedTimestamp is already happening due to an earlier request"
+          )
       )
   }
 
   override def locatePruningTimestamp(index: PositiveInt)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, PruningSupportError, Option[CantonTimestamp]] =
-    EitherT.leftT[Future, Option[CantonTimestamp]](PruningError.NotSupported)
+  ): EitherT[FutureUnlessShutdown, PruningSupportError, Option[CantonTimestamp]] =
+    EitherT.leftT[FutureUnlessShutdown, Option[CantonTimestamp]](PruningError.NotSupported)
 
   override def reportMaxEventAgeMetric(
       oldestEventTimestamp: Option[CantonTimestamp]
@@ -495,9 +509,9 @@ class BlockSequencer(
 
   override protected def healthInternal(implicit
       traceContext: TraceContext
-  ): Future[SequencerHealthStatus] =
+  ): FutureUnlessShutdown[SequencerHealthStatus] =
     for {
-      ledgerStatus <- blockOrderer.health
+      ledgerStatus <- FutureUnlessShutdown.outcomeF(blockOrderer.health)
       isStorageActive = storage.isActive
       _ = logger.trace(s"Storage active: ${storage.isActive}")
     } yield {

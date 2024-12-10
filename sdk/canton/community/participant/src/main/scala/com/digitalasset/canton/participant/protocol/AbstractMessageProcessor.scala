@@ -30,7 +30,7 @@ import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Collects helper methods for message processing */
 abstract class AbstractMessageProcessor(
@@ -78,8 +78,10 @@ abstract class AbstractMessageProcessor(
   protected def isCleanReplay(requestCounter: RequestCounter): Boolean =
     requestCounter < ephemeral.startingPoints.processing.nextRequestCounter
 
-  protected def unlessCleanReplay(requestCounter: RequestCounter)(f: => Future[_]): Future[Unit] =
-    if (isCleanReplay(requestCounter)) Future.unit else f.void
+  protected def unlessCleanReplay(requestCounter: RequestCounter)(
+      f: => FutureUnlessShutdown[_]
+  ): FutureUnlessShutdown[Unit] =
+    if (isCleanReplay(requestCounter)) FutureUnlessShutdown.unit else f.void
 
   protected def signResponse(ips: DomainSnapshotSyncCryptoApi, response: ConfirmationResponse)(
       implicit traceContext: TraceContext
@@ -190,11 +192,10 @@ abstract class AbstractMessageProcessor(
         .valueOr(error =>
           ErrorUtil.internalError(new IllegalStateException(show"Request already exists: $error"))
         )
-      _ <- FutureUnlessShutdown.outcomeF(
+      _ <-
         unlessCleanReplay(requestCounter)(
           ephemeral.requestJournal.insert(requestCounter, timestamp)
         )
-      )
       _ <- requestFutures.activenessResult
 
       _ =

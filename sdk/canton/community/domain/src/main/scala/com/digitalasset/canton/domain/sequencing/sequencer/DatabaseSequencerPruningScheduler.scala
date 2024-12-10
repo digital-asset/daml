@@ -6,6 +6,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer
 import cats.data.EitherT
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.*
@@ -48,12 +49,14 @@ private[sequencing] class DatabaseSequencerPruningScheduler(
       schedule: IndividualSchedule
   )(implicit
       traceContext: TraceContext
-  ): Future[ScheduledRunResult] =
+  ): FutureUnlessShutdown[ScheduledRunResult] =
     withUpdatePruningMetric(
       schedule,
       (for {
         oldestEventTimestamp <- sequencer.locatePruningTimestamp(PositiveInt.one)
-        _ <- EitherT.fromEither[Future](sequencer.reportMaxEventAgeMetric(oldestEventTimestamp))
+        _ <- EitherT.fromEither[FutureUnlessShutdown](
+          sequencer.reportMaxEventAgeMetric(oldestEventTimestamp)
+        )
       } yield ()).valueOr(_ => ()),
     ) { pruningSchedule =>
       def locateTsAt(
@@ -64,7 +67,7 @@ private[sequencing] class DatabaseSequencerPruningScheduler(
         .leftMap(onLeft)
 
       (for {
-        _isActive <- EitherTUtil.condUnitET[Future](
+        _isActive <- EitherTUtil.condUnitET[FutureUnlessShutdown](
           storage.isActive,
           Error(
             "Exclusive storage inactive",
@@ -97,7 +100,7 @@ private[sequencing] class DatabaseSequencerPruningScheduler(
         // hammer the sequencer with back-to-back prune calls. (#15702)
         result <- oldestEventTimestampBeforePruning match {
           case _ if minTimestamp == retentionTimestamp =>
-            EitherT.rightT[Future, Error](Done: ScheduledRunResult)
+            EitherT.rightT[FutureUnlessShutdown, Error](Done: ScheduledRunResult)
           case Some(oldestTsBefore) =>
             locateTsAt(
               PositiveInt.one,
@@ -115,7 +118,7 @@ private[sequencing] class DatabaseSequencerPruningScheduler(
               )
             )
           case _ =>
-            EitherT.rightT[Future, Error](MoreWorkToPerform: ScheduledRunResult)
+            EitherT.rightT[FutureUnlessShutdown, Error](MoreWorkToPerform: ScheduledRunResult)
         }
       } yield result).merge
     }

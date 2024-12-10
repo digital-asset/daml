@@ -289,6 +289,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
       ).value,
       10.seconds,
     )
+    .onShutdown(fail("Shutting down"))
     .fold(fail(_), Predef.identity)
 
   override def close(): Unit =
@@ -369,7 +370,7 @@ class GrpcSequencerIntegrationTest
       )
 
       val result = for {
-        _ <- initF
+        _ <- initF.failOnShutdown
         _ <- subscribePromise.future
         _ = env.client.close()
         _ <- unsubscribePromise.future

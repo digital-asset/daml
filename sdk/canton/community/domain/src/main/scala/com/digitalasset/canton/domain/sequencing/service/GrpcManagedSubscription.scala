@@ -83,18 +83,22 @@ private[service] class GrpcManagedSubscription[T](
   private val handler: SerializedEventOrErrorHandler[SequencedEventError] = {
     case Right(event) =>
       implicit val traceContext: TraceContext = event.traceContext
-      Future {
-        Right(performUnlessClosing("grpc-managed-subscription-handler") {
-          observer.onNext(toSubscriptionResponse(event))
-        }.onShutdown(()))
-      }.recover { case NonFatal(e) =>
-        logger.warn(
-          "Unexpected error was thrown while publishing a sequencer event to GRPC subscriber",
-          e,
-        )
-        signalAndClose(ErrorSignal(Status.INTERNAL.withCause(e).asException()))
-        Either.unit
-      }
+      FutureUnlessShutdown
+        .outcomeF {
+          Future {
+            Right(performUnlessClosing("grpc-managed-subscription-handler") {
+              observer.onNext(toSubscriptionResponse(event))
+            }.onShutdown(()))
+          }
+        }
+        .recover { case NonFatal(e) =>
+          logger.warn(
+            "Unexpected error was thrown while publishing a sequencer event to GRPC subscriber",
+            e,
+          )
+          signalAndClose(ErrorSignal(Status.INTERNAL.withCause(e).asException()))
+          UnlessShutdown.Outcome(Either.unit)
+        }
     case Left(error) =>
       // Turn a subscription error (e.g. due to a tombstone) into a grpc observer error and
       // terminate the subscription (rather than extending the SequencerResponse with
@@ -104,7 +108,7 @@ private[service] class GrpcManagedSubscription[T](
         //  "done" pekko flow that invokes this handler.
         signalAndClose(ErrorSignal(error.asGrpcError))
       }.discard
-      Future.successful(Left(error))
+      FutureUnlessShutdown.pure(Left(error))
   }
 
   // TODO(#5705) Redo this when revisiting the subscription pool

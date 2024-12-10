@@ -83,9 +83,9 @@ class RequestJournal(
     */
   def insert(rc: RequestCounter, requestTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Unit] =
+  ): FutureUnlessShutdown[Unit] =
     for {
-      _ <- Future.unit // Wrapping the errors in the future for easier unit testing
+      _ <- FutureUnlessShutdown.unit // Wrapping the errors in the future for easier unit testing
 
       _ = ErrorUtil.requireArgument(
         rc.isNotMaxValue,
@@ -202,7 +202,7 @@ class RequestJournal(
   @VisibleForTesting
   def size(start: CantonTimestamp = CantonTimestamp.Epoch, end: Option[CantonTimestamp] = None)(
       implicit traceContext: TraceContext
-  ): Future[Int] =
+  ): FutureUnlessShutdown[Int] =
     store.size(start, end)
 
   private def withRc(rc: RequestCounter, msg: String): String = s"Request $rc: $msg"

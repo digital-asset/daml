@@ -27,7 +27,7 @@ import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
 
 import scala.collection.immutable.SortedMap
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class AcsInspection(
     domainId: DomainId,
@@ -44,8 +44,7 @@ class AcsInspection(
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): FutureUnlessShutdown[List[(Boolean, SerializableContract)]] =
-    FutureUnlessShutdown
-      .outcomeF(getCurrentSnapshot())
+    getCurrentSnapshot()
       .flatMap(_.traverse { acs =>
         contractStore
           .find(filterId, filterPackage, filterTemplate, limit)
@@ -65,10 +64,10 @@ class AcsInspection(
   def hasActiveContracts(partyId: PartyId)(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): Future[Boolean] =
+  ): FutureUnlessShutdown[Boolean] =
     for {
       acsSnapshotO <- getCurrentSnapshot()
-      res <- acsSnapshotO.fold(Future.successful(false))(acsSnapshot =>
+      res <- acsSnapshotO.fold(FutureUnlessShutdown.pure(false))(acsSnapshot =>
         contractStore.hasActiveContracts(partyId, acsSnapshot.snapshot.keysIterator)
       )
     } yield res
@@ -80,21 +79,25 @@ class AcsInspection(
   def getCurrentSnapshot()(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): Future[Option[AcsSnapshot[SortedMap[LfContractId, (CantonTimestamp, ReassignmentCounter)]]]] =
+  ): FutureUnlessShutdown[
+    Option[AcsSnapshot[SortedMap[LfContractId, (CantonTimestamp, ReassignmentCounter)]]]
+  ] =
     for {
       requestIndex <- ledgerApiStore.value.cleanDomainIndex(domainId).map(_.flatMap(_.requestIndex))
-      snapshot <- requestIndex
-        .traverse { cursorHead =>
-          val ts = cursorHead.timestamp
-          val snapshotF = activeContractStore
-            .snapshot(ts)
-            .map(_.map { case (id, (timestamp, reassignmentCounter)) =>
-              id -> (timestamp, reassignmentCounter)
-            })
+      snapshot <- FutureUnlessShutdown.outcomeF(
+        requestIndex
+          .traverse { cursorHead =>
+            val ts = cursorHead.timestamp
+            val snapshotF = activeContractStore
+              .snapshot(ts)
+              .map(_.map { case (id, (timestamp, reassignmentCounter)) =>
+                id -> (timestamp, reassignmentCounter)
+              })
 
-          snapshotF.map(snapshot => Some(AcsSnapshot(snapshot, ts)))
-        }
-        .map(_.flatten)
+            snapshotF.map(snapshot => Some(AcsSnapshot(snapshot, ts)))
+          }
+          .map(_.flatten)
+      )
     } yield snapshot
 
   // fetch acs, checking that the requested timestamp is clean
@@ -116,7 +119,6 @@ class AcsInspection(
               ledgerApiStore.value.cleanDomainIndex(domainId).map(_.flatMap(_.requestIndex)),
               timestamp,
             )
-            .mapK(FutureUnlessShutdown.outcomeK)
         else EitherT.pure[FutureUnlessShutdown, AcsInspectionError](())
       snapshot <- EitherT
         .right(activeContractStore.snapshot(timestamp))
@@ -153,7 +155,6 @@ class AcsInspection(
         case None =>
           EitherT
             .right[AcsInspectionError](getCurrentSnapshot())
-            .mapK(FutureUnlessShutdown.outcomeK)
       }
 
     maybeSnapshotET.map(
@@ -286,13 +287,6 @@ object AcsInspection {
   object TimestampValidation {
 
     private def validate[A, F[_]: Foldable](
-        ffa: Future[F[A]]
-    )(p: A => Boolean)(fail: A => AcsInspectionError)(implicit
-        ec: ExecutionContext
-    ): EitherT[Future, AcsInspectionError, Unit] =
-      EitherT(ffa.map(_.traverse_(a => Either.cond(p(a), (), fail(a)))))
-
-    private def validateUS[A, F[_]: Foldable](
         ffa: FutureUnlessShutdown[F[A]]
     )(p: A => Boolean)(fail: A => AcsInspectionError)(implicit
         ec: ExecutionContext
@@ -301,9 +295,9 @@ object AcsInspection {
 
     def beforeRequestIndex(
         domainId: DomainId,
-        requestIndex: Future[Option[RequestIndex]],
+        requestIndex: FutureUnlessShutdown[Option[RequestIndex]],
         timestamp: CantonTimestamp,
-    )(implicit ec: ExecutionContext): EitherT[Future, AcsInspectionError, Unit] =
+    )(implicit ec: ExecutionContext): EitherT[FutureUnlessShutdown, AcsInspectionError, Unit] =
       validate(requestIndex)(timestamp < _.timestamp)(cp =>
         AcsInspectionError.TimestampAfterCleanRequestIndex(domainId, timestamp, cp.timestamp)
       )
@@ -315,7 +309,7 @@ object AcsInspection {
     )(implicit
         ec: ExecutionContext
     ): EitherT[FutureUnlessShutdown, AcsInspectionError, Unit] =
-      validateUS(pruningStatus)(
+      validate(pruningStatus)(
         timestamp >= _.timestamp
       )(ps => AcsInspectionError.TimestampBeforePruning(domainId, timestamp, ps.timestamp))
 

@@ -91,12 +91,14 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
 
       for {
         _ <- valueOrFail(
-          testSequencerWrapper.registerMemberInternal(sender, CantonTimestamp.Epoch)
+          testSequencerWrapper.registerMemberInternal(sender, CantonTimestamp.Epoch).failOnShutdown
         )(
           "Register mediator"
         )
         _ <- valueOrFail(
-          testSequencerWrapper.registerMemberInternal(sequencerId, CantonTimestamp.Epoch)
+          testSequencerWrapper
+            .registerMemberInternal(sequencerId, CantonTimestamp.Epoch)
+            .failOnShutdown
         )(
           "Register sequencer"
         )
@@ -116,6 +118,7 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
 
         error <- sequencer
           .snapshot(CantonTimestamp.MaxValue)
+          .failOnShutdown
           .leftOrFail("snapshotting after the watermark is expected to fail")
         _ <- error.cause should include(" is after the safe watermark")
 
@@ -156,7 +159,7 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
           // need to advance clock so that the new event doesn't get the same timestamp as the previous one,
           // which would then cause it to be ignored on the read path
           simClockOrFail(clock).advance(Duration.ofSeconds(1))
-          secondSequencer.sendAsync(request2).valueOrFailShutdown("Sent async")
+          secondSequencer.sendAsync(request2).value
         }
 
         messages2 <- readForMembers(

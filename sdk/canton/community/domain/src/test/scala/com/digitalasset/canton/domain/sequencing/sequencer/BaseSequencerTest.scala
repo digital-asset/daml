@@ -38,7 +38,7 @@ import com.digitalasset.canton.topology.DefaultTestIdentities.{
 }
 import com.digitalasset.canton.topology.{Member, SequencerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{BaseTest, SequencerCounter}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, SequencerCounter}
 import com.google.protobuf.ByteString
 import org.apache.pekko.Done
 import org.apache.pekko.stream.KillSwitches
@@ -46,9 +46,8 @@ import org.apache.pekko.stream.scaladsl.{Keep, Source}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.mutable
-import scala.concurrent.Future
 
-class BaseSequencerTest extends AsyncWordSpec with BaseTest {
+class BaseSequencerTest extends AsyncWordSpec with BaseTest with FailOnShutdown {
   val messageId = MessageId.tryCreate("test-message-id")
   def mkBatch(recipients: Set[Member]): Batch[ClosedEnvelope] =
     Batch[ClosedEnvelope](
@@ -104,12 +103,12 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
       EitherT.pure[FutureUnlessShutdown, SendAsyncError](())
     override def isRegistered(member: Member)(implicit
         traceContext: TraceContext
-    ): Future[Boolean] =
-      Future.successful(existingMembers.contains(member))
+    ): FutureUnlessShutdown[Boolean] =
+      FutureUnlessShutdown.pure(existingMembers.contains(member))
 
     override def registerMemberInternal(member: Member, timestamp: CantonTimestamp)(implicit
         traceContext: TraceContext
-    ): EitherT[Future, RegisterError, Unit] = {
+    ): EitherT[FutureUnlessShutdown, RegisterError, Unit] = {
       newlyRegisteredMembers.add(member)
       EitherT.pure(())
     }
@@ -120,7 +119,7 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
       EitherT.rightT[FutureUnlessShutdown, CreateSubscriptionError](
         Source.empty
           .viaMat(KillSwitches.single)(Keep.right)
-          .mapMaterializedValue(_ -> Future.successful(Done))
+          .mapMaterializedValue(_ -> FutureUnlessShutdown.pure(Done))
       )
 
     override protected def acknowledgeSignedInternal(
@@ -129,13 +128,13 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
 
     override def pruningStatus(implicit
         traceContext: TraceContext
-    ): Future[SequencerPruningStatus] = ???
+    ): FutureUnlessShutdown[SequencerPruningStatus] = ???
     override def prune(requestedTimestamp: CantonTimestamp)(implicit
         traceContext: TraceContext
-    ): EitherT[Future, PruningError, String] = ???
+    ): EitherT[FutureUnlessShutdown, PruningError, String] = ???
     override def locatePruningTimestamp(index: PositiveInt)(implicit
         traceContext: TraceContext
-    ): EitherT[Future, PruningSupportError, Option[CantonTimestamp]] = ???
+    ): EitherT[FutureUnlessShutdown, PruningSupportError, Option[CantonTimestamp]] = ???
     override def reportMaxEventAgeMetric(
         oldestEventTimestamp: Option[CantonTimestamp]
     ): Either[PruningSupportError, Unit] = ???
@@ -143,20 +142,21 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
     override def pruningScheduler: Option[PruningScheduler] = ???
     override def snapshot(timestamp: CantonTimestamp)(implicit
         traceContext: TraceContext
-    ): EitherT[Future, SequencerError, SequencerSnapshot] =
+    ): EitherT[FutureUnlessShutdown, SequencerError, SequencerSnapshot] =
       ???
     override protected val localSequencerMember: Member = sequencerId
     override protected def disableMemberInternal(member: Member)(implicit
         traceContext: TraceContext
-    ): Future[Unit] = Future.unit
+    ): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.unit
     override protected def healthInternal(implicit
         traceContext: TraceContext
-    ): Future[SequencerHealthStatus] = Future.successful(SequencerHealthStatus(isActive = true))
+    ): FutureUnlessShutdown[SequencerHealthStatus] =
+      FutureUnlessShutdown.pure(SequencerHealthStatus(isActive = true))
 
     override def adminStatus: SequencerAdminStatus = ???
     override private[sequencing] def firstSequencerCounterServeableForSequencer(implicit
         traceContext: TraceContext
-    ): Future[SequencerCounter] =
+    ): FutureUnlessShutdown[SequencerCounter] =
       ???
     override def trafficStatus(members: Seq[Member], selector: TimestampSelector)(implicit
         traceContext: TraceContext
@@ -184,8 +184,10 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
     ]] =
       EitherT.pure(Some(TrafficState.empty(timestamp)))
 
-    override def isEnabled(member: Member)(implicit traceContext: TraceContext): Future[Boolean] =
-      Future.successful(existingMembers.contains(member))
+    override def isEnabled(member: Member)(implicit
+        traceContext: TraceContext
+    ): FutureUnlessShutdown[Boolean] =
+      FutureUnlessShutdown.pure(existingMembers.contains(member))
   }
 
   Seq(("sendAsync", false), ("sendAsyncSigned", true)).foreach { case (name, useSignedSend) =>

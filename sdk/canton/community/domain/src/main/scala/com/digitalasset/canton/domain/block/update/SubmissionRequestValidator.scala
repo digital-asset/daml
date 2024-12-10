@@ -33,13 +33,12 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import monocle.Monocle.toAppliedFocusOps
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Validates a single [[SubmissionRequest]] within a chunk.
   */
@@ -142,9 +141,7 @@ private[update] final class SubmissionRequestValidator(
       isSenderRegistered <-
         EitherT
           .right(
-            FutureUnlessShutdown.outcomeF(
-              memberValidator.isMemberRegisteredAt(submissionRequest.sender, sequencingTimestamp)
-            )
+            memberValidator.isMemberRegisteredAt(submissionRequest.sender, sequencingTimestamp)
           )
           .mapK(validationFUSK)
       _ <- EitherTUtil
@@ -353,8 +350,8 @@ private[update] final class SubmissionRequestValidator(
         _ <- groups.parTraverse { group =>
           val nonRegisteredF =
             (group.active ++ group.passive).parTraverseFilter { member =>
-              FutureUnlessShutdown
-                .outcomeF(memberValidator.isMemberRegisteredAt(member, sequencingTimestamp))
+              memberValidator
+                .isMemberRegisteredAt(member, sequencingTimestamp)
                 .map { isRegistered =>
                   Option.when(!isRegistered)(member)
                 }
@@ -466,7 +463,6 @@ private[update] final class SubmissionRequestValidator(
               }
             }
           )
-          .mapK(FutureUnlessShutdown.outcomeK)
       res <- EitherT.cond[FutureUnlessShutdown](
         unknownRecipients.isEmpty,
         (),
@@ -576,7 +572,6 @@ private[update] final class SubmissionRequestValidator(
               (aggregationId, inFlightAggregationUpdate, inFlightAggregation)
             )
           }
-          .mapK(FutureUnlessShutdown.outcomeK)
       aggregatedBatch = aggregationOutcome.fold(submissionRequest.batch) {
         case (aggregationId, inFlightAggregationUpdate, inFlightAggregation) =>
           val updatedInFlightAggregation = InFlightAggregation.tryApplyUpdate(
@@ -650,7 +645,7 @@ private[update] final class SubmissionRequestValidator(
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, SubmissionRequestOutcome, InFlightAggregationUpdate] = {
+  ): EitherT[FutureUnlessShutdown, SubmissionRequestOutcome, InFlightAggregationUpdate] = {
     val rule = submissionRequest.aggregationRule.getOrElse(
       ErrorUtil.internalError(
         new IllegalStateException(
@@ -687,7 +682,7 @@ private[update] final class SubmissionRequestValidator(
       )
 
       newAggregation <-
-        EitherT.fromEither[Future](
+        EitherT.fromEither[FutureUnlessShutdown](
           inFlightAggregation
             .tryAggregate(aggregatedSender)
             .leftMap {
@@ -714,28 +709,30 @@ private[update] final class SubmissionRequestValidator(
         InFlightAggregationUpdate(None, Chain.one(aggregatedSender))
       )
       // If we're not delivering the request to all recipients right now, just send a receipt back to the sender
-      _ <- EitherT.cond(
-        newAggregation.deliveredAt.nonEmpty,
-        logger.debug(
-          s"Aggregation ID $aggregationId has reached its threshold ${newAggregation.rule.threshold} and will be delivered at $sequencingTimestamp."
-        ), {
+      _ <- EitherT
+        .cond(
+          newAggregation.deliveredAt.nonEmpty,
           logger.debug(
-            s"Aggregation ID $aggregationId has now ${newAggregation.aggregatedSenders.size} senders aggregated. Threshold is ${newAggregation.rule.threshold.value}."
-          )
-          val deliverReceiptEvent =
-            deliverReceipt(submissionRequest, sequencingTimestamp)
-          SubmissionRequestOutcome(
-            Map(submissionRequest.sender -> deliverReceiptEvent),
-            Some(aggregationId -> fullInFlightAggregationUpdate),
-            outcome = SubmissionOutcome.DeliverReceipt(
-              submissionRequest,
-              sequencingTimestamp,
-              traceContext,
-              trafficReceiptO = None, // traffic receipt is updated at the end of the processing
-            ),
-          )
-        },
-      )
+            s"Aggregation ID $aggregationId has reached its threshold ${newAggregation.rule.threshold} and will be delivered at $sequencingTimestamp."
+          ), {
+            logger.debug(
+              s"Aggregation ID $aggregationId has now ${newAggregation.aggregatedSenders.size} senders aggregated. Threshold is ${newAggregation.rule.threshold.value}."
+            )
+            val deliverReceiptEvent =
+              deliverReceipt(submissionRequest, sequencingTimestamp)
+            SubmissionRequestOutcome(
+              Map(submissionRequest.sender -> deliverReceiptEvent),
+              Some(aggregationId -> fullInFlightAggregationUpdate),
+              outcome = SubmissionOutcome.DeliverReceipt(
+                submissionRequest,
+                sequencingTimestamp,
+                traceContext,
+                trafficReceiptO = None, // traffic receipt is updated at the end of the processing
+              ),
+            )
+          },
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
     } yield fullInFlightAggregationUpdate
   }
 
@@ -746,7 +743,7 @@ private[update] final class SubmissionRequestValidator(
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, SubmissionRequestOutcome, Unit] =
+  ): EitherT[FutureUnlessShutdown, SubmissionRequestOutcome, Unit] =
     for {
       _ <- wellFormedAggregationRule(submissionRequest, rule)
 
@@ -760,17 +757,19 @@ private[update] final class SubmissionRequestValidator(
           }
         )
 
-      _ <- EitherTUtil.condUnitET(
-        unregisteredEligibleMembers.isEmpty,
-        // TODO(#14322): review if still applicable and consider an error code (SequencerDeliverError)
-        invalidSubmissionRequest(
-          submissionRequest,
-          sequencingTimestamp,
-          SequencerErrors.SubmissionRequestRefused(
-            s"Aggregation rule contains unregistered eligible members: $unregisteredEligibleMembers"
+      _ <- EitherTUtil
+        .condUnitET(
+          unregisteredEligibleMembers.isEmpty,
+          // TODO(#14322): review if still applicable and consider an error code (SequencerDeliverError)
+          invalidSubmissionRequest(
+            submissionRequest,
+            sequencingTimestamp,
+            SequencerErrors.SubmissionRequestRefused(
+              s"Aggregation rule contains unregistered eligible members: $unregisteredEligibleMembers"
+            ),
           ),
-        ),
-      )
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
     } yield ()
 
   private def wellFormedAggregationRule(
@@ -779,7 +778,7 @@ private[update] final class SubmissionRequestValidator(
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, SubmissionRequestOutcome, Unit] =
+  ): EitherT[FutureUnlessShutdown, SubmissionRequestOutcome, Unit] =
     EitherT.fromEither(
       SequencerValidations
         .wellformedAggregationRule(submissionRequest.sender, rule)

@@ -14,7 +14,7 @@ import com.digitalasset.canton.data.{CantonTimestamp, Counter}
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.DomainSequencingTestUtils.deliverStoreEventWithPayloadWithDefaults
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SaveLowerBoundError.BoundLowerThanExisting
-import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.sequencing.protocol.{Batch, MessageId, SequencerErrors}
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
@@ -22,16 +22,18 @@ import com.digitalasset.canton.store.db.DbTest
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.{DefaultTestIdentities, Member, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.{BaseTest, ProtocolVersionChecksAsyncWordSpec, SequencerCounter}
+import com.digitalasset.canton.{
+  BaseTest,
+  FailOnShutdown,
+  ProtocolVersionChecksAsyncWordSpec,
+  SequencerCounter,
+}
 import com.google.protobuf.ByteString
-import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.UUID
 import scala.annotation.nowarn
 import scala.collection.immutable.SortedSet
-import scala.concurrent.Future
 
 @nowarn("msg=match may not be exhaustive")
 trait SequencerStoreTest
@@ -39,7 +41,8 @@ trait SequencerStoreTest
     with BaseTest
     with HasCloseContext
     with FlagCloseable
-    with ProtocolVersionChecksAsyncWordSpec {
+    with ProtocolVersionChecksAsyncWordSpec
+    with FailOnShutdown {
 
   lazy val sequencerMember: Member = DefaultTestIdentities.sequencerId
 
@@ -96,7 +99,7 @@ trait SequencerStoreTest
           payload: P,
           recipients: Set[Member] = Set.empty,
           trafficReceiptO: Option[TrafficReceipt] = None,
-      ): Future[Sequenced[P]] =
+      ): FutureUnlessShutdown[Sequenced[P]] =
         for {
           senderId <- store.registerMember(sender, ts)
           recipientIds <- recipients.toList.parTraverse(store.registerMember(_, ts)).map(_.toSet)
@@ -119,7 +122,7 @@ trait SequencerStoreTest
           messageId: MessageId,
           topologyTimestamp: CantonTimestamp,
           trafficReceiptO: Option[TrafficReceipt] = None,
-      ): Future[Sequenced[Payload]] =
+      ): FutureUnlessShutdown[Sequenced[Payload]] =
         for {
           senderId <- store.registerMember(sender, ts)
         } yield Sequenced(
@@ -133,7 +136,7 @@ trait SequencerStoreTest
           ),
         )
 
-      def lookupRegisteredMember(member: Member): Future[SequencerMemberId] =
+      def lookupRegisteredMember(member: Member): FutureUnlessShutdown[SequencerMemberId] =
         for {
           registeredMemberO <- store.lookupMember(member)
           memberId = registeredMemberO.map(_.memberId).getOrElse(fail(s"$member is not registered"))
@@ -141,10 +144,10 @@ trait SequencerStoreTest
 
       def saveEventsAndBuffer(instanceIndex: Int, events: NonEmpty[Seq[Sequenced[Payload]]])(
           implicit traceContext: TraceContext
-      ): Future[Unit] = {
+      ): FutureUnlessShutdown[Unit] = {
         val savePayloadsF = NonEmpty.from(events.forgetNE.flatMap(_.event.payloadO.toList)) match {
           case Some(payloads) => savePayloads(payloads)
-          case _ => Future.unit
+          case _ => FutureUnlessShutdown.unit
         }
         savePayloadsF.flatMap(_ =>
           store
@@ -157,7 +160,7 @@ trait SequencerStoreTest
           member: Member,
           fromTimestampO: Option[CantonTimestamp] = Some(CantonTimestamp.Epoch),
           limit: Int = 1000,
-      ): Future[Seq[Sequenced[Payload]]] =
+      ): FutureUnlessShutdown[Seq[Sequenced[Payload]]] =
         for {
           memberId <- lookupRegisteredMember(member)
           events <- store.readEvents(memberId, fromTimestampO, limit)
@@ -177,7 +180,7 @@ trait SequencerStoreTest
           expectedRecipients: Set[Member],
           expectedPayload: Payload,
           expectedTopologyTimestamp: Option[CantonTimestamp] = None,
-      ): Future[Assertion] =
+      ): FutureUnlessShutdown[Unit] =
         for {
           senderId <- lookupRegisteredMember(expectedSender)
           recipientIds <- expectedRecipients.toList.parTraverse(lookupRegisteredMember).map(_.toSet)
@@ -201,6 +204,7 @@ trait SequencerStoreTest
             case other =>
               fail(s"Expected deliver event but got $other")
           }
+          ()
         }
 
       def assertReceiptEvent(
@@ -209,7 +213,7 @@ trait SequencerStoreTest
           expectedSender: Member,
           expectedMessageId: MessageId,
           expectedTopologyTimestamp: Option[CantonTimestamp],
-      ): Future[Assertion] =
+      ): FutureUnlessShutdown[Unit] =
         for {
           senderId <- lookupRegisteredMember(expectedSender)
         } yield {
@@ -230,16 +234,21 @@ trait SequencerStoreTest
             case other =>
               fail(s"Expected deliver receipt but got $other")
           }
+          ()
         }
 
       /** Save payloads using the default `instanceDiscriminator1` and expecting it to succeed */
-      def savePayloads(payloads: NonEmpty[Seq[Payload]]): Future[Unit] =
+      def savePayloads(payloads: NonEmpty[Seq[Payload]]): FutureUnlessShutdown[Unit] =
         valueOrFail(store.savePayloads(payloads, instanceDiscriminator1))("savePayloads")
 
-      def saveWatermark(ts: CantonTimestamp): EitherT[Future, SaveWatermarkError, Unit] =
+      def saveWatermark(
+          ts: CantonTimestamp
+      ): EitherT[FutureUnlessShutdown, SaveWatermarkError, Unit] =
         store.saveWatermark(instanceIndex, ts)
 
-      def resetWatermark(ts: CantonTimestamp): EitherT[Future, SaveWatermarkError, Unit] =
+      def resetWatermark(
+          ts: CantonTimestamp
+      ): EitherT[FutureUnlessShutdown, SaveWatermarkError, Unit] =
         store.resetWatermark(instanceIndex, ts)
     }
 
@@ -298,13 +307,18 @@ trait SequencerStoreTest
         for {
           deliverEvent1 <- env.deliverEvent(ts1, alice, messageId1, payload1)
           deliverEvent2 <- env.deliverEvent(ts2, alice, messageId2, payload2)
-          _ <- env.saveEventsAndBuffer(instanceIndex, NonEmpty(Seq, deliverEvent1, deliverEvent2))
-          _ <- env.saveWatermark(deliverEvent2.timestamp).valueOrFail("saveWatermark")
+          _ <- env
+            .saveEventsAndBuffer(instanceIndex, NonEmpty(Seq, deliverEvent1, deliverEvent2))
+          _ <- env
+            .saveWatermark(deliverEvent2.timestamp)
+            .valueOrFail("saveWatermark")
           events <- env.readEvents(alice)
           _ = events should have size 2
           Seq(event1, event2) = events
-          _ <- env.assertDeliverEvent(event1, ts1, alice, messageId1, Set(alice), payload1)
-          _ <- env.assertDeliverEvent(event2, ts2, alice, messageId2, Set(alice), payload2)
+          _ <- env
+            .assertDeliverEvent(event1, ts1, alice, messageId1, Set(alice), payload1)
+          _ <- env
+            .assertDeliverEvent(event2, ts2, alice, messageId2, Set(alice), payload2)
         } yield succeed
       }
 
@@ -315,28 +329,33 @@ trait SequencerStoreTest
           // the first event is for alice, and the second for bob
           deliverEvent1 <- env.deliverEvent(ts1, alice, messageId1, payload1)
           deliverEvent2 <- env.deliverEvent(ts2, bob, messageId2, payload2)
-          _ <- env.saveEventsAndBuffer(instanceIndex, NonEmpty(Seq, deliverEvent1, deliverEvent2))
-          _ <- env.saveWatermark(deliverEvent2.timestamp).valueOrFail("saveWatermark")
+          _ <- env
+            .saveEventsAndBuffer(instanceIndex, NonEmpty(Seq, deliverEvent1, deliverEvent2))
+          _ <- env
+            .saveWatermark(deliverEvent2.timestamp)
+            .valueOrFail("saveWatermark")
           aliceEvents <- env.readEvents(alice)
           bobEvents <- env.readEvents(bob)
           _ = aliceEvents should have size 1
           _ = bobEvents should have size 1
-          _ <- env.assertDeliverEvent(
-            aliceEvents.headOption.value,
-            ts1,
-            alice,
-            messageId1,
-            Set(alice),
-            payload1,
-          )
-          _ <- env.assertDeliverEvent(
-            bobEvents.headOption.value,
-            ts2,
-            bob,
-            messageId2,
-            Set(bob),
-            payload2,
-          )
+          _ <- env
+            .assertDeliverEvent(
+              aliceEvents.headOption.value,
+              ts1,
+              alice,
+              messageId1,
+              Set(alice),
+              payload1,
+            )
+          _ <- env
+            .assertDeliverEvent(
+              bobEvents.headOption.value,
+              ts2,
+              bob,
+              messageId2,
+              Set(bob),
+              payload2,
+            )
         } yield succeed
       }
 
@@ -346,19 +365,21 @@ trait SequencerStoreTest
         for {
           // the first event is for alice, and the second for bob
           deliverEventAlice <- env.deliverEvent(ts1, alice, messageId1, payload1)
-          deliverEventAll <- env.deliverEvent(
-            ts2,
-            alice,
-            messageId2,
-            payload2,
-            recipients = Set(alice, bob),
-          )
+          deliverEventAll <- env
+            .deliverEvent(
+              ts2,
+              alice,
+              messageId2,
+              payload2,
+              recipients = Set(alice, bob),
+            )
           receiptAlice <- env.deliverReceipt(ts4, alice, messageId4, ts3)
           deliverEventBob <- env.deliverEvent(ts3, bob, messageId3, payload3)
-          _ <- env.saveEventsAndBuffer(
-            instanceIndex,
-            NonEmpty(Seq, deliverEventAlice, deliverEventAll, deliverEventBob, receiptAlice),
-          )
+          _ <- env
+            .saveEventsAndBuffer(
+              instanceIndex,
+              NonEmpty(Seq, deliverEventAlice, deliverEventAll, deliverEventBob, receiptAlice),
+            )
           _ <- env.saveWatermark(receiptAlice.timestamp).valueOrFail("saveWatermark")
           aliceEvents <- env.readEvents(alice)
           bobEvents <- env.readEvents(bob)
@@ -482,14 +503,16 @@ trait SequencerStoreTest
       "read from fan-out buffer if enabled" in {
         val env = Env()
         for {
-          deliverEvent1 <- env.deliverEvent(ts1, alice, messageId1, payload1)
-          deliverEvent2 <- env.deliverEvent(ts2, alice, messageId2, payload2)
-          deliverEvent3 <- env.deliverEvent(ts3, alice, messageId3, payload3)
-          _ <- env.saveEventsAndBuffer(
-            instanceIndex,
-            NonEmpty(Seq, deliverEvent1, deliverEvent2, deliverEvent3),
-          )
-          _ <- env.saveWatermark(ts3).valueOrFail("saveWatermark")
+          deliverEvent1 <- env.deliverEvent(ts1, alice, messageId1, payload1).failOnShutdown
+          deliverEvent2 <- env.deliverEvent(ts2, alice, messageId2, payload2).failOnShutdown
+          deliverEvent3 <- env.deliverEvent(ts3, alice, messageId3, payload3).failOnShutdown
+          _ <- env
+            .saveEventsAndBuffer(
+              instanceIndex,
+              NonEmpty(Seq, deliverEvent1, deliverEvent2, deliverEvent3),
+            )
+            .failOnShutdown
+          _ <- env.saveWatermark(ts3).valueOrFail("saveWatermark").failOnShutdown
           events <- {
             loggerFactory.assertLogsSeq(SuppressionRule.FullSuppression)(
               // Note that this timestamp ts1 is exclusive so we WILL miss the first event
@@ -501,7 +524,7 @@ trait SequencerStoreTest
                 (readFromTheBuffer || bufferDisabled) shouldBe true
               },
             )
-          }
+          }.failOnShutdown
           _ = events should have size 2
           Seq(event2, event3) = events
           _ <- env.assertDeliverEvent(event2, ts2, alice, messageId2, Set(alice), payload2)

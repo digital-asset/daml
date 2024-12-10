@@ -3,15 +3,15 @@
 
 package com.digitalasset.canton.participant.store
 
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.CantonRequireTypes.String36
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.participant.store.ParticipantPruningStore.ParticipantPruningStatus
+import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.language.implicitConversions
 
-trait ParticipantPruningStoreTest extends AsyncWordSpec with BaseTest {
+trait ParticipantPruningStoreTest extends AsyncWordSpec with BaseTest with FailOnShutdown {
 
   protected def mk(): ParticipantPruningStore
 

@@ -31,7 +31,7 @@ import com.digitalasset.canton.sequencing.{SequencerClientRecorder, SerializedEv
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, MonadUtil}
+import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.Status
 
@@ -91,7 +91,7 @@ class ReplayingEventsSequencerClientTransport(
     val startTime = CantonTimestamp.now()
     val startNanos = System.nanoTime()
     val replayF = MonadUtil
-      .sequentialTraverse_(messages) { e =>
+      .sequentialTraverse(messages) { e =>
         logger.debug(
           s"Replaying event with sequencer counter ${e.counter} and timestamp ${e.timestamp}"
         )(e.traceContext)
@@ -114,7 +114,10 @@ class ReplayingEventsSequencerClientTransport(
         )
       }
 
-    FutureUtil.doNotAwait(replayF, "An exception has occurred while replaying messages.")
+    FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
+      replayF,
+      "An exception has occurred while replaying messages.",
+    )
     new ReplayingSequencerSubscription(timeouts, loggerFactory)
   }
 

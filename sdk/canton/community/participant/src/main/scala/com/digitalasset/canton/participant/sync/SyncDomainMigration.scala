@@ -175,7 +175,7 @@ class SyncDomainMigration(
           )
       )
 
-      inFlights <- performUnlessClosingEitherU(functionFullName)(
+      inFlights <- performUnlessClosingEitherUSF(functionFullName)(
         inspection
           .countInFlight(source.unwrap)
           .leftMap(_ => SyncServiceUnknownDomain.Error(source.unwrap))
@@ -289,7 +289,7 @@ class SyncDomainMigration(
     val batchSize = PositiveInt.tryCreate(100)
     for {
       // load all contracts on source domain
-      acs <- performUnlessClosingEitherU(functionFullName)(
+      acs <- performUnlessClosingEitherUSF(functionFullName)(
         inspection
           .findAcs(sourceAlias.unwrap)
           .leftMap[SyncDomainMigrationError](err =>

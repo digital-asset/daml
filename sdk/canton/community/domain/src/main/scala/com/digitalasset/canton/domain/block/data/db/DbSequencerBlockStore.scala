@@ -20,6 +20,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   InFlightAggregationUpdates,
   SequencerInitialState,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.IdempotentInsert.insertVerifyingConflicts
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
@@ -49,8 +50,10 @@ class DbSequencerBlockStore(
     loggerFactory,
   )
 
-  override def readHead(implicit traceContext: TraceContext): Future[BlockEphemeralState] =
-    storage.query(
+  override def readHead(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[BlockEphemeralState] =
+    storage.queryUnlessShutdown(
       for {
         watermark <- safeWaterMarkDBIO
         blockInfoO <- watermark match {

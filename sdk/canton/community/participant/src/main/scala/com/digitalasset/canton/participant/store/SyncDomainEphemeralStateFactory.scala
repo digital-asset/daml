@@ -23,7 +23,7 @@ import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait SyncDomainEphemeralStateFactory {
   def createFromPersistent(
@@ -68,20 +68,15 @@ class SyncDomainEphemeralStateFactoryImpl(
       _ <- ledgerApiIndexer.value.ensureNoProcessingForDomain(
         persistentState.indexedDomain.domainId
       )
-      domainIndex <- FutureUnlessShutdown.outcomeF(
-        ledgerApiIndexer.value.ledgerApiStore.value
-          .cleanDomainIndex(persistentState.indexedDomain.domainId)
+      domainIndex <- ledgerApiIndexer.value.ledgerApiStore.value
+        .cleanDomainIndex(persistentState.indexedDomain.domainId)
+      startingPoints <- SyncDomainEphemeralStateFactory.startingPoints(
+        persistentState.requestJournalStore,
+        persistentState.sequencedEventStore,
+        domainIndex,
       )
-      startingPoints <- FutureUnlessShutdown.outcomeF(
-        SyncDomainEphemeralStateFactory.startingPoints(
-          persistentState.requestJournalStore,
-          persistentState.sequencedEventStore,
-          domainIndex,
-        )
-      )
-      _ <- FutureUnlessShutdown.outcomeF(
-        SyncDomainEphemeralStateFactory.cleanupPersistentState(persistentState, startingPoints)
-      )
+
+      _ <- SyncDomainEphemeralStateFactory.cleanupPersistentState(persistentState, startingPoints)
 
       recordOrderPublisher = new RecordOrderPublisher(
         persistentState.indexedDomain.domainId,
@@ -162,7 +157,7 @@ object SyncDomainEphemeralStateFactory {
   )(implicit
       ec: ExecutionContext,
       loggingContext: ErrorLoggingContext,
-  ): Future[ProcessingStartingPoints] = {
+  ): FutureUnlessShutdown[ProcessingStartingPoints] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
     val messageProcessingStartingPoint = MessageProcessingStartingPoint(
       nextRequestCounter = domainIndexO
@@ -212,7 +207,7 @@ object SyncDomainEphemeralStateFactory {
             )
         )
         .getOrElse(
-          Future.successful(
+          FutureUnlessShutdown.pure(
             // No need to replay clean requests
             // because no requests to be reprocessed were in flight at the processing starting point.
             messageProcessingStartingPoint.toMessageCleanReplayStartingPoint
@@ -234,7 +229,10 @@ object SyncDomainEphemeralStateFactory {
   def crashRecoveryPruningBoundInclusive(
       requestJournalStore: RequestJournalStore,
       cleanDomainIndexO: Option[DomainIndex],
-  )(implicit ec: ExecutionContext, traceContext: TraceContext): Future[CantonTimestamp] =
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): FutureUnlessShutdown[CantonTimestamp] =
     // Crash recovery cleans up the stores before replay starts,
     // however we may have used some of the deleted information to determine the starting points for the replay.
     // So if a crash occurs during crash recovery, we may start again and come up with an earlier processing starting point.
@@ -249,7 +247,7 @@ object SyncDomainEphemeralStateFactory {
       requestReplayTs <- cleanDomainIndexO.flatMap(_.requestIndex) match {
         case None =>
           // No request is known to be clean, nothing can be pruned
-          Future.successful(CantonTimestamp.MinValue)
+          FutureUnlessShutdown.pure(CantonTimestamp.MinValue)
         case Some(requestIndex) =>
           requestJournalStore.firstRequestWithCommitTimeAfter(requestIndex.timestamp).map { res =>
             val ts = res.fold(requestIndex.timestamp)(_.requestTimestamp)
@@ -267,7 +265,10 @@ object SyncDomainEphemeralStateFactory {
   def cleanupPersistentState(
       persistentState: SyncDomainPersistentState,
       startingPoints: ProcessingStartingPoints,
-  )(implicit ec: ExecutionContext, loggingContext: ErrorLoggingContext): Future[Unit] = {
+  )(implicit
+      ec: ExecutionContext,
+      loggingContext: ErrorLoggingContext,
+  ): FutureUnlessShutdown[Unit] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
     val logger = loggingContext.logger
     val processingStartingPoint = startingPoints.processing
@@ -277,16 +278,22 @@ object SyncDomainEphemeralStateFactory {
         processingStartingPoint.nextRequestCounter
       )
       _ = logger.debug("Deleting contract activeness changes")
-      _ <- persistentState.activeContractStore.deleteSince(
-        processingStartingPoint.nextRequestCounter
+      _ <- FutureUnlessShutdown.outcomeF(
+        persistentState.activeContractStore.deleteSince(
+          processingStartingPoint.nextRequestCounter
+        )
       )
       _ = logger.debug("Deleting reassignment completions")
-      _ <- persistentState.reassignmentStore.deleteCompletionsSince(
-        processingStartingPoint.nextRequestCounter
+      _ <- FutureUnlessShutdown.outcomeF(
+        persistentState.reassignmentStore.deleteCompletionsSince(
+          processingStartingPoint.nextRequestCounter
+        )
       )
       _ = logger.debug("Deleting registered fresh requests")
-      _ <- persistentState.submissionTrackerStore.deleteSince(
-        processingStartingPoint.lastSequencerTimestamp.immediateSuccessor
+      _ <- FutureUnlessShutdown.outcomeF(
+        persistentState.submissionTrackerStore.deleteSince(
+          processingStartingPoint.lastSequencerTimestamp.immediateSuccessor
+        )
       )
     } yield ()
   }

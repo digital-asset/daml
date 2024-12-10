@@ -25,7 +25,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
 }
 import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficConsumedStore
 import com.digitalasset.canton.error.BaseAlarm
-import com.digitalasset.canton.lifecycle.FlagCloseable
+import com.digitalasset.canton.lifecycle.{FlagCloseable, UnlessShutdown}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -74,12 +74,12 @@ trait BlockSequencerStateManagerBase extends FlagCloseable {
 }
 
 class BlockSequencerStateManager(
-    domainId: DomainId,
     val store: SequencerBlockStore,
     val trafficConsumedStore: TrafficConsumedStore,
     enableInvariantCheck: Boolean,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
+    headState: AtomicReference[HeadState],
 )(implicit executionContext: ExecutionContext)
     extends BlockSequencerStateManagerBase
     with NamedLogging {
@@ -88,14 +88,6 @@ class BlockSequencerStateManager(
 
   private val memberAcknowledgementPromises =
     TrieMap[Member, NonEmpty[SortedMap[CantonTimestamp, Traced[Promise[Unit]]]]]()
-
-  private val headState = new AtomicReference[HeadState]({
-    import TraceContext.Implicits.Empty.*
-    val headBlock =
-      timeouts.unbounded.await(s"Reading the head of the $domainId sequencer state")(store.readHead)
-    logger.debug(s"Initialized the block sequencer with head block ${headBlock.latestBlock}")
-    HeadState.fullyProcessed(headBlock)
-  })
 
   override def getHeadState: HeadState = headState.get()
 
@@ -412,22 +404,39 @@ class BlockSequencerStateManager(
 
 object BlockSequencerStateManager {
 
-  def apply(
+  def create(
       domainId: DomainId,
       store: SequencerBlockStore,
       trafficConsumedStore: TrafficConsumedStore,
       enableInvariantCheck: Boolean,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
-  )(implicit executionContext: ExecutionContext): BlockSequencerStateManager =
-    new BlockSequencerStateManager(
-      domainId = domainId,
-      store = store,
-      trafficConsumedStore = trafficConsumedStore,
-      enableInvariantCheck = enableInvariantCheck,
-      timeouts = timeouts,
-      loggerFactory = loggerFactory,
-    )
+  )(implicit
+      executionContext: ExecutionContext,
+      traceContext: TraceContext,
+  ): UnlessShutdown[BlockSequencerStateManager] = {
+    val logger = loggerFactory.getTracedLogger(getClass)
+    implicit val errorLoggingContext: ErrorLoggingContext =
+      ErrorLoggingContext.fromTracedLogger(logger)
+    timeouts.unbounded
+      .awaitUS(s"Reading the head of the $domainId sequencer state")(store.readHead)
+      .map { headBlock =>
+        new AtomicReference[HeadState]({
+          logger.debug(s"Initialized the block sequencer with head block ${headBlock.latestBlock}")
+          HeadState.fullyProcessed(headBlock)
+        })
+      }
+      .map { headState =>
+        new BlockSequencerStateManager(
+          store = store,
+          trafficConsumedStore = trafficConsumedStore,
+          enableInvariantCheck = enableInvariantCheck,
+          timeouts = timeouts,
+          loggerFactory = loggerFactory,
+          headState = headState,
+        )
+      }
+  }
 
   /** Keeps track of the accumulated state changes by processing chunks of updates from a block
     *

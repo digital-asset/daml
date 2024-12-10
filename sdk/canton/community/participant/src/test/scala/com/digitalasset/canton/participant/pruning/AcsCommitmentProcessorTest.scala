@@ -88,7 +88,8 @@ import scala.concurrent.{ExecutionContext, Future}
 sealed trait AcsCommitmentProcessorBaseTest
     extends BaseTest
     with SortedReconciliationIntervalsHelpers
-    with HasTestCloseContext {
+    with HasTestCloseContext
+    with FailOnShutdown {
 
   protected lazy val crypto =
     SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
@@ -974,7 +975,7 @@ class AcsCommitmentProcessorTest
       for {
         res <- PruningProcessor
           .safeToPrune_(
-            cleanReplayF = Future.successful(CantonTimestamp.MinValue),
+            cleanReplayF = FutureUnlessShutdown.pure(CantonTimestamp.MinValue),
             commitmentsPruningBound =
               CommitmentsPruningBound.Outstanding(_ => FutureUnlessShutdown.pure(None)),
             earliestInFlightSubmissionFUS = FutureUnlessShutdown.pure(None),
@@ -991,7 +992,7 @@ class AcsCommitmentProcessorTest
       for {
         res <- PruningProcessor
           .safeToPrune_(
-            cleanReplayF = Future.successful(CantonTimestamp.MinValue),
+            cleanReplayF = FutureUnlessShutdown.pure(CantonTimestamp.MinValue),
             commitmentsPruningBound = CommitmentsPruningBound.Outstanding(_ =>
               FutureUnlessShutdown.pure(Some(CantonTimestamp.MinValue))
             ),
@@ -1021,7 +1022,7 @@ class AcsCommitmentProcessorTest
 
         PruningProcessor
           .safeToPrune_(
-            cleanReplayF = Future.successful(now),
+            cleanReplayF = FutureUnlessShutdown.pure(now),
             commitmentsPruningBound =
               if (checkForOutstandingCommitments)
                 CommitmentsPruningBound.Outstanding(noOutstandingCommitmentsF)
@@ -1449,7 +1450,6 @@ class AcsCommitmentProcessorTest
             domainId,
             checkForOutstandingCommitments = true,
           )
-          .failOnShutdown
       } yield {
         res shouldEqual None
       }
@@ -1528,14 +1528,18 @@ class AcsCommitmentProcessorTest
       val ts3 = CantonTimestamp.ofEpochMilli(requestTsDelta.toMillis * 3)
       val ts4 = CantonTimestamp.ofEpochMilli(requestTsDelta.toMillis * 5)
       for {
-        _ <- requestJournalStore.insert(RequestData.clean(RequestCounter(0), ts0, ts0))
-        _ <- requestJournalStore.insert(
-          RequestData.clean(RequestCounter(1), ts1, ts3.plusMillis(1))
-        ) // RC1 commits after RC3
-        _ <- requestJournalStore.insert(RequestData.clean(RequestCounter(2), ts2, ts2))
-        _ <- requestJournalStore.insert(
-          RequestData(RequestCounter(3), RequestState.Pending, ts3, None)
-        )
+        _ <- requestJournalStore
+          .insert(RequestData.clean(RequestCounter(0), ts0, ts0))
+        _ <- requestJournalStore
+          .insert(
+            RequestData.clean(RequestCounter(1), ts1, ts3.plusMillis(1))
+          ) // RC1 commits after RC3
+        _ <- requestJournalStore
+          .insert(RequestData.clean(RequestCounter(2), ts2, ts2))
+        _ <- requestJournalStore
+          .insert(
+            RequestData(RequestCounter(3), RequestState.Pending, ts3, None)
+          )
         res1 <- PruningProcessor
           .latestSafeToPruneTick(
             requestJournalStore,
@@ -1563,13 +1567,15 @@ class AcsCommitmentProcessorTest
             domainId,
             checkForOutstandingCommitments = true,
           )
-          .failOnShutdown
-        _ <- requestJournalStore.insert(
-          RequestData(RequestCounter(4), RequestState.Pending, ts4, None)
-        ) // Replay starts at ts4
         _ <- requestJournalStore
-          .replace(RequestCounter(3), ts3, RequestState.Clean, Some(ts3))
-          .valueOrFail("advance RC 3 to clean")
+          .insert(
+            RequestData(RequestCounter(4), RequestState.Pending, ts4, None)
+          ) // Replay starts at ts4
+        _ <- FutureUnlessShutdown.outcomeF(
+          requestJournalStore
+            .replace(RequestCounter(3), ts3, RequestState.Clean, Some(ts3))
+            .valueOrFail("advance RC 3 to clean")
+        )
         res2 <- PruningProcessor
           .latestSafeToPruneTick(
             requestJournalStore,
@@ -1597,7 +1603,6 @@ class AcsCommitmentProcessorTest
             domainId,
             checkForOutstandingCommitments = true,
           )
-          .failOnShutdown
       } yield {
         withClue("request 1:") {
           assertInIntervalBefore(ts1, reconciliationInterval)(res1)
@@ -1669,7 +1674,6 @@ class AcsCommitmentProcessorTest
             domainId,
             checkForOutstandingCommitments = true,
           )
-          .failOnShutdown
       } yield assertInIntervalBefore(tsCleanRequest, reconciliationInterval)(res)
     }
 
@@ -1725,24 +1729,25 @@ class AcsCommitmentProcessorTest
         traceContext,
       )
       for {
-        _ <- requestJournalStore.insert(
-          RequestData.clean(RequestCounter(2), tsCleanRequest, tsCleanRequest)
-        )
-        _ <- requestJournalStore.insert(
-          RequestData.clean(RequestCounter(3), tsCleanRequest2, tsCleanRequest2)
-        )
-        () <- inFlightSubmissionStore
+        _ <- requestJournalStore
+          .insert(
+            RequestData.clean(RequestCounter(2), tsCleanRequest, tsCleanRequest)
+          )
+        _ <- requestJournalStore
+          .insert(
+            RequestData.clean(RequestCounter(3), tsCleanRequest2, tsCleanRequest2)
+          )
+        _ <- inFlightSubmissionStore
           .register(submission1)
-          .valueOrFailShutdown("register message ID 1")
-        () <- inFlightSubmissionStore
+          .value
+        _ <- inFlightSubmissionStore
           .register(submission2)
-          .valueOrFailShutdown("register message ID 2")
-        () <- inFlightSubmissionStore
+          .value
+        _ <- inFlightSubmissionStore
           .observeSequencing(
             submission2.submissionDomain,
             Map(submission2.messageId -> SequencedSubmission(SequencerCounter(2), tsCleanRequest)),
           )
-          .failOnShutdown
         testeeSafeToPrune = () =>
           PruningProcessor
             .latestSafeToPruneTick(
@@ -1771,13 +1776,12 @@ class AcsCommitmentProcessorTest
               domainId,
               checkForOutstandingCommitments = true,
             )
-            .failOnShutdown
         res1 <- testeeSafeToPrune()
         // Now remove the timed-out submission 1 and compute the pruning point again
-        () <- inFlightSubmissionStore.delete(Seq(submission1.referenceByMessageId)).failOnShutdown
+        _ <- inFlightSubmissionStore.delete(Seq(submission1.referenceByMessageId))
         res2 <- testeeSafeToPrune()
         // Now remove the clean request and compute the pruning point again
-        () <- inFlightSubmissionStore.delete(Seq(submission2.referenceByMessageId)).failOnShutdown
+        _ <- inFlightSubmissionStore.delete(Seq(submission2.referenceByMessageId))
         res3 <- testeeSafeToPrune()
       } yield {
         assertInIntervalBefore(submission1.associatedTimestamp, reconciliationInterval)(res1)
@@ -2034,7 +2038,7 @@ class AcsCommitmentProcessorTest
           cantonTimestamp: CantonTimestamp,
           nrIntervalsToTriggerCatchUp: PositiveInt = PositiveInt.tryCreate(1),
           catchUpIntervalSkip: PositiveInt = PositiveInt.tryCreate(2),
-      ): FutureUnlessShutdown[Assertion] =
+      ): FutureUnlessShutdown[Unit] =
         for {
           config <- processor.catchUpConfig(cantonTimestamp)
         } yield {
@@ -2044,12 +2048,13 @@ class AcsCommitmentProcessorTest
               assert(cfg.catchUpIntervalSkip == catchUpIntervalSkip)
             case None => fail("catch up mode needs to be enabled")
           }
+          ()
         }
 
       def checkCatchUpModeCfgDisabled(
           processor: pruning.AcsCommitmentProcessor,
           cantonTimestamp: CantonTimestamp,
-      ): FutureUnlessShutdown[Assertion] =
+      ): FutureUnlessShutdown[Unit] =
         for {
           config <- processor.catchUpConfig(cantonTimestamp)
         } yield {
@@ -2060,9 +2065,9 @@ class AcsCommitmentProcessorTest
                   .catchUpIntervalSkip && cfg.nrIntervalsToTriggerCatchUp == AcsCommitmentsCatchUpConfig
                   .disabledCatchUp()
                   .nrIntervalsToTriggerCatchUp =>
-              succeed
+              ()
             case Some(cfg) => fail(s"Canton config is defined ($cfg) at $cantonTimestamp")
-            case None => succeed
+            case None => ()
           }
         }
 
@@ -2142,22 +2147,23 @@ class AcsCommitmentProcessorTest
           )
           // First ask for the remote commitments to be processed, and then compute locally
           // This triggers catch-up mode
-          _ <- delivered
-            .parTraverse_ { case (ts, batch) =>
-              processor.processBatchInternal(ts.forgetRefinement, batch)
-            }
+          _ <- delivered.parTraverse_ { case (ts, batch) =>
+            processor.processBatchInternal(ts.forgetRefinement, batch)
+          }
           _ <- processChanges(processor, store, changes)
 
           outstanding <- store.noOutstandingCommitments(timeProofs.lastOption.value)
-          computedAll <- store.searchComputedBetween(
-            CantonTimestamp.Epoch,
-            timeProofs.lastOption.value,
-          )
+          computedAll <- store
+            .searchComputedBetween(
+              CantonTimestamp.Epoch,
+              timeProofs.lastOption.value,
+            )
           computed = computedAll.filter(_._2 != localId)
-          received <- store.searchReceivedBetween(
-            CantonTimestamp.Epoch,
-            timeProofs.lastOption.value,
-          )
+          received <- store
+            .searchReceivedBetween(
+              CantonTimestamp.Epoch,
+              timeProofs.lastOption.value,
+            )
         } yield {
           // the participant catches up to ticks 10, 20, 30
           // the only ticks with non-empty commitments are at 20 and 30, and they match the remote ones,
@@ -2168,7 +2174,7 @@ class AcsCommitmentProcessorTest
           assert(received.size === 5)
           // all local commitments were matched and can be pruned
           assert(outstanding.contains(toc(55).timestamp))
-        }).failOnShutdown
+        })
       }
 
       "catch up parameters overflow causes exception" in {
@@ -2275,7 +2281,7 @@ class AcsCommitmentProcessorTest
               )
             } yield {
               succeed
-            }).failOnShutdown
+            })
           },
           // the computed timestamp to catch up to represents an out of bound CantonTimestamp, therefore we log an error
           LogEntry.assertLogSeq(
@@ -2365,7 +2371,7 @@ class AcsCommitmentProcessorTest
           _ = sequencerClient.requests.size shouldBe 9
         } yield {
           succeed
-        }).failOnShutdown
+        })
       }
 
       "catch up in correct skip steps scenario2" in {
@@ -2442,7 +2448,7 @@ class AcsCommitmentProcessorTest
           _ = sequencerClient.requests.size shouldBe 10
         } yield {
           succeed
-        }).failOnShutdown
+        })
       }
 
       "pruning works correctly for a participant ahead of a counter-participant that catches up" in {
@@ -2522,20 +2528,21 @@ class AcsCommitmentProcessorTest
           // because the remote participants are catching up
           _ <- processChanges(processor, store, changes)
 
-          _ <- delivered
-            .parTraverse_ { case (ts, batch) =>
-              processor.processBatchInternal(ts.forgetRefinement, batch)
-            }
+          _ <- delivered.parTraverse_ { case (ts, batch) =>
+            processor.processBatchInternal(ts.forgetRefinement, batch)
+          }
           _ <- processor.flush()
           outstanding <- store.noOutstandingCommitments(timeProofs.lastOption.value)
-          computed <- store.searchComputedBetween(
-            CantonTimestamp.Epoch,
-            timeProofs.lastOption.value,
-          )
-          received <- store.searchReceivedBetween(
-            CantonTimestamp.Epoch,
-            timeProofs.lastOption.value,
-          )
+          computed <- store
+            .searchComputedBetween(
+              CantonTimestamp.Epoch,
+              timeProofs.lastOption.value,
+            )
+          received <- store
+            .searchReceivedBetween(
+              CantonTimestamp.Epoch,
+              timeProofs.lastOption.value,
+            )
         } yield {
           // regular sends (no catch-up) at ticks 5, 15, 20, 25, 30 (tick 10 has an empty commitment)
           sequencerClient.requests.size shouldBe 5
@@ -2543,7 +2550,7 @@ class AcsCommitmentProcessorTest
           assert(received.size === 4)
           // all local commitments were matched and can be pruned
           assert(outstanding.contains(toc(30).timestamp))
-        }).failOnShutdown
+        })
       }
 
       "send skipped commitments on mismatch during catch-up" in {
@@ -2626,42 +2633,46 @@ class AcsCommitmentProcessorTest
             )
           )
           // First ask for the remote commitments to be processed, and then compute locally
-          _ <- delivered
-            .parTraverse_ { case (ts, batch) =>
-              processor.processBatchInternal(ts.forgetRefinement, batch)
-            }
+          _ <- delivered.parTraverse_ { case (ts, batch) =>
+            processor.processBatchInternal(ts.forgetRefinement, batch)
+          }
 
-          _ <- loggerFactory.assertLoggedWarningsAndErrorsSeq(
-            {
-              changes.foreach { case (ts, tb, change) =>
-                processor.publish(RecordTime(ts, tb.v), change)
-              }
-              for {
-                _ <- processor.flush()
-              } yield ()
-            },
-            // there should be one mismatch
-            // however, since buffered remote commitments are deleted asynchronously, it can happen that they
-            // are processed (checked for matches) several times before deleted
-            forAtLeast(1, _) {
-              _.warningMessage
-                .sliding("ACS_COMMITMENT_MISMATCH(5,0): The local commitment does not match".length)
-                .count(substr =>
-                  substr == "ACS_COMMITMENT_MISMATCH(5,0): The local commitment does not match"
-                ) shouldEqual 1
-            },
-          )
+          _ <- loggerFactory
+            .assertLoggedWarningsAndErrorsSeq(
+              {
+                changes.foreach { case (ts, tb, change) =>
+                  processor.publish(RecordTime(ts, tb.v), change)
+                }
+                for {
+                  _ <- processor.flush()
+                } yield ()
+              },
+              // there should be one mismatch
+              // however, since buffered remote commitments are deleted asynchronously, it can happen that they
+              // are processed (checked for matches) several times before deleted
+              forAtLeast(1, _) {
+                _.warningMessage
+                  .sliding(
+                    "ACS_COMMITMENT_MISMATCH(5,0): The local commitment does not match".length
+                  )
+                  .count(substr =>
+                    substr == "ACS_COMMITMENT_MISMATCH(5,0): The local commitment does not match"
+                  ) shouldEqual 1
+              },
+            )
 
           outstanding <- store.noOutstandingCommitments(toc(30).timestamp)
-          computedAll <- store.searchComputedBetween(
-            CantonTimestamp.Epoch,
-            timeProofs.lastOption.value,
-          )
+          computedAll <- store
+            .searchComputedBetween(
+              CantonTimestamp.Epoch,
+              timeProofs.lastOption.value,
+            )
           computed = computedAll.filter(_._2 != localId)
-          received <- store.searchReceivedBetween(
-            CantonTimestamp.Epoch,
-            timeProofs.lastOption.value,
-          )
+          received <- store
+            .searchReceivedBetween(
+              CantonTimestamp.Epoch,
+              timeProofs.lastOption.value,
+            )
         } yield {
           // there are three sends, at the end of each coarse-grained interval 10, 20, 30
           // the send at the end of interval 10 is empty, so that is not performed
@@ -2675,7 +2686,7 @@ class AcsCommitmentProcessorTest
           assert(received.size === 5)
           // cannot prune past the mismatch
           assert(outstanding.contains(toc(30).timestamp))
-        }).failOnShutdown
+        })
       }
 
       "dynamically change, disable & re-enable catch-up config during a catch-up" in {
@@ -2791,7 +2802,7 @@ class AcsCommitmentProcessorTest
           _ = sequencerClient.requests.size shouldBe (3 + 5 + 5)
         } yield {
           succeed
-        }).failOnShutdown
+        })
       }
 
       "disable catch-up config during catch-up mode" in {
@@ -2875,7 +2886,7 @@ class AcsCommitmentProcessorTest
           _ = sequencerClient.requests.size shouldBe 6
         } yield {
           succeed
-        }).failOnShutdown
+        })
       }
 
       "change catch-up config during catch-up mode" in {
@@ -2973,7 +2984,7 @@ class AcsCommitmentProcessorTest
           _ = sequencerClient.requests.size shouldBe 5
         } yield {
           succeed
-        }).failOnShutdown
+        })
       }
 
       "should mark as unhealthy when not caught up" in {
@@ -3020,14 +3031,15 @@ class AcsCommitmentProcessorTest
         (for {
           processor <- proc
           // we apply any changes (contract deployment) that happens before our windows
-          _ <- FutureUnlessShutdown.pure(
-            changes
-              .filter(a => a._1 < testSequences.head)
-              .foreach { case (ts, tb, change) =>
-                processor.publish(RecordTime(ts, tb.v), change)
+          _ <- FutureUnlessShutdown
+            .pure(
+              changes
+                .filter(a => a._1 < testSequences.head)
+                .foreach { case (ts, tb, change) =>
+                  processor.publish(RecordTime(ts, tb.v), change)
 
-              }
-          )
+                }
+            )
           _ <- processor.flush()
 
           _ <- testSequence(
@@ -3041,7 +3053,7 @@ class AcsCommitmentProcessorTest
           _ = assert(processor.healthComponent.isDegraded)
         } yield {
           succeed
-        }).failOnShutdown
+        })
       }
 
       def testSequence(
@@ -3053,7 +3065,7 @@ class AcsCommitmentProcessorTest
           expectDegradation: Boolean = false,
           noLogSuppression: Boolean = false,
           justProcessingNoChecks: Boolean = false,
-      ): FutureUnlessShutdown[Assertion] = {
+      ): FutureUnlessShutdown[Unit] = {
         val remoteCommitments = sequence
           .map(i =>
             (
@@ -3112,7 +3124,7 @@ class AcsCommitmentProcessorTest
             if (changesApplied.last._1 >= sequence.last)
               assert(computed.size === sequence.length)
             assert(received.size === sequence.length)
-          } else succeed
+          } else ()
         }
       }
 
@@ -3198,10 +3210,9 @@ class AcsCommitmentProcessorTest
           )
           // First ask for the remote commitments to be processed, and then compute locally
           // This triggers catch-up mode
-          _ <- delivered
-            .parTraverse_ { case (ts, batch) =>
-              processor.processBatchInternal(ts.forgetRefinement, batch)
-            }
+          _ <- delivered.parTraverse_ { case (ts, batch) =>
+            processor.processBatchInternal(ts.forgetRefinement, batch)
+          }
 
           _ <- loggerFactory.assertLoggedWarningsAndErrorsSeq(
             {
@@ -3225,15 +3236,17 @@ class AcsCommitmentProcessorTest
           )
 
           outstanding <- store.noOutstandingCommitments(toc(30).timestamp)
-          computedAll <- store.searchComputedBetween(
-            CantonTimestamp.Epoch,
-            timeProofs.lastOption.value,
-          )
+          computedAll <- store
+            .searchComputedBetween(
+              CantonTimestamp.Epoch,
+              timeProofs.lastOption.value,
+            )
           computed = computedAll.filter(_._2 != localId)
-          received <- store.searchReceivedBetween(
-            CantonTimestamp.Epoch,
-            timeProofs.lastOption.value,
-          )
+          received <- store
+            .searchReceivedBetween(
+              CantonTimestamp.Epoch,
+              timeProofs.lastOption.value,
+            )
         } yield {
           // there are three sends, at the end of each coarse-grained interval 10, 20, 30
           // the send at the end of interval 10 is empty, so that is not performed
@@ -3249,7 +3262,7 @@ class AcsCommitmentProcessorTest
           assert(received.size === 5)
           // cannot prune past the mismatch 25-30, because there are no commitments that match past this point
           assert(outstanding.contains(toc(25).timestamp))
-        }).failOnShutdown
+        })
       }
 
       "not report errors about skipped commitments due to catch-up mode" in {
@@ -3362,10 +3375,9 @@ class AcsCommitmentProcessorTest
           // First ask for the remote commitments from remoteId1 to be processed,
           // which are up to timestamp 30
           // This causes the local participant to enter catch-up mode
-          _ <- deliveredFast
-            .parTraverse_ { case (ts, batch) =>
-              processor.processBatchInternal(ts.forgetRefinement, batch)
-            }
+          _ <- deliveredFast.parTraverse_ { case (ts, batch) =>
+            processor.processBatchInternal(ts.forgetRefinement, batch)
+          }
 
           _ = loggerFactory.assertLogs(
             {
@@ -3390,22 +3402,23 @@ class AcsCommitmentProcessorTest
             )
           )
 
-          _ <- deliveredNormal
-            .parTraverse_ { case (ts, batch) =>
-              processor.processBatchInternal(ts.forgetRefinement, batch)
-            }
+          _ <- deliveredNormal.parTraverse_ { case (ts, batch) =>
+            processor.processBatchInternal(ts.forgetRefinement, batch)
+          }
           _ <- processor.flush()
 
           outstanding <- store.noOutstandingCommitments(toc(30).timestamp)
-          computed <- store.searchComputedBetween(
-            CantonTimestamp.Epoch,
-            timeProofs.lastOption.value,
-          )
+          computed <- store
+            .searchComputedBetween(
+              CantonTimestamp.Epoch,
+              timeProofs.lastOption.value,
+            )
           computedCatchUp = computed.filter(_._2 == localId)
-          received <- store.searchReceivedBetween(
-            CantonTimestamp.Epoch,
-            timeProofs.lastOption.value,
-          )
+          received <- store
+            .searchReceivedBetween(
+              CantonTimestamp.Epoch,
+              timeProofs.lastOption.value,
+            )
         } yield {
           // there are four sends, at the end of each coarse-grained interval 10, 20, 30, and normal 35
           sequencerClient.requests.size shouldBe 4
@@ -3415,7 +3428,7 @@ class AcsCommitmentProcessorTest
           assert(received.size === 8)
           // cannot prune past the mismatch
           assert(outstanding.contains(toc(25).timestamp))
-        }).failOnShutdown
+        })
       }
 
       "perform match for fine-grained commitments in case of mismatch at catch-up boundary" in {
@@ -3543,10 +3556,9 @@ class AcsCommitmentProcessorTest
             // which are up to timestamp 30
             // This causes the local participant to enter catch-up mode, and observe mismatch for timestamp 20,
             // and fine-grained compute and send commitment 10-15
-            _ <- deliveredFast
-              .parTraverse_ { case (ts, batch) =>
-                processor.processBatchInternal(ts.forgetRefinement, batch)
-              }
+            _ <- deliveredFast.parTraverse_ { case (ts, batch) =>
+              processor.processBatchInternal(ts.forgetRefinement, batch)
+            }
 
             _ = changes.foreach { case (ts, tb, change) =>
               processor.publish(RecordTime(ts, tb.v), change)
@@ -3566,22 +3578,23 @@ class AcsCommitmentProcessorTest
               )
             )
 
-            _ <- deliveredNormal
-              .parTraverse_ { case (ts, batch) =>
-                processor.processBatchInternal(ts.forgetRefinement, batch)
-              }
+            _ <- deliveredNormal.parTraverse_ { case (ts, batch) =>
+              processor.processBatchInternal(ts.forgetRefinement, batch)
+            }
             _ <- processor.flush()
 
             outstanding <- store.noOutstandingCommitments(toc(30).timestamp)
-            computed <- store.searchComputedBetween(
-              CantonTimestamp.Epoch,
-              timeProofs.lastOption.value,
-            )
+            computed <- store
+              .searchComputedBetween(
+                CantonTimestamp.Epoch,
+                timeProofs.lastOption.value,
+              )
             computedCatchUp = computed.filter(_._2 == localId)
-            received <- store.searchReceivedBetween(
-              CantonTimestamp.Epoch,
-              timeProofs.lastOption.value,
-            )
+            received <- store
+              .searchReceivedBetween(
+                CantonTimestamp.Epoch,
+                timeProofs.lastOption.value,
+              )
           } yield {
             // there are five sends, at the end of each coarse-grained interval 10, 15, 20, 30, and normal 35
             sequencerClient.requests.size shouldBe 5
@@ -3591,7 +3604,7 @@ class AcsCommitmentProcessorTest
             assert(received.size === 9)
             // cannot prune past the mismatch
             assert(outstanding.contains(toc(25).timestamp))
-          }).failOnShutdown,
+          }),
           LogEntry.assertLogSeq(
             Seq(
               (

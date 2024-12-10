@@ -16,6 +16,7 @@ import com.daml.metrics.DatabaseMetrics
 import com.daml.metrics.api.MetricHandle.Timer
 import com.daml.metrics.api.MetricName
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, ReportsHealth}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.{
   implicitExtractTraceContext,
   withEnrichedLoggingContext,
@@ -41,9 +42,16 @@ import scala.util.control.NonFatal
 
 private[canton] trait DbDispatcher {
   val executor: QueueAwareExecutor with NamedExecutor
+
+  /** consider using executeSqlUS if possible */
   def executeSql[T](databaseMetrics: DatabaseMetrics)(sql: Connection => T)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[T]
+
+  def executeSqlUS[T](databaseMetrics: DatabaseMetrics)(sql: Connection => T)(implicit
+      loggingContext: LoggingContextWithTrace,
+      ec: ExecutionContext,
+  ): FutureUnlessShutdown[T]
 
 }
 
@@ -92,6 +100,11 @@ private[dao] final class DbDispatcherImpl private[dao] (
           }
         }(executionContext)
     }
+
+  def executeSqlUS[T](databaseMetrics: DatabaseMetrics)(sql: Connection => T)(implicit
+      loggingContext: LoggingContextWithTrace,
+      ec: ExecutionContext,
+  ): FutureUnlessShutdown[T] = FutureUnlessShutdown.outcomeF(executeSql(databaseMetrics)(sql))
 
   private def updateMetrics(databaseMetrics: DatabaseMetrics, startExec: Long)(implicit
       traceContext: TraceContext

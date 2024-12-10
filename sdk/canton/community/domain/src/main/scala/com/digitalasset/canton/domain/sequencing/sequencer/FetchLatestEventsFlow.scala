@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.OverflowStrategy
 import org.apache.pekko.stream.scaladsl.{Flow, Source}
@@ -18,7 +19,7 @@ object FetchLatestEventsFlow {
 
   def apply[Out, State](
       initialState: State,
-      lookup: State => Future[(State, Seq[Out])],
+      lookup: State => FutureUnlessShutdown[(State, Seq[Out])],
       hasReachedHead: (State, Seq[Out]) => Boolean,
   )(implicit executionContext: ExecutionContext): Flow[ReadSignal, Out, NotUsed] = {
     // i've struggled to work out a pekko-stream only way of maintaining this state.
@@ -32,15 +33,17 @@ object FetchLatestEventsFlow {
       Source.unfoldAsync((stateRef.get(), false)) {
         case (_, true) => Future.successful(None)
         case (state, false) =>
-          lookup(state) map { case (newState, events) =>
-            if (!stateRef.compareAndSet(state, newState)) {
-              throw new ConcurrentModificationException("event states was unexpectedly modified")
+          lookup(state)
+            .map { case (newState, events) =>
+              if (!stateRef.compareAndSet(state, newState)) {
+                throw new ConcurrentModificationException("event states was unexpectedly modified")
+              }
+
+              val reachedHead = hasReachedHead(newState, events)
+
+              Some(((newState, reachedHead), events))
             }
-
-            val reachedHead = hasReachedHead(newState, events)
-
-            Some(((newState, reachedHead), events))
-          }
+            .onShutdown(None)
       }
 
     Flow[ReadSignal]

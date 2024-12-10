@@ -63,7 +63,10 @@ class GrpcSequencerAdministrationService(
       request: v30.PruningStatusRequest
   ): Future[v30.PruningStatusResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    sequencer.pruningStatus.map(_.toProtoV30).map(status => v30.PruningStatusResponse(Some(status)))
+    sequencer.pruningStatus
+      .map(_.toProtoV30)
+      .map(status => v30.PruningStatusResponse(Some(status)))
+      .asGrpcResponse
   }
 
   override def trafficControlState(
@@ -119,8 +122,8 @@ class GrpcSequencerAdministrationService(
 
   override def snapshot(request: v30.SnapshotRequest): Future[v30.SnapshotResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    (for {
-      timestamp <- wrapErr(
+    val result = (for {
+      timestamp <- wrapErrUS(
         ProtoConverter
           .parseRequired(CantonTimestamp.fromProtoTimestamp, "timestamp", request.timestamp)
       )
@@ -138,6 +141,8 @@ class GrpcSequencerAdministrationService(
             )
           ),
       )
+
+    shutdownAsGrpcError(result)
   }
 
   override def onboardingState(
@@ -188,9 +193,8 @@ class GrpcSequencerAdministrationService(
 
       _ <- domainTimeTracker
         .awaitTick(referenceEffective.value)
-        .map(EitherT.right[CantonError](_).void)
-        .getOrElse(EitherTUtil.unit[CantonError])
-        .mapK(FutureUnlessShutdown.outcomeK)
+        .map(EitherT.right[CantonError](_).mapK(FutureUnlessShutdown.outcomeK).void)
+        .getOrElse(EitherTUtil.unitUS[CantonError])
 
       /* find the sequencer snapshot that contains a sequenced timestamp that is >= to the reference/onboarding effective time
        if we take the sequencing time here, we might miss out topology transactions between sequencerSnapshot.lastTs and effectiveTime
@@ -211,21 +215,20 @@ class GrpcSequencerAdministrationService(
 
       sequencerSnapshot <- sequencer
         .snapshot(referenceEffective.value)
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       // wait for the snapshot's lastTs to be processed by the topology client,
       // which implies that all topology transactions will have been properly processed and stored.
       _ <- EitherT
         .right(
-          topologyClient.awaitTimestamp(sequencerSnapshot.lastTs).getOrElse(Future.unit)
+          topologyClient
+            .awaitTimestampUS(sequencerSnapshot.lastTs)
+            .getOrElse(FutureUnlessShutdown.unit)
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
 
-      topologySnapshot <-
-        EitherT.right[BaseCantonError](
+      topologySnapshot <- EitherT
+        .right[BaseCantonError](
           topologyStore.findEssentialStateAtSequencedTime(SequencedTime(sequencerSnapshot.lastTs))
         )
-
     } yield OnboardingStateForSequencer(
       topologySnapshot,
       staticDomainParameters,
@@ -240,18 +243,18 @@ class GrpcSequencerAdministrationService(
       requestP: v30.DisableMemberRequest
   ): Future[v30.DisableMemberResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    EitherTUtil.toFuture[StatusRuntimeException, v30.DisableMemberResponse] {
-      for {
-        member <- EitherT.fromEither[Future](
-          Member
-            .fromProtoPrimitive(requestP.member, "member")
-            .leftMap(err =>
-              new StatusRuntimeException(Status.INVALID_ARGUMENT.withDescription(err.toString))
-            )
-        )
-        _ <- sequencer.disableMember(member).leftMap(_.asGrpcError)
-      } yield v30.DisableMemberResponse()
-    }
+    val result = for {
+      member <- EitherT.fromEither[FutureUnlessShutdown](
+        Member
+          .fromProtoPrimitive(requestP.member, "member")
+          .leftMap(err =>
+            new StatusRuntimeException(Status.INVALID_ARGUMENT.withDescription(err.toString))
+          )
+      )
+      _ <- sequencer.disableMember(member).leftMap(_.asGrpcError)
+    } yield v30.DisableMemberResponse()
+
+    result.asGrpcResponse
   }
 
   /** Update the traffic purchased entry of a member

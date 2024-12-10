@@ -4,7 +4,6 @@
 package com.digitalasset.canton.domain.sequencing.sequencer
 
 import cats.data.EitherT
-import cats.instances.future.*
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.crypto.HashPurpose
 import com.digitalasset.canton.domain.sequencing.admin.data.SequencerHealthStatus
@@ -24,7 +23,7 @@ import com.digitalasset.canton.tracing.{Spanning, TraceContext}
 import com.digitalasset.canton.util.ShowUtil.*
 import io.opentelemetry.api.trace.Tracer
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Implements parts of [[Sequencer]] interface, common to all sequencers.
   * Adds `*Internal` methods without implementation for variance among specific sequencer subclasses.
@@ -67,7 +66,7 @@ abstract class BaseSequencer(
           )
           .leftMap(e => SendAsyncError.RequestRefused(e))
         isMemberEnabled <- EitherT.right[SendAsyncError.RequestRefused](
-          FutureUnlessShutdown.outcomeF(isEnabled(submission.sender))
+          isEnabled(submission.sender)
         )
         _ <- EitherT.cond[FutureUnlessShutdown](
           isMemberEnabled,
@@ -116,15 +115,15 @@ abstract class BaseSequencer(
   protected def localSequencerMember: Member
   protected def disableMemberInternal(member: Member)(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   def disableMember(member: Member)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SequencerAdministrationError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, SequencerAdministrationError, Unit] = {
     logger.info(show"Disabling member at the sequencer: $member")
     for {
       _ <- EitherT
-        .cond[Future](
+        .cond[FutureUnlessShutdown](
           localSequencerMember != member,
           (),
           SequencerAdministrationError.CannotDisableLocalSequencerMember
@@ -135,7 +134,9 @@ abstract class BaseSequencer(
     } yield ()
   }
 
-  protected def healthInternal(implicit traceContext: TraceContext): Future[SequencerHealthStatus]
+  protected def healthInternal(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[SequencerHealthStatus]
 
   protected def sendAsyncInternal(submission: SubmissionRequest)(implicit
       traceContext: TraceContext

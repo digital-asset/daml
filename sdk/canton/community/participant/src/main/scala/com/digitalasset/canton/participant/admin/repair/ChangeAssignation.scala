@@ -23,13 +23,12 @@ import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.PekkoUtil.FutureQueue
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.daml.lf.data.Bytes
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 private final class ChangeAssignation(
     val repairSource: Source[RepairRequest],
@@ -202,7 +201,6 @@ private final class ChangeAssignation(
     contractStore
       .lookupStakeholders(contractIds)
       .leftMap(e => s"Failed to look up stakeholder of contracts in domain $sourceDomainAlias: $e")
-      .mapK(FutureUnlessShutdown.outcomeK)
 
   private def atLeastOneHostedStakeholderAtTarget(
       contractId: LfContractId,
@@ -299,7 +297,7 @@ private final class ChangeAssignation(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] =
-    EitherTUtil.rightUS {
+    EitherT.right {
       contracts.parTraverse_ { contract =>
         if (contract.payload.isNew)
           contractStore
@@ -307,7 +305,7 @@ private final class ChangeAssignation(
               contract.targetTimeOfChange.unwrap.rc,
               contract.payload.contract,
             )
-        else Future.unit
+        else FutureUnlessShutdown.unit
       }
     }
 

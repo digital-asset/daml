@@ -4,7 +4,6 @@
 package com.digitalasset.canton.domain.sequencing
 
 import cats.data.EitherT
-import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.connection.GrpcApiInfoService
@@ -78,9 +77,8 @@ import com.digitalasset.canton.topology.transaction.{
   SequencerDomainState,
 }
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil}
-import com.digitalasset.canton.{SequencerCounter, config, lifecycle}
+import com.digitalasset.canton.{SequencerCounter, config}
 import com.google.common.annotations.VisibleForTesting
 import io.grpc.{ServerInterceptors, ServerServiceDefinition}
 import org.apache.pekko.actor.ActorSystem
@@ -164,13 +162,14 @@ class SequencerRuntime(
       staticMembersToRegister
         .parTraverse_ { member =>
           for {
-            firstKnownAtO <- EitherT.right(topologyClient.headSnapshot.memberFirstKnownAt(member))
+            firstKnownAtO <- EitherT.right(
+              topologyClient.headSnapshot.memberFirstKnownAt(member)
+            )
             _ <- {
               firstKnownAtO match {
                 case Some((_, firstKnownAtEffectiveTime)) =>
                   sequencer
                     .registerMemberInternal(member, firstKnownAtEffectiveTime.value)
-                    .mapK(FutureUnlessShutdown.outcomeK)
                     .leftMap(_.toString)
                 case None =>
                   EitherT.leftT[FutureUnlessShutdown, Unit](s"Member $member not known in topology")
@@ -395,8 +394,7 @@ class SequencerRuntime(
         case _ => Seq.empty
       }
 
-      // TODO(#18401): Change F to FUS in registerMemberInternal
-      val f = possibleNewMembers
+      possibleNewMembers
         .parTraverse_ { member =>
           logger.info(s"Topology change has triggered sequencer registration of member $member")
           sequencer.registerMemberInternal(member, effectiveTimestamp.value)
@@ -404,7 +402,6 @@ class SequencerRuntime(
         .valueOr(e =>
           ErrorUtil.internalError(new RuntimeException(s"Failed to register member: $e"))
         )
-      lifecycle.FutureUnlessShutdown.outcomeF(f)
     }
   })
 
@@ -462,11 +459,9 @@ class SequencerRuntime(
             timeTracker,
           )
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
       _ <- domainOutboxO
-        .map(_.startup().onShutdown(Either.unit))
-        .getOrElse(EitherT.rightT[Future, String](()))
-        .mapK(FutureUnlessShutdown.outcomeK)
+        .map(_.startup())
+        .getOrElse(EitherT.rightT[FutureUnlessShutdown, String](()))
     } yield {
       logger.info("Sequencer runtime initialized")
       runtimeReadyPromise.outcome(())

@@ -1589,7 +1589,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
           )
           .value
         snapshotBeforePurge <- acs.snapshot(toc.timestamp)
-        _ <- acs.purge()
+        _ <- acs.purge().failOnShutdown
         snapshotAfterPurge <- acs.snapshot(toc3.timestamp)
       } yield {
         snapshotBeforePurge should not be empty
@@ -2093,7 +2093,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
               ),
             ),
           )
-        }
+        }.failOnShutdown
 
       def activateMaybeDeactivate(
           activate: ActiveContractStore => CheckedT[Future, AcsError, AcsWarning, Unit] = { acs =>

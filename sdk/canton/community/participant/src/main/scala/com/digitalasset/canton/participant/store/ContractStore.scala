@@ -20,7 +20,7 @@ import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait ContractStore extends ContractLookup with Purgeable with FlagCloseable {
 
@@ -33,12 +33,12 @@ trait ContractStore extends ContractLookup with Purgeable with FlagCloseable {
     */
   def storeCreatedContracts(
       creations: Seq[(SerializableContract, RequestCounter)]
-  )(implicit traceContext: TraceContext): Future[Unit]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
   def storeCreatedContract(
       requestCounter: RequestCounter,
       contract: SerializableContract,
-  )(implicit traceContext: TraceContext): Future[Unit] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     storeCreatedContracts(Seq((contract, requestCounter)))
 
   /** Debug find utility to search pcs
@@ -65,9 +65,9 @@ trait ContractStore extends ContractLookup with Purgeable with FlagCloseable {
     */
   def deleteIgnoringUnknown(contractIds: Iterable[LfContractId])(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
-  def contractCount()(implicit traceContext: TraceContext): Future[Int]
+  def contractCount()(implicit traceContext: TraceContext): FutureUnlessShutdown[Int]
 
   def hasActiveContracts(
       partyId: PartyId,
@@ -75,7 +75,7 @@ trait ContractStore extends ContractLookup with Purgeable with FlagCloseable {
       batchSize: Int = 10,
   )(implicit
       traceContext: TraceContext
-  ): Future[Boolean] = {
+  ): FutureUnlessShutdown[Boolean] = {
     val lfParty = partyId.toLf
     contractIds
       .grouped(batchSize)

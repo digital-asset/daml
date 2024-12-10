@@ -12,6 +12,7 @@ import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{Crypto, SyncCryptoApi, SyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NamedLoggingContext}
 import com.digitalasset.canton.metrics.SequencerClientMetrics
 import com.digitalasset.canton.networking.Endpoint
@@ -56,7 +57,7 @@ trait SequencerClientFactory {
       materializer: Materializer,
       tracer: Tracer,
       traceContext: TraceContext,
-  ): EitherT[Future, String, RichSequencerClient]
+  ): EitherT[FutureUnlessShutdown, String, RichSequencerClient]
 
 }
 
@@ -97,7 +98,7 @@ object SequencerClientFactory {
           materializer: Materializer,
           tracer: Tracer,
           traceContext: TraceContext,
-      ): EitherT[Future, String, RichSequencerClient] = {
+      ): EitherT[FutureUnlessShutdown, String, RichSequencerClient] = {
         // initialize recorder if it's been configured for the member (should only be used for testing)
         val recorderO = recordingConfigForMember(member).map { recordingConfig =>
           new SequencerClientRecorder(
@@ -120,7 +121,7 @@ object SequencerClientFactory {
         )
 
         for {
-          sequencerTransports <- EitherT.fromEither[Future](
+          sequencerTransports <- EitherT.fromEither[FutureUnlessShutdown](
             SequencerTransports.from(
               sequencerTransportsMap,
               expectedSequencers,
@@ -169,12 +170,14 @@ object SequencerClientFactory {
           // Make a BFT call to all the transports to retrieve the current traffic state from the domain
           // and initialize the trafficStateController with it
           trafficStateO <- latestSequencedTimestampO
-            .traverse(getTrafficStateFromDomainFn(_).onShutdown(Left("Aborted due to shutdown")))
+            .traverse(getTrafficStateFromDomainFn(_))
             .map(_.flatten)
 
           // fetch the initial set of pending sends to initialize the client with.
           // as it owns the client that should be writing to this store it should not be racy.
-          initialPendingSends <- EitherT.right(sendTrackerStore.fetchPendingSends)
+          initialPendingSends <- EitherT
+            .right(sendTrackerStore.fetchPendingSends)
+            .mapK(FutureUnlessShutdown.outcomeK)
           trafficStateController = new TrafficStateController(
             member,
             loggerFactory,

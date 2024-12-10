@@ -27,7 +27,7 @@ import com.digitalasset.canton.domain.sequencing.traffic.{
   TrafficPurchasedManager,
 }
 import com.digitalasset.canton.environment.CantonNodeParameters
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.sequencing.traffic.EventCostCalculator
@@ -118,27 +118,38 @@ abstract class BlockSequencerFactory(
   override final def initialize(
       snapshot: SequencerInitialState,
       sequencerId: SequencerId,
-  )(implicit ec: ExecutionContext, traceContext: TraceContext): EitherT[Future, String, Unit] = {
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[FutureUnlessShutdown, String, Unit] = {
     logger.debug(s"Storing sequencers initial state: $snapshot")
     for {
       _ <- super[DatabaseSequencerFactory].initialize(
         snapshot,
         sequencerId,
       ) // Members are stored in the DBS
-      _ <- EitherT.right(
-        store.setInitialState(snapshot, snapshot.initialTopologyEffectiveTimestamp)
-      )
-      _ <- EitherT.right(
-        snapshot.snapshot.trafficPurchased.parTraverse_(trafficPurchasedStore.store)
-      )
-      _ <- EitherT.right(trafficConsumedStore.store(snapshot.snapshot.trafficConsumed))
+      _ <- EitherT
+        .right(
+          store.setInitialState(snapshot, snapshot.initialTopologyEffectiveTimestamp)
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
+      _ <- EitherT
+        .right(
+          snapshot.snapshot.trafficPurchased.parTraverse_(trafficPurchasedStore.store)
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
+      _ <- EitherT
+        .right(trafficConsumedStore.store(snapshot.snapshot.trafficConsumed))
+        .mapK(FutureUnlessShutdown.outcomeK)
       _ = logger.debug(
         s"from snapshot: ticking traffic purchased entry manager with ${snapshot.latestSequencerEventTimestamp}"
       )
-      _ <- EitherT.right(
-        snapshot.latestSequencerEventTimestamp
-          .traverse(ts => trafficPurchasedStore.setInitialTimestamp(ts))
-      )
+      _ <- EitherT
+        .right(
+          snapshot.latestSequencerEventTimestamp
+            .traverse(ts => trafficPurchasedStore.setInitialTimestamp(ts))
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
     } yield ()
   }
 
@@ -175,23 +186,31 @@ abstract class BlockSequencerFactory(
       traceContext: TraceContext,
       tracer: trace.Tracer,
       actorMaterializer: Materializer,
-  ): Future[Sequencer] = {
+  ): FutureUnlessShutdown[Sequencer] = {
     val initialBlockHeight = {
       val last = nodeParameters.processingTimeouts.unbounded
-        .await(s"Reading the $name store head to get the initial block height")(
+        .awaitUS(s"Reading the $name store head to get the initial block height")(
           store.readHead
         )
-        .latestBlock
-        .height
-      if (last == UninitializedBlockHeight) {
-        None
-      } else {
-        Some(last + 1)
+        .map(
+          _.latestBlock.height
+        )
+      last.map {
+        case result if result == UninitializedBlockHeight => None
+        case result => Some(result + 1)
       }
     }
-    logger.info(
-      s"Creating $name sequencer at block height $initialBlockHeight"
-    )
+
+    initialBlockHeight match {
+      case UnlessShutdown.Outcome(result) =>
+        logger.info(
+          s"Creating $name sequencer at block height $result"
+        )
+      case UnlessShutdown.AbortedDueToShutdown =>
+        logger.info(
+          s"$name sequencer creation stopped because of shutdown"
+        )
+    }
 
     val balanceManager = new TrafficPurchasedManager(
       trafficPurchasedStore,
@@ -211,16 +230,20 @@ abstract class BlockSequencerFactory(
 
     val domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
 
-    val stateManager = BlockSequencerStateManager(
-      domainId,
-      store,
-      trafficConsumedStore,
-      nodeParameters.enableAdditionalConsistencyChecks,
-      nodeParameters.processingTimeouts,
-      domainLoggerFactory,
-    )
-
-    balanceManager.initialize.map { _ =>
+    for {
+      initialBlockHeight <- FutureUnlessShutdown(Future.successful(initialBlockHeight))
+      _ <- FutureUnlessShutdown.outcomeF(balanceManager.initialize)
+      stateManager <- FutureUnlessShutdown.lift(
+        BlockSequencerStateManager.create(
+          domainId,
+          store,
+          trafficConsumedStore,
+          nodeParameters.enableAdditionalConsistencyChecks,
+          nodeParameters.processingTimeouts,
+          domainLoggerFactory,
+        )
+      )
+    } yield {
       val sequencer = createBlockSequencer(
         name,
         domainId,

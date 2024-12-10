@@ -5,7 +5,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.{FlagCloseable, LifeCycle}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.util.{MonadUtil, PekkoUtil}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.apache.pekko.actor.ActorSystem
@@ -77,7 +77,7 @@ class FetchLatestEventsFlowTest
           .via(
             FetchLatestEventsFlow[Event, State](
               initialState,
-              lookupEvents,
+              (lookupEvents _).andThen(FutureUnlessShutdown.outcomeF),
               (_, events) => events.isEmpty,
             )
           )

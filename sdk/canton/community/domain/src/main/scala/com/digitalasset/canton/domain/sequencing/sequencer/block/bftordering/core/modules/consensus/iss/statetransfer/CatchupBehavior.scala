@@ -27,6 +27,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
+import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.mutable
 
@@ -35,7 +36,7 @@ import scala.collection.mutable
   * In particular, the topology at the catch-up starting epoch is assumed to allow the whole catch-up process to
   * complete and, if this is not the case, the catch-up will fail and the node will need to be re-onboarded.
   */
-final class CatchupBehavior[E <: Env[E]](
+final case class CatchupBehavior[E <: Env[E]]( // It's a case class to better test `context.become` calls
     epochLength: EpochLength, // Currently fixed for all epochs
     initialState: InitialState[E],
     epochStore: EpochStore[E],
@@ -45,17 +46,20 @@ final class CatchupBehavior[E <: Env[E]](
     override val dependencies: ConsensusModuleDependencies[E],
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
-)(implicit mc: MetricsContext)
-    extends Consensus[E] {
+)(private val maybeCustomStateTransferManager: Option[StateTransferManager[E]] = None)(implicit
+    mc: MetricsContext
+) extends Consensus[E] {
 
   private val postponedQueue = new mutable.Queue[Consensus.Message[E]]()
 
-  private val stateTransferManager = new StateTransferManager(
-    dependencies,
-    epochLength,
-    epochStore,
-    initialState.membership.myId,
-    loggerFactory,
+  private val stateTransferManager = maybeCustomStateTransferManager.getOrElse(
+    new StateTransferManager(
+      dependencies,
+      epochLength,
+      epochStore,
+      initialState.membership.myId,
+      loggerFactory,
+    )
   )
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
@@ -109,6 +113,17 @@ final class CatchupBehavior[E <: Env[E]](
         initialState.latestCompletedEpoch,
       )(abort)
 
+    handleStasteTransferMessageResult(messageType, maybeNewEpochState)
+  }
+
+  @VisibleForTesting
+  private[bftordering] def handleStasteTransferMessageResult(
+      messageType: => String,
+      maybeNewEpochState: StateTransferMessageResult,
+  )(implicit
+      context: E#ActorContextT[Consensus.Message[E]],
+      traceContext: TraceContext,
+  ): Unit =
     maybeNewEpochState match {
       case StateTransferMessageResult.Continue =>
 
@@ -132,6 +147,7 @@ final class CatchupBehavior[E <: Env[E]](
         //   of crash recovery and catch-up
         val membership = initialState.membership
         val cryptoProvider = initialState.cryptoProvider
+
         def segmentModuleRefPartial(
             segmentState: SegmentState,
             epochMetricsAccumulator: EpochMetricsAccumulator,
@@ -146,6 +162,7 @@ final class CatchupBehavior[E <: Env[E]](
               pbftMessagesForIncompleteBlocks = Seq.empty,
             ),
           )(segmentState, epochMetricsAccumulator)
+
         val consensusInitialEpochState =
           new EpochState[E](
             lastCompletedEpoch,
@@ -184,7 +201,6 @@ final class CatchupBehavior[E <: Env[E]](
           )
         )
     }
-  }
 }
 
 object CatchupBehavior {

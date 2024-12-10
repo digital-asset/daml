@@ -955,7 +955,7 @@ class ProtocolProcessorTest
       val setupF = for {
         _ <- persistent.parameterStore.setParameters(defaultStaticDomainParameters)
 
-        _ <- ephemeral.requestJournal.insert(rc, CantonTimestamp.Epoch)
+        _ <- ephemeral.requestJournal.insert(rc, CantonTimestamp.Epoch).failOnShutdown
       } yield ephemeral.phase37Synchronizer
         .registerRequest(TestPendingRequestDataType)(requestId)
         .complete(

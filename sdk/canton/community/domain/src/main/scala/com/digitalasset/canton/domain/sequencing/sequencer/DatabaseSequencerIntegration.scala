@@ -12,7 +12,6 @@ import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.sequencing.protocol.SendAsyncError
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.parallelFuture
 import com.digitalasset.canton.util.retry.NoExceptionRetryPolicy
 import com.digitalasset.canton.util.{MonadUtil, retry}
 
@@ -81,7 +80,7 @@ trait DatabaseSequencerIntegration extends SequencerIntegration {
       traceContext: TraceContext,
   ): FutureUnlessShutdown[Unit] =
     // TODO(#18394): Batch acknowledgements?
-    performUnlessClosingF(functionFullName)(acknowledgements.toSeq.parTraverse_ {
+    performUnlessClosingUSF(functionFullName)(acknowledgements.toSeq.parTraverse_ {
       case (member, timestamp) =>
         this.writeAcknowledgementInternal(member, timestamp)
     })

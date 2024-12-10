@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.store
 import com.digitalasset.canton.config.CantonRequireTypes.String36
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.store.ParticipantPruningStore.ParticipantPruningStatus
@@ -14,7 +15,7 @@ import com.digitalasset.canton.participant.store.memory.InMemoryParticipantPruni
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** The ParticipantPruningStore stores the last started / completed pruning operation.
   */
@@ -24,13 +25,15 @@ trait ParticipantPruningStore extends AutoCloseable {
 
   def markPruningStarted(upToInclusive: Offset)(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   def markPruningDone(upToInclusive: Offset)(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
-  def pruningStatus()(implicit traceContext: TraceContext): Future[ParticipantPruningStatus]
+  def pruningStatus()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[ParticipantPruningStatus]
 }
 
 object ParticipantPruningStore {

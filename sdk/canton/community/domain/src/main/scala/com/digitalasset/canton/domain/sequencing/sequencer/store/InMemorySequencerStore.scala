@@ -18,11 +18,10 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.block.UninitializedBlockHeight
 import com.digitalasset.canton.domain.sequencing.sequencer.*
-import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable}
+import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
@@ -33,7 +32,7 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import java.util.concurrent.{ConcurrentHashMap, ConcurrentSkipListMap}
 import scala.collection.concurrent.TrieMap
 import scala.collection.immutable.SortedSet
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.jdk.CollectionConverters.*
 
 /** Thrown when a record that must be unique is inserted with a non-unique key.
@@ -65,14 +64,14 @@ class InMemorySequencerStore(
 
   override def validateCommitMode(
       configuredCommitMode: CommitMode
-  )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
     // we're running in-memory so we immediately committing to the "store" we have
-    EitherTUtil.unit
+    EitherTUtil.unitUS
 
   override def registerMember(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[SequencerMemberId] =
-    Future.successful {
+  ): FutureUnlessShutdown[SequencerMemberId] =
+    FutureUnlessShutdown.pure {
       members
         .getOrElseUpdate(
           member,
@@ -87,14 +86,14 @@ class InMemorySequencerStore(
 
   protected override def lookupMemberInternal(member: Member)(implicit
       traceContext: TraceContext
-  ): Future[Option[RegisteredMember]] =
-    Future.successful(
+  ): FutureUnlessShutdown[Option[RegisteredMember]] =
+    FutureUnlessShutdown.pure(
       members.get(member)
     )
 
   override def savePayloads(payloadsToInsert: NonEmpty[Seq[Payload]], instanceDiscriminator: UUID)(
       implicit traceContext: TraceContext
-  ): EitherT[Future, SavePayloadsError, Unit] =
+  ): EitherT[FutureUnlessShutdown, SavePayloadsError, Unit] =
     payloadsToInsert.toNEF.parTraverse { case Payload(id, content) =>
       Option(payloads.putIfAbsent(id.unwrap, StoredPayload(instanceDiscriminator, content)))
         .flatMap { existingPayload =>
@@ -110,13 +109,13 @@ class InMemorySequencerStore(
         }
         .toLeft(())
         .leftWiden[SavePayloadsError]
-        .toEitherT[Future]
+        .toEitherT[FutureUnlessShutdown]
     }.void
 
   override def saveEvents(instanceIndex: Int, eventsToInsert: NonEmpty[Seq[Sequenced[PayloadId]]])(
       implicit traceContext: TraceContext
-  ): Future[Unit] =
-    Future.successful(
+  ): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.pure(
       eventsToInsert.foreach { event =>
         Option(events.putIfAbsent(event.timestamp, event.event))
           .foreach(_ =>
@@ -132,8 +131,8 @@ class InMemorySequencerStore(
 
   override def resetWatermark(instanceIndex: Int, ts: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SaveWatermarkError, Unit] =
-    EitherT.pure[Future, SaveWatermarkError] {
+  ): EitherT[FutureUnlessShutdown, SaveWatermarkError, Unit] =
+    EitherT.pure[FutureUnlessShutdown, SaveWatermarkError] {
       watermark.getAndUpdate {
         case None => Some(Watermark(ts, online = false))
         case Some(current) if ts <= current.timestamp => Some(Watermark(ts, online = false))
@@ -143,26 +142,30 @@ class InMemorySequencerStore(
 
   override def saveWatermark(instanceIndex: Int, ts: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SaveWatermarkError, Unit] =
-    EitherT.pure[Future, SaveWatermarkError] {
+  ): EitherT[FutureUnlessShutdown, SaveWatermarkError, Unit] =
+    EitherT.pure[FutureUnlessShutdown, SaveWatermarkError] {
       watermark.set(Some(Watermark(ts, online = true)))
     }
 
   override def fetchWatermark(instanceIndex: Int, maxRetries: Int = retry.Forever)(implicit
       traceContext: TraceContext
-  ): Future[Option[Watermark]] =
-    Future.successful(watermark.get())
+  ): FutureUnlessShutdown[Option[Watermark]] =
+    FutureUnlessShutdown.pure(watermark.get())
 
-  override def safeWatermark(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]] =
-    Future.successful(watermark.get.map(_.timestamp))
+  override def safeWatermark(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] =
+    FutureUnlessShutdown.pure(watermark.get.map(_.timestamp))
 
-  override def goOffline(instanceIndex: Int)(implicit traceContext: TraceContext): Future[Unit] =
-    Future.unit
+  override def goOffline(instanceIndex: Int)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.unit
 
   override def goOnline(instanceIndex: Int, now: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[CantonTimestamp] =
-    Future.successful {
+  ): FutureUnlessShutdown[CantonTimestamp] =
+    FutureUnlessShutdown.pure {
       // we're the only sequencer that can write the watermark so just take the provided value
       watermark.set(Some(Watermark(now, online = true)))
       now
@@ -174,7 +177,7 @@ class InMemorySequencerStore(
       limit: Int = 100,
   )(implicit
       traceContext: TraceContext
-  ): Future[ReadEvents] = readEventsInternal(memberId, fromExclusiveO, limit)
+  ): FutureUnlessShutdown[ReadEvents] = readEventsInternal(memberId, fromExclusiveO, limit)
 
   override protected def readEventsInternal(
       memberId: SequencerMemberId,
@@ -182,7 +185,7 @@ class InMemorySequencerStore(
       limit: Int = 100,
   )(implicit
       traceContext: TraceContext
-  ): Future[ReadEvents] = Future.successful {
+  ): FutureUnlessShutdown[ReadEvents] = FutureUnlessShutdown.pure {
     import scala.jdk.CollectionConverters.*
 
     val watermarkO = watermark.get().map(_.timestamp)
@@ -210,8 +213,8 @@ class InMemorySequencerStore(
 
   override def readPayloads(payloadIds: Seq[IdOrPayload])(implicit
       traceContext: TraceContext
-  ): Future[Map[PayloadId, Payload]] =
-    Future.successful(
+  ): FutureUnlessShutdown[Map[PayloadId, Payload]] =
+    FutureUnlessShutdown.pure(
       payloadIds.flatMap {
         case id: PayloadId =>
           Option(payloads.get(id.unwrap))
@@ -234,8 +237,8 @@ class InMemorySequencerStore(
   /** No implementation as only required for crash recovery */
   override def deleteEventsPastWatermark(instanceIndex: Int)(implicit
       traceContext: TraceContext
-  ): Future[Option[CantonTimestamp]] =
-    Future.successful(watermark.get().map(_.timestamp))
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] =
+    FutureUnlessShutdown.pure(watermark.get().map(_.timestamp))
 
   override def saveCounterCheckpoint(
       memberId: SequencerMemberId,
@@ -243,7 +246,7 @@ class InMemorySequencerStore(
   )(implicit
       traceContext: TraceContext,
       closeContext: CloseContext,
-  ): EitherT[Future, SaveCounterCheckpointError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, SaveCounterCheckpointError, Unit] = {
     checkpoints
       .updateWith(
         (members(lookupExpectedMember(memberId)), checkpoint.counter, checkpoint.timestamp)
@@ -258,13 +261,13 @@ class InMemorySequencerStore(
         case Some(None) | None => Some(checkpoint.latestTopologyClientTimestamp)
       }
       .discard
-    EitherT.pure[Future, SaveCounterCheckpointError](())
+    EitherT.pure[FutureUnlessShutdown, SaveCounterCheckpointError](())
   }
 
   override def fetchClosestCheckpointBefore(memberId: SequencerMemberId, counter: SequencerCounter)(
       implicit traceContext: TraceContext
-  ): Future[Option[CounterCheckpoint]] =
-    Future.successful {
+  ): FutureUnlessShutdown[Option[CounterCheckpoint]] =
+    FutureUnlessShutdown.pure {
       val registeredMember = members(lookupExpectedMember(memberId))
       checkpoints.keySet
         .filter(_._1 == registeredMember)
@@ -281,8 +284,8 @@ class InMemorySequencerStore(
 
   override def fetchLatestCheckpoint()(implicit
       traceContext: TraceContext
-  ): Future[Option[CantonTimestamp]] =
-    Future.successful {
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] =
+    FutureUnlessShutdown.pure {
       val maxCheckpoint = checkpoints.keySet
         .maxByOption { case (_, _, timestamp) => timestamp }
         .map { case (_, _, timestamp) => timestamp }
@@ -293,8 +296,8 @@ class InMemorySequencerStore(
 
   override def fetchEarliestCheckpointForMember(memberId: SequencerMemberId)(implicit
       traceContext: TraceContext
-  ): Future[Option[CounterCheckpoint]] =
-    Future.successful {
+  ): FutureUnlessShutdown[Option[CounterCheckpoint]] =
+    FutureUnlessShutdown.pure {
       checkpoints.keySet
         .collect {
           case key @ (member, _, _) if member.memberId == memberId => key
@@ -312,7 +315,7 @@ class InMemorySequencerStore(
   override def acknowledge(
       member: SequencerMemberId,
       timestamp: CantonTimestamp,
-  )(implicit traceContext: TraceContext): Future[Unit] = Future.successful {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.pure {
     // update the acknowledges with this timestamp only if greater than a existing value
     val _ = acknowledgements
       .compute(
@@ -323,24 +326,26 @@ class InMemorySequencerStore(
 
   override def latestAcknowledgements()(implicit
       traceContext: TraceContext
-  ): Future[Map[SequencerMemberId, CantonTimestamp]] =
-    Future.successful(acknowledgements.asScala.toMap)
+  ): FutureUnlessShutdown[Map[SequencerMemberId, CantonTimestamp]] =
+    FutureUnlessShutdown.pure(acknowledgements.asScala.toMap)
 
   override def fetchLowerBound()(implicit
       traceContext: TraceContext
-  ): Future[Option[CantonTimestamp]] =
-    Future.successful(lowerBound.get())
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] =
+    FutureUnlessShutdown.pure(lowerBound.get())
 
   override def saveLowerBound(
       ts: CantonTimestamp
-  )(implicit traceContext: TraceContext): EitherT[Future, SaveLowerBoundError, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SaveLowerBoundError, Unit] = {
     val newValueO = lowerBound.updateAndGet { existingO =>
       existingO.map(_ max ts).getOrElse(ts).some
     }
 
     newValueO match {
       case Some(updatedValue) =>
-        EitherT.cond[Future](
+        EitherT.cond[FutureUnlessShutdown](
           updatedValue == ts,
           (),
           SaveLowerBoundError.BoundLowerThanExisting(updatedValue, ts),
@@ -352,13 +357,13 @@ class InMemorySequencerStore(
 
   override protected[store] def pruneEvents(beforeExclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Int] =
-    Future.successful(prune(events, beforeExclusive))
+  ): FutureUnlessShutdown[Int] =
+    FutureUnlessShutdown.pure(prune(events, beforeExclusive))
 
   override protected[store] def prunePayloads(beforeExclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Int] =
-    Future.successful(prune(payloads, beforeExclusive))
+  ): FutureUnlessShutdown[Int] =
+    FutureUnlessShutdown.pure(prune(payloads, beforeExclusive))
 
   private def prune[A](
       timeOrderedSkipMap: ConcurrentSkipListMap[CantonTimestamp, A],
@@ -380,7 +385,7 @@ class InMemorySequencerStore(
   @SuppressWarnings(Array("org.wartremover.warts.Var", "org.wartremover.warts.While"))
   override protected[store] def pruneCheckpoints(
       beforeExclusive: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Int] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] = {
     implicit val closeContext: CloseContext = CloseContext(
       FlagCloseable(logger, ProcessingTimeout())
     )
@@ -404,15 +409,15 @@ class InMemorySequencerStore(
 
   override def locatePruningTimestamp(skip: NonNegativeInt)(implicit
       traceContext: TraceContext
-  ): Future[Option[CantonTimestamp]] = Future.successful {
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] = FutureUnlessShutdown.pure {
     import scala.jdk.OptionConverters.*
     events.keySet().stream().skip(skip.value.toLong).findFirst().toScala
   }
 
   override def status(
       now: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[SequencerPruningStatus] =
-    Future.successful(internalStatus(now))
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[SequencerPruningStatus] =
+    FutureUnlessShutdown.pure(internalStatus(now))
 
   private def internalStatus(
       now: CantonTimestamp
@@ -435,7 +440,7 @@ class InMemorySequencerStore(
   /** This store does not support multiple concurrent instances so will do nothing. */
   override def markLaggingSequencersOffline(cutoffTime: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Unit] = Future.unit
+  ): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.unit
 
   /** Members must be registered to receive a memberId, so can typically assume they exist in this structure */
   private def lookupExpectedMember(memberId: SequencerMemberId): Member =
@@ -447,21 +452,23 @@ class InMemorySequencerStore(
 
   override def disableMemberInternal(
       memberId: SequencerMemberId
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    Future.successful {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.pure {
       val member = lookupExpectedMember(memberId)
       members.put(member, members(member).copy(enabled = false)).discard
     }
 
   /** There can be no other sequencers sharing this storage */
-  override def fetchOnlineInstances(implicit traceContext: TraceContext): Future[SortedSet[Int]] =
-    Future.successful(SortedSet.empty)
+  override def fetchOnlineInstances(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[SortedSet[Int]] =
+    FutureUnlessShutdown.pure(SortedSet.empty)
 
   @VisibleForTesting
   override protected[canton] def countRecords(implicit
       traceContext: TraceContext
-  ): Future[SequencerStoreRecordCounts] =
-    Future.successful(
+  ): FutureUnlessShutdown[SequencerStoreRecordCounts] =
+    FutureUnlessShutdown.pure(
       SequencerStoreRecordCounts(
         events.size().toLong,
         payloads.size.toLong,
@@ -473,13 +480,13 @@ class InMemorySequencerStore(
 
   override def readStateAtTimestamp(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[SequencerSnapshot] = {
+  ): FutureUnlessShutdown[SequencerSnapshot] = {
 
     val memberCheckpoints = computeMemberCheckpoints(timestamp)
 
     val lastTs = memberCheckpoints.map(_._2.timestamp).maxOption.getOrElse(CantonTimestamp.MinValue)
 
-    Future.successful(
+    FutureUnlessShutdown.pure(
       SequencerSnapshot(
         lastTs,
         UninitializedBlockHeight,
@@ -496,7 +503,8 @@ class InMemorySequencerStore(
 
   def checkpointsAtTimestamp(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Map[Member, CounterCheckpoint]] = Future.successful(computeMemberCheckpoints(timestamp))
+  ): FutureUnlessShutdown[Map[Member, CounterCheckpoint]] =
+    FutureUnlessShutdown.pure(computeMemberCheckpoints(timestamp))
 
   private def computeMemberCheckpoints(
       timestamp: CantonTimestamp
@@ -548,14 +556,20 @@ class InMemorySequencerStore(
 
   override def saveCounterCheckpoints(
       checkpoints: Seq[(SequencerMemberId, CounterCheckpoint)]
-  )(implicit traceContext: TraceContext, externalCloseContext: CloseContext): Future[Unit] =
+  )(implicit
+      traceContext: TraceContext,
+      externalCloseContext: CloseContext,
+  ): FutureUnlessShutdown[Unit] =
     checkpoints.toList.parTraverse_ { case (memberId, checkpoint) =>
       saveCounterCheckpoint(memberId, checkpoint).value
     }
 
   override def recordCounterCheckpointsAtTimestamp(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext, externalCloseContext: CloseContext): Future[Unit] = {
+  )(implicit
+      traceContext: TraceContext,
+      externalCloseContext: CloseContext,
+  ): FutureUnlessShutdown[Unit] = {
     implicit val closeContext: CloseContext = CloseContext(
       FlagCloseable(logger, ProcessingTimeout())
     )
@@ -572,7 +586,8 @@ class InMemorySequencerStore(
   }
 
   // Buffer is disabled for in-memory store
-  override def prePopulateBuffer(implicit traceContext: TraceContext): Future[Unit] = Future.unit
+  override def prePopulateBuffer(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.unit
 }
 
 object InMemorySequencerStore {

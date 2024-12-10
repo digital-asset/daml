@@ -5,6 +5,6 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.un
 
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.ModuleRef
 
-class FakeIgnoringModuleRef[MessageT]() extends ModuleRef[MessageT] {
+class FakeIgnoringModuleRef[MessageT] extends ModuleRef[MessageT] {
   override def asyncSend(msg: MessageT): Unit = ()
 }

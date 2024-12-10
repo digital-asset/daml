@@ -8,7 +8,11 @@ import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTime
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
-import com.digitalasset.canton.lifecycle.{AsyncOrSyncCloseable, UnlessShutdown}
+import com.digitalasset.canton.lifecycle.{
+  AsyncOrSyncCloseable,
+  FutureUnlessShutdown,
+  UnlessShutdown,
+}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.sequencing.client.ResilientSequencerSubscription.LostSequencerSubscription
@@ -24,7 +28,7 @@ import com.digitalasset.canton.sequencing.{SequencerTestUtils, SerializedEventHa
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.topology.{DomainId, SequencerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, SequencerCounter}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.{AnyWordSpec, AsyncWordSpec}
 
@@ -70,6 +74,7 @@ final case class TestHandlerError(message: String)
 class ResilientSequencerSubscriptionTest
     extends AsyncWordSpec
     with BaseTest
+    with FailOnShutdown
     with ResilientSequencerSubscriptionTestUtils
     with HasExecutionContext {
 
@@ -132,7 +137,7 @@ class ResilientSequencerSubscriptionTest
           subscription2 <- subscription2F
           _ = subscription2.closeWithExn(FatalExn)
           // wait for the next subscription to occur
-          closeReason <- subscription.closeReason.failed
+          closeReason <- FutureUnlessShutdown.outcomeF(subscription.closeReason.failed)
         } yield { closeReason shouldBe FatalExn },
         _.warningMessage should include(
           "The sequencer subscription encountered an exception and will be restarted"
@@ -197,7 +202,7 @@ class ResilientSequencerSubscriptionTest
         }
         subscription3 <- subscription3F
         _ = subscription3.closeWithReason(SubscriptionCloseReason.Closed)
-        closeReason <- subscription.closeReason
+        closeReason <- FutureUnlessShutdown.outcomeF(subscription.closeReason)
       } yield {
         closeReason should be(SubscriptionCloseReason.Closed)
         hasReceivedEventsCalls.toList should contain theSameElementsInOrderAs List(true, false)
@@ -240,7 +245,7 @@ class ResilientSequencerSubscriptionTest
       val resilientSequencerSubscription = new ResilientSequencerSubscription[TestHandlerError](
         SequencerId(domainId.uid),
         SequencerCounter(0),
-        _ => Future.successful(Either.unit[TestHandlerError]),
+        _ => FutureUnlessShutdown.pure(Either.unit[TestHandlerError]),
         subscriptionFactory,
         retryDelay(),
         timeouts,
@@ -271,7 +276,7 @@ class ResilientSequencerSubscriptionTest
       val resilientSequencerSubscription = new ResilientSequencerSubscription[TestHandlerError](
         SequencerId(domainId.uid),
         SequencerCounter(0),
-        _ => Future.successful(Either.unit[TestHandlerError]),
+        _ => FutureUnlessShutdown.pure(Either.unit[TestHandlerError]),
         subscriptionFactory,
         retryDelay(),
         timeouts,
@@ -354,7 +359,7 @@ trait ResilientSequencerSubscriptionTestUtils {
     val subscription = new ResilientSequencerSubscription(
       SequencerId(domainId.uid), // only used for logging
       SequencerCounter(0),
-      _ => Future.successful(Either.unit[TestHandlerError]),
+      _ => FutureUnlessShutdown.pure(Either.unit[TestHandlerError]),
       subscriptionTestFactory,
       retryDelayRule,
       DefaultProcessingTimeouts.testing,
@@ -455,7 +460,7 @@ trait ResilientSequencerSubscriptionTestUtils {
         case None => fail("subscriber has not yet subscribed")
       }
 
-    def handleCounter(sc: Long): Future[Either[TestHandlerError, Unit]] =
+    def handleCounter(sc: Long): FutureUnlessShutdown[Either[TestHandlerError, Unit]] =
       fromSubscriber(_._2)(OrdinarySequencedEvent(deliverEvent(sc))(traceContext))
 
     def subscribedCounter: SequencerCounter = fromSubscriber(_._1)
@@ -484,11 +489,12 @@ trait ResilientSequencerSubscriptionTestUtils {
 
     def addUnrecoverable(): MockedSubscriptions = addClosed(UnretryableError)
 
-    def addRunning(): Future[MockSubscriptionResponse] = {
-      val mockResponse = new MockSubscriptionResponse()
-      add(mockResponse)
-      mockResponse.subscribed.map(_ => mockResponse)
-    }
+    def addRunning(): FutureUnlessShutdown[MockSubscriptionResponse] =
+      FutureUnlessShutdown.outcomeF {
+        val mockResponse = new MockSubscriptionResponse()
+        add(mockResponse)
+        mockResponse.subscribed.map(_ => mockResponse)
+      }
 
     def addClosed(reason: SubscriptionCloseReason[TestHandlerError]): MockedSubscriptions =
       add(new MockSubscriptionResponse(Some(reason)))
