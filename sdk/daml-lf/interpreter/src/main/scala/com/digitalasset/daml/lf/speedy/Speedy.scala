@@ -1546,7 +1546,7 @@ private[lf] object Speedy {
               case V.ValueVariant(_, constructor, value) =>
                 val info =
                   compiledPackages.pkgInterface
-                    .unsafeLookupVariantConstructor(tyCon, constructor)
+                    .lookupVariantConstructorWithDowngradeChecks(tyCon, constructor)
                     .fold(
                       _ =>
                         throw SErrorDamlException(
@@ -1562,7 +1562,7 @@ private[lf] object Speedy {
               case V.ValueEnum(_, constructor) =>
                 val rank =
                   compiledPackages.pkgInterface
-                    .unsafeLookupEnumConstructor(tyCon, constructor)
+                    .lookupEnumConstructorWithDowngradeChecks(tyCon, constructor)
                     .fold(
                       _ =>
                         throw SErrorDamlException(

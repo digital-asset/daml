@@ -123,7 +123,7 @@ private[lf] class PackageInterface(val signatures: PartialFunction[PackageId, Pa
   def lookupDataVariant(tyCon: TypeConName): Either[LookupError, DataVariantInfo] =
     lookupDataVariant(tyCon, Reference.DataVariant(tyCon))
 
-  private[this] def lookupVariantConstructor(
+  private[this] def lookupVariantConstructorWithDowngradeChecks(
       tyCon: TypeConName,
       consName: VariantConName,
       context: => Reference,
@@ -143,14 +143,22 @@ private[lf] class PackageInterface(val signatures: PartialFunction[PackageId, Pa
       tyCon: TypeConName,
       consName: VariantConName,
   ): Either[LookupError, VariantConstructorInfo] =
-    lookupVariantConstructor(tyCon, consName, Reference.DataVariantConstructor(tyCon, consName))
+    lookupVariantConstructorWithDowngradeChecks(
+      tyCon,
+      consName,
+      Reference.DataVariantConstructor(tyCon, consName),
+    )
       .fold(notFound => Left(notFound), identity)
 
-  def unsafeLookupVariantConstructor(
+  def lookupVariantConstructorWithDowngradeChecks(
       tyCon: TypeConName,
       consName: VariantConName,
   ): Either[LookupError.NotFound, Either[LookupError, VariantConstructorInfo]] =
-    lookupVariantConstructor(tyCon, consName, Reference.DataVariantConstructor(tyCon, consName))
+    lookupVariantConstructorWithDowngradeChecks(
+      tyCon,
+      consName,
+      Reference.DataVariantConstructor(tyCon, consName),
+    )
 
   private[this] def lookupDataEnum(
       tyCon: TypeConName,
@@ -166,7 +174,7 @@ private[lf] class PackageInterface(val signatures: PartialFunction[PackageId, Pa
   def lookupDataEnum(tyCon: TypeConName): Either[LookupError, DataEnumInfo] =
     lookupDataEnum(tyCon, Reference.DataEnum(tyCon))
 
-  private[this] def lookupEnumConstructor(
+  private[this] def lookupEnumConstructorWithDowngradeChecks(
       tyCon: TypeConName,
       consName: EnumConName,
       context: => Reference,
@@ -183,14 +191,22 @@ private[lf] class PackageInterface(val signatures: PartialFunction[PackageId, Pa
     )
 
   def lookupEnumConstructor(tyCon: TypeConName, consName: EnumConName): Either[LookupError, Int] =
-    lookupEnumConstructor(tyCon, consName, Reference.DataEnumConstructor(tyCon, consName))
+    lookupEnumConstructorWithDowngradeChecks(
+      tyCon,
+      consName,
+      Reference.DataEnumConstructor(tyCon, consName),
+    )
       .fold(notFound => Left(notFound), identity)
 
-  def unsafeLookupEnumConstructor(
+  def lookupEnumConstructorWithDowngradeChecks(
       tyCon: TypeConName,
       consName: EnumConName,
   ): Either[LookupError.NotFound, Either[LookupError, Int]] =
-    lookupEnumConstructor(tyCon, consName, Reference.DataEnumConstructor(tyCon, consName))
+    lookupEnumConstructorWithDowngradeChecks(
+      tyCon,
+      consName,
+      Reference.DataEnumConstructor(tyCon, consName),
+    )
 
   private[this] def lookupTemplate(
       name: TypeConName,
