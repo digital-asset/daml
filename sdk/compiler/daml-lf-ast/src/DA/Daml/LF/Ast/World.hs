@@ -21,6 +21,7 @@ module DA.Daml.LF.Ast.World(
     lookupInterfaceChoice,
     lookupInterfaceMethod,
     lookupValue,
+    lookupPackage,
     lookupModule,
     lookupInterface,
     lookupTemplateOrInterface,
@@ -113,14 +114,18 @@ data LookupError
   | LEAmbiguousInterfaceInstance !InterfaceInstanceHead
   deriving (Eq, Ord, Show)
 
-lookupModule :: Qualified a -> World -> Either LookupError Module
-lookupModule (Qualified pkgRef modName _) (World importedPkgs selfPkg) = do
-  Package { packageModules = mods } <- case pkgRef of
+lookupPackage :: PackageRef -> World -> Either LookupError Package
+lookupPackage pkgRef (World importedPkgs selfPkg) = do
+  case pkgRef of
     PRSelf -> pure selfPkg
     PRImport pkgId ->
       case HMS.lookup pkgId importedPkgs of
         Nothing -> Left (LEPackage pkgId)
         Just mods -> pure mods
+
+lookupModule :: Qualified a -> World -> Either LookupError Module
+lookupModule (Qualified pkgRef modName _) world = do
+  Package { packageModules = mods } <- lookupPackage pkgRef world
   case NM.lookup modName mods of
     Nothing -> Left (LEModule pkgRef modName)
     Just mod0 -> Right mod0
