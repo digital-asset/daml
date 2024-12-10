@@ -15,7 +15,7 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeL
 import com.digitalasset.canton.crypto.SyncCryptoApiProvider
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond, Offset}
 import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex}
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcUSExtended
 import com.digitalasset.canton.participant.admin.data.ActiveContract
@@ -135,12 +135,12 @@ final class SyncStateInspection(
       domainAlias: DomainAlias
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SyncStateInspectionError, Map[
+  ): EitherT[FutureUnlessShutdown, SyncStateInspectionError, Map[
     LfContractId,
     (CantonTimestamp, ReassignmentCounter),
   ]] =
     for {
-      state <- EitherT.fromEither[Future](
+      state <- EitherT.fromEither[FutureUnlessShutdown](
         syncDomainPersistentStateManager
           .getByAlias(domainAlias)
           .toRight(SyncStateInspection.NoSuchDomain(domainAlias))
@@ -343,7 +343,7 @@ final class SyncStateInspection(
       }
   }
 
-  def contractCount(implicit traceContext: TraceContext): Future[Int] =
+  def contractCount(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] =
     participantNodePersistentState.value.contractStore.contractCount()
 
   def contractCountInAcs(domain: DomainAlias, timestamp: CantonTimestamp)(implicit
@@ -358,9 +358,9 @@ final class SyncStateInspection(
       domain: DomainAlias,
       start: CantonTimestamp = CantonTimestamp.Epoch,
       end: Option[CantonTimestamp] = None,
-  )(implicit traceContext: TraceContext): Option[Int] =
+  )(implicit traceContext: TraceContext): Option[UnlessShutdown[Int]] =
     getPersistentState(domain).map { state =>
-      timeouts.inspection.await(
+      timeouts.inspection.awaitUS(
         s"$functionFullName from $start to $end from the journal of domain $domain"
       )(
         state.requestJournalStore.size(start, end)
@@ -447,7 +447,7 @@ final class SyncStateInspection(
     val state = getOrFail(getPersistentState(domain), domain)
     val messagesF =
       if (from.isEmpty && to.isEmpty)
-        FutureUnlessShutdown.outcomeF(state.sequencedEventStore.sequencedEvents(limit))
+        state.sequencedEventStore.sequencedEvents(limit)
       else { // if a timestamp is set, need to use less efficient findRange method (it sorts results first)
         val cantonFrom =
           from.map(t => CantonTimestamp.assertFromInstant(t)).getOrElse(CantonTimestamp.MinValue)
@@ -481,13 +481,16 @@ final class SyncStateInspection(
     val messageF = state.sequencedEventStore.find(criterion).value
     val closed =
       timeouts.inspection
-        .await(s"$functionFullName on $domain matching $criterion")(messageF)
-        .toOption
+        .awaitUS(s"$functionFullName on $domain matching $criterion")(messageF)
+    // .toOption
     val opener = new EnvelopeOpener[PossiblyIgnoredSequencedEvent](
       tryGetProtocolVersion(state, domain),
       state.pureCryptoApi,
     )
-    closed.map(opener.open)
+    closed match {
+      case UnlessShutdown.Outcome(result) => result.toOption.map(opener.open)
+      case UnlessShutdown.AbortedDueToShutdown => None
+    }
   }
 
   def findComputedCommitments(
@@ -697,13 +700,13 @@ final class SyncStateInspection(
 
   def lookupCleanRequestIndex(domain: DomainAlias)(implicit
       traceContext: TraceContext
-  ): Either[String, Future[Option[RequestIndex]]] =
+  ): Either[String, FutureUnlessShutdown[Option[RequestIndex]]] =
     lookupCleanDomainIndex(domain)
       .map(_.map(_.flatMap(_.requestIndex)))
 
   def lookupCleanDomainIndex(domain: DomainAlias)(implicit
       traceContext: TraceContext
-  ): Either[String, Future[Option[DomainIndex]]] =
+  ): Either[String, FutureUnlessShutdown[Option[DomainIndex]]] =
     getPersistentStateE(domain)
       .map(state =>
         participantNodePersistentState.value.ledgerApiStore
@@ -726,7 +729,7 @@ final class SyncStateInspection(
 
   def getOffsetByTime(
       pruneUpTo: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Option[Long]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[Long]] =
     participantNodePersistentState.value.ledgerApiStore
       .lastDomainOffsetBeforeOrAtPublicationTime(pruneUpTo)
       .map(
@@ -735,16 +738,17 @@ final class SyncStateInspection(
 
   def lookupPublicationTime(
       ledgerOffset: Long
-  )(implicit traceContext: TraceContext): EitherT[Future, String, CantonTimestamp] = for {
-    offset <- EitherT.fromEither[Future](
-      Offset.fromLong(ledgerOffset)
-    )
-    domainOffset <- EitherT(
-      participantNodePersistentState.value.ledgerApiStore
-        .domainOffset(offset)
-        .map(_.toRight(s"offset $ledgerOffset not found"))
-    )
-  } yield CantonTimestamp(domainOffset.publicationTime)
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, CantonTimestamp] =
+    for {
+      offset <- EitherT.fromEither[FutureUnlessShutdown](
+        Offset.fromLong(ledgerOffset)
+      )
+      domainOffset <- EitherT(
+        participantNodePersistentState.value.ledgerApiStore
+          .domainOffset(offset)
+          .map(_.toRight(s"offset $ledgerOffset not found"))
+      )
+    } yield CantonTimestamp(domainOffset.publicationTime)
 
   def getConfigsForSlowCounterParticipants()(implicit
       traceContext: TraceContext
@@ -864,18 +868,16 @@ final class SyncStateInspection(
       domain: DomainAlias
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, InFlightCount] =
+  ): EitherT[FutureUnlessShutdown, String, InFlightCount] =
     for {
-      state <- EitherT.fromEither[Future](
+      state <- EitherT.fromEither[FutureUnlessShutdown](
         getPersistentState(domain)
           .toRight(s"Unknown domain $domain")
       )
       domainId = state.indexedDomain.domainId
-      unsequencedSubmissions <- EitherT(
+      unsequencedSubmissions <- EitherT.right(
         participantNodePersistentState.value.inFlightSubmissionStore
           .lookupUnsequencedUptoUnordered(domainId, CantonTimestamp.now())
-          .map(Right(_))
-          .onShutdown(Left("Aborted due to shutdown"))
       )
       pendingSubmissions = NonNegativeInt.tryCreate(unsequencedSubmissions.size)
       pendingTransactions <- EitherT.right[String](state.requestJournalStore.totalDirtyRequests())
@@ -884,26 +886,33 @@ final class SyncStateInspection(
     }
 
   def verifyLapiStoreIntegrity()(implicit traceContext: TraceContext): Unit =
-    timeouts.inspection.await(functionFullName)(
-      participantNodePersistentState.value.ledgerApiStore.onlyForTestingVerifyIntegrity()
-    )
+    timeouts.inspection
+      .awaitUS(functionFullName)(
+        participantNodePersistentState.value.ledgerApiStore.onlyForTestingVerifyIntegrity()
+      )
+      .onShutdown(throw new RuntimeException("verifyLapiStoreIntegrity"))
 
   def acceptedTransactionCount(domainAlias: DomainAlias)(implicit traceContext: TraceContext): Int =
     getPersistentState(domainAlias)
       .map(domainPersistentState =>
-        timeouts.inspection.await(functionFullName)(
-          participantNodePersistentState.value.ledgerApiStore
-            .onlyForTestingNumberOfAcceptedTransactionsFor(
-              domainPersistentState.indexedDomain.domainId
-            )
-        )
+        timeouts.inspection
+          .awaitUS(functionFullName)(
+            participantNodePersistentState.value.ledgerApiStore
+              .onlyForTestingNumberOfAcceptedTransactionsFor(
+                domainPersistentState.indexedDomain.domainId
+              )
+          )
+          .onShutdown(0)
       )
       .getOrElse(0)
 
   def onlyForTestingMoveLedgerEndBackToScratch()(implicit traceContext: TraceContext): Unit =
-    timeouts.inspection.await(functionFullName)(
-      participantNodePersistentState.value.ledgerApiStore.onlyForTestingMoveLedgerEndBackToScratch()
-    )
+    timeouts.inspection
+      .awaitUS(functionFullName)(
+        participantNodePersistentState.value.ledgerApiStore
+          .onlyForTestingMoveLedgerEndBackToScratch()
+      )
+      .onShutdown(throw new RuntimeException("onlyForTestingMoveLedgerEndBackToScratch"))
 
   def lastDomainOffset(
       domainId: DomainId
@@ -912,18 +921,22 @@ final class SyncStateInspection(
       .ledgerEndCache()
       .map(_.lastOffset)
       .flatMap(ledgerEnd =>
-        timeouts.inspection.await(s"$functionFullName")(
-          participantNodePersistentState.value.ledgerApiStore.lastDomainOffsetBeforeOrAt(
-            domainId,
-            ledgerEnd,
+        timeouts.inspection
+          .awaitUS(s"$functionFullName")(
+            participantNodePersistentState.value.ledgerApiStore.lastDomainOffsetBeforeOrAt(
+              domainId,
+              ledgerEnd,
+            )
           )
-        )
+          .onShutdown(None)
       )
 
   def prunedUptoOffset(implicit traceContext: TraceContext): Option[Offset] =
-    timeouts.inspection.await(functionFullName)(
-      participantNodePersistentState.value.pruningStore.pruningStatus().map(_.completedO)
-    )
+    timeouts.inspection
+      .awaitUS(functionFullName)(
+        participantNodePersistentState.value.pruningStore.pruningStatus().map(_.completedO)
+      )
+      .onShutdown(None)
 
   def getSequencerChannelClient(domainId: DomainId): Option[SequencerChannelClient] = for {
     syncDomain <- connectedDomainsLookup.get(domainId)
@@ -982,6 +995,7 @@ final class SyncStateInspection(
               )
               domainState.sequencedEventStore.delete(nextSequencerCounter)
             }
+            .failOnShutdownToAbortException("cleanSequencedEventStoreAboveCleanDomainIndex")
         )
       },
       domainAlias,

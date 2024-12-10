@@ -6,18 +6,20 @@ package com.digitalasset.canton.domain.sequencing.sequencer.store
 import cats.syntax.either.*
 import cats.syntax.option.*
 import com.daml.nonempty.NonEmptyUtil
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.DomainSequencingTestUtils
-import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.topology.{Member, ParticipantId}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import org.scalatest.compatible.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.UUID
-import scala.concurrent.Future
 
-trait MultiTenantedSequencerStoreTest extends FlagCloseable with HasCloseContext {
+trait MultiTenantedSequencerStoreTest
+    extends FlagCloseable
+    with HasCloseContext
+    with FailOnShutdown {
   this: AsyncWordSpec with BaseTest =>
 
   def multiTenantedSequencerStore(mk: () => SequencerStore): Unit = {
@@ -259,8 +261,10 @@ trait MultiTenantedSequencerStoreTest extends FlagCloseable with HasCloseContext
     "deleting events past watermark" should {
       // accessor for method that is intentionally hidden only for tests
       @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-      def countEvents(store: SequencerStore, instanceIndex: Int): Future[Int] =
-        store.asInstanceOf[DbSequencerStore].countEventsForNode(instanceIndex)
+      def countEvents(store: SequencerStore, instanceIndex: Int): FutureUnlessShutdown[Int] =
+        FutureUnlessShutdown.outcomeF(
+          store.asInstanceOf[DbSequencerStore].countEventsForNode(instanceIndex)
+        )
 
       "remove all events if the sequencer didn't write a watermark" in {
         val store = mk()

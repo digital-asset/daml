@@ -29,7 +29,7 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
   */
 private[participant] class JournalGarbageCollector(
     requestJournalStore: RequestJournalStore,
-    domainIndexF: TraceContext => Future[Option[DomainIndex]],
+    domainIndexF: TraceContext => FutureUnlessShutdown[Option[DomainIndex]],
     sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
     acsCommitmentStore: AcsCommitmentStore,
     acs: ActiveContractStore,
@@ -49,7 +49,7 @@ private[participant] class JournalGarbageCollector(
   override protected def run()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     performUnlessClosingUSF(functionFullName) {
       for {
-        domainIndex <- FutureUnlessShutdown.outcomeF(domainIndexF(implicitly))
+        domainIndex <- domainIndexF(implicitly)
         safeToPruneTsO <-
           PruningProcessor.latestSafeToPruneTick(
             requestJournalStore,

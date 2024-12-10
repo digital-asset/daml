@@ -657,7 +657,7 @@ final class UnassignmentProcessingStepsTest
         )
 
       for {
-        _ <- state.contractStore.storeCreatedContract(RequestCounter(1), contract)
+        _ <- state.contractStore.storeCreatedContract(RequestCounter(1), contract).failOnShutdown
         _ <- persistentState.activeContractStore
           .markContractsCreated(
             Seq(contractId -> initialReassignmentCounter),
@@ -690,7 +690,7 @@ final class UnassignmentProcessingStepsTest
       )
 
       for {
-        _ <- state.contractStore.storeCreatedContract(RequestCounter(1), contract)
+        _ <- state.contractStore.storeCreatedContract(RequestCounter(1), contract).failOnShutdown
         submissionResult <- leftOrFailShutdown(
           unassignmentProcessingSteps.createSubmission(
             submissionParam,
@@ -762,6 +762,7 @@ final class UnassignmentProcessingStepsTest
 
       state.contractStore
         .storeCreatedContract(RequestCounter(1), contract)
+        .failOnShutdown
         .futureValue
 
       val signature = cryptoSnapshot
@@ -911,6 +912,7 @@ final class UnassignmentProcessingStepsTest
       for {
         signature <- cryptoSnapshot
           .sign(fullUnassignmentTree.rootHash.unwrap)
+          .failOnShutdown
 
         parsed = mkParsedRequest(
           fullUnassignmentTree,
@@ -922,6 +924,7 @@ final class UnassignmentProcessingStepsTest
           .liftF[FutureUnlessShutdown, SyncCryptoError, Option[AuthenticationError]](
             AuthenticationValidator.verifyViewSignature(parsed)
           )
+          .failOnShutdown
       } yield authenticationError shouldBe None
     }
 

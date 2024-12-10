@@ -116,8 +116,8 @@ class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: Exe
   ): Future[Int] =
     Future.failed(mk(s"doPrune at $beforeAndIncluding"))
 
-  override def purge()(implicit traceContext: TraceContext): Future[Unit] =
-    Future.failed(mk("purge"))
+  override def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.failed(mk("purge"))
 
   override protected[canton] def advancePruningTimestamp(
       phase: PruningPhase,

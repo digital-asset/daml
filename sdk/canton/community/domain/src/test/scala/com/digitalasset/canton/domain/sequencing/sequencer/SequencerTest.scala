@@ -229,7 +229,6 @@ class SequencerTest
           List(alice, bob, carole, topologyClientMember).parTraverse(
             TestDatabaseSequencerWrapper(sequencer)
               .registerMemberInternal(_, CantonTimestamp.Epoch)
-              .mapK(FutureUnlessShutdown.outcomeK)
           )
         )(
           "member registration"

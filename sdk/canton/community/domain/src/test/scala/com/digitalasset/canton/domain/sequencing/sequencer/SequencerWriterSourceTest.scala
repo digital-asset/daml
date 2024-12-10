@@ -17,6 +17,7 @@ import com.digitalasset.canton.lifecycle.{
   AsyncCloseable,
   AsyncOrSyncCloseable,
   FlagCloseableAsync,
+  FutureUnlessShutdown,
   SyncCloseable,
 }
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
@@ -27,6 +28,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil
 import com.digitalasset.canton.{
   BaseTest,
+  FailOnShutdown,
   HasExecutorService,
   ProtocolVersionChecksAsyncWordSpec,
   SequencerCounter,
@@ -54,7 +56,8 @@ class SequencerWriterSourceTest
     extends AsyncWordSpec
     with BaseTest
     with HasExecutorService
-    with ProtocolVersionChecksAsyncWordSpec {
+    with ProtocolVersionChecksAsyncWordSpec
+    with FailOnShutdown {
 
   class MockEventSignaller extends EventSignaller {
     private val listenerRef =
@@ -117,7 +120,9 @@ class SequencerWriterSourceTest
       override def savePayloads(
           payloadsToInsert: NonEmpty[Seq[Payload]],
           instanceDiscriminator: UUID,
-      )(implicit traceContext: TraceContext): EitherT[Future, SavePayloadsError, Unit] = {
+      )(implicit
+          traceContext: TraceContext
+      ): EitherT[FutureUnlessShutdown, SavePayloadsError, Unit] = {
         clock.advance(timeAdvancement.get())
         super.savePayloads(payloadsToInsert, instanceDiscriminator)
       }
@@ -226,7 +231,7 @@ class SequencerWriterSourceTest
                 ),
               )
             )
-            completeFlow()
+            FutureUnlessShutdown.outcomeF(completeFlow())
           },
           _.shouldBeCantonErrorCode(PayloadToEventTimeBoundExceeded),
         )
@@ -277,7 +282,7 @@ class SequencerWriterSourceTest
               Some(nowish),
             )
           )
-          completeFlow()
+          FutureUnlessShutdown.outcomeF(completeFlow())
         }
 
         events <- store.readEvents(aliceId)
@@ -303,7 +308,7 @@ class SequencerWriterSourceTest
       clock.advanceTo(nowish)
 
       for {
-        aliceId <- store.registerMember(alice, CantonTimestamp.Epoch)
+        aliceId <- store.registerMember(alice, CantonTimestamp.Epoch).failOnShutdown
         deliver1 = DeliverStoreEvent.ensureSenderReceivesEvent(
           aliceId,
           messageId1,
@@ -330,7 +335,7 @@ class SequencerWriterSourceTest
           )
         )
         _ <- completeFlow()
-        events <- store.readEvents(aliceId)
+        events <- store.readEvents(aliceId).failOnShutdown
       } yield {
         events.events should have size 2
         events.events.map(_.event)
@@ -377,6 +382,7 @@ class SequencerWriterSourceTest
 
       for {
         aliceId <- store.registerMember(alice, CantonTimestamp.Epoch)
+
         batch = Batch.fromClosed(
           testedProtocolVersion,
           ClosedEnvelope.create(
@@ -387,27 +393,28 @@ class SequencerWriterSourceTest
           ),
         )
         _ <- valueOrFail(
-          writer.blockSequencerWrite(
-            SubmissionOutcome.Deliver(
-              SubmissionRequest.tryCreate(
-                alice,
-                MessageId.tryCreate("test-unknown-recipients"),
+          writer
+            .blockSequencerWrite(
+              SubmissionOutcome.Deliver(
+                SubmissionRequest.tryCreate(
+                  alice,
+                  MessageId.tryCreate("test-unknown-recipients"),
+                  batch = batch,
+                  maxSequencingTime = CantonTimestamp.MaxValue,
+                  topologyTimestamp = None,
+                  aggregationRule = None,
+                  submissionCost = None,
+                  protocolVersion = testedProtocolVersion,
+                ),
+                sequencingTime = CantonTimestamp.Epoch.immediateSuccessor,
+                deliverToMembers = Set(alice, bob),
                 batch = batch,
-                maxSequencingTime = CantonTimestamp.MaxValue,
-                topologyTimestamp = None,
-                aggregationRule = None,
-                submissionCost = None,
-                protocolVersion = testedProtocolVersion,
-              ),
-              sequencingTime = CantonTimestamp.Epoch.immediateSuccessor,
-              deliverToMembers = Set(alice, bob),
-              batch = batch,
-              submissionTraceContext = TraceContext.empty,
-              trafficReceiptO = None,
+                submissionTraceContext = TraceContext.empty,
+                trafficReceiptO = None,
+              )
             )
-          )
         )("send to unknown recipient")
-        _ <- eventuallyF(10.seconds) {
+        _ <- eventuallyFUS(10.seconds) {
           for {
             events <- env.store.readEvents(aliceId)
             error = events.events.collectFirst {
@@ -417,7 +424,10 @@ class SequencerWriterSourceTest
                   ) =>
                 deliverError
             }.value
-          } yield getErrorMessage(error.error) should include(s"Unknown recipients: $bob")
+          } yield {
+            getErrorMessage(error.error) should include(s"Unknown recipients: $bob")
+            ()
+          }
         }
       } yield succeed
     }
@@ -485,8 +495,8 @@ class SequencerWriterSourceTest
     }
 
     for {
-      aliceId <- store.registerMember(alice, CantonTimestamp.Epoch)
-      bobId <- store.registerMember(bob, CantonTimestamp.Epoch)
+      aliceId <- store.registerMember(alice, CantonTimestamp.Epoch).failOnShutdown
+      bobId <- store.registerMember(bob, CantonTimestamp.Epoch).failOnShutdown
       // check single members
       _ <- expectNotification(writeCount = 1)(aliceId) { () =>
         deliverEvent(aliceId)
@@ -508,13 +518,16 @@ class SequencerWriterSourceTest
     import env.*
     // the specified keepAliveInterval of 1s ensures the watermark gets updated
     for {
-      initialWatermark <- eventuallyF(5.seconds) {
+      initialWatermark <- eventuallyFUS(5.seconds) {
         store.fetchWatermark(instanceIndex).map(_.value)
       }
-      _ <- eventuallyF(5.seconds) {
+      _ <- eventuallyFUS(5.seconds) {
         for {
           updated <- store.fetchWatermark(instanceIndex)
-        } yield updated.value.timestamp shouldBe >=(initialWatermark.timestamp)
+        } yield {
+          updated.value.timestamp shouldBe >=(initialWatermark.timestamp)
+          ()
+        }
       }
     } yield succeed
   }
@@ -544,15 +557,20 @@ class SequencerWriterSourceTest
     resultP.future
   }
 
+  private def eventuallyFUS[A](timeout: FiniteDuration, checkInterval: FiniteDuration = 100.millis)(
+      testCode: => FutureUnlessShutdown[A]
+  )(implicit env: Env): FutureUnlessShutdown[A] =
+    FutureUnlessShutdown.outcomeF(eventuallyF(timeout, checkInterval)(testCode.failOnShutdown))
+
   "periodic checkpointing" should {
     // TODO(#16087) ignore test for blockSequencerMode=false
     "produce checkpoints" in withEnv() { implicit env =>
       import env.*
 
       for {
-        aliceId <- store.registerMember(alice, CantonTimestamp.Epoch)
-        _ <- store.registerMember(bob, CantonTimestamp.Epoch)
-        _ <- store.registerMember(charlie, CantonTimestamp.Epoch)
+        aliceId <- store.registerMember(alice, CantonTimestamp.Epoch).failOnShutdown
+        _ <- store.registerMember(bob, CantonTimestamp.Epoch).failOnShutdown
+        _ <- store.registerMember(charlie, CantonTimestamp.Epoch).failOnShutdown
         batch = Batch.fromClosed(
           testedProtocolVersion,
           ClosedEnvelope.create(
@@ -582,10 +600,10 @@ class SequencerWriterSourceTest
               trafficReceiptO = None,
             )
           )
-        )("send")
+        )("send").failOnShutdown
         eventTs <- eventuallyF(10.seconds) {
           for {
-            events <- env.store.readEvents(aliceId)
+            events <- env.store.readEvents(aliceId).failOnShutdown
             _ = events.events should have size 1
           } yield events.events.headOption.map(_.timestamp).valueOrFail("expected event to exist")
         }

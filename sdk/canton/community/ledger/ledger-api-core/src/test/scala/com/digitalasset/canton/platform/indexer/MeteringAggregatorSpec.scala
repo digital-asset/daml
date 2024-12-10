@@ -12,6 +12,7 @@ import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.{
   ParticipantMetering,
   TransactionMetering,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
@@ -32,7 +33,7 @@ import org.scalatest.wordspec.AnyWordSpecLike
 import java.sql.Connection
 import java.time.temporal.ChronoUnit
 import java.time.{LocalDate, LocalTime, OffsetDateTime, ZoneOffset}
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 //noinspection TypeAnnotation
 final class MeteringAggregatorSpec
@@ -66,6 +67,16 @@ final class MeteringAggregatorSpec
         }
         override val executor: QueueAwareExecutionContextExecutorService =
           mock[QueueAwareExecutionContextExecutorService]
+
+        override def executeSqlUS[T](
+            databaseMetrics: DatabaseMetrics
+        )(sql: Connection => T)(implicit
+            loggingContext: LoggingContextWithTrace,
+            ec: ExecutionContext,
+        ): FutureUnlessShutdown[T] =
+          FutureUnlessShutdown.pure {
+            sql(conn)
+          }
       }
 
       val parameterStore: ParameterStorageBackend = mock[ParameterStorageBackend]

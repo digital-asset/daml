@@ -8,6 +8,7 @@ import cats.syntax.either.*
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.scheduler.JobSchedule.NextRun
@@ -55,7 +56,7 @@ abstract class JobScheduler(
     */
   def schedulerJob(schedule: IndividualSchedule)(implicit
       traceContext: TraceContext
-  ): Future[ScheduledRunResult]
+  ): FutureUnlessShutdown[ScheduledRunResult]
 
   /** Hook to create and initialize the schedule when scheduler becomes active
     * @return if override returns Some[A] go ahead and schedule; if None don't
@@ -165,7 +166,7 @@ abstract class JobScheduler(
       case Some(activeState) => code(activeState)
     }
 
-  private class SchedulerRunnable(job: TraceContext => Future[ScheduledRunResult])
+  private class SchedulerRunnable(job: TraceContext => FutureUnlessShutdown[ScheduledRunResult])
       extends Runnable {
     override def run(): Unit = TraceContext.withNewTraceContext {
       implicit traceContext: TraceContext =>
@@ -175,23 +176,25 @@ abstract class JobScheduler(
               logger.debug(s"Starting scheduler job")
               job(traceContext)
             },
-            noOp = Future(Done),
+            noOp = FutureUnlessShutdown.pure(Done),
           )
             .transform {
-              case Success(result) =>
+              case Success(UnlessShutdown.Outcome(result)) =>
                 logger.debug(s"Completed scheduler job")
-                Success(scheduleNextRun(result))
+                Success(UnlessShutdown.Outcome(scheduleNextRun(result)))
               case Failure(NonFatal(t)) =>
                 // log non-fatal errors as info rather than warning as we expect noisy when canceling arbitrary jobs
                 logger.info(s"Scheduler job non fatal exception", t)
-                Success(scheduleNextRun(Error(t.getMessage)))
+                Success(UnlessShutdown.Outcome(scheduleNextRun(Error(t.getMessage))))
               case Failure(fatal) => ErrorUtil.internalErrorTry(fatal)
+              case Success(UnlessShutdown.AbortedDueToShutdown) =>
+                Success(UnlessShutdown.Outcome(scheduleNextRun(Error("Aborted due to shutdown."))))
             }
 
         // Wait for schedule job indefinitely as we rely on scheduler jobs to break up long-running tasks.
         // We don't interrupt the job to prevent infinite retries.
         processingTimeouts.unbounded
-          .await_(
+          .awaitUS_(
             s"Scheduler Job",
             Some(Level.INFO), // not WARN because RejectedExecutionException on stop/shutdown
           )(future)

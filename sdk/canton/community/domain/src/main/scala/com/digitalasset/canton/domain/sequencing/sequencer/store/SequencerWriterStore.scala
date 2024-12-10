@@ -7,13 +7,12 @@ import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.CommitMode
-import com.digitalasset.canton.lifecycle.CloseContext
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.retry
 
 import java.util.UUID
-import scala.concurrent.Future
 
 /** A subset of the sequencer storage methods required by the [[SequencerWriter]] with
   * convenience methods to avoid passing the `instanceIndex` everywhere.
@@ -28,7 +27,7 @@ trait SequencerWriterStore extends AutoCloseable {
     */
   def validateCommitMode(configuredCommitMode: CommitMode)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Unit] =
+  ): EitherT[FutureUnlessShutdown, String, Unit] =
     store.validateCommitMode(configuredCommitMode)
 
   /** Lookup an existing member id for the given member.
@@ -36,7 +35,7 @@ trait SequencerWriterStore extends AutoCloseable {
     */
   def lookupMember(member: Member)(implicit
       traceContext: TraceContext
-  ): Future[Option[RegisteredMember]] =
+  ): FutureUnlessShutdown[Option[RegisteredMember]] =
     store.lookupMember(member)
 
   /** Save a series of payloads to the store.
@@ -44,7 +43,7 @@ trait SequencerWriterStore extends AutoCloseable {
     */
   def savePayloads(payloads: NonEmpty[Seq[Payload]], instanceDiscriminator: UUID)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SavePayloadsError, Unit] =
+  ): EitherT[FutureUnlessShutdown, SavePayloadsError, Unit] =
     store.savePayloads(payloads, instanceDiscriminator)
 
   /** Save a series of events to the store.
@@ -53,7 +52,7 @@ trait SequencerWriterStore extends AutoCloseable {
     */
   def saveEvents(events: NonEmpty[Seq[Sequenced[PayloadId]]])(implicit
       traceContext: TraceContext
-  ): Future[Unit] =
+  ): FutureUnlessShutdown[Unit] =
     store.saveEvents(instanceIndex, events)
 
   def bufferEvents(events: NonEmpty[Seq[Sequenced[Payload]]])(implicit tc: TraceContext): Unit =
@@ -61,7 +60,7 @@ trait SequencerWriterStore extends AutoCloseable {
 
   def resetWatermark(ts: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SaveWatermarkError, Unit] =
+  ): EitherT[FutureUnlessShutdown, SaveWatermarkError, Unit] =
     store.resetWatermark(instanceIndex, ts)
 
   /** Write the watermark that we promise not to write anything earlier than.
@@ -71,7 +70,7 @@ trait SequencerWriterStore extends AutoCloseable {
     */
   def saveWatermark(ts: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SaveWatermarkError, Unit] =
+  ): EitherT[FutureUnlessShutdown, SaveWatermarkError, Unit] =
     store.saveWatermark(instanceIndex, ts)
 
   /** Read the watermark for this sequencer and its online/offline status.
@@ -79,18 +78,20 @@ trait SequencerWriterStore extends AutoCloseable {
     */
   def fetchWatermark(maxRetries: Int = retry.Forever)(implicit
       traceContext: TraceContext
-  ): Future[Option[Watermark]] =
+  ): FutureUnlessShutdown[Option[Watermark]] =
     store.fetchWatermark(instanceIndex, maxRetries)
 
   /** Mark the sequencer as online and return a timestamp for when this sequencer can start safely producing events.
     * @param now Now according to this sequencer's clock which will be used if it is ahead of the lowest available
     *            timestamp from other sequencers.
     */
-  def goOnline(now: CantonTimestamp)(implicit traceContext: TraceContext): Future[CantonTimestamp] =
+  def goOnline(now: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[CantonTimestamp] =
     store.goOnline(instanceIndex, now)
 
   /** Flag that we're going offline (likely due to a shutdown) */
-  def goOffline()(implicit traceContext: TraceContext): Future[Unit] =
+  def goOffline()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     store.goOffline(instanceIndex)
 
   /** Delete all events that are ahead of the watermark of this sequencer.
@@ -100,7 +101,7 @@ trait SequencerWriterStore extends AutoCloseable {
     */
   def deleteEventsPastWatermark()(implicit
       traceContext: TraceContext
-  ): Future[Option[CantonTimestamp]] =
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] =
     store.deleteEventsPastWatermark(instanceIndex)
 
   /** Record a counter checkpoints for all members at the given timestamp.
@@ -108,7 +109,7 @@ trait SequencerWriterStore extends AutoCloseable {
   def recordCounterCheckpointsAtTimestamp(ts: CantonTimestamp)(implicit
       traceContext: TraceContext,
       externalCloseContext: CloseContext,
-  ): Future[Unit] =
+  ): FutureUnlessShutdown[Unit] =
     store.recordCounterCheckpointsAtTimestamp(ts)(traceContext, externalCloseContext)
 
 }

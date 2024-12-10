@@ -11,7 +11,7 @@ import com.digitalasset.canton.topology.SequencerId
 
 import scala.collection.mutable
 
-final class CatchupDetector(
+class CatchupDetector(
     initialMembership: Membership
 ) {
 

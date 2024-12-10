@@ -7,6 +7,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.CantonRequireTypes.String36
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.store.ParticipantPruningStore
 import com.digitalasset.canton.participant.store.ParticipantPruningStore.ParticipantPruningStatus
@@ -15,7 +16,7 @@ import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.tracing.TraceContext
 import slick.jdbc.GetResult
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class DbParticipantPruningStore(
     name: String36,
@@ -30,7 +31,7 @@ class DbParticipantPruningStore(
 
   override def markPruningStarted(
       upToInclusive: Offset
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val upsertQuery = storage.profile match {
       case _: Postgres =>
         sqlu"""insert into par_pruning_operation as po (name, started_up_to_inclusive, completed_up_to_inclusive)
@@ -47,13 +48,13 @@ class DbParticipantPruningStore(
                    values ($name, $upToInclusive, null)"""
     }
 
-    storage.update_(upsertQuery, functionFullName)
+    storage.updateUnlessShutdown_(upsertQuery, functionFullName)
   }
 
   override def markPruningDone(
       upToInclusive: Offset
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    storage.update_(
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    storage.updateUnlessShutdown_(
       sqlu"""update par_pruning_operation set completed_up_to_inclusive = $upToInclusive
                        where name = $name and (completed_up_to_inclusive is null or completed_up_to_inclusive < $upToInclusive)""",
       functionFullName,
@@ -68,9 +69,9 @@ class DbParticipantPruningStore(
 
   override def pruningStatus()(implicit
       traceContext: TraceContext
-  ): Future[ParticipantPruningStatus] =
+  ): FutureUnlessShutdown[ParticipantPruningStatus] =
     for {
-      statusO <- storage.query(
+      statusO <- storage.queryUnlessShutdown(
         sql"""select started_up_to_inclusive, completed_up_to_inclusive from par_pruning_operation
                where name = $name""".as[ParticipantPruningStatus].headOption,
         functionFullName,

@@ -23,7 +23,6 @@ import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.store.db.DbBulkUpdateProcessor
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.EitherUtil.RichEitherIterable
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{BatchAggregator, ErrorUtil}
 import com.digitalasset.canton.version.ReleaseProtocolVersion
@@ -221,7 +220,7 @@ class DbContractStore(
 
   override def storeCreatedContracts(
       creations: Seq[(SerializableContract, RequestCounter)]
-  )(implicit traceContext: TraceContext): Future[Unit] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     creations.parTraverse_ { case (creation, requestCounter) =>
       storeContract(StoredContract(creation, requestCounter))
     }
@@ -231,8 +230,8 @@ class DbContractStore(
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[Unit] =
-    batchAggregatorInsert.run(contract).flatMap(Future.fromTry)
+  ): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.outcomeF(batchAggregatorInsert.run(contract).flatMap(Future.fromTry))
 
   private val batchAggregatorInsert = {
     val processor = new DbBulkUpdateProcessor[StoredContract, Unit] {
@@ -377,14 +376,14 @@ class DbContractStore(
 
   override def deleteIgnoringUnknown(
       contractIds: Iterable[LfContractId]
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     import DbStorage.Implicits.BuilderChain.*
     NonEmpty.from(contractIds.toSeq) match {
-      case None => Future.unit
+      case None => FutureUnlessShutdown.unit
       case Some(cids) =>
         val inClause = DbStorage.toInClause("contract_id", cids)
         storage
-          .update_(
+          .updateUnlessShutdown_(
             (sql"""delete from par_contracts where """ ++ inClause).asUpdate,
             functionFullName,
           )
@@ -394,9 +393,9 @@ class DbContractStore(
 
   override def purge()(implicit
       traceContext: TraceContext
-  ): Future[Unit] =
+  ): FutureUnlessShutdown[Unit] =
     storage
-      .update_(
+      .updateUnlessShutdown_(
         sqlu"""delete from par_contracts""",
         functionFullName,
       )
@@ -404,14 +403,14 @@ class DbContractStore(
 
   override def lookupStakeholders(ids: Set[LfContractId])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, UnknownContracts, Map[LfContractId, Set[LfPartyId]]] =
+  ): EitherT[FutureUnlessShutdown, UnknownContracts, Map[LfContractId, Set[LfPartyId]]] =
     NonEmpty.from(ids) match {
       case None => EitherT.rightT(Map.empty)
 
       case Some(idsNel) =>
         EitherT(
           idsNel.forgetNE.toSeq
-            .parTraverse(id => lookupContract(id).toRight(id).value)
+            .parTraverse(id => FutureUnlessShutdown.outcomeF(lookupContract(id).toRight(id).value))
             .map(_.collectRight)
             .map { contracts =>
               Either.cond(
@@ -425,6 +424,9 @@ class DbContractStore(
         )
     }
 
-  override def contractCount()(implicit traceContext: TraceContext): Future[Int] =
-    storage.query(sql"select count(*) from par_contracts".as[Int].head, functionFullName)
+  override def contractCount()(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] =
+    storage.queryUnlessShutdown(
+      sql"select count(*) from par_contracts".as[Int].head,
+      functionFullName,
+    )
 }

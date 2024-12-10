@@ -20,10 +20,20 @@ import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.store.memory.InMemorySequencedEventStore
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{BaseTest, CloseableTest, RequestCounter, SequencerCounter}
+import com.digitalasset.canton.{
+  BaseTest,
+  CloseableTest,
+  FailOnShutdown,
+  RequestCounter,
+  SequencerCounter,
+}
 import org.scalatest.wordspec.AsyncWordSpec
 
-class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest with CloseableTest {
+class SyncDomainEphemeralStateFactoryTest
+    extends AsyncWordSpec
+    with BaseTest
+    with CloseableTest
+    with FailOnShutdown {
 
   private lazy val domainId = DomainId.tryFromString("domain::da")
 

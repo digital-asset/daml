@@ -8,6 +8,7 @@ import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.RequestJournal.{RequestData, RequestState}
 import com.digitalasset.canton.participant.store.*
@@ -28,8 +29,12 @@ class InMemoryRequestJournalStore(protected val loggerFactory: NamedLoggerFactor
 
   private val requestTable = new TrieMap[RequestCounter, RequestData]
 
-  override def insert(data: RequestData)(implicit traceContext: TraceContext): Future[Unit] =
-    Future.fromTry(Try(MapsUtil.tryPutIdempotent(requestTable, data.rc, data)))
+  override def insert(
+      data: RequestData
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.outcomeF(
+      Future.fromTry(Try(MapsUtil.tryPutIdempotent(requestTable, data.rc, data)))
+    )
 
   override def query(rc: RequestCounter)(implicit
       traceContext: TraceContext
@@ -38,8 +43,8 @@ class InMemoryRequestJournalStore(protected val loggerFactory: NamedLoggerFactor
 
   override def firstRequestWithCommitTimeAfter(
       commitTimeExclusive: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Option[RequestData]] =
-    Future.successful {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[RequestData]] =
+    FutureUnlessShutdown.pure {
       requestTable.values.foldLeft(Option.empty[RequestData]) { (minSoFar, queryResult) =>
         if (queryResult.commitTime.forall(_ <= commitTimeExclusive)) minSoFar
         else if (minSoFar.forall(m => m.rc > queryResult.rc)) Some(queryResult)
@@ -91,50 +96,51 @@ class InMemoryRequestJournalStore(protected val loggerFactory: NamedLoggerFactor
   @VisibleForTesting
   private[store] override def pruneInternal(
       beforeInclusive: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val before = requestTable.size
     val after = requestTable
       .filterInPlace((_, result) => result.requestTimestamp.isAfter(beforeInclusive))
       .size
     logger.info(s"Pruned ${before - after} contracts from the request journal")
-    Future.unit
+    FutureUnlessShutdown.unit
   }
 
-  override def purge()(implicit traceContext: TraceContext): Future[Unit] = {
+  override def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     requestTable.clear()
-    Future.unit
+    FutureUnlessShutdown.unit
   }
 
   def size(start: CantonTimestamp, end: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
-  ): Future[Int] = {
+  ): FutureUnlessShutdown[Int] = {
     val endPredicate =
       end
         .map(endTs => (ts: CantonTimestamp) => !ts.isAfter(endTs))
         .getOrElse((_: CantonTimestamp) => true)
-    Future.successful(requestTable.count { case (_, result) =>
+    FutureUnlessShutdown.pure(requestTable.count { case (_, result) =>
       !result.requestTimestamp.isBefore(start) && endPredicate(result.requestTimestamp)
     })
   }
 
   override def deleteSince(fromInclusive: RequestCounter)(implicit
       traceContext: TraceContext
-  ): Future[Unit] =
-    Future.successful(requestTable.filterInPlace((rc, _) => rc < fromInclusive))
+  ): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.pure(requestTable.filterInPlace((rc, _) => rc < fromInclusive))
 
   override def repairRequests(
       fromInclusive: RequestCounter
-  )(implicit traceContext: TraceContext): Future[Seq[RequestData]] = Future.successful {
-    requestTable.values.iterator
-      .filter(data => data.rc >= fromInclusive && data.repairContext.nonEmpty)
-      .toSeq
-      .sortBy(_.rc)
-  }
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[RequestData]] =
+    FutureUnlessShutdown.pure {
+      requestTable.values.iterator
+        .filter(data => data.rc >= fromInclusive && data.repairContext.nonEmpty)
+        .toSeq
+        .sortBy(_.rc)
+    }
 
   override def lastRequestCounterWithRequestTimestampBeforeOrAt(requestTimestamp: CantonTimestamp)(
       implicit traceContext: TraceContext
-  ): Future[Option[RequestCounter]] =
-    Future.successful {
+  ): FutureUnlessShutdown[Option[RequestCounter]] =
+    FutureUnlessShutdown.pure {
       requestTable.values.foldLeft(Option.empty[RequestCounter]) {
         (maxSoFar, queryResult: RequestData) =>
           if (queryResult.requestTimestamp > requestTimestamp) maxSoFar
@@ -145,8 +151,10 @@ class InMemoryRequestJournalStore(protected val loggerFactory: NamedLoggerFactor
 
   private def withRc(rc: RequestCounter, msg: String): String = s"Request $rc: $msg"
 
-  override def totalDirtyRequests()(implicit traceContext: TraceContext): Future[NonNegativeInt] =
-    Future.successful(NonNegativeInt.tryCreate(requestTable.count { case (_, result) =>
+  override def totalDirtyRequests()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[NonNegativeInt] =
+    FutureUnlessShutdown.pure(NonNegativeInt.tryCreate(requestTable.count { case (_, result) =>
       result.commitTime.isEmpty
     }))
 }

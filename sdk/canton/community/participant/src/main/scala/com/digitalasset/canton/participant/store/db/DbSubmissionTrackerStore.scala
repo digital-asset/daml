@@ -81,8 +81,8 @@ class DbSubmissionTrackerStore(
     storage.queryAndUpdate(deleteQuery, "prune par_fresh_submitted_transaction")
   }
 
-  override def purge()(implicit traceContext: TraceContext): Future[Unit] =
-    storage.update_(
+  override def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    storage.updateUnlessShutdown_(
       sqlu"""delete from par_fresh_submitted_transaction
              where domain_idx = $indexedDomain""",
       "purge par_fresh_submitted_transaction",

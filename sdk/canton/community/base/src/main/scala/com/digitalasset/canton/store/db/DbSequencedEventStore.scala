@@ -109,14 +109,17 @@ class DbSequencedEventStore(
 
   override def store(
       events: Seq[OrdinarySerializedEvent]
-  )(implicit traceContext: TraceContext, externalCloseContext: CloseContext): Future[Unit] =
-    if (events.isEmpty) Future.unit
+  )(implicit
+      traceContext: TraceContext,
+      externalCloseContext: CloseContext,
+  ): FutureUnlessShutdown[Unit] =
+    if (events.isEmpty) FutureUnlessShutdown.unit
     else {
       withLock(functionFullName) {
         CloseContext.withCombinedContext(closeContext, externalCloseContext, timeouts, logger) {
           combinedCloseContext =>
             storage
-              .queryAndUpdate(bulkInsertQuery(events), functionFullName)(
+              .queryAndUpdateUnlessShutdown(bulkInsertQuery(events), functionFullName)(
                 traceContext,
                 combinedCloseContext,
               )
@@ -145,7 +148,7 @@ class DbSequencedEventStore(
 
   override def find(criterion: SequencedEventStore.SearchCriterion)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SequencedEventNotFoundError, PossiblyIgnoredSerializedEvent] = {
+  ): EitherT[FutureUnlessShutdown, SequencedEventNotFoundError, PossiblyIgnoredSerializedEvent] = {
     val query = criterion match {
       case ByTimestamp(timestamp) =>
         // The implementation assumes that we timestamps on sequenced events increases monotonically with the sequencer counter
@@ -159,7 +162,10 @@ class DbSequencedEventStore(
     }
 
     storage
-      .querySingle(query.as[PossiblyIgnoredSerializedEvent].headOption, functionFullName)
+      .querySingleUnlessShutdown(
+        query.as[PossiblyIgnoredSerializedEvent].headOption,
+        functionFullName,
+      )
       .toRight(SequencedEventNotFoundError(criterion))
   }
 
@@ -193,8 +199,10 @@ class DbSequencedEventStore(
 
   override def sequencedEvents(
       limit: Option[Int] = None
-  )(implicit traceContext: TraceContext): Future[Seq[PossiblyIgnoredSerializedEvent]] =
-    storage.query(
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Seq[PossiblyIgnoredSerializedEvent]] =
+    storage.queryUnlessShutdown(
       sql"""select type, sequencer_counter, ts, sequenced_event, trace_context, ignore from common_sequenced_events
               where domain_idx = $partitionKey
               order by ts #${limit.fold("")(storage.limit(_))}"""
@@ -220,7 +228,7 @@ class DbSequencedEventStore(
 
   override def ignoreEvents(fromInclusive: SequencerCounter, toInclusive: SequencerCounter)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ChangeWouldResultInGap, Unit] =
+  ): EitherT[FutureUnlessShutdown, ChangeWouldResultInGap, Unit] =
     withLock(functionFullName) {
       for {
         _ <- appendEmptyIgnoredEvents(fromInclusive, toInclusive)
@@ -233,10 +241,10 @@ class DbSequencedEventStore(
       untilInclusive: SequencerCounter,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ChangeWouldResultInGap, Unit] =
+  ): EitherT[FutureUnlessShutdown, ChangeWouldResultInGap, Unit] =
     for {
       lastSequencerCounterAndTimestampO <- EitherT.right(
-        storage.query(
+        storage.queryUnlessShutdown(
           sql"""select sequencer_counter, ts from common_sequenced_events where domain_idx = $partitionKey
                order by sequencer_counter desc #${storage.limit(1)}"""
             .as[(SequencerCounter, CantonTimestamp)]
@@ -252,7 +260,7 @@ class DbSequencedEventStore(
           (fromInclusive, CantonTimestamp.MinValue.immediateSuccessor)
       }
 
-      _ <- EitherTUtil.condUnitET[Future](
+      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
         fromInclusive <= firstSc || fromInclusive > untilInclusive,
         ChangeWouldResultInGap(firstSc, fromInclusive - 1),
       )
@@ -262,7 +270,9 @@ class DbSequencedEventStore(
         IgnoredSequencedEvent(ts, sc, None)(traceContext)
       }
 
-      _ <- EitherT.right(storage.queryAndUpdate(bulkInsertQuery(events), functionFullName))
+      _ <- EitherT.right(
+        storage.queryAndUpdateUnlessShutdown(bulkInsertQuery(events), functionFullName)
+      )
     } yield ()
 
   private def setIgnoreStatus(
@@ -271,15 +281,15 @@ class DbSequencedEventStore(
       ignore: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): Future[Unit] =
-    storage.update_(
+  ): FutureUnlessShutdown[Unit] =
+    storage.updateUnlessShutdown_(
       sqlu"update common_sequenced_events set ignore = $ignore where domain_idx = $partitionKey and $fromInclusive <= sequencer_counter and sequencer_counter <= $toInclusive",
       functionFullName,
     )
 
   override def unignoreEvents(fromInclusive: SequencerCounter, toInclusive: SequencerCounter)(
       implicit traceContext: TraceContext
-  ): EitherT[Future, ChangeWouldResultInGap, Unit] =
+  ): EitherT[FutureUnlessShutdown, ChangeWouldResultInGap, Unit] =
     withLock(functionFullName) {
       for {
         _ <- deleteEmptyIgnoredEvents(fromInclusive, toInclusive)
@@ -289,10 +299,10 @@ class DbSequencedEventStore(
 
   private def deleteEmptyIgnoredEvents(from: SequencerCounter, to: SequencerCounter)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ChangeWouldResultInGap, Unit] =
+  ): EitherT[FutureUnlessShutdown, ChangeWouldResultInGap, Unit] =
     for {
       lastNonEmptyEventSequencerCounter <- EitherT.right(
-        storage.query(
+        storage.queryUnlessShutdown(
           sql"""select sequencer_counter from common_sequenced_events
               where domain_idx = $partitionKey and type != ${SequencedEventDbType.IgnoredEvent}
               order by sequencer_counter desc #${storage.limit(1)}"""
@@ -305,7 +315,7 @@ class DbSequencedEventStore(
       fromEffective = lastNonEmptyEventSequencerCounter.fold(from)(c => (c + 1) max from)
 
       lastSequencerCounter <- EitherT.right(
-        storage.query(
+        storage.queryUnlessShutdown(
           sql"""select sequencer_counter from common_sequenced_events
               where domain_idx = $partitionKey
               order by sequencer_counter desc #${storage.limit(1)}"""
@@ -315,13 +325,13 @@ class DbSequencedEventStore(
         )
       )
 
-      _ <- EitherTUtil.condUnitET[Future](
+      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
         lastSequencerCounter.forall(_ <= to) || fromEffective > to,
         ChangeWouldResultInGap(fromEffective, to),
       )
 
       _ <- EitherT.right(
-        storage.update(
+        storage.updateUnlessShutdown(
           sqlu"""delete from common_sequenced_events
                where domain_idx = $partitionKey and type = ${SequencedEventDbType.IgnoredEvent}
                  and $fromEffective <= sequencer_counter and sequencer_counter <= $to""",
@@ -332,8 +342,8 @@ class DbSequencedEventStore(
 
   private[canton] override def delete(
       fromInclusive: SequencerCounter
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    storage.update_(
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    storage.updateUnlessShutdown_(
       sqlu"delete from common_sequenced_events where domain_idx = $partitionKey and sequencer_counter >= $fromInclusive",
       functionFullName,
     )

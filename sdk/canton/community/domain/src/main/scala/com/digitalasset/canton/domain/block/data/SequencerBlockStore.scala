@@ -18,6 +18,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   InFlightAggregationUpdates,
   SequencerInitialState,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.tracing.TraceContext
@@ -46,7 +47,7 @@ trait SequencerBlockStore extends AutoCloseable {
     *
     * The state excludes updates of unfinalized blocks added with [[partialBlockUpdate]].
     */
-  def readHead(implicit traceContext: TraceContext): Future[BlockEphemeralState]
+  def readHead(implicit traceContext: TraceContext): FutureUnlessShutdown[BlockEphemeralState]
 
   /** The state at the end of the block that contains the given timestamp. This will typically be used to inform
     * other sequencer nodes being initialized of the initial state they should use based on the timestamp they provide

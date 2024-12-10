@@ -42,7 +42,6 @@ import com.digitalasset.canton.time.{Clock, DomainTimeTracker, NonNegativeFinite
 import com.digitalasset.canton.topology.{DomainId, Member, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.FutureUtil.doNotAwait
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, LoggerUtil, MonadUtil}
@@ -52,8 +51,8 @@ import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
 import org.slf4j.event.Level
 
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
-import scala.concurrent.{ExecutionContext, Future}
 
 object DatabaseSequencer {
 
@@ -185,7 +184,10 @@ class DatabaseSequencer(
   // Only start pruning scheduler after `store` variable above has been initialized to avoid racy NPE
   withNewTraceContext { implicit traceContext =>
     timeouts.unbounded.await(s"Waiting for sequencer writer to fully start")(
-      writer.startOrLogError(initialState, resetWatermarkTo).flatMap(_ => backfillCheckpoints())
+      writer
+        .startOrLogError(initialState, resetWatermarkTo)
+        .flatMap(_ => backfillCheckpoints())
+        .onShutdown(logger.info("Sequencer writer not started due to shutdown"))
     )
 
     pruningScheduler.foreach(ps =>
@@ -199,7 +201,9 @@ class DatabaseSequencer(
     )
   }
 
-  private def backfillCheckpoints()(implicit traceContext: TraceContext): Future[Unit] =
+  private def backfillCheckpoints()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] =
     for {
       latestCheckpoint <- sequencerStore.fetchLatestCheckpoint()
       watermark <- sequencerStore.safeWatermark
@@ -227,7 +231,7 @@ class DatabaseSequencer(
                 )
               }
           } else {
-            Future.successful(())
+            FutureUnlessShutdown.pure(())
           }
         }
     } yield ()
@@ -241,7 +245,7 @@ class DatabaseSequencer(
       val _ = clock.scheduleAfter(_ => markOffline(), checkInterval.unwrap)
     }
 
-    def markOfflineF()(implicit traceContext: TraceContext): Future[Unit] = {
+    def markOfflineF()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
       val cutoffTime = clock.now.minus(offlineCutoffDuration.unwrap)
       logger.trace(s"Marking sequencers with watermarks earlier than [$cutoffTime] as offline")
 
@@ -250,7 +254,7 @@ class DatabaseSequencer(
 
     def markOffline(): Unit = withNewTraceContext { implicit traceContext =>
       doNotAwait(
-        performUnlessClosingF(functionFullName)(markOfflineF().thereafter { _ =>
+        performUnlessClosingUSF(functionFullName)(markOfflineF().thereafter { _ =>
           // schedule next marking sequencers as offline regardless of outcome
           schedule()
         }).onShutdown {
@@ -283,10 +287,14 @@ class DatabaseSequencer(
       blockSequencerMode = blockSequencerMode,
     )
 
-  override def isRegistered(member: Member)(implicit traceContext: TraceContext): Future[Boolean] =
+  override def isRegistered(member: Member)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Boolean] =
     sequencerStore.lookupMember(member).map(_.isDefined)
 
-  override def isEnabled(member: Member)(implicit traceContext: TraceContext): Future[Boolean] =
+  override def isEnabled(
+      member: Member
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean] =
     sequencerStore.lookupMember(member).map {
       case Some(registeredMember) => registeredMember.enabled
       case None =>
@@ -301,7 +309,7 @@ class DatabaseSequencer(
       timestamp: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, RegisterError, Unit] =
+  ): EitherT[FutureUnlessShutdown, RegisterError, Unit] =
     EitherT
       .right[RegisterError](sequencerStore.registerMember(member, timestamp))
       .map(_ => ())
@@ -329,7 +337,7 @@ class DatabaseSequencer(
           "Group addresses are not yet supported by this database sequencer"
         ),
       )
-      _ <- writer.send(submission).mapK(FutureUnlessShutdown.outcomeK)
+      _ <- writer.send(submission)
     } yield ()
 
   protected def blockSequencerWriteInternal(
@@ -355,7 +363,7 @@ class DatabaseSequencer(
   final protected def writeAcknowledgementInternal(
       member: Member,
       timestamp: CantonTimestamp,
-  )(implicit traceContext: TraceContext): Future[Unit] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     withExpectedRegisteredMember(member, "Acknowledge") {
       sequencerStore.acknowledge(_, timestamp)
     }
@@ -368,12 +376,13 @@ class DatabaseSequencer(
     // rather than introduce an error to deal with this case in the database sequencer we'll just
     // fail the operation.
     val req = signedAcknowledgeRequest.content
-    FutureUnlessShutdown.outcomeF(writeAcknowledgementInternal(req.member, req.timestamp))
+    writeAcknowledgementInternal(req.member, req.timestamp)
   }
 
   protected def disableMemberInternal(
       member: Member
-  )(implicit traceContext: TraceContext): Future[Unit] = sequencerStore.disableMember(member)
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    sequencerStore.disableMember(member)
 
   // For the database sequencer, the SequencerId serves as the local sequencer identity/member
   // until the database and block sequencers are unified.
@@ -383,8 +392,8 @@ class DatabaseSequencer(
     * find the member is unregistered.
     */
   final protected def withExpectedRegisteredMember[A](member: Member, operationName: String)(
-      fn: SequencerMemberId => Future[A]
-  )(implicit traceContext: TraceContext): Future[A] =
+      fn: SequencerMemberId => FutureUnlessShutdown[A]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[A] =
     for {
       memberIdO <- sequencerStore.lookupMember(member).map(_.map(_.memberId))
       memberId = memberIdO.getOrElse {
@@ -394,17 +403,19 @@ class DatabaseSequencer(
       result <- fn(memberId)
     } yield result
 
-  override def pruningStatus(implicit traceContext: TraceContext): Future[SequencerPruningStatus] =
+  override def pruningStatus(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[SequencerPruningStatus] =
     sequencerStore.status(clock.now)
 
   override protected def healthInternal(implicit
       traceContext: TraceContext
-  ): Future[SequencerHealthStatus] =
+  ): FutureUnlessShutdown[SequencerHealthStatus] =
     writer.healthStatus
 
   override def prune(
       requestedTimestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): EitherT[Future, PruningError, String] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, PruningError, String] =
     for {
       status <- EitherT.right[PruningError](this.pruningStatus)
       // Update the max-event-age metric after pruning. Use the actually pruned timestamp as
@@ -420,7 +431,7 @@ class DatabaseSequencer(
 
   override def locatePruningTimestamp(index: PositiveInt)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, PruningSupportError, Option[CantonTimestamp]] =
+  ): EitherT[FutureUnlessShutdown, PruningSupportError, Option[CantonTimestamp]] =
     EitherT.right[PruningSupportError](
       sequencerStore
         .locatePruningTimestamp(NonNegativeInt.tryCreate(index.value - 1))
@@ -435,7 +446,7 @@ class DatabaseSequencer(
 
   override def snapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SequencerError, SequencerSnapshot] =
+  ): EitherT[FutureUnlessShutdown, SequencerError, SequencerSnapshot] =
     for {
       safeWatermarkO <- EitherT.right(sequencerStore.safeWatermark)
       // we check if watermark is after the requested timestamp to avoid snapshotting the sequencer
@@ -443,12 +454,14 @@ class DatabaseSequencer(
       _ <- {
         safeWatermarkO match {
           case Some(safeWatermark) =>
-            EitherTUtil.condUnitET[Future](
+            EitherTUtil.condUnitET[FutureUnlessShutdown](
               timestamp <= safeWatermark,
               SnapshotNotFound.Error(timestamp, safeWatermark),
             )
           case None =>
-            EitherT.leftT[Future, Unit](SnapshotNotFound.MissingSafeWatermark(topologyClientMember))
+            EitherT.leftT[FutureUnlessShutdown, Unit](
+              SnapshotNotFound.MissingSafeWatermark(topologyClientMember)
+            )
         }
       }
       snapshot <- EitherT.right[SequencerError](sequencerStore.readStateAtTimestamp(timestamp))
@@ -456,7 +469,7 @@ class DatabaseSequencer(
 
   override private[sequencing] def firstSequencerCounterServeableForSequencer(implicit
       traceContext: TraceContext
-  ): Future[SequencerCounter] =
+  ): FutureUnlessShutdown[SequencerCounter] =
     if (blockSequencerMode) {
       val result = for {
         member <- OptionT(sequencerStore.lookupMember(topologyClientMember))
@@ -465,7 +478,7 @@ class DatabaseSequencer(
       result.getOrElse(SequencerCounter.Genesis)
     } else {
       // Database sequencers are never bootstrapped
-      Future.successful(SequencerCounter.Genesis)
+      FutureUnlessShutdown.pure(SequencerCounter.Genesis)
     }
 
   override def onClosed(): Unit =

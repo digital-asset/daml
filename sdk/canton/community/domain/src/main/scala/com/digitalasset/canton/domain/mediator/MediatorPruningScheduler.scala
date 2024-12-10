@@ -6,7 +6,7 @@ package com.digitalasset.canton.domain.mediator
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.domain.mediator.Mediator.PruningError.NoDataAvailableForPruning
-import com.digitalasset.canton.lifecycle.HasCloseContext
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.*
@@ -47,7 +47,7 @@ class MediatorPruningScheduler(
       schedule: IndividualSchedule
   )(implicit
       traceContext: TraceContext
-  ): Future[JobScheduler.ScheduledRunResult] = withUpdatePruningMetric(
+  ): FutureUnlessShutdown[JobScheduler.ScheduledRunResult] = withUpdatePruningMetric(
     schedule,
     mediator.stateInspection
       .locatePruningTimestamp(NonNegativeInt.zero)
@@ -85,7 +85,7 @@ class MediatorPruningScheduler(
         )
 
     } yield result
-  }.onShutdown(JobScheduler.Error("Aborted due to shutdown."))
+  }
 
   override def initializeSchedule()(implicit
       traceContext: TraceContext

@@ -223,10 +223,9 @@ object GrpcSequencerConnectionService extends HasLoggerName {
                     .fold {
                       // need to close here
                       sequencerTransportsMap.values.foreach(_.close())
-                      Future.unit
+                      FutureUnlessShutdown.unit
                     }(_.changeTransport(sequencerTransports))
                 )
-                .mapK(FutureUnlessShutdown.outcomeK)
             } yield (),
           sequencerClient.logout _,
           loggerFactory,

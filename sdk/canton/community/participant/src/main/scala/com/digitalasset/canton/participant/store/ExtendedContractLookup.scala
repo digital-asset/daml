@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.store
 
 import cats.data.{EitherT, OptionT}
 import com.digitalasset.canton.LfPartyId
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
 import com.digitalasset.canton.protocol.{ContractMetadata, LfContractId, LfGlobalKey}
 import com.digitalasset.canton.tracing.TraceContext
@@ -54,7 +55,7 @@ class ExtendedContractLookup(
   // used anywhere
   override def lookupStakeholders(ids: Set[LfContractId])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, UnknownContracts, Map[LfContractId, Set[LfPartyId]]] = {
+  ): EitherT[FutureUnlessShutdown, UnknownContracts, Map[LfContractId, Set[LfPartyId]]] = {
     val (unknown, known) = ids.partitionMap(id => contracts.get(id).toRight(id))
 
     if (unknown.isEmpty)

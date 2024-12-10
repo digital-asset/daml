@@ -1322,32 +1322,35 @@ class CantonSyncService(
             EitherT.rightT[FutureUnlessShutdown, SyncServiceError](())
           }
         _ = domainHandle.sequencerClient.completion.onComplete {
-          case Success(denied: CloseReason.PermissionDenied) =>
+          case Success(UnlessShutdown.Outcome(denied: CloseReason.PermissionDenied)) =>
             handleCloseDegradation(syncDomain, fatal = false)(
               SyncServiceDomainDisabledUs.Error(domainAlias, denied.cause)
-            )
-          case Success(CloseReason.BecamePassive) =>
+            ).discard
+          case Success(UnlessShutdown.Outcome(CloseReason.BecamePassive)) =>
             handleCloseDegradation(syncDomain, fatal = false)(
               SyncServiceDomainBecamePassive.Error(domainAlias)
-            )
-          case Success(error: CloseReason.UnrecoverableError) =>
+            ).discard
+          case Success(UnlessShutdown.Outcome(error: CloseReason.UnrecoverableError)) =>
             if (isClosing)
-              disconnectDomain(domainAlias)
+              disconnectDomain(domainAlias).discard
             else
               handleCloseDegradation(syncDomain, fatal = true)(
                 SyncServiceDomainDisconnect.UnrecoverableError(domainAlias, error.cause)
-              )
-          case Success(error: CloseReason.UnrecoverableException) =>
+              ).discard
+          case Success(UnlessShutdown.Outcome(error: CloseReason.UnrecoverableException)) =>
             handleCloseDegradation(syncDomain, fatal = true)(
               SyncServiceDomainDisconnect.UnrecoverableException(domainAlias, error.throwable)
-            )
-          case Success(CloseReason.ClientShutdown) =>
+            ).discard
+          case Success(UnlessShutdown.Outcome(CloseReason.ClientShutdown)) =>
             logger.info(s"$domainAlias disconnected because sequencer client was closed")
-            disconnectDomain(domainAlias)
+            disconnectDomain(domainAlias).discard
+          case Success(UnlessShutdown.AbortedDueToShutdown) =>
+            logger.info(s"$domainAlias disconnected because of shutdown")
+            disconnectDomain(domainAlias).discard
           case Failure(exception) =>
             handleCloseDegradation(syncDomain, fatal = true)(
               SyncServiceDomainDisconnect.UnrecoverableException(domainAlias, exception)
-            )
+            ).discard
         }
       } yield {
         // remove this one from the reconnect attempt list, as we are successfully connected now

@@ -59,18 +59,22 @@ class GrpcInspectionService(
       request: LookupOffsetByTime.Request
   ): Future[LookupOffsetByTime.Response] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    request.timestamp.fold[Future[LookupOffsetByTime.Response]](
-      Future.failed(new IllegalArgumentException(s"""Timestamp not specified"""))
-    ) { ts =>
-      CantonTimestamp.fromProtoTimestamp(ts) match {
-        case Right(cantonTimestamp) =>
-          syncStateInspection
-            .getOffsetByTime(cantonTimestamp)
-            .map(ledgerOffset => LookupOffsetByTime.Response(ledgerOffset))
-        case Left(err) =>
-          Future.failed(new IllegalArgumentException(s"""Failed to parse timestamp: $err"""))
+    request.timestamp
+      .fold[FutureUnlessShutdown[LookupOffsetByTime.Response]](
+        FutureUnlessShutdown.failed(new IllegalArgumentException(s"""Timestamp not specified"""))
+      ) { ts =>
+        CantonTimestamp.fromProtoTimestamp(ts) match {
+          case Right(cantonTimestamp) =>
+            syncStateInspection
+              .getOffsetByTime(cantonTimestamp)
+              .map(ledgerOffset => LookupOffsetByTime.Response(ledgerOffset))
+          case Left(err) =>
+            FutureUnlessShutdown.failed(
+              new IllegalArgumentException(s"""Failed to parse timestamp: $err""")
+            )
+        }
       }
-    }
+      .asGrpcResponse
   }
 
   /** Configure metrics for slow counter-participants (i.e., that are behind in sending commitments) and
@@ -631,9 +635,9 @@ class GrpcInspectionService(
   ): Future[CountInFlight.Response] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
-    val inFlightCount: EitherT[Future, String, InFlightCount] = for {
-      domainId <- EitherT.fromEither[Future](DomainId.fromString(request.domainId))
-      domainAlias <- EitherT.fromEither[Future](
+    val inFlightCount: EitherT[FutureUnlessShutdown, String, InFlightCount] = for {
+      domainId <- EitherT.fromEither[FutureUnlessShutdown](DomainId.fromString(request.domainId))
+      domainAlias <- EitherT.fromEither[FutureUnlessShutdown](
         domainAliasManager
           .aliasForDomainId(domainId)
           .toRight(s"Not able to find domain alias for ${domainId.toString}")
@@ -644,14 +648,16 @@ class GrpcInspectionService(
       count
     }
 
-    inFlightCount.fold(
-      err => throw new IllegalArgumentException(err),
-      count =>
-        CountInFlight.Response(
-          count.pendingSubmissions.unwrap,
-          count.pendingTransactions.unwrap,
-        ),
-    )
+    inFlightCount
+      .fold(
+        err => throw new IllegalArgumentException(err),
+        count =>
+          CountInFlight.Response(
+            count.pendingSubmissions.unwrap,
+            count.pendingTransactions.unwrap,
+          ),
+      )
+      .asGrpcResponse
 
   }
 }

@@ -7,7 +7,7 @@ import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.SyncCloseable
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, SyncCloseable}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
@@ -32,6 +32,13 @@ trait HasFlushFuture
       name: String
   )(future: Future[_])(implicit loggingContext: ErrorLoggingContext): Unit =
     addToFlushWithoutLogging(name)(FutureUtil.logOnFailure(future, s"$name failed"))
+
+  protected def addToFlushAndLogErrorUS(
+      name: String
+  )(future: FutureUnlessShutdown[_])(implicit loggingContext: ErrorLoggingContext): Unit =
+    addToFlushWithoutLogging(name)(
+      FutureUnlessShutdownUtil.logOnFailureUnlessShutdown(future, s"$name failed").unwrap
+    )
 
   /** Adds the task `future` to the flush future so that [[doFlush]] completes only after `future` has completed.
     * The caller is responsible for logging any exceptions thrown inside the future.

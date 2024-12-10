@@ -366,13 +366,15 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
         }
       }
 
-    private def handle(event: OrdinarySerializedEvent): Future[Either[NotUsed, Unit]] = {
+    private def handle(
+        event: OrdinarySerializedEvent
+    ): FutureUnlessShutdown[Either[NotUsed, Unit]] = {
       val content = event.signedEvent.content
 
       updateMetrics(content)
       updateLastDeliver(content.counter)
 
-      Future.successful(Either.unit)
+      FutureUnlessShutdown.pure(Either.unit)
     }
 
     val idleF: Future[EventsReceivedReport] = idleP.future
@@ -509,9 +511,14 @@ class ReplayingSendsSequencerClientTransportPekko(
       handler: SerializedEventHandler[NotUsed],
   ): AutoCloseable = {
     val ((killSwitch, _), doneF) = subscribe(request).source
-      .mapAsync(parallelism = 10)(_.value.traverse { event =>
-        handler(event)
-      })
+      .mapAsync(parallelism = 10)(eventKS =>
+        eventKS.value
+          .traverse { event =>
+            handler(event)
+          }
+          .tapOnShutdown(eventKS.killSwitch.shutdown())
+          .onShutdown(Left(SubscriptionCloseReason.Shutdown))
+      )
       .watchTermination()(Keep.both)
       .to(Sink.ignore)
       .run()

@@ -46,13 +46,17 @@ import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.pruning.ConfigForNoWaitCounterParticipants
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, FutureUtil, SimpleExecutionQueue}
+import com.digitalasset.canton.util.{
+  EitherTUtil,
+  ErrorUtil,
+  FutureUnlessShutdownUtil,
+  SimpleExecutionQueue,
+}
 import com.google.common.annotations.VisibleForTesting
 import org.slf4j.event.Level
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.math.Ordering.Implicits.*
 
 /** The pruning processor coordinates the pruning of all participant node stores
@@ -94,9 +98,9 @@ class PruningProcessor(
   /** Logs a warning if there is an unfinished pruning.
     */
   private def reportUnfinishedPruning()(implicit traceContext: TraceContext): Unit =
-    FutureUtil.doNotAwait(
+    FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
       executionQueue
-        .execute(
+        .executeUS(
           for {
             status <- participantNodePersistentState.value.pruningStore.pruningStatus()
           } yield {
@@ -108,8 +112,7 @@ class PruningProcessor(
             else logger.info(show"Pruning status: $status")
           },
           functionFullName,
-        )
-        .onShutdown(logger.debug("Pruning aborted due to shutdown")),
+        ),
       "Unable to retrieve pruning status.",
       level = if (isClosing) Level.INFO else Level.ERROR,
     )
@@ -138,14 +141,15 @@ class PruningProcessor(
       }.value
     }
 
-    def doPrune(): EitherT[FutureUnlessShutdown, LedgerPruningError, Unit] =
+    def doPrune()(implicit
+        executionContext: ExecutionContext
+    ): EitherT[FutureUnlessShutdown, LedgerPruningError, Unit] =
       EitherTUtil.timed(metrics.overall)(
         for {
           pruningStatus <- EitherT
             .right(
               participantNodePersistentState.value.pruningStore.pruningStatus()
             )
-            .mapK(FutureUnlessShutdown.outcomeK)
           _ensuredSafeToPrune <- ensurePruningOffsetIsSafe(pruneUpToInclusive)
           _prunedAllEventBatches <- EitherT(
             Monad[FutureUnlessShutdown].tailRecM(pruningStatus.completedO)(go)
@@ -163,11 +167,8 @@ class PruningProcessor(
   def safeToPrune(beforeOrAt: CantonTimestamp, boundInclusive: Offset)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, LedgerPruningError, Option[Offset]] = EitherT(
-    FutureUnlessShutdown
-      .outcomeF(
-        participantNodePersistentState.value.ledgerApiStore
-          .lastDomainOffsetBeforeOrAtPublicationTime(beforeOrAt)
-      )
+    participantNodePersistentState.value.ledgerApiStore
+      .lastDomainOffsetBeforeOrAtPublicationTime(beforeOrAt)
       .map(_.map(_.offset))
       .flatMap {
         case Some(beforeOrAtOffset) =>
@@ -210,7 +211,7 @@ class PruningProcessor(
     _ = logger.info(s"Purging inactive domain $domainId")
 
     _ <- EitherT.right(
-      performUnlessClosingF("Purge inactive domain")(purgeDomain(persistenceState))
+      performUnlessClosingUSF("Purge inactive domain")(purgeDomain(persistenceState))
     )
   } yield ()
 
@@ -231,7 +232,6 @@ class PruningProcessor(
             participantNodePersistentState.value.ledgerApiStore
               .cleanDomainIndex(domainId)
           )
-          .mapK(FutureUnlessShutdown.outcomeK)
         sortedReconciliationIntervalsProvider <- sortedReconciliationIntervalsProviderFactory
           .get(
             domainId,
@@ -265,7 +265,6 @@ class PruningProcessor(
               safeCommitmentTick.forgetRefinement,
             )
           )
-          .mapK(FutureUnlessShutdown.outcomeK)
       } yield {
         logger.debug(s"First unsafe pruning offset for domain $domainId at $firstUnsafeOffsetO")
         firstUnsafeOffsetO.map(domainOffset =>
@@ -307,7 +306,7 @@ class PruningProcessor(
                     ): LedgerPruningError
                   )
                 )
-            ).mapK(FutureUnlessShutdown.outcomeK)
+            )
             unsafeOffsetEarliestIncompleteReassignmentO = Option(
               UnsafeOffset(
                 unsafeOffsetForReassignments.offset,
@@ -325,7 +324,7 @@ class PruningProcessor(
       }
 
     // Make sure that we do not prune an offset whose publication time has not been elapsed since the max deduplication duration.
-    def firstUnsafeOffsetPublicationTime: Future[Option[UnsafeOffset]] = {
+    def firstUnsafeOffsetPublicationTime: FutureUnlessShutdown[Option[UnsafeOffset]] = {
       val (dedupStartLowerBound, maxDedupDuration) =
         participantNodePersistentState.value.settingsStore.settings.maxDeduplicationDuration match {
           case None =>
@@ -395,7 +394,6 @@ class PruningProcessor(
             .lastDomainOffsetBeforeOrAt(domainId, pruneUptoInclusive)
             .map(_.isDefined)
         })
-        .mapK(FutureUnlessShutdown.outcomeK)
       _ <- EitherT.cond[FutureUnlessShutdown](
         affectedDomainsOffsets.nonEmpty,
         (),
@@ -411,7 +409,6 @@ class PruningProcessor(
       }
       unsafeDedupOffset <- EitherT
         .right(firstUnsafeOffsetPublicationTime)
-        .mapK(FutureUnlessShutdown.outcomeK)
     } yield (unsafeDedupOffset.toList ++ unsafeDomainOffsets ++ unsafeIncompleteReassignmentOffsets)
       .minByOption(_.offset)
   }
@@ -425,13 +422,11 @@ class PruningProcessor(
       val pruningStore = participantNodePersistentState.value.pruningStore
       for {
         _ <- EitherT.right(
-          FutureUnlessShutdown.outcomeF(pruningStore.markPruningStarted(pruneUpToInclusiveBatchEnd))
+          pruningStore.markPruningStarted(pruneUpToInclusiveBatchEnd)
         )
         _ <- EitherT.right(performPruning(lastUpTo, pruneUpToInclusiveBatchEnd))
         _ <- EitherT.right(
-          FutureUnlessShutdown.outcomeF(
-            pruningStore.markPruningDone(pruneUpToInclusiveBatchEnd)
-          )
+          pruningStore.markPruningDone(pruneUpToInclusiveBatchEnd)
         )
       } yield {
         logger.info(s"Pruned up to $pruneUpToInclusiveBatchEnd")
@@ -441,7 +436,7 @@ class PruningProcessor(
   private def lookUpDomainAndParticipantPruningCutoffs(
       pruneFromExclusive: Option[Offset],
       pruneUpToInclusive: Offset,
-  )(implicit traceContext: TraceContext): Future[PruningCutoffs] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[PruningCutoffs] =
     for {
       lastOffsetBeforeOrAtPruneUptoInclusive <- participantNodePersistentState.value.ledgerApiStore
         .lastDomainOffsetBeforeOrAt(pruneUpToInclusive)
@@ -474,7 +469,7 @@ class PruningProcessor(
                       )
                     )
                 )
-                .getOrElse(Future.successful(None))
+                .getOrElse(FutureUnlessShutdown.pure(None))
             )
       }
     } yield PruningCutoffs(
@@ -485,7 +480,7 @@ class PruningProcessor(
   private def lookUpContractsArchivedBeforeOrAt(
       fromExclusive: Option[Offset],
       upToInclusive: Offset,
-  )(implicit traceContext: TraceContext): Future[Set[LfContractId]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[LfContractId]] =
     participantNodePersistentState.value.ledgerApiStore.archivals(
       fromExclusive,
       upToInclusive,
@@ -527,18 +522,15 @@ class PruningProcessor(
       upToInclusive: Offset,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     for {
-      cutoffs <- FutureUnlessShutdown.outcomeF(
-        lookUpDomainAndParticipantPruningCutoffs(fromExclusive, upToInclusive)
-      )
-      archivedContracts <- FutureUnlessShutdown.outcomeF(
-        lookUpContractsArchivedBeforeOrAt(fromExclusive, upToInclusive)
-      )
+      cutoffs <- lookUpDomainAndParticipantPruningCutoffs(fromExclusive, upToInclusive)
+
+      archivedContracts <- lookUpContractsArchivedBeforeOrAt(fromExclusive, upToInclusive)
 
       // We must prune the contract store even if the event log is empty, because there is not necessarily an
       // archival event reassigned-away contracts.
       _ = logger.debug("Pruning contract store...")
-      _ <- FutureUnlessShutdown.outcomeF(
-        participantNodePersistentState.value.contractStore.deleteIgnoringUnknown(archivedContracts)
+      _ <- participantNodePersistentState.value.contractStore.deleteIgnoringUnknown(
+        archivedContracts
       )
 
       _ <- cutoffs.domainOffsets.parTraverse(pruneDomain)
@@ -568,7 +560,7 @@ class PruningProcessor(
       _ <- state.sequencedEventStore.prune(lastTimestamp)
 
       _ = logger.debug("Pruning request journal store...")
-      _ <- FutureUnlessShutdown.outcomeF(state.requestJournalStore.prune(lastTimestamp))
+      _ <- state.requestJournalStore.prune(lastTimestamp)
 
       _ = logger.debug("Pruning acs commitment store...")
       _ <- state.acsCommitmentStore.prune(lastTimestamp)
@@ -578,7 +570,7 @@ class PruningProcessor(
 
   private def purgeDomain(state: SyncDomainPersistentState)(implicit
       traceContext: TraceContext
-  ): Future[Unit] = {
+  ): FutureUnlessShutdown[Unit] = {
     logger.info(s"Purging domain ${state.indexedDomain.domainId}")
 
     logger.debug("Purging active contract store...")
@@ -647,7 +639,7 @@ class PruningProcessor(
     */
   def locatePruningOffsetForOneIteration(implicit
       traceContext: TraceContext
-  ): EitherT[Future, LedgerPruningError, Offset] =
+  ): EitherT[FutureUnlessShutdown, LedgerPruningError, Offset] =
     EitherT
       .right(
         participantNodePersistentState.value.pruningStore.pruningStatus()
@@ -665,7 +657,7 @@ private[pruning] object PruningProcessor extends HasLoggerName {
   /* Extracted to be able to test more easily */
   @VisibleForTesting
   private[pruning] def safeToPrune_(
-      cleanReplayF: Future[CantonTimestamp],
+      cleanReplayF: FutureUnlessShutdown[CantonTimestamp],
       commitmentsPruningBound: CommitmentsPruningBound,
       earliestInFlightSubmissionFUS: FutureUnlessShutdown[Option[CantonTimestamp]],
       sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
@@ -677,7 +669,7 @@ private[pruning] object PruningProcessor extends HasLoggerName {
     for {
       // This logic progressively lowers the timestamp based on the following constraints:
       // 1. Pruning must not delete data needed for recovery (after the clean replay timestamp)
-      cleanReplayTs <- FutureUnlessShutdown.outcomeF(cleanReplayF)
+      cleanReplayTs <- cleanReplayF
 
       // 2. Pruning must not delete events from the event log for which there are still in-flight submissions.
       // We check here the domain related events only.

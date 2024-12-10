@@ -41,6 +41,7 @@ import org.apache.pekko.stream.scaladsl.{
   FlowOpsMat,
   Keep,
   RunnableGraph,
+  Sink,
   Source,
   SourceQueueWithComplete,
 }
@@ -168,6 +169,12 @@ object PekkoUtil extends HasLoggerName {
         NonEmpty.from(elems)
       }
 
+  /** Custom Sink.ignore that materializes into FutureUnlessShutdown */
+  def sinkIgnoreFUS[T](implicit ec: ExecutionContext): Sink[T, FutureUnlessShutdown[Done]] =
+    Sink.ignore.mapMaterializedValue { future =>
+      FutureUnlessShutdown.outcomeF(future)
+    }
+
   /** A version of [[org.apache.pekko.stream.scaladsl.FlowOps.mapAsync]] that additionally allows to pass state of type `S` between
     * every subsequent element. Unlike [[org.apache.pekko.stream.scaladsl.FlowOps.statefulMapConcat]], the state is passed explicitly.
     * Must not be run with supervision strategies [[org.apache.pekko.stream.Supervision.Restart]] nor [[org.apache.pekko.stream.Supervision.Resume]]
@@ -187,6 +194,47 @@ object PekkoUtil extends HasLoggerName {
           ErrorUtil.internalError(new NoSuchElementException("scanAsync did not return an element"))
         )
       )
+  }
+
+  /** See the scaladoc of [[mapAsyncUS]] for details. This is the actual implementation except it abstracts over
+    * the async method used, which allows it to be re-used for both mapAsyncUS and mapAsyncUnorderedUS
+    */
+  private def _mapAsyncUS[A, Mat, B](graph: FlowOps[A, Mat], parallelism: Int)(
+      asyncFn: (A => Future[UnlessShutdown[B]]) => graph.Repr[UnlessShutdown[B]]
+  )(
+      f: A => FutureUnlessShutdown[B]
+  )(implicit loggingContext: NamedLoggingContext): graph.Repr[UnlessShutdown[B]] = {
+    require(parallelism > 0, "Parallelism must be positive")
+    // If parallelism is 1, then the caller expects that the futures run in sequential order,
+    // so if one of them aborts due to shutdown we must not run the subsequent ones.
+    // For parallelism > 1, we do not have to stop immediately, as there is always a possible execution
+    // where the future may have been started before the first one aborted.
+    // So we just need to throw away the results of the futures and convert them into aborts.
+    if (parallelism == 1) {
+      val directExecutionContext = DirectExecutionContext(loggingContext.tracedLogger)
+      statefulMapAsync(graph, initial = false) { (aborted, next) =>
+        if (aborted) Future.successful(true -> AbortedDueToShutdown)
+        else f(next).unwrap.map(us => !us.isOutcome -> us)(directExecutionContext)
+      }
+    } else {
+      val discardedInitial: UnlessShutdown[B] = AbortedDueToShutdown
+      // Mutable reference to short-circuit one we've observed the first aborted due to shutdown.
+      val abortedFlag = new AtomicBoolean(false)
+      asyncFn(elem =>
+        if (abortedFlag.get()) Future.successful(AbortedDueToShutdown)
+        else f(elem).unwrap
+      )
+        .scan((false, discardedInitial)) { case ((aborted, _), next) =>
+          if (aborted) (true, AbortedDueToShutdown)
+          else {
+            val abort = !next.isOutcome
+            if (abort) abortedFlag.set(true)
+            (abort, next)
+          }
+        }
+        .drop(1) // The first element is `(false, discardedInitial)`, which we want to drop
+        .map(_._2)
+    }
   }
 
   /** Version of [[org.apache.pekko.stream.scaladsl.FlowOps.mapAsync]] for a [[com.digitalasset.canton.lifecycle.FutureUnlessShutdown]].
@@ -216,40 +264,28 @@ object PekkoUtil extends HasLoggerName {
     */
   def mapAsyncUS[A, Mat, B](graph: FlowOps[A, Mat], parallelism: Int)(
       f: A => FutureUnlessShutdown[B]
-  )(implicit loggingContext: NamedLoggingContext): graph.Repr[UnlessShutdown[B]] = {
-    require(parallelism > 0, "Parallelism must be positive")
-    // If parallelism is 1, then the caller expects that the futures run in sequential order,
-    // so if one of them aborts due to shutdown we must not run the subsequent ones.
-    // For parallelism > 1, we do not have to stop immediately, as there is always a possible execution
-    // where the future may have been started before the first one aborted.
-    // So we just need to throw away the results of the futures and convert them into aborts.
-    if (parallelism == 1) {
-      val directExecutionContext = DirectExecutionContext(loggingContext.tracedLogger)
-      statefulMapAsync(graph, initial = false) { (aborted, next) =>
-        if (aborted) Future.successful(true -> AbortedDueToShutdown)
-        else f(next).unwrap.map(us => !us.isOutcome -> us)(directExecutionContext)
-      }
-    } else {
-      val discardedInitial: UnlessShutdown[B] = AbortedDueToShutdown
-      // Mutable reference to short-circuit one we've observed the first aborted due to shutdown.
-      val abortedFlag = new AtomicBoolean(false)
-      graph
-        .mapAsync(parallelism)(elem =>
-          if (abortedFlag.get()) Future.successful(AbortedDueToShutdown)
-          else f(elem).unwrap
-        )
-        .scan((false, discardedInitial)) { case ((aborted, _), next) =>
-          if (aborted) (true, AbortedDueToShutdown)
-          else {
-            val abort = !next.isOutcome
-            if (abort) abortedFlag.set(true)
-            (abort, next)
-          }
-        }
-        .drop(1) // The first element is `(false, discardedInitial)`, which we want to drop
-        .map(_._2)
-    }
-  }
+  )(implicit loggingContext: NamedLoggingContext): graph.Repr[UnlessShutdown[B]] =
+    _mapAsyncUS[A, Mat, B](graph, parallelism)(graph.mapAsync(parallelism))(f)
+
+  /** Same as [[mapAsyncUS]] except it uses mapAsyncUnordered as the underlying async method. Therefore the
+    * elements emitted may come out of order. See [[org.apache.pekko.stream.scaladsl.Flow.mapAsyncUnordered]] for more details.
+    */
+  def mapAsyncUnorderedUS[A, Mat, B](graph: FlowOps[A, Mat], parallelism: Int)(
+      f: A => FutureUnlessShutdown[B]
+  )(implicit loggingContext: NamedLoggingContext): graph.Repr[UnlessShutdown[B]] =
+    _mapAsyncUS[A, Mat, B](graph, parallelism)(graph.mapAsyncUnordered(parallelism))(f)
+
+  /** Same as [[mapAsyncAndDrainUS]] except it uses mapAsyncUnordered as the underlying async method. Therefore the
+    * elements emitted may come out of order. See [[org.apache.pekko.stream.scaladsl.Flow.mapAsyncUnordered]] for more details.
+    */
+  def mapAsyncUnorderedAndDrainUS[A, Mat, B](graph: FlowOps[A, Mat], parallelism: Int)(
+      f: A => FutureUnlessShutdown[B]
+  )(implicit loggingContext: NamedLoggingContext): graph.Repr[B] =
+    mapAsyncUnorderedUS(graph, parallelism)(f)
+      // Important to use `collect` instead of `takeWhile` here
+      // so that the return source completes only after all `source`'s elements have been consumed.
+      // TODO(#13789) Should we cancel/pull a kill switch to signal upstream that no more elements are needed?
+      .collect { case Outcome(x) => x }
 
   /** Version of [[mapAsyncUS]] that discards the [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]]s.
     *
@@ -813,6 +849,16 @@ object PekkoUtil extends HasLoggerName {
           loggingContext: NamedLoggingContext
       ): U#Repr[UnlessShutdown[B]] =
         PekkoUtil.mapAsyncUS(graph, parallelism)(f)
+
+      def mapAsyncUnorderedUS[B](parallelism: Int)(f: A => FutureUnlessShutdown[B])(implicit
+          loggingContext: NamedLoggingContext
+      ): U#Repr[UnlessShutdown[B]] =
+        PekkoUtil.mapAsyncUnorderedUS(graph, parallelism)(f)
+
+      def mapAsyncUnorderedAndDrainUS[B](parallelism: Int)(
+          f: A => FutureUnlessShutdown[B]
+      )(implicit loggingContext: NamedLoggingContext): U#Repr[B] =
+        PekkoUtil.mapAsyncUnorderedAndDrainUS(graph, parallelism)(f)
 
       def mapAsyncAndDrainUS[B](parallelism: Int)(
           f: A => FutureUnlessShutdown[B]
