@@ -89,6 +89,41 @@ trait LongTests { this: UpgradesSpec =>
       )
     }
   }
+
+  s"uploading daml-script in upgrade context gives a warning" in {
+    for {
+      res1 <- uploadPackage("test-common/upgrades-daml-script-dep-lf15-on-lf15.dar")
+      res2 <- uploadPackage("test-common/upgrades-daml-script-dep-lf17-on-lf15.dar")
+      res3 <- uploadPackage("test-common/upgrades-daml-script-lts-dep-lf15-on-lf15.dar")
+      res4 <- uploadPackage("test-common/upgrades-daml-script-lts-dep-lf17-on-lf15.dar")
+      res5 <- uploadPackage("test-common/upgrades-daml-script-lts-dep-lf17-on-lf17.dar")
+    } yield {
+      val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log").mkString
+      def expectedMessageRegex(
+          res: (PackageId, Option[Throwable]),
+          shouldContain: Boolean,
+      ): Assertion = {
+        val actual = filterLog(cantonLog, res._1)
+        val expected = s"Upload of .*package ${res._1} contains .*daml-script.* as a dependency."
+        if (shouldContain)
+          actual should include regex (expected)
+        else
+          actual should not include regex(expected)
+        res._2 shouldBe empty
+      }
+
+      // Should not warn, neither main or daml-script is LF1.17
+      expectedMessageRegex(res1, false)
+      // Main package is LF1.17, we should warn
+      expectedMessageRegex(res2, true)
+      // Should not warn, neither main or daml-script-lts is LF1.17
+      expectedMessageRegex(res3, false)
+      // Main package is LF1.17, we should warn
+      expectedMessageRegex(res4, true)
+      // Main package and daml-script-lts is LF1.17, we should warn
+      expectedMessageRegex(res5, true)
+    }
+  }
 }
 
 abstract class UpgradesSpec(val suffix: String)
