@@ -36,12 +36,14 @@ abstract class DamlScriptLtsTestRunner extends GenericDamlScriptTestRunner {
     "pick up all scripts and returns somewhat sensible outputs for daml-script-lts features" in
       assertDamlScriptRunnerResult(
         trySubmitTestDarPath,
+        // scripts are executed in alphabetical order
         f"""DamlScriptLtsTrySubmit:authorizationError SUCCESS
            |DamlScriptLtsTrySubmit:contractKeyNotFound SUCCESS
            |DamlScriptLtsTrySubmit:contractNotActive ${expectedContractNotActiveResponse}
            |DamlScriptLtsTrySubmit:createEmptyContractKeyMaintainers SUCCESS
            |DamlScriptLtsTrySubmit:duplicateContractKey SUCCESS
            |DamlScriptLtsTrySubmit:fetchEmptyContractKeyMaintainers SUCCESS
+           |DamlScriptLtsTrySubmit:prefetchContractKeys SUCCESS
            |DamlScriptLtsTrySubmit:truncatedError FAILURE (com.daml.lf.engine.free.InterpretationError: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "EXPECTED_TRUNCATED_ERROR" })
            |DamlScriptLtsTrySubmit:unhandledException SUCCESS
            |DamlScriptLtsTrySubmit:wronglyTypedContract SUCCESS

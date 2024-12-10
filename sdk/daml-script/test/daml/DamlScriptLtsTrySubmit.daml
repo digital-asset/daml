@@ -54,6 +54,21 @@ template T4 with
   key (t4_p, keyParties) : (Party, [Party])
   maintainer key._1
 
+template T5 with
+    t5_s : Text
+    keyParty : Party
+  where
+  signatory keyParty
+
+  key (t5_s, keyParty) : (Text, Party)
+  maintainer key._2
+
+  nonconsuming choice DoLookup : [Optional (ContractId T5)]
+    with keys: [Text]
+    controller keyParty
+    do
+      forA keys (\key -> lookupByKey @T5 (key, keyParty))
+
 -- ContractNotFound: Cannot test contract not found with IDELedger, no way to get an invalid contract ID
 
 contractKeyNotFound : Script ()
@@ -201,3 +216,14 @@ truncatedError = script do
     Left (ContractKeyNotFound (fromAnyContractKey @T4 -> Some shouldBeT4Key)) | shouldBeT4Key == t4Key -> pure ()
     Left e -> error $ "contractKeyNotFound incorrect error: " <> show e
     Right _ -> error "contractKeyNotFound incorrectly succeeded"
+
+-- Doesn't use prefetching because prefetching isn't supported in 1.15
+prefetchContractKeys : Script ()
+prefetchContractKeys = script do
+  alice <- allocateParty "alice"
+  let key2 = "key2"
+  t5cid <- alice `submit` createCmd T5 with t5_s = key2; keyParty = alice
+  let keys = ["key1", key2, "key3"]
+  let t5Keys = map (\s -> toAnyContractKey @T5 (s, alice)) keys
+  res <- actAs alice `submitWithOptions` exerciseCmd t5cid DoLookup with keys = keys
+  res === [None, Some t5cid, None]
