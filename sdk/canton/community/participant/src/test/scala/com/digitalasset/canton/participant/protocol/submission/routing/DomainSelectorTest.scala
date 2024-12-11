@@ -13,7 +13,7 @@ import com.digitalasset.canton.participant.protocol.submission.DomainSelectionFi
   ExerciseByInterface,
   ThreeExercises,
 }
-import com.digitalasset.canton.participant.protocol.submission.UsableDomain.{
+import com.digitalasset.canton.participant.protocol.submission.UsableDomains.{
   UnknownPackage,
   UnsupportedMinimumProtocolVersion,
 }

@@ -23,15 +23,10 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
   LeaderSelectionPolicy,
   SimpleLeaderSelectionPolicy,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferMessageResult.{
   BlockTransferCompleted,
   NothingToStateTransfer,
-}
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.{
-  CatchupBehavior,
-  CatchupDetector,
-  StateTransferManager,
-  StateTransferMessageResult,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.validation.IssConsensusValidator
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.{
@@ -44,6 +39,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   EpochNumber,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.{
   OrderedBlock,
   OrderedBlockForOutput,
@@ -83,26 +79,27 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.{Failure, Success}
 
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
-final case class IssConsensusModule[E <: Env[E]]( // It's a case class to better test `context.become` calls
-    epochLength: EpochLength, // Currently fixed for all epochs
-    initialState: InitialState[E],
+final class IssConsensusModule[E <: Env[E]](
+    private val epochLength: EpochLength, // Currently fixed for all epochs
+    private val initialState: InitialState[E],
     epochStore: EpochStore[E],
     clock: Clock,
     metrics: BftOrderingMetrics,
     segmentModuleRefFactory: SegmentModuleRefFactory[E],
-    thisPeer: SequencerId,
+    private val thisPeer: SequencerId,
     override val dependencies: ConsensusModuleDependencies[E],
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
-    futurePbftMessageQueue: mutable.Queue[SignedMessage[PbftNetworkMessage]] = new mutable.Queue(),
-    queuedConsensusMessages: Seq[Consensus.Message[E]] = Seq.empty,
+    private val futurePbftMessageQueue: mutable.Queue[SignedMessage[PbftNetworkMessage]] =
+      new mutable.Queue(),
+    private val queuedConsensusMessages: Seq[Consensus.Message[E]] = Seq.empty,
 )(
     // Only tests pass the state manager as parameter, and it's convenient to have it as an option
     //  to avoid two different constructor calls depending on whether the test want to customize it or not.
     customOnboardingAndServerStateTransferManager: Option[StateTransferManager[E]] = None,
     private var activeMembership: Membership = initialState.membership,
 )(
-    private var catchupDetector: CatchupDetector = new CatchupDetector(activeMembership)
+    private var catchupDetector: CatchupDetector = new DefaultCatchupDetector(activeMembership)
 )(implicit mc: MetricsContext)
     extends Consensus[E]
     with HasDelayedInit[Consensus.ProtocolMessage] {
@@ -695,4 +692,26 @@ object IssConsensusModule {
       case v1.StateTransferMessage.Message.Empty =>
         Left(ProtoDeserializationError.OtherError("Empty Received"))
     }
+
+  @VisibleForTesting
+  private[bftordering] def unapply(issConsensusModule: IssConsensusModule[?]): Option[
+    (
+        EpochLength,
+        Option[SequencerSnapshotAdditionalInfo],
+        Membership,
+        EpochInfo,
+        mutable.Queue[SignedMessage[PbftNetworkMessage]],
+        Seq[Consensus.Message[?]],
+    )
+  ] =
+    Some(
+      (
+        issConsensusModule.epochLength,
+        issConsensusModule.initialState.sequencerSnapshotAdditionalInfo,
+        issConsensusModule.initialState.membership,
+        issConsensusModule.initialState.epochState.epoch.info,
+        issConsensusModule.futurePbftMessageQueue,
+        issConsensusModule.queuedConsensusMessages,
+      )
+    )
 }

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.protocol.submission
 
 import cats.data.EitherT
+import cats.syntax.alternative.*
 import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
@@ -25,13 +26,43 @@ import com.digitalasset.daml.lf.transaction.TransactionVersion
 
 import scala.concurrent.ExecutionContext
 
-object UsableDomain {
+object UsableDomains {
+
+  /** Split the domains in two categories:
+    * - Domains that cannot be used
+    * - Domain that can be used
+    */
+  def check(
+      domains: List[(DomainId, ProtocolVersion, TopologySnapshot)],
+      requiredPackagesPerParty: Map[LfPartyId, Set[LfPackageId]],
+      transactionVersion: LfLanguageVersion,
+      ledgerTime: CantonTimestamp,
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): FutureUnlessShutdown[(List[DomainNotUsedReason], List[DomainId])] = domains
+    .parTraverse { case (domainId, protocolVersion, snapshot) =>
+      UsableDomains
+        .check(
+          domainId,
+          protocolVersion,
+          snapshot,
+          requiredPackagesPerParty,
+          transactionVersion,
+          ledgerTime,
+          // TODO(i20688): use ISV to select domain
+          Option.empty[HashingSchemeVersion],
+        )
+        .map(_ => domainId)
+        .value
+    }
+    .map(_.separate)
 
   def check(
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
       snapshot: TopologySnapshot,
-      requiredPackagesByParty: Map[LfPartyId, Set[LfPackageId]],
+      requiredPackagesPerParty: Map[LfPartyId, Set[LfPackageId]],
       transactionVersion: LfLanguageVersion,
       ledgerTime: CantonTimestamp,
       interactiveSubmissionVersionO: Option[HashingSchemeVersion],
@@ -44,11 +75,11 @@ object UsableDomain {
       checkPackagesVetted(
         domainId,
         snapshot,
-        requiredPackagesByParty,
+        requiredPackagesPerParty,
         ledgerTime,
       )
     val partiesConnected: EitherT[FutureUnlessShutdown, MissingActiveParticipant, Unit] =
-      checkConnectedParties(domainId, snapshot, requiredPackagesByParty.keySet)
+      checkConnectedParties(domainId, snapshot, requiredPackagesPerParty.keySet)
     val compatibleProtocolVersion
         : EitherT[FutureUnlessShutdown, UnsupportedMinimumProtocolVersion, Unit] =
       checkProtocolVersion(domainId, protocolVersion, transactionVersion)

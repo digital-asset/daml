@@ -12,7 +12,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentPro
   ReassignmentProcessorError,
   StakeholderHostingErrors,
 }
-import com.digitalasset.canton.participant.protocol.submission.UsableDomain
+import com.digitalasset.canton.participant.protocol.submission.UsableDomains
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, TimeProof}
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -129,7 +129,7 @@ object UnassignmentRequest {
         targetTopology,
       ).compute
 
-      _ <- UsableDomain
+      _ <- UsableDomains
         .checkPackagesVetted(
           targetDomain.unwrap,
           targetTopology.unwrap,

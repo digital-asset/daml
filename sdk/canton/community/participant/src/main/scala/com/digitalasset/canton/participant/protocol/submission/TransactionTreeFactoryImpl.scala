@@ -159,7 +159,7 @@ class TransactionTreeFactoryImpl(
 
       _ <-
         if (validatePackageVettings)
-          UsableDomain
+          UsableDomains
             .checkPackagesVetted(
               domainId = domainId,
               snapshot = topologySnapshot,

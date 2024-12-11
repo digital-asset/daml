@@ -14,7 +14,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentPro
   StakeholderHostingErrors,
 }
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.*
-import com.digitalasset.canton.participant.protocol.submission.UsableDomain
+import com.digitalasset.canton.participant.protocol.submission.UsableDomains
 import com.digitalasset.canton.protocol.{LfTemplateId, Stakeholders}
 import com.digitalasset.canton.sequencing.protocol.Recipients
 import com.digitalasset.canton.topology.ParticipantId
@@ -67,7 +67,7 @@ private[reassignment] sealed abstract case class UnassignmentValidationReassigni
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
-    UsableDomain
+    UsableDomains
       .checkPackagesVetted(
         request.targetDomain.unwrap,
         targetTopology.unwrap,

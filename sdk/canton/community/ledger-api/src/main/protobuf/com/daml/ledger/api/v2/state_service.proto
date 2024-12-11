@@ -59,7 +59,7 @@ message GetActiveContractsResponse {
   // the ``workflow_id`` for the command was set.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Optional
-  string workflow_id = 2;
+  string workflow_id = 1;
 
   // For a contract there could be multiple contract_entry-s in the entire snapshot. These together define
   // the state of one contract in the snapshot.
@@ -73,16 +73,16 @@ message GetActiveContractsResponse {
     // Since activeness is defined as a per domain concept, it is possible, that a contract is active on one
     // domain, but already archived on another.
     // There will be one such message for each domain the contract is active on.
-    ActiveContract active_contract = 3;
+    ActiveContract active_contract = 2;
 
     // Included iff the unassigned event was before or at the active_at_offset, but there was no corresponding
     // assigned event before or at the active_at_offset.
-    IncompleteUnassigned incomplete_unassigned = 4;
+    IncompleteUnassigned incomplete_unassigned = 3;
 
     // Important: this message is not indicating that the contract is active on the target domain!
     // Included iff the assigned event was before or at the active_at_offset, but there was no corresponding
     // unassigned event before or at the active_at_offset.
-    IncompleteAssigned incomplete_assigned = 5;
+    IncompleteAssigned incomplete_assigned = 4;
   }
 }
 

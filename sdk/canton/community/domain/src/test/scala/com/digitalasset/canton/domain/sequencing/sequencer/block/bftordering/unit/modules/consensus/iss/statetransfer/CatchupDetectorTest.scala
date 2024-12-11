@@ -4,7 +4,7 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.unit.modules.consensus.iss.statetransfer
 
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.CatchupDetector
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.DefaultCatchupDetector
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.topology.Membership
@@ -18,8 +18,7 @@ import org.scalatest.wordspec.AnyWordSpec
 class CatchupDetectorTest extends AnyWordSpec with BftSequencerBaseTest {
 
   "track the latest epoch for active peers and determine if the node needs to switch to catch-up mode" in {
-    val catchupDetector =
-      new CatchupDetector(membership)
+    val catchupDetector = new DefaultCatchupDetector(membership)
 
     catchupDetector.updateLatestKnownPeerEpoch(otherSequencerId, EpochNumber.First) shouldBe true
     catchupDetector.updateLatestKnownPeerEpoch(otherSequencerId, EpochNumber.First) shouldBe false

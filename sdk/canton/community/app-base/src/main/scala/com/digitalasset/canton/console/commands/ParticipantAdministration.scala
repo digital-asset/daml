@@ -1511,8 +1511,9 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           adminCommand(ParticipantAdminCommands.Package.VetDar(darHash, synchronize))
         })
 
-      @Help.Summary("""Revoke vetting for all packages contained in the DAR archive
-          |identified by the provided DAR hash.""")
+      @Help.Summary(
+        "Revoke vetting for all packages contained in the DAR archive identified by the provided DAR hash."
+      )
       @Help.Description("""This command succeeds if the vetting command used to vet the DAR's packages
           |was symmetric and resulted in a single vetting topology transaction for all the packages in the DAR.
           |This command is potentially dangerous and misuse
