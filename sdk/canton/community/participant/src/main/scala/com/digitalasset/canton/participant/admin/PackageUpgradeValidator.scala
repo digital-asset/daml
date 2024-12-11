@@ -279,8 +279,11 @@ class PackageUpgradeValidator(
         )
     }
 
+  private def supportsUpgradesLf(pkg: Ast.Package): Boolean =
+    pkg.languageVersion >= LanguageVersion.Features.smartContractUpgrade
+
   private def supportsUpgrades(pkg: Ast.Package): Boolean =
-    pkg.languageVersion >= LanguageVersion.Features.smartContractUpgrade && !pkg.isUtilityPackage
+    supportsUpgradesLf(pkg) && !pkg.isUtilityPackage
 
   def warnDamlScriptUpload(
       mainPackage: (Ref.PackageId, Ast.Package),
@@ -289,15 +292,15 @@ class PackageUpgradeValidator(
       loggingContext: LoggingContextWithTrace
   ): Unit = {
     def isDamlScript(pkgMeta: Ast.PackageMetadata): Boolean = pkgMeta.name match {
-      case "daml-script" | "daml3-script" | "daml-script-lts" => true
+      case "daml-script" | "daml3-script" | "daml-script-lts" | "daml-script-lts-stable" => true
       case _ => false
     }
-    val mainPackageSupportsUpgrades = supportsUpgrades(mainPackage._2)
+    val mainPackageSupportsUpgrades = supportsUpgradesLf(mainPackage._2)
 
     allPackages.foreach{case (pkgId, pkg) => pkg.metadata match {
       case None =>
       case Some(pkgMetadata) =>
-        val pkgSupportsUpgrades = supportsUpgrades(pkg)
+        val pkgSupportsUpgrades = supportsUpgradesLf(pkg)
         if ((pkgSupportsUpgrades || mainPackageSupportsUpgrades) && isDamlScript(pkgMetadata)) {
           val mainPackageLabel = s"${if (mainPackageSupportsUpgrades) "LF1.17 " else ""}package ${mainPackage._1}"
           val damlScriptPackageLabel = s"${if (mainPackageSupportsUpgrades) "LF1.17 " else ""}${pkgMetadata.name} ($pkgId)"
