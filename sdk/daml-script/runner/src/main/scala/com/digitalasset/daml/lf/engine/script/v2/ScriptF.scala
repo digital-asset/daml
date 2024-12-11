@@ -213,6 +213,7 @@ class ScriptF(majorLanguageVersion: LanguageMajorVersion) {
           submission.disclosures,
           submission.optPackagePreference,
           submission.cmds,
+          submission.prefetchKeys,
           submission.optLocation,
           env.lookupLanguageVersion,
           keyPackageNameLookup(env),

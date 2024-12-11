@@ -731,6 +731,7 @@ class IdeLedgerClient(
       disclosures: List[Disclosure],
       optPackagePreference: Option[List[PackageId]],
       commands: List[ScriptLedgerClient.CommandWithMeta],
+      prefetchContractKeys: List[AnyContractKey],
       optLocation: Option[Location],
       languageVersionLookup: PackageId => Either[String, LanguageVersion],
       keyPackageNameLookup: PackageId => Either[String, KeyPackageName],
