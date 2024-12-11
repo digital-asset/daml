@@ -130,6 +130,9 @@ SUPPORTED_PROTO_STABLE_LF_VERSIONS = ["1.14", "1.15", "1.17"]
 # Must be kept in sync with supportedOutputVersions in Version.hs.
 COMPILER_LF_VERSIONS = ["1.14", "1.15", "1.17"] + LF_DEV_VERSIONS
 
+# The subset of LF versions that support the legacy version of daml-script (i.e. not daml-script-lts).
+LEGACY_DAML_SCRIPT_LF_VERSIONS = ["1.14", "1.15"]
+
 # All LF major versions
 LF_MAJOR_VERSIONS = ["1"]
 

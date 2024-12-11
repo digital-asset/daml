@@ -127,6 +127,13 @@ message Commands {
   // The package-id selection preference of the client for resolving
   // package names and interface instances in command submission and interpretation
   repeated string package_id_selection_preference = 18;
+
+  // Fetches the contract keys into the caches to speed up the command processing.
+  // Should only contain contract keys that are expected to be resolved during interpretation of the commands.
+  // Keys of disclosed contracts do not need prefetching.
+  //
+  // Optional
+  repeated PrefetchContractKey prefetch_contract_keys = 19;
 }
 
 // A command can either create a new contract or exercise a choice on an existing contract.
@@ -241,4 +248,17 @@ message DisclosedContract {
   // to reconstruct a contract not known to the receiving participant.
   // Required
   bytes created_event_blob = 6;
+}
+
+// Preload contracts
+message PrefetchContractKey {
+  // The template of contract the client wants to prefetch.
+  // Both package-name and package-id reference identifier formats for the template-id are supported.
+  //
+  // Required
+  Identifier template_id = 1;
+
+  // The key of the contract the client wants to prefetch.
+  // Required
+  Value contract_key = 2;
 }

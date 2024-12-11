@@ -380,6 +380,13 @@ da_scala_test_suite(
             "//test-common:upgrades-FailsWhenUpgradingAnUnupgradeableDependencyOfAnUpgradedDependency-dep-v2.dar",
             "//test-common:upgrades-FailsWhenUpgradingAnUnupgradeableDependencyOfAnUpgradedDependency-v1.dar",
             "//test-common:upgrades-FailsWhenUpgradingAnUnupgradeableDependencyOfAnUpgradedDependency-v2.dar",
+
+            # Test for daml-script uploads
+            "//test-common:upgrades-daml-script-dep-lf15-on-lf15.dar",
+            "//test-common:upgrades-daml-script-lts-dep-lf17-on-lf17.dar",
+            "//test-common:upgrades-daml-script-lts-dep-lf15-on-lf15.dar",
+            "//test-common:upgrades-daml-script-dep-lf17-on-lf15.dar",
+            "//test-common:upgrades-daml-script-lts-dep-lf17-on-lf15.dar",
         ],
         flaky = True,
         scala_deps = [

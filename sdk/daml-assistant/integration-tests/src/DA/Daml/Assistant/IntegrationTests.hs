@@ -34,7 +34,7 @@ import DA.Bazel.Runfiles
 import DA.Daml.Assistant.IntegrationTestUtils
 import DA.Daml.Helper.Util (waitForHttpServer, tokenFor, decodeCantonSandboxPort)
 import DA.Test.Daml2jsUtils
-import DA.Test.Process (callCommandSilent, callCommandSilentIn, subprocessEnv)
+import DA.Test.Process (callCommandSilent, callCommandSilentIn, subprocessEnv, callProcessForStderrIn)
 import DA.Test.Util
 import DA.PortFile
 import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
@@ -279,13 +279,20 @@ packagingTests tmpDir =
               callCommandSilentIn projDir "daml build"
               let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
               assertFileExists dar
-        -- TODO: re-enable this test when the script-example template no longer specifies 1.15
-        {- , testCase "Build Daml script example with LF version 1.dev" $ do
+        , testCase "Daml script example does not build with LF version 1.17" $ do
               let projDir = tmpDir </> "script-example1"
               callCommandSilent $ unwords ["daml", "new", projDir, "--template=script-example"]
-              callCommandSilentIn projDir "daml build --target 1.dev"
+              callCommandSilentIn projDir "sed -i 's/target=1.15/target=1.17/' daml.yaml"
+              stderr <- callProcessForStderrIn projDir "daml build"
+              assertInfixOf "LF version 1.17 does not support daml-script." stderr
+        , testCase "Daml script example builds with LF version 1.17 and daml-script-lts" $ do
+              let projDir = tmpDir </> "script-example2"
+              callCommandSilent $ unwords ["daml", "new", projDir, "--template=script-example"]
+              callCommandSilentIn projDir "sed -i 's/target=1.15/target=1.17/' daml.yaml"
+              callCommandSilentIn projDir "sed -i 's/- daml-script/- daml-script-lts/' daml.yaml"
+              callCommandSilentIn projDir "daml build -Wno-upgrade-interfaces"
               let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
-              assertFileExists dar -}
+              assertFileExists dar
         , testCase "Package depending on daml-script and daml-trigger can use data-dependencies" $ do
               callCommandSilent $ unwords ["daml", "new", tmpDir </> "data-dependency"]
               callCommandSilentIn (tmpDir </> "data-dependency") "daml build -o data-dependency.dar"

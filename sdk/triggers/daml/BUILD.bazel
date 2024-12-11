@@ -5,14 +5,14 @@
 # daml_compile instead of a genrule.
 
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
-load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "LEGACY_DAML_SCRIPT_LF_VERSIONS")
 
 # Build one DAR per LF version to bundle with the SDK.
 # Also build one DAR with the default LF version for test-cases.
 [
     genrule(
         name = "daml-trigger{}".format(suffix),
-        srcs = glob(["**/*.daml"]) + ["//daml-script/daml:daml-script{}".format(suffix)],
+        srcs = glob(["**/*.daml"]) + [src for (src, _) in daml_script_dars],
         outs = ["daml-trigger{}.dar".format(suffix)],
         cmd = """
           set -eou pipefail
@@ -22,7 +22,7 @@ load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS")
           cp -L $(location Daml/Trigger/Assert.daml) $$TMP_DIR/daml/Daml/Trigger
           cp -L $(location Daml/Trigger/Internal.daml) $$TMP_DIR/daml/Daml/Trigger
           cp -L $(location Daml/Trigger/LowLevel.daml) $$TMP_DIR/daml/Daml/Trigger
-          cp -L $(location {daml_script}) $$TMP_DIR/daml-script.dar
+          {daml_script_copy_cmds}
           cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: daml-trigger
@@ -31,7 +31,7 @@ version: {ghc}
 dependencies:
   - daml-stdlib
   - daml-prim
-  - daml-script.dar
+{daml_script_deps}
 build-options: {build_options}
 EOF
           $(location //compiler/damlc) build --project-root $$TMP_DIR --ghc-option=-Werror --log-level=WARNING \
@@ -42,7 +42,14 @@ EOF
                 "--target",
                 lf_version,
             ] if lf_version else []),
-            daml_script = "//daml-script/daml:daml-script{}".format(suffix),
+            daml_script_copy_cmds = "; ".join([
+                "cp -L $(location {src}) $$TMP_DIR/{dst}".format(
+                    src = src,
+                    dst = dst,
+                )
+                for (src, dst) in daml_script_dars
+            ]),
+            daml_script_deps = "\n".join(["  - {}".format(dst) for (_, dst) in daml_script_dars]),
             ghc = ghc_version,
             sdk = sdk_version,
         ),
@@ -53,6 +60,25 @@ EOF
     )
     for lf_version in COMPILER_LF_VERSIONS + [""]
     for suffix in [("-" + lf_version) if lf_version else ""]
+    # A list of bazel targets for daml-script dars and the file name they should be copied to in
+    # the temporary directory. This file name is then declared as a dependency in the generated
+    # daml.yaml file. For LF versions that support the legacy daml script (which includes "", the
+    # default LF version), we only need one dar. For daml-script-lts we need two.
+    for daml_script_dars in [
+        [(
+            "//daml-script/daml:daml-script{}".format(suffix),
+            "daml-script.dar",
+        )] if lf_version == "" or lf_version in LEGACY_DAML_SCRIPT_LF_VERSIONS else [
+            (
+                "//daml-script/daml-lts:daml-script-lts{}".format(suffix),
+                "daml-script-lts.dar",
+            ),
+            (
+                "//daml-script/daml-lts:daml-script-lts-stable{}".format(suffix),
+                "daml-script-lts-stable.dar",
+            ),
+        ],
+    ]
 ]
 
 filegroup(

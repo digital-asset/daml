@@ -19,8 +19,8 @@ import com.daml.lf.engine.{
   ResultNeedContract,
   ResultNeedKey,
   ResultNeedPackage,
-  ResultPrefetch,
   ResultNeedUpgradeVerification,
+  ResultPrefetch,
 }
 import com.daml.lf.transaction.*
 import com.daml.lf.value.Value
@@ -57,6 +57,7 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.util.Checked
+import com.digitalasset.canton.util.FutureInstances.*
 import scalaz.syntax.tag.*
 
 import java.util.concurrent.TimeUnit
@@ -236,7 +237,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           disclosures = commands.disclosedContracts.map(_.toLf),
           participantId = participant,
           submissionSeed = submissionSeed,
-          prefetchKeys = Seq.empty,
+          prefetchKeys = commands.prefetchKeys,
           config.toEngineLogger(loggerFactory.append("phase", "submission")),
         )
       }),
@@ -398,7 +399,11 @@ private[apiserver] final class StoreBackedCommandExecutor(
               )
             }
 
-        case ResultPrefetch(_, resume) => resolveStep(resume())
+        case ResultPrefetch(keys, resume) =>
+          // prefetch the contract keys via the mutable state cache / batch aggregator
+          keys.parTraverse_(contractStore.lookupContractKey(Set.empty, _)).flatMap { _ =>
+            resolveStep(resume())
+          }
       }
 
     resolveStep(result).andThen { case _ =>

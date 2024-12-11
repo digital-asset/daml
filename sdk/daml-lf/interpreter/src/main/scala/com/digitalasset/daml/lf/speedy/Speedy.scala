@@ -1491,7 +1491,7 @@ private[lf] object Speedy {
                           case V.ValueOptional(Some(_)) =>
                             throw SErrorDamlException(
                               IError.Upgrade(
-                                IError.Upgrade.DowngradeDropDefinedField(ty, value)
+                                IError.Upgrade.DowngradeDropDefinedField(ty, i.toLong, value)
                               )
                             )
                           case _ =>
@@ -1545,17 +1545,35 @@ private[lf] object Speedy {
 
               case V.ValueVariant(_, constructor, value) =>
                 val info =
-                  assertRight(
-                    compiledPackages.pkgInterface.lookupVariantConstructor(tyCon, constructor)
-                  )
+                  compiledPackages.pkgInterface
+                    .lookupVariantConstructorWithDowngradeChecks(tyCon, constructor)
+                    .fold(
+                      _ =>
+                        throw SErrorDamlException(
+                          IError.Upgrade(
+                            IError.Upgrade.DowngradeFailed(ty, value)
+                          )
+                        ),
+                      assertRight,
+                    )
                 val valType = info.concreteType(argTypes)
                 SValue.SVariant(tyCon, constructor, info.rank, go(valType, value))
+
               case V.ValueEnum(_, constructor) =>
                 val rank =
-                  assertRight(
-                    compiledPackages.pkgInterface.lookupEnumConstructor(tyCon, constructor)
-                  )
+                  compiledPackages.pkgInterface
+                    .lookupEnumConstructorWithDowngradeChecks(tyCon, constructor)
+                    .fold(
+                      _ =>
+                        throw SErrorDamlException(
+                          IError.Upgrade(
+                            IError.Upgrade.DowngradeFailed(ty, value)
+                          )
+                        ),
+                      assertRight,
+                    )
                 SValue.SEnum(tyCon, constructor, rank)
+
               case _ =>
                 typeMismatch
             }

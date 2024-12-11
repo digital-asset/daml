@@ -257,6 +257,7 @@ class CommandSubmissionServiceImplSpec
       disclosedContracts = ImmArray(
         disclosedContract
       ),
+      prefetchKeys = Seq.empty,
     )
 
     val ledgerConfiguration = Configuration.reasonableInitialConfiguration.copy(generation = 7L)

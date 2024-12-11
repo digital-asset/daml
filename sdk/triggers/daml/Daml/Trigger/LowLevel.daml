@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE CPP #-}
 
 module Daml.Trigger.LowLevel
   ( Message(..)
@@ -52,7 +53,11 @@ import DA.Action.State.Class
 import DA.Functor ((<&>))
 import DA.Internal.Interface.AnyView.Types
 import DA.Time (RelTime(..))
+#ifdef DAML_LEGACY_DAML_SCRIPT
 import Daml.Script.Free (Free(..), lift, foldFree)
+#else
+import Daml.Script.Internal.Free (Free(..), lift, foldFree)
+#endif
 
 -- | This type represents the contract id of an unknown template.
 -- You can use `fromAnyContractId` to check which template it corresponds to.
