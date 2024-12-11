@@ -10,7 +10,7 @@ import java.nio.file.Paths
 
 class DamlScriptLtsTestRunnerPreUpgrade extends DamlScriptLtsTestRunner {
   override val trySubmitTestDarPath =
-    Paths.get(BazelRunfiles.rlocation("daml-script/test/try-submit-test-1.15.dar"))
+    Paths.get(BazelRunfiles.rlocation("daml-script/test/submit-test-1.15.dar"))
 }
 
 class DamlScriptLtsTestRunnerPostUpgrade extends DamlScriptLtsTestRunner {
@@ -19,7 +19,7 @@ class DamlScriptLtsTestRunnerPostUpgrade extends DamlScriptLtsTestRunner {
   override lazy val devMode = true
 
   override val trySubmitTestDarPath =
-    Paths.get(BazelRunfiles.rlocation("compiler/damlc/tests/try-submit-test.dar"))
+    Paths.get(BazelRunfiles.rlocation("compiler/damlc/tests/submit-test.dar"))
 }
 
 abstract class DamlScriptLtsTestRunner extends GenericDamlScriptTestRunner {

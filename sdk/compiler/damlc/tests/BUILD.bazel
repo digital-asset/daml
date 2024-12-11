@@ -1482,12 +1482,12 @@ daml_compile(
 )
 
 daml_compile(
-    name = "try-submit-test",
+    name = "submit-test",
     srcs = ["daml-test-files/DamlScriptLtsSubmit.daml"],
     data_dependencies = [
         "//daml-script/daml-lts:daml-script-lts-1.17.dar",
     ],
-    project_name = "try-submit-test",
+    project_name = "submit-test",
     target = "1.17",
     visibility = ["//visibility:public"],
 )

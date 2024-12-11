@@ -215,12 +215,12 @@ da_scala_library(
 )
 
 daml_compile(
-    name = "try-submit-test-1.15",
+    name = "submit-test-1.15",
     srcs = [":daml/DamlScriptLtsSubmit.daml"],
     data_dependencies = [
         "//daml-script/daml-lts:daml-script-lts-1.15.dar",
     ],
-    project_name = "try-submit-test",
+    project_name = "submit-test",
     target = "1.15",
     version = "1.0.0",
 )
@@ -271,8 +271,8 @@ da_scala_test_suite(
     data = [
         ":script-test.dar",
         ":script-test-no-ledger.dar",
-        ":try-submit-test-1.15.dar",
-        "//compiler/damlc/tests:try-submit-test.dar",
+        ":submit-test-1.15.dar",
+        "//compiler/damlc/tests:submit-test.dar",
         "//daml-script/runner:daml-script-binary",
         "//daml-script/test:retrointerface.dar",
         "//daml-script/test:template.dar",
