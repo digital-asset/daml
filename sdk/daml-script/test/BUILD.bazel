@@ -216,7 +216,7 @@ da_scala_library(
 
 daml_compile(
     name = "try-submit-test-1.15",
-    srcs = [":daml/DamlScriptLtsTrySubmit.daml"],
+    srcs = [":daml/DamlScriptLtsSubmit.daml"],
     data_dependencies = [
         "//daml-script/daml-lts:daml-script-lts-1.15.dar",
     ],

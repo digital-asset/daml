@@ -1483,7 +1483,7 @@ daml_compile(
 
 daml_compile(
     name = "try-submit-test",
-    srcs = ["daml-test-files/DamlScriptLtsTrySubmit.daml"],
+    srcs = ["daml-test-files/DamlScriptLtsSubmit.daml"],
     data_dependencies = [
         "//daml-script/daml-lts:daml-script-lts-1.17.dar",
     ],

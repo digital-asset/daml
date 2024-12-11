@@ -37,16 +37,16 @@ abstract class DamlScriptLtsTestRunner extends GenericDamlScriptTestRunner {
       assertDamlScriptRunnerResult(
         trySubmitTestDarPath,
         // scripts are executed in alphabetical order
-        f"""DamlScriptLtsTrySubmit:authorizationError SUCCESS
-           |DamlScriptLtsTrySubmit:contractKeyNotFound SUCCESS
-           |DamlScriptLtsTrySubmit:contractNotActive ${expectedContractNotActiveResponse}
-           |DamlScriptLtsTrySubmit:createEmptyContractKeyMaintainers SUCCESS
-           |DamlScriptLtsTrySubmit:duplicateContractKey SUCCESS
-           |DamlScriptLtsTrySubmit:fetchEmptyContractKeyMaintainers SUCCESS
-           |DamlScriptLtsTrySubmit:prefetchContractKeys SUCCESS
-           |DamlScriptLtsTrySubmit:truncatedError FAILURE (com.daml.lf.engine.free.InterpretationError: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "EXPECTED_TRUNCATED_ERROR" })
-           |DamlScriptLtsTrySubmit:unhandledException SUCCESS
-           |DamlScriptLtsTrySubmit:wronglyTypedContract SUCCESS
+        f"""DamlScriptLtsSubmit:authorizationError SUCCESS
+           |DamlScriptLtsSubmit:contractKeyNotFound SUCCESS
+           |DamlScriptLtsSubmit:contractNotActive ${expectedContractNotActiveResponse}
+           |DamlScriptLtsSubmit:createEmptyContractKeyMaintainers SUCCESS
+           |DamlScriptLtsSubmit:duplicateContractKey SUCCESS
+           |DamlScriptLtsSubmit:fetchEmptyContractKeyMaintainers SUCCESS
+           |DamlScriptLtsSubmit:prefetchContractKeys SUCCESS
+           |DamlScriptLtsSubmit:truncatedError FAILURE (com.daml.lf.engine.free.InterpretationError: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "EXPECTED_TRUNCATED_ERROR" })
+           |DamlScriptLtsSubmit:unhandledException SUCCESS
+           |DamlScriptLtsSubmit:wronglyTypedContract SUCCESS
            |""".stripMargin,
       )
 
