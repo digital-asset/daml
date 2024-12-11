@@ -26,10 +26,7 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
     dar.main.pkgId
   }
 
-  def testPackages(
-      rawPaths: Seq[String],
-      uploadAssertions: Seq[(String, String, Option[String])],
-  ): Assertion = {
+  def logsFromPaths(rawPaths: Seq[String]): String = {
     val paths: Seq[Path] = rawPaths.map((x: String) => BazelRunfiles.rlocation(Paths.get(x)))
 
     val builder = new StringBuilder()
@@ -39,11 +36,27 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
     for { msg <- loggerFactory.msgs } {
       (builder append msg) append '\n'
     }
-    val out = builder.toString
+    builder.toString
+  }
+
+  def testPackages(
+      rawPaths: Seq[String],
+      uploadAssertions: Seq[(String, String, Option[String])],
+  ): Assertion = {
+    val out = logsFromPaths(rawPaths)
 
     forEvery(uploadAssertions) { uploadAssertion =>
       checkTwo(uploadAssertion)(out)
     }
+  }
+
+  def testPackage(
+      rawPath: String,
+      failureMessage: String,
+  ): Assertion = {
+    val upgradeCheckToolLogs = logsFromPaths(Seq(rawPath))
+
+    upgradeCheckToolLogs should include regex (failureMessage)
   }
 
   def checkTwo(assertion: (String, String, Option[String]))(
@@ -1361,6 +1374,27 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
             None,
           )
         ),
+      )
+    }
+
+    "Warns when LF1.17 depends on LF1.15 daml-script" in {
+      testPackage(
+        "test-common/upgrades-daml-script-dep-lf17-on-lf15.dar",
+        "Upload of .*package .* contains .*daml-script.* as a dependency.",
+      )
+    }
+
+    "Warns when LF1.17 depends on LF1.15 daml-script-lts" in {
+      testPackage(
+        "test-common/upgrades-daml-script-lts-dep-lf17-on-lf15.dar",
+        "Upload of .*package .* contains .*daml-script.* as a dependency.",
+      )
+    }
+
+    "Warns when LF1.17 depends on LF1.17 daml-script-lts" in {
+      testPackage(
+        "test-common/upgrades-daml-script-lts-dep-lf17-on-lf17.dar",
+        "Upload of .*package .* contains .*daml-script.* as a dependency.",
       )
     }
   }
