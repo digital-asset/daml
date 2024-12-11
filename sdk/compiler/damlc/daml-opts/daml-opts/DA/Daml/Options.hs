@@ -562,6 +562,8 @@ expandSdkPackages logger lfVersion dars = do
     expand mbSdkPath fp
       | fp `elem` basePackages = pure fp
       | isSdkPackage fp = case mbSdkPath of
+            Just _ | fp == "daml-script" && not (lfVersion `LF.supports` LF.featureLegacyDamlScript) ->
+              fail $ "LF version " <> LF.renderVersion lfVersion <> " does not support daml-script. Use daml-script-lts instead."
             Just sdkPath | fp == "daml-script-beta" -> do
               Logger.logWarning logger "daml-script-beta is no longer beta and has been renamed. Please use daml-script-lts"
               pure $ sdkPath </> "daml-libs" </> "daml-script-lts" <> sdkSuffix <.> "dar"
@@ -578,7 +580,9 @@ expandSdkPackages logger lfVersion dars = do
       | isSdkPackage fp = fp : Map.findWithDefault [] fp sdkDependencies
       | otherwise = [fp]
     sdkDependencies = Map.fromList
-      [ ("daml-trigger", ["daml-script"])
+      [ ("daml-trigger", if lfVersion `LF.supports` LF.featureLegacyDamlScript 
+                           then ["daml-script"] 
+                           else ["daml-script-lts", "daml-script-lts-stable"])
       , -- daml-script-lts is now split into 2 packages, we need to bring that transitive dep in.
         ("daml-script-lts", ["daml-script-lts-stable"])
         -- Legacy names of daml-script-lts
