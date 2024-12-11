@@ -117,8 +117,6 @@ EOF
     )
     for lf_version in [
         "1.15",
-        "1.17",
-        "1.dev",
     ]
 ]
 
@@ -374,8 +372,6 @@ da_scala_test(
     data = [
         "//daml-script/daml:daml-script-1.14.dar",
         "//daml-script/daml:daml-script-1.15.dar",
-        "//daml-script/daml:daml-script-1.17.dar",
-        "//daml-script/daml:daml-script-1.dev.dar",
         "//daml-script/daml-lts:daml-script-lts-1.14.dar",
         "//daml-script/daml-lts:daml-script-lts-1.15.dar",
         "//daml-script/daml-lts:daml-script-lts-1.17.dar",

@@ -592,7 +592,7 @@ daml_test(
         srcs = glob(["source/daml/intro/daml/daml-intro-8/**/*.daml"]),
         additional_compiler_flags = ["-Wupgrade-exceptions"],
         target = version,
-        deps = ["//daml-script/daml:daml-script-{}.dar".format(version)],
+        deps = ["//daml-script/daml-lts:daml-script-lts-{}.dar".format(version)],
     )
     for version in LF_DEV_VERSIONS
 ]
