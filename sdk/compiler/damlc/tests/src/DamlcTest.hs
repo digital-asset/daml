@@ -30,7 +30,7 @@ main = withSdkVersions $ do
     setEnv "TASTY_NUM_THREADS" "1" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
-    script117Dar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script-1.17.dar")
+    script117Dar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml-lts" </> "daml-script-lts-1.17.dar")
 
     defaultMain (tests damlc scriptDar script117Dar)
 

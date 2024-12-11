@@ -38,7 +38,7 @@ main = withSdkVersions $ do
         let targetDevVersion = LF.version1_17
         let exceptionsVersion = minExceptionVersion LF.V1
         let simpleDalfLfVersion = LF.defaultOrLatestStable LF.V1
-        scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script-1.17.dar")
+        scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml-lts" </> "daml-script-lts-1.17.dar")
         oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar")
         let lfVersionTestPairs = lfVersionTestPairsV1
         return TestArgs{..}
