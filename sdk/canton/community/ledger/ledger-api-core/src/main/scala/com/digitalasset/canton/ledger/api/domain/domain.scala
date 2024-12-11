@@ -3,7 +3,11 @@
 
 package com.digitalasset.canton.ledger.api.domain
 
-import com.daml.lf.command.{ApiCommands as LfCommands, DisclosedContract as LfDisclosedContract}
+import com.daml.lf.command.{
+  ApiCommands as LfCommands,
+  ApiContractKey,
+  DisclosedContract as LfDisclosedContract,
+}
 import com.daml.lf.crypto
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.logging.*
@@ -94,6 +98,7 @@ final case class Commands(
     packagePreferenceSet: Set[Ref.PackageId] = Set.empty,
     // Used to indicate the package map against which package resolution was performed.
     packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty,
+    prefetchKeys: Seq[ApiContractKey],
 ) extends PrettyPrinting {
 
   override def pretty: Pretty[Commands] = {
@@ -109,6 +114,7 @@ final case class Commands(
       param("deduplicationPeriod", _.deduplicationPeriod),
       paramIfDefined("workflowId", _.workflowId.filter(_ != commandId).map(_.unwrap)),
       paramIfDefined("domainId", _.domainId),
+      paramIfNonEmpty("prefetchKeys", _.prefetchKeys.map(_.toString.unquoted)),
       indicateOmittedFields,
     )
   }

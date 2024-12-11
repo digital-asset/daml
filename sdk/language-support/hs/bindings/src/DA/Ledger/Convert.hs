@@ -81,7 +81,8 @@ lowerCommands = \case
         commandsMinLedgerTimeAbs = fmap lowerTimestamp minLeTimeAbs,
         commandsMinLedgerTimeRel = minLeTimeRel,
         commandsDisclosedContracts = Vector.empty,
-        commandsPackageIdSelectionPreference = Vector.empty }
+        commandsPackageIdSelectionPreference = Vector.empty,
+        commandsPrefetchContractKeys = Vector.empty }
 
 lowerDeduplicationPeriod :: DeduplicationPeriod -> LL.CommandsDeduplicationPeriod
 lowerDeduplicationPeriod = \case
