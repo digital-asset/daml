@@ -80,6 +80,7 @@ final class CommandsValidator(
       packageResolutions <- validateUpgradingPackageResolutions(
         commands.packageIdSelectionPreference
       )
+      prefetchKeys <- validatePrefetchContractKeys(commands.prefetchContractKeys)
     } yield domain.Commands(
       ledgerId = ledgerId,
       workflowId = workflowId,
@@ -98,6 +99,7 @@ final class CommandsValidator(
       disclosedContracts = validatedDisclosedContracts,
       packageMap = packageResolutions.packageMap,
       packagePreferenceSet = packageResolutions.packagePreferenceSet,
+      prefetchKeys = prefetchKeys,
     )
 
   private def validateLedgerTime(
@@ -281,6 +283,28 @@ final class CommandsValidator(
             )
       }
     }
+
+  private def validatePrefetchContractKeys(
+      keys: Seq[V1.PrefetchContractKey]
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Seq[ApiContractKey]] =
+    keys.traverse(validatePrefetchContractKey)
+
+  private def validatePrefetchContractKey(
+      key: V1.PrefetchContractKey
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, ApiContractKey] = {
+    val V1.PrefetchContractKey(templateIdO, contractKeyO) = key
+    for {
+      templateId <- requirePresence(templateIdO, "template_id")
+      templateRef <- validateTypeConRef(templateId)
+      contractKey <- requirePresence(contractKeyO, "contract_key")
+      validatedKey <- validateValue(contractKey)
+    } yield ApiContractKey(templateRef, validatedKey)
+  }
+
 }
 
 object CommandsValidator {

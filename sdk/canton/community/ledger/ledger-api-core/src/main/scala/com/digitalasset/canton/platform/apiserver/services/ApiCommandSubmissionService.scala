@@ -89,6 +89,7 @@ class ApiCommandSubmissionService(
               submissionId,
               disclosedContracts,
               packageIdSelectionPreference,
+              prefetchKeys,
             ) =>
           tracker.registerCommand(
             commandId,
