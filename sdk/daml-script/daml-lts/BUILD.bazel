@@ -40,16 +40,6 @@ copy_file(
     visibility = ["//visibility:public"],
 )
 
-# For convenience, we define daml-script-lts-stable.dar which is always compiled
-# to the default stable version of LF2.
-copy_file(
-    name = "daml-script-lts-stable",
-    src = ":daml-script-lts-stable-{}.dar".format(lf_version_default_or_latest("1")),
-    out = "daml-script-lts-stable.dar",
-    allow_symlink = True,
-    visibility = ["//visibility:public"],
-)
-
 filegroup(
     name = "daml-script-lts-dars",
     srcs = [
