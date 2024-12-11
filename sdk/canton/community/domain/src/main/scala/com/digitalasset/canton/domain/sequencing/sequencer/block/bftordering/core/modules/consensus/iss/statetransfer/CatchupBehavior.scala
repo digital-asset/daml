@@ -13,6 +13,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochLength
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PbftNetworkMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
@@ -36,9 +37,9 @@ import scala.collection.mutable
   * In particular, the topology at the catch-up starting epoch is assumed to allow the whole catch-up process to
   * complete and, if this is not the case, the catch-up will fail and the node will need to be re-onboarded.
   */
-final case class CatchupBehavior[E <: Env[E]]( // It's a case class to better test `context.become` calls
-    epochLength: EpochLength, // Currently fixed for all epochs
-    initialState: InitialState[E],
+final class CatchupBehavior[E <: Env[E]](
+    private val epochLength: EpochLength, // Currently fixed for all epochs
+    private val initialState: InitialState[E],
     epochStore: EpochStore[E],
     clock: Clock,
     metrics: BftOrderingMetrics,
@@ -213,4 +214,24 @@ object CatchupBehavior {
       pbftMessageQueue: mutable.Queue[SignedMessage[PbftNetworkMessage]],
       catchupDetector: CatchupDetector,
   )
+
+  @VisibleForTesting
+  private[bftordering] def unapply(
+      behavior: CatchupBehavior[?]
+  ): Option[
+    (
+        EpochLength,
+        Membership,
+        EpochInfo,
+        EpochStore.Epoch,
+    )
+  ] =
+    Some(
+      (
+        behavior.epochLength,
+        behavior.initialState.membership,
+        behavior.initialState.epochState.epoch.info,
+        behavior.initialState.latestCompletedEpoch,
+      )
+    )
 }

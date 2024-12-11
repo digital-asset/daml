@@ -14,6 +14,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.{
   CatchupBehavior,
   CatchupDetector,
+  DefaultCatchupDetector,
   StateTransferManager,
   StateTransferMessageResult,
 }
@@ -38,15 +39,14 @@ import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
-import org.mockito.ArgumentMatchers as Arg
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.mutable
 
 class CatchupBehaviorTest extends AsyncWordSpec with BaseTest with HasExecutionContext {
 
-  import IssConsensusModuleTest.*
   import CatchupBehaviorTest.*
+  import IssConsensusModuleTest.*
 
   private val clock = new SimClock(loggerFactory = loggerFactory)
 
@@ -86,7 +86,7 @@ class CatchupBehaviorTest extends AsyncWordSpec with BaseTest with HasExecutionC
         when(stateTransferManagerMock.inStateTransfer) thenReturn false
         val epochStoreMock = mock[EpochStore[ProgrammableUnitTestEnv]]
         when(
-          epochStoreMock.latestEpoch(includeInProgress = Arg.eq(false))(any[TraceContext])
+          epochStoreMock.latestEpoch(includeInProgress = eqTo(false))(any[TraceContext])
         ) thenReturn (() => anEpochStoreEpoch)
         val (context, catchupBehavior) =
           createCatchupBehavior(
@@ -108,9 +108,9 @@ class CatchupBehaviorTest extends AsyncWordSpec with BaseTest with HasExecutionC
         catchupBehavior.receive(Consensus.CatchUpMessage.SegmentCancelledEpoch)
 
         verify(stateTransferManagerMock, times(1)).startStateTransfer(
-          Arg.eq(anEpoch.membership),
-          Arg.eq(anEpochStoreEpoch),
-          Arg.eq(anEpoch.info.number),
+          eqTo(anEpoch.membership),
+          eqTo(anEpochStoreEpoch),
+          eqTo(anEpoch.info.number),
         )(any[String => Nothing])(any[ContextType], any[TraceContext])
 
         succeed
@@ -125,7 +125,7 @@ class CatchupBehaviorTest extends AsyncWordSpec with BaseTest with HasExecutionC
           epochStoreMock.latestEpoch(any[Boolean])(any[TraceContext])
         ) thenReturn (() => anEpochStoreEpoch)
         when(
-          epochStoreMock.loadEpochProgress(Arg.eq(anEpochStoreEpoch.info))(any[TraceContext])
+          epochStoreMock.loadEpochProgress(eqTo(anEpochStoreEpoch.info))(any[TraceContext])
         ) thenReturn (() => EpochInProgress())
         when(
           stateTransferManagerMock.handleStateTransferMessage(
@@ -145,9 +145,9 @@ class CatchupBehaviorTest extends AsyncWordSpec with BaseTest with HasExecutionC
         catchupBehavior.receive(aStateTransferMessage)
 
         verify(stateTransferManagerMock, times(1)).handleStateTransferMessage(
-          Arg.eq(aStateTransferMessage),
-          Arg.eq(Membership(selfId)),
-          Arg.eq(anEpochStoreEpoch),
+          eqTo(aStateTransferMessage),
+          eqTo(Membership(selfId)),
+          eqTo(anEpochStoreEpoch),
         )(any[String => Nothing])(any[ContextType], any[TraceContext])
 
         succeed
@@ -184,26 +184,14 @@ class CatchupBehaviorTest extends AsyncWordSpec with BaseTest with HasExecutionC
         context.extractBecomes() should matchPattern {
           case Seq(
                 IssConsensusModule(
-                  DefaultEpochLength, // epochLength
-                  IssConsensusModule.InitialState(
-                    None,
-                    Membership(`selfId`, _),
-                    _, // cryptoProvider
-                    epochState,
-                    `anEpochStoreEpoch`,
-                  ),
-                  _, // epochStore
-                  _, // clock
-                  _, // metrics
-                  _, // segmentModuleRefFactory
-                  `selfId`,
-                  _, // consensusModuleDependencies,
-                  _, // loggerFactory
-                  _, // timeouts
+                  `DefaultEpochLength`,
+                  None, // snapshotAdditionalInfo
+                  membership @ Membership(`selfId`, _),
+                  `anEpochInfo`,
                   futurePbftMessageQueue,
                   Seq(), // queuedConsensusMessages
                 )
-              ) if epochState.epoch == anEpoch && futurePbftMessageQueue.isEmpty =>
+              ) if futurePbftMessageQueue.isEmpty && membership.otherPeers.isEmpty =>
         }
       }
     }
@@ -270,7 +258,7 @@ class CatchupBehaviorTest extends AsyncWordSpec with BaseTest with HasExecutionC
       initialEpochState,
       latestCompletedEpochFromStore,
       pbftMessageQueue,
-      maybeCatchupDetector.getOrElse(new CatchupDetector(initialMembership)),
+      maybeCatchupDetector.getOrElse(new DefaultCatchupDetector(initialMembership)),
     )
     val metrics = SequencerMetrics.noop(getClass.getSimpleName).bftOrdering
     val moduleRefFactory = createSegmentModuleRefFactory(segmentModuleFactoryFunction)
@@ -292,15 +280,16 @@ class CatchupBehaviorTest extends AsyncWordSpec with BaseTest with HasExecutionC
 
 object CatchupBehaviorTest {
 
+  private val anEpochInfo: EpochInfo = EpochInfo(
+    EpochNumber(1),
+    BlockNumber(1),
+    EpochLength(20),
+    TopologyActivationTime(CantonTimestamp.Epoch),
+  )
   private val anEpoch = EpochState.Epoch(
-    EpochInfo(
-      EpochNumber(1),
-      BlockNumber(1),
-      EpochLength(20),
-      TopologyActivationTime(CantonTimestamp.Epoch),
-    ),
+    anEpochInfo,
     Membership(selfId, otherPeers = Set(fakeSequencerId("other"))),
     SimpleLeaderSelectionPolicy,
   )
-  private val anEpochStoreEpoch = EpochStore.Epoch(anEpoch.info, Seq.empty)
+  private val anEpochStoreEpoch = EpochStore.Epoch(anEpochInfo, Seq.empty)
 }

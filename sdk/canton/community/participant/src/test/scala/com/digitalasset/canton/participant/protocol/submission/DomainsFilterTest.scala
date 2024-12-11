@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.protocol.submission
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.protocol.submission.DomainSelectionFixture.*
 import com.digitalasset.canton.participant.protocol.submission.DomainSelectionFixture.Transactions.ExerciseByInterface
 import com.digitalasset.canton.participant.protocol.submission.DomainsFilterTest.*
@@ -15,6 +14,7 @@ import com.digitalasset.canton.topology.transaction.VettedPackage
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{DamlLfVersionToProtocolVersions, ProtocolVersion}
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, LfPartyId}
+import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.*
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -39,7 +39,7 @@ class DomainsFilterTest
 
     "keep domains that satisfy all the constraints" in {
       val (unusableDomains, usableDomains) =
-        filter.split(loggerFactory, correctTopology, correctPackages).futureValueUS
+        filter.split(correctTopology, correctPackages).futureValueUS
 
       unusableDomains shouldBe empty
       usableDomains shouldBe List(DefaultTestIdentities.domainId)
@@ -49,11 +49,10 @@ class DomainsFilterTest
       val partyNotConnected = observer
       val topology = correctTopology.filterNot { case (partyId, _) => partyId == partyNotConnected }
 
-      val (unusableDomains, usableDomains) =
-        filter.split(loggerFactory, topology, correctPackages).futureValueUS
+      val (unusableDomains, usableDomains) = filter.split(topology, correctPackages).futureValueUS
 
       unusableDomains shouldBe List(
-        UsableDomain.MissingActiveParticipant(
+        UsableDomains.MissingActiveParticipant(
           DefaultTestIdentities.domainId,
           Set(partyNotConnected),
         )
@@ -74,12 +73,12 @@ class DomainsFilterTest
         )
         val (unusableDomains, usableDomains) =
           filter
-            .split(loggerFactory, correctTopology, packagesWithModifedValidityPeriod)
+            .split(correctTopology, packagesWithModifedValidityPeriod)
             .futureValueUS
         usableDomains shouldBe empty
 
         unusableDomains shouldBe List(
-          UsableDomain.UnknownPackage(
+          UsableDomains.UnknownPackage(
             DefaultTestIdentities.domainId,
             List(
               unknownPackageFor(submitterParticipantId, packageNotValid),
@@ -98,11 +97,11 @@ class DomainsFilterTest
       val packages = correctPackages.filterNot(_.packageId == missingPackage)
 
       val (unusableDomains, usableDomains) =
-        filter.split(loggerFactory, correctTopology, packages).futureValueUS
+        filter.split(correctTopology, packages).futureValueUS
       usableDomains shouldBe empty
 
       unusableDomains shouldBe List(
-        UsableDomain.UnknownPackage(
+        UsableDomains.UnknownPackage(
           DefaultTestIdentities.domainId,
           List(
             unknownPackageFor(submitterParticipantId, missingPackage),
@@ -127,13 +126,13 @@ class DomainsFilterTest
 
       val (unusableDomains, usableDomains) =
         filter
-          .split(loggerFactory, correctTopology, Transactions.Create.correctPackages)
+          .split(correctTopology, Transactions.Create.correctPackages)
           .futureValueUS
       val requiredPV = DamlLfVersionToProtocolVersions.damlLfVersionToMinimumProtocolVersions
         .get(LfLanguageVersion.v2_dev)
         .value
       unusableDomains shouldBe List(
-        UsableDomain.UnsupportedMinimumProtocolVersion(
+        UsableDomains.UnsupportedMinimumProtocolVersion(
           domainId = DefaultTestIdentities.domainId,
           currentPV = currentDomainPV,
           requiredPV = requiredPV,
@@ -154,7 +153,7 @@ class DomainsFilterTest
 
     "keep domains that satisfy all the constraints" in {
       val (unusableDomains, usableDomains) =
-        filter.split(loggerFactory, correctTopology, correctPackages).futureValueUS
+        filter.split(correctTopology, correctPackages).futureValueUS
 
       unusableDomains shouldBe empty
       usableDomains shouldBe List(DefaultTestIdentities.domainId)
@@ -180,11 +179,11 @@ class DomainsFilterTest
         }
 
         val (unusableDomains, usableDomains) =
-          filter.split(loggerFactory, correctTopology, packages).futureValueUS
+          filter.split(correctTopology, packages).futureValueUS
 
         usableDomains shouldBe empty
         unusableDomains shouldBe List(
-          UsableDomain.UnknownPackage(
+          UsableDomains.UnknownPackage(
             DefaultTestIdentities.domainId,
             unknownPackageFor(submitterParticipantId) ++ unknownPackageFor(observerParticipantId),
           )
@@ -202,13 +201,12 @@ private[submission] object DomainsFilterTest {
       domainProtocolVersion: ProtocolVersion,
   ) {
     def split(
-        loggerFactory: NamedLoggerFactory,
         topology: Map[LfPartyId, List[ParticipantId]],
         packages: Seq[VettedPackage] = Seq(),
     )(implicit
         ec: ExecutionContext,
         tc: TraceContext,
-    ): FutureUnlessShutdown[(List[UsableDomain.DomainNotUsedReason], List[DomainId])] = {
+    ): FutureUnlessShutdown[(List[UsableDomains.DomainNotUsedReason], List[DomainId])] = {
       val domains = List(
         (
           DefaultTestIdentities.domainId,
@@ -217,12 +215,12 @@ private[submission] object DomainsFilterTest {
         )
       )
 
-      DomainsFilter(
-        submittedTransaction = tx,
-        ledgerTime = ledgerTime,
+      UsableDomains.check(
         domains = domains,
-        loggerFactory = loggerFactory,
-      ).split
+        requiredPackagesPerParty = Blinding.partyPackages(tx),
+        transactionVersion = tx.version,
+        ledgerTime = ledgerTime,
+      )
     }
   }
 }

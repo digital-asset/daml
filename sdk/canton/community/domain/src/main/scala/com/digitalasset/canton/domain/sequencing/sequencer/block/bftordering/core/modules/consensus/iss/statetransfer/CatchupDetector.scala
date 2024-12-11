@@ -4,16 +4,27 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer
 
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.CatchupDetector.MinimumEpochDeltaToTriggerCatchUp
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.topology.SequencerId
 
 import scala.collection.mutable
 
-class CatchupDetector(
+// We don't foresee multiple implementations, this trait exists only to allow mocking in tests
+sealed trait CatchupDetector {
+  def updateMembership(newMembership: Membership): Unit
+  def updateLatestKnownPeerEpoch(
+      peer: SequencerId,
+      epochNumber: EpochNumber,
+  ): Boolean
+  def shouldCatchUp(localEpoch: EpochNumber): Boolean
+}
+
+final class DefaultCatchupDetector(
     initialMembership: Membership
-) {
+) extends CatchupDetector {
+
+  import DefaultCatchupDetector.*
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var membership: Membership = initialMembership
@@ -21,7 +32,7 @@ class CatchupDetector(
   // Transient bookkeeping of the highest epoch number received from each peer to determine when catch up should occur
   private val latestKnownPeerEpochs: mutable.Map[SequencerId, EpochNumber] = mutable.Map.empty
 
-  def updateMembership(newMembership: Membership): Unit = {
+  override def updateMembership(newMembership: Membership): Unit = {
     membership = newMembership
 
     // Cleanup outdated entries
@@ -35,7 +46,7 @@ class CatchupDetector(
   /** Updates the highest known epoch number for the specified peer.
     * Returns `true` only if the epoch number was updated for the specified peer.
     */
-  def updateLatestKnownPeerEpoch(
+  override def updateLatestKnownPeerEpoch(
       peer: SequencerId,
       epochNumber: EpochNumber,
   ): Boolean = {
@@ -63,7 +74,7 @@ class CatchupDetector(
     updated
   }
 
-  def shouldCatchUp(localEpoch: EpochNumber): Boolean = {
+  override def shouldCatchUp(localEpoch: EpochNumber): Boolean = {
     val behindEnoughPeers =
       latestKnownPeerEpochs.count { case (_, peerEpoch) =>
         peerEpoch >= localEpoch + MinimumEpochDeltaToTriggerCatchUp
@@ -73,7 +84,7 @@ class CatchupDetector(
   }
 }
 
-object CatchupDetector {
+private object DefaultCatchupDetector {
 
-  private val MinimumEpochDeltaToTriggerCatchUp: Int = 2
+  private val MinimumEpochDeltaToTriggerCatchUp = 2
 }

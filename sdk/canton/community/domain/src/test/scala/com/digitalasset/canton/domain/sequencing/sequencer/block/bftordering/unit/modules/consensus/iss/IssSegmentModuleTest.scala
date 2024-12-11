@@ -139,7 +139,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
   "IssSegmentModule" when {
 
     "receiving an epoch completion message" should {
-      "close and notify the " in {
+      "close and notify the parent" in {
         implicit val context: ProgrammableUnitTestContext[ConsensusSegment.Message] =
           new ProgrammableUnitTestContext
         val parentCell =

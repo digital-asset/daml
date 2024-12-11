@@ -23,6 +23,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.{
   CatchupBehavior,
   CatchupDetector,
+  DefaultCatchupDetector,
   StateTransferManager,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.memory.GenericInMemoryOutputBlockMetadataStore
@@ -530,28 +531,11 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
         context.extractBecomes() should matchPattern {
           case Seq(
                 CatchupBehavior(
-                  DefaultEpochLength, // epochLength
-                  CatchupBehavior.InitialState(
-                    `membership`,
-                    _, // cryptoProvider
-                    epochState,
-                    EpochStore.Epoch(GenesisEpochInfo, Seq()),
-                    _, // pbftMessageQueue
-                    _, // CatchupDetector
-                  ),
-                  _, // epochStore
-                  _, // clock
-                  _, // metrics
-                  _, // segmentModuleRefFactory
-                  _, // consensusModuleDependencies,
-                  _, // loggerFactory
-                  _, // timeouts
+                  `DefaultEpochLength`, // epochLength
+                  `membership`,
+                  GenesisEpochInfo,
+                  EpochStore.Epoch(GenesisEpochInfo, Seq()),
                 )
-              )
-              if epochState.epoch == EpochState.Epoch(
-                GenesisEpochInfo,
-                membership,
-                SimpleLeaderSelectionPolicy,
               ) =>
         }
       }
@@ -667,7 +651,8 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
         loggerFactory,
         timeouts,
       )(maybeOnboardingStateTransferManager)(
-        catchupDetector = maybeCatchupDetector.getOrElse(new CatchupDetector(initialMembership))
+        catchupDetector =
+          maybeCatchupDetector.getOrElse(new DefaultCatchupDetector(initialMembership))
       )
   }
 }

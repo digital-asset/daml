@@ -57,6 +57,7 @@ package domain {
   object Offset {
     val tag = Tag.of[OffsetTag]
 
+    // TODO(#22819) remove as json v1 is removed and offsets are no longer HexStrings
     def apply(s: String): Offset = tag(s)
     def apply(l: Long): Offset = tag(fromLong(l))
 
@@ -69,12 +70,14 @@ package domain {
     implicit val semigroup: Semigroup[Offset] = Tag.unsubst(Semigroup[Offset @@ Tags.LastVal])
     implicit val `Offset ordering`: Order[Offset] = Order.orderBy[Offset, String](Offset.unwrap)
 
+    // TODO(#22819) remove as json v1 is removed and offsets are no longer HexStrings
     private def fromOldHexString(s: Ref.HexString): Long = {
       val bytes = Bytes.fromHexString(s)
       // first byte was the version byte, so we must remove it
       ByteBuffer.wrap(bytes.toByteArray).getLong(1)
     }
 
+    // TODO(#22819) remove as json v1 is removed and offsets are no longer HexStrings
     def assertFromStringToLong(s: String): Long =
       if (s.isEmpty) 0L
       else {
@@ -82,6 +85,7 @@ package domain {
         fromOldHexString(hex)
       }
 
+    // TODO(#22819) remove as json v1 is removed and offsets are no longer HexStrings
     private def toOldHexString(offset: Long): Ref.HexString = {
       val longBasedByteLength: Int = 9 // One byte for the version plus 8 bytes for Long
       val versionUpstreamOffsetsAsLong: Byte = 0
@@ -99,6 +103,7 @@ package domain {
         .toHexString
     }
 
+    // TODO(#22819) remove as json v1 is removed and offsets are no longer HexStrings
     def fromLong(l: Long): String =
       toOldHexString(CoreOffset.tryFromLong(l).unwrap)
   }

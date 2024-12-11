@@ -11,7 +11,7 @@ import com.daml.nonempty.NonEmptyColl.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.protocol.submission.{DomainsFilter, UsableDomain}
+import com.digitalasset.canton.participant.protocol.submission.UsableDomains
 import com.digitalasset.canton.participant.sync.TransactionRoutingError
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.RoutingInternalError
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.TopologyErrors.NoDomainForSubmission
@@ -21,6 +21,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ReassignmentTag.Target
+import com.digitalasset.daml.lf.engine.Blinding
 
 import scala.concurrent.ExecutionContext
 
@@ -162,15 +163,15 @@ private[routing] class DomainSelector(
         }
     }.separate
 
-    val domainsFilter = DomainsFilter(
-      submittedTransaction = transactionData.transaction,
-      transactionData.ledgerTime,
-      domains = domainStates,
-      loggerFactory = loggerFactory,
-    )
-
     for {
-      domains <- EitherT.right(domainsFilter.split)
+      domains <- EitherT.right(
+        UsableDomains.check(
+          domains = domainStates,
+          requiredPackagesPerParty = Blinding.partyPackages(transactionData.transaction),
+          transactionVersion = transactionData.transaction.version,
+          ledgerTime = transactionData.ledgerTime,
+        )
+      )
 
       (unusableDomains, usableDomains) = domains
       allUnusableDomains =
@@ -248,12 +249,12 @@ private[routing] class DomainSelector(
       )
 
       // Further validations
-      _ <- UsableDomain
+      _ <- UsableDomains
         .check(
           domainId = domainId,
           protocolVersion = protocolVersion,
           snapshot = snapshot,
-          requiredPackagesByParty = transactionData.requiredPackagesPerParty,
+          requiredPackagesPerParty = transactionData.requiredPackagesPerParty,
           transactionVersion = transactionVersion,
           ledgerTime = transactionData.ledgerTime,
           interactiveSubmissionVersionO = transactionData.externallySignedSubmissionO.map(_.version),
