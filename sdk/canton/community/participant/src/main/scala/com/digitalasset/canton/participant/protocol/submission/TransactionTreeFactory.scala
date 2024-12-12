@@ -155,18 +155,43 @@ object TransactionTreeFactory {
   }
   type TooFewSalts = TooFewSalts.type
 
-  final case class UnknownPackageError(unknownTo: Seq[PackageUnknownTo])
+  final case class PackageStateErrors(packageStateErrors: Seq[PackageStateError])
       extends TransactionTreeConversionError {
-    override def pretty: Pretty[UnknownPackageError] =
-      prettyOfString(err => show"Some packages are not known to all informees.\n${err.unknownTo}")
+    override def pretty: Pretty[PackageStateErrors] =
+      prettyOfString(err =>
+        show"Some packages are not known to all informees.\n${err.packageStateErrors}"
+      )
+  }
+
+  /** Error related to the package topology state, where a package can be check-only, vetted or unknown */
+  sealed trait PackageStateError extends Product with Serializable with PrettyPrinting {
+    def packageId: LfPackageId
+  }
+
+  final case class PackageNotVettedBy(
+      packageId: LfPackageId,
+      participantId: ParticipantId,
+  ) extends PackageStateError {
+    override def pretty: Pretty[PackageNotVettedBy] = prettyOfString { put =>
+      show"Participant $participantId has not vetted ${put.packageId}"
+    }
+  }
+
+  final case class PackageNotDeclaredCheckOnlyBy(
+      packageId: LfPackageId,
+      participantId: ParticipantId,
+  ) extends PackageStateError {
+    override def pretty: Pretty[PackageNotDeclaredCheckOnlyBy] = prettyOfString { put =>
+      show"Participant $participantId has not declared ${put.packageId} as check-only"
+    }
   }
 
   final case class PackageUnknownTo(
       packageId: LfPackageId,
       participantId: ParticipantId,
-  ) extends PrettyPrinting {
+  ) extends PackageStateError {
     override def pretty: Pretty[PackageUnknownTo] = prettyOfString { put =>
-      show"Participant $participantId has not vetted ${put.packageId}"
+      show"Package ${put.packageId} is unknown to participant $participantId"
     }
   }
 }

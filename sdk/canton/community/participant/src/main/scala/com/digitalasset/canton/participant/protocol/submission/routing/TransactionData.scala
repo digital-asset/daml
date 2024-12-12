@@ -19,12 +19,13 @@ import com.digitalasset.canton.protocol.{LfContractId, LfVersionedTransaction}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{DomainAlias, LfPackageId, LfPartyId, LfWorkflowId}
+import com.digitalasset.daml.lf.transaction.PackageRequirements
 
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Bundle together some data needed to route the transaction.
   *
-  * @param requiredPackagesPerParty Required packages per informee of the transaction
+  * @param partyPackageRequirements Required packages per informee of the transaction
   * @param submitters Submitters of the transaction.
   * @param inputContractsDomainData Information about the input contracts
   * @param prescribedDomainO If non-empty, thInvalidWorkflowIde prescribed domain will be chosen for routing.
@@ -32,12 +33,12 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 private[routing] final case class TransactionData private (
     transaction: LfVersionedTransaction,
-    requiredPackagesPerParty: Map[LfPartyId, Set[LfPackageId]],
+    partyPackageRequirements: Map[LfPartyId, PackageRequirements],
     submitters: Set[LfPartyId],
     inputContractsDomainData: ContractsDomainData,
     prescribedDomainO: Option[DomainId],
 ) {
-  val informees: Set[LfPartyId] = requiredPackagesPerParty.keySet
+  val informees: Set[LfPartyId] = partyPackageRequirements.keySet
   val version = transaction.version
 }
 
@@ -66,7 +67,7 @@ private[routing] object TransactionData {
       )
     } yield TransactionData(
       transaction = transaction,
-      requiredPackagesPerParty = Blinding.partyPackages(transaction, contractPackages),
+      partyPackageRequirements = Blinding.partyPackageRequirements(transaction, contractPackages),
       submitters = submitters,
       inputContractsDomainData = contractsDomainData,
       prescribedDomainO = prescribedDomainO,

@@ -145,6 +145,8 @@ final class TransactionTreeFactoryImplTest extends AsyncWordSpec with BaseTest {
 
       "checking package vettings" must {
         lazy val treeFactory = createTransactionTreeFactory(testedProtocolVersion)
+
+        // TODO(#21671): Unit test tri-state vetting
         "fail if the main package is not vetted" in {
           val example = factory.standardHappyCases(2)
           createTransactionTree(
@@ -153,10 +155,10 @@ final class TransactionTreeFactoryImplTest extends AsyncWordSpec with BaseTest {
             successfulLookup(example),
             example.keyResolver,
             snapshot = defaultTestingTopology.withPackages(Seq.empty).build().topologySnapshot(),
-          ).value.flatMap(_ should matchPattern { case Left(UnknownPackageError(_)) => })
+          ).value.flatMap(_ should matchPattern { case Left(PackageStateErrors(_)) => })
         }
-        "fail if some dependency is not vetted" in {
 
+        "fail if some dependency is not vetted" in {
           val example = factory.standardHappyCases(2)
           for {
             err <- createTransactionTree(
@@ -168,7 +170,7 @@ final class TransactionTreeFactoryImplTest extends AsyncWordSpec with BaseTest {
                 packageDependencies = TestPackageDependencyResolver
               ),
             ).value
-          } yield inside(err) { case Left(UnknownPackageError(unknownTo)) =>
+          } yield inside(err) { case Left(PackageStateErrors(unknownTo)) =>
             forEvery(unknownTo) {
               _.packageId shouldBe TestPackageDependencyResolver.exampleDependency
             }
@@ -188,7 +190,7 @@ final class TransactionTreeFactoryImplTest extends AsyncWordSpec with BaseTest {
                 packageDependencies = TestPackageDependencyResolver
               ),
             ).value
-          } yield inside(err) { case Left(UnknownPackageError(unknownTo)) =>
+          } yield inside(err) { case Left(PackageStateErrors(unknownTo)) =>
             unknownTo should not be empty
           }
         }

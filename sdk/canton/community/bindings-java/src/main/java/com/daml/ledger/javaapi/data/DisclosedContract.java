@@ -6,6 +6,9 @@ package com.daml.ledger.javaapi.data;
 import com.daml.ledger.api.v1.CommandsOuterClass;
 import com.google.protobuf.ByteString;
 
+import java.util.Objects;
+import java.util.Optional;
+
 public final class DisclosedContract {
   public final Identifier templateId;
   public final String contractId;
@@ -23,5 +26,42 @@ public final class DisclosedContract {
         .setContractId(this.contractId)
         .setCreatedEventBlob(this.createdEventBlob)
         .build();
+  }
+
+  public static DisclosedContract fromProto(
+      CommandsOuterClass.DisclosedContract disclosedContract) {
+    Identifier templateId = Identifier.fromProto(disclosedContract.getTemplateId());
+    String contractId = disclosedContract.getContractId();
+    ByteString createdEventBlob = disclosedContract.getCreatedEventBlob();
+    return new DisclosedContract(templateId, contractId, createdEventBlob);
+  }
+
+  @Override
+  public String toString() {
+    return "DisclosedContract{"
+        + "templateId="
+        + templateId
+        + ", contractId='"
+        + contractId
+        + '\''
+        + ", createdEventBlob='"
+        + createdEventBlob
+        + '\''
+        + '}';
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    DisclosedContract that = (DisclosedContract) o;
+    return Objects.equals(templateId, that.templateId)
+        && Objects.equals(contractId, that.contractId)
+        && Objects.equals(createdEventBlob, that.createdEventBlob);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(templateId, contractId, createdEventBlob);
   }
 }

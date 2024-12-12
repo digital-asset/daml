@@ -8,6 +8,7 @@ import java.util.Optional
 
 import com.daml.ledger.api.v1.CommandsOuterClass
 import com.daml.ledger.api.v1.CommandsOuterClass.Commands.DeduplicationPeriodCase
+import com.google.protobuf.ByteString
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -184,6 +185,60 @@ final class SubmitCommandsRequestSpec extends AnyFlatSpec with Matchers {
     val request = SubmitCommandsRequest.fromProto(proto)
 
     request.getDeduplicationTime shouldEqual Optional.of(Duration.ofSeconds(42, 47))
+
+  }
+
+  it should "correctly en- and decode packageId selection preference" in {
+    val preference = List("my-preference", "noones-preference")
+    val commandsSubmission =
+      CommandsSubmission
+        .create("applicationId", "commandId", List.empty[Command].asJava)
+        .withWorkflowId("workflowId")
+        .withActAs("Alice")
+        .withPackageIdSelectionPreference(preference.asJava)
+
+    val proto =
+      CommandsOuterClass.Commands
+        .newBuilder(
+          SubmitCommandsRequest.toProto(
+            "ledgerId",
+            commandsSubmission,
+          )
+        )
+        .build()
+
+    val request = SubmitCommandsRequest.fromProto(proto)
+
+    request.getPackageIdSelectionPreference.asScala should contain theSameElementsInOrderAs preference
+
+  }
+
+  it should "correctly en- and decode disclosed contract" in {
+    val disclosed = List(new DisclosedContract(
+      new Identifier("some-package", "some-module", "some-template"),
+      "some-contract-id",
+      ByteString.fromHex("0123456789ABCDEF")
+    ))
+    val commandsSubmission =
+      CommandsSubmission
+        .create("applicationId", "commandId", List.empty[Command].asJava)
+        .withWorkflowId("workflowId")
+        .withActAs("Alice")
+        .withDisclosedContracts(disclosed.asJava)
+
+    val proto =
+      CommandsOuterClass.Commands
+        .newBuilder(
+          SubmitCommandsRequest.toProto(
+            "ledgerId",
+            commandsSubmission,
+          )
+        )
+        .build()
+
+    val request = SubmitCommandsRequest.fromProto(proto)
+
+    request.getDisclosedContracts.asScala should contain theSameElementsInOrderAs disclosed
 
   }
 }

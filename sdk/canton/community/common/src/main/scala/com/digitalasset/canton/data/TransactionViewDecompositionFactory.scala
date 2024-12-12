@@ -56,25 +56,27 @@ object TransactionViewDecompositionFactory {
 
       def idAndNode(id: LfNodeId): (LfNodeId, LfNode) = id -> transaction.unwrap.nodes(id)
 
-      def createNewView: ((LfNodeId, LfActionNode, RollbackContext)) => Future[NewView] = {
-        case (rootNodeId, rootNode, rbContext) =>
-          confirmationPolicy
-            .informeesAndThreshold(rootNode, topologySnapshot)
-            .flatMap { case (informees, threshold) =>
-              val rootSeed = transaction.seedFor(rootNodeId)
-              val tailNodesF = collectTailNodes(rootNode, informees, threshold, rbContext)
-              tailNodesF.map(tailNodes =>
-                NewView(
-                  LfTransactionUtil.lightWeight(rootNode),
-                  ViewConfirmationParameters.create(informees, threshold),
-                  rootSeed,
-                  rootNodeId,
-                  tailNodes,
-                  rbContext,
-                )(protocolVersion)
-              )
-            }
-      }
+      def createNewView(
+          rootNodeId: LfNodeId,
+          rootNode: LfActionNode,
+          rbContext: RollbackContext,
+      ): Future[NewView] =
+        confirmationPolicy
+          .informeesAndThreshold(rootNode, topologySnapshot)
+          .flatMap { case (informees, threshold) =>
+            val rootSeed = transaction.seedFor(rootNodeId)
+            val tailNodesF = collectTailNodes(rootNode, informees, threshold, rbContext)
+            tailNodesF.map(tailNodes =>
+              NewView(
+                LfTransactionUtil.lightWeight(rootNode),
+                ViewConfirmationParameters.create(informees, threshold),
+                rootSeed,
+                rootNodeId,
+                tailNodes,
+                rbContext,
+              )(protocolVersion)
+            )
+          }
 
       def collectTailNodes(
           rootNode: LfActionNode,
@@ -100,7 +102,7 @@ object TransactionViewDecompositionFactory {
                   otherTailNodesF.map(nodeAsSameView +: _)
                 } else {
                   // Node is the root of a direct subview, as informees or threshold are different
-                  createNewView((childNodeId, childNode, childRbContext)).map(Seq(_))
+                  createNewView(childNodeId, childNode, childRbContext).map(Seq(_))
                 }
             }
           }
@@ -151,7 +153,7 @@ object TransactionViewDecompositionFactory {
 
       val rootNodes =
         peelAwayTopLevelRollbackNodes(transaction.unwrap.roots.toSeq.map(idAndNode), viewRbContext)
-      rootNodes.parTraverse(createNewView)
+      rootNodes.parTraverse(Function.tupled(createNewView))
     }
 
   }

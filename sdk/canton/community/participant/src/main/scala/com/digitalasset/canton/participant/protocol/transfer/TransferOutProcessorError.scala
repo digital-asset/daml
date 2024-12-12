@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.protocol.transfer
 import cats.data.NonEmptyChain
 import cats.implicits.catsSyntaxFoldableOps0
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.PackageUnknownTo
+import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.PackageStateError
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.TransferProcessorError
 import com.digitalasset.canton.participant.store.ActiveContractStore.Status
 import com.digitalasset.canton.protocol.messages.DeliveredTransferOutResult
@@ -97,10 +97,10 @@ object TransferOutProcessorError {
 
   final case class PackageIdUnknownOrUnvetted(
       contractId: LfContractId,
-      unknownTo: List[PackageUnknownTo],
+      packageStateErrors: Seq[PackageStateError],
   ) extends TransferOutProcessorError {
     override def message: String =
-      s"Cannot transfer out contract `$contractId`: ${unknownTo.mkString(", ")}"
+      s"Cannot transfer out contract `$contractId`: ${packageStateErrors.mkString(", ")}"
   }
 
 }

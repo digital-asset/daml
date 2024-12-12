@@ -4,11 +4,11 @@
 package com.digitalasset.canton.participant.protocol.submission
 
 import cats.data.EitherT
+import cats.implicits.catsSyntaxSemigroup
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
-import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt, SaltSeed}
 import com.digitalasset.canton.data.ViewConfirmationParameters.InvalidViewConfirmationParameters
@@ -26,9 +26,9 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.util.{ErrorUtil, LfTransactionUtil, MapsUtil, MonadUtil}
+import com.digitalasset.canton.util.{ErrorUtil, LfTransactionUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
-import io.scalaland.chimney.dsl.*
+import com.digitalasset.daml.lf.transaction.PackageRequirements
 
 import java.util.UUID
 import scala.annotation.{nowarn, tailrec}
@@ -171,13 +171,13 @@ abstract class TransactionTreeFactoryImpl(
       _ <-
         if (validatePackageVettings)
           UsableDomain
-            .resolveParticipantsAndCheckPackagesVetted(
+            .resolveParticipantsAndCheckPackageTopologyRequirements(
               domainId = domainId,
               snapshot = topologySnapshot,
-              requiredPackagesByParty =
-                requiredPackagesByParty(rootViewDecompositions, contractPackages),
+              packageRequirementsByParty =
+                packageRequirementsByParty(rootViewDecompositions, contractPackages),
             )
-            .leftMap(_.transformInto[UnknownPackageError])
+            .leftMap(err => PackageStateErrors(err.packageStateErrors))
         else EitherT.rightT[FutureUnlessShutdown, TransactionTreeConversionError](())
 
       rootViews <- createRootViews(rootViewDecompositions, state, contractOfId)
@@ -302,40 +302,46 @@ abstract class TransactionTreeFactoryImpl(
   }
 
   /** compute set of required packages for each party */
-  private def requiredPackagesByParty(
+  private def packageRequirementsByParty(
       rootViewDecompositions: Seq[TransactionViewDecomposition.NewView],
       contractPackages: Map[LfContractId, LfPackageId],
-  ): Map[LfPartyId, Set[PackageId]] = {
+  ): Map[LfPartyId, PackageRequirements] = {
+
     def requiredPackagesByParty(
         rootViewDecomposition: TransactionViewDecomposition.NewView,
-        parentInformee: Set[LfPartyId],
-    ): Map[LfPartyId, Set[PackageId]] = {
-      val allInformees =
-        parentInformee ++ rootViewDecomposition.viewConfirmationParameters.informeesIds
-      val childRequirements =
-        rootViewDecomposition.tailNodes.foldLeft(Map.empty[LfPartyId, Set[PackageId]]) {
-          case (acc, newView: TransactionViewDecomposition.NewView) =>
-            MapsUtil.mergeMapsOfSets(acc, requiredPackagesByParty(newView, allInformees))
-          case (acc, _) => acc
-        }
+        parentWitnesses: Set[LfPartyId],
+    ): Map[LfPartyId, PackageRequirements] = {
+      val currentViewInformees = rootViewDecomposition.viewConfirmationParameters.informeesIds
+      val currentViewWitnesses = parentWitnesses ++ currentViewInformees
 
-      val (vettedPackages, inputContractPackages) = rootViewDecomposition.allNodes
+      // Depth first
+      val childViewsRequirements: Map[LfPartyId, PackageRequirements] =
+        rootViewDecomposition.tailNodes.view
+          .collect { case newView: TransactionViewDecomposition.NewView =>
+            requiredPackagesByParty(newView, currentViewWitnesses)
+          }
+          .reduceOption(_ |+| _)
+          .getOrElse(Map.empty)
+
+      val currentViewRequirements = rootViewDecomposition.allNodes.view
         .collect { case sv: TransactionViewDecomposition.SameView => sv.lfNode }
-        .foldLeft((Set.empty[PackageId], Set.empty[PackageId])) { case ((vp, kp), node) =>
-          (
-            vp ++ node.packageIds,
-            kp ++ node.cids.flatMap(contractPackages.get),
+        .foldLeft(PackageRequirements.empty) { case (acc, node) =>
+          PackageRequirements(
+            checkOnly = acc.checkOnly ++ node.cids.flatMap(contractPackages.get),
+            vetted = acc.vetted ++ node.packageIds,
           )
         }
-      val rootPackages = vettedPackages ++ inputContractPackages
 
-      allInformees.foldLeft(childRequirements) { case (acc, party) =>
-        acc.updated(party, acc.getOrElse(party, Set()).union(rootPackages))
+      currentViewWitnesses.foldLeft(childViewsRequirements) { case (acc, witness) =>
+        acc.updatedWith(witness) {
+          case None => Some(currentViewRequirements)
+          case Some(requirementsAcc) => Some(requirementsAcc |+| currentViewRequirements)
+        }
       }
     }
 
-    rootViewDecompositions.foldLeft(Map.empty[LfPartyId, Set[PackageId]]) { case (acc, view) =>
-      MapsUtil.mergeMapsOfSets(acc, requiredPackagesByParty(view, Set.empty))
+    rootViewDecompositions.foldLeft(Map.empty[LfPartyId, PackageRequirements]) { case (acc, view) =>
+      acc |+| requiredPackagesByParty(view, Set.empty)
     }
   }
 

@@ -158,7 +158,7 @@ private[routing] class DomainSelector(
     }.separate
 
     val domainsSplit = DomainsFilter.split(
-      requiredPackagesPerParty = transactionData.requiredPackagesPerParty,
+      partyPackageRequirements = transactionData.partyPackageRequirements,
       domains = domainStates,
       transactionVersion = transactionData.version,
     )
@@ -242,7 +242,7 @@ private[routing] class DomainSelector(
           domainId = domainId,
           protocolVersion = protocolVersion,
           snapshot = snapshot,
-          requiredPackagesByParty = transactionData.requiredPackagesPerParty,
+          requiredPackagesByParty = transactionData.partyPackageRequirements,
           transactionVersion = transactionVersion,
         )
         .leftMap[TransactionRoutingError] { err =>

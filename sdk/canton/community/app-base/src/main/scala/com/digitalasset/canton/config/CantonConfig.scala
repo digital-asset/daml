@@ -320,6 +320,7 @@ final case class CantonParameters(
     retentionPeriodDefaults: RetentionPeriodDefaults = RetentionPeriodDefaults(),
     console: AmmoniteConsoleConfig = AmmoniteConsoleConfig(),
     exitOnFatalFailures: Boolean = true,
+    startupMemoryCheckConfig: StartupMemoryCheckConfig = StartupMemoryCheckConfig.Warn,
 ) {
   def getStartupParallelism(numThreads: Int): Int =
     startupParallelism.fold(numThreads)(_.value)
@@ -541,6 +542,7 @@ private[config] object CantonNodeParameterConverter {
       parent.features.skipTopologyManagerSignatureValidation,
       parent.parameters.exitOnFatalFailures,
       node.parameters.watchdog,
+      parent.parameters.startupMemoryCheckConfig,
     )
 
   def protocol(parent: CantonConfig, config: ProtocolConfig): CantonNodeParameters.Protocol =
@@ -945,8 +947,10 @@ object CantonConfig {
         deriveReader[MetricsConfig]
       lazy implicit val apiLoggingConfigReader: ConfigReader[ApiLoggingConfig] =
         deriveReader[ApiLoggingConfig]
-      lazy implicit val loggingConfigReader: ConfigReader[LoggingConfig] =
+      lazy implicit val loggingConfigReader: ConfigReader[LoggingConfig] = {
+        implicit val gcLoggingConfigReader = deriveReader[GCLoggingConfig]
         deriveReader[LoggingConfig]
+      }
       lazy implicit val queryCostMonitoringConfigReader: ConfigReader[QueryCostMonitoringConfig] = {
         lazy implicit val queryCostSortByConfigReader: ConfigReader[QueryCostSortBy] =
           deriveEnumerationReader[QueryCostSortBy]
@@ -1018,6 +1022,8 @@ object CantonConfig {
       deriveReader[BatchAggregatorConfig]
     }
 
+    implicit val configReader: ConfigReader[StartupMemoryCheckConfig] =
+      deriveEnumerationReader[StartupMemoryCheckConfig]
     lazy implicit val ammoniteConfigReader: ConfigReader[AmmoniteConsoleConfig] =
       deriveReader[AmmoniteConsoleConfig]
     lazy implicit val cantonParametersReader: ConfigReader[CantonParameters] =
@@ -1226,6 +1232,9 @@ object CantonConfig {
       confidentialWriter[AuthServiceConfig.UnsafeJwtHmac256](
         _.copy(secret = NonEmptyString.tryCreate("****"))
       )
+
+    implicit val configWriter: ConfigWriter[StartupMemoryCheckConfig] =
+      deriveEnumerationWriter[StartupMemoryCheckConfig]
     lazy implicit val authServiceConfigWildcardWriter
         : ConfigWriter[AuthServiceConfig.Wildcard.type] =
       deriveWriter[AuthServiceConfig.Wildcard.type]
@@ -1344,8 +1353,11 @@ object CantonConfig {
 
       lazy implicit val apiLoggingConfigWriter: ConfigWriter[ApiLoggingConfig] =
         deriveWriter[ApiLoggingConfig]
-      lazy implicit val loggingConfigWriter: ConfigWriter[LoggingConfig] =
+      lazy implicit val loggingConfigWriter: ConfigWriter[LoggingConfig] = {
+        implicit val gcLoggingConfigWriter: ConfigWriter[GCLoggingConfig] =
+          deriveWriter[GCLoggingConfig]
         deriveWriter[LoggingConfig]
+      }
       lazy implicit val queryCostMonitoringConfig: ConfigWriter[QueryCostMonitoringConfig] = {
         lazy implicit val queryCostSortByWriter: ConfigWriter[QueryCostSortBy] =
           deriveEnumerationWriter[QueryCostSortBy]

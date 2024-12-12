@@ -50,8 +50,8 @@ import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissio
 }
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.{
   ContractLookupError,
+  PackageStateErrors,
   SerializableContractOfId,
-  UnknownPackageError,
 }
 import com.digitalasset.canton.participant.protocol.submission.*
 import com.digitalasset.canton.participant.protocol.validation.ContractConsistencyChecker.ReferenceToFutureContractError
@@ -70,8 +70,8 @@ import com.digitalasset.canton.protocol.WellFormedTransaction.{
   WithSuffixesAndMerged,
   WithoutSuffixes,
 }
+import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.protocol.{LfTransactionErrors, *}
 import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError
 import com.digitalasset.canton.sequencing.protocol.*
@@ -419,7 +419,7 @@ class TransactionProcessingSteps(
               contractPackages,
             )
             .leftMap[TransactionSubmissionTrackingData.RejectionCause] {
-              case TransactionTreeFactoryError(UnknownPackageError(unknownTo)) =>
+              case TransactionTreeFactoryError(PackageStateErrors(unknownTo)) =>
                 TransactionSubmissionTrackingData
                   .CauseWithTemplate(SubmissionErrors.PackageNotVettedByRecipients.Error(unknownTo))
               case TransactionTreeFactoryError(ContractLookupError(contractId, _)) =>
