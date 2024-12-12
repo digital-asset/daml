@@ -62,6 +62,7 @@ private[lf] final class ValueTranslator(
   @throws[Error.Preprocessing.Error]
   private[preprocessing] def unsafeTranslateValue(
       ty: Type,
+      upgradable: Boolean,
       value: Value,
   ): SValue = {
     // TODO: https://github.com/digital-asset/daml/issues/17082
@@ -178,7 +179,6 @@ private[lf] final class ValueTranslator(
                 typeError()
             }
           case TTyCon(tyCon) =>
-            val upgradable = handleLookup(pkgInterface.lookupPackage(tyCon.packageId)).upgradable
             value0 match {
               // variant
               case ValueVariant(mbId, constructorName, val0) =>
@@ -361,9 +361,13 @@ private[lf] final class ValueTranslator(
     go(ty, value)
   }
 
-  def translateValue(ty: Type, value: Value): Either[Error.Preprocessing.Error, SValue] =
+  def translateValue(
+      ty: Type,
+      upgradable: Boolean,
+      value: Value,
+  ): Either[Error.Preprocessing.Error, SValue] =
     safelyRun(
-      unsafeTranslateValue(ty, value)
+      unsafeTranslateValue(ty, upgradable, value)
     )
 
 }

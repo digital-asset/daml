@@ -158,10 +158,10 @@ private[engine] final class Preprocessor(
     * Fails if the nesting is too deep or if v0 does not match the type `ty0`.
     * Assumes ty0 is a well-formed serializable typ.
     */
-  def translateValue(ty0: Ast.Type, v0: Value): Result[SValue] =
+  def translateValue(ty0: Ast.Type, upgradable: Boolean, v0: Value): Result[SValue] =
     safelyRun(pullTypePackages(ty0)) {
       // this is used only by the value enricher
-      commandPreprocessor.unsafeTranslateValue(ty0, v0)
+      commandPreprocessor.unsafeTranslateValue(ty0, upgradable, v0)
     }
 
   private[engine] def preprocessApiCommand(

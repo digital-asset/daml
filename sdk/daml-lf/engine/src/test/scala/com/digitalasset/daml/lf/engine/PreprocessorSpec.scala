@@ -51,6 +51,7 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
       val intermediaryResult = preprocessor
         .translateValue(
           Ast.TTyCon("Mod:WithoutKey"),
+          upgradable = true,
           ValueRecord("", ImmArray("owners" -> parties, "data" -> ValueInt64(42))),
         )
       intermediaryResult shouldBe a[ResultNeedPackage[_]]
@@ -63,6 +64,7 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
       val intermediaryResult = preprocessor
         .translateValue(
           Ast.TTyCon("Mod:WithoutKey"),
+          upgradable = true,
           ValueRecord(
             "",
             ImmArray("owners" -> parties, "wrong_field" -> ValueInt64(42)),
