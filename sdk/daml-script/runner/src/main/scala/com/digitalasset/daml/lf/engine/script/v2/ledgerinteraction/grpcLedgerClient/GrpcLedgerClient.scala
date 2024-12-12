@@ -466,7 +466,7 @@ class GrpcLedgerClient(
     for {
       contractKey <- lfValueToApiValue(true, key.key.toUnnormalizedValue)
     } yield PrefetchContractKey(
-      templateId = Some(toApiIdentifier(key.templateId)),
+      templateId = Some(toApiIdentifierUpgrades(key.templateId, false)),
       contractKey = Some(contractKey),
     )
   }
