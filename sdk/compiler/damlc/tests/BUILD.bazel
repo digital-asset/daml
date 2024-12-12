@@ -634,7 +634,6 @@ da_haskell_test(
         "//test-common:upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v2.dar",
         "//test-common:upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-v1.dar",
         "//test-common:upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-v2.dar",
-
         "//test-common:upgrades-WarnsWhenUsingLF115DependencyInSerializablePositionDep-v1.dar",
         "//test-common:upgrades-WarnsWhenUsingLF115DependencyInSerializablePositionDep-v2.dar",
         "//test-common:upgrades-WarnsWhenUsingLF115DependencyInSerializablePosition-files",
