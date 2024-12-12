@@ -13,55 +13,52 @@ import DA.Optional
 import DA.Text (isInfixOf)
 import DA.Time (seconds)
 
-dontRunOnCanton : (Text, Test) -> (Text, Test)
-dontRunOnCanton (name, test) = (name, \state -> if runMode state == Canton then pure () else test state)
-
 -- TODO(#21671): Fix and re-enable tests after tri-state vetting changes
 -- These tests rely on unvetting, none of them will work on IDE
 main : TestTree
-main = tests $ brokenOnIDELedger <$>
+main = tests
   [ subtree "exercise"
-    [ dontRunOnCanton ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Command", v1UnvettedOnSubmitterCommand)
-    , dontRunOnCanton ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Command Interface", v1UnvettedOnSubmitterCommandInterface)
-    , dontRunOnCanton ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Choice Body", v1UnvettedOnSubmitterChoiceBody)
-    , dontRunOnCanton ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Choice Body Interface", v1UnvettedOnSubmitterChoiceBodyInterface)
+    [ disabledScriptUpgradeTestDueToTriStateVetting ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Command", v1UnvettedOnSubmitterCommand)
+    , disabledScriptUpgradeTestDueToTriStateVetting ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Command Interface", v1UnvettedOnSubmitterCommandInterface)
+    , disabledScriptUpgradeTestDueToTriStateVetting ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Choice Body", v1UnvettedOnSubmitterChoiceBody)
+    , disabledScriptUpgradeTestDueToTriStateVetting ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Choice Body Interface", v1UnvettedOnSubmitterChoiceBodyInterface)
 
-    , dontRunOnCanton ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Command", v1UnvettedOnSubmitterDisclosedCommand)
-    , dontRunOnCanton ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Command Interface", v1UnvettedOnSubmitterDisclosedCommandInterface)
-    , dontRunOnCanton ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Choice Body", v1UnvettedOnSubmitterDisclosedChoiceBody)
-    , dontRunOnCanton ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Choice Body Interface", v1UnvettedOnSubmitterDisclosedChoiceBodyInterface)
+    , disabledScriptUpgradeTestDueToTriStateVetting ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Command", v1UnvettedOnSubmitterDisclosedCommand)
+    , disabledScriptUpgradeTestDueToTriStateVetting ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Command Interface", v1UnvettedOnSubmitterDisclosedCommandInterface)
+    , disabledScriptUpgradeTestDueToTriStateVetting ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Choice Body", v1UnvettedOnSubmitterDisclosedChoiceBody)
+    , disabledScriptUpgradeTestDueToTriStateVetting ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Choice Body Interface", v1UnvettedOnSubmitterDisclosedChoiceBodyInterface)
 
-    , dontRunOnCanton ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Command", v1UnvettedOnNonConfirmingInformeeCommand)
-    , dontRunOnCanton ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Command Interface", v1UnvettedOnNonConfirmingInformeeCommandInterface)
-    , dontRunOnCanton ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Choice Body", v1UnvettedOnNonConfirmingInformeeChoiceBody)
-    , dontRunOnCanton ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Choice Body Interface", v1UnvettedOnNonConfirmingInformeeChoiceBodyInterface)
+    , disabledScriptUpgradeTestDueToTriStateVetting ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Command", v1UnvettedOnNonConfirmingInformeeCommand)
+    , disabledScriptUpgradeTestDueToTriStateVetting ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Command Interface", v1UnvettedOnNonConfirmingInformeeCommandInterface)
+    , disabledScriptUpgradeTestDueToTriStateVetting ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Choice Body", v1UnvettedOnNonConfirmingInformeeChoiceBody)
+    , disabledScriptUpgradeTestDueToTriStateVetting ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Choice Body Interface", v1UnvettedOnNonConfirmingInformeeChoiceBodyInterface)
 
-    , dontRunOnCanton ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Command", v1UnvettedOnConfirmingInformeeCommand)
-    , dontRunOnCanton ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Command Interface", v1UnvettedOnConfirmingInformeeCommandInterface)
-    , dontRunOnCanton ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Choice Body", v1UnvettedOnConfirmingInformeeChoiceBody)
-    , dontRunOnCanton ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Choice Body Interface", v1UnvettedOnConfirmingInformeeChoiceBodyInterface)
+    , disabledScriptUpgradeTestDueToTriStateVetting ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Command", v1UnvettedOnConfirmingInformeeCommand)
+    , disabledScriptUpgradeTestDueToTriStateVetting ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Command Interface", v1UnvettedOnConfirmingInformeeCommandInterface)
+    , disabledScriptUpgradeTestDueToTriStateVetting ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Choice Body", v1UnvettedOnConfirmingInformeeChoiceBody)
+    , disabledScriptUpgradeTestDueToTriStateVetting ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Choice Body Interface", v1UnvettedOnConfirmingInformeeChoiceBodyInterface)
     ]
   , subtree "fetch"
-    [ dontRunOnCanton ("Fetch undistributed contract with source unvetted on submitter", fetchUndistributedUnvettedOnSubmitter)
-    , dontRunOnCanton ("Fetch undistributed contract with source unvetted on submitter via interface", fetchUndistributedUnvettedOnSubmitterInterface)
-    , dontRunOnCanton ("Fetch distributed contract with source unvetted on submitter", fetchDistributedUnvettedOnSubmitter)
-    , dontRunOnCanton ("Fetch distributed contract with source unvetted on submitter via interface", fetchDistributedUnvettedOnSubmitterInterface)
-    , dontRunOnCanton ("Fetch disclosed contract with source unvetted on submitter", fetchDisclosedUnvettedOnSubmitter)
-    , dontRunOnCanton ("Fetch disclosed contract with source unvetted on submitter via interface", fetchDisclosedUnvettedOnSubmitterInterface)
-    , dontRunOnCanton ("Fetch distributed contract with source unvetted on non-confirming informee (Should succeed)", fetchDistributedUnvettedOnNonConfirmingInformee)
-    , dontRunOnCanton ("Fetch distributed contract with source unvetted on confirming informee", fetchDistributedUnvettedOnConfirmingInformee)
-    , dontRunOnCanton ("Fetch distributed contract with source unvetted on confirming informee via interface", fetchDistributedUnvettedOnConfirmingInformeeInterface)
+    [ disabledScriptUpgradeTestDueToTriStateVetting ("Fetch undistributed contract with source unvetted on submitter", fetchUndistributedUnvettedOnSubmitter)
+    , disabledScriptUpgradeTestDueToTriStateVetting ("Fetch undistributed contract with source unvetted on submitter via interface", fetchUndistributedUnvettedOnSubmitterInterface)
+    , disabledScriptUpgradeTestDueToTriStateVetting ("Fetch distributed contract with source unvetted on submitter", fetchDistributedUnvettedOnSubmitter)
+    , disabledScriptUpgradeTestDueToTriStateVetting ("Fetch distributed contract with source unvetted on submitter via interface", fetchDistributedUnvettedOnSubmitterInterface)
+    , disabledScriptUpgradeTestDueToTriStateVetting ("Fetch disclosed contract with source unvetted on submitter", fetchDisclosedUnvettedOnSubmitter)
+    , disabledScriptUpgradeTestDueToTriStateVetting ("Fetch disclosed contract with source unvetted on submitter via interface", fetchDisclosedUnvettedOnSubmitterInterface)
+    , disabledScriptUpgradeTestDueToTriStateVetting ("Fetch distributed contract with source unvetted on non-confirming informee (Should succeed)", fetchDistributedUnvettedOnNonConfirmingInformee)
+    , disabledScriptUpgradeTestDueToTriStateVetting ("Fetch distributed contract with source unvetted on confirming informee", fetchDistributedUnvettedOnConfirmingInformee)
+    , disabledScriptUpgradeTestDueToTriStateVetting ("Fetch distributed contract with source unvetted on confirming informee via interface", fetchDistributedUnvettedOnConfirmingInformeeInterface)
     -- TODO: This test would either need a third participant, or to use multiple parties on the same participant (which is not clear if acceptable)
     -- , ("Fetch disclosed contract with source unvetted on non-confirming informee (Should succeed)", fetchDisclosedUnvettedOnNonConfirmingInformee)
-    , dontRunOnCanton ("Fetch disclosed contract with source unvetted on confirming informee", fetchDisclosedUnvettedOnConfirmingInformee)
-    , dontRunOnCanton ("Fetch disclosed contract with source unvetted on confirming informee via interface", fetchDisclosedUnvettedOnConfirmingInformeeInterface)
+    , disabledScriptUpgradeTestDueToTriStateVetting ("Fetch disclosed contract with source unvetted on confirming informee", fetchDisclosedUnvettedOnConfirmingInformee)
+    , disabledScriptUpgradeTestDueToTriStateVetting ("Fetch disclosed contract with source unvetted on confirming informee via interface", fetchDisclosedUnvettedOnConfirmingInformeeInterface)
     ]
   , -- TODO: Broken as we expect failure but query succeeds
     subtree "query"
-    [ dontRunOnCanton ("Query undistributed contract with source unvetted", queryUndistributedUnvetted)
-    , dontRunOnCanton ("Query undistributed contract with source unvetted via interface", queryUndistributedUnvettedInterface)
-    , dontRunOnCanton ("Query distributed contract with source unvetted", queryDistributedUnvetted)
-    , dontRunOnCanton ("Query distributed contract with source unvetted via interface", queryDistributedUnvettedInterface)
+    [ disabledScriptUpgradeTestDueToTriStateVetting ("Query undistributed contract with source unvetted", queryUndistributedUnvetted)
+    , disabledScriptUpgradeTestDueToTriStateVetting ("Query undistributed contract with source unvetted via interface", queryUndistributedUnvettedInterface)
+    , disabledScriptUpgradeTestDueToTriStateVetting ("Query distributed contract with source unvetted", queryDistributedUnvetted)
+    , disabledScriptUpgradeTestDueToTriStateVetting ("Query distributed contract with source unvetted via interface", queryDistributedUnvettedInterface)
     ]
   ]
 

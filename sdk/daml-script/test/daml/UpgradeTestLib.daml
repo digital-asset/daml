@@ -13,6 +13,7 @@ module UpgradeTestLib (
   subtree,
   broken,
   brokenOnCanton,
+  disabledScriptUpgradeTestDueToTriStateVetting,
   brokenOnIDELedger,
   withUnvettedDar,
   withUnvettedDarOnParticipant,
@@ -105,6 +106,13 @@ brokenOnCanton (name, act) =
   , \testState -> case testState.runMode of
     Canton -> brokenScript act testState
     _ -> act testState
+  )
+
+-- TODO(#21671): Fix and re-enable tests after tri-state vetting changes
+disabledScriptUpgradeTestDueToTriStateVetting : (Text, Test) -> (Text, Test)
+disabledScriptUpgradeTestDueToTriStateVetting (name, test) =
+  (name
+  , \state -> pure ()
   )
 
 brokenOnIDELedger : (Text, Test) -> (Text, Test)
