@@ -13,8 +13,8 @@ import DA.Optional
 import DA.Text (isInfixOf)
 import DA.Time (seconds)
 
-dontRunOnCanton : TestTree -> TestTree
-dontRunOnCanton tree cases = if runMode cases == Canton then pure () else tree cases
+dontRunOnCanton : (Text, Test) -> (Text, Test)
+dontRunOnCanton (name, test) = (name, \state -> if runMode state == Canton then pure () else test state)
 
 -- TODO(#21671): Fix and re-enable tests after tri-state vetting changes
 -- These tests rely on unvetting, none of them will work on IDE

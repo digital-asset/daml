@@ -152,8 +152,8 @@ interfacesV2 = getPackageId "interfaces-2.0.0"
 interfacesAltV2 : PackageId
 interfacesAltV2 = getPackageId "interfaces-alt-2.0.0"
 
-dontRunOnCanton : TestTree -> TestTree
-dontRunOnCanton tree cases = if runMode cases == Canton then pure () else tree cases
+dontRunOnCanton : (Text, Test) -> (Text, Test)
+dontRunOnCanton (name, test) = (name, \state -> if runMode state == Canton then pure () else test state)
 
 -- cant upgrade contracts in interface choice argument - i dont think this is possible in daml-script
 -- TODO(#21671): Fix and re-enable tests after tri-state vetting changes
