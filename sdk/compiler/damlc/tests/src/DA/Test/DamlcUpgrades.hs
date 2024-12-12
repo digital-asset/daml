@@ -586,7 +586,7 @@ tests damlc =
               _ ->
                 pure (Nothing, Nothing)
 
-            damlScriptLtsDar <- locateRunfiles (mainWorkspace </> "daml-script/daml3/daml3-script.dar")
+            damlScriptLtsDar <- locateRunfiles (mainWorkspace </> "daml-script/daml-lts/daml-script-lts.dar")
             let mbDamlScriptDar = [damlScriptLtsDar | addDamlScriptLtsDar]
 
             v1AdditionalDarsRunFiles <- traverse testAdditionaDarRunfile additionalDarsV1

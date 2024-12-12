@@ -448,7 +448,7 @@ da_haskell_test(
     data = [
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
-        "//daml-script/daml3:daml3-script.dar",
+        "//daml-script/daml-lts:daml-script-lts.dar",
         "//daml-script/runner:daml-script-binary",
 
         # Files for damlc tests

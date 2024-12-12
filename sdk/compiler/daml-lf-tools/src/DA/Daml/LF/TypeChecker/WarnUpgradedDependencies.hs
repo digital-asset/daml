@@ -53,7 +53,7 @@ checkTypeCon isSerializable name = do
         Nothing -> pure ()
         Just meta@PackageMetadata { packageName } ->
           let isNewDamlScript :: PackageName -> Bool
-              isNewDamlScript name = name `elem` map PackageName ["daml3-script", "daml-script-lts", "daml-script-lts-stable", "daml3-script-stable"]
+              isNewDamlScript name = name `elem` map PackageName ["daml-script-lts", "daml-script-lts-stable"]
           in
           when (isNewDamlScript packageName) $ do
             diagnosticWithContext $ WEDependsOnDatatypeFromNewDamlScript (pkgId, meta) (packageLfVersion pkg) name
