@@ -277,7 +277,6 @@ object JsCommandService extends DocumentationEndpoints {
       .out(jsonBody[command_submission_service.SubmitReassignmentResponse])
       .description("Submit reassignment command asynchronously")
 
-  // TODO (i21030) add test for this
   val completionStreamEndpoint =
     commands.get
       .in(sttp.tapir.stringToPath("completions"))

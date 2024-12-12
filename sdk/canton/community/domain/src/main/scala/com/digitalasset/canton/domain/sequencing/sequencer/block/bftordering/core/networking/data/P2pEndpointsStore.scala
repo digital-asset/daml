@@ -15,7 +15,7 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
 
-trait P2pEndpointsStore[E <: Env[E]] {
+trait P2pEndpointsStore[E <: Env[E]] extends AutoCloseable {
 
   def listEndpoints(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Seq[Endpoint]]
   protected final val listEndpointsActionName: String = "list BFT ordering P2P endpoints"

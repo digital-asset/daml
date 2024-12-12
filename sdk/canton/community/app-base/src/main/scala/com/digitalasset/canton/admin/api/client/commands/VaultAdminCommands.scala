@@ -36,6 +36,7 @@ object VaultAdminCommands {
       filterFingerprint: String,
       filterName: String,
       filterPurpose: Set[KeyPurpose] = Set.empty,
+      filterUsage: Set[SigningKeyUsage] = Set.empty,
   ) extends BaseVaultAdminCommand[
         v30.ListMyKeysRequest,
         v30.ListMyKeysResponse,
@@ -50,6 +51,7 @@ object VaultAdminCommands {
               fingerprint = filterFingerprint,
               name = filterName,
               purpose = filterPurpose.map(_.toProtoEnum).toSeq,
+              usage = filterUsage.map(_.toProtoEnum).toSeq,
             )
           )
         )
@@ -72,6 +74,7 @@ object VaultAdminCommands {
       filterFingerprint: String,
       filterName: String,
       filterPurpose: Set[KeyPurpose] = Set.empty,
+      filterUsage: Set[SigningKeyUsage] = Set.empty,
   ) extends BaseVaultAdminCommand[
         v30.ListPublicKeysRequest,
         v30.ListPublicKeysResponse,
@@ -86,6 +89,7 @@ object VaultAdminCommands {
               fingerprint = filterFingerprint,
               name = filterName,
               purpose = filterPurpose.map(_.toProtoEnum).toSeq,
+              usage = filterUsage.map(_.toProtoEnum).toSeq,
             )
           )
         )

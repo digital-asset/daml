@@ -431,13 +431,13 @@ object PbftBlockState {
       def missingMessages[M <: PbftNetworkMessage](
           remoteHasIt: Seq[Boolean],
           myMessages: collection.Map[SequencerId, SignedMessage[M]],
-          shouldIncludeLocalMessage: Boolean,
+          canIncludeLocalMessage: Boolean,
       ): Seq[SignedMessage[PbftNetworkMessage]] = membership.sortedPeers.view
         .zip(remoteHasIt)
         .flatMap { case (node, hasMsg) =>
           if (hasMsg) None
           else if (membership.myId == node) {
-            if (shouldIncludeLocalMessage) myMessages.get(node) else None
+            if (canIncludeLocalMessage) myMessages.get(node) else None
           } else myMessages.get(node)
         }
         // take only enough to complete strong quorum

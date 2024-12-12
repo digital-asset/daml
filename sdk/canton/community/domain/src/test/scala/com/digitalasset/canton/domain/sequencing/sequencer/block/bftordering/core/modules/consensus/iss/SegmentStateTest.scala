@@ -1279,8 +1279,8 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       // retransmit all messages remote node doesn't have
       val retransmissionResult =
         segmentState.messagesToRetransmit(otherPeer1, zeroProgressSegmentStatus)
-      retransmissionResult.commitCertsToRetransmit shouldBe empty
-      retransmissionResult.messagesToRetransmit.map(_.message) should matchPattern {
+      retransmissionResult.commitCerts shouldBe empty
+      retransmissionResult.messages.map(_.message) should matchPattern {
         case Seq(
               // first block
               _: PrePrepare,

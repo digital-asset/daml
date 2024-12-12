@@ -87,6 +87,15 @@ object Consensus {
     final case class AsyncException(e: Throwable) extends ConsensusMessage
   }
 
+  sealed trait RetransmissionsMessage extends ProtocolMessage
+  object RetransmissionsMessage {
+    final case class RetransmissionRequest(epochStatus: ConsensusStatus.EpochStatus)
+        extends RetransmissionsMessage
+    final case object PeriodicStatusBroadcast extends RetransmissionsMessage
+    final case class SegmentStatus(segmentIndex: Int, status: ConsensusStatus.SegmentStatus)
+        extends RetransmissionsMessage
+  }
+
   sealed trait StateTransferMessage extends ProtocolMessage
 
   object StateTransferMessage {

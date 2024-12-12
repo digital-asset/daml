@@ -216,6 +216,26 @@ class IssSegmentModule[E <: Env[E]](
       case pbftEvent: ConsensusSegment.ConsensusMessage.PbftEvent =>
         processPbftEvent(pbftEvent)
 
+      case ConsensusSegment.RetransmissionsMessage.StatusRequest(segmentIndex) =>
+        parent.asyncSend(
+          Consensus.RetransmissionsMessage.SegmentStatus(segmentIndex, segmentState.status)
+        )
+      case ConsensusSegment.RetransmissionsMessage.RetransmissionRequest(from, fromStatus) =>
+        segmentState
+          .messagesToRetransmit(from, fromStatus)
+          .messages
+          // TODO(#18788): we currently only retransmit messages from ourselves,
+          //  but we should also support from others and commit certs
+          .filter(_.from == epoch.membership.myId)
+          .foreach { msg =>
+            p2pNetworkOut.asyncSend(
+              P2PNetworkOut.send(
+                P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(msg),
+                to = from,
+              )
+            )
+          }
+
       case ConsensusSegment.ConsensusMessage.BlockOrdered(metadata) =>
         leaderSegmentState.foreach(_.confirmCompleteBlockStored(metadata.blockNumber))
 

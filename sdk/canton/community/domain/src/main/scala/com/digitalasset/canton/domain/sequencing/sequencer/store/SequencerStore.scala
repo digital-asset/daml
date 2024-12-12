@@ -610,7 +610,10 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
   ): FutureUnlessShutdown[Option[CantonTimestamp]]
 
   /** Flag that we're going offline (likely due to a shutdown) */
-  def goOffline(instanceIndex: Int)(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
+  def goOffline(instanceIndex: Int)(implicit
+      traceContext: TraceContext,
+      callerCloseContext: CloseContext,
+  ): FutureUnlessShutdown[Unit]
 
   /** Mark the sequencer as online and return a timestamp for when this sequencer can start safely producing events.
     * @param now Now according to this sequencer's clock which will be used if it is ahead of the lowest available

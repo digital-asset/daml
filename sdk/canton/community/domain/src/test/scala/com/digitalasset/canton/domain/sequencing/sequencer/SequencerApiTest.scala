@@ -209,7 +209,9 @@ abstract class SequencerApiTest
                 include("Advancing sim clock") or
                 (include("Creating ForkJoinPool with parallelism") and include(
                   "to avoid starvation"
-                )))
+                )) or
+                include("Started gathering segment status") or
+                include("Broadcasting epoch status"))
             },
           )
         } yield {

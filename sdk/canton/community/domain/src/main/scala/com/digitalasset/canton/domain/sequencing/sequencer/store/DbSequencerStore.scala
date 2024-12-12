@@ -766,11 +766,17 @@ class DbSequencerStore(
 
   override def goOffline(
       instanceIndex: Int
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    storage.updateUnlessShutdown_(
-      sqlu"update sequencer_watermarks set sequencer_online = false where node_index = $instanceIndex",
-      functionFullName,
-    )
+  )(implicit
+      traceContext: TraceContext,
+      callerCloseContext: CloseContext,
+  ): FutureUnlessShutdown[Unit] =
+    CloseContext.withCombinedContext(callerCloseContext, this.closeContext, timeouts, logger) {
+      cc =>
+        storage.updateUnlessShutdown_(
+          sqlu"update sequencer_watermarks set sequencer_online = false where node_index = $instanceIndex",
+          functionFullName,
+        )(traceContext, cc)
+    }
 
   override def goOnline(instanceIndex: Int, now: CantonTimestamp)(implicit
       traceContext: TraceContext

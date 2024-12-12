@@ -14,4 +14,5 @@ final class SimulationP2pEndpointsStore(initialEndpoints: Set[Endpoint] = Set.em
     extends GenericInMemoryP2pEndpointsStore[SimulationEnv](initialEndpoints) {
   override def createFuture[A](action: String)(x: () => Try[A]): SimulationFuture[A] =
     SimulationFuture(x)
+  override def close(): Unit = ()
 }

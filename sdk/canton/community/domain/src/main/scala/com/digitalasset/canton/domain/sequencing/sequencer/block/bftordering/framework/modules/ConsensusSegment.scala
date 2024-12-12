@@ -64,6 +64,15 @@ object ConsensusSegment {
     final case class AsyncException(e: Throwable) extends Message
   }
 
+  sealed trait RetransmissionsMessage extends Message
+  object RetransmissionsMessage {
+    final case class StatusRequest(segmentIndex: Int) extends RetransmissionsMessage
+    final case class RetransmissionRequest(
+        from: SequencerId,
+        fromStatus: ConsensusStatus.SegmentStatus.Incomplete,
+    ) extends RetransmissionsMessage
+  }
+
   sealed trait ConsensusMessage extends Message
   object ConsensusMessage {
     final case class BlockProposal(orderingBlock: OrderingBlock, epochNumber: EpochNumber)

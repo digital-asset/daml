@@ -180,7 +180,8 @@ abstract class ProtocolProcessor[
             submitWithoutTracking(submissionParam, untracked).tapLeft(submissionError =>
               logger.warn(s"Failed to submit submission due to $submissionError")
             )
-          case tracked: steps.TrackedSubmission => submitWithTracking(submissionParam, tracked)
+          case tracked: steps.TrackedSubmission =>
+            submitWithTracking(submissionParam, tracked)
         }
       }
     } yield result

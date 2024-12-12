@@ -706,6 +706,7 @@ final class InMemoryUnitTestEpochStore[E <: BaseIgnoringUnitTestEnv[E]]
   override protected def createFuture[T](action: String)(
       value: () => Try[T]
   ): E#FutureUnlessShutdownT[T] = () => value().get
+  override def close(): Unit = ()
 }
 
 final class InMemoryUnitTestOutputBlockMetadataStore[E <: BaseIgnoringUnitTestEnv[E]]
@@ -713,4 +714,5 @@ final class InMemoryUnitTestOutputBlockMetadataStore[E <: BaseIgnoringUnitTestEn
   override protected def createFuture[T](action: String)(
       value: () => Try[T]
   ): E#FutureUnlessShutdownT[T] = () => value().get
+  override def close(): Unit = ()
 }

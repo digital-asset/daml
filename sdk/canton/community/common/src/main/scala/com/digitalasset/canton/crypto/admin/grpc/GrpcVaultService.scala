@@ -7,10 +7,12 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService.ListKeysFilter
 import com.digitalasset.canton.crypto.admin.v30
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError
 import com.digitalasset.canton.crypto.{v30 as cryptoproto, *}
@@ -43,20 +45,62 @@ class GrpcVaultService(
     with NamedLogging {
 
   private def listPublicKeys(
-      filters: Option[v30.ListKeysFilters],
+      filter: ListKeysFilter,
       pool: Iterable[PublicKeyWithName],
-  ): Seq[PublicKeyWithName] =
-    pool
-      .filter(entry =>
-        filters.forall { filter =>
-          entry.publicKey.fingerprint.unwrap.startsWith(filter.fingerprint) && entry.name
-            .map(_.unwrap)
-            .getOrElse("")
-            .contains(filter.name) && filter.purpose
-            .forall(_ == entry.publicKey.purpose.toProtoEnum)
+  ): Seq[PublicKeyWithName] = {
+
+    def filterFingerprint(key: PublicKeyWithName): Boolean =
+      filter.fingerprint.fold(true)(f => key.publicKey.fingerprint == f)
+
+    def filterName(key: PublicKeyWithName): Boolean =
+      key.name.map(_.unwrap).getOrElse("").contains(filter.name)
+
+    def filterPurpose(key: PublicKeyWithName): Boolean =
+      filter.purpose.fold(true)(purposes => purposes.contains(key.publicKey.purpose))
+
+    def filterUsage(key: PublicKeyWithName): Boolean =
+      filter.usage.fold(true)(filterUsage =>
+        key match {
+          case SigningPublicKeyWithName(publicSigningKey, _) =>
+            SigningKeyUsage.nonEmptyIntersection(publicSigningKey.usage, filterUsage)
+          case _ => true
         }
       )
+
+    pool
+      .filter(entry =>
+        filterFingerprint(entry) && filterName(entry) && filterPurpose(entry) && filterUsage(entry)
+      )
       .toSeq
+  }
+
+  private def parseFilters(
+      filtersO: Option[v30.ListKeysFilters]
+  ): ListKeysFilter = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    filtersO.fold(
+      ListKeysFilter(None, "", None, None)
+    ) { filters =>
+      (
+        for {
+          fingerprintO <- OptionUtil
+            .emptyStringAsNone(filters.fingerprint)
+            .traverse(Fingerprint.fromProtoPrimitive)
+          name = filters.name
+          purposeO <- filters.purpose
+            .traverse(purpose => KeyPurpose.fromProtoEnum("purpose", purpose))
+            .map(keyPurposeList => NonEmpty.from(keyPurposeList))
+          usageO <- filters.usage
+            .traverse(usage => SigningKeyUsage.fromProtoEnum("usage", usage))
+            .map(keyUsageList => NonEmpty.from(keyUsageList.toSet))
+          _ = if (purposeO.exists(_.contains(KeyPurpose.Encryption)) && usageO.exists(_.nonEmpty))
+            throw ProtoDeserializationFailure
+              .WrapNoLoggingStr("Cannot specify a usage when listing encryption keys")
+              .asGrpcError
+        } yield ListKeysFilter(fingerprintO, name, purposeO, usageO)
+      ).valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
+    }
+  }
 
   // returns public keys of which we have private keys
   override def listMyKeys(request: v30.ListMyKeysRequest): Future[v30.ListMyKeysResponse] = {
@@ -72,7 +116,8 @@ class GrpcVaultService(
                 .WrapStr(s"Failed to check key ${pk.publicKey.id}'s existence: $err")
             }
         )
-      filteredPublicKeys = listPublicKeys(request.filters, publicKeys)
+      listKeysFilters = parseFilters(request.filters)
+      filteredPublicKeys = listPublicKeys(listKeysFilters, publicKeys)
       keysMetadata <-
         crypto.cryptoPrivateStore.toExtended match {
           case Some(extended) =>
@@ -133,9 +178,10 @@ class GrpcVaultService(
       request: v30.ListPublicKeysRequest
   ): Future[v30.ListPublicKeysResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    val listKeysFilters = parseFilters(request.filters)
     crypto.cryptoPublicStore.publicKeysWithName
       .map { keys =>
-        v30.ListPublicKeysResponse(listPublicKeys(request.filters, keys).map(_.toProtoV30))
+        v30.ListPublicKeysResponse(listPublicKeys(listKeysFilters, keys).map(_.toProtoV30))
       }
       .failOnShutdownTo(AbortedDueToShutdown.Error().asGrpcError)
   }
@@ -462,6 +508,13 @@ object GrpcVaultService {
     )(implicit ec: ExecutionContext, err: ErrorLoggingContext): GrpcVaultService =
       new GrpcVaultService(crypto, enablePreviewFeatures, loggerFactory)
   }
+
+  private final case class ListKeysFilter(
+      fingerprint: Option[Fingerprint],
+      name: String,
+      purpose: Option[Seq[KeyPurpose]],
+      usage: Option[NonEmpty[Set[SigningKeyUsage]]],
+  )
 }
 
 final case class PrivateKeyMetadata(

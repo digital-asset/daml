@@ -35,7 +35,7 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
 
-trait EpochStore[E <: Env[E]] {
+trait EpochStore[E <: Env[E]] extends AutoCloseable {
 
   def startEpoch(epoch: EpochInfo)(implicit
       traceContext: TraceContext

@@ -23,6 +23,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
   LeaderSelectionPolicy,
   SimpleLeaderSelectionPolicy,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions.RetransmissionsManager
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferMessageResult.{
   BlockTransferCompleted,
@@ -135,6 +136,13 @@ final class IssConsensusModule[E <: Env[E]](
 
   private var newEpochTopology: Option[(OrderingTopology, CryptoProvider[E])] = None
 
+  private var retransmissionsManager = new RetransmissionsManager[E](
+    epochState,
+    activeMembership.otherPeers,
+    dependencies.p2pNetworkOut,
+    loggerFactory,
+  )
+
   override def ready(self: ModuleRef[Consensus.Message[E]]): Unit =
     // TODO(#16761) also resend locally-led ordered blocks (PrePrepare) in activeEpoch in case my node crashed
     queuedConsensusMessages.foreach(self.asyncSend)
@@ -172,6 +180,7 @@ final class IssConsensusModule[E <: Env[E]](
             )(abort)
           case _ =>
             startSegmentModulesAndCompleteInit()
+            retransmissionsManager.startRequesting()
         }
 
       case Consensus.Admin.GetOrderingTopology(callback) =>
@@ -274,6 +283,14 @@ final class IssConsensusModule[E <: Env[E]](
           if (pbftMessage.message.blockMetadata.epochNumber == epochState.epoch.info.number)
             processPbftMessage(pbftMessage)
         }
+
+        retransmissionsManager = new RetransmissionsManager[E](
+          epochState,
+          activeMembership.otherPeers,
+          dependencies.p2pNetworkOut,
+          loggerFactory,
+        )
+        retransmissionsManager.startRequesting()
     }
 
   private def handleProtocolMessage(
@@ -335,6 +352,8 @@ final class IssConsensusModule[E <: Env[E]](
 
           case consensusMessage: Consensus.ConsensusMessage =>
             handleConsensusMessage(consensusMessage)
+
+          case msg: Consensus.RetransmissionsMessage => retransmissionsManager.handleMessage(msg)
 
           case _: Consensus.StateTransferMessage => // handled at the top regardless of the init, just to make the match exhaustive
         }
@@ -422,6 +441,7 @@ final class IssConsensusModule[E <: Env[E]](
             s"Trying to complete future epoch ${epoch.info.number} before local epoch $currentEpochNumber has caught up!"
           )
         else {
+          retransmissionsManager.stopRequesting()
           epochState.completeEpoch(epoch.info.number)
           epochState.close()
 

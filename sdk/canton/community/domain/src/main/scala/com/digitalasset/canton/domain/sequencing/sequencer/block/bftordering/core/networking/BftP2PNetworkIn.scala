@@ -23,6 +23,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.{
   Availability,
   Consensus,
+  ConsensusStatus,
   P2PNetworkIn,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.{
@@ -126,6 +127,23 @@ class BftP2PNetworkIn[E <: Env[E]](
               ),
           )
         metrics.p2p.receive.labels.source.values.Consensus(from)
+      case Message.RetransmissionMessage(message) =>
+        SignedMessage
+          .fromProto(v1.EpochStatus)(ConsensusStatus.EpochStatus.fromProto(from, _))(
+            message
+          )
+          .fold(
+            errorMessage =>
+              logger.warn(
+                s"Dropping retransmission message from $from as it couldn't be parsed: $errorMessage"
+              ),
+            signedMessage =>
+              consensus.asyncSend(
+                Consensus.RetransmissionsMessage.RetransmissionRequest(signedMessage.message)
+              ),
+          )
+        metrics.p2p.receive.labels.source.values.Retransmissions(from)
+
       case Message.StateTransferMessage(message) =>
         SignedMessage
           .fromProto(v1.StateTransferMessage)(

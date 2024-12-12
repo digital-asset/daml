@@ -91,7 +91,10 @@ trait SequencerWriterStore extends AutoCloseable {
     store.goOnline(instanceIndex, now)
 
   /** Flag that we're going offline (likely due to a shutdown) */
-  def goOffline()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+  def goOffline()(implicit
+      traceContext: TraceContext,
+      callerCloseContext: CloseContext,
+  ): FutureUnlessShutdown[Unit] =
     store.goOffline(instanceIndex)
 
   /** Delete all events that are ahead of the watermark of this sequencer.

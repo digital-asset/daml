@@ -176,7 +176,7 @@ class SegmentState(
     else if (inViewChange)
       ConsensusStatus.SegmentStatus.InViewChange(
         currentViewNumber,
-        viewChangeMessages = viewChangeState
+        viewChangeMessagesPresent = viewChangeState
           .get(currentViewNumber)
           .map(_.viewChangeMessageReceivedStatus)
           .getOrElse(Seq.empty),
@@ -234,16 +234,14 @@ class SegmentState(
               (localBlockState, inProgress) // only look at blocks they haven't completed yet
             }
             .foldLeft(RetransmissionResult.empty) {
-              case (result, (localBlockState, remoteBlockStatus)) =>
+              case (RetransmissionResult(msgs, ccs), (localBlockState, remoteBlockStatus)) =>
                 localBlockState.consensusCertificate match {
                   case Some(cc: CommitCertificate) =>
                     // TODO(#18788): just send a few commits in cases that's enough for remote node to complete quorum
-                    result.copy(commitCertsToRetransmit = cc +: result.commitCertsToRetransmit)
+                    RetransmissionResult(msgs, cc +: ccs)
                   case _ =>
-                    result.copy(messagesToRetransmit =
-                      result.messagesToRetransmit ++ localBlockState
-                        .messagesToRetransmit(remoteBlockStatus)
-                    )
+                    val newMsgs = msgs ++ localBlockState.messagesToRetransmit(remoteBlockStatus)
+                    RetransmissionResult(newMsgs, ccs)
                 }
             }
 
@@ -264,23 +262,20 @@ class SegmentState(
             .collect {
               case (localBlockState, isRemoteComplete) if !isRemoteComplete => localBlockState
             }
-            .foldLeft(RetransmissionResult(newView)) { (result, localBlockState) =>
-              localBlockState.consensusCertificate match {
-                case Some(cc: CommitCertificate) =>
-                  // TODO(#18788): rethink commit certs here, considering that some certs will be in the new-view message.
-                  // we could either: exclude sending commit certs that are already in the new-view,
-                  // not take that into account and just send commit certs regardless (which means we may send the same cert twice),
-                  // or not send any certs at all considering that the new-view message will likely contain most if not all of them
-                  result.copy(commitCertsToRetransmit = cc +: result.commitCertsToRetransmit)
-                case _ =>
-                  result.copy(messagesToRetransmit =
-                    result.messagesToRetransmit ++
-                      localBlockState
-                        .messagesToRetransmit(
-                          remoteBlockStatusNoPreparesOrCommits
-                        )
-                  )
-              }
+            .foldLeft(RetransmissionResult(newView)) {
+              case (RetransmissionResult(msgs, ccs), localBlockState) =>
+                localBlockState.consensusCertificate match {
+                  case Some(cc: CommitCertificate) =>
+                    // TODO(#18788): rethink commit certs here, considering that some certs will be in the new-view message.
+                    // we could either: exclude sending commit certs that are already in the new-view,
+                    // not take that into account and just send commit certs regardless (which means we may send the same cert twice),
+                    // or not send any certs at all considering that the new-view message will likely contain most if not all of them
+                    RetransmissionResult(msgs, cc +: ccs)
+                  case _ =>
+                    val newMsgs =
+                      localBlockState.messagesToRetransmit(remoteBlockStatusNoPreparesOrCommits)
+                    RetransmissionResult(msgs ++ newMsgs, ccs)
+                }
             }
       }
     }

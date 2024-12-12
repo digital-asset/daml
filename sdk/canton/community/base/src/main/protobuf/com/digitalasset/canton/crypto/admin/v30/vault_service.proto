@@ -148,6 +148,8 @@ message ListKeysFilters {
   string name = 2;
   // filter on public key purpose
   repeated com.digitalasset.canton.crypto.v30.KeyPurpose purpose = 3;
+  // filter on signing public key usage
+  repeated com.digitalasset.canton.crypto.v30.SigningKeyUsage usage = 4;
 }
 
 message ListMyKeysRequest {

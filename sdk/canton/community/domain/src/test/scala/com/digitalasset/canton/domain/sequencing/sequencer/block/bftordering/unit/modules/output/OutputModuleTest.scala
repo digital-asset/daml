@@ -993,12 +993,14 @@ class OutputModuleTest
     new GenericInMemoryOutputBlockMetadataStore[E] {
       override protected def createFuture[T](action: String)(value: () => Try[T]): () => T =
         () => value().getOrElse(fail())
+      override def close(): Unit = ()
     }
 
   private def createEpochStore[E <: BaseIgnoringUnitTestEnv[E]] =
     new GenericInMemoryEpochStore[E] {
       override protected def createFuture[T](action: String)(value: () => Try[T]): () => T =
         () => value().getOrElse(fail())
+      override def close(): Unit = ()
     }
 }
 

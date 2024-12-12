@@ -457,3 +457,11 @@ template DiscloseCreate
       do
         create Dummy with operator = owner
         return ()
+
+template Sync
+  with
+    from: Party
+    to: Party
+  where
+    signatory from
+    observer to

@@ -17,7 +17,7 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
 
-trait AvailabilityStore[E <: Env[E]] {
+trait AvailabilityStore[E <: Env[E]] extends AutoCloseable {
   def addBatch(batchId: BatchId, batch: OrderingRequestBatch)(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Unit]

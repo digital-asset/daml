@@ -179,7 +179,6 @@ class SchemaProcessors(
         Future.failed(invalidField("package reference", error))
     }
 
-  @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
   private def loadTemplate(
       packageName: String,
       template: Identifier,
@@ -208,7 +207,12 @@ class SchemaProcessors(
           signature.metadata.version
         }
         .reverse
-        .head
+        .headOption
+        .getOrElse(
+          throw new RuntimeException(
+            s"Failed to load template for $template because there were no packages with name $packageName"
+          )
+        )
       Identifier(topPackage._1, template.moduleName, template.entityName)
     }
   }
