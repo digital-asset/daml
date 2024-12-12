@@ -1197,13 +1197,13 @@ daml_compile(
 )
 
 daml_compile(
-    name = "try-submit-test",
-    srcs = ["daml-test-files/Daml3ScriptTrySubmit.daml"],
+    name = "submit-test",
+    srcs = ["daml-test-files/Daml3ScriptSubmit.daml"],
     dependencies = [
         "//daml-script/daml3:daml3-script-2.dev.dar",
     ],
     enable_interfaces = True,
-    project_name = "try-submit-test",
+    project_name = "submit-test",
     target = "2.dev",
     visibility = ["//visibility:public"],
 )

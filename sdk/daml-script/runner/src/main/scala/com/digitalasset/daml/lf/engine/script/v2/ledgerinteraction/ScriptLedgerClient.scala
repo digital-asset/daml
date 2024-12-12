@@ -175,6 +175,7 @@ trait ScriptLedgerClient {
       disclosures: List[Disclosure],
       optPackagePreference: Option[List[PackageId]],
       commands: List[ScriptLedgerClient.CommandWithMeta],
+      prefetchContractKeys: List[AnyContractKey],
       optLocation: Option[Location],
       languageVersionLookup: PackageId => Either[String, LanguageVersion],
       // TODO[SW]: The error behaviour handling logic is written in ScriptF, so each LedgerClient doesn't need to know about it

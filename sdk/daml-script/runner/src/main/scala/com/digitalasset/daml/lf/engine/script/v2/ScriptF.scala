@@ -159,6 +159,7 @@ object ScriptF {
       cmds: List[ScriptLedgerClient.CommandWithMeta],
       optPackagePreference: Option[List[PackageId]],
       disclosures: List[Disclosure],
+      prefetchKeys: List[AnyContractKey],
       errorBehaviour: ScriptLedgerClient.SubmissionErrorBehaviour,
       optLocation: Option[Location],
   )
@@ -189,6 +190,7 @@ object ScriptF {
           submission.disclosures,
           submission.optPackagePreference,
           submission.cmds,
+          submission.prefetchKeys,
           submission.optLocation,
           env.lookupLanguageVersion,
           submission.errorBehaviour,
@@ -835,6 +837,7 @@ object ScriptF {
               SList(readAs),
               SList(disclosures),
               SOptional(optPackagePreference),
+              SList(prefetchKeys),
               SEnum(_, name, _),
               SList(cmds),
               SOptional(optLocation),
@@ -847,6 +850,7 @@ object ScriptF {
           optPackagePreference <- optPackagePreference.traverse(
             Converter.toList(_, Converter.toPackageId)
           )
+          prefetchKeys <- prefetchKeys.toImmArray.toList.traverse(Converter.toAnyContractKey)
           errorBehaviour <- parseErrorBehaviour(name)
           cmds <- cmds.toList.traverse(Converter.toCommandWithMeta)
           optLocation <- optLocation.traverse(Converter.toLocation(knownPackages.pkgs, _))
@@ -855,6 +859,7 @@ object ScriptF {
           readAs = readAs.toSet,
           disclosures = disclosures,
           optPackagePreference = optPackagePreference,
+          prefetchKeys = prefetchKeys,
           errorBehaviour = errorBehaviour,
           cmds = cmds,
           optLocation = optLocation,
