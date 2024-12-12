@@ -31,8 +31,6 @@ import DA.Daml.LF.Ast.Numeric (numericMaxScale)
 import DA.Daml.LF.Ast.Optics (_PRSelfModule, dataConsType)
 import DA.Daml.LF.TypeChecker.Env
 import DA.Daml.LF.TypeChecker.Error
-import Data.Functor.Foldable (cataA, embed)
-import DA.Daml.LF.Ast.Recursive (TypeF(..))
 
 -- This is only used during serializability inference. During typechecking the world
 -- contains the current module.
@@ -151,47 +149,9 @@ checkType :: MonadGamma m => SerializabilityRequirement -> Type -> m ()
 checkType req typ = do
   version <- getLfVersion
   world0 <- getWorld
-  checkSerializableTypeConReferences typ
   case serializabilityConditionsType world0 version Nothing HS.empty typ of
     Left reason -> throwWithContext (EExpectedSerializableType req typ reason)
     Right _ -> pure ()
-
-checkSerializableTypeConReferences :: forall m. MonadGamma m => Type -> m ()
-checkSerializableTypeConReferences typ = do
-    _ <- cataA go typ
-    pure ()
-  where
-    go :: TypeF (m Type) -> m Type
-    go typeF = do
-      case typeF of
-        TConF tcn -> checkTypeCon tcn
-        _ -> pure ()
-      embed <$> sequence typeF
-
-checkTypeCon :: (MonadGamma m) => Qualified TypeConName -> m ()
-checkTypeCon name = do
-  case qualPackage name of
-    PRSelf -> pure ()
-    PRImport pkgId -> do
-      pkg <- inWorld (lookupPackage (PRImport pkgId))
-
-      -- When using a datatype from a new (>= LF1.17) daml-script in a serializable
-      -- position
-      case packageMetadata pkg of
-        Nothing -> pure ()
-        Just meta@PackageMetadata { packageName } ->
-          let isNewDamlScript :: PackageName -> Bool
-              isNewDamlScript name = name `elem` map PackageName ["daml3-script", "daml-script-lts", "daml-script-lts-stable"]
-          in
-          when (isNewDamlScript packageName) $ do
-            throwWithContextFRaw id $ EErrorOrWarning $ WEDependsOnDatatypeFromNewDamlScript (pkgId, meta) (packageLfVersion pkg) name
-
-      -- When using an LF1.15 serializable datatype in a serializable position while
-      -- targeting >= LF1.17
-      targetLfVersion <- getLfVersion
-      datatype <- inWorld (lookupDataType name)
-      when (packageLfVersion pkg == version1_15 && targetLfVersion `supports` featurePackageUpgrades && getIsSerializable (dataSerializable datatype)) $ do
-        throwWithContextFRaw id $ EErrorOrWarning $ WEUpgradeDependsOnSerializableNonUpgradeableDataType (pkgId, packageMetadata pkg, packageLfVersion pkg) targetLfVersion name
 
 -- | Check whether a data type definition satisfies all serializability constraints.
 checkDataType :: MonadGamma m => ModuleName -> DefDataType -> m ()
