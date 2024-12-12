@@ -1,0 +1,3 @@
+module Dep where
+
+data D = D { d : Text }

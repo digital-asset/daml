@@ -1,0 +1,8 @@
+module Main where
+
+import qualified Dep as Dep
+
+data D = D
+  { field1 : Text
+  , dep : Optional Dep.D
+  }

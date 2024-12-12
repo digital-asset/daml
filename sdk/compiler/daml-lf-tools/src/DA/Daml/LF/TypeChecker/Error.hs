@@ -281,7 +281,7 @@ instance Pretty ErrorOrWarning where
     WEUpgradeDependsOnSerializableNonUpgradeableDataType (depPkgId, depMeta, depLfVersion) lfVersion tcn -> "This package has LF version " <> pPrint lfVersion <> ", but it depends on a serializable type " <> pPrint tcn <> " from package " <> pprintDep (depPkgId, depMeta) <> " which has LF version " <> pPrint depLfVersion <> ". It is not recommended that >= LF1.17 packages depend on <= LF1.15 datatypes in places that may be serialized to the ledger, since those datatypes will not be upgradeable."
     WEDependsOnDatatypeFromNewDamlScript (depPkgId, depMeta) depLfVersion tcn -> "This package depends on a datatype " <> pPrint tcn <> " from " <> pprintDep (depPkgId, Just depMeta) <> " with LF version " <> pPrint depLfVersion <> ". It is not recommended that packages use datatypes from Daml Script."
     where
-      pprintDep (pkgId, Just meta) = pPrint pkgId <> "(" <> pPrint (packageName meta) <> ", " <> pPrint (packageVersion meta) <> ")"
+      pprintDep (pkgId, Just meta) = pPrint pkgId <> " (" <> pPrint (packageName meta) <> ", " <> pPrint (packageVersion meta) <> ")"
       pprintDep (pkgId, Nothing) = pPrint pkgId
 
 damlWarningFlagParserTypeChecker :: DamlWarningFlagParser ErrorOrWarning
@@ -800,7 +800,7 @@ instance Pretty UnwarnableError where
         , nest 2 $ vcat $ map pprintDep deps
         ]
       where
-      pprintDep (pkgId, Just meta) = pPrint pkgId <> "(" <> pPrint (packageName meta) <> ", " <> pPrint (packageVersion meta) <> ")"
+      pprintDep (pkgId, Just meta) = pPrint pkgId <> " (" <> pPrint (packageName meta) <> ", " <> pPrint (packageVersion meta) <> ")"
       pprintDep (pkgId, Nothing) = pPrint pkgId
     EUpgradeMultiplePackagesWithSameNameAndVersion name version ids -> "Multiple packages with name " <> pPrint name <> " and version " <> pPrint (show version) <> ": " <> hcat (L.intersperse ", " (map pPrint ids))
     EUpgradeTriedToUpgradeException exception ->

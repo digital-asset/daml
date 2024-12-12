@@ -1,0 +1,10 @@
+module Main where
+
+import Daml.Script
+
+data D = D { field1 : Text }
+
+data UseScript = UseScript
+  { field1 : Text
+  , field2 : PartyIdHint
+  }

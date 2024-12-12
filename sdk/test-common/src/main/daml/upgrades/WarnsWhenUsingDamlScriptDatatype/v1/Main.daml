@@ -1,0 +1,3 @@
+module Main where
+
+data D = D { field1 : Text }
