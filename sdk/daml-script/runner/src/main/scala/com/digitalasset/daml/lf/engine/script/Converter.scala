@@ -102,6 +102,18 @@ class Converter(majorLanguageVersion: LanguageMajorVersion) {
     )
   }
 
+  private[lf] def upgradable(translator: preprocessing.ValueTranslator, tyCon: Ref.TypeConName): Boolean =
+    translator.pkgInterface.lookupPackage(tyCon.packageId).fold(_ => false, _.upgradable)
+
+  // Interface takes precedence. If interface doesn't support it, template can't
+  // fall back to template upgradability
+  private[lf] def upgradableWithInterface(
+    translator: preprocessing.ValueTranslator,
+    tplTyCon: Ref.TypeConName,
+    ifaceTyCon: Option[Ref.TypeConName],
+  ): Boolean =
+    ifaceTyCon.fold(upgradable(translator, tplTyCon))(upgradable(translator, _))
+
   private[lf] def fromTemplateTypeRep(templateId: SValue): SValue =
     record(stablePackages.TemplateTypeRep, ("getTemplateTypeRep", templateId))
 
@@ -136,7 +148,7 @@ class Converter(majorLanguageVersion: LanguageMajorVersion) {
   ): Either[String, SValue] =
     for {
       translated <- translator
-        .translateValue(TTyCon(templateId), argument)
+        .translateValue(TTyCon(templateId), upgradable(translator, templateId), argument)
         .left
         .map(err => s"Failed to translate create argument: $err")
     } yield record(
@@ -170,8 +182,9 @@ class Converter(majorLanguageVersion: LanguageMajorVersion) {
   ): Either[String, SValue] = {
     for {
       choice <- lookupChoice(templateId, interfaceId, choiceName)
+      isUpgradable = upgradableWithInterface(translator, templateId, interfaceId)
       translated <- translator
-        .translateValue(choice.argBinder._2, argument)
+        .translateValue(choice.argBinder._2, isUpgradable, argument)
         .left
         .map(err => s"Failed to translate exercise argument: $err")
     } yield record(
@@ -369,12 +382,13 @@ class Converter(majorLanguageVersion: LanguageMajorVersion) {
 
   private[lf] def fromInterfaceView(
       translator: preprocessing.ValueTranslator,
+      interfaceId: Identifier,
       viewType: Type,
       value: Value,
   ): Either[String, SValue] = {
     for {
       translated <- translator
-        .translateValue(viewType, value)
+        .translateValue(viewType, upgradable(translator, interfaceId), value)
         .left
         .map(err => s"Failed to translate value of interface view: $err")
     } yield translated
@@ -513,7 +527,7 @@ class Converter(majorLanguageVersion: LanguageMajorVersion) {
           checkV1ContractIdSuffixes = false,
         )
       sValue <- valueTranslator
-        .translateValue(ty, lfValue)
+        .translateValue(ty, false, lfValue)
         .left
         .map(_.message)
     } yield sValue

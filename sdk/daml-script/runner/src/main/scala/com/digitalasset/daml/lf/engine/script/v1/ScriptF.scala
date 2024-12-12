@@ -81,10 +81,6 @@ object ScriptF {
         case Right(key) => Right(key.view)
         case Left(err) => Left(err.pretty)
       }
-
-    def translateValue(ty: Ast.Type, value: Value): Either[String, SValue] =
-      valueTranslator.translateValue(ty, value).left.map(_.toString)
-
   }
   final case class Submit(data: SubmitData) extends Cmd {
     override def stackTrace = data.stackTrace
@@ -294,6 +290,7 @@ object ScriptF {
                   for {
                     view <- Converter.fromInterfaceView(
                       env.valueTranslator,
+                      interfaceId,
                       viewType,
                       view,
                     )
@@ -326,7 +323,7 @@ object ScriptF {
         client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
         optR <- client.queryInterfaceContractId(parties, interfaceId, viewType, cid)
         optR <- Converter.toFuture(
-          optR.traverse(Converter.fromInterfaceView(env.valueTranslator, viewType, _))
+          optR.traverse(Converter.fromInterfaceView(env.valueTranslator, interfaceId, viewType, _))
         )
       } yield SEAppAtomic(SEValue(continue), Array(SEValue(SOptional(optR))))
     }
@@ -346,7 +343,8 @@ object ScriptF {
     )(id: Identifier, v: Value): Either[String, SValue] =
       for {
         keyTy <- env.lookupKeyTy(id)
-        translated <- env.valueTranslator.translateValue(keyTy, v).left.map(_.message)
+        isUpgradable = Converter.upgradable(env.valueTranslator, tplId)
+        translated <- env.valueTranslator.translateValue(keyTy, isUpgradable, v).left.map(_.message)
       } yield translated
 
     override def execute(env: Env)(implicit

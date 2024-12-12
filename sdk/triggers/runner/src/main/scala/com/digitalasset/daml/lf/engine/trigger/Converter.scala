@@ -61,7 +61,7 @@ final class Converter(
 
   private[this] def translateValue(ty: Type, value: Value): Either[String, SValue] =
     valueTranslator
-      .translateValue(ty, value)
+      .translateValue(ty, false, value)
       .left
       .map(res => s"Failure to translate value: $res")
 

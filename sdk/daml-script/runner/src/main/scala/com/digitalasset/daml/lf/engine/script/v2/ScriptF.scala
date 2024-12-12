@@ -79,8 +79,8 @@ object ScriptF {
         case Left(err) => Left(err.pretty)
       }
 
-    def translateValue(ty: Ast.Type, value: Value): Either[String, SValue] =
-      valueTranslator.translateValue(ty, value).left.map(_.toString)
+    def translateValue(ty: Ast.Type, isUpgradable: Boolean, value: Value): Either[String, SValue] =
+      valueTranslator.translateValue(ty, isUpgradable, value).left.map(_.toString)
 
     def lookupLanguageVersion(packageId: PackageId): Either[String, LanguageVersion] = {
       compiledPackages.pkgInterface.lookupPackageLanguageVersion(packageId) match {
@@ -353,6 +353,7 @@ class ScriptF(majorLanguageVersion: LanguageMajorVersion) {
                   for {
                     view <- converter.fromInterfaceView(
                       env.valueTranslator,
+                      interfaceId,
                       viewType,
                       view,
                     )
@@ -381,7 +382,7 @@ class ScriptF(majorLanguageVersion: LanguageMajorVersion) {
         client <- converter.toFuture(env.clients.getPartiesParticipant(parties))
         optR <- client.queryInterfaceContractId(parties, interfaceId, viewType, cid)
         optR <- converter.toFuture(
-          optR.traverse(converter.fromInterfaceView(env.valueTranslator, viewType, _))
+          optR.traverse(converter.fromInterfaceView(env.valueTranslator, interfaceId, viewType, _))
         )
       } yield SEValue(SOptional(optR))
     }
@@ -395,8 +396,9 @@ class ScriptF(majorLanguageVersion: LanguageMajorVersion) {
     private def translateKey(env: Env)(id: Identifier, v: Value): Either[String, SValue] =
       for {
         keyTy <- env.lookupKeyTy(id)
+        isUpgradable = converter.upgradable(env.valueTranslator, tplId)
         translated <- env.valueTranslator
-          .translateValue(keyTy, v)
+          .translateValue(keyTy, isUpgradable, v)
           .left
           .map(_.message)
       } yield translated

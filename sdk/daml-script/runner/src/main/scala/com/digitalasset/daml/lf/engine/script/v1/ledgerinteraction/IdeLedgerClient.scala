@@ -149,7 +149,9 @@ class IdeLedgerClient(
       checkV1ContractIdSuffixes = false,
     )
 
-    valueTranslator.translateValue(TTyCon(templateId), arg) match {
+    val isUpgradable = compiledPackages.pkgInterface.lookupPackage(interfaceId.packageId).fold(_ => false, _.upgradable)
+
+    valueTranslator.translateValue(TTyCon(templateId), isUpgradable, arg) match {
       case Left(_) =>
         sys.error("computeView: translateValue failed")
 

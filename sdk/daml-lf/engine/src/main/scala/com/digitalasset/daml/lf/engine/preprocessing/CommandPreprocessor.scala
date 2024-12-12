@@ -356,7 +356,7 @@ private[lf] final class CommandPreprocessor(
         key.contractKey,
       )
     val ckTtype = handleLookup(pkgInterface.lookupTemplateKey(templateId)).typ
-    val preprocessedKey = translateArg(ckTtype, key.contractKey)
+    val preprocessedKey = translateArg(ckTtype, upgradable(templateId), key.contractKey)
 
     speedy.Speedy.Machine
       .globalKey(pkgInterface, templateId, preprocessedKey)

@@ -64,7 +64,7 @@ class SubmitErrors(majorLanguageVersion: LanguageMajorVersion) {
 
   def globalKeyToAnyContractKey(env: Env, templateId: Identifier, key: Value): SValue = {
     val ty = env.lookupKeyTy(templateId).toOption.get
-    val sValue = env.translateValue(ty, key).toOption.get
+    val sValue = env.translateValue(ty, upgradable(env.valueTranslator, templateId), key).toOption.get
     fromAnyContractKey(AnyContractKey(templateId, ty, sValue))
   }
 
@@ -239,7 +239,7 @@ class SubmitErrors(majorLanguageVersion: LanguageMajorVersion) {
   sealed case class UnhandledException(exc: Option[(Identifier, Value)]) extends SubmitError {
     override def toDamlSubmitError(env: Env): SValue = {
       val sValue = exc.map { case (ty, value) =>
-        SAny(Ast.TTyCon(ty), env.translateValue(Ast.TTyCon(ty), value).toOption.get)
+        SAny(Ast.TTyCon(ty), env.translateValue(Ast.TTyCon(ty), false, value).toOption.get)
       }
       SubmitErrorConverters(env).damlScriptError(
         "UnhandledException",

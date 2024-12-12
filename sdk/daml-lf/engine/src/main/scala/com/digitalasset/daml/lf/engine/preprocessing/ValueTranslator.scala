@@ -15,7 +15,7 @@ import com.daml.lf.value.Value._
 import scala.annotation.tailrec
 
 private[lf] final class ValueTranslator(
-    pkgInterface: language.PackageInterface,
+    val pkgInterface: language.PackageInterface,
     checkV1ContractIdSuffixes: Boolean,
 ) {
 
