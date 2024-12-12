@@ -383,14 +383,14 @@ tests damlc =
                     }
             , mkTest
                   "WarnsWhenUsingLF115DependencyInSerializablePosition"
-                  (SucceedWithWarning "\ESC\\[0;93mwarning while type checking data type Main.D:\n  This package has LF version 1.17, but it depends on a serializable type .*:Dep:D from package .* \\(upgrades-example-WarnsWhenUsingLF115DependencyInSerializablePositionDep, 2.0.0\\) which has LF version 1.15. It is not recommended that >= LF1.17 packages depend on <= LF1.15 datatypes in places that may be serialized to the ledger, since those datatypes will not be upgradeable.")
+                  (SucceedWithWarning "\ESC\\[0;93mwarning while type checking data type Main.D:\n  This package has LF version 1.17, but it depends on a serializable type .*:Dep:D from package .* \\(upgrades-example-WarnsWhenUsingLF115DependencyInSerializablePositionDep, 2.0.0\\) which has LF version 1.15. It is not recommended that >= LF1.17 packages depend on <= LF1.15 datatypes in places that may be serialized to the ledger, since those datatypes will not be upgradeable.\n  Upgrade this warning to an error -Werror=upgrade-serialized-non-upgradeable-dependency\n  Disable this warning entirely with -Wno-upgrade-serialized-non-upgradeable-dependency")
                   testOptions
                     { additionalDarsV1 = ["upgrades-WarnsWhenUsingLF115DependencyInSerializablePositionDep-v1.dar"]
                     , additionalDarsV2 = ["upgrades-WarnsWhenUsingLF115DependencyInSerializablePositionDep-v2.dar"]
                     }
             , mkTest
                   "WarnsWhenUsingDamlScriptDatatype"
-                  (SucceedWithWarning "\ESC\\[0;93mwarning while type checking data type Main.UseScript:\n  This package has LF version 1.17, but it depends on a serializable type .*:Daml.Script:PartyIdHint from package .* \\(daml-script, 0.0.0\\) which has LF version 1.15. It is not recommended that >= LF1.17 packages depend on <= LF1.15 datatypes in places that may be serialized to the ledger, since those datatypes will not be upgradeable.")
+                  (SucceedWithWarning "\ESC\\[0;93mwarning while type checking data type Main.UseScript:\n  This package has LF version 1.17, but it depends on a serializable type .*:Daml.Script:PartyIdHint from package .* \\(daml-script, 0.0.0\\) which has LF version 1.15. It is not recommended that >= LF1.17 packages depend on <= LF1.15 datatypes in places that may be serialized to the ledger, since those datatypes will not be upgradeable.\n  Upgrade this warning to an error -Werror=upgrade-serialized-non-upgradeable-dependency\n  Disable this warning entirely with -Wno-upgrade-serialized-non-upgradeable-dependency")
                   testOptions
                     { addDamlScriptDar = True
                     }

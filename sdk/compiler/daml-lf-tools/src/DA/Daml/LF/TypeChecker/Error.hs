@@ -290,6 +290,8 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       [ (upgradeInterfacesName, upgradeInterfacesFlag)
       , (upgradeExceptionsName, upgradeExceptionsFlag)
       , (upgradeDependencyMetadataName, upgradeDependencyMetadataFlag)
+      , (upgradeSerializedLF15DependencyName, upgradeSerializedLF15DependencyFlag)
+      , (referencesDamlScriptDatatypeName, referencesDamlScriptDatatypeFlag)
       ]
   , dwfpDefault = \case
       WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> AsError
@@ -306,7 +308,33 @@ filterNameForErrorOrWarning :: ErrorOrWarning -> Maybe String
 filterNameForErrorOrWarning err | upgradeInterfacesFilter err = Just upgradeInterfacesName
 filterNameForErrorOrWarning err | upgradeExceptionsFilter err = Just upgradeExceptionsName
 filterNameForErrorOrWarning err | upgradeDependencyMetadataFilter err = Just upgradeDependencyMetadataName
+filterNameForErrorOrWarning err | upgradeSerializedLF15DependencyFilter err = Just upgradeSerializedLF15DependencyName
+filterNameForErrorOrWarning err | referencesDamlScriptDatatypeFilter err = Just referencesDamlScriptDatatypeName
 filterNameForErrorOrWarning _ = Nothing
+
+upgradeSerializedLF15DependencyFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+upgradeSerializedLF15DependencyFlag status = RawDamlWarningFlag upgradeSerializedLF15DependencyName status upgradeSerializedLF15DependencyFilter
+
+upgradeSerializedLF15DependencyName :: String
+upgradeSerializedLF15DependencyName = "upgrade-serialized-non-upgradeable-dependency"
+
+upgradeSerializedLF15DependencyFilter :: ErrorOrWarning -> Bool
+upgradeSerializedLF15DependencyFilter =
+    \case
+        WEUpgradeDependsOnSerializableNonUpgradeableDataType {} -> True
+        _ -> False
+
+referencesDamlScriptDatatypeFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+referencesDamlScriptDatatypeFlag status = RawDamlWarningFlag referencesDamlScriptDatatypeName status referencesDamlScriptDatatypeFilter
+
+referencesDamlScriptDatatypeName :: String
+referencesDamlScriptDatatypeName = "upgrade-serialized-non-upgradeable-dependency"
+
+referencesDamlScriptDatatypeFilter :: ErrorOrWarning -> Bool
+referencesDamlScriptDatatypeFilter =
+    \case
+        WEUpgradeDependsOnSerializableNonUpgradeableDataType {} -> True
+        _ -> False
 
 upgradeInterfacesFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
 upgradeInterfacesFlag status = RawDamlWarningFlag upgradeInterfacesName status upgradeInterfacesFilter
