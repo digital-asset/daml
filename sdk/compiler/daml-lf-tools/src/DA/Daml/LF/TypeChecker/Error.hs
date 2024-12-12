@@ -328,12 +328,12 @@ referencesDamlScriptDatatypeFlag :: DamlWarningFlagStatus -> DamlWarningFlag Err
 referencesDamlScriptDatatypeFlag status = RawDamlWarningFlag referencesDamlScriptDatatypeName status referencesDamlScriptDatatypeFilter
 
 referencesDamlScriptDatatypeName :: String
-referencesDamlScriptDatatypeName = "upgrade-serialized-non-upgradeable-dependency"
+referencesDamlScriptDatatypeName = "using-daml-script-datatype"
 
 referencesDamlScriptDatatypeFilter :: ErrorOrWarning -> Bool
 referencesDamlScriptDatatypeFilter =
     \case
-        WEUpgradeDependsOnSerializableNonUpgradeableDataType {} -> True
+        WEDependsOnDatatypeFromNewDamlScript {} -> True
         _ -> False
 
 upgradeInterfacesFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning

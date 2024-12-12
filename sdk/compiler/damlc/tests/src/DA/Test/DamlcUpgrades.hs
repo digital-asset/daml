@@ -390,9 +390,10 @@ tests damlc =
                     }
             , mkTest
                   "WarnsWhenUsingDamlScriptDatatype"
-                  (SucceedWithWarning "\ESC\\[0;93mwarning while type checking data type Main.UseScript:\n  This package has LF version 1.17, but it depends on a serializable type .*:Daml.Script:PartyIdHint from package .* \\(daml-script, 0.0.0\\) which has LF version 1.15. It is not recommended that >= LF1.17 packages depend on <= LF1.15 datatypes in places that may be serialized to the ledger, since those datatypes will not be upgradeable.\n  Upgrade this warning to an error -Werror=upgrade-serialized-non-upgradeable-dependency\n  Disable this warning entirely with -Wno-upgrade-serialized-non-upgradeable-dependency")
+                  (SucceedWithWarning "\ESC\\[0;93mwarning while type checking data type Main.UseScript:\n  This package depends on a datatype adb9782d70bcdb68d1bac913fec45ccc40c7c4b4beb6f77f8caa534fb1e82c8b:Daml.Script.Stable:PartyIdHint from .* \\(daml3-script-stable, 0.0.0\\) with LF version 1.15. It is not recommended that packages use datatypes from Daml Script.\n  Upgrade this warning to an error -Werror=using-daml-script-datatype\n  Disable this warning entirely with -Wno-using-daml-script-datatype")
                   testOptions
-                    { addDamlScriptDar = True
+                    { addDamlScriptLtsDar = True
+                    , lfVersion = versionPairs LF.version1_17
                     }
             , testMetadata
                   "FailsWhenUpgradesPackageHasDifferentPackageName"
@@ -585,8 +586,8 @@ tests damlc =
               _ ->
                 pure (Nothing, Nothing)
 
-            damlScriptDar <- locateRunfiles (mainWorkspace </> "daml-script/daml/daml-script.dar")
-            let mbDamlScriptDar = if addDamlScriptDar then [damlScriptDar] else []
+            damlScriptLtsDar <- locateRunfiles (mainWorkspace </> "daml-script/daml3/daml3-script.dar")
+            let mbDamlScriptDar = if addDamlScriptLtsDar then [damlScriptLtsDar] else []
 
             v1AdditionalDarsRunFiles <- traverse testAdditionaDarRunfile additionalDarsV1
             writeFiles oldDir (projectFile "0.0.1" oldLfVersion ("upgrades-example-" <> location) Nothing depV1Dar (v1AdditionalDarsRunFiles ++ mbDamlScriptDar) : oldVersion)
@@ -699,7 +700,7 @@ data TestOptions = TestOptions
   , doTypecheck :: Bool
   , additionalDarsV1 :: [String]
   , additionalDarsV2 :: [String]
-  , addDamlScriptDar :: Bool
+  , addDamlScriptLtsDar :: Bool
   }
 
 testOptions :: TestOptions
@@ -713,7 +714,7 @@ testOptions =
     , doTypecheck = True
     , additionalDarsV1 = []
     , additionalDarsV2 = []
-    , addDamlScriptDar = False
+    , addDamlScriptLtsDar = False
     }
 
 versionDefault :: LF.Version
