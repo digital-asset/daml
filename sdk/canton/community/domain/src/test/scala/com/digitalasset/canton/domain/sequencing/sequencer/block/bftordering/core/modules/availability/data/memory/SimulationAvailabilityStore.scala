@@ -16,4 +16,5 @@ final class SimulationAvailabilityStore(
 ) extends GenericInMemoryAvailabilityStore[SimulationEnv](allKnownBatchesById) {
   override def createFuture[A](action: String)(x: () => Try[A]): SimulationFuture[A] =
     SimulationFuture(x)
+  override def close(): Unit = ()
 }

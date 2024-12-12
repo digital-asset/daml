@@ -75,4 +75,5 @@ final class InMemoryAvailabilityStore(
 ) extends GenericInMemoryAvailabilityStore[PekkoEnv](allKnownBatchesById) {
   override def createFuture[A](action: String)(x: () => Try[A]): PekkoFutureUnlessShutdown[A] =
     PekkoFutureUnlessShutdown(action, FutureUnlessShutdown.fromTry(x()))
+  override def close(): Unit = ()
 }

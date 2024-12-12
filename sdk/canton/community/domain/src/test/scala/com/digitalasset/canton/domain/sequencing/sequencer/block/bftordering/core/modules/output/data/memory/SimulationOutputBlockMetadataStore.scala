@@ -12,4 +12,5 @@ final class SimulationOutputBlockMetadataStore
     extends GenericInMemoryOutputBlockMetadataStore[SimulationEnv] {
   override protected def createFuture[T](action: String)(value: () => Try[T]): SimulationFuture[T] =
     SimulationFuture(value)
+  override def close(): Unit = ()
 }

@@ -59,6 +59,14 @@ object P2PNetworkOut {
       )
     }
 
+    final case class RetransmissionRequest(
+        signedMessage: SignedMessage[ConsensusStatus.EpochStatus]
+    ) extends BftOrderingNetworkMessage {
+      override def toProto: v1.BftOrderingMessageBody = v1.BftOrderingMessageBody.of(
+        v1.BftOrderingMessageBody.Message.RetransmissionMessage(signedMessage.toProto)
+      )
+    }
+
     final case class StateTransferMessage(
         signedMessage: SignedMessage[Consensus.StateTransferMessage.StateTransferNetworkMessage]
     ) extends BftOrderingNetworkMessage {

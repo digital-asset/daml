@@ -1129,7 +1129,7 @@ class TopologyAdministrationGroup(
       // Ensure the specified key has a private key in the vault.
       val publicKey = nodeInstance.keys.secret.list(
         filterFingerprint = key.toProtoPrimitive,
-        purpose = Set(purpose),
+        filterPurpose = Set(purpose),
       ) match {
         case privateKeyMetadata +: Nil => privateKeyMetadata.publicKey
         case Nil =>

@@ -10,6 +10,7 @@ import com.digitalasset.canton.domain.metrics.BftOrderingMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Block
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.leaders.LeaderSelectionPolicy
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions.EpochStatusBuilder
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.Env
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
@@ -22,8 +23,11 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   EpochInfo,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.topology.Membership
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.Commit
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.{
+  ConsensusSegment,
+  ConsensusStatus,
+}
 import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.time.Clock
@@ -103,8 +107,37 @@ class EpochState[E <: Env[E]](
     (epoch.info.startBlockNumber to epoch.info.lastBlockNumber).map { n =>
       val blockNumber = BlockNumber(n)
       blockNumber -> segmentModules(blockToLeader(BlockNumber(blockNumber)))
+    }.toMap
+  }
+
+  def requestSegmentStatuses(): EpochStatusBuilder = {
+    epoch.segments.zipWithIndex.foreach { case (segment, segmentIndex) =>
+      segmentModules(segment.originalLeader).asyncSend(
+        ConsensusSegment.RetransmissionsMessage.StatusRequest(segmentIndex)
+      )
     }
-  }.toMap
+    new EpochStatusBuilder(epoch.membership.myId, epoch.info.number, epoch.segments.size)
+  }
+
+  def processRetransmissionsRequest(
+      epochStatus: ConsensusStatus.EpochStatus
+  )(implicit traceContext: TraceContext): Unit =
+    performUnlessClosing("processRetransmissionsRequest") {
+      epoch.segments.zip(epochStatus.segments).foreach { case (segment, segmentStatus) =>
+        segmentStatus match {
+          case status: ConsensusStatus.SegmentStatus.Incomplete =>
+            segmentModules(segment.originalLeader).asyncSend(
+              ConsensusSegment.RetransmissionsMessage
+                .RetransmissionRequest(epochStatus.from, status)
+            )
+          case _ => ()
+        }
+      }
+    }.onShutdown {
+      logger.info(
+        s"At epoch ${epoch.info.number} received message after shutdown, so discarding retransmission request from ${epochStatus.from}"
+      )
+    }
 
   def startSegmentModules(): Unit =
     segmentModules.foreach { case (_, module) =>

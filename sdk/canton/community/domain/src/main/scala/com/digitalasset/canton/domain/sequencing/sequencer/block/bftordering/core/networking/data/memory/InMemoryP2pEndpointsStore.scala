@@ -89,4 +89,5 @@ final class InMemoryP2pEndpointsStore(initialEndpoints: Set[Endpoint] = Set.empt
     extends GenericInMemoryP2pEndpointsStore[PekkoEnv](initialEndpoints) {
   override def createFuture[A](action: String)(x: () => Try[A]): PekkoFutureUnlessShutdown[A] =
     PekkoFutureUnlessShutdown(action, FutureUnlessShutdown.fromTry(x()))
+  override def close(): Unit = ()
 }

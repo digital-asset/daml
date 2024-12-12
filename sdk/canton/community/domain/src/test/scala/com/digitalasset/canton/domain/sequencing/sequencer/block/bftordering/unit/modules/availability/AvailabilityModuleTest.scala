@@ -2208,6 +2208,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       storage: mutable.Map[BatchId, OrderingRequestBatch] = mutable.Map.empty
   ) extends GenericInMemoryAvailabilityStore[E](storage) {
     override def createFuture[A](action: String)(x: () => Try[A]): () => A = () => x().get
+    override def close(): Unit = ()
   }
 
   private def createAvailability[E <: BaseIgnoringUnitTestEnv[E]](

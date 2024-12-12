@@ -20,7 +20,7 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
 
-trait OutputBlockMetadataStore[E <: Env[E]] {
+trait OutputBlockMetadataStore[E <: Env[E]] extends AutoCloseable {
 
   def insertIfMissing(metadata: OutputBlockMetadata)(implicit
       traceContext: TraceContext

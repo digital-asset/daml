@@ -357,4 +357,5 @@ final class InMemoryEpochStore extends GenericInMemoryEpochStore[PekkoEnv] {
       value: () => Try[T]
   ): PekkoFutureUnlessShutdown[T] =
     PekkoFutureUnlessShutdown(action, FutureUnlessShutdown.fromTry(value()))
+  override def close(): Unit = ()
 }

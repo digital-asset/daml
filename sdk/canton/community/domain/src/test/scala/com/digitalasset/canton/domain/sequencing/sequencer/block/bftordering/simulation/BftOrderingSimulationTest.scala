@@ -287,7 +287,7 @@ class BftOrderingSimulationTest2NodesWithOnboardingNoFaults extends BftOrderingS
   private val durationOfSecondPhaseWithoutFaults = 1.minute
 
   private val randomSourceToCreateSettings: Random =
-    new Random(4) // Manually remove the seed for fully randomized local runs.
+    new Random(5) // Manually remove the seed for fully randomized local runs.
 
   private val generateOnboardingTimePartiallyApplied = generatePeerOnboardingTime(
     durationOfFirstPhaseWithFaults,

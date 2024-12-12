@@ -65,10 +65,13 @@ class SecretKeyAdministration(
   def list(
       filterFingerprint: String = "",
       filterName: String = "",
-      purpose: Set[KeyPurpose] = Set.empty,
+      filterPurpose: Set[KeyPurpose] = Set.empty,
+      filterUsage: Set[SigningKeyUsage] = Set.empty,
   ): Seq[PrivateKeyMetadata] =
     consoleEnvironment.run {
-      adminCommand(VaultAdminCommands.ListMyKeys(filterFingerprint, filterName, purpose))
+      adminCommand(
+        VaultAdminCommands.ListMyKeys(filterFingerprint, filterName, filterPurpose, filterUsage)
+      )
     }
 
   @Help.Summary("Generate new public/private key pair for signing and store it in the vault")
@@ -470,9 +473,21 @@ class PublicKeyAdministration(
   @Help.Summary("List public keys in registry")
   @Help.Description("""Returns all public keys that have been added to the key registry.
     Optional arguments can be used for filtering.""")
-  def list(filterFingerprint: String = "", filterContext: String = ""): Seq[PublicKeyWithName] =
+  def list(
+      filterFingerprint: String = "",
+      filterContext: String = "",
+      filterPurpose: Set[KeyPurpose] = Set.empty,
+      filterUsage: Set[SigningKeyUsage] = Set.empty,
+  ): Seq[PublicKeyWithName] =
     consoleEnvironment.run {
-      adminCommand(VaultAdminCommands.ListPublicKeys(filterFingerprint, filterContext))
+      adminCommand(
+        VaultAdminCommands.ListPublicKeys(
+          filterFingerprint,
+          filterContext,
+          filterPurpose,
+          filterUsage,
+        )
+      )
     }
 
   @Help.Summary("List active owners with keys for given search arguments.")

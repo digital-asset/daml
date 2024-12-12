@@ -158,7 +158,8 @@ class InMemorySequencerStore(
     FutureUnlessShutdown.pure(watermark.get.map(_.timestamp))
 
   override def goOffline(instanceIndex: Int)(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      callerCloseContext: CloseContext,
   ): FutureUnlessShutdown[Unit] =
     FutureUnlessShutdown.unit
 

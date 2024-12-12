@@ -52,6 +52,8 @@ private[networking] object NetworkingMetrics {
           Some(metrics.p2p.send.labels.targetModule.values.Availability)
         case Message.ConsensusMessage(_) =>
           Some(metrics.p2p.send.labels.targetModule.values.Consensus)
+        case Message.RetransmissionMessage(_) =>
+          Some(metrics.p2p.send.labels.targetModule.values.Consensus)
         case Message.StateTransferMessage(_) =>
           Some(metrics.p2p.send.labels.targetModule.values.Consensus)
       }
@@ -86,6 +88,7 @@ private[networking] object NetworkingMetrics {
       case metrics.p2p.receive.labels.source.values.Empty(from) => Some(from)
       case metrics.p2p.receive.labels.source.values.Availability(from) => Some(from)
       case metrics.p2p.receive.labels.source.values.Consensus(from) => Some(from)
+      case metrics.p2p.receive.labels.source.values.Retransmissions(from) => Some(from)
       case metrics.p2p.receive.labels.source.values.StateTransfer(from) => Some(from)
     }
     val mc1 = mc.withExtraLabels(

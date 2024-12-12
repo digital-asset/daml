@@ -408,6 +408,10 @@ final class BftBlockOrderer(
       SyncCloseable("p2pGrpcNetworking.close()", p2pGrpcNetworking.close()),
       SyncCloseable("p2pServerGrpcExecutor.shutdown()", p2pServerGrpcExecutor.shutdown()),
       SyncCloseable("blockSubscription.close()", blockSubscription.close()),
+      SyncCloseable("epochStore.close()", epochStore.close()),
+      SyncCloseable("outputStore.close()", outputStore.close()),
+      SyncCloseable("availabilityStore.close()", availabilityStore.close()),
+      SyncCloseable("p2pEndpointsStore.close()", p2pEndpointsStore.close()),
       SyncCloseable("shutdownPekkoActorSystem()", shutdownPekkoActorSystem()),
     )
 
