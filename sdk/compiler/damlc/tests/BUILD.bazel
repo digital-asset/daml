@@ -208,43 +208,46 @@ da_haskell_library(
             ":integration-lib",
         ],
     )
-    for version in COMPILER_LF_VERSIONS
+    for version in LEGACY_DAML_SCRIPT_LF_VERSIONS
 ]
 
-da_haskell_test(
-    name = "integration-v117-script2",
-    size = "large",
-    srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
-    args = [
-        "--daml-lf-version",
-        "1.17",
-        "--daml-script-v2",
-        "true",
-    ],
-    data = [
-        ":bond-trading",
-        ":cant-skip-preprocessor",
-        ":daml-test-files",
-        ":package-vetting-package-a.dar",
-        ":package-vetting-package-b.dar",
-        ":query-lf-lib",
-        "//compiler/damlc/pkg-db",
-        "//compiler/damlc/stable-packages",
-        "//compiler/scenario-service/server:scenario_service_jar",
-        "//daml-script/daml-lts:daml-script-lts-1.17.dar",
-        "@jq_dev_env//:jq",
-        ghc_pkg,
-    ],
-    hackage_deps = [
-        "base",
-    ],
-    main_function = "DA.Test.DamlcIntegrationMain.main",
-    src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
-    deps = [
-        ":integration-lib",
-    ],
-)
+[
+    da_haskell_test(
+        name = "integration-script2-{}".format(mangle_for_damlc(version)),
+        size = "large",
+        srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
+        args = [
+            "--daml-lf-version",
+            "1.17",
+            "--daml-script-v2",
+            "true",
+        ],
+        data = [
+            ":bond-trading",
+            ":cant-skip-preprocessor",
+            ":daml-test-files",
+            ":package-vetting-package-a.dar",
+            ":package-vetting-package-b.dar",
+            ":query-lf-lib",
+            "//compiler/damlc/pkg-db",
+            "//compiler/damlc/stable-packages",
+            "//compiler/scenario-service/server:scenario_service_jar",
+            "//daml-script/daml-lts:daml-script-lts-1.17.dar",
+            "@jq_dev_env//:jq",
+            ghc_pkg,
+        ],
+        hackage_deps = [
+            "base",
+        ],
+        main_function = "DA.Test.DamlcIntegrationMain.main",
+        src_strip_prefix = "src",
+        visibility = ["//visibility:public"],
+        deps = [
+            ":integration-lib",
+        ],
+    )
+    for version in [v for v in COMPILER_LF_VERSIONS if not (v in LEGACY_DAML_SCRIPT_LF_VERSIONS)]
+]
 
 # Tests for daml-doc
 da_haskell_test(
