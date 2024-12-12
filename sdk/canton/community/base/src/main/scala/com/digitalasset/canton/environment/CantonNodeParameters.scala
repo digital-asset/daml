@@ -9,6 +9,7 @@ import com.digitalasset.canton.config.{
   LoggingConfig,
   ProcessingTimeout,
   QueryCostMonitoringConfig,
+  StartupMemoryCheckConfig,
   WatchdogConfig,
 }
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
@@ -35,7 +36,9 @@ object CantonNodeParameters {
     def skipTopologyManagerSignatureValidation: Boolean
     def exitOnFatalFailures: Boolean
     def watchdog: Option[WatchdogConfig]
+    def startupMemoryCheckConfig: StartupMemoryCheckConfig
   }
+
   object General {
     final case class Impl(
         tracing: TracingConfig,
@@ -53,6 +56,7 @@ object CantonNodeParameters {
         skipTopologyManagerSignatureValidation: Boolean,
         exitOnFatalFailures: Boolean,
         watchdog: Option[WatchdogConfig],
+        startupMemoryCheckConfig: StartupMemoryCheckConfig,
     ) extends CantonNodeParameters.General
   }
   trait Protocol {
@@ -95,6 +99,8 @@ trait HasGeneralCantonNodeParameters extends CantonNodeParameters.General {
     general.skipTopologyManagerSignatureValidation
   override def exitOnFatalFailures: Boolean = general.exitOnFatalFailures
   override def watchdog: Option[WatchdogConfig] = general.watchdog
+
+  override def startupMemoryCheckConfig: StartupMemoryCheckConfig = general.startupMemoryCheckConfig
 }
 
 trait HasProtocolCantonNodeParameters extends CantonNodeParameters.Protocol {

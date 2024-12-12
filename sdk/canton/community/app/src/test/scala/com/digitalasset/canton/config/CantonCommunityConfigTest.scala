@@ -55,6 +55,10 @@ class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
         .synchronizeVettingOnUpload shouldBe true // Is explicitly set
     }
 
+    "check startup memory checker config" in {
+      config.parameters.startupMemoryCheckConfig shouldBe StartupMemoryCheckConfig.Warn
+    }
+
   }
 
   "deprecated configs" should {

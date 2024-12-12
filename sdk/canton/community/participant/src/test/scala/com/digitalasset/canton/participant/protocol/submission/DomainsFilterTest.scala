@@ -61,11 +61,11 @@ class DomainsFilterTest extends AnyWordSpec with BaseTest with HasExecutionConte
       usableDomains shouldBe empty
 
       unusableDomains shouldBe List(
-        UsableDomain.UnknownPackage(
+        UsableDomain.InvalidPackagesStateErrors(
           DefaultTestIdentities.domainId,
           List(
-            unknownPackageFor(submitterParticipantId, missingPackage),
             unknownPackageFor(observerParticipantId, missingPackage),
+            unknownPackageFor(submitterParticipantId, missingPackage),
           ),
         )
       )
@@ -122,8 +122,8 @@ class DomainsFilterTest extends AnyWordSpec with BaseTest with HasExecutionConte
 
         def unknownPackageFor(
             participantId: ParticipantId
-        ): List[TransactionTreeFactory.PackageUnknownTo] = missingPackages.map { missingPackage =>
-          TransactionTreeFactory.PackageUnknownTo(
+        ): List[TransactionTreeFactory.PackageStateError] = missingPackages.map { missingPackage =>
+          TransactionTreeFactory.PackageNotVettedBy(
             missingPackage,
             participantId,
           )
@@ -134,9 +134,9 @@ class DomainsFilterTest extends AnyWordSpec with BaseTest with HasExecutionConte
 
         usableDomains shouldBe empty
         unusableDomains shouldBe List(
-          UsableDomain.UnknownPackage(
+          UsableDomain.InvalidPackagesStateErrors(
             DefaultTestIdentities.domainId,
-            unknownPackageFor(submitterParticipantId) ++ unknownPackageFor(observerParticipantId),
+            unknownPackageFor(observerParticipantId) ++ unknownPackageFor(submitterParticipantId),
           )
         )
       }
@@ -164,7 +164,7 @@ private[submission] object DomainsFilterTest {
           SimpleTopology.defaultTestingIdentityFactory(topology, packages),
         )
       )
-      DomainsFilter.split(Blinding.partyPackages(tx), domains, tx.version)
+      DomainsFilter.split(Blinding.partyPackageRequirements(tx), domains, tx.version)
     }
   }
 }

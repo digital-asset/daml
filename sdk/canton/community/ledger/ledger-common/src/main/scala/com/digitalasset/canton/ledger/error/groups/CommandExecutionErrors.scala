@@ -798,7 +798,6 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
             )
         }
       }
-
     }
 
     @Explanation(

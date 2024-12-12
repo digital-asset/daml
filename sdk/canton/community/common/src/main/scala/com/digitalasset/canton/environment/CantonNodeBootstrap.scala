@@ -413,6 +413,9 @@ abstract class CantonNodeBootstrapBase[
       resultAfterRetry
     }
 
+    // we check the memory configuration before starting the node
+    MemoryConfigurationChecker.check(parameterConfig.startupMemoryCheckConfig, logger)
+
     initQueue
       .executeEUS(
         for {

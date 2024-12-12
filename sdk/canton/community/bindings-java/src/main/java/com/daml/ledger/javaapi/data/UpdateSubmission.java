@@ -39,6 +39,9 @@ public final class UpdateSubmission<U> {
   private Optional<Duration> minLedgerTimeRel;
   private Optional<Duration> deduplicationTime;
   private Optional<String> accessToken;
+  private List<DisclosedContract> disclosedContracts;
+  private List<String> packageIdSelectionPreference;
+  private List<@NonNull PrefetchContractKey> prefetchContractKeys;
 
   private UpdateSubmission(
       String applicationId,
@@ -50,7 +53,10 @@ public final class UpdateSubmission<U> {
       Optional<Instant> minLedgerTimeAbs,
       Optional<Duration> minLedgerTimeRel,
       Optional<Duration> deduplicationTime,
-      Optional<String> accessToken) {
+      Optional<String> accessToken,
+      List<@NonNull DisclosedContract> disclosedContracts,
+      List<@NonNull String> packageIdSelectionPreference,
+      List<@NonNull PrefetchContractKey> prefetchContractKeys) {
     this.workflowId = workflowId;
     this.applicationId = applicationId;
     this.commandId = commandId;
@@ -61,6 +67,9 @@ public final class UpdateSubmission<U> {
     this.deduplicationTime = deduplicationTime;
     this.update = update;
     this.accessToken = accessToken;
+    this.disclosedContracts = disclosedContracts;
+    this.packageIdSelectionPreference = packageIdSelectionPreference;
+    this.prefetchContractKeys = prefetchContractKeys;
   }
 
   public static <U> UpdateSubmission<U> create(
@@ -75,7 +84,10 @@ public final class UpdateSubmission<U> {
         empty(),
         Optional.empty(),
         empty(),
-        empty());
+        empty(),
+        emptyList(),
+        emptyList(),
+        emptyList());
   }
 
   public Optional<String> getWorkflowId() {
@@ -118,6 +130,18 @@ public final class UpdateSubmission<U> {
     return accessToken;
   }
 
+  public List<DisclosedContract> getDisclosedContracts() {
+    return unmodifiableList(disclosedContracts);
+  }
+
+  public List<String> getPackageIdSelectionPreference() {
+    return unmodifiableList(packageIdSelectionPreference);
+  }
+
+  public List<PrefetchContractKey> getPrefetchContractKeys() {
+    return unmodifiableList(prefetchContractKeys);
+  }
+
   public UpdateSubmission<U> withWorkflowId(String workflowId) {
     return new UpdateSubmission<U>(
         applicationId,
@@ -129,7 +153,10 @@ public final class UpdateSubmission<U> {
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        accessToken);
+        accessToken,
+        disclosedContracts,
+        packageIdSelectionPreference,
+        prefetchContractKeys);
   }
 
   public UpdateSubmission<U> withActAs(String actAs) {
@@ -143,7 +170,10 @@ public final class UpdateSubmission<U> {
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        accessToken);
+        accessToken,
+        disclosedContracts,
+        packageIdSelectionPreference,
+        prefetchContractKeys);
   }
 
   public UpdateSubmission<U> withActAs(List<@NonNull String> actAs) {
@@ -157,7 +187,10 @@ public final class UpdateSubmission<U> {
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        accessToken);
+        accessToken,
+        disclosedContracts,
+        packageIdSelectionPreference,
+        prefetchContractKeys);
   }
 
   public UpdateSubmission<U> withReadAs(List<@NonNull String> readAs) {
@@ -171,7 +204,10 @@ public final class UpdateSubmission<U> {
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        accessToken);
+        accessToken,
+        disclosedContracts,
+        packageIdSelectionPreference,
+        prefetchContractKeys);
   }
 
   public UpdateSubmission<U> withMinLedgerTimeAbs(Optional<Instant> minLedgerTimeAbs) {
@@ -185,7 +221,10 @@ public final class UpdateSubmission<U> {
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        accessToken);
+        accessToken,
+        disclosedContracts,
+        packageIdSelectionPreference,
+        prefetchContractKeys);
   }
 
   public UpdateSubmission<U> withMinLedgerTimeRel(Optional<Duration> minLedgerTimeRel) {
@@ -199,7 +238,10 @@ public final class UpdateSubmission<U> {
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        accessToken);
+        accessToken,
+        disclosedContracts,
+        packageIdSelectionPreference,
+        prefetchContractKeys);
   }
 
   public UpdateSubmission<U> withDeduplicationTime(Optional<Duration> deduplicationTime) {
@@ -213,7 +255,10 @@ public final class UpdateSubmission<U> {
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        accessToken);
+        accessToken,
+        disclosedContracts,
+        packageIdSelectionPreference,
+        prefetchContractKeys);
   }
 
   public UpdateSubmission<U> withAccessToken(Optional<String> accessToken) {
@@ -227,7 +272,62 @@ public final class UpdateSubmission<U> {
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        accessToken);
+        accessToken,
+        disclosedContracts,
+        packageIdSelectionPreference,
+        prefetchContractKeys);
+  }
+
+
+  public UpdateSubmission<U> withDisclosedContracts(List<@NonNull DisclosedContract> disclosedContracts) {
+    return new UpdateSubmission<U>(
+        applicationId,
+        commandId,
+        update,
+        actAs,
+        readAs,
+        workflowId,
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationTime,
+        accessToken,
+        disclosedContracts,
+        packageIdSelectionPreference,
+        prefetchContractKeys);
+  }
+
+  public UpdateSubmission<U> withPackageIdSelectionPreference(List<@NonNull String> packageIdSelectionPreference) {
+    return new UpdateSubmission<U>(
+        applicationId,
+        commandId,
+        update,
+        actAs,
+        readAs,
+        workflowId,
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationTime,
+        accessToken,
+        disclosedContracts,
+        packageIdSelectionPreference,
+        prefetchContractKeys);
+  }
+
+  public UpdateSubmission<U> withPrefetchContractKeys(List<PrefetchContractKey> prefetchContractKeys) {
+    return new UpdateSubmission<U>(
+         applicationId,
+         commandId,
+         update,
+         actAs,
+         readAs,
+         workflowId,
+         minLedgerTimeAbs,
+         minLedgerTimeRel,
+         deduplicationTime,
+         accessToken,
+         disclosedContracts,
+         packageIdSelectionPreference,
+         prefetchContractKeys);
   }
 
   public CommandsSubmission toCommandsSubmission() {
@@ -242,6 +342,8 @@ public final class UpdateSubmission<U> {
         minLedgerTimeRel,
         deduplicationTime,
         accessToken,
-        emptyList());
+        disclosedContracts,
+        packageIdSelectionPreference,
+        prefetchContractKeys);
   }
 }

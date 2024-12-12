@@ -154,8 +154,8 @@ object RejectionGenerators {
           CommandExecutionErrors.Interpreter.UpgradeError.ContractNotUpgradable
             .Reject(renderedMessage, error)
         case LfInterpretationError.Upgrade(
-            error: LfInterpretationError.Upgrade.DowngradeFailed
-          ) =>
+              error: LfInterpretationError.Upgrade.DowngradeFailed
+            ) =>
           CommandExecutionErrors.Interpreter.UpgradeError.DowngradeFailed
             .Reject(renderedMessage, error)
         case LfInterpretationError.Dev(_, err) =>

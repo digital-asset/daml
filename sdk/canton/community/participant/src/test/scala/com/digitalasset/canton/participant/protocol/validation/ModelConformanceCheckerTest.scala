@@ -359,6 +359,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
        */
     }
 
+    // TODO(#21671): Unit test tri-state vetting
     "package vetting" must {
 
       import ExampleTransactionFactory.*
@@ -368,7 +369,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
           usedPackages: Set[PackageId],
           vettings: Seq[VettedPackages],
           unknownPackage: Option[PackageId],
-          expectedError: UnvettedPackages,
+          expectedErrorO: Option[PackageError],
       ): Future[Assertion] = {
 
         val sut = buildUnderTest(reinterpretExample(example, usedPackages))
@@ -389,9 +390,9 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         for {
           error <- check(sut, viewsWithNoInputKeys(rootViewTrees), snapshot).value
         } yield error match {
-          case Right(_) if expectedError.unvetted.isEmpty => succeed
+          case Right(_) if expectedErrorO.isEmpty => succeed
           case Left(ErrorWithSubTransaction(actual, _, _)) =>
-            actual.forgetNE shouldBe Seq(expectedError)
+            actual.forgetNE shouldBe expectedErrorO.toList
           case other => fail(s"Did not expect $other")
         }
       }
@@ -403,8 +404,6 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         val usedPackageId = example.upgradedTemplateId.packageId
         val referencedPackageId = example.contractInstance.unversioned.template.packageId
 
-        val passCase = UnvettedPackages(Map.empty)
-
         testVetting(
           example,
           usedPackages = Set(usedPackageId),
@@ -413,7 +412,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
             VettedPackages(submitterParticipant, Seq(usedPackageId, referencedPackageId)),
           ),
           unknownPackage = None,
-          expectedError = passCase,
+          expectedErrorO = None, // no error expected,
         )
 
       }
@@ -433,7 +432,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
           usedPackages = Set(unexpectedPackageId),
           vettings = Seq.empty,
           unknownPackage = None,
-          expectedError = expected,
+          expectedErrorO = Some(expected),
         )
 
       }
@@ -442,14 +441,14 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
 
         val example: factory.UpgradedSingleExercise = factory.UpgradedSingleExercise(lfHash(0))
         val contractPackageId = example.contractInstance.unversioned.template.packageId
-        val expected = UnvettedPackages(Map(submitterParticipant -> Set(contractPackageId)))
+        val expected = UnknownPackages(Map(submitterParticipant -> Set(contractPackageId)))
 
         testVetting(
           example,
           usedPackages = Set.empty,
           vettings = Seq.empty,
           unknownPackage = None,
-          expectedError = expected,
+          expectedErrorO = Some(expected),
         )
 
       }
@@ -461,9 +460,9 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
           usedPackages = Set(packageId),
           vettings = Seq(VettedPackages(signatoryParticipant, Seq(packageId))),
           unknownPackage = None,
-          expectedError = UnvettedPackages(
-            Map(
-              submitterParticipant -> Set(packageId)
+          expectedErrorO = Some(
+            UnvettedPackages(
+              Map(submitterParticipant -> Set(packageId))
             )
           ),
         )
@@ -478,10 +477,9 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
             VettedPackages(signatoryParticipant, Seq(packageId)),
           ),
           unknownPackage = Some(packageId),
-          expectedError = UnvettedPackages(Map(submitterParticipant -> Set(packageId))),
+          expectedErrorO = Some(PackageNotFound(submitterParticipant, Set(packageId))),
         )
       }
-
     }
   }
 

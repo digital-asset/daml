@@ -10,10 +10,7 @@ import com.daml.ledger.api.v1.CommandsOuterClass;
 import com.google.protobuf.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
@@ -34,97 +31,9 @@ public final class SubmitCommandsRequest {
   private final Optional<Duration> deduplicationTime;
   private final Optional<String> submissionId;
   private final List<Command> commands;
-
-  public SubmitCommandsRequest(
-      @NonNull String workflowId,
-      @NonNull String applicationId,
-      @NonNull String commandId,
-      @NonNull String party,
-      @NonNull Optional<Instant> minLedgerTimeAbsolute,
-      @NonNull Optional<Duration> minLedgerTimeRelative,
-      @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands) {
-    this(
-        workflowId,
-        applicationId,
-        commandId,
-        asList(party),
-        asList(),
-        minLedgerTimeAbsolute,
-        minLedgerTimeRelative,
-        deduplicationTime,
-        commands);
-  }
-
-  public SubmitCommandsRequest(
-      @NonNull String workflowId,
-      @NonNull String applicationId,
-      @NonNull String commandId,
-      @NonNull String submissionId,
-      @NonNull String party,
-      @NonNull Optional<Instant> minLedgerTimeAbsolute,
-      @NonNull Optional<Duration> minLedgerTimeRelative,
-      @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands) {
-    this(
-        workflowId,
-        applicationId,
-        commandId,
-        asList(party),
-        asList(),
-        minLedgerTimeAbsolute,
-        minLedgerTimeRelative,
-        deduplicationTime,
-        Optional.of(submissionId),
-        commands);
-  }
-
-  public SubmitCommandsRequest(
-      @NonNull String workflowId,
-      @NonNull String applicationId,
-      @NonNull String commandId,
-      @NonNull List<@NonNull String> actAs,
-      @NonNull List<@NonNull String> readAs,
-      @NonNull Optional<Instant> minLedgerTimeAbsolute,
-      @NonNull Optional<Duration> minLedgerTimeRelative,
-      @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands) {
-    this(
-        workflowId,
-        applicationId,
-        commandId,
-        actAs,
-        readAs,
-        minLedgerTimeAbsolute,
-        minLedgerTimeRelative,
-        deduplicationTime,
-        Optional.empty(),
-        commands);
-  }
-
-  public SubmitCommandsRequest(
-      @NonNull String workflowId,
-      @NonNull String applicationId,
-      @NonNull String commandId,
-      @NonNull String submissionId,
-      @NonNull List<@NonNull String> actAs,
-      @NonNull List<@NonNull String> readAs,
-      @NonNull Optional<Instant> minLedgerTimeAbsolute,
-      @NonNull Optional<Duration> minLedgerTimeRelative,
-      @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands) {
-    this(
-        workflowId,
-        applicationId,
-        commandId,
-        actAs,
-        readAs,
-        minLedgerTimeAbsolute,
-        minLedgerTimeRelative,
-        deduplicationTime,
-        Optional.of(submissionId),
-        commands);
-  }
+  private final List<DisclosedContract> disclosedContracts;
+  private final List<String> packageIdSelectionPreference;
+  private final List<PrefetchContractKey> prefetchContractKeys;
 
   private SubmitCommandsRequest(
       @NonNull String workflowId,
@@ -136,8 +45,11 @@ public final class SubmitCommandsRequest {
       @NonNull Optional<Duration> minLedgerTimeRelative,
       @NonNull Optional<Duration> deduplicationTime,
       @NonNull Optional<String> submissionId,
-      @NonNull List<@NonNull Command> commands) {
-    if (actAs.size() == 0) {
+      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull DisclosedContract> disclosedContracts,
+      @NonNull List<@NonNull String> packageIdSelectionPreference,
+      @NonNull List<@NonNull PrefetchContractKey> prefetchContractKeys) {
+    if (actAs.isEmpty()) {
       throw new IllegalArgumentException("actAs must have at least one element");
     }
     this.workflowId = workflowId;
@@ -151,6 +63,9 @@ public final class SubmitCommandsRequest {
     this.deduplicationTime = deduplicationTime;
     this.submissionId = submissionId;
     this.commands = commands;
+    this.disclosedContracts = disclosedContracts;
+    this.packageIdSelectionPreference = packageIdSelectionPreference;
+    this.prefetchContractKeys = prefetchContractKeys;
   }
 
   public static SubmitCommandsRequest fromProto(CommandsOuterClass.Commands commands) {
@@ -160,6 +75,11 @@ public final class SubmitCommandsRequest {
     String party = commands.getParty();
     List<String> actAs = commands.getActAsList();
     List<String> readAs = commands.getReadAsList();
+    List<DisclosedContract> disclosedContracts =
+        commands.getDisclosedContractsList().stream()
+            .map(DisclosedContract::fromProto)
+            .collect(Collectors.toList());
+    List<String> packageIdSelectionPreference = commands.getPackageIdSelectionPreferenceList();
     Optional<Instant> minLedgerTimeAbs =
         commands.hasMinLedgerTimeAbs()
             ? Optional.of(
@@ -197,6 +117,10 @@ public final class SubmitCommandsRequest {
     if (!actAs.contains(party)) {
       actAs.add(0, party);
     }
+    ArrayList<PrefetchContractKey> prefetchContractKeys = new ArrayList<>(commands.getPrefetchContractKeysCount());
+    for (CommandsOuterClass.PrefetchContractKey key: commands.getPrefetchContractKeysList()) {
+        prefetchContractKeys.add(PrefetchContractKey.fromProto(key));
+    }
     return new SubmitCommandsRequest(
         workflowId,
         applicationId,
@@ -207,59 +131,10 @@ public final class SubmitCommandsRequest {
         minLedgerTimeRel,
         deduplicationPeriod,
         submissionId.isEmpty() ? Optional.empty() : Optional.of(submissionId),
-        listOfCommands);
-  }
-
-  // TODO i15642 Refactor this to take CommmandsSubmission when deprecated methods using it below are
-  // removed
-  private static CommandsOuterClass.Commands deprecatedToProto(
-      @NonNull String ledgerId,
-      @NonNull String workflowId,
-      @NonNull String applicationId,
-      @NonNull String commandId,
-      @NonNull List<@NonNull String> actAs,
-      @NonNull List<@NonNull String> readAs,
-      @NonNull Optional<Instant> minLedgerTimeAbsolute,
-      @NonNull Optional<Duration> minLedgerTimeRelative,
-      @NonNull Optional<Duration> deduplicationTime,
-      @NonNull Optional<String> submissionId,
-      @NonNull List<@NonNull Command> commands) {
-    if (actAs.size() == 0) {
-      throw new IllegalArgumentException("actAs must have at least one element");
-    }
-    List<CommandsOuterClass.Command> commandsConverted =
-        commands.stream().map(Command::toProtoCommand).collect(Collectors.toList());
-    CommandsOuterClass.Commands.Builder builder =
-        CommandsOuterClass.Commands.newBuilder()
-            .setLedgerId(ledgerId)
-            .setWorkflowId(workflowId)
-            .setApplicationId(applicationId)
-            .setCommandId(commandId)
-            .setParty(actAs.get(0))
-            .addAllActAs(actAs)
-            .addAllReadAs(readAs)
-            .addAllCommands(commandsConverted);
-    minLedgerTimeAbsolute.ifPresent(
-        abs ->
-            builder.setMinLedgerTimeAbs(
-                Timestamp.newBuilder().setSeconds(abs.getEpochSecond()).setNanos(abs.getNano())));
-    minLedgerTimeRelative.ifPresent(
-        rel ->
-            builder.setMinLedgerTimeRel(
-                com.google.protobuf.Duration.newBuilder()
-                    .setSeconds(rel.getSeconds())
-                    .setNanos(rel.getNano())));
-    deduplicationTime.ifPresent(
-        dedup -> {
-          @SuppressWarnings("deprecation")
-          var unused =
-              builder.setDeduplicationTime(
-                  com.google.protobuf.Duration.newBuilder()
-                      .setSeconds(dedup.getSeconds())
-                      .setNanos(dedup.getNano()));
-        });
-    submissionId.ifPresent(builder::setSubmissionId);
-    return builder.build();
+        listOfCommands,
+        disclosedContracts,
+        packageIdSelectionPreference,
+        prefetchContractKeys);
   }
 
   private static CommandsOuterClass.Commands toProto(
@@ -267,7 +142,7 @@ public final class SubmitCommandsRequest {
       @NonNull Optional<String> submissionId,
       @NonNull CommandsSubmission submission) {
 
-    if (submission.getActAs().size() == 0) {
+    if (submission.getActAs().isEmpty()) {
       throw new IllegalArgumentException("actAs must have at least one element");
     }
 
@@ -277,6 +152,10 @@ public final class SubmitCommandsRequest {
     List<CommandsOuterClass.DisclosedContract> disclosedContracts =
         submission.getDisclosedContracts().stream()
             .map(DisclosedContract::toProto)
+            .collect(Collectors.toList());
+    List<CommandsOuterClass.PrefetchContractKey> prefetchContractKeys =
+        submission.getPrefetchContractKeys().stream()
+            .map(PrefetchContractKey::toProto)
             .collect(Collectors.toList());
 
     CommandsOuterClass.Commands.Builder builder =
@@ -288,7 +167,9 @@ public final class SubmitCommandsRequest {
             .addAllActAs(submission.getActAs())
             .addAllReadAs(submission.getReadAs())
             .addAllCommands(commandsConverted)
-            .addAllDisclosedContracts(disclosedContracts);
+            .addAllDisclosedContracts(disclosedContracts)
+            .addAllPackageIdSelectionPreference(submission.getPackageIdSelectionPreference())
+            .addAllPrefetchContractKeys(prefetchContractKeys);
 
     submission
         .getMinLedgerTimeAbs()
@@ -331,125 +212,11 @@ public final class SubmitCommandsRequest {
     return toProto(ledgerId, Optional.empty(), submission);
   }
 
-  /** @deprecated since 2.5. Please use {@link #toProto(String, CommandsSubmission)} */
-  @Deprecated
-  public static CommandsOuterClass.Commands toProto(
-      @NonNull String ledgerId,
-      @NonNull String workflowId,
-      @NonNull String applicationId,
-      @NonNull String commandId,
-      @NonNull List<@NonNull String> actAs,
-      @NonNull List<@NonNull String> readAs,
-      @NonNull Optional<Instant> minLedgerTimeAbsolute,
-      @NonNull Optional<Duration> minLedgerTimeRelative,
-      @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands) {
-    return deprecatedToProto(
-        ledgerId,
-        workflowId,
-        applicationId,
-        commandId,
-        actAs,
-        readAs,
-        minLedgerTimeAbsolute,
-        minLedgerTimeRelative,
-        deduplicationTime,
-        Optional.empty(),
-        commands);
-  }
-
   public static CommandsOuterClass.Commands toProto(
       @NonNull String ledgerId,
       @NonNull String submissionId,
       @NonNull CommandsSubmission submission) {
     return toProto(ledgerId, Optional.of(submissionId), submission);
-  }
-
-  /** @deprecated since 2.5. Please use {@link #toProto(String, String, CommandsSubmission)} */
-  @Deprecated
-  public static CommandsOuterClass.Commands toProto(
-      @NonNull String ledgerId,
-      @NonNull String workflowId,
-      @NonNull String applicationId,
-      @NonNull String commandId,
-      @NonNull String submissionId,
-      @NonNull List<@NonNull String> actAs,
-      @NonNull List<@NonNull String> readAs,
-      @NonNull Optional<Instant> minLedgerTimeAbsolute,
-      @NonNull Optional<Duration> minLedgerTimeRelative,
-      @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands) {
-    return deprecatedToProto(
-        ledgerId,
-        workflowId,
-        applicationId,
-        commandId,
-        actAs,
-        readAs,
-        minLedgerTimeAbsolute,
-        minLedgerTimeRelative,
-        deduplicationTime,
-        Optional.of(submissionId),
-        commands);
-  }
-
-  /** @deprecated since 2.5. Please use {@link #toProto(String, String, CommandsSubmission)} */
-  @Deprecated
-  public static CommandsOuterClass.Commands toProto(
-      @NonNull String ledgerId,
-      @NonNull String workflowId,
-      @NonNull String applicationId,
-      @NonNull String commandId,
-      @NonNull String submissionId,
-      @NonNull String party,
-      @NonNull Optional<Instant> minLedgerTimeAbsolute,
-      @NonNull Optional<Duration> minLedgerTimeRelative,
-      @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands) {
-    List<String> empty_read_as = new ArrayList<>();
-    List<String> act_as = new ArrayList<>();
-    act_as.add(party);
-    return deprecatedToProto(
-        ledgerId,
-        workflowId,
-        applicationId,
-        commandId,
-        act_as,
-        empty_read_as,
-        minLedgerTimeAbsolute,
-        minLedgerTimeRelative,
-        deduplicationTime,
-        Optional.of(submissionId),
-        commands);
-  }
-
-  /** @deprecated since 2.5. Please use {@link #toProto(String, CommandsSubmission)} */
-  @Deprecated
-  public static CommandsOuterClass.Commands toProto(
-      @NonNull String ledgerId,
-      @NonNull String workflowId,
-      @NonNull String applicationId,
-      @NonNull String commandId,
-      @NonNull String party,
-      @NonNull Optional<Instant> minLedgerTimeAbsolute,
-      @NonNull Optional<Duration> minLedgerTimeRelative,
-      @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands) {
-    List<String> empty_read_as = new ArrayList<>();
-    List<String> act_as = new ArrayList<>();
-    act_as.add(party);
-    return deprecatedToProto(
-        ledgerId,
-        workflowId,
-        applicationId,
-        commandId,
-        act_as,
-        empty_read_as,
-        minLedgerTimeAbsolute,
-        minLedgerTimeRelative,
-        deduplicationTime,
-        Optional.empty(),
-        commands);
   }
 
   @NonNull
@@ -507,6 +274,21 @@ public final class SubmitCommandsRequest {
     return commands;
   }
 
+  @NonNull
+  public List<@NonNull DisclosedContract> getDisclosedContracts() {
+    return disclosedContracts;
+  }
+
+  @NonNull
+  public List<@NonNull String> getPackageIdSelectionPreference() {
+    return Collections.unmodifiableList(packageIdSelectionPreference);
+  }
+
+  @NonNull
+  public List<@NonNull PrefetchContractKey> getPrefetchContractKeys() {
+    return Collections.unmodifiableList(prefetchContractKeys);
+  }
+
   @Override
   public String toString() {
     return "SubmitCommandsRequest{"
@@ -532,6 +314,12 @@ public final class SubmitCommandsRequest {
         + submissionId
         + ", commands="
         + commands
+        + ", disclosedContracts="
+        + disclosedContracts
+        + ", packageIdSelectionPreference="
+        + packageIdSelectionPreference
+        + ", prefetchContractKeys="
+        + prefetchContractKeys
         + '}';
   }
 
@@ -550,7 +338,9 @@ public final class SubmitCommandsRequest {
         && Objects.equals(minLedgerTimeRelative, submitCommandsRequest1.minLedgerTimeRelative)
         && Objects.equals(deduplicationTime, submitCommandsRequest1.deduplicationTime)
         && Objects.equals(submissionId, submitCommandsRequest1.submissionId)
-        && Objects.equals(commands, submitCommandsRequest1.commands);
+        && Objects.equals(commands, submitCommandsRequest1.commands)
+        && Objects.equals(disclosedContracts, submitCommandsRequest1.disclosedContracts)
+        && Objects.equals(packageIdSelectionPreference, submitCommandsRequest1.packageIdSelectionPreference);
   }
 
   @Override
@@ -566,6 +356,8 @@ public final class SubmitCommandsRequest {
         minLedgerTimeRelative,
         deduplicationTime,
         submissionId,
-        commands);
+        commands,
+        disclosedContracts,
+        packageIdSelectionPreference);
   }
 }

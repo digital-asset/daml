@@ -43,10 +43,12 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{MediatorRef, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.EitherTUtil.syntax.FunctorToEitherT
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{ErrorUtil, MapsUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfCreateCommand, LfKeyResolver, LfPartyId, RequestCounter, checked}
+import com.digitalasset.daml.lf.transaction.PackageRequirements
 
 import java.util.UUID
 import scala.annotation.unused
@@ -224,7 +226,7 @@ class ModelConformanceChecker(
         resolved <- resolvedE.separate match {
           case (Seq(), resolved) => Right(resolved)
           case (unresolved, _) =>
-            Left(PackageNotFound(Map(participantId -> unresolved.toSet)): Error)
+            Left(PackageNotFound(participantId, unresolved.toSet): Error)
         }
         resolvedNameBindings = resolved
           .collect {
@@ -338,41 +340,6 @@ class ModelConformanceChecker(
       view: TransactionView,
       snapshot: TopologySnapshot,
       usedPackageIds: Set[PackageId],
-      inputContractPackages: Set[PackageId],
-  ): EitherT[FutureUnlessShutdown, Error, Unit] = {
-
-    val packageIds = usedPackageIds ++ inputContractPackages
-
-    val informees: Set[LfPartyId] =
-      view.viewCommonData.tryUnwrap.viewConfirmationParameters.informeesIds
-
-    EitherT(for {
-      informeeParticipantsByParty <- FutureUnlessShutdown.outcomeF(
-        snapshot.activeParticipantsOfParties(informees.toSeq)
-      )
-      informeeParticipants = informeeParticipantsByParty.values.flatten.toSet
-      unvettedResult <- informeeParticipants.toSeq
-        .parTraverse(p => snapshot.findUnvettedPackagesOrDependencies(p, packageIds).map(p -> _))
-        .value
-      unvettedPackages = unvettedResult match {
-        case Left(packageId) =>
-          // The package is not in the store and thus the package is not vetted.
-          // If the admin has tampered with the package store and the package is still vetted,
-          // we consider this participant as malicious;
-          // in that case, other participants may still commit the view.
-          Seq(participantId -> Set(packageId))
-        case Right(unvettedSeq) =>
-          unvettedSeq.filter { case (_, packageIds) => packageIds.nonEmpty }
-      }
-    } yield {
-      Either.cond(unvettedPackages.isEmpty, (), UnvettedPackages(unvettedPackages.toMap))
-    })
-  }
-
-  private def checkPackageVetting(
-      view: TransactionView,
-      snapshot: TopologySnapshot,
-      usedPackageIds: Set[PackageId],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Error, Unit] = {
@@ -380,7 +347,64 @@ class ModelConformanceChecker(
       view.inputContracts.values
         .map(_.contract.contractInstance.unversioned.template.packageId)
         .toSet
-    checkPackageVetting(view, snapshot, usedPackageIds, inputContractPackages)
+
+    val packageRequirements =
+      PackageRequirements(checkOnly = inputContractPackages, vetted = usedPackageIds).normalized
+
+    val informees: Set[LfPartyId] =
+      view.viewCommonData.tryUnwrap.viewConfirmationParameters.informeesIds
+
+    def handlePackageStateCheck(
+        check: => EitherT[FutureUnlessShutdown, PackageId, Seq[(ParticipantId, Set[PackageId])]],
+        handleErr: Map[ParticipantId, Set[PackageId]] => PackageError,
+    ) =
+      check
+        .leftMap(unknownPkgId => PackageNotFound(participantId, Set(unknownPkgId)): Error)
+        .subflatMap { unvettedSeq =>
+          val filtered = unvettedSeq.filter(_._2.nonEmpty)
+          if (filtered.nonEmpty) Left(handleErr(filtered.toMap)) else Right(())
+        }
+
+    def checkUsedPackagesVetted(informeeParticipants: Seq[ParticipantId]) =
+      handlePackageStateCheck(
+        check = informeeParticipants.parTraverse(p =>
+          snapshot.findUnvettedPackagesOrDependencies(p, packageRequirements.vetted).map(p -> _)
+        ),
+        handleErr = UnvettedPackages(_),
+      )
+
+    def checkInputContractPackagesAtLeastCheckOnly(informeeParticipants: Seq[ParticipantId]) =
+      handlePackageStateCheck(
+        informeeParticipants
+          .parTraverse(participant =>
+            for {
+              checkOnlyNotAppearingInVetted <-
+                snapshot
+                  .findUnvettedPackagesOrDependencies(participant, packageRequirements.checkOnly)
+              unknown <-
+                if (checkOnlyNotAppearingInVetted.nonEmpty) {
+                  snapshot
+                    .findPackagesOrDependenciesNotDeclaredAsCheckOnly(
+                      participant,
+                      checkOnlyNotAppearingInVetted,
+                    )
+                } else {
+                  EitherT
+                    .rightT(Set.empty): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]]
+                }
+            } yield participant -> unknown
+          ),
+        UnknownPackages(_),
+      )
+
+    for {
+      informeeParticipantsByParty <- FutureUnlessShutdown
+        .outcomeF(snapshot.activeParticipantsOfParties(informees.toSeq))
+        .toEitherTRight
+      informeeParticipants = informeeParticipantsByParty.view.flatMap(_._2).toSeq.distinct
+      _ <- checkUsedPackagesVetted(informeeParticipants)
+      _ <- checkInputContractPackagesAtLeastCheckOnly(informeeParticipants)
+    } yield ()
   }
 }
 
@@ -474,6 +498,8 @@ object ModelConformanceChecker {
 
   sealed trait Error extends PrettyPrinting
 
+  sealed trait PackageError extends Error
+
   /** Enriches a model conformance error with the valid subtransaction, if any.
     * If there is a valid subtransaction, the list of valid subview trees will not be empty.
     */
@@ -548,9 +574,23 @@ object ModelConformanceChecker {
     )
   }
 
+  final case class UnknownPackages(
+      unknown: Map[ParticipantId, Set[PackageId]]
+  ) extends PackageError {
+    override def pretty: Pretty[UnknownPackages] = prettyOfClass(
+      unnamedParam(
+        _.unknown
+          .map { case (participant, packageIds) =>
+            show"$participant has not vetted or declared check-only $packageIds".unquoted
+          }
+          .mkShow("\n")
+      )
+    )
+  }
+
   final case class UnvettedPackages(
       unvetted: Map[ParticipantId, Set[PackageId]]
-  ) extends Error {
+  ) extends PackageError {
     override def pretty: Pretty[UnvettedPackages] = prettyOfClass(
       unnamedParam(
         _.unvetted
@@ -562,17 +602,14 @@ object ModelConformanceChecker {
     )
   }
 
+  // Packages that are not present in the persistence for the referenced participant-id
   final case class PackageNotFound(
-      missing: Map[ParticipantId, Set[PackageId]]
-  ) extends Error {
+      participantId: ParticipantId,
+      notFoundPackageIds: Set[PackageId],
+  ) extends PackageError {
     override def pretty: Pretty[PackageNotFound] = prettyOfClass(
-      unnamedParam(
-        _.missing
-          .map { case (participant, packageIds) =>
-            show"$participant can not find $packageIds".unquoted
-          }
-          .mkShow("\n")
-      )
+      param("participant-id", _.participantId),
+      param("not found package-ids", _.notFoundPackageIds),
     )
   }
 

@@ -23,7 +23,7 @@ import com.digitalasset.canton.{BaseTest, LfPackageId, LfPartyId, LfValue}
 private[submission] object DomainSelectionFixture extends TestIdFactory {
 
   def unknownPackageFor(participantId: ParticipantId, missingPackage: LfPackageId) =
-    TransactionTreeFactory.PackageUnknownTo(
+    TransactionTreeFactory.PackageNotVettedBy(
       missingPackage,
       participantId,
     )

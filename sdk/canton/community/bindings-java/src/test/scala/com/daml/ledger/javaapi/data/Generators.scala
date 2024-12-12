@@ -57,9 +57,8 @@ object Generators {
 
   def valueFromRecord(
       record: ValueOuterClass.Record
-  ): com.daml.ledger.api.v1.ValueOuterClass.Value = {
+  ): com.daml.ledger.api.v1.ValueOuterClass.Value =
     ValueOuterClass.Value.newBuilder().setRecord(record).build()
-  }
 
   def identifierGen: Gen[ValueOuterClass.Identifier] =
     for {
@@ -79,7 +78,7 @@ object Generators {
       tail <- Arbitrary.arbString.arbitrary
     } yield head +: tail
 
-  def recordFieldGen(withLabel: Boolean): Gen[ValueOuterClass.RecordField] = {
+  def recordFieldGen(withLabel: Boolean): Gen[ValueOuterClass.RecordField] =
     if (withLabel) {
       for {
         label <- recordLabelGen
@@ -88,7 +87,6 @@ object Generators {
     } else {
       valueGen.flatMap(ValueOuterClass.RecordField.newBuilder().setValue(_).build())
     }
-  }
 
   def unitValueGen: Gen[ValueOuterClass.Value] =
     Gen.const(ValueOuterClass.Value.newBuilder().setUnit(Empty.newBuilder().build()).build())
@@ -405,4 +403,14 @@ object Generators {
 
   val commandGen: Gen[CommandsOuterClass.Command] =
     Gen.oneOf(createCommandGen, exerciseCommandGen, createAndExerciseCommandGen)
+
+  val prefetchContractKeyGen: Gen[CommandsOuterClass.PrefetchContractKey] =
+    for {
+      templateId <- identifierGen
+      contractKey <- valueGen
+    } yield CommandsOuterClass.PrefetchContractKey
+      .newBuilder()
+      .setTemplateId(templateId)
+      .setContractKey(contractKey)
+      .build()
 }

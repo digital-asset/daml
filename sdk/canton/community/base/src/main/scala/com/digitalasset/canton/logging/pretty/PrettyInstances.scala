@@ -33,6 +33,7 @@ import com.digitalasset.canton.tracing.{TraceContext, W3CTraceContext}
 import com.digitalasset.canton.util.ShowUtil.HashLength
 import com.digitalasset.canton.util.{ErrorUtil, HexString}
 import com.digitalasset.canton.{LedgerApplicationId, LfPartyId, LfTimestamp}
+import com.digitalasset.daml.lf.transaction.PackageRequirements
 import com.google.protobuf.ByteString
 import io.grpc.Status
 import io.grpc.health.v1.HealthCheckResponse.ServingStatus
@@ -320,6 +321,11 @@ trait PrettyInstances {
   implicit val prettyTraceContext: Pretty[TraceContext] = prettyOfClass(
     paramIfDefined("trace id", _.traceId.map(_.unquoted)),
     paramIfDefined("W3C context", _.asW3CTraceContext),
+  )
+
+  implicit val prettyPackagesTopology: Pretty[PackageRequirements] = prettyOfClass(
+    param("vetted packages", _.vetted),
+    param("check-only packages", _.checkOnly),
   )
 
   implicit val prettyKeyInputError: Pretty[KeyInputError] = {

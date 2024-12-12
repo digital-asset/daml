@@ -28,7 +28,7 @@ import com.digitalasset.canton.participant.protocol.ProcessingSteps.WrapsProcess
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.ProcessorError
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.TransactionSubmitted
 import com.digitalasset.canton.participant.protocol.submission.ConfirmationRequestFactory.ConfirmationRequestCreationError
-import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.PackageUnknownTo
+import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.PackageStateError
 import com.digitalasset.canton.participant.protocol.submission.{
   ConfirmationRequestFactory,
   InFlightSubmissionTracker,
@@ -208,7 +208,7 @@ object TransactionProcessor {
           id = "PACKAGE_NOT_VETTED_BY_RECIPIENTS",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      final case class Error(unknownTo: Seq[PackageUnknownTo])
+      final case class Error(unknownTo: Seq[PackageStateError])
           extends TransactionErrorImpl(
             cause =
               "Not all receiving participants have vetted a package that is referenced by the submitted transaction",

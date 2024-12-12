@@ -15,7 +15,7 @@ import com.digitalasset.canton.participant.protocol.submission.DomainSelectionFi
 }
 import com.digitalasset.canton.participant.protocol.submission.DomainSelectionFixture.*
 import com.digitalasset.canton.participant.protocol.submission.UsableDomain.{
-  UnknownPackage,
+  InvalidPackagesStateErrors,
   UnsupportedMinimumProtocolVersion,
 }
 import com.digitalasset.canton.participant.sync.TransactionRoutingError
@@ -177,11 +177,13 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
         vettedPackages = ExerciseByInterface.correctPackages.filterNot(_ == missingPackage)
       )
 
-      val expectedError = UnknownPackage(
-        da,
-        List(
-          unknownPackageFor(submitterParticipantId, missingPackage),
+      // TODO(#21671): [Minor] Change the type of packageStateErrors to Set
+      //               ensuring, in the process, that tests don't depend on the order of the errors
+      val expectedError = InvalidPackagesStateErrors(
+        domainId = da,
+        packageStateErrors = List(
           unknownPackageFor(observerParticipantId, missingPackage),
+          unknownPackageFor(submitterParticipantId, missingPackage),
         ),
       )
 
