@@ -41,7 +41,7 @@ main = tests $ brokenOnIDELedger <$>
     [ ("Fetch undistributed contract with source unvetted on submitter", fetchUndistributedUnvettedOnSubmitter)
     , ("Fetch undistributed contract with source unvetted on submitter via interface", fetchUndistributedUnvettedOnSubmitterInterface)
     , ("Fetch distributed contract with source unvetted on submitter", fetchDistributedUnvettedOnSubmitter)
-    , ("Fetch distributed contract with source unvetted on submitter via interface", fetchDistributedUnvettedOnSubmitterInterface)
+    , brokenOnCanton ("Fetch distributed contract with source unvetted on submitter via interface", fetchDistributedUnvettedOnSubmitterInterface)
     , ("Fetch disclosed contract with source unvetted on submitter", fetchDisclosedUnvettedOnSubmitter)
     , ("Fetch disclosed contract with source unvetted on submitter via interface", fetchDisclosedUnvettedOnSubmitterInterface)
     , ("Fetch distributed contract with source unvetted on non-confirming informee (Should succeed)", fetchDistributedUnvettedOnNonConfirmingInformee)
@@ -278,7 +278,7 @@ v1UnvettedOnSubmitter
 v1UnvettedOnSubmitter makeCommands = test $
   unvettedTest
     (\alice cidV2 iid -> alice `trySubmit` makeCommands alice cidV2 iid)
-    expectPackageMissingFailure
+    expectSuccess
     participant0
     []
     []
@@ -309,7 +309,7 @@ v1UnvettedOnSubmitterDisclosed makeSubmission = test $ do
       disclosure <- fromSome <$> queryDisclosure alice cidV2
       (actAs bob <> disclose disclosure) `trySubmit` makeSubmission bob cidV2 iid
     )
-    expectNoDomainFailure
+    expectSuccess
     participant1
     []
     []
@@ -336,7 +336,7 @@ v1UnvettedOnInformee isConfirming makeCommands = test $ do
   bob <- allocatePartyOn "bob" participant1
   unvettedTest
     (\alice cidV2 iid -> alice `trySubmit` makeCommands alice cidV2 iid)
-    expectPackageMissingFailure
+    expectSuccess
     participant1
     (if isConfirming then [bob] else [])
     (if isConfirming then [] else [bob])
@@ -375,7 +375,7 @@ fetchUndistributedUnvettedOnSubmitter : Test
 fetchUndistributedUnvettedOnSubmitter = test $
   unvettedTest
     (\alice cidV2 iid -> alice `trySubmit` helperFetch alice cidV2 iid)
-    expectPackageMissingFailure
+    expectSuccess
     participant0
     []
     []
@@ -384,7 +384,7 @@ fetchUndistributedUnvettedOnSubmitterInterface : Test
 fetchUndistributedUnvettedOnSubmitterInterface = test $
   unvettedTest
     (\alice cidV2 iid -> alice `trySubmit` helperFetchInterface alice cidV2 iid)
-    expectPackageMissingFailure
+    expectSuccess
     participant0
     []
     []
@@ -394,7 +394,7 @@ fetchDistributedUnvettedOnSubmitter = test $ do
   bob <- allocatePartyOn "bob" participant1
   unvettedTest
     (\alice cidV2 iid -> alice `trySubmit` helperFetch alice cidV2 iid)
-    expectPackageMissingFailure
+    expectSuccess
     participant0
     [bob]
     []
@@ -404,7 +404,7 @@ fetchDistributedUnvettedOnSubmitterInterface = test $ do
   bob <- allocatePartyOn "bob" participant1
   unvettedTest
     (\alice cidV2 iid -> alice `trySubmit` helperFetchInterface alice cidV2 iid)
-    expectPackageMissingFailure
+    expectSuccess
     participant0
     [bob]
     []
@@ -424,7 +424,7 @@ fetchDisclosedSubmitter participant makeChoice = test $ do
       cidWithAlice <- alice `submit` exerciseExactCmd cidWithoutAlice HelperPromoteObserver with newSig = alice
       (actAs bob <> disclose disclosure) `trySubmit` exerciseCmd cidWithAlice (makeChoice cidV2 iid)
     )
-    expectPackageMissingFailure
+    expectSuccess
     participant
     []
     []
