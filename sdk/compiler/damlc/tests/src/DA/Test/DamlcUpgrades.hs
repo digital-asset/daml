@@ -587,7 +587,7 @@ tests damlc =
                 pure (Nothing, Nothing)
 
             damlScriptLtsDar <- locateRunfiles (mainWorkspace </> "daml-script/daml3/daml3-script.dar")
-            let mbDamlScriptDar = if addDamlScriptLtsDar then [damlScriptLtsDar] else []
+            let mbDamlScriptDar = [damlScriptLtsDar | addDamlScriptLtsDar]
 
             v1AdditionalDarsRunFiles <- traverse testAdditionaDarRunfile additionalDarsV1
             writeFiles oldDir (projectFile "0.0.1" oldLfVersion ("upgrades-example-" <> location) Nothing depV1Dar (v1AdditionalDarsRunFiles ++ mbDamlScriptDar) : oldVersion)
