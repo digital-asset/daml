@@ -3,8 +3,6 @@
 
 package com.daml.ledger.rxjava.grpc.helpers
 
-import java.util.Optional
-
 import com.daml.ledger.javaapi.data._
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionEndResponse
@@ -32,18 +30,12 @@ trait DataLayerHelpers {
     new GetTimeResponse(Some(Timestamp(1L, 2)))
   }
 
-  def genCommands(commands: List[Command], party: Option[String] = None): SubmitCommandsRequest = {
-    new SubmitCommandsRequest(
-      "workflowId",
-      "applicationId",
-      "commandId",
-      party.getOrElse("party"),
-      Optional.empty(),
-      Optional.empty(),
-      Optional.empty(),
-      commands.asJava,
-    )
-  }
+  def genCommands(commands: List[Command], party: Option[String] = None): CommandsSubmission =
+    CommandsSubmission
+      .create("applicationId", "commandId", commands.asJava)
+      .withActAs(party.getOrElse("party"))
+      .withWorkflowId("workflowId")
+
   def genLedgerOffset(absVal: String): LedgerOffset =
     new LedgerOffset(Absolute(absVal))
 
