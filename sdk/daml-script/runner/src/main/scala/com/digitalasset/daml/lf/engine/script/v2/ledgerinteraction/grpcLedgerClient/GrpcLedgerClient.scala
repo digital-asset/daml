@@ -291,6 +291,7 @@ class GrpcLedgerClient(
       disclosures: List[Disclosure],
       optPackagePreference: Option[List[PackageId]],
       commands: List[ScriptLedgerClient.CommandWithMeta],
+      prefetchContractKeys: List[AnyContractKey],
       optLocation: Option[Location],
       languageVersionLookup: PackageId => Either[String, LanguageVersion],
       keyPackageNameLookup: PackageId => Either[String, Hash.KeyPackageName],
@@ -317,6 +318,9 @@ class GrpcLedgerClient(
         // We need to remember the original package ID for each command result, so we can reapply them
         // after we get the results (for upgrades)
         commandResultPackageIds = commands.flatMap(toCommandPackageIds(_))
+        ledgerPrefetchContractKeys <- converter.toFuture(
+          prefetchContractKeys.traverse(toPrefetchContractKey)
+        )
 
         apiCommands = Commands(
           party = actAs.head,
@@ -327,6 +331,7 @@ class GrpcLedgerClient(
           applicationId = applicationId.getOrElse(""),
           commandId = UUID.randomUUID.toString,
           disclosedContracts = ledgerDisclosures,
+          prefetchContractKeys = ledgerPrefetchContractKeys,
           packageIdSelectionPreference = optPackagePreference.getOrElse(List.empty),
         )
         request = SubmitAndWaitRequest(Some(apiCommands))
@@ -456,6 +461,15 @@ class GrpcLedgerClient(
           )
         )
     }
+
+  private def toPrefetchContractKey(key: AnyContractKey): Either[String, PrefetchContractKey] = {
+    for {
+      contractKey <- lfValueToApiValue(true, key.key.toUnnormalizedValue)
+    } yield PrefetchContractKey(
+      templateId = Some(toApiIdentifierUpgrades(key.templateId, false)),
+      contractKey = Some(contractKey),
+    )
+  }
 
   override def createUser(
       user: User,

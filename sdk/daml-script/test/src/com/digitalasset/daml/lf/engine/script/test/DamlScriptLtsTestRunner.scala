@@ -10,7 +10,7 @@ import java.nio.file.Paths
 
 class DamlScriptLtsTestRunnerPreUpgrade extends DamlScriptLtsTestRunner {
   override val trySubmitTestDarPath =
-    Paths.get(BazelRunfiles.rlocation("daml-script/test/try-submit-test-1.15.dar"))
+    Paths.get(BazelRunfiles.rlocation("daml-script/test/submit-test-1.15.dar"))
 }
 
 class DamlScriptLtsTestRunnerPostUpgrade extends DamlScriptLtsTestRunner {
@@ -19,7 +19,7 @@ class DamlScriptLtsTestRunnerPostUpgrade extends DamlScriptLtsTestRunner {
   override lazy val devMode = true
 
   override val trySubmitTestDarPath =
-    Paths.get(BazelRunfiles.rlocation("compiler/damlc/tests/try-submit-test.dar"))
+    Paths.get(BazelRunfiles.rlocation("compiler/damlc/tests/submit-test.dar"))
 }
 
 abstract class DamlScriptLtsTestRunner extends GenericDamlScriptTestRunner {
@@ -36,15 +36,17 @@ abstract class DamlScriptLtsTestRunner extends GenericDamlScriptTestRunner {
     "pick up all scripts and returns somewhat sensible outputs for daml-script-lts features" in
       assertDamlScriptRunnerResult(
         trySubmitTestDarPath,
-        f"""DamlScriptLtsTrySubmit:authorizationError SUCCESS
-           |DamlScriptLtsTrySubmit:contractKeyNotFound SUCCESS
-           |DamlScriptLtsTrySubmit:contractNotActive ${expectedContractNotActiveResponse}
-           |DamlScriptLtsTrySubmit:createEmptyContractKeyMaintainers SUCCESS
-           |DamlScriptLtsTrySubmit:duplicateContractKey SUCCESS
-           |DamlScriptLtsTrySubmit:fetchEmptyContractKeyMaintainers SUCCESS
-           |DamlScriptLtsTrySubmit:truncatedError FAILURE (com.daml.lf.engine.free.InterpretationError: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "EXPECTED_TRUNCATED_ERROR" })
-           |DamlScriptLtsTrySubmit:unhandledException SUCCESS
-           |DamlScriptLtsTrySubmit:wronglyTypedContract SUCCESS
+        // scripts are executed in alphabetical order
+        f"""DamlScriptLtsSubmit:authorizationError SUCCESS
+           |DamlScriptLtsSubmit:contractKeyNotFound SUCCESS
+           |DamlScriptLtsSubmit:contractNotActive ${expectedContractNotActiveResponse}
+           |DamlScriptLtsSubmit:createEmptyContractKeyMaintainers SUCCESS
+           |DamlScriptLtsSubmit:duplicateContractKey SUCCESS
+           |DamlScriptLtsSubmit:fetchEmptyContractKeyMaintainers SUCCESS
+           |DamlScriptLtsSubmit:prefetchContractKeys SUCCESS
+           |DamlScriptLtsSubmit:truncatedError FAILURE (com.daml.lf.engine.free.InterpretationError: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "EXPECTED_TRUNCATED_ERROR" })
+           |DamlScriptLtsSubmit:unhandledException SUCCESS
+           |DamlScriptLtsSubmit:wronglyTypedContract SUCCESS
            |""".stripMargin,
       )
 
