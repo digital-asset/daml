@@ -266,7 +266,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
       participantId: Ref.ParticipantId,
       submissionTime: Time.Timestamp,
       submissionSeed: crypto.Hash,
-  )(implicit loggingContext: LoggingContext): Result[Unit] = {
+  )(implicit loggingContext: LoggingContext): Result[Unit] =
     // reinterpret
     for {
       result <- replay(
@@ -286,7 +286,6 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
             _ => ResultDone.Unit,
           )
     } yield validationResult
-  }
 
   private[engine] def loadPackage(pkgId: PackageId, context: language.Reference): Result[Unit] =
     ResultNeedPackage(
@@ -408,14 +407,13 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
     ResultDone(deps)
   }
 
-  private def handleError(err: SError.SError, detailMsg: Option[String]): ResultError = {
+  private def handleError(err: SError.SError, detailMsg: Option[String]): ResultError =
     err match {
       case SError.SErrorDamlException(error) =>
         ResultError(Error.Interpretation.DamlException(error), detailMsg)
       case err @ SError.SErrorCrash(where, reason) =>
         ResultError(Error.Interpretation.Internal(where, reason, Some(err)))
     }
-  }
 
   private[engine] def interpretLoop(
       machine: UpdateMachine,
@@ -435,10 +433,17 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
                 nodeSeeds,
                 globalKeyMapping,
                 disclosedCreateEvents,
-                contractPackages,
+                inputContractPackages,
               )
             ) =>
           deps(tx).flatMap { deps =>
+            val createdContractPackages = tx.nodes.values.collect { case c: Node.Create =>
+              c.coid -> c.templateId.packageId
+            }.toMap
+            val disclosedContractPackages = disclosedCreateEvents.iterator
+              .map(c => c.coid -> c.templateId.packageId)
+              .toMap
+
             val meta = Tx.Metadata(
               submissionSeed = None,
               submissionTime = machine.submissionTime,
@@ -447,9 +452,8 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
               nodeSeeds = nodeSeeds,
               globalKeyMapping = globalKeyMapping,
               disclosedEvents = disclosedCreateEvents,
-              contractPackages = contractPackages ++ disclosedCreateEvents
-                .map(c => c.coid -> c.templateId.packageId)
-                .iterator,
+              contractPackages =
+                inputContractPackages ++ disclosedContractPackages ++ createdContractPackages,
             )
             config.profileDir.foreach { dir =>
               val desc = Engine.profileDesc(tx)
@@ -464,7 +468,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
       }
 
     @scala.annotation.tailrec
-    def loop: Result[(SubmittedTransaction, Tx.Metadata)] = {
+    def loop: Result[(SubmittedTransaction, Tx.Metadata)] =
       machine.run() match {
 
         case SResultQuestion(question) =>
@@ -556,7 +560,6 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
         case SResultError(err) =>
           handleError(err, Some(machine.transactionTrace(config.transactionTraceMaxLength)))
       }
-    }
 
     loop
   }
@@ -590,7 +593,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
     */
   def validatePackages(
       pkgs: Map[PackageId, Package]
-  ): Either[Error.Package.Error, Unit] = {
+  ): Either[Error.Package.Error, Unit] =
     for {
       _ <- pkgs
         .collectFirst {
@@ -619,7 +622,6 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
       }.toLeft(())
 
     } yield ()
-  }
 
   /** Given a contract argument of the given template id, calculate the interface
     * view of that API.
@@ -669,7 +671,7 @@ object Engine {
       crypto.Hash.deriveTransactionSeed(submissionSeed, participant, submissionTime)
     )
 
-  private def profileDesc(tx: VersionedTransaction): String = {
+  private def profileDesc(tx: VersionedTransaction): String =
     if (tx.roots.length == 1) {
       val makeDesc = (kind: String, tmpl: Ref.Identifier, extra: Option[String]) =>
         s"$kind:${tmpl.qualifiedName.name}${extra.map(extra => s":$extra").getOrElse("")}"
@@ -684,7 +686,6 @@ object Engine {
     } else {
       s"compound:${tx.roots.length}"
     }
-  }
 
   private def StableConfig =
     EngineConfig(allowedLanguageVersions = LanguageVersion.StableVersions)
