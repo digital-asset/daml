@@ -12,7 +12,6 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation.{
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.suites.v1_8.CompanionImplicits
 import com.daml.ledger.api.v1.commands
-import com.daml.ledger.api.v1.value
 import com.daml.ledger.javaapi.data.PrefetchContractKey
 import com.daml.ledger.test.java.model.da.types.Tuple2
 import com.daml.ledger.test.java.model.test.{Dummy, TextKey, TextKeyOperations, WithKey}
@@ -24,12 +23,7 @@ object PrefetchContractKeysIT {
   implicit final class JavaBindingSupportExtension(val prefetch: PrefetchContractKey)
       extends AnyVal {
     def toProtoInner: commands.PrefetchContractKey = {
-      val templateId = value.Identifier(
-        prefetch.templateId.getPackageId,
-        prefetch.templateId.getModuleName,
-        prefetch.templateId.getEntityName,
-      )
-      commands.PrefetchContractKey(Some(templateId), Some(??? : value.Value))
+      commands.PrefetchContractKey.fromJavaProto(prefetch.toProto)
     }
   }
 }
