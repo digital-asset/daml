@@ -304,8 +304,8 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
                           then
                             throwWithContext $ EUpgradeMultiplePackagesWithSameNameAndVersion packageName presentVersion (presentPkgId : map (\(_,id,_) -> id) equivalent)
                           else do
-                            let otherDepsWithSelf = upgradeablePackageMapToDeps $ addDep result upgradeablePackageMap
-                                depsAsExternalPackages = map (\(_, pkgId, pkg) -> ExternalPackage pkgId pkg) $ concat $ HMS.elems upgradeablePackageMap
+                            let otherDepsWithSelf = addDep result upgradeablePackageMap
+                                depsAsExternalPackages = map (\(_, pkgId, pkg) -> ExternalPackage pkgId pkg) $ concat $ HMS.elems otherDepsWithSelf
                             case closestGreater of
                               Just (greaterPkgVersion, _greaterPkgId, greaterPkg) -> withReaderT (const versionAndInfo) $ do
                                 let context = ContextDefUpgrading { cduPkgName = packageName, cduPkgVersion = Upgrading greaterPkgVersion presentVersion, cduSubContext = ContextNone, cduIsDependency = True }
@@ -313,7 +313,7 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
                                   CheckAll
                                   (Just context)
                                   (greaterPkg, depsAsExternalPackages)
-                                  ((presentPkgId, presentPkg, depsAsExternalPackages), otherDepsWithSelf)
+                                  ((presentPkgId, presentPkg, depsAsExternalPackages), upgradeablePackageMapToDeps otherDepsWithSelf)
                                 checkPackageSingle
                                   (Just context)
                                   presentPkg
@@ -327,7 +327,7 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
                                   CheckAll
                                   (Just context)
                                   (presentPkg, depsAsExternalPackages)
-                                  ((lesserPkgId, lesserPkg, depsAsExternalPackages), otherDepsWithSelf)
+                                  ((lesserPkgId, lesserPkg, depsAsExternalPackages), upgradeablePackageMapToDeps otherDepsWithSelf)
                                 checkPackageSingle
                                   (Just context)
                                   presentPkg
