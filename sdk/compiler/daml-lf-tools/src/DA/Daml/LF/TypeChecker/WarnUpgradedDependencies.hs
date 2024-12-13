@@ -45,25 +45,23 @@ checkTypeCon isSerializable name = do
   case qualPackage name of
     PRSelf -> pure ()
     PRImport pkgId -> do
-      pkg <- inWorld (lookupPackage (PRImport pkgId))
+      targetLfVersion <- getLfVersion
+      when (isSerializable && targetLfVersion `supports` featurePackageUpgrades) $ do
+        -- When using a datatype from a new (>= LF1.17) daml-script in a
+        -- serializable position while targeting >= LF1.17
+        pkg <- inWorld (lookupPackage (PRImport pkgId))
+        case packageMetadata pkg of
+          Nothing -> pure ()
+          Just meta@PackageMetadata { packageName } ->
+            let isNewDamlScript :: Bool
+                isNewDamlScript = packageName `elem` map PackageName ["daml-script-lts", "daml-script-lts-stable"]
+            in
+            when isNewDamlScript $ do
+              diagnosticWithContext $ WEDependsOnDatatypeFromNewDamlScript (pkgId, meta) (packageLfVersion pkg) name
 
-      -- When using a datatype from a new (>= LF1.17) daml-script in any type
-      -- definition
-      case packageMetadata pkg of
-        Nothing -> pure ()
-        Just meta@PackageMetadata { packageName } ->
-          let isNewDamlScript :: Bool
-              isNewDamlScript = packageName `elem` map PackageName ["daml-script-lts", "daml-script-lts-stable"]
-          in
-          when isNewDamlScript $ do
-            diagnosticWithContext $ WEDependsOnDatatypeFromNewDamlScript (pkgId, meta) (packageLfVersion pkg) name
-
-      -- When using an LF1.15 serializable datatype in a serializable position while
-      -- targeting >= LF1.17
-      when isSerializable $ do
-        targetLfVersion <- getLfVersion
+        -- When using LF1.15 serializable datatypes in a serializable position while targeting >= LF1.17
         datatype <- inWorld (lookupDataType name)
-        when (packageLfVersion pkg == version1_15 && targetLfVersion `supports` featurePackageUpgrades && getIsSerializable (dataSerializable datatype)) $ do
+        when (packageLfVersion pkg == version1_15 && getIsSerializable (dataSerializable datatype)) $ do
           diagnosticWithContext $ WEUpgradeDependsOnSerializableNonUpgradeableDataType (pkgId, packageMetadata pkg, packageLfVersion pkg) targetLfVersion name
 
 -- | Check whether a data type definition satisfies all serializability constraints.
