@@ -14,7 +14,7 @@ import com.daml.ledger.api.testtool.suites.v1_8.CompanionImplicits
 import com.daml.ledger.api.v1.commands
 import com.daml.ledger.javaapi.data.PrefetchContractKey
 import com.daml.ledger.test.java.model.da.types.Tuple2
-import com.daml.ledger.test.java.model.test.{Dummy, TextKey, TextKeyOperations, WithKey}
+import com.daml.ledger.test.java.model.test.{TextKey, TextKeyOperations, WithKey}
 
 import scala.jdk.CollectionConverters._
 import scala.jdk.OptionConverters._
@@ -47,7 +47,7 @@ class PrefetchContractKeysIT extends LedgerTestSuite {
     } yield {
       assert(active.size == 1)
       val dummyTemplateId = active.flatMap(_.templateId.toList).head
-      assert(dummyTemplateId == Dummy.TEMPLATE_ID_WITH_PACKAGE_ID.toV1)
+      assert(dummyTemplateId == WithKey.TEMPLATE_ID_WITH_PACKAGE_ID.toV1)
     }
   })
 
@@ -63,7 +63,7 @@ class PrefetchContractKeysIT extends LedgerTestSuite {
       )
     val existingKeyIndex = 10
     for {
-      textKeyContract <- ledger.create(party, new TextKey(party, "key1", Seq.empty.asJava))
+      textKeyContract <- ledger.create(party, new TextKey(party, "key10", Seq.empty.asJava))
       textKeyOps <- ledger.create(party, new TextKeyOperations(party))
       exerciseCommands = (1 to numPrefetches)
         .flatMap(i =>
