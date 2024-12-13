@@ -41,17 +41,16 @@ main = tests $ brokenOnIDELedger <$>
     [ ("Fetch undistributed contract with source unvetted on submitter", fetchUndistributedUnvettedOnSubmitter)
     , ("Fetch undistributed contract with source unvetted on submitter via interface", fetchUndistributedUnvettedOnSubmitterInterface)
     , ("Fetch distributed contract with source unvetted on submitter", fetchDistributedUnvettedOnSubmitter)
-    -- TODO(#23049): Re-enable
-    , brokenOnCanton ("Fetch distributed contract with source unvetted on submitter via interface", fetchDistributedUnvettedOnSubmitterInterface)
+    , ("Fetch distributed contract with source unvetted on submitter via interface", fetchDistributedUnvettedOnSubmitterInterface)
     , ("Fetch disclosed contract with source unvetted on submitter", fetchDisclosedUnvettedOnSubmitter)
     , ("Fetch disclosed contract with source unvetted on submitter via interface", fetchDisclosedUnvettedOnSubmitterInterface)
     , ("Fetch distributed contract with source unvetted on non-confirming informee (Should succeed)", fetchDistributedUnvettedOnNonConfirmingInformee)
     , ("Fetch distributed contract with source unvetted on confirming informee", fetchDistributedUnvettedOnConfirmingInformee)
-    , brokenOnCanton ("Fetch distributed contract with source unvetted on confirming informee via interface", fetchDistributedUnvettedOnConfirmingInformeeInterface)
+    , ("Fetch distributed contract with source unvetted on confirming informee via interface", fetchDistributedUnvettedOnConfirmingInformeeInterface)
     -- TODO: This test would either need a third participant, or to use multiple parties on the same participant (which is not clear if acceptable)
     -- , ("Fetch disclosed contract with source unvetted on non-confirming informee (Should succeed)", fetchDisclosedUnvettedOnNonConfirmingInformee)
     , ("Fetch disclosed contract with source unvetted on confirming informee", fetchDisclosedUnvettedOnConfirmingInformee)
-    , disabledScriptUpgradeTestDueToTriStateVetting ("Fetch disclosed contract with source unvetted on confirming informee via interface", fetchDisclosedUnvettedOnConfirmingInformeeInterface)
+    , ("Fetch disclosed contract with source unvetted on confirming informee via interface", fetchDisclosedUnvettedOnConfirmingInformeeInterface)
     ]
   , -- TODO: Broken as we expect failure but query succeeds
     subtree "query"
