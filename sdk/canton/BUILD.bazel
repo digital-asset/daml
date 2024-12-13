@@ -1267,6 +1267,7 @@ scala_library(
         ":community_base",
         ":community_common",
         ":community_domain",
+        ":community_kms-driver-api",
         ":community_ledger_ledger-api-core",
         ":community_ledger_ledger-common",
         ":community_ledger_ledger-json-api",
