@@ -780,21 +780,21 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
         "There is data that is newer than the implementation using it, and thus is not compatible. Ensure new data (i.e. those with additional fields as `Some`) is only used with new/compatible choices"
       )
       object DowngradeFailed
-        extends ErrorCode(
-          id = "INTERPRETATION_UPGRADE_ERROR_DOWNGRADE_FAILED",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther,
-        ) {
+          extends ErrorCode(
+            id = "INTERPRETATION_UPGRADE_ERROR_DOWNGRADE_FAILED",
+            ErrorCategory.InvalidGivenCurrentSystemStateOther,
+          ) {
         final case class Reject(
-                                 override val cause: String,
-                                 err: LfInterpretationError.Upgrade.DowngradeFailed,
-                               )(implicit
-                                 loggingContext: ContextualizedErrorLogger
-                               ) extends DamlErrorWithDefiniteAnswer(
-          cause = cause
-        ) {
+            override val cause: String,
+            err: LfInterpretationError.Upgrade.DowngradeFailed,
+        )(implicit
+            loggingContext: ContextualizedErrorLogger
+        ) extends DamlErrorWithDefiniteAnswer(
+              cause = cause
+            ) {
           override def resources: Seq[(ErrorResource, String)] =
             Seq(
-              (ErrorResource.FieldType, err.expectedType.pretty),
+              (ErrorResource.FieldType, err.expectedType.pretty)
             )
         }
       }

@@ -75,7 +75,7 @@ final class TransactionTreeFactoryImplTest extends AsyncWordSpec with BaseTest {
         contractInstanceOfId,
         keyResolver,
         factory.ledgerTime.plusSeconds(100),
-        contractPackages = Map.empty,
+        suffixedContractPackages = Map.empty,
       )
       .failOnShutdownTo(fail("creating tx tree"))
   }
