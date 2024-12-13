@@ -115,7 +115,7 @@ class Converter(majorLanguageVersion: LanguageMajorVersion) {
       tplTyCon: Ref.TypeConName,
       ifaceTyCon: Option[Ref.TypeConName],
   ): Boolean =
-    ifaceTyCon.fold(upgradable(translator, tplTyCon))(upgradable(translator, _))
+    upgradable(translator, ifaceTyCon.getOrElse(tplTyCon))
 
   private[lf] def fromTemplateTypeRep(templateId: SValue): SValue =
     record(stablePackages.TemplateTypeRep, ("getTemplateTypeRep", templateId))
