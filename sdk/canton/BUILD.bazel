@@ -1157,9 +1157,9 @@ scala_library(
     scalacopts = canton_scalacopts + ["-language:postfixOps"],
     unused_dependency_checker_mode = "error",
     deps = [
-      "@maven//:com_github_pureconfig_pureconfig_core_2_13",
-      "@maven//:org_slf4j_slf4j_api",
-      "@maven//:io_opentelemetry_opentelemetry_context",
+        "@maven//:com_github_pureconfig_pureconfig_core_2_13",
+        "@maven//:io_opentelemetry_opentelemetry_context",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
