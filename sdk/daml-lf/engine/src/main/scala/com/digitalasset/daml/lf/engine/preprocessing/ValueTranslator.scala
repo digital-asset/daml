@@ -197,8 +197,11 @@ private[lf] final class ValueTranslator(
               case ValueRecord(mbId, sourceElements) =>
                 checkUserTypeId(upgradable, tyCon, mbId)
                 val lookupResult = handleLookup(pkgInterface.lookupDataRecord(tyCon))
-                val targetFieldsAndTypes = lookupResult.dataRecord.fields
                 val subst = lookupResult.subst(tyArgs)
+                val targetFieldsAndTypes =
+                  lookupResult.dataRecord.fields.map { case (lbl, typ) =>
+                    lbl -> AstUtil.substitute(typ, subst)
+                  }
 
                 def addMissingField(lbl: Ref.Name, ty: Type): (Option[Ref.Name], Value) =
                   ty match {
@@ -279,8 +282,7 @@ private[lf] final class ValueTranslator(
 
                   // Recursive substitution
                   val translatedCorrectFields = correctFields.map { case (lbl, v, typ) =>
-                    val replacedTyp = AstUtil.substitute(typ, subst)
-                    lbl -> go(replacedTyp, v, newNesting)
+                    lbl -> go(typ, v, newNesting)
                   }
 
                   extraFields.foreach {

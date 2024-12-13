@@ -152,7 +152,7 @@ final class ValueEnricher(
     )
 
   def enrichChoiceResult(
-      choicePackageId: PackageId,
+      templatePackageId: PackageId,
       qualifiedTemplateName: QualifiedName,
       interfaceId: Option[Identifier],
       choiceName: Name,
@@ -160,12 +160,14 @@ final class ValueEnricher(
   ): Result[Value] = for {
     choice <- handleLookup(
       pkgInterface.lookupChoice(
-        Identifier(choicePackageId, qualifiedTemplateName),
+        Identifier(templatePackageId, qualifiedTemplateName),
         interfaceId,
         choiceName,
       )
     )
-    pkg <- handleLookup(pkgInterface.lookupPackage(choicePackageId))
+    pkg <- handleLookup(
+      pkgInterface.lookupPackage(interfaceId.fold(templatePackageId)(_.packageId))
+    )
     enrichedValue <- enrichValue(choice.returnType, pkg.upgradable, value)
   } yield enrichedValue
 
