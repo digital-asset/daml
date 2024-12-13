@@ -3,9 +3,5 @@
 
 module Main where
 
-template T with
-    p: Party
-    tuple: (Text, Text)
-  where
-    signatory p
+data D = D { field1 : Text }
 

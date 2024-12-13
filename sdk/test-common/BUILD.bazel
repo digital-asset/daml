@@ -553,6 +553,13 @@ da_scala_dar_resources_library(
             },
         ),
         ("NoOldLfWarningWhenDependingOnTuple", {}, {}),
+        ("NoWarningWhenUsingDamlScriptDatatypeInLF115", {}, {}),
+        ("NoWarningWhenUsingLF115DependencyInNonSerializablePosition", {}, {}),
+        (
+            "NoWarningWhenUsingLF115DependencyInNonSerializablePositionDep",
+            {"lf_version": "1.15"},
+            {"lf_version": "1.15"},
+        ),
     ]
 ]
 

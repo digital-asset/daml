@@ -3,9 +3,13 @@
 
 module Main where
 
-template T with
-    p: Party
-    tuple: (Text, Text)
-  where
-    signatory p
+import qualified Dep as Dep
+
+data C = C {}
+
+data D = D
+  { field1 : Text
+  , nonserializable : Text -> Text
+  , dep : Optional Dep.D
+  }
 

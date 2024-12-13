@@ -3,9 +3,12 @@
 
 module Main where
 
-template T with
-    p: Party
-    tuple: (Text, Text)
-  where
-    signatory p
+import Daml.Script
+
+data D = D { field1 : Text }
+
+data UseScript = UseScript
+  { field1 : Text
+  , field2 : PartyIdHint
+  }
 

@@ -396,6 +396,13 @@ tests damlc =
                     , additionalDarsV2 = ["upgrades-WarnsWhenUsingLF115DependencyInSerializablePositionDep-v2.dar"]
                     }
             , mkTest
+                  "NoWarningWhenUsingLF115DependencyInNonSerializablePosition"
+                  (SucceedWithoutWarning "It is not recommended that >= LF1.17 packages depend on <= LF1.15 datatypes in places that may be serialized")
+                  testOptions
+                    { additionalDarsV1 = ["upgrades-NoWarningWhenUsingLF115DependencyInNonSerializablePositionDep-v1.dar"]
+                    , additionalDarsV2 = ["upgrades-NoWarningWhenUsingLF115DependencyInNonSerializablePositionDep-v2.dar"]
+                    }
+            , mkTest
                   "WarnsWhenUsingDamlScriptDatatype"
                   (SucceedWithWarning $ T.init $ T.unlines
                     [ "\ESC\\[0;93mwarning while type checking data type Main.UseScript:"
@@ -409,8 +416,15 @@ tests damlc =
                     { addDamlScriptLtsDar = True
                     }
             , mkTest
-                  "NoOldLfWarningWhenDependingOnTuple"
+                  "NoWarningWhenUsingDamlScriptDatatypeInLF115"
                   (SucceedWithoutWarning "It is not recommended that >= LF1.17 packages use datatypes from Daml Script")
+                  testOptions
+                    { addDamlScriptLtsDar = True
+                    , lfVersion = versionPairs LF.version1_15
+                    }
+            , mkTest
+                  "NoOldLfWarningWhenDependingOnTuple"
+                  (SucceedWithoutWarning "It is not recommended that >= LF1.17 packages use datatypes")
                   testOptions
                     { addDamlScriptLtsDar = True
                     }
@@ -694,7 +708,7 @@ tests damlc =
           ]
             ++ ["  - --typecheck-upgrades=no" | not doTypecheck]
             ++ ["  - -Wupgrade-interfaces" | warnBadInterfaceInstances ]
-            ++ ["upgrades: '" <> path <> "'" | Just path <- pure upgradedFile]
+            ++ ["upgrades: '" <> path <> "'" | lfVersion `LF.supports` LF.featurePackageUpgrades, Just path <- pure upgradedFile]
             ++ renderDataDeps deps
         )
       where
