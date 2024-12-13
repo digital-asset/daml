@@ -15,7 +15,6 @@ module DA.Daml.LF.TypeChecker.Env(
     TcMF,
     throwWithContext, throwWithContextF,
     warnWithContext, warnWithContextF,
-    throwWithContextFRaw,
     diagnosticWithContext,
     catchAndRethrow,
     inWorld,
