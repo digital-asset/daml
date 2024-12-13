@@ -336,7 +336,7 @@ referencesDamlScriptDatatypeFlag :: DamlWarningFlagStatus -> DamlWarningFlag Err
 referencesDamlScriptDatatypeFlag status = RawDamlWarningFlag referencesDamlScriptDatatypeName status referencesDamlScriptDatatypeFilter
 
 referencesDamlScriptDatatypeName :: String
-referencesDamlScriptDatatypeName = "using-daml-script-datatype"
+referencesDamlScriptDatatypeName = "upgrade-serialized-daml-script"
 
 referencesDamlScriptDatatypeFilter :: ErrorOrWarning -> Bool
 referencesDamlScriptDatatypeFilter =
