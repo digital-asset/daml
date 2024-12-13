@@ -387,7 +387,7 @@ tests damlc =
                     [ "\ESC\\[0;93mwarning while type checking data type Main.D:"
                     , "  This package has LF version 1.17, but it depends on a serializable type .*:Dep:D from package .* \\(upgrades-example-WarnsWhenUsingLF115DependencyInSerializablePositionDep, 2.0.0\\) which has LF version 1.15."
                     , "  "
-                    , "  It is not recommended that >= LF1.17 packages depend on <= LF1.15 datatypes in places that may be serialized to the ledger, since those datatypes will not be upgradeable."
+                    , "  It is not recommended that >= LF1.17 packages depend on <= LF1.15 datatypes in places that may be serialized to the ledger, because those datatypes will not be upgradeable."
                     , "  Upgrade this warning to an error -Werror=upgrade-serialized-non-upgradeable-dependency"
                     , "  Disable this warning entirely with -Wno-upgrade-serialized-non-upgradeable-dependency"
                     ])
@@ -401,9 +401,9 @@ tests damlc =
                     [ "\ESC\\[0;93mwarning while type checking data type Main.UseScript:"
                     , "  This package depends on a datatype .*:Daml.Script.Stable:PartyIdHint from .* \\(daml-script-lts-stable, 0.0.0\\) with LF version 1.15."
                     , "  "
-                    , "  It is not recommended that packages use datatypes from Daml Script."
-                    , "  Upgrade this warning to an error -Werror=using-daml-script-datatype"
-                    , "  Disable this warning entirely with -Wno-using-daml-script-datatype"
+                    , "  It is not recommended that >= LF1.17 packages use datatypes from Daml Script, because those datatypes will not be upgradeable."
+                    , "  Upgrade this warning to an error -Werror=upgrade-serialized-daml-script"
+                    , "  Disable this warning entirely with -Wno-upgrade-serialized-daml-script"
                     ])
                   testOptions
                     { addDamlScriptLtsDar = True
