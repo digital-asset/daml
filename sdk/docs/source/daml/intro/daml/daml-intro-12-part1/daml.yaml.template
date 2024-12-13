@@ -8,5 +8,3 @@ dependencies:
   - daml-script
 build-options:
   - --target=1.15
-sandbox-options:
-  - --wall-clock-time
