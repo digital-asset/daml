@@ -383,17 +383,30 @@ tests damlc =
                     }
             , mkTest
                   "WarnsWhenUsingLF115DependencyInSerializablePosition"
-                  (SucceedWithWarning "\ESC\\[0;93mwarning while type checking data type Main.D:\n  This package has LF version 1.17, but it depends on a serializable type .*:Dep:D from package .* \\(upgrades-example-WarnsWhenUsingLF115DependencyInSerializablePositionDep, 2.0.0\\) which has LF version 1.15. It is not recommended that >= LF1.17 packages depend on <= LF1.15 datatypes in places that may be serialized to the ledger, since those datatypes will not be upgradeable.\n  Upgrade this warning to an error -Werror=upgrade-serialized-non-upgradeable-dependency\n  Disable this warning entirely with -Wno-upgrade-serialized-non-upgradeable-dependency")
+                  (SucceedWithWarning $ T.init $ T.unlines
+                    [ "\ESC\\[0;93mwarning while type checking data type Main.D:"
+                    , "  This package has LF version 1.17, but it depends on a serializable type .*:Dep:D from package .* \\(upgrades-example-WarnsWhenUsingLF115DependencyInSerializablePositionDep, 2.0.0\\) which has LF version 1.15."
+                    , "  "
+                    , "  It is not recommended that >= LF1.17 packages depend on <= LF1.15 datatypes in places that may be serialized to the ledger, since those datatypes will not be upgradeable."
+                    , "  Upgrade this warning to an error -Werror=upgrade-serialized-non-upgradeable-dependency"
+                    , "  Disable this warning entirely with -Wno-upgrade-serialized-non-upgradeable-dependency"
+                    ])
                   testOptions
                     { additionalDarsV1 = ["upgrades-WarnsWhenUsingLF115DependencyInSerializablePositionDep-v1.dar"]
                     , additionalDarsV2 = ["upgrades-WarnsWhenUsingLF115DependencyInSerializablePositionDep-v2.dar"]
                     }
             , mkTest
                   "WarnsWhenUsingDamlScriptDatatype"
-                  (SucceedWithWarning "\ESC\\[0;93mwarning while type checking data type Main.UseScript:\n  This package depends on a datatype adb9782d70bcdb68d1bac913fec45ccc40c7c4b4beb6f77f8caa534fb1e82c8b:Daml.Script.Stable:PartyIdHint from .* \\(daml3-script-stable, 0.0.0\\) with LF version 1.15. It is not recommended that packages use datatypes from Daml Script.\n  Upgrade this warning to an error -Werror=using-daml-script-datatype\n  Disable this warning entirely with -Wno-using-daml-script-datatype")
+                  (SucceedWithWarning $ T.init $ T.unlines
+                    [ "\ESC\\[0;93mwarning while type checking data type Main.UseScript:"
+                    , "  This package depends on a datatype .*:Daml.Script.Stable:PartyIdHint from .* \\(daml-script-lts-stable, 0.0.0\\) with LF version 1.15."
+                    , "  "
+                    , "  It is not recommended that packages use datatypes from Daml Script."
+                    , "  Upgrade this warning to an error -Werror=using-daml-script-datatype"
+                    , "  Disable this warning entirely with -Wno-using-daml-script-datatype"
+                    ])
                   testOptions
                     { addDamlScriptLtsDar = True
-                    , lfVersion = versionPairs LF.version1_17
                     }
             , testMetadata
                   "FailsWhenUpgradesPackageHasDifferentPackageName"
