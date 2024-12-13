@@ -196,7 +196,9 @@ class IdeLedgerClient(
       checkV1ContractIdSuffixes = false,
     )
 
-    val isUpgradable = compiledPackages.pkgInterface.lookupPackage(interfaceId.packageId).fold(_ => false, _.upgradable)
+    val isUpgradable = compiledPackages.pkgInterface
+      .lookupPackage(interfaceId.packageId)
+      .fold(_ => false, _.upgradable)
 
     valueTranslator.translateValue(TTyCon(templateId), isUpgradable, arg) match {
       case Left(e) =>

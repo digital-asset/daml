@@ -64,7 +64,8 @@ class SubmitErrors(majorLanguageVersion: LanguageMajorVersion) {
 
   def globalKeyToAnyContractKey(env: Env, templateId: Identifier, key: Value): SValue = {
     val ty = env.lookupKeyTy(templateId).toOption.get
-    val sValue = env.translateValue(ty, upgradable(env.valueTranslator, templateId), key).toOption.get
+    val sValue =
+      env.translateValue(ty, upgradable(env.valueTranslator, templateId), key).toOption.get
     fromAnyContractKey(AnyContractKey(templateId, ty, sValue))
   }
 

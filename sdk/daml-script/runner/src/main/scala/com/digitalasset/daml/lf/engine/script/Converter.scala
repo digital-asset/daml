@@ -102,15 +102,18 @@ class Converter(majorLanguageVersion: LanguageMajorVersion) {
     )
   }
 
-  private[lf] def upgradable(translator: preprocessing.ValueTranslator, tyCon: Ref.TypeConName): Boolean =
+  private[lf] def upgradable(
+      translator: preprocessing.ValueTranslator,
+      tyCon: Ref.TypeConName,
+  ): Boolean =
     translator.pkgInterface.lookupPackage(tyCon.packageId).fold(_ => false, _.upgradable)
 
   // Interface takes precedence. If interface doesn't support it, template can't
   // fall back to template upgradability
   private[lf] def upgradableWithInterface(
-    translator: preprocessing.ValueTranslator,
-    tplTyCon: Ref.TypeConName,
-    ifaceTyCon: Option[Ref.TypeConName],
+      translator: preprocessing.ValueTranslator,
+      tplTyCon: Ref.TypeConName,
+      ifaceTyCon: Option[Ref.TypeConName],
   ): Boolean =
     ifaceTyCon.fold(upgradable(translator, tplTyCon))(upgradable(translator, _))
 

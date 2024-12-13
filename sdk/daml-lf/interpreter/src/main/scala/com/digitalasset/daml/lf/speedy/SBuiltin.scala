@@ -1036,7 +1036,8 @@ private[lf] object SBuiltin {
           }
         )
         val interfaceVersion = interfaceId.map(machine.tmplId2TxVersion)
-        val exerciseVersion = interfaceVersion.fold(templateVersion)(_.max(templateVersion min TransactionVersion.V15))
+        val exerciseVersion =
+          interfaceVersion.fold(templateVersion)(_.max(templateVersion min TransactionVersion.V15))
         val chosenValue = args.get(0).toNormalizedValue(exerciseVersion)
         val controllers = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(2))
         machine.enforceChoiceControllersLimit(
