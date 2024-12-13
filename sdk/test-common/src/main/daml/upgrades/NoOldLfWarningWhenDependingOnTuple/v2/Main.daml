@@ -1,0 +1,8 @@
+module Main where
+
+template T with
+    p: Party
+    tuple: (Text, Text)
+    addedField: Optional (Text, Text)
+  where
+    signatory p

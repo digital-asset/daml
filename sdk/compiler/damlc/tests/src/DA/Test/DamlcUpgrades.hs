@@ -408,6 +408,12 @@ tests damlc =
                   testOptions
                     { addDamlScriptLtsDar = True
                     }
+            , mkTest
+                  "NoOldLfWarningWhenDependingOnTuple"
+                  (SucceedWithoutWarning "It is not recommended that >= LF1.17 packages use datatypes from Daml Script")
+                  testOptions
+                    { addDamlScriptLtsDar = True
+                    }
             , testMetadata
                   "FailsWhenUpgradesPackageHasDifferentPackageName"
                   (FailWithError $ 

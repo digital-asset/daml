@@ -638,6 +638,7 @@ da_haskell_test(
         "//test-common:upgrades-WarnsWhenUsingLF115DependencyInSerializablePositionDep-v2.dar",
         "//test-common:upgrades-WarnsWhenUsingLF115DependencyInSerializablePosition-files",
         "//test-common:upgrades-WarnsWhenUsingDamlScriptDatatype-files",
+        "//test-common:upgrades-NoOldLfWarningWhenDependingOnTuple-files",
     ],
     hackage_deps = [
         "base",
