@@ -96,7 +96,7 @@ trait CantonFixtureWithResource[A]
   // should display a clickable chip labelled "Attach debugger" next to this line. Clicking on this chip will attach the
   // debugger to the canton process and resume execution. Breakpoints in the canton code under canton/* will then be
   // taken into account by IntelliJ.
-  protected val remoteJavaDebugging: Boolean = false
+  protected val remoteJavaDebugging: Boolean = true
 
   final protected val logger = org.slf4j.LoggerFactory.getLogger(getClass)
 
