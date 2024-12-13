@@ -15,6 +15,8 @@ load("@os_info//:os_info.bzl", "is_windows")
 load("//rules_daml:daml.bzl", "daml_compile")
 load(
     "//daml-lf/language:daml-lf.bzl",
+    "COMPILER_LF_VERSIONS",
+    "LEGACY_DAML_SCRIPT_LF_VERSIONS",
     "lf_version_configuration",
     "mangle_for_damlc",
 )
@@ -117,8 +119,9 @@ EOF
         visibility = ["//visibility:public"],
     )
     for lf_version in [
-        "1.17",
-        "1.dev",
+        v
+        for v in COMPILER_LF_VERSIONS
+        if not (v in LEGACY_DAML_SCRIPT_LF_VERSIONS)
     ]
 ]
 
