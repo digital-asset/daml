@@ -10,6 +10,7 @@ import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.domain.block.SequencerDriver
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.block.DriverBlockSequencerFactory
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.driver.BftSequencerFactory
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerStore
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficConfig
 import com.digitalasset.canton.environment.CantonNodeParameters
@@ -191,6 +192,20 @@ object CommunitySequencerFactory extends MkSequencerFactory {
         sequencerId,
         nodeParameters,
         loggerFactory,
+      )
+
+    case CommunitySequencerConfig.BftSequencer(blockSequencerConfig, config) =>
+      new BftSequencerFactory(
+        config,
+        blockSequencerConfig,
+        health,
+        storage,
+        protocolVersion,
+        sequencerId,
+        nodeParameters,
+        metrics,
+        loggerFactory,
+        blockSequencerConfig.testingInterceptor,
       )
 
     case CommunitySequencerConfig.External(

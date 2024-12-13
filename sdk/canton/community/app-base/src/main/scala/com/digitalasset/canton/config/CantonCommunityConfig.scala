@@ -20,7 +20,7 @@ import com.digitalasset.canton.participant.config.{
   RemoteParticipantConfig,
 }
 import com.digitalasset.canton.tracing.TraceContext
-import com.typesafe.config.Config
+import com.typesafe.config.{Config, ConfigValue}
 import monocle.macros.syntax.lens.*
 import org.slf4j.{Logger, LoggerFactory}
 import pureconfig.{ConfigReader, ConfigWriter}
@@ -79,8 +79,10 @@ object CantonCommunityConfig {
     import DeprecatedConfigUtils.*
     import CantonConfig.ConfigReaders.Crypto.*
     import BaseCantonConfig.Readers.*
-    implicit val communityCryptoProviderReader: ConfigReader[CommunityCryptoProvider] =
-      deriveEnumerationReader[CommunityCryptoProvider]
+    implicit val driverKmsConfigReader: ConfigReader[CommunityKmsConfig.Driver] =
+      deriveReader[CommunityKmsConfig.Driver]
+    implicit val kmsConfigReader: ConfigReader[CommunityKmsConfig] =
+      deriveReader[CommunityKmsConfig]
     implicit val communityCryptoReader: ConfigReader[CommunityCryptoConfig] =
       deriveReader[CommunityCryptoConfig]
     implicit val memoryReader: ConfigReader[CommunityStorageConfig.Memory] =
@@ -111,8 +113,14 @@ object CantonCommunityConfig {
     import writers.*
     import writers.Crypto.*
     import BaseCantonConfig.Writers.*
-    implicit val communityCryptoProviderWriter: ConfigWriter[CommunityCryptoProvider] =
-      deriveEnumerationWriter[CommunityCryptoProvider]
+    implicit val driverKmsConfigWriter: ConfigWriter[CommunityKmsConfig.Driver] =
+      ConfigWriter.fromFunction { driverConfig =>
+        implicit val driverConfigWriter: ConfigWriter[ConfigValue] =
+          Crypto.driverConfigWriter(driverConfig)
+        deriveWriter[CommunityKmsConfig.Driver].to(driverConfig)
+      }
+    implicit val kmsConfigWriter: ConfigWriter[CommunityKmsConfig] =
+      deriveWriter[CommunityKmsConfig]
     implicit val communityCryptoWriter: ConfigWriter[CommunityCryptoConfig] =
       deriveWriter[CommunityCryptoConfig]
     implicit val memoryWriter: ConfigWriter[CommunityStorageConfig.Memory] =

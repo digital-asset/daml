@@ -454,14 +454,15 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
   }
 
   override def findEssentialStateAtSequencedTime(
-      asOfInclusive: SequencedTime
+      asOfInclusive: SequencedTime,
+      includeRejected: Boolean,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[GenericStoredTopologyTransactions] = {
     val timeFilter = sql" AND sequenced <= ${asOfInclusive.value}"
     logger.debug(s"Querying essential state as of $asOfInclusive")
 
-    queryForTransactions(timeFilter, "essentialState", includeRejected = true)
+    queryForTransactions(timeFilter, "essentialState", includeRejected = includeRejected)
       .map(_.asSnapshotAtMaxEffectiveTime)
   }
 

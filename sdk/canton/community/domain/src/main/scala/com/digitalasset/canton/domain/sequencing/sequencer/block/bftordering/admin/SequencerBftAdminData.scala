@@ -16,7 +16,7 @@ import com.digitalasset.canton.sequencer.admin.v30.{
 }
 import com.digitalasset.canton.topology.SequencerId
 
-object EnterpriseSequencerBftAdminData {
+object SequencerBftAdminData {
 
   def endpointToProto(endpoint: Endpoint): PeerEndpoint =
     PeerEndpoint.of(endpoint.host, endpoint.port.unwrap)

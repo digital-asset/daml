@@ -4,7 +4,7 @@
 package com.digitalasset.canton.admin.api.client.commands
 
 import cats.syntax.either.*
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin.EnterpriseSequencerBftAdminData.{
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin.SequencerBftAdminData.{
   OrderingTopology,
   PeerNetworkStatus,
   endpointToProto,
@@ -26,7 +26,7 @@ import io.grpc.ManagedChannel
 
 import scala.concurrent.Future
 
-object EnterpriseSequencerBftAdminCommands {
+object SequencerBftAdminCommands {
 
   abstract class BaseSequencerBftAdministrationCommand[Req, Rep, Res]
       extends GrpcAdminCommand[Req, Rep, Res] {

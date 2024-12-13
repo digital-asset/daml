@@ -6,7 +6,7 @@ package com.digitalasset.canton.domain.block.bftordering.admin
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin.BftOrderingSequencerAdminService
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin.EnterpriseSequencerBftAdminData.PeerNetworkStatus
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin.SequencerBftAdminData.PeerNetworkStatus
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.ModuleRef
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.{

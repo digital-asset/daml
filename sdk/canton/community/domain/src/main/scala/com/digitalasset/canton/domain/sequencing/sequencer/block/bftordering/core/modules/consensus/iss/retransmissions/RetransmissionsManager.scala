@@ -51,7 +51,8 @@ class RetransmissionsManager[E <: Env[E]](
       if (epochStatus.epochNumber != epochNumber) {
         // TODO(#18788): support serving retransmission of commit certs to nodes in a previous epoch
         logger.info(
-          s"We got a retransmission request for epoch ${epochStatus.epochNumber}, but we can only serve retranmissions for epoch $epochNumber"
+          s"We got a retransmission request for epoch ${epochStatus.epochNumber}," +
+            s"but we can only serve retransmissions for epoch $epochNumber"
         )
       } else {
         logger.info(s"Got a retransmission request from ${epochStatus.from} at epoch $epochNumber")

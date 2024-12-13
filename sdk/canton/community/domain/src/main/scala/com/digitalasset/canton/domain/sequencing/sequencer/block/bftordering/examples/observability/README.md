@@ -10,9 +10,9 @@ in the official documentation.
 * [**Docker Compose V2 (as plugin `2.x`)**](https://github.com/docker/compose).
 * Build Canton as follows:
   * `sbt package`
-  * `cd enterprise/app/target/release/canton`
+  * `cd community/app/target/release/canton`
   * Copy [`Dockerfile`](canton/Dockerfile) there.
-  * `docker build . -t canton-enterprise:latest` (or anything matching your [.env](.env)'s `CANTON_IMAGE`).
+  * `docker build . -t canton-community:latest` (or anything matching your [.env](.env)'s `CANTON_IMAGE`).
 * A matching ledger API test tool ("LAPITT"):
   * Build it with `sbt ledger-test-tool-2-dev/assembly`.
   * Copy it as `lapitt.jar` in the project's root directory from `enterprise/ledger-test-tool/tool/lf-v2.dev/target/scala-2.13/ledger-api-test-tool-2.dev-3.?.0-SNAPSHOT.jar`
@@ -88,13 +88,13 @@ For example:
 res0: Seq[String] = Vector("mydomain")
 
 @ sequencer1.bft.get_ordering_topology()
-res1: com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin.EnterpriseSequencerBftAdminData.OrderingTopology = OrderingTopology(
+res1: com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin.SequencerBftAdminData.OrderingTopology = OrderingTopology(
   currentEpoch = 30L,
   sequencerIds = Vector(SEQ::sequencer1::122068109171..., SEQ::sequencer2::1220ec0faf93..., SEQ::sequencer3::122078a60382..., SEQ::sequencer4::12203fdba69e...)
 )
 
 sequencer1.bft.get_peer_network_status(None)
-res2: com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin.EnterpriseSequencerBftAdminData.PeerNetworkStatus = PeerNetworkStatus(
+res2: com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin.SequencerBftAdminData.PeerNetworkStatus = PeerNetworkStatus(
   endpointStatuses = Vector(
     PeerEndpointStatus(endpoint = Endpoint(host = "canton", port = Port(n = 30031)), health = PeerEndpointHealth(status = Authenticated, description = None)),
     PeerEndpointStatus(endpoint = Endpoint(host = "canton", port = Port(n = 30032)), health = PeerEndpointHealth(status = Authenticated, description = None)),

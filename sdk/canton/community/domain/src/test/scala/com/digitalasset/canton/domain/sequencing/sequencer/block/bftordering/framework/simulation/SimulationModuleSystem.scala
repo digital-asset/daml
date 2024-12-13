@@ -381,16 +381,14 @@ object SimulationModuleSystem {
       endpointsToInitializers.partition { case (_, initializer) =>
         initializer.initializeImmediately
       }
-    val initialSequencersToMachines: mutable.Map[SequencerId, Machine[?, ?]] =
-      initialSequencersToInitializers.view
-        .map { case (endpoint, simulationInitializer) =>
-          val sequencerId = SimulationP2PNetworkManager.fakeSequencerId(endpoint)
-          sequencerId -> machineInitializer.initialize(
-            onboardingDataProvider.provide(sequencerId),
-            simulationInitializer,
-          )
-        }
-        .to(mutable.Map)
+    val initialSequencersToMachines: Map[SequencerId, Machine[?, ?]] =
+      initialSequencersToInitializers.view.map { case (endpoint, simulationInitializer) =>
+        val sequencerId = SimulationP2PNetworkManager.fakeSequencerId(endpoint)
+        sequencerId -> machineInitializer.initialize(
+          onboardingDataProvider.provide(sequencerId),
+          simulationInitializer,
+        )
+      }.toMap
     val topology = Topology(initialSequencersToMachines, laterOnboardedEndpointsToInitializers)
     new Simulation(
       topology,

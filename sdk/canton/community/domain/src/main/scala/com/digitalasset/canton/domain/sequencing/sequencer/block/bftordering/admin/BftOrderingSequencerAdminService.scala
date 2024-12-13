@@ -4,7 +4,7 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin
 
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin.EnterpriseSequencerBftAdminData.{
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin.SequencerBftAdminData.{
   PeerNetworkStatus,
   endpointFromProto,
 }

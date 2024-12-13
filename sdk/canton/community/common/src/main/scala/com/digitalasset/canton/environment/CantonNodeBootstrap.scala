@@ -449,9 +449,12 @@ abstract class CantonNodeBootstrapImpl[
           .create(
             cryptoConfig,
             storage,
-            arguments.parameterConfig.sessionSigningKeys,
             arguments.cryptoPrivateStoreFactory,
             ReleaseProtocolVersion.latest,
+            arguments.parameterConfig.nonStandardConfig,
+            arguments.futureSupervisor,
+            arguments.clock,
+            executionContext,
             bootstrapStageCallback.timeouts,
             bootstrapStageCallback.loggerFactory,
             tracerProvider,

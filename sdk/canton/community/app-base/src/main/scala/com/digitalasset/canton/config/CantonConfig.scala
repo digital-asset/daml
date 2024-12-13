@@ -31,6 +31,7 @@ import com.digitalasset.canton.config.PackageMetadataViewConfig
 import com.digitalasset.canton.config.RequireTypes.*
 import com.digitalasset.canton.console.{AmmoniteConsoleConfig, FeatureFlag}
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.crypto.kms.driver.v1.DriverKms
 import com.digitalasset.canton.domain.block.{SequencerDriver, SequencerDriverFactory}
 import com.digitalasset.canton.domain.mediator.{
   MediatorConfig,
@@ -49,6 +50,10 @@ import com.digitalasset.canton.domain.sequencing.config.{
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.DriverBlockSequencerFactory
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.driver.{
+  BftBlockOrderer,
+  BftSequencerFactory,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficConfig
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.http.{HttpServerConfig, JsonApiConfig, WebsocketConfig}
@@ -63,6 +68,7 @@ import com.digitalasset.canton.ledger.runner.common.PureConfigReaderWriter.Secur
 }
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.metrics.{MetricsConfig, MetricsReporterConfig}
+import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.AdminWorkflowConfig
 import com.digitalasset.canton.participant.config.*
@@ -589,6 +595,14 @@ object CantonConfig {
 
       implicit def cryptoSchemeConfig[S: ConfigReader]: ConfigReader[CryptoSchemeConfig[S]] =
         deriveReader[CryptoSchemeConfig[S]]
+
+      lazy implicit final val cryptoProviderReader: ConfigReader[CryptoProvider] =
+        deriveEnumerationReader[CryptoProvider]
+
+      implicit val kmsBackoffConfigReader: ConfigReader[KmsConfig.ExponentialBackoffConfig] =
+        deriveReader[KmsConfig.ExponentialBackoffConfig]
+      implicit val kmsRetryConfigReader: ConfigReader[KmsConfig.RetryConfig] =
+        deriveReader[KmsConfig.RetryConfig]
     }
 
     lazy implicit final val sequencerTestingInterceptorReader
@@ -762,6 +776,16 @@ object CantonConfig {
     lazy implicit final val communityNewDatabaseSequencerWriterConfigLowLatencyReader
         : ConfigReader[SequencerWriterConfig.LowLatency] =
       deriveReader[SequencerWriterConfig.LowLatency]
+    implicit val endpointReader: ConfigReader[Endpoint] =
+      deriveReader[Endpoint]
+    implicit val bftBlockOrdererBftTopologyReader: ConfigReader[BftBlockOrderer.BftNetwork] =
+      deriveReader[BftBlockOrderer.BftNetwork]
+    implicit val bftBlockOrdererConfigReader: ConfigReader[BftBlockOrderer.Config] =
+      deriveReader[BftBlockOrderer.Config]
+    implicit val communitySequencerConfigBftSequencerReader
+        : ConfigReader[CommunitySequencerConfig.BftSequencer] =
+      deriveReader[CommunitySequencerConfig.BftSequencer]
+
     lazy implicit final val sequencerPruningConfig
         : ConfigReader[DatabaseSequencerConfig.SequencerPruningConfig] =
       deriveReader[DatabaseSequencerConfig.SequencerPruningConfig]
@@ -782,6 +806,8 @@ object CantonConfig {
           config <- (sequencerType match {
             case "database" =>
               communitySequencerConfigDatabaseReader.from(objCur.withoutKey("type"))
+            case BftSequencerFactory.ShortName =>
+              communitySequencerConfigBftSequencerReader.from(objCur.withoutKey("type"))
             case other =>
               for {
                 config <- objCur.atKey("config")
@@ -1049,6 +1075,32 @@ object CantonConfig {
 
       implicit def cryptoSchemeConfigWriter[S: ConfigWriter]: ConfigWriter[CryptoSchemeConfig[S]] =
         deriveWriter[CryptoSchemeConfig[S]]
+
+      implicit val cryptoProviderWriter: ConfigWriter[CryptoProvider] =
+        deriveEnumerationWriter[CryptoProvider]
+
+      implicit val kmsBackoffConfigWriter: ConfigWriter[KmsConfig.ExponentialBackoffConfig] =
+        deriveWriter[KmsConfig.ExponentialBackoffConfig]
+      implicit val kmsRetryConfigWriter: ConfigWriter[KmsConfig.RetryConfig] =
+        deriveWriter[KmsConfig.RetryConfig]
+
+      def driverConfigWriter(driverConfig: KmsConfig.Driver): ConfigWriter[ConfigValue] =
+        ConfigWriter.fromFunction { config =>
+          val kmsDriverFactory = DriverKms
+            .factory(driverConfig.name)
+            .valueOr { err =>
+              sys.error(
+                s"Failed to instantiate KMS Driver Factory for ${driverConfig.name}: $err"
+              )
+            }
+
+          val parsedConfig = kmsDriverFactory.configReader
+            .from(config)
+            .valueOr(err => sys.error(s"Failed to read KMS Driver config: $err"))
+
+          kmsDriverFactory.configWriter(confidential).to(parsedConfig)
+        }
+
     }
 
     implicit val sequencerTestingInterceptorWriter
@@ -1220,6 +1272,15 @@ object CantonConfig {
     lazy implicit final val communityDatabaseSequencerWriterConfigLowLatencyWriter
         : ConfigWriter[SequencerWriterConfig.LowLatency] =
       deriveWriter[SequencerWriterConfig.LowLatency]
+    implicit val endpointWriter: ConfigWriter[Endpoint] =
+      deriveWriter[Endpoint]
+    implicit val bftBlockOrdererBftTopologyWriter: ConfigWriter[BftBlockOrderer.BftNetwork] =
+      deriveWriter[BftBlockOrderer.BftNetwork]
+    implicit val bftBlockOrdererConfigWriter: ConfigWriter[BftBlockOrderer.Config] =
+      deriveWriter[BftBlockOrderer.Config]
+    implicit val communitySequencerConfigBftSequencerWriter
+        : ConfigWriter[CommunitySequencerConfig.BftSequencer] =
+      deriveWriter[CommunitySequencerConfig.BftSequencer]
     implicit val sequencerPruningConfigWriter
         : ConfigWriter[DatabaseSequencerConfig.SequencerPruningConfig] =
       deriveWriter[DatabaseSequencerConfig.SequencerPruningConfig]
@@ -1231,6 +1292,11 @@ object CantonConfig {
         import pureconfig.syntax.*
         Map("type" -> "database").toConfig
           .withFallback(communitySequencerConfigDatabaseWriter.to(dbSequencerConfig))
+
+      case bftSequencerConfig: CommunitySequencerConfig.BftSequencer =>
+        import pureconfig.syntax.*
+        Map("type" -> BftSequencerFactory.ShortName).toConfig
+          .withFallback(communitySequencerConfigBftSequencerWriter.to(bftSequencerConfig))
 
       case otherSequencerConfig: CommunitySequencerConfig.External =>
         import scala.jdk.CollectionConverters.*

@@ -62,6 +62,21 @@ class BftOrderingVerifier(
     checkStores()
   }
 
+  override def aFutureHappened(peer: SequencerId): Unit = ()
+
+  def newStage(
+      simulationSettings: SimulationSettings,
+      newOnboardingTimes: Map[SequencerId, TopologyActivationTime],
+      newStores: Map[SequencerId, SimulationOutputBlockMetadataStore],
+  ): BftOrderingVerifier =
+    new BftOrderingVerifier(
+      queue,
+      stores ++ newStores,
+      newOnboardingTimes,
+      livenessRecoveryTimeout,
+      simulationSettings,
+    )
+
   private def checkLiveness(at: CantonTimestamp): Unit =
     livenessState match {
       case LivenessState.NotChecking => ()
@@ -136,9 +151,6 @@ class BftOrderingVerifier(
     }
     queue.clear()
   }
-
-  override def aFutureHappened(peer: SequencerId): Unit =
-    ()
 }
 
 object BftOrderingVerifier {

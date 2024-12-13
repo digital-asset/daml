@@ -5,7 +5,7 @@ package com.digitalasset.canton.crypto.provider.jce
 
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.CommunityCryptoProvider.Jce
+import com.digitalasset.canton.config.CryptoProvider.Jce
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
 import com.digitalasset.canton.crypto.deterministic.encryption.DeterministicRandom
