@@ -5,9 +5,9 @@ package com.digitalasset.canton.crypto
 
 import cats.data.EitherT
 import cats.implicits.showInterpolator
-import cats.instances.future.*
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.crypto.CryptoFactory.{
   CryptoStoresAndSchemes,
@@ -15,27 +15,29 @@ import com.digitalasset.canton.crypto.CryptoFactory.{
   selectAllowedSigningAlgorithmSpecs,
   selectSchemes,
 }
-import com.digitalasset.canton.crypto.provider.jce.{JcePrivateCrypto, JcePureCrypto}
+import com.digitalasset.canton.crypto.provider.jce.JcePureCrypto
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CryptoPrivateStoreFactory
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStore, CryptoPublicStore}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.Storage
+import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.{TraceContext, TracerProvider}
 import com.digitalasset.canton.version.ReleaseProtocolVersion
-import org.bouncycastle.jce.provider.BouncyCastleProvider
 
-import java.security.Security
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait CryptoFactory {
 
   def create(
       config: CryptoConfig,
       storage: Storage,
-      sessionSigningKeysConfig: SessionSigningKeysConfig,
       cryptoPrivateStoreFactory: CryptoPrivateStoreFactory,
       releaseProtocolVersion: ReleaseProtocolVersion,
+      nonStandardConfig: Boolean,
+      futureSupervisor: FutureSupervisor,
+      clock: Clock,
+      executionContext: ExecutionContext,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
       tracerProvider: TracerProvider,
@@ -63,7 +65,7 @@ trait CryptoFactory {
       supportedEncryptionAlgorithmSpecs <- selectAllowedEncryptionAlgorithmSpecs(config)
       hashAlgorithm <- selectSchemes(config.hash, config.provider.hash).map(_.default)
       crypto <- config.provider match {
-        case _: CryptoProvider.JceCryptoProvider =>
+        case CryptoProvider.Jce | CryptoProvider.Kms =>
           for {
             pbkdfSchemes <- config.provider.pbkdf.toRight(
               "PBKDF schemes must be set for JCE provider"
@@ -79,8 +81,6 @@ trait CryptoFactory {
             pbkdfScheme,
             loggerFactory,
           )
-        case prov =>
-          Left(s"Unsupported crypto provider: $prov")
       }
     } yield crypto
 
@@ -214,95 +214,5 @@ object CryptoFactory {
       config: CryptoConfig
   ): Either[String, NonEmpty[Set[EncryptionKeySpec]]] =
     selectSchemes(config.encryption.keys, config.provider.encryptionKeys).map(_.allowed)
-
-}
-
-class CommunityCryptoFactory extends CryptoFactory {
-
-  def create(
-      config: CryptoConfig,
-      storage: Storage,
-      sessionSigningKeysConfig: SessionSigningKeysConfig,
-      cryptoPrivateStoreFactory: CryptoPrivateStoreFactory,
-      releaseProtocolVersion: ReleaseProtocolVersion,
-      timeouts: ProcessingTimeout,
-      loggerFactory: NamedLoggerFactory,
-      tracerProvider: TracerProvider,
-  )(implicit
-      ec: ExecutionContext,
-      traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, String, Crypto] =
-    for {
-      storesAndSchemes <- initStoresAndSelectSchemes(
-        config,
-        storage,
-        cryptoPrivateStoreFactory,
-        releaseProtocolVersion,
-        timeouts,
-        loggerFactory,
-        tracerProvider,
-      )
-      crypto <- config.provider match {
-        case CommunityCryptoProvider.Jce =>
-          JceCrypto
-            .create(config, storesAndSchemes, timeouts, loggerFactory)
-            .mapK(FutureUnlessShutdown.outcomeK)
-        case prov =>
-          EitherT.leftT[FutureUnlessShutdown, Crypto](s"Unsupported crypto provider: $prov")
-      }
-    } yield crypto
-}
-
-object JceCrypto {
-  def create(
-      config: CryptoConfig,
-      storesAndSchemes: CryptoStoresAndSchemes,
-      timeouts: ProcessingTimeout,
-      loggerFactory: NamedLoggerFactory,
-  )(implicit
-      ec: ExecutionContext
-  ): EitherT[Future, String, Crypto] =
-    for {
-      cryptoPrivateStoreExtended <- storesAndSchemes.cryptoPrivateStore.toExtended
-        .toRight(
-          s"The crypto private store does not implement all the functions necessary " +
-            s"for the chosen provider ${config.provider}"
-        )
-        .toEitherT[Future]
-      _ = Security.addProvider(new BouncyCastleProvider)
-      pbkdfSchemes <- config.provider.pbkdf
-        .toRight("PBKDF schemes must be set for JCE provider")
-        .toEitherT[Future]
-      pbkdfScheme <- selectSchemes(config.pbkdf, pbkdfSchemes).map(_.default).toEitherT[Future]
-      pureCrypto =
-        new JcePureCrypto(
-          storesAndSchemes.symmetricKeyScheme,
-          storesAndSchemes.signingAlgorithmSpec,
-          storesAndSchemes.supportedSigningAlgorithmSpecs,
-          storesAndSchemes.encryptionAlgorithmSpec,
-          storesAndSchemes.supportedEncryptionAlgorithmSpecs,
-          storesAndSchemes.hashAlgorithm,
-          pbkdfScheme,
-          loggerFactory,
-        )
-      privateCrypto =
-        new JcePrivateCrypto(
-          pureCrypto,
-          storesAndSchemes.signingAlgorithmSpec,
-          storesAndSchemes.signingKeySpec,
-          storesAndSchemes.encryptionKeySpec,
-          cryptoPrivateStoreExtended,
-          timeouts,
-          loggerFactory,
-        )
-      crypto = new Crypto(
-        pureCrypto,
-        privateCrypto,
-        storesAndSchemes.cryptoPrivateStore,
-        storesAndSchemes.cryptoPublicStore,
-        timeouts,
-        loggerFactory,
-      )
-    } yield crypto
 
 }

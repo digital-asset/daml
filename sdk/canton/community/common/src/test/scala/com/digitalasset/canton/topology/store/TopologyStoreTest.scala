@@ -158,25 +158,29 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
 
     val bootstrapTransactions = StoredTopologyTransactions(
       Seq[
-        (CantonTimestamp, (GenericSignedTopologyTransaction, Option[CantonTimestamp]))
+        (
+            CantonTimestamp,
+            (GenericSignedTopologyTransaction, Option[CantonTimestamp], Option[String]),
+        )
       ](
-        ts1 -> (tx1_NSD_Proposal, ts3.some),
-        ts2 -> (tx2_OTK, ts3.some),
-        ts3 -> (tx3_IDD_Removal, ts3.some),
-        ts3 -> (tx3_NSD, None),
-        ts3 -> (tx3_PTP_Proposal, ts5.some),
-        ts4 -> (tx4_DND, None),
-        ts4 -> (tx4_OTK_Proposal, None),
-        ts5 -> (tx5_PTP, None),
-        ts5 -> (tx5_DTC, ts6.some),
-        ts6 -> (tx6_DTC_Update, None),
-      ).map { case (from, (tx, until)) =>
+        ts1 -> (tx1_NSD_Proposal, ts3.some, None),
+        ts2 -> (tx2_OTK, ts3.some, None),
+        ts3 -> (tx3_IDD_Removal, ts3.some, None),
+        ts3 -> (tx3_NSD, None, None),
+        ts3 -> (tx3_PTP_Proposal, ts5.some, None),
+        ts4 -> (tx4_DND, None, None),
+        ts4 -> (tx4_OTK_Proposal, None, None),
+        ts5 -> (tx5_PTP, None, None),
+        ts5 -> (tx5_DTC, ts6.some, None),
+        ts6 -> (tx6_DTC_Update, None, None),
+        ts6 -> (tx6_MDS, ts6.some, "invalid".some),
+      ).map { case (from, (tx, until, rejection)) =>
         StoredTopologyTransaction(
           SequencedTime(from),
           EffectiveTime(from),
           until.map(EffectiveTime(_)),
           tx,
-          None,
+          rejection.map(String256M.tryCreate(_)),
         )
       }
     )
@@ -451,12 +455,13 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
             _ <- update(store, ts5, add = Seq(tx5_DTC))
             _ <- update(store, ts6, add = Seq(tx6_MDS))
 
-            proposalTransactions <- store.findEssentialStateAtSequencedTime(
-              asOfInclusive = SequencedTime(ts6)
+            transactionsAtTs6 <- store.findEssentialStateAtSequencedTime(
+              asOfInclusive = SequencedTime(ts6),
+              includeRejected = true,
             )
           } yield {
             expectTransactions(
-              proposalTransactions,
+              transactionsAtTs6,
               Seq(
                 tx2_OTK,
                 tx5_DTC,
@@ -509,7 +514,13 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
             )
 
             essentialStateTransactions <- store.findEssentialStateAtSequencedTime(
-              SequencedTime(ts5)
+              SequencedTime(ts5),
+              includeRejected = false,
+            )
+
+            essentialStateTransactionsWithRejections <- store.findEssentialStateAtSequencedTime(
+              SequencedTime(ts6),
+              includeRejected = true,
             )
 
             upcomingTransactions <- store.findUpcomingEffectiveChanges(asOfInclusive = ts4)
@@ -551,6 +562,24 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
                 tx4_OTK_Proposal,
                 tx5_PTP,
                 tx5_DTC,
+              ),
+            )
+
+            // Essential state with rejection currently encompasses all transactions at the specified time
+            expectTransactions(
+              essentialStateTransactionsWithRejections,
+              Seq(
+                tx1_NSD_Proposal,
+                tx2_OTK,
+                tx3_IDD_Removal,
+                tx3_NSD,
+                tx3_PTP_Proposal,
+                tx4_DND,
+                tx4_OTK_Proposal,
+                tx5_PTP,
+                tx5_DTC,
+                tx6_DTC_Update,
+                tx6_MDS,
               ),
             )
 

@@ -88,6 +88,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       override def caching: CachingConfigs = CachingConfigs()
       override def alphaVersionSupport: Boolean = false
       override def watchdog: Option[WatchdogConfig] = None
+      override def sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled
     }
   }
 

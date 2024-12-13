@@ -207,6 +207,12 @@ object CryptoPrivateStoreError extends CantonErrorGroups.CommandErrorGroup {
     )
   }
 
+  final case class KmsPrivateStoreError(reason: String) extends CryptoPrivateStoreError {
+    override protected def pretty: Pretty[KmsPrivateStoreError] = prettyOfClass(
+      unnamedParam(_.reason.unquoted)
+    )
+  }
+
   final case class WrapperKeyAlreadyInUse(reason: String) extends CryptoPrivateStoreError {
     override protected def pretty: Pretty[WrapperKeyAlreadyInUse] = prettyOfClass(
       unnamedParam(_.reason.unquoted)

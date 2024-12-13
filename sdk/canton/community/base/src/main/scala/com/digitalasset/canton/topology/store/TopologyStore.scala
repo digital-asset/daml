@@ -159,6 +159,7 @@ final case class StoredTopologyTransaction[+Op <: TopologyChangeOp, +M <: Topolo
       param("sequenced", _.sequenced.value),
       param("validFrom", _.validFrom.value),
       paramIfDefined("validUntil", _.validUntil.map(_.value)),
+      paramIfDefined("rejectionReason", _.rejectionReason.map(_.str.singleQuoted)),
     )
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
@@ -471,10 +472,10 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
 
   /** Yields all transactions with sequenced time less than or equal to `asOfInclusive`.
     * Sets `validUntil` to `None`, if `validUntil` is strictly greater than the maximum value of `validFrom`.
-    * Excludes rejected transactions and expired proposals.
     */
   def findEssentialStateAtSequencedTime(
-      asOfInclusive: SequencedTime
+      asOfInclusive: SequencedTime,
+      includeRejected: Boolean,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[GenericStoredTopologyTransactions]
 
   def providesAdditionalSignatures(

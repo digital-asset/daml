@@ -30,7 +30,7 @@ import com.digitalasset.canton.domain.sequencing.config.{
   RemoteSequencerConfig,
   SequencerNodeConfigCommon,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin.EnterpriseSequencerBftAdminData.{
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin.SequencerBftAdminData.{
   OrderingTopology,
   PeerNetworkStatus,
 }
@@ -1191,24 +1191,24 @@ abstract class SequencerReference(
 
     @Help.Summary("Add a new peer endpoint")
     def add_peer_endpoint(endpoint: Endpoint): Unit = consoleEnvironment.run {
-      runner.adminCommand(EnterpriseSequencerBftAdminCommands.AddPeerEndpoint(endpoint))
+      runner.adminCommand(SequencerBftAdminCommands.AddPeerEndpoint(endpoint))
     }
 
     @Help.Summary("Remove a peer endpoint")
     def remove_peer_endpoint(endpoint: Endpoint): Unit = consoleEnvironment.run {
-      runner.adminCommand(EnterpriseSequencerBftAdminCommands.RemovePeerEndpoint(endpoint))
+      runner.adminCommand(SequencerBftAdminCommands.RemovePeerEndpoint(endpoint))
     }
 
     @Help.Summary("Get peer network status")
     def get_peer_network_status(endpoints: Option[Iterable[Endpoint]]): PeerNetworkStatus =
       consoleEnvironment.run {
-        runner.adminCommand(EnterpriseSequencerBftAdminCommands.GetPeerNetworkStatus(endpoints))
+        runner.adminCommand(SequencerBftAdminCommands.GetPeerNetworkStatus(endpoints))
       }
 
     @Help.Summary("Get the currently active ordering topology")
     def get_ordering_topology(): OrderingTopology =
       consoleEnvironment.run {
-        runner.adminCommand(EnterpriseSequencerBftAdminCommands.GetOrderingTopology())
+        runner.adminCommand(SequencerBftAdminCommands.GetOrderingTopology())
       }
   }
 }

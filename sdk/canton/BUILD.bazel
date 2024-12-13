@@ -496,6 +496,7 @@ scala_library(
         ":bindings-java",
         ":community_admin-api",
         ":community_buildinfo",
+        ":community_kms-driver-api",
         ":community_lib_slick_slick-fork",
         ":community_lib_wartremover",
         ":community_util-logging",
@@ -617,7 +618,6 @@ scala_library(
         "@maven//:com_github_pathikrit_better_files_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
         "@maven//:com_github_pureconfig_pureconfig_generic_2_13",
-        "@maven//:com_google_crypto_tink_tink",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_lihaoyi_pprint_2_13",
@@ -1146,6 +1146,22 @@ scala_library(
     ],
 )
 
+### community/kms-driver-api
+
+scala_library(
+    name = "community_kms-driver-api",
+    srcs = glob(["community/kms-driver-api/src/main/scala/**/*.scala"]),
+    resource_strip_prefix = "/canton/community/kms-driver-api/src/main/resources",
+    resources = glob(["community/kms-driver-api/src/main/resources/**"]),
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
+    unused_dependency_checker_mode = "error",
+    deps = [
+        "@maven//:com_github_pureconfig_pureconfig_core_2_13",
+        "@maven//:io_opentelemetry_opentelemetry_context",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
 ### community/drivers/reference
 
 scala_library(
@@ -1251,6 +1267,7 @@ scala_library(
         ":community_base",
         ":community_common",
         ":community_domain",
+        ":community_kms-driver-api",
         ":community_ledger_ledger-api-core",
         ":community_ledger_ledger-common",
         ":community_ledger_ledger-json-api",

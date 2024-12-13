@@ -6,6 +6,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.co
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.metrics.BftOrderingMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
@@ -51,12 +52,16 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   OrderingTopology,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.Consensus.ConsensusMessage.PbftVerifiedNetworkMessage
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.Consensus.NewEpochTopology
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.Consensus.{
+  NewEpochTopology,
+  RetransmissionsMessage,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PbftNetworkMessage.headerFromProto
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
   PbftNetworkMessage,
   PbftSignedNetworkMessage,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusStatus.EpochStatus
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.{
   Consensus,
@@ -136,12 +141,13 @@ final class IssConsensusModule[E <: Env[E]](
 
   private var newEpochTopology: Option[(OrderingTopology, CryptoProvider[E])] = None
 
-  private var retransmissionsManager = new RetransmissionsManager[E](
-    epochState,
-    activeMembership.otherPeers,
-    dependencies.p2pNetworkOut,
-    loggerFactory,
-  )
+  private var retransmissionsManager =
+    new RetransmissionsManager[E](
+      epochState,
+      activeMembership.otherPeers,
+      dependencies.p2pNetworkOut,
+      loggerFactory,
+    )
 
   override def ready(self: ModuleRef[Consensus.Message[E]]): Unit =
     // TODO(#16761) also resend locally-led ordered blocks (PrePrepare) in activeEpoch in case my node crashed
@@ -204,9 +210,16 @@ final class IssConsensusModule[E <: Env[E]](
               s"Received NewEpochTopology event for epoch $newEpochNumber, but the epoch has already started; ignoring it"
             )
           } else if (currentEpochNumber == newEpochNumber - 1) {
-            // The epoch has been completed and the new one hasn't started yet: start it
-            logger.debug(s"Starting new epoch $newEpochNumber from NewEpochTopology event")
-            startNewEpoch(newOrderingTopology, cryptoProvider)
+            if (newOrderingTopology.peers.contains(thisPeer)) {
+              // The epoch has been completed and the new one hasn't started yet: start it
+              logger.debug(s"Starting new epoch $newEpochNumber from NewEpochTopology event")
+              startNewEpoch(newOrderingTopology, cryptoProvider)
+            } else {
+              logger.info(
+                s"Received topology for epoch $newEpochNumber, but this peer isn't part of it (i.e., it has been " +
+                  "off-boarded): not starting consensus as this node is going to be shut down and decommissioned"
+              )
+            }
           } else {
             abort(
               s"Received NewEpochTopology event for epoch $newEpochNumber, " +
@@ -353,7 +366,17 @@ final class IssConsensusModule[E <: Env[E]](
           case consensusMessage: Consensus.ConsensusMessage =>
             handleConsensusMessage(consensusMessage)
 
-          case msg: Consensus.RetransmissionsMessage => retransmissionsManager.handleMessage(msg)
+          case RetransmissionsMessage.RetransmissionRequest(EpochStatus(from, epochNumber, _))
+              if startCatchupIfNeeded(
+                catchupDetector.updateLatestKnownPeerEpoch(from, epochNumber),
+                epochNumber,
+              ) =>
+            logger.debug(
+              s"Ignoring retransmission request from $from as we are entering catch-up mode"
+            )
+
+          case msg: Consensus.RetransmissionsMessage =>
+            retransmissionsManager.handleMessage(msg)
 
           case _: Consensus.StateTransferMessage => // handled at the top regardless of the init, just to make the match exhaustive
         }
@@ -529,10 +552,7 @@ final class IssConsensusModule[E <: Env[E]](
     val pbftMessageEpochNumber = pbftMessageBlockMetadata.epochNumber
     val thisNodeEpochNumber = epochState.epoch.info.number
     val updatedPeerEpoch =
-      catchupDetector.updateLatestKnownPeerEpoch(
-        pbftMessage.from,
-        pbftMessageEpochNumber,
-      )
+      catchupDetector.updateLatestKnownPeerEpoch(pbftMessage.from, pbftMessageEpochNumber)
 
     // Messages from stale epochs are discarded.
     if (pbftMessageEpochNumber < thisNodeEpochNumber) {
@@ -548,16 +568,7 @@ final class IssConsensusModule[E <: Env[E]](
           s"as we're still in epoch $thisNodeEpochNumber"
       )
 
-      if (
-        updatedPeerEpoch &&
-        catchupDetector.shouldCatchUp(thisNodeEpochNumber)
-      ) {
-        logger.debug(
-          s"Switching to catch-up state transfer while in epoch $thisNodeEpochNumber; latestCompletedEpoch is "
-            + s"${latestCompletedEpoch.info.number} and message epoch is $pbftMessageEpochNumber"
-        )
-        startCatchUp()
-      }
+      startCatchupIfNeeded(updatedPeerEpoch, pbftMessageEpochNumber).discard
     } else if (
       pbftMessageBlockMetadata.blockNumber < epochState.epoch.info.startBlockNumber || pbftMessageBlockMetadata.blockNumber > epochState.epoch.info.lastBlockNumber
     ) {
@@ -571,7 +582,8 @@ final class IssConsensusModule[E <: Env[E]](
       )
       emitNonComplianceMetric()
     } else if (!activeMembership.orderingTopology.contains(pbftMessage.from)) {
-      // Message is for current epoch but is not from a peer in this epoch's topology
+      // Message is for current epoch but is not from a peer in this epoch's topology; this is non-compliant
+      //  behavior because correct BFT nodes are supposed not to start consensus for epochs they are not part of.
       // TODO(i18194) Check signature that message is from this peer
       logger.warn(
         s"Discarded PBFT message $messageType message from peer ${pbftMessage.from} not in the current epoch's topology"
@@ -579,6 +591,29 @@ final class IssConsensusModule[E <: Env[E]](
       emitNonComplianceMetric()
     } else {
       epochState.processPbftMessage(PbftSignedNetworkMessage(pbftMessage))
+    }
+  }
+
+  private def startCatchupIfNeeded(
+      updatedPeerEpoch: Boolean,
+      pbftMessageEpochNumber: EpochNumber,
+  )(implicit
+      context: E#ActorContextT[Consensus.Message[E]],
+      traceContext: TraceContext,
+  ): Boolean = {
+    val thisNodeEpochNumber = epochState.epoch.info.number
+    if (
+      updatedPeerEpoch &&
+      catchupDetector.shouldCatchUp(thisNodeEpochNumber)
+    ) {
+      logger.debug(
+        s"Switching to catch-up state transfer while in epoch $thisNodeEpochNumber; latestCompletedEpoch is "
+          + s"${latestCompletedEpoch.info.number} and message epoch is $pbftMessageEpochNumber"
+      )
+      startCatchUp()
+      true
+    } else {
+      false
     }
   }
 

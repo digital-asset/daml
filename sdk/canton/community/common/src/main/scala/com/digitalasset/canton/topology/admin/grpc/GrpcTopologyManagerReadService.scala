@@ -839,10 +839,10 @@ class GrpcTopologyManagerReadService(
             EitherT(sequencedTimeF)
         }
 
-        // we exclude TrafficControlState from the genesis state because this mapping will be deleted.
         topologySnapshot <- EitherT.right[CantonError](
           domainTopologyStore.findEssentialStateAtSequencedTime(
-            SequencedTime(sequencedTimestamp)
+            SequencedTime(sequencedTimestamp),
+            includeRejected = false,
           )
         )
         // reset effective time and sequenced time if we are initializing the sequencer from the beginning

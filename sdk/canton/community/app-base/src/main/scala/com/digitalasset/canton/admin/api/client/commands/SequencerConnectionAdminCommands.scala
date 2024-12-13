@@ -11,7 +11,7 @@ import io.grpc.ManagedChannel
 
 import scala.concurrent.Future
 
-object EnterpriseSequencerConnectionAdminCommands {
+object SequencerConnectionAdminCommands {
 
   abstract class BaseSequencerConnectionAdminCommand[Req, Rep, Res]
       extends GrpcAdminCommand[Req, Rep, Res] {

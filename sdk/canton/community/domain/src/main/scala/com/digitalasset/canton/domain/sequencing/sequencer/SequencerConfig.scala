@@ -14,6 +14,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.DatabaseSequencerConf
   SequencerPruningConfig,
   TestingInterceptor,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.driver.BftBlockOrderer
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.{
   CommunityReferenceSequencerDriverFactory,
   ReferenceSequencerDriver,
@@ -114,6 +115,14 @@ object CommunitySequencerConfig {
       sequencerType: String,
       block: BlockSequencerConfig,
       config: ConfigCursor,
+  ) extends CommunitySequencerConfig {
+    override def supportsReplicas: Boolean = false
+  }
+
+  final case class BftSequencer(
+      block: BlockSequencerConfig =
+        new BlockSequencerConfig, // To avoid having to include an empty "block" config element if defaults are fine
+      config: BftBlockOrderer.Config,
   ) extends CommunitySequencerConfig {
     override def supportsReplicas: Boolean = false
   }

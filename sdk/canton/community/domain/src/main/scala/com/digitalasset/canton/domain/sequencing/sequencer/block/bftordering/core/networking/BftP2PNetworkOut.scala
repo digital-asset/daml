@@ -10,8 +10,8 @@ import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1.{
   BftOrderingMessageBody,
   BftOrderingServiceReceiveRequest,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin.EnterpriseSequencerBftAdminData
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin.EnterpriseSequencerBftAdminData.{
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin.SequencerBftAdminData
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin.SequencerBftAdminData.{
   PeerEndpointHealth,
   PeerEndpointHealthStatus,
   PeerEndpointStatus,
@@ -243,7 +243,7 @@ final class BftP2PNetworkOut[E <: Env[E]](
     }
 
   private def getStatus(endpoints: Option[Iterable[Endpoint]]) =
-    EnterpriseSequencerBftAdminData.PeerNetworkStatus(
+    SequencerBftAdminData.PeerNetworkStatus(
       endpoints
         .getOrElse(knownPeers.getEndpoints)
         .map { endpoint =>

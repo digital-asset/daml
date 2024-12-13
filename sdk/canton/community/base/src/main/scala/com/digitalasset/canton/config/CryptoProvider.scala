@@ -17,7 +17,7 @@ import com.digitalasset.canton.crypto.{
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.version.ProtocolVersion
 
-trait CryptoProvider extends PrettyPrinting {
+sealed trait CryptoProvider extends PrettyPrinting {
 
   def name: String
 
@@ -39,7 +39,7 @@ trait CryptoProvider extends PrettyPrinting {
 }
 
 object CryptoProvider {
-  trait JceCryptoProvider extends CryptoProvider {
+  object Jce extends CryptoProvider {
     override def name: String = "JCE"
 
     override def signingAlgorithms: CryptoProviderScheme[SigningAlgorithmSpec] =
@@ -118,10 +118,80 @@ object CryptoProvider {
       )
   }
 
-}
+  /** The KMS crypto provider is based on the JCE crypto provider because the non-signing/encryption part, as well as
+    * the public crypto operations (i.e., encrypting, or verifying a signature), are implemented in
+    * software using the JCE.
+    */
+  object Kms extends CryptoProvider {
+    override def name: String = "KMS"
 
-sealed trait CommunityCryptoProvider extends CryptoProvider
+    override def signingAlgorithms: CryptoProviderScheme[SigningAlgorithmSpec] =
+      CryptoProviderScheme(
+        SigningAlgorithmSpec.EcDsaSha256,
+        NonEmpty.mk(
+          Set,
+          SigningAlgorithmSpec.EcDsaSha256,
+          SigningAlgorithmSpec.EcDsaSha384,
+          SigningAlgorithmSpec.Ed25519,
+        ),
+      )
 
-object CommunityCryptoProvider {
-  case object Jce extends CommunityCryptoProvider with CryptoProvider.JceCryptoProvider
+    override def signingKeys: CryptoProviderScheme[SigningKeySpec] =
+      CryptoProviderScheme(
+        SigningKeySpec.EcP256,
+        NonEmpty.mk(
+          Set,
+          SigningKeySpec.EcP256,
+          SigningKeySpec.EcP384,
+          // EcCurve25519 is only supported to verify signatures, it does not allow generation of such keys for signing
+          SigningKeySpec.EcCurve25519,
+        ),
+      )
+
+    override def encryptionAlgorithms: CryptoProviderScheme[EncryptionAlgorithmSpec] =
+      CryptoProviderScheme(
+        EncryptionAlgorithmSpec.RsaOaepSha256,
+        NonEmpty.mk(
+          Set,
+          EncryptionAlgorithmSpec.RsaOaepSha256,
+          EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm,
+          EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc,
+        ),
+      )
+
+    override def encryptionKeys: CryptoProviderScheme[EncryptionKeySpec] =
+      CryptoProviderScheme(
+        EncryptionKeySpec.Rsa2048,
+        NonEmpty.mk(
+          Set,
+          EncryptionKeySpec.Rsa2048,
+          // ECIES schemes only supported for encryption, it does not allow generation of such keys for decryption
+          EncryptionKeySpec.EcP256,
+        ),
+      )
+
+    override def supportedCryptoKeyFormats: NonEmpty[Set[CryptoKeyFormat]] =
+      NonEmpty(
+        Set,
+        CryptoKeyFormat.Raw,
+        CryptoKeyFormat.DerX509Spki,
+        CryptoKeyFormat.DerPkcs8Pki,
+      )
+
+    override def supportedCryptoKeyFormatsForProtocol(
+        protocolVersion: ProtocolVersion
+    ): NonEmpty[Set[CryptoKeyFormat]] =
+      NonEmpty(
+        Set,
+        CryptoKeyFormat.Raw,
+        CryptoKeyFormat.DerX509Spki,
+        CryptoKeyFormat.DerPkcs8Pki,
+      )
+
+    override def symmetric: CryptoProviderScheme[SymmetricKeyScheme] = Jce.symmetric
+
+    override def hash: CryptoProviderScheme[HashAlgorithm] = Jce.hash
+
+    override def pbkdf: Option[CryptoProviderScheme[PbkdfScheme]] = Jce.pbkdf
+  }
 }

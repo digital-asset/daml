@@ -227,7 +227,11 @@ class GrpcSequencerAdministrationService(
 
       topologySnapshot <- EitherT
         .right[BaseCantonError](
-          topologyStore.findEssentialStateAtSequencedTime(SequencedTime(sequencerSnapshot.lastTs))
+          topologyStore.findEssentialStateAtSequencedTime(
+            SequencedTime(sequencerSnapshot.lastTs),
+            // we need to include the rejected transactions as well, because they might have an impact on the TopologyTimestampPlusEpsilonTracker
+            includeRejected = true,
+          )
         )
     } yield OnboardingStateForSequencer(
       topologySnapshot,

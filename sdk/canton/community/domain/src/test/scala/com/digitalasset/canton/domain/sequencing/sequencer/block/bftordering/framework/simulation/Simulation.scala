@@ -35,7 +35,12 @@ import scala.util.Try
   *              from the [[com.digitalasset.canton.time.SimClock]] point of view. It may result in executing commands in an incorrect order.
   */
 class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, ClientMessageT](
-    topology: Topology[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, ClientMessageT],
+    private var topology: Topology[
+      OnboardingDataT,
+      SystemNetworkMessageT,
+      SystemInputMessageT,
+      ClientMessageT,
+    ],
     onboardingDataProvider: OnboardingDataProvider[OnboardingDataT],
     machineInitializer: MachineInitializer[
       OnboardingDataT,
@@ -230,7 +235,9 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
         ),
       )
     }
-    val _ = topology.activeSequencersToMachines.put(sequencerId, machine)
+    topology = topology.copy(activeSequencersToMachines =
+      topology.activeSequencersToMachines.updated(sequencerId, machine)
+    )
     // handle init messages
     runNodeCollector(sequencerId, FromInit, machine.nodeCollector)
   }
@@ -328,6 +335,29 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
     currentHistory.toSeq
   }
 
+  def newStage(
+      simulationSettings: SimulationSettings,
+      newlyOnboardedEndpointsToInitializers: Map[
+        Endpoint,
+        SimulationInitializer[
+          OnboardingDataT,
+          SystemNetworkMessageT,
+          SystemInputMessageT,
+          ClientMessageT,
+        ],
+      ],
+  ): Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, ClientMessageT] =
+    new Simulation(
+      topology.copy(
+        laterOnboardedEndpointsWithInitializers = newlyOnboardedEndpointsToInitializers
+      ),
+      onboardingDataProvider,
+      machineInitializer,
+      simulationSettings,
+      clock,
+      loggerFactory,
+    )
+
   private def fixupDurationPrettyPrinting: PartialFunction[Any, Tree] = {
     case duration: java.time.Duration =>
       Tree.Literal(s"Duration.ofNanos(${duration.toNanos}L)")
@@ -369,7 +399,7 @@ final case class Topology[
     SystemInputMessageT,
     ClientMessageT,
 ](
-    activeSequencersToMachines: mutable.Map[SequencerId, Machine[?, ?]],
+    activeSequencersToMachines: Map[SequencerId, Machine[?, ?]],
     laterOnboardedEndpointsWithInitializers: Map[
       Endpoint,
       SimulationInitializer[

@@ -68,13 +68,17 @@ trait CryptoConfig {
 
   /** the password-based key derivation function configuration */
   def pbkdf: CryptoSchemeConfig[PbkdfScheme]
+
+  /** optional support for a KMS */
+  def kms: Option[KmsConfig]
 }
 
 final case class CommunityCryptoConfig(
-    provider: CommunityCryptoProvider = CommunityCryptoProvider.Jce,
+    provider: CryptoProvider = CryptoProvider.Jce,
     signing: SigningSchemeConfig = SigningSchemeConfig(),
     encryption: EncryptionSchemeConfig = EncryptionSchemeConfig(),
     symmetric: CryptoSchemeConfig[SymmetricKeyScheme] = CryptoSchemeConfig(),
     hash: CryptoSchemeConfig[HashAlgorithm] = CryptoSchemeConfig(),
     pbkdf: CryptoSchemeConfig[PbkdfScheme] = CryptoSchemeConfig(),
+    kms: Option[CommunityKmsConfig] = None,
 ) extends CryptoConfig
