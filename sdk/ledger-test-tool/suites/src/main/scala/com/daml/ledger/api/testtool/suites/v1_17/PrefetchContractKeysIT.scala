@@ -3,12 +3,14 @@
 
 package com.daml.ledger.api.testtool.suites.v1_17
 
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation.{
   Participant,
   Participants,
   SingleParty,
   allocate,
 }
+import com.daml.ledger.api.testtool.infrastructure.Assertions.{assertGrpcError, futureAssertions}
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.suites.v1_8.CompanionImplicits
 import com.daml.ledger.api.v1.commands
@@ -49,6 +51,28 @@ class PrefetchContractKeysIT extends LedgerTestSuite {
       val dummyTemplateId = active.flatMap(_.templateId.toList).head
       assert(dummyTemplateId == WithKey.TEMPLATE_ID_WITH_PACKAGE_ID.toV1)
     }
+  })
+
+  test(
+    "CSprefetchContractKeysWronglyTyped",
+    "Contract key prefetches with wrongly typed keys are rejected",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    val prefetch = WithKey
+      .byKey(party)
+      .toPrefetchKey()
+      .toProtoInner
+      .update(_.templateId := TextKey.TEMPLATE_ID.toV1)
+    val request = ledger
+      .submitAndWaitRequest(party, new WithKey(party).create.commands)
+      .update(_.commands.prefetchContractKeys := Seq(prefetch))
+    for {
+      failure <- ledger.submitAndWait(request).mustFail("wrongly typed key in prefetch list")
+    } yield assertGrpcError(
+      failure,
+      LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
+      Some("mismatching type"),
+    )
   })
 
   test(
