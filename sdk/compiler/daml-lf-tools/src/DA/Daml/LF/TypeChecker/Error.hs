@@ -243,6 +243,8 @@ data ErrorOrWarning
   | WEDependencyHasUnparseableVersion !PackageName !PackageVersion !PackageUpgradeOrigin
   | WEDependencyHasNoMetadataDespiteUpgradeability !PackageId !PackageUpgradeOrigin
   | WEUpgradeShouldDefineExceptionsAndTemplatesSeparately
+  | WEUpgradeDependsOnSerializableNonUpgradeableDataType (PackageId, Maybe PackageMetadata, Version) Version !(Qualified TypeConName)
+  | WEDependsOnDatatypeFromNewDamlScript (PackageId, PackageMetadata) Version !(Qualified TypeConName)
   deriving (Eq, Show)
 
 instance Pretty ErrorOrWarning where
@@ -274,6 +276,19 @@ instance Pretty ErrorOrWarning where
         , "It is recommended that exceptions are defined in their own package separate from their implementations."
         , "Ignore this error message with the --warn-bad-exceptions=yes flag."
         ]
+    WEUpgradeDependsOnSerializableNonUpgradeableDataType (depPkgId, depMeta, depLfVersion) lfVersion tcn ->
+      vsep
+        [ "This package has LF version " <> pPrint lfVersion <> ", but it depends on a serializable type " <> pPrint tcn <> " from package " <> pprintDep (depPkgId, depMeta) <> " which has LF version " <> pPrint depLfVersion <> "."
+        , "It is not recommended that >= LF1.17 packages depend on <= LF1.15 datatypes in places that may be serialized to the ledger, because those datatypes will not be upgradeable."
+        ]
+    WEDependsOnDatatypeFromNewDamlScript (depPkgId, depMeta) depLfVersion tcn ->
+      vsep
+        [ "This package depends on a datatype " <> pPrint tcn <> " from " <> pprintDep (depPkgId, Just depMeta) <> " with LF version " <> pPrint depLfVersion <> "."
+        , "It is not recommended that >= LF1.17 packages use datatypes from Daml Script, because those datatypes will not be upgradeable."
+        ]
+    where
+      pprintDep (pkgId, Just meta) = pPrint pkgId <> " (" <> pPrint (packageName meta) <> ", " <> pPrint (packageVersion meta) <> ")"
+      pprintDep (pkgId, Nothing) = pPrint pkgId
 
 damlWarningFlagParserTypeChecker :: DamlWarningFlagParser ErrorOrWarning
 damlWarningFlagParserTypeChecker = DamlWarningFlagParser
@@ -281,6 +296,8 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       [ (upgradeInterfacesName, upgradeInterfacesFlag)
       , (upgradeExceptionsName, upgradeExceptionsFlag)
       , (upgradeDependencyMetadataName, upgradeDependencyMetadataFlag)
+      , (upgradeSerializedLF15DependencyName, upgradeSerializedLF15DependencyFlag)
+      , (referencesDamlScriptDatatypeName, referencesDamlScriptDatatypeFlag)
       ]
   , dwfpDefault = \case
       WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> AsError
@@ -289,13 +306,41 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       WEUpgradeShouldDefineExceptionsAndTemplatesSeparately {} -> AsError
       WEDependencyHasUnparseableVersion {} -> AsWarning
       WEDependencyHasNoMetadataDespiteUpgradeability {} -> AsWarning
+      WEUpgradeDependsOnSerializableNonUpgradeableDataType {} -> AsWarning
+      WEDependsOnDatatypeFromNewDamlScript {} -> AsWarning
   }
 
 filterNameForErrorOrWarning :: ErrorOrWarning -> Maybe String
 filterNameForErrorOrWarning err | upgradeInterfacesFilter err = Just upgradeInterfacesName
 filterNameForErrorOrWarning err | upgradeExceptionsFilter err = Just upgradeExceptionsName
 filterNameForErrorOrWarning err | upgradeDependencyMetadataFilter err = Just upgradeDependencyMetadataName
+filterNameForErrorOrWarning err | upgradeSerializedLF15DependencyFilter err = Just upgradeSerializedLF15DependencyName
+filterNameForErrorOrWarning err | referencesDamlScriptDatatypeFilter err = Just referencesDamlScriptDatatypeName
 filterNameForErrorOrWarning _ = Nothing
+
+upgradeSerializedLF15DependencyFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+upgradeSerializedLF15DependencyFlag status = RawDamlWarningFlag upgradeSerializedLF15DependencyName status upgradeSerializedLF15DependencyFilter
+
+upgradeSerializedLF15DependencyName :: String
+upgradeSerializedLF15DependencyName = "upgrade-serialized-non-upgradeable-dependency"
+
+upgradeSerializedLF15DependencyFilter :: ErrorOrWarning -> Bool
+upgradeSerializedLF15DependencyFilter =
+    \case
+        WEUpgradeDependsOnSerializableNonUpgradeableDataType {} -> True
+        _ -> False
+
+referencesDamlScriptDatatypeFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+referencesDamlScriptDatatypeFlag status = RawDamlWarningFlag referencesDamlScriptDatatypeName status referencesDamlScriptDatatypeFilter
+
+referencesDamlScriptDatatypeName :: String
+referencesDamlScriptDatatypeName = "upgrade-serialized-daml-script"
+
+referencesDamlScriptDatatypeFilter :: ErrorOrWarning -> Bool
+referencesDamlScriptDatatypeFilter =
+    \case
+        WEDependsOnDatatypeFromNewDamlScript {} -> True
+        _ -> False
 
 upgradeInterfacesFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
 upgradeInterfacesFlag status = RawDamlWarningFlag upgradeInterfacesName status upgradeInterfacesFilter
