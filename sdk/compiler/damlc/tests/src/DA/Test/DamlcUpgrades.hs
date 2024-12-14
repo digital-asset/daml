@@ -381,6 +381,54 @@ tests damlc =
                     { additionalDarsV1 = ["upgrades-WarnsWhenExpressionChangesPackageId-dep-name1.dar"]
                     , additionalDarsV2 = ["upgrades-WarnsWhenExpressionChangesPackageId-dep-name2.dar"]
                     }
+            , mkTest
+                  "WarnsWhenUsingLF115DependencyInSerializablePosition"
+                  (SucceedWithWarning $ T.init $ T.unlines
+                    [ "\ESC\\[0;93mwarning while type checking data type Main.D:"
+                    , "  This package has LF version 1.17, but it depends on a serializable type .*:Dep:D from package .* \\(upgrades-example-WarnsWhenUsingLF115DependencyInSerializablePositionDep, 2.0.0\\) which has LF version 1.15."
+                    , "  "
+                    , "  It is not recommended that >= LF1.17 packages depend on <= LF1.15 datatypes in places that may be serialized to the ledger, because those datatypes will not be upgradeable."
+                    , "  Upgrade this warning to an error -Werror=upgrade-serialized-non-upgradeable-dependency"
+                    , "  Disable this warning entirely with -Wno-upgrade-serialized-non-upgradeable-dependency"
+                    ])
+                  testOptions
+                    { additionalDarsV1 = ["upgrades-WarnsWhenUsingLF115DependencyInSerializablePositionDep-v1.dar"]
+                    , additionalDarsV2 = ["upgrades-WarnsWhenUsingLF115DependencyInSerializablePositionDep-v2.dar"]
+                    }
+            , mkTest
+                  "NoWarningWhenUsingLF115DependencyInNonSerializablePosition"
+                  (SucceedWithoutWarning "It is not recommended that >= LF1.17 packages depend on <= LF1.15 datatypes in places that may be serialized")
+                  testOptions
+                    { additionalDarsV1 = ["upgrades-NoWarningWhenUsingLF115DependencyInNonSerializablePositionDep-v1.dar"]
+                    , additionalDarsV2 = ["upgrades-NoWarningWhenUsingLF115DependencyInNonSerializablePositionDep-v2.dar"]
+                    }
+            , mkTest
+                  "WarnsWhenUsingDamlScriptDatatype"
+                  (SucceedWithWarning $ T.init $ T.unlines
+                    [ "\ESC\\[0;93mwarning while type checking data type Main.UseScript:"
+                    , "  This package depends on a datatype .*:Daml.Script.Stable:PartyIdHint from .* \\(daml-script-lts-stable, 0.0.0\\) with LF version 1.15."
+                    , "  "
+                    , "  It is not recommended that >= LF1.17 packages use datatypes from Daml Script, because those datatypes will not be upgradeable."
+                    , "  Upgrade this warning to an error -Werror=upgrade-serialized-daml-script"
+                    , "  Disable this warning entirely with -Wno-upgrade-serialized-daml-script"
+                    ])
+                  testOptions
+                    { addDamlScriptLtsDar = True
+                    }
+            , mkTest
+                  "NoWarningWhenUsingDamlScriptDatatypeInLF115"
+                  (SucceedWithoutWarning "It is not recommended that >= LF1.17 packages use datatypes from Daml Script")
+                  testOptions
+                    { addDamlScriptLtsDar = True
+                    , lfVersion = versionPairs LF.version1_15
+                    , setUpgradeField = False
+                    }
+            , mkTest
+                  "NoOldLfWarningWhenDependingOnTuple"
+                  (SucceedWithoutWarning "It is not recommended that >= LF1.17 packages use datatypes")
+                  testOptions
+                    { addDamlScriptLtsDar = True
+                    }
             , testMetadata
                   "FailsWhenUpgradesPackageHasDifferentPackageName"
                   (FailWithError $ 
@@ -572,12 +620,15 @@ tests damlc =
               _ ->
                 pure (Nothing, Nothing)
 
+            damlScriptLtsDar <- locateRunfiles (mainWorkspace </> "daml-script/daml-lts/daml-script-lts.dar")
+            let mbDamlScriptDar = [damlScriptLtsDar | addDamlScriptLtsDar]
+
             v1AdditionalDarsRunFiles <- traverse testAdditionaDarRunfile additionalDarsV1
-            writeFiles oldDir (projectFile "0.0.1" oldLfVersion ("upgrades-example-" <> location) Nothing depV1Dar v1AdditionalDarsRunFiles : oldVersion)
+            writeFiles oldDir (projectFile "0.0.1" oldLfVersion ("upgrades-example-" <> location) Nothing depV1Dar (v1AdditionalDarsRunFiles ++ mbDamlScriptDar) : oldVersion)
             callProcessSilent damlc ["build", "--project-root", oldDir, "-o", oldDar]
 
             v2AdditionalDarsRunFiles <- traverse testAdditionaDarRunfile additionalDarsV2
-            writeFiles newDir (projectFile "0.0.2" newLfVersion ("upgrades-example-" <> location) (if setUpgradeField then Just oldDar else Nothing) depV2Dar v2AdditionalDarsRunFiles : newVersion)
+            writeFiles newDir (projectFile "0.0.2" newLfVersion ("upgrades-example-" <> location) (if setUpgradeField then Just oldDar else Nothing) depV2Dar (v2AdditionalDarsRunFiles ++ mbDamlScriptDar) : newVersion)
 
             handleExpectation expectation newDir newDar (doTypecheck && setUpgradeField) Nothing
       where
@@ -683,6 +734,7 @@ data TestOptions = TestOptions
   , doTypecheck :: Bool
   , additionalDarsV1 :: [String]
   , additionalDarsV2 :: [String]
+  , addDamlScriptLtsDar :: Bool
   }
 
 testOptions :: TestOptions
@@ -696,6 +748,7 @@ testOptions =
     , doTypecheck = True
     , additionalDarsV1 = []
     , additionalDarsV2 = []
+    , addDamlScriptLtsDar = False
     }
 
 versionDefault :: LF.Version
