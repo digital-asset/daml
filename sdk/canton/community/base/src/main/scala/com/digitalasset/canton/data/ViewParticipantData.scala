@@ -254,7 +254,8 @@ final case class ViewParticipantData private (
         } else {
           LfFetchCommand(templateId = templateId, interfaceId = interfaceId, coid = inputContractId)
         }
-        val packageIdPreference = interfaceId.map(_ => templateId.packageId).toList.toSet
+        val packageIdPreference =
+          if (interfaceId.isDefined) Set(templateId.packageId) else Set.empty[LfPackageId]
         RootAction(cmd, actors, failed = false, packageIdPreference = packageIdPreference)
 
       case LookupByKeyActionDescription(key, _version) =>
