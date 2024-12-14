@@ -421,6 +421,7 @@ tests damlc =
                   testOptions
                     { addDamlScriptLtsDar = True
                     , lfVersion = versionPairs LF.version1_15
+                    , setUpgradeField = False
                     }
             , mkTest
                   "NoOldLfWarningWhenDependingOnTuple"
@@ -708,7 +709,7 @@ tests damlc =
           ]
             ++ ["  - --typecheck-upgrades=no" | not doTypecheck]
             ++ ["  - -Wupgrade-interfaces" | warnBadInterfaceInstances ]
-            ++ ["upgrades: '" <> path <> "'" | lfVersion `LF.supports` LF.featurePackageUpgrades, Just path <- pure upgradedFile]
+            ++ ["upgrades: '" <> path <> "'" | Just path <- pure upgradedFile]
             ++ renderDataDeps deps
         )
       where
