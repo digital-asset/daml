@@ -554,7 +554,17 @@ da_scala_dar_resources_library(
         ),
         ("NoOldLfWarningWhenDependingOnTuple", {}, {}),
         ("NoWarningWhenUsingDamlScriptDatatypeInLF115", {}, {}),
-        ("NoWarningWhenUsingLF115DependencyInNonSerializablePosition", {}, {}),
+        (
+            "NoWarningWhenUsingLF115DependencyInNonSerializablePosition",
+            {
+                "data_dependencies": ["//test-common:upgrades-NoWarningWhenUsingLF115DependencyInNonSerializablePositionDep-v1.dar"],
+                "lf_version": "1.dev",
+            },
+            {
+                "data_dependencies": ["//test-common:upgrades-NoWarningWhenUsingLF115DependencyInNonSerializablePositionDep-v2.dar"],
+                "lf_version": "1.dev",
+            },
+        ),
         (
             "NoWarningWhenUsingLF115DependencyInNonSerializablePositionDep",
             {"lf_version": "1.15"},
