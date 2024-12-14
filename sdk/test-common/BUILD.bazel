@@ -145,7 +145,7 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-dep-v1".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/dep-v1/*.daml".format(identifier)]),
-            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
+            data_dependencies = ["//daml-script/daml-lts:daml-script-lts-1.17.dar"],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}-dep".format(identifier),
             target = "1.17",
@@ -155,7 +155,7 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-dep-v2".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/dep-v2/*.daml".format(identifier)]),
-            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
+            data_dependencies = ["//daml-script/daml-lts:daml-script-lts-1.17.dar"],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}-dep".format(identifier),
             target = "1.17",
@@ -169,8 +169,10 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-v1".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/v1/*.daml".format(identifier)]),
-            data_dependencies = ["//test-common:upgrades-{}-dep-v1.dar".format(identifier)],
-            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
+            data_dependencies = [
+                "//test-common:upgrades-{}-dep-v1.dar".format(identifier),
+                "//daml-script/daml-lts:daml-script-lts-1.17.dar",
+            ],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}".format(identifier),
             target = "1.17",
@@ -180,8 +182,10 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-v2".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/v2/*.daml".format(identifier)]),
-            data_dependencies = ["//test-common:upgrades-{}-dep-v2.dar".format(identifier)],
-            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
+            data_dependencies = [
+                "//test-common:upgrades-{}-dep-v2.dar".format(identifier),
+                "//daml-script/daml-lts:daml-script-lts-1.17.dar",
+            ],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}".format(identifier),
             target = "1.17",
@@ -207,7 +211,7 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-dep".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/dep/*.daml".format(identifier)]),
-            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
+            data_dependencies = ["//daml-script/daml-lts:daml-script-lts-1.17.dar"],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}-dep".format(identifier),
             target = "1.17",
@@ -254,7 +258,7 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-dep-v1".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/dep-v1/*.daml".format(identifier)]),
-            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
+            data_dependencies = ["//daml-script/daml-lts:daml-script-lts-1.17.dar"],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}-dep".format(identifier),
             target = "1.17",
@@ -264,7 +268,7 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-dep-v2".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/dep-v2/*.daml".format(identifier)]),
-            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
+            data_dependencies = ["//daml-script/daml-lts:daml-script-lts-1.17.dar"],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}-dep".format(identifier),
             target = "1.17",
@@ -278,8 +282,10 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-v1".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/v1/*.daml".format(identifier)]),
-            data_dependencies = ["//test-common:upgrades-{}-dep-v2.dar".format(identifier)],
-            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
+            data_dependencies = [
+                "//test-common:upgrades-{}-dep-v2.dar".format(identifier),
+                "//daml-script/daml-lts:daml-script-lts-1.17.dar",
+            ],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}".format(identifier),
             target = "1.17",
@@ -289,8 +295,10 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-v2".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/v2/*.daml".format(identifier)]),
-            data_dependencies = ["//test-common:upgrades-{}-dep-v1.dar".format(identifier)],
-            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
+            data_dependencies = [
+                "//test-common:upgrades-{}-dep-v1.dar".format(identifier),
+                "//daml-script/daml-lts:daml-script-lts-1.17.dar",
+            ],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}".format(identifier),
             target = "1.17",
@@ -324,8 +332,7 @@ da_scala_dar_resources_library(
             data_dependencies = v1opts.get(
                 "data_dependencies",
                 default = [],
-            ),
-            dependencies = ["//daml-script/daml:daml-script-{}.dar".format(opts_get_lf_version(v1opts))],
+            ) + ["//daml-script/daml-lts:daml-script-lts-{}.dar".format(opts_get_lf_version(v1opts))],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             module_prefixes = v1opts.get(
                 "module_prefixes",
@@ -342,8 +349,7 @@ da_scala_dar_resources_library(
             data_dependencies = v2opts.get(
                 "data_dependencies",
                 default = [],
-            ),
-            dependencies = ["//daml-script/daml:daml-script-{}.dar".format(opts_get_lf_version(v2opts))],
+            ) + ["//daml-script/daml-lts:daml-script-lts-{}.dar".format(opts_get_lf_version(v2opts))],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             module_prefixes = v2opts.get(
                 "module_prefixes",
@@ -614,7 +620,7 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-dep-dep-v1".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/dep-dep-v1/*.daml".format(identifier)]),
-            dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
+            data_dependencies = ["//daml-script/daml-lts:daml-script-lts-1.dev.dar"],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}-dep-dep".format(identifier),
             target = "1.dev",
@@ -624,7 +630,7 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-dep-dep-v2".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/dep-dep-v2/*.daml".format(identifier)]),
-            dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
+            data_dependencies = ["//daml-script/daml-lts:daml-script-lts-1.dev.dar"],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}-dep-dep".format(identifier),
             target = "1.dev",
@@ -638,8 +644,10 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-dep-v1".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/dep-v1/*.daml".format(identifier)]),
-            data_dependencies = ["//test-common:upgrades-{}-dep-dep-v1.dar".format(identifier)],
-            dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
+            data_dependencies = [
+                "//test-common:upgrades-{}-dep-dep-v1.dar".format(identifier),
+                "//daml-script/daml-lts:daml-script-lts-1.dev.dar",
+            ],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}-dep".format(identifier),
             target = "1.dev",
@@ -649,8 +657,10 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-dep-v2".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/dep-v2/*.daml".format(identifier)]),
-            data_dependencies = ["//test-common:upgrades-{}-dep-dep-v2.dar".format(identifier)],
-            dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
+            data_dependencies = [
+                "//test-common:upgrades-{}-dep-dep-v2.dar".format(identifier),
+                "//daml-script/daml-lts:daml-script-lts-1.dev.dar",
+            ],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}-dep".format(identifier),
             target = "1.dev",
@@ -667,8 +677,8 @@ da_scala_dar_resources_library(
             data_dependencies = [
                 "//test-common:upgrades-{}-dep-v1.dar".format(identifier),
                 "//test-common:upgrades-{}-dep-dep-v1.dar".format(identifier),
+                "//daml-script/daml-lts:daml-script-lts-1.dev.dar",
             ],
-            dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}".format(identifier),
             target = "1.dev",
@@ -681,8 +691,8 @@ da_scala_dar_resources_library(
             data_dependencies = [
                 "//test-common:upgrades-{}-dep-v2.dar".format(identifier),
                 "//test-common:upgrades-{}-dep-dep-v2.dar".format(identifier),
+                "//daml-script/daml-lts:daml-script-lts-1.dev.dar",
             ],
-            dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}".format(identifier),
             target = "1.dev",
@@ -710,7 +720,7 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-v1a".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/v1a/*.daml".format(identifier)]),
-            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
+            data_dependencies = ["//daml-script/daml-lts:daml-script-lts-1.17.dar"],
             project_name = "upgrades-example-{}".format(identifier),
             target = "1.17",
             version = "1.0.0",
@@ -719,7 +729,7 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-v1b".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/v1b/*.daml".format(identifier)]),
-            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
+            data_dependencies = ["//daml-script/daml-lts:daml-script-lts-1.17.dar"],
             project_name = "upgrades-example-{}".format(identifier),
             target = "1.17",
             version = "1.0.0",
@@ -767,7 +777,7 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-v1".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/v1/*.daml".format(identifier)]),
-            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
+            data_dependencies = ["//daml-script/daml-lts:daml-script-lts-1.17.dar"],
             project_name = "upgrades-example-{}".format(identifier),
             target = "1.17",
             version = "1.0.0",
@@ -776,7 +786,7 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-v2".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/v2/*.daml".format(identifier)]),
-            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
+            data_dependencies = ["//daml-script/daml-lts:daml-script-lts-1.17.dar"],
             project_name = "upgrades-example-{}".format(identifier),
             target = "1.17",
             # We want to check the validity of this upgrade on the ledger
@@ -789,7 +799,7 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-v3".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/v3/*.daml".format(identifier)]),
-            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
+            data_dependencies = ["//daml-script/daml-lts:daml-script-lts-1.17.dar"],
             project_name = "upgrades-example-{}".format(identifier),
             target = "1.17",
             # We want to check the validity of this upgrade on the ledger
@@ -819,7 +829,7 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-dep-v1".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/dep-v1/*.daml".format(identifier)]),
-            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
+            data_dependencies = ["//daml-script/daml-lts:daml-script-lts-1.17.dar"],
             project_name = "upgrades-example-{}-dep".format(identifier),
             target = "1.17",
             version = "1.0.0",
@@ -828,7 +838,7 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-dep-v2".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/dep-v2/*.daml".format(identifier)]),
-            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
+            data_dependencies = ["//daml-script/daml-lts:daml-script-lts-1.17.dar"],
             project_name = "upgrades-example-{}-dep".format(identifier),
             target = "1.17",
             # We want to check the validity of this upgrade on the ledger
@@ -844,8 +854,8 @@ da_scala_dar_resources_library(
             data_dependencies = [
                 "//test-common:upgrades-{}-dep-v1.dar".format(identifier),
                 "//test-common:upgrades-{}-dep-v2.dar".format(identifier),
+                "//daml-script/daml-lts:daml-script-lts-1.17.dar",
             ],
-            dependencies = ["//daml-script/daml:daml-script-1.17.dar"],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             module_prefixes = {
                 "upgrades-example-{}-dep-1.0.0".format(identifier): "V1",

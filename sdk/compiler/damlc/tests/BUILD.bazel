@@ -6,7 +6,7 @@ load("@os_info//:os_info.bzl", "is_darwin", "is_intel", "is_windows")
 load(":util.bzl", "damlc_compile_test")
 load("//rules_daml:daml.bzl", "daml_compile", "daml_compile_with_dalf", "generate_and_track_dar_hash_file")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
-load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "LF_MAJOR_VERSIONS", "lf_version_default_or_latest", "mangle_for_damlc")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "LEGACY_DAML_SCRIPT_LF_VERSIONS", "LF_MAJOR_VERSIONS", "lf_version_default_or_latest", "mangle_for_damlc")
 load("//compiler/damlc:util.bzl", "ghc_pkg")
 
 # Tests for the lax CLI parser + damlc CLI parser
@@ -59,7 +59,7 @@ da_haskell_test(
     data = [
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
-        "//daml-script/daml:daml-script-1.17.dar",
+        "//daml-script/daml-lts:daml-script-lts-1.17.dar",
     ],
     hackage_deps = [
         "base",
@@ -194,7 +194,7 @@ da_haskell_library(
             "//compiler/damlc/pkg-db",
             "//compiler/damlc/stable-packages",
             "//compiler/scenario-service/server:scenario_service_jar",
-            "//daml-script/daml:daml-script-{version}.dar".format(version = version),
+            "//daml-script/daml:daml-script-{version}.dar".format(version = version) if version in LEGACY_DAML_SCRIPT_LF_VERSIONS else "//daml-script/daml-lts:daml-script-lts-{version}.dar".format(version = version),
             "@jq_dev_env//:jq",
             ghc_pkg,
         ],
@@ -208,43 +208,46 @@ da_haskell_library(
             ":integration-lib",
         ],
     )
-    for version in COMPILER_LF_VERSIONS
+    for version in LEGACY_DAML_SCRIPT_LF_VERSIONS
 ]
 
-da_haskell_test(
-    name = "integration-v117-script2",
-    size = "large",
-    srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
-    args = [
-        "--daml-lf-version",
-        "1.17",
-        "--daml-script-v2",
-        "true",
-    ],
-    data = [
-        ":bond-trading",
-        ":cant-skip-preprocessor",
-        ":daml-test-files",
-        ":package-vetting-package-a.dar",
-        ":package-vetting-package-b.dar",
-        ":query-lf-lib",
-        "//compiler/damlc/pkg-db",
-        "//compiler/damlc/stable-packages",
-        "//compiler/scenario-service/server:scenario_service_jar",
-        "//daml-script/daml-lts:daml-script-lts-1.17.dar",
-        "@jq_dev_env//:jq",
-        ghc_pkg,
-    ],
-    hackage_deps = [
-        "base",
-    ],
-    main_function = "DA.Test.DamlcIntegrationMain.main",
-    src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
-    deps = [
-        ":integration-lib",
-    ],
-)
+[
+    da_haskell_test(
+        name = "integration-script2-{}".format(mangle_for_damlc(version)),
+        size = "large",
+        srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
+        args = [
+            "--daml-lf-version",
+            "1.17",
+            "--daml-script-v2",
+            "true",
+        ],
+        data = [
+            ":bond-trading",
+            ":cant-skip-preprocessor",
+            ":daml-test-files",
+            ":package-vetting-package-a.dar",
+            ":package-vetting-package-b.dar",
+            ":query-lf-lib",
+            "//compiler/damlc/pkg-db",
+            "//compiler/damlc/stable-packages",
+            "//compiler/scenario-service/server:scenario_service_jar",
+            "//daml-script/daml-lts:daml-script-lts-1.17.dar",
+            "@jq_dev_env//:jq",
+            ghc_pkg,
+        ],
+        hackage_deps = [
+            "base",
+        ],
+        main_function = "DA.Test.DamlcIntegrationMain.main",
+        src_strip_prefix = "src",
+        visibility = ["//visibility:public"],
+        deps = [
+            ":integration-lib",
+        ],
+    )
+    for version in [v for v in COMPILER_LF_VERSIONS if not (v in LEGACY_DAML_SCRIPT_LF_VERSIONS)]
+]
 
 # Tests for daml-doc
 da_haskell_test(
@@ -754,7 +757,6 @@ da_haskell_test(
             "//compiler/damlc",
             "@damlc_legacy",
             "//compiler/damlc/tests:generate-simple-dalf",
-            "//daml-script/daml:daml-script-1.17.dar",
             "//daml-script/daml-lts:daml-script-lts-1.17.dar",
             # Feel free to update this to 0.13.55 once that is frozen.
             ":dars/old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar",
@@ -1281,7 +1283,7 @@ da_haskell_test(
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
         "//compiler/scenario-service/server:scenario_service_jar",
-        "//daml-script/daml:daml-script-1.17.dar",
+        "//daml-script/daml-lts:daml-script-lts-1.17.dar",
         ghc_pkg,
     ],
     hackage_deps = [

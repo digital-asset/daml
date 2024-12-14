@@ -15,6 +15,8 @@ load("@os_info//:os_info.bzl", "is_windows")
 load("//rules_daml:daml.bzl", "daml_compile")
 load(
     "//daml-lf/language:daml-lf.bzl",
+    "COMPILER_LF_VERSIONS",
+    "LEGACY_DAML_SCRIPT_LF_VERSIONS",
     "lf_version_configuration",
     "mangle_for_damlc",
 )
@@ -85,14 +87,14 @@ EOF
     genrule(
         name = "script-test-{}".format(lf_version),
         srcs =
-            glob(["**/*.daml"]) + ["//daml-script/daml:daml-script-{}.dar".format(lf_version)],
+            glob(["**/*.daml"]) + ["//daml-script/daml-lts:daml-script-lts-{}.dar".format(lf_version)],
         outs = ["script-test-{}.dar".format(lf_version)],
         cmd = """
       set -eou pipefail
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location :daml/TestChoiceAuthority.daml) $$TMP_DIR/daml
-      cp -L $(location //daml-script/daml:daml-script-{lf_version}.dar) $$TMP_DIR/
+      cp -L $(location //daml-script/daml-lts:daml-script-lts-{lf_version}.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: script-test-{mangled_lf_version}
@@ -103,7 +105,8 @@ build-options:
 dependencies:
   - daml-stdlib
   - daml-prim
-  - daml-script-{lf_version}.dar
+data-dependencies:
+  - daml-script-lts-{lf_version}.dar
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script-test-{lf_version}.dar)
       rm -rf $$TMP_DIR
@@ -116,9 +119,9 @@ EOF
         visibility = ["//visibility:public"],
     )
     for lf_version in [
-        "1.15",
-        "1.17",
-        "1.dev",
+        v
+        for v in COMPILER_LF_VERSIONS
+        if not (v in LEGACY_DAML_SCRIPT_LF_VERSIONS)
     ]
 ]
 
@@ -374,8 +377,6 @@ da_scala_test(
     data = [
         "//daml-script/daml:daml-script-1.14.dar",
         "//daml-script/daml:daml-script-1.15.dar",
-        "//daml-script/daml:daml-script-1.17.dar",
-        "//daml-script/daml:daml-script-1.dev.dar",
         "//daml-script/daml-lts:daml-script-lts-1.14.dar",
         "//daml-script/daml-lts:daml-script-lts-1.15.dar",
         "//daml-script/daml-lts:daml-script-lts-1.17.dar",
