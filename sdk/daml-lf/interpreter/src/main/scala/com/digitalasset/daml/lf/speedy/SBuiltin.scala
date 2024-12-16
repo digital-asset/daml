@@ -36,7 +36,6 @@ import java.util
 import scala.annotation.nowarn
 import scala.collection.immutable.TreeSet
 import scala.jdk.CollectionConverters._
-import scala.math.Ordering.Implicits.infixOrderingOps
 
 /** Speedy builtins represent LF functional forms. As such, they *always* have a non-zero arity.
   *
@@ -1036,7 +1035,11 @@ private[lf] object SBuiltin {
           }
         )
         val interfaceVersion = interfaceId.map(machine.tmplId2TxVersion)
-        val exerciseVersion = interfaceVersion.fold(templateVersion)(_.max(templateVersion))
+        // Interfaces were added in LF1.15, therefore the interface version is 1.15+
+        // Interfaces in LF1.17 cannot have template version < interface version, as retroactive instances aren't supported in 17
+        // Therefore, if the interface support upgrades, we pick the interface version
+        // if it doesn't, then its 1.15, which is correct
+        val exerciseVersion = interfaceVersion.getOrElse(templateVersion)
         val chosenValue = args.get(0).toNormalizedValue(exerciseVersion)
         val controllers = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(2))
         machine.enforceChoiceControllersLimit(

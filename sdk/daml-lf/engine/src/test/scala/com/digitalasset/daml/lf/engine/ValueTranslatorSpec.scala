@@ -382,182 +382,196 @@ class ValueTranslatorSpec
         nonUpgradableUserTestCases ++ upgradableUserTestCases ++ emptyBuiltinTestCase ++ nonEmptyBuiltinTestCases
       ) { (typ, normal, nonNormal, svalue) =>
         (normal +: nonNormal).takeRight(1).foreach { v =>
-          Try(unsafeTranslateValue(typ, v)) shouldBe Success(svalue)
+          Try(unsafeTranslateValue(typ, true, v)) shouldBe Success(svalue)
         }
       }
     }
 
     "return proper mismatch error" in {
-      val testCases = Table[Ast.Type, Value, PartialFunction[Error.Preprocessing.Error, _]](
-        ("type", "value", "error"),
-        (
-          TRecordNonUpgradable,
-          ValueRecord(
-            "",
-            ImmArray(
-              "fieldA" -> aInt
+      val testCases =
+        Table[Ast.Type, Value, Boolean, PartialFunction[Error.Preprocessing.Error, _]](
+          ("type", "value", "upgradable", "error"),
+          (
+            TRecordNonUpgradable,
+            ValueRecord(
+              "",
+              ImmArray(
+                "fieldA" -> aInt
+              ),
             ),
+            false,
+            { case Error.Preprocessing.TypeMismatch(typ, _, msg) =>
+              typ shouldBe TRecordNonUpgradable
+              msg should include regex "Expecting 2 field for record .*, but got 1"
+            },
           ),
-          { case Error.Preprocessing.TypeMismatch(typ, _, msg) =>
-            typ shouldBe TRecordNonUpgradable
-            msg should include regex "Expecting 2 field for record .*, but got 1"
-          },
-        ),
-        (
-          TRecordNonUpgradable,
-          ValueRecord(
-            "",
-            ImmArray(
-              "fieldA" -> aInt,
-              "fieldB" -> someText,
-              "fieldC" -> none,
+          (
+            TRecordNonUpgradable,
+            ValueRecord(
+              "",
+              ImmArray(
+                "fieldA" -> aInt,
+                "fieldB" -> someText,
+                "fieldC" -> none,
+              ),
             ),
+            false,
+            { case Error.Preprocessing.TypeMismatch(typ, _, msg) =>
+              typ shouldBe TRecordNonUpgradable
+              msg should include regex "Expecting 2 field for record .*, but got 3"
+            },
           ),
-          { case Error.Preprocessing.TypeMismatch(typ, _, msg) =>
-            typ shouldBe TRecordNonUpgradable
-            msg should include regex "Expecting 2 field for record .*, but got 3"
-          },
-        ),
-        (
-          TRecordNonUpgradable,
-          ValueRecord(
-            "",
-            ImmArray(
-              "fieldA" -> aInt,
-              "fieldB" -> someText,
-              "fieldC" -> someParty,
-              "fieldD" -> aInt, // extra non-optional field
+          (
+            TRecordNonUpgradable,
+            ValueRecord(
+              "",
+              ImmArray(
+                "fieldA" -> aInt,
+                "fieldB" -> someText,
+                "fieldC" -> someParty,
+                "fieldD" -> aInt, // extra non-optional field
+              ),
             ),
+            false,
+            { case Error.Preprocessing.TypeMismatch(typ, _, _) =>
+              typ shouldBe TRecordNonUpgradable
+            },
           ),
-          { case Error.Preprocessing.TypeMismatch(typ, _, _) =>
-            typ shouldBe TRecordNonUpgradable
-          },
-        ),
-        (
-          TRecordUpgradable,
-          ValueRecord(
-            "",
-            ImmArray(
-              "fieldA" -> aInt,
-              "fieldB" -> someParty, // Here the field has type Party instead of Text
-              "fieldC" -> none,
+          (
+            TRecordUpgradable,
+            ValueRecord(
+              "",
+              ImmArray(
+                "fieldA" -> aInt,
+                "fieldB" -> someParty, // Here the field has type Party instead of Text
+                "fieldC" -> none,
+              ),
             ),
+            true,
+            { case Error.Preprocessing.TypeMismatch(typ, value, _) =>
+              typ shouldBe t"Text"
+              value shouldBe aParty
+            },
           ),
-          { case Error.Preprocessing.TypeMismatch(typ, value, _) =>
-            typ shouldBe t"Text"
-            value shouldBe aParty
-          },
-        ),
-        (
-          TVariantNonUpgradable,
-          ValueVariant("", "ConsB", aInt), // Here the variant has type Text instead of Int64
-          { case Error.Preprocessing.TypeMismatch(typ, value, _) =>
-            typ shouldBe t"Text"
-            value shouldBe aInt
-          },
-        ),
-        (
-          TVariantNonUpgradable,
-          ValueVariant("", "ConsC", aInt), // ConsC is not a constructor of Mod:Variant
-          {
-            case Error.Preprocessing.Lookup(
-                  LookupError.NotFound(
-                    Reference.DataVariantConstructor(_, consName),
-                    Reference.DataVariantConstructor(_, _),
-                  )
-                ) =>
-              consName shouldBe "ConsC"
-          },
-        ),
-        (
-          TEnumNonUpgradable,
-          ValueEnum("", "Cons3"), // Cons3 is not a constructor of Mod:Enum
-          {
-            case Error.Preprocessing.Lookup(
-                  LookupError.NotFound(
-                    Reference.DataEnumConstructor(_, consName),
-                    _,
-                  )
-                ) =>
-              consName shouldBe "Cons3"
-          },
-        ),
-        (
-          TRecordUpgradable,
-          ValueRecord(
-            "",
-            ImmArray( // fields non-order and non fully labelled.
-              "fieldA" -> aInt,
-              "" -> none,
-              "fieldB" -> someText,
+          (
+            TVariantNonUpgradable,
+            ValueVariant("", "ConsB", aInt), // Here the variant has type Text instead of Int64
+            false,
+            { case Error.Preprocessing.TypeMismatch(typ, value, _) =>
+              typ shouldBe t"Text"
+              value shouldBe aInt
+            },
+          ),
+          (
+            TVariantNonUpgradable,
+            ValueVariant("", "ConsC", aInt), // ConsC is not a constructor of Mod:Variant
+            false,
+            {
+              case Error.Preprocessing.Lookup(
+                    LookupError.NotFound(
+                      Reference.DataVariantConstructor(_, consName),
+                      Reference.DataVariantConstructor(_, _),
+                    )
+                  ) =>
+                consName shouldBe "ConsC"
+            },
+          ),
+          (
+            TEnumNonUpgradable,
+            ValueEnum("", "Cons3"), // Cons3 is not a constructor of Mod:Enum
+            false,
+            {
+              case Error.Preprocessing.Lookup(
+                    LookupError.NotFound(
+                      Reference.DataEnumConstructor(_, consName),
+                      _,
+                    )
+                  ) =>
+                consName shouldBe "Cons3"
+            },
+          ),
+          (
+            TRecordUpgradable,
+            ValueRecord(
+              "",
+              ImmArray( // fields non-order and non fully labelled.
+                "fieldA" -> aInt,
+                "" -> none,
+                "fieldB" -> someText,
+              ),
             ),
+            true,
+            { case Error.Preprocessing.TypeMismatch(typ, _, _) =>
+              typ shouldBe TRecordUpgradable
+            },
           ),
-          { case Error.Preprocessing.TypeMismatch(typ, _, _) =>
-            typ shouldBe TRecordUpgradable
-          },
-        ),
-        (
-          TRecordUpgradable,
-          ValueRecord(
-            "",
-            ImmArray(), // missing a non-optional field
-          ),
-          { case Error.Preprocessing.TypeMismatch(typ, _, _) =>
-            typ shouldBe TRecordUpgradable
-          },
-        ),
-        (
-          TRecordUpgradable,
-          ValueRecord(
-            "",
-            ImmArray(
-              "fieldA" -> aInt,
-              "fieldB" -> someText,
-              "fieldC" -> someParty,
-              "fieldD" -> aInt, // extra non-optional field
+          (
+            TRecordUpgradable,
+            ValueRecord(
+              "",
+              ImmArray(), // missing a non-optional field
             ),
+            true,
+            { case Error.Preprocessing.TypeMismatch(typ, _, _) =>
+              typ shouldBe TRecordUpgradable
+            },
           ),
-          { case Error.Preprocessing.TypeMismatch(typ, _, _) =>
-            typ shouldBe TRecordUpgradable
-          },
-        ),
-        (
-          TVariantUpgradable,
-          ValueVariant("", "ConsB", aInt), // Here the variant has type Text instead of Int64
-          { case Error.Preprocessing.TypeMismatch(typ, value, _) =>
-            typ shouldBe t"Text"
-            value shouldBe aInt
-          },
-        ),
-        (
-          TVariantUpgradable,
-          ValueVariant("", "ConsC", aInt), // ConsC is not a constructor of Mod:Variant
-          {
-            case Error.Preprocessing.Lookup(
-                  LookupError.NotFound(
-                    Reference.DataVariantConstructor(_, consName),
-                    Reference.DataVariantConstructor(_, _),
-                  )
-                ) =>
-              consName shouldBe "ConsC"
-          },
-        ),
-        (
-          TEnumUpgradable,
-          ValueEnum("", "Cons3"), // Cons3 is not a constructor of Mod:Enum
-          {
-            case Error.Preprocessing.Lookup(
-                  LookupError.NotFound(
-                    Reference.DataEnumConstructor(_, consName),
-                    Reference.DataEnumConstructor(_, _),
-                  )
-                ) =>
-              consName shouldBe "Cons3"
-          },
-        ),
-      )
-      forEvery(testCases)((typ, value, checkError) =>
-        inside(Try(unsafeTranslateValue(typ, value))) {
+          (
+            TRecordUpgradable,
+            ValueRecord(
+              "",
+              ImmArray(
+                "fieldA" -> aInt,
+                "fieldB" -> someText,
+                "fieldC" -> someParty,
+                "fieldD" -> aInt, // extra non-optional field
+              ),
+            ),
+            true,
+            { case Error.Preprocessing.TypeMismatch(typ, _, _) =>
+              typ shouldBe TRecordUpgradable
+            },
+          ),
+          (
+            TVariantUpgradable,
+            ValueVariant("", "ConsB", aInt), // Here the variant has type Text instead of Int64
+            true,
+            { case Error.Preprocessing.TypeMismatch(typ, value, _) =>
+              typ shouldBe t"Text"
+              value shouldBe aInt
+            },
+          ),
+          (
+            TVariantUpgradable,
+            ValueVariant("", "ConsC", aInt), // ConsC is not a constructor of Mod:Variant
+            true,
+            {
+              case Error.Preprocessing.Lookup(
+                    LookupError.NotFound(
+                      Reference.DataVariantConstructor(_, consName),
+                      Reference.DataVariantConstructor(_, _),
+                    )
+                  ) =>
+                consName shouldBe "ConsC"
+            },
+          ),
+          (
+            TEnumUpgradable,
+            ValueEnum("", "Cons3"), // Cons3 is not a constructor of Mod:Enum
+            true,
+            {
+              case Error.Preprocessing.Lookup(
+                    LookupError.NotFound(
+                      Reference.DataEnumConstructor(_, consName),
+                      Reference.DataEnumConstructor(_, _),
+                    )
+                  ) =>
+                consName shouldBe "Cons3"
+            },
+          ),
+        )
+      forEvery(testCases)((typ, value, upgradable, checkError) =>
+        inside(Try(unsafeTranslateValue(typ, upgradable, value))) {
           case Failure(error: Error.Preprocessing.Error) =>
             checkError(error)
         }
@@ -569,7 +583,7 @@ class ValueTranslatorSpec
         forAll(nonEmptyBuiltinTestCases) { (_, value2, _, _) =>
           if (value1 != value2) {
             a[Error.Preprocessing.Error] shouldBe thrownBy(
-              unsafeTranslateValue(typ1, value2)
+              unsafeTranslateValue(typ1, true, value2)
             )
           }
         }
@@ -590,8 +604,8 @@ class ValueTranslatorSpec
       val tooBig = mkMyList(50)
       val failure = Failure(Error.Preprocessing.ValueNesting(tooBig))
 
-      Try(unsafeTranslateValue(t"Mod:MyList", notTooBig)) shouldBe a[Success[_]]
-      Try(unsafeTranslateValue(t"Mod:MyList", tooBig)) shouldBe failure
+      Try(unsafeTranslateValue(t"Mod:MyList", true, notTooBig)) shouldBe a[Success[_]]
+      Try(unsafeTranslateValue(t"Mod:MyList", true, tooBig)) shouldBe failure
     }
 
     def testCasesForCid(culprit: ContractId) = {
@@ -630,7 +644,7 @@ class ValueTranslatorSpec
 
       cids.foreach(cid =>
         forEvery(testCasesForCid(cid))((typ, value) =>
-          Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe a[Success[
+          Try(valueTranslator.unsafeTranslateValue(typ, true, value)) shouldBe a[Success[
             _
           ]]
         )
@@ -653,10 +667,10 @@ class ValueTranslatorSpec
       val failure = Failure(Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(illegalCid))
 
       forEvery(testCasesForCid(legalCid))((typ, value) =>
-        Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe a[Success[_]]
+        Try(valueTranslator.unsafeTranslateValue(typ, true, value)) shouldBe a[Success[_]]
       )
       forEvery(testCasesForCid(illegalCid))((typ, value) =>
-        Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe failure
+        Try(valueTranslator.unsafeTranslateValue(typ, true, value)) shouldBe failure
       )
     }
 

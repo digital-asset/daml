@@ -403,8 +403,8 @@ private[lf] object ScenarioRunner {
         pkgInterface = compiledPackages.pkgInterface,
         checkV1ContractIdSuffixes = config.requireSuffixedGlobalContractId,
       )
-    def translateValue(typ: Ast.Type, value: Value): Result[SValue] =
-      valueTranslator.translateValue(typ, value) match {
+    def translateValue(typ: Ast.Type, upgradable: Boolean, value: Value): Result[SValue] =
+      valueTranslator.translateValue(typ, upgradable, value) match {
         case Left(err) => ResultError(err)
         case Right(sv) => ResultDone(sv)
       }

@@ -56,7 +56,7 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
         dar.compiledPackages.pkgInterface,
         checkV1ContractIdSuffixes = true,
       )
-        .translateValue(typ, input)
+        .translateValue(typ, false, input)
         .left
         .map(_.message)
     Runner

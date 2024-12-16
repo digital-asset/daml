@@ -154,7 +154,7 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
 
     "enrich values as expected" in {
       forEvery(testCases) { (typ, input, output) =>
-        enricher.enrichValue(typ, input) shouldBe ResultDone(output)
+        enricher.enrichValue(typ, upgradable = true, input) shouldBe ResultDone(output)
       }
     }
   }

@@ -883,7 +883,7 @@ class EngineTest(langVersion: LanguageVersion)
     "translate empty list" in {
       val list = ValueNil
       val res = preprocessor
-        .translateValue(TList(TBuiltin(BTInt64)), list)
+        .translateValue(TList(TBuiltin(BTInt64)), false, list)
         .consume(lookupContract, lookupPackage, lookupKey)
 
       res shouldEqual Right(SList(FrontStack.empty))
@@ -892,7 +892,7 @@ class EngineTest(langVersion: LanguageVersion)
     "translate singleton" in {
       val list = ValueList(FrontStack(ValueInt64(1)))
       val res = preprocessor
-        .translateValue(TList(TBuiltin(BTInt64)), list)
+        .translateValue(TList(TBuiltin(BTInt64)), false, list)
         .consume(lookupContract, lookupPackage, lookupKey)
 
       res shouldEqual Right(SList(FrontStack(SInt64(1))))
@@ -903,7 +903,7 @@ class EngineTest(langVersion: LanguageVersion)
         FrontStack(ValueInt64(1), ValueInt64(2), ValueInt64(3), ValueInt64(4), ValueInt64(5))
       )
       val res = preprocessor
-        .translateValue(TList(TBuiltin(BTInt64)), list)
+        .translateValue(TList(TBuiltin(BTInt64)), false, list)
         .consume(lookupContract, lookupPackage, lookupKey)
 
       res shouldEqual Right(
@@ -918,6 +918,7 @@ class EngineTest(langVersion: LanguageVersion)
       preprocessor
         .translateValue(
           TTyConApp(TypeConName(basicTestsPkgId, "BasicTests:Nesting0"), ImmArray.Empty),
+          false,
           nested,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -951,6 +952,7 @@ class EngineTest(langVersion: LanguageVersion)
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:MyNestedRec"), ImmArray.Empty),
+          false,
           rec,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -973,6 +975,7 @@ class EngineTest(langVersion: LanguageVersion)
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.Empty),
+          false,
           rec,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -996,6 +999,7 @@ class EngineTest(langVersion: LanguageVersion)
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.Empty),
+          false,
           rec,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -1016,6 +1020,7 @@ class EngineTest(langVersion: LanguageVersion)
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.Empty),
+          false,
           rec,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -1038,6 +1043,7 @@ class EngineTest(langVersion: LanguageVersion)
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.Empty),
+          false,
           rec,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -1058,6 +1064,7 @@ class EngineTest(langVersion: LanguageVersion)
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.Empty),
+          false,
           rec,
         )
         .consume(lookupContract, lookupPackage, lookupKey)

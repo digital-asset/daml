@@ -15,7 +15,7 @@ import com.daml.lf.value.Value._
 import scala.annotation.tailrec
 
 private[lf] final class ValueTranslator(
-    pkgInterface: language.PackageInterface,
+    val pkgInterface: language.PackageInterface,
     checkV1ContractIdSuffixes: Boolean,
 ) {
 
@@ -62,6 +62,7 @@ private[lf] final class ValueTranslator(
   @throws[Error.Preprocessing.Error]
   private[preprocessing] def unsafeTranslateValue(
       ty: Type,
+      upgradable: Boolean,
       value: Value,
   ): SValue = {
     // TODO: https://github.com/digital-asset/daml/issues/17082
@@ -178,7 +179,6 @@ private[lf] final class ValueTranslator(
                 typeError()
             }
           case TTyCon(tyCon) =>
-            val upgradable = handleLookup(pkgInterface.lookupPackage(tyCon.packageId)).upgradable
             value0 match {
               // variant
               case ValueVariant(mbId, constructorName, val0) =>
@@ -197,8 +197,11 @@ private[lf] final class ValueTranslator(
               case ValueRecord(mbId, sourceElements) =>
                 checkUserTypeId(upgradable, tyCon, mbId)
                 val lookupResult = handleLookup(pkgInterface.lookupDataRecord(tyCon))
-                val targetFieldsAndTypes = lookupResult.dataRecord.fields
                 val subst = lookupResult.subst(tyArgs)
+                val targetFieldsAndTypes =
+                  lookupResult.dataRecord.fields.map { case (lbl, typ) =>
+                    lbl -> AstUtil.substitute(typ, subst)
+                  }
 
                 def addMissingField(lbl: Ref.Name, ty: Type): (Option[Ref.Name], Value) =
                   ty match {
@@ -279,8 +282,7 @@ private[lf] final class ValueTranslator(
 
                   // Recursive substitution
                   val translatedCorrectFields = correctFields.map { case (lbl, v, typ) =>
-                    val replacedTyp = AstUtil.substitute(typ, subst)
-                    lbl -> go(replacedTyp, v, newNesting)
+                    lbl -> go(typ, v, newNesting)
                   }
 
                   extraFields.foreach {
@@ -361,9 +363,13 @@ private[lf] final class ValueTranslator(
     go(ty, value)
   }
 
-  def translateValue(ty: Type, value: Value): Either[Error.Preprocessing.Error, SValue] =
+  def translateValue(
+      ty: Type,
+      upgradable: Boolean,
+      value: Value,
+  ): Either[Error.Preprocessing.Error, SValue] =
     safelyRun(
-      unsafeTranslateValue(ty, value)
+      unsafeTranslateValue(ty, upgradable, value)
     )
 
 }

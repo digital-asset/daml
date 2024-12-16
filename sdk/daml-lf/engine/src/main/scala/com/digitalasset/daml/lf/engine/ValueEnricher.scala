@@ -28,7 +28,7 @@ import com.daml.lf.speedy.SValue
 
 final class ValueEnricher(
     compiledPackages: CompiledPackages,
-    translateValue: (Ast.Type, Value) => Result[SValue],
+    translateValue: (Ast.Type, Boolean, Value) => Result[SValue],
     loadPackage: (PackageId, language.Reference) => Result[Unit],
 ) {
 
@@ -39,15 +39,16 @@ final class ValueEnricher(
       engine.loadPackage,
     )
 
-  def enrichValue(typ: Ast.Type, value: Value): Result[Value] =
-    translateValue(typ, value).map(_.toUnnormalizedValue)
+  def enrichValue(typ: Ast.Type, upgradable: Boolean, value: Value): Result[Value] =
+    translateValue(typ, upgradable, value).map(_.toUnnormalizedValue)
 
   def enrichVersionedValue(
       typ: Ast.Type,
+      upgradable: Boolean,
       versionedValue: VersionedValue,
   ): Result[VersionedValue] =
     for {
-      value <- enrichValue(typ, versionedValue.unversioned)
+      value <- enrichValue(typ, upgradable, versionedValue.unversioned)
     } yield versionedValue.map(_ => value)
 
   def enrichContract(
@@ -61,17 +62,27 @@ final class ValueEnricher(
       contract: Value.VersionedContractInstance
   ): Result[Value.VersionedContractInstance] =
     for {
-      arg <- enrichValue(Ast.TTyCon(contract.unversioned.template), contract.unversioned.arg)
+      pkg <- handleLookup(
+        compiledPackages.pkgInterface.lookupPackage(contract.unversioned.template.packageId)
+      )
+      arg <- enrichValue(
+        Ast.TTyCon(contract.unversioned.template),
+        pkg.upgradable,
+        contract.unversioned.arg,
+      )
     } yield contract.map(_.copy(arg = arg))
 
   def enrichView(
       interfaceId: Identifier,
       viewValue: Value,
   ): Result[Value] = for {
+    pkg <- handleLookup(
+      compiledPackages.pkgInterface.lookupPackage(interfaceId.packageId)
+    )
     iface <- handleLookup(
       compiledPackages.pkgInterface.lookupInterface(interfaceId)
     )
-    r <- enrichValue(iface.view, viewValue)
+    r <- enrichValue(iface.view, pkg.upgradable, viewValue)
   } yield r
 
   def enrichVersionedView(
@@ -82,7 +93,12 @@ final class ValueEnricher(
   } yield viewValue.copy(unversioned = view)
 
   def enrichContract(tyCon: Identifier, value: Value): Result[Value] =
-    enrichValue(Ast.TTyCon(tyCon), value)
+    for {
+      pkg <- handleLookup(
+        compiledPackages.pkgInterface.lookupPackage(tyCon.packageId)
+      )
+      enrichedValue <- enrichValue(Ast.TTyCon(tyCon), pkg.upgradable, value)
+    } yield enrichedValue
 
   private[this] def pkgInterface = compiledPackages.pkgInterface
 
@@ -106,15 +122,19 @@ final class ValueEnricher(
       interfaceId: Option[Identifier],
       choiceName: Name,
       value: Value,
-  ): Result[Value] =
-    handleLookup(
+  ): Result[Value] = for {
+    choice <- handleLookup(
       pkgInterface.lookupChoice(
         Identifier(choicePackageId, qualifiedTemplateName),
         interfaceId,
         choiceName,
       )
     )
-      .flatMap(choice => enrichValue(choice.argBinder._2, value))
+    pkg <- handleLookup(
+      compiledPackages.pkgInterface.lookupPackage(choicePackageId)
+    )
+    enrichedValue <- enrichValue(choice.argBinder._2, pkg.upgradable, value)
+  } yield enrichedValue
 
   // Deprecated
   def enrichChoiceArgument(
@@ -132,21 +152,24 @@ final class ValueEnricher(
     )
 
   def enrichChoiceResult(
-      choicePackageId: PackageId,
+      templatePackageId: PackageId,
       qualifiedTemplateName: QualifiedName,
       interfaceId: Option[Identifier],
       choiceName: Name,
       value: Value,
-  ): Result[Value] = {
-    handleLookup(
+  ): Result[Value] = for {
+    choice <- handleLookup(
       pkgInterface.lookupChoice(
-        Identifier(choicePackageId, qualifiedTemplateName),
+        Identifier(templatePackageId, qualifiedTemplateName),
         interfaceId,
         choiceName,
       )
     )
-      .flatMap(choice => enrichValue(choice.returnType, value))
-  }
+    pkg <- handleLookup(
+      pkgInterface.lookupPackage(interfaceId.fold(templatePackageId)(_.packageId))
+    )
+    enrichedValue <- enrichValue(choice.returnType, pkg.upgradable, value)
+  } yield enrichedValue
 
   // Deprecated
   def enrichChoiceResult(
@@ -163,8 +186,11 @@ final class ValueEnricher(
   )
 
   def enrichContractKey(tyCon: Identifier, value: Value): Result[Value] =
-    handleLookup(pkgInterface.lookupTemplateKey(tyCon))
-      .flatMap(key => enrichValue(key.typ, value))
+    for {
+      key <- handleLookup(pkgInterface.lookupTemplateKey(tyCon))
+      pkg <- handleLookup(pkgInterface.lookupPackage(tyCon.packageId))
+      enrichedValue <- enrichValue(key.typ, pkg.upgradable, value)
+    } yield enrichedValue
 
   private val ResultNone = ResultDone(None)
 
@@ -196,7 +222,8 @@ final class ValueEnricher(
         ResultDone(rb)
       case create: Node.Create =>
         for {
-          arg <- enrichValue(Ast.TTyCon(create.templateId), create.arg)
+          pkg <- handleLookup(pkgInterface.lookupPackage(create.templateId.packageId))
+          arg <- enrichValue(Ast.TTyCon(create.templateId), pkg.upgradable, create.arg)
           key <- enrichContractKey(create.keyOpt, create.version, create.packageName)
         } yield create.copy(arg = arg, keyOpt = key)
       case fetch: Node.Fetch =>

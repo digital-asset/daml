@@ -41,8 +41,9 @@ object Converter extends script.Converter(LanguageMajorVersion.V1) {
     for {
       choice <- Name.fromString(result.choice)
       c <- lookupChoice(result.templateId, result.interfaceId, choice)
+      isUpgradable = upgradableWithInterface(translator, result.templateId, result.interfaceId)
       translated <- translator
-        .translateValue(c.returnType, result.result)
+        .translateValue(c.returnType, isUpgradable, result.result)
         .left
         .map(err => s"Failed to translate exercise result: $err")
     } yield translated
