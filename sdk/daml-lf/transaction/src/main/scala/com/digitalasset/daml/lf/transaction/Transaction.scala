@@ -666,7 +666,6 @@ object Transaction {
   private[lf] case object AliasedNode extends NotWellFormedErrorReason
 
   /** Transaction meta data
-    *
     * @param submissionSeed   Populated with the submission seed when returned from [[com.digitalasset.daml.lf.engine.Engine.submit]].
     * @param submissionTime   The submission time
     * @param usedPackages     The set of all packages that are needed for the interpretation of the command. This
@@ -679,6 +678,7 @@ object Transaction {
     *                         nodes to their seed.
     * @param globalKeyMapping Input key mappings inferred during interpretation.
     * @param disclosedEvents  Disclosed create events that have been used in this transaction.
+    * @param contractPackages The originating package associated with each contract id
     */
   final case class Metadata(
       submissionSeed: Option[crypto.Hash],
@@ -688,6 +688,7 @@ object Transaction {
       nodeSeeds: ImmArray[(NodeId, crypto.Hash)],
       globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
       disclosedEvents: ImmArray[Node.Create],
+      contractPackages: Map[ContractId, PackageId],
   )
 
   def commitTransaction(submittedTransaction: SubmittedTransaction): CommittedTransaction =

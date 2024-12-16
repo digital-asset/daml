@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.transaction.{
 }
 import com.digitalasset.daml.lf.ledger._
 import com.digitalasset.daml.lf.data.Relation
+import com.digitalasset.daml.lf.value.Value.ContractId
 
 import scala.annotation.tailrec
 
@@ -87,11 +88,37 @@ object Blinding {
 
   private[engine] def partyPackages(
       tx: VersionedTransaction,
-      blindingInfo: BlindingInfo,
+      disclosure: Relation[NodeId, Party],
+      contractVisibility: Relation[ContractId, Party],
+      contractPackages: Map[ContractId, Ref.PackageId],
   ): Relation[Party, Ref.PackageId] = {
-    val entries = blindingInfo.disclosure.view.flatMap { case (nodeId, parties) =>
+    Relation.from(
+      disclosedPartyPackages(tx, disclosure) ++
+        contractPartyPackages(contractPackages, contractVisibility)
+    )
+  }
+
+  // These are the packages needed for input contract validation
+  private def contractPartyPackages(
+      contractPackages: Map[ContractId, Ref.PackageId],
+      contractVisibility: Relation[ContractId, Party],
+  ): Iterable[(Party, PackageId)] = {
+    for {
+      (contractId, packageId) <- contractPackages.toSeq
+      party <- contractVisibility.getOrElse(contractId, Set.empty)
+    } yield party -> packageId
+  }
+
+  // These are the package needed for reinterpretation
+  private[engine] def disclosedPartyPackages(
+      tx: VersionedTransaction,
+      disclosure: Relation[NodeId, Party],
+  ): Seq[(Party, PackageId)] = {
+    disclosure.view.flatMap { case (nodeId, parties) =>
       def toEntries(tyCon: Ref.TypeConName) = parties.view.map(_ -> tyCon.packageId)
       tx.nodes(nodeId) match {
+        case fetch: Node.Fetch =>
+          toEntries(fetch.templateId) ++ fetch.interfaceId.toList.view.flatMap(toEntries)
         case action: Node.LeafOnlyAction =>
           toEntries(action.templateId)
         case exe: Node.Exercise =>
@@ -99,12 +126,24 @@ object Blinding {
         case _: Node.Rollback =>
           Iterable.empty
       }
-    }
-    Relation.from(entries)
+    }.toSeq
   }
 
-  /* Calculate the packages needed by a party to interpret the projection   */
-  def partyPackages(tx: VersionedTransaction): Relation[Party, PackageId] =
-    partyPackages(tx, blind(tx))
+  /** Calculate the packages needed by each party in order to reinterpret its projection.
+    *
+    * This needs to include both packages needed by the engine at reinterpretation time
+    * and the originating contract package needed for contract model conformance checking.
+    *
+    * @param tx transaction whose packages are required
+    * @param contractPackages the contracts used by the transaction together with their creating packages
+    */
+  def partyPackages(
+      tx: VersionedTransaction,
+      contractPackages: Map[ContractId, Ref.PackageId] = Map.empty,
+  ): Relation[Party, PackageId] = {
+    val (BlindingInfo(disclosure, _), contractVisibility) =
+      BlindingTransaction.calculateBlindingInfoWithContractVisibility(tx)
+    partyPackages(tx, disclosure, contractVisibility, contractPackages)
+  }
 
 }
