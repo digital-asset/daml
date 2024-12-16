@@ -35,7 +35,7 @@ module Daml.Trigger.LowLevel
   , fromExercise
   , fromExerciseByKey
   , fromCreateAndExercise
-  , RegisteredTemplates(AllInDar, ..)
+  , RegisteredTemplates(..)
   , registeredTemplate
   , RelTime(..)
   , execStateT
@@ -222,10 +222,6 @@ newtype RegisteredTemplate = RegisteredTemplate TemplateTypeRep
 data RegisteredTemplates
   = AllTemplates -- ^ Listen to events for all templates known by the triggers' runner.
   | RegisteredTemplates [RegisteredTemplate]
-
-{-# DEPRECATED AllInDar "Use AllTemplates instead" #-}
-pattern AllInDar : RegisteredTemplates
-pattern AllInDar = AllTemplates
 
 registeredTemplate : forall t. Template t => RegisteredTemplate
 registeredTemplate = RegisteredTemplate (templateTypeRep @t)

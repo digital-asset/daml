@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE PatternSynonyms #-}
 
 module Daml.Trigger
  ( query
@@ -44,6 +45,7 @@ module Daml.Trigger
  , fromArchived
  , CompletionStatus(..)
  , RegisteredTemplates(..)
+ , pattern AllInDar
  , registeredTemplate
  , RelTime(..)
  , getReadAs
@@ -62,6 +64,11 @@ import DA.Optional
 import Daml.Trigger.Internal
 import Daml.Trigger.LowLevel hiding (BatchTrigger, Trigger)
 import qualified Daml.Trigger.LowLevel as LowLevel
+
+-- Deprecated pattern syn, must be top level for exports to work
+{-# DEPRECATED AllInDar "Use AllTemplates instead" #-}
+pattern AllInDar : RegisteredTemplates
+pattern AllInDar = AllTemplates
 
 -- public API
 
