@@ -1,0 +1,120 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module MixedLfVersions (main) where
+
+import UpgradeTestLib
+import qualified V1.MixedLfVersionsInterface as IV1
+import qualified V1.MixedLfVersionsClient as TV1
+
+{- PACKAGE
+name: mixed-lf-versions-dep
+versions: 1
+lf-version: "1.15"
+-}
+
+{- MODULE
+package: mixed-lf-versions-dep
+contents: |
+  module MixedLfVersionsDep where
+
+  data R = R { u : () }
+-}
+
+{- PACKAGE
+name: mixed-lf-versions-interface
+versions: 1
+lf-version: "1.17"
+-}
+
+{- MODULE
+package: mixed-lf-versions-interface
+contents: |
+  module MixedLfVersionsInterface where
+
+  data IV = IV { u : () }
+
+  interface I where
+    viewtype IV
+
+    getTupleWithTrailingOption : (Int, Optional Int)
+    nonconsuming choice GetVersion : (Int, Optional Int)
+      with ctl: Party
+      controller ctl
+      do
+        pure $ getTupleWithTrailingOption this
+-}
+
+{- PACKAGE
+name: mixed-lf-versions-client
+versions: 1
+depends: mixed-lf-versions-interface-1.0.0
+lf-version: "1.17"
+-}
+
+{- MODULE
+package: mixed-lf-versions-client
+contents: |
+  module MixedLfVersionsClient where
+
+  import MixedLfVersionsInterface
+
+  template T with
+      party : Party
+    where
+    signatory party
+
+    interface instance I for T where
+      view = IV ()
+      getTupleWithTrailingOption = (1, None)
+-}
+
+
+{-
+- From daml finance:
+  - (1.17) Interface choice with the return type (X, Optional Y) (where X and Y don't matter).
+  - Implemented by 1.17 template
+  - Daml-script calls this interface choice and "consumes" the result (i.e. the result needs to come across the ledger-api, so don't call from a helper template)
+  - Should break without my fix
+- Continued ^
+  - Also try this with a 1.15 interface choice (still 1.17 template)
+  - Should break without my fix
+- More Continued ^
+  - Try this as a choice directly on a template (drop the interface), keep the template at LF1.17
+- Even more continued ^
+  - Try the above with another LF1.15 data type to replace the tuple, it should ideally be polymorphic in its last field, in which you pass an optional value at type level (i.e. MyType a = MyType with myVal : Text, myAdditional : a with MyType (Optional Text))
+- Lf version tetris
+  - LF1.17 template, with a 1.15 polymoriphic type with an optional value at the end (i.e. data My15PolyType a = My15PolyType with poly : a, opt : Optional Text), which contains (as a) a 1.17 type which we will perform upgrades on (so in V1 no additional fields, in v2 an additional optional field)
+  - Try to query this via daml-script, and maybe also try a separate choice that returns this contract as a payload, ensure it doesnt break
+  - No idea what this will do, should work maybe?
+
+-}
+
+main : TestTree
+main = tests
+  [ ("Call a dynamic choice that returns a tuple with a trailing None", callDynamicChoiceThatReturnsTupleWithTrailingNone)
+  ]
+
+{-
+assertIsUpgradeError : ContractId V2.LfTemplate -> Either SubmitError a -> Script ()
+assertIsUpgradeError contractId (Left (UpgradeError (ContractNotUpgradable foundContractId foundTargetTemplateId foundActualTemplateId) _))
+ | fromAnyContractId @V2.LfTemplate foundContractId == Some contractId &&
+   foundTargetTemplateId == templateTypeRep @V2.LfTemplate &&
+   foundActualTemplateId == templateTypeRep @V1.LfTemplate
+    = pure ()
+assertIsUpgradeError _ (Left e) = fail $ "Expected upgrade error but got " <> show e
+assertIsUpgradeError _ _ = fail "Expected upgrade error but got success"
+
+mustBeWronglyTypedContract : Either SubmitError r -> Script ()
+mustBeWronglyTypedContract (Left (WronglyTypedContract {})) = pure ()
+mustBeWronglyTypedContract (Left e) = assertFail $ "Expected WronglyTypedContract but got: " <> show e
+mustBeWronglyTypedContract _ = assertFail $ "Expected failure and got success"
+-}
+
+callDynamicChoiceThatReturnsTupleWithTrailingNone : Test
+callDynamicChoiceThatReturnsTupleWithTrailingNone = test $ do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createExactCmd TV1.T { party = alice }
+  let icid = toInterfaceContractId @IV1.I cid
+  res <- alice `submit` exerciseExactCmd @IV1.I icid (IV1.GetVersion { ctl = alice })
+  res === (1, None)
