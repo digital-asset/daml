@@ -80,6 +80,16 @@ contents: |
     where
     signatory party
 
+    nonconsuming choice TGetTupleWithTrailingOption : (Int, Optional Int)
+        with ctl: Party
+        controller ctl
+        do pure (1, None)
+
+    nonconsuming choice TGetUserDefinedTupleWithTrailingOption : MyPair Int (Optional Int)
+        with ctl: Party
+        controller ctl
+        do pure (MyPair 1 None)
+
     interface instance I for T where
       view = IV ()
       getTupleWithTrailingOption = (1, None)
@@ -111,6 +121,8 @@ main : TestTree
 main = tests
   [ ("Call a dynamic choice that returns a tuple with a trailing None", callDynamicChoiceThatReturnsTupleWithTrailingNone)
   , ("Call a dynamic choice that returns a user-defined LF 1.15 tuple with a trailing None", callDynamicChoiceThatReturnsUserDefinedTupleWithTrailingNone)
+  , ("Call a choice that returns a tuple with a trailing None", callChoiceThatReturnsTupleWithTrailingNone)
+  , ("Call a choice that returns a user-defined LF 1.15 tuple with a trailing None", callChoiceThatReturnsUserDefinedTupleWithTrailingNone)
   ]
 
 callDynamicChoiceThatReturnsTupleWithTrailingNone : Test
@@ -128,4 +140,19 @@ callDynamicChoiceThatReturnsUserDefinedTupleWithTrailingNone = test $ do
   cid <- alice `submit` createExactCmd TV1.T { party = alice }
   let icid = toInterfaceContractId @IV1.I cid
   res <- alice `submit` exerciseExactCmd @IV1.I icid (IV1.GetUserDefinedTupleWithTrailingOption { ctl = alice })
+  res === DV1.MyPair 1 None
+
+callChoiceThatReturnsTupleWithTrailingNone : Test
+callChoiceThatReturnsTupleWithTrailingNone = test $ do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createExactCmd TV1.T { party = alice }
+  res <- alice `submit` exerciseExactCmd @TV1.T cid (TV1.TGetTupleWithTrailingOption { ctl = alice })
+  res === (1, None)
+
+
+callChoiceThatReturnsUserDefinedTupleWithTrailingNone : Test
+callChoiceThatReturnsUserDefinedTupleWithTrailingNone = test $ do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createExactCmd TV1.T { party = alice }
+  res <- alice `submit` exerciseExactCmd @TV1.T cid (TV1.TGetUserDefinedTupleWithTrailingOption { ctl = alice })
   res === DV1.MyPair 1 None
