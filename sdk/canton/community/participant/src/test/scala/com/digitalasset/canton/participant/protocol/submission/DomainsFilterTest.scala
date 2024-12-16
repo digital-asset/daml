@@ -14,7 +14,6 @@ import com.digitalasset.canton.topology.transaction.VettedPackage
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{DamlLfVersionToProtocolVersions, ProtocolVersion}
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, LfPartyId}
-import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.*
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -217,8 +216,7 @@ private[submission] object DomainsFilterTest {
 
       UsableDomains.check(
         domains = domains,
-        requiredPackagesPerParty = Blinding.partyPackages(tx),
-        transactionVersion = tx.version,
+        transaction = tx,
         ledgerTime = ledgerTime,
       )
     }

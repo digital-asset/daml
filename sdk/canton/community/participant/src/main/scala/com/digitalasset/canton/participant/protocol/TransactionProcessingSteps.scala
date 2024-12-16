@@ -90,7 +90,7 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, LfTransactionUtil}
+import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
 import com.digitalasset.canton.{
   LedgerSubmissionId,
   LfKeyResolver,
@@ -320,53 +320,7 @@ class TransactionProcessingSteps(
           SubmissionErrors.MalformedRequest.Error(message, reason)
         )
 
-      // TODO(#19999): Move this check to the protocol processor's pre-submission validation
-      def check(
-          transaction: LfVersionedTransaction,
-          topologySnapshot: TopologySnapshot,
-      ): FutureUnlessShutdown[Boolean] = {
-
-        val actionNodes = transaction.nodes.values.collect { case an: LfActionNode => an }
-
-        val informeesCheckPartiesPerNode = actionNodes.map { node =>
-          node.informeesOfNode & LfTransactionUtil.stateKnownTo(node)
-        }
-        val signatoriesCheckPartiesPerNode = actionNodes.map { node =>
-          LfTransactionUtil.signatoriesOrMaintainers(node) | LfTransactionUtil.actingParties(node)
-        }
-        val allParties =
-          (informeesCheckPartiesPerNode.flatten ++ signatoriesCheckPartiesPerNode.flatten).toSet
-        val eligibleParticipantsF =
-          topologySnapshot.activeParticipantsOfPartiesWithInfo(allParties.toSeq).map { result =>
-            result.map { case (party, info) =>
-              (party, info.participants.values.exists(_.permission.canConfirm))
-            }
-          }
-
-        eligibleParticipantsF.map { eligibleParticipants =>
-          signatoriesCheckPartiesPerNode.forall { signatoriesForNode =>
-            signatoriesForNode.nonEmpty && signatoriesForNode.forall(eligibleParticipants(_))
-          }
-        }
-      }
-
       val result = for {
-        _ <- EitherT(
-          check(wfTransaction.unwrap, recentSnapshot.ipsSnapshot)
-            .map(
-              Either.cond(
-                _,
-                (),
-                causeWithTemplate(
-                  "Incompatible Domain",
-                  MalformedLfTransaction(
-                    s"No confirmation policy applicable (snapshot at ${recentSnapshot.ipsSnapshot.timestamp})"
-                  ),
-                ),
-              )
-            )
-        )
-
         _ <- submitterInfo.actAs
           .parTraverse(rawSubmitter =>
             EitherT

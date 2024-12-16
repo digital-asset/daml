@@ -10,9 +10,10 @@ import com.digitalasset.canton.tracing.TraceContext
 
 trait OrderingTopologyProvider[E <: Env[E]] {
 
-  /** Get the sequencer topology effective at a given timestamp.
+  /** Get the sequencer topology at a given activation time, i.e., one that incorporates all topology changes
+    *  that have become part of a topology snapshot at or before that time.
     *
-    * @param activationTime The timestamp at which to get the topology snapshot.
+    * @param activationTime The timestamp with which to query the topology client for a topology snapshot.
     *                       See [[TopologyActivationTime]] for details.
     * @param traceContext The trace context.
     * @return A future that completes and yields the requested topology only if at least the immediate

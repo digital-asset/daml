@@ -11,17 +11,18 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.PackageUnknownTo
-import com.digitalasset.canton.protocol.LfLanguageVersion
+import com.digitalasset.canton.protocol.{LfActionNode, LfLanguageVersion, LfVersionedTransaction}
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.EitherTUtil
+import com.digitalasset.canton.util.{EitherTUtil, LfTransactionUtil}
 import com.digitalasset.canton.version.{
   DamlLfVersionToProtocolVersions,
   HashingSchemeVersion,
   ProtocolVersion,
 }
 import com.digitalasset.canton.{LfPackageId, LfPartyId}
+import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.transaction.TransactionVersion
 
 import scala.concurrent.ExecutionContext
@@ -34,8 +35,7 @@ object UsableDomains {
     */
   def check(
       domains: List[(DomainId, ProtocolVersion, TopologySnapshot)],
-      requiredPackagesPerParty: Map[LfPartyId, Set[LfPackageId]],
-      transactionVersion: LfLanguageVersion,
+      transaction: LfVersionedTransaction,
       ledgerTime: CantonTimestamp,
   )(implicit
       ec: ExecutionContext,
@@ -47,8 +47,7 @@ object UsableDomains {
           domainId,
           protocolVersion,
           snapshot,
-          requiredPackagesPerParty,
-          transactionVersion,
+          transaction,
           ledgerTime,
           // TODO(i20688): use ISV to select domain
           Option.empty[HashingSchemeVersion],
@@ -62,14 +61,16 @@ object UsableDomains {
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
       snapshot: TopologySnapshot,
-      requiredPackagesPerParty: Map[LfPartyId, Set[LfPackageId]],
-      transactionVersion: LfLanguageVersion,
+      transaction: LfVersionedTransaction,
       ledgerTime: CantonTimestamp,
       interactiveSubmissionVersionO: Option[HashingSchemeVersion],
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, DomainNotUsedReason, Unit] = {
+
+    val requiredPackagesPerParty = Blinding.partyPackages(transaction)
+    val transactionVersion = transaction.version
 
     val packageVetted: EitherT[FutureUnlessShutdown, UnknownPackage, Unit] =
       checkPackagesVetted(
@@ -80,6 +81,9 @@ object UsableDomains {
       )
     val partiesConnected: EitherT[FutureUnlessShutdown, MissingActiveParticipant, Unit] =
       checkConnectedParties(domainId, snapshot, requiredPackagesPerParty.keySet)
+    val partiesWithConfirmingParticipant
+        : EitherT[FutureUnlessShutdown, MissingActiveParticipant, Unit] =
+      checkConfirmingParties(domainId, transaction, snapshot)
     val compatibleProtocolVersion
         : EitherT[FutureUnlessShutdown, UnsupportedMinimumProtocolVersion, Unit] =
       checkProtocolVersion(domainId, protocolVersion, transactionVersion)
@@ -91,6 +95,7 @@ object UsableDomains {
     for {
       _ <- packageVetted.leftWiden[DomainNotUsedReason]
       _ <- partiesConnected.leftWiden[DomainNotUsedReason]
+      _ <- partiesWithConfirmingParticipant.leftWiden[DomainNotUsedReason]
       _ <- compatibleProtocolVersion.leftWiden[DomainNotUsedReason]
       _ <- compatibleInteractiveSubmissionVersion
     } yield ()
@@ -122,6 +127,29 @@ object UsableDomains {
       )
     }
     .getOrElse(EitherT.pure(()))
+
+  /** Check that every confirming party in the transaction is hosted by an active confirming participant
+    * on domain `domainId`.
+    */
+  private def checkConfirmingParties(
+      domainId: DomainId,
+      transaction: LfVersionedTransaction,
+      snapshot: TopologySnapshot,
+  )(implicit
+      ec: ExecutionContext,
+      tc: TraceContext,
+  ): EitherT[FutureUnlessShutdown, MissingActiveParticipant, Unit] = {
+
+    val actionNodes = transaction.nodes.values.collect { case an: LfActionNode => an }
+
+    val requiredConfirmers = actionNodes.flatMap { node =>
+      LfTransactionUtil.signatoriesOrMaintainers(node) | LfTransactionUtil.actingParties(node)
+    }.toSet
+
+    snapshot
+      .allHaveActiveParticipants(requiredConfirmers, _.canConfirm)
+      .leftMap(MissingActiveParticipant(domainId, _))
+  }
 
   /** Check that every party in `parties` is hosted by an active participant on domain `domainId`
     */

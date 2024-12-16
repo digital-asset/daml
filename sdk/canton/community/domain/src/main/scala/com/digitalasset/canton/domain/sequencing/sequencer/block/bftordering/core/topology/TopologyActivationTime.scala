@@ -6,7 +6,9 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.co
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.topology.processing.EffectiveTime
 
-/** A timestamp that makes a topology change visible from Canton's topology client point of view. */
+/** A topology snapshot query timestamp; the snapshot returned incorporates all topology changes that can
+  *  be considered active at that timestamp.
+  */
 final case class TopologyActivationTime(value: CantonTimestamp)
 
 object TopologyActivationTime {

@@ -22,7 +22,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
@@ -38,22 +37,32 @@ private[driver] final class CantonOrderingTopologyProvider(
   override def getOrderingTopologyAt(activationTime: TopologyActivationTime)(implicit
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Option[(OrderingTopology, CryptoProvider[PekkoEnv])]] = {
-    val name = s"get ordering topology at activation time $activationTime"
 
-    val maxTimestampF = {
-      // To understand if there are (potentially relevant) pending topology changes that have been already
-      //  sequenced but will only become visible after observed time advances through the sequencing
-      //  of further events, we need to retrieve the maximum effective timestamp after the topology processor
-      //  processed everything sequenced up to and including the predecessor of the requested activation timestamp
-      //  (note that `awaitMaxTimestampUS` is exclusive on its input).
-      logger.debug(s"Awaiting max timestamp for snapshot at activation time $activationTime")
+    // The ordering topology for an epoch E is based on the topology snapshot queried on the instant
+    //  just after the sequencing time of the last sequenced event in E-1.
+    //
+    // The ordering topology of E, however, also includes information about whether there are (potentially relevant)
+    //  topology transactions that have been already sequenced in E-1 but have not yet become active: if that is the
+    //  case, that there may be a different ordering topology for E+1 regardless of whether further topology
+    //  transactions are going to be sequenced during E, but simply due to topology transactions sequenced
+    //  in E-1 that may become active during E.
+    //  Knowing that allows the BFT orderer to ensure that an up-to-date ordering topology will be used for E+1 by
+    //  retrieving an up-to-date topology snapshot also when E ends.
+    //
+    // To retrieve this information, we find the maximum activation timestamp known to the topology
+    //  processor after it has processed all events in E-1, and we check if it is greater than the
+    //  activation time corresponding to topology snapshot being used to compute the ordering topology for E.
+
+    logger.debug(s"Awaiting max timestamp for snapshot at activation time $activationTime")
+    val maxTimestampF =
+      // `awaitMaxTimestampUS` is exclusive on its input, so we call it on `activationTime.value`
+      //   rather than on `activationTime.value.immediatePredecessor`.
       cryptoApi.awaitMaxTimestampUS(activationTime.value).map { maxTimestamp =>
         logger.debug(
           s"Max timestamp $maxTimestamp awaited successfully for snapshot at activation time $activationTime"
         )
         maxTimestamp
       }
-    }
 
     logger.debug(s"Querying topology snapshot for activation time $activationTime")
     val snapshotF = cryptoApi.awaitSnapshotUS(activationTime.value)
@@ -99,15 +108,16 @@ private[driver] final class CantonOrderingTopologyProvider(
           peersActiveAt,
           sequencingDynamicParameters,
           activationTime,
-          areTherePendingCantonTopologyChanges = maxTimestamp.exists {
-            case (_, EffectiveTime(maxEffectiveTime)) =>
-              // The comparison is strict to avoid considering the activation time as pending.
-              maxEffectiveTime > activationTime.value
+          areTherePendingCantonTopologyChanges = maxTimestamp.exists { case (_, maxEffectiveTime) =>
+            TopologyActivationTime.fromEffectiveTime(maxEffectiveTime).value > activationTime.value
           },
         )
       topology -> new CantonCryptoProvider(snapshot)
     }
-    PekkoFutureUnlessShutdown(name, topologyWithCryptoProvider)
+    PekkoFutureUnlessShutdown(
+      s"get ordering topology at activation time $activationTime",
+      topologyWithCryptoProvider,
+    )
   }
 
   private def computeFirstKnownAtTimestamps(

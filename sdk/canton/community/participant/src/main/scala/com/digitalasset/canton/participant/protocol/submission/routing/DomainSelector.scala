@@ -15,13 +15,11 @@ import com.digitalasset.canton.participant.protocol.submission.UsableDomains
 import com.digitalasset.canton.participant.sync.TransactionRoutingError
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.RoutingInternalError
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.TopologyErrors.NoDomainForSubmission
-import com.digitalasset.canton.protocol.LfLanguageVersion
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ReassignmentTag.Target
-import com.digitalasset.daml.lf.engine.Blinding
 
 import scala.concurrent.ExecutionContext
 
@@ -89,7 +87,7 @@ private[routing] class DomainSelector(
     transactionData.prescribedDomainO match {
       case Some(prescribedDomain) =>
         for {
-          _ <- validatePrescribedDomain(prescribedDomain, transactionData.version)
+          _ <- validatePrescribedDomain(prescribedDomain)
           domainRank <- domainRankComputation
             .compute(
               contracts,
@@ -124,7 +122,6 @@ private[routing] class DomainSelector(
           // If a domain is prescribed, we use the prescribed one
           singleDomainValidatePrescribedDomain(
             prescribedDomainId,
-            transactionData.version,
             inputContractsDomainIdO,
           )
             .map(_ => prescribedDomainId)
@@ -135,7 +132,6 @@ private[routing] class DomainSelector(
               // If all the contracts are on a single domain, we use this one
               singleDomainValidatePrescribedDomain(
                 inputContractsDomainId,
-                transactionData.version,
                 inputContractsDomainIdO,
               )
                 .map(_ => inputContractsDomainId)
@@ -167,8 +163,7 @@ private[routing] class DomainSelector(
       domains <- EitherT.right(
         UsableDomains.check(
           domains = domainStates,
-          requiredPackagesPerParty = Blinding.partyPackages(transactionData.transaction),
-          transactionVersion = transactionData.transaction.version,
+          transaction = transactionData.transaction,
           ledgerTime = transactionData.ledgerTime,
         )
       )
@@ -193,7 +188,6 @@ private[routing] class DomainSelector(
 
   private def singleDomainValidatePrescribedDomain(
       domainId: DomainId,
-      transactionVersion: LfLanguageVersion,
       inputContractsDomainIdO: Option[DomainId],
   )(implicit
       traceContext: TraceContext
@@ -219,7 +213,7 @@ private[routing] class DomainSelector(
       _ <- validateContainsInputContractsDomainId
 
       // Generic validations
-      _ <- validatePrescribedDomain(domainId, transactionVersion)
+      _ <- validatePrescribedDomain(domainId)
     } yield ()
   }
 
@@ -229,8 +223,8 @@ private[routing] class DomainSelector(
     *
     * - List `domainsOfSubmittersAndInformees` contains `domainId`
     */
-  private def validatePrescribedDomain(domainId: DomainId, transactionVersion: LfLanguageVersion)(
-      implicit traceContext: TraceContext
+  private def validatePrescribedDomain(domainId: DomainId)(implicit
+      traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, Unit] =
     for {
       domainState <- EitherT.fromEither[FutureUnlessShutdown](
@@ -254,8 +248,7 @@ private[routing] class DomainSelector(
           domainId = domainId,
           protocolVersion = protocolVersion,
           snapshot = snapshot,
-          requiredPackagesPerParty = transactionData.requiredPackagesPerParty,
-          transactionVersion = transactionVersion,
+          transaction = transactionData.transaction,
           ledgerTime = transactionData.ledgerTime,
           interactiveSubmissionVersionO = transactionData.externallySignedSubmissionO.map(_.version),
         )
