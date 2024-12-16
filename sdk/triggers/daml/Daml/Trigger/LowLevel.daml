@@ -35,7 +35,8 @@ module Daml.Trigger.LowLevel
   , fromExercise
   , fromExerciseByKey
   , fromCreateAndExercise
-  , RegisteredTemplates(AllInDar, ..)
+  , RegisteredTemplates(..)
+  , pattern AllInDar
   , registeredTemplate
   , RelTime(..)
   , execStateT
