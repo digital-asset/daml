@@ -46,16 +46,18 @@ class TransactionVersionTest(majorLanguageVersion: LanguageMajorVersion)
       ) shouldBe Set(commonVersion)
     }
 
-    // Before upgrades, node version should be max of interface and template version
-    // we also still support coimplements
-    "template version > interface version pre Upgrades" in {
+    "template version > interface version" in {
+      val oldPkg1 = templatePkg.copy(languageVersion = oldVersion)
+      val oldPkg2 = interfacesPkg.copy(languageVersion = oldVersion)
+      val newPkg1 = implementsPkg.copy(languageVersion = newVersion)
+      val newPkg2 = coImplementsPkg.copy(languageVersion = newVersion)
       val pkgs = SpeedyTestLib.typeAndCompile(
         majorLanguageVersion,
         Map(
-          templatePkgId -> templatePkg.copy(languageVersion = olderVersion),
-          interfacesPkgId -> interfacesPkg.copy(languageVersion = olderVersion),
-          implementsPkgId -> implementsPkg.copy(languageVersion = oldVersion),
-          coImplementsPkgId -> coImplementsPkg.copy(languageVersion = oldVersion),
+          templatePkgId -> oldPkg1,
+          interfacesPkgId -> oldPkg2,
+          implementsPkgId -> newPkg1,
+          coImplementsPkgId -> newPkg2,
         ),
       )
 
@@ -73,39 +75,6 @@ class TransactionVersionTest(majorLanguageVersion: LanguageMajorVersion)
         inside(result) { case Right(transaction) =>
           transaction.version shouldBe TransactionVersion.assignNodeVersion(oldVersion)
         }
-      }
-    }
-
-    // Post upgrades, we only consider a node 1.17 if the interface is 1.17
-    // We do not support coimplements
-    "template version > interface version post Upgrades" in {
-      val pkgs = SpeedyTestLib.typeAndCompile(
-        majorLanguageVersion,
-        Map(
-          templatePkgId -> templatePkg, // Unused
-          interfacesPkgId -> interfacesPkg.copy(languageVersion = oldVersion),
-          implementsPkgId -> implementsPkg.copy(languageVersion = newVersion),
-          coImplementsPkgId -> coImplementsPkg, // Unused
-        ),
-      )
-
-      // Only use the implements case, dont support coimplements here
-      val (templateId, interfaceId, contract) =
-        (implementsTemplateId, implementsInterfaceId, implementsContract)
-
-      val result = evaluateBeginExercise(
-        pkgs,
-        templateId,
-        Some(interfaceId),
-        contractId,
-        committers = Set(contractParty),
-        controllers = Set(contractParty),
-        getContract = Map(contractId -> contract),
-      )
-
-      inside(result) { case Right(transaction) =>
-        // Here its still the old version, as the interface is isn't 1.17
-        transaction.version shouldBe TransactionVersion.assignNodeVersion(oldVersion)
       }
     }
 
@@ -141,18 +110,11 @@ class TransactionVersionTest(majorLanguageVersion: LanguageMajorVersion)
 
 private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
-  val (commonVersion, olderVersion, oldVersion, newVersion) = majorLanguageVersion match {
-    case V1 =>
-      (
-        LanguageVersion.default,
-        LanguageVersion.v1_14,
-        LanguageVersion.v1_15,
-        LanguageVersion.v1_dev,
-      )
+  val (commonVersion, oldVersion, newVersion) = majorLanguageVersion match {
+    case V1 => (LanguageVersion.default, LanguageVersion.v1_15, LanguageVersion.v1_17)
     case V2 =>
       (
         // TODO(#17366): Use something like languageVersion.default(V2) once available
-        LanguageVersion.v2_1,
         LanguageVersion.v2_1,
         LanguageVersion.v2_1,
         LanguageVersion.v2_dev,
