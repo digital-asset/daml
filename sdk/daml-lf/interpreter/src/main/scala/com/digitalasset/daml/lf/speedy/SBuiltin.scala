@@ -36,7 +36,6 @@ import java.util
 import scala.annotation.nowarn
 import scala.collection.immutable.TreeSet
 import scala.jdk.CollectionConverters._
-import scala.math.Ordering.Implicits.infixOrderingOps
 
 /** Speedy builtins represent LF functional forms. As such, they *always* have a non-zero arity.
   *
