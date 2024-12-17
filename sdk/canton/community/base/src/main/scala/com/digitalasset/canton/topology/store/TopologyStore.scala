@@ -32,8 +32,8 @@ import com.digitalasset.canton.topology.store.StoredTopologyTransactions.{
   GenericStoredTopologyTransactions,
   PositiveStoredTopologyTransactions,
 }
-import com.digitalasset.canton.topology.store.TopologyStore.Change
 import com.digitalasset.canton.topology.store.TopologyStore.Change.TopologyDelay
+import com.digitalasset.canton.topology.store.TopologyStore.{Change, EffectiveStateChange}
 import com.digitalasset.canton.topology.store.TopologyTransactionRejection.Duplicate
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.store.db.DbTopologyStore
@@ -537,6 +537,24 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[GenericStoredTopologyTransaction]]
+
+  /** Find all effective-time state changes.
+    * One EffectiveStateChange contains all positive transactions which have valid_from == fromEffectiveInclusive for the new state,
+    * and all positive transactions which have valid_until == fromEffectiveInclusive for the old/previous,
+    * but none of those transactions which meet both criteria (transient topology changes).
+    * This query does not return proposals, rejected transactions or removals.
+    *
+    * @param fromEffectiveInclusive If onlyAtEffective is true, look up state change for a single effective time, which should produce at most one result per mapping unique key.
+    *                               If onlyAtEffective is false, this defines the inclusive lower bound for effective time: lookup up all state changes for all effective times bigger than or equal to this.
+    * @param onlyAtEffective Controls whether fromEffectiveInclusive defines a single effective time, or an inclusive lower bound for the query.
+    * @return A sequence of EffectiveStateChange. Neither the sequence, nor the before/after fields in the results are ordered.
+    */
+  def findEffectiveStateChanges(
+      fromEffectiveInclusive: CantonTimestamp,
+      onlyAtEffective: Boolean,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Seq[EffectiveStateChange]]
 }
 
 object TopologyStore {
@@ -639,6 +657,13 @@ object TopologyStore {
           .map(_.nonEmpty),
       timeout,
     )
+
+  final case class EffectiveStateChange(
+      effectiveTime: EffectiveTime,
+      sequencedTime: SequencedTime,
+      before: PositiveStoredTopologyTransactions,
+      after: PositiveStoredTopologyTransactions,
+  )
 }
 
 sealed trait TimeQuery {

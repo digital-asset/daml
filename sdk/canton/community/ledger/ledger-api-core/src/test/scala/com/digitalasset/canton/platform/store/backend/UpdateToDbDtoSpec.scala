@@ -1620,8 +1620,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         updateId = updateId,
         events = events,
         domainId = someDomainId1,
-        sequencerCounter = someSequencerCounter,
-        recordTime = someRecordTime,
+        effectiveTime = someRecordTime,
       )
 
       val dtos = updateToDtos(update)

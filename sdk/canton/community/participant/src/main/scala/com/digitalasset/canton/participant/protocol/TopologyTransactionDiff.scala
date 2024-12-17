@@ -10,7 +10,6 @@ import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransacti
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.TopologyEvent.PartyToParticipantAuthorization
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactions.PositiveSignedTopologyTransactions
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LedgerParticipantId, LedgerTransactionId, LfPartyId}
@@ -20,21 +19,20 @@ private[protocol] object TopologyTransactionDiff {
 
   /** Compute a set of topology events from the old state and the current state
     * @param domainId Domain on which the topology transactions were sequenced
-    * @param old Previous topology state
-    * @param current Current state, after applying the batch of transactions
+    * @param oldRelevantState Previous topology state
+    * @param currentRelevantState Current state, after applying the batch of transactions
     * @param transactions The batch of transactions that lead to the current state
     * @return The set of events and the update_id
     */
   private[protocol] def apply(
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
-      old: PositiveSignedTopologyTransactions,
-      current: PositiveSignedTopologyTransactions,
-      transactions: Seq[GenericSignedTopologyTransaction],
+      oldRelevantState: PositiveSignedTopologyTransactions,
+      currentRelevantState: PositiveSignedTopologyTransactions,
   ): Option[(NonEmpty[Set[TopologyEvent]], LedgerTransactionId)] = {
 
-    val before = partyToParticipant(old)
-    val after = partyToParticipant(current)
+    val before = partyToParticipant(oldRelevantState)
+    val after = partyToParticipant(currentRelevantState)
 
     val added: Set[TopologyEvent] = after.diff(before).map { case (partyId, participantId) =>
       PartyToParticipantAuthorization(partyId, participantId, Submission)
@@ -45,18 +43,33 @@ private[protocol] object TopologyTransactionDiff {
 
     val allEvents: Set[TopologyEvent] = added ++ removed
 
-    NonEmpty.from(allEvents).map((_, updateId(domainId, protocolVersion, transactions)))
+    NonEmpty
+      .from(allEvents)
+      .map((_, updateId(domainId, protocolVersion, oldRelevantState, currentRelevantState)))
   }
 
   private[protocol] def updateId(
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
-      txs: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
+      oldRelevantState: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
+      currentRelevantState: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
   ): LedgerTransactionId = {
 
     val builder = Hash.build(HashPurpose.TopologyUpdateId, HashAlgorithm.Sha256)
+    def addToBuilder(
+        stateTransactions: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]]
+    ): Unit =
+      stateTransactions
+        .map(_.hashOfSignatures(protocolVersion).toHexString)
+        .sorted // for not relying on retrieval order
+        .foreach(builder.add)
+
     builder.add(domainId.toProtoPrimitive)
-    txs.foreach(tx => builder.add(tx.hashOfSignatures(protocolVersion).getCryptographicEvidence))
+    builder.add("old-relevant-state")
+    addToBuilder(oldRelevantState)
+    // the same state-tx can be either current or old, but these hashes should be different
+    builder.add("new-relevant-state")
+    addToBuilder(currentRelevantState)
 
     val hash = builder.finish()
 

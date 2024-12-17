@@ -92,9 +92,13 @@ public class JsonLfReader {
 
   protected void unknownField(String fieldName, List<String> expected, Location loc)
       throws JsonLfDecoder.Error {
-    UnknownValue.read(this); // Consume the value from the reader.
-    throw new JsonLfDecoder.Error(
-        String.format("Unknown field %s (known fields are %s)", fieldName, expected), loc);
+    if (isNull()) { // Fields with a null value are equivalent to an absent field. Accept silently.
+      moveNext();
+    } else {
+      UnknownValue.read(this); // Consume the value from the reader.
+      throw new JsonLfDecoder.Error(
+          String.format("Unknown field %s (known fields are %s)", fieldName, expected), loc);
+    }
   }
 
   /// Used for branching and looping on objects and arrays. ///

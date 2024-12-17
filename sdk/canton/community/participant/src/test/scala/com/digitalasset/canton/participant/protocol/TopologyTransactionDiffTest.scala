@@ -75,7 +75,12 @@ class TopologyTransactionDiffTest
 
       def diffInitialWith(
           newState: Seq[SignedTopologyTransaction[Replace, TopologyMapping]]
-      ) = TopologyTransactionDiff(domainId, testedProtocolVersion, initialTxs, newState, newState)
+      ) = TopologyTransactionDiff(
+        domainId,
+        testedProtocolVersion,
+        initialTxs,
+        newState,
+      )
         .map { case (events, _) =>
           events
         }

@@ -274,10 +274,16 @@ message SequencerDomainState {
   // the domain-id of the sequencer group
   string domain = 1;
 
-  // the signature threshold required to reach consensus
+  // The system can tolerate up to min(threshold - 1, (activeWithSigningKey.size - 1)/3) malicious active sequencers,
+  // where activeWithSigningKey is the set of sequencers from active that have an active OwnerToKeyMapping with a signing key.
+  // In order to make the system resilient against f malicious active sequencers, you need to:
+  // (1) configure threshold := f + 1,
+  // (2) possibly add active sequencers such that f <= (activeWithSigningKey.size - 1)/3.
+  // (3) possibly register signing keys for active sequencers,
   uint32 threshold = 2;
 
   // the list of active sequencers
+  // If a sequencer without an active signing key is added to this set, it has no effect on the topology state.
   repeated string active = 3;
 
   // the list of observing sequencers (uid) within the group (read messages but don't respond)

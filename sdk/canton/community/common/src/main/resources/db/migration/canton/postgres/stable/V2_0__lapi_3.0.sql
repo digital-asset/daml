@@ -421,6 +421,9 @@ CREATE INDEX lapi_events_party_to_participant_event_sequential_id_idx ON lapi_ev
 -- party_id with event_sequential_id for id queries
 CREATE INDEX lapi_events_party_to_participant_event_party_sequential_id_idx ON lapi_events_party_to_participant USING btree (party_id, event_sequential_id);
 
+-- party_id with event_sequential_id for id queries
+CREATE INDEX lapi_events_party_to_participant_event_did_recordt_idx ON lapi_events_party_to_participant USING btree (domain_id, record_time);
+
 ---------------------------------------------------------------------------------------------------
 -- Identity provider configs
 --

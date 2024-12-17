@@ -56,7 +56,7 @@ import java.sql.SQLException
 import java.util.UUID
 import scala.annotation.tailrec
 import scala.collection.immutable.SortedSet
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 import scala.util.{Failure, Success}
 
 /** Database backed sequencer store.
@@ -772,10 +772,25 @@ class DbSequencerStore(
   ): FutureUnlessShutdown[Unit] =
     CloseContext.withCombinedContext(callerCloseContext, this.closeContext, timeouts, logger) {
       cc =>
-        storage.updateUnlessShutdown_(
-          sqlu"update sequencer_watermarks set sequencer_online = false where node_index = $instanceIndex",
-          functionFullName,
-        )(traceContext, cc)
+        val action =
+          sqlu"update sequencer_watermarks set sequencer_online = false where node_index = $instanceIndex"
+            .withStatementParameters(statementInit =
+              // We set a timeout to avoid this query taking too long. This makes sense here as this method is run when
+              // the sequencer is marking itself as offline (e.g during shutdown). In such case we don't want to wait too long
+              // and potentially timing out the shutdown procedure for this.
+              _.setQueryTimeout(
+                storage.dbConfig.parameters.connectionTimeout.toInternal
+                  .toSecondsTruncated(logger)
+                  .unwrap
+              )
+            )
+
+        storage
+          .updateUnlessShutdown_(action, functionFullName)(traceContext, cc)
+          .recover { case _: TimeoutException =>
+            logger.debug(s"goOffline of instance $instanceIndex timed out")
+            if (cc.context.isClosing) UnlessShutdown.AbortedDueToShutdown else UnlessShutdown.unit
+          }
     }
 
   override def goOnline(instanceIndex: Int, now: CantonTimestamp)(implicit

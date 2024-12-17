@@ -10,6 +10,7 @@ import com.digitalasset.canton.config.{
   ProcessingTimeout,
   QueryCostMonitoringConfig,
   SessionSigningKeysConfig,
+  StartupMemoryCheckConfig,
   WatchdogConfig,
 }
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
@@ -34,6 +35,7 @@ object CantonNodeParameters {
     def dbMigrateAndStart: Boolean
     def exitOnFatalFailures: Boolean
     def watchdog: Option[WatchdogConfig]
+    def startupMemoryCheckConfig: StartupMemoryCheckConfig
   }
   object General {
     final case class Impl(
@@ -51,6 +53,7 @@ object CantonNodeParameters {
         override val dbMigrateAndStart: Boolean,
         override val exitOnFatalFailures: Boolean,
         override val watchdog: Option[WatchdogConfig],
+        override val startupMemoryCheckConfig: StartupMemoryCheckConfig,
     ) extends CantonNodeParameters.General
   }
   trait Protocol {
@@ -89,6 +92,7 @@ trait HasGeneralCantonNodeParameters extends CantonNodeParameters.General {
   override def dbMigrateAndStart: Boolean = general.dbMigrateAndStart
   override def exitOnFatalFailures: Boolean = general.exitOnFatalFailures
   override def watchdog: Option[WatchdogConfig] = general.watchdog
+  override def startupMemoryCheckConfig: StartupMemoryCheckConfig = general.startupMemoryCheckConfig
 }
 
 trait HasProtocolCantonNodeParameters extends CantonNodeParameters.Protocol {

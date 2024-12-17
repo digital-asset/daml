@@ -1290,6 +1290,8 @@ class CantonSyncService(
                 missingKeysAlerter,
                 domainHandle.topologyClient,
                 ephemeral.recordOrderPublisher,
+                domainHandle.domainPersistentState.sequencedEventStore,
+                ledgerApiIndexer.asEval.value.ledgerApiStore.value,
                 parameters.experimentalEnableTopologyEvents,
               ),
             missingKeysAlerter,

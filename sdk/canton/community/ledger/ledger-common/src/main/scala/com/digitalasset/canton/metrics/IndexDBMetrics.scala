@@ -312,6 +312,9 @@ class MainIndexDBMetrics(
   val getParticipantId: DatabaseMetrics = createDbMetrics("get_participant_id")
   val getLedgerEnd: DatabaseMetrics = createDbMetrics("get_ledger_end")
   val getCleanDomainIndex: DatabaseMetrics = createDbMetrics("get_clean_domain_index")
+  val getTopologyEventPublishedOnRecordTime: DatabaseMetrics = createDbMetrics(
+    "get_topology_event_published_on_record_time"
+  )
   val getPostProcessingEnd: DatabaseMetrics = createDbMetrics("get_post_processing_end")
   val initializeLedgerParameters: DatabaseMetrics = createDbMetrics(
     "initialize_ledger_parameters"

@@ -116,7 +116,7 @@ class SyncDomain(
     val packageService: Eval[PackageService],
     domainCrypto: DomainSyncCryptoClient,
     identityPusher: ParticipantTopologyDispatcher,
-    topologyProcessorFactory: TopologyTransactionProcessor.Factory,
+    topologyProcessor: TopologyTransactionProcessor,
     missingKeysAlerter: MissingKeysAlerter,
     reassignmentCoordination: ReassignmentCoordination,
     commandProgressTracker: CommandProgressTracker,
@@ -235,9 +235,6 @@ class SyncDomain(
     testingConfig = testingConfig,
     this,
   )
-
-  private val topologyProcessor =
-    topologyProcessorFactory.create(acsCommitmentProcessor.scheduleTopologyTick)
 
   private val trafficProcessor =
     new TrafficControlProcessor(
@@ -1035,6 +1032,9 @@ object SyncDomain {
           clock,
           exitOnFatalFailures = parameters.exitOnFatalFailures,
         )
+        topologyProcessor <- topologyProcessorFactory.create(
+          acsCommitmentProcessor.scheduleTopologyTick
+        )
       } yield new SyncDomain(
         domainId,
         domainHandle,
@@ -1047,7 +1047,7 @@ object SyncDomain {
         packageService,
         domainCrypto,
         identityPusher,
-        topologyProcessorFactory,
+        topologyProcessor,
         missingKeysAlerter,
         reassignmentCoordination,
         commandProgressTracker,

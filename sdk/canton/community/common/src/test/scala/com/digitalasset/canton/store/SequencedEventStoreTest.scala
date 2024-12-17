@@ -1011,5 +1011,25 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with
         }
       }
     }
+
+    "store and retrieve trace context" in {
+      val store = mk()
+
+      val events = List[OrdinarySerializedEvent](
+        mkDeliver(1, CantonTimestamp.ofEpochMilli(100)),
+        mkDeliverEventTc1(2, CantonTimestamp.ofEpochMilli(110)),
+      )
+      for {
+        _ <- store.store(events)
+        tc1 <- store.traceContext(CantonTimestamp.ofEpochMilli(100))
+        tc2 <- store.traceContext(CantonTimestamp.ofEpochMilli(110))
+        tc3 <- store.traceContext(CantonTimestamp.ofEpochMilli(111))
+      } yield {
+        tc1 shouldBe Some(nonEmptyTraceContext2)
+        tc2 shouldBe Some(nonEmptyTraceContext1)
+        tc3 shouldBe None
+      }
+    }
+
   }
 }

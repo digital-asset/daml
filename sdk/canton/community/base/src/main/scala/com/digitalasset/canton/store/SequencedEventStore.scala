@@ -105,6 +105,15 @@ trait SequencedEventStore extends PrunableByTime with NamedLogging with AutoClos
   def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = delete(
     SequencerCounter.Genesis
   )
+
+  /** Look up a TraceContext for a sequenced event
+    *
+    * @param sequencedTimestamp The timestemp which uniquely identifies the sequenced event
+    * @return The TraceContext or None if the sequenced event cannot be found
+    */
+  def traceContext(sequencedTimestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[TraceContext]]
 }
 
 object SequencedEventStore {

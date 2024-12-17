@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant
 
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveNumeric}
+import com.digitalasset.canton.config.StartupMemoryCheckConfig.ReportingLevel
 import com.digitalasset.canton.environment.{CantonNodeParameters, HasGeneralCantonNodeParameters}
 import com.digitalasset.canton.participant.admin.AdminWorkflowConfig
 import com.digitalasset.canton.participant.config.*
@@ -60,6 +61,7 @@ object ParticipantNodeParameters {
       dbMigrateAndStart = false,
       exitOnFatalFailures = true,
       watchdog = None,
+      startupMemoryCheckConfig = StartupMemoryCheckConfig(ReportingLevel.Warn),
     ),
     adminWorkflow = AdminWorkflowConfig(
       bongTestMaxLevel = NonNegativeInt.tryCreate(10)
