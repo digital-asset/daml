@@ -12,6 +12,7 @@ module DA.Test.Process
   , callCommandSilent
   , callCommandSilentIn
   , callCommandSilentWithEnvIn
+  , callProcess
   , subprocessEnv
   ) where
 
@@ -23,6 +24,13 @@ import System.Environment.Blank (getEnvironment)
 import qualified Data.Set as S
 
 newtype ShouldSucceed = ShouldSucceed Bool
+
+callProcess :: FilePath -> [String] -> IO ()
+callProcess cmd args = do
+  (out,err) <- run (ShouldSucceed True) (proc cmd args)
+  hPutStrLn stderr $ unwords (["running", cmd] ++ args)
+  hPutStrLn stderr $ unlines ["stdout: ", out]
+  hPutStrLn stderr $ unlines ["stderr: ", err]
 
 callProcessSilent :: FilePath -> [String] -> IO ()
 callProcessSilent cmd args =

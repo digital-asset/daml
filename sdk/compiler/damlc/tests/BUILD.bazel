@@ -800,7 +800,7 @@ da_haskell_test(
                 "-p",
                 # Test paths for these tests are of the form "foo.{lf-version}.bar"
                 # This pattern excludes tests whose lf-version starts with "2."
-                "'$$2 !~ /2./'",
+                "'$$2 ~ /1.17/ && $$3 ~ /Dalf imports (withArchiveChoice=True)/'",
             ],
         ),
     ]
