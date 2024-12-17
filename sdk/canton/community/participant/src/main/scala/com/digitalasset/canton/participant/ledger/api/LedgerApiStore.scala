@@ -106,6 +106,16 @@ class LedgerApiStore(
       parameterStorageBackend.ledgerEnd
     )
 
+  def topologyEventPublishedOnRecordTime(
+      domainId: DomainId,
+      recordTime: CantonTimestamp,
+  )(implicit
+      traceContext: TraceContext
+  ): Future[Boolean] =
+    executeSql(metrics.index.db.getTopologyEventPublishedOnRecordTime)(
+      eventStorageBackend.topologyEventPublishedOnRecordTime(domainId, recordTime)
+    )
+
   def firstDomainOffsetAfterOrAt(
       domainId: DomainId,
       afterOrAtRecordTimeInclusive: CantonTimestamp,

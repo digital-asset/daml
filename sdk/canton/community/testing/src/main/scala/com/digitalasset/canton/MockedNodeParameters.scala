@@ -4,6 +4,7 @@
 package com.digitalasset.canton
 
 import com.digitalasset.canton.config.*
+import com.digitalasset.canton.config.StartupMemoryCheckConfig.ReportingLevel
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -53,5 +54,9 @@ object MockedNodeParameters {
     override def exitOnFatalFailures: Boolean = true
 
     override def watchdog: Option[WatchdogConfig] = None
+
+    override def startupMemoryCheckConfig: StartupMemoryCheckConfig = StartupMemoryCheckConfig(
+      ReportingLevel.Warn
+    )
   }
 }

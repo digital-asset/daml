@@ -347,6 +347,23 @@ class DbSequencedEventStore(
       sqlu"delete from common_sequenced_events where domain_idx = $partitionKey and sequencer_counter >= $fromInclusive",
       functionFullName,
     )
+
+  override def traceContext(sequencedTimestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[TraceContext]] = {
+    val query =
+      sql"""select trace_context
+            from common_sequenced_events
+             where domain_idx = $partitionKey
+               and ts = $sequencedTimestamp"""
+    storage
+      .querySingleUnlessShutdown(
+        query.as[SerializableTraceContext].headOption,
+        functionFullName,
+      )
+      .map(_.unwrap)
+      .value
+  }
 }
 
 object DbSequencedEventStore {

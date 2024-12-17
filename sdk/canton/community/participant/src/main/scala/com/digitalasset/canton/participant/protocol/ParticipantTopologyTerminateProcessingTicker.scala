@@ -9,7 +9,6 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{SequencerCounter, topology}
 
@@ -27,7 +26,6 @@ class ParticipantTopologyTerminateProcessingTicker(
       sc: SequencerCounter,
       sequencedTime: SequencedTime,
       effectiveTime: EffectiveTime,
-      transactions: Seq[GenericSignedTopologyTransaction],
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,

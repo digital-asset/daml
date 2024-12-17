@@ -29,6 +29,7 @@ import com.digitalasset.canton.config.ConfigErrors.{
 import com.digitalasset.canton.config.InitConfigBase.NodeIdentifierConfig
 import com.digitalasset.canton.config.PackageMetadataViewConfig
 import com.digitalasset.canton.config.RequireTypes.*
+import com.digitalasset.canton.config.StartupMemoryCheckConfig.ReportingLevel
 import com.digitalasset.canton.console.{AmmoniteConsoleConfig, FeatureFlag}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.kms.driver.v1.DriverKms
@@ -250,6 +251,9 @@ final case class CantonParameters(
     retentionPeriodDefaults: RetentionPeriodDefaults = RetentionPeriodDefaults(),
     console: AmmoniteConsoleConfig = AmmoniteConsoleConfig(),
     exitOnFatalFailures: Boolean = true,
+    startupMemoryCheckConfig: StartupMemoryCheckConfig = StartupMemoryCheckConfig(
+      ReportingLevel.Warn
+    ),
 ) {
   def getStartupParallelism(numThreads: Int): Int =
     startupParallelism.fold(numThreads)(_.value)
@@ -511,6 +515,7 @@ private[canton] object CantonNodeParameterConverter {
       dbMigrateAndStart = node.storage.parameters.migrateAndStart,
       exitOnFatalFailures = parent.parameters.exitOnFatalFailures,
       watchdog = node.parameters.watchdog,
+      startupMemoryCheckConfig = parent.parameters.startupMemoryCheckConfig,
     )
 
   def protocol(parent: CantonConfig, config: ProtocolConfig): CantonNodeParameters.Protocol =
@@ -1019,6 +1024,13 @@ object CantonConfig {
       deriveReader[CantonFeatures]
     lazy implicit final val cantonWatchdogConfigReader: ConfigReader[WatchdogConfig] =
       deriveReader[WatchdogConfig]
+
+    lazy implicit final val reportingLevelReader
+        : ConfigReader[StartupMemoryCheckConfig.ReportingLevel] =
+      deriveEnumerationReader[StartupMemoryCheckConfig.ReportingLevel]
+
+    lazy implicit final val startupMemoryCheckConfigReader: ConfigReader[StartupMemoryCheckConfig] =
+      deriveReader[StartupMemoryCheckConfig]
   }
 
   /** writers
@@ -1494,6 +1506,13 @@ object CantonConfig {
       deriveWriter[CantonFeatures]
     lazy implicit final val cantonWatchdogConfigWriter: ConfigWriter[WatchdogConfig] =
       deriveWriter[WatchdogConfig]
+
+    lazy implicit final val reportingLevelWriter
+        : ConfigWriter[StartupMemoryCheckConfig.ReportingLevel] =
+      deriveEnumerationWriter[StartupMemoryCheckConfig.ReportingLevel]
+
+    lazy implicit final val startupMemoryCheckConfigWriter: ConfigWriter[StartupMemoryCheckConfig] =
+      deriveWriter[StartupMemoryCheckConfig]
   }
 
   /** Parses and merges the provided configuration files into a single [[com.typesafe.config.Config]].

@@ -228,20 +228,21 @@ object Update {
       updateId: Ref.TransactionId,
       events: Set[TopologyTransactionEffective.TopologyEvent],
       domainId: DomainId,
-      sequencerCounter: SequencerCounter,
-      recordTime: CantonTimestamp,
+      effectiveTime: CantonTimestamp,
       persisted: Promise[Unit] = Promise(),
   )(implicit override val traceContext: TraceContext)
-      extends SequencedUpdate {
+      extends FloatingUpdate {
+
+    // Topology transactions emitted to the update stream at effective time
+    override def recordTime: CantonTimestamp = effectiveTime
+
     override def pretty: Pretty[TopologyTransactionEffective] =
       prettyOfClass(
-        param("recordTime", _.recordTime),
+        param("effectiveTime", _.effectiveTime),
         param("domainId", _.domainId),
         param("updateId", _.updateId),
         indicateOmittedFields,
       )
-
-    override def requestCounterO: Option[RequestCounter] = None
   }
 
   object TopologyTransactionEffective {

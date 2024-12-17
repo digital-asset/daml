@@ -328,6 +328,9 @@ object MediatorId {
 }
 
 /** Contains only sequencers from SequencerDomainState that also have at least 1 signing key.
+  *
+  * When reading `threshold`, recall the contract of `SequencerDomainState`:
+  * The system must tolerate up to `min(threshold - 1, (active.size - 1)/3)` malicious active sequencers.
   */
 final case class SequencerGroup(
     active: Seq[SequencerId],

@@ -201,6 +201,17 @@ class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactor
       })
     }
 
+  override def traceContext(
+      sequencedTimestamp: CantonTimestamp
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[TraceContext]] =
+    FutureUnlessShutdown.pure(
+      blocking(
+        lock.synchronized(
+          eventByTimestamp.get(sequencedTimestamp).map(_.traceContext)
+        )
+      )
+    )
+
   private def deleteEmptyIgnoredEvents(
       from: SequencerCounter,
       to: SequencerCounter,

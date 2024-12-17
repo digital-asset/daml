@@ -5,7 +5,6 @@ package com.digitalasset.canton.topology.processing
 
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
@@ -22,7 +21,6 @@ trait TerminateProcessing {
       sc: SequencerCounter,
       sequencedTime: SequencedTime,
       effectiveTime: EffectiveTime,
-      transactions: Seq[GenericSignedTopologyTransaction],
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
@@ -40,7 +38,6 @@ object TerminateProcessing {
         sc: SequencerCounter,
         sequencedTime: SequencedTime,
         effectiveTime: EffectiveTime,
-        transactions: Seq[GenericSignedTopologyTransaction],
     )(implicit
         traceContext: TraceContext,
         executionContext: ExecutionContext,

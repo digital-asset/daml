@@ -10,12 +10,14 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
+import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.protocol.{
   ParticipantTopologyTerminateProcessing,
   ParticipantTopologyTerminateProcessingTicker,
 }
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.store.SequencedEventStore
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.client.*
@@ -47,45 +49,68 @@ class TopologyComponentFactory(
       missingKeysAlerter: MissingKeysAlerter,
       topologyClient: DomainTopologyClientWithInit,
       recordOrderPublisher: RecordOrderPublisher,
+      sequencedEventStore: SequencedEventStore,
+      ledgerApiStore: LedgerApiStore,
       experimentalEnableTopologyEvents: Boolean,
   ): TopologyTransactionProcessor.Factory = new TopologyTransactionProcessor.Factory {
     override def create(
         acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit
-    )(implicit executionContext: ExecutionContext): TopologyTransactionProcessor = {
+    )(implicit
+        traceContext: TraceContext,
+        executionContext: ExecutionContext,
+    ): FutureUnlessShutdown[TopologyTransactionProcessor] = {
 
-      val terminateTopologyProcessing =
+      val terminateTopologyProcessingFUS =
         if (experimentalEnableTopologyEvents) {
-          new ParticipantTopologyTerminateProcessing(
+          val participantTerminateProcessing = new ParticipantTopologyTerminateProcessing(
             domainId,
             protocolVersion,
             recordOrderPublisher,
             topologyStore,
+            recordOrderPublisher.initTimestamp,
             loggerFactory,
           )
+          for {
+            topologyEventPublishedOnInitialRecordTime <- FutureUnlessShutdown.outcomeF(
+              ledgerApiStore.topologyEventPublishedOnRecordTime(
+                domainId,
+                recordOrderPublisher.initTimestamp,
+              )
+            )
+            _ <- participantTerminateProcessing.scheduleMissingTopologyEventsAtInitialization(
+              topologyEventPublishedOnInitialRecordTime = topologyEventPublishedOnInitialRecordTime,
+              traceContextForSequencedEvent = sequencedEventStore.traceContext(_),
+              parallelism = batching.parallelism.value,
+            )
+          } yield participantTerminateProcessing
         } else {
-          new ParticipantTopologyTerminateProcessingTicker(
-            recordOrderPublisher,
-            domainId,
-            loggerFactory,
+          FutureUnlessShutdown.pure(
+            new ParticipantTopologyTerminateProcessingTicker(
+              recordOrderPublisher,
+              domainId,
+              loggerFactory,
+            )
           )
         }
 
-      val processor = new TopologyTransactionProcessor(
-        domainId,
-        new DomainCryptoPureApi(staticDomainParameters, crypto.pureCrypto),
-        topologyStore,
-        acsCommitmentScheduleEffectiveTime,
-        terminateTopologyProcessing,
-        futureSupervisor,
-        exitOnFatalFailures = exitOnFatalFailures,
-        timeouts,
-        loggerFactory,
-      )
-      // subscribe party notifier to topology processor
-      processor.subscribe(partyNotifier.attachToTopologyProcessor())
-      processor.subscribe(missingKeysAlerter.attachToTopologyProcessor())
-      processor.subscribe(topologyClient)
-      processor
+      terminateTopologyProcessingFUS.map { terminateTopologyProcessing =>
+        val processor = new TopologyTransactionProcessor(
+          domainId,
+          new DomainCryptoPureApi(staticDomainParameters, crypto.pureCrypto),
+          topologyStore,
+          acsCommitmentScheduleEffectiveTime,
+          terminateTopologyProcessing,
+          futureSupervisor,
+          exitOnFatalFailures = exitOnFatalFailures,
+          timeouts,
+          loggerFactory,
+        )
+        // subscribe party notifier to topology processor
+        processor.subscribe(partyNotifier.attachToTopologyProcessor())
+        processor.subscribe(missingKeysAlerter.attachToTopologyProcessor())
+        processor.subscribe(topologyClient)
+        processor
+      }
     }
   }
 

@@ -1696,4 +1696,26 @@ abstract class EventStorageBackendTemplate(
           """
       .withFetchSize(Some(eventSequentialIds.size))
       .asVectorOf(partyToParticipantEventParser(stringInterning))(connection)
+
+  override def topologyEventPublishedOnRecordTime(
+      domainId: DomainId,
+      recordTime: CantonTimestamp,
+  )(connection: Connection): Boolean =
+    stringInterning.domainId.tryInternalize(domainId) match {
+      case Some(domainInternedId) =>
+        SQL"""
+          SELECT event_offset
+          FROM lapi_events_party_to_participant
+          WHERE record_time = ${recordTime.toMicros}
+                AND domain_id = $domainInternedId
+          ORDER BY domain_id ASC, record_time ASC
+          ${QueryStrategy.limitClause(Some(1))}
+          """
+          .asVectorOf(offset("event_offset"))(connection)
+          .headOption
+          .exists(offset => Option(offset) <= ledgerEndCache().map(_.lastOffset))
+
+      case None =>
+        false
+    }
 }

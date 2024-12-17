@@ -14,6 +14,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.admin.v30 as adminV30
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
+import com.digitalasset.canton.topology.store.TopologyStore.EffectiveStateChange
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.version.*
 
@@ -85,6 +86,41 @@ final case class StoredTopologyTransactions[+Op <: TopologyChangeOp, +M <: Topol
         })
       }
       .getOrElse(this) // this case is triggered by `result` being empty
+
+  def toEffectiveStateChanges(
+      fromEffectiveInclusive: CantonTimestamp,
+      onlyAtEffective: Boolean,
+  ): Seq[EffectiveStateChange] = {
+    val validFromMap = result.groupBy(_.validFrom)
+    val validUntilMap = result.groupBy(_.validUntil)
+    // can contain effective times which are not meeting the effective criteria
+    // (because the other valid field was meeting the criteria for the underlying tx)
+    val allEffectiveTimes = validFromMap.keysIterator
+      .++(validUntilMap.keysIterator.flatten)
+      .toSet
+      .toSeq
+    for {
+      effectiveTime <- allEffectiveTimes
+      // only care about effective times, which meet the criteria
+      if effectiveTime.value == fromEffectiveInclusive ||
+        (!onlyAtEffective && effectiveTime.value > fromEffectiveInclusive)
+      before = validUntilMap.getOrElse(Some(effectiveTime), Seq.empty)
+      after = validFromMap.getOrElse(effectiveTime, Seq.empty)
+      // for one sequenced time there is only one effective time
+      // invariant: valid_until effective times always paired with a replace/remove with valid_from = the same effective time
+      sequencedTime <- after.headOption.map(_.sequenced)
+      positiveBefore = StoredTopologyTransactions(before).collectOfType[TopologyChangeOp.Replace]
+      positiveAfter = StoredTopologyTransactions(after).collectOfType[TopologyChangeOp.Replace]
+      // not caring about transactions resulting in no state change
+      if positiveBefore.result.nonEmpty || positiveAfter.result.nonEmpty
+    } yield EffectiveStateChange(
+      effectiveTime = effectiveTime,
+      sequencedTime = sequencedTime,
+      before = positiveBefore,
+      after = positiveAfter,
+    )
+  }
+
 }
 
 object StoredTopologyTransactions

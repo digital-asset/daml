@@ -493,7 +493,6 @@ class TopologyTransactionProcessor(
           sc,
           sequencingTimestamp,
           effectiveTimestamp,
-          validTransactions,
         )
       )
     } yield ()
@@ -537,7 +536,10 @@ object TopologyTransactionProcessor {
   abstract class Factory {
     def create(
         acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit
-    )(implicit executionContext: ExecutionContext): TopologyTransactionProcessor
+    )(implicit
+        traceContext: TraceContext,
+        executionContext: ExecutionContext,
+    ): FutureUnlessShutdown[TopologyTransactionProcessor]
   }
 
   def createProcessorAndClientForDomain(

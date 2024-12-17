@@ -27,6 +27,7 @@ import com.digitalasset.canton.topology.store.StoredTopologyTransactions.{
   GenericStoredTopologyTransactions,
   PositiveStoredTopologyTransactions,
 }
+import com.digitalasset.canton.topology.store.TopologyStore.EffectiveStateChange
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
@@ -902,6 +903,29 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
     }
     storage.updateUnlessShutdown_(query, functionFullName)
 
+  }
+
+  override def findEffectiveStateChanges(
+      fromEffectiveInclusive: CantonTimestamp,
+      onlyAtEffective: Boolean,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Seq[EffectiveStateChange]] = {
+    val effectiveOperator = if (onlyAtEffective) "=" else ">="
+    val subQuery =
+      sql""" AND (
+               valid_from #$effectiveOperator $fromEffectiveInclusive
+               OR valid_until #$effectiveOperator $fromEffectiveInclusive
+             )
+             AND (valid_until IS NULL OR valid_from != valid_until)
+             AND is_proposal = false """
+    queryForTransactions(
+      subQuery = subQuery,
+      operation = "findPositiveTransactionsForEffectiveStateChanges",
+      limit = "", // all transactions are needed meeting the criteria
+      orderBy = "", // not caring about the order
+      includeRejected = false,
+    ).map(_.toEffectiveStateChanges(fromEffectiveInclusive, onlyAtEffective))
   }
 
   private def asOfQuery(asOf: CantonTimestamp, asOfInclusive: Boolean): SQLActionBuilder =

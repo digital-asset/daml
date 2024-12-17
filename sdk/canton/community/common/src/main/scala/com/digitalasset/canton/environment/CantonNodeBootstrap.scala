@@ -441,7 +441,10 @@ abstract class CantonNodeBootstrapImpl[
 
     override protected def attempt()(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, String, Option[SetupNodeId]] =
+    ): EitherT[FutureUnlessShutdown, String, Option[SetupNodeId]] = {
+      // we check the memory configuration before starting the node
+      MemoryConfigChecker.check(parameterConfig.startupMemoryCheckConfig, logger)
+
       // crypto factory doesn't write to the db during startup, hence,
       // we won't have "isPassive" issues here
       performUnlessClosingEitherUSF("create-crypto")(
@@ -512,6 +515,7 @@ abstract class CantonNodeBootstrapImpl[
             )
           }
       )
+    }
   }
 
   private class SetupNodeId(

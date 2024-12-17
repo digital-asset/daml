@@ -376,6 +376,11 @@ trait EventStorageBackend {
   def topologyPartyEventBatch(
       eventSequentialIds: Iterable[Long]
   )(connection: Connection): Vector[RawParticipantAuthorization]
+
+  def topologyEventPublishedOnRecordTime(
+      domainId: DomainId,
+      recordTime: CantonTimestamp,
+  )(connection: Connection): Boolean
 }
 
 object EventStorageBackend {
