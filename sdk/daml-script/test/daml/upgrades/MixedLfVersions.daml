@@ -100,7 +100,7 @@ contents: |
 -}
 
 {- PACKAGE
-name: mixed-lf-versions-client
+name: mixed-lf-versions-template
 versions: 1
 depends: |
   mixed-lf-versions-interface-lf117-1.0.0
@@ -110,7 +110,7 @@ lf-version: "1.17"
 -}
 
 {- MODULE
-package: mixed-lf-versions-client
+package: mixed-lf-versions-template
 contents: |
   module MixedLfVersionsTemplate where
 
