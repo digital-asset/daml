@@ -6,12 +6,13 @@ module MixedLfVersions (main) where
 import UpgradeTestLib
 import qualified V1.MixedLfVersionsInterfaceLF117 as I117
 import qualified V1.MixedLfVersionsInterfaceLF115 as I115
-import qualified V1.MixedLfVersionsClient as T117
+import qualified V1.MixedLfVersionsTemplate as T117
 import qualified V1.MixedLfVersionsDep as D115
 import qualified V1.MixedLfVersionsRecord as RV1
 import qualified V2.MixedLfVersionsRecord as RV2
 import qualified V1.MixedLfVersionsPayload as PV1
 import qualified V2.MixedLfVersionsPayload as PV2
+import qualified V1.MixedLfVersionsPayloadClient as PC
 
 {- PACKAGE
 name: mixed-lf-versions-dep
@@ -111,7 +112,7 @@ lf-version: "1.17"
 {- MODULE
 package: mixed-lf-versions-client
 contents: |
-  module MixedLfVersionsClient where
+  module MixedLfVersionsTemplate where
 
   import qualified MixedLfVersionsInterfaceLF117 as I117
   import qualified MixedLfVersionsInterfaceLF115 as I115
@@ -186,6 +187,43 @@ contents: |
     signatory party
 -}
 
+{- PACKAGE
+name: mixed-lf-versions-payload-client
+versions: 1
+depends: |
+  mixed-lf-versions-dep-1.0.0
+  mixed-lf-versions-record-1.0.0
+  mixed-lf-versions-record-2.0.0
+  mixed-lf-versions-payload-1.0.0
+  mixed-lf-versions-payload-2.0.0
+lf-version: "1.17"
+-}
+
+{- MODULE
+package: mixed-lf-versions-payload-client
+contents: |
+  module MixedLfVersionsPayloadClient where
+
+  import MixedLfVersionsDep
+  import qualified V1.MixedLfVersionsRecord as V1
+  import qualified V2.MixedLfVersionsRecord as V2
+  import qualified V1.MixedLfVersionsPayload as V1
+  import qualified V2.MixedLfVersionsPayload as V2
+
+  template Client with
+      party : Party
+    where
+    signatory party
+
+    nonconsuming choice UpgradePayload : V2.T
+      with ctl: Party
+      controller ctl
+      do
+        cid <- create V1.T { party = party, tuple = (V1.R 1, None), userDefinedTuple = MyPair (V1.R 1) None }
+        let v2Cid = coerceContractId @V1.T @V2.T cid
+        fetch v2Cid
+-}
+
 
 {-
 - From daml finance:
@@ -219,7 +257,8 @@ main = tests
   , ("Call a LF 1.15 dynamic choice that returns a user-defined LF 1.15 tuple with a trailing None", call115DynamicChoiceThatReturnsUserDefinedTupleWithTrailingNone)
   , ("Call a LF 1.17 choice that returns a tuple with a trailing None", callChoiceThatReturnsTupleWithTrailingNone)
   , ("Call a LF 1.17 choice that returns a user-defined LF 1.15 tuple with a trailing None", callChoiceThatReturnsUserDefinedTupleWithTrailingNone)
-  , ("Upgrade a LF 1.17 contract that has builtin and user-defined pairs of upgradable types as fields", upgradePairsOfUpgradableTypes)
+  , ("Have daml-script upgrade a LF 1.17 contract that has builtin and user-defined pairs of upgradable types as fields", upgradePairsOfUpgradableTypesDamlScriptRunner)
+  , ("Have the engine upgrade a LF 1.17 contract that has builtin and user-defined pairs of upgradable types as fields", upgradePairsOfUpgradableTypesEngine)
   ]
 
 call117DynamicChoiceThatReturnsTupleWithTrailingNone : Test
@@ -268,10 +307,17 @@ callChoiceThatReturnsUserDefinedTupleWithTrailingNone = test $ do
   res <- alice `submit` exerciseExactCmd @T117.T cid (T117.TGetUserDefinedTupleWithTrailingOption { ctl = alice })
   res === D115.MyPair 117 None
 
-upgradePairsOfUpgradableTypes : Test
-upgradePairsOfUpgradableTypes = test $ do
+upgradePairsOfUpgradableTypesDamlScriptRunner : Test
+upgradePairsOfUpgradableTypesDamlScriptRunner = test $ do
   alice <- allocateParty "alice"
   cid <- alice `submit` createExactCmd (PV1.T alice (RV1.R 1, None) (D115.MyPair (RV1.R 1) None))
   let v2Cid = coerceContractId @PV1.T @PV2.T cid
   res <- alice `queryContractId` v2Cid
   res === Some (PV2.T alice (RV2.R 1 None, None) (D115.MyPair (RV2.R 1 None) None))
+
+upgradePairsOfUpgradableTypesEngine : Test
+upgradePairsOfUpgradableTypesEngine = test $ do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createExactCmd (PC.Client alice)
+  res <- alice `submit` exerciseExactCmd @PC.Client cid (PC.UpgradePayload alice)
+  res === PV2.T alice (RV2.R 1 None, None) (D115.MyPair (RV2.R 1 None) None)
