@@ -291,9 +291,15 @@ class ModelConformanceChecker(
         .leftWiden[Error]
         .mapK(FutureUnlessShutdown.outcomeK)
 
-      (lfTx, metadata, resolverFromReinterpretation, usedPackages) = lfTxAndMetadata
+      (lfTx, metadata, resolverFromReinterpretation, inputContractsCreationPackage, usedPackages) =
+        lfTxAndMetadata
 
-      _ <- checkPackageVetting(view, topologySnapshot, usedPackages)
+      _ <- checkPackageVetting(
+        informees = view.viewCommonData.tryUnwrap.viewConfirmationParameters.informeesIds,
+        snapshot = topologySnapshot,
+        inputContractsCreationPackageIds = inputContractsCreationPackage,
+        usedPackageIds = usedPackages,
+      )
 
       // For transaction views of protocol version 3 or higher,
       // the `resolverFromReinterpretation` is the same as the `resolverFromView`.
@@ -337,22 +343,16 @@ class ModelConformanceChecker(
   }
 
   private def checkPackageVetting(
-      view: TransactionView,
+      informees: Set[LfPartyId],
       snapshot: TopologySnapshot,
+      inputContractsCreationPackageIds: Set[PackageId],
       usedPackageIds: Set[PackageId],
-  )(implicit
-      traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Error, Unit] = {
-    val inputContractPackages =
-      view.inputContracts.values
-        .map(_.contract.contractInstance.unversioned.template.packageId)
-        .toSet
-
     val packageRequirements =
-      PackageRequirements(checkOnly = inputContractPackages, vetted = usedPackageIds).normalized
-
-    val informees: Set[LfPartyId] =
-      view.viewCommonData.tryUnwrap.viewConfirmationParameters.informeesIds
+      PackageRequirements(
+        checkOnly = inputContractsCreationPackageIds,
+        vetted = usedPackageIds,
+      ).normalized
 
     def handlePackageStateCheck(
         check: => EitherT[FutureUnlessShutdown, PackageId, Seq[(ParticipantId, Set[PackageId])]],
@@ -574,6 +574,8 @@ object ModelConformanceChecker {
     )
   }
 
+  // Unknown package, topology-wise
+  // i.e. It is neither vetted nor check-only
   final case class UnknownPackages(
       unknown: Map[ParticipantId, Set[PackageId]]
   ) extends PackageError {

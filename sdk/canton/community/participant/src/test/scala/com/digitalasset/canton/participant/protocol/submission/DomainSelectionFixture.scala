@@ -71,7 +71,7 @@ private[submission] object DomainSelectionFixture extends TestIdFactory {
         },
         participants =
           participants.map(_ -> ParticipantAttributes(Submission, TrustLevel.Vip)).toMap,
-        packages = participants.view.map(VettedPackages(_, packages)).toSeq,
+        vettedPackages = participants.view.map(VettedPackages(_, packages)).toSeq,
       ).build()
 
       testingIdentityFactory.topologySnapshot()

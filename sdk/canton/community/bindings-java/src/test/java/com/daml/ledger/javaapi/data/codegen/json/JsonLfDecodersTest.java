@@ -530,7 +530,8 @@ public class JsonLfDecodersTest {
         eq("{\"i\":[],\"b\":true}", new SomeRecord(asList(), true)),
         eq("{\"i\":[1,2],\"b\":true}", new SomeRecord(asList(1L, 2L), true)),
         eq("{\"b\":true,\"i\":[1]}", new SomeRecord(asList(1L), true)),
-        eq("{\"i\":[1]}", new SomeRecord(asList(1L), false)));
+        eq("{\"i\":[1]}", new SomeRecord(asList(1L), false)),
+        eq("{\"extra\":  null\n, \"i\":[1], \"wtf\":null}", new SomeRecord(asList(1L), false)));
   }
 
   @Test

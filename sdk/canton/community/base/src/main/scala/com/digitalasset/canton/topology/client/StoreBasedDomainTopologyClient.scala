@@ -35,6 +35,7 @@ import com.digitalasset.canton.topology.store.{
 }
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
+import com.digitalasset.canton.util.EitherTUtil.syntax.FunctorToEitherT
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
 import com.digitalasset.canton.{DiscardOps, LfPartyId, SequencerCounter}
@@ -744,20 +745,14 @@ class StoreBasedTopologySnapshot(
       }
     )
 
-    lazy val dependenciesET = packageDependencies.packageDependencies(packageId).value
-
-    EitherT(for {
-      packages <- packagesInQueriedTopologyMappings
+    for {
+      dependencies <- packageDependencies.packageDependencies(packageId)
+      packages <- packagesInQueriedTopologyMappings.toEitherTRight[PackageId]
       // check that the main package is included in the target topology mappings
-      res <-
-        if (!packages.contains(packageId))
-          FutureUnlessShutdown.pure(Right(Set(packageId)))
-        else {
-          // check which of the dependencies aren't included
-          dependenciesET.map(_.map(_ -- packages))
-        }
-    } yield res)
-
+      res <- FutureUnlessShutdown
+        .pure(if (!packages.contains(packageId)) Set(packageId) else dependencies -- packages)
+        .toEitherTRight[PackageId]
+    } yield res
   }
 
   /** returns the list of currently known mediators
