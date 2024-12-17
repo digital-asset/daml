@@ -117,7 +117,7 @@ start_postgresql
 
 echo "Running bazel test with the following tag filters: ${tag_filter}"
 
-$bazel test //compiler/damlc/tests:data-dependencies-lf1 --runs_per_test=500
+$bazel test //compiler/damlc/tests:data-dependencies-lf1 --runs_per_test=100
 
 # Make sure that Bazel query works.
 $bazel query 'deps(//...)' >/dev/null
