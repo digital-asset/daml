@@ -1,0 +1,298 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module MixedLfVersions (main) where
+
+import UpgradeTestLib
+import qualified V1.MixedLfVersionsInterfaceLF117 as I117
+import qualified V1.MixedLfVersionsInterfaceLF115 as I115
+import qualified V1.MixedLfVersionsTemplate as T117
+import qualified V1.MixedLfVersionsDep as D115
+import qualified V1.MixedLfVersionsRecord as RV1
+import qualified V2.MixedLfVersionsRecord as RV2
+import qualified V1.MixedLfVersionsPayload as PV1
+import qualified V2.MixedLfVersionsPayload as PV2
+import qualified V1.MixedLfVersionsPayloadClient as PC
+
+{- PACKAGE
+name: mixed-lf-versions-dep
+versions: 1
+lf-version: "1.15"
+-}
+
+{- MODULE
+package: mixed-lf-versions-dep
+contents: |
+  module MixedLfVersionsDep where
+
+  data MyPair a b = MyPair { fst : a, snd : b }
+    deriving (Eq, Show)
+-}
+
+{- PACKAGE
+name: mixed-lf-versions-interface-lf117
+depends: mixed-lf-versions-dep-1.0.0
+versions: 1
+lf-version: "1.17"
+-}
+
+{- MODULE
+package: mixed-lf-versions-interface-lf117
+contents: |
+  module MixedLfVersionsInterfaceLF117 where
+
+  import MixedLfVersionsDep
+
+  data IV = IV { u : () }
+
+  interface I where
+    viewtype IV
+
+    getTupleWithTrailingOption : (Int, Optional Int)
+    getUserDefinedTupleWithTrailingOption : MyPair Int (Optional Int)
+
+    nonconsuming choice GetTupleWithTrailingOption : (Int, Optional Int)
+      with ctl: Party
+      controller ctl
+      do
+        pure $ getTupleWithTrailingOption this
+
+    nonconsuming choice GetUserDefinedTupleWithTrailingOption : MyPair Int (Optional Int)
+         with ctl: Party
+         controller ctl
+         do
+           pure $ getUserDefinedTupleWithTrailingOption this
+-}
+
+{- PACKAGE
+name: mixed-lf-versions-interface-lf115
+depends: mixed-lf-versions-dep-1.0.0
+versions: 1
+lf-version: "1.17"
+-}
+
+{- MODULE
+package: mixed-lf-versions-interface-lf115
+contents: |
+  module MixedLfVersionsInterfaceLF115 where
+
+  import MixedLfVersionsDep
+
+  data IV = IV { u : () }
+
+  interface I where
+    viewtype IV
+
+    getTupleWithTrailingOption : (Int, Optional Int)
+    getUserDefinedTupleWithTrailingOption : MyPair Int (Optional Int)
+
+    nonconsuming choice GetTupleWithTrailingOption : (Int, Optional Int)
+      with ctl: Party
+      controller ctl
+      do
+        pure $ getTupleWithTrailingOption this
+
+    nonconsuming choice GetUserDefinedTupleWithTrailingOption : MyPair Int (Optional Int)
+         with ctl: Party
+         controller ctl
+         do
+           pure $ getUserDefinedTupleWithTrailingOption this
+-}
+
+{- PACKAGE
+name: mixed-lf-versions-template
+versions: 1
+depends: |
+  mixed-lf-versions-interface-lf117-1.0.0
+  mixed-lf-versions-interface-lf115-1.0.0
+  mixed-lf-versions-dep-1.0.0
+lf-version: "1.17"
+-}
+
+{- MODULE
+package: mixed-lf-versions-template
+contents: |
+  module MixedLfVersionsTemplate where
+
+  import qualified MixedLfVersionsInterfaceLF117 as I117
+  import qualified MixedLfVersionsInterfaceLF115 as I115
+  import MixedLfVersionsDep
+
+  template T with
+      party : Party
+    where
+    signatory party
+
+    nonconsuming choice TGetTupleWithTrailingOption : (Int, Optional Int)
+        with ctl: Party
+        controller ctl
+        do pure (117, None)
+
+    nonconsuming choice TGetUserDefinedTupleWithTrailingOption : MyPair Int (Optional Int)
+        with ctl: Party
+        controller ctl
+        do pure (MyPair 117 None)
+
+    interface instance I117.I for T where
+      view = I117.IV ()
+      getTupleWithTrailingOption = (117, None)
+      getUserDefinedTupleWithTrailingOption = MyPair 117 None
+
+    interface instance I115.I for T where
+      view = I115.IV ()
+      getTupleWithTrailingOption = (115, None)
+      getUserDefinedTupleWithTrailingOption = MyPair 115 None
+-}
+
+{- PACKAGE
+name: mixed-lf-versions-record
+versions: 2
+lf-version: "1.17"
+-}
+
+{- MODULE
+package: mixed-lf-versions-record
+contents: |
+  module MixedLfVersionsRecord where
+
+  data R = R with
+      n : Int
+      m : Optional Int -- @V 2
+    deriving (Eq, Show)
+-}
+
+{- PACKAGE
+name: mixed-lf-versions-payload
+versions: 2
+depends: |
+  mixed-lf-versions-dep-1.0.0
+  mixed-lf-versions-record-1.0.0 -- @V 1
+  mixed-lf-versions-record-2.0.0 -- @V 2
+lf-version: "1.17"
+-}
+
+{- MODULE
+package: mixed-lf-versions-payload
+contents: |
+  module MixedLfVersionsPayload where
+
+  import MixedLfVersionsDep
+  import MixedLfVersionsRecord
+
+  template T with
+      party : Party
+      tuple : (R, Optional Int)
+      userDefinedTuple : MyPair R (Optional Int)
+    where
+    signatory party
+-}
+
+{- PACKAGE
+name: mixed-lf-versions-payload-client
+versions: 1
+depends: |
+  mixed-lf-versions-dep-1.0.0
+  mixed-lf-versions-record-1.0.0
+  mixed-lf-versions-record-2.0.0
+  mixed-lf-versions-payload-1.0.0
+  mixed-lf-versions-payload-2.0.0
+lf-version: "1.17"
+-}
+
+{- MODULE
+package: mixed-lf-versions-payload-client
+contents: |
+  module MixedLfVersionsPayloadClient where
+
+  import MixedLfVersionsDep
+  import qualified V1.MixedLfVersionsRecord as V1
+  import qualified V2.MixedLfVersionsRecord as V2
+  import qualified V1.MixedLfVersionsPayload as V1
+  import qualified V2.MixedLfVersionsPayload as V2
+
+  template Client with
+      party : Party
+    where
+    signatory party
+
+    nonconsuming choice UpgradePayload : V2.T
+      with ctl: Party
+      controller ctl
+      do
+        cid <- create V1.T { party = party, tuple = (V1.R 1, None), userDefinedTuple = MyPair (V1.R 1) None }
+        let v2Cid = coerceContractId @V1.T @V2.T cid
+        fetch v2Cid
+-}
+
+main : TestTree
+main = tests
+  [ ("Call a LF 1.17 dynamic choice that returns a tuple with a trailing None", call117DynamicChoiceThatReturnsTupleWithTrailingNone)
+  , ("Call a LF 1.17 dynamic choice that returns a user-defined LF 1.15 tuple with a trailing None", call117DynamicChoiceThatReturnsUserDefinedTupleWithTrailingNone)
+  , ("Call a LF 1.15 dynamic choice that returns a tuple with a trailing None", call115DynamicChoiceThatReturnsTupleWithTrailingNone)
+  , ("Call a LF 1.15 dynamic choice that returns a user-defined LF 1.15 tuple with a trailing None", call115DynamicChoiceThatReturnsUserDefinedTupleWithTrailingNone)
+  , ("Call a LF 1.17 choice that returns a tuple with a trailing None", callChoiceThatReturnsTupleWithTrailingNone)
+  , ("Call a LF 1.17 choice that returns a user-defined LF 1.15 tuple with a trailing None", callChoiceThatReturnsUserDefinedTupleWithTrailingNone)
+  , ("Have daml-script upgrade a LF 1.17 contract that has builtin and user-defined pairs of upgradable types as fields", upgradePairsOfUpgradableTypesDamlScriptRunner)
+  , ("Have the engine upgrade a LF 1.17 contract that has builtin and user-defined pairs of upgradable types as fields", upgradePairsOfUpgradableTypesEngine)
+  ]
+
+call117DynamicChoiceThatReturnsTupleWithTrailingNone : Test
+call117DynamicChoiceThatReturnsTupleWithTrailingNone = test $ do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createExactCmd T117.T { party = alice }
+  let icid = toInterfaceContractId @I117.I cid
+  res <- alice `submit` exerciseExactCmd @I117.I icid (I117.GetTupleWithTrailingOption { ctl = alice })
+  res === (117, None)
+
+call117DynamicChoiceThatReturnsUserDefinedTupleWithTrailingNone : Test
+call117DynamicChoiceThatReturnsUserDefinedTupleWithTrailingNone = test $ do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createExactCmd T117.T { party = alice }
+  let icid = toInterfaceContractId @I117.I cid
+  res <- alice `submit` exerciseExactCmd @I117.I icid (I117.GetUserDefinedTupleWithTrailingOption { ctl = alice })
+  res === D115.MyPair 117 None
+
+call115DynamicChoiceThatReturnsTupleWithTrailingNone : Test
+call115DynamicChoiceThatReturnsTupleWithTrailingNone = test $ do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createExactCmd T117.T { party = alice }
+  let icid = toInterfaceContractId @I115.I cid
+  res <- alice `submit` exerciseExactCmd @I115.I icid (I115.GetTupleWithTrailingOption { ctl = alice })
+  res === (115, None)
+
+call115DynamicChoiceThatReturnsUserDefinedTupleWithTrailingNone : Test
+call115DynamicChoiceThatReturnsUserDefinedTupleWithTrailingNone = test $ do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createExactCmd T117.T { party = alice }
+  let icid = toInterfaceContractId @I115.I cid
+  res <- alice `submit` exerciseExactCmd @I115.I icid (I115.GetUserDefinedTupleWithTrailingOption { ctl = alice })
+  res === D115.MyPair 115 None
+
+callChoiceThatReturnsTupleWithTrailingNone : Test
+callChoiceThatReturnsTupleWithTrailingNone = test $ do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createExactCmd T117.T { party = alice }
+  res <- alice `submit` exerciseExactCmd @T117.T cid (T117.TGetTupleWithTrailingOption { ctl = alice })
+  res === (117, None)
+
+callChoiceThatReturnsUserDefinedTupleWithTrailingNone : Test
+callChoiceThatReturnsUserDefinedTupleWithTrailingNone = test $ do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createExactCmd T117.T { party = alice }
+  res <- alice `submit` exerciseExactCmd @T117.T cid (T117.TGetUserDefinedTupleWithTrailingOption { ctl = alice })
+  res === D115.MyPair 117 None
+
+upgradePairsOfUpgradableTypesDamlScriptRunner : Test
+upgradePairsOfUpgradableTypesDamlScriptRunner = test $ do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createExactCmd (PV1.T alice (RV1.R 1, None) (D115.MyPair (RV1.R 1) None))
+  let v2Cid = coerceContractId @PV1.T @PV2.T cid
+  res <- alice `queryContractId` v2Cid
+  res === Some (PV2.T alice (RV2.R 1 None, None) (D115.MyPair (RV2.R 1 None) None))
+
+upgradePairsOfUpgradableTypesEngine : Test
+upgradePairsOfUpgradableTypesEngine = test $ do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createExactCmd (PC.Client alice)
+  res <- alice `submit` exerciseExactCmd @PC.Client cid (PC.UpgradePayload alice)
+  res === PV2.T alice (RV2.R 1 None, None) (D115.MyPair (RV2.R 1 None) None)

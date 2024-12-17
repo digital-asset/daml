@@ -1453,8 +1453,11 @@ private[lf] object Speedy {
                 val lookupResult = assertRight(
                   compiledPackages.pkgInterface.lookupDataRecord(tyCon)
                 )
-                val targetFieldsAndTypes: ImmArray[(Name, Type)] = lookupResult.dataRecord.fields
                 lazy val subst = lookupResult.subst(argTypes)
+                val targetFieldsAndTypes: ImmArray[(Name, Type)] =
+                  lookupResult.dataRecord.fields.map { case (name, typ) =>
+                    (name, AstUtil.substitute(typ, subst))
+                  }
 
                 // This code implements the compatibility transformation used for up/down-grading
                 // And handles the cases:
@@ -1480,8 +1483,7 @@ private[lf] object Speedy {
                             // value is not normalized; check field names match
                             assert(sourceField == targetField)
                         }
-                        val typ: Type = AstUtil.substitute(targetFieldType, subst)
-                        val sv: SValue = go(typ, v)
+                        val sv: SValue = go(targetFieldType, v)
                         List(sv)
                       case None => { // DOWNGRADE
                         // i ranges from 0 to numS-1. So i >= numT implies numS > numT
