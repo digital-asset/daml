@@ -89,7 +89,7 @@ class TransferOutValidationTest
       )
     )
     .withSimpleParticipants(participant) // required such that `participant` gets a signing key
-    .withPackages(
+    .withVettedPackages(
       Seq(VettedPackages(participant, Seq(templateId.packageId, wrongTemplateId.packageId)))
     )
     .build(loggerFactory)

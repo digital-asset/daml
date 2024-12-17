@@ -116,7 +116,13 @@ object DAMLe {
     )(traceContext: TraceContext): EitherT[
       Future,
       Error,
-      (LfVersionedTransaction, TransactionMetadata, LfKeyResolver, Set[PackageId]),
+      (
+          LfVersionedTransaction,
+          TransactionMetadata,
+          LfKeyResolver,
+          Set[PackageId] /* Input contract creation package-ids */,
+          Set[PackageId], /* Package-ids used in re-interpretation */
+      ),
     ]
   }
 
@@ -154,7 +160,13 @@ class DAMLe(
   )(tc: TraceContext): EitherT[
     Future,
     Error,
-    (LfVersionedTransaction, TransactionMetadata, LfKeyResolver, Set[PackageId]),
+    (
+        LfVersionedTransaction,
+        TransactionMetadata,
+        LfKeyResolver,
+        Set[PackageId] /* Input contract creation package-ids */,
+        Set[PackageId], /* Package-ids used in re-interpretation */
+    ),
   ] = {
 
     implicit val traceContext: TraceContext = tc
@@ -223,6 +235,7 @@ class DAMLe(
       txNoRootRollback,
       TransactionMetadata.fromLf(ledgerTime, metadata),
       metadata.globalKeyMapping,
+      metadata.contractPackages.values.toSet,
       metadata.usedPackages,
     )
   }
@@ -274,7 +287,7 @@ class DAMLe(
         Some(DAMLe.zeroSeed),
         expectFailure = false,
       )(traceContext)
-      (transaction, _metadata, _resolver, _usedPackages) = transactionWithMetadata
+      (transaction, _metadata, _resolver, _usedPackages, _inputContracts) = transactionWithMetadata
       md = transaction.nodes(transaction.roots(0)) match {
         case nc @ LfNodeCreate(
               _cid,

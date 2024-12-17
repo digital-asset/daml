@@ -97,7 +97,8 @@ final case class TestingTopology(
     topology: Map[LfPartyId, Map[ParticipantId, ParticipantPermission]] = Map.empty,
     mediators: Set[MediatorId] = Set(DefaultTestIdentities.mediator),
     participants: Map[ParticipantId, ParticipantAttributes] = Map.empty,
-    packages: Seq[VettedPackages] = Seq.empty,
+    vettedPackages: Seq[VettedPackages] = Seq.empty,
+    checkOnlyPackages: Seq[CheckOnlyPackages] = Seq.empty,
     keyPurposes: Set[KeyPurpose] = KeyPurpose.all,
     domainParameters: List[DomainParameters.WithValidity[DynamicDomainParameters]] = List(
       DomainParameters.WithValidity(
@@ -171,8 +172,11 @@ final case class TestingTopology(
     copy(topology = converted)
   }
 
-  def withPackages(packages: Seq[VettedPackages]): TestingTopology =
-    this.copy(packages = packages)
+  def withVettedPackages(vettedPackageses: Seq[VettedPackages]): TestingTopology =
+    this.copy(vettedPackages = vettedPackageses)
+
+  def withCheckOnlyPackages(checkOnlyPackages: Seq[CheckOnlyPackages]): TestingTopology =
+    this.copy(checkOnlyPackages = checkOnlyPackages)
 
   /** This adds a tag to the id of the encryption key during key generation [[genKeyCollection]].
     * Therefore, we can potentially enforce a different key id for the same encryption key.
@@ -219,7 +223,9 @@ class TestingIdentityFactory(
       }
 
     val participantTxs =
-      participantsTxs(defaultPermissionByParticipant) ++ topology.packages.map(mkAdd)
+      participantsTxs(defaultPermissionByParticipant) ++ topology.vettedPackages.map(
+        mkAdd
+      ) ++ topology.checkOnlyPackages.map(mkAdd)
 
     val domainMembers =
       (Seq[KeyOwner](

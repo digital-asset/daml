@@ -154,7 +154,8 @@ final class TransactionTreeFactoryImplTest extends AsyncWordSpec with BaseTest {
             example.wellFormedUnsuffixedTransaction,
             successfulLookup(example),
             example.keyResolver,
-            snapshot = defaultTestingTopology.withPackages(Seq.empty).build().topologySnapshot(),
+            snapshot =
+              defaultTestingTopology.withVettedPackages(Seq.empty).build().topologySnapshot(),
           ).value.flatMap(_ should matchPattern { case Left(PackageStateErrors(_)) => })
         }
 

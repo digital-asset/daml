@@ -1511,7 +1511,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       adminCommand(ParticipantAdminCommands.DomainConnectivity.ListConnectedDomains())
     }
 
-    @Help.Summary("List the configured domains of this participant")
+    @Help.Summary("List the configured active domains of this participant")
     def list_registered(): Seq[(DomainConnectionConfig, Boolean)] = consoleEnvironment.run {
       adminCommand(ParticipantAdminCommands.DomainConnectivity.ListConfiguredDomains)
     }

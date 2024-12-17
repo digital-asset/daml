@@ -370,7 +370,7 @@ object ExampleTransactionFactory {
         ),
       ),
       participants = Map(submitterParticipant -> ParticipantAttributes(Submission, TrustLevel.Vip)),
-      packages =
+      vettedPackages =
         Seq(submitterParticipant, signatoryParticipant, observerParticipant, extraParticipant).map(
           VettedPackages(_, Seq(packageId, upgradePackageId))
         ),
@@ -1174,7 +1174,12 @@ class ExampleTransactionFactory(
     val upgradedTemplateId: canton.protocol.LfTemplateId =
       templateId.copy(packageId = upgradePackageId)
     private def genNode(id: LfContractId): LfNodeExercises =
-      exerciseNode(targetCoid = id, templateId = upgradedTemplateId, signatories = Set(submitter))
+      exerciseNode(
+        targetCoid = id,
+        templateId = upgradedTemplateId,
+        signatories = Set(submitter),
+        observers = Set(observer),
+      )
     override def node: LfNodeExercises = genNode(contractId)
     override def lfNode: LfNodeExercises = genNode(lfContractId)
     override def reinterpretedNode: LfNodeExercises = node

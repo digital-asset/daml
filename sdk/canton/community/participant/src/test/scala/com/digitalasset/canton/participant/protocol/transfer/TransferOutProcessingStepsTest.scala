@@ -167,7 +167,7 @@ final class TransferOutProcessingStepsTest
   ) =
     TestingTopology(domains)
       .withReversedTopology(topology)
-      .withPackages(packages)
+      .withVettedPackages(packages)
       .build(loggerFactory)
 
   private def vet(

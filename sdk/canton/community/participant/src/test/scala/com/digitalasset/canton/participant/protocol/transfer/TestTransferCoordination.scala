@@ -111,7 +111,7 @@ private[transfer] object TestTransferCoordination {
   ): SyncCryptoApiProvider =
     TestingTopology(domains = domains.toSet)
       .withReversedTopology(defaultTopology)
-      .withPackages(defaultTopology.keys.map(VettedPackages(_, packages)).toSeq)
+      .withVettedPackages(defaultTopology.keys.map(VettedPackages(_, packages)).toSeq)
       .build(loggerFactory)
       .forOwner(submitterParticipant)
 

@@ -25,7 +25,7 @@ import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.store.PackageDependencyResolverUS
-import com.digitalasset.canton.topology.transaction.VettedPackages
+import com.digitalasset.canton.topology.transaction.{CheckOnlyPackages, VettedPackages}
 import com.digitalasset.canton.topology.{TestingIdentityFactory, TestingTopology}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
@@ -55,6 +55,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
 
   def reinterpretExample(
       example: ExampleTransaction,
+      inputContractsCreationPackages: Set[PackageId] = Set.empty,
       usedPackages: Set[PackageId] = Set.empty,
   ): HasReinterpret = new HasReinterpret {
     override def reinterpret(
@@ -69,7 +70,13 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
     )(traceContext: TraceContext): EitherT[
       Future,
       LfError,
-      (LfVersionedTransaction, TransactionMetadata, LfKeyResolver, Set[PackageId]),
+      (
+          LfVersionedTransaction,
+          TransactionMetadata,
+          LfKeyResolver,
+          Set[PackageId] /* Input contract creation package-ids */,
+          Set[PackageId], /* Package-ids used in re-interpretation */
+      ),
     ] = {
       ledgerTime shouldEqual factory.ledgerTime
       submissionTime shouldEqual factory.submissionTime
@@ -82,7 +89,9 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
           rootSeed == md.seeds.get(tx.roots(0))
         }.value
 
-      EitherT.rightT[Future, LfError]((reinterpretedTx, metadata, keyResolver, usedPackages))
+      EitherT.rightT[Future, LfError](
+        (reinterpretedTx, metadata, keyResolver, inputContractsCreationPackages, usedPackages)
+      )
     }
   }
 
@@ -99,7 +108,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
     )(traceContext: TraceContext): EitherT[
       Future,
       LfError,
-      (LfVersionedTransaction, TransactionMetadata, LfKeyResolver, Set[PackageId]),
+      (LfVersionedTransaction, TransactionMetadata, LfKeyResolver, Set[PackageId], Set[PackageId]),
     ] =
       fail("Reinterpret should not be called by this test case.")
   }
@@ -260,7 +269,13 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         )(traceContext: TraceContext): EitherT[
           Future,
           LfError,
-          (LfVersionedTransaction, TransactionMetadata, LfKeyResolver, Set[PackageId]),
+          (
+              LfVersionedTransaction,
+              TransactionMetadata,
+              LfKeyResolver,
+              Set[PackageId],
+              Set[PackageId],
+          ),
         ] =
           EitherT.leftT(lfError)
       })
@@ -332,10 +347,22 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
           )(traceContext: TraceContext): EitherT[
             Future,
             LfError,
-            (LfVersionedTransaction, TransactionMetadata, LfKeyResolver, Set[PackageId]),
+            (
+                LfVersionedTransaction,
+                TransactionMetadata,
+                LfKeyResolver,
+                Set[PackageId],
+                Set[PackageId],
+            ),
           ] =
             EitherT.pure[Future, LfError](
-              (reinterpreted, subviewMissing.metadata, subviewMissing.keyResolver, Set.empty)
+              (
+                reinterpreted,
+                subviewMissing.metadata,
+                subviewMissing.keyResolver,
+                Set.empty,
+                Set.empty,
+              )
             )
         })
 
@@ -359,20 +386,24 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
        */
     }
 
-    // TODO(#21671): Unit test tri-state vetting
     "package vetting" must {
 
       import ExampleTransactionFactory.*
 
+      // The input and used package-ids are not derived from the provided ExampleTransaction
+      // but passed in as parameters as `inputContractCreationPackages` and `usedPackages`
       def testVetting(
           example: ExampleTransaction,
+          inputContractCreationPackages: Set[PackageId],
           usedPackages: Set[PackageId],
-          vettings: Seq[VettedPackages],
-          unknownPackage: Option[PackageId],
+          vettedPackages: Seq[VettedPackages],
+          checkOnlyPackages: Seq[CheckOnlyPackages],
+          packageNotFound: Option[PackageId],
           expectedErrorO: Option[PackageError],
       ): Future[Assertion] = {
 
-        val sut = buildUnderTest(reinterpretExample(example, usedPackages))
+        val sut =
+          buildUnderTest(reinterpretExample(example, inputContractCreationPackages, usedPackages))
         val rootViewTrees = NonEmpty.from(example.rootTransactionViewTrees).value
 
         val snapshot = TestingIdentityFactory(
@@ -380,12 +411,13 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
           ).withTopology(
             Map(
               submitter -> submitterParticipant,
-              signatory -> signatoryParticipant,
+              observer -> observerParticipant,
             )
-          ).withPackages(vettings),
+          ).withVettedPackages(vettedPackages)
+            .withCheckOnlyPackages(checkOnlyPackages),
           loggerFactory,
           TestDomainParameters.defaultDynamic,
-        ).topologySnapshot(packageDependencies = new TestPackageResolver(unknownPackage))
+        ).topologySnapshot(packageDependencies = new TestPackageResolver(packageNotFound))
 
         for {
           error <- check(sut, viewsWithNoInputKeys(rootViewTrees), snapshot).value
@@ -397,86 +429,191 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         }
       }
 
-      "succeed if all package are vetted" in {
-
+      "succeed if all input contracts' and 'used' packages are vetted " in {
         val example: factory.UpgradedSingleExercise = factory.UpgradedSingleExercise(lfHash(0))
 
         val usedPackageId = example.upgradedTemplateId.packageId
-        val referencedPackageId = example.contractInstance.unversioned.template.packageId
+        val inputContractPackageId = example.contractInstance.unversioned.template.packageId
 
         testVetting(
           example,
+          inputContractCreationPackages = Set(inputContractPackageId),
           usedPackages = Set(usedPackageId),
-          vettings = Seq(
-            VettedPackages(signatoryParticipant, Seq(usedPackageId, referencedPackageId)),
-            VettedPackages(submitterParticipant, Seq(usedPackageId, referencedPackageId)),
+          checkOnlyPackages = Seq.empty,
+          vettedPackages = Seq(
+            VettedPackages(submitterParticipant, Seq(usedPackageId, inputContractPackageId)),
+            VettedPackages(observerParticipant, Seq(usedPackageId, inputContractPackageId)),
           ),
-          unknownPackage = None,
-          expectedErrorO = None, // no error expected,
+          packageNotFound = None,
+          expectedErrorO = None,
         )
-
       }
 
-      "fail if an un-vetted package is used" in {
+      "succeed if the input contracts' packages are check-only and 'used' packages are vetted " in {
+        val example: factory.UpgradedSingleExercise = factory.UpgradedSingleExercise(lfHash(0))
 
+        val usedPackageId = example.upgradedTemplateId.packageId
+        val inputContractPackageId = example.contractInstance.unversioned.template.packageId
+
+        testVetting(
+          example,
+          inputContractCreationPackages = Set(inputContractPackageId),
+          usedPackages = Set(usedPackageId),
+          checkOnlyPackages = Seq(
+            CheckOnlyPackages(submitterParticipant, Seq(inputContractPackageId)),
+            CheckOnlyPackages(observerParticipant, Seq(inputContractPackageId)),
+          ),
+          vettedPackages = Seq(
+            VettedPackages(submitterParticipant, Seq(usedPackageId)),
+            VettedPackages(observerParticipant, Seq(usedPackageId)),
+          ),
+          packageNotFound = None,
+          expectedErrorO = None,
+        )
+      }
+
+      "fail if an un-vetted (but check-only) package is used" in {
+        val unexpectedPackageId = PackageId.assertFromString("unexpected-pkg")
+        testVetting(
+          example = factory.SingleCreate(seed = factory.deriveNodeSeed(0)),
+          inputContractCreationPackages = Set.empty,
+          usedPackages = Set(unexpectedPackageId),
+          checkOnlyPackages = Seq(
+            CheckOnlyPackages(submitterParticipant, Seq(unexpectedPackageId)),
+            CheckOnlyPackages(observerParticipant, Seq(unexpectedPackageId)),
+          ),
+          vettedPackages = Seq.empty,
+          packageNotFound = None,
+          expectedErrorO = Some(
+            UnvettedPackages(
+              Map(
+                submitterParticipant -> Set(unexpectedPackageId),
+                observerParticipant -> Set(unexpectedPackageId),
+              )
+            )
+          ),
+        )
+      }
+
+      "fail if an un-vetted (but check-only) package is used while also being an input contract package-id" in {
+        val pkgId = PackageId.assertFromString("pkg-id")
+        testVetting(
+          example = factory.SingleExercise(seed = factory.deriveNodeSeed(0)),
+          inputContractCreationPackages = Set(pkgId),
+          usedPackages = Set(pkgId),
+          checkOnlyPackages = Seq(
+            CheckOnlyPackages(submitterParticipant, Seq(pkgId)),
+            CheckOnlyPackages(observerParticipant, Seq(pkgId)),
+          ),
+          vettedPackages = Seq.empty,
+          packageNotFound = None,
+          expectedErrorO = Some(
+            UnvettedPackages(
+              Map(
+                submitterParticipant -> Set(pkgId),
+                observerParticipant -> Set(pkgId),
+              )
+            )
+          ),
+        )
+      }
+
+      "fail if an unknown (not vetted nor check-only) package is used" in {
         val unexpectedPackageId = PackageId.assertFromString("unexpected-pkg")
         val example = factory.SingleCreate(seed = factory.deriveNodeSeed(0))
         val expected =
           UnvettedPackages(
             Map(
-              submitterParticipant -> Set(unexpectedPackageId)
+              submitterParticipant -> Set(unexpectedPackageId),
+              observerParticipant -> Set(unexpectedPackageId),
             )
           )
         testVetting(
           example,
+          inputContractCreationPackages = Set.empty,
           usedPackages = Set(unexpectedPackageId),
-          vettings = Seq.empty,
-          unknownPackage = None,
+          checkOnlyPackages = Seq.empty,
+          vettedPackages = Seq.empty,
+          packageNotFound = None,
           expectedErrorO = Some(expected),
         )
-
       }
 
       "fail if an un-vetted contract package is referenced" in {
-
         val example: factory.UpgradedSingleExercise = factory.UpgradedSingleExercise(lfHash(0))
+
         val contractPackageId = example.contractInstance.unversioned.template.packageId
-        val expected = UnknownPackages(Map(submitterParticipant -> Set(contractPackageId)))
+        val exercisePackageId = example.upgradedTemplateId.packageId
+
+        val expected = UnvettedPackages(
+          Map(
+            submitterParticipant -> Set(exercisePackageId),
+            observerParticipant -> Set(exercisePackageId),
+          )
+        )
 
         testVetting(
           example,
-          usedPackages = Set.empty,
-          vettings = Seq.empty,
-          unknownPackage = None,
+          inputContractCreationPackages = Set(contractPackageId),
+          usedPackages = Set(exercisePackageId),
+          checkOnlyPackages = Seq.empty,
+          vettedPackages = Seq.empty,
+          packageNotFound = None,
           expectedErrorO = Some(expected),
         )
-
       }
 
       "fail if a package is not vetted by all participants" in {
         val example = factory.SingleExercise(lfHash(0))
         testVetting(
           example,
+          inputContractCreationPackages = Set.empty,
           usedPackages = Set(packageId),
-          vettings = Seq(VettedPackages(signatoryParticipant, Seq(packageId))),
-          unknownPackage = None,
-          expectedErrorO = Some(
-            UnvettedPackages(
-              Map(submitterParticipant -> Set(packageId))
-            )
-          ),
+          checkOnlyPackages = Seq.empty,
+          vettedPackages = Seq(VettedPackages(submitterParticipant, Seq(packageId))),
+          packageNotFound = None,
+          expectedErrorO = Some(UnvettedPackages(Map(observerParticipant -> Set(packageId)))),
         )
       }
 
-      "fail if a package is not found in the package store" in {
+      "fail if a package is unknown (not declared check-only nor vetted) by all participants" in {
+        val example = factory.UpgradedSingleExercise(lfHash(0))
+        val usedPackageId = example.upgradedTemplateId.packageId
+        val inputPackageId = example.contractInstance.unversioned.template.packageId
+        testVetting(
+          example,
+          inputContractCreationPackages = Set(inputPackageId),
+          usedPackages = Set(usedPackageId),
+          checkOnlyPackages = Seq(CheckOnlyPackages(submitterParticipant, Seq(inputPackageId))),
+          vettedPackages = Seq(
+            VettedPackages(submitterParticipant, Seq(usedPackageId)),
+            VettedPackages(observerParticipant, Seq(usedPackageId)),
+          ),
+          packageNotFound = None,
+          expectedErrorO = Some(UnknownPackages(Map(observerParticipant -> Set(inputPackageId)))),
+        )
+      }
+
+      "fail if a used package is not found in the package store" in {
         testVetting(
           factory.SingleCreate(lfHash(0)),
+          inputContractCreationPackages = Set.empty,
           usedPackages = Set(packageId),
-          vettings = Seq(
-            VettedPackages(submitterParticipant, Seq(packageId)),
-            VettedPackages(signatoryParticipant, Seq(packageId)),
-          ),
-          unknownPackage = Some(packageId),
+          checkOnlyPackages = Seq.empty,
+          vettedPackages = Seq.empty,
+          packageNotFound = Some(packageId),
+          expectedErrorO = Some(PackageNotFound(submitterParticipant, Set(packageId))),
+        )
+      }
+
+      "fail if a input contract package is not found in the package store" in {
+        testVetting(
+          factory.SingleCreate(lfHash(0)),
+          inputContractCreationPackages = Set(packageId),
+          usedPackages = Set.empty,
+          checkOnlyPackages = Seq.empty,
+          vettedPackages = Seq.empty,
+          packageNotFound = Some(packageId),
           expectedErrorO = Some(PackageNotFound(submitterParticipant, Set(packageId))),
         )
       }
