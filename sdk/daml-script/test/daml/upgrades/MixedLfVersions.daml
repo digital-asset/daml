@@ -224,31 +224,6 @@ contents: |
         fetch v2Cid
 -}
 
-
-{-
-- From daml finance:
-  - (1.17) Interface choice with the return type (X, Optional Y) (where X and Y don't matter).
-  - Implemented by 1.17 template
-  - Daml-script calls this interface choice and "consumes" the result (i.e. the result needs to come across the ledger-api, so don't call from a helper template)
-  - Should break without my fix
-- Continued ^
-  - Also try this with a 1.15 interface choice (still 1.17 template)
-  - Should break without my fix
-- More Continued ^
-  - Try this as a choice directly on a template (drop the interface), keep the template at LF1.17
-- Even more continued ^
-  - Try the above with another LF1.15 data type to replace the tuple, it should ideally be polymorphic in its last field, in which you pass an optional value at type level (i.e. MyType a = MyType with myVal : Text, myAdditional : a with MyType (Optional Text))
-- Lf version tetris
-  - LF1.17 template, with a 1.15 polymorphic type with an optional value at the end
-     (i.e. data My15PolyType a = My15PolyType with poly : a, opt : Optional Text),
-     which contains (as a) a 1.17 type which we will perform upgrades on
-     (so in V1 no additional fields, in v2 an additional optional field)
-  - Try to query this via daml-script, and maybe also try a separate choice that returns this contract as a payload,
-    ensure it doesnt break
-  - No idea what this will do, should work maybe?
-
--}
-
 main : TestTree
 main = tests
   [ ("Call a LF 1.17 dynamic choice that returns a tuple with a trailing None", call117DynamicChoiceThatReturnsTupleWithTrailingNone)
