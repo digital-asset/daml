@@ -333,7 +333,7 @@ jobs:
           cd sdk
           eval "$(./dev-env/bin/dade-assist)"
 
-          for branch in main main-2.x; do
+          for branch in main; do
             sha=$(git rev-parse origin/$branch)
             az extension add --name azure-devops
             trap "az devops logout" EXIT
