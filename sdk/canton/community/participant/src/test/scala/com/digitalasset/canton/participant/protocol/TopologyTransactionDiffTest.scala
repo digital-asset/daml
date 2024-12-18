@@ -77,11 +77,12 @@ class TopologyTransactionDiffTest
           newState: Seq[SignedTopologyTransaction[Replace, TopologyMapping]]
       ) = TopologyTransactionDiff(
         domainId,
-        testedProtocolVersion,
         initialTxs,
         newState,
+        p1,
+        testedProtocolVersion,
       )
-        .map { case (events, _) =>
+        .map { case TopologyTransactionDiff(events, _, _) =>
           events
         }
       // Same transactions

@@ -614,12 +614,7 @@ class CachingTopologySnapshot(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] =
-    isMemberKnown(member).flatMap {
-      // TODO(#18394): Consider caching this call as well,
-      //  should only happen during topology transactions with potential new members: DTC/SDS/MDS
-      case true => parent.memberFirstKnownAt(member)
-      case false => FutureUnlessShutdown.pure(None)
-    }
+    parent.memberFirstKnownAt(member)
 
   /** Returns the value if it is present in the cache. Otherwise, use the
     * `getter` to fetch it and cache the result.

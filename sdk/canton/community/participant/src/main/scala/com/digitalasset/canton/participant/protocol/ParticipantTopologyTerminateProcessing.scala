@@ -10,10 +10,11 @@ import com.digitalasset.canton.ledger.participant.state.Update.SequencerIndexMov
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.participant.protocol.ParticipantTopologyTerminateProcessing.EventInfo
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStore.EffectiveStateChange
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
+import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -26,6 +27,11 @@ object ParticipantTopologyTerminateProcessing {
   private[canton] val enabledWarningMessage =
     "Topology events are enabled. This is an experimental feature, unsafe for production use."
 
+  /** Event with indication of whether the participant needs to initiate party replication */
+  private final case class EventInfo(
+      event: Update.TopologyTransactionEffective,
+      requireLocalPartyReplication: Boolean,
+  )
 }
 
 class ParticipantTopologyTerminateProcessing(
@@ -34,6 +40,8 @@ class ParticipantTopologyTerminateProcessing(
     recordOrderPublisher: RecordOrderPublisher,
     store: TopologyStore[TopologyStoreId.DomainStore],
     initialRecordTime: CantonTimestamp,
+    participantId: ParticipantId,
+    unsafeEnableOnlinePartyReplication: Boolean,
     override protected val loggerFactory: NamedLoggerFactory,
 ) extends topology.processing.TerminateProcessing
     with NamedLogging {
@@ -61,11 +69,18 @@ class ParticipantTopologyTerminateProcessing(
             s"Invalid: findEffectiveStateChanges with onlyAtEffective = true should return only one EffectiveStateChange for effective time $effectiveTime, only the first one is taken into consideration."
           )
         events = effectiveStateChanges.headOption.flatMap(getNewEvents)
-        _ = events.foreach(event =>
-          recordOrderPublisher.scheduleFloatingEventPublication(
-            timestamp = effectiveTime.value,
-            eventFactory = _ => Some(event),
-          ) match {
+        _ = events.foreach { case EventInfo(event, requireLocalPartyReplication) =>
+          (for {
+            _ <- recordOrderPublisher.scheduleFloatingEventPublication(
+              timestamp = effectiveTime.value,
+              eventFactory = _ => Some(event),
+            )
+            _ <-
+              if (unsafeEnableOnlinePartyReplication && requireLocalPartyReplication)
+                recordOrderPublisher.scheduleEventBuffering(effectiveTime.value)
+              else
+                Right(())
+          } yield ()) match {
             case Right(()) =>
               logger.debug(
                 s"Scheduled topology event publication with sequencer counter: $sc, sequenced time: $sequencedTime, effective time: $effectiveTime"
@@ -78,7 +93,7 @@ class ParticipantTopologyTerminateProcessing(
                 s"Cannot schedule topology event as record time is already at $invalidTime (publication with sequencer counter: $sc, sequenced time: $sequencedTime, effective time: $effectiveTime)"
               )
           }
-        )
+        }
         _ <- FutureUnlessShutdown.outcomeF(
           recordOrderPublisher.tick(
             SequencerIndexMoved(
@@ -119,7 +134,7 @@ class ParticipantTopologyTerminateProcessing(
         .filter(_.sequencedTime.value <= initialRecordTime)
         .flatMap(effectiveChange =>
           getNewEvents(effectiveChange)
-            .map(_ -> effectiveChange.sequencedTime.value)
+            .map(eventInfo => eventInfo.event -> effectiveChange.sequencedTime.value)
         )
       _ = logger.info(
         s"Fetching trace-contexts for ${eventsWithSequencedTimeWithoutTraceContext.size} topology-updates for topology event recovery."
@@ -188,18 +203,22 @@ class ParticipantTopologyTerminateProcessing(
 
   private def getNewEvents(effectiveStateChange: EffectiveStateChange)(implicit
       traceContext: TraceContext
-  ): Option[Update.TopologyTransactionEffective] =
+  ): Option[EventInfo] =
     TopologyTransactionDiff(
       domainId = domainId,
-      protocolVersion = protocolVersion,
       oldRelevantState = effectiveStateChange.before.signedTransactions,
       currentRelevantState = effectiveStateChange.after.signedTransactions,
-    ).map { case (events, updateId) =>
-      Update.TopologyTransactionEffective(
-        updateId = updateId,
-        events = events,
-        domainId = domainId,
-        effectiveTime = effectiveStateChange.effectiveTime.value,
+      participantId = participantId,
+      protocolVersion = protocolVersion,
+    ).map { case TopologyTransactionDiff(events, updateId, requiresLocalPartyReplication) =>
+      EventInfo(
+        Update.TopologyTransactionEffective(
+          updateId = updateId,
+          events = events,
+          domainId = domainId,
+          effectiveTime = effectiveStateChange.effectiveTime.value,
+        ),
+        requiresLocalPartyReplication,
       )
     }
 }

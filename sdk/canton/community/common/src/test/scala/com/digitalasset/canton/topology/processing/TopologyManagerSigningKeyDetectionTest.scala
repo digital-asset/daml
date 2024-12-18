@@ -12,7 +12,6 @@ import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Replace
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.AnyWordSpec
@@ -42,13 +41,6 @@ class TopologyManagerSigningKeyDetectionTest
         loggerFactory,
       )
 
-    def mkStored(ts: CantonTimestamp, transactions: GenericSignedTopologyTransaction*) =
-      StoredTopologyTransactions(
-        transactions.map(
-          StoredTopologyTransaction(SequencedTime(ts), EffectiveTime(ts), None, _, None)
-        )
-      )
-
     val dtc_uid1a = TopologyTransaction(
       Replace,
       PositiveInt.one,
@@ -67,7 +59,15 @@ class TopologyManagerSigningKeyDetectionTest
 
       val detector = mk()
 
-      detector.store.bootstrap(mkStored(ts(0), ns1k1_k1, id1ak4_k1)).futureValueUS
+      detector.store
+        .update(
+          SequencedTime(ts(0)),
+          EffectiveTime(ts(0)),
+          removeMapping = Map.empty,
+          removeTxs = Set.empty,
+          additions = Seq(ns1k1_k1, id1ak4_k1).map(ValidatedTopologyTransaction(_)),
+        )
+        .futureValueUS
 
       // uid1a has an identifier delegation, therefore it should be used
       detector
@@ -92,7 +92,15 @@ class TopologyManagerSigningKeyDetectionTest
     "prefer keys furthest from the root certificate" in {
       val detector = mk()
 
-      detector.store.bootstrap(mkStored(ts(0), ns1k1_k1, ns1k2_k1, ns1k3_k2)).futureValueUS
+      detector.store
+        .update(
+          SequencedTime(ts(0)),
+          EffectiveTime(ts(0)),
+          removeMapping = Map.empty,
+          removeTxs = Set.empty,
+          additions = Seq(ns1k1_k1, ns1k2_k1, ns1k3_k2).map(ValidatedTopologyTransaction(_)),
+        )
+        .futureValueUS
 
       detector
         .getValidSigningKeysForTransaction(ts(1), dtc_uid1a, None, returnAllValidKeys = false)
@@ -145,8 +153,16 @@ class TopologyManagerSigningKeyDetectionTest
 
     "resolves decentralized namespace definitions for finding appropriate signing keys" in {
       val detector = mk()
+
       detector.store
-        .bootstrap(mkStored(ts(0), ns1k1_k1, ns8k8_k8, ns9k9_k9, ns1k2_k1, dns1))
+        .update(
+          SequencedTime(ts(0)),
+          EffectiveTime(ts(0)),
+          removeMapping = Map.empty,
+          removeTxs = Set.empty,
+          additions =
+            Seq(ns1k1_k1, ns8k8_k8, ns9k9_k9, ns1k2_k1, dns1).map(ValidatedTopologyTransaction(_)),
+        )
         .futureValueUS
 
       val otk = TopologyTransaction(

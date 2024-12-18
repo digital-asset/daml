@@ -19,11 +19,15 @@ import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.store.SequencedEventStore
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.client.*
-import com.digitalasset.canton.topology.processing.{EffectiveTime, TopologyTransactionProcessor}
+import com.digitalasset.canton.topology.processing.{
+  EffectiveTime,
+  InitialTopologySnapshotValidator,
+  TopologyTransactionProcessor,
+}
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{PackageDependencyResolverUS, TopologyStore}
+import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
 
@@ -38,6 +42,8 @@ class TopologyComponentFactory(
     futureSupervisor: FutureSupervisor,
     caching: CachingConfigs,
     batching: BatchingConfig,
+    participantId: ParticipantId,
+    unsafeEnableOnlinePartyReplication: Boolean,
     exitOnFatalFailures: Boolean,
     topologyStore: TopologyStore[DomainStore],
     loggerFactory: NamedLoggerFactory,
@@ -68,6 +74,8 @@ class TopologyComponentFactory(
             recordOrderPublisher,
             topologyStore,
             recordOrderPublisher.initTimestamp,
+            participantId,
+            unsafeEnableOnlinePartyReplication = unsafeEnableOnlinePartyReplication,
             loggerFactory,
           )
           for {
@@ -113,6 +121,17 @@ class TopologyComponentFactory(
       }
     }
   }
+
+  def createInitialTopologySnapshotValidator(staticDomainParameters: StaticDomainParameters)(
+      implicit executionContext: ExecutionContext
+  ): InitialTopologySnapshotValidator =
+    new InitialTopologySnapshotValidator(
+      domainId,
+      new DomainCryptoPureApi(staticDomainParameters, crypto.pureCrypto),
+      topologyStore,
+      timeouts,
+      loggerFactory,
+    )
 
   def createTopologyClient(
       packageDependencyResolver: PackageDependencyResolverUS

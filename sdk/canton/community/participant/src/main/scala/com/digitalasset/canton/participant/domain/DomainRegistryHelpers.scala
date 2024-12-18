@@ -37,11 +37,12 @@ import com.digitalasset.canton.sequencing.client.channel.{
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
+import com.digitalasset.canton.topology.processing.InitialTopologySnapshotValidator
 import com.digitalasset.canton.topology.store.PackageDependencyResolverUS
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionCompatibility}
+import com.digitalasset.canton.version.ProtocolVersionCompatibility
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
 
@@ -264,10 +265,13 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
       _ <- downloadDomainTopologyStateForInitializationIfNeeded(
         syncDomainPersistentStateManager,
         domainId,
+        topologyFactory.createInitialTopologySnapshotValidator(
+          sequencerAggregatedInfo.staticDomainParameters
+        ),
         topologyClient,
         sequencerClient,
         partyNotifier,
-        sequencerAggregatedInfo.staticDomainParameters.protocolVersion,
+        sequencerAggregatedInfo,
       )
 
       sequencerChannelClientO <- EitherT.fromEither[FutureUnlessShutdown](
@@ -299,10 +303,11 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
   private def downloadDomainTopologyStateForInitializationIfNeeded(
       syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
       domainId: DomainId,
+      topologySnapshotValidator: InitialTopologySnapshotValidator,
       topologyClient: DomainTopologyClientWithInit,
       sequencerClient: SequencerClient,
       partyNotifier: LedgerServerPartyNotifier,
-      protocolVersion: ProtocolVersion,
+      sequencerAggregatedInfo: SequencerAggregatedInfo,
   )(implicit
       ec: ExecutionContextExecutor,
       traceContext: TraceContext,
@@ -317,7 +322,12 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
         EitherT.right[DomainRegistryError](FutureUnlessShutdown.unit)
       case Some(topologyInitializationCallback) =>
         topologyInitializationCallback
-          .callback(topologyClient, sequencerClient, protocolVersion)
+          .callback(
+            topologySnapshotValidator,
+            topologyClient,
+            sequencerClient,
+            sequencerAggregatedInfo.staticDomainParameters.protocolVersion,
+          )
           // notify the ledger api server about regular and admin parties contained
           // in the topology snapshot for this domain
           .semiflatMap { storedTopologyTransactions =>

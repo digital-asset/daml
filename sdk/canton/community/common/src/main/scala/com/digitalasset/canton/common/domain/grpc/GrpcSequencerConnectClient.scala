@@ -257,7 +257,7 @@ class GrpcSequencerConnectClient(
           )
         )
       )
-      .bimap(err => Error.Transport(err.toString), _ => ())
+      .bimap(err => Error.Transport(err.status.toString), _ => ())
 
   }
 }

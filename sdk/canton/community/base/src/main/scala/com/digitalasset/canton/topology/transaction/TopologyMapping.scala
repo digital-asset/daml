@@ -429,8 +429,10 @@ object NamespaceDelegation {
     sit.mapping
       .select[transaction.NamespaceDelegation]
       .exists(ns =>
-        sit.signatures.sizeIs == 1 &&
-          sit.signatures.head1.signedBy == ns.namespace.fingerprint &&
+        // a root certificate must only be signed by the namespace key, but we accept multiple signatures from that key
+        sit.signatures.forall(_.signedBy == ns.namespace.fingerprint) &&
+          // explicitly checking for nonEmpty to guard against refactorings away from NonEmpty[Set[...]].
+          sit.signatures.nonEmpty &&
           ns.isRootDelegation &&
           ns.target.fingerprint == ns.namespace.fingerprint
       )
@@ -514,6 +516,15 @@ object DecentralizedNamespaceDefinition {
     TopologyMapping.buildUniqueKey(code)(_.add(namespace.fingerprint.unwrap))
 
   def code: TopologyMapping.Code = Code.DecentralizedNamespaceDefinition
+
+  def tryCreate(
+      decentralizedNamespace: Namespace,
+      threshold: PositiveInt,
+      owners: NonEmpty[Set[Namespace]],
+  ): DecentralizedNamespaceDefinition =
+    create(decentralizedNamespace, threshold, owners).valueOr(err =>
+      throw new IllegalArgumentException((err))
+    )
 
   def create(
       decentralizedNamespace: Namespace,

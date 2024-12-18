@@ -12,6 +12,15 @@ import scala.collection.immutable
 
 object MonadUtil {
 
+  object syntax {
+    implicit class IterableSyntax[A](xs: Iterable[A]) {
+      def sequentialTraverse_[M[_]](step: A => M[_])(implicit
+          monad: Monad[M]
+      ): M[Unit] =
+        MonadUtil.sequentialTraverse_(xs.iterator)(step)
+    }
+  }
+
   /** The caller must ensure that the underlying data structure of the iterator is immutable */
   def foldLeftM[M[_], S, A](initialState: S, iter: Iterator[A])(
       step: (S, A) => M[S]

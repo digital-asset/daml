@@ -4,20 +4,25 @@
 package com.digitalasset.canton.topology.store
 
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.crypto.{Fingerprint, Signature}
+import com.digitalasset.canton.crypto.SigningPublicKey
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.protocol.DynamicDomainParameters
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.version.ProtocolVersion
 import org.scalatest.Assertions.fail
+import org.scalatest.concurrent.ScalaFutures.convertScalaFuture
 
 import scala.annotation.nowarn
 import scala.concurrent.ExecutionContext
 
 @nowarn("msg=match may not be exhaustive")
 class TopologyStoreTestData(
+    testedProtocolVersion: ProtocolVersion,
     loggerFactory: NamedLoggerFactory,
     executionContext: ExecutionContext,
 ) {
@@ -27,15 +32,33 @@ class TopologyStoreTestData(
       op: Op = TopologyChangeOp.Replace,
       isProposal: Boolean = false,
       serial: PositiveInt = PositiveInt.one,
-  ): SignedTopologyTransaction[Op, M] =
+  )(signingKeys: SigningPublicKey*): SignedTopologyTransaction[Op, M] = {
+    import com.digitalasset.canton.tracing.TraceContext.Implicits.Empty.*
+    val tx = TopologyTransaction(
+      op,
+      serial,
+      mapping,
+      ProtocolVersion.v33,
+    )
+    val signatures = NonEmpty
+      .from(
+        signingKeys.toSeq.map(key =>
+          factory.cryptoApi.crypto.privateCrypto
+            .sign(tx.hash.hash, key.fingerprint)
+            .value
+            .onShutdown(fail("shutdown"))(
+              DirectExecutionContext(loggerFactory.getLogger(this.getClass))
+            )
+            .futureValue
+            .getOrElse(fail(s"error"))
+        )
+      )
+      .getOrElse(fail("no keys provided"))
+      .toSet
+
     SignedTopologyTransaction.apply[Op, M](
-      TopologyTransaction(
-        op,
-        serial,
-        mapping,
-        ProtocolVersion.v33,
-      ),
-      signatures = NonEmpty(Set, Signature.noSignature),
+      tx,
+      signatures = signatures,
       isProposal = isProposal,
     )(
       SignedTopologyTransaction.supportedProtoVersions
@@ -43,6 +66,7 @@ class TopologyStoreTestData(
           ProtocolVersion.v33
         )
     )
+  }
 
   val Seq(ts1, ts2, ts3, ts4, ts5, ts6, ts7, ts8, ts9, ts10) =
     (1L to 10L).map(CantonTimestamp.Epoch.plusSeconds)
@@ -56,128 +80,205 @@ class TopologyStoreTestData(
       executionContext,
     )
 
-  val daDomainNamespace = Namespace(Fingerprint.tryCreate("default"))
-  val daDomainUid = UniqueIdentifier.tryCreate(
-    "da",
-    daDomainNamespace,
-  )
-  val Seq(participantId1, participantId2) = Seq("participant1", "participant2").map(p =>
-    ParticipantId(UniqueIdentifier.tryCreate(p, "participants"))
-  )
-  val domainId1 = DomainId(
-    UniqueIdentifier.tryCreate("domain1", "domains")
-  )
-  val mediatorId1 = MediatorId(UniqueIdentifier.tryCreate("mediator1", "mediators"))
-  val mediatorId2 = MediatorId(UniqueIdentifier.tryCreate("mediator2", "mediators"))
-  val sequencerId1 = SequencerId(UniqueIdentifier.tryCreate("sequencer1", "sequencers"))
-  val sequencerId2 = SequencerId(UniqueIdentifier.tryCreate("sequencer2", "sequencers"))
-  val signingKeys = NonEmpty(Seq, factory.SigningKeys.key1)
-  val owners = NonEmpty(Set, Namespace(Fingerprint.tryCreate("owner1")))
-  val fredOfCanton = PartyId(UniqueIdentifier.tryCreate("fred", "canton"))
+  val p1Key = factory.SigningKeys.key1
+  val p1Namespace = Namespace(p1Key.fingerprint)
+  val p1Id = ParticipantId(UniqueIdentifier.tryCreate("participant1", p1Namespace))
+  val party1 = PartyId.tryCreate("party1", p1Namespace)
+  val party2 = PartyId.tryCreate("party2", p1Namespace)
+  val party3 = PartyId.tryCreate("party3", p1Namespace)
 
-  val tx1_NSD_Proposal = makeSignedTx(
+  val p2Key = factory.SigningKeys.key2
+  val p2Namespace = Namespace(p2Key.fingerprint)
+  val p2Id = ParticipantId(UniqueIdentifier.tryCreate("participant2", p2Namespace))
+
+  val p3Key = factory.SigningKeys.key3
+  val p3Namespace = Namespace(p3Key.fingerprint)
+  val p3Id = ParticipantId(UniqueIdentifier.tryCreate("participant3", p3Namespace))
+
+  val dnd_p1p2_keys = NonEmpty(Seq, p1Key, p2Key)
+  val dns_p1p2 = DecentralizedNamespaceDefinition.computeNamespace(
+    Set(p1Namespace, p2Namespace)
+  )
+  val da_p1p2_domainId = DomainId(
+    UniqueIdentifier.tryCreate(
+      "da",
+      dns_p1p2,
+    )
+  )
+
+  val medKey = factory.SigningKeys.key4
+  val medNamespace = Namespace(medKey.fingerprint)
+
+  val seqKey = factory.SigningKeys.key5
+  val seqNamespace = Namespace(seqKey.fingerprint)
+
+  val dns_p1seq = DecentralizedNamespaceDefinition.computeNamespace(
+    Set(p1Namespace, seqNamespace)
+  )
+
+  val domain1_p1p2_domainId = DomainId(
+    UniqueIdentifier.tryCreate("domain1", dns_p1p2)
+  )
+  val med1Id = MediatorId(UniqueIdentifier.tryCreate("mediator1", medNamespace))
+  val med2Id = MediatorId(UniqueIdentifier.tryCreate("mediator2", medNamespace))
+  val seq1Id = SequencerId(UniqueIdentifier.tryCreate("sequencer1", seqNamespace))
+  val seq2Id = SequencerId(UniqueIdentifier.tryCreate("sequencer2", seqNamespace))
+
+  val `fred::p2Namepsace` = PartyId(UniqueIdentifier.tryCreate("fred", p2Namespace))
+
+  val nsd_p1 = makeSignedTx(
     NamespaceDelegation
-      .tryCreate(daDomainNamespace, signingKeys.head1, isRootDelegation = false),
-    isProposal = true,
-  )
-  val tx2_OTK = makeSignedTx(
-    OwnerToKeyMapping(participantId1, signingKeys)
-  )
-  val tx3_IDD_Removal = makeSignedTx(
-    IdentifierDelegation(daDomainUid, signingKeys.head1),
-    op = TopologyChangeOp.Remove,
-    serial = PositiveInt.tryCreate(1),
-  )
-  val tx3_PTP_Proposal = makeSignedTx(
-    PartyToParticipant.tryCreate(
-      partyId = fredOfCanton,
-      threshold = PositiveInt.one,
-      participants = Seq(HostingParticipant(participantId1, ParticipantPermission.Submission)),
+      .tryCreate(p1Namespace, p1Key, isRootDelegation = true)
+  )(p1Key)
+
+  val nsd_p2 = makeSignedTx(
+    NamespaceDelegation
+      .tryCreate(p2Namespace, p2Key, isRootDelegation = true)
+  )(p2Key)
+
+  val dnd_p1p2 = makeSignedTx(
+    DecentralizedNamespaceDefinition.tryCreate(
+      dns_p1p2,
+      threshold = PositiveInt.two,
+      owners = dnd_p1p2_keys.map(k => Namespace(k.fingerprint)).toSet,
+    )
+  )(dnd_p1p2_keys*)
+  val dop_domain1_proposal = makeSignedTx(
+    DomainParametersState(
+      domain1_p1p2_domainId,
+      DynamicDomainParameters
+        .initialValues(
+          topologyChangeDelay = NonNegativeFiniteDuration.Zero,
+          protocolVersion = testedProtocolVersion,
+          mediatorReactionTimeout = NonNegativeFiniteDuration.Zero,
+        ),
     ),
     isProposal = true,
-  )
-  val tx3_NSD = makeSignedTx(
-    NamespaceDelegation.tryCreate(daDomainNamespace, signingKeys.head1, isRootDelegation = false)
-  )
-  val tx4_DND = makeSignedTx(
+  )(p1Key)
+
+  val dop_domain1 = makeSignedTx(
+    DomainParametersState(
+      domain1_p1p2_domainId,
+      DynamicDomainParameters
+        .initialValues(
+          topologyChangeDelay = NonNegativeFiniteDuration.Zero,
+          protocolVersion = testedProtocolVersion,
+        ),
+    )
+  )(dnd_p1p2_keys*)
+  val otk_p1 = makeSignedTx(
+    OwnerToKeyMapping(p1Id, NonEmpty(Seq, p1Key, factory.EncryptionKeys.key1))
+  )((p1Key))
+  val idd_daDomain_key1 = makeSignedTx(
+    IdentifierDelegation(da_p1p2_domainId.uid, factory.SigningKeys.key1),
+    serial = PositiveInt.tryCreate(1),
+  )(dnd_p1p2_keys*)
+  val idd_daDomain_key1_removal = makeSignedTx(
+    IdentifierDelegation(da_p1p2_domainId.uid, factory.SigningKeys.key1),
+    op = TopologyChangeOp.Remove,
+    serial = PositiveInt.tryCreate(2),
+  )(dnd_p1p2_keys*)
+  val dtc_p1_domain1 = makeSignedTx(
+    DomainTrustCertificate(
+      p1Id,
+      domain1_p1p2_domainId,
+    )
+  )(p1Key)
+
+  val ptp_fred_p1_proposal = makeSignedTx(
+    PartyToParticipant.tryCreate(
+      partyId = `fred::p2Namepsace`,
+      threshold = PositiveInt.one,
+      participants = Seq(HostingParticipant(p1Id, ParticipantPermission.Submission)),
+    ),
+    isProposal = true,
+  )(p1Key)
+  val nsd_seq = makeSignedTx(
+    NamespaceDelegation.tryCreate(seqNamespace, seqKey, isRootDelegation = true)
+  )(seqKey)
+  val nsd_seq_invalid = makeSignedTx(
+    NamespaceDelegation.tryCreate(seqNamespace, seqKey, isRootDelegation = true)
+  )(p1Key) // explicitly signing with the wrong key
+
+  val dnd_p1seq = makeSignedTx(
     DecentralizedNamespaceDefinition
       .create(
-        Namespace(Fingerprint.tryCreate("decentralized-namespace")),
+        dns_p1seq,
         PositiveInt.one,
-        owners = owners,
+        owners = NonEmpty(Set, p1Namespace, seqNamespace),
       )
       .getOrElse(fail())
-  )
-  val tx4_OTK_Proposal = makeSignedTx(
-    OwnerToKeyMapping(participantId1, signingKeys),
+  )(p1Key, seqKey)
+  val otk_p2_proposal = makeSignedTx(
+    OwnerToKeyMapping(p2Id, NonEmpty(Seq, p1Key, factory.EncryptionKeys.key1)),
     isProposal = true,
     serial = PositiveInt.tryCreate(2),
-  )
-  val tx5_PTP = makeSignedTx(
+  )(p1Key)
+  val ptp_fred_p1 = makeSignedTx(
     PartyToParticipant.tryCreate(
-      partyId = fredOfCanton,
+      partyId = `fred::p2Namepsace`,
       threshold = PositiveInt.one,
-      participants = Seq(HostingParticipant(participantId1, ParticipantPermission.Submission)),
+      participants = Seq(HostingParticipant(p1Id, ParticipantPermission.Confirmation)),
     )
-  )
-  val tx5_DTC = makeSignedTx(
+  )(p1Key, p2Key)
+  val dtc_p2_domain1 = makeSignedTx(
     DomainTrustCertificate(
-      participantId2,
-      domainId1,
+      p2Id,
+      domain1_p1p2_domainId,
     )
-  )
-  val tx6_DTC_Update = makeSignedTx(
+  )(p2Key)
+  val dtc_p2_domain1_update = makeSignedTx(
     DomainTrustCertificate(
-      participantId2,
-      domainId1,
+      p2Id,
+      domain1_p1p2_domainId,
     ),
     serial = PositiveInt.tryCreate(2),
-  )
-  val tx6_MDS = makeSignedTx(
+  )(p2Key)
+  val mds_med1_domain1 = makeSignedTx(
     MediatorDomainState
       .create(
-        domain = domainId1,
+        domain = domain1_p1p2_domainId,
         group = NonNegativeInt.one,
         threshold = PositiveInt.one,
-        active = Seq(mediatorId1),
+        active = Seq(med1Id),
         observers = Seq.empty,
       )
       .getOrElse(fail())
-  )
+  )(dnd_p1p2_keys*)
 
-  val tx7_MDS_Update = makeSignedTx(
+  val mds_med1_domain1_invalid = makeSignedTx(
     MediatorDomainState
       .create(
-        domain = domainId1,
+        domain = domain1_p1p2_domainId,
         group = NonNegativeInt.one,
         threshold = PositiveInt.one,
-        active = Seq(mediatorId1, mediatorId2),
+        active = Seq(med1Id),
+        observers = Seq.empty,
+      )
+      .getOrElse(fail())
+  )(seqKey)
+
+  val mds_med1_domain1_update = makeSignedTx(
+    MediatorDomainState
+      .create(
+        domain = domain1_p1p2_domainId,
+        group = NonNegativeInt.one,
+        threshold = PositiveInt.one,
+        active = Seq(med1Id, med2Id),
         observers = Seq.empty,
       )
       .getOrElse(fail()),
     serial = PositiveInt.tryCreate(2),
-  )
+  )(dnd_p1p2_keys*)
 
-  val tx8_SDS = makeSignedTx(
+  val sds_seq1_domain1 = makeSignedTx(
     SequencerDomainState
       .create(
-        domain = domainId1,
+        domain = domain1_p1p2_domainId,
         threshold = PositiveInt.one,
-        active = Seq(sequencerId1),
+        active = Seq(seq1Id),
         observers = Seq.empty,
       )
       .getOrElse(fail())
-  )
-
-  val tx9_SDS_Update = makeSignedTx(
-    SequencerDomainState
-      .create(
-        domain = domainId1,
-        threshold = PositiveInt.one,
-        active = Seq(sequencerId1, sequencerId2),
-        observers = Seq.empty,
-      )
-      .getOrElse(fail()),
-    serial = PositiveInt.tryCreate(2),
-  )
+  )(dnd_p1p2_keys*)
 }

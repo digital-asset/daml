@@ -411,12 +411,6 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[GenericStoredTopologyTransactions]
 
-  /** Store an initial set of topology transactions as given into the store.
-    */
-  def bootstrap(snapshot: GenericStoredTopologyTransactions)(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit]
-
   /** query optimized for inspection
     *
     * @param proposals if true, query only for proposals instead of approved transaction mappings
@@ -555,6 +549,8 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[EffectiveStateChange]]
+
+  def deleteAllData()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 }
 
 object TopologyStore {

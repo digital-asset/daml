@@ -14,7 +14,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.DefaultTestIdentities.{mediatorId, sequencerId}
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.*
-import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
+import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.TopologyTransactionRejection.InvalidTopologyMapping
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
@@ -54,7 +54,12 @@ class ValidatingTopologyMappingChecksTest
 
   def mk() = {
     val store =
-      new InMemoryTopologyStore(AuthorizedStore, testedProtocolVersion, loggerFactory, timeouts)
+      new InMemoryTopologyStore(
+        DomainStore(DefaultTestIdentities.domainId),
+        testedProtocolVersion,
+        loggerFactory,
+        timeouts,
+      )
     val check = new ValidatingTopologyMappingChecks(store, loggerFactory)
     (check, store)
   }
@@ -1065,22 +1070,16 @@ class ValidatingTopologyMappingChecksTest
   }
 
   private def addToStore(
-      store: TopologyStore[AuthorizedStore],
+      store: TopologyStore[DomainStore],
       transactions: GenericSignedTopologyTransaction*
   ): Unit =
     store
-      .bootstrap(
-        StoredTopologyTransactions(
-          transactions.map(tx =>
-            StoredTopologyTransaction(
-              SequencedTime.MinValue,
-              EffectiveTime.MinValue,
-              None,
-              tx,
-              None,
-            )
-          )
-        )
+      .update(
+        sequenced = SequencedTime.MinValue,
+        effective = EffectiveTime.MinValue,
+        removeMapping = Map.empty,
+        removeTxs = Set.empty,
+        additions = transactions.map(ValidatedTopologyTransaction(_)),
       )
       .futureValueUS
 

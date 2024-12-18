@@ -44,6 +44,7 @@ final case class SequencedTime(value: CantonTimestamp) {
 }
 object SequencedTime {
   val MinValue: SequencedTime = SequencedTime(CantonTimestamp.MinValue)
+  val MaxValue: SequencedTime = SequencedTime(CantonTimestamp.MaxValue)
   implicit val orderingSequencedTime: Ordering[SequencedTime] =
     Ordering.by[SequencedTime, CantonTimestamp](_.value)
   def fromProtoPrimitive(ts: ProtoTimestamp): ParsingResult[SequencedTime] =

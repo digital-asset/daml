@@ -135,7 +135,7 @@ class InFlightSubmissionTracker(
           unsequencedInFlights.map(_.sequencingInfo.timeout)
         )
       }
-      // Recover internal state: store unseqeuncedInFlights in unsequencedSubmissionMap, and schedule the rejection
+      // Recover internal state: store unsequencedInFlights in unsequencedSubmissionMap, and schedule the rejection
       _ = unsequencedInFlights.foreach { unsequencedInFlight =>
         val submissionTraceContext = unsequencedInFlight.submissionTraceContext
         unsequencedSubmissionMap.pushIfNotExists(

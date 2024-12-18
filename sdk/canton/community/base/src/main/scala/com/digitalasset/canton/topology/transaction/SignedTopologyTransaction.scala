@@ -4,6 +4,7 @@
 package com.digitalasset.canton.topology.transaction
 
 import cats.data.EitherT
+import cats.instances.order.*
 import cats.instances.seq.*
 import cats.syntax.either.*
 import cats.syntax.functorFilter.*
@@ -107,7 +108,9 @@ case class SignedTopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
   override protected def pretty: Pretty[SignedTopologyTransaction.this.type] =
     prettyOfClass(
       unnamedParam(_.transaction),
-      param("signatures", _.signatures.map(_.signedBy)),
+      // just calling `signatures.map(_.signedBy)` hides the fact that there could be
+      // multiple (possibly invalid) signatures by the same key
+      param("signatures", _.signatures.toSeq.map(_.signedBy).sorted),
       paramIfTrue("proposal", _.isProposal),
     )
 

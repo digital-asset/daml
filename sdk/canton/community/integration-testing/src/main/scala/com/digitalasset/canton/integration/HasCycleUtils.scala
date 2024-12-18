@@ -5,6 +5,8 @@ package com.digitalasset.canton.integration
 
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.WrappedCreatedEvent
+import com.digitalasset.canton.config
+import com.digitalasset.canton.config.ConsoleCommandTimeout
 import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.examples.java.cycle as M
@@ -63,12 +65,15 @@ trait HasCycleUtils[E <: Environment, TCE <: TestConsoleEnvironment[E]] {
       partyId: PartyId,
       id: String,
       commandId: String = "",
+      optTimeout: Option[config.NonNegativeDuration] = Some(
+        ConsoleCommandTimeout.defaultLedgerCommandsTimeout
+      ),
   ): Unit = {
     if (participant.packages.find("Cycle").isEmpty) {
       participant.dars.upload(CantonExamplesPath)
     }
     val cycle = new M.Cycle(id, partyId.toProtoPrimitive).create.commands.loneElement
     participant.ledger_api.javaapi.commands
-      .submit(Seq(partyId), Seq(cycle), commandId = commandId)
+      .submit(Seq(partyId), Seq(cycle), commandId = commandId, optTimeout = optTimeout)
   }
 }
