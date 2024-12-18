@@ -29,11 +29,11 @@ import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFact
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.apiserver.SeedService.Seeding
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
-import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateUpgradableContract
 import com.digitalasset.canton.platform.apiserver.execution.{
   AuthorityResolver,
   CommandProgressTracker,
   DynamicDomainParameterGetter,
+  SerializableContractAuthenticators,
 }
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey.CommunityKey
@@ -116,7 +116,7 @@ object ApiServiceOwner {
       engineLoggingConfig: EngineLoggingConfig,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
-      authenticateUpgradableContract: AuthenticateUpgradableContract,
+      serializableContractAuthenticators: SerializableContractAuthenticators,
       dynParamGetter: DynamicDomainParameterGetter,
       pruningOffsetCache: PruningOffsetCache,
       keepAlive: Option[KeepAliveServerConfig],
@@ -190,7 +190,7 @@ object ApiServiceOwner {
         enableExplicitDisclosure = enableExplicitDisclosure,
         telemetry = telemetry,
         loggerFactory = loggerFactory,
-        authenticateUpgradableContract = authenticateUpgradableContract,
+        serializableContractAuthenticators = serializableContractAuthenticators,
         dynParamGetter = dynParamGetter,
         pruningOffsetCache = pruningOffsetCache,
       )(materializer, executionSequencerFactory, tracer)

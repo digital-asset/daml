@@ -48,6 +48,7 @@ object MemoryConfigurationChecker {
       val warnMessage =
         s"""|-Xmx ($maxHeapSizeBytes) exceeds half of the container's total memory $totalMemoryBytes.
             |We recommend to increase the container's memory limit to at least $twiceMaxHeapSizeBytes.""".stripMargin
+
       (check, config) match {
         case (true, _) =>
           logger.debug(

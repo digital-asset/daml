@@ -156,7 +156,7 @@ class ApiCommandSubmissionServiceSpec
       commandsValidator = new CommandsValidator(
         ledgerId = LedgerId(ledgerId),
         validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.UpgradingDisabled,
-        validateDisclosedContracts = new ValidateDisclosedContracts(false),
+        validateDisclosedContracts = ValidateDisclosedContracts.DisclosedContractsDisabled,
       ),
     )
 }

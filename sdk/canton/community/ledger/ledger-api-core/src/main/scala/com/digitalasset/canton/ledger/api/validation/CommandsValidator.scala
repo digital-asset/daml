@@ -25,6 +25,7 @@ import com.digitalasset.canton.ledger.api.validation.CommandsValidator.{
 import com.digitalasset.canton.ledger.api.{DeduplicationPeriod, domain}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.platform.apiserver.execution.SerializableContractAuthenticators.AuthenticateSerializableContract
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag.*
 
@@ -35,9 +36,9 @@ import scala.collection.immutable
 
 final class CommandsValidator(
     ledgerId: LedgerId,
+    validateDisclosedContracts: ValidateDisclosedContracts,
     validateUpgradingPackageResolutions: ValidateUpgradingPackageResolutions =
       ValidateUpgradingPackageResolutions.UpgradingDisabled,
-    validateDisclosedContracts: ValidateDisclosedContracts = new ValidateDisclosedContracts(false),
 ) {
 
   import FieldValidator.*
@@ -312,11 +313,13 @@ object CommandsValidator {
       ledgerId: LedgerId,
       validateUpgradingPackageResolutions: ValidateUpgradingPackageResolutions,
       enableExplicitDisclosure: Boolean,
+      authenticateSerializableContract: AuthenticateSerializableContract,
   ) =
     new CommandsValidator(
       ledgerId = ledgerId,
       validateUpgradingPackageResolutions = validateUpgradingPackageResolutions,
-      validateDisclosedContracts = new ValidateDisclosedContracts(enableExplicitDisclosure),
+      validateDisclosedContracts =
+        new ValidateDisclosedContracts(enableExplicitDisclosure, authenticateSerializableContract),
     )
 
   /** Effective submitters of a command
