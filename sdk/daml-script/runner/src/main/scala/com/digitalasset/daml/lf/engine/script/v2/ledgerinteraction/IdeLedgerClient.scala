@@ -620,7 +620,9 @@ class IdeLedgerClient(
           contracts = fatContacts
           disclosures <-
             try {
-              Right(preprocessor.unsafePreprocessDisclosedContracts(contracts))
+              val (preprocessedDisclosed, _) =
+                preprocessor.unsafePreprocessDisclosedContracts(contracts)
+              Right(preprocessedDisclosed)
             } catch {
               case Error.Preprocessing.Lookup(err) => Left(makeLookupError(err))
             }

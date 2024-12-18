@@ -9,7 +9,7 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, NoCopy, Ref, Time}
 import com.digitalasset.daml.lf.interpretation.{Error => IError}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{LookupError, TypeDestructor}
+import com.digitalasset.daml.lf.language.{LookupError, PackageInterface, TypeDestructor}
 import com.digitalasset.daml.lf.language.LanguageVersionRangeOps._
 import com.digitalasset.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.digitalasset.daml.lf.speedy.PartialTransaction.NodeSeeds
@@ -930,12 +930,12 @@ private[lf] object Speedy {
     }
 
     final def tmplId2TxVersion(tmplId: TypeConName): TxVersion =
-      compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
+      Machine.tmplId2TxVersion(compiledPackages.pkgInterface, tmplId)
 
     final def tmplId2PackageNameVersion(
         tmplId: TypeConName
     ): (PackageName, Option[PackageVersion]) =
-      compiledPackages.pkgInterface.signatures(tmplId.packageId).pkgNameVersion
+      Machine.tmplId2PackageNameVersion(compiledPackages.pkgInterface, tmplId)
 
     private[lf] def abort(): Unit = {
       // We make sure the interpretation cannot be resumed
@@ -1563,6 +1563,48 @@ private[lf] object Speedy {
         iterationsBetweenInterruptions: Long = Long.MaxValue,
     )(implicit loggingContext: LoggingContext): Either[SError, SValue] =
       fromPureSExpr(compiledPackages, expr, iterationsBetweenInterruptions).runPure()
+
+    def tmplId2TxVersion(pkgInterface: PackageInterface, tmplId: TypeConName): TxVersion =
+      pkgInterface.packageLanguageVersion(tmplId.packageId)
+
+    def tmplId2PackageNameVersion(
+        pkgInterface: PackageInterface,
+        tmplId: TypeConName,
+    ): (PackageName, Option[PackageVersion]) =
+      pkgInterface.signatures(tmplId.packageId).pkgNameVersion
+
+    private[lf] def globalKey(
+        pkgInterface: PackageInterface,
+        templateId: Ref.Identifier,
+        contractKey: SValue,
+    ): Option[GlobalKey] = {
+      val packageTxVersion = tmplId2TxVersion(pkgInterface, templateId)
+      val (pkgName, _) = tmplId2PackageNameVersion(pkgInterface, templateId)
+      globalKey(packageTxVersion, pkgName, templateId, contractKey)
+    }
+
+    private[lf] def globalKey(
+        packageTxVersion: TxVersion,
+        pkgName: PackageName,
+        templateId: TypeConName,
+        keyValue: SValue,
+    ): Option[GlobalKey] = {
+      val lfValue = keyValue.toNormalizedValue(packageTxVersion)
+      GlobalKey
+        .build(templateId, lfValue, pkgName)
+        .toOption
+    }
+
+    private[lf] def assertGlobalKey(
+        packageTxVersion: TxVersion,
+        pkgName: PackageName,
+        templateId: TypeConName,
+        keyValue: SValue,
+    ) =
+      globalKey(packageTxVersion, pkgName, templateId, keyValue)
+        .getOrElse(
+          throw SErrorDamlException(IError.ContractIdInContractKey(keyValue.toUnnormalizedValue))
+        )
 
   }
 

@@ -10,8 +10,10 @@ import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
+import com.digitalasset.daml.lf.command.ApiContractKey
+import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.speedy.SValue
-import com.digitalasset.daml.lf.transaction.FatContractInstance
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, GlobalKey}
 
 private[lf] final class CommandPreprocessor(
     pkgInterface: language.PackageInterface,
@@ -265,15 +267,20 @@ private[lf] final class CommandPreprocessor(
   @throws[Error.Preprocessing.Error]
   def unsafePreprocessDisclosedContracts(
       discs: ImmArray[FatContractInstance]
-  ): ImmArray[speedy.DisclosedContract] = {
+  ): (ImmArray[speedy.DisclosedContract], Set[Hash]) = {
     var contractIds: Set[Value.ContractId] = Set.empty
+    val contractKeyHashes = Set.newBuilder[Hash]
 
-    discs.map { disclosedContract =>
+    val preprocessedDiscs = discs.map { disclosedContract =>
       if (contractIds.contains(disclosedContract.contractId))
         throw Error.Preprocessing.DuplicateDisclosedContractId(disclosedContract.contractId)
       contractIds += disclosedContract.contractId
+      disclosedContract.contractKeyWithMaintainers.foreach { keyWithMaintainers =>
+        contractKeyHashes += keyWithMaintainers.globalKey.hash
+      }
       unsafePreprocessDisclosedContract(disclosedContract)
     }
+    preprocessedDiscs -> contractKeyHashes.result()
   }
 
   @throws[Error.Preprocessing.Error]
@@ -291,4 +298,37 @@ private[lf] final class CommandPreprocessor(
     speedy.InterfaceView(templateId, arg, interfaceId)
   }
 
+  @throws[Error.Preprocessing.Error]
+  def unsafePreprocessApiContractKeys(
+      pkgResolution: Map[Ref.PackageName, Ref.PackageId],
+      keys: Seq[ApiContractKey],
+  ): Seq[GlobalKey] =
+    keys.map(unsafePreprocessApiContractKey(pkgResolution, _))
+
+  @throws[Error.Preprocessing.Error]
+  private def unsafePreprocessApiContractKey(
+      pkgResolution: Map[Ref.PackageName, Ref.PackageId],
+      key: ApiContractKey,
+  ): GlobalKey = {
+    val templateRef = key.templateRef
+    val templateId = unsafeResolveTyConName(
+      pkgResolution,
+      templateRef,
+      language.Reference.Template(templateRef),
+    )
+    val tmpl = handleLookup(pkgInterface.lookupTemplate(templateId))
+    if (tmpl.key.isEmpty)
+      throw Error.Preprocessing.UnexpectedContractKeyPrefetch(
+        templateRef,
+        key.contractKey,
+      )
+    val ckTtype = handleLookup(pkgInterface.lookupTemplateKey(templateId)).typ
+    val preprocessedKey = unsafeTranslateValue(ckTtype, key.contractKey)
+
+    speedy.Speedy.Machine
+      .globalKey(pkgInterface, templateId, preprocessedKey)
+      .getOrElse(
+        throw Error.Preprocessing.ContractIdInContractKey(key.contractKey)
+      )
+  }
 }

@@ -5,13 +5,19 @@ package com.digitalasset.daml.lf
 package engine
 package preprocessing
 
-import com.digitalasset.daml.lf.command.ReplayCommand
-import com.digitalasset.daml.lf.data.{Ref, ImmArray}
+import com.digitalasset.daml.lf.command.{ApiContractKey, ReplayCommand}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.language.{Ast, LookupError}
 import com.digitalasset.daml.lf.speedy.SValue
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, Node, SubmittedTransaction}
+import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
+  GlobalKey,
+  Node,
+  SubmittedTransaction,
+}
 import com.digitalasset.daml.lf.value.Value
 import com.daml.nameof.NameOf
+import com.digitalasset.daml.lf.crypto.Hash
 
 import scala.annotation.tailrec
 
@@ -214,7 +220,7 @@ private[engine] final class Preprocessor(
 
   def preprocessDisclosedContracts(
       discs: data.ImmArray[FatContractInstance]
-  ): Result[ImmArray[speedy.DisclosedContract]] =
+  ): Result[(ImmArray[speedy.DisclosedContract], Set[Hash])] =
     safelyRun(pullPackage(discs.toSeq.view.map(_.templateId))) {
       commandPreprocessor.unsafePreprocessDisclosedContracts(discs)
     }
@@ -260,6 +266,50 @@ private[engine] final class Preprocessor(
     ) {
       commandPreprocessor.unsafePreprocessInterfaceView(templateId, argument, interfaceId)
     }
+
+  def preprocessApiContractKeys(
+      pkgResolution: Map[Ref.PackageName, Ref.PackageId],
+      keys: Seq[ApiContractKey],
+  ): Result[Seq[GlobalKey]] =
+    safelyRun(pullPackage(pkgResolution, keys.view.map(_.templateRef))) {
+      commandPreprocessor.unsafePreprocessApiContractKeys(pkgResolution, keys)
+    }
+
+  private[engine] def prefetchKeys(
+      commands: ImmArray[speedy.Command],
+      prefetchKeys: Seq[GlobalKey],
+      disclosedKeyHashes: Set[Hash],
+  ): Result[Unit] =
+    safelyRun(
+      ResultError(
+        Error.Preprocessing.Internal(
+          NameOf.qualifiedNameOfCurrentFunc,
+          "unsafePrefetchKeys should not need packages",
+          None,
+        )
+      )
+    )(unsafePrefetchKeys(commands, prefetchKeys, disclosedKeyHashes)).flatMap { undisclosedKeys =>
+      if (undisclosedKeys.nonEmpty) ResultPrefetch(undisclosedKeys.toSeq, () => ResultDone.Unit)
+      else ResultDone.Unit
+    }
+
+  private def unsafePrefetchKeys(
+      commands: ImmArray[speedy.Command],
+      prefetchKeys: Seq[GlobalKey],
+      disclosedKeyHashes: Set[crypto.Hash],
+  ): Seq[GlobalKey] = {
+    val exercisedKeys = commands.iterator.collect {
+      case speedy.Command.ExerciseByKey(templateId, contractKey, _, _) =>
+        speedy.Speedy.Machine
+          .globalKey(pkgInterface, templateId, contractKey)
+          .getOrElse(
+            throw Error.Preprocessing.ContractIdInContractKey(contractKey.toUnnormalizedValue)
+          )
+    }
+    val undisclosedKeys =
+      (exercisedKeys ++ prefetchKeys).filterNot(key => disclosedKeyHashes.contains(key.hash))
+    undisclosedKeys.distinct.toSeq
+  }
 }
 
 private[preprocessing] object Preprocessor {
