@@ -579,6 +579,7 @@ final class LfValueTranslation(
           case LfEngine.ResultNeedUpgradeVerification(_, _, _, _, _) =>
             Future.failed(new IllegalStateException("View computation must be a pure function"))
 
+          case LfEngine.ResultPrefetch(_, resume) => goAsync(resume())
         }
 
       Future(engine.computeInterfaceView(templateId, value, interfaceId))

@@ -139,6 +139,7 @@ class Engine(val config: EngineConfig) {
       disclosures: ImmArray[FatContractInstance] = ImmArray.empty,
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
+      prefetchKeys: Seq[ApiContractKey],
       engineLogger: Option[EngineLogger] = None,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
 
@@ -147,7 +148,10 @@ class Engine(val config: EngineConfig) {
     for {
       pkgResolution <- preprocessor.buildPackageResolution(packageMap, packagePreference)
       processedCmds <- preprocessor.preprocessApiCommands(pkgResolution, cmds.commands)
-      processedDiscs <- preprocessor.preprocessDisclosedContracts(disclosures)
+      processedPrefetchKeys <- preprocessor.preprocessApiContractKeys(pkgResolution, prefetchKeys)
+      preprocessedDiscsAndKeys <- preprocessor.preprocessDisclosedContracts(disclosures)
+      (processedDiscs, disclosedKeyHashes) = preprocessedDiscsAndKeys
+      _ <- preprocessor.prefetchKeys(processedCmds, processedPrefetchKeys, disclosedKeyHashes)
       result <-
         interpretCommands(
           validating = false,
