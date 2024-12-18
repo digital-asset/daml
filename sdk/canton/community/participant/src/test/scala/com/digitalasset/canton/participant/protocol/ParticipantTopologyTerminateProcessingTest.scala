@@ -87,6 +87,8 @@ class ParticipantTopologyTerminateProcessingTest
       recordOrderPublisher,
       store,
       initialRecordTime,
+      DefaultTestIdentities.participant1,
+      unsafeEnableOnlinePartyReplication = false,
       loggerFactory,
     )
     (proc, store, eventCaptor, recordOrderPublisher)
@@ -190,7 +192,7 @@ class ParticipantTopologyTerminateProcessingTest
           val events = eventCaptor.getAllValues.asScala.flatMap(_(CantonTimestamp.MinValue))
           events.size shouldBe 1
           forAll(events) {
-            case TopologyTransactionEffective(_, events, _, _, _) =>
+            case TopologyTransactionEffective(_, events, _, _) =>
               forAll(events) {
                 case PartyToParticipantAuthorization(
                       party,
@@ -231,7 +233,7 @@ class ParticipantTopologyTerminateProcessingTest
           val events = eventCaptor.getAllValues.asScala.flatMap(_(CantonTimestamp.MinValue))
           events.size shouldBe 1
           forAll(events) {
-            case TopologyTransactionEffective(_, events, _, _, _) =>
+            case TopologyTransactionEffective(_, events, _, _) =>
               forAll(events) {
                 case PartyToParticipantAuthorization(
                       party,
@@ -272,7 +274,7 @@ class ParticipantTopologyTerminateProcessingTest
           val events = eventCaptor.getAllValues.asScala.flatMap(_(CantonTimestamp.MinValue))
           events.size shouldBe 1
           forAll(events) {
-            case TopologyTransactionEffective(_, events, _, _, _) =>
+            case TopologyTransactionEffective(_, events, _, _) =>
               forAll(events) {
                 case PartyToParticipantAuthorization(
                       party,

@@ -111,14 +111,14 @@ class SequencerAdministration(node: SequencerReference) extends ConsoleCommandGr
   }
 
   @Help.Summary(
-    "Dynamically initialize a sequencer from a point later than the beginning of the event stream." +
-      "This is called as part of the sequencer.setup.onboard_new_sequencer command, so you are unlikely to need to call this directly."
+    "Dynamically initialize a sequencer from a point later than the beginning of the event stream."
   )
   def assign_from_onboarding_state(
       onboardingState: ByteString,
       waitForReady: Boolean = true,
   ): InitializeSequencerResponse = {
-    if (waitForReady) node.health.wait_for_ready_for_initialization()
+    if (waitForReady && !node.health.initialized())
+      node.health.wait_for_ready_for_initialization()
 
     consoleEnvironment.run {
       runner.adminCommand(

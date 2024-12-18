@@ -275,7 +275,7 @@ trait PartyTopologySnapshotClient {
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[LfPartyId, ParticipantAttributes]]
 
-  /** Returns true of all given party ids are hosted on a certain participant */
+  /** Returns true if all given party ids are hosted on a certain participant */
   def allHostedOn(
       partyIds: Set[LfPartyId],
       participantId: ParticipantId,

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.domain.mediator
 
-import cats.Monad
 import cats.data.{EitherT, OptionT}
 import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
@@ -22,6 +21,7 @@ import com.digitalasset.canton.crypto.{
   DomainCryptoPureApi,
   DomainSyncCryptoClient,
 }
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.Domain
 import com.digitalasset.canton.domain.mediator.admin.data.MediatorNodeStatus
 import com.digitalasset.canton.domain.mediator.admin.gprc.{
@@ -58,11 +58,14 @@ import com.digitalasset.canton.store.*
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker, HasUptime}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClient
-import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor
+import com.digitalasset.canton.topology.processing.{
+  InitialTopologySnapshotValidator,
+  TopologyTransactionProcessor,
+}
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.SingleUseCell
+import com.digitalasset.canton.util.{EitherTUtil, SingleUseCell}
 import com.digitalasset.canton.version.{
   ProtocolVersion,
   ProtocolVersionCompatibility,
@@ -467,10 +470,6 @@ class MediatorNodeBootstrap(
                   domainTopologyStore,
                   topologyManagerStatus = TopologyManagerStatus
                     .combined(authorizedTopologyManager, domainTopologyManager),
-                  domainTopologyStateInit = new StoreBasedDomainTopologyInitializationCallback(
-                    mediatorId,
-                    domainTopologyStore,
-                  ),
                   domainOutboxFactory,
                 ),
               storage.isActive,
@@ -524,7 +523,6 @@ class MediatorNodeBootstrap(
       staticDomainParameters: StaticDomainParameters,
       domainTopologyStore: TopologyStore[DomainStore],
       topologyManagerStatus: TopologyManagerStatus,
-      domainTopologyStateInit: DomainTopologyInitializationCallback,
       domainOutboxFactory: DomainOutboxFactory,
   ): EitherT[FutureUnlessShutdown, String, MediatorRuntime] = {
     val domainId = domainConfig.domainId
@@ -647,23 +645,6 @@ class MediatorNodeBootstrap(
           loggerFactory,
         )
 
-      _ <- {
-        val headSnapshot = topologyClient.headSnapshot
-        for {
-          // TODO(i12076): Request topology information from all sequencers and reconcile
-          isMediatorActive <- EitherT
-            .right[String](headSnapshot.isMediatorActive(mediatorId))
-          _ <- Monad[EitherT[FutureUnlessShutdown, String, *]].whenA(!isMediatorActive)(
-            domainTopologyStateInit
-              .callback(
-                topologyClient,
-                sequencerClient,
-                domainConfig.domainParameters.protocolVersion,
-              )
-          )
-        } yield {}
-      }
-
       _ = sequencerClientRef.set(sequencerClient)
       _ = deferredSequencerClientHealth.set(sequencerClient.healthComponent)
 
@@ -676,6 +657,30 @@ class MediatorNodeBootstrap(
         loggerFactory,
       )
       _ = topologyClient.setDomainTimeTracker(timeTracker)
+
+      topologyStoreIsEmpty <- EitherT.right(
+        domainTopologyStore
+          .maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true)
+          .map(_.isEmpty)
+      )
+      // TODO(i12076): Request topology information from all sequencers and reconcile
+      _ <-
+        if (topologyStoreIsEmpty) {
+          new StoreBasedDomainTopologyInitializationCallback(
+            mediatorId
+          ).callback(
+            new InitialTopologySnapshotValidator(
+              domainId,
+              new DomainCryptoPureApi(staticDomainParameters, crypto.pureCrypto),
+              domainTopologyStore,
+              arguments.parameterConfig.processingTimeouts,
+              domainLoggerFactory,
+            ),
+            topologyClient,
+            sequencerClient,
+            domainConfig.domainParameters.protocolVersion,
+          )
+        } else EitherTUtil.unitUS
 
       mediatorRuntime <- MediatorRuntimeFactory.create(
         mediatorId,

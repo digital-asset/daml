@@ -238,6 +238,8 @@ class SyncDomainPersistentStateManager(
         futureSupervisor,
         parameters.cachingConfigs,
         parameters.batchingConfig,
+        participantId,
+        unsafeEnableOnlinePartyReplication = parameters.unsafeEnableOnlinePartyReplication,
         exitOnFatalFailures = parameters.exitOnFatalFailures,
         state.topologyStore,
         loggerFactory.append("domainId", domainId.toString),
@@ -269,8 +271,7 @@ class SyncDomainPersistentStateManager(
               // The callback will fetch the essential topology state from the sequencer
               Option.when(trustCert.isEmpty)(
                 new StoreBasedDomainTopologyInitializationCallback(
-                  participantId,
-                  state.topologyStore,
+                  participantId
                 )
               )
             )

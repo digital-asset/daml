@@ -144,20 +144,15 @@ class QueueBasedDomainOutboxTest
       // always have the root certificate in the topology store, otherwise the
       // IDDs won't pass validation.
       rootCert <- rootCertF
-      _ <- target
-        .bootstrap(
-          StoredTopologyTransactions(
-            Seq(
-              StoredTopologyTransaction(
-                SequencedTime.MinValue,
-                EffectiveTime.MinValue,
-                None,
-                rootCert,
-                None,
-              )
-            )
+      _ <-
+        target
+          .update(
+            sequenced = SequencedTime.MinValue,
+            effective = EffectiveTime.MinValue,
+            removeMapping = Map.empty,
+            removeTxs = Set.empty,
+            additions = Seq(ValidatedTopologyTransaction(rootCert)),
           )
-        )
     } yield (target, manager, handle, client)
   }
 

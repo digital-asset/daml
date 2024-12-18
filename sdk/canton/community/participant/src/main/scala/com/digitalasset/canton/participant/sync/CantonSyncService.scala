@@ -698,7 +698,7 @@ class CantonSyncService(
       .toMap
 
   /** Returns the domains this sync service is configured with. */
-  def configuredDomains: Seq[StoredDomainConnectionConfig] = domainConnectionConfigStore.getAll()
+  def registeredDomains: Seq[StoredDomainConnectionConfig] = domainConnectionConfigStore.getAll()
 
   /** Returns the pure crypto operations used for the sync protocol */
   def pureCryptoApi: CryptoPureApi = syncCrypto.pureCrypto
@@ -1740,6 +1740,7 @@ object CantonSyncService {
     // Whether the domain is added in the `connectedDomainsMap` map
     def markDomainAsConnected: Boolean
   }
+
   object ConnectDomain {
     // Normal use case: do everything
     case object Connect extends ConnectDomain {
@@ -1756,16 +1757,6 @@ object CantonSyncService {
      */
     case object ReconnectDomains extends ConnectDomain {
       override def startSyncDomain: Boolean = false
-
-      override def markDomainAsConnected: Boolean = true
-    }
-
-    /*
-      Register the domain
-      We also attempt to connect by default.
-     */
-    case object Register extends ConnectDomain {
-      override def startSyncDomain: Boolean = true
 
       override def markDomainAsConnected: Boolean = true
     }

@@ -5,10 +5,15 @@ package com.digitalasset.canton.participant.admin.grpc
 
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
-import com.digitalasset.canton.DomainAlias
+import cats.syntax.either.*
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.admin.domain.v30 as domainV30
 import com.digitalasset.canton.admin.participant.v30
+import com.digitalasset.canton.admin.participant.v30.RegisterDomainRequest.DomainConnection
+import com.digitalasset.canton.admin.participant.v30.{
+  DisconnectAllDomainsRequest,
+  DisconnectAllDomainsResponse,
+}
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.error.BaseCantonError
@@ -32,6 +37,7 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.{DomainAlias, ProtoDeserializationError}
 import io.grpc.Status
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -50,7 +56,7 @@ class GrpcDomainConnectivityService(
   private def waitUntilActiveIfSuccess(success: Boolean, domain: DomainAlias)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, BaseCantonError, Unit] =
-    if (success) waitUntilActive(domain) else EitherT.rightT(())
+    if (success) waitUntilActive(domain) else EitherTUtil.unitUS[BaseCantonError]
 
   private def waitUntilActive(
       domain: DomainAlias
@@ -85,7 +91,7 @@ class GrpcDomainConnectivityService(
     EitherT.fromEither[FutureUnlessShutdown](
       DomainAlias
         .create(domainAliasProto)
-        .leftMap(err => ProtoDeserializationFailure.WrapNoLoggingStr(err))
+        .leftMap(ProtoDeserializationFailure.WrapNoLoggingStr.apply)
     )
 
   private def parseDomainConnectionConfig(
@@ -94,25 +100,39 @@ class GrpcDomainConnectivityService(
   ): Either[BaseCantonError, DomainConnectionConfig] =
     ProtoConverter
       .parseRequired(DomainConnectionConfig.fromProtoV30, name, proto)
-      .leftMap(err => ProtoDeserializationFailure.WrapNoLogging(err))
+      .leftMap(ProtoDeserializationFailure.WrapNoLogging.apply)
 
   private def parseSequencerConnectionValidation(
       proto: domainV30.SequencerConnectionValidation
   ): Either[BaseCantonError, SequencerConnectionValidation] =
     SequencerConnectionValidation
       .fromProtoV30(proto)
-      .leftMap(err => ProtoDeserializationFailure.WrapNoLogging(err))
+      .leftMap(ProtoDeserializationFailure.WrapNoLogging.apply)
 
-  override def connectDomain(
-      request: v30.ConnectDomainRequest
-  ): Future[v30.ConnectDomainResponse] = {
+  /** @param domainConnectionP Protobuf data
+    * @return True if handshake should be done, false otherwise
+    */
+  private def parseDomainConnection(
+      domainConnectionP: v30.RegisterDomainRequest.DomainConnection
+  ): Either[ProtoDeserializationFailure.WrapNoLogging, Boolean] = (domainConnectionP match {
+    case DomainConnection.DOMAIN_CONNECTION_MISSING =>
+      ProtoDeserializationError.FieldNotSet("domain_connection").asLeft
+    case DomainConnection.DOMAIN_CONNECTION_NONE => Right(false)
+    case DomainConnection.DOMAIN_CONNECTION_HANDSHAKE => Right(true)
+    case DomainConnection.Unrecognized(unrecognizedValue) =>
+      ProtoDeserializationError.UnrecognizedEnum("domain_connection", unrecognizedValue).asLeft
+  }).leftMap(ProtoDeserializationFailure.WrapNoLogging.apply)
+
+  override def reconnectDomain(
+      request: v30.ReconnectDomainRequest
+  ): Future[v30.ReconnectDomainResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val v30.ConnectDomainRequest(domainAlias, keepRetrying) = request
+    val v30.ReconnectDomainRequest(domainAlias, keepRetrying) = request
     val ret = for {
       alias <- parseDomainAlias(domainAlias)
       success <- sync.connectDomain(alias, keepRetrying, ConnectDomain.Connect)
       _ <- waitUntilActiveIfSuccess(success, alias)
-    } yield v30.ConnectDomainResponse(connectedSuccessfully = success)
+    } yield v30.ReconnectDomainResponse(connectedSuccessfully = success)
     CantonGrpcUtil.mapErrNewEUS(ret)
   }
 
@@ -126,6 +146,14 @@ class GrpcDomainConnectivityService(
       _ <- sync.disconnectDomain(alias).leftWiden[BaseCantonError]
     } yield v30.DisconnectDomainResponse()
     CantonGrpcUtil.mapErrNewEUS(ret)
+  }
+
+  override def disconnectAllDomains(
+      request: DisconnectAllDomainsRequest
+  ): Future[DisconnectAllDomainsResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+
+    CantonGrpcUtil.mapErrNewEUS(sync.disconnectDomains()).map(_ => DisconnectAllDomainsResponse())
   }
 
   override def logout(request: v30.LogoutRequest): Future[v30.LogoutResponse] = {
@@ -161,18 +189,19 @@ class GrpcDomainConnectivityService(
         )
     }.toSeq))
 
-  override def listConfiguredDomains(
-      request: v30.ListConfiguredDomainsRequest
-  ): Future[v30.ListConfiguredDomainsResponse] = {
+  override def listRegisteredDomains(
+      request: v30.ListRegisteredDomainsRequest
+  ): Future[v30.ListRegisteredDomainsResponse] = {
     val connected = sync.readyDomains
-    val configuredDomains = sync.configuredDomains
+    val registeredDomains = sync.registeredDomains
+
     Future.successful(
-      v30.ListConfiguredDomainsResponse(
-        results = configuredDomains
+      v30.ListRegisteredDomainsResponse(
+        results = registeredDomains
           .filter(_.status.isActive)
           .map(_.config)
           .map(cnf =>
-            new v30.ListConfiguredDomainsResponse.Result(
+            new v30.ListRegisteredDomainsResponse.Result(
               config = Some(cnf.toProtoV30),
               connected = connected.contains(cnf.domain),
             )
@@ -181,33 +210,71 @@ class GrpcDomainConnectivityService(
     )
   }
 
+  override def connectDomain(
+      request: v30.ConnectDomainRequest
+  ): Future[v30.ConnectDomainResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    val v30.ConnectDomainRequest(configPO, sequencerConnectionValidationPO) =
+      request
+
+    val ret: EitherT[FutureUnlessShutdown, BaseCantonError, v30.ConnectDomainResponse] = for {
+      config <- EitherT.fromEither[FutureUnlessShutdown](
+        parseDomainConnectionConfig(configPO, "config")
+      )
+      validation <- EitherT.fromEither[FutureUnlessShutdown](
+        parseSequencerConnectionValidation(sequencerConnectionValidationPO)
+      )
+      _ = logger.info(show"Registering new domain $config")
+      _ <- sync.addDomain(config, validation)
+
+      _ = logger.info(s"Connecting to domain $config")
+      success <- sync.connectDomain(
+        domainAlias = config.domain,
+        keepRetrying = false,
+        connectDomain = ConnectDomain.Connect,
+      )
+      _ <- waitUntilActiveIfSuccess(success, config.domain)
+
+    } yield v30.ConnectDomainResponse(success)
+
+    CantonGrpcUtil.mapErrNewEUS(ret)
+  }
+
   override def registerDomain(
       request: v30.RegisterDomainRequest
   ): Future[v30.RegisterDomainResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val v30.RegisterDomainRequest(addPO, handshakeOnly, sequencerConnectionValidationPO) = request
-    val connectDomain = if (handshakeOnly) ConnectDomain.HandshakeOnly else ConnectDomain.Register
+    val v30.RegisterDomainRequest(configPO, domainConnectionP, sequencerConnectionValidationPO) =
+      request
+
     val ret: EitherT[FutureUnlessShutdown, BaseCantonError, v30.RegisterDomainResponse] = for {
-      config <- EitherT.fromEither[FutureUnlessShutdown](parseDomainConnectionConfig(addPO, "add"))
+      performHandshake <- EitherT.fromEither[FutureUnlessShutdown](
+        parseDomainConnection(domainConnectionP)
+      )
+
+      config <- EitherT.fromEither[FutureUnlessShutdown](
+        parseDomainConnectionConfig(configPO, "config")
+      )
       validation <- EitherT.fromEither[FutureUnlessShutdown](
         parseSequencerConnectionValidation(sequencerConnectionValidationPO)
       )
       _ = logger.info(show"Registering new domain $config")
       _ <- sync.addDomain(config, validation)
       _ <-
-        if (!config.manualConnect) {
-          logger.info(s"Connecting to domain $config")
+        if (performHandshake) {
+          logger.info(s"Performing handshake to domain $config")
           for {
             success <-
               sync.connectDomain(
                 domainAlias = config.domain,
                 keepRetrying = false,
-                connectDomain = connectDomain,
+                connectDomain = ConnectDomain.HandshakeOnly,
               )
             _ <- waitUntilActiveIfSuccess(success, config.domain)
           } yield ()
         } else EitherT.rightT[FutureUnlessShutdown, BaseCantonError](())
     } yield v30.RegisterDomainResponse()
+
     CantonGrpcUtil.mapErrNewEUS(ret)
   }
 
@@ -215,10 +282,10 @@ class GrpcDomainConnectivityService(
     */
   override def modifyDomain(request: v30.ModifyDomainRequest): Future[v30.ModifyDomainResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val v30.ModifyDomainRequest(config, sequencerConnectionValidationPO) = request
+    val v30.ModifyDomainRequest(newConfigPO, sequencerConnectionValidationPO) = request
     val ret = for {
       config <- EitherT.fromEither[FutureUnlessShutdown](
-        parseDomainConnectionConfig(config, "modify")
+        parseDomainConnectionConfig(newConfigPO, "new_config")
       )
       validation <- EitherT.fromEither[FutureUnlessShutdown](
         parseSequencerConnectionValidation(sequencerConnectionValidationPO)

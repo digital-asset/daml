@@ -10,7 +10,6 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.*
@@ -464,29 +463,6 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       _.asSnapshotAtMaxEffectiveTime
     )
 
-  /** store an initial set of topology transactions as given into the store */
-  override def bootstrap(
-      snapshot: GenericStoredTopologyTransactions
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.pure {
-    blocking {
-      synchronized {
-        topologyTransactionStore
-          .appendAll(
-            snapshot.result.map { tx =>
-              TopologyStoreEntry(
-                tx.transaction,
-                tx.sequenced,
-                tx.validFrom,
-                rejected = tx.rejectionReason,
-                until = tx.validUntil,
-              )
-            }
-          )
-          .discard
-      }
-    }
-  }
-
   override def findUpcomingEffectiveChanges(asOfInclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[TopologyStore.Change]] =
@@ -677,5 +653,14 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
         )
       ).toEffectiveStateChanges(fromEffectiveInclusive, onlyAtEffective)
     )
+  }
+
+  override def deleteAllData()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+    blocking(synchronized {
+      topologyTransactionStore.clear()
+      topologyTransactionsStoreUniqueIndex.clear()
+      watermark.set(None)
+    })
+    FutureUnlessShutdown.unit
   }
 }

@@ -137,7 +137,8 @@ abstract class HealthAdministration[S <: NodeStatus.Status](
   )
 
   @Help.Summary("Check if the node is ready for initialization")
-  def is_ready_for_initialization(): Boolean =
+  def is_ready_for_initialization(): Boolean = {
+    logger.debug("Checking if node is ready for initialization")(TraceContext.empty)
     falseIfUnreachable(
       adminCommand(
         NodeStatusElement(
@@ -146,6 +147,7 @@ abstract class HealthAdministration[S <: NodeStatus.Status](
         )
       )
     )
+  }
 
   @Help.Summary("Check if the node is running and is the active instance (mediator, participant)")
   def active: Boolean = status match {

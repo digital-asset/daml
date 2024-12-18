@@ -8,6 +8,7 @@ import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.{CantonTimestamp, TaskScheduler, TaskSchedulerMetrics}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.Update.EmptyAcsPublicationRequired
 import com.digitalasset.canton.ledger.participant.state.{SequencedUpdate, Update}
 import com.digitalasset.canton.lifecycle.*
@@ -18,10 +19,22 @@ import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
+import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
 
+import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
+
+/** Helper trait for Online Party Replication event publishing.
+  * Refer to methods in the [[RecordOrderPublisher]] for documentation.
+  */
+sealed trait PublishesOnlinePartyReplicationEvents {
+  def schedulePublishAddContracts(buildEventAtRecordTime: CantonTimestamp => Update)(implicit
+      traceContext: TraceContext
+  ): Unit
+
+  def publishBufferedEvents()(implicit traceContext: TraceContext): Unit
+}
 
 /** Publishes upstream events and active contract set changes in the order of their record time.
   *
@@ -53,7 +66,8 @@ class RecordOrderPublisher(
     futureSupervisor: FutureSupervisor,
     clock: Clock,
 )(implicit val executionContextForPublishing: ExecutionContext)
-    extends NamedLogging
+    extends PublishesOnlinePartyReplicationEvents
+    with NamedLogging
     with FlagCloseableAsync
     with HasCloseContext
     with PromiseUnlessShutdownFactory {
@@ -70,6 +84,9 @@ class RecordOrderPublisher(
       futureSupervisor,
       clock,
     )
+
+  private val ledgerApiIndexerBuffer =
+    new AtomicReference[Option[EventBuffer]](None)
 
   private def onlyForTestingRecordAcceptedTransactions(event: SequencedUpdate): Unit =
     for {
@@ -184,10 +201,10 @@ class RecordOrderPublisher(
         taskFactory = immediateTimestamp =>
           eventFactory(immediateTimestamp) match {
             case Some(event) =>
-              logger.debug(
-                s"Publish floating event immediately with timestamp $immediateTimestamp"
+              publishOrBuffer(
+                event,
+                s"floating event immediately with timestamp $immediateTimestamp",
               )
-              ledgerApiIndexer.enqueue(event).map(_ => ())
             case None =>
               logger.debug(
                 s"Skip publish-immediately floating event with timestamp $immediateTimestamp: nothing to publish"
@@ -216,6 +233,73 @@ class RecordOrderPublisher(
     }
   }
 
+  /** Schedules the beginning of buffering of Ledger API Indexer event publishing for Online Party Replication.
+    *
+    * Meant to be scheduled when the PartyToParticipant topology transaction adds a new participant to an existing party.
+    */
+  def scheduleEventBuffering(
+      timestamp: CantonTimestamp
+  )(implicit traceContext: TraceContext): Either[CantonTimestamp, Unit] = ifNotClosedYet {
+    taskScheduler
+      .scheduleTaskIfLater(
+        desiredTimestamp = timestamp,
+        taskFactory = _ => {
+          FloatingBufferEventsPublicationTask(timestamp = timestamp)
+        },
+      )
+      .map(_ => ())
+  }
+
+  /** Schedules publishing of an Online Party Replication ACS chunk as soon as possible.
+    *
+    * Meant to be called only between enclosing [[scheduleEventBuffering]] and
+    * [[publishBufferedEvents]] calls.
+    */
+  def schedulePublishAddContracts(
+      buildEventAtRecordTime: CantonTimestamp => Update
+  )(implicit traceContext: TraceContext): Unit =
+    scheduleBufferingEventTaskImmediately { timestamp =>
+      logger.debug(s"Publish add contracts at $timestamp")
+      ledgerApiIndexerBuffer.get() match {
+        case None =>
+          throw new IllegalStateException(
+            "Buffering of LedgerApiIndexer events should be started before adding contracts"
+          )
+        case Some(buffer) =>
+          val event = buffer.markEventWithRecordTime(buildEventAtRecordTime)
+          publishLedgerApiIndexerEvent(event)
+      }
+    }
+
+  /** Schedules flushing of events that were buffered during Online Party Replication as soon as possible.
+    *
+    * Meant to be called once Online Party Replication has succeeded.
+    */
+  def publishBufferedEvents()(implicit traceContext: TraceContext): Unit =
+    scheduleBufferingEventTaskImmediately { timestamp =>
+      ledgerApiIndexerBuffer.getAndSet(None) match {
+        case None => FutureUnlessShutdown.unit
+        case Some(buffer) =>
+          val bufferedEvents = buffer.extractAndClearBufferedEvents()
+          logger.info(
+            s"Flushing ${bufferedEvents.size} buffered events to Ledger API Indexer at $timestamp"
+          )
+          MonadUtil
+            .sequentialTraverse_(bufferedEvents) { event =>
+              logger.debug(s"Flushing event $event")
+              publishLedgerApiIndexerEvent(event)
+            }
+      }
+    }
+
+  private def scheduleBufferingEventTaskImmediately(
+      perform: CantonTimestamp => FutureUnlessShutdown[Unit]
+  )(implicit traceContext: TraceContext): Unit = ifNotClosedYet(
+    taskScheduler
+      .scheduleTaskImmediately(taskFactory = perform, taskTraceContext = traceContext)
+      .discard
+  )
+
   private def ifNotClosedYet[T](t: => T)(implicit traceContext: TraceContext): T =
     if (isClosing) ErrorUtil.invalidState("RecordOrderPublisher should not be used after closed")
     else t
@@ -235,6 +319,8 @@ class RecordOrderPublisher(
       x match {
         case task: EventPublicationTask => 0 -> Some(task.sequencerCounter)
         case _: FloatingEventPublicationTask[_] => 1 -> None
+        case _: FloatingBufferEventsPublicationTask =>
+          2 -> None // Follows the corresponding topology task scheduled via FloatingEventPublicationTask
       }
   }
 
@@ -246,12 +332,8 @@ class RecordOrderPublisher(
     override val timestamp: CantonTimestamp = event.recordTime
     override val sequencerCounter: SequencerCounter = event.sequencerCounter
 
-    override def perform(): FutureUnlessShutdown[Unit] = {
-      logger.debug(s"Publish event with domain index ${event.domainIndex}")
-      ledgerApiIndexer
-        .enqueue(event)
-        .map(_ => ())
-    }
+    override def perform(): FutureUnlessShutdown[Unit] =
+      publishOrBuffer(event, s"event with domain index ${event.domainIndex}")
 
     override protected def pretty: Pretty[this.type] =
       prettyOfClass(
@@ -277,8 +359,7 @@ class RecordOrderPublisher(
         case Success(Outcome(_)) =>
           eventO() match {
             case Some(event) =>
-              logger.debug(s"Publish floating event with timestamp $timestamp")
-              ledgerApiIndexer.enqueue(event).map(_ => ())
+              publishOrBuffer(event, s"floating event with timestamp $timestamp")
             case None =>
               logger.debug(
                 s"Skip publishing floating event with timestamp $timestamp: nothing to publish"
@@ -307,6 +388,49 @@ class RecordOrderPublisher(
 
     override def close(): Unit = ()
   }
+
+  /** Task to begin buffering Ledger API Indexer events for Online Party Replication. */
+  private[RecordOrderPublisher] case class FloatingBufferEventsPublicationTask(
+      override val timestamp: CantonTimestamp
+  )(implicit val traceContext: TraceContext)
+      extends PublicationTask {
+
+    override def perform(): FutureUnlessShutdown[Unit] = {
+      logger.info(s"Begin buffering LedgerApiIndexer events at $timestamp")
+      val eventBufferEnabled = ledgerApiIndexerBuffer
+        .compareAndSet(
+          None,
+          Some(new EventBuffer(timestamp, loggerFactory)),
+        )
+      // TODO(#23097): Error until we add support for multiple concurrent OPRs on TP/sync-domain.
+      ErrorUtil.requireState(eventBufferEnabled, "Event buffering already started")
+      FutureUnlessShutdown.unit
+    }
+
+    override protected def pretty: Pretty[this.type] =
+      prettyOfClass(
+        param("timestamp", _.timestamp)
+      )
+
+    override def close(): Unit = ()
+  }
+
+  private def publishOrBuffer(event: Update, log: String)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] =
+    ledgerApiIndexerBuffer
+      .get() match {
+      case None =>
+        logger.debug(s"Publish $log")
+        publishLedgerApiIndexerEvent(event)
+      case Some(buffer) =>
+        logger.debug(s"Buffer $log")
+        buffer.bufferEvent(event)
+        FutureUnlessShutdown.unit
+    }
+
+  private def publishLedgerApiIndexerEvent(event: Update): FutureUnlessShutdown[Unit] =
+    ledgerApiIndexer.enqueue(event).map(_ => ())
 
   override def closeAsync(): Seq[AsyncOrSyncCloseable] = {
     import TraceContext.Implicits.Empty.emptyTraceContext

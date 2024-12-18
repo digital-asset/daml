@@ -176,7 +176,8 @@ private[channel] final class SequencerChannelClientEndpoint(
       }
 
       _ = stage.set(newStage)
-      _ <- newStage.initialization()
+
+      _ <- EitherTUtil.ifThenET(currentStage != newStage)(newStage.initialization())
 
     } yield ()
   }

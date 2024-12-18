@@ -25,24 +25,12 @@ import com.digitalasset.canton.protocol.messages.{
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.protocol.{AllMembersOfDomain, Deliver, DeliverError}
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
-import com.digitalasset.canton.topology.client.{
-  CachingDomainTopologyClient,
-  DefaultHeadStateInitializer,
-  DomainTopologyClientHeadStateInitializer,
-  DomainTopologyClientWithInit,
-  StoreBasedDomainTopologyClient,
-}
+import com.digitalasset.canton.topology.client.*
 import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor.subscriptionTimestamp
 import com.digitalasset.canton.topology.store.TopologyStore.Change
-import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.topology.transaction.{
-  DomainParametersState,
-  TopologyChangeOp,
-  ValidatingTopologyMappingChecks,
-}
-import com.digitalasset.canton.topology.{DomainId, TopologyManagerError, TopologyStateProcessor}
+import com.digitalasset.canton.topology.{DomainId, TopologyManagerError}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, MonadUtil, SimpleExecutionQueue}
 
@@ -68,10 +56,11 @@ class TopologyTransactionProcessor(
     terminateProcessing: TerminateProcessing,
     futureSupervisor: FutureSupervisor,
     exitOnFatalFailures: Boolean,
-    val timeouts: ProcessingTimeout,
-    val loggerFactory: NamedLoggerFactory,
+    timeouts: ProcessingTimeout,
+    loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends NamedLogging
+    extends TopologyTransactionHandling(pureCrypto, store, timeouts, loggerFactory)
+    with NamedLogging
     with FlagCloseable {
 
   private val initialised = new AtomicBoolean(false)
@@ -84,9 +73,6 @@ class TopologyTransactionProcessor(
   private val listeners = new AtomicReference(
     List[NonEmpty[List[TopologyTransactionProcessingSubscriber]]]()
   )
-
-  private val timeAdjuster =
-    new TopologyTimestampPlusEpsilonTracker(store, timeouts, loggerFactory)
 
   private val serializer = new SimpleExecutionQueue(
     "topology-transaction-processor-queue",
@@ -385,7 +371,6 @@ class TopologyTransactionProcessor(
       case None =>
         topologyBroadcasts
     }
-
   }
 
   override def onClosed(): Unit =
@@ -395,14 +380,6 @@ class TopologyTransactionProcessor(
     TraceContext.withNewTraceContext(implicit traceContext =>
       maxTimestampFromStore().map(_.map { case (sequenced, _effective) => sequenced })
     )
-
-  private val stateProcessor = new TopologyStateProcessor(
-    store,
-    None,
-    new ValidatingTopologyMappingChecks(store, loggerFactory),
-    pureCrypto,
-    loggerFactory,
-  )
 
   private def epsilonForTimestamp(asOfExclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -496,40 +473,6 @@ class TopologyTransactionProcessor(
         )
       )
     } yield ()
-
-  private def inspectAndAdvanceTopologyTransactionDelay(
-      effectiveTimestamp: EffectiveTime,
-      validated: Seq[GenericValidatedTopologyTransaction],
-  )(implicit traceContext: TraceContext): Unit = {
-    val domainParamChanges = validated.flatMap(
-      _.collectOf[TopologyChangeOp.Replace, DomainParametersState]
-        .filter(tx =>
-          tx.rejectionReason.isEmpty && !tx.transaction.isProposal && !tx.expireImmediately
-        )
-        .map(_.mapping)
-    )
-
-    domainParamChanges match {
-      case Seq() => // normally, we shouldn't have any adjustment
-      case Seq(domainParametersState) =>
-        // Report adjustment of topologyChangeDelay
-        timeAdjuster.adjustTopologyChangeDelay(
-          effectiveTimestamp,
-          domainParametersState.parameters.topologyChangeDelay,
-        )
-
-      case _: Seq[DomainParametersState] =>
-        // As all DomainParametersState transactions have the same `uniqueKey`,
-        // the topologyTransactionProcessor ensures that only the last one is committed.
-        // All other DomainParameterState are rejected or expired immediately.
-        ErrorUtil.internalError(
-          new IllegalStateException(
-            s"Unable to commit several DomainParametersState transactions at the same effective time.\n$validated"
-          )
-        )
-    }
-  }
-
 }
 
 object TopologyTransactionProcessor {

@@ -7,10 +7,12 @@ import cats.data.EitherT
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
-import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
+import com.digitalasset.canton.topology.processing.{
+  EffectiveTime,
+  InitialTopologySnapshotValidator,
+  SequencedTime,
+}
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
-import com.digitalasset.canton.topology.store.TopologyStore
-import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.transaction.{DomainTrustCertificate, MediatorDomainState}
 import com.digitalasset.canton.topology.{MediatorId, Member, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -20,6 +22,7 @@ import scala.concurrent.ExecutionContext
 
 trait DomainTopologyInitializationCallback {
   def callback(
+      topologyStoreInitialization: InitialTopologySnapshotValidator,
       topologyClient: DomainTopologyClientWithInit,
       sequencerClient: SequencerClient,
       protocolVersion: ProtocolVersion,
@@ -30,10 +33,10 @@ trait DomainTopologyInitializationCallback {
 }
 
 class StoreBasedDomainTopologyInitializationCallback(
-    member: Member,
-    topologyStore: TopologyStore[DomainStore],
+    member: Member
 ) extends DomainTopologyInitializationCallback {
   override def callback(
+      topologyStoreInitialization: InitialTopologySnapshotValidator,
       topologyClient: DomainTopologyClientWithInit,
       sequencerClient: SequencerClient,
       protocolVersion: ProtocolVersion,
@@ -46,7 +49,7 @@ class StoreBasedDomainTopologyInitializationCallback(
         .downloadTopologyStateForInit()
         .mapK(FutureUnlessShutdown.outcomeK)
 
-      _ <- EitherT.right(topologyStore.bootstrap(topologyTransactions))
+      _ <- topologyStoreInitialization.validateAndApplyInitialTopologySnapshot(topologyTransactions)
 
       timestampsFromOnboardingTransactions <- member match {
         case participantId @ ParticipantId(_) =>

@@ -28,6 +28,8 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
       |SELECT event_sequential_id FROM lapi_events_unassign
       |UNION ALL
       |SELECT event_sequential_id FROM lapi_events_assign
+      |UNION ALL
+      |SELECT event_sequential_id FROM lapi_events_party_to_participant
       |""".stripMargin
 
   private val allSequentialIdsAndOffsets: String =
@@ -41,6 +43,8 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
        |SELECT event_sequential_id, event_offset FROM lapi_events_unassign
        |UNION ALL
        |SELECT event_sequential_id, event_offset FROM lapi_events_assign
+       |UNION ALL
+       |SELECT event_sequential_id, event_offset FROM lapi_events_party_to_participant
        |""".stripMargin
 
   private val SqlEventSequentialIdsSummary = SQL"""

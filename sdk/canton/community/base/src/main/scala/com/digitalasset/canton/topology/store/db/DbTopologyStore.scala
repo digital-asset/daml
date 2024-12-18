@@ -39,7 +39,6 @@ import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
-import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import slick.jdbc.canton.SQLActionBuilder
@@ -47,7 +46,6 @@ import slick.jdbc.{GetResult, TransactionIsolation}
 import slick.sql.SqlStreamingAction
 
 import scala.concurrent.ExecutionContext
-import scala.math.Ordering.Implicits.infixOrderingOps
 
 class DbTopologyStore[StoreId <: TopologyStoreId](
     override protected val storage: DbStorage,
@@ -124,30 +122,6 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       operation = "transactionsForMapping",
     )
   }
-
-  /** @param elements       Elements to be batched
-    * @param operationName  Name of the operation
-    * @param f              Create a DBIOAction from a batch
-    */
-  private def performBatchedDbOperation[X](
-      elements: Seq[X],
-      operationName: String,
-      processInParallel: Boolean,
-  )(
-      f: Seq[X] => DBIOAction[_, NoStream, Effect.Write with Effect.Transactional]
-  )(implicit traceContext: TraceContext) = if (elements.isEmpty) FutureUnlessShutdown.pure(())
-  else
-    MonadUtil.batchedSequentialTraverse_(
-      parallelism =
-        if (processInParallel) PositiveInt.two * storage.threadsAvailableForWriting
-        else PositiveInt.one,
-      chunkSize = maxItemsInSqlQuery,
-    )(elements) { elementsBatch =>
-      storage.updateUnlessShutdown_(
-        f(elementsBatch),
-        operationName = operationName,
-      )
-    }
 
   /** add validated topology transaction as is to the topology transaction table
     */
@@ -465,78 +439,6 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
 
     queryForTransactions(timeFilter, "essentialState", includeRejected = includeRejected)
       .map(_.asSnapshotAtMaxEffectiveTime)
-  }
-
-  override def bootstrap(snapshot: GenericStoredTopologyTransactions)(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] = {
-    // If the snapshot contains duplicate transactions, some of them need to be dropped when inserting into the DB.
-    // Below, we make sure that:
-    // - insert a non-expired transaction (if possible)
-    // - log a warning if a transaction needs to be dropped, that is not expired immediately
-    // Background: https://github.com/DACH-NY/canton-network-node/issues/16380
-    val duplicateTransactions = snapshot.result
-      .groupBy { storedTx =>
-        val tx = storedTx.transaction
-        val mapping = tx.mapping
-        // The grouping key is equivalent to the uniqueness constraint on common_topology_transactions.
-        (
-          mapping.uniqueKey.hash.toLengthLimitedHexString,
-          tx.serial,
-          storedTx.validFrom.value,
-          tx.operation,
-          tx.representativeProtocolVersion,
-          tx.hashOfSignatures(protocolVersion).toLengthLimitedHexString,
-          tx.hash.hash.toLengthLimitedHexString,
-        )
-      }
-      .flatMap {
-        // Only one tx, nothing needs to be dropped
-        case (_, Seq(_)) => Set.empty
-
-        // Several tx with the same key found...
-        case (_, storedTxs) =>
-          // Choose a transaction that is not expired (if possible)
-          val (active, expired) = storedTxs.partition(_.validUntil.isEmpty)
-          val (kept, tail) = (active ++ expired).splitAt(1)
-          val dropped = tail.toSet -- kept
-
-          // Log dropped transactions
-          if (dropped.exists(storedTx => storedTx.validUntil.forall(_ > storedTx.validFrom))) {
-            // If something needs to be dropped that has ever been active, log a WARN
-            logger.warn(
-              show"""Unable to import all topology transactions due to violation of uniqueness constraint.
-                    |This indicates the topology state you are trying to import is corrupt.
-                    |Dropping duplicate transactions.
-                    |Importing: $kept
-                    |
-                    |Dropping:
-                    |$dropped
-                    |""".stripMargin
-            )
-          } else {
-            // Only transactions that have expired immediately are dropped. INFO is sufficient.
-            logger.info(
-              show"""Unable to import all topology transactions due to violation of uniqueness constraint.
-                    |Dropping duplicate transactions.
-                    |Importing: $kept
-                    |
-                    |Dropping:
-                    |$dropped
-                    |""".stripMargin
-            )
-          }
-          dropped
-      }
-      .toSet
-
-    val deduplicatedSnapshot = snapshot.result.filterNot(duplicateTransactions.contains)
-
-    // inserts must not be processed in parallel to keep the insertion order (as indicated by the `id` column)
-    // in sync with the monotonicity of sequenced
-    performBatchedDbOperation(deduplicatedSnapshot, "bootstrap", processInParallel = false) { txs =>
-      insertSignedTransaction[GenericStoredTopologyTransaction](TransactionEntry.fromStoredTx)(txs)
-    }
   }
 
   override def findUpcomingEffectiveChanges(asOfInclusive: CantonTimestamp)(implicit
@@ -902,7 +804,26 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
                  """
     }
     storage.updateUnlessShutdown_(query, functionFullName)
+  }
 
+  override def deleteAllData()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+    val deleteCommonTopologyTransactions =
+      sql"delete from common_topology_transactions where store_id = $transactionStoreIdName".asUpdate
+    val deleteCommonTopologyDispatching =
+      sql"delete from common_topology_dispatching where store_id = $transactionStoreIdName".asUpdate
+
+    storage
+      .updateUnlessShutdown(
+        DBIO
+          .sequence(Seq(deleteCommonTopologyTransactions, deleteCommonTopologyDispatching))
+          .transactionally,
+        functionFullName,
+      )
+      .map { numDeleted =>
+        logger.info(
+          s"Deleted ${numDeleted.sum} transaction(s) and watermark(s) from the topology store $storeId"
+        )
+      }
   }
 
   override def findEffectiveStateChanges(
@@ -954,7 +875,6 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       case Some(value) if value.nonEmpty => sql" AND namespace LIKE ${value + "%"}"
       case _ => sql""
     }
-
 }
 
 // Helper case class to hold StoredTopologyTransaction-fields in update() providing umbrella

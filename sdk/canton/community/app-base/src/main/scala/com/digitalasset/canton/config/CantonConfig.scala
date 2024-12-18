@@ -924,10 +924,13 @@ object CantonConfig {
       implicit val metricsConfigReader: ConfigReader[MetricsConfig] =
         deriveReader[MetricsConfig]
 
-      implicit val apiLoggingConfigReader: ConfigReader[ApiLoggingConfig] =
-        deriveReader[ApiLoggingConfig]
-      implicit val loggingConfigReader: ConfigReader[LoggingConfig] =
+      implicit val loggingConfigReader: ConfigReader[LoggingConfig] = {
+        implicit val apiLoggingConfigReader: ConfigReader[ApiLoggingConfig] =
+          deriveReader[ApiLoggingConfig]
+        implicit val gcLoggingConfigReader: ConfigReader[GCLoggingConfig] =
+          deriveReader[GCLoggingConfig]
         deriveReader[LoggingConfig]
+      }
       deriveReader[MonitoringConfig]
     }
 
@@ -1428,8 +1431,11 @@ object CantonConfig {
 
       implicit val apiLoggingConfigWriter: ConfigWriter[ApiLoggingConfig] =
         deriveWriter[ApiLoggingConfig]
-      implicit val loggingConfigWriter: ConfigWriter[LoggingConfig] =
+      lazy implicit val loggingConfigWriter: ConfigWriter[LoggingConfig] = {
+        implicit val gcLoggingConfigWriter: ConfigWriter[GCLoggingConfig] =
+          deriveWriter[GCLoggingConfig]
         deriveWriter[LoggingConfig]
+      }
       deriveWriter[MonitoringConfig]
     }
 

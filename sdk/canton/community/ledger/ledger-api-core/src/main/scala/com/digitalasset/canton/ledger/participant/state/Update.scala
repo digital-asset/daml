@@ -56,14 +56,13 @@ sealed trait Update extends Product with Serializable with PrettyPrinting with H
 
   /** The record time at which the state change was committed. */
   def recordTime: CantonTimestamp
-
-  // TODO(i20043) this will be removed later as various needs solved differently
-  def persisted: Promise[Unit]
 }
 
 // TODO(i20043) this will be removed later as Topology Event project progresses
 sealed trait ParticipantUpdate extends Update {
   def withRecordTime(recordTime: CantonTimestamp): Update
+
+  def persisted: Promise[Unit]
 }
 
 sealed trait DomainUpdate extends Update {
@@ -229,7 +228,6 @@ object Update {
       events: Set[TopologyTransactionEffective.TopologyEvent],
       domainId: DomainId,
       effectiveTime: CantonTimestamp,
-      persisted: Promise[Unit] = Promise(),
   )(implicit override val traceContext: TraceContext)
       extends FloatingUpdate {
 
@@ -360,7 +358,6 @@ object Update {
       requestCounter: RequestCounter,
       sequencerCounter: SequencerCounter,
       recordTime: CantonTimestamp,
-      persisted: Promise[Unit] = Promise(),
       commitSetO: Option[LapiCommitSet] = None,
   )(implicit override val traceContext: TraceContext)
       extends TransactionAccepted
@@ -379,7 +376,6 @@ object Update {
       domainId: DomainId,
       requestCounter: RequestCounter,
       recordTime: CantonTimestamp,
-      persisted: Promise[Unit] = Promise(),
   )(implicit override val traceContext: TraceContext)
       extends TransactionAccepted
       with RepairUpdate {
@@ -438,7 +434,6 @@ object Update {
       requestCounter: RequestCounter,
       sequencerCounter: SequencerCounter,
       recordTime: CantonTimestamp,
-      persisted: Promise[Unit] = Promise(),
       commitSetO: Option[LapiCommitSet] = None,
   )(implicit override val traceContext: TraceContext)
       extends ReassignmentAccepted
@@ -455,7 +450,6 @@ object Update {
       reassignment: Reassignment,
       requestCounter: RequestCounter,
       recordTime: CantonTimestamp,
-      persisted: Promise[Unit] = Promise(),
   )(implicit override val traceContext: TraceContext)
       extends ReassignmentAccepted
       with RepairUpdate {
@@ -510,7 +504,6 @@ object Update {
       requestCounter: RequestCounter,
       sequencerCounter: SequencerCounter,
       recordTime: CantonTimestamp,
-      persisted: Promise[Unit] = Promise(),
   )(implicit override val traceContext: TraceContext)
       extends CommandRejected
       with SequencedUpdate
@@ -522,7 +515,6 @@ object Update {
       domainId: DomainId,
       recordTime: CantonTimestamp,
       messageUuid: UUID,
-      persisted: Promise[Unit] = Promise(),
   )(implicit override val traceContext: TraceContext)
       extends CommandRejected
       with FloatingUpdate
@@ -587,7 +579,6 @@ object Update {
       sequencerCounter: SequencerCounter,
       recordTime: CantonTimestamp,
       requestCounterO: Option[RequestCounter],
-      persisted: Promise[Unit] = Promise(),
   )(implicit override val traceContext: TraceContext)
       extends SequencedUpdate {
     override protected def pretty: Pretty[SequencerIndexMoved] =
@@ -612,7 +603,6 @@ object Update {
   final case class EmptyAcsPublicationRequired(
       domainId: DomainId,
       recordTime: CantonTimestamp,
-      persisted: Promise[Unit] = Promise(),
   )(implicit override val traceContext: TraceContext)
       extends DomainUpdate {
     override protected def pretty: Pretty[EmptyAcsPublicationRequired] =
@@ -633,7 +623,7 @@ object Update {
   }
 
   final case class CommitRepair()(implicit override val traceContext: TraceContext) extends Update {
-    override val persisted: Promise[Unit] = Promise()
+    val persisted: Promise[Unit] = Promise()
 
     override protected def pretty: Pretty[CommitRepair] = prettyOfClass()
 

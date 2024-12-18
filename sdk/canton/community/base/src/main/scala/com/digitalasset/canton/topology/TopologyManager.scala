@@ -76,6 +76,8 @@ class DomainTopologyManager(
       futureSupervisor,
       loggerFactory,
     ) {
+  def domainId: DomainId = store.storeId.domainId
+
   override protected val processor: TopologyStateProcessor[DomainCryptoPureApi] =
     new TopologyStateProcessor[DomainCryptoPureApi](
       store,

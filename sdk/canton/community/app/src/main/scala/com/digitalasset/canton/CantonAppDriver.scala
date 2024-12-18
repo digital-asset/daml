@@ -8,19 +8,25 @@ import cats.syntax.either.*
 import ch.qos.logback.classic.{Logger, LoggerContext}
 import ch.qos.logback.core.status.{ErrorStatus, Status, StatusListener, WarnStatus}
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.CantonAppDriver.installGCLogging
 import com.digitalasset.canton.buildinfo.BuildInfo
 import com.digitalasset.canton.cli.{Cli, Command, LogFileAppender}
 import com.digitalasset.canton.config.ConfigErrors.CantonConfigError
-import com.digitalasset.canton.config.{CantonConfig, ConfigErrors, Generate}
+import com.digitalasset.canton.config.{CantonConfig, ConfigErrors, GCLoggingConfig, Generate}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.{Environment, EnvironmentFactory}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.version.ReleaseVersion
+import com.sun.management.GarbageCollectionNotificationInfo
 import com.typesafe.config.{Config, ConfigFactory}
 import org.slf4j.LoggerFactory
 
+import java.lang.management.ManagementFactory
 import java.util.concurrent.atomic.AtomicReference
+import javax.management.openmbean.CompositeData
+import javax.management.{NotificationEmitter, NotificationListener}
+import scala.jdk.CollectionConverters.*
 import scala.util.control.NonFatal
 
 /** The Canton main application.
@@ -164,6 +170,8 @@ abstract class CantonAppDriver[E <: Environment] extends App with NamedLogging w
     loadedConfig
   }
 
+  installGCLogging(loggerFactory, cantonConfig.monitoring.logging.jvmGc)
+
   private def writeConfigToTmpFile(mergedUserConfigs: Config) = {
     val tmp = File.newTemporaryFile("canton-config-error-", ".conf")
     logger.error(
@@ -215,5 +223,45 @@ abstract class CantonAppDriver[E <: Environment] extends App with NamedLogging w
   runner.run(environment)
 
   def loadConfig(config: Config): Either[CantonConfigError, E#Config]
+
+}
+
+object CantonAppDriver {
+  @SuppressWarnings(Array("org.wartremover.warts.Null", "org.wartremover.warts.AsInstanceOf"))
+  private def installGCLogging(loggerFactory: NamedLoggerFactory, config: GCLoggingConfig): Unit =
+    if (config.enabled) {
+      val logger = loggerFactory.getLogger(getClass)
+      try {
+        val listener = new NotificationListener() {
+          override def handleNotification(
+              notification: javax.management.Notification,
+              handback: Any,
+          ): Unit =
+            if (
+              notification.getType
+                .equals(GarbageCollectionNotificationInfo.GARBAGE_COLLECTION_NOTIFICATION)
+            ) {
+              val gcInfo = GarbageCollectionNotificationInfo.from(
+                notification.getUserData.asInstanceOf[CompositeData]
+              )
+              if (config.filter.isEmpty || gcInfo.getGcName.contains(config.filter)) {
+                val str =
+                  s"Garbage Collection: name=${gcInfo.getGcName}, cause=${gcInfo.getGcCause}, action=: ${gcInfo.getGcAction}, duration=${gcInfo.getGcInfo.getDuration} ms"
+                val out =
+                  if (config.details)
+                    str + s"\n  before=${gcInfo.getGcInfo.getMemoryUsageBeforeGc}\n  after=${gcInfo.getGcInfo.getMemoryUsageAfterGc}"
+                  else str
+                if (config.debugLevel) logger.debug(out) else logger.info(out)
+              }
+            }
+        }
+        ManagementFactory.getGarbageCollectorMXBeans.asScala.foreach { bean =>
+          bean.asInstanceOf[NotificationEmitter].addNotificationListener(listener, null, null)
+        }
+      } catch {
+        case NonFatal(e) =>
+          logger.warn("Failed to setup GC logging", e)
+      }
+    }
 
 }

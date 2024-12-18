@@ -15,6 +15,7 @@ import com.digitalasset.canton.config
   * @param logConfigWithDefaults If set to true (default false), the default values of the config will be included
   * @param delayLoggingThreshold         Logs a warning message once the sequencer client falls behind in processing messages from the sequencer (based on the sequencing timestamp).
   * @param logSlowFutures Whether we should active log slow futures (where instructed)
+  * @param jvmGc Controls the JVM Gc logging
   */
 final case class LoggingConfig(
     api: ApiLoggingConfig = ApiLoggingConfig(),
@@ -24,6 +25,21 @@ final case class LoggingConfig(
     logSlowFutures: Boolean = false,
     delayLoggingThreshold: config.NonNegativeFiniteDuration =
       LoggingConfig.defaultDelayLoggingThreshold,
+    jvmGc: GCLoggingConfig = GCLoggingConfig(),
+)
+
+/** Configure GC logging
+  *
+  * @param enabled If set to true, the JVM GC logging will be enabled
+  * @param debugLevel If true, the logging will happen on debug level, else info
+  * @param filter An optional filter string to filter for particular GC events
+  * @param details If set to true (default), the memory details will be included
+  */
+final case class GCLoggingConfig(
+    enabled: Boolean = false,
+    debugLevel: Boolean = false,
+    filter: String = "",
+    details: Boolean = true,
 )
 
 object LoggingConfig {

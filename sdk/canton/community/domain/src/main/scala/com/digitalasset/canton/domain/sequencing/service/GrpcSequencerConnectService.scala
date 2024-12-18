@@ -138,6 +138,17 @@ class GrpcSequencerConnectService(
         !isKnown,
         failedPrecondition(s"Member $member is already known on the domain"),
       )
+      // check that the onboarding member is not attempting to re-onboard
+      // TODO(#14045) Topology Pruning: Make sure that we retain evidence that a member was offboarded
+      firstKnownAtO <- CantonGrpcUtil.mapErrNewETUS(
+        EitherT.right(cryptoApi.ips.headSnapshot.memberFirstKnownAt(member))
+      )
+      _ <- EitherTUtil.condUnitET[Future](
+        firstKnownAtO.isEmpty,
+        failedPrecondition(
+          s"Member $member has previously been off-boarded and cannot onboard again."
+        ),
+      )
       transactions <- CantonGrpcUtil.mapErrNew(
         request.topologyTransactions
           .traverse(

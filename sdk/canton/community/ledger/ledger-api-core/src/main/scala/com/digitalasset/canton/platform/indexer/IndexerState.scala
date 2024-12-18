@@ -9,7 +9,12 @@ import com.daml.timer.RetryStrategy
 import com.daml.timer.RetryStrategy.UnhandledFailureException
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.Update.CommitRepair
-import com.digitalasset.canton.ledger.participant.state.{DomainUpdate, RepairUpdate, Update}
+import com.digitalasset.canton.ledger.participant.state.{
+  DomainUpdate,
+  ParticipantUpdate,
+  RepairUpdate,
+  Update,
+}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -198,15 +203,19 @@ class IndexerState(
         )
       }
       queue.done.transform { doneResult =>
-        queue.uncommittedQueueSnapshot.foreach(
-          _._2.persisted
-            .tryFailure(
-              new IllegalStateException(
-                "Indexer is shutting down, this Update won't be persisted."
+        queue.uncommittedQueueSnapshot
+          .collect { case (_, participantUpdate: ParticipantUpdate) =>
+            participantUpdate
+          }
+          .foreach(
+            _.persisted
+              .tryFailure(
+                new IllegalStateException(
+                  "Indexer is shutting down, this Update won't be persisted."
+                )
               )
-            )
-            .discard
-        )
+              .discard
+          )
         handleShutdownDoneResult(doneResult)
       }
 
@@ -271,9 +280,9 @@ object IndexerQueueProxy {
     withIndexerState {
       case Normal(queue, _) =>
         elem match {
-          case _: CommitRepair =>
+          case commitRepair: CommitRepair =>
             val failure = new IllegalStateException("CommitRepair should not be used")
-            elem.persisted.tryFailure(failure).discard
+            commitRepair.persisted.tryFailure(failure).discard
             Future.failed(failure)
 
           case _ => queue.offer(elem).map(_ => ())
