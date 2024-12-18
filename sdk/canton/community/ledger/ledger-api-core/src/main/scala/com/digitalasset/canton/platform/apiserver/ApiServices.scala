@@ -26,7 +26,6 @@ import com.digitalasset.canton.platform.apiserver.configuration.{
   LedgerConfigurationInitializer,
   LedgerConfigurationSubscription,
 }
-import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateUpgradableContract
 import com.digitalasset.canton.platform.apiserver.execution.*
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
 import com.digitalasset.canton.platform.apiserver.services.*
@@ -113,7 +112,7 @@ object ApiServices {
       engineLoggingConfig: EngineLoggingConfig,
       meteringReportKey: MeteringReportKey,
       enableExplicitDisclosure: Boolean,
-      authenticateUpgradableContract: AuthenticateUpgradableContract,
+      serializableContractAuthenticators: SerializableContractAuthenticators,
       telemetry: Telemetry,
       val loggerFactory: NamedLoggerFactory,
       dynParamGetter: DynamicDomainParameterGetter,
@@ -344,7 +343,7 @@ object ApiServices {
               packagesService,
               contractStore,
               authorityResolver,
-              authenticateUpgradableContract,
+              serializableContractAuthenticators.upgrade,
               metrics,
               engineLoggingConfig,
               loggerFactory,
@@ -365,6 +364,7 @@ object ApiServices {
           ledgerId = ledgerId,
           validateUpgradingPackageResolutions = validateUpgradingPackageResolutions,
           enableExplicitDisclosure = enableExplicitDisclosure,
+          authenticateSerializableContract = serializableContractAuthenticators.input,
         )
         val (apiSubmissionService, commandSubmissionService) =
           CommandSubmissionServiceImpl.createApiService(

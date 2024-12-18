@@ -64,17 +64,17 @@ final class TransactionTreeFactoryImplTest extends AsyncWordSpec with BaseTest {
     val submitterInfo = DefaultParticipantStateValues.submitterInfo(actAs)
     treeFactory
       .createTransactionTree(
-        transaction,
-        submitterInfo,
-        factory.confirmationPolicy,
-        Some(WorkflowId.assertFromString("testWorkflowId")),
-        factory.mediatorRef,
-        factory.transactionSeed,
-        factory.transactionUuid,
-        snapshot,
-        contractInstanceOfId,
-        keyResolver,
-        factory.ledgerTime.plusSeconds(100),
+        transaction = transaction,
+        submitterInfo = submitterInfo,
+        confirmationPolicy = factory.confirmationPolicy,
+        workflowId = Some(WorkflowId.assertFromString("testWorkflowId")),
+        mediator = factory.mediatorRef,
+        transactionSeed = factory.transactionSeed,
+        transactionUuid = factory.transactionUuid,
+        topologySnapshot = snapshot,
+        contractOfId = contractInstanceOfId,
+        keyResolver = keyResolver,
+        maxSequencingTime = factory.ledgerTime.plusSeconds(100),
         suffixedContractPackages = Map.empty,
       )
       .failOnShutdownTo(fail("creating tx tree"))
