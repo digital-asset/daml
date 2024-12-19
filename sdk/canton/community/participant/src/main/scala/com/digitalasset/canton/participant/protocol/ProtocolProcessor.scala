@@ -1560,11 +1560,7 @@ abstract class ProtocolProcessor[
         domainParameters,
       ).leftMap(err => steps.embedResultError(RequestTrackerError(err)))
 
-      _ <- EitherT.right(
-        ephemeral.contractStore.storeCreatedContracts(
-          contractsToBeStored.map((_, requestCounter))
-        )
-      )
+      _ <- EitherT.right(ephemeral.contractStore.storeContracts(contractsToBeStored))
 
       _ <- ifThenET(!cleanReplay) {
         logger.info(

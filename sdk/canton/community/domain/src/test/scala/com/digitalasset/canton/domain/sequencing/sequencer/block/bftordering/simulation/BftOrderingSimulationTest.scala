@@ -320,9 +320,6 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
               SequencerSnapshotAdditionalInfo(Map(thisPeer -> peerActiveAt))
             )
           }
-        logger.info(
-          s"Sequencer snapshot additional info for $thisPeer: $sequencerSnapshotAdditionalInfo"
-        )
 
         val (initialOrderingTopology, initialCryptoProvider) =
           if (genesisOrderingTopology.contains(thisPeer))

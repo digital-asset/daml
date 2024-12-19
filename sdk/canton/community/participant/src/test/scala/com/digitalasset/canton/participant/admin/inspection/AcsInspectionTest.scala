@@ -21,7 +21,6 @@ import com.digitalasset.canton.participant.store.{
   ActiveContractStore,
   ContractStore,
   RequestJournalStore,
-  StoredContract,
   SyncDomainPersistentState,
 }
 import com.digitalasset.canton.protocol.ContractIdSyntax.orderingLfContractId
@@ -177,16 +176,15 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
   private def mockContract(
       contractId: LfContractId,
       stakeholders: Set[LfPartyId],
-  ): StoredContract = {
+  ): SerializableContract = {
     val metadata = ContractMetadata.tryCreate(stakeholders, stakeholders, None)
-    val serializableContract = SerializableContract(
+    SerializableContract(
       contractId,
       MockedSerializableRawContractInstance,
       metadata,
       LedgerCreateTime(CantonTimestamp.Epoch),
       None,
     )
-    StoredContract(serializableContract, RequestCounter.MaxValue)
   }
 
   private def mockSyncDomainPersistentState(

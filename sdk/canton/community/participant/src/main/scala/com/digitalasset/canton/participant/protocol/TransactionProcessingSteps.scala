@@ -839,7 +839,6 @@ class TransactionProcessingSteps(
                 .reInterpret(
                   viewTree.view,
                   keyResolverFor(viewTree.view),
-                  rc,
                   ledgerTime,
                   parsedRequest.submissionTime,
                   () => engineController.abortStatus,
@@ -893,7 +892,6 @@ class TransactionProcessingSteps(
           .check(
             parsedRequest.rootViewTrees,
             keyResolverFor(_),
-            rc,
             ipsSnapshot,
             commonData,
             getEngineAbortStatus = () => engineController.abortStatus,

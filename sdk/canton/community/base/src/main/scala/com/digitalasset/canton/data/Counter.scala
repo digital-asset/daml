@@ -40,6 +40,7 @@ trait CounterCompanion[T] {
 
   /** The request counter assigned to the first request in the lifetime of a participant */
   val Genesis: Counter[T] = Counter[T](0)
+  val One: Counter[T] = Counter[T](1)
   val MaxValue: Counter[T] = Counter[T](Long.MaxValue)
   val MinValue: Counter[T] = Counter[T](Long.MinValue)
 

@@ -31,6 +31,7 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDe
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessingSteps.PendingUnassignment
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.*
+import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentValidationError.PackageIdUnknownOrUnvetted
 import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.{
   ViewHashAndRecipients,
   ViewKeyData,
@@ -334,7 +335,6 @@ final class UnassignmentProcessingStepsTest
     signatureO,
     None,
     isFreshOwnTimelyRequest = true,
-    isReassigningParticipant = true,
     Seq.empty,
     sourceMediator,
     cryptoSnapshot,
@@ -354,7 +354,7 @@ final class UnassignmentProcessingStepsTest
         sourceTopologySnapshot: TopologySnapshot,
         targetTopologySnapshot: TopologySnapshot,
         stakeholdersOverride: Option[Stakeholders] = None,
-    ): Either[ReassignmentProcessorError, UnassignmentRequestValidated] = {
+    ): Either[ReassignmentValidationError, UnassignmentRequestValidated] = {
       val updatedContract = stakeholdersOverride.fold(contract)(stakeholders =>
         contract.copy(metadata = ContractMetadata(stakeholders))
       )
@@ -385,7 +385,7 @@ final class UnassignmentProcessingStepsTest
         testingTopology,
         testingTopology,
         stakeholdersOverride = Some(stakeholders),
-      ).left.value shouldBe SubmitterMustBeStakeholder(
+      ).left.value shouldBe ReassignmentValidationError.SubmitterMustBeStakeholder(
         ReassignmentRef(contractId),
         submitter,
         stakeholders.all,
@@ -399,7 +399,7 @@ final class UnassignmentProcessingStepsTest
       mkUnassignmentResult(
         ipsNotHostedOnParticipant,
         testingTopology,
-      ).left.value shouldBe NotHostedOnParticipant(
+      ).left.value shouldBe ReassignmentValidationError.NotHostedOnParticipant(
         ReassignmentRef(contractId),
         submitter,
         submittingParticipant,
@@ -445,8 +445,8 @@ final class UnassignmentProcessingStepsTest
         stakeholdersOverride = Some(stakeholders),
       )
 
-      val expectedError = StakeholderHostingErrors(
-        s"Signatory $party1 requires at least 1 signatory reassigning participants on target domain, but only 0 are available"
+      val expectedError = ReassignmentValidationError.StakeholderHostingErrors(
+        s"Signatory $party1 requires at least 1 signatory reassigning participants on domain target, but only 0 are available"
       )
 
       result.left.value shouldBe expectedError
@@ -657,7 +657,7 @@ final class UnassignmentProcessingStepsTest
         )
 
       for {
-        _ <- state.contractStore.storeCreatedContract(RequestCounter(1), contract).failOnShutdown
+        _ <- state.contractStore.storeContract(contract).failOnShutdown
         _ <- persistentState.activeContractStore
           .markContractsCreated(
             Seq(contractId -> initialReassignmentCounter),
@@ -690,7 +690,7 @@ final class UnassignmentProcessingStepsTest
       )
 
       for {
-        _ <- state.contractStore.storeCreatedContract(RequestCounter(1), contract).failOnShutdown
+        _ <- state.contractStore.storeContract(contract).failOnShutdown
         submissionResult <- leftOrFailShutdown(
           unassignmentProcessingSteps.createSubmission(
             submissionParam,
@@ -761,7 +761,7 @@ final class UnassignmentProcessingStepsTest
       val fullUnassignmentTree = makeFullUnassignmentTree(unassignmentRequest)
 
       state.contractStore
-        .storeCreatedContract(RequestCounter(1), contract)
+        .storeContract(contract)
         .failOnShutdown
         .futureValue
 
@@ -809,9 +809,11 @@ final class UnassignmentProcessingStepsTest
         createUnassignmentProcessingSteps(c)
       }
 
-      constructPendingDataAndResponseWith(unassignmentProcessingStepsWithoutPackages).leftOrFail(
-        "construction of pending data and response succeeded unexpectedly"
-      ) shouldBe a[PackageIdUnknownOrUnvetted]
+      constructPendingDataAndResponseWith(
+        unassignmentProcessingStepsWithoutPackages
+      ).value.pendingData.unassignmentValidationResult.validationErrors.head shouldBe a[
+        PackageIdUnknownOrUnvetted
+      ]
     }
   }
 
@@ -869,22 +871,33 @@ final class UnassignmentProcessingStepsTest
         assignmentExclusivity = domainParameters
           .assignmentExclusivityLimitFor(timeProof.timestamp)
           .value
+
+        unassignmentValidationResult = UnassignmentValidationResult(
+          rootHash = rootHash,
+          contractId = contractId,
+          reassignmentCounter = ReassignmentCounter.Genesis,
+          templateId = ExampleTransactionFactory.templateId,
+          packageName = ExampleTransactionFactory.packageName,
+          submitterMetadata = submitterMetadata(submitter),
+          reassignmentId = reassignmentId,
+          targetDomain = targetDomain,
+          stakeholders = Set(party1),
+          targetTimeProof = timeProof,
+          assignmentExclusivity = Some(Target(assignmentExclusivity)),
+          hostedStakeholders = Set(party1),
+          validationResult = UnassignmentValidationResult.ValidationResult(
+            activenessResult = mkActivenessResult(),
+            authenticationErrorO = None,
+            metadataResultET = EitherT.right(FutureUnlessShutdown.unit),
+            validationErrors = Nil,
+          ),
+        )
+
         pendingUnassignment = PendingUnassignment(
           RequestId(CantonTimestamp.Epoch),
           RequestCounter(1),
           SequencerCounter(1),
-          rootHash,
-          contractId,
-          ReassignmentCounter.Genesis,
-          templateId = ExampleTransactionFactory.templateId,
-          packageName = ExampleTransactionFactory.packageName,
-          submitterMetadata = submitterMetadata(submitter),
-          reassignmentId,
-          targetDomain,
-          stakeholders = Set(party1),
-          hostedStakeholders = Set(party1),
-          timeProof,
-          Some(Target(assignmentExclusivity)),
+          unassignmentValidationResult,
           MediatorGroupRecipient(MediatorGroupIndex.one),
           locallyRejectedF = FutureUnlessShutdown.pure(false),
           abortEngine = _ => (),

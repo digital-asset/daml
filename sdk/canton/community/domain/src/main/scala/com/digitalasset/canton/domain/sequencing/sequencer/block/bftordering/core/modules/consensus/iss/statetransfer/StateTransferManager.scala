@@ -51,7 +51,7 @@ import scala.util.{Failure, Success}
   */
 class StateTransferManager[E <: Env[E]](
     dependencies: ConsensusModuleDependencies[E],
-    epochLength: EpochLength, // TODO(#19661): Support transferring epochs with different lengths
+    epochLength: EpochLength, // TODO(#19289): support variable epoch lengths
     epochStore: EpochStore[E],
     thisPeer: SequencerId,
     override val loggerFactory: NamedLoggerFactory,
@@ -83,7 +83,6 @@ class StateTransferManager[E <: Env[E]](
       traceContext: TraceContext,
   ): Unit =
     if (inStateTransfer) {
-      // TODO(#19661): Verify when implementing catch-up
       logger.debug("State transfer: already in progress")
     } else {
       val latestCompletedEpochNumber = latestCompletedEpoch.info.number
@@ -158,29 +157,27 @@ class StateTransferManager[E <: Env[E]](
             remoteLatestCompletedEpoch,
             from,
           ) =>
-        if (activeMembership.otherPeers.contains(from)) {
-          if (remoteLatestCompletedEpoch == GenesisEpochNumber && startEpoch > GenesisEpochNumber) {
-            logger.info(s"State transfer: peer $from is starting onboarding from epoch $startEpoch")
-          } else {
-            logger.info(s"State transfer: peer $from is requesting blocks from epoch $startEpoch")
-          }
-          sendBlockResponse(
-            to = from,
-            request.startEpoch,
-            latestCompletedEpoch,
-          )(abort)
-        } else {
-          logger.info(
-            s"State transfer: peer $from is requesting state transfer while not being active, " +
-              s"active membership is: $activeMembership, latest completed epoch is: ${latestCompletedEpoch.info.number}, " +
-              s"dropping..."
+        StateTransferMessageValidator
+          .validateBlockTransferRequest(request, activeMembership)
+          .fold(
+            validationMessage => logger.info(s"State transfer: $validationMessage, dropping..."),
+            { _ =>
+              val onboarding =
+                remoteLatestCompletedEpoch == GenesisEpochNumber && startEpoch > GenesisEpochNumber
+              if (onboarding)
+                logger
+                  .info(s"State transfer: peer $from is starting onboarding from epoch $startEpoch")
+              else
+                logger
+                  .info(s"State transfer: peer $from is catching up from epoch $startEpoch")
+
+              sendBlockResponse(to = from, request.startEpoch, latestCompletedEpoch)(abort)
+            },
           )
-        }
         StateTransferMessageResult.Continue
 
       case response: StateTransferMessage.BlockTransferResponse =>
         if (inStateTransfer) {
-          // TODO(#19661): Validate response, e.g., if the previous BFT time is right
           cancelTimeoutForPeer(response.from)(abort)
           handleBlockTransferResponse(response)(abort)
         } else {
@@ -323,7 +320,7 @@ class StateTransferManager[E <: Env[E]](
   private def calculateEndEpoch(abort: String => Nothing) =
     quorumOfMatchingBlockTransferResponses.toList.view.flatten
       .map(response => response.latestCompletedEpoch)
-      // TODO(#19661): Figure out what to do with faulty/slow nodes that provide correct responses
+      // TODO(#23143): Figure out what to do with faulty/slow nodes that provide correct responses
       //  with a low latest completed epoch.
       .minOption
       .getOrElse(
@@ -386,7 +383,7 @@ class StateTransferManager[E <: Env[E]](
       endEpoch,
       firstBlockInLastEpoch,
       epochLength,
-      // TODO(#19661) Not used during state transfer but will likely need to be correctly saved to the DB
+      // TODO(#23143) Not used during state transfer but will likely need to be correctly saved to the DB
       //  to support restarts (or the approach must be changed).
       GenesisEpoch.info.topologyActivationTime,
     )
@@ -401,7 +398,7 @@ class StateTransferManager[E <: Env[E]](
 
   private def sendBlockToOutput(prePrepare: PrePrepare, endEpoch: EpochNumber): Unit = {
     val blockMetadata = prePrepare.blockMetadata
-    // TODO(#19661): don't assume a fixed epoch length
+    // TODO(#19289): Support variable epoch lengths
     val isLastInEpoch =
       (blockMetadata.blockNumber + 1) % epochLength == 0 // As blocks are 0-indexed
     val isLastStateTransferred =
