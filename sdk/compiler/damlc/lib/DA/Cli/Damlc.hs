@@ -2046,7 +2046,7 @@ cmdUseDamlYamlArgs = \case
   Repl -> True
   GenerateMultiPackageManifest -> False -- Just reads config files
   MultiIde -> False
-  UpgradeCheck -> True -- will also read the multi-package manifest if available
+  UpgradeCheck -> False -- just reads the DARs it is given
 
 withProjectRoot' :: ProjectOpts -> ((FilePath -> IO FilePath) -> IO a) -> IO a
 withProjectRoot' ProjectOpts{..} act =
