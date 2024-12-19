@@ -224,9 +224,6 @@ class IssSegmentModule[E <: Env[E]](
         segmentState
           .messagesToRetransmit(from, fromStatus)
           .messages
-          // TODO(#18788): we currently only retransmit messages from ourselves,
-          //  but we should also support from others and commit certs
-          .filter(_.from == epoch.membership.myId)
           .foreach { msg =>
             p2pNetworkOut.asyncSend(
               P2PNetworkOut.send(
@@ -343,7 +340,6 @@ class IssSegmentModule[E <: Env[E]](
       context: E#ActorContextT[ConsensusSegment.Message],
       traceContext: TraceContext,
   ): Unit = {
-    val blockComplete = segmentState.isBlockComplete(pbftEvent.blockMetadata.blockNumber)
     val processResults = segmentState.processEvent(pbftEvent)
 
     def handleStore(store: StoreResult, sendMsg: () => Unit): Unit = store match {
@@ -417,7 +413,7 @@ class IssSegmentModule[E <: Env[E]](
         }
 
         store match {
-          case Some(storeResult) if storeMessages && !blockComplete =>
+          case Some(storeResult) if storeMessages =>
             handleStore(storeResult, () => sendMessage())
           case _ => sendMessage()
         }

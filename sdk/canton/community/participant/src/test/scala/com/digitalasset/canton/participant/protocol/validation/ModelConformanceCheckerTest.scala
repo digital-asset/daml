@@ -44,7 +44,6 @@ import com.digitalasset.canton.{
   LfPackageName,
   LfPackageVersion,
   LfPartyId,
-  RequestCounter,
 }
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName}
@@ -173,7 +172,6 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       .reInterpret(
         view,
         keyResolver,
-        RequestCounter(0),
         commonData.ledgerTime,
         commonData.submissionTime,
         getEngineAbortStatus = () => EngineAbortStatus.notAborted,
@@ -193,7 +191,6 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       .check(
         rootViewTrees,
         keyResolvers,
-        RequestCounter(0),
         ips,
         commonData,
         getEngineAbortStatus = () => EngineAbortStatus.notAborted,

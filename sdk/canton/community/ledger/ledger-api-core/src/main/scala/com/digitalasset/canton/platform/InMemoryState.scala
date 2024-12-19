@@ -5,10 +5,17 @@ package com.digitalasset.canton.platform
 
 import com.daml.ledger.resources.ResourceOwner
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.ledger.participant.state.index.PartyEntry
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
-import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
+import com.digitalasset.canton.platform.apiserver.services.PartyAllocationKey
+import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocationTracker
+import com.digitalasset.canton.platform.apiserver.services.tracking.{
+  InFlight,
+  StreamTracker,
+  SubmissionTracker,
+}
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.cache.{
   ContractStateCaches,
@@ -18,6 +25,7 @@ import com.digitalasset.canton.platform.store.cache.{
 }
 import com.digitalasset.canton.platform.store.interning.StringInterningView
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.data.Ref
 import io.opentelemetry.api.trace.Tracer
 
 import java.util.concurrent.atomic.AtomicReference
@@ -26,6 +34,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** Wrapper and life-cycle manager for the in-memory Ledger API state. */
 class InMemoryState(
+    val participantId: Ref.ParticipantId,
     val ledgerEndCache: MutableLedgerEndCache,
     val contractStateCaches: ContractStateCaches,
     val offsetCheckpointCache: OffsetCheckpointCache,
@@ -33,6 +42,7 @@ class InMemoryState(
     val stringInterningView: StringInterningView,
     val dispatcherState: DispatcherState,
     val submissionTracker: SubmissionTracker,
+    val partyAllocationTracker: PartyAllocationTracker,
     val commandProgressTracker: CommandProgressTracker,
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -96,6 +106,7 @@ class InMemoryState(
 
 object InMemoryState {
   def owner(
+      participantId: Ref.ParticipantId,
       commandProgressTracker: CommandProgressTracker,
       apiStreamShutdownTimeout: Duration,
       bufferedStreamsPageSize: Int,
@@ -111,6 +122,7 @@ object InMemoryState {
       mutableLedgerEndCache: MutableLedgerEndCache,
       stringInterningView: StringInterningView,
   )(implicit traceContext: TraceContext): ResourceOwner[InMemoryState] = {
+    import PartyEntry.{AllocationAccepted, AllocationRejected}
     val initialLedgerEnd = LedgerEnd.beforeBegin
 
     for {
@@ -121,7 +133,17 @@ object InMemoryState {
         tracer,
         loggerFactory,
       )
+      partyAllocationTracker <- StreamTracker.owner[PartyAllocationKey, PartyEntry](
+        "party-added",
+        {
+          case AllocationAccepted(submissionId, _) => submissionId.map(PartyAllocationKey(_))
+          case AllocationRejected(submissionId, _) => Some(PartyAllocationKey(submissionId))
+        },
+        InFlight.Unlimited,
+        loggerFactory,
+      )
     } yield new InMemoryState(
+      participantId = participantId,
       ledgerEndCache = mutableLedgerEndCache,
       dispatcherState = dispatcherState,
       contractStateCaches = ContractStateCaches.build(
@@ -140,6 +162,7 @@ object InMemoryState {
       ),
       stringInterningView = stringInterningView,
       submissionTracker = submissionTracker,
+      partyAllocationTracker = partyAllocationTracker,
       commandProgressTracker = commandProgressTracker,
       loggerFactory = loggerFactory,
     )(executionContext)

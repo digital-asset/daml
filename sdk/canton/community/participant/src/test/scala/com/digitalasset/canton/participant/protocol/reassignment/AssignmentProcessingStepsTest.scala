@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.Eval
+import cats.data.EitherT
 import cats.implicits.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
@@ -14,6 +15,7 @@ import com.digitalasset.canton.crypto.provider.symbolic.{SymbolicCrypto, Symboli
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.data.ViewType.AssignmentViewType
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.ledger.api.{LedgerApiIndexer, LedgerApiStore}
@@ -25,7 +27,14 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDe
 }
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidation.*
+import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidationError.ContractDataMismatch
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
+import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentValidationError.{
+  ContractMetadataMismatch,
+  NotHostedOnParticipant,
+  StakeholdersMismatch,
+  SubmitterMustBeStakeholder,
+}
 import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.{
   ViewHashAndRecipients,
   ViewKeyData,
@@ -117,7 +126,7 @@ class AssignmentProcessingStepsTest
     )
   )
 
-  private lazy val initialReassignmentCounter: ReassignmentCounter = ReassignmentCounter.Genesis
+  private lazy val initialReassignmentCounter: ReassignmentCounter = ReassignmentCounter.One
 
   private def submitterInfo(submitter: LfPartyId): ReassignmentSubmitterMetadata =
     ReassignmentSubmitterMetadata(
@@ -216,7 +225,7 @@ class AssignmentProcessingStepsTest
 
   private lazy val unassignmentRequest = reassignmentDataHelpers.unassignmentRequest(
     party1,
-    DefaultTestIdentities.participant1,
+    participant,
     sourceMediator,
   )()
 
@@ -229,22 +238,27 @@ class AssignmentProcessingStepsTest
   private def mkParsedRequest(
       view: FullAssignmentTree,
       recipients: Recipients = RecipientsTest.testInstance,
-      signatureO: Option[Signature] = None,
-  ): ParsedReassignmentRequest[FullAssignmentTree] = ParsedReassignmentRequest(
-    RequestCounter(1),
-    CantonTimestamp.Epoch,
-    SequencerCounter(1),
-    view,
-    recipients,
-    signatureO,
-    None,
-    isFreshOwnTimelyRequest = true,
-    isReassigningParticipant = false,
-    Seq.empty,
-    targetMediator,
-    cryptoSnapshot,
-    cryptoSnapshot.ipsSnapshot.findDynamicDomainParameters().futureValueUS.value,
-  )
+  ): ParsedReassignmentRequest[FullAssignmentTree] = {
+    val signature = cryptoSnapshot
+      .sign(view.rootHash.unwrap)
+      .futureValueUS
+      .value
+
+    ParsedReassignmentRequest(
+      RequestCounter(1),
+      CantonTimestamp.Epoch,
+      SequencerCounter(1),
+      view,
+      recipients,
+      Some(signature),
+      None,
+      isFreshOwnTimelyRequest = true,
+      Seq.empty,
+      targetMediator,
+      cryptoSnapshot,
+      cryptoSnapshot.ipsSnapshot.findDynamicDomainParameters().futureValueUS.value,
+    )
+  }
 
   "prepare submission" should {
     def setUpOrFail(
@@ -381,8 +395,9 @@ class AssignmentProcessingStepsTest
           )
         )("prepare submission did not return a left")
       } yield {
-        preparedSubmission should matchPattern { case SubmitterMustBeStakeholder(_, _, _) =>
-        }
+        preparedSubmission shouldBe SubmissionValidationError(
+          s"Submission failed because: ${SubmitterMustBeStakeholder(ReassignmentRef(reassignmentId), party2, Set(party1)).message}"
+        )
       }
     }
 
@@ -421,8 +436,9 @@ class AssignmentProcessingStepsTest
           )
         )("prepare submission did not return a left")
       } yield {
-        preparedSubmission should matchPattern { case NotHostedOnParticipant(_, _, _) =>
-        }
+        preparedSubmission shouldBe SubmissionValidationError(
+          s"Submission failed because: ${NotHostedOnParticipant(ReassignmentRef(reassignmentId), party3, participant).message}"
+        )
       }
     }
   }
@@ -456,8 +472,7 @@ class AssignmentProcessingStepsTest
               mkParsedRequest(
                 view,
                 recipients,
-                signature,
-              )
+              ).copy(signatureO = signature)
             )
             .value
       } yield {
@@ -518,14 +533,26 @@ class AssignmentProcessingStepsTest
   }
 
   "construct pending data and response" should {
+    // Model conformance errors emits alarms.
+    val modelConformanceError = LogEntry.assertLogSeq(
+      Seq(
+        (
+          _.shouldBeCantonErrorCode(LocalRejectError.MalformedRejects.ModelConformance),
+          "model conformance error",
+        )
+      )
+    )
     "succeed without errors" in {
       for {
         deps <- statefulDependencies
-        (_persistentState, ephemeralState) = deps
+        (persistentState, ephemeralState) = deps
 
-        fullAssignmentTree = makeFullAssignmentTree()
+        _ <- valueOrFail(persistentState.reassignmentStore.addReassignment(reassignmentData))(
+          "add reassignment data failed"
+        ).failOnShutdown
 
-        _result <- valueOrFail(
+        fullAssignmentTree = makeFullAssignmentTree(reassigningParticipants = Set(participant))
+        result <- valueOrFail(
           assignmentProcessingSteps
             .constructPendingDataAndResponse(
               mkParsedRequest(fullAssignmentTree),
@@ -536,6 +563,10 @@ class AssignmentProcessingStepsTest
             )
         )("construction of pending data and response failed").failOnShutdown
       } yield {
+        result.confirmationResponsesF.futureValueUS.value should matchPattern {
+          case Seq((ConfirmationResponse(_, _, _, LocalApprove(), _, _, _), _)) =>
+        }
+        result.pendingData.assignmentValidationResult.isSuccessfulF.futureValueUS shouldBe true
         succeed
       }
     }
@@ -544,7 +575,11 @@ class AssignmentProcessingStepsTest
       def test(contractWrongStakeholders: SerializableContract) =
         for {
           deps <- statefulDependencies
-          (_persistentState, ephemeralState) = deps
+          (persistentState, ephemeralState) = deps
+
+          _ <- valueOrFail(persistentState.reassignmentStore.addReassignment(reassignmentData))(
+            "add reassignment data failed"
+          ).failOnShutdown
 
           fullAssignmentTree = makeFullAssignmentTree(
             party1,
@@ -552,6 +587,7 @@ class AssignmentProcessingStepsTest
             targetDomain,
             targetMediator,
             unassignmentResult,
+            reassigningParticipants = Set(participant),
           )
 
           result <-
@@ -563,15 +599,24 @@ class AssignmentProcessingStepsTest
                 engineController =
                   EngineController(participant, RequestId(CantonTimestamp.Epoch), loggerFactory),
               )
-              .flatMap(_.confirmationResponsesF)
-              .map(_ => ())
-              .value
-              .failOnShutdown("Unexpected shutdown")
+              .failOnShutdown
+          confirmationResponse <- result.confirmationResponsesF.failOnShutdown
+
         } yield {
-          result.left.value shouldBe ContractMetadataMismatch(
+          confirmationResponse should matchPattern {
+            case Seq((ConfirmationResponse(_, _, _, LocalReject(_, true), _, _, _), _)) =>
+          }
+          val assignmentValidationResult = result.pendingData.assignmentValidationResult
+          val modelConformanceError =
+            assignmentValidationResult.metadataResultET.value.futureValueUS
+
+          modelConformanceError.left.value shouldBe ContractMetadataMismatch(
             fullAssignmentTree.reassignmentRef,
             contractWrongStakeholders.metadata,
             contract.metadata,
+          )
+          assignmentValidationResult.validationErrors shouldBe Seq(
+            ContractDataMismatch(reassignmentId)
           )
         }
 
@@ -596,8 +641,14 @@ class AssignmentProcessingStepsTest
         )
 
       for {
-        _ <- test(contractWrongStakeholders)
-        _ <- test(contractWrongSignatories)
+        _ <- loggerFactory.assertLoggedWarningsAndErrorsSeq(
+          test(contractWrongStakeholders),
+          modelConformanceError,
+        )
+        _ <- loggerFactory.assertLoggedWarningsAndErrorsSeq(
+          test(contractWrongSignatories),
+          modelConformanceError,
+        )
       } yield succeed
     }
 
@@ -620,9 +671,16 @@ class AssignmentProcessingStepsTest
 
         val resF = for {
           deps <- statefulDependencies
-          (_persistentState, ephemeralState) = deps
+          (persistentState, ephemeralState) = deps
 
-          fullAssignmentTree = makeFullAssignmentTree(contract = contract)
+          _ <- valueOrFail(persistentState.reassignmentStore.addReassignment(reassignmentData))(
+            "add reassignment data failed"
+          ).failOnShutdown
+
+          fullAssignmentTree = makeFullAssignmentTree(
+            contract = contract,
+            reassigningParticipants = Set(participant),
+          )
 
           res <- assignmentProcessingSteps
             .constructPendingDataAndResponse(
@@ -632,22 +690,31 @@ class AssignmentProcessingStepsTest
               engineController =
                 EngineController(participant, RequestId(CantonTimestamp.Epoch), loggerFactory),
             )
-            .flatMap(_.confirmationResponsesF)
-            .map(_ => ())
+            .failOnShutdown
             .value
-            .failOnShutdown("Unexpected shutdown")
 
-        } yield res
-
+        } yield res.value
         resF.futureValue
       }
 
-      test(contract.metadata).value shouldBe ()
+      test(contract.metadata).confirmationResponsesF.futureValueUS.value should matchPattern {
+        case Seq((ConfirmationResponse(_, _, _, LocalApprove(), _, _, _), _)) =>
+      }
 
-      test(incorrectMetadata).left.value shouldBe ContractMetadataMismatch(
-        ReassignmentRef(reassignmentId),
-        incorrectMetadata,
-        contract.metadata,
+      loggerFactory.assertLoggedWarningsAndErrorsSeq(
+        {
+          val testResult = test(incorrectMetadata)
+          testResult.confirmationResponsesF.futureValueUS.value should matchPattern {
+            case Seq((ConfirmationResponse(_, _, _, LocalReject(_, true), _, _, _), _)) =>
+          }
+          testResult.pendingData.assignmentValidationResult.metadataResultET.futureValueUS.left.value shouldBe ContractMetadataMismatch(
+            ReassignmentRef(reassignmentId),
+            incorrectMetadata,
+            contract.metadata,
+          )
+
+        },
+        modelConformanceError,
       )
     }
 
@@ -667,13 +734,13 @@ class AssignmentProcessingStepsTest
       val expectedError = StakeholdersMismatch(
         reassignmentRef = ReassignmentRef(reassignmentId),
         declaredViewStakeholders = incorrectStakeholders,
-        declaredContractStakeholders = Some(expectedStakeholders),
-        expectedStakeholders = Right(expectedStakeholders),
+        expectedStakeholders = expectedStakeholders,
       )
 
       val correctViewTree = makeFullAssignmentTree()
       val incorrectViewTree = makeFullAssignmentTree(
-        contract = contract.copy(metadata = incorrectMetadata)
+        contract = contract.copy(metadata = incorrectMetadata),
+        reassigningParticipants = Set(participant),
       )
 
       val inconsistentTree = FullAssignmentTree(
@@ -685,24 +752,37 @@ class AssignmentProcessingStepsTest
         )
       )
 
-      for {
-        deps <- statefulDependencies
-        (_persistentState, ephemeralState) = deps
+      loggerFactory.assertLoggedWarningsAndErrorsSeq(
+        (for {
+          deps <- statefulDependencies
+          (persistentState, ephemeralState) = deps
 
-        result <- leftOrFail(
-          assignmentProcessingSteps
-            .constructPendingDataAndResponse(
-              mkParsedRequest(inconsistentTree),
-              ephemeralState.reassignmentCache,
-              FutureUnlessShutdown.pure(mkActivenessResult()),
-              engineController =
-                EngineController(participant, RequestId(CantonTimestamp.Epoch), loggerFactory),
-            )
-            .flatMap(_.confirmationResponsesF)
-        )("construction of pending data and response did not return a left").failOnShutdown
-      } yield {
-        result shouldBe expectedError
-      }
+          _ <- valueOrFail(persistentState.reassignmentStore.addReassignment(reassignmentData))(
+            "add reassignment data failed"
+          ).failOnShutdown
+
+          result <-
+            valueOrFail(
+              assignmentProcessingSteps
+                .constructPendingDataAndResponse(
+                  mkParsedRequest(inconsistentTree),
+                  ephemeralState.reassignmentCache,
+                  FutureUnlessShutdown.pure(mkActivenessResult()),
+                  engineController =
+                    EngineController(participant, RequestId(CantonTimestamp.Epoch), loggerFactory),
+                )
+            )("construction of pending data and response failed").failOnShutdown
+
+          metadataCheck =
+            result.pendingData.assignmentValidationResult.metadataResultET.futureValueUS
+        } yield {
+          metadataCheck.left.value shouldBe expectedError
+          result.confirmationResponsesF.futureValueUS.value should matchPattern {
+            case Seq((ConfirmationResponse(_, _, _, LocalReject(_, true), _, _, _), _)) =>
+          }
+        }).futureValue,
+        modelConformanceError,
+      )
     }
   }
 
@@ -724,13 +804,21 @@ class AssignmentProcessingStepsTest
         RequestId(CantonTimestamp.Epoch),
         RequestCounter(1),
         SequencerCounter(1),
-        rootHash,
-        contract,
-        initialReassignmentCounter,
-        submitterInfo(submitter),
-        isReassigningParticipant = false,
-        reassignmentId,
-        contract.metadata.stakeholders,
+        assignmentValidationResult = AssignmentValidationResult(
+          rootHash,
+          contract,
+          initialReassignmentCounter,
+          submitterInfo(submitter),
+          reassignmentId,
+          isReassigningParticipant = false,
+          hostedStakeholders = contract.metadata.stakeholders,
+          validationResult = AssignmentValidationResult.ValidationResult(
+            activenessResult = mkActivenessResult(),
+            authenticationErrorO = None,
+            metadataResultET = EitherT.rightT(()),
+            validationErrors = Seq.empty,
+          ),
+        ),
         MediatorGroupRecipient(MediatorGroupIndex.one),
         locallyRejectedF = FutureUnlessShutdown.pure(false),
         abortEngine = _ => (),
@@ -773,9 +861,8 @@ class AssignmentProcessingStepsTest
           .valueOrFailShutdown("signing failed")
 
         parsed = mkParsedRequest(
-          assignmentTree,
-          signatureO = Some(signature),
-        )
+          assignmentTree
+        ).copy(signatureO = Some(signature))
         authenticationError <-
           AuthenticationValidator.verifyViewSignature(parsed).failOnShutdown
       } yield authenticationError shouldBe None
@@ -783,9 +870,8 @@ class AssignmentProcessingStepsTest
 
     "fail when the signature is missing" in {
       val parsed = mkParsedRequest(
-        assignmentTree,
-        signatureO = None,
-      )
+        assignmentTree
+      ).copy(signatureO = None)
       for {
         authenticationError <-
           AuthenticationValidator.verifyViewSignature(parsed).failOnShutdown
@@ -801,9 +887,8 @@ class AssignmentProcessingStepsTest
           .valueOrFailShutdown("signing failed")
 
         parsed = mkParsedRequest(
-          assignmentTree,
-          signatureO = Some(signature),
-        )
+          assignmentTree
+        ).copy(signatureO = Some(signature))
         authenticationError <-
           AuthenticationValidator.verifyViewSignature(parsed).failOnShutdown
       } yield {
@@ -853,6 +938,7 @@ class AssignmentProcessingStepsTest
       targetMediator: MediatorGroupRecipient = targetMediator,
       unassignmentResult: DeliveredUnassignmentResult = unassignmentResult,
       uuid: UUID = new UUID(4L, 5L),
+      reassigningParticipants: Set[ParticipantId] = Set.empty,
   ): FullAssignmentTree = {
     val seed = seedGenerator.generateSaltSeed()
 
@@ -869,7 +955,7 @@ class AssignmentProcessingStepsTest
         uuid,
         Source(testedProtocolVersion),
         Target(testedProtocolVersion),
-        reassigningParticipants = Set.empty,
+        reassigningParticipants = reassigningParticipants,
       )
     )("Failed to create FullAssignmentTree")
   }

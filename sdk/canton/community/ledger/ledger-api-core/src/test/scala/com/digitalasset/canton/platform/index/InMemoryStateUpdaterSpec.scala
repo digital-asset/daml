@@ -19,6 +19,7 @@ import com.digitalasset.canton.ledger.participant.state.{
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.pekkostreams.dispatcher.Dispatcher
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
+import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocationTracker
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater.PrepareResult
 import com.digitalasset.canton.platform.index.InMemoryStateUpdaterSpec.*
@@ -127,6 +128,7 @@ class InMemoryStateUpdaterSpec
       InMemoryStateUpdater.prepare(
         Vector.empty,
         someLedgerEnd,
+        participantId,
       )
     }
   }
@@ -135,6 +137,7 @@ class InMemoryStateUpdaterSpec
     InMemoryStateUpdater.prepare(
       Vector(update1),
       someLedgerEnd,
+      participantId,
     ) shouldBe PrepareResult(
       Vector(txLogUpdate1),
       someLedgerEnd,
@@ -146,6 +149,7 @@ class InMemoryStateUpdaterSpec
     InMemoryStateUpdater.prepare(
       Vector(update1, update7, update8),
       someLedgerEnd,
+      participantId,
     ) shouldBe PrepareResult(
       Vector(txLogUpdate1, assignLogUpdate, unassignLogUpdate),
       someLedgerEnd,
@@ -157,6 +161,7 @@ class InMemoryStateUpdaterSpec
     InMemoryStateUpdater.prepare(
       Vector(update1, metadataChangedUpdate),
       someLedgerEnd,
+      participantId,
     ) shouldBe PrepareResult(
       Vector(txLogUpdate1),
       someLedgerEnd,
@@ -377,20 +382,6 @@ object InMemoryStateUpdaterSpec {
     val cachesUpdateCaptor =
       (v: PrepareResult, _: Boolean) => cacheUpdates.addOne(v).pipe(_ => ())
 
-    val inMemoryStateUpdater = InMemoryStateUpdaterFlow(
-      prepareUpdatesParallelism = 2,
-      prepareUpdatesExecutionContext = executorService,
-      updateCachesExecutionContext = executorService,
-      preparePackageMetadataTimeOutWarning = FiniteDuration(10, "seconds"),
-      offsetCheckpointCacheUpdateInterval = FiniteDuration(15, "seconds"),
-      metrics = LedgerApiServerMetrics.ForTesting,
-      logger = logger,
-    )(
-      inMemoryState = inMemoryState,
-      prepare = (_, ledgerEnd) => result(ledgerEnd),
-      update = cachesUpdateCaptor,
-    )(emptyTraceContext)
-
     val txLogUpdate1 =
       TransactionLogUpdate.TransactionAccepted(
         updateId = "tx1",
@@ -486,6 +477,7 @@ object InMemoryStateUpdaterSpec {
     val stringInterningView: StringInterningView = mock[StringInterningView]
     val dispatcherState: DispatcherState = mock[DispatcherState]
     val submissionTracker: SubmissionTracker = mock[SubmissionTracker]
+    val partyAllocationTracker: PartyAllocationTracker = mock[PartyAllocationTracker]
     val dispatcher: Dispatcher[Offset] = mock[Dispatcher[Offset]]
     val commandProgressTracker = CommandProgressTracker.NoOp
 
@@ -502,6 +494,7 @@ object InMemoryStateUpdaterSpec {
     when(dispatcherState.getDispatcher).thenReturn(dispatcher)
 
     val inMemoryState = new InMemoryState(
+      participantId = participantId,
       ledgerEndCache = ledgerEndCache,
       contractStateCaches = contractStateCaches,
       offsetCheckpointCache = offsetCheckpointCache,
@@ -509,9 +502,24 @@ object InMemoryStateUpdaterSpec {
       stringInterningView = stringInterningView,
       dispatcherState = dispatcherState,
       submissionTracker = submissionTracker,
+      partyAllocationTracker = partyAllocationTracker,
       commandProgressTracker = commandProgressTracker,
       loggerFactory = loggerFactory,
     )(executorService)
+
+    val inMemoryStateUpdater = InMemoryStateUpdaterFlow(
+      prepareUpdatesParallelism = 2,
+      prepareUpdatesExecutionContext = executorService,
+      updateCachesExecutionContext = executorService,
+      preparePackageMetadataTimeOutWarning = FiniteDuration(10, "seconds"),
+      offsetCheckpointCacheUpdateInterval = FiniteDuration(15, "seconds"),
+      metrics = LedgerApiServerMetrics.ForTesting,
+      logger = logger,
+    )(
+      inMemoryState = inMemoryState,
+      prepare = (_, ledgerEnd, _) => result(ledgerEnd),
+      update = cachesUpdateCaptor,
+    )(emptyTraceContext)
 
     val tx_accepted_commandId = "cAccepted"
     val tx_accepted_updateId = "tAccepted"
@@ -986,5 +994,7 @@ object InMemoryStateUpdaterSpec {
     lastStringInterningId = 10,
     lastPublicationTime = CantonTimestamp.assertFromLong(10L),
   )
+
+  val participantId = Ref.ParticipantId.assertFromString("participant1")
 
 }

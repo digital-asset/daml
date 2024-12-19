@@ -443,7 +443,6 @@ class DAMLe(
           contracts.verifyMetadata(coid, metadata).value.flatMap { verification =>
             handleResultInternal(contracts, resume(verification))
           }
-        case ResultPrefetch(_, resume) => handleResultInternal(contracts, resume())
       }
     }
 

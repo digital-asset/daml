@@ -33,6 +33,7 @@ import com.digitalasset.canton.participant.protocol.submission.{
   TransactionConfirmationRequestFactory,
 }
 import com.digitalasset.canton.participant.protocol.validation.{
+  AuthorizationValidator,
   InternalConsistencyChecker,
   ModelConformanceChecker,
   TransactionConfirmationResponseFactory,

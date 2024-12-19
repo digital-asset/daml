@@ -77,8 +77,6 @@ create table par_contracts (
   metadata bytea not null,
   -- The ledger time when the contract was created.
   ledger_create_time varchar(300) collate "C" not null,
-  -- The request counter of the request that created or divulged the contract
-  request_counter bigint not null,
   -- We store metadata of the contract instance for inspection
   package_id varchar(300) collate "C" not null,
   template_id varchar collate "C" not null,

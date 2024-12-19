@@ -122,6 +122,7 @@ object LedgerApiIndexer {
       }
       (inMemoryState, inMemoryStateUpdaterFlow) <-
         LedgerApiServer.createInMemoryStateAndUpdater(
+          ledgerApiIndexerConfig.ledgerParticipantId,
           commandProgressTracker,
           ledgerApiIndexerConfig.serverConfig.indexService,
           ledgerApiIndexerConfig.serverConfig.commandService.maxCommandsInFlight,

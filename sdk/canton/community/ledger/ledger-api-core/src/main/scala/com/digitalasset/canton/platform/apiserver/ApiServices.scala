@@ -75,7 +75,6 @@ private final case class ApiServicesBundle(services: immutable.Seq[BindableServi
 }
 
 object ApiServices {
-
   def apply(
       participantId: Ref.ParticipantId,
       syncService: state.SyncService,
@@ -88,6 +87,7 @@ object ApiServices {
       timeProvider: TimeProvider,
       timeProviderType: TimeProviderType,
       submissionTracker: SubmissionTracker,
+      partyAllocationTracker: PartyAllocationTracker,
       commandProgressTracker: CommandProgressTracker,
       commandConfig: CommandServiceConfig,
       optTimeServiceBackend: Option[TimeServiceBackend],
@@ -310,6 +310,7 @@ object ApiServices {
         syncService,
         managementServiceTimeout,
         telemetry = telemetry,
+        partyAllocationTracker = partyAllocationTracker,
         loggerFactory = loggerFactory,
       )
 

@@ -102,7 +102,8 @@ private[reassignment] object TestReassignmentCoordination {
       ): EitherT[Future, ReassignmentProcessorError, T[DomainSnapshotSyncCryptoApi]] =
         snapshotOverride match {
           case None => super.cryptoSnapshot(domainId, staticDomainParameters, timestamp)
-          case Some(cs) => EitherT.pure[Future, ReassignmentProcessorError](domainId.map(_ => cs))
+          case Some(cs) =>
+            EitherT.pure[Future, ReassignmentProcessorError](domainId.map(_ => cs))
         }
     }
   }

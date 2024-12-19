@@ -77,8 +77,6 @@ create table par_contracts (
     metadata binary large object not null,
     -- The ledger time when the contract was created.
     ledger_create_time varchar(300) not null,
-    -- The request counter of the request that created or divulged the contract
-    request_counter bigint not null,
     -- We store metadata of the contract instance for inspection
     package_id varchar(300) not null,
     template_id varchar not null,
@@ -88,10 +86,6 @@ create table par_contracts (
 -- package_id comes before template_id, because queries with package_id and without template_id make more sense than vice versa.
 -- contract_id is left out, because a query with contract_id can be served with the primary key.
 create index idx_par_contracts_find on par_contracts(package_id, template_id);
-
--- Index for pruning
--- Using an index on all elements because H2 does not support partial indices.
-create index idx_par_contracts_request_counter on par_contracts(request_counter);
 
 -- provides a serial enumeration of static strings so we don't store the same string over and over in the db
 -- currently only storing uids

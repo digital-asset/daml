@@ -13,7 +13,7 @@ import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
   packageName,
 }
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.{BaseTest, LfPartyId, RequestCounter}
+import com.digitalasset.canton.{BaseTest, LfPartyId}
 import com.digitalasset.daml.lf.value.Value.{ValueText, ValueUnit}
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -39,10 +39,6 @@ class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest {
   private val let0: CantonTimestamp = CantonTimestamp.Epoch
   private val let1: CantonTimestamp = CantonTimestamp.ofEpochMilli(1)
 
-  private val rc0 = RequestCounter(0)
-  private val rc1 = RequestCounter(1)
-  private val rc2 = RequestCounter(2)
-
   "ExtendedContractLookup" should {
 
     val instance0 = contractInstance()
@@ -65,15 +61,9 @@ class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest {
       ContractMetadata.tryCreate(signatories = Set(alice), stakeholders = Set(alice, bob), None)
 
     val overwrites = Map(
-      coid01 -> StoredContract(
-        asSerializable(coid01, instance0, metadata2, let0),
-        rc2,
-      ),
-      coid20 -> StoredContract(asSerializable(coid20, instance0, metadata2, let1), rc1),
-      coid21 -> StoredContract(
-        asSerializable(coid21, instance0, metadata2, let0),
-        rc1,
-      ),
+      coid01 -> asSerializable(coid01, instance0, metadata2, let0),
+      coid20 -> asSerializable(coid20, instance0, metadata2, let1),
+      coid21 -> asSerializable(coid21, instance0, metadata2, let0),
     )
 
     val extendedStore = new ExtendedContractLookup(
@@ -107,10 +97,7 @@ class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest {
     }
 
     "complain about inconsistent contract ids" in {
-      val contract = StoredContract(
-        asSerializable(coid01, instance1, metadata1, let0),
-        rc0,
-      )
+      val contract = asSerializable(coid01, instance1, metadata1, let0)
 
       assertThrows[IllegalArgumentException](
         new ExtendedContractLookup(

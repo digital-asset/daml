@@ -11,6 +11,8 @@ import com.daml.ledger.api.v2.state_service.{
   ActiveContract,
   GetActiveContractsRequest,
   GetActiveContractsResponse,
+  GetConnectedDomainsRequest,
+  GetConnectedDomainsResponse,
   GetLedgerEndRequest,
   GetLedgerEndResponse,
 }
@@ -77,4 +79,11 @@ class StateServiceClient(service: StateServiceStub)(implicit
   )(implicit traceContext: TraceContext): Future[Long] =
     getLedgerEnd(token).map(_.offset)
 
+  def getConnectedDomains(
+      party: String,
+      token: Option[String] = None,
+  )(implicit traceContext: TraceContext): Future[GetConnectedDomainsResponse] =
+    LedgerClient
+      .stubWithTracing(service, token)
+      .getConnectedDomains(GetConnectedDomainsRequest(party))
 }

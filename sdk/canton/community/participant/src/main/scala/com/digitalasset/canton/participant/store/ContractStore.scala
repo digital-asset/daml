@@ -6,7 +6,6 @@ package com.digitalasset.canton.participant.store
 import cats.instances.list.*
 import cats.syntax.foldable.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -27,19 +26,16 @@ trait ContractStore extends ContractLookup with Purgeable with FlagCloseable {
   /** Stores contracts created by a request.
     * Assumes the contract data has been authenticated against the contract id using
     * [[com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator]].
-    * If the same contract instance has been stored before, the fields not covered by the contract id authentication will be updated.
     *
-    * @param creations      The contracts to be created together with the transaction id and the request counter
+    * @param contracts The created contracts to be stored
     */
-  def storeCreatedContracts(
-      creations: Seq[(SerializableContract, RequestCounter)]
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
+  def storeContracts(contracts: Seq[SerializableContract])(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit]
 
-  def storeCreatedContract(
-      requestCounter: RequestCounter,
-      contract: SerializableContract,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    storeCreatedContracts(Seq((contract, requestCounter)))
+  def storeContract(contract: SerializableContract)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] = storeContracts(Seq(contract))
 
   /** Debug find utility to search pcs
     */
@@ -113,37 +109,6 @@ object ContractStore {
           loggerFactory,
         )
     }
-}
-
-/** Data to be stored for a contract.
-  *
-  * @param contract       The contract to be stored
-  * @param requestCounter The request counter of the latest request that stored the contract.
-  */
-final case class StoredContract(
-    contract: SerializableContract,
-    requestCounter: RequestCounter,
-) extends PrettyPrinting {
-  def contractId: LfContractId = contract.contractId
-
-  def mergeWith(other: StoredContract): StoredContract =
-    if (this eq other) this
-    else {
-      require(
-        this.contractId == other.contractId,
-        s"Cannot merge $this with $other due to different contract ids",
-      )
-      if (requestCounter < other.requestCounter) {
-        copy(
-          requestCounter = other.requestCounter
-        )
-      } else this
-    }
-
-  override protected def pretty: Pretty[StoredContract] = prettyOfClass(
-    param("contract", _.contract),
-    param("request counter", _.requestCounter),
-  )
 }
 
 sealed trait ContractStoreError extends Product with Serializable with PrettyPrinting

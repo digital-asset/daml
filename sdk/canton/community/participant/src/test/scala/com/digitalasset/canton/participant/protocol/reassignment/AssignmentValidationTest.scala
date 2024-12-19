@@ -12,17 +12,28 @@ import com.digitalasset.canton.data.{
   ReassignmentRef,
   ReassignmentSubmitterMetadata,
 }
-import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
-import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidation.*
-import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
-  ContractError,
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.participant.protocol.EngineController
+import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDetectionHelpers.mkActivenessResult
+import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidationError.{
+  ContractDataMismatch,
+  InconsistentReassignmentCounter,
+  NonInitiatorSubmitsBeforeExclusivityTimeout,
+}
+import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ParsedReassignmentRequest
+import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentValidationError.{
   ReassigningParticipantsMismatch,
   SubmitterMustBeStakeholder,
 }
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
+import com.digitalasset.canton.participant.store.ReassignmentStore.UnknownReassignmentId
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
+import com.digitalasset.canton.sequencing.protocol.{
+  MediatorGroupRecipient,
+  Recipients,
+  RecipientsTest,
+}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
@@ -62,7 +73,6 @@ class AssignmentValidationTest
   private val submittingParticipant = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("bothdomains::participant")
   )
-  private val submittingAdminParty = submittingParticipant.adminParty.toLf
   private val observingParticipant = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("bothdomains::observingParticipant")
   )
@@ -104,7 +114,38 @@ class AssignmentValidationTest
 
   private val seedGenerator = new SeedGenerator(pureCrypto)
 
-  private val assignmentValidation = testInstance(targetDomain, cryptoSnapshot, None)
+  private def assignmentValidation(participantId: ParticipantId = submittingParticipant) =
+    testInstance(targetDomain, cryptoSnapshot, None, participantId)
+
+  private val activenessF = FutureUnlessShutdown.pure(mkActivenessResult())
+
+  val engineController =
+    EngineController(submittingParticipant, RequestId(CantonTimestamp.Epoch), loggerFactory)
+
+  private def mkParsedRequest(
+      view: FullAssignmentTree,
+      recipients: Recipients = RecipientsTest.testInstance,
+  ): ParsedReassignmentRequest[FullAssignmentTree] = {
+    val signature = cryptoSnapshot
+      .sign(view.rootHash.unwrap)
+      .futureValueUS
+      .toOption
+
+    ParsedReassignmentRequest(
+      RequestCounter(1),
+      CantonTimestamp.Epoch,
+      SequencerCounter(1),
+      view,
+      recipients,
+      signature,
+      None,
+      isFreshOwnTimelyRequest = true,
+      Seq.empty,
+      targetMediator,
+      cryptoSnapshot,
+      cryptoSnapshot.ipsSnapshot.findDynamicDomainParameters().futureValueUS.value,
+    )
+  }
 
   "validateAssignmentRequest" should {
     val contract = ExampleTransactionFactory.authenticatedSerializableContract(
@@ -143,37 +184,38 @@ class AssignmentValidationTest
       unassignmentResult,
     )
 
-    "succeed without errors in the basic case (no reassignment data)" in {
-      assignmentValidation
-        .validateAssignmentRequest(
-          CantonTimestamp.Epoch,
-          assignmentRequest,
-          reassignmentDataO = None,
+    "succeed without errors in the basic case (no reassignment data) on a non reassigning Participant" in {
+      val res = assignmentValidation(otherParticipant)
+        .perform(
           Target(cryptoSnapshot),
-          isConfirming = false,
-        )
+          reassignmentDataE = Left(UnknownReassignmentId(reassignmentId)),
+          activenessF = activenessF,
+          engineController,
+        )(mkParsedRequest(assignmentRequest))
         .futureValueUS
-        .value shouldBe None
+        .value
+
+      res.isSuccessfulF.futureValueUS shouldBe true
+
     }
 
     "succeed without errors when reassignment data is valid" in {
       def validate(
-          isConfirmingReassigningParticipant: Boolean
-      ): Option[AssignmentValidationResult] = assignmentValidation
-        .validateAssignmentRequest(
-          CantonTimestamp.Epoch,
-          assignmentRequest,
-          reassignmentDataO = Some(reassignmentData),
-          Target(cryptoSnapshot),
-          isConfirming = isConfirmingReassigningParticipant,
-        )
-        .futureValueUS
-        .value
+          participantId: ParticipantId
+      ): AssignmentValidationResult =
+        assignmentValidation(participantId)
+          .perform(
+            Target(cryptoSnapshot),
+            reassignmentDataE = Right(reassignmentData),
+            activenessF = activenessF,
+            engineController,
+          )(mkParsedRequest(assignmentRequest))
+          .futureValueUS
+          .value
 
-      validate(isConfirmingReassigningParticipant = true).value.confirmingParties shouldBe
-        Set(signatory, submittingAdminParty)
+      validate(submittingParticipant).isSuccessfulF.futureValueUS shouldBe true
 
-      validate(isConfirmingReassigningParticipant = false) shouldBe None
+      validate(otherParticipant).isSuccessfulF.futureValueUS shouldBe true
     }
 
     "wait for the topology state to be available" in {
@@ -183,16 +225,16 @@ class AssignmentValidationTest
           targetDomain,
           cryptoSnapshot,
           Some(promise.future), // Topology state is not available
+          submittingParticipant,
         )
 
       val inValidated = assignmentProcessingSteps2
-        .validateAssignmentRequest(
-          CantonTimestamp.Epoch,
-          assignmentRequest,
-          Some(reassignmentData),
+        .perform(
           Target(cryptoSnapshot),
-          isConfirming = true,
-        )
+          reassignmentDataE = Right(reassignmentData),
+          activenessF = activenessF,
+          engineController,
+        )(mkParsedRequest(assignmentRequest))
         .value
 
       always() {
@@ -212,26 +254,32 @@ class AssignmentValidationTest
         reassignmentCounter = reassignmentData.reassignmentCounter + 1,
       )
 
-      assignmentValidation
-        .validateAssignmentRequest(
-          CantonTimestamp.Epoch,
-          assignmentTreeWrongCounter,
-          Some(reassignmentData),
+      val result = assignmentValidation()
+        .perform(
           Target(cryptoSnapshot),
-          isConfirming = true,
-        )
+          reassignmentDataE = Right(reassignmentData),
+          activenessF = activenessF,
+          engineController,
+        )(mkParsedRequest(assignmentTreeWrongCounter))
         .value
         .futureValueUS
-        .left
-        .value shouldBe InconsistentReassignmentCounter(
-        reassignmentId,
-        assignmentTreeWrongCounter.reassignmentCounter,
-        reassignmentData.reassignmentCounter,
+        .value
+
+      result.isSuccessfulF.futureValueUS shouldBe false
+      result.validationErrors shouldBe Seq(
+        InconsistentReassignmentCounter(
+          reassignmentId,
+          assignmentTreeWrongCounter.reassignmentCounter,
+          reassignmentData.reassignmentCounter,
+        )
       )
     }
 
     "detect inconsistent contract data" in {
-      def validate(cid: LfContractId) = {
+      def validate(cid: LfContractId): Either[
+        ReassignmentProcessingSteps.ReassignmentProcessorError,
+        AssignmentValidationResult,
+      ] = {
         val updatedContract = contract.copy(contractId = cid)
 
         val assignmentRequest = makeFullAssignmentTree(
@@ -239,14 +287,13 @@ class AssignmentValidationTest
           unassignmentResult,
         )
 
-        assignmentValidation
-          .validateAssignmentRequest(
-            CantonTimestamp.Epoch,
-            assignmentRequest,
-            Some(reassignmentData),
+        assignmentValidation()
+          .perform(
             Target(cryptoSnapshot),
-            isConfirming = true,
-          )
+            reassignmentDataE = Right(reassignmentData),
+            activenessF = activenessF,
+            engineController,
+          )(mkParsedRequest(assignmentRequest))
           .value
           .futureValueUS
       }
@@ -262,77 +309,12 @@ class AssignmentValidationTest
         )
         .contractId
 
-      validate(contract.contractId).value.value shouldBe a[AssignmentValidationResult]
+      validate(contract.contractId).value shouldBe a[AssignmentValidationResult]
 
       // The data differs from the one stored locally in ReassignmentData
-      validate(unauthenticatedContractId).left.value shouldBe a[ContractDataMismatch]
-    }
-
-    "detect invalid contract id" in {
-      def validate(cid: LfContractId, reassignmentDataDefined: Boolean) = {
-        val updatedContract = contract.copy(contractId = cid)
-
-        val reassignmentDataHelpers = ReassignmentDataHelpers(
-          updatedContract,
-          reassignmentId.sourceDomain,
-          targetDomain,
-          identityFactory,
-        )
-
-        val unassignmentRequest =
-          reassignmentDataHelpers.unassignmentRequest(
-            signatory,
-            submittingParticipant,
-            sourceMediator,
-          )(reassigningParticipants)
-
-        val reassignmentData =
-          reassignmentDataHelpers.reassignmentData(reassignmentId, unassignmentRequest)()
-
-        val unassignmentResult = reassignmentDataHelpers
-          .unassignmentResult(reassignmentData)
-          .futureValue
-
-        val assignmentRequest = makeFullAssignmentTree(
-          updatedContract,
-          unassignmentResult,
-        )
-
-        assignmentValidation
-          .validateAssignmentRequest(
-            CantonTimestamp.Epoch,
-            assignmentRequest,
-            reassignmentDataO = Option.when(reassignmentDataDefined)(reassignmentData),
-            Target(cryptoSnapshot),
-            isConfirming = true,
-          )
-          .value
-          .futureValueUS
-      }
-
-      val unauthenticatedContractId = ExampleTransactionFactory
-        .authenticatedSerializableContract(
-          metadata = ContractMetadata
-            .tryCreate(
-              signatories = Set(signatory),
-              stakeholders = Set(signatory, otherParty),
-              None,
-            )
-        )
-        .contractId
-
-      validate(contract.contractId, reassignmentDataDefined = true).value.value shouldBe
-        a[AssignmentValidationResult]
-      validate(contract.contractId, reassignmentDataDefined = false).value.value shouldBe
-        a[AssignmentValidationResult]
-
-      inside(validate(unauthenticatedContractId, reassignmentDataDefined = true).left.value) {
-        case ContractError(msg) if msg.contains("Mismatching contract id suffixes.") => succeed
-      }
-
-      inside(validate(unauthenticatedContractId, reassignmentDataDefined = false).left.value) {
-        case ContractError(msg) if msg.contains("Mismatching contract id suffixes.") => succeed
-      }
+      validate(unauthenticatedContractId).value.validationErrors.head shouldBe a[
+        ContractDataMismatch
+      ]
     }
 
     "detect reassigning participant mismatch" in {
@@ -343,33 +325,31 @@ class AssignmentValidationTest
           reassigningParticipants = reassigningParticipants,
         )
 
-        assignmentValidation
-          .validateAssignmentRequest(
-            CantonTimestamp.Epoch,
-            assignmentTree,
-            Some(reassignmentData),
+        assignmentValidation()
+          .perform(
             Target(cryptoSnapshot),
-            isConfirming = true,
-          )
+            reassignmentDataE = Right(reassignmentData),
+            activenessF = activenessF,
+            engineController,
+          )(mkParsedRequest(assignmentTree))
           .value
           .futureValueUS
       }
 
       // Happy path / control
-      validate(reassigningParticipants).value.value.confirmingParties shouldBe Set(
-        signatory,
-        submittingAdminParty,
-      )
+      validate(reassigningParticipants).value.isSuccessfulF.futureValueUS shouldBe true
 
       // Additional observing participant
       val additionalObservingParticipant = reassigningParticipants + otherParticipant
 
       validate(
         additionalObservingParticipant
-      ).left.value shouldBe ReassigningParticipantsMismatch(
-        ReassignmentRef(unassignmentResult.reassignmentId),
-        expected = reassigningParticipants,
-        declared = additionalObservingParticipant,
+      ).value.validationErrors shouldBe Seq(
+        ReassigningParticipantsMismatch(
+          ReassignmentRef(unassignmentResult.reassignmentId),
+          expected = reassigningParticipants,
+          declared = additionalObservingParticipant,
+        )
       )
 
       // Additional confirming participant
@@ -377,18 +357,16 @@ class AssignmentValidationTest
 
       validate(
         additionalConfirmingParticipant
-      ).left.value shouldBe ReassigningParticipantsMismatch(
-        ReassignmentRef(unassignmentResult.reassignmentId),
-        expected = reassigningParticipants,
-        declared = additionalConfirmingParticipant,
+      ).value.validationErrors shouldBe Seq(
+        ReassigningParticipantsMismatch(
+          ReassignmentRef(unassignmentResult.reassignmentId),
+          expected = reassigningParticipants,
+          declared = additionalConfirmingParticipant,
+        )
       )
 
-      // Empty reassigning participants
-      validate(Set.empty).left.value shouldBe ReassigningParticipantsMismatch(
-        ReassignmentRef(unassignmentResult.reassignmentId),
-        expected = reassigningParticipants,
-        declared = Set.empty,
-      )
+      // Empty reassigning participants means it's not a reassigning participant.
+      validate(Set.empty).value.validationErrors shouldBe Nil
     }
 
     "detect non-stakeholder submitter" in {
@@ -399,28 +377,23 @@ class AssignmentValidationTest
           submitter = submitter,
         )
 
-        assignmentValidation
-          .validateAssignmentRequest(
-            CantonTimestamp.Epoch,
-            assignmentRequest,
-            Some(reassignmentData),
+        assignmentValidation()
+          .perform(
             Target(cryptoSnapshot),
-            isConfirming = true,
-          )
+            reassignmentDataE = Right(reassignmentData),
+            activenessF = activenessF,
+            engineController,
+          )(mkParsedRequest(assignmentRequest))
           .value
           .futureValueUS
       }
 
       // Happy path / control
-      validate(signatory).value.value.confirmingParties shouldBe Set(
-        signatory,
-        submittingAdminParty,
-      )
+      validate(signatory).value.isSuccessfulF.futureValueUS shouldBe true
 
-      validate(otherParty).left.value shouldBe SubmitterMustBeStakeholder(
-        ReassignmentRef(unassignmentResult.reassignmentId),
-        submittingParty = otherParty,
-        stakeholders = Set(signatory, observer),
+      validate(otherParty).value.validationErrors.map(_.getClass) shouldBe Seq(
+        classOf[NonInitiatorSubmitsBeforeExclusivityTimeout],
+        classOf[SubmitterMustBeStakeholder],
       )
     }
   }
@@ -429,12 +402,18 @@ class AssignmentValidationTest
       domainId: Target[DomainId],
       snapshotOverride: DomainSnapshotSyncCryptoApi,
       awaitTimestampOverride: Option[Future[Unit]],
-  ): AssignmentValidation =
+      participantId: ParticipantId,
+  ): AssignmentValidation = {
+    val damle = DAMLeTestInstance(
+      submittingParticipant,
+      Set(signatory),
+      Set(signatory, observer),
+    )(loggerFactory)
+
     new AssignmentValidation(
       domainId,
-      SerializableContractAuthenticator(pureCrypto),
       Target(defaultStaticDomainParameters),
-      submittingParticipant,
+      participantId,
       TestReassignmentCoordination.apply(
         Set(),
         CantonTimestamp.Epoch,
@@ -442,8 +421,10 @@ class AssignmentValidationTest
         Some(awaitTimestampOverride),
         loggerFactory,
       ),
+      engine = damle,
       loggerFactory = loggerFactory,
     )
+  }
 
   private def makeFullAssignmentTree(
       contract: SerializableContract,

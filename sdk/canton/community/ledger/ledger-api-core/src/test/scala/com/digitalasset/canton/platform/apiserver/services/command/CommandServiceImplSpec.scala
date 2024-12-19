@@ -19,8 +19,7 @@ import com.digitalasset.canton.ledger.api.validation.{
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.apiserver.services.command.CommandServiceImplSpec.*
-import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker.SubmissionKey
-import com.digitalasset.canton.platform.apiserver.services.tracking.{Errors, SubmissionTracker}
+import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.apiserver.services.{ApiCommandService, tracking}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.Thereafter.syntax.*
@@ -140,7 +139,7 @@ class CommandServiceImplSpec
             )
             .transform { response =>
               verify(submissionTracker, never).track(
-                any[SubmissionKey],
+                any[SubmissionTracker.SubmissionKey],
                 any[config.NonNegativeFiniteDuration],
                 any[TraceContext => FutureUnlessShutdown[Any]],
               )(any[ContextualizedErrorLogger], any[TraceContext])
@@ -167,7 +166,7 @@ class CommandServiceImplSpec
           any[TraceContext],
         )
       ).thenReturn(
-        Future.failed(Errors.timedOut(expectedSubmissionKey))
+        Future.failed(SubmissionTracker.Errors.timedOut(expectedSubmissionKey))
       )
 
       val service = new CommandServiceImpl(
@@ -303,7 +302,7 @@ object CommandServiceImplSpec {
     offset = offset,
   )
 
-  val expectedSubmissionKey = SubmissionKey(
+  val expectedSubmissionKey = SubmissionTracker.SubmissionKey(
     commandId = commandId,
     submissionId = submissionId,
     applicationId = applicationId,

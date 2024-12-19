@@ -8,7 +8,6 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import scala.concurrent.Future
 
 object EitherUtil {
-
   implicit class RichEither[L, R](val either: Either[L, R]) extends AnyVal {
 
     /** @param f

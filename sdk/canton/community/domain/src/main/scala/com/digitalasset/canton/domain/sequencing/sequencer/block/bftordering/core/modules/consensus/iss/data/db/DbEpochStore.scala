@@ -85,7 +85,7 @@ class DbEpochStore(
   }
 
   private implicit val readPbftMessage: GetResult[SignedMessage[PbftNetworkMessage]] =
-    GetResult(parseSignedMessage(from => IssConsensusModule.parseNetworkMessage(from, _)))
+    GetResult(parseSignedMessage(from => IssConsensusModule.parseConsensusNetworkMessage(from, _)))
 
   private implicit val tryReadPrePrepareMessageAndEpochInfo: GetResult[(PrePrepare, EpochInfo)] =
     GetResult { r =>

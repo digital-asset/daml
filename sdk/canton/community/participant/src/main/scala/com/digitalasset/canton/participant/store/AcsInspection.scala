@@ -264,10 +264,10 @@ class AcsInspection(
       contractsWithReassignmentCounter = batch.zip(reassignmentCounters)
 
       stakeholdersE = contractsWithReassignmentCounter
-        .traverse_ { case (storedContract, reassignmentCounter) =>
-          if (parties.exists(storedContract.contract.metadata.stakeholders)) {
-            allStakeholders ++= storedContract.contract.metadata.stakeholders
-            f(storedContract.contract, reassignmentCounter)
+        .traverse_ { case (contract, reassignmentCounter) =>
+          if (parties.exists(contract.metadata.stakeholders)) {
+            allStakeholders ++= contract.metadata.stakeholders
+            f(contract, reassignmentCounter)
           } else
             Either.unit
         }

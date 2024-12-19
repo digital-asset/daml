@@ -106,7 +106,7 @@ final class RepairService(
     with FlagCloseable
     with HasCloseContext {
 
-  private type MissingContract = (SerializableContract, RequestCounter)
+  private type MissingContract = SerializableContract
   private type MissingAssignment =
     (LfContractId, Source[DomainId], ReassignmentCounter, TimeOfChange)
   private type MissingAdd = (LfContractId, ReassignmentCounter, TimeOfChange)
@@ -359,7 +359,7 @@ final class RepairService(
               "Unable to lookup contracts in contract store",
             )
               .map { contracts =>
-                contracts.view.flatMap(_.map(c => c.contractId -> c.contract)).toMap
+                contracts.view.flatMap(_.map(c => c.contractId -> c)).toMap
               }
 
             filteredContracts <- contracts.zip(contractStates).parTraverseFilter {
@@ -491,7 +491,7 @@ final class RepairService(
               "Unable to lookup contracts in contract store",
             )
               .map { contracts =>
-                contracts.view.flatMap(_.map(c => c.contractId -> c.contract)).toMap
+                contracts.view.flatMap(_.map(c => c.contractId -> c)).toMap
               }
 
           operationsE = contractIds
@@ -918,11 +918,11 @@ final class RepairService(
       // We compute first which changes we need to persist
       missingContracts <- contractsToAdd
         .parTraverseFilter[EitherT[FutureUnlessShutdown, String, *], MissingContract] {
-          case (contractToAdd, toc) =>
+          case (contractToAdd, _) =>
             storedContracts.get(contractToAdd.cid) match {
               case None =>
                 EitherT.pure[FutureUnlessShutdown, String](
-                  Some((contractToAdd.contract, toc.rc))
+                  Some(contractToAdd.contract)
                 )
 
               case Some(storedContract) =>
@@ -951,7 +951,7 @@ final class RepairService(
 
       // Now, we update the stores
       _ <- logOnFailureWithInfoLevelUS(
-        contractStore.value.storeCreatedContracts(missingContracts),
+        contractStore.value.storeContracts(missingContracts),
         "Unable to store missing contracts",
       )
 

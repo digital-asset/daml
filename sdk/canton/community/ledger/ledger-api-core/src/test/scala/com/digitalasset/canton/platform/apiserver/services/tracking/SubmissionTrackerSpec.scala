@@ -420,9 +420,8 @@ class SubmissionTrackerSpec
 
     val streamTracker = new StreamTrackerImpl(
       timeoutSupport,
-      SubmissionKey.fromCompletion,
-      maxInFlight,
-      LedgerApiServerMetrics.ForTesting.commands.maxInFlightLength,
+      SubmissionTracker.toKey,
+      InFlight.Limited(maxInFlight, LedgerApiServerMetrics.ForTesting.commands.maxInFlightLength),
       loggerFactory,
     )
 

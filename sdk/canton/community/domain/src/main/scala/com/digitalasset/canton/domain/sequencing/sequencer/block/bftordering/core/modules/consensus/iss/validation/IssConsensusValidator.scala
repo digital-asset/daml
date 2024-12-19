@@ -25,14 +25,14 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 import com.digitalasset.canton.tracing.TraceContext
 
 final class IssConsensusValidator[E <: Env[E]] {
+
   def validate(
       message: ConsensusSegment.ConsensusMessage.PbftNetworkMessage,
-      context: E#ActorContextT[Consensus.Message[E]],
       cryptoProvider: CryptoProvider[E],
   )(implicit
-      traceContext: TraceContext
+      context: E#ActorContextT[Consensus.Message[E]],
+      traceContext: TraceContext,
   ): E#FutureUnlessShutdownT[Either[Seq[SignatureCheckError], Unit]] = {
-    implicit val implicitContext: E#ActorContextT[Consensus.Message[E]] = context
     implicit val implicitCryptoProvider: CryptoProvider[E] = cryptoProvider
 
     message match {

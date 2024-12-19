@@ -8,10 +8,7 @@ import com.digitalasset.canton.ReassignmentCounter
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt, SaltSeed}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
-  ReassignmentProcessorError,
-  StakeholderHostingErrors,
-}
+import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentValidationError.PackageIdUnknownOrUnvetted
 import com.digitalasset.canton.participant.protocol.submission.UsableDomains
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, TimeProof}
@@ -100,7 +97,7 @@ object UnassignmentRequest {
       ec: ExecutionContext,
   ): EitherT[
     FutureUnlessShutdown,
-    ReassignmentProcessorError,
+    ReassignmentValidationError,
     UnassignmentRequestValidated,
   ] = {
     val contractId = contract.contractId
@@ -120,7 +117,9 @@ object UnassignmentRequest {
       unassignmentRequestRecipients <- sourceTopology.unwrap
         .activeParticipantsOfAll(stakeholders.all.toList)
         .leftMap(inactiveParties =>
-          StakeholderHostingErrors(s"The following stakeholders are not active: $inactiveParties")
+          ReassignmentValidationError.StakeholderHostingErrors(
+            s"The following stakeholders are not active: $inactiveParties"
+          )
         )
 
       reassigningParticipants <- new ReassigningParticipantsComputation(
@@ -136,9 +135,8 @@ object UnassignmentRequest {
           stakeholders.all.view.map(_ -> Set(templateId.packageId)).toMap,
           targetTopology.unwrap.referenceTime,
         )
-        .leftMap[ReassignmentProcessorError](unknownPackage =>
-          UnassignmentProcessorError
-            .PackageIdUnknownOrUnvetted(contractId, unknownPackage.unknownTo)
+        .leftMap[ReassignmentValidationError](unknownPackage =>
+          PackageIdUnknownOrUnvetted(contractId, unknownPackage.unknownTo)
         )
     } yield {
       val unassignmentRequest = UnassignmentRequest(

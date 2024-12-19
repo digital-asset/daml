@@ -84,10 +84,12 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
     )
     val mutableLedgerEndCache = MutableLedgerEndCache()
     val stringInterningView = new StringInterningView(loggerFactory)
+    val participantId = Ref.ParticipantId.assertFromString("index-component-test-participant-id")
 
     val indexResourceOwner =
       for {
         (inMemoryState, updaterFlow) <- LedgerApiServer.createInMemoryStateAndUpdater(
+          participantId = participantId,
           commandProgressTracker = CommandProgressTracker.NoOp,
           indexServiceConfig = IndexServiceConfig(),
           maxCommandsInFlight = 1, // not used
@@ -111,7 +113,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
             loggerFactory = loggerFactory,
           )
         indexerF <- new JdbcIndexer.Factory(
-          participantId = Ref.ParticipantId.assertFromString("index-component-test-participant-id"),
+          participantId = participantId,
           participantDataSourceConfig = DbSupport.ParticipantDataSourceConfig(jdbcUrl),
           config = indexerConfig,
           excludedPackageIds = Set.empty,

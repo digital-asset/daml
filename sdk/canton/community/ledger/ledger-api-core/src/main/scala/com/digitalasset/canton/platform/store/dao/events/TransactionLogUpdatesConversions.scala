@@ -86,6 +86,7 @@ private[events] object TransactionLogUpdatesConversions {
             })
           )
         )(u)
+      case _: TransactionLogUpdate.PartyAllocationResponse => None
     }
 
     def toGetTransactionsResponse(
@@ -285,6 +286,7 @@ private[events] object TransactionLogUpdatesConversions {
         Option.when(
           requestingParties.fold(true)(u.reassignmentInfo.hostedStakeholders.exists(_))
         )(u)
+      case _: TransactionLogUpdate.PartyAllocationResponse => None
     }
 
     def toGetTransactionResponse(

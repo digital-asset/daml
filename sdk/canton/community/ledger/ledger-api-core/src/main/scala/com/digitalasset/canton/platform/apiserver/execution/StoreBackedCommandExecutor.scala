@@ -362,7 +362,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
                 )
               )
             }
-        case ResultPrefetch(_, resume) => resolveStep(resume())
       }
 
     resolveStep(result).thereafter { _ =>

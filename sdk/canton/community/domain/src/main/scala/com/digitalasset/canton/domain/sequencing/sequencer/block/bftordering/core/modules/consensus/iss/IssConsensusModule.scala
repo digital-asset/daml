@@ -84,9 +84,11 @@ import scala.collection.mutable
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.{Failure, Success}
 
+import BootstrapDetector.BootstrapKind
+
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 final class IssConsensusModule[E <: Env[E]](
-    private val epochLength: EpochLength, // Currently fixed for all epochs
+    private val epochLength: EpochLength, // TODO(#19289): support variable epoch lengths
     private val initialState: InitialState[E],
     epochStore: EpochStore[E],
     clock: Clock,
@@ -105,7 +107,13 @@ final class IssConsensusModule[E <: Env[E]](
     customOnboardingAndServerStateTransferManager: Option[StateTransferManager[E]] = None,
     private var activeMembership: Membership = initialState.membership,
 )(
-    private var catchupDetector: CatchupDetector = new DefaultCatchupDetector(activeMembership)
+    private var catchupDetector: CatchupDetector = new DefaultCatchupDetector(activeMembership),
+    private var retransmissionsManager: RetransmissionsManager[E] = new RetransmissionsManager[E](
+      initialState.epochState,
+      activeMembership.otherPeers,
+      dependencies.p2pNetworkOut,
+      loggerFactory,
+    ),
 )(implicit mc: MetricsContext)
     extends Consensus[E]
     with HasDelayedInit[Consensus.ProtocolMessage] {
@@ -141,14 +149,6 @@ final class IssConsensusModule[E <: Env[E]](
 
   private var newEpochTopology: Option[(OrderingTopology, CryptoProvider[E])] = None
 
-  private var retransmissionsManager =
-    new RetransmissionsManager[E](
-      epochState,
-      activeMembership.otherPeers,
-      dependencies.p2pNetworkOut,
-      loggerFactory,
-    )
-
   override def ready(self: ModuleRef[Consensus.Message[E]]): Unit =
     // TODO(#16761) also resend locally-led ordered blocks (PrePrepare) in activeEpoch in case my node crashed
     queuedConsensusMessages.foreach(self.asyncSend)
@@ -170,21 +170,23 @@ final class IssConsensusModule[E <: Env[E]](
         )
 
       case Consensus.Start =>
-        initialState.sequencerSnapshotAdditionalInfo match {
-          case Some(snapshotAdditionalInfo)
-              if latestCompletedEpoch == GenesisEpoch && activeMembership.otherPeers.sizeIs > 0 =>
-            val startEpoch = snapshotAdditionalInfo.peerActiveAt
-              .get(activeMembership.myId)
-              .flatMap(_.epochNumber)
-              .getOrElse(
-                abort("No starting epoch found for new node onboarding")
-              )
+        val maybeSnapshotAdditionalInfo = initialState.sequencerSnapshotAdditionalInfo
+        BootstrapDetector.detect(
+          maybeSnapshotAdditionalInfo,
+          activeMembership,
+          latestCompletedEpoch,
+        )(abort) match {
+          case BootstrapKind.Onboarding(startEpoch) =>
+            logger.info(
+              s"Detected new node onboarding from epoch $startEpoch for sequencer snapshot additional " +
+                s"info = $maybeSnapshotAdditionalInfo"
+            )
             onboardingAndServerStateTransferManager.startStateTransfer(
               activeMembership,
               latestCompletedEpoch,
               startEpoch,
             )(abort)
-          case _ =>
+          case BootstrapKind.RegularStartup =>
             startSegmentModulesAndCompleteInit()
             retransmissionsManager.startRequesting()
         }
@@ -404,7 +406,7 @@ final class IssConsensusModule[E <: Env[E]](
 
       case Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage(underlyingNetworkMessage) =>
         context.pipeToSelf(
-          validator.validate(underlyingNetworkMessage.message, context, activeCryptoProvider)
+          validator.validate(underlyingNetworkMessage.message, activeCryptoProvider)
         ) {
           case Failure(error) =>
             logger.warn(s"Could not verify message $underlyingNetworkMessage, dropping", error)
@@ -674,6 +676,15 @@ object IssConsensusModule {
   val DefaultLeaderSelectionPolicy: LeaderSelectionPolicy = SimpleLeaderSelectionPolicy
 
   def parseNetworkMessage(
+      protoSignedMessage: v1.SignedMessage
+  ): ParsingResult[Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage] =
+    SignedMessage
+      .fromProtoWithSequencerId(v1.ConsensusMessage)(from =>
+        proto => originalByteString => parseConsensusNetworkMessage(from, proto)(originalByteString)
+      )(protoSignedMessage)
+      .map(Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage.apply)
+
+  def parseConsensusNetworkMessage(
       from: SequencerId,
       message: v1.ConsensusMessage,
   )(

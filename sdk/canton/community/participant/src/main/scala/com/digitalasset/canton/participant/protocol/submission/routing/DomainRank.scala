@@ -10,11 +10,10 @@ import cats.syntax.parallel.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.ReassignmentRef
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
 import com.digitalasset.canton.participant.protocol.reassignment.{
   ReassigningParticipantsComputation,
   ReassignmentValidation,
-  UnassignmentProcessorError,
+  ReassignmentValidationError,
 }
 import com.digitalasset.canton.participant.sync.TransactionRoutingError
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.AutomaticReassignmentForTransactionFailure
@@ -121,10 +120,10 @@ private[routing] class DomainRankComputation(
                 stakeholders = contract.stakeholders,
                 sourceSnapshot,
                 targetSnapshot,
-              ).compute.leftWiden[ReassignmentProcessorError]
+              ).compute.leftWiden[ReassignmentValidationError]
             } yield ()
           result
-            .onShutdown(Left(UnassignmentProcessorError.AbortedDueToShutdownOut(contract.id)))
+            .onShutdown(Left(ReassignmentValidationError.AbortedDueToShutdownOut(contract.id)))
             .biflatMap(
               left => go(rest, errAccum :+ show"Read $reader cannot reassign: $left"),
               _ => EitherT.rightT(reader),
