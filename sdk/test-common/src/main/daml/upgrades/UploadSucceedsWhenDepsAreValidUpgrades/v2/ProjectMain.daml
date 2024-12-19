@@ -7,6 +7,6 @@ import qualified Main
 
 template Foo with
     p: Party
-    dep: ContractId Main.T
+    dep: [ContractId Main.T]
   where
     signatory p
