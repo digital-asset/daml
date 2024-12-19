@@ -735,20 +735,22 @@ tests TestArgs{..} =
             -- , "  submit bob $ exercise coid1 Module.Choice2 with choiceArg = ()"
             -- , "  pure ()"
             ]
-        callProcessSilent genSimpleDalf $
+        callProcess genSimpleDalf $
             ["--with-archive-choice" | withArchiveChoice ] <>
             ["--lf-version", LF.renderVersion simpleDalfLfVersion
             , projDir </> "simple-dalf-1.0.0.dalf"]
-        callProcessSilent damlc
+        callProcess damlc
             [ "build"
+            , "--debug"
             , "--project-root", projDir
             , "--target"
             , LF.renderVersion targetDevVersion
             , "--generated-src" ]
         let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
         assertFileExists dar
-        callProcessSilent damlc
+        callProcess damlc
             [ "test"
+            , "--debug"
             , "--target"
             , LF.renderVersion targetDevVersion
             , "--project-root"
