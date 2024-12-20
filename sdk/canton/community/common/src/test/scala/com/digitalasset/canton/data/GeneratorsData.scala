@@ -4,7 +4,7 @@
 package com.digitalasset.canton.data
 
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.crypto.{GeneratorsCrypto, Salt, TestHash}
+import com.digitalasset.canton.crypto.{GeneratorsCrypto, Salt, SigningKeyUsage, TestHash}
 import com.digitalasset.canton.data.ActionDescription.{
   CreateActionDescription,
   ExerciseActionDescription,
@@ -591,6 +591,7 @@ final class GeneratorsData(
           GeneratorsCrypto.sign(
             "UnassignmentResult-mediator",
             TestHash.testHashPurpose,
+            SigningKeyUsage.ProtocolOnly,
           ),
         )
 
@@ -604,7 +605,11 @@ final class GeneratorsData(
       .create(
         SignedContent(
           deliver,
-          sign("UnassignmentResult-sequencer", TestHash.testHashPurpose),
+          sign(
+            "UnassignmentResult-sequencer",
+            TestHash.testHashPurpose,
+            SigningKeyUsage.ProtocolOnly,
+          ),
           Some(unassignmentTs),
           protocolVersion,
         )

@@ -6,7 +6,7 @@ package com.digitalasset.canton.store
 import cats.data.Validated.Valid
 import cats.syntax.parallel.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
-import com.digitalasset.canton.crypto.{Signature, SigningPublicKey, TestHash}
+import com.digitalasset.canton.crypto.{Signature, SigningKeyUsage, SigningPublicKey, TestHash}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.pruning.{PruningPhase, PruningStatus}
 import com.digitalasset.canton.sequencing.protocol.*
@@ -33,8 +33,8 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with
 
   private lazy val sequencerKey: SigningPublicKey = crypto.generateSymbolicSigningKey()
 
-  private def sign(str: String): Signature =
-    crypto.sign(TestHash.digest(str), sequencerKey.id)
+  def sign(str: String): Signature =
+    crypto.sign(TestHash.digest(str), sequencerKey.id, SigningKeyUsage.ProtocolOnly)
 
   private lazy val domainId: DomainId = DomainId(
     UniqueIdentifier.tryFromProtoPrimitive("da::default")
@@ -492,7 +492,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with
       for {
         _ <- store.store(events)
         _ <- store.prune(tsPrune)
-        succeed <- store
+        _ <- store
           .findRange(ByTimestampRange(tsPrune.immediateSuccessor, ts4), None)
           .valueOrFail("successful range query")
         fail2 <- leftOrFail(store.findRange(criterionAt, None))("at pruning point")

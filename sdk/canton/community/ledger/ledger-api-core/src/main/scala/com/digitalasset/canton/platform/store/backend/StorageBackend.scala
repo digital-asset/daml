@@ -24,6 +24,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawAssignEvent,
   RawParticipantAuthorization,
   RawUnassignEvent,
+  UnassignProperties,
 }
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.PruneUptoInclusiveAndLedgerEnd
@@ -278,7 +279,7 @@ trait EventStorageBackend {
   def pruneEvents(
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
-      incompletReassignmentOffsets: Vector[Offset],
+      incompleteReassignmentOffsets: Vector[Offset],
   )(implicit
       connection: Connection,
       traceContext: TraceContext,
@@ -330,9 +331,9 @@ trait EventStorageBackend {
       offsets: Iterable[Long]
   )(connection: Connection): Vector[Long]
 
-  def lookupAssignSequentialIdByContractId(
-      contractIds: Iterable[String]
-  )(connection: Connection): Vector[Long]
+  def lookupAssignSequentialIdBy(
+      unassignProperties: Iterable[UnassignProperties]
+  )(connection: Connection): Map[UnassignProperties, Long]
 
   def lookupCreateSequentialIdByContractId(
       contractIds: Iterable[String]
@@ -507,6 +508,8 @@ object EventStorageBackend {
     case 2 => Confirmation
     case 3 => Observation
   }
+
+  final case class UnassignProperties(contractId: String, domainId: String, sequentialId: Long)
 }
 
 trait DataSourceStorageBackend {

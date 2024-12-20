@@ -10,6 +10,7 @@ import com.digitalasset.canton.crypto.{
   HashPurpose,
   Signature,
   SignatureCheckError,
+  SigningKeyUsage,
   SyncCryptoApi,
   SyncCryptoError,
 }
@@ -175,7 +176,7 @@ object SignedProtocolMessage
     val serialization = typedMessage.getCryptographicEvidence
 
     val hash = cryptoApi.pureCrypto.digest(hashPurpose, serialization)
-    cryptoApi.sign(hash)
+    cryptoApi.sign(hash, SigningKeyUsage.ProtocolOnly)
   }
 
   def trySignAndCreate[M <: SignedProtocolMessageContent](

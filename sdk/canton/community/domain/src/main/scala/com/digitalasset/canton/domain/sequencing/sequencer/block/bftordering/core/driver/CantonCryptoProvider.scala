@@ -3,12 +3,14 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.driver
 
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.{
   DomainSnapshotSyncCryptoApi,
   Hash,
   HashPurpose,
   Signature,
   SignatureCheckError,
+  SigningKeyUsage,
   SyncCryptoError,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.CryptoProvider
@@ -28,14 +30,18 @@ import scala.concurrent.ExecutionContext
 
 class CantonCryptoProvider(cryptoApi: DomainSnapshotSyncCryptoApi)(implicit ec: ExecutionContext)
     extends CryptoProvider[PekkoEnv] {
-  override def sign(hash: Hash)(implicit
+  override def sign(
+      hash: Hash,
+      usage: NonEmpty[Set[SigningKeyUsage]],
+  )(implicit
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Either[SyncCryptoError, Signature]] =
-    PekkoFutureUnlessShutdown("sign", cryptoApi.sign(hash).value)
+    PekkoFutureUnlessShutdown("sign", cryptoApi.sign(hash, usage).value)
 
   override def signMessage[MessageT <: ProtocolVersionedMemoizedEvidence & MessageFrom](
       message: MessageT,
       hashPurpose: HashPurpose,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Either[SyncCryptoError, SignedMessage[MessageT]]] =
@@ -44,7 +50,8 @@ class CantonCryptoProvider(cryptoApi: DomainSnapshotSyncCryptoApi)(implicit ec: 
       (
         for {
           signature <- cryptoApi.sign(
-            CryptoProvider.hashForMessage(message, message.from, hashPurpose)
+            CryptoProvider.hashForMessage(message, message.from, hashPurpose),
+            usage,
           )
         } yield SignedMessage(message, signature)
       ).value,

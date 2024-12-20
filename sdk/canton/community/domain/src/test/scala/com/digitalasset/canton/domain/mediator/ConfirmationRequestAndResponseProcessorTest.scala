@@ -292,7 +292,7 @@ class ConfirmationRequestAndResponseProcessorTest
     .forOwnerAndDomain(participant, domainId)
     .awaitSnapshot(CantonTimestamp.Epoch)
     .futureValue
-    .sign(tree.tree.rootHash.unwrap)
+    .sign(tree.tree.rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
     .failOnShutdown
     .futureValue
 
@@ -672,10 +672,10 @@ class ConfirmationRequestAndResponseProcessorTest
           List(Set[Member](participant) -> correctViewType, Set[Member](otherParticipant) -> wrongViewType),
 
         (batchWithRootHashMessageWithTooManyRecipients ->
-          show"Root hash messages with wrong recipients tree: RecipientsTree(recipient group = Seq(${mediatorGroupRecipient}, ${MemberRecipient(participant)}, ${MemberRecipient(otherParticipant)}))") ->
+          show"Root hash messages with wrong recipients tree: RecipientsTree(recipient group = Seq($mediatorGroupRecipient, ${MemberRecipient(participant)}, ${MemberRecipient(otherParticipant)}))") ->
           List(Set[Member](participant, otherParticipant) -> correctViewType),
 
-        (batchWithRootHashMessageWithTooFewRecipients -> show"Root hash messages with wrong recipients tree: RecipientsTree(recipient group = ${mediatorGroupRecipient})") -> List.empty,
+        (batchWithRootHashMessageWithTooFewRecipients -> show"Root hash messages with wrong recipients tree: RecipientsTree(recipient group = $mediatorGroupRecipient)") -> List.empty,
 
         (batchWithRepeatedRootHashMessage -> show"Several root hash messages for recipients: ${MemberRecipient(participant)}") ->
           List(Set[Member](participant) -> correctViewType),

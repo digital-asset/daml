@@ -2081,8 +2081,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
           contracts: List[(LfContractId, LfPackageId)],
       ): Future[Unit] =
         contracts.parTraverse_ { case (contractId, pkg) =>
-          contractStore.storeCreatedContract(
-            RequestCounter(0),
+          contractStore.storeContract(
             asSerializable(
               contractId,
               contractInstance = contractInstance(
@@ -2091,7 +2090,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
                   moduleName,
                 )
               ),
-            ),
+            )
           )
         }.failOnShutdown
 

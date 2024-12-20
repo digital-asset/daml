@@ -7,11 +7,13 @@ import cats.Traverse
 import cats.syntax.either.*
 import com.daml.metrics.api.MetricHandle.Timer
 import com.daml.metrics.api.MetricsContext
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.{
   Hash,
   HashPurpose,
   Signature,
   SignatureCheckError,
+  SigningKeyUsage,
   SyncCryptoError,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.CryptoProvider
@@ -268,13 +270,14 @@ class ProgrammableUnitTestEnv extends BaseIgnoringUnitTestEnv[ProgrammableUnitTe
 object ProgrammableUnitTestEnv {
   private[unit] case object noSignatureCryptoProvider
       extends CryptoProvider[ProgrammableUnitTestEnv] {
-    override def sign(hash: Hash)(implicit
+    override def sign(hash: Hash, usage: NonEmpty[Set[SigningKeyUsage]])(implicit
         traceContext: TraceContext
     ): () => Either[SyncCryptoError, Signature] = () => Right(Signature.noSignature)
 
     override def signMessage[MessageT <: ProtocolVersionedMemoizedEvidence & MessageFrom](
         message: MessageT,
         hashPurpose: HashPurpose,
+        usage: NonEmpty[Set[SigningKeyUsage]],
     )(implicit traceContext: TraceContext): () => Either[SyncCryptoError, SignedMessage[MessageT]] =
       () => Right(SignedMessage(message, Signature.noSignature))
 

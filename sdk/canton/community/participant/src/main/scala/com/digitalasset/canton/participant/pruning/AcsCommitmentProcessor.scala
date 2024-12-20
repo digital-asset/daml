@@ -58,7 +58,11 @@ import com.digitalasset.canton.protocol.messages.{
   CommitmentPeriod,
   SignedProtocolMessage,
 }
-import com.digitalasset.canton.protocol.{AcsCommitmentsCatchUpConfig, LfContractId}
+import com.digitalasset.canton.protocol.{
+  AcsCommitmentsCatchUpConfig,
+  LfContractId,
+  SerializableContract,
+}
 import com.digitalasset.canton.pruning.{
   ConfigForDomainThresholds,
   ConfigForNoWaitCounterParticipants,
@@ -2256,7 +2260,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       namedLoggingContext: NamedLoggingContext,
   ): Future[Unit] = {
 
-    def withMetadataSeq(cids: Seq[LfContractId]): Future[Seq[StoredContract]] =
+    def withMetadataSeq(cids: Seq[LfContractId]): Future[Seq[SerializableContract]] =
       contractStore
         .lookupManyExistingUncached(cids)(namedLoggingContext.traceContext)
         .valueOr { missingContractId =>
@@ -2282,7 +2286,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
             .map(c =>
               c.contractId ->
                 ContractStakeholdersAndReassignmentCounter(
-                  c.contract.metadata.stakeholders,
+                  c.metadata.stakeholders,
                   activations(c.contractId),
                 )
             )

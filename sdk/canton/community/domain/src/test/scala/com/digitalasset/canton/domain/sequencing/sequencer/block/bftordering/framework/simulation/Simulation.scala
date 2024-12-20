@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.simulation
 
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.Module.ModuleControl
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.P2PNetworkOut
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.{
@@ -18,7 +19,10 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   Module,
   ModuleName,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.simulation.topology.SimulationTopologyHelpers.sequencerBecomeOnlineTime
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.simulation.topology.SimulationTopologyHelpers.{
+  onboardingTime,
+  sequencerBecomeOnlineTime,
+}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.time.SimClock
@@ -53,13 +57,18 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
     loggerFactory: NamedLoggerFactory,
 ) {
 
+  val simulationStageStart: CantonTimestamp = clock.now
+
   val agenda: Agenda = new Agenda(clock)
-  simSettings.peerOnboardingTimes
+  simSettings.peerOnboardingDelays
     .zip(topology.laterOnboardedEndpointsWithInitializers)
-    .foreach { case (onboardingTime, (endpoint, _)) =>
+    .foreach { case (onboardingDelay, (endpoint, _)) =>
       agenda.addOne(
         OnboardSequencer(endpoint),
-        at = sequencerBecomeOnlineTime(onboardingTime, simSettings),
+        at = sequencerBecomeOnlineTime(
+          onboardingTime(simulationStageStart, onboardingDelay),
+          simSettings,
+        ),
         ScheduledCommand.DefaultPriority,
       )
     }

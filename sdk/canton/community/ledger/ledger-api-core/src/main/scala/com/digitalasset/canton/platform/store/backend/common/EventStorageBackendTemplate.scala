@@ -25,6 +25,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawFlatEvent,
   RawTreeEvent,
   RawUnassignEvent,
+  UnassignProperties,
   intToAuthorizationLevel,
 }
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.{
@@ -627,7 +628,7 @@ object EventStorageBackendTemplate {
           commandId =
             filteredCommandId(commandId, submitter.map(Array[Int](_)), allQueryingPartiesO),
           workflowId = workflowId,
-          domainId = stringInterning.domainId.unsafe.externalize(targetDomainId),
+          domainId = stringInterning.domainId.unsafe.externalize(sourceDomainId),
           traceContext = traceContext,
           recordTime = recordTime,
           event = RawUnassignEvent(
@@ -912,7 +913,7 @@ abstract class EventStorageBackendTemplate(
   override def pruneEvents(
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
-      incompletReassignmentOffsets: Vector[Offset],
+      incompleteReassignmentOffsets: Vector[Offset],
   )(implicit connection: Connection, traceContext: TraceContext): Unit = {
     val _ =
       SQL"""
@@ -921,7 +922,7 @@ abstract class EventStorageBackendTemplate(
             incomplete_offset bigint PRIMARY KEY NOT NULL
           ) ON COMMIT DELETE ROWS
           """.execute()
-    val incompleteOffsetBatches = incompletReassignmentOffsets.distinct
+    val incompleteOffsetBatches = incompleteReassignmentOffsets.distinct
       .grouped(MaxBatchSizeOfIncompleteReassignmentOffsetTempTablePopulation)
     Using.resource(
       connection.prepareStatement(
@@ -942,7 +943,7 @@ abstract class EventStorageBackendTemplate(
     val _ =
       SQL"${queryStrategy.analyzeTable("temp_incomplete_reassignment_offsets")}".execute()
     logger.info(
-      s"Populated temp_incomplete_reassignment_offsets table with ${incompletReassignmentOffsets.size} entries"
+      s"Populated temp_incomplete_reassignment_offsets table with ${incompleteReassignmentOffsets.size} entries"
     )
 
     pruneIdFilterTables(pruneUpToInclusive)
@@ -999,9 +1000,9 @@ abstract class EventStorageBackendTemplate(
           -- Exercise events (consuming)
           delete from lapi_events_consuming_exercise delete_events
           where
-            -- do not prune if it is preceeded in the same domain by an incomplete assign
+            -- do not prune if it is preceded in the same domain by an incomplete assign
             -- this is needed so that incomplete assign is not resulting in an active contract
-            ${deactivationIsNotDirectlyPreceededByIncompleteAssign("delete_events", "domain_id")}
+            ${deactivationIsNotDirectlyPrecededByIncompleteAssign("delete_events", "domain_id")}
             and delete_events.event_offset <= $pruneUpToInclusive"""
     }
 
@@ -1031,7 +1032,7 @@ abstract class EventStorageBackendTemplate(
             ${reassignmentIsNotIncomplete("delete_events")}
             -- do not prune if it is preceeded in the same domain by an incomplete assign
             -- this is needed so that incomplete assign is not resulting in an active contract
-            and ${deactivationIsNotDirectlyPreceededByIncompleteAssign(
+            and ${deactivationIsNotDirectlyPrecededByIncompleteAssign(
           "delete_events",
           "source_domain_id",
         )}
@@ -1075,7 +1076,7 @@ abstract class EventStorageBackendTemplate(
             WHERE
               events.event_offset <= $pruneUpToInclusive
               AND
-              ${deactivationIsNotDirectlyPreceededByIncompleteAssign("events", "domain_id")}
+              ${deactivationIsNotDirectlyPrecededByIncompleteAssign("events", "domain_id")}
               AND
               events.event_sequential_id = id_filter.event_sequential_id
             )"""
@@ -1135,7 +1136,7 @@ abstract class EventStorageBackendTemplate(
             WHERE
             unassign.event_offset <= $pruneUpToInclusive
             AND ${reassignmentIsNotIncomplete("unassign")}
-            AND ${deactivationIsNotDirectlyPreceededByIncompleteAssign(
+            AND ${deactivationIsNotDirectlyPrecededByIncompleteAssign(
           "unassign",
           "source_domain_id",
         )}
@@ -1206,16 +1207,16 @@ abstract class EventStorageBackendTemplate(
             where temp_incomplete_reassignment_offsets.incomplete_offset = #$eventTableName.event_offset
           )"""
 
-  // the not exists (select where in (select limit 1)) contruction is the one which is compatible with H2
+  // the not exists (select where in (select limit 1)) construction is the one which is compatible with H2
   // other similar constructions with CTE/subqueries are working just fine with PG but not with H2 due
   // to some impediment/bug not being able to recognize references to the deactivationTableName (it is also
   // an experimental feature in H2)
-  // in case the PG version produces inefficient plans, the implementation need to be made polimorphic accordingly
+  // in case the PG version produces inefficient plans, the implementation need to be made polymorphic accordingly
   // authors hope is that the in (select limit 1) clause will be materialized only once due to no relation to the
   // incomplete temp table
-  // Please note! The limit clause is essential, otherwise contracts which move frequently accross domains can
+  // Please note! The limit clause is essential, otherwise contracts which move frequently across domains can
   // cause quadratic increase in query cost.
-  private def deactivationIsNotDirectlyPreceededByIncompleteAssign(
+  private def deactivationIsNotDirectlyPrecededByIncompleteAssign(
       deactivationTableName: String,
       deactivationDomainColumnName: String,
   ): CompositeSql =
@@ -1474,17 +1475,33 @@ abstract class EventStorageBackendTemplate(
         """
       .asVectorOf(long("event_sequential_id"))(connection)
 
-  override def lookupAssignSequentialIdByContractId(
-      contractIds: Iterable[String]
-  )(connection: Connection): Vector[Long] =
-    SQL"""
-        SELECT MIN(assign_evs.event_sequential_id) as event_sequential_id
-        FROM lapi_events_assign assign_evs
-        WHERE contract_id ${queryStrategy.anyOfStrings(contractIds)}
-        GROUP BY contract_id
-        ORDER BY event_sequential_id
-        """
-      .asVectorOf(long("event_sequential_id"))(connection)
+  // it is called with a list of tuple of search parameters for the contract, the domain and the sequential ids
+  // it finds the sequential id of the assign that has the same contract and domain ids and has the largest
+  // sequential id < sequential id given
+  // it returns the mapping from the tuple of the search parameters to the corresponding sequential id (if exists)
+  override def lookupAssignSequentialIdBy(
+      unassignProperties: Iterable[UnassignProperties]
+  )(connection: Connection): Map[UnassignProperties, Long] =
+    unassignProperties.flatMap {
+      case params @ UnassignProperties(contractId, domainIdString, sequentialId) =>
+        val domainIdO = DomainId
+          .fromString(domainIdString)
+          .toOption
+          .flatMap(stringInterning.domainId.tryInternalize)
+        domainIdO match {
+          case Some(domainId) =>
+            SQL"""
+              SELECT MAX(assign_evs.event_sequential_id) AS event_sequential_id
+              FROM lapi_events_assign assign_evs
+              WHERE assign_evs.contract_id = $contractId
+              AND assign_evs.target_domain_id = $domainId
+              AND assign_evs.event_sequential_id < $sequentialId
+            """
+              .asSingle(long("event_sequential_id").?)(connection)
+              .map((params, _))
+          case None => None
+        }
+    }.toMap
 
   override def lookupCreateSequentialIdByContractId(
       contractIds: Iterable[String]
@@ -1494,7 +1511,6 @@ abstract class EventStorageBackendTemplate(
         FROM lapi_events_create
         WHERE
           contract_id ${queryStrategy.anyOfStrings(contractIds)}
-        ORDER BY event_sequential_id -- deliver in index order
         """
       .asVectorOf(long("event_sequential_id"))(connection)
 

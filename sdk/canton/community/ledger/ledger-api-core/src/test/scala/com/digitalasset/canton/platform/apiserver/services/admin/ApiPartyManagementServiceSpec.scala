@@ -16,7 +16,6 @@ import com.daml.tracing.{DefaultOpenTelemetry, NoOpTelemetry}
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, ObjectMeta}
 import com.digitalasset.canton.ledger.localstore.api.{PartyRecord, PartyRecordStore}
 import com.digitalasset.canton.ledger.participant.state
@@ -26,9 +25,12 @@ import com.digitalasset.canton.ledger.participant.state.index.{
   IndexerPartyDetails,
   PartyEntry,
 }
-import com.digitalasset.canton.logging.LoggingContextWithTrace
+import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
+import com.digitalasset.canton.platform.apiserver.services.PartyAllocationKey
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiPartyManagementService.blindAndConvertToProto
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiPartyManagementServiceSpec.*
+import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocationTracker
+import com.digitalasset.canton.platform.apiserver.services.tracking.{InFlight, StreamTracker}
 import com.digitalasset.canton.tracing.{TestTelemetrySetup, TraceContext}
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.data.Ref
@@ -44,7 +46,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.concurrent.{CompletableFuture, CompletionStage}
-import scala.concurrent.duration.{Duration, DurationInt}
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
@@ -126,6 +128,8 @@ class ApiPartyManagementServiceSpec
           )
         )
 
+      val partyAllocationTracker = makePartyAllocationTracker(loggerFactory)
+
       val apiService = ApiPartyManagementService.createApiService(
         mockIndexPartyManagementService,
         mockIdentityProviderExists,
@@ -133,21 +137,34 @@ class ApiPartyManagementServiceSpec
         mockPartyRecordStore,
         mockIndexTransactionsService,
         TestPartySyncService(testTelemetrySetup.tracer),
-        Duration.Zero,
+        oneHour,
         _ => Ref.SubmissionId.assertFromString("aSubmission"),
         new DefaultOpenTelemetry(OpenTelemetrySdk.builder().build()),
+        partyAllocationTracker,
         loggerFactory = loggerFactory,
       )
 
       val span = testTelemetrySetup.anEmptySpan()
       val scope = span.makeCurrent()
-      apiService
+
+      // Kick the interaction off
+      val future = apiService
         .allocateParty(AllocatePartyRequest("aParty"))
         .thereafter { _ =>
           scope.close()
           span.end()
         }
-        .futureValue
+
+      // Allow the tracker to complete
+      partyAllocationTracker.onStreamItem(
+        PartyEntry.AllocationAccepted(
+          Some("aSubmission"),
+          IndexerPartyDetails(aParty, isLocal = true),
+        )
+      )
+
+      // Wait for tracker to complete
+      future.futureValue
 
       testTelemetrySetup.reportedSpanAttributes should contain(anApplicationIdSpanAttribute)
     }
@@ -161,7 +178,6 @@ class ApiPartyManagementServiceSpec
       ) = mockedServices()
 
       val promise = Promise[Unit]()
-
       when(
         mockIndexPartyManagementService.partyEntries(any[Option[Offset]])(
           any[LoggingContextWithTrace]
@@ -172,6 +188,8 @@ class ApiPartyManagementServiceSpec
           Source.never
         })
 
+      val partyAllocationTracker = makePartyAllocationTracker(loggerFactory)
+
       val apiPartyManagementService = ApiPartyManagementService.createApiService(
         mockIndexPartyManagementService,
         mockIdentityProviderExists,
@@ -179,16 +197,21 @@ class ApiPartyManagementServiceSpec
         mockPartyRecordStore,
         mockIndexTransactionsService,
         TestPartySyncService(testTelemetrySetup.tracer),
-        Duration.Zero,
+        oneHour,
         _ => Ref.SubmissionId.assertFromString("aSubmission"),
         NoOpTelemetry,
+        partyAllocationTracker,
         loggerFactory = loggerFactory,
       )
 
-      promise.future.map(_ => apiPartyManagementService.close()).discard
+      // Kick the interaction off
+      val future = apiPartyManagementService.allocateParty(AllocatePartyRequest("aParty"))
 
-      apiPartyManagementService
-        .allocateParty(AllocatePartyRequest("aParty"))
+      // Close the service
+      apiPartyManagementService.close()
+
+      // Assert that it caused the appropriate failure
+      future
         .transform {
           case Success(_) =>
             fail("Expected a failure, but received success")
@@ -218,6 +241,16 @@ class ApiPartyManagementServiceSpec
         }
     }
   }
+
+  private def makePartyAllocationTracker(
+      loggerFactory: NamedLoggerFactory
+  ): PartyAllocationTracker =
+    StreamTracker.withTimer[PartyAllocationKey, PartyEntry](
+      timer = new java.util.Timer("test-timer"),
+      itemKey = (_ => Some(PartyAllocationKey("aSubmission"))),
+      inFlightCounter = InFlight.Limited(100, mock[com.daml.metrics.api.MetricHandle.Counter]),
+      loggerFactory,
+    )
 
   private def mockedServices(): (
       IndexTransactionsService,
@@ -262,6 +295,8 @@ class ApiPartyManagementServiceSpec
 
 object ApiPartyManagementServiceSpec {
 
+  val participantId = Ref.ParticipantId.assertFromString("participant1")
+
   val partyDetails: IndexerPartyDetails = IndexerPartyDetails(
     party = Ref.Party.assertFromString("Bob"),
     isLocal = true,
@@ -279,6 +314,8 @@ object ApiPartyManagementServiceSpec {
   )
 
   val aParty = Ref.Party.assertFromString("aParty")
+
+  val oneHour = FiniteDuration(1, java.util.concurrent.TimeUnit.HOURS)
 
   private final case class TestPartySyncService(tracer: Tracer) extends state.PartySyncService {
     override def allocateParty(

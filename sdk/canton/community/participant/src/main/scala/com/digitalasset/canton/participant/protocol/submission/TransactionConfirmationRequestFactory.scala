@@ -161,7 +161,7 @@ class TransactionConfirmationRequestFactory(
         protocolVersion,
       )
       submittingParticipantSignature <- cryptoSnapshot
-        .sign(transactionTree.rootHash.unwrap)
+        .sign(transactionTree.rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
         .leftMap[TransactionConfirmationRequestCreationError](TransactionSigningError.apply)
     } yield {
       if (loggingConfig.eventDetails) {

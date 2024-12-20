@@ -80,6 +80,7 @@ case
   when $1 = 1 then 'IdentityDelegation'
   when $1 = 2 then 'SequencerAuthentication'
   when $1 = 3 then 'Protocol'
+  when $1 = 4 then 'ProofOfOwnership'
   else $1::text
 end;
 $$
@@ -184,7 +185,6 @@ create or replace view debug.par_contracts as
     instance,
     metadata,
     ledger_create_time,
-    request_counter,
     package_id,
     template_id,
     contract_salt

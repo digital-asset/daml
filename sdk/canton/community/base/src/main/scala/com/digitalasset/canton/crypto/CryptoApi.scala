@@ -158,9 +158,16 @@ trait SyncCryptoApi {
 
   def ipsSnapshot: TopologySnapshot
 
-  /** Signs the given hash using the private signing key. */
+  /** Signs the given hash using the private signing key. It uses the most recent signing key with the specified usage
+    * in the private store. The key usage must intersect with the provided usage, but it does not need to satisfy all
+    * the provided usages.
+    *
+    * @param hash the hash to sign
+    * @param usage restricts signing to private keys that have at least one matching usage
+    */
   def sign(
-      hash: Hash
+      hash: Hash,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, Signature]

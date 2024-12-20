@@ -347,7 +347,7 @@ object StateTransferManagerTest {
         from = mySequencerId,
       )
       .fakeSign
-    // TODO(#19661): Test commits
+    // TODO(#22898): Test commits
     CommitCertificate(prePrepare, commits = Seq.empty)
   }
 }

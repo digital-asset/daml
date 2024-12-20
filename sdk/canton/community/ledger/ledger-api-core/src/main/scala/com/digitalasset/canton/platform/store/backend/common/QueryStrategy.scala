@@ -128,7 +128,7 @@ trait QueryStrategy {
     cSQL"= ANY($longArray)"
   }
 
-  /** ANY SQL clause generation for a number of Long values
+  /** ANY SQL clause generation for a number of String values
     */
   def anyOfStrings(strings: Iterable[String]): CompositeSql = {
     val stringArray: Array[String] =

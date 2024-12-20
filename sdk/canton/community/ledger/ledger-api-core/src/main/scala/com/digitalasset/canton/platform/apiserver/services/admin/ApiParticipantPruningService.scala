@@ -220,7 +220,6 @@ final class ApiParticipantPruningService private (
     for {
       ledgerEnd <- readBackend.currentLedgerEnd()
       _ <-
-        // NOTE: This constraint should be relaxed to (pruneUpToString <= ledgerEnd.value) TODO(#18685) clarify this
         if (pruneUpToLong < ledgerEnd.fold(0L)(_.unwrap)) Future.successful(())
         else
           Future.failed(

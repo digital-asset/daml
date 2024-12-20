@@ -162,7 +162,7 @@ CREATE INDEX lapi_events_create_event_offset_idx ON lapi_events_create (event_of
 -- sequential_id index for paging
 CREATE INDEX lapi_events_create_event_sequential_id_idx ON lapi_events_create (event_sequential_id);
 
--- lookup by contract id
+-- lookup by contract_id
 CREATE INDEX lapi_events_create_contract_id_idx ON lapi_events_create (contract_id);
 
 -- lookup by contract_key
@@ -386,6 +386,9 @@ CREATE INDEX lapi_events_assign_event_offset_idx ON lapi_events_assign (event_of
 
 -- index for queries resolving contract ID to sequential IDs.
 CREATE INDEX lapi_events_assign_event_contract_id_idx ON lapi_events_assign (contract_id, event_sequential_id);
+
+-- index for queries resolving (contract ID, domain ID, sequential ID) to sequential IDs.
+CREATE INDEX lapi_events_assign_event_contract_id_domain_id_seq_id_idx ON lapi_events_assign (contract_id, target_domain_id, event_sequential_id);
 
 ---------------------------------------------------------------------------------------------------
 -- Events: Topology (participant authorization mappings)
