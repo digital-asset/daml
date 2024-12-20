@@ -1155,9 +1155,9 @@ simple-concat 1.0.1: https://github.com/feross/simple-concat : MIT License
 simple-swizzle 0.2.2: https://github.com/qix-/node-simple-swizzle#readme : MIT License
 sindresorhus/globals 11.12.0: https://github.com/sindresorhus/globals : MIT License
 sindresorhus/onetime v5.1.2: https://github.com/sindresorhus/onetime : MIT License
-sindresorhus/supports-color 2.0.0: https://github.com/sindresorhus/supports-color : MIT License
-sindresorhus/supports-color 5.5.0: https://github.com/sindresorhus/supports-color : MIT License
-sindresorhus/supports-color v7.2.0: https://github.com/sindresorhus/supports-color : MIT License
+sindresorhus/supports-color 2.0.0: https://github.com/chalk/supports-color : MIT License
+sindresorhus/supports-color 5.5.0: https://github.com/chalk/supports-color : MIT License
+sindresorhus/supports-color v7.2.0: https://github.com/chalk/supports-color : MIT License
 sjsonnet_2.13 0.3.0 : MIT License
 SLF4J API Module 1.7.30: http://www.slf4j.org : MIT License
 SLF4J API Module 2.0.16: http://www.slf4j.org : MIT License
