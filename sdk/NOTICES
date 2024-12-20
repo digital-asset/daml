@@ -891,9 +891,9 @@ silently 1.2.5.3: https://github.com/hspec/silently : BSD 3-clause "New" or "Rev
 simonmar/async 2.2.4: https://github.com/simonmar/async : BSD 3-clause "New" or "Revised" License
 simple-concat 1.0.1: https://github.com/feross/simple-concat : MIT License
 sindresorhus/onetime v5.1.2: https://github.com/sindresorhus/onetime : MIT License
-sindresorhus/supports-color 2.0.0: https://github.com/sindresorhus/supports-color : MIT License
-sindresorhus/supports-color 5.5.0: https://github.com/sindresorhus/supports-color : MIT License
-sindresorhus/supports-color v7.2.0: https://github.com/sindresorhus/supports-color : MIT License
+sindresorhus/supports-color 2.0.0: https://github.com/chalk/supports-color : MIT License
+sindresorhus/supports-color 5.5.0: https://github.com/chalk/supports-color : MIT License
+sindresorhus/supports-color v7.2.0: https://github.com/chalk/supports-color : MIT License
 SLF4J API Module 2.0.6: http://www.slf4j.org : MIT License
 Slick 3.5.2 : BSD 2-clause "Simplified" License
 Slick-HikariCP 3.5.2 : BSD 2-clause "Simplified" License
