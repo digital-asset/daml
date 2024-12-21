@@ -156,7 +156,7 @@ class DbOutputBlockMetadataStore(
   )(implicit traceContext: TraceContext): PekkoFutureUnlessShutdown[Option[OutputBlockMetadata]] = {
     val name = getLatestAtOrBeforeActionName(timestamp)
     val future = storage.performUnlessClosingF(name) {
-      // TODO(#19661): Figure out how to transfer less data.
+      // TODO(#23143): Figure out if we can transfer less data.
       storage
         .query(
           sql"""

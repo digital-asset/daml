@@ -24,6 +24,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawAssignEvent,
   RawParticipantAuthorization,
   RawUnassignEvent,
+  UnassignProperties,
 }
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.PruneUptoInclusiveAndLedgerEnd
@@ -33,7 +34,6 @@ import com.digitalasset.canton.platform.store.backend.common.{
   TransactionStreamingQueries,
 }
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig
-import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.topology.DomainId
@@ -198,12 +198,6 @@ object ParameterStorageBackend {
 }
 
 trait PartyStorageBackend {
-  def partyEntries(
-      startInclusive: Offset,
-      endInclusive: Offset,
-      pageSize: Int,
-      queryOffset: Long,
-  )(connection: Connection): Vector[(Offset, PartyLedgerEntry)]
   def parties(parties: Seq[Party])(connection: Connection): List[IndexerPartyDetails]
   def knownParties(fromExcl: Option[Party], maxResults: Int)(
       connection: Connection
@@ -232,7 +226,19 @@ trait CompletionStorageBackend {
 }
 
 trait ContractStorageBackend {
+
+  /** Returns true if the batch lookup is implemented */
+  def supportsBatchKeyStateLookups: Boolean
+
+  /** Batch lookup of key states
+    *
+    * If the backend does not support batch lookups, the implementation will fall back to sequential lookups
+    */
+  def keyStates(keys: Seq[Key], validAt: Offset)(connection: Connection): Map[Key, KeyState]
+
+  /** Sequential lookup of key states */
   def keyState(key: Key, validAt: Offset)(connection: Connection): KeyState
+
   def archivedContracts(contractIds: Seq[ContractId], before: Offset)(
       connection: Connection
   ): Map[ContractId, ContractStorageBackend.RawArchivedContract]
@@ -278,7 +284,7 @@ trait EventStorageBackend {
   def pruneEvents(
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
-      incompletReassignmentOffsets: Vector[Offset],
+      incompleteReassignmentOffsets: Vector[Offset],
   )(implicit
       connection: Connection,
       traceContext: TraceContext,
@@ -330,9 +336,9 @@ trait EventStorageBackend {
       offsets: Iterable[Long]
   )(connection: Connection): Vector[Long]
 
-  def lookupAssignSequentialIdByContractId(
-      contractIds: Iterable[String]
-  )(connection: Connection): Vector[Long]
+  def lookupAssignSequentialIdBy(
+      unassignProperties: Iterable[UnassignProperties]
+  )(connection: Connection): Map[UnassignProperties, Long]
 
   def lookupCreateSequentialIdByContractId(
       contractIds: Iterable[String]
@@ -507,6 +513,8 @@ object EventStorageBackend {
     case 2 => Confirmation
     case 3 => Observation
   }
+
+  final case class UnassignProperties(contractId: String, domainId: String, sequentialId: Long)
 }
 
 trait DataSourceStorageBackend {

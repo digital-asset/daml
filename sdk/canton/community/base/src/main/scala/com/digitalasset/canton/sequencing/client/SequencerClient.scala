@@ -1292,7 +1292,7 @@ class RichSequencerClientImpl(
           }
 
           def handleAsyncResult(
-              asyncResultF: FutureUnlessShutdown[AsyncResult]
+              asyncResultF: FutureUnlessShutdown[AsyncResult[Unit]]
           ): EitherT[FutureUnlessShutdown, ApplicationHandlerFailure, Unit] =
             EitherT(asyncResultF.transformIntoSuccess {
               case Success(UnlessShutdown.Outcome(result)) =>

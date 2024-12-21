@@ -194,6 +194,6 @@ object ApplicationHandlerPekko {
   private final case class EventBatchSynchronousResult(
       firstSc: SequencerCounter,
       lastSc: SequencerCounter,
-      asyncResult: AsyncResult,
+      asyncResult: AsyncResult[Unit],
   )(implicit val traceContext: TraceContext)
 }

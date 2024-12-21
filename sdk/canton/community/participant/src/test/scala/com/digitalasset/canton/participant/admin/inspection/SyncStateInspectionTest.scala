@@ -10,6 +10,7 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{
   LtHash16,
   Signature,
+  SigningKeyUsage,
   SigningPublicKey,
   SyncCryptoApiProvider,
   TestHash,
@@ -202,6 +203,7 @@ sealed trait SyncStateInspectionTest
       symbolicCrypto.sign(
         symbolicCrypto.pureCrypto.digest(TestHash.testHashPurpose, dummyCommitment),
         testKey.id,
+        SigningKeyUsage.ProtocolOnly,
       )
     val dummyCommitmentMsg: AcsCommitment =
       AcsCommitment.create(
@@ -271,7 +273,8 @@ sealed trait SyncStateInspectionTest
     loggerFactory,
   )
 
-  lazy val testKey: SigningPublicKey = symbolicCrypto.generateSymbolicSigningKey()
+  lazy val testKey: SigningPublicKey =
+    symbolicCrypto.generateSymbolicSigningKey(usage = SigningKeyUsage.ProtocolOnly)
 
   "fetch empty sets if no domains exists" in {
     val (syncStateInspection, _) = buildSyncState()

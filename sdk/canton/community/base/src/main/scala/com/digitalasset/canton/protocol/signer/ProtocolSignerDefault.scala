@@ -98,13 +98,14 @@ class ProtocolSignerDefault(
   override def sign(
       topologySnapshot: TopologySnapshot,
       hash: Hash,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, Signature] =
     for {
       fingerprint <- findSigningKey(topologySnapshot, SigningKeyUsage.All)
       signature <- signPrivateApi
-        .sign(hash, fingerprint)
+        .sign(hash, fingerprint, usage)
         .leftMap[SyncCryptoError](SyncCryptoError.SyncCryptoSigningError.apply)
     } yield signature
 

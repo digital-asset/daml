@@ -195,7 +195,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
     ): Future[v30.SequencerAuthentication.ChallengeResponse] =
       for {
         fingerprints <- cryptoApi.ips.currentSnapshotApproximation
-          .signingKeys(participant, SigningKeyUsage.All)
+          .signingKeys(participant, SigningKeyUsage.SequencerAuthenticationOnly)
           .map(_.map(_.fingerprint).toList)
           .onShutdown(throw new Exception("Aborted due to shutdown."))
       } yield v30.SequencerAuthentication.ChallengeResponse(

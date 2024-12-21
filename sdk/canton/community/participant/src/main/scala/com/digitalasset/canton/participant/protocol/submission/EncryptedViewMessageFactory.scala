@@ -51,7 +51,9 @@ object EncryptedViewMessageFactory {
     for {
       signature <- viewTree.toBeSigned
         .parTraverse(rootHash =>
-          cryptoSnapshot.sign(rootHash.unwrap).leftMap(FailedToSignViewMessage.apply)
+          cryptoSnapshot
+            .sign(rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
+            .leftMap(err => FailedToSignViewMessage(err))
         )
       (sessionKey, sessionKeyRandomnessMap) = viewKeyData
       sessionKeyRandomnessMapNE <- EitherT.fromEither[FutureUnlessShutdown](

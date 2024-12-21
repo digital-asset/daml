@@ -30,7 +30,7 @@ package object sequencing {
     * Asynchronous processing may run concurrently with later events' synchronous processing
     * and with asynchronous processing of other events.
     */
-  type HandlerResult = FutureUnlessShutdown[AsyncResult]
+  type HandlerResult = FutureUnlessShutdown[AsyncResult[Unit]]
 
   ///////////////////////////////
   // The boxes and their handlers

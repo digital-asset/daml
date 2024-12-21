@@ -799,13 +799,18 @@ class TestingOwnerWithKeys(
       isProposal: Boolean = false,
   )(implicit
       ec: ExecutionContext
-  ): SignedTopologyTransaction[Op, M] =
+  ): SignedTopologyTransaction[Op, M] = {
+    val keysWithUsage = TopologyManager
+      .assignExpectedUsageToKeys(
+        trans.mapping,
+        signingKeys = signingKeys.map(_.fingerprint),
+      )
     Await
       .result(
         SignedTopologyTransaction
           .create(
             trans,
-            signingKeys.map(_.id),
+            keysWithUsage,
             isProposal,
             cryptoApi.crypto.privateCrypto,
             BaseTest.testedProtocolVersion,
@@ -814,7 +819,8 @@ class TestingOwnerWithKeys(
         10.seconds,
       )
       .onShutdown(sys.error("aborted due to shutdown"))
-      .getOrElse(sys.error("failed to create signed topology transaction"))
+      .valueOr(err => sys.error(s"failed to create signed topology transaction: $err"))
+  }
 
   def setSerial(
       trans: SignedTopologyTransaction[TopologyChangeOp, TopologyMapping],

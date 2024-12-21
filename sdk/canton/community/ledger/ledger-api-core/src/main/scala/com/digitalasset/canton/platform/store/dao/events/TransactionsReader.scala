@@ -29,6 +29,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawTreeEvent,
   RawUnassignEvent,
 }
+import com.digitalasset.canton.platform.store.backend.common.TransactionPointwiseQueries.LookupKey
 import com.digitalasset.canton.platform.store.dao.{
   DbDispatcher,
   EventProjectionProperties,
@@ -44,8 +45,8 @@ import scala.util.{Failure, Success}
 
 /** @param flatTransactionsStreamReader Knows how to stream flat transactions
   * @param treeTransactionsStreamReader Knows how to stream tree transactions
-  * @param flatTransactionPointwiseReader Knows how to fetch a flat transaction by its id
-  * @param treeTransactionPointwiseReader Knows how to fetch a tree transaction by its id
+  * @param flatTransactionPointwiseReader Knows how to fetch a flat transaction by its id or its offset
+  * @param treeTransactionPointwiseReader Knows how to fetch a tree transaction by its id or its offset
   * @param dispatcher Executes the queries prepared by this object
   * @param queryValidRange
   * @param eventStorageBackend
@@ -94,8 +95,21 @@ private[dao] final class TransactionsReader(
       updateId: data.UpdateId,
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] =
-    flatTransactionPointwiseReader.lookupTransactionById(
-      updateId = updateId,
+    flatTransactionPointwiseReader.lookupTransactionBy(
+      lookupKey = LookupKey.UpdateId(updateId),
+      requestingParties = requestingParties,
+      eventProjectionProperties = EventProjectionProperties(
+        verbose = true,
+        templateWildcardWitnesses = Some(requestingParties.map(_.toString)),
+      ),
+    )
+
+  override def lookupFlatTransactionByOffset(
+      offset: data.Offset,
+      requestingParties: Set[Party],
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] =
+    flatTransactionPointwiseReader.lookupTransactionBy(
+      lookupKey = LookupKey.Offset(offset),
       requestingParties = requestingParties,
       eventProjectionProperties = EventProjectionProperties(
         verbose = true,
@@ -109,8 +123,23 @@ private[dao] final class TransactionsReader(
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Option[GetTransactionTreeResponse]] =
-    treeTransactionPointwiseReader.lookupTransactionById(
-      updateId = updateId,
+    treeTransactionPointwiseReader.lookupTransactionBy(
+      lookupKey = LookupKey.UpdateId(updateId),
+      requestingParties = requestingParties,
+      eventProjectionProperties = EventProjectionProperties(
+        verbose = true,
+        templateWildcardWitnesses = Some(requestingParties.map(_.toString)),
+      ),
+    )
+
+  override def lookupTransactionTreeByOffset(
+      offset: data.Offset,
+      requestingParties: Set[Party],
+  )(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Future[Option[GetTransactionTreeResponse]] =
+    treeTransactionPointwiseReader.lookupTransactionBy(
+      lookupKey = LookupKey.Offset(offset),
       requestingParties = requestingParties,
       eventProjectionProperties = EventProjectionProperties(
         verbose = true,

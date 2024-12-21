@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.topology.store
 
-import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.SigningPublicKey
@@ -40,18 +40,24 @@ class TopologyStoreTestData(
       mapping,
       ProtocolVersion.v33,
     )
+    val signingKeyIdsNE = NonEmptyUtil.fromUnsafe(signingKeys).map(_.id).toSet
+    val keysWithUsage = TopologyManager
+      .assignExpectedUsageToKeys(
+        mapping,
+        signingKeyIdsNE,
+      )
     val signatures = NonEmpty
       .from(
-        signingKeys.toSeq.map(key =>
+        keysWithUsage.toSeq.map { case (keyId, usage) =>
           factory.cryptoApi.crypto.privateCrypto
-            .sign(tx.hash.hash, key.fingerprint)
+            .sign(tx.hash.hash, keyId, usage)
             .value
             .onShutdown(fail("shutdown"))(
               DirectExecutionContext(loggerFactory.getLogger(this.getClass))
             )
             .futureValue
             .getOrElse(fail(s"error"))
-        )
+        }
       )
       .getOrElse(fail("no keys provided"))
       .toSet

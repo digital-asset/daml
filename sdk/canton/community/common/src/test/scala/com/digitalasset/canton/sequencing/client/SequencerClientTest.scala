@@ -391,7 +391,7 @@ class SequencerClientTest
 
       "time limit the synchronous application handler" in {
         val env = factory.create(storedEvents = Seq(deliver, nextDeliver, deliver44))
-        val promise = Promise[AsyncResult]()
+        val promise = Promise[AsyncResult[Unit]]()
 
         val testF = loggerFactory.assertLogs(
           env.subscribeAfter(
@@ -518,7 +518,7 @@ class SequencerClientTest
         val syncError = ApplicationHandlerException(error, deliver.counter, deliver.counter)
         val handler: PossiblyIgnoredApplicationHandler[ClosedEnvelope] =
           ApplicationHandler.create("async-failure")(_ =>
-            FutureUnlessShutdown.failed[AsyncResult](error)
+            FutureUnlessShutdown.failed[AsyncResult[Unit]](error)
           )
 
         val env = RichEnvFactory.create()

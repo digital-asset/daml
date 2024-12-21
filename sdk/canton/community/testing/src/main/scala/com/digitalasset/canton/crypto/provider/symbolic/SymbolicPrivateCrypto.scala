@@ -4,6 +4,7 @@
 package com.digitalasset.canton.crypto.provider.symbolic
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.*
@@ -61,18 +62,16 @@ class SymbolicPrivateCrypto(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SigningKeyGenerationError, SigningKeyPair] =
-    EitherT.rightT(
-      genKeyPair((pubKey, privKey) =>
-        SigningKeyPair.create(
-          CryptoKeyFormat.Symbolic,
-          pubKey,
-          CryptoKeyFormat.Symbolic,
-          privKey,
-          keySpec,
-          usage,
-        )
+    genKeyPair((pubKey, privKey) =>
+      SigningKeyPair.create(
+        CryptoKeyFormat.Symbolic,
+        pubKey,
+        CryptoKeyFormat.Symbolic,
+        privKey,
+        keySpec,
+        usage,
       )
-    )
+    ).toEitherT[FutureUnlessShutdown]
 
   override protected[crypto] def generateEncryptionKeypair(keySpec: EncryptionKeySpec)(implicit
       traceContext: TraceContext

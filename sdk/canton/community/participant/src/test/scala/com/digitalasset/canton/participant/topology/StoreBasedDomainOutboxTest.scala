@@ -333,7 +333,7 @@ class StoreBasedDomainOutboxTest
       } yield {
         observed1.map(_.transaction) shouldBe slice1
         handle.buffer.map(_.transaction) shouldBe slice2
-        handle.batches should not be (empty)
+        handle.batches should not be empty
         forAll(handle.batches)(_.size shouldBe 1)
       }
     }

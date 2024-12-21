@@ -88,6 +88,24 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
       delegate.getTransactionTreeById(updateId, requestingParties),
     )
 
+  def getTransactionByOffset(
+      offset: Offset,
+      requestingParties: Set[Ref.Party],
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] =
+    Timed.future(
+      metrics.services.index.getTransactionByOffset,
+      delegate.getTransactionByOffset(offset, requestingParties),
+    )
+
+  def getTransactionTreeByOffset(
+      offset: Offset,
+      requestingParties: Set[Ref.Party],
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]] =
+    Timed.future(
+      metrics.services.index.getTransactionTreeByOffset,
+      delegate.getTransactionTreeByOffset(offset, requestingParties),
+    )
+
   override def getActiveContracts(
       filter: domain.TransactionFilter,
       verbose: Boolean,
@@ -144,11 +162,6 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
       metrics.services.index.listKnownParties,
       delegate.listKnownParties(fromExcl, maxResults),
     )
-
-  override def partyEntries(
-      startExclusive: Option[Offset]
-  )(implicit loggingContext: LoggingContextWithTrace): Source[PartyEntry, NotUsed] =
-    Timed.source(metrics.services.index.partyEntries, delegate.partyEntries(startExclusive))
 
   override def prune(
       pruneUpToInclusive: Offset,

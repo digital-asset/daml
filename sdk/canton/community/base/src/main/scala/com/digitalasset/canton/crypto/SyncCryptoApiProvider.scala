@@ -427,11 +427,12 @@ class DomainSnapshotSyncCryptoApi(
     new DomainCryptoPureApi(staticDomainParameters, crypto.pureCrypto)
 
   override def sign(
-      hash: Hash
+      hash: Hash,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, Signature] =
-    protocolSigner.sign(ipsSnapshot, hash)
+    protocolSigner.sign(ipsSnapshot, hash, usage)
 
   override def verifySignature(
       hash: Hash,

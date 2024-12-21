@@ -49,6 +49,7 @@ import com.digitalasset.canton.protocol.{
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.{TrafficControlProcessor, TrafficReceipt}
 import com.digitalasset.canton.sequencing.{
+  AsyncResult,
   HandlerResult,
   PossiblyIgnoredProtocolEvent,
   RawProtocolEvent,
@@ -203,7 +204,6 @@ trait MessageDispatcherTest {
       val badRootHashMessagesRequestProcessor = mock[BadRootHashMessagesRequestProcessor]
       when(
         badRootHashMessagesRequestProcessor.sendRejectionAndTerminate(
-          any[SequencerCounter],
           any[CantonTimestamp],
           any[RootHash],
           any[MediatorGroupRecipient],
@@ -531,8 +531,8 @@ trait MessageDispatcherTest {
       for {
         _ <- sut.messageDispatcher
           .handleAll(signAndTrace(event))
+          .flatMap(_.unwrap)
           .onShutdown(fail(s"Encountered shutdown while handling $event"))
-        _ <- sut.messageDispatcher.flush()
       } yield {
         checks
       }
@@ -669,7 +669,6 @@ trait MessageDispatcherTest {
       )
 
       val result = sut.messageDispatcher.handleAll(signAndTrace(event)).unwrap.futureValue
-      sut.messageDispatcher.flush().futureValue
 
       result shouldBe UnlessShutdown.AbortedDueToShutdown
       verify(sut.acsCommitmentProcessor, never)
@@ -704,7 +703,6 @@ trait MessageDispatcherTest {
       )
 
       val result = sut.messageDispatcher.handleAll(signAndTrace(event)).unwrap.futureValue
-      sut.messageDispatcher.flush().futureValue
       val abort = result.traverse(_.unwrap).unwrap.futureValue
 
       abort.flatten shouldBe UnlessShutdown.AbortedDueToShutdown
@@ -964,7 +962,6 @@ trait MessageDispatcherTest {
                   case SendMalformedAndExpectMediatorResult(rootHash, mediatorId, reason) =>
                     verify(sut.badRootHashMessagesRequestProcessor)
                       .sendRejectionAndTerminate(
-                        eqTo(sc),
                         eqTo(ts),
                         eqTo(rootHash),
                         eqTo(mediatorId),
@@ -1201,10 +1198,10 @@ trait MessageDispatcherTest {
               checkTicks(sut)
             },
             _.warningMessage should include(
-              show"Received unexpected ${RequestKind(TestViewType)} for $requestId"
+              show"Received unexpected ${RequestKind(TestViewType, () => FutureUnlessShutdown.pure(AsyncResult.immediate))} for $requestId"
             ),
             _.warningMessage should include(
-              show"Received unexpected ${RequestKind(OtherTestViewType)} for $requestId"
+              show"Received unexpected ${RequestKind(OtherTestViewType, () => FutureUnlessShutdown.pure(AsyncResult.immediate))} for $requestId"
             ),
           )
           .futureValue

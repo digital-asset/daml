@@ -234,7 +234,7 @@ private final class ChangeAssignation(
       .lookupManyExistingUncached(contractIdsWithReassignmentCounters.map {
         case ChangeAssignation.Data((cid, _), _, _) => cid
       })
-      .map(_.map(_.contract).zip(contractIdsWithReassignmentCounters))
+      .map(_.zip(contractIdsWithReassignmentCounters))
       .leftMap(contractId => s"Failed to look up contract $contractId in domain $sourceDomainAlias")
       .mapK(FutureUnlessShutdown.outcomeK)
 
@@ -300,11 +300,7 @@ private final class ChangeAssignation(
     EitherT.right {
       contracts.parTraverse_ { contract =>
         if (contract.payload.isNew)
-          contractStore
-            .storeCreatedContract(
-              contract.targetTimeOfChange.unwrap.rc,
-              contract.payload.contract,
-            )
+          contractStore.storeContract(contract.payload.contract)
         else FutureUnlessShutdown.unit
       }
     }

@@ -176,6 +176,9 @@ CREATE TABLE lapi_events_assign (
 -- index for queries resolving contract ID to sequential IDs.
 CREATE INDEX lapi_events_assign_event_contract_id_idx ON lapi_events_assign USING btree (contract_id, event_sequential_id);
 
+-- index for queries resolving (contract ID, domain ID, sequential ID) to sequential IDs.
+CREATE INDEX lapi_events_assign_event_contract_id_domain_id_seq_id_idx ON lapi_events_assign USING btree (contract_id, target_domain_id, event_sequential_id);
+
 -- covering index for queries resolving offsets to sequential IDs. For temporary incomplete reassignments implementation.
 CREATE INDEX lapi_events_assign_event_offset_idx ON lapi_events_assign USING btree (event_offset, event_sequential_id);
 
@@ -285,7 +288,7 @@ CREATE TABLE lapi_events_create (
     record_time bigint not null
 );
 
--- lookup by contract id
+-- lookup by contract_id
 CREATE INDEX lapi_events_create_contract_id_idx ON lapi_events_create USING hash (contract_id);
 
 -- lookup by contract_key

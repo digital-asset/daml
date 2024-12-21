@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.ledger.api.messages.transaction
 
-import com.digitalasset.canton.ledger.api.domain.EventId
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.daml.lf.data.Ref.Party
 
-final case class GetTransactionByEventIdRequest(
-    eventId: EventId,
+final case class GetTransactionByOffsetRequest(
+    offset: Offset,
     requestingParties: Set[Party],
 )

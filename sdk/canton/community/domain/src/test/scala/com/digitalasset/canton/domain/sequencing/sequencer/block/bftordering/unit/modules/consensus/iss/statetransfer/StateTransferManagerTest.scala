@@ -252,13 +252,15 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     )(fail(_))
 
     // Should have completed the block transfer and returned a new epoch state to the Consensus module.
+    val latestStateTransferredEpochInfo = latestCompletedEpochRemotely.info
+      .copy(topologyActivationTime = membership.orderingTopology.activationTime)
     result shouldBe StateTransferMessageResult.BlockTransferCompleted(
       EpochState.Epoch(
-        latestCompletedEpochRemotely.info,
+        latestStateTransferredEpochInfo,
         membership,
         DefaultLeaderSelectionPolicy,
       ),
-      latestCompletedEpochRemotely,
+      latestCompletedEpochRemotely.copy(info = latestStateTransferredEpochInfo),
     )
 
     // Should have sent an ordered block to the Output module.
@@ -347,7 +349,7 @@ object StateTransferManagerTest {
         from = mySequencerId,
       )
       .fakeSign
-    // TODO(#19661): Test commits
+    // TODO(#22898): Test commits
     CommitCertificate(prePrepare, commits = Seq.empty)
   }
 }

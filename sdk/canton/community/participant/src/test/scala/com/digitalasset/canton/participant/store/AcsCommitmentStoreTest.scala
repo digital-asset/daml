@@ -5,7 +5,13 @@ package com.digitalasset.canton.participant.store
 
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
-import com.digitalasset.canton.crypto.{LtHash16, Signature, SigningPublicKey, TestHash}
+import com.digitalasset.canton.crypto.{
+  LtHash16,
+  Signature,
+  SigningKeyUsage,
+  SigningPublicKey,
+  TestHash,
+}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.event.RecordTime
@@ -141,6 +147,7 @@ trait CommitmentStoreBaseTest
     crypto.sign(
       crypto.pureCrypto.digest(TestHash.testHashPurpose, dummyCommitment),
       testKey.id,
+      SigningKeyUsage.ProtocolOnly,
     )
 
   lazy val dummyCommitmentMsg: AcsCommitment =

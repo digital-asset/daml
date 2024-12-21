@@ -1519,7 +1519,7 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
         .build(TestHash.testHashPurpose)
         .addWithoutLengthPrefix(str)
         .finish()
-    crypto.sign(hash, sequencerKey.id)
+    crypto.sign(hash, sequencerKey.id, SigningKeyUsage.ProtocolOnly)
   }
 
   val seedGenerator = new SeedGenerator(crypto.pureCrypto)

@@ -28,6 +28,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawAssignEvent,
   RawCreatedEvent,
   RawUnassignEvent,
+  UnassignProperties,
 }
 import com.digitalasset.canton.platform.store.backend.common.EventPayloadSourceForFlatTx
 import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.IdPaginationState
@@ -349,7 +350,9 @@ class ACSReader(
       globalIdQueriesLimiter.execute(
         dispatcher.executeSql(metrics.index.db.getCreateIdsForContractIds) { connection =>
           val ids =
-            eventStorageBackend.lookupCreateSequentialIdByContractId(contractIds)(connection)
+            eventStorageBackend.lookupCreateSequentialIdByContractId(contractIds)(
+              connection
+            )
           logger.debug(
             s"Create Ids for contract IDs returned #${ids.size} (from ${contractIds.size}) ${ids.lastOption
                 .map(last => s"until $last")
@@ -359,27 +362,27 @@ class ACSReader(
         }
       )
 
-    def fetchAssignIdsForContractIds(
-        contractIds: Iterable[String]
-    ): Future[Vector[Long]] =
-      if (contractIds.isEmpty) Future.successful(Vector.empty)
+    def fetchAssignIdsFor(
+        unassignPropertiesSeq: Seq[UnassignProperties]
+    ): Future[Map[UnassignProperties, Long]] =
+      if (unassignPropertiesSeq.isEmpty) Future.successful(Map.empty)
       else
         globalIdQueriesLimiter.execute(
           dispatcher.executeSql(metrics.index.db.getAssignIdsForContractIds) { connection =>
-            val ids =
-              eventStorageBackend.lookupAssignSequentialIdByContractId(contractIds)(connection)
+            val idForUnassignProperties: Map[UnassignProperties, Long] =
+              eventStorageBackend.lookupAssignSequentialIdBy(
+                unassignPropertiesSeq
+              )(connection)
             logger.debug(
-              s"Assign Ids for contract IDs returned #${ids.size} (from ${contractIds.size}) ${ids.lastOption
-                  .map(last => s"until $last")
-                  .getOrElse("")}"
+              s"Assign Ids for contract IDs returned #${idForUnassignProperties.size} (from ${unassignPropertiesSeq.size})"
             )
-            ids
+            idForUnassignProperties
           }
         )
 
     def fetchCreatePayloads(
         ids: Iterable[Long]
-    ): Future[Vector[RawCreatedEvent]] =
+    ): Future[Vector[Entry[RawCreatedEvent]]] =
       if (ids.isEmpty) Future.successful(Vector.empty)
       else
         globalPayloadQueriesLimiter.execute(
@@ -398,53 +401,91 @@ class ACSReader(
                       .map(last => s"until $last")
                       .getOrElse("")}"
                 )
-                result.view
-                  .map(_.event)
-                  .collect { case created: RawCreatedEvent =>
-                    created
+                result.view.collect { entry =>
+                  entry.event match {
+                    case created: RawCreatedEvent =>
+                      entry.copy(event = created)
                   }
-                  .toVector
+                }.toVector
             }
         )
 
     def fetchCreatedEventsForUnassignedBatch(batch: Seq[Entry[RawUnassignEvent]]): Future[
       Seq[(Entry[RawUnassignEvent], RawCreatedEvent)]
-    ] =
+    ] = {
+
+      def extractUnassignProperties(unassignEntry: Entry[RawUnassignEvent]): UnassignProperties =
+        UnassignProperties(
+          contractId = unassignEntry.event.contractId,
+          domainId = unassignEntry.event.sourceDomainId,
+          sequentialId = unassignEntry.eventSequentialId,
+        )
+
+      // look for the last created event first in the assigned events
+      // the assign event should match the contract id and the domain id (target and source domain ids correspondingly)
+      // of the unassign entry and have
+      // the largest sequential id that is less than the sequential id of the unassign entry
+      val unassignPropertiesSeq: Seq[UnassignProperties] =
+        batch.map(extractUnassignProperties).distinct
       for {
-        createdIds <- fetchCreateIdsForContractIds(batch.map(_.event.contractId).distinct)
-        createdPayloads <- fetchCreatePayloads(createdIds)
-        rawCreatedFromCreatedResults = createdPayloads.iterator
-          .map(event => event.contractId -> event)
+        // mapping from the request unassign properties to the corresponding assign sequential id
+        unassignPropertiesToAssignedIds: Map[UnassignProperties, Long] <- fetchAssignIdsFor(
+          unassignPropertiesSeq
+        )
+        assignedPayloads: Seq[Entry[RawAssignEvent]] <- fetchAssignPayloads(
+          unassignPropertiesToAssignedIds.values
+        )
+        assignedIdsToPayloads: Map[Long, Entry[RawAssignEvent]] = assignedPayloads
+          .map(payload => payload.eventSequentialId -> payload)
           .toMap
-        missingContractIds = batch
-          .map(_.event.contractId)
-          .filterNot(rawCreatedFromCreatedResults.contains)
+        // map the requested unassign event properties to the returned raw created events using the assign sequential id
+        rawCreatedFromAssignedResults: Map[UnassignProperties, RawCreatedEvent] =
+          unassignPropertiesToAssignedIds.flatMap { case (params, assignedId) =>
+            assignedIdsToPayloads
+              .get(assignedId)
+              .map(assignEntry => (params, assignEntry.event.rawCreatedEvent))
+          }
+
+        // if not found in the assigned events, search the created events
+        // we can search the created events without checking the sequential id of it, since if found it will be unique
+        // and less than the sequential id of the unassign event (we cannot have an unassign before the create event)
+        missingContractIds = unassignPropertiesSeq
+          .filterNot(rawCreatedFromAssignedResults.contains)
+          .map(_.contractId)
           .distinct
-        assignedIds <- fetchAssignIdsForContractIds(missingContractIds)
-        assignedPayloads <- fetchAssignPayloads(assignedIds)
-        rawCreatedFromAssignedResults = assignedPayloads.iterator
-          .map(_.event.rawCreatedEvent)
-          .map(rawCreatedEvent => rawCreatedEvent.contractId -> rawCreatedEvent)
-          .toMap
+        createdIds <- fetchCreateIdsForContractIds(missingContractIds)
+        createdPayloads <- fetchCreatePayloads(createdIds)
+        rawCreatedFromCreatedResults: Map[String, Vector[Entry[RawCreatedEvent]]] =
+          createdPayloads.groupBy(_.event.contractId)
       } yield batch.flatMap { rawUnassignEntry =>
-        val contractId = rawUnassignEntry.event.contractId
-        rawCreatedFromCreatedResults
-          .get(contractId)
+        val unassignProperties = extractUnassignProperties(rawUnassignEntry)
+        rawCreatedFromAssignedResults
+          .get(unassignProperties)
           .orElse {
             logger.debug(
-              s"For an IncompleteUnassigned event (offset:${rawUnassignEntry.offset} workflow-id:${rawUnassignEntry.workflowId} contract-id:${rawUnassignEntry.event.contractId} template-id:${rawUnassignEntry.event.templateId} reassignment-counter:${rawUnassignEntry.event.reassignmentCounter}) there is no CreatedEvent available."
+              s"For an IncompleteUnassigned event (offset:${rawUnassignEntry.offset} workflow-id:${rawUnassignEntry.workflowId} contract-id:${rawUnassignEntry.event.contractId} template-id:${rawUnassignEntry.event.templateId} reassignment-counter:${rawUnassignEntry.event.reassignmentCounter} domain-id:${rawUnassignEntry.domainId} event-sequential-id:${rawUnassignEntry.eventSequentialId}) there is no AssignedEvent available, looking for CreatedEvent."
             )
-            rawCreatedFromAssignedResults.get(contractId)
+            rawCreatedFromCreatedResults
+              .get(unassignProperties.contractId)
+              .flatMap { candidateCreateEntries =>
+                candidateCreateEntries
+                  .find(createdEntry =>
+                    // the created event should match the domain id of the unassign entry and have a lower sequential id than it
+                    createdEntry.domainId == unassignProperties.domainId && createdEntry.eventSequentialId < unassignProperties.sequentialId
+                  )
+                  .map(_.event)
+              }
           }
           .orElse {
             logger.warn(
-              s"For an IncompleteUnassigned event (offset:${rawUnassignEntry.offset} workflow-id:${rawUnassignEntry.workflowId} contract-id:${rawUnassignEntry.event.contractId} template-id:${rawUnassignEntry.event.templateId} reassignment-counter:${rawUnassignEntry.event.reassignmentCounter}) there is no CreatedEvent or AssignedEvent available. This entry will be dropped from the result."
+              s"For an IncompleteUnassigned event (offset:${rawUnassignEntry.offset} workflow-id:${rawUnassignEntry.workflowId} contract-id:${rawUnassignEntry.event.contractId} template-id:${rawUnassignEntry.event.templateId} reassignment-counter:${rawUnassignEntry.event.reassignmentCounter} domain-id:${rawUnassignEntry.domainId} event-sequential-id:${rawUnassignEntry.eventSequentialId}) there is neither CreatedEvent nor AssignedEvent available. This entry will be dropped from the result."
             )
             None
           }
           .toList
           .map(rawUnassignEntry -> _)
       }
+    }
 
     val stringWildcardParties = filter.templateWildcardParties.map(_.map(_.toString))
     val stringTemplateFilters = filter.relation.map { case (key, value) =>
@@ -506,6 +547,7 @@ class ACSReader(
         toApiResponseActiveContract(_, eventProjectionProperties)
       )
       .concatLazy(
+        // compute incomplete reassignments
         Source.lazyFutureSource(() =>
           incompleteOffsets(
             activeAtOffset,

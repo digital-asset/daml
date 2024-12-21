@@ -4,19 +4,20 @@
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.{EitherT, OptionT}
+import cats.syntax.either.*
+import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, Signature}
+import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, Signature, SyncCryptoError}
 import com.digitalasset.canton.data.ViewType.ReassignmentViewType
 import com.digitalasset.canton.data.{
   CantonTimestamp,
   FullReassignmentViewTree,
   ReassignmentRef,
   ReassignmentSubmitterMetadata,
-  ViewType,
+  ViewPosition,
 }
 import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, SequencedUpdate, Update}
@@ -33,15 +34,19 @@ import com.digitalasset.canton.participant.protocol.ProtocolProcessor.{
   NoMediatorError,
   ProcessorError,
 }
+import com.digitalasset.canton.participant.protocol.conflictdetection.ActivenessResult
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.EncryptedViewMessageCreationError
-import com.digitalasset.canton.participant.protocol.{ProcessingSteps, ProtocolProcessor}
+import com.digitalasset.canton.participant.protocol.{
+  ProcessingSteps,
+  ProtocolProcessor,
+  SerializableContractAuthenticator,
+}
 import com.digitalasset.canton.participant.store.ReassignmentStore.ReassignmentStoreError
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.protocol.messages.ConfirmationResponse.InvalidConfirmationResponse
 import com.digitalasset.canton.protocol.messages.Verdict.{
   Approve,
   MediatorReject,
@@ -49,11 +54,12 @@ import com.digitalasset.canton.protocol.messages.Verdict.{
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
+import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, ReassignmentTag}
-import com.digitalasset.canton.{LfPartyId, RequestCounter, SequencerCounter}
-import com.digitalasset.daml.lf.engine
+import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.{LfPartyId, RequestCounter, SequencerCounter, checked}
 
 import scala.collection.concurrent
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -76,6 +82,8 @@ trait ReassignmentProcessingSteps[
   val domainId: ReassignmentTag[DomainId]
 
   protected def engine: DAMLe
+
+  protected def serializableContractAuthenticator: SerializableContractAuthenticator
 
   protected implicit def ec: ExecutionContext
 
@@ -129,13 +137,22 @@ trait ReassignmentProcessingSteps[
     pendingSubmission.reassignmentCompletion.success(status)
   }
 
+  def localRejectFromActivenessCheck(
+      requestId: RequestId,
+      activenessResult: ActivenessResult,
+      validationResult: ReassignmentValidationResult,
+  ): Option[LocalRejectError]
+
   override def authenticateInputContracts(
       parsedRequest: ParsedRequestType
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, ReassignmentProcessorError, Unit] =
-    // We don't authenticate input contracts on reassignments
-    EitherT.pure(())
+    EitherT.fromEither(
+      serializableContractAuthenticator
+        .authenticate(parsedRequest.fullViewTree.contract)
+        .leftMap[ReassignmentProcessorError](ContractError.apply)
+    )
 
   protected def performPendingSubmissionMapUpdate(
       pendingSubmissionMap: concurrent.Map[RootHash, PendingReassignmentSubmission],
@@ -230,7 +247,6 @@ trait ReassignmentProcessingSteps[
         signature,
         submitterMetadataO,
         isFreshOwnTimelyRequest,
-        isReassigningParticipant = viewTree.isReassigningParticipant(participantId),
         malformedPayloads,
         mediator,
         snapshot,
@@ -345,6 +361,87 @@ trait ReassignmentProcessingSteps[
       err: ProtocolProcessor.ResultProcessingError
   ): ReassignmentProcessorError =
     GenericStepsError(err)
+
+  protected def createConfirmationResponse(
+      requestId: RequestId,
+      topologySnapshot: TopologySnapshot,
+      protocolVersion: ProtocolVersion,
+      confirmingParties: Set[LfPartyId],
+      validationResult: ReassignmentValidationResult,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[ConfirmationResponse]] =
+    for {
+      hostedConfirmingParties <-
+        if (validationResult.isReassigningParticipant)
+          topologySnapshot.canConfirm(
+            participantId,
+            confirmingParties,
+          )
+        else
+          FutureUnlessShutdown.pure(Set.empty[LfPartyId])
+
+      metadataResult <-
+        if (hostedConfirmingParties.nonEmpty) validationResult.metadataResultET.value
+        else
+          FutureUnlessShutdown.pure(Right(()))
+    } yield {
+      if (hostedConfirmingParties.isEmpty) None
+      else {
+        val activenessResult = validationResult.activenessResult
+        val authenticationErrorO = validationResult.authenticationErrorO
+
+        val authenticationRejection = authenticationErrorO.map(err =>
+          LocalRejectError.MalformedRejects.MalformedRequest
+            .Reject(err.message)
+        )
+
+        val modelConformanceRejection = metadataResult.swap.toSeq.map(err =>
+          LocalRejectError.MalformedRejects.ModelConformance.Reject(err.toString)
+        )
+
+        val failedValidationRejection =
+          validationResult.validationErrors.map(err =>
+            LocalRejectError.ReassignmentRejects.ValidationFailed.Reject(err.message)
+          )
+
+        val contractRejection =
+          localRejectFromActivenessCheck(requestId, activenessResult, validationResult)
+
+        val localRejections =
+          (modelConformanceRejection ++ contractRejection.toList ++ authenticationRejection.toList ++ failedValidationRejection)
+            .map { err =>
+              err.logWithContext()
+              err.toLocalReject(protocolVersion)
+            }
+
+        val (localVerdict, parties) = localRejections
+          .collectFirst[(LocalVerdict, Set[LfPartyId])] {
+            case malformed: LocalReject if malformed.isMalformed => malformed -> Set.empty
+            case localReject: LocalReject =>
+              localReject -> hostedConfirmingParties
+          }
+          .getOrElse(
+            LocalApprove(protocolVersion) -> hostedConfirmingParties
+          )
+
+        val confirmationResponse = checked(
+          ConfirmationResponse
+            .tryCreate(
+              requestId,
+              participantId,
+              Some(ViewPosition.root),
+              localVerdict,
+              validationResult.rootHash,
+              parties,
+              domainId.unwrap,
+              protocolVersion,
+            )
+        )
+        Some(confirmationResponse)
+      }
+    }
+
 }
 
 object ReassignmentProcessingSteps {
@@ -363,7 +460,6 @@ object ReassignmentProcessingSteps {
       signatureO: Option[Signature],
       override val submitterMetadataO: Option[ReassignmentSubmitterMetadata],
       override val isFreshOwnTimelyRequest: Boolean,
-      isReassigningParticipant: Boolean,
       override val malformedPayloads: Seq[MalformedPayload],
       override val mediator: MediatorGroupRecipient,
       override val snapshot: DomainSnapshotSyncCryptoApi,
@@ -403,6 +499,9 @@ object ReassignmentProcessingSteps {
     def message: String
   }
 
+  /** Used to convert ReassignmentValidationError to ReassignmentValidationError */
+  final case class SubmissionValidationError(message: String) extends ReassignmentProcessorError
+
   final case class GenericStepsError(error: ProcessorError) extends ReassignmentProcessorError {
     override def underlyingProcessorError(): Option[ProcessorError] = Some(error)
 
@@ -412,6 +511,8 @@ object ReassignmentProcessingSteps {
   final case class InvalidReassignmentView(reason: String) extends ReassignmentProcessorError {
     override def message: String = s"Invalid reassignment common view: $reason"
   }
+
+  final case class ContractError(message: String) extends ReassignmentProcessorError
 
   final case class UnknownDomain(domainId: DomainId, context: String)
       extends ReassignmentProcessorError {
@@ -435,62 +536,20 @@ object ReassignmentProcessingSteps {
       s"Unable to compute reassignment parameters for $domainId: $context"
   }
 
-  final case class MetadataNotFound(err: engine.Error) extends ReassignmentProcessorError {
-    override def message: String = s"Contract metadata not found: ${err.message}"
-  }
-
   final case class NoTimeProofFromDomain(domainId: DomainId, reason: String)
       extends ReassignmentProcessorError {
     override def message: String = s"Cannot fetch time proof for domain `$domainId`: $reason"
   }
 
-  final case class NotHostedOnParticipant(
-      reference: ReassignmentRef,
-      party: LfPartyId,
-      participantId: ParticipantId,
+  final case class ReassignmentDataNotFound(reassignmentId: ReassignmentId)
+      extends ReassignmentProcessorError {
+    override def message: String = s"Cannot assign `$reassignmentId`: reassignment data not found"
+  }
+
+  final case class ReassignmentSigningError(
+      cause: SyncCryptoError
   ) extends ReassignmentProcessorError {
-
-    override def message: String =
-      s"For $reference: $party is not hosted on $participantId"
-  }
-
-  final case class StakeholderHostingErrors(message: String) extends UnassignmentProcessorError
-  object StakeholderHostingErrors {
-    def missingSignatoryReassigningParticipants(
-        signatory: LfPartyId,
-        domain: String,
-        threshold: PositiveInt,
-        signatoryReassigningParticipants: Int,
-    ): StakeholderHostingErrors = StakeholderHostingErrors(
-      s"Signatory $signatory requires at least $threshold signatory reassigning participants on $domain domain, " +
-        s"but only $signatoryReassigningParticipants are available"
-    )
-  }
-
-  final case class ContractMetadataMismatch(
-      reassignmentRef: ReassignmentRef,
-      declaredContractMetadata: ContractMetadata,
-      expectedMetadata: ContractMetadata,
-  ) extends ReassignmentProcessorError {
-    override def message: String = s"For reassignment `$reassignmentRef`: metadata mismatch"
-  }
-
-  final case class StakeholdersMismatch(
-      reassignmentRef: ReassignmentRef,
-      declaredViewStakeholders: Stakeholders,
-      declaredContractStakeholders: Option[Stakeholders],
-      expectedStakeholders: Either[String, Stakeholders],
-  ) extends ReassignmentProcessorError {
-    override def message: String = s"For reassignment `$reassignmentRef`: stakeholders mismatch"
-  }
-
-  final case class ReassigningParticipantsMismatch(
-      reassignmentRef: ReassignmentRef,
-      expected: Set[ParticipantId],
-      declared: Set[ParticipantId],
-  ) extends UnassignmentProcessorError {
-    override def message: String =
-      s"For reassigning `$reassignmentRef`: reassigning participants mismatch"
+    override def message: String = show"Unable to sign reassignment request. $cause"
   }
 
   final case class NoStakeholders private (contractId: LfContractId)
@@ -509,17 +568,6 @@ object ReassignmentProcessingSteps {
     }
   }
 
-  final case class ContractError(message: String) extends ReassignmentProcessorError
-
-  final case class SubmitterMustBeStakeholder(
-      reference: ReassignmentRef,
-      submittingParty: LfPartyId,
-      stakeholders: Set[LfPartyId],
-  ) extends ReassignmentProcessorError {
-    override def message: String =
-      s"For $reference: submitter `$submittingParty` is not a stakeholder"
-  }
-
   final case class ReassignmentStoreFailed(
       reassignmentId: ReassignmentId,
       error: ReassignmentStoreError,
@@ -535,26 +583,12 @@ object ReassignmentProcessingSteps {
     override def message: String = s"Cannot reassign contract `$contractId`: encryption error"
   }
 
-  final case class DecryptionError[VT <: ViewType](
-      reassignmentId: ReassignmentId,
-      error: EncryptedViewMessageError,
-  ) extends ReassignmentProcessorError {
-    override def message: String = s"Cannot reassign `$reassignmentId`: decryption error"
-  }
-
   final case class DuplicateReassignmentTreeHash(
       reassignmentRef: ReassignmentRef,
       submitterLf: LfPartyId,
       hash: RootHash,
   ) extends ReassignmentProcessorError {
     override def message: String = s"For reassignment $reassignmentRef: duplicatehash"
-  }
-
-  final case class FailedToCreateResponse(
-      reassignmentId: ReassignmentId,
-      error: InvalidConfirmationResponse,
-  ) extends ReassignmentProcessorError {
-    override def message: String = s"Cannot reassign `$reassignmentId`: failed to create response"
   }
 
   final case class FieldConversionError(
@@ -569,11 +603,5 @@ object ReassignmentProcessingSteps {
       param("field", _.field.unquoted),
       param("error", _.error.unquoted),
     )
-  }
-
-  final case class ReinterpretationAborted(reassignmentRef: ReassignmentRef, reason: String)
-      extends ReassignmentProcessorError {
-    override def message: String =
-      s"For reassignment `$reassignmentRef`: reinterpretation aborted for reason `$reason`"
   }
 }

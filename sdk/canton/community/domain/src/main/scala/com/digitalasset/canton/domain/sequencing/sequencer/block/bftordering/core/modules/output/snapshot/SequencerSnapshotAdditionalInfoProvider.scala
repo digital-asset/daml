@@ -37,7 +37,7 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
       orderingTopology: OrderingTopology,
       requester: ModuleRef[SequencerNode.SnapshotMessage],
   )(implicit actorContext: E#ActorContextT[Output.Message[E]], traceContext: TraceContext): Unit = {
-    // TODO(#19661): Consider returning an error if the `snapshotTimestamp` is too high, i.e., above the safe watermark.
+    // TODO(#23143): Consider returning an error if the `snapshotTimestamp` is too high, i.e., above the safe watermark.
     val peerActiveAtTimestamps =
       orderingTopology.peersActiveAt.view.filter { case (_, activeAt) =>
         // Take into account all peers that become active up to the latest activation time, which corresponds to

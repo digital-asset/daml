@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.protocol
 
 import cats.data.{EitherT, NonEmptyChain}
-import cats.implicits.catsStdInstancesForFuture
 import cats.syntax.either.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
@@ -21,7 +20,6 @@ import com.digitalasset.canton.crypto.{
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.TransactionError
-import com.digitalasset.canton.ledger.participant.state.Update.SequencerIndexMoved
 import com.digitalasset.canton.ledger.participant.state.{CommitSetUpdate, SequencedUpdate}
 import com.digitalasset.canton.lifecycle.{
   FutureUnlessShutdown,
@@ -1278,19 +1276,6 @@ abstract class ProtocolProcessor[
     val snapshotTs = requestId.unwrap
 
     for {
-      _ <- EitherT
-        .right(
-          ephemeral.recordOrderPublisher.tick(
-            SequencerIndexMoved(
-              domainId = domainId,
-              sequencerCounter = sc,
-              recordTime = resultTs,
-              requestCounterO = None,
-            )
-          )
-        )
-        .mapK(FutureUnlessShutdown.outcomeK)
-
       snapshot <- EitherT.right(
         crypto.ips.awaitSnapshotUSSupervised(s"await crypto snapshot $snapshotTs")(snapshotTs)
       )
@@ -1560,11 +1545,7 @@ abstract class ProtocolProcessor[
         domainParameters,
       ).leftMap(err => steps.embedResultError(RequestTrackerError(err)))
 
-      _ <- EitherT.right(
-        ephemeral.contractStore.storeCreatedContracts(
-          contractsToBeStored.map((_, requestCounter))
-        )
-      )
+      _ <- EitherT.right(ephemeral.contractStore.storeContracts(contractsToBeStored))
 
       _ <- ifThenET(!cleanReplay) {
         logger.info(
