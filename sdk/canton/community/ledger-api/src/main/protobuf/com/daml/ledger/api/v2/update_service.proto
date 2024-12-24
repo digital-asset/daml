@@ -38,16 +38,16 @@ service UpdateService {
   // The template/interface filters describe the respective fields in the ``CreatedEvent`` results.
   rpc GetUpdateTrees(GetUpdatesRequest) returns (stream GetUpdateTreesResponse);
 
-  // Lookup a transaction tree by the ID of an event that appears within it.
-  // For looking up a transaction instead of a transaction tree, please see GetTransactionByEventId
-  rpc GetTransactionTreeByEventId(GetTransactionByEventIdRequest) returns (GetTransactionTreeResponse);
+  // Lookup a transaction tree by its offset.
+  // For looking up a transaction instead of a transaction tree, please see GetTransactionByOffset.
+  rpc GetTransactionTreeByOffset(GetTransactionByOffsetRequest) returns (GetTransactionTreeResponse);
 
   // Lookup a transaction tree by its ID.
-  // For looking up a transaction instead of a transaction tree, please see GetTransactionById
+  // For looking up a transaction instead of a transaction tree, please see GetTransactionById.
   rpc GetTransactionTreeById(GetTransactionByIdRequest) returns (GetTransactionTreeResponse);
 
-  // Lookup a transaction by the ID of an event that appears within it.
-  rpc GetTransactionByEventId(GetTransactionByEventIdRequest) returns (GetTransactionResponse);
+  // Lookup a transaction by its offset.
+  rpc GetTransactionByOffset(GetTransactionByOffsetRequest) returns (GetTransactionResponse);
 
   // Lookup a transaction by its ID.
   rpc GetTransactionById(GetTransactionByIdRequest) returns (GetTransactionResponse);
@@ -101,11 +101,11 @@ message GetUpdateTreesResponse {
   }
 }
 
-message GetTransactionByEventIdRequest {
-  // The ID of a particular event.
-  // Must be a valid LedgerString (as described in ``value.proto``).
+message GetTransactionByOffsetRequest {
+  // The offset of the transaction being looked up.
+  // Must be a valid absolute offset (positive integer).
   // Required
-  string event_id = 1;
+  int64 offset = 1;
 
   // The parties whose events the client expects to see.
   // Events that are not visible for the parties in this collection will not be present in the response.

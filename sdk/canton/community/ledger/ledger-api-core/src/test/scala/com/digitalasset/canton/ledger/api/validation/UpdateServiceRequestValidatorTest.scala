@@ -13,8 +13,8 @@ import com.daml.ledger.api.v2.transaction_filter.{
   *,
 }
 import com.daml.ledger.api.v2.update_service.{
-  GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
+  GetTransactionByOffsetRequest,
   GetUpdatesRequest,
 }
 import com.daml.ledger.api.v2.value.Identifier
@@ -74,8 +74,8 @@ class UpdateServiceRequestValidatorTest
     Seq(templateId.copy(packageId = Ref.PackageRef.Name(packageName).toString))
   )
 
-  private val txByEvIdReq =
-    GetTransactionByEventIdRequest(eventId, Seq(party))
+  private val txByOffsetReq =
+    GetTransactionByOffsetRequest(offsetLong, Seq(party))
 
   private val txByIdReq =
     GetTransactionByIdRequest(updateId, Seq(party))
@@ -378,19 +378,29 @@ class UpdateServiceRequestValidatorTest
 
     "validating transaction by event id requests" should {
 
-      "fail on empty eventId" in {
+      "fail on zero offset" in {
         requestMustFailWith(
-          request = validator.validateTransactionByEventId(txByEvIdReq.withEventId("")),
+          request = validator.validateTransactionByOffset(txByOffsetReq.withOffset(0)),
           code = INVALID_ARGUMENT,
           description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: event_id",
+            "NON_POSITIVE_OFFSET(8,0): Offset 0 in offset is not a positive integer: the offset has to be a positive integer (>0)",
+          metadata = Map.empty,
+        )
+      }
+
+      "fail on negative offset" in {
+        requestMustFailWith(
+          request = validator.validateTransactionByOffset(txByOffsetReq.withOffset(-21)),
+          code = INVALID_ARGUMENT,
+          description =
+            "NON_POSITIVE_OFFSET(8,0): Offset -21 in offset is not a positive integer: the offset has to be a positive integer (>0)",
           metadata = Map.empty,
         )
       }
 
       "fail on empty requesting parties" in {
         requestMustFailWith(
-          request = validator.validateTransactionByEventId(txByEvIdReq.withRequestingParties(Nil)),
+          request = validator.validateTransactionByOffset(txByOffsetReq.withRequestingParties(Nil)),
           code = INVALID_ARGUMENT,
           description =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: requesting_parties",

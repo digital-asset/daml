@@ -33,6 +33,25 @@ object CommonErrors extends CommonErrorGroup {
   }
 
   @Explanation(
+    "Another request with the same id is already being processed."
+  )
+  @Resolution(
+    """Listen to the appropriate stream until a result for the in-flight request is published.
+      |Alternatively, resubmit the request.
+      |"""
+  )
+  object RequestAlreadyInFlight
+      extends ErrorCode(
+        id = "REQUEST_ALREADY_IN_FLIGHT",
+        ErrorCategory.ContentionOnSharedResources,
+      ) {
+    final case class Reject(requestId: String)(implicit errorLogger: ContextualizedErrorLogger)
+        extends DamlErrorWithDefiniteAnswer(
+          cause = s"The request $requestId is already in flight"
+        )
+  }
+
+  @Explanation(
     "This rejection is given when a request processing status is not known and a time-out is reached."
   )
   @Resolution(

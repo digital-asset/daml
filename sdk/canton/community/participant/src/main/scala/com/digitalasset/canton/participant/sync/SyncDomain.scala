@@ -326,7 +326,7 @@ class SyncDomain(
   ): EitherT[FutureUnlessShutdown, SyncDomainInitializationError, Unit] = {
     def liftF[A](f: Future[A]): EitherT[Future, SyncDomainInitializationError, A] = EitherT.right(f)
 
-    def withMetadataSeq(cids: Seq[LfContractId]): Future[Seq[StoredContract]] =
+    def withMetadataSeq(cids: Seq[LfContractId]): Future[Seq[SerializableContract]] =
       participantNodePersistentState.value.contractStore
         .lookupManyExistingUncached(cids)
         .valueOr { missingContractId =>
@@ -358,7 +358,7 @@ class SyncDomain(
           activations = storedActivatedContracts
             .map(c =>
               c.contractId -> ContractStakeholdersAndReassignmentCounter(
-                c.contract.metadata.stakeholders,
+                c.metadata.stakeholders,
                 change.activations(c.contractId).reassignmentCounter,
               )
             )
@@ -367,7 +367,7 @@ class SyncDomain(
             .map(c =>
               c.contractId ->
                 ContractStakeholdersAndReassignmentCounter(
-                  c.contract.metadata.stakeholders,
+                  c.metadata.stakeholders,
                   change.deactivations(c.contractId).reassignmentCounter,
                 )
             )

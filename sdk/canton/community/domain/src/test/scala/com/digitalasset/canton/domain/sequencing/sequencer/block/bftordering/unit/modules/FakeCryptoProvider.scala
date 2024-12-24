@@ -3,11 +3,13 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.unit.modules
 
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.{
   Hash,
   HashPurpose,
   Signature,
   SignatureCheckError,
+  SigningKeyUsage,
   SyncCryptoError,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.CryptoProvider
@@ -22,7 +24,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.Assertions.fail
 
 class FakeCryptoProvider[E <: Env[E]] extends CryptoProvider[E] {
-  override def sign(hash: Hash)(implicit
+  override def sign(hash: Hash, usage: NonEmpty[Set[SigningKeyUsage]])(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Either[SyncCryptoError, Signature]] =
     fail("Module should not sign messages")
@@ -30,6 +32,7 @@ class FakeCryptoProvider[E <: Env[E]] extends CryptoProvider[E] {
   override def signMessage[MessageT <: ProtocolVersionedMemoizedEvidence with MessageFrom](
       message: MessageT,
       hashPurpose: HashPurpose,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Either[SyncCryptoError, SignedMessage[MessageT]]] =

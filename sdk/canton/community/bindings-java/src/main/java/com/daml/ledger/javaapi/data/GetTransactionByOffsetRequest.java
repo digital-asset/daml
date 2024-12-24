@@ -9,21 +9,21 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 import java.util.List;
 import java.util.Objects;
 
-public final class GetTransactionByEventIdRequest {
+public final class GetTransactionByOffsetRequest {
 
-  @NonNull private final String eventId;
+  @NonNull private final Long offset;
 
   @NonNull private final List<@NonNull String> requestingParties;
 
-  public GetTransactionByEventIdRequest(
-      @NonNull String eventId, @NonNull List<@NonNull String> requestingParties) {
-    this.eventId = eventId;
+  public GetTransactionByOffsetRequest(
+      @NonNull Long offset, @NonNull List<@NonNull String> requestingParties) {
+    this.offset = offset;
     this.requestingParties = List.copyOf(requestingParties);
   }
 
   @NonNull
-  public String getEventId() {
-    return eventId;
+  public Long getOffset() {
+    return offset;
   }
 
   @NonNull
@@ -31,15 +31,15 @@ public final class GetTransactionByEventIdRequest {
     return requestingParties;
   }
 
-  public static GetTransactionByEventIdRequest fromProto(
-      UpdateServiceOuterClass.GetTransactionByEventIdRequest request) {
-    return new GetTransactionByEventIdRequest(
-        request.getEventId(), request.getRequestingPartiesList());
+  public static GetTransactionByOffsetRequest fromProto(
+      UpdateServiceOuterClass.GetTransactionByOffsetRequest request) {
+    return new GetTransactionByOffsetRequest(
+        request.getOffset(), request.getRequestingPartiesList());
   }
 
-  public UpdateServiceOuterClass.GetTransactionByEventIdRequest toProto() {
-    return UpdateServiceOuterClass.GetTransactionByEventIdRequest.newBuilder()
-        .setEventId(eventId)
+  public UpdateServiceOuterClass.GetTransactionByOffsetRequest toProto() {
+    return UpdateServiceOuterClass.GetTransactionByOffsetRequest.newBuilder()
+        .setOffset(offset)
         .addAllRequestingParties(requestingParties)
         .build();
   }
@@ -48,22 +48,22 @@ public final class GetTransactionByEventIdRequest {
   public boolean equals(Object o) {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
-    GetTransactionByEventIdRequest that = (GetTransactionByEventIdRequest) o;
-    return Objects.equals(eventId, that.eventId)
+    GetTransactionByOffsetRequest that = (GetTransactionByOffsetRequest) o;
+    return Objects.equals(offset, that.offset)
         && Objects.equals(requestingParties, that.requestingParties);
   }
 
   @Override
   public int hashCode() {
 
-    return Objects.hash(eventId, requestingParties);
+    return Objects.hash(offset, requestingParties);
   }
 
   @Override
   public String toString() {
-    return "GetTransactionByEventIdRequest{"
-        + "eventId="
-        + eventId
+    return "GetTransactionByOffsetRequest{"
+        + "offset="
+        + offset
         + ", requestingParties="
         + requestingParties
         + '}';

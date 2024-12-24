@@ -265,6 +265,7 @@ object Generators {
       vs.fold(b.setViewValue, b.setViewStatus).build()
     }
 
+  // TODO(#22794) remove generator
   val eventIdGen: Gen[String] = Arbitrary.arbString.arbitrary.suchThat(_.nonEmpty)
   val packageNameGen: Gen[String] = Arbitrary.arbString.arbitrary.suchThat(_.nonEmpty)
 
@@ -851,15 +852,15 @@ object Generators {
       .build()
   }
 
-  def getTransactionByEventIdRequestGen
-      : Gen[v2.UpdateServiceOuterClass.GetTransactionByEventIdRequest] = {
-    import v2.UpdateServiceOuterClass.GetTransactionByEventIdRequest as Request
+  def getTransactionByOffsetRequestGen
+      : Gen[v2.UpdateServiceOuterClass.GetTransactionByOffsetRequest] = {
+    import v2.UpdateServiceOuterClass.GetTransactionByOffsetRequest as Request
     for {
-      eventId <- eventIdGen
+      offset <- Arbitrary.arbLong.arbitrary
       requestingParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
     } yield Request
       .newBuilder()
-      .setEventId(eventId)
+      .setOffset(offset)
       .addAllRequestingParties(requestingParties.asJava)
       .build()
   }

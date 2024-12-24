@@ -232,16 +232,6 @@ object TopologyMapping {
 
   object RequiredAuth {
 
-    private[transaction] case object EmptyAuthorization extends RequiredAuth {
-      override def satisfiedByActualAuthorizers(
-          provided: ReferencedAuthorizations
-      ): Either[ReferencedAuthorizations, Unit] = Either.unit
-
-      override def referenced: ReferencedAuthorizations = ReferencedAuthorizations()
-
-      override protected def pretty: Pretty[EmptyAuthorization.this.type] = adHocPrettyInstance
-    }
-
     final case class RequiredNamespaces(
         namespaces: Set[Namespace],
         override val requireRootDelegation: Boolean = false,
@@ -302,7 +292,7 @@ object TopologyMapping {
       )
     }
 
-    private[transaction] final case class Or(
+    private[topology] final case class Or(
         first: RequiredAuth,
         second: RequiredAuth,
     ) extends RequiredAuth {
@@ -629,6 +619,11 @@ object IdentifierDelegation {
     } yield IdentifierDelegation(identifier, target)
 }
 
+/** A topology mapping that maps to a set of public keys for which ownership has to be proven. */
+sealed trait KeyMapping extends Product with Serializable {
+  def mappedKeys: NonEmpty[Seq[PublicKey]]
+}
+
 /** A key owner (participant, mediator, sequencer) to key mapping
   *
   * In Canton, we need to know keys for all participating entities. The entities are
@@ -638,7 +633,8 @@ object IdentifierDelegation {
 final case class OwnerToKeyMapping(
     member: Member,
     keys: NonEmpty[Seq[PublicKey]],
-) extends TopologyMapping {
+) extends TopologyMapping
+    with KeyMapping {
 
   def toProto: v30.OwnerToKeyMapping = v30.OwnerToKeyMapping(
     member = member.toProtoPrimitive,
@@ -673,6 +669,8 @@ final case class OwnerToKeyMapping(
   }
 
   override def uniqueKey: MappingHash = OwnerToKeyMapping.uniqueKey(member)
+
+  override def mappedKeys: NonEmpty[Seq[PublicKey]] = keys
 }
 
 object OwnerToKeyMapping {
@@ -711,7 +709,8 @@ final case class PartyToKeyMapping private (
     domain: Option[DomainId],
     threshold: PositiveInt,
     signingKeys: NonEmpty[Seq[SigningPublicKey]],
-) extends TopologyMapping {
+) extends TopologyMapping
+    with KeyMapping {
 
   def toProto: v30.PartyToKeyMapping = v30.PartyToKeyMapping(
     party = party.toProtoPrimitive,
@@ -730,6 +729,7 @@ final case class PartyToKeyMapping private (
   def code: TopologyMapping.Code = Code.PartyToKeyMapping
 
   override def namespace: Namespace = party.namespace
+
   override def maybeUid: Option[UniqueIdentifier] = Some(party.uid)
 
   override def restrictedToDomain: Option[DomainId] = domain
@@ -747,6 +747,8 @@ final case class PartyToKeyMapping private (
   }
 
   override def uniqueKey: MappingHash = PartyToKeyMapping.uniqueKey(party, domain)
+
+  override def mappedKeys: NonEmpty[Seq[PublicKey]] = signingKeys.toSeq
 }
 
 object PartyToKeyMapping {

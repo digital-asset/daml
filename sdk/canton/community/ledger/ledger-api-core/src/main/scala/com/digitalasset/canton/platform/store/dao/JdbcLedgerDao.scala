@@ -11,10 +11,7 @@ import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.LoggingContextWithTrace.{
-  implicitExtractTraceContext,
-  withEnrichedLoggingContext,
-}
+import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.*
@@ -39,8 +36,6 @@ import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.transaction.CommittedTransaction
 import io.opentelemetry.api.trace.Tracer
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -71,8 +66,6 @@ private class JdbcLedgerDao(
     translation: LfValueTranslation,
 ) extends LedgerDao
     with NamedLogging {
-
-  private val paginatingAsyncStream = new PaginatingAsyncStream(loggerFactory)
 
   override def currentHealth(): HealthStatus = dbDispatcher.currentHealth()
 
@@ -139,44 +132,9 @@ private class JdbcLedgerDao(
             ),
           )
           PersistenceResponse.Ok
-
-        case PartyLedgerEntry.AllocationRejected(submissionId, recordTime, reason) =>
-          sequentialIndexer.store(
-            conn,
-            offset,
-            Some(
-              state.Update.PartyAllocationRejected(
-                submissionId = submissionId,
-                participantId = participantId,
-                recordTime = CantonTimestamp(recordTime),
-                rejectionReason = reason,
-              )
-            ),
-          )
-          PersistenceResponse.Ok
       }
     }
   }
-
-  override def getPartyEntries(
-      startInclusive: Offset,
-      endInclusive: Offset,
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Source[(Offset, PartyLedgerEntry), NotUsed] =
-    paginatingAsyncStream.streamFromLimitOffsetPagination(PageSize) { queryOffset =>
-      withEnrichedLoggingContext("queryOffset" -> queryOffset: LoggingEntry) {
-        implicit loggingContext =>
-          dbDispatcher.executeSql(metrics.index.db.loadPartyEntries)(
-            readStorageBackend.partyStorageBackend.partyEntries(
-              startInclusive = startInclusive,
-              endInclusive = endInclusive,
-              pageSize = PageSize,
-              queryOffset = queryOffset,
-            )
-          )
-      }
-    }
 
   override def storeRejection(
       completionInfo: Option[state.CompletionInfo],
@@ -204,8 +162,6 @@ private class JdbcLedgerDao(
         )
         PersistenceResponse.Ok
       }
-
-  private val PageSize = 100
 
   override def getParties(
       parties: Seq[Party]

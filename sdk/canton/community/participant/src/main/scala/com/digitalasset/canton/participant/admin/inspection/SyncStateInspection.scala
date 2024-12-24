@@ -405,12 +405,12 @@ final class SyncStateInspection(
           }
       )
 
-      contractsWithTransferCounter = contracts.map(c => c -> snapshot(c.contractId)._2)
+      contractsWithReassignmentCounter = contracts.map(c => c -> snapshot(c.contractId)._2)
 
-      filteredByParty = contractsWithTransferCounter.collect {
-        case (contract, transferCounter)
-            if parties.intersect(contract.contract.metadata.stakeholders).nonEmpty =>
-          (contract.contractId, transferCounter)
+      filteredByParty = contractsWithReassignmentCounter.collect {
+        case (contract, reassignmentCounter)
+            if parties.intersect(contract.metadata.stakeholders).nonEmpty =>
+          (contract.contractId, reassignmentCounter)
       }
     } yield filteredByParty.toSet
 

@@ -6,7 +6,6 @@ package com.digitalasset.canton.participant.protocol
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.Update
-import com.digitalasset.canton.ledger.participant.state.Update.SequencerIndexMoved
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
@@ -94,16 +93,6 @@ class ParticipantTopologyTerminateProcessing(
               )
           }
         }
-        _ <- FutureUnlessShutdown.outcomeF(
-          recordOrderPublisher.tick(
-            SequencerIndexMoved(
-              domainId = domainId,
-              sequencerCounter = sc,
-              recordTime = sequencedTime.value,
-              requestCounterO = None,
-            )
-          )
-        )
       } yield ()
     } else {
       // invariant: initial record time < first processed record time, so we can safely omit ticking and publishing here

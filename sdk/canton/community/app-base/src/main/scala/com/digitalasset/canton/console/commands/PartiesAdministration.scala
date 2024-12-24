@@ -141,8 +141,6 @@ class ParticipantPartiesAdministrationGroup(
   @Help.Description("""This function registers a new party with the current participant within the participants
       |namespace. The function fails if the participant does not have appropriate signing keys
       |to issue the corresponding PartyToParticipant topology transaction.
-      |Optionally, a local display name can be added. This display name will be exposed on the
-      |ledger API party management endpoint.
       |Specifying a set of domains via the `WaitForDomain` parameter ensures that the domains have
       |enabled/added a party by the time the call returns, but other participants connected to the same domains may not
       |yet be aware of the party.
@@ -216,12 +214,11 @@ class ParticipantPartiesAdministrationGroup(
     consoleEnvironment.run {
       ConsoleCommandResult.fromEither {
         for {
-          // validating party and display name here to prevent, e.g., a party being registered despite it having an invalid display name
           // assert that name is valid ParticipantId
-          partyId <- UniqueIdentifier.create(name, namespace).map(PartyId(_))
           _ <- Either
             .catchOnly[IllegalArgumentException](LedgerParticipantId.assertFromString(name))
             .leftMap(_.getMessage)
+          partyId <- UniqueIdentifier.create(name, namespace).map(PartyId(_))
           // find the domain ids
           domainIds <- findDomainIds(this.participantId.identifier.unwrap, primaryConnected)
           // find the domain ids the additional participants are connected to

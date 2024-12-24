@@ -14,6 +14,7 @@ import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.{
   KeyAssigned,
+  KeyState,
   KeyUnassigned,
 }
 import com.digitalasset.canton.{HasExecutionContext, TestEssentials}
@@ -181,6 +182,8 @@ class MutableCacheBackedContractStoreSpec
         unassigned_secondLookup shouldBe Option.empty
 
         verify(spyContractsReader).lookupKeyState(someKey, offset0)(loggingContext)
+        // looking up the key state will prefetch the contract state
+        verify(spyContractsReader).lookupContractState(cId_1, offset0)(loggingContext)
         verify(spyContractsReader).lookupKeyState(unassignedKey, offset1)(loggingContext)
         verifyNoMoreInteractions(spyContractsReader)
         succeed
@@ -323,6 +326,10 @@ object MutableCacheBackedContractStoreSpec {
       case (`someKey`, `offset2`) => Future.successful(KeyAssigned(cId_2, Set(bob)))
       case _ => Future.successful(KeyUnassigned)
     }
+
+    override def lookupKeyStatesFromDb(keys: Seq[Key], notEarlierThanOffset: Offset)(implicit
+        loggingContext: LoggingContextWithTrace
+    ): Future[Map[Key, KeyState]] = ??? // not used in this test
 
     override def lookupContractState(contractId: ContractId, validAt: Offset)(implicit
         loggingContext: LoggingContextWithTrace

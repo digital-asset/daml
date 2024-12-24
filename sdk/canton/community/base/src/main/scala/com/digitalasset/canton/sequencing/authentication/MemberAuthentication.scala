@@ -136,7 +136,7 @@ object MemberAuthentication extends MemberAuthentication {
             )
           )
       sig <- crypto.privateCrypto
-        .sign(hash, availableSigningKey)
+        .sign(hash, availableSigningKey, SigningKeyUsage.SequencerAuthenticationOnly)
         .leftMap[AuthenticationError](FailedToSign(member, _))
     } yield sig
   }

@@ -26,7 +26,6 @@ import com.digitalasset.canton.topology.processing.*
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.FutureUnlessShutdownUtil
 
 import java.time.Duration
 import scala.concurrent.ExecutionContext
@@ -63,7 +62,8 @@ class MemberAuthenticationService(
     with FlagCloseable {
 
   /** Domain generates nonce that he expects the participant to use to concatenate with the domain's id and sign
-    * to proceed with the authentication (step 2).
+    * to proceed with the authentication (step 2). We expect to find a key with usage 'SequencerAuthentication' to
+    * sign these messages.
     */
   def generateNonce(member: Member)(implicit
       traceContext: TraceContext
@@ -179,17 +179,16 @@ class MemberAuthenticationService(
   ): FutureUnlessShutdown[Either[LogoutTokenDoesNotExist.type, Unit]] =
     for {
       _ <- waitForInitialized
-    } yield {
-      store
-        .fetchToken(token)
-        .toRight(LogoutTokenDoesNotExist)
-        .map(token =>
+      storedTokenO = store.fetchToken(token)
+      res <- storedTokenO match {
+        case None => FutureUnlessShutdown.pure(Left(LogoutTokenDoesNotExist))
+        case Some(storedToken) =>
           // Force invalidation, whether the member is actually active or not
           invalidateAndExpire(isActiveCheck = (_: Member) => FutureUnlessShutdown.pure(false))(
-            token.member
-          )
-        )
-    }
+            storedToken.member
+          ).map(Right(_))
+      }
+    } yield res
 
   private def ignoreExpired[A <: HasExpiry](itemO: Option[A]): Option[A] =
     itemO.filter(_.expireAt > clock.now)
@@ -249,8 +248,8 @@ class MemberAuthenticationService(
 
   protected def invalidateAndExpire[T <: Member](
       isActiveCheck: T => FutureUnlessShutdown[Boolean]
-  )(memberId: T)(implicit traceContext: TraceContext): Unit = {
-    val invalidateF = isActiveCheck(memberId).map { isActive =>
+  )(memberId: T)(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    isActiveCheck(memberId).map { isActive =>
       if (!isActive) {
         logger.debug(s"Expiring all auth-tokens of $memberId")
         // first, remove all auth tokens
@@ -259,11 +258,6 @@ class MemberAuthenticationService(
         invalidateMemberCallback(Traced(memberId))
       }
     }
-    FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
-      invalidateF,
-      s"Invalidating authentication for $memberId",
-    )
-  }
 
 }
 
@@ -321,8 +315,8 @@ class MemberAuthenticationServiceImpl(
       sc: SequencerCounter,
       transactions: Seq[GenericSignedTopologyTransaction],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    FutureUnlessShutdown.lift(performUnlessClosing(functionFullName) {
-      transactions.map(_.transaction).foreach {
+    performUnlessClosingUSF(functionFullName) {
+      FutureUnlessShutdown.sequence(transactions.map(_.transaction).map {
         case TopologyTransaction(
               TopologyChangeOp.Remove,
               _serial,
@@ -354,9 +348,9 @@ class MemberAuthenticationServiceImpl(
           )
           invalidateAndExpire(isParticipantActive)(participant)
 
-        case _ =>
-      }
-    })
+        case _ => FutureUnlessShutdown.unit
+      })
+    }.map(_ => ())
 }
 
 trait MemberAuthenticationServiceFactory {

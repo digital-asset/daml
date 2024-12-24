@@ -6,7 +6,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.co
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.{HashPurpose, Signature}
+import com.digitalasset.canton.crypto.{HashPurpose, Signature, SigningKeyUsage}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.metrics.BftOrderingMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1
@@ -179,7 +179,10 @@ final class AvailabilityModule[E <: Env[E]](
       case Availability.LocalDissemination.LocalBatchStored(batchId, batch) =>
         logger.debug(s"$messageType: persisted local batch $batchId, now signing")
         pipeToSelf(
-          activeCryptoProvider.sign(AvailabilityAck.hashFor(batchId, activeMembership.myId))
+          activeCryptoProvider.sign(
+            AvailabilityAck.hashFor(batchId, activeMembership.myId),
+            SigningKeyUsage.ProtocolOnly,
+          )
         )(handleFailure(s"Can't sign batch $batchId") { signature =>
           LocalDissemination.LocalBatchStoredSigned(batchId, batch, signature)
         })
@@ -208,7 +211,10 @@ final class AvailabilityModule[E <: Env[E]](
       case Availability.LocalDissemination.RemoteBatchStored(batchId, from) =>
         logger.debug(s"$messageType: local store persisted $batchId from $from, signing")
         pipeToSelf(
-          activeCryptoProvider.sign(AvailabilityAck.hashFor(batchId, activeMembership.myId))
+          activeCryptoProvider.sign(
+            AvailabilityAck.hashFor(batchId, activeMembership.myId),
+            SigningKeyUsage.ProtocolOnly,
+          )
         )(handleFailure(s"Failed to sign $batchId") { signature =>
           LocalDissemination.RemoteBatchStoredSigned(batchId, from, signature)
         })
@@ -386,7 +392,6 @@ final class AvailabilityModule[E <: Env[E]](
             //  If these batches cannot be retrieved, e.g. because the topology has changed too much and/or
             //  the peers in the PoA are unreachable indefinitely, we'll need to resort (possibly manually)
             //  to state transfer incl. the batch payloads (when it is implemented).
-            // TODO(#19661): Test it
             if (status.mode.isStateTransfer)
               extractPeers(None, useCurrentTopology = true)
             else
@@ -819,7 +824,13 @@ final class AvailabilityModule[E <: Env[E]](
       context: E#ActorContextT[Availability.Message[E]],
       traceContext: TraceContext,
   ): Unit =
-    pipeToSelf(activeCryptoProvider.signMessage(message, HashPurpose.BftSignedAvailabilityMessage))(
+    pipeToSelf(
+      activeCryptoProvider.signMessage(
+        message,
+        HashPurpose.BftSignedAvailabilityMessage,
+        SigningKeyUsage.ProtocolOnly,
+      )
+    )(
       handleFailure(s"Can't sign message $message") { signedMessage =>
         dependencies.p2pNetworkOut.asyncSend(
           P2PNetworkOut.send(
@@ -835,7 +846,13 @@ final class AvailabilityModule[E <: Env[E]](
       context: E#ActorContextT[Availability.Message[E]],
       traceContext: TraceContext,
   ): Unit =
-    pipeToSelf(activeCryptoProvider.signMessage(message, HashPurpose.BftSignedAvailabilityMessage))(
+    pipeToSelf(
+      activeCryptoProvider.signMessage(
+        message,
+        HashPurpose.BftSignedAvailabilityMessage,
+        SigningKeyUsage.ProtocolOnly,
+      )
+    )(
       handleFailure(s"Can't sign message $message") { signedMessage =>
         dependencies.p2pNetworkOut.asyncSend(
           P2PNetworkOut.Multicast(

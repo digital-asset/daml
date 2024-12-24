@@ -44,7 +44,6 @@ import com.digitalasset.canton.platform.store.dao.{
   LedgerDaoTransactionsReader,
   LedgerReadDao,
 }
-import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.PackageResolution
 import com.digitalasset.canton.platform.{Party, PruneBuffers, TemplatePartiesFilter}
@@ -368,6 +367,22 @@ private[index] class IndexServiceImpl(
     transactionsReader
       .lookupTransactionTreeById(updateId.unwrap, requestingParties)
 
+  override def getTransactionByOffset(
+      offset: Offset,
+      requestingParties: Set[Ref.Party],
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] =
+    transactionsReader
+      .lookupFlatTransactionByOffset(offset, requestingParties)
+
+  override def getTransactionTreeByOffset(
+      offset: Offset,
+      requestingParties: Set[Ref.Party],
+  )(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Future[Option[GetTransactionTreeResponse]] =
+    transactionsReader
+      .lookupTransactionTreeByOffset(offset, requestingParties)
+
   override def getEventsByContractId(
       contractId: ContractId,
       requestingParties: Set[Ref.Party],
@@ -405,28 +420,6 @@ private[index] class IndexServiceImpl(
       loggingContext: LoggingContextWithTrace
   ): Future[List[IndexerPartyDetails]] =
     ledgerDao.listKnownParties(fromExcl, maxResults)
-
-  override def partyEntries(
-      startExclusive: Option[Offset]
-  )(implicit loggingContext: LoggingContextWithTrace): Source[PartyEntry, NotUsed] =
-    Source
-      .single(startExclusive)
-      .flatMapConcat(offset =>
-        dispatcher().startingAt(
-          startExclusive = offset,
-          subSource = RangeSource { case (startInclusive, endInclusive) =>
-            ledgerDao
-              .getPartyEntries(startInclusive, endInclusive)
-          },
-        )
-      )
-      .mapError(shutdownError)
-      .map {
-        case (_, PartyLedgerEntry.AllocationRejected(subId, _, reason)) =>
-          PartyEntry.AllocationRejected(subId, reason)
-        case (_, PartyLedgerEntry.AllocationAccepted(subId, _, details)) =>
-          PartyEntry.AllocationAccepted(subId, details)
-      }
 
   override def prune(
       pruneUpToInclusive: Offset,

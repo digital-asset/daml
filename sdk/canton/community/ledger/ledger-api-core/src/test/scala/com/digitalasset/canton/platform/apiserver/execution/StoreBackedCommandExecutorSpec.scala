@@ -25,7 +25,7 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, LfValue}
-import com.digitalasset.daml.lf.command.ApiCommands as LfCommands
+import com.digitalasset.daml.lf.command.{ApiCommands as LfCommands, ApiContractKey}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.{Identifier, ParticipantId, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -136,6 +136,7 @@ class StoreBackedCommandExecutorSpec
         disclosures = any[ImmArray[FatContractInstance]],
         participantId = any[ParticipantId],
         submissionSeed = any[Hash],
+        prefetchKeys = any[Seq[ApiContractKey]],
         engineLogger = any[Option[EngineLogger]],
       )(any[LoggingContext])
     )
@@ -324,6 +325,7 @@ class StoreBackedCommandExecutorSpec
           disclosures = any[ImmArray[FatContractInstance]],
           participantId = any[ParticipantId],
           submissionSeed = any[Hash],
+          prefetchKeys = any[Seq[ApiContractKey]],
           engineLogger = any[Option[EngineLogger]],
         )(any[LoggingContext])
       ).thenReturn(engineResult)

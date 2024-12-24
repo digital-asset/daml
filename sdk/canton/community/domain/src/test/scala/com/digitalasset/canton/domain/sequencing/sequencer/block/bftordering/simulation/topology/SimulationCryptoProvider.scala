@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.simulation.topology
 
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.KeyPurpose.Signing
@@ -25,6 +26,7 @@ import com.digitalasset.canton.crypto.{
   HashPurpose,
   Signature,
   SignatureCheckError,
+  SigningKeyUsage,
   SigningPublicKey,
   SyncCryptoError,
 }
@@ -71,7 +73,7 @@ class SimulationCryptoProvider(
       case None => Map.empty
     }
 
-  override def sign(hash: Hash)(implicit
+  override def sign(hash: Hash, usage: NonEmpty[Set[SigningKeyUsage]])(implicit
       traceContext: TraceContext
   ): SimulationFuture[Either[SyncCryptoError, Signature]] = SimulationFuture { () =>
     Try {
@@ -82,6 +84,7 @@ class SimulationCryptoProvider(
   override def signMessage[MessageT <: ProtocolVersionedMemoizedEvidence & MessageFrom](
       message: MessageT,
       hashPurpose: HashPurpose,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
       traceContext: TraceContext
   ): SimulationFuture[Either[SyncCryptoError, SignedMessage[MessageT]]] = SimulationFuture { () =>
@@ -95,7 +98,7 @@ class SimulationCryptoProvider(
     for {
       fingerprint <- fetchSigningKey()
       signature =
-        crypto.sign(hash, fingerprint)
+        crypto.sign(hash, fingerprint, SigningKeyUsage.ProtocolOnly)
     } yield signature
 
   override def verifySignature(hash: Hash, member: SequencerId, signature: Signature)(implicit

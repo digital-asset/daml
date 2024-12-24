@@ -222,7 +222,8 @@ class ProtocolProcessorTest
       TestProcessingSteps.TestProcessingError,
     ]
 
-  private def waitForAsyncResult(asyncResult: AsyncResult) = asyncResult.unwrap.unwrap.futureValue
+  private def waitForAsyncResult(asyncResult: AsyncResult[Unit]) =
+    asyncResult.unwrap.unwrap.futureValue
 
   private def testProcessingSteps(
       overrideConstructedPendingRequestDataO: Option[TestPendingRequestData] = None,

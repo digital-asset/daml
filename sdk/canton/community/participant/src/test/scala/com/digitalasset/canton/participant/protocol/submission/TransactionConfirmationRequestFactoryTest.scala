@@ -285,7 +285,12 @@ class TransactionConfirmationRequestFactoryTest
           if (tree.isTopLevel) {
             Some(
               Await
-                .result(cryptoSnapshot.sign(tree.transactionId.unwrap).value, 10.seconds)
+                .result(
+                  cryptoSnapshot
+                    .sign(tree.transactionId.unwrap, SigningKeyUsage.ProtocolOnly)
+                    .value,
+                  10.seconds,
+                )
                 .failOnShutdown
                 .valueOr(err => fail(err.toString))
             )
@@ -338,7 +343,13 @@ class TransactionConfirmationRequestFactoryTest
     }
 
     val signature =
-      cryptoSnapshot.sign(example.fullInformeeTree.transactionId.unwrap).failOnShutdown.futureValue
+      cryptoSnapshot
+        .sign(
+          example.fullInformeeTree.transactionId.unwrap,
+          SigningKeyUsage.ProtocolOnly,
+        )
+        .failOnShutdown
+        .futureValue
 
     TransactionConfirmationRequest(
       InformeeMessage(example.fullInformeeTree, signature)(testedProtocolVersion),

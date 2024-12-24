@@ -8,6 +8,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.common.domain.RegisterTopologyTransactionHandle
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{ProcessingTimeout, TopologyConfig}
+import com.digitalasset.canton.crypto.SigningKeyUsage
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{
@@ -80,7 +81,10 @@ class QueueBasedDomainOutboxTest
         NamespaceDelegation.tryCreate(namespace, publicKey, isRootDelegation = true),
         testedProtocolVersion,
       ),
-      signingKeys = NonEmpty(Set, publicKey.fingerprint),
+      signingKeys = NonEmpty(
+        Map,
+        publicKey.fingerprint -> SigningKeyUsage.NamespaceOnly,
+      ),
       isProposal = false,
       crypto.privateCrypto,
       testedProtocolVersion,

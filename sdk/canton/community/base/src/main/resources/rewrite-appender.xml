@@ -471,6 +471,16 @@
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>
         </rewrite>
+        <!-- There is one warning that can escape the suppressing logger for failed steps.
+        Fixing it properly would mean to include the ability to specify suppressing rules
+        in snippets directives which is overkill for now.
+        -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.admin.PingService:PocDocumentationIntegrationTest</logger>
+            <contains>Failed ping</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
         <!-- At shutdown of the HikariPool warnings are going to be logged when ThreadPoolExecutor#awaitTermination
          time out or get interrupted.
 

@@ -145,6 +145,8 @@ enum SigningKeyUsage {
   SIGNING_KEY_USAGE_SEQUENCER_AUTHENTICATION = 3;
   // keys that deal with all the signing that happens as part of the protocol
   SIGNING_KEY_USAGE_PROTOCOL = 4;
+  // used internally to identify keys that can self-sign to prove ownership
+  SIGNING_KEY_USAGE_PROOF_OF_OWNERSHIP = 5;
 }
 
 message SigningPublicKey {

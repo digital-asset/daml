@@ -8,7 +8,12 @@ import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, HashPurpose, Signature}
+import com.digitalasset.canton.crypto.{
+  DomainSyncCryptoClient,
+  HashPurpose,
+  Signature,
+  SigningKeyUsage,
+}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer as CantonSequencer
@@ -1125,7 +1130,7 @@ trait SequencerApiTestUtils
   ): FutureUnlessShutdown[ClosedEnvelope] = {
     val hash = crypto.pureCrypto.digest(HashPurpose.SignedProtocolMessageSignature, envelope.bytes)
     crypto.currentSnapshotApproximation
-      .sign(hash)
+      .sign(hash, SigningKeyUsage.ProtocolOnly)
       .map(sig => envelope.copy(signatures = Seq(sig)))
       .valueOrFail(s"Failed to sign $envelope")
   }

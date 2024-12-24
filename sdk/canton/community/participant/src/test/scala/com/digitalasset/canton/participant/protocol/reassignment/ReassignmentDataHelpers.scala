@@ -12,6 +12,7 @@ import com.digitalasset.canton.crypto.{
   DomainSyncCryptoClient,
   HashPurpose,
   Signature,
+  SigningKeyUsage,
   TestHash,
 }
 import com.digitalasset.canton.data.{
@@ -302,7 +303,7 @@ object ReassignmentDataHelpers {
     )
 
     val res = cryptoSnapshotSequencer
-      .sign(hash)
+      .sign(hash, SigningKeyUsage.ProtocolOnly)
       .value
       .onShutdown(sys.error("aborted due to shutdown"))
       .map(_.value)

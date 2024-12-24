@@ -9,6 +9,10 @@ import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRespons
 import com.daml.ledger.api.v2.completion.Completion
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.Update.CommandRejected.FinalReason
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.{
+  AuthorizationLevel,
+  TopologyEvent,
+}
 import com.digitalasset.canton.ledger.participant.state.{
   CompletionInfo,
   Reassignment,
@@ -19,6 +23,7 @@ import com.digitalasset.canton.ledger.participant.state.{
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.pekkostreams.dispatcher.Dispatcher
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
+import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocationTracker
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater.PrepareResult
 import com.digitalasset.canton.platform.index.InMemoryStateUpdaterSpec.*
@@ -127,6 +132,7 @@ class InMemoryStateUpdaterSpec
       InMemoryStateUpdater.prepare(
         Vector.empty,
         someLedgerEnd,
+        participantId,
       )
     }
   }
@@ -135,6 +141,7 @@ class InMemoryStateUpdaterSpec
     InMemoryStateUpdater.prepare(
       Vector(update1),
       someLedgerEnd,
+      participantId,
     ) shouldBe PrepareResult(
       Vector(txLogUpdate1),
       someLedgerEnd,
@@ -146,8 +153,21 @@ class InMemoryStateUpdaterSpec
     InMemoryStateUpdater.prepare(
       Vector(update1, update7, update8),
       someLedgerEnd,
+      participantId,
     ) shouldBe PrepareResult(
       Vector(txLogUpdate1, assignLogUpdate, unassignLogUpdate),
+      someLedgerEnd,
+      update1._2.traceContext,
+    )
+  }
+
+  "prepare" should "prepare a batch with topology transaction" in new Scope {
+    InMemoryStateUpdater.prepare(
+      Vector(update1, update9),
+      someLedgerEnd,
+      participantId,
+    ) shouldBe PrepareResult(
+      Vector(txLogUpdate1, topologyTransactionLogUpdate),
       someLedgerEnd,
       update1._2.traceContext,
     )
@@ -157,6 +177,7 @@ class InMemoryStateUpdaterSpec
     InMemoryStateUpdater.prepare(
       Vector(update1, metadataChangedUpdate),
       someLedgerEnd,
+      participantId,
     ) shouldBe PrepareResult(
       Vector(txLogUpdate1),
       someLedgerEnd,
@@ -364,6 +385,27 @@ object InMemoryStateUpdaterSpec {
 
   import TraceContext.Implicits.Empty.*
 
+  private val txId1 = Ref.TransactionId.assertFromString("tx1")
+  private val txId2 = Ref.TransactionId.assertFromString("tx2")
+  private val txId3 = Ref.TransactionId.assertFromString("tx3")
+  private val txId4 = Ref.TransactionId.assertFromString("tx4")
+
+  private val domainId1 = DomainId.tryFromString("x::domainID1")
+  private val domainId2 = DomainId.tryFromString("x::domainID2")
+
+  private val party1 = Ref.Party.assertFromString("someparty1")
+  private val party2 = Ref.Party.assertFromString("someparty2")
+
+  private val templateId = Identifier.assertFromString("pkgId1:Mod:I")
+  private val templateId2 = Identifier.assertFromString("pkgId2:Mod:I2")
+
+  private val packageName = Ref.PackageName.assertFromString("pkg-name")
+  private val packageVersion = Ref.PackageVersion.assertFromString("1.2.3")
+
+  private val participantId = Ref.ParticipantId.assertFromString("participant1")
+  private val someContractMetadataBytes = Bytes.assertFromString("00aabb")
+  private val workflowId: Ref.WorkflowId = Ref.WorkflowId.assertFromString("Workflow")
+
   trait Scope
       extends Matchers
       with ScalaFutures
@@ -377,23 +419,9 @@ object InMemoryStateUpdaterSpec {
     val cachesUpdateCaptor =
       (v: PrepareResult, _: Boolean) => cacheUpdates.addOne(v).pipe(_ => ())
 
-    val inMemoryStateUpdater = InMemoryStateUpdaterFlow(
-      prepareUpdatesParallelism = 2,
-      prepareUpdatesExecutionContext = executorService,
-      updateCachesExecutionContext = executorService,
-      preparePackageMetadataTimeOutWarning = FiniteDuration(10, "seconds"),
-      offsetCheckpointCacheUpdateInterval = FiniteDuration(15, "seconds"),
-      metrics = LedgerApiServerMetrics.ForTesting,
-      logger = logger,
-    )(
-      inMemoryState = inMemoryState,
-      prepare = (_, ledgerEnd) => result(ledgerEnd),
-      update = cachesUpdateCaptor,
-    )(emptyTraceContext)
-
     val txLogUpdate1 =
       TransactionLogUpdate.TransactionAccepted(
-        updateId = "tx1",
+        updateId = txId1,
         commandId = "",
         workflowId = workflowId,
         effectiveAt = Timestamp.Epoch,
@@ -406,7 +434,7 @@ object InMemoryStateUpdaterSpec {
 
     val assignLogUpdate =
       TransactionLogUpdate.ReassignmentAccepted(
-        updateId = "tx3",
+        updateId = txId3,
         commandId = "",
         workflowId = workflowId,
         offset = offset(17L),
@@ -424,7 +452,7 @@ object InMemoryStateUpdaterSpec {
         reassignment = TransactionLogUpdate.ReassignmentAccepted.Assigned(
           CreatedEvent(
             eventOffset = offset(17L),
-            updateId = "tx3",
+            updateId = txId3,
             nodeIndex = 0,
             eventSequentialId = 0,
             eventId = EventId(txId3, NodeId(0)),
@@ -453,7 +481,7 @@ object InMemoryStateUpdaterSpec {
 
     val unassignLogUpdate =
       TransactionLogUpdate.ReassignmentAccepted(
-        updateId = "tx4",
+        updateId = txId4,
         commandId = "",
         workflowId = workflowId,
         offset = offset(18L),
@@ -479,6 +507,21 @@ object InMemoryStateUpdaterSpec {
         ),
       )(emptyTraceContext)
 
+    val topologyTransactionLogUpdate =
+      TransactionLogUpdate.TopologyTransactionEffective(
+        updateId = txId3,
+        domainId = domainId1.toProtoPrimitive,
+        offset = offset(19L),
+        effectiveTime = Timestamp.Epoch,
+        events = Vector(
+          TransactionLogUpdate.PartyToParticipantAuthorization(
+            party = party1,
+            participant = participantId,
+            level = AuthorizationLevel.Observation,
+          )
+        ),
+      )(emptyTraceContext)
+
     val ledgerEndCache: MutableLedgerEndCache = mock[MutableLedgerEndCache]
     val contractStateCaches: ContractStateCaches = mock[ContractStateCaches]
     val offsetCheckpointCache: OffsetCheckpointCache = mock[OffsetCheckpointCache]
@@ -486,6 +529,7 @@ object InMemoryStateUpdaterSpec {
     val stringInterningView: StringInterningView = mock[StringInterningView]
     val dispatcherState: DispatcherState = mock[DispatcherState]
     val submissionTracker: SubmissionTracker = mock[SubmissionTracker]
+    val partyAllocationTracker: PartyAllocationTracker = mock[PartyAllocationTracker]
     val dispatcher: Dispatcher[Offset] = mock[Dispatcher[Offset]]
     val commandProgressTracker = CommandProgressTracker.NoOp
 
@@ -502,6 +546,7 @@ object InMemoryStateUpdaterSpec {
     when(dispatcherState.getDispatcher).thenReturn(dispatcher)
 
     val inMemoryState = new InMemoryState(
+      participantId = participantId,
       ledgerEndCache = ledgerEndCache,
       contractStateCaches = contractStateCaches,
       offsetCheckpointCache = offsetCheckpointCache,
@@ -509,9 +554,24 @@ object InMemoryStateUpdaterSpec {
       stringInterningView = stringInterningView,
       dispatcherState = dispatcherState,
       submissionTracker = submissionTracker,
+      partyAllocationTracker = partyAllocationTracker,
       commandProgressTracker = commandProgressTracker,
       loggerFactory = loggerFactory,
     )(executorService)
+
+    val inMemoryStateUpdater = InMemoryStateUpdaterFlow(
+      prepareUpdatesParallelism = 2,
+      prepareUpdatesExecutionContext = executorService,
+      updateCachesExecutionContext = executorService,
+      preparePackageMetadataTimeOutWarning = FiniteDuration(10, "seconds"),
+      offsetCheckpointCacheUpdateInterval = FiniteDuration(15, "seconds"),
+      metrics = LedgerApiServerMetrics.ForTesting,
+      logger = logger,
+    )(
+      inMemoryState = inMemoryState,
+      prepare = (_, ledgerEnd, _) => result(ledgerEnd),
+      update = cachesUpdateCaptor,
+    )(emptyTraceContext)
 
     val tx_accepted_commandId = "cAccepted"
     val tx_accepted_updateId = "tAccepted"
@@ -631,23 +691,6 @@ object InMemoryStateUpdaterSpec {
         .futureValue
   }
 
-  private val txId1 = Ref.TransactionId.assertFromString("tx1")
-  private val txId2 = Ref.TransactionId.assertFromString("tx2")
-  private val txId3 = Ref.TransactionId.assertFromString("tx3")
-  private val txId4 = Ref.TransactionId.assertFromString("tx4")
-
-  private val domainId1 = DomainId.tryFromString("x::domainID1")
-  private val domainId2 = DomainId.tryFromString("x::domainID2")
-
-  private val party1 = Ref.Party.assertFromString("someparty1")
-  private val party2 = Ref.Party.assertFromString("someparty2")
-
-  private val templateId = Identifier.assertFromString("pkgId1:Mod:I")
-  private val templateId2 = Identifier.assertFromString("pkgId2:Mod:I2")
-
-  private val packageName = Ref.PackageName.assertFromString("pkg-name")
-  private val packageVersion = Ref.PackageVersion.assertFromString("1.2.3")
-
   private def genCreateNode = {
     val contractId = TransactionBuilder.newCid
     TestNodeBuilder
@@ -713,9 +756,6 @@ object InMemoryStateUpdaterSpec {
         )
     }
 
-  private val someContractMetadataBytes = Bytes.assertFromString("00aabb")
-
-  private val workflowId: Ref.WorkflowId = Ref.WorkflowId.assertFromString("Workflow")
   private val someTransactionMeta: TransactionMeta = TransactionMeta(
     ledgerEffectiveTime = Timestamp.Epoch,
     workflowId = Some(workflowId),
@@ -759,6 +799,9 @@ object InMemoryStateUpdaterSpec {
 
   private val update8 = offset(18L) ->
     unassignmentAccepted(t = 0, source = domainId2, target = domainId1)
+
+  private val update9 = offset(19L) ->
+    topologyTransactionEffective(t = 0, AuthorizationLevel.Observation)
 
   private val anotherMetadataChangedUpdate =
     rawMetadataChangedUpdate(offset(15L), Timestamp.assertFromLong(1337L))
@@ -978,6 +1021,23 @@ object InMemoryStateUpdaterSpec {
       sequencerCounter = SequencerCounter(1),
       recordTime = CantonTimestamp.assertFromLong(t),
       requestCounterO = None,
+    )
+
+  private def topologyTransactionEffective(
+      t: Long,
+      authorizationLevel: AuthorizationLevel,
+  ): Update.TopologyTransactionEffective =
+    Update.TopologyTransactionEffective(
+      updateId = txId3,
+      domainId = domainId1,
+      effectiveTime = CantonTimestamp(Timestamp(t)),
+      events = Set(
+        TopologyEvent.PartyToParticipantAuthorization(
+          party = party1,
+          participant = participantId,
+          level = authorizationLevel,
+        )
+      ),
     )
 
   private val someLedgerEnd = LedgerEnd(

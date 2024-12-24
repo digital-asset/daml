@@ -93,11 +93,7 @@ class TopologyComponentFactory(
           } yield participantTerminateProcessing
         } else {
           FutureUnlessShutdown.pure(
-            new ParticipantTopologyTerminateProcessingTicker(
-              recordOrderPublisher,
-              domainId,
-              loggerFactory,
-            )
+            new ParticipantTopologyTerminateProcessingTicker(loggerFactory)
           )
         }
 

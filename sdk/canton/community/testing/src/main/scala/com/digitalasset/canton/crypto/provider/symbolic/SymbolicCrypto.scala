@@ -106,9 +106,13 @@ class SymbolicCrypto(
         .generateEncryptionKeypair(privateCrypto.defaultEncryptionKeySpec)
     }
 
-  def sign(hash: Hash, signingKeyId: Fingerprint): Signature =
+  def sign(
+      hash: Hash,
+      signingKeyId: Fingerprint,
+      usage: NonEmpty[Set[SigningKeyUsage]],
+  ): Signature =
     processE("symbolic signing") { implicit traceContext =>
-      privateCrypto.sign(hash, signingKeyId)
+      privateCrypto.sign(hash, signingKeyId, usage)
     }
 
   def setRandomKeysFlag(newValue: Boolean): Unit =
