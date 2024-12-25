@@ -1,20 +1,6 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO range=135:17-135:32; Use dedup
--- @INFO range=321:10-321:24; Evaluate
--- @INFO range=336:38-336:48; Use sum
--- @INFO range=337:43-337:53; Use sum
--- @INFO range=338:29-338:39; Use sum
--- @INFO range=341:3-341:23; Use head
--- @INFO range=351:10-351:17; Use head
--- @ERROR range=301:1-301:9; head: empty list
--- @ERROR range=307:1-307:9; tail: empty list
--- @ERROR range=313:1-313:9; last: empty list
--- @ERROR range=319:1-319:9; init: empty list
--- @ERROR range=344:1-344:16; negative index
--- @ERROR range=347:1-347:18; index too large
--- @ERROR range=350:1-350:19; index too large
 
 module List where
 
@@ -131,6 +117,7 @@ testDedupSort = script do
     let m = dedupSort l
     m === [1,2,3,4,5,7]
 
+-- @INFO range=122:17-122:32; Use dedup
 testDedupBy = script do
   [2, 1, 3] === dedupBy compare [2, 1, 3, 2, 1]
   [3, 1, 9, 10, 2] === dedupBy (\x y -> compare (x % 5) (y % 5)) [3, 1, 6, 9, 6, 4, 10, 1, 2]
@@ -228,6 +215,11 @@ testMapAccumL = script do
   (7.1, [1,3,7]) === mapAccumL (\a x -> (a + x, floor (a + x))) 0.0 ([1.2, 2.5, 3.4] : [Decimal])
   (42, []) === mapAccumL (\a x -> (a*x, a)) 42 []
 
+testMapWithIndex = script do
+  map (*2) [1..5] === mapWithIndex (const (*2)) [1..5]
+  [1, 3, 5, 7, 9] === mapWithIndex (+) [1..5]
+  [] === mapWithIndex (+) []
+
 testIntersperse = script do
   [] === intersperse 0 []
   [1] === intersperse 0 [1]
@@ -298,28 +290,29 @@ testWordsBy = script do
   [] === wordsBy (const True) [1, 2, 3]
   [[1, 2, 3], [4], [5]] === wordsBy (==0) [0, 0, 1, 2, 3, 0, 0, 4, 0, 0, 0, 5, 0, 0]
 
-testHead = script @[()] do
+-- @ERROR range=294:1-294:9; head: empty list
+testHead = script @() do
   1 === head [1, 2, 3]
   "foo" === head ["foo"]
-  p <- allocateParty "p"
   pure $ head []
 
+-- @ERROR range=300:1-300:9; tail: empty list
 testTail = script @[()] do
   [2, 3] === tail [1, 2, 3]
   [] === tail ["hello"]
-  p <- allocateParty "p"
   pure $ tail []
 
-testLast = script @[()] do
+-- @ERROR range=306:1-306:9; last: empty list
+testLast = script @() do
   3 === last [1, 2, 3]
   "foo" === last ["foo"]
-  p <- allocateParty "p"
   pure $ last []
 
+-- @ERROR range=313:1-313:9; init: empty list
+-- @INFO range=315:10-315:24; Evaluate
 testInit = script @[()] do
   [1, 2] === init [1, 2, 3]
   [] === init ["hello"]
-  p <- allocateParty "p"
   pure $ init []
 
 testFoldl1 = script do
@@ -332,22 +325,30 @@ testFoldr1 = script do
   "abc" === foldr1 (<>) ["a", "b", "c"]
   2 === foldr1 (-) [1, 2, 3]
 
+-- @INFO range=332:38-332:48; Use sum
+-- @INFO range=333:43-333:53; Use sum
+-- @INFO range=334:29-334:39; Use sum
 testRepeatedly = script do
   [15, 12, 5] === repeatedly (\x -> (foldl1 (+) x, drop 2 x)) [1..5]
   [10, 22, 34, 10] === repeatedly (\x -> (foldl1 (+) (take 4 x), drop 3 x)) [1..10]
   [] === repeatedly (\x -> (foldl1 (+) (take 2 x), drop 2 x)) ([] : [Int])
 
+-- @INFO range=338:3-338:23; Use head
 testNth = script do
   1 === [1, 2, 3] !! 0
   3 === [1, 2, 3] !! 2
 
+-- @ERROR range=342:1-342:16; negative index
 testNthNegative = script do
   pure $ [1, 2, 3] !! (-1)
 
+-- @ERROR range=346:1-346:18; index too large
 testNthOutOfRange = script do
   pure $ [1, 2, 3] !! 3
 
-testNthOutOfRange0 = script @[Int] do
+-- @ERROR range=351:1-351:19; index too large
+-- @INFO range=352:10-352:17; Use head
+testNthOutOfRange0 = script @Int do
   pure $ [] !! 0
 
 testElemIndex = script do
