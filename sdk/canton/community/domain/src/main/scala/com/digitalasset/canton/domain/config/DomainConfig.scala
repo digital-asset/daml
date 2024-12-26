@@ -141,12 +141,12 @@ trait DomainConfig extends DomainBaseConfig {
   /** location of the service agreement of the domain (if any) */
   def serviceAgreement: Option[File]
 
-  def sequencerConnectionConfig: SequencerConnectionConfig.Grpc =
-    publicApi.toSequencerConnectionConfig
+  def sequencerConnectionConfig: ClientConfig =
+    publicApi.clientConfig
 
   def toRemoteConfig: RemoteDomainConfig = RemoteDomainConfig(
     adminApi = adminApi.clientConfig,
-    publicApi = sequencerConnectionConfig,
+    publicApi = SequencerApiClientConfig.fromClientConfig(sequencerConnectionConfig),
   )
 
   /** General node parameters */
@@ -199,7 +199,7 @@ final case class CommunityDomainConfig(
   */
 final case class RemoteDomainConfig(
     adminApi: ClientConfig,
-    publicApi: SequencerConnectionConfig.Grpc,
+    publicApi: SequencerApiClientConfig,
 ) extends NodeConfig {
   override def clientAdminApi: ClientConfig = adminApi
 }

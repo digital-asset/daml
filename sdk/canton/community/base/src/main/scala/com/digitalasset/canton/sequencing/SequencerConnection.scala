@@ -19,7 +19,7 @@ import io.grpc.netty.NettyChannelBuilder
 import java.net.URI
 import java.util.concurrent.Executor
 
-/** Our [[com.digitalasset.canton.config.SequencerConnectionConfig]] provides a flexible structure for configuring how
+/** This provides a flexible structure for configuring how
   * the domain and its members talk to a sequencer. It however leaves much information intentionally optional so it can
   * be inferred at runtime based on information that may only be available at the point of creating a sequencer
   * connection (for instance defaulting to domain connection information that a user has provided in an admin command).

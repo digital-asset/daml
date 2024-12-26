@@ -152,7 +152,7 @@ object ClientChannelBuilder {
     configureKeepAlive(
       clientConfig.keepAliveClient,
       // if tls isn't configured assume that it's a plaintext channel
-      clientConfig.tls
+      clientConfig.tlsConfig
         .fold(baseBuilder.usePlaintext()) { tls =>
           baseBuilder
             .useTransportSecurity()

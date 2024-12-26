@@ -1,4 +1,4 @@
-sdk-version: 2.10.0-snapshot.20241216.13150.0.vc832cb4a
+sdk-version: 2.10.0-snapshot.20241217.13156.0.v1da3a35b
 sandbox-options: 
 - --wall-clock-time
 name: contact
