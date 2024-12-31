@@ -39,7 +39,7 @@ import com.digitalasset.canton.sequencing.{
   SequencerConnections,
 }
 import com.digitalasset.canton.serialization.ProtoConverter
-import com.digitalasset.canton.topology.{DomainId, Member}
+import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.retry.NoExceptionRetryPolicy
 import com.digitalasset.canton.util.{EitherTUtil, retry}
@@ -166,7 +166,7 @@ object GrpcSequencerConnectionService extends HasLoggerName {
       transportFactory: SequencerClientTransportFactory,
       sequencerInfoLoader: SequencerInfoLoader,
       domainAlias: DomainAlias,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       sequencerClient: SequencerClient,
       loggerFactory: NamedLoggerFactory,
   )(implicit
@@ -192,7 +192,7 @@ object GrpcSequencerConnectionService extends HasLoggerName {
               newEndpointsInfo <- sequencerInfoLoader
                 .loadAndAggregateSequencerEndpoints(
                   domainAlias,
-                  Some(domainId),
+                  Some(synchronizerId),
                   newSequencerConnection,
                   sequencerConnectionValidation,
                 )
@@ -264,7 +264,7 @@ object GrpcSequencerConnectionService extends HasLoggerName {
           sequencerInfoLoader
             .loadAndAggregateSequencerEndpoints(
               domainAlias = alias,
-              expectedDomainId = None,
+              expectedSynchronizerId = None,
               sequencerConnections = settings,
               sequencerConnectionValidation = SequencerConnectionValidation.Active,
             )

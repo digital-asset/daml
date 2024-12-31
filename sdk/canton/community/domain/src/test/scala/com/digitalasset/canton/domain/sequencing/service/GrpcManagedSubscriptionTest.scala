@@ -18,8 +18,8 @@ import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.topology.{
   DefaultTestIdentities,
-  DomainId,
   ParticipantId,
+  SynchronizerId,
   UniqueIdentifier,
 }
 import com.digitalasset.canton.tracing.SerializableTraceContext
@@ -35,7 +35,7 @@ class GrpcManagedSubscriptionTest extends AnyWordSpec with BaseTest with HasExec
   @SuppressWarnings(Array("org.wartremover.warts.Var", "org.wartremover.warts.Null"))
   private class Env {
     val sequencerSubscription = mock[SequencerSubscription[SequencedEventError]]
-    val domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("da::default"))
+    val synchronizerId = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("da::default"))
     var handler: Option[SerializedEventOrErrorHandler[SequencedEventError]] = None
     val member = ParticipantId(DefaultTestIdentities.uid)
     val observer = mock[ServerCallStreamObserver[v30.VersionedSubscriptionResponse]]
@@ -62,7 +62,7 @@ class GrpcManagedSubscriptionTest extends AnyWordSpec with BaseTest with HasExec
         Deliver.create(
           SequencerCounter(0),
           CantonTimestamp.Epoch,
-          domainId,
+          synchronizerId,
           Some(MessageId.tryCreate("test-deliver")),
           Batch(
             List(

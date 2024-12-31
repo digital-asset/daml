@@ -77,11 +77,11 @@ class SequencerReaderTest
   private val alice = ParticipantId("alice")
   private val bob = ParticipantId("bob")
   private val ts0 = CantonTimestamp.Epoch
-  private val domainId = DefaultTestIdentities.domainId
-  private val topologyClientMember = SequencerId(domainId.uid)
+  private val synchronizerId = DefaultTestIdentities.synchronizerId
+  private val topologyClientMember = SequencerId(synchronizerId.uid)
   private val crypto = TestingTopology(
     sequencerGroup = SequencerGroup(
-      active = Seq(SequencerId(domainId.uid)),
+      active = Seq(SequencerId(synchronizerId.uid)),
       passive = Seq.empty,
       threshold = PositiveInt.one,
     ),
@@ -89,9 +89,11 @@ class SequencerReaderTest
       alice,
       bob,
     ).map((_, ParticipantAttributes(ParticipantPermission.Confirmation))).toMap,
-  ).build(loggerFactory).forOwner(SequencerId(domainId.uid))
+  ).build(loggerFactory).forOwner(SequencerId(synchronizerId.uid))
   private val cryptoD =
-    valueOrFail(crypto.forDomain(domainId, defaultStaticDomainParameters).toRight("no crypto api"))(
+    valueOrFail(
+      crypto.forDomain(synchronizerId, defaultStaticDomainParameters).toRight("no crypto api")
+    )(
       "domain crypto"
     )
   private val instanceDiscriminator = new UUID(1L, 2L)
@@ -149,7 +151,7 @@ class SequencerReaderTest
     val eventSignaller = new ManualEventSignaller()
     val reader = new SequencerReader(
       testConfig,
-      domainId,
+      synchronizerId,
       storeSpy,
       cryptoD,
       eventSignaller,
@@ -755,7 +757,7 @@ class SequencerReaderTest
                     Deliver.create(
                       SequencerCounter(sc),
                       sequencingTimestamp,
-                      domainId,
+                      synchronizerId,
                       messageId.some,
                       batch,
                       Some(topologyTimestamp),
@@ -766,7 +768,7 @@ class SequencerReaderTest
                     DeliverError.create(
                       SequencerCounter(sc),
                       sequencingTimestamp,
-                      domainId,
+                      synchronizerId,
                       messageId,
                       SequencerErrors.TopoologyTimestampTooEarly(
                         topologyTimestamp,
@@ -807,7 +809,7 @@ class SequencerReaderTest
                     Deliver.create(
                       SequencerCounter(sc),
                       sequencingTimestamp,
-                      domainId,
+                      synchronizerId,
                       None,
                       batch,
                       Some(topologyTimestamp),
@@ -818,7 +820,7 @@ class SequencerReaderTest
                     Deliver.create(
                       SequencerCounter(sc),
                       sequencingTimestamp,
-                      domainId,
+                      synchronizerId,
                       None,
                       Batch.empty(testedProtocolVersion),
                       None,

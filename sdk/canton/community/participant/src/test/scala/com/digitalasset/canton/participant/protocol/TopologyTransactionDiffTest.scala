@@ -10,9 +10,9 @@ import com.digitalasset.canton.topology.DefaultTestIdentities.sequencerId
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Replace
 import com.digitalasset.canton.topology.{
-  DomainId,
   ParticipantId,
   PartyId,
+  SynchronizerId,
   TestingOwnerWithKeys,
   UniqueIdentifier,
 }
@@ -27,7 +27,9 @@ class TopologyTransactionDiffTest
   private lazy val topologyFactory =
     new TestingOwnerWithKeys(sequencerId, loggerFactory, executorService)
 
-  private lazy val domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::mydomain"))
+  private lazy val synchronizerId = SynchronizerId(
+    UniqueIdentifier.tryFromProtoPrimitive("domain::mydomain")
+  )
 
   private def ptp(
       partyId: PartyId,
@@ -76,7 +78,7 @@ class TopologyTransactionDiffTest
       def diffInitialWith(
           newState: Seq[SignedTopologyTransaction[Replace, TopologyMapping]]
       ) = TopologyTransactionDiff(
-        domainId,
+        synchronizerId,
         initialTxs,
         newState,
         p1,

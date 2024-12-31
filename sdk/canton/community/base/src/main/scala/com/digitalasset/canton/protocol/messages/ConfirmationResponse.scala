@@ -14,7 +14,7 @@ import com.digitalasset.canton.protocol.messages.ConfirmationResponse.InvalidCon
 import com.digitalasset.canton.protocol.messages.SignedProtocolMessageContent.SignedMessageContentCast
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.version.*
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -31,7 +31,7 @@ import monocle.macros.GenLens
   * @param localVerdict The participant's verdict on the request's view.
   * @param rootHash The root hash of the request.
   * @param confirmingParties   The set of confirming parties. Empty, if the verdict is malformed.
-  * @param domainId The domain ID over which the request is sent.
+  * @param synchronizerId The synchronizer id over which the request is sent.
   */
 
 /*
@@ -55,7 +55,7 @@ case class ConfirmationResponse private (
     localVerdict: LocalVerdict,
     rootHash: RootHash,
     confirmingParties: Set[LfPartyId],
-    override val domainId: DomainId,
+    override val synchronizerId: SynchronizerId,
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
       ConfirmationResponse.type
@@ -63,7 +63,7 @@ case class ConfirmationResponse private (
     override val deserializedFrom: Option[ByteString],
 ) extends SignedProtocolMessageContent
     with HasProtocolVersionedWrapper[ConfirmationResponse]
-    with HasDomainId
+    with HasSynchronizerId
     with PrettyPrinting {
 
   // Private copy method used by the lenses in the companion object
@@ -74,7 +74,7 @@ case class ConfirmationResponse private (
       localVerdict: LocalVerdict = localVerdict,
       rootHash: RootHash = rootHash,
       confirmingParties: Set[LfPartyId] = confirmingParties,
-      domainId: DomainId = domainId,
+      synchronizerId: SynchronizerId = synchronizerId,
   ): ConfirmationResponse = ConfirmationResponse(
     requestId,
     sender,
@@ -82,7 +82,7 @@ case class ConfirmationResponse private (
     localVerdict,
     rootHash,
     confirmingParties,
-    domainId,
+    synchronizerId,
   )(representativeProtocolVersion, None)
 
   // If an object invariant is violated, throw an exception specific to the class.
@@ -117,7 +117,7 @@ case class ConfirmationResponse private (
       localVerdict = Some(localVerdict.toProtoV30),
       rootHash = rootHash.toProtoPrimitive,
       confirmingParties = confirmingParties.toList,
-      domainId = domainId.toProtoPrimitive,
+      synchronizerId = synchronizerId.toProtoPrimitive,
     )
 
   override protected[messages] def toProtoTypedSomeSignedProtocolMessage
@@ -131,7 +131,7 @@ case class ConfirmationResponse private (
       param("sender", _.sender),
       param("localVerdict", _.localVerdict),
       param("confirmingParties", _.confirmingParties),
-      param("domainId", _.domainId),
+      param("synchronizerId", _.synchronizerId),
       param("requestId", _.requestId),
       paramIfDefined("viewPosition", _.viewPositionO),
       param("rootHash", _.rootHash),
@@ -163,7 +163,7 @@ object ConfirmationResponse
       localVerdict: LocalVerdict,
       rootHash: RootHash,
       confirmingParties: Set[LfPartyId],
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       protocolVersion: ProtocolVersion,
   ): Either[InvalidConfirmationResponse, ConfirmationResponse] =
     Either.catchOnly[InvalidConfirmationResponse](
@@ -174,7 +174,7 @@ object ConfirmationResponse
         localVerdict,
         rootHash,
         confirmingParties,
-        domainId,
+        synchronizerId,
         protocolVersion,
       )
     )
@@ -199,7 +199,7 @@ object ConfirmationResponse
       localVerdict: LocalVerdict,
       rootHash: RootHash,
       confirmingParties: Set[LfPartyId],
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       protocolVersion: ProtocolVersion,
   ): ConfirmationResponse =
     ConfirmationResponse(
@@ -209,7 +209,7 @@ object ConfirmationResponse
       localVerdict,
       rootHash,
       confirmingParties,
-      domainId,
+      synchronizerId,
     )(protocolVersionRepresentativeFor(protocolVersion), None)
 
   /** DO NOT USE IN PRODUCTION, as this does not necessarily check object invariants. */
@@ -251,7 +251,7 @@ object ConfirmationResponse
       localVerdictPO,
       rootHashP,
       confirmingPartiesP,
-      domainIdP,
+      synchronizerIdP,
       viewPositionPO,
     ) =
       confirmationResponseP
@@ -265,7 +265,7 @@ object ConfirmationResponse
       confirmingParties <- confirmingPartiesP.traverse(
         ProtoConverter.parseLfPartyId(_, "confirming_parties")
       )
-      domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
+      synchronizerId <- SynchronizerId.fromProtoPrimitive(synchronizerIdP, "synchronizer_id")
       viewPositionO = viewPositionPO.map(ViewPosition.fromProtoV30)
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       response <- Either
@@ -277,7 +277,7 @@ object ConfirmationResponse
             localVerdict,
             rootHash,
             confirmingParties.toSet,
-            domainId,
+            synchronizerId,
           )(rpv, Some(bytes))
         )
         .leftMap(err => InvariantViolation(field = None, error = err.toString))

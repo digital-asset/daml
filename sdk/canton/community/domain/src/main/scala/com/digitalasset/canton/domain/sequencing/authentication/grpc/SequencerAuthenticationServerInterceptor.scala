@@ -17,7 +17,7 @@ import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.{
   TokenVerificationException,
 }
 import com.digitalasset.canton.sequencing.authentication.grpc.Constant
-import com.digitalasset.canton.topology.{DomainId, Member, UniqueIdentifier}
+import com.digitalasset.canton.topology.{Member, SynchronizerId, UniqueIdentifier}
 import io.grpc.*
 
 class SequencerAuthenticationServerInterceptor(
@@ -35,10 +35,10 @@ class SequencerAuthenticationServerInterceptor(
 
     (for {
       member <- Option(headers.get(Constant.MEMBER_ID_METADATA_KEY))
-      intendedDomain <- Option(headers.get(Constant.DOMAIN_ID_METADATA_KEY))
+      intendedDomain <- Option(headers.get(Constant.SYNCHRONIZER_ID_METADATA_KEY))
     } yield (Option(headers.get(Constant.AUTH_TOKEN_METADATA_KEY)), member, intendedDomain))
       .fold[ServerCall.Listener[ReqT]] {
-        logger.debug("Authentication headers are missing for member or domain-id")
+        logger.debug("Authentication headers are missing for member or synchronizer id")
         failVerification("Authentication headers are not set", serverCall, headers)
       } { case (tokenO, memberId, intendedDomain) =>
         new AsyncForwardingListener[ReqT] {
@@ -52,9 +52,9 @@ class SequencerAuthenticationServerInterceptor(
                 .fromProtoPrimitive(memberId, "memberId")
                 .leftMap(err => s"Failed to deserialize member id: $err")
                 .leftMap(VerifyTokenError.GeneralError.apply)
-              intendedDomainId <- UniqueIdentifier
+              intendedSynchronizerId <- UniqueIdentifier
                 .fromProtoPrimitive_(intendedDomain)
-                .map(DomainId(_))
+                .map(SynchronizerId(_))
                 .leftMap(err => VerifyTokenError.GeneralError(err.message))
               storedTokenO <-
                 for {
@@ -62,7 +62,7 @@ class SequencerAuthenticationServerInterceptor(
                     .toRight[VerifyTokenError](
                       VerifyTokenError.GeneralError("Authentication headers are missing for token")
                     )
-                  storedToken <- verifyToken(member, intendedDomainId, token)
+                  storedToken <- verifyToken(member, intendedSynchronizerId, token)
                 } yield Some(storedToken)
             } yield {
               val contextWithAuthorizedMember = originalContext
@@ -106,11 +106,11 @@ class SequencerAuthenticationServerInterceptor(
   /** Checks the supplied authentication token for the member. */
   private def verifyToken(
       member: Member,
-      intendedDomain: DomainId,
+      intendedSynchronizerId: SynchronizerId,
       token: AuthenticationToken,
   ): Either[VerifyTokenError, StoredAuthenticationToken] =
     tokenValidator
-      .validateToken(intendedDomain, member, token)
+      .validateToken(intendedSynchronizerId, member, token)
       .leftMap[VerifyTokenError](VerifyTokenError.AuthError.apply)
 
   private def failVerification[ReqT, RespT](

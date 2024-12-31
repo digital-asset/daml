@@ -7,7 +7,7 @@ import cats.syntax.either.*
 import com.digitalasset.canton.data.ViewPosition.MerklePathElement
 import com.digitalasset.canton.protocol.{RootHash, TransactionId, ViewHash}
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.{LfPartyId, WorkflowId}
 
 import java.util.UUID
@@ -67,7 +67,7 @@ trait TransactionViewTree extends ViewTree {
 
   lazy val transactionUuid: UUID = commonMetadata.uuid
 
-  override def domainId: DomainId = commonMetadata.domainId
+  override def synchronizerId: SynchronizerId = commonMetadata.synchronizerId
 
   override def mediator: MediatorGroupRecipient = commonMetadata.mediator
 

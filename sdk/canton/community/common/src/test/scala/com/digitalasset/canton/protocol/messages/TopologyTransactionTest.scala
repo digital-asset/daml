@@ -25,15 +25,15 @@ class TopologyTransactionTest
   private val uid = DefaultTestIdentities.uid
   private val uid2 = UniqueIdentifier.tryFromProtoPrimitive("da1::default1")
   private val sequencerId = DefaultTestIdentities.daSequencerId
-  private val domainId = DefaultTestIdentities.domainId
+  private val synchronizerId = DefaultTestIdentities.synchronizerId
   private val crypto =
     TestingTopology(sequencerGroup =
       SequencerGroup(
-        active = Seq(SequencerId(domainId.uid)),
+        active = Seq(SequencerId(synchronizerId.uid)),
         passive = Seq.empty,
         threshold = PositiveInt.one,
       )
-    ).build(loggerFactory).forOwnerAndDomain(sequencerId, domainId)
+    ).build(loggerFactory).forOwnerAndDomain(sequencerId, synchronizerId)
   private val publicKey =
     crypto.currentSnapshotApproximation.ipsSnapshot
       .signingKeys(sequencerId, SigningKeyUsage.All)
@@ -122,7 +122,7 @@ class TopologyTransactionTest
     "participant state" should {
       val ps1 = mk(
         ParticipantDomainPermission(
-          domainId,
+          synchronizerId,
           ParticipantId(uid),
           ParticipantPermission.Submission,
           limits = None,
@@ -131,7 +131,7 @@ class TopologyTransactionTest
       )
       val ps2 = mk(
         ParticipantDomainPermission(
-          domainId,
+          synchronizerId,
           ParticipantId(uid),
           ParticipantPermission.Observation,
           limits = Some(ParticipantDomainLimits(NonNegativeInt.tryCreate(13))),
@@ -144,8 +144,8 @@ class TopologyTransactionTest
     }
 
     "domain parameters change" should {
-      val dmp1 = mk(DomainParametersState(DomainId(uid), defaultDynamicDomainParameters))
-      val dmp2 = mk(DomainParametersState(DomainId(uid), defaultDynamicDomainParameters))
+      val dmp1 = mk(DomainParametersState(SynchronizerId(uid), defaultDynamicDomainParameters))
+      val dmp2 = mk(DomainParametersState(SynchronizerId(uid), defaultDynamicDomainParameters))
       runTest(dmp1, dmp2)
     }
 

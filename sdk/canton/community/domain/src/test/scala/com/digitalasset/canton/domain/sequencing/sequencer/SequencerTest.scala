@@ -50,11 +50,11 @@ class SequencerTest
     with HasExecutionContext
     with FailOnShutdown {
 
-  private val domainId = DefaultTestIdentities.domainId
+  private val synchronizerId = DefaultTestIdentities.synchronizerId
   private val alice = ParticipantId("alice")
   private val bob = ParticipantId("bob")
   private val carole = ParticipantId("carole")
-  private val topologyClientMember = SequencerId(domainId.uid)
+  private val topologyClientMember = SequencerId(synchronizerId.uid)
 
   // Config to turn on Pekko logging
   private lazy val pekkoConfig = {
@@ -88,7 +88,7 @@ class SequencerTest
     val crypto: DomainSyncCryptoClient = valueOrFail(
       TestingTopology(
         sequencerGroup = SequencerGroup(
-          active = Seq(SequencerId(domainId.uid)),
+          active = Seq(SequencerId(synchronizerId.uid)),
           passive = Seq.empty,
           threshold = PositiveInt.one,
         ),
@@ -99,8 +99,8 @@ class SequencerTest
         ).map((_, ParticipantAttributes(ParticipantPermission.Confirmation))).toMap,
       )
         .build(loggerFactory)
-        .forOwner(SequencerId(domainId.uid))
-        .forDomain(domainId, defaultStaticDomainParameters)
+        .forOwner(SequencerId(synchronizerId.uid))
+        .forDomain(synchronizerId, defaultStaticDomainParameters)
         .toRight("crypto error")
     )("building crypto")
     val metrics: SequencerMetrics = SequencerMetrics.noop("sequencer-test")
@@ -126,7 +126,7 @@ class SequencerTest
         storage,
         sequencerStore,
         clock,
-        domainId,
+        synchronizerId,
         topologyClientMember,
         testedProtocolVersion,
         crypto,
@@ -182,7 +182,7 @@ class SequencerTest
   }
 
   class TestProtocolMessage() extends ProtocolMessage with UnsignedProtocolMessage {
-    override def domainId: DomainId = fail("shouldn't be used")
+    override def synchronizerId: SynchronizerId = fail("shouldn't be used")
 
     override def representativeProtocolVersion: RepresentativeProtocolVersion[companionObj.type] =
       fail("shouldn't be used")

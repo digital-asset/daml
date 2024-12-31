@@ -20,8 +20,8 @@ import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbSerializationException
-import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
+import com.digitalasset.canton.topology.{SynchronizerId, TopologyManager}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.*
 import com.google.common.annotations.VisibleForTesting
@@ -114,7 +114,7 @@ case class SignedTopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
       paramIfTrue("proposal", _.isProposal),
     )
 
-  def restrictedToDomain: Option[DomainId] = transaction.mapping.restrictedToDomain
+  def restrictedToDomain: Option[SynchronizerId] = transaction.mapping.restrictedToDomain
 
   @VisibleForTesting
   def copy[Op2 <: TopologyChangeOp, M2 <: TopologyMapping](
@@ -156,7 +156,7 @@ object SignedTopologyTransaction
   /** Sign the given topology transaction. */
   def create[Op <: TopologyChangeOp, M <: TopologyMapping](
       transaction: TopologyTransaction[Op, M],
-      signingKeys: NonEmpty[Set[Fingerprint]],
+      signingKeys: NonEmpty[Map[Fingerprint, NonEmpty[Set[SigningKeyUsage]]]],
       isProposal: Boolean,
       crypto: CryptoPrivateApi,
       protocolVersion: ProtocolVersion,
@@ -165,9 +165,9 @@ object SignedTopologyTransaction
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, SigningError, SignedTopologyTransaction[Op, M]] =
     for {
-      signaturesNE <- signingKeys.toSeq.toNEF.parTraverse(
-        crypto.sign(transaction.hash.hash, _)
-      )
+      signaturesNE <- signingKeys.toSeq.toNEF.parTraverse { case (keyId, usage) =>
+        crypto.sign(transaction.hash.hash, keyId, usage)
+      }
       representativeProtocolVersion = supportedProtoVersions.protocolVersionRepresentativeFor(
         protocolVersion
       )
@@ -194,17 +194,25 @@ object SignedTopologyTransaction
         )
       } else {
         val convertedTx = originTx.asVersion(protocolVersion)
-        SignedTopologyTransaction
-          .create(
-            convertedTx,
-            signedTx.signatures.map(_.signedBy),
-            signedTx.isProposal,
-            crypto.privateCrypto,
-            protocolVersion,
+        val keysWithUsage = TopologyManager
+          .assignExpectedUsageToKeys(
+            convertedTx.mapping,
+            signedTx.signatures.map(signature => signature.signedBy),
           )
-          .leftMap { err =>
-            s"Failed to resign topology transaction $originTx (${originTx.representativeProtocolVersion}) for domain version $protocolVersion: $err"
-          }
+        for {
+          signedTopologyTransaction <- SignedTopologyTransaction
+            .create(
+              convertedTx,
+              keysWithUsage,
+              signedTx.isProposal,
+              crypto.privateCrypto,
+              protocolVersion,
+            )
+            .leftMap { err =>
+              s"Failed to resign topology transaction $originTx (${originTx.representativeProtocolVersion}) for " +
+                s"domain version $protocolVersion: $err"
+            }
+        } yield signedTopologyTransaction
       }
     } else
       EitherT.rightT(signedTx)

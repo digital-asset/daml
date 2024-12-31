@@ -32,7 +32,7 @@ trait DbTopologyStoreTest extends TopologyStoreTest with DbTopologyStoreHelper {
     behave like topologyStore(createTopologyStore)
 
     "properly handle insertion order for large topology snapshots" in {
-      val store = createTopologyStore(testData.domain1_p1p2_domainId)
+      val store = createTopologyStore(testData.domain1_p1p2_synchronizerId)
 
       val domainSetup = Seq(
         0 -> testData.nsd_p1,
@@ -68,7 +68,7 @@ trait DbTopologyStoreTest extends TopologyStoreTest with DbTopologyStoreHelper {
 
       for {
         _ <- new InitialTopologySnapshotValidator(
-          testData.domain1_p1p2_domainId,
+          testData.domain1_p1p2_synchronizerId,
           new DomainCryptoPureApi(
             defaultStaticDomainParameters,
             testData.factory.cryptoApi.crypto.pureCrypto,

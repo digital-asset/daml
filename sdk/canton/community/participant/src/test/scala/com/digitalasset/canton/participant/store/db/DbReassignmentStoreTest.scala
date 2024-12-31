@@ -29,10 +29,10 @@ trait DbReassignmentStoreTest extends AsyncWordSpec with BaseTest with Reassignm
 
     val indexStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 100)
 
-    behave like reassignmentStore(domainId =>
+    behave like reassignmentStore(synchronizerId =>
       new DbReassignmentStore(
         storage,
-        ReassignmentTag.Target(domainId),
+        ReassignmentTag.Target(synchronizerId),
         indexStore,
         Target(testedProtocolVersion),
         new SymbolicPureCrypto,

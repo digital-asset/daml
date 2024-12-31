@@ -43,7 +43,7 @@ final case class FinalizedResponse(
       localVerdict,
       rootHash,
       confirmingParties,
-      _domainId,
+      _synchronizerId,
     ) = response
 
     def go[VKEY: ViewKey](viewKeyO: Option[VKEY]): FutureUnlessShutdown[Option[Nothing]] =

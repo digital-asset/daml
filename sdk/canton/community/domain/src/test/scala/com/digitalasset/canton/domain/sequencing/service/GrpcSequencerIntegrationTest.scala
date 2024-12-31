@@ -90,13 +90,13 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
     PekkoUtil.createExecutionSequencerFactory("GrpcSequencerIntegrationTest", noTracingLogger)
   val sequencer = mock[Sequencer]
   private val participant = ParticipantId("testing")
-  private val domainId = DefaultTestIdentities.domainId
+  private val synchronizerId = DefaultTestIdentities.synchronizerId
   private val sequencerId = DefaultTestIdentities.daSequencerId
   private val cryptoApi =
     TestingTopology()
       .withSimpleParticipants(participant)
       .build()
-      .forOwnerAndDomain(participant, domainId)
+      .forOwnerAndDomain(participant, synchronizerId)
   private val clock = new SimClock(loggerFactory = loggerFactory)
   private val sequencerSubscriptionFactory = mock[DirectSequencerSubscriptionFactory]
   def timeouts = DefaultProcessingTimeouts.testing
@@ -181,7 +181,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
       BaseTest.testedProtocolVersion,
     )
   private val connectService = new GrpcSequencerConnectService(
-    domainId = domainId,
+    synchronizerId = synchronizerId,
     sequencerId = sequencerId,
     staticDomainParameters = BaseTest.defaultStaticDomainParameters,
     cryptoApi = cryptoApi,
@@ -195,7 +195,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
     ): Future[v30.SequencerAuthentication.ChallengeResponse] =
       for {
         fingerprints <- cryptoApi.ips.currentSnapshotApproximation
-          .signingKeys(participant, SigningKeyUsage.All)
+          .signingKeys(participant, SigningKeyUsage.SequencerAuthenticationOnly)
           .map(_.map(_.fingerprint).toList)
           .onShutdown(throw new Exception("Aborted due to shutdown."))
       } yield v30.SequencerAuthentication.ChallengeResponse(
@@ -242,7 +242,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
   val client = Await
     .result(
       SequencerClientFactory(
-        domainId,
+        synchronizerId,
         cryptoApi,
         cryptoApi.crypto,
         SequencerClientConfig(),
@@ -410,7 +410,7 @@ class GrpcSequencerIntegrationTest
 
     override protected lazy val companionObj = MockProtocolMessage
 
-    override def domainId: DomainId = DefaultTestIdentities.domainId
+    override def synchronizerId: SynchronizerId = DefaultTestIdentities.synchronizerId
 
     override def toProtoSomeEnvelopeContentV30: protocolV30.EnvelopeContent.SomeEnvelopeContent =
       protocolV30.EnvelopeContent.SomeEnvelopeContent.Empty

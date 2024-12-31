@@ -14,7 +14,7 @@ import com.digitalasset.canton.topology.client.DomainTopologyClient
 import com.digitalasset.canton.topology.processing.*
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
@@ -23,7 +23,7 @@ import scala.util.{Failure, Success}
 /** Monitor topology updates and alert on missing keys */
 class MissingKeysAlerter(
     participantId: ParticipantId,
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     client: DomainTopologyClient,
     cryptoPrivateStore: CryptoPrivateStore,
     val loggerFactory: NamedLoggerFactory,
@@ -65,14 +65,14 @@ class MissingKeysAlerter(
       .map(_.mapping)
       .foreach {
         case ParticipantDomainPermission(
-              `domainId`,
+              `synchronizerId`,
               `participantId`,
               permission,
               _,
               _,
             ) =>
           logger.info(
-            s"Domain $domainId update my participant permission as of $timestamp to $permission"
+            s"Domain $synchronizerId update my participant permission as of $timestamp to $permission"
           )
         case OwnerToKeyMapping(`participantId`, keys) =>
           keys.foreach(k => alertOnMissingKey(k.fingerprint, k.purpose))
@@ -83,11 +83,11 @@ class MissingKeysAlerter(
       traceContext: TraceContext
   ): Unit = {
     lazy val errorMsg =
-      s"Error checking if key $fingerprint associated with this participant node on domain $domainId is present in the public crypto store"
+      s"Error checking if key $fingerprint associated with this participant node on domain $synchronizerId is present in the public crypto store"
     cryptoPrivateStore.existsPrivateKey(fingerprint, purpose).value.onComplete {
       case Success(Outcome(Right(false))) =>
         logger.error(
-          s"On domain $domainId, the key $fingerprint for $purpose is associated with this participant node, but this key is not present in the private crypto store."
+          s"On domain $synchronizerId, the key $fingerprint for $purpose is associated with this participant node, but this key is not present in the private crypto store."
         )
       case Success(Outcome(Left(storeError))) => logger.error(errorMsg, storeError)
       case Success(AbortedDueToShutdown) => ()

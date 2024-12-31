@@ -23,7 +23,7 @@ object GeneratorsTopology {
     } yield UniqueIdentifier.tryCreate(id.str, fp.str)
   )
   implicit val identityArb: Arbitrary[Identity] = genArbitrary
-  implicit val domainIdArb: Arbitrary[DomainId] = genArbitrary
+  implicit val synchronizerIdArb: Arbitrary[SynchronizerId] = genArbitrary
   implicit val mediatorIdArb: Arbitrary[MediatorId] = genArbitrary
   implicit val memberArb: Arbitrary[Member] = genArbitrary
   implicit val partyIdArb: Arbitrary[PartyId] = genArbitrary

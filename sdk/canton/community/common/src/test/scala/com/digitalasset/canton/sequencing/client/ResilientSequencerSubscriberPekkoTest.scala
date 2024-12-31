@@ -376,7 +376,7 @@ object TestSequencerSubscriptionFactoryPekko {
     val sequencedEvent = Deliver.create(
       counter,
       CantonTimestamp.Epoch.addMicros(counter.unwrap),
-      DefaultTestIdentities.domainId,
+      DefaultTestIdentities.synchronizerId,
       None,
       Batch.empty(BaseTest.testedProtocolVersion),
       None,

@@ -42,8 +42,8 @@ service DomainConnectivityService {
   // list registered domains
   rpc ListRegisteredDomains(ListRegisteredDomainsRequest) returns (ListRegisteredDomainsResponse);
 
-  // Get the domain id of the given domain alias
-  rpc GetDomainId(GetDomainIdRequest) returns (GetDomainIdResponse);
+  // Get the synchronizer id of the given domain alias
+  rpc GetSynchronizerId(GetSynchronizerIdRequest) returns (GetSynchronizerIdResponse);
 }
 
 message DomainConnectionConfig {
@@ -53,8 +53,8 @@ message DomainConnectionConfig {
   com.digitalasset.canton.admin.domain.v30.SequencerConnections sequencer_connections = 2;
   // if false, then domain needs to be manually connected to (default false)
   bool manual_connect = 3;
-  // optional domainId (if TLS isn't to be trusted)
-  string domain_id = 4;
+  // optional synchronizer id (if TLS isn't to be trusted)
+  string synchronizer_id = 4;
   // optional. Influences whether the participant submits to this domain, if several domains are eligible
   int32 priority = 5;
   // initial delay before an attempt to reconnect to the sequencer
@@ -160,18 +160,18 @@ message ListConnectedDomainsRequest {}
 message ListConnectedDomainsResponse {
   message Result {
     string domain_alias = 1;
-    string domain_id = 2;
+    string synchronizer_id = 2;
     bool healthy = 3;
   }
   repeated Result connected_domains = 1;
 }
 
-message GetDomainIdRequest {
+message GetSynchronizerIdRequest {
   string domain_alias = 1;
 }
 
-message GetDomainIdResponse {
-  string domain_id = 2;
+message GetSynchronizerIdResponse {
+  string synchronizer_id = 2;
 }
 
 message LogoutRequest {

@@ -44,7 +44,10 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.sim
   BftOrderingVerifier,
   IssClient,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.simulation.topology.SimulationTopologyHelpers.generatePeerOnboardingTime
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.simulation.topology.SimulationTopologyHelpers.{
+  generatePeerOnboardingDelay,
+  onboardingTime,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.simulation.topology.{
   PeerActiveAtProvider,
   SimulationOrderingTopologyProvider,
@@ -85,7 +88,6 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
   def numberOfRuns: Int
   def numberOfInitialPeers: Int
   def generateStages(): Seq[SimulationTestStage]
-  protected val livenessRecoveryTimeout: FiniteDuration = 10.seconds
 
   private type SimulationT = Simulation[Option[
     PeerActiveAt
@@ -133,18 +135,19 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
           SimulationP2PNetworkManager.fakeSequencerId(endpoint) -> store
         }.toMap
 
-      val clock = new SimClock(SimulationStartTime, loggerFactory)
-
       val sendQueue = mutable.Queue.empty[(SequencerId, BlockFormat.Block)]
 
       var firstNewlyOnboardedPeerIndex = initialPeerEndpoints.size
+
       var alreadyOnboardedPeerEndpoints = initialPeerEndpoints
       var alreadyOnboardedPeerEndpointsToTopologyData = initialPeerEndpointsToTopologyData
-
       var simulationAndModel: Option[(SimulationT, BftOrderingVerifier)] = None
+
+      val clock = new SimClock(SimulationStartTime, loggerFactory)
 
       generateStages().foreach {
         case SimulationTestStage(numberOfRandomlyOnboardedPeers, simSettings) =>
+          val stageStart = clock.now
           val availabilityRandom = new Random(simSettings.localSettings.randomSeed)
 
           val newlyOnboardedPeerEndpoints =
@@ -154,7 +157,9 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
           val newlyOnboardedPeersWithStores =
             newlyOnboardedPeerEndpoints.map(_ -> new SimulationOutputBlockMetadataStore)
           val newlyOnboardedPeerEndpointsWithOnboardingTimes =
-            newlyOnboardedPeerEndpoints.zip(simSettings.peerOnboardingTimes)
+            newlyOnboardedPeerEndpoints.zip(
+              simSettings.peerOnboardingDelays.map(onboardingTime(stageStart, _))
+            )
 
           val newlyOnboardedPeerEndpointsToTopologyData =
             SimulationTopologyHelpers.generateSimulationTopologyData(
@@ -232,7 +237,6 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
                   sendQueue,
                   allSequencerIdsToStores,
                   allPeersToOnboardingTimes,
-                  livenessRecoveryTimeout,
                   simSettings,
                 )
               Some(simulation -> model)
@@ -320,9 +324,6 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
               SequencerSnapshotAdditionalInfo(Map(thisPeer -> peerActiveAt))
             )
           }
-        logger.info(
-          s"Sequencer snapshot additional info for $thisPeer: $sequencerSnapshotAdditionalInfo"
-        )
 
         val (initialOrderingTopology, initialCryptoProvider) =
           if (genesisOrderingTopology.contains(thisPeer))
@@ -416,12 +417,13 @@ class BftOrderingSimulationTest2NodesWithOnboardingNoFaults extends BftOrderingS
   private val durationOfSecondPhaseWithoutFaults = 1.minute
 
   private val randomSourceToCreateSettings: Random =
-    new Random(5) // Manually remove the seed for fully randomized local runs.
+    new Random(4) // Manually remove the seed for fully randomized local runs.
 
-  private val generateOnboardingTimePartiallyApplied = generatePeerOnboardingTime(
-    durationOfFirstPhaseWithFaults,
-    randomSourceToCreateSettings,
-  )(_)
+  private def newOnboardingDelay(): FiniteDuration =
+    generatePeerOnboardingDelay(
+      durationOfFirstPhaseWithFaults,
+      randomSourceToCreateSettings,
+    )
 
   override def generateStages(): Seq[SimulationTestStage] = Seq(
     SimulationTestStage(
@@ -435,12 +437,9 @@ class BftOrderingSimulationTest2NodesWithOnboardingNoFaults extends BftOrderingS
         ),
         durationOfFirstPhaseWithFaults,
         durationOfSecondPhaseWithoutFaults,
-        peerOnboardingTimes = LazyList
-          .iterate(
-            generateOnboardingTimePartiallyApplied(TopologyActivationTime(SimulationStartTime)),
-            numberOfRandomlyOnboardedPeers,
-          )(
-            generateOnboardingTimePartiallyApplied
+        peerOnboardingDelays =
+          LazyList.iterate(newOnboardingDelay(), numberOfRandomlyOnboardedPeers)(_ =>
+            newOnboardingDelay()
           ),
         // Delay of zero doesn't make the test rely on catch-up, as onboarded nodes will buffer all messages since
         //  the activation, and thus won't fall behind.
@@ -452,16 +451,9 @@ class BftOrderingSimulationTest2NodesWithOnboardingNoFaults extends BftOrderingS
 
 class BftOrderingSimulationTest4NodesWithOnboardingNoFaults
     extends BftOrderingSimulationTest2NodesWithOnboardingNoFaults {
-  // So far run only once, as it's rather slow.
-  override val numberOfRuns: Int = 1
-  override val numberOfInitialPeers: Int = 4 // f = 1
 
-  override def generateStages(): Seq[SimulationTestStage] =
-    super.generateStages().map { stage =>
-      stage.copy(
-        numberOfRandomlyOnboardedPeers = 1
-      )
-    }
+  override val numberOfRuns: Int = 5
+  override val numberOfInitialPeers: Int = 4 // f = 1
 }
 
 class BftOrderingSimulationTest4NodesWithOnboardingAndDelayNoFaults
@@ -510,15 +502,6 @@ class BftOrderingEmptyBlocksSimulationTest extends BftOrderingSimulationTest {
   // At the moment of writing, the test requires 12 runs to fail on the liveness check when there's no "silent network detection".
   override val numberOfRuns: Int = 15
   override val numberOfInitialPeers: Int = 2
-
-  // This value is lower than the default to prevent view changes from ensuring liveness (as we want empty blocks to ensure it).
-  // When the simulation becomes "healthy", we don't know when the last crash (resetting the view change timeout)
-  // or view change happened. Similarly, we don't know how "advanced" the empty block creation at that moment is.
-  // Since the simulation is deterministic and runs multiple times, we can base this value on the empty block creation
-  // interval to get the desired test coverage.
-  protected override val livenessRecoveryTimeout: FiniteDuration =
-    AvailabilityModuleConfig.EmptyBlockCreationInterval * 2 + 1.second
-
   private val durationOfFirstPhaseWithFaults = 1.minute
   private val durationOfSecondPhaseWithoutFaults = 1.minute
 
@@ -538,6 +521,12 @@ class BftOrderingEmptyBlocksSimulationTest extends BftOrderingSimulationTest {
         durationOfSecondPhaseWithoutFaults,
         // This will result in empty blocks only.
         clientRequestInterval = None,
+        // This value is lower than the default to prevent view changes from ensuring liveness (as we want empty blocks to ensure it).
+        // When the simulation becomes "healthy", we don't know when the last crash (resetting the view change timeout)
+        // or view change happened. Similarly, we don't know how "advanced" the empty block creation at that moment is.
+        // Since the simulation is deterministic and runs multiple times, we can base this value on the empty block creation
+        // interval to get the desired test coverage.
+        livenessCheckInterval = AvailabilityModuleConfig.EmptyBlockCreationInterval * 2 + 1.second,
       ),
     )
   )

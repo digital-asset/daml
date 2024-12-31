@@ -17,7 +17,7 @@ import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-import com.digitalasset.canton.topology.{DomainId, PartyId}
+import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.version.HashingSchemeVersion
 import com.digitalasset.daml.lf.data.Ref.{ApplicationId, SubmissionId}
 
@@ -31,7 +31,7 @@ object InteractiveSubmissionService {
       signatures: Map[PartyId, Seq[Signature]],
       preparedTransaction: PreparedTransaction,
       serializationVersion: HashingSchemeVersion,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
   )
 }
 

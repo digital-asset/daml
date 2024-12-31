@@ -24,7 +24,7 @@ import com.digitalasset.canton.sequencing.protocol.{
 }
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
@@ -141,7 +141,7 @@ object AssignmentViewTree
   */
 final case class AssignmentCommonData private (
     override val salt: Salt,
-    targetDomain: Target[DomainId],
+    targetDomain: Target[SynchronizerId],
     targetMediatorGroup: MediatorGroupRecipient,
     stakeholders: Stakeholders,
     uuid: UUID,
@@ -205,7 +205,7 @@ object AssignmentCommonData
 
   def create(hashOps: HashOps)(
       salt: Salt,
-      targetDomain: Target[DomainId],
+      targetDomain: Target[SynchronizerId],
       targetMediatorGroup: MediatorGroupRecipient,
       stakeholders: Stakeholders,
       uuid: UUID,
@@ -241,7 +241,9 @@ object AssignmentCommonData
 
     for {
       salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
-      targetDomain <- DomainId.fromProtoPrimitive(targetDomainP, "target_domain").map(Target(_))
+      targetDomain <- SynchronizerId
+        .fromProtoPrimitive(targetDomainP, "target_domain")
+        .map(Target(_))
       targetMediatorGroup <- ProtoConverter.parseNonNegativeInt(
         "target_mediator_group",
         targetMediatorGroupP,
@@ -444,10 +446,10 @@ final case class FullAssignmentTree(tree: AssignmentViewTree)
   ): AssignmentMediatorMessage = tree.mediatorMessage(submittingParticipantSignature)
 
   // Domains
-  override def sourceDomain: Source[DomainId] =
+  override def sourceDomain: Source[SynchronizerId] =
     view.unassignmentResultEvent.reassignmentId.sourceDomain
-  override def targetDomain: Target[DomainId] = commonData.targetDomain
-  override def domainId: DomainId = commonData.targetDomain.unwrap
+  override def targetDomain: Target[SynchronizerId] = commonData.targetDomain
+  override def synchronizerId: SynchronizerId = commonData.targetDomain.unwrap
   override def mediator: MediatorGroupRecipient = commonData.targetMediatorGroup
 
   override def toBeSigned: Option[RootHash] = Some(tree.rootHash)

@@ -67,13 +67,13 @@ object TopologyStoreId {
 
   /** A topology store storing sequenced topology transactions
     *
-    * @param domainId the domain id of the store
+    * @param synchronizerId the synchronizer id of the store
     * @param discriminator the discriminator of the store. used for mediator confirmation request store
     *                      or in daml 2.x for embedded mediator topology stores
     */
-  final case class DomainStore(domainId: DomainId, discriminator: String = "")
+  final case class DomainStore(synchronizerId: SynchronizerId, discriminator: String = "")
       extends TopologyStoreId {
-    private val dbStringWithoutDiscriminator = domainId.toLengthLimitedString
+    private val dbStringWithoutDiscriminator = synchronizerId.toLengthLimitedString
     val dbString: LengthLimitedString =
       if (discriminator.isEmpty) dbStringWithoutDiscriminator
       else
@@ -87,14 +87,14 @@ object TopologyStoreId {
     override protected def pretty: Pretty[this.type] =
       if (discriminator.nonEmpty) {
         prettyOfString(storeId =>
-          show"${storeId.discriminator}${UniqueIdentifier.delimiter}${storeId.domainId}"
+          show"${storeId.discriminator}${UniqueIdentifier.delimiter}${storeId.synchronizerId}"
         )
       } else {
-        prettyOfParam(_.domainId)
+        prettyOfParam(_.synchronizerId)
       }
 
     // The reason for this somewhat awkward method is backward compat with uniquifier inserted in the middle of
-    // discriminator and domain id. Can be removed once fully on daml 3.0:
+    // discriminator and synchronizer id. Can be removed once fully on daml 3.0:
     override def dbStringWithDaml2xUniquifier(uniquifier: String): LengthLimitedString = {
       require(uniquifier.nonEmpty)
       LengthLimitedString
@@ -130,7 +130,7 @@ object TopologyStoreId {
 
   def apply(fName: String): TopologyStoreId = fName.toLowerCase match {
     case "authorized" => AuthorizedStore
-    case domain => DomainStore(DomainId(UniqueIdentifier.tryFromProtoPrimitive(domain)))
+    case domain => DomainStore(SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive(domain)))
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
@@ -493,10 +493,13 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
     * Excludes:
     * - Proposals
     * - Rejected transactions
-    * - Transactions that are not valid for domainId
+    * - Transactions that are not valid for synchronizerId
     */
-  def findParticipantOnboardingTransactions(participantId: ParticipantId, domainId: DomainId)(
-      implicit traceContext: TraceContext
+  def findParticipantOnboardingTransactions(
+      participantId: ParticipantId,
+      synchronizerId: SynchronizerId,
+  )(implicit
+      traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]]
 
   /** Yields transactions with `validFrom` strictly greater than `timestampExclusive`.
@@ -624,14 +627,14 @@ object TopologyStore {
 
   def filterInitialParticipantDispatchingTransactions(
       participantId: ParticipantId,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       transactions: Seq[GenericStoredTopologyTransaction],
   ): Seq[GenericSignedTopologyTransaction] =
     transactions.map(_.transaction).filter { signedTx =>
       initialParticipantDispatchingSet.contains(signedTx.mapping.code) &&
       signedTx.mapping.maybeUid.forall(_ == participantId.uid) &&
       signedTx.mapping.namespace == participantId.namespace &&
-      signedTx.mapping.restrictedToDomain.forall(_ == domainId)
+      signedTx.mapping.restrictedToDomain.forall(_ == synchronizerId)
     }
 
   /** convenience method waiting until the last eligible transaction inserted into the source store has been dispatched successfully to the target domain */

@@ -24,7 +24,7 @@ import com.digitalasset.canton.participant.admin.repair.{EnsureValidContractIds,
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.protocol.LfContractId
-import com.digitalasset.canton.topology.{DomainId, PartyId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{PartyId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.Thereafter.syntax.*
@@ -118,7 +118,7 @@ final class GrpcParticipantRepairService(
           sync.stateInspection
             .exportAcsDumpActiveContracts(
               _,
-              _.filterString.startsWith(request.filterDomainId),
+              _.filterString.startsWith(request.filterSynchronizerId),
               validRequest.parties,
               validRequest.timestamp,
               validRequest.contractDomainRenames,
@@ -233,12 +233,12 @@ final class GrpcParticipantRepairService(
       (activeContractsWithValidContractIds, contractIdRemapping) =
         activeContractsWithRemapping
 
-      _ <- activeContractsWithValidContractIds.groupBy(_.domainId).toSeq.parTraverse_ {
-        case (domainId, contracts) =>
+      _ <- activeContractsWithValidContractIds.groupBy(_.synchronizerId).toSeq.parTraverse_ {
+        case (synchronizerId, contracts) =>
           MonadUtil.batchedSequentialTraverse_(
             batching.parallelism,
             batching.maxAcsImportBatchSize,
-          )(contracts)(writeContractsBatch(workflowIdPrefixO)(domainId, _))
+          )(contracts)(writeContractsBatch(workflowIdPrefixO)(synchronizerId, _))
       }
 
     } yield contractIdRemapping
@@ -254,14 +254,14 @@ final class GrpcParticipantRepairService(
 
   private def writeContractsBatch(
       workflowIdPrefixO: Option[String]
-  )(domainId: DomainId, contracts: Seq[data.ActiveContract])(implicit
+  )(synchronizerId: SynchronizerId, contracts: Seq[data.ActiveContract])(implicit
       traceContext: TraceContext
   ): EitherT[Future, String, Unit] =
     for {
       alias <- EitherT.fromEither[Future](
         sync.aliasManager
-          .aliasForDomainId(domainId)
-          .toRight(s"Not able to find domain alias for ${domainId.toString}")
+          .aliasForSynchronizerId(synchronizerId)
+          .toRight(s"Not able to find domain alias for ${synchronizerId.toString}")
       )
 
       _ <- EitherT.fromEither[Future](
@@ -358,11 +358,13 @@ final class GrpcParticipantRepairService(
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
     val res = for {
-      domainId <- EitherT.fromEither[FutureUnlessShutdown](
-        DomainId.fromProtoPrimitive(request.domainId, "domain_id").leftMap(_.message)
+      synchronizerId <- EitherT.fromEither[FutureUnlessShutdown](
+        SynchronizerId
+          .fromProtoPrimitive(request.synchronizerId, "synchronizer_id")
+          .leftMap(_.message)
       )
       _ <- sync.repairService.ignoreEvents(
-        domainId,
+        synchronizerId,
         SequencerCounter(request.fromInclusive),
         SequencerCounter(request.toInclusive),
         force = request.force,
@@ -380,11 +382,13 @@ final class GrpcParticipantRepairService(
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
     val res = for {
-      domainId <- EitherT.fromEither[FutureUnlessShutdown](
-        DomainId.fromProtoPrimitive(request.domainId, "domain_id").leftMap(_.message)
+      synchronizerId <- EitherT.fromEither[FutureUnlessShutdown](
+        SynchronizerId
+          .fromProtoPrimitive(request.synchronizerId, "synchronizer_id")
+          .leftMap(_.message)
       )
       _ <- sync.repairService.unignoreEvents(
-        domainId,
+        synchronizerId,
         SequencerCounter(request.fromInclusive),
         SequencerCounter(request.toInclusive),
         force = request.force,
@@ -410,21 +414,21 @@ final class GrpcParticipantRepairService(
           .flatMap(fromProtoPrimitive)
           .leftMap(_.message)
       )
-      sourceDomainId <- EitherT.fromEither[FutureUnlessShutdown](
-        DomainId
+      sourceSynchronizerId <- EitherT.fromEither[FutureUnlessShutdown](
+        SynchronizerId
           .fromProtoPrimitive(request.source, "source")
           .map(Source(_))
           .leftMap(_.message)
       )
-      targetDomainId <- EitherT.fromEither[FutureUnlessShutdown](
-        DomainId
+      targetSynchronizerId <- EitherT.fromEither[FutureUnlessShutdown](
+        SynchronizerId
           .fromProtoPrimitive(request.target, "target")
           .map(Target(_))
           .leftMap(_.message)
       )
-      reassignmentId = protocol.ReassignmentId(sourceDomainId, unassignId)
+      reassignmentId = protocol.ReassignmentId(sourceSynchronizerId, unassignId)
 
-      _ <- sync.repairService.rollbackUnassignment(reassignmentId, targetDomainId)
+      _ <- sync.repairService.rollbackUnassignment(reassignmentId, targetSynchronizerId)
 
     } yield RollbackUnassignmentResponse()
 
@@ -442,15 +446,17 @@ object GrpcParticipantRepairService {
 
     private def validateContractDomainRenames(
         contractDomainRenames: Map[String, ExportAcsRequest.TargetDomain],
-        allProtocolVersions: Map[DomainId, ProtocolVersion],
-    ): Either[String, List[(DomainId, (DomainId, ProtocolVersion))]] =
+        allProtocolVersions: Map[SynchronizerId, ProtocolVersion],
+    ): Either[String, List[(SynchronizerId, (SynchronizerId, ProtocolVersion))]] =
       contractDomainRenames.toList.traverse {
         case (source, ExportAcsRequest.TargetDomain(targetDomain, targetProtocolVersionRaw)) =>
           for {
-            sourceId <- DomainId.fromProtoPrimitive(source, "source domain id").leftMap(_.message)
+            sourceId <- SynchronizerId
+              .fromProtoPrimitive(source, "source synchronizer id")
+              .leftMap(_.message)
 
-            targetDomainId <- DomainId
-              .fromProtoPrimitive(targetDomain, "target domain id")
+            targetSynchronizerId <- SynchronizerId
+              .fromProtoPrimitive(targetDomain, "target synchronizer id")
               .leftMap(_.message)
             targetProtocolVersion <- ProtocolVersion
               .fromProtoPrimitive(targetProtocolVersionRaw)
@@ -460,22 +466,22 @@ object GrpcParticipantRepairService {
             The `targetProtocolVersion` should be the one running on the corresponding domain.
              */
             _ <- allProtocolVersions
-              .get(targetDomainId)
+              .get(targetSynchronizerId)
               .map { foundProtocolVersion =>
                 Either.cond(
                   foundProtocolVersion == targetProtocolVersion,
                   (),
-                  s"Inconsistent protocol versions for domain $targetDomainId: found version is $foundProtocolVersion, passed is $targetProtocolVersion",
+                  s"Inconsistent protocol versions for domain $targetSynchronizerId: found version is $foundProtocolVersion, passed is $targetProtocolVersion",
                 )
               }
               .getOrElse(Either.unit)
 
-          } yield (sourceId, (targetDomainId, targetProtocolVersion))
+          } yield (sourceId, (targetSynchronizerId, targetProtocolVersion))
       }
 
     private def validateRequest(
         request: ExportAcsRequest,
-        allProtocolVersions: Map[DomainId, ProtocolVersion],
+        allProtocolVersions: Map[SynchronizerId, ProtocolVersion],
     ): Either[String, ValidExportAcsRequest] =
       for {
         parties <- request.parties.traverse(party =>
@@ -496,7 +502,7 @@ object GrpcParticipantRepairService {
         partiesOffboarding = request.partiesOffboarding,
       )
 
-    def apply(request: ExportAcsRequest, allProtocolVersions: Map[DomainId, ProtocolVersion])(
+    def apply(request: ExportAcsRequest, allProtocolVersions: Map[SynchronizerId, ProtocolVersion])(
         implicit elc: ErrorLoggingContext
     ): Either[RepairServiceError, ValidExportAcsRequest] =
       for {
@@ -510,7 +516,7 @@ object GrpcParticipantRepairService {
   private final case class ValidExportAcsRequest private (
       parties: Set[LfPartyId],
       timestamp: Option[CantonTimestamp],
-      contractDomainRenames: Map[DomainId, (DomainId, ProtocolVersion)],
+      contractDomainRenames: Map[SynchronizerId, (SynchronizerId, ProtocolVersion)],
       force: Boolean, // if true, does not check whether `timestamp` is clean
       partiesOffboarding: Boolean,
   )

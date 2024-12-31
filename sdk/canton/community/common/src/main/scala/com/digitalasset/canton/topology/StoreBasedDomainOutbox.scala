@@ -49,7 +49,7 @@ import scala.util.chaining.*
 
 class StoreBasedDomainOutbox(
     domain: DomainAlias,
-    val domainId: DomainId,
+    val synchronizerId: SynchronizerId,
     val memberId: Member,
     val protocolVersion: ProtocolVersion,
     val handle: RegisterTopologyTransactionHandle,
@@ -408,7 +408,7 @@ class DomainOutboxDynamicObserver(val loggerFactory: NamedLoggerFactory)
 }
 
 class DomainOutboxFactory(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     memberId: Member,
     authorizedTopologyManager: AuthorizedTopologyManager,
     domainTopologyManager: DomainTopologyManager,
@@ -434,7 +434,7 @@ class DomainOutboxFactory(
   ): DomainOutboxHandle = {
     val handle = new SequencerBasedRegisterTopologyTransactionHandle(
       sequencerClient,
-      domainId,
+      synchronizerId,
       memberId,
       clock,
       topologyConfig,
@@ -453,8 +453,8 @@ class DomainOutboxFactory(
       authorizedObserverRef.getOrElse(throw new IllegalStateException("Must have observer"))
 
     val storeBasedDomainOutbox = new StoreBasedDomainOutbox(
-      DomainAlias(domainId.uid.toLengthLimitedString),
-      domainId,
+      DomainAlias(synchronizerId.uid.toLengthLimitedString),
+      synchronizerId,
       memberId = memberId,
       protocolVersion = protocolVersion,
       handle = handle,
@@ -484,8 +484,8 @@ class DomainOutboxFactory(
 
     val queueBasedDomainOutbox =
       new QueueBasedDomainOutbox(
-        DomainAlias(domainId.uid.toLengthLimitedString),
-        domainId,
+        DomainAlias(synchronizerId.uid.toLengthLimitedString),
+        synchronizerId,
         memberId = memberId,
         protocolVersion = protocolVersion,
         handle = handle,
@@ -525,7 +525,7 @@ class DomainOutboxFactory(
 }
 
 class DomainOutboxFactorySingleCreate(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     memberId: Member,
     authorizedTopologyManager: AuthorizedTopologyManager,
     domainTopologyManager: DomainTopologyManager,
@@ -535,7 +535,7 @@ class DomainOutboxFactorySingleCreate(
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
 ) extends DomainOutboxFactory(
-      domainId,
+      synchronizerId,
       memberId,
       authorizedTopologyManager,
       domainTopologyManager,

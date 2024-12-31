@@ -50,22 +50,22 @@ class TopologyTransactionCollectionTest extends AnyWordSpec with BaseTest with H
     )
   }
   private def mkDomainParametersChange(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       changeOp: TopologyChangeOp = Replace,
       serial: PositiveInt = PositiveInt.one,
   ) =
     mkStoredTransaction(
-      DomainParametersState(domainId, TestDomainParameters.defaultDynamic),
+      DomainParametersState(synchronizerId, TestDomainParameters.defaultDynamic),
       changeOp,
       serial,
     )
 
-  private lazy val replaceDOP1 = mkDomainParametersChange(DomainId(uid1))
+  private lazy val replaceDOP1 = mkDomainParametersChange(SynchronizerId(uid1))
   private lazy val removeDOP1 =
-    mkDomainParametersChange(DomainId(uid1), Remove, serial = PositiveInt.two)
-  private lazy val replaceDOP2 = mkDomainParametersChange(DomainId(uid2))
+    mkDomainParametersChange(SynchronizerId(uid1), Remove, serial = PositiveInt.two)
+  private lazy val replaceDOP2 = mkDomainParametersChange(SynchronizerId(uid2))
   private lazy val removeDOP3 =
-    mkDomainParametersChange(DomainId(uid3), Remove, serial = PositiveInt.three)
+    mkDomainParametersChange(SynchronizerId(uid3), Remove, serial = PositiveInt.three)
   private lazy val replaceIDD1 = mkStoredTransaction(
     IdentifierDelegation(uid1, factory.SigningKeys.key1)
   )

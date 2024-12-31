@@ -54,7 +54,7 @@ class DomainTimeTrackerTest extends FixtureAsyncWordSpec with BaseTest {
         Deliver.create(
           SequencerCounter(0),
           ts,
-          DefaultTestIdentities.domainId,
+          DefaultTestIdentities.synchronizerId,
           TimeProof.mkTimeProofRequestMessageId.some,
           Batch.empty(testedProtocolVersion),
           None,
@@ -74,7 +74,7 @@ class DomainTimeTrackerTest extends FixtureAsyncWordSpec with BaseTest {
         Deliver.create(
           SequencerCounter(0),
           ts,
-          DefaultTestIdentities.domainId,
+          DefaultTestIdentities.synchronizerId,
           MessageId.tryCreate("not a time proof").some,
           Batch.empty(testedProtocolVersion),
           None,

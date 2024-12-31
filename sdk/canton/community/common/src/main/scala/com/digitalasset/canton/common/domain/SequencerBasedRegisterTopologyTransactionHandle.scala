@@ -15,7 +15,7 @@ import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.topology.{DomainId, Member}
+import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.version.ProtocolVersion
@@ -32,7 +32,7 @@ trait RegisterTopologyTransactionHandle extends FlagCloseable {
 
 class SequencerBasedRegisterTopologyTransactionHandle(
     sequencerClient: SequencerClient,
-    val domainId: DomainId,
+    val synchronizerId: SynchronizerId,
     val member: Member,
     clock: Clock,
     topologyConfig: TopologyConfig,
@@ -61,7 +61,7 @@ class SequencerBasedRegisterTopologyTransactionHandle(
   ): FutureUnlessShutdown[Seq[TopologyTransactionsBroadcast.State]] =
     service.registerTopologyTransaction(
       TopologyTransactionsBroadcast(
-        domainId,
+        synchronizerId,
         transactions,
         protocolVersion,
       )
@@ -71,7 +71,7 @@ class SequencerBasedRegisterTopologyTransactionHandle(
 
   override protected def pretty: Pretty[SequencerBasedRegisterTopologyTransactionHandle.this.type] =
     prettyOfClass(
-      param("domainId", _.domainId),
+      param("synchronizerId", _.synchronizerId),
       param("member", _.member),
     )
 }

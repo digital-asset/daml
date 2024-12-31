@@ -41,7 +41,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * derive a verdict, and send ConfirmationResultMessages to informee participants.
   */
 private[mediator] class ConfirmationRequestAndResponseProcessor(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     private val mediatorId: MediatorId,
     verdictSender: VerdictSender,
     crypto: DomainSyncCryptoClient,
@@ -751,17 +751,18 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
             .leftMap(err =>
               MediatorError.MalformedMessage
                 .Reject(
-                  s"$domainId (timestamp: $ts): invalid signature from ${response.sender} with $err"
+                  s"$synchronizerId (timestamp: $ts): invalid signature from ${response.sender} with $err"
                 )
                 .report()
             )
             .toOption
           _ <-
-            if (signedResponse.domainId == domainId) OptionT.some[FutureUnlessShutdown](())
+            if (signedResponse.synchronizerId == synchronizerId)
+              OptionT.some[FutureUnlessShutdown](())
             else {
               MediatorError.MalformedMessage
                 .Reject(
-                  s"Request ${response.requestId}, sender ${response.sender}: Discarding confirmation response for wrong domain ${signedResponse.domainId}"
+                  s"Request ${response.requestId}, sender ${response.sender}: Discarding confirmation response for wrong domain ${signedResponse.synchronizerId}"
                 )
                 .report()
               OptionT.none[FutureUnlessShutdown, Unit]

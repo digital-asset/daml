@@ -35,8 +35,8 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
   val uid1a = UniqueIdentifier.tryCreate("one", ns1)
   val uid1b = UniqueIdentifier.tryCreate("two", ns1)
   val uid6 = UniqueIdentifier.tryCreate("other", ns6)
-  val domainId1 = DomainId(UniqueIdentifier.tryCreate("domain", ns1))
-  val domainId1a = DomainId(uid1a)
+  val synchronizerId1 = SynchronizerId(UniqueIdentifier.tryCreate("domain", ns1))
+  val synchronizerId1a = SynchronizerId(uid1a)
   val party1b = PartyId(uid1b)
   val party6 = PartyId(uid6)
   val participant1 = ParticipantId(uid1a)
@@ -86,13 +86,13 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
   val sdmS1_k1 =
     mkAdd(
       SequencerDomainState
-        .create(domainId1, PositiveInt.one, Seq(sequencer1), Seq.empty)
+        .create(synchronizerId1, PositiveInt.one, Seq(sequencer1), Seq.empty)
         .getOrElse(sys.error("Failed to create SequencerDomainState")),
       key1,
     )
 
   val dtcp1_k1 =
-    mkAdd(DomainTrustCertificate(participant1, DomainId(uid1a)), key1)
+    mkAdd(DomainTrustCertificate(participant1, SynchronizerId(uid1a)), key1)
 
   val defaultDomainParameters = TestDomainParameters.defaultDynamic
 
@@ -146,13 +146,13 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
     )
 
   val dmp1_k2 = mkAdd(
-    DomainParametersState(DomainId(uid1a), defaultDomainParameters),
+    DomainParametersState(SynchronizerId(uid1a), defaultDomainParameters),
     key2,
   )
 
   val dmp1_k1 = mkAdd(
     DomainParametersState(
-      DomainId(uid1a),
+      SynchronizerId(uid1a),
       defaultDomainParameters
         .tryUpdate(confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(1)),
     ),
@@ -161,7 +161,7 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
 
   val dmp1_k1_bis = mkAdd(
     DomainParametersState(
-      DomainId(uid1a),
+      SynchronizerId(uid1a),
       defaultDomainParameters
         .tryUpdate(confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(2)),
     ),

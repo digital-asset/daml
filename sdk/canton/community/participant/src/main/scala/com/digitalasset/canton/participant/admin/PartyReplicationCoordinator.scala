@@ -32,7 +32,7 @@ import com.digitalasset.canton.participant.ledger.api.client.{
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId, SequencerId}
+import com.digitalasset.canton.topology.{ParticipantId, PartyId, SequencerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 import com.google.common.annotations.VisibleForTesting
@@ -69,17 +69,17 @@ class PartyReplicationCoordinator(
       ChannelId(CommandId(id)),
       partyId,
       sourceParticipantId,
-      domainId,
+      synchronizerId,
     ) = args
     logger.info(
-      s"Party Replication $id: Initiating replication of party $partyId from participant $sourceParticipantId over domain $domainId"
+      s"Party Replication $id: Initiating replication of party $partyId from participant $sourceParticipantId over domain $synchronizerId"
     )
     if (syncService.isActive()) {
       val startAtWatermark = NonNegativeInt.zero
       for {
         domainTopologyClient <- EitherT.fromOption[FutureUnlessShutdown](
-          syncService.syncCrypto.ips.forDomain(domainId),
-          s"Unknown domain $domainId",
+          syncService.syncCrypto.ips.forDomain(synchronizerId),
+          s"Unknown domain $synchronizerId",
         )
         topologySnapshot = domainTopologyClient.headSnapshot
         sequencerIds <- EitherT
@@ -87,10 +87,10 @@ class PartyReplicationCoordinator(
             topologySnapshot
               .sequencerGroup()
               .map(sg => NonEmpty.from(sg.toList.flatMap(_.active))),
-            s"No active sequencer for domain $domainId",
+            s"No active sequencer for domain $synchronizerId",
           )
         sequencerCandidates <- selectSequencerCandidates(
-          domainId,
+          synchronizerId,
           sequencerIds,
         )
         _ <- ensurePartyIsAuthorizedOnParticipants(
@@ -124,7 +124,7 @@ class PartyReplicationCoordinator(
                   .map(LedgerClientUtils.javaCodegenToScalaProto),
                 deduplicationPeriod =
                   DeduplicationDuration(syncService.maxDeduplicationDuration.toProtoPrimitive),
-                domainId = domainId.toProtoPrimitive,
+                synchronizerId = synchronizerId.toProtoPrimitive,
               ),
               timeouts.default.asFiniteApproximation,
             )
@@ -164,16 +164,16 @@ class PartyReplicationCoordinator(
         createEventHandler(
           contract => {
             logger.info(
-              s"Received channel proposal for party ${contract.data.payloadMetadata.partyId} on domain ${scalaTx.domainId}" +
+              s"Received channel proposal for party ${contract.data.payloadMetadata.partyId} on domain ${scalaTx.synchronizerId}" +
                 s" from source participant ${contract.data.sourceParticipant} to target participant ${contract.data.targetParticipant}"
             )
             if (shouldHandleChannelProposal(contract)) {
-              processChannelProposalAtSourceParticipant(scalaTx.domainId, contract)
+              processChannelProposalAtSourceParticipant(scalaTx.synchronizerId, contract)
             }
           },
           contract => {
             logger.info(
-              s"Received channel agreement for party ${contract.data.payloadMetadata.partyId} on domain ${scalaTx.domainId}" +
+              s"Received channel agreement for party ${contract.data.payloadMetadata.partyId} on domain ${scalaTx.synchronizerId}" +
                 s" from source participant ${contract.data.sourceParticipant} to target participant ${contract.data.targetParticipant}"
             )
             if (shouldHandleChannelAgreement(contract)) {
@@ -192,24 +192,32 @@ class PartyReplicationCoordinator(
       params <- EitherT.fromEither[FutureUnlessShutdown](
         ChannelProposalParams.fromDaml(contract.data, domain)
       )
-      ChannelProposalParams(ts, partyId, targetParticipantId, sequencerIdsProposed, domainId) =
+      ChannelProposalParams(
+        ts,
+        partyId,
+        targetParticipantId,
+        sequencerIdsProposed,
+        synchronizerId,
+      ) =
         params
       domainTopologyClient <-
         EitherT.fromEither[FutureUnlessShutdown](
-          syncService.syncCrypto.ips.forDomain(domainId).toRight(s"Unknown domain $domainId")
+          syncService.syncCrypto.ips
+            .forDomain(synchronizerId)
+            .toRight(s"Unknown domain $synchronizerId")
         )
       // Insist that the topology snapshot is known by the source participant to
       // avoid unbounded wait by awaitSnapshot().
       _ <- EitherT.cond[FutureUnlessShutdown](
         domainTopologyClient.snapshotAvailable(ts),
         (),
-        s"Specified timestamp $ts is not yet available on participant $participantId and domain $domainId",
+        s"Specified timestamp $ts is not yet available on participant $participantId and domain $synchronizerId",
       )
       topologySnapshot <- EitherT.right(domainTopologyClient.awaitSnapshotUS(ts))
       sequencerIdsInTopology <- EitherT
         .fromOptionF(
           topologySnapshot.sequencerGroup().map(_.map(_.active)),
-          s"No sequencer group for domain $domainId",
+          s"No sequencer group for domain $synchronizerId",
         )
       sequencerIdsTopologyIntersection <- EitherT.fromEither[FutureUnlessShutdown](
         NonEmpty
@@ -219,13 +227,17 @@ class PartyReplicationCoordinator(
                 .contains(sequencerId)
                 .tap(isKnown =>
                   if (!isKnown)
-                    logger.info(s"Skipping sequencer $sequencerId not active on domain $domainId")
+                    logger
+                      .info(s"Skipping sequencer $sequencerId not active on domain $synchronizerId")
                 )
             )
           )
-          .toRight(s"None of the proposed sequencer are active on domain $domainId")
+          .toRight(s"None of the proposed sequencer are active on domain $synchronizerId")
       )
-      candidateSequencerIds <- selectSequencerCandidates(domainId, sequencerIdsTopologyIntersection)
+      candidateSequencerIds <- selectSequencerCandidates(
+        synchronizerId,
+        sequencerIdsTopologyIntersection,
+      )
       sequencerId <- EitherT.fromEither[FutureUnlessShutdown](
         candidateSequencerIds.headOption.toRight("No common sequencer")
       )
@@ -266,7 +278,7 @@ class PartyReplicationCoordinator(
             commands = exercise.asScala.toSeq.map(LedgerClientUtils.javaCodegenToScalaProto),
             deduplicationPeriod =
               DeduplicationDuration(syncService.maxDeduplicationDuration.toProtoPrimitive),
-            domainId = domain,
+            synchronizerId = domain,
           ),
           timeouts.default.asFiniteApproximation,
         )
@@ -285,7 +297,7 @@ class PartyReplicationCoordinator(
     )
 
   private def selectSequencerCandidates(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       sequencerIds: NonEmpty[List[SequencerId]],
   )(implicit
       traceContext: TraceContext
@@ -293,7 +305,7 @@ class PartyReplicationCoordinator(
     for {
       syncDomain <-
         EitherT.fromEither[FutureUnlessShutdown](
-          syncService.readySyncDomainById(domainId).toRight("Domain not found")
+          syncService.readySyncDomainById(synchronizerId).toRight("Domain not found")
         )
       channelClient <- EitherT.fromEither[FutureUnlessShutdown](
         syncDomain.sequencerChannelClientO.toRight("Channel client not configured")
@@ -435,7 +447,7 @@ object PartyReplicationCoordinator {
       id: ChannelId,
       partyId: PartyId,
       sourceParticipantId: ParticipantId,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
   )
   final case class ChannelId private (id: CommandId) {
     def unwrap: String = id.unwrap

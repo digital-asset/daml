@@ -24,6 +24,7 @@ package object domain {
   type UpdateId = Ref.TransactionId @@ UpdateIdTag
   val UpdateId: Tag.TagOf[UpdateIdTag] = Tag.of[UpdateIdTag]
 
+  // TODO(#22794) remove type
   type EventId = Ref.LedgerString @@ EventIdTag
   val EventId: Tag.TagOf[EventIdTag] = Tag.of[EventIdTag]
   implicit val eventIdOrdering: Ordering[EventId] =

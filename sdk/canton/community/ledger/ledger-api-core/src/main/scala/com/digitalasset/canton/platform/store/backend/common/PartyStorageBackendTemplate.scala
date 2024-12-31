@@ -3,90 +3,18 @@
 
 package com.digitalasset.canton.platform.store.backend.common
 
-import anorm.SqlParser.{bool, flatten, str}
+import anorm.SqlParser.{bool, str}
 import anorm.{RowParser, ~}
-import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.platform.Party
-import com.digitalasset.canton.platform.store.backend.Conversions.{
-  ledgerString,
-  offset,
-  party,
-  timestampFromMicros,
-}
 import com.digitalasset.canton.platform.store.backend.PartyStorageBackend
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
 import com.digitalasset.canton.platform.store.cache.LedgerEndCache
-import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao.{acceptType, rejectType}
-import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry
 
 import java.sql.Connection
 
 class PartyStorageBackendTemplate(ledgerEndCache: LedgerEndCache) extends PartyStorageBackend {
-
-  private val partyEntryParser: RowParser[(Offset, PartyLedgerEntry)] = {
-    import com.digitalasset.canton.platform.store.backend.Conversions.bigDecimalColumnToBoolean
-    (offset("ledger_offset") ~
-      timestampFromMicros("recorded_at") ~
-      ledgerString("submission_id").? ~
-      party("party").? ~
-      str("typ") ~
-      str("rejection_reason").? ~
-      bool("is_local").?)
-      .map(flatten)
-      .map {
-        case (
-              offset,
-              recordTime,
-              submissionIdOpt,
-              Some(party),
-              `acceptType`,
-              None,
-              Some(isLocal),
-            ) =>
-          offset ->
-            PartyLedgerEntry.AllocationAccepted(
-              submissionIdOpt,
-              recordTime,
-              IndexerPartyDetails(party, isLocal),
-            )
-        case (
-              offset,
-              recordTime,
-              Some(submissionId),
-              None,
-              `rejectType`,
-              Some(reason),
-              None,
-            ) =>
-          offset -> PartyLedgerEntry.AllocationRejected(
-            submissionId,
-            recordTime,
-            reason,
-          )
-        case invalidRow =>
-          sys.error(s"getPartyEntries: invalid party entry row: $invalidRow")
-      }
-  }
-
-  override def partyEntries(
-      startInclusive: Offset,
-      endInclusive: Offset,
-      pageSize: Int,
-      queryOffset: Long,
-  )(connection: Connection): Vector[(Offset, PartyLedgerEntry)] =
-    SQL"""select * from lapi_party_entries
-      where ${QueryStrategy.offsetIsBetween(
-        nonNullableColumn = "ledger_offset",
-        startInclusive = startInclusive,
-        endInclusive = endInclusive,
-      )}
-      order by ledger_offset asc
-      offset $queryOffset rows
-      fetch next $pageSize rows only
-      """
-      .asVectorOf(partyEntryParser)(connection)
 
   private val partyDetailsParser: RowParser[IndexerPartyDetails] = {
     import com.digitalasset.canton.platform.store.backend.Conversions.bigDecimalColumnToBoolean

@@ -8,7 +8,12 @@ import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, HashPurpose, Signature}
+import com.digitalasset.canton.crypto.{
+  DomainSyncCryptoClient,
+  HashPurpose,
+  Signature,
+  SigningKeyUsage,
+}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer as CantonSequencer
@@ -52,7 +57,7 @@ abstract class SequencerApiTest
 
     lazy val sequencer: CantonSequencer = {
       val sequencer = SequencerApiTest.this.createSequencer(
-        topologyFactory.forOwnerAndDomain(owner = mediatorId, domainId)
+        topologyFactory.forOwnerAndDomain(owner = mediatorId, synchronizerId)
       )
       registerAllTopologyMembers(topologyFactory.topologySnapshot(), sequencer)
       sequencer
@@ -130,7 +135,7 @@ abstract class SequencerApiTest
           "This test case is only compatible with SimClock for `clock` and `driverClock` fields"
         )
     }
-  def domainId: DomainId = DefaultTestIdentities.domainId
+  def synchronizerId: SynchronizerId = DefaultTestIdentities.synchronizerId
   def mediatorId: MediatorId = DefaultTestIdentities.mediatorId
   def sequencerId: SequencerId = DefaultTestIdentities.sequencerId
 
@@ -491,9 +496,9 @@ abstract class SequencerApiTest
         val messageId1 = MessageId.tryCreate(s"request1")
         val messageId2 = MessageId.tryCreate(s"request2")
         val messageId3 = MessageId.tryCreate(s"request3")
-        val p11Crypto = topologyFactory.forOwnerAndDomain(p11, domainId)
-        val p12Crypto = topologyFactory.forOwnerAndDomain(p12, domainId)
-        val p13Crypto = topologyFactory.forOwnerAndDomain(p13, domainId)
+        val p11Crypto = topologyFactory.forOwnerAndDomain(p11, synchronizerId)
+        val p12Crypto = topologyFactory.forOwnerAndDomain(p12, synchronizerId)
+        val p13Crypto = topologyFactory.forOwnerAndDomain(p13, synchronizerId)
 
         def mkRequest(
             sender: Member,
@@ -613,8 +618,8 @@ abstract class SequencerApiTest
         val messageId1 = MessageId.tryCreate(s"request1")
         val messageId2 = MessageId.tryCreate(s"request2")
         val messageId3 = MessageId.tryCreate(s"request3")
-        val p14Crypto = topologyFactory.forOwnerAndDomain(p14, domainId)
-        val p15Crypto = topologyFactory.forOwnerAndDomain(p15, domainId)
+        val p14Crypto = topologyFactory.forOwnerAndDomain(p14, synchronizerId)
+        val p15Crypto = topologyFactory.forOwnerAndDomain(p15, synchronizerId)
 
         def mkRequest(
             sender: Member,
@@ -1105,7 +1110,7 @@ trait SequencerApiTestUtils
           case DeliverError(
                 _counter,
                 _timestamp,
-                _domainId,
+                _synchronizerId,
                 messageId,
                 reason,
                 trafficReceipt,
@@ -1125,7 +1130,7 @@ trait SequencerApiTestUtils
   ): FutureUnlessShutdown[ClosedEnvelope] = {
     val hash = crypto.pureCrypto.digest(HashPurpose.SignedProtocolMessageSignature, envelope.bytes)
     crypto.currentSnapshotApproximation
-      .sign(hash)
+      .sign(hash, SigningKeyUsage.ProtocolOnly)
       .map(sig => envelope.copy(signatures = Seq(sig)))
       .valueOrFail(s"Failed to sign $envelope")
   }

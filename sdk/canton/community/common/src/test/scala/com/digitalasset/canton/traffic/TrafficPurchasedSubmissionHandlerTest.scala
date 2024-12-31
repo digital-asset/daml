@@ -60,7 +60,7 @@ class TrafficPurchasedSubmissionHandlerTest
   private val recipient1 = DefaultTestIdentities.participant1.member
   private val sequencerClient = mock[SequencerClientSend]
   private val domainTimeTracker = mock[DomainTimeTracker]
-  private val domainId = DomainId.tryFromString("da::default")
+  private val synchronizerId = SynchronizerId.tryFromString("da::default")
   private val clock = new SimClock(loggerFactory = loggerFactory)
   private val trafficParams = TrafficControlParameters()
   private val handler = new TrafficPurchasedSubmissionHandler(clock, loggerFactory)
@@ -75,7 +75,7 @@ class TrafficPurchasedSubmissionHandlerTest
       )
     )
   ).build(loggerFactory)
-    .forOwnerAndDomain(DefaultTestIdentities.sequencerId, domainId)
+    .forOwnerAndDomain(DefaultTestIdentities.sequencerId, synchronizerId)
 
   override def beforeEach(): Unit = {
     super.beforeEach()
@@ -105,7 +105,7 @@ class TrafficPurchasedSubmissionHandlerTest
     val resultF = handler
       .sendTrafficPurchasedRequest(
         recipient1,
-        domainId,
+        synchronizerId,
         testedProtocolVersion,
         PositiveInt.tryCreate(5),
         NonNegativeLong.tryCreate(1000),
@@ -149,7 +149,7 @@ class TrafficPurchasedSubmissionHandlerTest
       val topUpMessage = envelope.protocolMessage
         .asInstanceOf[SignedProtocolMessage[SetTrafficPurchasedMessage]]
         .message
-      topUpMessage.domainId shouldBe domainId
+      topUpMessage.synchronizerId shouldBe synchronizerId
       topUpMessage.serial.value shouldBe 5
       topUpMessage.member shouldBe recipient1
       topUpMessage.totalTrafficPurchased.value shouldBe 1000
@@ -187,7 +187,7 @@ class TrafficPurchasedSubmissionHandlerTest
     val resultF = handler
       .sendTrafficPurchasedRequest(
         recipient1,
-        domainId,
+        synchronizerId,
         testedProtocolVersion,
         PositiveInt.tryCreate(5),
         NonNegativeLong.tryCreate(1000),
@@ -243,7 +243,7 @@ class TrafficPurchasedSubmissionHandlerTest
     handler
       .sendTrafficPurchasedRequest(
         recipient1,
-        domainId,
+        synchronizerId,
         testedProtocolVersion,
         PositiveInt.tryCreate(5),
         NonNegativeLong.tryCreate(1000),
@@ -280,7 +280,7 @@ class TrafficPurchasedSubmissionHandlerTest
     val deliverError = DeliverError.create(
       SequencerCounter.Genesis,
       CantonTimestamp.Epoch,
-      domainId,
+      synchronizerId,
       messageId,
       Status.defaultInstance.withMessage("BOOM"),
       testedProtocolVersion,
@@ -291,7 +291,7 @@ class TrafficPurchasedSubmissionHandlerTest
       {
         val resultF = handler.sendTrafficPurchasedRequest(
           recipient1,
-          domainId,
+          synchronizerId,
           testedProtocolVersion,
           PositiveInt.tryCreate(5),
           NonNegativeLong.tryCreate(1000),
@@ -313,7 +313,7 @@ class TrafficPurchasedSubmissionHandlerTest
         Seq(
           (
             _.message should include(
-              s"The traffic balance request submission failed: DeliverError(counter = 0, timestamp = 1970-01-01T00:00:00Z, domain id = da::default, message id = $messageId, reason = Status(OK, BOOM))"
+              s"The traffic balance request submission failed: DeliverError(counter = 0, timestamp = 1970-01-01T00:00:00Z, synchronizer id = da::default, message id = $messageId, reason = Status(OK, BOOM))"
             ),
             "sequencing failure",
           )
@@ -344,7 +344,7 @@ class TrafficPurchasedSubmissionHandlerTest
       {
         val resultF = handler.sendTrafficPurchasedRequest(
           recipient1,
-          domainId,
+          synchronizerId,
           testedProtocolVersion,
           PositiveInt.tryCreate(5),
           NonNegativeLong.tryCreate(1000),

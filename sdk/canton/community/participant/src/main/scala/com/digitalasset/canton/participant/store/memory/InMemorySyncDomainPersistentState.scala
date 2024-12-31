@@ -71,7 +71,7 @@ class InMemorySyncDomainPersistentState(
   val requestJournalStore = new InMemoryRequestJournalStore(loggerFactory)
   val acsCommitmentStore =
     new InMemoryAcsCommitmentStore(
-      indexedDomain.domainId,
+      indexedDomain.synchronizerId,
       acsCounterParticipantConfigStore,
       loggerFactory,
     )
@@ -81,7 +81,7 @@ class InMemorySyncDomainPersistentState(
 
   override val topologyStore =
     new InMemoryTopologyStore(
-      DomainStore(indexedDomain.domainId),
+      DomainStore(indexedDomain.synchronizerId),
       staticDomainParameters.protocolVersion,
       loggerFactory,
       timeouts,
@@ -112,7 +112,7 @@ class InMemorySyncDomainPersistentState(
         currentlyVettedPackages,
         nextPackageIds,
         packageDependencyResolver,
-        acsInspections = () => Map(indexedDomain.domainId -> acsInspection),
+        acsInspections = () => Map(indexedDomain.synchronizerId -> acsInspection),
         forceFlags,
       )
     override def checkCannotDisablePartyWithActiveContracts(
@@ -124,7 +124,7 @@ class InMemorySyncDomainPersistentState(
       checkCannotDisablePartyWithActiveContracts(
         partyId,
         forceFlags,
-        acsInspections = () => Map(indexedDomain.domainId -> acsInspection),
+        acsInspections = () => Map(indexedDomain.synchronizerId -> acsInspection),
       )
   }
 
@@ -133,5 +133,10 @@ class InMemorySyncDomainPersistentState(
   override def close(): Unit = ()
 
   override def acsInspection: AcsInspection =
-    new AcsInspection(indexedDomain.domainId, activeContractStore, contractStore, ledgerApiStore)
+    new AcsInspection(
+      indexedDomain.synchronizerId,
+      activeContractStore,
+      contractStore,
+      ledgerApiStore,
+    )
 }

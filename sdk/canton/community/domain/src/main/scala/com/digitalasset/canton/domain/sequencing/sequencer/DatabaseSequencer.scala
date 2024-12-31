@@ -39,7 +39,7 @@ import com.digitalasset.canton.sequencing.client.SequencerClientSend
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker, NonNegativeFiniteDuration}
-import com.digitalasset.canton.topology.{DomainId, Member, SequencerId}
+import com.digitalasset.canton.topology.{Member, SequencerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.util.FutureUtil.doNotAwait
@@ -64,7 +64,7 @@ object DatabaseSequencer {
       storage: Storage,
       sequencerStore: SequencerStore,
       clock: Clock,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       topologyClientMember: Member,
       protocolVersion: ProtocolVersion,
       cryptoApi: DomainSyncCryptoClient,
@@ -101,7 +101,7 @@ object DatabaseSequencer {
       None,
       None,
       clock,
-      domainId,
+      synchronizerId,
       topologyClientMember,
       protocolVersion,
       cryptoApi,
@@ -126,7 +126,7 @@ class DatabaseSequencer(
     exclusiveStorage: Option[Storage],
     health: Option[SequencerHealthConfig],
     clock: Clock,
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     topologyClientMember: Member,
     protocolVersion: ProtocolVersion,
     cryptoApi: DomainSyncCryptoClient,
@@ -276,7 +276,7 @@ class DatabaseSequencer(
   private val reader =
     new SequencerReader(
       config.reader,
-      domainId,
+      synchronizerId,
       sequencerStore,
       cryptoApi,
       eventSignaller,
@@ -386,7 +386,7 @@ class DatabaseSequencer(
 
   // For the database sequencer, the SequencerId serves as the local sequencer identity/member
   // until the database and block sequencers are unified.
-  override protected def localSequencerMember: Member = SequencerId(domainId.uid)
+  override protected def localSequencerMember: Member = SequencerId(synchronizerId.uid)
 
   /** helper for performing operations that are expected to be called with a registered member so will just throw if we
     * find the member is unregistered.

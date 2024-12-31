@@ -12,7 +12,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.AutomaticReassignmentForTransactionFailure
 import com.digitalasset.canton.participant.sync.{ConnectedDomainsLookup, TransactionRoutingError}
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
@@ -31,30 +31,31 @@ private[routing] class ContractsReassigner(
   )(implicit traceContext: TraceContext): EitherT[Future, TransactionRoutingError, Unit] =
     if (domainRankTarget.reassignments.nonEmpty) {
       logger.info(
-        s"Automatic transaction reassignment to domain ${domainRankTarget.domainId}"
+        s"Automatic transaction reassignment to domain ${domainRankTarget.synchronizerId}"
       )
-      domainRankTarget.reassignments.toSeq.parTraverse_ { case (cid, (lfParty, sourceDomainId)) =>
-        perform(
-          Source(sourceDomainId),
-          Target(domainRankTarget.domainId),
-          ReassignmentSubmitterMetadata(
-            submitter = lfParty,
-            submittingParticipant,
-            submitterInfo.commandId,
-            submitterInfo.submissionId,
-            submitterInfo.applicationId,
-            workflowId = None,
-          ),
-          cid,
-        )
+      domainRankTarget.reassignments.toSeq.parTraverse_ {
+        case (cid, (lfParty, sourceSynchronizerId)) =>
+          perform(
+            Source(sourceSynchronizerId),
+            Target(domainRankTarget.synchronizerId),
+            ReassignmentSubmitterMetadata(
+              submitter = lfParty,
+              submittingParticipant,
+              submitterInfo.commandId,
+              submitterInfo.submissionId,
+              submitterInfo.applicationId,
+              workflowId = None,
+            ),
+            cid,
+          )
       }
     } else {
       EitherT.pure[Future, TransactionRoutingError](())
     }
 
   private def perform(
-      sourceDomain: Source[DomainId],
-      targetDomain: Target[DomainId],
+      sourceDomain: Source[SynchronizerId],
+      targetDomain: Target[SynchronizerId],
       submitterMetadata: ReassignmentSubmitterMetadata,
       contractId: LfContractId,
   )(implicit traceContext: TraceContext): EitherT[Future, TransactionRoutingError, Unit] = {

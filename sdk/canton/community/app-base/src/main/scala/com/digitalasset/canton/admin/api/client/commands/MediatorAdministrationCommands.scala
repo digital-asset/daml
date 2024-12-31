@@ -18,7 +18,7 @@ import com.digitalasset.canton.domain.mediator.admin.gprc.{
 }
 import com.digitalasset.canton.mediator.admin.v30
 import com.digitalasset.canton.sequencing.{SequencerConnectionValidation, SequencerConnections}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import io.grpc.ManagedChannel
 
 import scala.concurrent.Future
@@ -43,7 +43,7 @@ object MediatorAdministrationCommands {
   }
 
   final case class Initialize(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       sequencerConnections: SequencerConnections,
       validation: SequencerConnectionValidation,
   ) extends BaseMediatorInitializationCommand[
@@ -54,7 +54,7 @@ object MediatorAdministrationCommands {
     override protected def createRequest(): Either[String, v30.InitializeMediatorRequest] =
       Right(
         InitializeMediatorRequest(
-          domainId,
+          synchronizerId,
           sequencerConnections,
           validation,
         ).toProtoV30

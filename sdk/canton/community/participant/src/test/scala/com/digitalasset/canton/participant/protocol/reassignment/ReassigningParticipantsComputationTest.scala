@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.StakeholderHostingErrors
+import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentValidationError.StakeholderHostingErrors
 import com.digitalasset.canton.protocol.Stakeholders
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
@@ -304,14 +304,14 @@ class ReassigningParticipantsComputationTest
         sourceTopology = Source(t1_c_x_x),
         targetTopology = Target(t2_c_c_x),
       ).compute.value.futureValueUS.left.value shouldBe StakeholderHostingErrors(
-        s"Signatory $signatory requires at least 2 signatory reassigning participants on target domain, but only 1 are available"
+        s"Signatory $signatory requires at least 2 signatory reassigning participants on domain target, but only 1 are available"
       )
       new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.withSignatories(Set(signatory)),
         sourceTopology = Source(t2_c_c_x),
         targetTopology = Target(t1_c_x_x),
       ).compute.value.futureValueUS.left.value shouldBe StakeholderHostingErrors(
-        s"Signatory $signatory requires at least 2 signatory reassigning participants on source domain, but only 1 are available"
+        s"Signatory $signatory requires at least 2 signatory reassigning participants on domain source, but only 1 are available"
       )
 
       new ReassigningParticipantsComputation(
@@ -319,14 +319,14 @@ class ReassigningParticipantsComputationTest
         sourceTopology = Source(t1_c_x_x),
         targetTopology = Target(t2_c_o_c),
       ).compute.value.futureValueUS.left.value shouldBe StakeholderHostingErrors(
-        s"Signatory $signatory requires at least 2 signatory reassigning participants on target domain, but only 1 are available"
+        s"Signatory $signatory requires at least 2 signatory reassigning participants on domain target, but only 1 are available"
       )
       new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.withSignatories(Set(signatory)),
         sourceTopology = Source(t2_c_o_c),
         targetTopology = Target(t1_c_x_x),
       ).compute.value.futureValueUS.left.value shouldBe StakeholderHostingErrors(
-        s"Signatory $signatory requires at least 2 signatory reassigning participants on source domain, but only 1 are available"
+        s"Signatory $signatory requires at least 2 signatory reassigning participants on domain source, but only 1 are available"
       )
     }
 

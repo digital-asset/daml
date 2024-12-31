@@ -10,14 +10,14 @@ import com.digitalasset.canton.health.ComponentStatus
 import com.digitalasset.canton.health.admin.data.NodeStatus.{multiline, portsString}
 import com.digitalasset.canton.health.admin.data.{NodeStatus, TopologyQueueStatus}
 import com.digitalasset.canton.logging.pretty.Pretty
-import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseVersion}
 
 import java.time.Duration
 
 final case class MediatorNodeStatus(
     uid: UniqueIdentifier,
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     uptime: Duration,
     ports: Map[String, Port],
     active: Boolean,
@@ -30,7 +30,7 @@ final case class MediatorNodeStatus(
     prettyOfString(_ =>
       Seq(
         s"Node uid: ${uid.toProtoPrimitive}",
-        s"Domain id: ${domainId.toProtoPrimitive}",
+        s"Synchronizer id: ${synchronizerId.toProtoPrimitive}",
         show"Uptime: $uptime",
         s"Ports: ${portsString(ports)}",
         s"Active: $active",
@@ -43,7 +43,7 @@ final case class MediatorNodeStatus(
   def toMediatorStatusProto: domainV30.MediatorStatusResponse.MediatorStatusResponseStatus =
     domainV30.MediatorStatusResponse.MediatorStatusResponseStatus(
       commonStatus = toProtoV30.some,
-      domainId = domainId.toProtoPrimitive,
+      synchronizerId = synchronizerId.toProtoPrimitive,
       protocolVersion = protocolVersion.toProtoPrimitive,
     )
 }

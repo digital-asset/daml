@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.domain
 
-import com.digitalasset.canton.crypto.{Fingerprint, HashPurpose, Signature}
+import com.digitalasset.canton.crypto.{Fingerprint, HashPurpose, Signature, SigningKeyUsage}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.OrderingRequest
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.SignedOrderingRequest
@@ -59,7 +59,7 @@ trait HasTopologyTransactionTestFactory {
           request.getCryptographicEvidence,
         )
       signed <- topologyTransactionFactory.cryptoApi.crypto.privateCrypto
-        .sign(hash, signingKey)
+        .sign(hash, signingKey, SigningKeyUsage.ProtocolOnly)
         .map(signature =>
           SignedContent(
             request,
@@ -124,7 +124,7 @@ trait HasTopologyTransactionTestFactory {
     val hash = topologyTransactionFactory.cryptoApi.crypto.pureCrypto
       .digest(HashPurpose.SignedProtocolMessageSignature, bytes)
     topologyTransactionFactory.cryptoApi.crypto.privateCrypto
-      .sign(hash, envelopeSigningKey)
+      .sign(hash, envelopeSigningKey, SigningKeyUsage.ProtocolOnly)
       .valueOrFailShutdown(s"Failed to sign $envelope")
       .map(sig => envelope.copy(signatures = Seq(sig)))
   }

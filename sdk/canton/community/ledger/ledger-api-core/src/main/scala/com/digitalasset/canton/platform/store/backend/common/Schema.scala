@@ -138,8 +138,8 @@ private[backend] object AppendOnlySchema {
           _.create_key_value_compression
         ),
         "driver_metadata" -> fieldStrategy.bytea(_ => _.driver_metadata),
-        "domain_id" -> fieldStrategy.int(stringInterning =>
-          dbDto => stringInterning.domainId.unsafe.internalize(dbDto.domain_id)
+        "synchronizer_id" -> fieldStrategy.int(stringInterning =>
+          dbDto => stringInterning.synchronizerId.unsafe.internalize(dbDto.synchronizer_id)
         ),
         "trace_context" -> fieldStrategy.bytea(_ => _.trace_context),
         "record_time" -> fieldStrategy.bigint(_ => _.record_time),
@@ -185,8 +185,8 @@ private[backend] object AppendOnlySchema {
         "exercise_result_compression" -> fieldStrategy.smallintOptional(_ =>
           _.exercise_result_compression
         ),
-        "domain_id" -> fieldStrategy.int(stringInterning =>
-          dbDto => stringInterning.domainId.unsafe.internalize(dbDto.domain_id)
+        "synchronizer_id" -> fieldStrategy.int(stringInterning =>
+          dbDto => stringInterning.synchronizerId.unsafe.internalize(dbDto.synchronizer_id)
         ),
         "trace_context" -> fieldStrategy.bytea(_ => _.trace_context),
         "record_time" -> fieldStrategy.bigint(_ => _.record_time),
@@ -225,11 +225,11 @@ private[backend] object AppendOnlySchema {
         "flat_event_witnesses" -> fieldStrategy.intArray(stringInterning =>
           _.flat_event_witnesses.map(stringInterning.party.unsafe.internalize)
         ),
-        "source_domain_id" -> fieldStrategy.int(stringInterning =>
-          dbDto => stringInterning.domainId.unsafe.internalize(dbDto.source_domain_id)
+        "source_synchronizer_id" -> fieldStrategy.int(stringInterning =>
+          dbDto => stringInterning.synchronizerId.unsafe.internalize(dbDto.source_synchronizer_id)
         ),
-        "target_domain_id" -> fieldStrategy.int(stringInterning =>
-          dbDto => stringInterning.domainId.unsafe.internalize(dbDto.target_domain_id)
+        "target_synchronizer_id" -> fieldStrategy.int(stringInterning =>
+          dbDto => stringInterning.synchronizerId.unsafe.internalize(dbDto.target_synchronizer_id)
         ),
         "unassign_id" -> fieldStrategy.string(_ => _.unassign_id),
         "reassignment_counter" -> fieldStrategy.bigint(_ => _.reassignment_counter),
@@ -261,11 +261,11 @@ private[backend] object AppendOnlySchema {
         "flat_event_witnesses" -> fieldStrategy.intArray(stringInterning =>
           _.flat_event_witnesses.map(stringInterning.party.unsafe.internalize)
         ),
-        "source_domain_id" -> fieldStrategy.int(stringInterning =>
-          dbDto => stringInterning.domainId.unsafe.internalize(dbDto.source_domain_id)
+        "source_synchronizer_id" -> fieldStrategy.int(stringInterning =>
+          dbDto => stringInterning.synchronizerId.unsafe.internalize(dbDto.source_synchronizer_id)
         ),
-        "target_domain_id" -> fieldStrategy.int(stringInterning =>
-          dbDto => stringInterning.domainId.unsafe.internalize(dbDto.target_domain_id)
+        "target_synchronizer_id" -> fieldStrategy.int(stringInterning =>
+          dbDto => stringInterning.synchronizerId.unsafe.internalize(dbDto.target_synchronizer_id)
         ),
         "unassign_id" -> fieldStrategy.string(_ => _.unassign_id),
         "reassignment_counter" -> fieldStrategy.bigint(_ => _.reassignment_counter),
@@ -318,8 +318,8 @@ private[backend] object AppendOnlySchema {
         // TODO(i21859) Implement interning for participant ids
         "participant_id" -> fieldStrategy.string(_ => _.participant_id),
         "participant_permission" -> fieldStrategy.int(_ => _.participant_permission),
-        "domain_id" -> fieldStrategy.int(stringInterning =>
-          dbDto => stringInterning.domainId.unsafe.internalize(dbDto.domain_id)
+        "synchronizer_id" -> fieldStrategy.int(stringInterning =>
+          dbDto => stringInterning.synchronizerId.unsafe.internalize(dbDto.synchronizer_id)
         ),
         "record_time" -> fieldStrategy.bigint(_ => _.record_time),
         "trace_context" -> fieldStrategy.bytea(_ => _.trace_context),
@@ -347,8 +347,8 @@ private[backend] object AppendOnlySchema {
         "deduplication_duration_nanos" -> fieldStrategy.intOptional(_ =>
           _.deduplication_duration_nanos
         ),
-        "domain_id" -> fieldStrategy.int(stringInterning =>
-          dbDto => stringInterning.domainId.unsafe.internalize(dbDto.domain_id)
+        "synchronizer_id" -> fieldStrategy.int(stringInterning =>
+          dbDto => stringInterning.synchronizerId.unsafe.internalize(dbDto.synchronizer_id)
         ),
         "message_uuid" -> fieldStrategy.stringOptional(_ => _.message_uuid),
         "request_sequencer_counter" -> fieldStrategy.bigintOptional(_ =>
@@ -440,8 +440,8 @@ private[backend] object AppendOnlySchema {
         "event_offset" -> fieldStrategy.bigint(_ => _.event_offset),
         "publication_time" -> fieldStrategy.bigint(_ => _.publication_time),
         "record_time" -> fieldStrategy.bigint(_ => _.record_time),
-        "domain_id" -> fieldStrategy.int(stringInterning =>
-          dbDto => stringInterning.domainId.unsafe.internalize(dbDto.domain_id)
+        "synchronizer_id" -> fieldStrategy.int(stringInterning =>
+          dbDto => stringInterning.synchronizerId.unsafe.internalize(dbDto.synchronizer_id)
         ),
         "event_sequential_id_first" -> fieldStrategy.bigint(_ => _.event_sequential_id_first),
         "event_sequential_id_last" -> fieldStrategy.bigint(_ => _.event_sequential_id_last),

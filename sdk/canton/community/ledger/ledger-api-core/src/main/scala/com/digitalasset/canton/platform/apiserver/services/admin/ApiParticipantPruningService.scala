@@ -16,10 +16,10 @@ import com.daml.tracing.Telemetry
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.ValidationLogger
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
+import com.digitalasset.canton.ledger.api.validation.ParticipantOffsetValidator
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.*
 import com.digitalasset.canton.ledger.error.CommonErrors.ServerIsShuttingDown
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidField
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.SyncService
 import com.digitalasset.canton.ledger.participant.state.index.{
@@ -137,12 +137,12 @@ final class ApiParticipantPruningService private (
       errorLoggingContext: ContextualizedErrorLogger,
   ): Future[Offset] =
     (for {
-      pruneUpToLong <- checkOffsetIsSpecified(request.pruneUpTo)
-      pruneUpTo <- checkOffsetIsPositive(request.pruneUpTo)
-    } yield (pruneUpTo, pruneUpToLong))
+      _ <- checkOffsetIsSpecified(request.pruneUpTo)
+      pruneUpTo <- ParticipantOffsetValidator.validatePositive(request.pruneUpTo, "prune_up_to")
+    } yield pruneUpTo)
       .fold(
         t => Future.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
-        o => checkOffsetIsBeforeLedgerEnd(o._1, o._2),
+        checkOffsetIsBeforeLedgerEnd,
       )
 
   private def pruneSyncService(
@@ -182,46 +182,22 @@ final class ApiParticipantPruningService private (
 
   private def checkOffsetIsSpecified(
       offset: Long
-  )(implicit errorLogger: ContextualizedErrorLogger): Either[StatusRuntimeException, Long] =
+  )(implicit errorLogger: ContextualizedErrorLogger): Either[StatusRuntimeException, Unit] =
     Either.cond(
       offset != 0,
-      offset,
+      (),
       invalidArgument("prune_up_to not specified or zero"),
     )
 
-  private def checkOffsetIsPositive(
-      pruneUpTo: Long
-  )(implicit
-      errorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Offset] =
-    try {
-      Right(Offset.tryFromLong(pruneUpTo))
-    } catch {
-      case illegalArg: IllegalArgumentException =>
-        Left(
-          RequestValidationErrors.NonPositiveOffset
-            .Error(
-              fieldName = "prune_up_to",
-              offsetValue = pruneUpTo,
-              message = illegalArg.getMessage,
-            )
-            .asGrpcError
-        )
-      case err: Throwable =>
-        Left(InvalidField.Reject(fieldName = "prune_up_to", err.getMessage).asGrpcError)
-    }
-
   private def checkOffsetIsBeforeLedgerEnd(
-      pruneUpToProto: Offset,
-      pruneUpToLong: Long,
+      pruneUpTo: Offset
   )(implicit
       errorLogger: ContextualizedErrorLogger
   ): Future[Offset] =
     for {
       ledgerEnd <- readBackend.currentLedgerEnd()
       _ <-
-        // NOTE: This constraint should be relaxed to (pruneUpToString <= ledgerEnd.value) TODO(#18685) clarify this
-        if (pruneUpToLong < ledgerEnd.fold(0L)(_.unwrap)) Future.successful(())
+        if (Option(pruneUpTo) < ledgerEnd) Future.successful(())
         else
           Future.failed(
             RequestValidationErrors.OffsetOutOfRange
@@ -230,7 +206,7 @@ final class ApiParticipantPruningService private (
               )
               .asGrpcError
           )
-    } yield pruneUpToProto
+    } yield pruneUpTo
 
   private def contextualizedErrorLogger(submissionId: String)(implicit
       loggingContext: LoggingContextWithTrace

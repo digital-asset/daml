@@ -66,30 +66,30 @@ class SyncCryptoApiProvider(
   def pureCrypto: CryptoPureApi = crypto.pureCrypto
 
   def tryForDomain(
-      domain: DomainId,
+      synchronizerId: SynchronizerId,
       staticDomainParameters: StaticDomainParameters,
   ): DomainSyncCryptoClient =
     new DomainSyncCryptoClient(
       member,
-      domain,
-      ips.tryForDomain(domain),
+      synchronizerId,
+      ips.tryForDomain(synchronizerId),
       crypto,
       sessionSigningKeysConfig,
       staticDomainParameters,
       timeouts,
       futureSupervisor,
-      loggerFactory.append("domainId", domain.toString),
+      loggerFactory.append("synchronizerId", synchronizerId.toString),
     )
 
   def forDomain(
-      domain: DomainId,
+      synchronizerId: SynchronizerId,
       staticDomainParameters: StaticDomainParameters,
   ): Option[DomainSyncCryptoClient] =
     for {
-      dips <- ips.forDomain(domain)
+      dips <- ips.forDomain(synchronizerId)
     } yield new DomainSyncCryptoClient(
       member,
-      domain,
+      synchronizerId,
       dips,
       crypto,
       sessionSigningKeysConfig,
@@ -308,7 +308,7 @@ object SyncCryptoClient {
   */
 class DomainSyncCryptoClient(
     val member: Member,
-    val domainId: DomainId,
+    val synchronizerId: SynchronizerId,
     val ips: DomainTopologyClient,
     val crypto: Crypto,
     @unused sessionSigningKeysConfig: SessionSigningKeysConfig,
@@ -363,7 +363,7 @@ class DomainSyncCryptoClient(
 
   private def create(snapshot: TopologySnapshot): DomainSnapshotSyncCryptoApi =
     new DomainSnapshotSyncCryptoApi(
-      domainId,
+      synchronizerId,
       staticDomainParameters,
       snapshot,
       crypto,
@@ -413,7 +413,7 @@ class DomainSyncCryptoClient(
 
 /** crypto operations for a (domain,timestamp) */
 class DomainSnapshotSyncCryptoApi(
-    val domainId: DomainId,
+    val synchronizerId: SynchronizerId,
     staticDomainParameters: StaticDomainParameters,
     override val ipsSnapshot: TopologySnapshot,
     val crypto: Crypto,
@@ -427,11 +427,12 @@ class DomainSnapshotSyncCryptoApi(
     new DomainCryptoPureApi(staticDomainParameters, crypto.pureCrypto)
 
   override def sign(
-      hash: Hash
+      hash: Hash,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, Signature] =
-    protocolSigner.sign(ipsSnapshot, hash)
+    protocolSigner.sign(ipsSnapshot, hash, usage)
 
   override def verifySignature(
       hash: Hash,

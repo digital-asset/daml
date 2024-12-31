@@ -9,6 +9,10 @@ import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRespons
 import com.daml.ledger.api.v2.completion.Completion
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.Update.CommandRejected.FinalReason
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.{
+  AuthorizationLevel,
+  TopologyEvent,
+}
 import com.digitalasset.canton.ledger.participant.state.{
   CompletionInfo,
   Reassignment,
@@ -19,6 +23,7 @@ import com.digitalasset.canton.ledger.participant.state.{
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.pekkostreams.dispatcher.Dispatcher
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
+import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocationTracker
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater.PrepareResult
 import com.digitalasset.canton.platform.index.InMemoryStateUpdaterSpec.*
@@ -35,7 +40,7 @@ import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate.CreatedEvent
 import com.digitalasset.canton.platform.store.interning.StringInterningView
 import com.digitalasset.canton.platform.{DispatcherState, InMemoryState}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag
 import com.digitalasset.canton.{
@@ -127,6 +132,7 @@ class InMemoryStateUpdaterSpec
       InMemoryStateUpdater.prepare(
         Vector.empty,
         someLedgerEnd,
+        participantId,
       )
     }
   }
@@ -135,6 +141,7 @@ class InMemoryStateUpdaterSpec
     InMemoryStateUpdater.prepare(
       Vector(update1),
       someLedgerEnd,
+      participantId,
     ) shouldBe PrepareResult(
       Vector(txLogUpdate1),
       someLedgerEnd,
@@ -146,8 +153,21 @@ class InMemoryStateUpdaterSpec
     InMemoryStateUpdater.prepare(
       Vector(update1, update7, update8),
       someLedgerEnd,
+      participantId,
     ) shouldBe PrepareResult(
       Vector(txLogUpdate1, assignLogUpdate, unassignLogUpdate),
+      someLedgerEnd,
+      update1._2.traceContext,
+    )
+  }
+
+  "prepare" should "prepare a batch with topology transaction" in new Scope {
+    InMemoryStateUpdater.prepare(
+      Vector(update1, update9),
+      someLedgerEnd,
+      participantId,
+    ) shouldBe PrepareResult(
+      Vector(txLogUpdate1, topologyTransactionLogUpdate),
       someLedgerEnd,
       update1._2.traceContext,
     )
@@ -157,6 +177,7 @@ class InMemoryStateUpdaterSpec
     InMemoryStateUpdater.prepare(
       Vector(update1, metadataChangedUpdate),
       someLedgerEnd,
+      participantId,
     ) shouldBe PrepareResult(
       Vector(txLogUpdate1),
       someLedgerEnd,
@@ -247,11 +268,11 @@ class InMemoryStateUpdaterSpec
   "updateOffsetCheckpointCacheFlowWithTickingSource" should "not alter the original flow" in new Scope {
     implicit val ec: ExecutionContext = executorService
 
-    // here we define the offset, domainId and recordTime for each offset-update pair the same way they arrive to the flow as Some values
+    // here we define the offset, synchronizerId and recordTime for each offset-update pair the same way they arrive to the flow as Some values
     // the None values denote the ticks arrived that are used to update the offset checkpoint cache
     val offsetsAndTicks =
       Seq(Some(1L), Some(2L), None, None, Some(3L), Some(4L), Some(5L), None, Some(6L), None)
-    val domainIdsAndTicks =
+    val synchronizerIdsAndTicks =
       Seq(Some(1L), Some(2L), None, None, Some(2L), Some(1L), Some(3L), None, Some(1L), None)
     val recordTimesAndTicks = offsetsAndTicks
 
@@ -280,14 +301,14 @@ class InMemoryStateUpdaterSpec
         OffsetCheckpoint(
           offset = Offset.tryFromLong(offset.toLong),
           domainTimes = domainTimesRaw.map { case (d, t) =>
-            DomainId.tryFromString(d.toString + "::default") -> Timestamp(t.toLong)
+            SynchronizerId.tryFromString(d.toString + "::default") -> Timestamp(t.toLong)
           },
         )
       }
 
     val input = createInputSeq(
       offsetsAndTicks,
-      domainIdsAndTicks,
+      synchronizerIdsAndTicks,
       recordTimesAndTicks,
     )
 
@@ -306,11 +327,11 @@ class InMemoryStateUpdaterSpec
     implicit val ec: ExecutionContext = executorService
 
     private val updatesSeq: Seq[Update] = Seq(
-      transactionAccepted(1, domainId1),
-      assignmentAccepted(2, source = domainId2, target = domainId1),
-      unassignmentAccepted(3, source = domainId1, target = domainId2),
-      commandRejected(4, domainId1),
-      sequencerIndexMoved(5, domainId1),
+      transactionAccepted(1, synchronizerId1),
+      assignmentAccepted(2, source = synchronizerId2, target = synchronizerId1),
+      unassignmentAccepted(3, source = synchronizerId1, target = synchronizerId2),
+      commandRejected(4, synchronizerId1),
+      sequencerIndexMoved(5, synchronizerId1),
     )
 
     private val offsets = (1L to updatesSeq.length.toLong).map(Offset.tryFromLong)
@@ -330,19 +351,19 @@ class InMemoryStateUpdaterSpec
       Seq(
         // offset -> Map[domain, time]
         1 -> Map(
-          domainId1 -> 1
+          synchronizerId1 -> 1
         ),
         2 -> Map(
-          domainId1 -> 2
+          synchronizerId1 -> 2
         ),
         3 -> Map(
-          domainId1 -> 3
+          synchronizerId1 -> 3
         ),
         4 -> Map(
-          domainId1 -> 4
+          synchronizerId1 -> 4
         ),
         5 -> Map(
-          domainId1 -> 5
+          synchronizerId1 -> 5
         ),
       ).map { case (offset, domainTimesRaw) =>
         OffsetCheckpoint(
@@ -364,6 +385,27 @@ object InMemoryStateUpdaterSpec {
 
   import TraceContext.Implicits.Empty.*
 
+  private val txId1 = Ref.TransactionId.assertFromString("tx1")
+  private val txId2 = Ref.TransactionId.assertFromString("tx2")
+  private val txId3 = Ref.TransactionId.assertFromString("tx3")
+  private val txId4 = Ref.TransactionId.assertFromString("tx4")
+
+  private val synchronizerId1 = SynchronizerId.tryFromString("x::synchronizerID1")
+  private val synchronizerId2 = SynchronizerId.tryFromString("x::synchronizerID2")
+
+  private val party1 = Ref.Party.assertFromString("someparty1")
+  private val party2 = Ref.Party.assertFromString("someparty2")
+
+  private val templateId = Identifier.assertFromString("pkgId1:Mod:I")
+  private val templateId2 = Identifier.assertFromString("pkgId2:Mod:I2")
+
+  private val packageName = Ref.PackageName.assertFromString("pkg-name")
+  private val packageVersion = Ref.PackageVersion.assertFromString("1.2.3")
+
+  private val participantId = Ref.ParticipantId.assertFromString("participant1")
+  private val someContractMetadataBytes = Bytes.assertFromString("00aabb")
+  private val workflowId: Ref.WorkflowId = Ref.WorkflowId.assertFromString("Workflow")
+
   trait Scope
       extends Matchers
       with ScalaFutures
@@ -377,44 +419,30 @@ object InMemoryStateUpdaterSpec {
     val cachesUpdateCaptor =
       (v: PrepareResult, _: Boolean) => cacheUpdates.addOne(v).pipe(_ => ())
 
-    val inMemoryStateUpdater = InMemoryStateUpdaterFlow(
-      prepareUpdatesParallelism = 2,
-      prepareUpdatesExecutionContext = executorService,
-      updateCachesExecutionContext = executorService,
-      preparePackageMetadataTimeOutWarning = FiniteDuration(10, "seconds"),
-      offsetCheckpointCacheUpdateInterval = FiniteDuration(15, "seconds"),
-      metrics = LedgerApiServerMetrics.ForTesting,
-      logger = logger,
-    )(
-      inMemoryState = inMemoryState,
-      prepare = (_, ledgerEnd) => result(ledgerEnd),
-      update = cachesUpdateCaptor,
-    )(emptyTraceContext)
-
     val txLogUpdate1 =
       TransactionLogUpdate.TransactionAccepted(
-        updateId = "tx1",
+        updateId = txId1,
         commandId = "",
         workflowId = workflowId,
         effectiveAt = Timestamp.Epoch,
         offset = offset(11L),
         events = Vector(),
         completionStreamResponse = None,
-        domainId = domainId1.toProtoPrimitive,
+        synchronizerId = synchronizerId1.toProtoPrimitive,
         recordTime = Timestamp.Epoch,
       )(emptyTraceContext)
 
     val assignLogUpdate =
       TransactionLogUpdate.ReassignmentAccepted(
-        updateId = "tx3",
+        updateId = txId3,
         commandId = "",
         workflowId = workflowId,
         offset = offset(17L),
         recordTime = Timestamp.Epoch,
         completionStreamResponse = None,
         reassignmentInfo = ReassignmentInfo(
-          sourceDomain = ReassignmentTag.Source(domainId1),
-          targetDomain = ReassignmentTag.Target(domainId2),
+          sourceDomain = ReassignmentTag.Source(synchronizerId1),
+          targetDomain = ReassignmentTag.Target(synchronizerId2),
           submitter = Option(party1),
           reassignmentCounter = 15L,
           hostedStakeholders = party2 :: Nil,
@@ -424,7 +452,7 @@ object InMemoryStateUpdaterSpec {
         reassignment = TransactionLogUpdate.ReassignmentAccepted.Assigned(
           CreatedEvent(
             eventOffset = offset(17L),
-            updateId = "tx3",
+            updateId = txId3,
             nodeIndex = 0,
             eventSequentialId = 0,
             eventId = EventId(txId3, NodeId(0)),
@@ -453,15 +481,15 @@ object InMemoryStateUpdaterSpec {
 
     val unassignLogUpdate =
       TransactionLogUpdate.ReassignmentAccepted(
-        updateId = "tx4",
+        updateId = txId4,
         commandId = "",
         workflowId = workflowId,
         offset = offset(18L),
         recordTime = Timestamp.Epoch,
         completionStreamResponse = None,
         reassignmentInfo = ReassignmentInfo(
-          sourceDomain = ReassignmentTag.Source(domainId2),
-          targetDomain = ReassignmentTag.Target(domainId1),
+          sourceDomain = ReassignmentTag.Source(synchronizerId2),
+          targetDomain = ReassignmentTag.Target(synchronizerId1),
           submitter = Option(party2),
           reassignmentCounter = 15L,
           hostedStakeholders = party1 :: Nil,
@@ -479,6 +507,21 @@ object InMemoryStateUpdaterSpec {
         ),
       )(emptyTraceContext)
 
+    val topologyTransactionLogUpdate =
+      TransactionLogUpdate.TopologyTransactionEffective(
+        updateId = txId3,
+        synchronizerId = synchronizerId1.toProtoPrimitive,
+        offset = offset(19L),
+        effectiveTime = Timestamp.Epoch,
+        events = Vector(
+          TransactionLogUpdate.PartyToParticipantAuthorization(
+            party = party1,
+            participant = participantId,
+            level = AuthorizationLevel.Observation,
+          )
+        ),
+      )(emptyTraceContext)
+
     val ledgerEndCache: MutableLedgerEndCache = mock[MutableLedgerEndCache]
     val contractStateCaches: ContractStateCaches = mock[ContractStateCaches]
     val offsetCheckpointCache: OffsetCheckpointCache = mock[OffsetCheckpointCache]
@@ -486,6 +529,7 @@ object InMemoryStateUpdaterSpec {
     val stringInterningView: StringInterningView = mock[StringInterningView]
     val dispatcherState: DispatcherState = mock[DispatcherState]
     val submissionTracker: SubmissionTracker = mock[SubmissionTracker]
+    val partyAllocationTracker: PartyAllocationTracker = mock[PartyAllocationTracker]
     val dispatcher: Dispatcher[Offset] = mock[Dispatcher[Offset]]
     val commandProgressTracker = CommandProgressTracker.NoOp
 
@@ -502,6 +546,7 @@ object InMemoryStateUpdaterSpec {
     when(dispatcherState.getDispatcher).thenReturn(dispatcher)
 
     val inMemoryState = new InMemoryState(
+      participantId = participantId,
       ledgerEndCache = ledgerEndCache,
       contractStateCaches = contractStateCaches,
       offsetCheckpointCache = offsetCheckpointCache,
@@ -509,9 +554,24 @@ object InMemoryStateUpdaterSpec {
       stringInterningView = stringInterningView,
       dispatcherState = dispatcherState,
       submissionTracker = submissionTracker,
+      partyAllocationTracker = partyAllocationTracker,
       commandProgressTracker = commandProgressTracker,
       loggerFactory = loggerFactory,
     )(executorService)
+
+    val inMemoryStateUpdater = InMemoryStateUpdaterFlow(
+      prepareUpdatesParallelism = 2,
+      prepareUpdatesExecutionContext = executorService,
+      updateCachesExecutionContext = executorService,
+      preparePackageMetadataTimeOutWarning = FiniteDuration(10, "seconds"),
+      offsetCheckpointCacheUpdateInterval = FiniteDuration(15, "seconds"),
+      metrics = LedgerApiServerMetrics.ForTesting,
+      logger = logger,
+    )(
+      inMemoryState = inMemoryState,
+      prepare = (_, ledgerEnd, _) => result(ledgerEnd),
+      update = cachesUpdateCaptor,
+    )(emptyTraceContext)
 
     val tx_accepted_commandId = "cAccepted"
     val tx_accepted_updateId = "tAccepted"
@@ -572,7 +632,7 @@ object InMemoryStateUpdaterSpec {
           )
           .toVector,
         completionStreamResponse = Some(tx_accepted_completionStreamResponse),
-        domainId = domainId1.toProtoPrimitive,
+        synchronizerId = synchronizerId1.toProtoPrimitive,
         recordTime = Timestamp(1),
       )(emptyTraceContext)
 
@@ -630,23 +690,6 @@ object InMemoryStateUpdaterSpec {
         .runWith(Sink.ignore)
         .futureValue
   }
-
-  private val txId1 = Ref.TransactionId.assertFromString("tx1")
-  private val txId2 = Ref.TransactionId.assertFromString("tx2")
-  private val txId3 = Ref.TransactionId.assertFromString("tx3")
-  private val txId4 = Ref.TransactionId.assertFromString("tx4")
-
-  private val domainId1 = DomainId.tryFromString("x::domainID1")
-  private val domainId2 = DomainId.tryFromString("x::domainID2")
-
-  private val party1 = Ref.Party.assertFromString("someparty1")
-  private val party2 = Ref.Party.assertFromString("someparty2")
-
-  private val templateId = Identifier.assertFromString("pkgId1:Mod:I")
-  private val templateId2 = Identifier.assertFromString("pkgId2:Mod:I2")
-
-  private val packageName = Ref.PackageName.assertFromString("pkg-name")
-  private val packageVersion = Ref.PackageVersion.assertFromString("1.2.3")
 
   private def genCreateNode = {
     val contractId = TransactionBuilder.newCid
@@ -713,9 +756,6 @@ object InMemoryStateUpdaterSpec {
         )
     }
 
-  private val someContractMetadataBytes = Bytes.assertFromString("00aabb")
-
-  private val workflowId: Ref.WorkflowId = Ref.WorkflowId.assertFromString("Workflow")
   private val someTransactionMeta: TransactionMeta = TransactionMeta(
     ledgerEffectiveTime = Timestamp.Epoch,
     workflowId = Some(workflowId),
@@ -726,11 +766,11 @@ object InMemoryStateUpdaterSpec {
     optByKeyNodes = None,
   )
 
-  private val update1 = offset(11L) -> transactionAccepted(t = 0L, domainId = domainId1)
+  private val update1 = offset(11L) -> transactionAccepted(t = 0L, synchronizerId = synchronizerId1)
   private def rawMetadataChangedUpdate(offset: Offset, recordTime: Timestamp) =
     offset ->
       Update.SequencerIndexMoved(
-        domainId = DomainId.tryFromString("x::domain"),
+        synchronizerId = SynchronizerId.tryFromString("x::domain"),
         sequencerCounter = SequencerCounter(15L),
         recordTime = CantonTimestamp(recordTime),
         requestCounterO = None,
@@ -745,20 +785,23 @@ object InMemoryStateUpdaterSpec {
       updateId = txId2,
       hostedWitnesses = Nil,
       contractMetadata = Map.empty,
-      domainId = DomainId.tryFromString("da::default"),
+      synchronizerId = SynchronizerId.tryFromString("da::default"),
       requestCounter = RequestCounter(1),
       sequencerCounter = SequencerCounter(1),
       recordTime = CantonTimestamp.MinValue,
     )
 
   private val update4 = offset(14L) ->
-    commandRejected(t = 1337L, domainId = DomainId.tryFromString("da::default"))
+    commandRejected(t = 1337L, synchronizerId = SynchronizerId.tryFromString("da::default"))
 
   private val update7 = offset(17L) ->
-    assignmentAccepted(t = 0, source = domainId1, target = domainId2)
+    assignmentAccepted(t = 0, source = synchronizerId1, target = synchronizerId2)
 
   private val update8 = offset(18L) ->
-    unassignmentAccepted(t = 0, source = domainId2, target = domainId1)
+    unassignmentAccepted(t = 0, source = synchronizerId2, target = synchronizerId1)
+
+  private val update9 = offset(19L) ->
+    topologyTransactionEffective(t = 0, AuthorizationLevel.Observation)
 
   private val anotherMetadataChangedUpdate =
     rawMetadataChangedUpdate(offset(15L), Timestamp.assertFromLong(1337L))
@@ -781,8 +824,8 @@ object InMemoryStateUpdaterSpec {
                 offset = currOffset,
                 domainTimes = lastCheckpointO
                   .map(_.domainTimes)
-                  .getOrElse(Map.empty[DomainId, Timestamp])
-                  .updated(update.domainId, update.recordTime.toLf),
+                  .getOrElse(Map.empty[SynchronizerId, Timestamp])
+                  .updated(update.synchronizerId, update.recordTime.toLf),
               )
             ),
           )
@@ -794,15 +837,17 @@ object InMemoryStateUpdaterSpec {
 
   private def createInputSeq(
       offsetsAndTicks: Seq[Option[Long]],
-      domainIdsAndTicks: Seq[Option[Long]],
+      synchronizerIdsAndTicks: Seq[Option[Long]],
       recordTimesAndTicks: Seq[Option[Long]],
   ): Seq[Option[(Offset, Update.TransactionAccepted)]] = {
     val offsets = offsetsAndTicks.map(_.map(Offset.tryFromLong))
-    val domainIds =
-      domainIdsAndTicks.map(_.map(x => DomainId.tryFromString(x.toString + "::default")))
+    val synchronizerIds =
+      synchronizerIdsAndTicks.map(
+        _.map(x => SynchronizerId.tryFromString(x.toString + "::default"))
+      )
 
     val updatesSeq: Seq[Option[Update.TransactionAccepted]] =
-      recordTimesAndTicks.zip(domainIds).map {
+      recordTimesAndTicks.zip(synchronizerIds).map {
         case (Some(t), Some(domain)) =>
           Some(
             transactionAccepted(t, domain)
@@ -884,7 +929,10 @@ object InMemoryStateUpdaterSpec {
 
   }
 
-  private def transactionAccepted(t: Long, domainId: DomainId): Update.TransactionAccepted =
+  private def transactionAccepted(
+      t: Long,
+      synchronizerId: SynchronizerId,
+  ): Update.TransactionAccepted =
     Update.SequencedTransactionAccepted(
       completionInfoO = None,
       transactionMeta = someTransactionMeta,
@@ -892,7 +940,7 @@ object InMemoryStateUpdaterSpec {
       updateId = txId1,
       hostedWitnesses = Nil,
       contractMetadata = Map.empty,
-      domainId = domainId,
+      synchronizerId = synchronizerId,
       requestCounter = RequestCounter(1),
       sequencerCounter = SequencerCounter(1),
       recordTime = CantonTimestamp(Timestamp(t)),
@@ -900,8 +948,8 @@ object InMemoryStateUpdaterSpec {
 
   private def assignmentAccepted(
       t: Long,
-      source: DomainId,
-      target: DomainId,
+      source: SynchronizerId,
+      target: SynchronizerId,
   ): Update.ReassignmentAccepted =
     Update.SequencedReassignmentAccepted(
       optCompletionInfo = None,
@@ -928,8 +976,8 @@ object InMemoryStateUpdaterSpec {
 
   private def unassignmentAccepted(
       t: Long,
-      source: DomainId,
-      target: DomainId,
+      source: SynchronizerId,
+      target: SynchronizerId,
   ): Update.ReassignmentAccepted =
     Update.SequencedReassignmentAccepted(
       optCompletionInfo = None,
@@ -956,7 +1004,7 @@ object InMemoryStateUpdaterSpec {
       recordTime = CantonTimestamp(Timestamp(t)),
     )
 
-  private def commandRejected(t: Long, domainId: DomainId): Update.CommandRejected =
+  private def commandRejected(t: Long, synchronizerId: SynchronizerId): Update.CommandRejected =
     Update.SequencedCommandRejected(
       completionInfo = CompletionInfo(
         actAs = List.empty,
@@ -966,18 +1014,38 @@ object InMemoryStateUpdaterSpec {
         submissionId = None,
       ),
       reasonTemplate = FinalReason(new Status()),
-      domainId = domainId,
+      synchronizerId = synchronizerId,
       requestCounter = RequestCounter(1),
       sequencerCounter = SequencerCounter(1),
       recordTime = CantonTimestamp.assertFromLong(t),
     )
 
-  private def sequencerIndexMoved(t: Long, domainId: DomainId): Update.SequencerIndexMoved =
+  private def sequencerIndexMoved(
+      t: Long,
+      synchronizerId: SynchronizerId,
+  ): Update.SequencerIndexMoved =
     Update.SequencerIndexMoved(
-      domainId = domainId,
+      synchronizerId = synchronizerId,
       sequencerCounter = SequencerCounter(1),
       recordTime = CantonTimestamp.assertFromLong(t),
       requestCounterO = None,
+    )
+
+  private def topologyTransactionEffective(
+      t: Long,
+      authorizationLevel: AuthorizationLevel,
+  ): Update.TopologyTransactionEffective =
+    Update.TopologyTransactionEffective(
+      updateId = txId3,
+      synchronizerId = synchronizerId1,
+      effectiveTime = CantonTimestamp(Timestamp(t)),
+      events = Set(
+        TopologyEvent.PartyToParticipantAuthorization(
+          party = party1,
+          participant = participantId,
+          level = authorizationLevel,
+        )
+      ),
     )
 
   private val someLedgerEnd = LedgerEnd(

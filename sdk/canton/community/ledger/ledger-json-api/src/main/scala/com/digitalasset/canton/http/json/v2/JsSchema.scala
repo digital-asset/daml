@@ -36,7 +36,7 @@ object JsSchema {
       effective_at: com.google.protobuf.timestamp.Timestamp,
       events: Seq[JsEvent.Event],
       offset: Long,
-      domain_id: String,
+      synchronizer_id: String,
       trace_context: Option[TraceContext],
       record_time: com.google.protobuf.timestamp.Timestamp,
   )
@@ -49,7 +49,7 @@ object JsSchema {
       offset: Long,
       events_by_id: Map[String, JsTreeEvent.TreeEvent],
       root_event_ids: Seq[String],
-      domain_id: String,
+      synchronizer_id: String,
       trace_context: Option[TraceContext],
       record_time: protobuf.timestamp.Timestamp,
   )
@@ -58,7 +58,7 @@ object JsSchema {
       update_id: String,
       events: Seq[JsTopologyEvent.Event],
       offset: Long,
-      domain_id: String,
+      synchronizer_id: String,
       trace_context: Option[TraceContext],
       record_time: com.google.protobuf.timestamp.Timestamp,
   )

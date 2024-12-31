@@ -31,7 +31,7 @@ import scala.concurrent.{ExecutionContext, Promise}
 
 class QueueBasedDomainOutbox(
     domain: DomainAlias,
-    val domainId: DomainId,
+    val synchronizerId: SynchronizerId,
     val memberId: Member,
     val protocolVersion: ProtocolVersion,
     val handle: RegisterTopologyTransactionHandle,

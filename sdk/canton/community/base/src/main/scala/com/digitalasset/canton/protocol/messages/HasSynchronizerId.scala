@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.protocol.messages
 
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 
-trait HasDomainId {
-  def domainId: DomainId
+trait HasSynchronizerId {
+  def synchronizerId: SynchronizerId
 }

@@ -29,8 +29,8 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
 }
 import com.digitalasset.canton.topology.transaction.{ParticipantAttributes, VettedPackage}
 import com.digitalasset.canton.topology.{
-  DomainId,
   ParticipantId,
+  SynchronizerId,
   TestingIdentityFactory,
   TestingTopology,
   UniqueIdentifier,
@@ -114,7 +114,7 @@ object ExampleTransactionFactory {
       CantonContractIdVersion.fromProtocolVersion(BaseTest.testedProtocolVersion).value
 
     val (contractSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
-      domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::da")),
+      synchronizerId = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::da")),
       mediator = MediatorGroupRecipient(MediatorGroupIndex.one),
       transactionUuid = new UUID(1L, 1L),
       viewPosition = ViewPosition(List.empty),
@@ -446,7 +446,9 @@ class ExampleTransactionFactory(
     val transactionSalt: Salt = TestSalt.generateSalt(0),
     val transactionSeed: SaltSeed = TestSalt.generateSeed(0),
     val transactionUuid: UUID = UUID.fromString("11111111-2222-3333-4444-555555555555"),
-    val domainId: DomainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("example::default")),
+    val synchronizerId: SynchronizerId = SynchronizerId(
+      UniqueIdentifier.tryFromProtoPrimitive("example::default")
+    ),
     val mediatorGroup: MediatorGroupRecipient = MediatorGroupRecipient(MediatorGroupIndex.zero),
     val ledgerTime: CantonTimestamp = CantonTimestamp.Epoch,
     val ledgerTimeUsed: CantonTimestamp = CantonTimestamp.Epoch.minusSeconds(1),
@@ -570,7 +572,7 @@ class ExampleTransactionFactory(
     val viewParticipantDataSalt = participantDataSalt(viewIndex)
     val (contractSalt, unicum) = unicumGenerator
       .generateSaltAndUnicum(
-        domainId,
+        synchronizerId,
         mediatorGroup,
         transactionUuid,
         viewPosition,
@@ -808,7 +810,7 @@ class ExampleTransactionFactory(
   val commonMetadata: CommonMetadata =
     CommonMetadata
       .create(cryptoOps, protocolVersion)(
-        domainId,
+        synchronizerId,
         mediatorGroup,
         Salt.tryDeriveSalt(transactionSeed, 1, cryptoOps),
         transactionUuid,

@@ -148,7 +148,7 @@ class GrpcSequencerAuthenticationService(
     err match {
       case MemberAuthentication.MemberAccessDisabled(_) =>
         Status.PERMISSION_DENIED.withDescription(err.reason)
-      case MemberAuthentication.NonMatchingDomainId(_, _) =>
+      case MemberAuthentication.NonMatchingSynchronizerId(_, _) =>
         Status.FAILED_PRECONDITION.withDescription(err.reason)
       case MemberAuthentication.NoKeysWithCorrectUsageRegistered(_, _) => maliciousOrFaulty()
       case MemberAuthentication.FailedToSign(_, _) => maliciousOrFaulty()

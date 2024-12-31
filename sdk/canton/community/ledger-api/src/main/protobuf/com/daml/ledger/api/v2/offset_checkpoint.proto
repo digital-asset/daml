@@ -25,7 +25,7 @@ message OffsetCheckpoint {
 message DomainTime {
   // The id of the domain.
   // Required
-  string domain_id = 1;
+  string synchronizer_id = 1;
   // All commands with a maximum record time below this value MUST be considered lost if their completion has not arrived before this checkpoint.
   // Required
   google.protobuf.Timestamp record_time = 2;

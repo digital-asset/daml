@@ -1214,7 +1214,7 @@ trait SequencerStoreTest
           val env = Env()
           import env.*
           val initialState = SequencerInitialState(
-            domainId = DefaultTestIdentities.domainId, // not used
+            synchronizerId = DefaultTestIdentities.synchronizerId, // not used
             snapshot = snapshot,
             latestSequencerEventTimestamp = None,
             initialTopologyEffectiveTimestamp = None,

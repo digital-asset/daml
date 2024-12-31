@@ -210,7 +210,10 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
       val sendET = for {
         // We need a new signature because we've modified the max sequencing time.
         signedRequest <- requestSigner
-          .signRequest(withExtendedMst, HashPurpose.SubmissionRequestSignature)
+          .signRequest(
+            withExtendedMst,
+            HashPurpose.SubmissionRequestSignature,
+          )
           .leftMap(error =>
             SendAsyncClientError.RequestRefused(SendAsyncError.RequestRefused(error))
           )

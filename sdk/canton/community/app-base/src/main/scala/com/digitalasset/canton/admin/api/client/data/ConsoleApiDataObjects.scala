@@ -10,7 +10,7 @@ import com.digitalasset.canton.topology.*
 
 final case class ListConnectedDomainsResult(
     domainAlias: DomainAlias,
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     healthy: Boolean,
 )
 
@@ -19,15 +19,19 @@ object ListConnectedDomainsResult {
   def fromProtoV30(
       value: participantAdminV30.ListConnectedDomainsResponse.Result
   ): ParsingResult[ListConnectedDomainsResult] = {
-    val participantAdminV30.ListConnectedDomainsResponse.Result(domainAlias, domainId, healthy) =
+    val participantAdminV30.ListConnectedDomainsResponse.Result(
+      domainAlias,
+      synchronizerId,
+      healthy,
+    ) =
       value
     for {
-      domainId <- DomainId.fromProtoPrimitive(domainId, "domainId")
+      synchronizerId <- SynchronizerId.fromProtoPrimitive(synchronizerId, "synchronizerId")
       domainAlias <- DomainAlias.fromProtoPrimitive(domainAlias)
 
     } yield ListConnectedDomainsResult(
       domainAlias = domainAlias,
-      domainId = domainId,
+      synchronizerId = synchronizerId,
       healthy = healthy,
     )
   }

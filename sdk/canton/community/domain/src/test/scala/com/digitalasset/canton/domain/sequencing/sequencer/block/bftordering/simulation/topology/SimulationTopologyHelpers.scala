@@ -14,7 +14,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.SimulationEnv
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.simulation.SimulationSettings
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.simulation.future.SimulationFuture
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.simulation.BftOrderingSimulationTest.SimulationStartTime
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.version.ReleaseProtocolVersion
@@ -25,20 +24,16 @@ import scala.util.Random
 
 object SimulationTopologyHelpers {
 
-  def generatePeerOnboardingTime(
+  def generatePeerOnboardingDelay(
       durationOfFirstPhaseWithFaults: FiniteDuration,
       random: Random,
-  )(initialTime: TopologyActivationTime): TopologyActivationTime = {
-    val initialTimeEpochMilli = initialTime.value.toEpochMilli
-    val simulationEndTimeEpochMilli = SimulationStartTime
-      // We only onboard sequencers during the first phase, so that we can check liveness uniformly across sequencers
-      //  in the second phase.
-      .plus(durationOfFirstPhaseWithFaults.toJava)
-      .toEpochMilli
-    val onboardingTimeEpochMilli =
-      initialTimeEpochMilli + random.nextLong(simulationEndTimeEpochMilli - initialTimeEpochMilli)
-    TopologyActivationTime(CantonTimestamp.ofEpochMilli(onboardingTimeEpochMilli))
-  }
+  ): FiniteDuration =
+    // We only onboard sequencers during the first phase, so that we can check liveness uniformly across sequencers
+    //  in the second phase.
+    FiniteDuration(
+      random.nextLong(durationOfFirstPhaseWithFaults.toJava.toMillis),
+      java.util.concurrent.TimeUnit.MILLISECONDS,
+    )
 
   def sequencerBecomeOnlineTime(
       onboardingTime: TopologyActivationTime,
@@ -70,4 +65,10 @@ object SimulationTopologyHelpers {
           "Simulation ordering topology provider should never fail"
         )
       )
+
+  def onboardingTime(
+      simulationStageStart: CantonTimestamp,
+      onboardingDelay: FiniteDuration,
+  ): TopologyActivationTime =
+    TopologyActivationTime(simulationStageStart.add(onboardingDelay.toJava))
 }

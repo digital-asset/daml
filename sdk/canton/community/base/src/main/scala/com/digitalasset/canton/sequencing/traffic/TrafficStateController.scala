@@ -20,7 +20,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   TrafficState,
 }
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{DomainId, Member}
+import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureUnlessShutdownUtil
 import com.digitalasset.canton.version.ProtocolVersion
@@ -38,7 +38,7 @@ class TrafficStateController(
     protocolVersion: ProtocolVersion,
     eventCostCalculator: EventCostCalculator,
     metrics: TrafficConsumptionMetrics,
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
 ) extends NamedLogging {
   private val currentTrafficPurchased =
     new AtomicReference[Option[TrafficPurchased]](initialTrafficState.toTrafficPurchased(member))
@@ -51,7 +51,7 @@ class TrafficStateController(
 
   private implicit val memberMetricsContext: MetricsContext = MetricsContext(
     "member" -> member.toString,
-    "domain" -> domainId.toString,
+    "domain" -> synchronizerId.toString,
   )
 
   def getTrafficConsumed: TrafficConsumed = trafficConsumedManager.getTrafficConsumed

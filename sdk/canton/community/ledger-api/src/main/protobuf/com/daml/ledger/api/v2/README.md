@@ -13,7 +13,7 @@ moved to official daml documentation, the to be revisited list won't be applicab
 ### 1. Virtual shared ledger and participant offsets
 
 Ledger API is a gateway for a Canton participant which can be connected to several domains.
-To experience this aggregation of changes synchronized over many domains, the domain ID
+To experience this aggregation of changes synchronized over many domains, the synchronizer id
 is introduced to several V1 messages:
 - command_completion_service/CompletionStreamResponse - each completion belongs to exactly one domain.
 - commands/Commands - a Command will be synchronized via exactly one domain.

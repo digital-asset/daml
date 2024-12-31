@@ -11,7 +11,7 @@ import com.digitalasset.canton.sequencing.protocol.{Batch, Deliver, SignedConten
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.SequencedEventStore.{OrdinarySequencedEvent, SearchCriterion}
 import com.digitalasset.canton.store.{SequencedEventNotFoundError, SequencedEventStore}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
@@ -80,7 +80,7 @@ class SequencedEventStoreBasedTopologyHeadInitializerTest
                       Deliver.create(
                         SequencerCounter(0),
                         timestamp,
-                        DomainId.tryFromString("namespace::id"),
+                        SynchronizerId.tryFromString("namespace::id"),
                         None,
                         Batch.empty(testedProtocolVersion),
                         None,

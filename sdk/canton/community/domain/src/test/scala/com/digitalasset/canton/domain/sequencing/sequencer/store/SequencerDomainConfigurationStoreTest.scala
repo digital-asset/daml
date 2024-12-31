@@ -29,7 +29,7 @@ trait SequencerDomainConfigurationStoreTest {
     "when set returns set value" in {
       val store = mkStore
       val originalConfig = SequencerDomainConfiguration(
-        DefaultTestIdentities.domainId,
+        DefaultTestIdentities.synchronizerId,
         defaultStaticDomainParameters,
       )
 
@@ -43,7 +43,7 @@ trait SequencerDomainConfigurationStoreTest {
       val store = mkStore
       val defaultParams = defaultStaticDomainParameters
       val originalConfig = SequencerDomainConfiguration(
-        DefaultTestIdentities.domainId,
+        DefaultTestIdentities.synchronizerId,
         defaultParams,
       )
       val updatedConfig = originalConfig

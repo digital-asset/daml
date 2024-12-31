@@ -40,7 +40,7 @@ import com.digitalasset.canton.sequencing.{
   UnsignedProtocolEventHandler,
 }
 import com.digitalasset.canton.time.DomainTimeTracker
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.MonadUtil
@@ -50,7 +50,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class TrafficControlProcessor(
     cryptoApi: DomainSyncCryptoClient,
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     maxFromStoreO: => Option[CantonTimestamp],
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit
@@ -58,7 +58,7 @@ class TrafficControlProcessor(
 ) extends UnsignedProtocolEventHandler
     with NamedLogging {
 
-  override val name: String = s"traffic-control-processor-$domainId"
+  override val name: String = s"traffic-control-processor-$synchronizerId"
 
   private val listeners = new AtomicReference[List[TrafficControlSubscriber]](List.empty)
 
@@ -102,11 +102,11 @@ class TrafficControlProcessor(
 
           val domainEnvelopes = ProtocolMessage.filterDomainsEnvelopes(
             batch,
-            domainId,
+            synchronizerId,
             (wrongMessages: List[DefaultOpenEnvelope]) => {
-              val wrongDomainIds = wrongMessages.map(_.protocolMessage.domainId)
+              val wrongsynchronizerIds = wrongMessages.map(_.protocolMessage.synchronizerId)
               logger.error(
-                s"Received traffic purchased entry messages with wrong domain ids: $wrongDomainIds"
+                s"Received traffic purchased entry messages with wrong synchronizer ids: $wrongsynchronizerIds"
               )
             },
           )
@@ -115,7 +115,7 @@ class TrafficControlProcessor(
             processSetTrafficPurchasedEnvelopes(ts, topologyTimestampO, domainEnvelopes)
           )
 
-        case DeliverError(_sc, ts, _domainId, _messageId, _status, _trafficReceipt) =>
+        case DeliverError(_sc, ts, _synchronizerId, _messageId, _status, _trafficReceipt) =>
           notifyListenersOfTimestamp(ts)
           HandlerResult.done
       }

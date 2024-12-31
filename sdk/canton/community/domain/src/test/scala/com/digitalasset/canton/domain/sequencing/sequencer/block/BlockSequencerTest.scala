@@ -93,11 +93,11 @@ class BlockSequencerTest
     private val actorSystem = ActorSystem()
     implicit val materializer: Materializer = Materializer(actorSystem)
 
-    private val domainId = topologyTransactionFactory.domainId1
+    private val synchronizerId = topologyTransactionFactory.synchronizerId1
     private val sequencer1 = topologyTransactionFactory.sequencer1
     private val topologyStore =
       new InMemoryTopologyStore(
-        DomainStore(domainId),
+        DomainStore(synchronizerId),
         testedProtocolVersion,
         loggerFactory,
         timeouts,
@@ -120,7 +120,7 @@ class BlockSequencerTest
 
     private val topologyClient = new StoreBasedDomainTopologyClient(
       mock[Clock],
-      domainId,
+      synchronizerId,
       topologyStore,
       StoreBasedDomainTopologyClient.NoPackageDependencies,
       DefaultProcessingTimeouts.testing,
@@ -135,7 +135,7 @@ class BlockSequencerTest
     )
     private val cryptoApi = new DomainSyncCryptoClient(
       member = sequencer1,
-      domainId,
+      synchronizerId,
       topologyClient,
       topologyTransactionFactory.cryptoApi.crypto,
       SessionSigningKeysConfig.disabled,
@@ -170,7 +170,7 @@ class BlockSequencerTest
       new BlockSequencer(
         blockOrderer = fakeBlockOrderer,
         name = "test",
-        domainId = domainId,
+        synchronizerId = synchronizerId,
         cryptoApi = cryptoApi,
         sequencerId = sequencer1,
         fakeBlockSequencerStateManager,

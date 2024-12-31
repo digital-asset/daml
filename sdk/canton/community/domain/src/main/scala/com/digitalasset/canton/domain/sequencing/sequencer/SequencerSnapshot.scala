@@ -15,7 +15,7 @@ import com.digitalasset.canton.sequencing.protocol.{AggregationId, AggregationRu
 import com.digitalasset.canton.sequencing.traffic.{TrafficConsumed, TrafficPurchased}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.{DomainId, Member}
+import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.version.*
 import com.digitalasset.canton.{ProtoDeserializationError, SequencerCounter}
 import com.google.protobuf.ByteString
@@ -227,7 +227,7 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
 }
 
 final case class SequencerInitialState(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     snapshot: SequencerSnapshot,
     // TODO(#13883,#14504) Revisit whether this still makes sense: For sequencer onboarding, this timestamp
     //  will typically differ between sequencers because they may receive envelopes addressed directly to them
@@ -238,7 +238,7 @@ final case class SequencerInitialState(
 
 object SequencerInitialState {
   def apply(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       snapshot: SequencerSnapshot,
       times: SeqView[(CantonTimestamp, CantonTimestamp)],
   ): SequencerInitialState = {
@@ -254,6 +254,11 @@ object SequencerInitialState {
      * tombstoned signing failures, but at least the additional time is bounded by the topology change delay.
      */
     val (sequencedTimes, effectiveTimes) = times.unzip
-    SequencerInitialState(domainId, snapshot, sequencedTimes.maxOption, effectiveTimes.maxOption)
+    SequencerInitialState(
+      synchronizerId,
+      snapshot,
+      sequencedTimes.maxOption,
+      effectiveTimes.maxOption,
+    )
   }
 }

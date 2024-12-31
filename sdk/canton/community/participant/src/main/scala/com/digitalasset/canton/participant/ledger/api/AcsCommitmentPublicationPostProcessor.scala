@@ -10,7 +10,7 @@ import com.digitalasset.canton.ledger.participant.state.{CommitSetUpdate, Update
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet
 import com.digitalasset.canton.participant.sync.ConnectedDomainsLookupContainer
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 
@@ -23,13 +23,13 @@ class AcsCommitmentPublicationPostProcessor(
   def apply(update: Update): Unit = {
     implicit val tc: TraceContext = update.traceContext
     def publishAcsCommitment(
-        domainId: DomainId,
+        synchronizerId: SynchronizerId,
         sequencerTimestamp: CantonTimestamp,
         requestCounterCommitSetPairO: Option[(RequestCounter, CommitSet)],
     ): Unit =
       connectedDomainsLookupContainer
         // not publishing if no domain active: it means subsequent crash recovery will establish consistency again
-        .get(domainId)
+        .get(synchronizerId)
         // not publishing anything if the AcsCommitmentProcessor initialization succeeded with AbortedDueToShutdown or failed
         .foreach(
           _.acsCommitmentProcessor.publish(
@@ -45,7 +45,7 @@ class AcsCommitmentPublicationPostProcessor(
       // publishing for the CommitSetUpdate-s a CommitSet (or empty if not specified)
       case withCommitSet: CommitSetUpdate =>
         publishAcsCommitment(
-          domainId = withCommitSet.domainId,
+          synchronizerId = withCommitSet.synchronizerId,
           sequencerTimestamp = withCommitSet.recordTime,
           requestCounterCommitSetPairO = withCommitSet.commitSet match {
             case commitSet: CommitSet => Some(withCommitSet.requestCounter -> commitSet)
@@ -58,7 +58,7 @@ class AcsCommitmentPublicationPostProcessor(
 
       case emptyAcsPublicationRequired: EmptyAcsPublicationRequired =>
         publishAcsCommitment(
-          domainId = emptyAcsPublicationRequired.domainId,
+          synchronizerId = emptyAcsPublicationRequired.synchronizerId,
           sequencerTimestamp = emptyAcsPublicationRequired.recordTime,
           requestCounterCommitSetPairO = None,
         )

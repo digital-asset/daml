@@ -191,7 +191,7 @@ trait RichSequencerClient extends SequencerClient {
 }
 
 abstract class SequencerClientImpl(
-    val domainId: DomainId,
+    val synchronizerId: SynchronizerId,
     val member: Member,
     sequencerTransports: SequencerTransports[?],
     val config: SequencerClientConfig,
@@ -271,7 +271,7 @@ abstract class SequencerClientImpl(
       serializedRequestSize <= maxRequestSize.unwrap,
       (),
       SendAsyncClientError.RequestInvalid(
-        s"Batch size ($serializedRequestSize bytes) is exceeding maximum size ($maxRequestSize bytes) for domain $domainId"
+        s"Batch size ($serializedRequestSize bytes) is exceeding maximum size ($maxRequestSize bytes) for domain $synchronizerId"
       ),
     )
   }
@@ -289,7 +289,7 @@ abstract class SequencerClientImpl(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] = {
     implicit val metricsContextImplicit =
-      metricsContext.withExtraLabels("domain" -> domainId.toString)
+      metricsContext.withExtraLabels("domain" -> synchronizerId.toString)
     withSpan("SequencerClient.sendAsync") { implicit traceContext => span =>
       def mkRequestE(
           cost: Option[SequencingSubmissionCost]
@@ -356,7 +356,7 @@ abstract class SequencerClientImpl(
               Deliver.create(
                 SequencerCounter.Genesis,
                 CantonTimestamp.now(),
-                domainId,
+                synchronizerId,
                 messageIdO = None,
                 Batch(List.empty, protocolVersion),
                 topologyTimestampO = None,
@@ -753,7 +753,7 @@ object SequencerClientImpl {
   * such that this functionality does not have to be duplicated throughout the participant node.
   */
 class RichSequencerClientImpl(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     member: Member,
     sequencerTransports: SequencerTransports[?],
     config: SequencerClientConfig,
@@ -778,7 +778,7 @@ class RichSequencerClientImpl(
     initialCounterLowerBound: SequencerCounter,
 )(implicit executionContext: ExecutionContext, tracer: Tracer)
     extends SequencerClientImpl(
-      domainId,
+      synchronizerId,
       member,
       sequencerTransports,
       config,
@@ -931,7 +931,7 @@ class RichSequencerClientImpl(
           loggerFactory,
         )
         val eventHandler = monotonicityChecker.handler(
-          StoreSequencedEvent(sequencedEventStore, domainId, loggerFactory).apply(
+          StoreSequencedEvent(sequencedEventStore, synchronizerId, loggerFactory).apply(
             timeTracker.wrapHandler(throttledEventHandler)
           )
         )
@@ -990,14 +990,14 @@ class RichSequencerClientImpl(
     val eventDelay: DelaySequencedEvent = {
       val first = testingConfig.testSequencerClientFor.find(elem =>
         elem.memberName == member.identifier.unwrap &&
-          elem.domainName == domainId.identifier.unwrap
+          elem.domainName == synchronizerId.identifier.unwrap
       )
 
       first match {
         case Some(value) =>
           DelayedSequencerClient.registerAndCreate(
             value.environmentId,
-            domainId,
+            synchronizerId,
             member.uid.toString,
           )
         case None => NoDelay
@@ -1292,7 +1292,7 @@ class RichSequencerClientImpl(
           }
 
           def handleAsyncResult(
-              asyncResultF: FutureUnlessShutdown[AsyncResult]
+              asyncResultF: FutureUnlessShutdown[AsyncResult[Unit]]
           ): EitherT[FutureUnlessShutdown, ApplicationHandlerFailure, Unit] =
             EitherT(asyncResultF.transformIntoSuccess {
               case Success(UnlessShutdown.Outcome(result)) =>
@@ -1429,7 +1429,7 @@ class RichSequencerClientImpl(
 }
 
 class SequencerClientImplPekko[E: Pretty](
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     member: Member,
     sequencerTransports: SequencerTransports[E],
     config: SequencerClientConfig,
@@ -1454,7 +1454,7 @@ class SequencerClientImplPekko[E: Pretty](
     initialCounterLowerBound: SequencerCounter,
 )(implicit executionContext: ExecutionContext, tracer: Tracer, materializer: Materializer)
     extends SequencerClientImpl(
-      domainId,
+      synchronizerId,
       member,
       sequencerTransports,
       config,
@@ -1559,7 +1559,7 @@ class SequencerClientImplPekko[E: Pretty](
         logger.debug(subscriptionStartLogMessage)
 
         val aggregator = new SequencerAggregatorPekko(
-          domainId,
+          synchronizerId,
           eventValidatorFactory.create(_),
           bufferSize = PositiveInt.one,
           syncCryptoClient.pureCrypto,
@@ -1609,7 +1609,8 @@ class SequencerClientImplPekko[E: Pretty](
           preSubscriptionEvent.fold(CantonTimestamp.MinValue)(_.timestamp),
           loggerFactory,
         )
-        val storeSequencedEvent = StoreSequencedEvent(sequencedEventStore, domainId, loggerFactory)
+        val storeSequencedEvent =
+          StoreSequencedEvent(sequencedEventStore, synchronizerId, loggerFactory)
 
         val aggregatorFlow = aggregator.aggregateFlow(initialCounterOrPriorEvent)
         val subscriptionSource = configSource

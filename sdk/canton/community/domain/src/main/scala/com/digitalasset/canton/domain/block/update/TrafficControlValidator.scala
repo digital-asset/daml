@@ -34,7 +34,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   SubmissionRequest,
 }
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
-import com.digitalasset.canton.topology.{DomainId, Member}
+import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.version.ProtocolVersion
@@ -46,7 +46,7 @@ import scala.concurrent.ExecutionContext
   * Largely it applies traffic control rules, and insert a traffic receipt in the deliver receipts to the sender with the result.
   */
 private[update] class TrafficControlValidator(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
     rateLimitManager: SequencerRateLimitManager,
     override val loggerFactory: NamedLoggerFactory,
@@ -64,7 +64,7 @@ private[update] class TrafficControlValidator(
       sequencingTimestamp,
       sequencerError,
       logger,
-      domainId,
+      synchronizerId,
       protocolVersion,
     )
 

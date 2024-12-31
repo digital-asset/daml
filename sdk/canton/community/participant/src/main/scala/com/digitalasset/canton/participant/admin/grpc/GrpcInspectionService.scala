@@ -35,7 +35,7 @@ import com.digitalasset.canton.pruning.{ConfigForDomainThresholds, ConfigForSlow
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
 import com.digitalasset.canton.topology.client.IdentityProvidingServiceClient
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils}
 import com.digitalasset.daml.lf.data.Bytes
@@ -80,7 +80,7 @@ class GrpcInspectionService(
   /** Configure metrics for slow counter-participants (i.e., that are behind in sending commitments) and
     * configure thresholds for when a counter-participant is deemed slow.
     *
-    * returns error if domain ids re not distinct.
+    * returns error if synchronizer ids re not distinct.
     */
   override def setConfigForSlowCounterParticipants(
       request: SetConfigForSlowCounterParticipants.Request
@@ -92,13 +92,13 @@ class GrpcInspectionService(
           .flatMap(ConfigForSlowCounterParticipants.fromProto30)
           .sequence
       )
-      allDomainIds = request.configs.flatMap(_.domainIds)
+      allsynchronizerIds = request.configs.flatMap(_.synchronizerIds)
 
       mappedDistinct <- EitherT.cond[FutureUnlessShutdown](
-        allDomainIds.distinct.lengthIs == allDomainIds.length,
+        allsynchronizerIds.distinct.lengthIs == allsynchronizerIds.length,
         mapped,
         InspectionServiceError.IllegalArgumentError.Error(
-          "DomainIds are not distinct"
+          "synchronizerIds are not distinct"
         ),
       )
 
@@ -133,30 +133,30 @@ class GrpcInspectionService(
           allConfigs <- syncStateInspection.getConfigsForSlowCounterParticipants()
           (slowCounterParticipants, domainThresholds) = allConfigs
           filtered =
-            if (request.domainIds.isEmpty) slowCounterParticipants
+            if (request.synchronizerIds.isEmpty) slowCounterParticipants
             else
               slowCounterParticipants.filter(config =>
-                request.domainIds.contains(config.domainId.toProtoPrimitive)
+                request.synchronizerIds.contains(config.synchronizerId.toProtoPrimitive)
               )
           filteredWithThreshold = filtered
             .map(cfg =>
               (
                 cfg,
                 domainThresholds
-                  .find(dThresh => dThresh.domainId == cfg.domainId),
+                  .find(dThresh => dThresh.synchronizerId == cfg.synchronizerId),
               )
             )
             .flatMap {
               case (cfg, Some(thresh)) => Some(cfg.toProto30(thresh))
               case (_, None) => None
             }
-            .groupBy(_.domainIds)
+            .groupBy(_.synchronizerIds)
             .map { case (domains, configs) =>
               configs.foldLeft(
                 new SlowCounterParticipantDomainConfig(Seq.empty, Seq.empty, -1, -1, Seq.empty)
               ) { (next, previous) =>
                 new SlowCounterParticipantDomainConfig(
-                  domains, // since we have them grouped by domainId, these are the same
+                  domains, // since we have them grouped by synchronizerId, these are the same
                   next.distinguishedParticipantUids ++ previous.distinguishedParticipantUids,
                   Math.max(
                     next.thresholdDistinguished,
@@ -187,7 +187,9 @@ class GrpcInspectionService(
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
     val result = for {
-      domains <- wrapErrUS(request.domainIds.traverse(DomainId.fromProtoPrimitive(_, "domain_id")))
+      domains <- wrapErrUS(
+        request.synchronizerIds.traverse(SynchronizerId.fromProtoPrimitive(_, "synchronizer_id"))
+      )
       participants <- wrapErrUS(
         request.counterParticipantUids.traverse(
           ParticipantId.fromProtoPrimitive(_, "counter_participant_uid")
@@ -320,18 +322,18 @@ class GrpcInspectionService(
   private def fetchDefaultDomainTimeRanges()(implicit
       traceContext: TraceContext
   ): Either[String, Seq[Future[DomainSearchCommitmentPeriod]]] = {
-    val searchPeriods = domainAliasManager.ids.map(domainId =>
+    val searchPeriods = domainAliasManager.ids.map(synchronizerId =>
       for {
         domainAlias <- domainAliasManager
-          .aliasForDomainId(domainId)
-          .toRight(s"No domain alias found for $domainId")
+          .aliasForSynchronizerId(synchronizerId)
+          .toRight(s"No domain alias found for $synchronizerId")
         lastComputed <- syncStateInspection
           .findLastComputedAndSent(domainAlias)
-          .toRight(s"No computations done for $domainId")
+          .toRight(s"No computations done for $synchronizerId")
       } yield {
         for {
           indexedDomain <- IndexedDomain
-            .indexed(indexedStringStore)(domainId)
+            .indexed(indexedStringStore)(synchronizerId)
             .failOnShutdownToAbortException("fetchDefaultDomainTimeRanges")
         } yield DomainSearchCommitmentPeriod(
           indexedDomain,
@@ -356,14 +358,14 @@ class GrpcInspectionService(
       traceContext: TraceContext
   ): Either[String, Future[DomainSearchCommitmentPeriod]] =
     for {
-      domainId <- DomainId.fromString(timeRange.domainId)
+      synchronizerId <- SynchronizerId.fromString(timeRange.synchronizerId)
 
       domainAlias <- domainAliasManager
-        .aliasForDomainId(domainId)
-        .toRight(s"No domain alias found for $domainId")
+        .aliasForSynchronizerId(synchronizerId)
+        .toRight(s"No domain alias found for $synchronizerId")
       lastComputed <- syncStateInspection
         .findLastComputedAndSent(domainAlias)
-        .toRight(s"No computations done for $domainId")
+        .toRight(s"No computations done for $synchronizerId")
 
       times <- timeRange.interval
         // when no timestamp is given we make a TimeRange of (lastComputedAndSentTs,lastComputedAndSentTs), this should give the latest elements since the comparison later on is inclusive.
@@ -373,10 +375,10 @@ class GrpcInspectionService(
         .flatMap(interval =>
           for {
             min <- interval.fromExclusive
-              .toRight(s"Missing start timestamp for ${timeRange.domainId}")
+              .toRight(s"Missing start timestamp for ${timeRange.synchronizerId}")
               .flatMap(ts => CantonTimestamp.fromProtoTimestamp(ts).left.map(_.message))
             max <- interval.toInclusive
-              .toRight(s"Missing end timestamp for ${timeRange.domainId}")
+              .toRight(s"Missing end timestamp for ${timeRange.synchronizerId}")
               .flatMap(ts => CantonTimestamp.fromProtoTimestamp(ts).left.map(_.message))
           } yield (min, max)
         )
@@ -385,7 +387,7 @@ class GrpcInspectionService(
     } yield {
       for {
         indexedDomain <- IndexedDomain
-          .indexed(indexedStringStore)(domainId)
+          .indexed(indexedStringStore)(synchronizerId)
           .failOnShutdownToAbortException("validateDomainTimeRange")
       } yield DomainSearchCommitmentPeriod(indexedDomain, start, end)
     }
@@ -412,15 +414,15 @@ class GrpcInspectionService(
     val result =
       for {
         // 1. Check that the commitment to open matches a sent local commitment
-        domainId <- CantonGrpcUtil.wrapErrUS(
-          DomainId.fromProtoPrimitive(request.domainId, "domainId")
+        synchronizerId <- CantonGrpcUtil.wrapErrUS(
+          SynchronizerId.fromProtoPrimitive(request.synchronizerId, "synchronizerId")
         )
 
         domainAlias <- EitherT
           .fromOption[FutureUnlessShutdown](
-            domainAliasManager.aliasForDomainId(domainId),
+            domainAliasManager.aliasForSynchronizerId(synchronizerId),
             InspectionServiceError.IllegalArgumentError
-              .Error(s"Unknown domain ID $domainId"),
+              .Error(s"Unknown synchronizer id $synchronizerId"),
           )
           .leftWiden[CantonError]
 
@@ -457,9 +459,9 @@ class GrpcInspectionService(
         // 2. Retrieve the contracts for the domain and the time of the commitment
 
         topologySnapshot <- EitherT.fromOption[FutureUnlessShutdown](
-          ips.forDomain(domainId),
+          ips.forDomain(synchronizerId),
           InspectionServiceError.InternalServerError.Error(
-            s"Failed to retrieve ips for domain: $domainId"
+            s"Failed to retrieve ips for domain: $synchronizerId"
           ),
         )
 
@@ -500,7 +502,7 @@ class GrpcInspectionService(
             .leftMap[CantonError](_ =>
               InspectionServiceError.IllegalArgumentError.Error(
                 s"""The participant cannot open commitment ${request.commitment} for participant
-                   | ${request.computedForCounterParticipantUid} on domain ${request.domainId} because the given
+                   | ${request.computedForCounterParticipantUid} on domain ${request.synchronizerId} because the given
                    | period end tick ${request.periodEndTick} is not a valid reconciliation interval tick""".stripMargin
               )
             )
@@ -513,7 +515,7 @@ class GrpcInspectionService(
           (),
           InspectionServiceError.IllegalArgumentError.Error(
             s"""The participant cannot open commitment ${request.commitment} for participant
-            ${request.computedForCounterParticipantUid} on domain ${request.domainId} and period end
+            ${request.computedForCounterParticipantUid} on domain ${request.synchronizerId} and period end
             ${request.periodEndTick} because the participant has not computed such a commitment at the given tick timestamp for the given counter participant""".stripMargin
           ): CantonError,
         )
@@ -532,7 +534,7 @@ class GrpcInspectionService(
         contractsAndTransferCounter <- EitherTUtil
           .fromFuture(
             syncStateInspection.activeContractsStakeholdersFilter(
-              domainId,
+              synchronizerId,
               cantonTickTs,
               counterParticipantParties.map(_.toLf),
             ),
@@ -571,15 +573,15 @@ class GrpcInspectionService(
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val result =
       for {
-        expectedDomainId <- CantonGrpcUtil.wrapErrUS(
-          DomainId.fromProtoPrimitive(request.expectedDomainId, "domainId")
+        expectedSynchronizerId <- CantonGrpcUtil.wrapErrUS(
+          SynchronizerId.fromProtoPrimitive(request.expectedSynchronizerId, "synchronizerId")
         )
 
         expectedDomainAlias <- EitherT
           .fromOption[FutureUnlessShutdown](
-            domainAliasManager.aliasForDomainId(expectedDomainId),
+            domainAliasManager.aliasForSynchronizerId(expectedSynchronizerId),
             InspectionServiceError.IllegalArgumentError
-              .Error(s"Domain alias not found for $expectedDomainId"),
+              .Error(s"Domain alias not found for $expectedSynchronizerId"),
           )
           .leftWiden[CantonError]
 
@@ -613,7 +615,7 @@ class GrpcInspectionService(
             CommitmentInspectContract
               .inspectContractState(
                 cids,
-                expectedDomainId,
+                expectedSynchronizerId,
                 cantonTs,
                 request.downloadPayload,
                 syncStateInspection,
@@ -636,11 +638,13 @@ class GrpcInspectionService(
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
     val inFlightCount: EitherT[FutureUnlessShutdown, String, InFlightCount] = for {
-      domainId <- EitherT.fromEither[FutureUnlessShutdown](DomainId.fromString(request.domainId))
+      synchronizerId <- EitherT.fromEither[FutureUnlessShutdown](
+        SynchronizerId.fromString(request.synchronizerId)
+      )
       domainAlias <- EitherT.fromEither[FutureUnlessShutdown](
         domainAliasManager
-          .aliasForDomainId(domainId)
-          .toRight(s"Not able to find domain alias for ${domainId.toString}")
+          .aliasForSynchronizerId(synchronizerId)
+          .toRight(s"Not able to find domain alias for ${synchronizerId.toString}")
       )
 
       count <- syncStateInspection.countInFlight(domainAlias)

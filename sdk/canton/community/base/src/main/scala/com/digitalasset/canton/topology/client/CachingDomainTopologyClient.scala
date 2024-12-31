@@ -155,7 +155,7 @@ final class CachingDomainTopologyClient(
     }
   }
 
-  override def domainId: DomainId = delegate.domainId
+  override def synchronizerId: SynchronizerId = delegate.synchronizerId
 
   override def snapshotAvailable(timestamp: CantonTimestamp): Boolean =
     delegate.snapshotAvailable(timestamp)
@@ -239,7 +239,7 @@ object CachingDomainTopologyClient {
 
   def create(
       clock: Clock,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       store: TopologyStore[TopologyStoreId.DomainStore],
       packageDependenciesResolver: PackageDependencyResolverUS,
       cachingConfigs: CachingConfigs,
@@ -257,7 +257,7 @@ object CachingDomainTopologyClient {
     val dbClient =
       new StoreBasedDomainTopologyClient(
         clock,
-        domainId,
+        synchronizerId,
         store,
         packageDependenciesResolver,
         timeouts,

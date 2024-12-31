@@ -9,7 +9,7 @@ import com.digitalasset.canton.participant.store.db.DbDomainParameterStore
 import com.digitalasset.canton.participant.store.memory.InMemoryDomainParameterStore
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -31,7 +31,7 @@ trait DomainParameterStore {
 object DomainParameterStore {
   def apply(
       storage: Storage,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       processingTimeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): DomainParameterStore =
@@ -41,7 +41,7 @@ object DomainParameterStore {
         )
       case db: DbStorage =>
         new DbDomainParameterStore(
-          domainId,
+          synchronizerId,
           db,
           processingTimeouts,
           loggerFactory,

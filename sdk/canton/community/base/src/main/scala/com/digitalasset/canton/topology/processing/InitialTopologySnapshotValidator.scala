@@ -8,7 +8,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.DomainCryptoPureApi
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransaction,
@@ -39,7 +39,7 @@ import scala.concurrent.ExecutionContext
   * Any inconsistency between the topology snapshot and the outcome of the validation is reported.
   */
 class InitialTopologySnapshotValidator(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     pureCrypto: DomainCryptoPureApi,
     store: TopologyStore[TopologyStoreId.DomainStore],
     timeouts: ProcessingTimeout,
@@ -56,7 +56,7 @@ class InitialTopologySnapshotValidator(
       initialSnapshot: GenericStoredTopologyTransactions
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] = {
     logger.debug(
-      s"Validating ${initialSnapshot.result.size} transactions to initialize the topology store for domain $domainId"
+      s"Validating ${initialSnapshot.result.size} transactions to initialize the topology store for domain $synchronizerId"
     )
     val groupedBySequencedTime: Seq[
       (

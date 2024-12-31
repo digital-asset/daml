@@ -12,7 +12,7 @@ import com.digitalasset.canton.ledger.error.groups.{
 }
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml.lf.engine.Error as LfError
 import com.digitalasset.daml.lf.engine.Error.{Interpretation, Package, Preprocessing, Validation}
@@ -23,15 +23,15 @@ sealed abstract class ErrorCause extends Product with Serializable
 object ErrorCause {
   final case class DamlLf(error: LfError) extends ErrorCause
   final case class LedgerTime(retries: Int) extends ErrorCause
-  sealed abstract class DisclosedContractsDomainIdMismatch extends ErrorCause
-  final case class DisclosedContractsDomainIdsMismatch(
-      mismatchingDisclosedContractDomainIds: Map[LfContractId, DomainId]
-  ) extends DisclosedContractsDomainIdMismatch
-  final case class PrescribedDomainIdMismatch(
+  sealed abstract class DisclosedContractsSynchronizerIdMismatch extends ErrorCause
+  final case class DisclosedContractssynchronizerIdsMismatch(
+      mismatchingDisclosedContractsynchronizerIds: Map[LfContractId, SynchronizerId]
+  ) extends DisclosedContractsSynchronizerIdMismatch
+  final case class PrescribedSynchronizerIdMismatch(
       disclosedContractIds: Set[LfContractId],
-      domainIdOfDisclosedContracts: DomainId,
-      commandsDomainId: DomainId,
-  ) extends DisclosedContractsDomainIdMismatch
+      synchronizerIdOfDisclosedContracts: SynchronizerId,
+      commandsSynchronizerId: SynchronizerId,
+  ) extends DisclosedContractsSynchronizerIdMismatch
 
   final case class InterpretationTimeExceeded(
       ledgerEffectiveTime: Time.Timestamp, // the Ledger Effective Time of the submitted command
@@ -186,19 +186,21 @@ object RejectionGenerators {
           s"Time exceeds limit of Ledger Effective Time ($let) + tolerance ($tolerance). Interpretation aborted" + transactionTrace
             .fold("")("\n" + _) + "."
         )
-      case ErrorCause.DisclosedContractsDomainIdsMismatch(mismatchingDisclosedContractDomainIds) =>
-        CommandExecutionErrors.DisclosedContractsDomainIdMismatch.Reject(
-          mismatchingDisclosedContractDomainIds.view.mapValues(_.toProtoPrimitive).toMap
-        )
-      case ErrorCause.PrescribedDomainIdMismatch(
-            disclosedContractsWithDomainId,
-            domainIdOfDisclosedContracts,
-            commandsDomainId,
+      case ErrorCause.DisclosedContractssynchronizerIdsMismatch(
+            mismatchingDisclosedContractsynchronizerIds
           ) =>
-        CommandExecutionErrors.PrescribedDomainIdMismatch.Reject(
-          disclosedContractsWithDomainId,
-          domainIdOfDisclosedContracts.toProtoPrimitive,
-          commandsDomainId.toProtoPrimitive,
+        CommandExecutionErrors.DisclosedContractsSynchronizerIdMismatch.Reject(
+          mismatchingDisclosedContractsynchronizerIds.view.mapValues(_.toProtoPrimitive).toMap
+        )
+      case ErrorCause.PrescribedSynchronizerIdMismatch(
+            disclosedContractsWithSynchronizerId,
+            synchronizerIdOfDisclosedContracts,
+            commandsSynchronizerId,
+          ) =>
+        CommandExecutionErrors.PrescribedSynchronizerIdMismatch.Reject(
+          disclosedContractsWithSynchronizerId,
+          synchronizerIdOfDisclosedContracts.toProtoPrimitive,
+          commandsSynchronizerId.toProtoPrimitive,
         )
     }
   }

@@ -36,7 +36,7 @@ trait DbPrunableByTime extends PrunableByTime {
     */
   protected[this] def pruning_status_table: String
 
-  protected[this] def partitionColumn: String = "domain_idx"
+  protected[this] def partitionColumn: String = "synchronizer_idx"
 
   protected[this] def partitionKey: IndexedDomain
 

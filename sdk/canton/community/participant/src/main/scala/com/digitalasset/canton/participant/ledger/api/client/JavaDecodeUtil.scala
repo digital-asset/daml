@@ -116,13 +116,16 @@ object JavaDecodeUtil {
       transaction: JavaTransaction
   ): Seq[DisclosedContract] =
     toDisclosedContracts(
-      domainId = transaction.getDomainId,
+      synchronizerId = transaction.getSynchronizerId,
       creates = transaction.getEvents.asScala.collect { case createdEvent: JavaCreatedEvent =>
         createdEvent
       }.toSeq,
     )
 
-  private def toDisclosedContract(domainId: String, create: JavaCreatedEvent): DisclosedContract = {
+  private def toDisclosedContract(
+      synchronizerId: String,
+      create: JavaCreatedEvent,
+  ): DisclosedContract = {
     val createdEventBlob = create.getCreatedEventBlob
     if (createdEventBlob.isEmpty)
       throw new IllegalArgumentException(
@@ -133,13 +136,13 @@ object JavaDecodeUtil {
         create.getTemplateId,
         create.getContractId,
         createdEventBlob,
-        domainId,
+        synchronizerId,
       )
   }
 
   private def toDisclosedContracts(
-      domainId: String,
+      synchronizerId: String,
       creates: Seq[JavaCreatedEvent],
   ): Seq[DisclosedContract] =
-    creates.map(toDisclosedContract(domainId, _))
+    creates.map(toDisclosedContract(synchronizerId, _))
 }

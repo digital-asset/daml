@@ -228,7 +228,9 @@ class PackageService(
 
       _mainUnused <- packageOps
         .checkPackageUnused(mainPkg)
-        .leftMap(err => new MainPackageInUse(err.pkg, darDescriptor, err.contract, err.domain))
+        .leftMap(err =>
+          new MainPackageInUse(err.pkg, darDescriptor, err.contract, err.synchronizerId)
+        )
 
       packageUsed <- EitherT
         .liftF(packages.parTraverse(p => packageOps.checkPackageUnused(p).value))

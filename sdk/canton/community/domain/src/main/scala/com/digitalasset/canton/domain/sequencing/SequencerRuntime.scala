@@ -140,7 +140,7 @@ class SequencerRuntime(
 
   override protected def timeouts: ProcessingTimeout = localNodeParameters.processingTimeouts
 
-  def domainId: DomainId = indexedDomain.domainId
+  def synchronizerId: SynchronizerId = indexedDomain.synchronizerId
 
   def initialize()(implicit
       traceContext: TraceContext
@@ -340,7 +340,7 @@ class SequencerRuntime(
       ServerInterceptors.intercept(
         v30.SequencerConnectServiceGrpc.bindService(
           new GrpcSequencerConnectService(
-            domainId,
+            synchronizerId,
             sequencerId,
             staticDomainParameters,
             domainTopologyManager,
@@ -417,11 +417,11 @@ class SequencerRuntime(
         )
       )
 
-  private val topologyHandler = topologyProcessor.createHandler(domainId)
+  private val topologyHandler = topologyProcessor.createHandler(synchronizerId)
   private val trafficProcessor =
     new TrafficControlProcessor(
       syncCrypto,
-      domainId,
+      synchronizerId,
       sequencer.rateLimitManager.flatMap(_.balanceKnownUntil),
       loggerFactory,
     )

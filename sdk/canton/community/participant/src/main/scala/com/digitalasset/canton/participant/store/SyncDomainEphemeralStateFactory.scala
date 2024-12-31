@@ -66,10 +66,10 @@ class SyncDomainEphemeralStateFactoryImpl(
   ): FutureUnlessShutdown[SyncDomainEphemeralState] =
     for {
       _ <- ledgerApiIndexer.value.ensureNoProcessingForDomain(
-        persistentState.indexedDomain.domainId
+        persistentState.indexedDomain.synchronizerId
       )
       domainIndex <- ledgerApiIndexer.value.ledgerApiStore.value
-        .cleanDomainIndex(persistentState.indexedDomain.domainId)
+        .cleanDomainIndex(persistentState.indexedDomain.synchronizerId)
       startingPoints <- SyncDomainEphemeralStateFactory.startingPoints(
         persistentState.requestJournalStore,
         persistentState.sequencedEventStore,
@@ -79,7 +79,7 @@ class SyncDomainEphemeralStateFactoryImpl(
       _ <- SyncDomainEphemeralStateFactory.cleanupPersistentState(persistentState, startingPoints)
 
       recordOrderPublisher = new RecordOrderPublisher(
-        persistentState.indexedDomain.domainId,
+        persistentState.indexedDomain.synchronizerId,
         startingPoints.processing.nextSequencerCounter,
         startingPoints.processing.currentRecordTime,
         ledgerApiIndexer.value,
@@ -97,7 +97,7 @@ class SyncDomainEphemeralStateFactoryImpl(
 
       inFlightSubmissionDomainTracker <- participantNodeEphemeralState.inFlightSubmissionTracker
         .inFlightSubmissionDomainTracker(
-          domainId = persistentState.indexedDomain.domainId,
+          synchronizerId = persistentState.indexedDomain.synchronizerId,
           recordOrderPublisher = recordOrderPublisher,
           timeTracker = timeTracker,
           metrics = metrics,

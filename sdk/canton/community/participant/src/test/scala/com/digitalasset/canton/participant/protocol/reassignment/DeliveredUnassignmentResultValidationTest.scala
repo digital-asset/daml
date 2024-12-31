@@ -45,11 +45,11 @@ class DeliveredUnassignmentResultValidationTest
     with HasActorSystem
     with HasExecutionContext {
   private val sourceDomain = Source(
-    DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::source"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::source"))
   )
   private val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.zero)
   private val targetDomain = Target(
-    DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
   )
 
   private val signatory: LfPartyId = PartyId(
@@ -261,9 +261,11 @@ class DeliveredUnassignmentResultValidationTest
       validateResult(unassignmentResult).value shouldBe ()
     }
 
-    "detect incorrect domain id" in {
-      updateAndValidate(_.copy(domainId = sourceDomain.unwrap)).value shouldBe ()
-      updateAndValidate(_.copy(domainId = targetDomain.unwrap)).left.value shouldBe IncorrectDomain(
+    "detect incorrect synchronizer id" in {
+      updateAndValidate(_.copy(synchronizerId = sourceDomain.unwrap)).value shouldBe ()
+      updateAndValidate(
+        _.copy(synchronizerId = targetDomain.unwrap)
+      ).left.value shouldBe IncorrectDomain(
         sourceDomain.unwrap,
         targetDomain.unwrap,
       )
@@ -393,8 +395,8 @@ class DeliveredUnassignmentResultValidationTest
       validateResult(unassignmentResult).value shouldBe ()
     }
 
-    "detect incorrect domain id" in {
-      def validate(domainId: DomainId) = {
+    "detect incorrect synchronizer id" in {
+      def validate(synchronizerId: SynchronizerId) = {
         val result = ReassignmentDataHelpers
           .unassignmentResult(
             unassignmentResult.unwrap,
@@ -402,7 +404,7 @@ class DeliveredUnassignmentResultValidationTest
             protocolVersion = testedProtocolVersion,
             cryptoSnapshotMediator = mediatorCrypto,
             cryptoSnapshotSequencer = sequencerCrypto,
-          )(domainId)
+          )(synchronizerId)
           .futureValue
 
         validateResult(result)

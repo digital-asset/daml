@@ -26,7 +26,7 @@ public final class Transaction {
 
   @NonNull private final Long offset;
 
-  @NonNull private final String domainId;
+  @NonNull private final String synchronizerId;
 
   private final TraceContextOuterClass.@NonNull TraceContext traceContext;
 
@@ -39,7 +39,7 @@ public final class Transaction {
       @NonNull Instant effectiveAt,
       @NonNull List<@NonNull Event> events,
       @NonNull Long offset,
-      @NonNull String domainId,
+      @NonNull String synchronizerId,
       TraceContextOuterClass.@NonNull TraceContext traceContext,
       @NonNull Instant recordTime) {
     this.updateId = updateId;
@@ -48,7 +48,7 @@ public final class Transaction {
     this.effectiveAt = effectiveAt;
     this.events = events;
     this.offset = offset;
-    this.domainId = domainId;
+    this.synchronizerId = synchronizerId;
     this.traceContext = traceContext;
     this.recordTime = recordTime;
   }
@@ -84,8 +84,8 @@ public final class Transaction {
   }
 
   @NonNull
-  public String getDomainId() {
-    return domainId;
+  public String getSynchronizerId() {
+    return synchronizerId;
   }
 
   public TraceContextOuterClass.@NonNull TraceContext getTraceContext() {
@@ -112,7 +112,7 @@ public final class Transaction {
         effectiveAt,
         events,
         transaction.getOffset(),
-        transaction.getDomainId(),
+        transaction.getSynchronizerId(),
         transaction.getTraceContext(),
         Utils.instantFromProto(transaction.getRecordTime()));
   }
@@ -129,7 +129,7 @@ public final class Transaction {
                 .build())
         .addAllEvents(events.stream().map(Event::toProtoEvent).collect(Collectors.toList()))
         .setOffset(offset)
-        .setDomainId(domainId)
+        .setSynchronizerId(synchronizerId)
         .setTraceContext(traceContext)
         .setRecordTime(Utils.instantToProto(recordTime))
         .build();
@@ -154,8 +154,8 @@ public final class Transaction {
         + ", offset='"
         + offset
         + '\''
-        + ", domainId='"
-        + domainId
+        + ", synchronizerId='"
+        + synchronizerId
         + '\''
         + ", traceContext="
         + traceContext
@@ -175,7 +175,7 @@ public final class Transaction {
         && Objects.equals(effectiveAt, that.effectiveAt)
         && Objects.equals(events, that.events)
         && Objects.equals(offset, that.offset)
-        && Objects.equals(domainId, that.domainId)
+        && Objects.equals(synchronizerId, that.synchronizerId)
         && Objects.equals(traceContext, that.traceContext)
         && Objects.equals(recordTime, that.recordTime);
   }
@@ -190,7 +190,7 @@ public final class Transaction {
         effectiveAt,
         events,
         offset,
-        domainId,
+        synchronizerId,
         traceContext,
         recordTime);
   }

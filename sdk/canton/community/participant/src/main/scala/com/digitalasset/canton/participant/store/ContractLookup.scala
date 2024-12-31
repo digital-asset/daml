@@ -19,21 +19,25 @@ trait ContractLookup {
 
   protected implicit def ec: ExecutionContext
 
-  def lookup(id: LfContractId)(implicit traceContext: TraceContext): OptionT[Future, StoredContract]
+  def lookup(id: LfContractId)(implicit
+      traceContext: TraceContext
+  ): OptionT[Future, SerializableContract]
 
   def lookupManyExistingUncached(
       ids: Seq[LfContractId]
-  )(implicit traceContext: TraceContext): EitherT[Future, LfContractId, List[StoredContract]] =
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, LfContractId, List[SerializableContract]] =
     ids.toList.parTraverse(id => lookup(id).toRight(id))
 
   def lookupManyUncached(
       ids: Seq[LfContractId]
-  )(implicit traceContext: TraceContext): Future[List[Option[StoredContract]]] =
+  )(implicit traceContext: TraceContext): Future[List[Option[SerializableContract]]] =
     ids.toList.parTraverse(id => lookup(id).value)
 
   def lookupE(id: LfContractId)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, UnknownContract, StoredContract] =
+  ): EitherT[Future, UnknownContract, SerializableContract] =
     lookup(id).toRight(UnknownContract(id))
 
   /** Yields `None` (embedded in a Future) if the contract instance has not been stored or the id cannot be parsed.
@@ -43,17 +47,17 @@ trait ContractLookup {
   def lookupLfInstance(lfId: LfContractId)(implicit
       traceContext: TraceContext
   ): OptionT[Future, LfContractInst] =
-    lookup(lfId).map(_.contract.contractInstance)
+    lookup(lfId).map(_.contractInstance)
 
   def lookupContract(id: LfContractId)(implicit
       traceContext: TraceContext
   ): OptionT[Future, SerializableContract] =
-    lookup(id).map(_.contract)
+    lookup(id)
 
   def lookupContractE(id: LfContractId)(implicit
       traceContext: TraceContext
   ): EitherT[Future, UnknownContract, SerializableContract] =
-    lookupE(id).map(_.contract)
+    lookupE(id)
 
   def lookupStakeholders(ids: Set[LfContractId])(implicit
       traceContext: TraceContext
@@ -94,12 +98,12 @@ object ContractLookupAndVerification {
 
       override def lookup(id: LfContractId)(implicit
           traceContext: TraceContext
-      ): OptionT[Future, StoredContract] =
-        OptionT.none[Future, StoredContract]
+      ): OptionT[Future, SerializableContract] =
+        OptionT.none[Future, SerializableContract]
 
       override def lookupManyExistingUncached(ids: Seq[LfContractId])(implicit
           traceContext: TraceContext
-      ): EitherT[Future, LfContractId, List[StoredContract]] =
+      ): EitherT[Future, LfContractId, List[SerializableContract]] =
         EitherT.rightT(Nil)
 
       override def lookupKey(key: LfGlobalKey)(implicit

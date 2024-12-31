@@ -6,7 +6,7 @@ package com.digitalasset.canton.protocol.messages
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.sequencing.protocol.{Batch, OpenEnvelope}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.version.{
   HasRepresentativeProtocolVersion,
   RepresentativeProtocolVersion,
@@ -18,14 +18,14 @@ import com.google.common.annotations.VisibleForTesting
 trait ProtocolMessage
     extends Product
     with Serializable
-    with HasDomainId
+    with HasSynchronizerId
     with PrettyPrinting
     with HasRepresentativeProtocolVersion {
 
   override def representativeProtocolVersion: RepresentativeProtocolVersion[companionObj.type]
 
   /** The ID of the domain over which this message is supposed to be sent. */
-  def domainId: DomainId
+  def synchronizerId: SynchronizerId
 
   /** By default prints only the object name as a trade-off for shorter long lines and not leaking confidential data.
     * Sub-classes may override the pretty instance to print more information.
@@ -41,19 +41,19 @@ trait UnsignedProtocolMessage extends ProtocolMessage {
 
 object ProtocolMessage {
 
-  /** Returns the envelopes from the batch that match the given domain ID. If any other messages exist, it gives them
+  /** Returns the envelopes from the batch that match the given synchronizer id. If any other messages exist, it gives them
     * to the provided callback
     */
   def filterDomainsEnvelopes[M <: ProtocolMessage](
       batch: Batch[OpenEnvelope[M]],
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       onWrongDomain: List[OpenEnvelope[M]] => Unit,
   ): List[OpenEnvelope[M]] = {
-    val (withCorrectDomainId, withWrongDomainId) =
-      batch.envelopes.partition(_.protocolMessage.domainId == domainId)
-    if (withWrongDomainId.nonEmpty)
-      onWrongDomain(withWrongDomainId)
-    withCorrectDomainId
+    val (withCorrectSynchronizerId, withWrongSynchronizerId) =
+      batch.envelopes.partition(_.protocolMessage.synchronizerId == synchronizerId)
+    if (withWrongSynchronizerId.nonEmpty)
+      onWrongDomain(withWrongSynchronizerId)
+    withCorrectSynchronizerId
   }
 
   trait ProtocolMessageContentCast[A <: ProtocolMessage] {

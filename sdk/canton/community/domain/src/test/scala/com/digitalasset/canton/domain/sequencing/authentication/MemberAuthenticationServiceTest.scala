@@ -13,7 +13,7 @@ import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.{
   AuthenticationError,
   MemberAccessDisabled,
   MissingToken,
-  NonMatchingDomainId,
+  NonMatchingSynchronizerId,
 }
 import com.digitalasset.canton.sequencing.authentication.grpc.AuthenticationTokenWithExpiry
 import com.digitalasset.canton.time.SimClock
@@ -34,7 +34,7 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest with F
   private val clock: SimClock = new SimClock(loggerFactory = loggerFactory)
 
   private val topology = TestingTopology().withSimpleParticipants(participant1).build()
-  private val syncCrypto = topology.forOwnerAndDomain(participant1, domainId)
+  private val syncCrypto = topology.forOwnerAndDomain(participant1, synchronizerId)
 
   private def service(
       participantIsActive: Boolean,
@@ -45,7 +45,7 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest with F
       store: MemberAuthenticationStore = new MemberAuthenticationStore(),
   ): MemberAuthenticationService =
     new MemberAuthenticationService(
-      domainId,
+      synchronizerId,
       syncCrypto,
       store,
       clock,
@@ -73,7 +73,7 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest with F
         challenge <- sut.generateNonce(p1)
         (nonce, fingerprints) = challenge
         signature <- getMemberAuthentication(p1)
-          .signDomainNonce(p1, nonce, domainId, fingerprints, syncCrypto.crypto)
+          .signDomainNonce(p1, nonce, synchronizerId, fingerprints, syncCrypto.crypto)
         tokenAndExpiry <- sut.validateSignature(p1, signature, nonce)
       } yield tokenAndExpiry
 
@@ -88,7 +88,7 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest with F
       for {
         tokenAndExpiry <- generateToken(sut)
         AuthenticationTokenWithExpiry(token, expiry) = tokenAndExpiry
-        _ <- EitherT.fromEither[FutureUnlessShutdown](sut.validateToken(domainId, p1, token))
+        _ <- EitherT.fromEither[FutureUnlessShutdown](sut.validateToken(synchronizerId, p1, token))
       } yield {
         expiry should be(clock.now.plus(JDuration.ofHours(1)))
       }
@@ -99,7 +99,7 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest with F
       for {
         tokenAndExpiry <- generateToken(sut)
         AuthenticationTokenWithExpiry(token, expiry) = tokenAndExpiry
-        _ <- EitherT.fromEither[FutureUnlessShutdown](sut.validateToken(domainId, p1, token))
+        _ <- EitherT.fromEither[FutureUnlessShutdown](sut.validateToken(synchronizerId, p1, token))
       } yield {
         expiry should be >= clock.now.plus(JDuration.ofMinutes(30))
         expiry should be <= clock.now.plus(JDuration.ofHours(1))
@@ -124,7 +124,7 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest with F
         )(
           "validateSignature"
         )
-        validateTokenError = leftOrFail(sut.validateToken(domainId, p1, null))(
+        validateTokenError = leftOrFail(sut.validateToken(synchronizerId, p1, null))(
           "token validation should fail"
         )
       } yield {
@@ -136,10 +136,12 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest with F
 
     "check whether the intended domain is the one the participant is connecting to" in {
       val sut = service(participantIsActive = false)
-      val wrongDomainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("wrong::domain"))
+      val wrongSynchronizerId =
+        SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("wrong::domain"))
 
-      val error = leftOrFail(sut.validateToken(wrongDomainId, p1, null))("should fail domain check")
-      error shouldBe NonMatchingDomainId(p1, wrongDomainId)
+      val error =
+        leftOrFail(sut.validateToken(wrongSynchronizerId, p1, null))("should fail domain check")
+      error shouldBe NonMatchingSynchronizerId(p1, wrongSynchronizerId)
     }
 
     "invalidate all tokens from a member when logging out" in {
@@ -149,7 +151,7 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest with F
       for {
         tokenAndExpiry <- generateToken(sut)
         AuthenticationTokenWithExpiry(token, _expiry) = tokenAndExpiry
-        _ <- EitherT.fromEither[FutureUnlessShutdown](sut.validateToken(domainId, p1, token))
+        _ <- EitherT.fromEither[FutureUnlessShutdown](sut.validateToken(synchronizerId, p1, token))
         // Generate a second token for p1
         _ <- generateToken(sut)
 

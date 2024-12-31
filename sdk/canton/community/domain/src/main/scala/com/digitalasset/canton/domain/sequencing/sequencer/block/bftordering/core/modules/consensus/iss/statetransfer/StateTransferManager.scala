@@ -6,10 +6,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.co
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultLeaderSelectionPolicy
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.{
-  GenesisEpoch,
-  GenesisEpochNumber,
-}
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisEpochNumber
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.{
   EpochState,
   TimeoutManager,
@@ -51,7 +48,7 @@ import scala.util.{Failure, Success}
   */
 class StateTransferManager[E <: Env[E]](
     dependencies: ConsensusModuleDependencies[E],
-    epochLength: EpochLength, // TODO(#19661): Support transferring epochs with different lengths
+    epochLength: EpochLength, // TODO(#19289) support variable epoch lengths
     epochStore: EpochStore[E],
     thisPeer: SequencerId,
     override val loggerFactory: NamedLoggerFactory,
@@ -83,7 +80,6 @@ class StateTransferManager[E <: Env[E]](
       traceContext: TraceContext,
   ): Unit =
     if (inStateTransfer) {
-      // TODO(#19661): Verify when implementing catch-up
       logger.debug("State transfer: already in progress")
     } else {
       val latestCompletedEpochNumber = latestCompletedEpoch.info.number
@@ -158,29 +154,27 @@ class StateTransferManager[E <: Env[E]](
             remoteLatestCompletedEpoch,
             from,
           ) =>
-        if (activeMembership.otherPeers.contains(from)) {
-          if (remoteLatestCompletedEpoch == GenesisEpochNumber && startEpoch > GenesisEpochNumber) {
-            logger.info(s"State transfer: peer $from is starting onboarding from epoch $startEpoch")
-          } else {
-            logger.info(s"State transfer: peer $from is requesting blocks from epoch $startEpoch")
-          }
-          sendBlockResponse(
-            to = from,
-            request.startEpoch,
-            latestCompletedEpoch,
-          )(abort)
-        } else {
-          logger.info(
-            s"State transfer: peer $from is requesting state transfer while not being active, " +
-              s"active membership is: $activeMembership, latest completed epoch is: ${latestCompletedEpoch.info.number}, " +
-              s"dropping..."
+        StateTransferMessageValidator
+          .validateBlockTransferRequest(request, activeMembership)
+          .fold(
+            validationMessage => logger.info(s"State transfer: $validationMessage, dropping..."),
+            { _ =>
+              val onboarding =
+                remoteLatestCompletedEpoch == GenesisEpochNumber && startEpoch > GenesisEpochNumber
+              if (onboarding)
+                logger
+                  .info(s"State transfer: peer $from is starting onboarding from epoch $startEpoch")
+              else
+                logger
+                  .info(s"State transfer: peer $from is catching up from epoch $startEpoch")
+
+              sendBlockResponse(to = from, request.startEpoch, latestCompletedEpoch)(abort)
+            },
           )
-        }
         StateTransferMessageResult.Continue
 
       case response: StateTransferMessage.BlockTransferResponse =>
         if (inStateTransfer) {
-          // TODO(#19661): Validate response, e.g., if the previous BFT time is right
           cancelTimeoutForPeer(response.from)(abort)
           handleBlockTransferResponse(response)(abort)
         } else {
@@ -230,8 +224,8 @@ class StateTransferManager[E <: Env[E]](
       )
       val response = StateTransferMessage.BlockTransferResponse
         .create(lastEpochToTransfer, commitCertificates = Seq.empty, from = thisPeer)
-      val signedMessage =
-        SignedMessage(response, Signature.noSignature) // TODO(#20458) properly sign this message
+      // TODO(#20458) properly sign this message
+      val signedMessage = SignedMessage(response, Signature.noSignature)
       dependencies.p2pNetworkOut.asyncSend(
         P2PNetworkOut.send(wrapSignedMessage(signedMessage), to)
       )
@@ -323,7 +317,7 @@ class StateTransferManager[E <: Env[E]](
   private def calculateEndEpoch(abort: String => Nothing) =
     quorumOfMatchingBlockTransferResponses.toList.view.flatten
       .map(response => response.latestCompletedEpoch)
-      // TODO(#19661): Figure out what to do with faulty/slow nodes that provide correct responses
+      // TODO(#23143) Figure out what to do with faulty/slow nodes that provide correct responses
       //  with a low latest completed epoch.
       .minOption
       .getOrElse(
@@ -386,9 +380,22 @@ class StateTransferManager[E <: Env[E]](
       endEpoch,
       firstBlockInLastEpoch,
       epochLength,
-      // TODO(#19661) Not used during state transfer but will likely need to be correctly saved to the DB
-      //  to support restarts (or the approach must be changed).
-      GenesisEpoch.info.topologyActivationTime,
+      // TODO(#23143) store epochs and set the activation time to a correct recent value to prevent getting stuck on restarts
+      // Sets the topology activation time (used for querying the topology on a restart) for the last state-transferred
+      //  epoch to to the one from the beginning of the state transfer.
+      //
+      // It is fine for onboarding given that multiple concurrent topology changes are unsupported.
+      //
+      // For catch-up, a temporary assumption is that if the topology changes too much, the node might get stuck
+      //  and require re-onboarding. The chances of running into such a problem for the last state-transferred epoch
+      //  should however be small, because the time between receiving the last state-transferred epoch and joining
+      //  consensus (after the Output module finishes processing all state-transferred blocks) should be small.
+      //
+      // However, the value below is currently unused because we don't store state-transferred epochs at all.
+      //  This means that, on restart, a node will start catching up from scratch and will rely on
+      //  the idempotency of the stores. Previously stored ordered blocks and especially batches should make
+      //  the process faster, as batches that were already stored will allow the node to skip fetching them.
+      activeMembership.orderingTopology.activationTime,
     )
     @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
     val lastBlockCommits =
@@ -401,7 +408,7 @@ class StateTransferManager[E <: Env[E]](
 
   private def sendBlockToOutput(prePrepare: PrePrepare, endEpoch: EpochNumber): Unit = {
     val blockMetadata = prePrepare.blockMetadata
-    // TODO(#19661): don't assume a fixed epoch length
+    // TODO(#19289) support variable epoch lengths
     val isLastInEpoch =
       (blockMetadata.blockNumber + 1) % epochLength == 0 // As blocks are 0-indexed
     val isLastStateTransferred =

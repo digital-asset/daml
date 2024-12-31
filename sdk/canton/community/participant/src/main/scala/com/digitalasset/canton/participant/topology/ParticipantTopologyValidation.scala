@@ -13,10 +13,10 @@ import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.store.AcsInspection
 import com.digitalasset.canton.topology.TopologyManagerError.ParticipantTopologyManagerError
 import com.digitalasset.canton.topology.{
-  DomainId,
   ForceFlag,
   ForceFlags,
   PartyId,
+  SynchronizerId,
   TopologyManagerError,
 }
 import com.digitalasset.canton.tracing.TraceContext
@@ -29,7 +29,7 @@ trait ParticipantTopologyValidation extends NamedLogging {
       currentlyVettedPackages: Set[LfPackageId],
       nextPackageIds: Set[LfPackageId],
       packageDependencyResolver: PackageDependencyResolver,
-      acsInspections: () => Map[DomainId, AcsInspection],
+      acsInspections: () => Map[SynchronizerId, AcsInspection],
       forceFlags: ForceFlags,
   )(implicit
       traceContext: TraceContext,
@@ -53,13 +53,13 @@ trait ParticipantTopologyValidation extends NamedLogging {
   def checkCannotDisablePartyWithActiveContracts(
       party: PartyId,
       forceFlags: ForceFlags,
-      acsInspections: () => Map[DomainId, AcsInspection],
+      acsInspections: () => Map[SynchronizerId, AcsInspection],
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
     acsInspections().toList
-      .parTraverse_ { case (domainId, acsInspection) =>
+      .parTraverse_ { case (synchronizerId, acsInspection) =>
         EitherT(
           acsInspection
             .hasActiveContracts(party)
@@ -67,11 +67,11 @@ trait ParticipantTopologyValidation extends NamedLogging {
               case true if !forceFlags.permits(ForceFlag.DisablePartyWithActiveContracts) =>
                 Left(
                   TopologyManagerError.ParticipantTopologyManagerError.DisablePartyWithActiveContractsRequiresForce
-                    .Reject(party, domainId): TopologyManagerError
+                    .Reject(party, synchronizerId): TopologyManagerError
                 )
               case true =>
                 logger.debug(
-                  s"Allow to disable $PartyId with active contracts on $domainId because force flag ${ForceFlag.DisablePartyWithActiveContracts} is set."
+                  s"Allow to disable $PartyId with active contracts on $synchronizerId because force flag ${ForceFlag.DisablePartyWithActiveContracts} is set."
                 )
                 Either.unit
               case false =>
@@ -115,27 +115,27 @@ trait ParticipantTopologyValidation extends NamedLogging {
 
   private def isPackageInUse(
       packageId: PackageId,
-      acsInspections: () => Map[DomainId, AcsInspection],
+      acsInspections: () => Map[SynchronizerId, AcsInspection],
       forceFlags: ForceFlags,
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
     acsInspections().toList
-      .parTraverse_ { case (domainId, acsInspection) =>
+      .parTraverse_ { case (synchronizerId, acsInspection) =>
         EitherT(
           acsInspection.activeContractStore
             .packageUsage(packageId, acsInspection.contractStore)
             .map {
               case Some(_) if forceFlags.permits(ForceFlag.AllowUnvetPackageWithActiveContracts) =>
                 logger.debug(
-                  s"Allowing the unvetting of $packageId on $domainId because force flag ${ForceFlag.AllowUnvetPackageWithActiveContracts} is set."
+                  s"Allowing the unvetting of $packageId on $synchronizerId because force flag ${ForceFlag.AllowUnvetPackageWithActiveContracts} is set."
                 )
                 Either.unit
               case Some(contractId) =>
                 Left(
                   ParticipantTopologyManagerError.PackageIdInUse
-                    .Reject(packageId, contractId, domainId): TopologyManagerError
+                    .Reject(packageId, contractId, synchronizerId): TopologyManagerError
                 )
               case None =>
                 Either.unit

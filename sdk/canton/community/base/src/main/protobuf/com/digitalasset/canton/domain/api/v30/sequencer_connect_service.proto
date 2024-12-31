@@ -10,7 +10,7 @@ import "com/digitalasset/canton/protocol/v30/topology.proto";
 
 service SequencerConnectService {
   rpc Handshake(SequencerConnect.HandshakeRequest) returns (SequencerConnect.HandshakeResponse);
-  rpc GetDomainId(SequencerConnect.GetDomainIdRequest) returns (SequencerConnect.GetDomainIdResponse);
+  rpc GetSynchronizerId(SequencerConnect.GetSynchronizerIdRequest) returns (SequencerConnect.GetSynchronizerIdResponse);
   rpc GetDomainParameters(SequencerConnect.GetDomainParametersRequest) returns (SequencerConnect.GetDomainParametersResponse);
   rpc VerifyActive(SequencerConnect.VerifyActiveRequest) returns (SequencerConnect.VerifyActiveResponse);
   rpc RegisterOnboardingTopologyTransactions(SequencerConnect.RegisterOnboardingTopologyTransactionsRequest) returns (SequencerConnect.RegisterOnboardingTopologyTransactionsResponse);
@@ -40,10 +40,10 @@ message SequencerConnect {
     }
   }
 
-  message GetDomainIdRequest {}
+  message GetSynchronizerIdRequest {}
 
-  message GetDomainIdResponse {
-    string domain_id = 1;
+  message GetSynchronizerIdResponse {
+    string synchronizer_id = 1;
     string sequencer_uid = 2;
   }
 

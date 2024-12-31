@@ -9,7 +9,7 @@ import com.digitalasset.canton.participant.store.RequestJournalStoreTest
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.IndexedDomain
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
-import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import org.scalatest.wordspec.AsyncWordSpec
@@ -23,7 +23,7 @@ trait DbRequestJournalStoreTest
     with FailOnShutdown {
   this: DbTest =>
 
-  val domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("da::default"))
+  val synchronizerId = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("da::default"))
 
   override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
     import storage.api.*
@@ -36,7 +36,7 @@ trait DbRequestJournalStoreTest
   "DbRequestJournalStore" should {
     behave like requestJournalStore(() =>
       new DbRequestJournalStore(
-        IndexedDomain.tryCreate(domainId, 1),
+        IndexedDomain.tryCreate(synchronizerId, 1),
         storage,
         BatchAggregatorConfig.defaultsForTesting,
         BatchAggregatorConfig.defaultsForTesting,

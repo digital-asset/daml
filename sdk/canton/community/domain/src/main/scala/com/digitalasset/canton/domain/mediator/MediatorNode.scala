@@ -201,8 +201,10 @@ class MediatorNodeBootstrap(
       storeId: TopologyStoreId
   ): Option[DomainTopologyClient] =
     storeId match {
-      case DomainStore(domainId, _) =>
-        replicaManager.mediatorRuntime.map(_.mediator.topologyClient).filter(_.domainId == domainId)
+      case DomainStore(synchronizerId, _) =>
+        replicaManager.mediatorRuntime
+          .map(_.mediator.topologyClient)
+          .filter(_.synchronizerId == synchronizerId)
       case _ => None
     }
 
@@ -246,7 +248,7 @@ class MediatorNodeBootstrap(
   ) extends BootstrapStageWithStorage[
         MediatorNode,
         StartupNode,
-        (StaticDomainParameters, DomainId),
+        (StaticDomainParameters, SynchronizerId),
       ](
         "wait-for-mediator-to-domain-init",
         bootstrapStageCallback,
@@ -279,22 +281,22 @@ class MediatorNodeBootstrap(
 
     override protected def stageCompleted(implicit
         traceContext: TraceContext
-    ): FutureUnlessShutdown[Option[(StaticDomainParameters, DomainId)]] =
+    ): FutureUnlessShutdown[Option[(StaticDomainParameters, SynchronizerId)]] =
       OptionT(domainConfigurationStore.fetchConfiguration).map { mediatorDomainConfiguration =>
-        (mediatorDomainConfiguration.domainParameters, mediatorDomainConfiguration.domainId)
+        (mediatorDomainConfiguration.domainParameters, mediatorDomainConfiguration.synchronizerId)
 
       }.value
 
     override protected def buildNextStage(
         result: (
             StaticDomainParameters,
-            DomainId,
+            SynchronizerId,
         )
     ): EitherT[FutureUnlessShutdown, String, StartupNode] = {
-      val (staticDomainParameters, domainId) = result
+      val (staticDomainParameters, synchronizerId) = result
       val domainTopologyStore =
         TopologyStore(
-          DomainStore(domainId),
+          DomainStore(synchronizerId),
           storage,
           staticDomainParameters.protocolVersion,
           timeouts,
@@ -311,7 +313,7 @@ class MediatorNodeBootstrap(
           mediatorId,
           staticDomainParameters,
           authorizedTopologyManager,
-          domainId,
+          synchronizerId,
           domainConfigurationStore,
           domainTopologyStore,
           healthService,
@@ -324,7 +326,7 @@ class MediatorNodeBootstrap(
     )
 
     override protected def autoCompleteStage()
-        : EitherT[FutureUnlessShutdown, String, Option[(StaticDomainParameters, DomainId)]] =
+        : EitherT[FutureUnlessShutdown, String, Option[(StaticDomainParameters, SynchronizerId)]] =
       EitherT.rightT(None) // this stage doesn't have auto-init
 
     override def initialize(request: InitializeMediatorRequest)(implicit
@@ -340,13 +342,13 @@ class MediatorNodeBootstrap(
         val sequencerInfoLoader = createSequencerInfoLoader()
         completeWithExternalUS {
           logger.info(
-            s"Assigning mediator to ${request.domainId} via sequencers ${request.sequencerConnections}"
+            s"Assigning mediator to ${request.synchronizerId} via sequencers ${request.sequencerConnections}"
           )
           for {
             sequencerAggregatedInfo <- sequencerInfoLoader
               .loadAndAggregateSequencerEndpoints(
                 domainAlias,
-                Some(request.domainId),
+                Some(request.synchronizerId),
                 request.sequencerConnections,
                 request.sequencerConnectionValidation,
               )
@@ -357,12 +359,12 @@ class MediatorNodeBootstrap(
               .toEitherT[FutureUnlessShutdown]
 
             configToStore = MediatorDomainConfiguration(
-              request.domainId,
+              request.synchronizerId,
               sequencerAggregatedInfo.staticDomainParameters,
               request.sequencerConnections,
             )
             _ <- EitherT.right(domainConfigurationStore.saveConfiguration(configToStore))
-          } yield (sequencerAggregatedInfo.staticDomainParameters, request.domainId)
+          } yield (sequencerAggregatedInfo.staticDomainParameters, request.synchronizerId)
         }.map(_ => InitializeMediatorResponse())
       }
 
@@ -376,7 +378,7 @@ class MediatorNodeBootstrap(
       mediatorId: MediatorId,
       staticDomainParameters: StaticDomainParameters,
       authorizedTopologyManager: AuthorizedTopologyManager,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       domainConfigurationStore: MediatorDomainConfigurationStore,
       domainTopologyStore: TopologyStore[DomainStore],
       healthService: DependenciesHealthService,
@@ -386,7 +388,8 @@ class MediatorNodeBootstrap(
       )
       with HasCloseContext {
 
-    private val domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
+    private val domainLoggerFactory =
+      loggerFactory.append("synchronizerId", synchronizerId.toString)
 
     override protected def attempt()(implicit
         traceContext: TraceContext
@@ -394,7 +397,7 @@ class MediatorNodeBootstrap(
 
       def createDomainOutboxFactory(domainTopologyManager: DomainTopologyManager) =
         new DomainOutboxFactory(
-          domainId = domainId,
+          synchronizerId = synchronizerId,
           memberId = mediatorId,
           authorizedTopologyManager = authorizedTopologyManager,
           domainTopologyManager = domainTopologyManager,
@@ -479,7 +482,7 @@ class MediatorNodeBootstrap(
           val node = new MediatorNode(
             arguments.config,
             mediatorId,
-            domainId,
+            synchronizerId,
             replicaManager,
             storage,
             clock,
@@ -525,19 +528,19 @@ class MediatorNodeBootstrap(
       topologyManagerStatus: TopologyManagerStatus,
       domainOutboxFactory: DomainOutboxFactory,
   ): EitherT[FutureUnlessShutdown, String, MediatorRuntime] = {
-    val domainId = domainConfig.domainId
-    val domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
-    val domainAlias = DomainAlias(domainConfig.domainId.uid.toLengthLimitedString)
+    val synchronizerId = domainConfig.synchronizerId
+    val domainLoggerFactory = loggerFactory.append("synchronizerId", synchronizerId.toString)
+    val domainAlias = DomainAlias(domainConfig.synchronizerId.uid.toLengthLimitedString)
     val sequencerInfoLoader = createSequencerInfoLoader()
     def getSequencerConnectionFromStore: FutureUnlessShutdown[Option[SequencerConnections]] =
       fetchConfig().map(_.map(_.sequencerConnections))
 
     for {
-      indexedDomainId <- EitherT
-        .right(IndexedDomain.indexed(indexedStringStore)(domainId))
+      indexedSynchronizerId <- EitherT
+        .right(IndexedDomain.indexed(indexedStringStore)(synchronizerId))
       sequencedEventStore = SequencedEventStore(
         storage,
-        indexedDomainId,
+        indexedSynchronizerId,
         domainConfig.domainParameters.protocolVersion,
         timeouts,
         domainLoggerFactory,
@@ -545,7 +548,7 @@ class MediatorNodeBootstrap(
       sendTrackerStore = SendTrackerStore(storage)
       sequencerCounterTrackerStore = SequencerCounterTrackerStore(
         storage,
-        indexedDomainId,
+        indexedSynchronizerId,
         timeouts,
         domainLoggerFactory,
       )
@@ -554,7 +557,7 @@ class MediatorNodeBootstrap(
           .right(
             TopologyTransactionProcessor.createProcessorAndClientForDomain(
               domainTopologyStore,
-              domainId,
+              synchronizerId,
               new DomainCryptoPureApi(staticDomainParameters, crypto.pureCrypto),
               arguments.parameterConfig,
               arguments.clock,
@@ -566,7 +569,7 @@ class MediatorNodeBootstrap(
       _ = ips.add(topologyClient)
       syncCryptoApi = new DomainSyncCryptoClient(
         mediatorId,
-        domainId,
+        synchronizerId,
         topologyClient,
         crypto,
         arguments.parameterConfig.sessionSigningKeys,
@@ -576,7 +579,7 @@ class MediatorNodeBootstrap(
         domainLoggerFactory,
       )
       sequencerClientFactory = SequencerClientFactory(
-        domainId,
+        synchronizerId,
         syncCryptoApi,
         crypto,
         parameters.sequencerClient,
@@ -640,7 +643,7 @@ class MediatorNodeBootstrap(
           sequencerClientFactory,
           sequencerInfoLoader,
           domainAlias,
-          domainId,
+          synchronizerId,
           sequencerClient,
           loggerFactory,
         )
@@ -670,7 +673,7 @@ class MediatorNodeBootstrap(
             mediatorId
           ).callback(
             new InitialTopologySnapshotValidator(
-              domainId,
+              synchronizerId,
               new DomainCryptoPureApi(staticDomainParameters, crypto.pureCrypto),
               domainTopologyStore,
               arguments.parameterConfig.processingTimeouts,
@@ -684,7 +687,7 @@ class MediatorNodeBootstrap(
 
       mediatorRuntime <- MediatorRuntimeFactory.create(
         mediatorId,
-        domainId,
+        synchronizerId,
         storage,
         sequencerCounterTrackerStore,
         sequencedEventStore,
@@ -738,7 +741,7 @@ object MediatorNodeBootstrap {
 class MediatorNode(
     config: MediatorNodeConfigCommon,
     mediatorId: MediatorId,
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     protected[canton] val replicaManager: MediatorReplicaManager,
     storage: Storage,
     override val clock: Clock,
@@ -759,7 +762,7 @@ class MediatorNode(
 
     MediatorNodeStatus(
       mediatorId.uid,
-      domainId,
+      synchronizerId,
       uptime(),
       ports,
       replicaManager.isActive,

@@ -4,7 +4,9 @@
 package com.digitalasset.canton.crypto
 
 import cats.syntax.either.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
+import com.digitalasset.canton.crypto.SigningKeyUsage.nonEmptyIntersection
 import com.digitalasset.canton.crypto.provider.jce.JceJavaKeyConverter
 
 import java.security.PublicKey as JPublicKey
@@ -111,6 +113,20 @@ object CryptoKeyValidation {
       acceptedFormats.contains(actual),
       (),
       errFn(s"Expected key formats $acceptedFormats, but got $actual"),
+    )
+
+  private[crypto] def ensureUsage[E](
+      usage: NonEmpty[Set[SigningKeyUsage]],
+      keyUsage: NonEmpty[Set[SigningKeyUsage]],
+      fingerprint: Fingerprint,
+      errFn: String => E,
+  ): Either[E, Unit] =
+    Either.cond(
+      nonEmptyIntersection(keyUsage, usage),
+      (),
+      errFn(
+        s"Signing key $fingerprint [$keyUsage] is not valid for usage $usage"
+      ),
     )
 
 }

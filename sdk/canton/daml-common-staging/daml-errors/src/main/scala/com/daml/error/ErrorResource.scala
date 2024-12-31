@@ -31,8 +31,9 @@ object ErrorResource {
   lazy val ExceptionType: ErrorResource = ErrorResource("EXCEPTION_TYPE")
   lazy val ExceptionText: ErrorResource = ErrorResource("EXCEPTION_TEXT")
   lazy val DevErrorType: ErrorResource = ErrorResource("DEV_ERROR_TYPE")
-  lazy val DomainId: ErrorResource = ErrorResource("DOMAIN_ID")
+  lazy val SynchronizerId: ErrorResource = ErrorResource("SYNCHRONIZER_ID")
   lazy val DomainAlias: ErrorResource = ErrorResource("DOMAIN_ALIAS")
+  lazy val Offset: ErrorResource = ErrorResource("OFFSET")
 
   lazy val all = Seq(
     CommandId,
@@ -54,8 +55,9 @@ object ErrorResource {
     TemplateId,
     TransactionId,
     User,
-    DomainId,
+    SynchronizerId,
     DomainAlias,
+    Offset,
   )
 
   def fromString(str: String): Option[ErrorResource] = all.find(_.asString == str)

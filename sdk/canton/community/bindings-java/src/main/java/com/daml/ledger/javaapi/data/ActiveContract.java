@@ -12,14 +12,16 @@ public final class ActiveContract implements ContractEntry {
 
   @NonNull private final CreatedEvent createdEvent;
 
-  @NonNull private final String domainId;
+  @NonNull private final String synchronizerId;
 
   private final long reassignmentCounter;
 
   public ActiveContract(
-      @NonNull CreatedEvent createdEvent, @NonNull String domainId, long reassignmentCounter) {
+      @NonNull CreatedEvent createdEvent,
+      @NonNull String synchronizerId,
+      long reassignmentCounter) {
     this.createdEvent = createdEvent;
-    this.domainId = domainId;
+    this.synchronizerId = synchronizerId;
     this.reassignmentCounter = reassignmentCounter;
   }
 
@@ -30,8 +32,8 @@ public final class ActiveContract implements ContractEntry {
   }
 
   @NonNull
-  public String getDomainId() {
-    return domainId;
+  public String getSynchronizerId() {
+    return synchronizerId;
   }
 
   public long getReassignmentCounter() {
@@ -44,14 +46,14 @@ public final class ActiveContract implements ContractEntry {
     if (o == null || getClass() != o.getClass()) return false;
     ActiveContract that = (ActiveContract) o;
     return Objects.equals(createdEvent, that.createdEvent)
-        && Objects.equals(domainId, that.domainId)
+        && Objects.equals(synchronizerId, that.synchronizerId)
         && Objects.equals(reassignmentCounter, that.reassignmentCounter);
   }
 
   @Override
   public int hashCode() {
 
-    return Objects.hash(createdEvent, domainId, reassignmentCounter);
+    return Objects.hash(createdEvent, synchronizerId, reassignmentCounter);
   }
 
   @Override
@@ -59,8 +61,8 @@ public final class ActiveContract implements ContractEntry {
     return "ActiveContract{"
         + "createdEvent="
         + createdEvent
-        + ", domainId='"
-        + domainId
+        + ", synchronizerId='"
+        + synchronizerId
         + '\''
         + ", reassignmentCounter="
         + reassignmentCounter
@@ -70,7 +72,7 @@ public final class ActiveContract implements ContractEntry {
   public StateServiceOuterClass.ActiveContract toProto() {
     return StateServiceOuterClass.ActiveContract.newBuilder()
         .setCreatedEvent(getCreatedEvent().toProto())
-        .setDomainId(getDomainId())
+        .setSynchronizerId(getSynchronizerId())
         .setReassignmentCounter(getReassignmentCounter())
         .build();
   }
@@ -78,7 +80,7 @@ public final class ActiveContract implements ContractEntry {
   public static ActiveContract fromProto(StateServiceOuterClass.ActiveContract activeContract) {
     return new ActiveContract(
         CreatedEvent.fromProto(activeContract.getCreatedEvent()),
-        activeContract.getDomainId(),
+        activeContract.getSynchronizerId(),
         activeContract.getReassignmentCounter());
   }
 }

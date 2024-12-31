@@ -10,7 +10,7 @@ import com.digitalasset.canton.participant.protocol.RequestJournal.{RequestData,
 import com.digitalasset.canton.participant.store.SyncDomainPersistentState
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.{StaticDomainParameters, TransactionId}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.{DomainAlias, RequestCounter}
 
@@ -47,7 +47,7 @@ private[repair] final case class RepairRequest(
 private[repair] object RepairRequest {
 
   final case class DomainData(
-      id: DomainId,
+      id: SynchronizerId,
       alias: DomainAlias,
       topologySnapshot: TopologySnapshot,
       persistentState: SyncDomainPersistentState,

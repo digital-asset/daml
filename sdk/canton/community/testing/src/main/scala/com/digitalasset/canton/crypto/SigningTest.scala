@@ -4,12 +4,13 @@
 package com.digitalasset.canton.crypto
 
 import cats.syntax.either.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.SignatureCheckError.{
   InvalidSignature,
   KeyAlgoSpecsMismatch,
   SignatureWithWrongKey,
 }
-import com.digitalasset.canton.crypto.SigningError.UnknownSigningKey
+import com.digitalasset.canton.crypto.SigningError.{InvalidSigningKey, UnknownSigningKey}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import com.google.protobuf.ByteString
@@ -30,6 +31,7 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper with
               crypto <- newCrypto
               publicKey <- getSigningPublicKey(
                 crypto,
+                // proof of ownership is added internally
                 SigningKeyUsage.ProtocolOnly,
                 signingKeySpec,
               )
@@ -50,7 +52,7 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper with
               )
               hash = TestHash.digest("foobar")
               sig <- crypto.privateCrypto
-                .sign(hash, publicKey.id, signingAlgorithmSpec)
+                .sign(hash, publicKey.id, SigningKeyUsage.ProtocolOnly, signingAlgorithmSpec)
                 .valueOrFail("sign")
               sigP = sig.toProtoVersioned(testedProtocolVersion)
               sig2 = Signature.fromProtoVersioned(sigP).valueOrFail("serialize signature")
@@ -67,7 +69,7 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper with
               )
               hash = TestHash.digest("foobar")
               sig <- crypto.privateCrypto
-                .sign(hash, publicKey.id, signingAlgorithmSpec)
+                .sign(hash, publicKey.id, SigningKeyUsage.ProtocolOnly, signingAlgorithmSpec)
                 .valueOrFail("sign")
               res = crypto.pureCrypto.verifySignature(hash, publicKey, sig)
             } yield res shouldEqual Either.unit
@@ -79,7 +81,7 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper with
               unknownKeyId = Fingerprint.create(ByteString.copyFromUtf8("foobar"))
               hash = TestHash.digest("foobar")
               sig <- crypto.privateCrypto
-                .sign(hash, unknownKeyId, signingAlgorithmSpec)
+                .sign(hash, unknownKeyId, SigningKeyUsage.ProtocolOnly, signingAlgorithmSpec)
                 .value
             } yield sig.left.value shouldBe a[UnknownSigningKey]
           }
@@ -94,7 +96,7 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper with
               )
               hash = TestHash.digest("foobar")
               realSig <- crypto.privateCrypto
-                .sign(hash, publicKey.id, signingAlgorithmSpec)
+                .sign(hash, publicKey.id, SigningKeyUsage.ProtocolOnly, signingAlgorithmSpec)
                 .valueOrFail("sign")
               randomBytes = ByteString.copyFromUtf8(PseudoRandom.randomAlphaNumericString(16))
               fakeSig = new Signature(
@@ -131,7 +133,7 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper with
               )
               hash = TestHash.digest("foobar")
               realSig <- crypto.privateCrypto
-                .sign(hash, publicKey.id, signingAlgorithmSpec)
+                .sign(hash, publicKey.id, SigningKeyUsage.ProtocolOnly, signingAlgorithmSpec)
                 .valueOrFail("sign")
               noSpecSig = new Signature(
                 realSig.format,
@@ -155,11 +157,26 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper with
               _ = assert(publicKey != publicKey2)
               hash = TestHash.digest("foobar")
               sig <- crypto.privateCrypto
-                .sign(hash, publicKey.id, signingAlgorithmSpec)
+                .sign(hash, publicKey.id, SigningKeyUsage.ProtocolOnly, signingAlgorithmSpec)
                 .valueOrFail("sign")
-              res = crypto.pureCrypto.verifySignature(hash, publicKey2, sig)
-            } yield res.left.value shouldBe a[SignatureWithWrongKey]
-          }
+              sigErr <- crypto.privateCrypto
+                .sign(
+                  hash,
+                  publicKey.id,
+                  NonEmpty.mk(
+                    Set,
+                    SigningKeyUsage.Namespace,
+                    SigningKeyUsage.IdentityDelegation,
+                  ),
+                  signingAlgorithmSpec,
+                )
+                .value
+              verifyErr = crypto.pureCrypto.verifySignature(hash, publicKey2, sig)
+            } yield {
+              sigErr.left.value shouldBe a[InvalidSigningKey]
+              verifyErr.left.value shouldBe a[SignatureWithWrongKey]
+            }
+          }.failOnShutdown
 
         }
       }

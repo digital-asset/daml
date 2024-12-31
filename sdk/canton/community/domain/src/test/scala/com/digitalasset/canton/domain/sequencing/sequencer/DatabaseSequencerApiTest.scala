@@ -26,7 +26,7 @@ abstract class DatabaseSequencerApiTest extends SequencerApiTest {
       TestingTopology(),
       loggerFactory,
       DynamicDomainParameters.initialValues(clock, testedProtocolVersion),
-    ).forOwnerAndDomain(owner = mediatorId, domainId)
+    ).forOwnerAndDomain(owner = mediatorId, synchronizerId)
     val metrics = SequencerMetrics.noop("database-sequencer-test")
 
     // we explicitly pass the parallel executor service to use as the execution context
@@ -53,7 +53,7 @@ abstract class DatabaseSequencerApiTest extends SequencerApiTest {
       storage,
       sequencerStore,
       clock,
-      domainId,
+      synchronizerId,
       sequencerId,
       testedProtocolVersion,
       crypto,

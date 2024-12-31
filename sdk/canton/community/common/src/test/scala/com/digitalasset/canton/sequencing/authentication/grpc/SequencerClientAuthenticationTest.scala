@@ -18,7 +18,7 @@ import com.digitalasset.canton.sequencing.authentication.{
   AuthenticationToken,
   AuthenticationTokenManagerConfig,
 }
-import com.digitalasset.canton.topology.{DefaultTestIdentities, DomainId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{DefaultTestIdentities, SynchronizerId, UniqueIdentifier}
 import io.grpc.*
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
 import io.grpc.stub.StreamObserver
@@ -30,7 +30,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class SequencerClientAuthenticationTest extends FixtureAsyncWordSpec with BaseTest {
 
-  val domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("test::domain"))
+  val synchronizerId = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("test::domain"))
   val participantId = DefaultTestIdentities.participant1
   val crypto = new SymbolicPureCrypto
   val token1 = AuthenticationToken.generate(crypto)
@@ -84,7 +84,7 @@ class SequencerClientAuthenticationTest extends FixtureAsyncWordSpec with BaseTe
       )
     val managers = NonEmpty.mk(Seq, Endpoint("localhost", Port.tryCreate(10)) -> tokenManager).toMap
     val clientAuthentication =
-      new SequencerClientTokenAuthentication(domainId, participantId, managers, loggerFactory)
+      new SequencerClientTokenAuthentication(synchronizerId, participantId, managers, loggerFactory)
     val client = HelloServiceGrpc
       .stub(clientChannel.channel)
       .withInterceptors(clientAuthentication.reauthorizationInterceptor)

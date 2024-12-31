@@ -30,7 +30,7 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
 
 trait DomainOutboxDispatchHelper extends NamedLogging {
-  protected def domainId: DomainId
+  protected def synchronizerId: SynchronizerId
 
   protected def memberId: Member
 
@@ -59,7 +59,7 @@ trait DomainOutboxDispatchHelper extends NamedLogging {
       transactions: Seq[GenericSignedTopologyTransaction]
   ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]] =
     FutureUnlessShutdown.pure(
-      transactions.filter(x => x.mapping.restrictedToDomain.forall(_ == domainId))
+      transactions.filter(x => x.mapping.restrictedToDomain.forall(_ == synchronizerId))
     )
 
   protected def isFailedState(response: TopologyTransactionsBroadcast.State): Boolean =

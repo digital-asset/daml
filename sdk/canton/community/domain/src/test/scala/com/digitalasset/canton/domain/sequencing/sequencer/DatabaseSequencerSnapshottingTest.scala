@@ -37,7 +37,7 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
       TestingTopology(),
       loggerFactory,
       DynamicDomainParameters.initialValues(clock, testedProtocolVersion),
-    ).forOwnerAndDomain(owner = mediatorId, domainId)
+    ).forOwnerAndDomain(owner = mediatorId, synchronizerId)
     val metrics = SequencerMetrics.noop("database-sequencer-test")
 
     val dbConfig = TestDatabaseSequencerConfig()
@@ -60,7 +60,7 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
       storage,
       sequencerStore,
       clock,
-      domainId,
+      synchronizerId,
       sequencerId,
       testedProtocolVersion,
       crypto,
@@ -137,7 +137,7 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
         secondSequencer = createSequencerWithSnapshot(
           Some(
             SequencerInitialState(
-              domainId,
+              synchronizerId,
               snapshot,
               latestSequencerEventTimestamp = None,
               initialTopologyEffectiveTimestamp = None,

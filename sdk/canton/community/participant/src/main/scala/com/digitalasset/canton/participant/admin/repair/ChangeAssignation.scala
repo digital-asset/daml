@@ -41,10 +41,10 @@ private final class ChangeAssignation(
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
 
-  private val sourceDomainId = repairSource.map(_.domain.id)
+  private val sourceSynchronizerId = repairSource.map(_.domain.id)
   private val sourceDomainAlias = repairSource.map(_.domain.alias)
   private val sourcePersistentState = repairSource.map(_.domain.persistentState)
-  private val targetDomainId = repairTarget.map(_.domain.id)
+  private val targetSynchronizerId = repairTarget.map(_.domain.id)
   private val targetPersistentState = repairTarget.map(_.domain.persistentState)
 
   /** Completes the processing of unassigned contract. Insert the contract in the target domain
@@ -234,7 +234,7 @@ private final class ChangeAssignation(
       .lookupManyExistingUncached(contractIdsWithReassignmentCounters.map {
         case ChangeAssignation.Data((cid, _), _, _) => cid
       })
-      .map(_.map(_.contract).zip(contractIdsWithReassignmentCounters))
+      .map(_.zip(contractIdsWithReassignmentCounters))
       .leftMap(contractId => s"Failed to look up contract $contractId in domain $sourceDomainAlias")
       .mapK(FutureUnlessShutdown.outcomeK)
 
@@ -300,11 +300,7 @@ private final class ChangeAssignation(
     EitherT.right {
       contracts.parTraverse_ { contract =>
         if (contract.payload.isNew)
-          contractStore
-            .storeCreatedContract(
-              contract.targetTimeOfChange.unwrap.rc,
-              contract.payload.contract,
-            )
+          contractStore.storeContract(contract.payload.contract)
         else FutureUnlessShutdown.unit
       }
     }
@@ -317,7 +313,7 @@ private final class ChangeAssignation(
         contracts.map { contract =>
           (
             contract.payload.contract.contractId,
-            sourceDomainId,
+            sourceSynchronizerId,
             contract.payload.reassignmentCounter,
             contract.targetTimeOfChange.unwrap,
           )
@@ -336,7 +332,7 @@ private final class ChangeAssignation(
         contracts.map { contract =>
           (
             contract.payload.contract.contractId,
-            targetDomainId,
+            targetSynchronizerId,
             contract.payload.reassignmentCounter,
             contract.sourceTimeOfChange.unwrap,
           )
@@ -373,7 +369,7 @@ private final class ChangeAssignation(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
-    val reassignmentId = ReassignmentId(sourceDomainId, repairSource.unwrap.timestamp)
+    val reassignmentId = ReassignmentId(sourceSynchronizerId, repairSource.unwrap.timestamp)
     val allStakeholders = changedContracts.flatMap(_.payload.contract.metadata.stakeholders).toSet
 
     for {
@@ -426,8 +422,8 @@ private final class ChangeAssignation(
       workflowId = None,
       updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
       reassignmentInfo = ReassignmentInfo(
-        sourceDomain = sourceDomainId,
-        targetDomain = targetDomainId,
+        sourceDomain = sourceSynchronizerId,
+        targetDomain = targetSynchronizerId,
         submitter = None,
         reassignmentCounter = contract.payload.reassignmentCounter.v,
         hostedStakeholders =
@@ -456,8 +452,8 @@ private final class ChangeAssignation(
       workflowId = None,
       updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
       reassignmentInfo = ReassignmentInfo(
-        sourceDomain = sourceDomainId,
-        targetDomain = targetDomainId,
+        sourceDomain = sourceSynchronizerId,
+        targetDomain = targetSynchronizerId,
         submitter = None,
         reassignmentCounter = contract.payload.reassignmentCounter.v,
         hostedStakeholders =

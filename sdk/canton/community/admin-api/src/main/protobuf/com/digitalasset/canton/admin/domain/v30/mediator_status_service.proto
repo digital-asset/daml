@@ -21,7 +21,7 @@ message MediatorStatusResponse {
 
   message MediatorStatusResponseStatus {
     com.digitalasset.canton.admin.health.v30.Status common_status = 1;
-    string domain_id = 2;
+    string synchronizer_id = 2;
     int32 protocol_version = 3;
   }
 }

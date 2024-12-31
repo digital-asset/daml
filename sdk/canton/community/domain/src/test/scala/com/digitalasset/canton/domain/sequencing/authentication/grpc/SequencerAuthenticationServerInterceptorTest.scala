@@ -23,7 +23,7 @@ import com.digitalasset.canton.sequencing.authentication.{
   AuthenticationTokenManagerConfig,
 }
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
@@ -57,10 +57,10 @@ class SequencerAuthenticationServerInterceptorTest
     lazy val service = new GrpcHelloService()
 
     lazy val store: MemberAuthenticationStore = new MemberAuthenticationStore()
-    lazy val domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("popo::pipi"))
+    lazy val synchronizerId = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("popo::pipi"))
 
     lazy val authService = new MemberAuthenticationService(
-      domainId,
+      synchronizerId,
       null,
       store,
       new SimClock(loggerFactory = loggerFactory),
@@ -144,7 +144,7 @@ class SequencerAuthenticationServerInterceptorTest
 
       val clientAuthentication =
         SequencerClientTokenAuthentication(
-          domainId,
+          synchronizerId,
           participantId,
           obtainToken,
           isClosed = false,
@@ -181,7 +181,7 @@ class SequencerAuthenticationServerInterceptorTest
 
       val clientAuthentication =
         SequencerClientTokenAuthentication(
-          domainId,
+          synchronizerId,
           participantId,
           obtainToken,
           isClosed = false,

@@ -30,7 +30,7 @@ import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor.
 import com.digitalasset.canton.topology.store.TopologyStore.Change
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.topology.{DomainId, TopologyManagerError}
+import com.digitalasset.canton.topology.{SynchronizerId, TopologyManagerError}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, MonadUtil, SimpleExecutionQueue}
 
@@ -49,7 +49,7 @@ import scala.math.Ordering.Implicits.*
   * The processor works together with the StoreBasedDomainTopologyClient
   */
 class TopologyTransactionProcessor(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     pureCrypto: DomainCryptoPureApi,
     store: TopologyStore[TopologyStoreId.DomainStore],
     acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit,
@@ -239,7 +239,7 @@ class TopologyTransactionProcessor(
     for {
       _ <- ErrorUtil.requireStateAsyncShutdown(
         initialised.get(),
-        s"Topology client for $domainId is not initialized. Cannot process sequenced event with counter $sc at $sequencedTime",
+        s"Topology client for $synchronizerId is not initialized. Cannot process sequenced event with counter $sc at $sequencedTime",
       )
     } yield {
       val txs = updates.flatMap(_.signedTransactions)
@@ -286,10 +286,10 @@ class TopologyTransactionProcessor(
       }
     }
 
-  def createHandler(domainId: DomainId): UnsignedProtocolEventHandler =
+  def createHandler(synchronizerId: SynchronizerId): UnsignedProtocolEventHandler =
     new UnsignedProtocolEventHandler {
 
-      override def name: String = s"topology-processor-$domainId"
+      override def name: String = s"topology-processor-$synchronizerId"
 
       override def apply(
           tracedBatch: BoxedEnvelope[UnsignedEnvelopeBox, DefaultOpenEnvelope]
@@ -302,11 +302,11 @@ class TopologyTransactionProcessor(
                 val sequencedTime = SequencedTime(ts)
                 val envelopesForRightDomain = ProtocolMessage.filterDomainsEnvelopes(
                   batch,
-                  domainId,
+                  synchronizerId,
                   (wrongMsgs: List[DefaultOpenEnvelope]) =>
                     TopologyManagerError.TopologyManagerAlarm
                       .Warn(
-                        s"received messages with wrong domain ids: ${wrongMsgs.map(_.protocolMessage.domainId)}"
+                        s"received messages with wrong synchronizer ids: ${wrongMsgs.map(_.protocolMessage.synchronizerId)}"
                       )
                       .report(),
                 )
@@ -487,7 +487,7 @@ object TopologyTransactionProcessor {
 
   def createProcessorAndClientForDomain(
       topologyStore: TopologyStore[TopologyStoreId.DomainStore],
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       pureCrypto: DomainCryptoPureApi,
       parameters: CantonNodeParameters,
       clock: Clock,
@@ -502,7 +502,7 @@ object TopologyTransactionProcessor {
   ): FutureUnlessShutdown[(TopologyTransactionProcessor, DomainTopologyClientWithInit)] = {
 
     val processor = new TopologyTransactionProcessor(
-      domainId,
+      synchronizerId,
       pureCrypto,
       topologyStore,
       _ => (),
@@ -515,7 +515,7 @@ object TopologyTransactionProcessor {
 
     val cachingClientF = CachingDomainTopologyClient.create(
       clock,
-      domainId,
+      synchronizerId,
       topologyStore,
       StoreBasedDomainTopologyClient.NoPackageDependencies,
       parameters.cachingConfigs,

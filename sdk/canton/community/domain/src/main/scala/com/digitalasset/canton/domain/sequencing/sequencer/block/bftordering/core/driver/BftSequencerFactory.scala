@@ -26,7 +26,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.{DomainId, SequencerId}
+import com.digitalasset.canton.topology.{SequencerId, SynchronizerId}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.typesafe.scalalogging.LazyLogging
 import io.opentelemetry.api.trace.Tracer
@@ -67,7 +67,7 @@ class BftSequencerFactory(
 
   override protected final def createBlockSequencer(
       name: String,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       cryptoApi: DomainSyncCryptoClient,
       stateManager: BlockSequencerStateManager,
       store: SequencerBlockStore,
@@ -106,7 +106,7 @@ class BftSequencerFactory(
         domainLoggerFactory,
       ),
       name,
-      domainId,
+      synchronizerId,
       cryptoApi,
       sequencerId,
       stateManager,

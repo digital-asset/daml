@@ -17,7 +17,7 @@ import com.digitalasset.canton.version.{
 }
 
 final case class TopologyTransactionsBroadcast(
-    override val domainId: DomainId,
+    override val synchronizerId: SynchronizerId,
     transactions: SignedTopologyTransactions[TopologyChangeOp, TopologyMapping],
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
@@ -33,7 +33,7 @@ final case class TopologyTransactionsBroadcast(
     v30.EnvelopeContent.SomeEnvelopeContent.TopologyTransactionsBroadcast(toProtoV30)
 
   def toProtoV30: v30.TopologyTransactionsBroadcast = v30.TopologyTransactionsBroadcast(
-    domainId.toProtoPrimitive,
+    synchronizerId.toProtoPrimitive,
     Some(transactions.toProtoV30),
   )
 
@@ -48,12 +48,12 @@ object TopologyTransactionsBroadcast
     ] {
 
   def apply(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       transactions: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
       protocolVersion: ProtocolVersion,
   ): TopologyTransactionsBroadcast =
     TopologyTransactionsBroadcast(
-      domainId,
+      synchronizerId,
       SignedTopologyTransactions(transactions, protocolVersion),
     )(
       supportedProtoVersions.protocolVersionRepresentativeFor(protocolVersion)
@@ -85,7 +85,7 @@ object TopologyTransactionsBroadcast
   ): ParsingResult[TopologyTransactionsBroadcast] = {
     val v30.TopologyTransactionsBroadcast(domainP, signedTopologyTransactionsP) = message
     for {
-      domainId <- DomainId.fromProtoPrimitive(domainP, "domain")
+      synchronizerId <- SynchronizerId.fromProtoPrimitive(domainP, "domain")
 
       signedTopologyTransactions <- ProtoConverter.parseRequired(
         SignedTopologyTransactions.fromProtoV30(expectedProtocolVersion, _),
@@ -94,7 +94,7 @@ object TopologyTransactionsBroadcast
       )
 
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield TopologyTransactionsBroadcast(domainId, signedTopologyTransactions)(rpv)
+    } yield TopologyTransactionsBroadcast(synchronizerId, signedTopologyTransactions)(rpv)
   }
 
   /** The state of the submission of a topology transaction broadcast. In combination with the sequencer client

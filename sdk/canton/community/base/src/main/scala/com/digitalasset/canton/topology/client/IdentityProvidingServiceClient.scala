@@ -54,26 +54,27 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 class IdentityProvidingServiceClient {
 
-  private val domains = TrieMap.empty[DomainId, DomainTopologyClient]
+  private val domains = TrieMap.empty[SynchronizerId, DomainTopologyClient]
 
   def add(domainClient: DomainTopologyClient): this.type = {
-    domains += (domainClient.domainId -> domainClient)
+    domains += (domainClient.synchronizerId -> domainClient)
     this
   }
 
   def allDomains: Iterable[DomainTopologyClient] = domains.values
 
-  def tryForDomain(domain: DomainId): DomainTopologyClient =
-    domains.getOrElse(domain, sys.error("unknown domain " + domain.toString))
+  def tryForDomain(synchronizerId: SynchronizerId): DomainTopologyClient =
+    domains.getOrElse(synchronizerId, sys.error("unknown domain " + synchronizerId.toString))
 
-  def forDomain(domain: DomainId): Option[DomainTopologyClient] = domains.get(domain)
+  def forDomain(synchronizerId: SynchronizerId): Option[DomainTopologyClient] =
+    domains.get(synchronizerId)
 
 }
 
 trait TopologyClientApi[+T] { this: HasFutureSupervision =>
 
   /** The domain this client applies to */
-  def domainId: DomainId
+  def synchronizerId: SynchronizerId
 
   /** Our current snapshot approximation
     *

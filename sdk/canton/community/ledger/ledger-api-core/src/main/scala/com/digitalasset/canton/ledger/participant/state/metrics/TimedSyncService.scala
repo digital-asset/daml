@@ -17,7 +17,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.protocol.PackageDescription
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.archive.DamlLf.Archive
@@ -35,7 +35,7 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
 
   override def submitTransaction(
       submitterInfo: SubmitterInfo,
-      optDomainId: Option[DomainId],
+      optSynchronizerId: Option[SynchronizerId],
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
@@ -49,7 +49,7 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       metrics.services.write.submitTransactionRunning,
       delegate.submitTransaction(
         submitterInfo,
-        optDomainId,
+        optSynchronizerId,
         transactionMeta,
         transaction,
         estimatedInterpretationCost,
@@ -124,8 +124,10 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       delegate.getConnectedDomains(request),
     )
 
-  override def getProtocolVersionForDomain(domainId: Traced[DomainId]): Option[ProtocolVersion] =
-    delegate.getProtocolVersionForDomain(domainId)
+  override def getProtocolVersionForDomain(
+      synchronizerId: Traced[SynchronizerId]
+  ): Option[ProtocolVersion] =
+    delegate.getProtocolVersionForDomain(synchronizerId)
 
   override def incompleteReassignmentOffsets(validAt: Offset, stakeholders: Set[LfPartyId])(implicit
       traceContext: TraceContext

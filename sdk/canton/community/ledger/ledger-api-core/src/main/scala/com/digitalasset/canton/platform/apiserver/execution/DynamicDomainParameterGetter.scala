@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.apiserver.execution
 import cats.data.EitherT
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 
 /** Class for retrieving dynamic domain parameters.
@@ -18,7 +18,7 @@ import com.digitalasset.canton.tracing.TraceContext
   * An instance of this trait is therefore provided as a "hook" to the ledger API to retrieve dynamic domain parameters.
   */
 trait DynamicDomainParameterGetter {
-  def getLedgerTimeRecordTimeTolerance(domainIdO: Option[DomainId])(implicit
+  def getLedgerTimeRecordTimeTolerance(synchronizerIdO: Option[SynchronizerId])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, NonNegativeFiniteDuration]
 }

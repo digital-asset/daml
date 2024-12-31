@@ -67,7 +67,7 @@ class TransactionConfirmationRequestFactoryTest
   private val observerParticipant2: ParticipantId = ParticipantId("observerParticipant2")
 
   // General dummy parameters
-  private val domain: DomainId = DefaultTestIdentities.domainId
+  private val synchronizerId: SynchronizerId = DefaultTestIdentities.synchronizerId
   private val mediator: MediatorGroupRecipient = MediatorGroupRecipient(MediatorGroupIndex.zero)
   private val ledgerTime: CantonTimestamp = CantonTimestamp.Epoch
   private val workflowId: Option[WorkflowId] = Some(
@@ -86,11 +86,11 @@ class TransactionConfirmationRequestFactoryTest
     val map = partyToParticipant.fmap(parties => parties.map(_ -> permission).toMap)
     TestingTopology()
       .withReversedTopology(map)
-      .withDomains(domain)
+      .withDomains(synchronizerId)
       .withKeyPurposes(keyPurposes)
       .withFreshKeys(freshKeys)
       .build(loggerFactory)
-      .forOwnerAndDomain(submittingParticipant, domain)
+      .forOwnerAndDomain(submittingParticipant, synchronizerId)
       .currentSnapshotApproximation
   }
 
@@ -285,7 +285,12 @@ class TransactionConfirmationRequestFactoryTest
           if (tree.isTopLevel) {
             Some(
               Await
-                .result(cryptoSnapshot.sign(tree.transactionId.unwrap).value, 10.seconds)
+                .result(
+                  cryptoSnapshot
+                    .sign(tree.transactionId.unwrap, SigningKeyUsage.ProtocolOnly)
+                    .value,
+                  10.seconds,
+                )
                 .failOnShutdown
                 .valueOr(err => fail(err.toString))
             )
@@ -328,7 +333,7 @@ class TransactionConfirmationRequestFactoryTest
             tree.viewHash,
             randomnessMapNE,
             encryptedView,
-            transactionFactory.domainId,
+            transactionFactory.synchronizerId,
             SymmetricKeyScheme.Aes128Gcm,
             testedProtocolVersion,
           )
@@ -338,7 +343,13 @@ class TransactionConfirmationRequestFactoryTest
     }
 
     val signature =
-      cryptoSnapshot.sign(example.fullInformeeTree.transactionId.unwrap).failOnShutdown.futureValue
+      cryptoSnapshot
+        .sign(
+          example.fullInformeeTree.transactionId.unwrap,
+          SigningKeyUsage.ProtocolOnly,
+        )
+        .failOnShutdown
+        .futureValue
 
     TransactionConfirmationRequest(
       InformeeMessage(example.fullInformeeTree, signature)(testedProtocolVersion),

@@ -144,7 +144,7 @@ object SyncServiceError extends SyncServiceErrorGroup {
   @Explanation(
     """This error is reported in case of validation failures when attempting to register new or change existing
        sequencer connections. This can be caused by unreachable nodes, a bad TLS configuration, or in case of
-       a mismatch of domain-ids reported by the sequencers or mismatched sequencer-ids within a sequencer group."""
+       a mismatch of synchronizer ids reported by the sequencers or mismatched sequencer-ids within a sequencer group."""
   )
   @Resolution(
     """Check that the connection settings provided are correct. If they are but correspond to temporarily

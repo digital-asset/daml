@@ -590,11 +590,11 @@ object TopologyAdminCommands {
           CancellableContext,
         ] {
       override protected def createRequest(): Either[String, v30.GenesisStateRequest] = {
-        val domainStore = filterDomainStore.traverse(DomainId.fromString)
-        domainStore.flatMap(domainId =>
+        val domainStore = filterDomainStore.traverse(SynchronizerId.fromString)
+        domainStore.flatMap(synchronizerId =>
           Right(
             v30.GenesisStateRequest(
-              domainId.map(Domain.apply).map(_.toProto),
+              synchronizerId.map(Domain.apply).map(_.toProto),
               timestamp.map(_.toProtoTimestamp),
             )
           )

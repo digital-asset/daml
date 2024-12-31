@@ -8,7 +8,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentDat
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
 import com.digitalasset.canton.protocol.{ReassignmentId, SerializableContract}
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -36,9 +36,9 @@ final case class ReassignmentData(
   def assignmentGlobalOffset: Option[Offset] =
     reassignmentGlobalOffset.flatMap(_.assignment)
 
-  def targetDomain: Target[DomainId] = unassignmentRequest.targetDomain
+  def targetDomain: Target[SynchronizerId] = unassignmentRequest.targetDomain
 
-  def sourceDomain: Source[DomainId] = unassignmentRequest.sourceDomain
+  def sourceDomain: Source[SynchronizerId] = unassignmentRequest.sourceDomain
 
   def reassignmentId: ReassignmentId =
     ReassignmentId(unassignmentRequest.sourceDomain, unassignmentTs)

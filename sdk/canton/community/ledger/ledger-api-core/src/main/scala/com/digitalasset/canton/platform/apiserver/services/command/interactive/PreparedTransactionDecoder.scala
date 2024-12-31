@@ -27,8 +27,8 @@ import com.digitalasset.canton.platform.apiserver.execution.CommandExecutionResu
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.PreparedTransactionCodec.*
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.PreparedTransactionDecoder.DeserializationResult
 import com.digitalasset.canton.protocol.{LfNode, LfNodeId}
-import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.data.Ref.TypeConName
@@ -432,9 +432,9 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
         )
         .transform
         .toFutureWithLoggedFailures("Failed to deserialize submitter info", logger)
-      domainId <- Future.fromTry(
-        DomainId
-          .fromProtoPrimitive(metadataProto.domainId, "domain_id")
+      synchronizerId <- Future.fromTry(
+        SynchronizerId
+          .fromProtoPrimitive(metadataProto.synchronizerId, "synchronizer_id")
           .leftMap(_.message)
           .leftMap(RequestValidationErrors.InvalidArgument.Reject(_).asGrpcError)
           .toTry
@@ -479,7 +479,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
     } yield {
       val commandExecutionResult = CommandExecutionResult(
         submitterInfo = submitterInfo,
-        optDomainId = Some(domainId),
+        optSynchronizerId = Some(synchronizerId),
         transactionMeta = transactionMeta,
         transaction = lf.transaction.SubmittedTransaction(transaction),
         dependsOnLedgerTime = metadataProto.ledgerEffectiveTime.isDefined,

@@ -32,7 +32,7 @@ import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.Le
 import com.digitalasset.canton.platform.store.backend.{DbDto, ParameterStorageBackend}
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 import com.digitalasset.daml.lf.crypto.Hash
@@ -79,8 +79,9 @@ class ParallelIndexerSubscriptionSpec
     is_local = Some(true),
   )
 
-  private val someDomainId: DomainId = DomainId.tryFromString("x::domainid")
-  private val someDomainId2: DomainId = DomainId.tryFromString("x::domainid2")
+  private val someSynchronizerId: SynchronizerId = SynchronizerId.tryFromString("x::synchronizerId")
+  private val someSynchronizerId2: SynchronizerId =
+    SynchronizerId.tryFromString("x::synchronizerId2")
 
   private val someTime = Instant.now
 
@@ -120,7 +121,7 @@ class ParallelIndexerSubscriptionSpec
     create_key_value_compression = None,
     event_sequential_id = 0,
     driver_metadata = Array.empty,
-    domain_id = "x::sourcedomain",
+    synchronizer_id = "x::sourcedomain",
     trace_context = serializableTraceContext,
     record_time = 0,
   )
@@ -150,7 +151,7 @@ class ParallelIndexerSubscriptionSpec
     exercise_argument_compression = None,
     exercise_result_compression = None,
     event_sequential_id = 0,
-    domain_id = "",
+    synchronizer_id = "",
     trace_context = serializableTraceContext,
     record_time = 0,
   )
@@ -177,8 +178,8 @@ class ParallelIndexerSubscriptionSpec
     event_sequential_id = 0,
     ledger_effective_time = 0,
     driver_metadata = Array.empty,
-    source_domain_id = "",
-    target_domain_id = "",
+    source_synchronizer_id = "",
+    target_synchronizer_id = "",
     unassign_id = "",
     reassignment_counter = 0,
     trace_context = serializableTraceContext,
@@ -196,8 +197,8 @@ class ParallelIndexerSubscriptionSpec
     package_name = "",
     flat_event_witnesses = Set.empty,
     event_sequential_id = 0,
-    source_domain_id = "",
-    target_domain_id = "",
+    source_synchronizer_id = "",
+    target_synchronizer_id = "",
     unassign_id = "",
     reassignment_counter = 0,
     assignment_exclusivity = None,
@@ -220,7 +221,7 @@ class ParallelIndexerSubscriptionSpec
     deduplication_offset = None,
     deduplication_duration_seconds = None,
     deduplication_duration_nanos = None,
-    domain_id = "x::sourcedomain",
+    synchronizer_id = "x::sourcedomain",
     message_uuid = None,
     request_sequencer_counter = None,
     is_transaction = true,
@@ -316,7 +317,7 @@ class ParallelIndexerSubscriptionSpec
       updateId = Ref.TransactionId.assertFromString("UpdateId"),
       hostedWitnesses = Nil,
       contractMetadata = Map.empty,
-      domainId = DomainId.tryFromString("da::default"),
+      synchronizerId = SynchronizerId.tryFromString("da::default"),
       requestCounter = RequestCounter(1),
       sequencerCounter = SequencerCounter(1),
       recordTime = CantonTimestamp(someRecordTime),
@@ -681,7 +682,7 @@ class ParallelIndexerSubscriptionSpec
       lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(10),
     )
 
-    val storeLedgerEndF: (LedgerEnd, Map[DomainId, DomainIndex]) => Future[Unit] = {
+    val storeLedgerEndF: (LedgerEnd, Map[SynchronizerId, DomainIndex]) => Future[Unit] = {
       case (`secondBatchLedgerEnd`, _) => Future.unit
       case otherLedgerEnd => fail(s"Unexpected ledger end: $otherLedgerEnd")
     }
@@ -736,37 +737,37 @@ class ParallelIndexerSubscriptionSpec
 
   it should "populate correct ledger-end from batches for a sequencer counter moved" in {
     ParallelIndexerSubscription.ledgerEndDomainIndexFrom(
-      Vector(someDomainId -> DomainIndex.of(someSequencerIndex1))
+      Vector(someSynchronizerId -> DomainIndex.of(someSequencerIndex1))
     ) shouldBe Map(
-      someDomainId -> DomainIndex.of(someSequencerIndex1)
+      someSynchronizerId -> DomainIndex.of(someSequencerIndex1)
     )
   }
 
   it should "populate correct ledger-end from batches for a request counter moved" in {
     ParallelIndexerSubscription.ledgerEndDomainIndexFrom(
-      Vector(someDomainId -> DomainIndex.of(someRequestIndex1))
+      Vector(someSynchronizerId -> DomainIndex.of(someRequestIndex1))
     ) shouldBe Map(
-      someDomainId -> DomainIndex.of(someRequestIndex1)
+      someSynchronizerId -> DomainIndex.of(someRequestIndex1)
     )
   }
 
   it should "populate correct ledger-end from batches for a mixed batch" in {
     ParallelIndexerSubscription.ledgerEndDomainIndexFrom(
       Vector(
-        someDomainId -> DomainIndex.of(someSequencerIndex1),
-        someDomainId -> DomainIndex.of(someRecordTime1),
-        someDomainId -> DomainIndex.of(someSequencerIndex2),
-        someDomainId2 -> DomainIndex.of(someRequestIndex1),
-        someDomainId2 -> DomainIndex.of(someRequestIndex2),
-        someDomainId2 -> DomainIndex.of(someRecordTime1),
+        someSynchronizerId -> DomainIndex.of(someSequencerIndex1),
+        someSynchronizerId -> DomainIndex.of(someRecordTime1),
+        someSynchronizerId -> DomainIndex.of(someSequencerIndex2),
+        someSynchronizerId2 -> DomainIndex.of(someRequestIndex1),
+        someSynchronizerId2 -> DomainIndex.of(someRequestIndex2),
+        someSynchronizerId2 -> DomainIndex.of(someRecordTime1),
       )
     ) shouldBe Map(
-      someDomainId -> DomainIndex(
+      someSynchronizerId -> DomainIndex(
         None,
         Some(someSequencerIndex2),
         someSequencerIndex2.timestamp,
       ),
-      someDomainId2 -> DomainIndex(
+      someSynchronizerId2 -> DomainIndex(
         Some(someRequestIndex2),
         Some(
           SequencerIndex(
@@ -782,14 +783,14 @@ class ParallelIndexerSubscriptionSpec
   it should "populate correct ledger-end from batches for a mixed batch 2" in {
     ParallelIndexerSubscription.ledgerEndDomainIndexFrom(
       Vector(
-        someDomainId -> DomainIndex.of(someSequencerIndex1),
-        someDomainId -> DomainIndex.of(someRequestIndex1),
-        someDomainId -> DomainIndex.of(someRecordTime2),
-        someDomainId2 -> DomainIndex.of(someSequencerIndex1),
-        someDomainId2 -> DomainIndex.of(someRequestIndex2),
+        someSynchronizerId -> DomainIndex.of(someSequencerIndex1),
+        someSynchronizerId -> DomainIndex.of(someRequestIndex1),
+        someSynchronizerId -> DomainIndex.of(someRecordTime2),
+        someSynchronizerId2 -> DomainIndex.of(someSequencerIndex1),
+        someSynchronizerId2 -> DomainIndex.of(someRequestIndex2),
       )
     ) shouldBe Map(
-      someDomainId -> DomainIndex(
+      someSynchronizerId -> DomainIndex(
         Some(someRequestIndex1),
         Some(
           SequencerIndex(
@@ -799,7 +800,7 @@ class ParallelIndexerSubscriptionSpec
         ),
         someRecordTime2,
       ),
-      someDomainId2 -> DomainIndex(
+      someSynchronizerId2 -> DomainIndex(
         Some(someRequestIndex2),
         Some(someSequencerIndex1),
         someRequestIndex2.timestamp,
@@ -809,7 +810,8 @@ class ParallelIndexerSubscriptionSpec
 
   behavior of "aggregateLedgerEndForRepair"
 
-  private val someAggregatedLedgerEndForRepair: Option[(LedgerEnd, Map[DomainId, DomainIndex])] =
+  private val someAggregatedLedgerEndForRepair
+      : Option[(LedgerEnd, Map[SynchronizerId, DomainIndex])] =
     Some(
       ParameterStorageBackend.LedgerEnd(
         lastOffset = offset(5),
@@ -817,7 +819,7 @@ class ParallelIndexerSubscriptionSpec
         lastStringInterningId = 300,
         lastPublicationTime = CantonTimestamp.ofEpochMicro(5),
       ) -> Map(
-        someDomainId -> DomainIndex(
+        someSynchronizerId -> DomainIndex(
           None,
           Some(
             SequencerIndex(
@@ -827,7 +829,7 @@ class ParallelIndexerSubscriptionSpec
           ),
           CantonTimestamp.ofEpochMicro(5),
         ),
-        someDomainId2 -> DomainIndex(
+        someSynchronizerId2 -> DomainIndex(
           Some(someRequestIndex2),
           Some(
             SequencerIndex(
@@ -854,14 +856,14 @@ class ParallelIndexerSubscriptionSpec
       offsetsUpdates = Vector(
         offset(9) ->
           Update.SequencerIndexMoved(
-            domainId = someDomainId,
+            synchronizerId = someSynchronizerId,
             sequencerCounter = someSequencerIndex1.counter,
             recordTime = someSequencerIndex1.timestamp,
             requestCounterO = None,
           ),
         offset(10) ->
           Update.SequencerIndexMoved(
-            domainId = someDomainId2,
+            synchronizerId = someSynchronizerId2,
             sequencerCounter = someSequencerIndex1.counter,
             recordTime = someSequencerIndex1.timestamp,
             requestCounterO = None,
@@ -881,14 +883,14 @@ class ParallelIndexerSubscriptionSpec
       offsetsUpdates = Vector(
         offset(19) ->
           Update.SequencerIndexMoved(
-            domainId = someDomainId,
+            synchronizerId = someSynchronizerId,
             sequencerCounter = someSequencerIndex2.counter,
             recordTime = someSequencerIndex2.timestamp,
             requestCounterO = None,
           ),
         offset(20) ->
           Update.SequencerIndexMoved(
-            domainId = someDomainId2,
+            synchronizerId = someSynchronizerId2,
             sequencerCounter = someSequencerIndex2.counter,
             recordTime = someSequencerIndex2.timestamp,
             requestCounterO = None,
@@ -899,7 +901,7 @@ class ParallelIndexerSubscriptionSpec
 
   it should "correctly aggregate if batch has no new domain-indexes" in {
     val aggregateLedgerEndForRepairRef =
-      new AtomicReference[Option[(LedgerEnd, Map[DomainId, DomainIndex])]](
+      new AtomicReference[Option[(LedgerEnd, Map[SynchronizerId, DomainIndex])]](
         someAggregatedLedgerEndForRepair
       )
     ParallelIndexerSubscription
@@ -910,7 +912,7 @@ class ParallelIndexerSubscriptionSpec
 
   it should "correctly aggregate if old state is empty" in {
     val aggregateLedgerEndForRepairRef =
-      new AtomicReference[Option[(LedgerEnd, Map[DomainId, DomainIndex])]](None)
+      new AtomicReference[Option[(LedgerEnd, Map[SynchronizerId, DomainIndex])]](None)
     ParallelIndexerSubscription
       .aggregateLedgerEndForRepair(aggregateLedgerEndForRepairRef)
       .apply(someBatchOfBatches)
@@ -922,12 +924,12 @@ class ParallelIndexerSubscriptionSpec
           lastStringInterningId = 320,
           lastPublicationTime = CantonTimestamp.ofEpochMicro(25),
         ) -> Map(
-          someDomainId -> DomainIndex(
+          someSynchronizerId -> DomainIndex(
             None,
             Some(someSequencerIndex2),
             someSequencerIndex2.timestamp,
           ),
-          someDomainId2 -> DomainIndex(
+          someSynchronizerId2 -> DomainIndex(
             None,
             Some(someSequencerIndex2),
             someSequencerIndex2.timestamp,
@@ -938,7 +940,7 @@ class ParallelIndexerSubscriptionSpec
 
   it should "correctly aggregate old and new ledger-end and domain indexes" in {
     val aggregateLedgerEndForRepairRef =
-      new AtomicReference[Option[(LedgerEnd, Map[DomainId, DomainIndex])]](
+      new AtomicReference[Option[(LedgerEnd, Map[SynchronizerId, DomainIndex])]](
         someAggregatedLedgerEndForRepair
       )
     ParallelIndexerSubscription
@@ -952,12 +954,12 @@ class ParallelIndexerSubscriptionSpec
           lastStringInterningId = 320,
           lastPublicationTime = CantonTimestamp.ofEpochMicro(25),
         ) -> Map(
-          someDomainId -> DomainIndex(
+          someSynchronizerId -> DomainIndex(
             None,
             Some(someSequencerIndex2),
             someSequencerIndex2.timestamp,
           ),
-          someDomainId2 -> DomainIndex(
+          someSynchronizerId2 -> DomainIndex(
             Some(someRequestIndex2),
             Some(someSequencerIndex2),
             someSequencerIndex2.timestamp,
@@ -972,17 +974,18 @@ class ParallelIndexerSubscriptionSpec
     val ledgerEndStoredPromise = Promise[Unit]()
     val processingEndStoredPromise = Promise[Unit]()
     val updateInMemoryStatePromise = Promise[Unit]()
-    val aggregatedLedgerEnd = new AtomicReference[Option[(LedgerEnd, Map[DomainId, DomainIndex])]](
-      Some(
-        LedgerEnd(
-          lastOffset = offset(1),
-          lastEventSeqId = 1,
-          lastStringInterningId = 1,
-          lastPublicationTime = CantonTimestamp.MinValue,
+    val aggregatedLedgerEnd =
+      new AtomicReference[Option[(LedgerEnd, Map[SynchronizerId, DomainIndex])]](
+        Some(
+          LedgerEnd(
+            lastOffset = offset(1),
+            lastEventSeqId = 1,
+            lastStringInterningId = 1,
+            lastPublicationTime = CantonTimestamp.MinValue,
+          )
+            -> Map.empty
         )
-          -> Map.empty
       )
-    )
     val input = Vector(
       offset(13) -> update,
       offset(14) -> update,
@@ -1012,16 +1015,17 @@ class ParallelIndexerSubscriptionSpec
     val ledgerEndStoredPromise = Promise[Unit]()
     val processingEndStoredPromise = Promise[Unit]()
     val updateInMemoryStatePromise = Promise[Unit]()
-    val aggregatedLedgerEnd = new AtomicReference[Option[(LedgerEnd, Map[DomainId, DomainIndex])]](
-      Some(
-        LedgerEnd(
-          lastOffset = offset(1),
-          lastEventSeqId = 1,
-          lastStringInterningId = 1,
-          lastPublicationTime = CantonTimestamp.MinValue,
-        ) -> Map.empty
+    val aggregatedLedgerEnd =
+      new AtomicReference[Option[(LedgerEnd, Map[SynchronizerId, DomainIndex])]](
+        Some(
+          LedgerEnd(
+            lastOffset = offset(1),
+            lastEventSeqId = 1,
+            lastStringInterningId = 1,
+            lastPublicationTime = CantonTimestamp.MinValue,
+          ) -> Map.empty
+        )
       )
-    )
     val input = Vector(
       offset(13) -> update,
       offset(14) -> update,
@@ -1067,7 +1071,7 @@ class ParallelIndexerSubscriptionSpec
 
   def update: Update =
     Update.SequencerIndexMoved(
-      domainId = DomainId.tryFromString("x::domain"),
+      synchronizerId = SynchronizerId.tryFromString("x::domain"),
       sequencerCounter = SequencerCounter(15L),
       recordTime = CantonTimestamp.now(),
       requestCounterO = None,

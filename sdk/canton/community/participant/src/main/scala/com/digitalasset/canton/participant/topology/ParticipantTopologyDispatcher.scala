@@ -92,7 +92,7 @@ class ParticipantTopologyDispatcher(
   )(implicit traceContext: TraceContext): Unit =
     domains.remove(domain) match {
       case Some(outboxes) =>
-        state.domainIdForAlias(domain).foreach(disconnectOutboxes)
+        state.synchronizerIdForAlias(domain).foreach(disconnectOutboxes)
         outboxes.foreach(_.close())
       case None =>
         logger.debug(s"Topology pusher already disconnected from $domain")
@@ -116,13 +116,13 @@ class ParticipantTopologyDispatcher(
         )
       )
 
-  private def getState(domainId: DomainId)(implicit
+  private def getState(synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, DomainRegistryError, SyncDomainPersistentState] =
     EitherT
       .fromEither[FutureUnlessShutdown](
         state
-          .get(domainId)
+          .get(synchronizerId)
           .toRight(
             DomainRegistryError.DomainRegistryInternalError
               .InvalidState("No persistent state for domain")
@@ -147,7 +147,7 @@ class ParticipantTopologyDispatcher(
     }
   })
 
-  def trustDomain(domainId: DomainId)(implicit
+  def trustDomain(synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
     def alreadyTrustedInStore(
@@ -167,7 +167,7 @@ class ParticipantTopologyDispatcher(
                   filterNamespace = None,
                 )
                 .map(_.toTopologyState.exists {
-                  case DomainTrustCertificate(`participantId`, `domainId`) => true
+                  case DomainTrustCertificate(`participantId`, `synchronizerId`) => true
                   case _ => false
                 })
             )
@@ -183,7 +183,7 @@ class ParticipantTopologyDispatcher(
               TopologyChangeOp.Replace,
               DomainTrustCertificate(
                 participantId,
-                domainId,
+                synchronizerId,
               ),
               serial = None,
               signingKeys = Seq.empty,
@@ -196,7 +196,7 @@ class ParticipantTopologyDispatcher(
       }
     // check if cert already exists in the domain store
     val ret = for {
-      state <- getState(domainId).leftMap(_.cause)
+      state <- getState(synchronizerId).leftMap(_.cause)
       alreadyTrustedInDomainStore <- alreadyTrustedInStore(state.topologyStore)
       _ <-
         if (alreadyTrustedInDomainStore) EitherT.rightT[FutureUnlessShutdown, String](())
@@ -206,7 +206,7 @@ class ParticipantTopologyDispatcher(
   }
 
   def onboardToDomain(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       alias: DomainAlias,
       sequencerConnectClient: SequencerConnectClient,
       protocolVersion: ProtocolVersion,
@@ -214,18 +214,18 @@ class ParticipantTopologyDispatcher(
       executionContext: ExecutionContextExecutor,
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, DomainRegistryError, Boolean] =
-    getState(domainId).flatMap { _ =>
+    getState(synchronizerId).flatMap { _ =>
       DomainOnboardingOutbox
         .initiateOnboarding(
           alias,
-          domainId,
+          synchronizerId,
           protocolVersion,
           participantId,
           sequencerConnectClient,
           manager.store,
           timeouts,
           loggerFactory
-            .append("domainId", domainId.toString)
+            .append("synchronizerId", synchronizerId.toString)
             .appendUnnamedKey("onboarding", "onboarding"),
           crypto,
         )
@@ -233,16 +233,16 @@ class ParticipantTopologyDispatcher(
 
   def createHandler(
       domain: DomainAlias,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       protocolVersion: ProtocolVersion,
       client: DomainTopologyClientWithInit,
       sequencerClient: SequencerClient,
   ): ParticipantTopologyDispatcherHandle = {
-    val domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
+    val domainLoggerFactory = loggerFactory.append("synchronizerId", synchronizerId.toString)
     new ParticipantTopologyDispatcherHandle {
       val handle = new SequencerBasedRegisterTopologyTransactionHandle(
         sequencerClient,
-        domainId,
+        synchronizerId,
         participantId,
         clock,
         config.topology,
@@ -254,11 +254,11 @@ class ParticipantTopologyDispatcher(
       override def domainConnected()(implicit
           traceContext: TraceContext
       ): EitherT[FutureUnlessShutdown, DomainRegistryError, Unit] =
-        getState(domainId)
+        getState(synchronizerId)
           .flatMap { state =>
             val queueBasedDomainOutbox = new QueueBasedDomainOutbox(
               domain = domain,
-              domainId = domainId,
+              synchronizerId = synchronizerId,
               memberId = participantId,
               protocolVersion = protocolVersion,
               handle = handle,
@@ -273,7 +273,7 @@ class ParticipantTopologyDispatcher(
 
             val storeBasedDomainOutbox = new StoreBasedDomainOutbox(
               domain = domain,
-              domainId = domainId,
+              synchronizerId = synchronizerId,
               memberId = participantId,
               protocolVersion = protocolVersion,
               handle = handle,
@@ -313,11 +313,11 @@ class ParticipantTopologyDispatcher(
     }
   }
 
-  private def disconnectOutboxes(domainId: DomainId)(implicit
+  private def disconnectOutboxes(synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext
   ): Unit = {
     logger.debug("Clearing domain topology manager observers")
-    state.get(domainId).foreach(_.topologyManager.clearObservers())
+    state.get(synchronizerId).foreach(_.topologyManager.clearObservers())
   }
 
 }
@@ -331,7 +331,7 @@ class ParticipantTopologyDispatcher(
   */
 private class DomainOnboardingOutbox(
     domain: DomainAlias,
-    val domainId: DomainId,
+    val synchronizerId: SynchronizerId,
     val protocolVersion: ProtocolVersion,
     participantId: ParticipantId,
     sequencerConnectClient: SequencerConnectClient,
@@ -368,7 +368,7 @@ private class DomainOnboardingOutbox(
       candidates <- EitherT.right(
         performUnlessClosingUSF(functionFullName)(
           authorizedStore
-            .findParticipantOnboardingTransactions(participantId, domainId)
+            .findParticipantOnboardingTransactions(participantId, synchronizerId)
         )
       )
       applicable <- EitherT.right(
@@ -424,7 +424,7 @@ private class DomainOnboardingOutbox(
 object DomainOnboardingOutbox {
   def initiateOnboarding(
       domain: DomainAlias,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       protocolVersion: ProtocolVersion,
       participantId: ParticipantId,
       sequencerConnectClient: SequencerConnectClient,
@@ -438,7 +438,7 @@ object DomainOnboardingOutbox {
   ): EitherT[FutureUnlessShutdown, DomainRegistryError, Boolean] = {
     val outbox = new DomainOnboardingOutbox(
       domain,
-      domainId,
+      synchronizerId,
       protocolVersion,
       participantId,
       sequencerConnectClient,

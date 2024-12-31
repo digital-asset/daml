@@ -19,7 +19,7 @@ import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.protocol.{HandshakeRequest, HandshakeResponse}
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnection}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.topology.{DomainId, Member, ParticipantId, SequencerId}
+import com.digitalasset.canton.topology.{Member, ParticipantId, SequencerId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
 
 import scala.concurrent.ExecutionContextExecutor
@@ -30,17 +30,17 @@ trait SequencerConnectClient extends NamedLogging with AutoCloseable {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Error, DomainClientBootstrapInfo]
 
-  /** @param domainIdentifier Used for logging purpose
+  /** @param synchronizerIdentifier Used for logging purpose
     */
-  def getDomainParameters(domainIdentifier: String)(implicit
+  def getDomainParameters(synchronizerIdentifier: String)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Error, StaticDomainParameters]
 
-  /** @param domainIdentifier Used for logging purpose
+  /** @param synchronizerIdentifier Used for logging purpose
     */
-  def getDomainId(domainIdentifier: String)(implicit
+  def getSynchronizerId(synchronizerIdentifier: String)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, Error, DomainId]
+  ): EitherT[FutureUnlessShutdown, Error, SynchronizerId]
 
   def handshake(
       domainAlias: DomainAlias,
@@ -112,5 +112,8 @@ object SequencerConnectClient {
         )
     }
 
-  final case class DomainClientBootstrapInfo(domainId: DomainId, sequencerId: SequencerId)
+  final case class DomainClientBootstrapInfo(
+      synchronizerId: SynchronizerId,
+      sequencerId: SequencerId,
+  )
 }

@@ -7,7 +7,7 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.ViewPosition
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.serialization.DeterministicEncoding
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 
 import java.util.UUID
 
@@ -24,7 +24,7 @@ object ContractSalt {
     *
     * @param hmacOps The hmac operations to derive the blinded hash.
     * @param transactionUuid The UUID of the transaction that creates the contract.
-    * @param domainId The domain on which the contract is created.
+    * @param synchronizerId The domain on which the contract is created.
     * @param mediatorId The mediator that handles the transaction that creates the contract
     * @param actionSalt The action salt of the view whose core contains the contract creation. This is used to blind the hash.
     *                   It therefore must contain good randomness.
@@ -33,7 +33,7 @@ object ContractSalt {
     */
   def create(hmacOps: HmacOps)(
       transactionUuid: UUID,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       mediator: MediatorGroupRecipient,
       actionSalt: Salt,
       createIndex: Int,
@@ -43,7 +43,7 @@ object ContractSalt {
       .encodeInt(createIndex)
       .concat(viewPosition.encodeDeterministically)
       .concat(DeterministicEncoding.encodeString(transactionUuid.toString))
-      .concat(DeterministicEncoding.encodeString(domainId.toProtoPrimitive))
+      .concat(DeterministicEncoding.encodeString(synchronizerId.toProtoPrimitive))
       .concat(DeterministicEncoding.encodeString(mediator.toProtoPrimitive))
 
     val salt = Salt.tryDeriveSalt(actionSalt, bytestring, hmacOps)
