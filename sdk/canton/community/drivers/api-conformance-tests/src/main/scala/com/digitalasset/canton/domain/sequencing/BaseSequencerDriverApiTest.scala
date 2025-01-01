@@ -45,13 +45,13 @@ trait BaseSequencerDriverApiTest[ConfigType]
       config = Some(ConfigFactory.load),
     )
 
-  protected final def domainId: DomainId = DefaultTestIdentities.domainId
+  protected final def synchronizerId: SynchronizerId = DefaultTestIdentities.synchronizerId
 
   protected final def mediatorId: MediatorId = DefaultTestIdentities.daMediator
 
   private val topologyFactory = TestingTopology().build(loggerFactory)
   private val topologyClient =
-    topologyFactory.forOwnerAndDomain(owner = mediatorId, domainId)
+    topologyFactory.forOwnerAndDomain(owner = mediatorId, synchronizerId)
 
   protected val driverConfig: AtomicReference[Option[ConfigType]]
 

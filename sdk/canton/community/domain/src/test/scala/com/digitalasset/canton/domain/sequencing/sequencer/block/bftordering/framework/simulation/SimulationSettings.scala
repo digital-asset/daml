@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.simulation
 
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.TopologyActivationTime
-
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.Random
@@ -120,8 +118,8 @@ final case class SimulationSettings(
     durationOfFirstPhaseWithFaults: FiniteDuration,
     durationOfSecondPhaseWithoutFaults: FiniteDuration = 30.seconds,
     clientRequestInterval: Option[FiniteDuration] = Some(1.second),
-    livenessCheckInterval: FiniteDuration = 15.seconds,
-    peerOnboardingTimes: Iterable[TopologyActivationTime] = Iterable.empty,
+    livenessCheckInterval: FiniteDuration = 20.seconds,
+    peerOnboardingDelays: Iterable[FiniteDuration] = Iterable.empty,
     becomingOnlineAfterOnboardingDelay: FiniteDuration =
       SimulationSettings.DefaultBecomingOnlineAfterOnboardingDelay,
 ) {

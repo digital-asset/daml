@@ -3,12 +3,14 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology
 
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.HashAlgorithm.Sha256
 import com.digitalasset.canton.crypto.{
   Hash,
   HashPurpose,
   Signature,
   SignatureCheckError,
+  SigningKeyUsage,
   SyncCryptoError,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.CryptoProvider.hashForMessage
@@ -22,13 +24,17 @@ import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 
 trait CryptoProvider[E <: Env[E]] {
-  def sign(hash: Hash)(implicit
+  def sign(
+      hash: Hash,
+      usage: NonEmpty[Set[SigningKeyUsage]],
+  )(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Either[SyncCryptoError, Signature]]
 
   def signMessage[MessageT <: ProtocolVersionedMemoizedEvidence & MessageFrom](
       message: MessageT,
       hashPurpose: HashPurpose,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Either[SyncCryptoError, SignedMessage[MessageT]]]

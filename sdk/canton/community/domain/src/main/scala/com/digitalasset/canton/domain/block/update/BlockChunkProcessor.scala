@@ -47,7 +47,7 @@ import scala.concurrent.{ExecutionContext, Future}
 /** Processes a chunk of events in a block, yielding a [[ChunkUpdate]].
   */
 private[update] final class BlockChunkProcessor(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
     domainSyncCryptoApi: DomainSyncCryptoClient,
     sequencerId: SequencerId,
@@ -62,7 +62,7 @@ private[update] final class BlockChunkProcessor(
 
   private val sequencedSubmissionsValidator =
     new SequencedSubmissionsValidator(
-      domainId,
+      synchronizerId,
       protocolVersion,
       domainSyncCryptoApi,
       sequencerId,

@@ -123,7 +123,7 @@ class StoreBasedTopologySnapshot(
             mapping.parameters,
             storedTx.validFrom.value,
             storedTx.validUntil.map(_.value),
-            mapping.domain,
+            mapping.synchronizerId,
           )
         }
       } yield domainParameters
@@ -150,7 +150,7 @@ class StoreBasedTopologySnapshot(
         mapping.parameters,
         storedTx.validFrom.value,
         storedTx.validUntil.map(_.value),
-        mapping.domain,
+        mapping.synchronizerId,
       )
     }
 
@@ -175,7 +175,7 @@ class StoreBasedTopologySnapshot(
             dps.parameters,
             storedTx.validFrom.value,
             storedTx.validUntil.map(_.value),
-            dps.domain,
+            dps.synchronizerId,
           )
         }
     }
@@ -527,7 +527,7 @@ class StoreBasedTopologySnapshot(
       // Warn about participants with cert but no keys
       (participantsWithCertificates -- participantsWithCertAndKeys).foreach { pid =>
         logger.warn(
-          s"Participant $pid has a domain trust certificate, but no keys on domain ${domainParametersState.domain}"
+          s"Participant $pid has a domain trust certificate, but no keys on domain ${domainParametersState.synchronizerId}"
         )
       }
       // 3. Attempt to look up permissions/trust from participant domain permission
@@ -543,7 +543,7 @@ class StoreBasedTopologySnapshot(
           // the participants shouldn't have been able to onboard to the domain in the first place.
           // In case we don't find a ParticipantDomainPermission, we don't return the participant with default permissions, but we skip it.
           logger.warn(
-            s"Unable to find ParticipantDomainPermission for participant $pid on domain ${domainParametersState.domain} with onboarding restrictions ${domainParametersState.parameters.onboardingRestriction} at $referenceTime"
+            s"Unable to find ParticipantDomainPermission for participant $pid on domain ${domainParametersState.synchronizerId} with onboarding restrictions ${domainParametersState.parameters.onboardingRestriction} at $referenceTime"
           )
           None
         } else {
@@ -553,7 +553,7 @@ class StoreBasedTopologySnapshot(
             pid -> participantDomainPermissions
               .getOrElse(
                 pid,
-                ParticipantDomainPermission.default(domainParametersState.domain, pid),
+                ParticipantDomainPermission.default(domainParametersState.synchronizerId, pid),
               )
               .setDefaultLimitIfNotSet(DynamicDomainParameters.defaultParticipantDomainLimits)
           )

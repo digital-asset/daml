@@ -48,7 +48,7 @@ private[reference] abstract class BaseReferenceSequencerDriverFactory
       nonStandardConfig: Boolean,
       timeProvider: TimeProvider,
       firstBlockHeight: Option[Long],
-      domainId: String,
+      synchronizerId: String,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext, materializer: Materializer): SequencerDriver = {
     val processingTimeout = ProcessingTimeout()

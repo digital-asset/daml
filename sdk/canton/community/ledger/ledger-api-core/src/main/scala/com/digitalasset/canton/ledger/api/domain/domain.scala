@@ -6,7 +6,7 @@ package com.digitalasset.canton.ledger.api.domain
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.command.ApiCommands as LfCommands
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.logging.*
@@ -73,7 +73,7 @@ final case class Commands(
     deduplicationPeriod: DeduplicationPeriod,
     commands: LfCommands,
     disclosedContracts: ImmArray[DisclosedContract],
-    domainId: Option[DomainId],
+    synchronizerId: Option[SynchronizerId],
     packagePreferenceSet: Set[Ref.PackageId] = Set.empty,
     // Used to indicate the package map against which package resolution was performed.
     packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty,
@@ -91,7 +91,7 @@ final case class Commands(
       param("ledgerEffectiveTime", _.commands.ledgerEffectiveTime),
       param("deduplicationPeriod", _.deduplicationPeriod),
       paramIfDefined("workflowId", _.workflowId.filter(_ != commandId).map(_.unwrap)),
-      paramIfDefined("domainId", _.domainId),
+      paramIfDefined("synchronizerId", _.synchronizerId),
       indicateOmittedFields,
     )
   }
@@ -120,14 +120,14 @@ object Commands {
 
 final case class DisclosedContract(
     fatContractInstance: FatContractInstance,
-    domainIdO: Option[DomainId],
+    synchronizerIdO: Option[SynchronizerId],
 ) extends PrettyPrinting {
   override protected def pretty: Pretty[DisclosedContract] = {
     import com.digitalasset.canton.logging.pretty.PrettyInstances.*
     prettyOfClass(
       param("contractId", _.fatContractInstance.contractId),
       param("templateId", _.fatContractInstance.templateId),
-      paramIfDefined("domainId", _.domainIdO),
+      paramIfDefined("synchronizerId", _.synchronizerIdO),
       indicateOmittedFields,
     )
   }

@@ -49,7 +49,7 @@ trait Spanning {
       case unlessShutdown: UnlessShutdown.Outcome[_] =>
         // Look into the result of a FutureUnlessShutdown
         closeSpan(unlessShutdown.result)
-      case asyncResult: AsyncResult =>
+      case asyncResult: AsyncResult[_] =>
         closeSpan(asyncResult.unwrap)
       case _ =>
         currentSpan.end()

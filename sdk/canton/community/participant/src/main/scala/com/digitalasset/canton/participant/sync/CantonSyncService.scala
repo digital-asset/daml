@@ -172,7 +172,7 @@ class CantonSyncService(
     participantNodePersistentState.value.settingsStore.settings.maxDeduplicationDuration
       .getOrElse(throw new RuntimeException("Max deduplication duration is not available"))
 
-  private type ConnectionListener = Traced[DomainId] => Unit
+  private type ConnectionListener = Traced[SynchronizerId] => Unit
 
   // Listeners to domain connections
   private val connectionListeners = new AtomicReference[List[ConnectionListener]](List.empty)
@@ -184,11 +184,11 @@ class CantonSyncService(
 
   /** The domains this sync service is connected to. Can change due to connect/disconnect operations.
     * This may contain domains for which recovery is still running.
-    * Invariant: All domain IDs in this map have a corresponding domain alias in the alias manager
+    * Invariant: All synchronizer ids in this map have a corresponding domain alias in the alias manager
     * DO NOT PASS THIS MUTABLE MAP TO OTHER CLASSES THAT ONLY REQUIRE READ ACCESS. USE [[connectedDomainsLookup]] INSTEAD
     */
-  private val connectedDomainsMap: TrieMap[DomainId, SyncDomain] =
-    TrieMap.empty[DomainId, SyncDomain]
+  private val connectedDomainsMap: TrieMap[SynchronizerId, SyncDomain] =
+    TrieMap.empty[SynchronizerId, SyncDomain]
   private val connectedDomainsLookup: ConnectedDomainsLookup =
     ConnectedDomainsLookup.create(connectedDomainsMap)
   connectedDomainsLookupContainer.registerDelegate(connectedDomainsLookup)
@@ -214,7 +214,7 @@ class CantonSyncService(
         // wait for packages to be vetted on the currently connected domains
         EitherT
           .right[ParticipantTopologyManagerError](
-            connectedDomainsLookup.snapshot.toSeq.parTraverse { case (domainId, syncDomain) =>
+            connectedDomainsLookup.snapshot.toSeq.parTraverse { case (synchronizerId, syncDomain) =>
               syncDomain.topologyClient
                 .await(
                   _.determinePackagesWithNoVettingEntry(participantId, packages)
@@ -226,14 +226,14 @@ class CantonSyncService(
                 // the overall result into AbortedDueToShutdown, just because one of
                 // the domains disconnected in the meantime.
                 .onShutdown(false)
-                .map(domainId -> _)
+                .map(synchronizerId -> _)
             }
           )
           .map { result =>
-            result.foreach { case (domainId, successful) =>
+            result.foreach { case (synchronizerId, successful) =>
               if (!successful)
                 logger.info(
-                  s"Waiting for vetting of packages $packages on domain $domainId either timed out or the domain got disconnected."
+                  s"Waiting for vetting of packages $packages on domain $synchronizerId either timed out or the domain got disconnected."
                 )
             }
             result
@@ -257,15 +257,15 @@ class CantonSyncService(
     attemptReconnect.remove(alias).discard
 
   // A connected domain is ready if recovery has succeeded
-  private[canton] def readySyncDomainById(domainId: DomainId): Option[SyncDomain] =
-    connectedDomainsMap.get(domainId).filter(_.ready)
+  private[canton] def readySyncDomainById(synchronizerId: SynchronizerId): Option[SyncDomain] =
+    connectedDomainsMap.get(synchronizerId).filter(_.ready)
 
   private def existsReadyDomain: Boolean = connectedDomainsMap.exists { case (_, sync) =>
     sync.ready
   }
 
   private[canton] def syncDomainForAlias(alias: DomainAlias): Option[SyncDomain] =
-    aliasManager.domainIdForAlias(alias).flatMap(connectedDomainsMap.get)
+    aliasManager.synchronizerIdForAlias(alias).flatMap(connectedDomainsMap.get)
 
   private val domainRouter =
     DomainRouter(
@@ -287,12 +287,14 @@ class CantonSyncService(
       loggerFactory,
     )(ec)
 
-  val protocolVersionGetter: Traced[DomainId] => Option[ProtocolVersion] =
-    (tracedDomainId: Traced[DomainId]) =>
-      syncDomainPersistentStateManager.protocolVersionFor(tracedDomainId.value)
+  val protocolVersionGetter: Traced[SynchronizerId] => Option[ProtocolVersion] =
+    (tracedSynchronizerId: Traced[SynchronizerId]) =>
+      syncDomainPersistentStateManager.protocolVersionFor(tracedSynchronizerId.value)
 
-  override def getProtocolVersionForDomain(domainId: Traced[DomainId]): Option[ProtocolVersion] =
-    protocolVersionGetter(domainId)
+  override def getProtocolVersionForDomain(
+      synchronizerId: Traced[SynchronizerId]
+  ): Option[ProtocolVersion] =
+    protocolVersionGetter(synchronizerId)
 
   if (isActive()) {
     TraceContext.withNewTraceContext { implicit traceContext =>
@@ -331,24 +333,26 @@ class CantonSyncService(
     parameters,
     Storage.threadsAvailableForWriting(storage),
     new DomainLookup {
-      override def isConnected(domainId: DomainId): Boolean =
-        connectedDomainsLookup.isConnected(domainId)
+      override def isConnected(synchronizerId: SynchronizerId): Boolean =
+        connectedDomainsLookup.isConnected(synchronizerId)
 
       override def isConnectedToAnyDomain: Boolean =
         connectedDomainsMap.nonEmpty
 
-      override def persistentStateFor(domainId: DomainId): Option[SyncDomainPersistentState] =
-        syncDomainPersistentStateManager.get(domainId)
+      override def persistentStateFor(
+          synchronizerId: SynchronizerId
+      ): Option[SyncDomainPersistentState] =
+        syncDomainPersistentStateManager.get(synchronizerId)
 
       override def topologyFactoryFor(
-          domainId: DomainId
+          synchronizerId: SynchronizerId
       )(implicit traceContext: TraceContext): Option[TopologyComponentFactory] =
-        protocolVersionGetter(Traced(domainId)) match {
+        protocolVersionGetter(Traced(synchronizerId)) match {
           case Some(protocolVersion) =>
-            syncDomainPersistentStateManager.topologyFactoryFor(domainId, protocolVersion)
+            syncDomainPersistentStateManager.topologyFactoryFor(synchronizerId, protocolVersion)
 
           case None =>
-            logger.warn(s"Unable to get protocol version for domain $domainId")
+            logger.warn(s"Unable to get protocol version for domain $synchronizerId")
             None
         }
 
@@ -395,7 +399,7 @@ class CantonSyncService(
   // Submit a transaction (write service implementation)
   override def submitTransaction(
       submitterInfo: SubmitterInfo,
-      optDomainId: Option[DomainId],
+      optSynchronizerId: Option[SynchronizerId],
       transactionMeta: TransactionMeta,
       transaction: LfSubmittedTransaction,
       _estimatedInterpretationCost: Long,
@@ -411,7 +415,7 @@ class CantonSyncService(
       trackSubmission(submitterInfo, transaction)
       submitTransactionF(
         submitterInfo,
-        optDomainId,
+        optSynchronizerId,
         transactionMeta,
         transaction,
         keyResolver,
@@ -431,14 +435,18 @@ class CantonSyncService(
     participantNodePersistentState,
     parameters.processingTimeouts,
     new JournalGarbageCollectorControl {
-      override def disable(domainId: DomainId)(implicit traceContext: TraceContext): Future[Unit] =
+      override def disable(
+          synchronizerId: SynchronizerId
+      )(implicit traceContext: TraceContext): Future[Unit] =
         connectedDomainsMap
-          .get(domainId)
+          .get(synchronizerId)
           .map(_.addJournalGarageCollectionLock())
           .getOrElse(Future.unit)
-      override def enable(domainId: DomainId)(implicit traceContext: TraceContext): Unit =
+      override def enable(
+          synchronizerId: SynchronizerId
+      )(implicit traceContext: TraceContext): Unit =
         connectedDomainsMap
-          .get(domainId)
+          .get(synchronizerId)
           .foreach(_.removeJournalGarageCollectionLock())
     },
     connectedDomainsLookup,
@@ -490,10 +498,10 @@ class CantonSyncService(
         )
       )
     case Left(err: LedgerPruningOffsetUnsafeDomain) =>
-      logger.info(s"Unsafe to prune ${err.domain}: ${err.message}")
+      logger.info(s"Unsafe to prune ${err.synchronizerId}: ${err.message}")
       Left(
         PruningServiceError.UnsafeToPrune.Error(
-          s"no suitable offset for domain ${err.domain}",
+          s"no suitable offset for domain ${err.synchronizerId}",
           err.message,
           "none",
         )
@@ -509,7 +517,7 @@ class CantonSyncService(
 
   private def submitTransactionF(
       submitterInfo: SubmitterInfo,
-      optDomainId: Option[DomainId],
+      optSynchronizerId: Option[SynchronizerId],
       transactionMeta: TransactionMeta,
       transaction: LfSubmittedTransaction,
       keyResolver: LfKeyResolver,
@@ -546,7 +554,7 @@ class CantonSyncService(
     } else {
       val submittedFF = domainRouter.submitTransaction(
         submitterInfo,
-        optDomainId,
+        optSynchronizerId,
         transactionMeta,
         keyResolver,
         transaction,
@@ -687,12 +695,12 @@ class CantonSyncService(
   }
 
   /** Returns the ready domains this sync service is connected to. */
-  def readyDomains: Map[DomainAlias, (DomainId, SubmissionReady)] =
+  def readyDomains: Map[DomainAlias, (SynchronizerId, SubmissionReady)] =
     connectedDomainsMap
       .to(LazyList)
       .mapFilter {
         case (id, sync) if sync.ready =>
-          aliasManager.aliasForDomainId(id).map(_ -> ((id, sync.readyForSubmission)))
+          aliasManager.aliasForSynchronizerId(id).map(_ -> ((id, sync.readyForSubmission)))
         case _ => None
       }
       .toMap
@@ -703,14 +711,14 @@ class CantonSyncService(
   /** Returns the pure crypto operations used for the sync protocol */
   def pureCryptoApi: CryptoPureApi = syncCrypto.pureCrypto
 
-  /** Lookup a time tracker for the given `domainId`.
+  /** Lookup a time tracker for the given `synchronizerId`.
     * A time tracker will only be returned if the domain is registered and connected.
     */
-  def lookupDomainTimeTracker(domainId: DomainId): Option[DomainTimeTracker] =
-    connectedDomainsMap.get(domainId).map(_.timeTracker)
+  def lookupDomainTimeTracker(synchronizerId: SynchronizerId): Option[DomainTimeTracker] =
+    connectedDomainsMap.get(synchronizerId).map(_.timeTracker)
 
-  def lookupTopologyClient(domainId: DomainId): Option[DomainTopologyClientWithInit] =
-    connectedDomainsMap.get(domainId).map(_.topologyClient)
+  def lookupTopologyClient(synchronizerId: SynchronizerId): Option[DomainTopologyClientWithInit] =
+    connectedDomainsMap.get(synchronizerId).map(_.topologyClient)
 
   /** Adds a new domain to the sync service's configuration.
     *
@@ -740,7 +748,7 @@ class CantonSyncService(
     sequencerInfoLoader
       .validateSequencerConnection(
         config.domain,
-        config.domainId,
+        config.synchronizerId,
         config.sequencerConnections,
         sequencerConnectionValidation,
       )
@@ -807,7 +815,7 @@ class CantonSyncService(
       _ <-
         connectQueue.executeEUS(
           migrationService
-            .migrateDomain(source, target, targetDomainInfo.map(_.domainId))
+            .migrateDomain(source, target, targetDomainInfo.map(_.synchronizerId))
             .leftMap[SyncServiceError](
               SyncServiceError.SyncServiceMigrationError(source, target.map(_.domain), _)
             ),
@@ -824,17 +832,17 @@ class CantonSyncService(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
     for {
-      domainId <- EitherT.fromEither[FutureUnlessShutdown](
+      synchronizerId <- EitherT.fromEither[FutureUnlessShutdown](
         aliasManager
-          .domainIdForAlias(domain)
+          .synchronizerIdForAlias(domain)
           .toRight(SyncServiceError.SyncServiceUnknownDomain.Error(domain))
       )
       _ = logger.info(
-        s"Purging deactivated domain with alias $domain with domain id $domainId"
+        s"Purging deactivated domain with alias $domain with synchronizer id $synchronizerId"
       )
       _ <-
         pruningProcessor
-          .purgeInactiveDomain(domainId)
+          .purgeInactiveDomain(synchronizerId)
           .transform(
             pruningErrorToCantonError(_).leftMap(
               SyncServicePurgeDomainError(domain, _): SyncServiceError
@@ -943,7 +951,7 @@ class CantonSyncService(
     }
 
     val connectedDomains =
-      connectedDomainsMap.keys.to(LazyList).mapFilter(aliasManager.aliasForDomainId).toSet
+      connectedDomainsMap.keys.to(LazyList).mapFilter(aliasManager.aliasForSynchronizerId).toSet
 
     def shouldConnectTo(config: StoredDomainConnectionConfig): Boolean =
       config.status.isActive && !config.config.manualConnect && !connectedDomains.contains(
@@ -1151,7 +1159,7 @@ class CantonSyncService(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
-    if (aliasManager.domainIdForAlias(domainAlias).exists(connectedDomainsMap.contains)) {
+    if (aliasManager.synchronizerIdForAlias(domainAlias).exists(connectedDomainsMap.contains)) {
       logger.debug(s"Domain ${domainAlias.unwrap} already registered")
       EitherT.rightT(())
     } else {
@@ -1205,7 +1213,7 @@ class CantonSyncService(
         disconnectDomain(domainAlias)
       }
 
-    if (aliasManager.domainIdForAlias(domainAlias).exists(connectedDomainsMap.contains)) {
+    if (aliasManager.synchronizerIdForAlias(domainAlias).exists(connectedDomainsMap.contains)) {
       logger.debug(s"Already connected to domain: ${domainAlias.unwrap}")
       resolveReconnectAttempts(domainAlias)
       EitherT.rightT(())
@@ -1231,11 +1239,11 @@ class CantonSyncService(
         _ = logger.debug(s"Connecting to domain with config: ${domainConnectionConfig.config}")
         domainHandle <- connect(domainConnectionConfig.config)
 
-        domainId = domainHandle.domainId
-        domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
+        synchronizerId = domainHandle.synchronizerId
+        domainLoggerFactory = loggerFactory.append("synchronizerId", synchronizerId.toString)
         persistent = domainHandle.domainPersistentState
 
-        domainCrypto = syncCrypto.tryForDomain(domainId, domainHandle.staticParameters)
+        domainCrypto = syncCrypto.tryForDomain(synchronizerId, domainHandle.staticParameters)
 
         ephemeral <- EitherT.right[SyncServiceError](
           syncDomainStateFactory
@@ -1264,7 +1272,7 @@ class CantonSyncService(
 
         missingKeysAlerter = new MissingKeysAlerter(
           participantId,
-          domainId,
+          synchronizerId,
           domainHandle.topologyClient,
           domainCrypto.crypto.cryptoPrivateStore,
           domainLoggerFactory,
@@ -1272,7 +1280,7 @@ class CantonSyncService(
 
         syncDomain <- EitherT.right(
           syncDomainFactory.create(
-            domainId,
+            synchronizerId,
             domainHandle,
             participantId,
             engine,
@@ -1311,7 +1319,7 @@ class CantonSyncService(
         _ = acsCommitmentProcessorHealth.set(syncDomain.acsCommitmentProcessor.healthComponent)
         _ = syncDomain.resolveUnhealthy()
 
-        _ = connectedDomainsMap += (domainId -> syncDomain)
+        _ = connectedDomainsMap += (synchronizerId -> syncDomain)
 
         // Start sequencer client subscription only after sync domain has been added to connectedDomainsMap, e.g. to
         // prevent sending PartyAddedToParticipantEvents before the domain is available for command submission. (#2279)
@@ -1360,8 +1368,8 @@ class CantonSyncService(
       }
 
       def disconnectOn(): Unit =
-        // only invoke domain disconnect if we actually got so far that the domain-id has been read from the remote node
-        if (aliasManager.domainIdForAlias(domainAlias).nonEmpty)
+        // only invoke domain disconnect if we actually got so far that the synchronizer id has been read from the remote node
+        if (aliasManager.synchronizerIdForAlias(domainAlias).nonEmpty)
           performDomainDisconnect(
             domainAlias
           ).discard // Ignore Lefts because we don't know to what extent the connection succeeded.
@@ -1371,8 +1379,8 @@ class CantonSyncService(
       ): UnlessShutdown[Either[SyncServiceError, Unit]] =
         outcome match {
           case x @ UnlessShutdown.Outcome(Right(())) =>
-            aliasManager.domainIdForAlias(domainAlias).foreach { domainId =>
-              connectionListeners.get().foreach(_(Traced(domainId)))
+            aliasManager.synchronizerIdForAlias(domainAlias).foreach { synchronizerId =>
+              connectionListeners.get().foreach(_(Traced(synchronizerId)))
             }
             x
           case UnlessShutdown.AbortedDueToShutdown =>
@@ -1417,14 +1425,14 @@ class CantonSyncService(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Status, Unit] =
     for {
-      domainId <- EitherT.fromOption[FutureUnlessShutdown](
-        aliasManager.domainIdForAlias(domainAlias),
+      synchronizerId <- EitherT.fromOption[FutureUnlessShutdown](
+        aliasManager.synchronizerIdForAlias(domainAlias),
         Status.INVALID_ARGUMENT.withDescription(
           s"The domain with alias ${domainAlias.unwrap} is unknown."
         ),
       )
       _ <- connectedDomainsMap
-        .get(domainId)
+        .get(synchronizerId)
         .fold(EitherT.pure[FutureUnlessShutdown, Status] {
           logger.info(show"Nothing to do, as we are not connected to $domainAlias")
           ()
@@ -1436,9 +1444,9 @@ class CantonSyncService(
   )(implicit traceContext: TraceContext): Either[SyncServiceError, Unit] = {
     logger.info(show"Disconnecting from $domain")
     (for {
-      domainId <- aliasManager.domainIdForAlias(domain)
+      synchronizerId <- aliasManager.synchronizerIdForAlias(domain)
     } yield {
-      connectedDomainsMap.remove(domainId) match {
+      connectedDomainsMap.remove(synchronizerId) match {
         case Some(syncDomain) =>
           syncDomain.close()
           logger.info(show"Disconnected from $domain")
@@ -1453,7 +1461,7 @@ class CantonSyncService(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] = {
     val connectedDomains =
-      connectedDomainsMap.keys.toList.mapFilter(aliasManager.aliasForDomainId).distinct
+      connectedDomainsMap.keys.toList.mapFilter(aliasManager.aliasForSynchronizerId).distinct
     connectedDomains.parTraverse_(disconnectDomain)
   }
 
@@ -1486,7 +1494,7 @@ class CantonSyncService(
           )
         )
         _ <- repairService
-          .awaitCleanSequencerTimestamp(syncService.domainId, tick)
+          .awaitCleanSequencerTimestamp(syncService.synchronizerId, tick)
           .leftMap(err =>
             SyncServiceError.SyncServiceInternalError.CleanHeadAwaitFailed(alias, tick, err)
           )
@@ -1592,15 +1600,15 @@ class CantonSyncService(
       /* @param domain For unassignment this should be the source domain, for assignment this is the target domain
        */
       def doReassignment[E <: ReassignmentProcessorError, T](
-          domain: DomainId
+          synchronizerId: SynchronizerId
       )(
           reassign: SyncDomain => EitherT[Future, E, FutureUnlessShutdown[T]]
       )(implicit traceContext: TraceContext): Future[SubmissionResult] = {
         for {
           syncDomain <- EitherT.fromOption[Future](
-            readySyncDomainById(domain),
+            readySyncDomainById(synchronizerId),
             ifNone = RequestValidationErrors.InvalidArgument
-              .Reject(s"Domain ID not found: $domain"): DamlError,
+              .Reject(s"Synchronizer id not found: $synchronizerId"): DamlError,
           )
           _ <- reassign(syncDomain)
             .leftMap(error =>
@@ -1617,13 +1625,13 @@ class CantonSyncService(
         .leftMap(error => SubmissionResult.SynchronousError(error.rpcStatus()))
         .merge
 
-      def getProtocolVersion(domainId: DomainId): Future[ProtocolVersion] =
-        protocolVersionGetter(Traced(domainId)) match {
+      def getProtocolVersion(synchronizerId: SynchronizerId): Future[ProtocolVersion] =
+        protocolVersionGetter(Traced(synchronizerId)) match {
           case Some(protocolVersion) => Future.successful(protocolVersion)
           case None =>
             Future.failed(
               RequestValidationErrors.InvalidArgument
-                .Reject(s"Domain ID's protocol version not found: $domainId")
+                .Reject(s"Synchronizer id's protocol version not found: $synchronizerId")
                 .asGrpcError
             )
         }
@@ -1633,7 +1641,7 @@ class CantonSyncService(
           for {
             targetProtocolVersion <- getProtocolVersion(unassign.targetDomain.unwrap).map(Target(_))
             submissionResult <- doReassignment(
-              domain = unassign.sourceDomain.unwrap
+              synchronizerId = unassign.sourceDomain.unwrap
             )(
               _.submitUnassignment(
                 submitterMetadata = ReassignmentSubmitterMetadata(
@@ -1653,7 +1661,7 @@ class CantonSyncService(
 
         case assign: ReassignmentCommand.Assign =>
           doReassignment(
-            domain = assign.targetDomain.unwrap
+            synchronizerId = assign.targetDomain.unwrap
           )(
             _.submitAssignment(
               submitterMetadata = ReassignmentSubmitterMetadata(
@@ -1678,13 +1686,13 @@ class CantonSyncService(
   ): FutureUnlessShutdown[SyncService.ConnectedDomainResponse] = {
     def getSnapshot(
         domainAlias: DomainAlias,
-        domainId: DomainId,
+        synchronizerId: SynchronizerId,
     ): FutureUnlessShutdown[TopologySnapshot] =
       syncCrypto.ips
-        .forDomain(domainId)
+        .forDomain(synchronizerId)
         .toFutureUS(
           new Exception(
-            s"Failed retrieving DomainTopologyClient for domain `$domainId` with alias $domainAlias"
+            s"Failed retrieving DomainTopologyClient for domain `$synchronizerId` with alias $domainAlias"
           )
         )
         .map(_.currentSnapshotApproximation)
@@ -1692,9 +1700,9 @@ class CantonSyncService(
     val result = readyDomains
       // keep only healthy domains
       .collect {
-        case (domainAlias, (domainId, submissionReady)) if submissionReady.unwrap =>
+        case (domainAlias, (synchronizerId, submissionReady)) if submissionReady.unwrap =>
           for {
-            topology <- getSnapshot(domainAlias, domainId)
+            topology <- getSnapshot(domainAlias, synchronizerId)
             partyWithAttributes <- topology.hostedOn(
               Set(request.party),
               participantId = request.participantId.getOrElse(participantId),
@@ -1704,7 +1712,7 @@ class CantonSyncService(
             .map(attributes =>
               ConnectedDomainResponse.ConnectedDomain(
                 domainAlias,
-                domainId,
+                synchronizerId,
                 attributes.permission,
               )
             )

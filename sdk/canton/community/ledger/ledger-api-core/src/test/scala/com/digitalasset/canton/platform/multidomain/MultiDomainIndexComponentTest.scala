@@ -7,7 +7,7 @@ import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.{Reassignment, ReassignmentInfo, Update}
 import com.digitalasset.canton.platform.IndexComponentTest
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.value.Value
@@ -17,8 +17,8 @@ class MultiDomainIndexComponentTest extends AnyFlatSpec with IndexComponentTest 
   behavior of "MultiDomain contract lookup"
 
   it should "successfully look up contract, even if only the assigned event is visible" in {
-    val domain1 = DomainId.tryFromString("x::domain1")
-    val domain2 = DomainId.tryFromString("x::domain2")
+    val domain1 = SynchronizerId.tryFromString("x::domain1")
+    val domain2 = SynchronizerId.tryFromString("x::domain2")
     val party = Ref.Party.assertFromString("party1")
     val builder = TxBuilder()
     val contractId = builder.newCid

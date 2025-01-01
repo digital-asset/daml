@@ -271,16 +271,16 @@ class StreamAuthorizationComponentSpec
           responseObserver: StreamObserver[GetUpdateTreesResponse],
       ): Unit = notSupported
 
-      override def getTransactionTreeByEventId(
-          request: GetTransactionByEventIdRequest
+      override def getTransactionTreeByOffset(
+          request: GetTransactionByOffsetRequest
       ): Future[GetTransactionTreeResponse] = notSupported
 
       override def getTransactionTreeById(
           request: GetTransactionByIdRequest
       ): Future[GetTransactionTreeResponse] = notSupported
 
-      override def getTransactionByEventId(
-          request: GetTransactionByEventIdRequest
+      override def getTransactionByOffset(
+          request: GetTransactionByOffsetRequest
       ): Future[GetTransactionResponse] = notSupported
 
       override def getTransactionById(

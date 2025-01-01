@@ -9,7 +9,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.mediator.Mediator.{Safe, SafeUntil}
 import com.digitalasset.canton.protocol.{DynamicDomainParametersWithValidity, TestDomainParameters}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -25,7 +25,9 @@ class MediatorTest extends AnyWordSpec with BaseTest {
   private val origin = CantonTimestamp.now()
   private def relTime(offset: Long): CantonTimestamp = origin.plusSeconds(offset)
 
-  private lazy val domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::default"))
+  private lazy val synchronizerId = SynchronizerId(
+    UniqueIdentifier.tryFromProtoPrimitive("domain::default")
+  )
 
   "Mediator.checkPruningStatus" should {
     "deal with current domain parameters" in {
@@ -34,7 +36,7 @@ class MediatorTest extends AnyWordSpec with BaseTest {
           defaultParameters,
           CantonTimestamp.Epoch,
           None,
-          domainId,
+          synchronizerId,
         )
 
       val cleanTimestamp = CantonTimestamp.now()
@@ -54,7 +56,7 @@ class MediatorTest extends AnyWordSpec with BaseTest {
             defaultParameters,
             validFrom,
             validUntil,
-            domainId,
+            synchronizerId,
           )
 
         // Capping happen
@@ -78,7 +80,7 @@ class MediatorTest extends AnyWordSpec with BaseTest {
           defaultParameters,
           origin,
           None,
-          domainId,
+          synchronizerId,
         )
 
       Mediator.checkPruningStatus(
@@ -95,7 +97,7 @@ class MediatorTest extends AnyWordSpec with BaseTest {
           defaultParameters,
           origin,
           Some(dpChangeTs),
-          domainId,
+          synchronizerId,
         )
 
       {
@@ -135,20 +137,20 @@ class MediatorTest extends AnyWordSpec with BaseTest {
         defaultParameters,
         origin,
         Some(dpChangeTs1),
-        domainId,
+        synchronizerId,
       ),
       // This one prevents pruning for some time
       DynamicDomainParametersWithValidity(
         parametersWith(hugeTimeout),
         dpChangeTs1,
         Some(dpChangeTs2),
-        domainId,
+        synchronizerId,
       ),
       DynamicDomainParametersWithValidity(
         defaultParameters,
         dpChangeTs2,
         None,
-        domainId,
+        synchronizerId,
       ),
     )
 

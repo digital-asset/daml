@@ -30,7 +30,7 @@ import com.digitalasset.canton.sequencing.{
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.store.memory.InMemorySendTrackerStore
 import com.digitalasset.canton.store.{SavePendingSendError, SendTrackerStore}
-import com.digitalasset.canton.topology.DefaultTestIdentities.{domainId, participant1}
+import com.digitalasset.canton.topology.DefaultTestIdentities.{participant1, synchronizerId}
 import com.digitalasset.canton.topology.{DefaultTestIdentities, TestingTopology}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, SequencerCounter}
@@ -52,7 +52,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
       sign(
         SequencerTestUtils.mockDeliver(
           timestamp = timestamp,
-          domainId = DefaultTestIdentities.domainId,
+          synchronizerId = DefaultTestIdentities.synchronizerId,
         )
       )
     )(
@@ -69,7 +69,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
         Deliver.create(
           SequencerCounter(0),
           timestamp,
-          DefaultTestIdentities.domainId,
+          DefaultTestIdentities.synchronizerId,
           Some(msgId),
           Batch.empty(testedProtocolVersion),
           None,
@@ -89,7 +89,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
         DeliverError.create(
           SequencerCounter(0),
           timestamp,
-          DefaultTestIdentities.domainId,
+          DefaultTestIdentities.synchronizerId,
           msgId,
           SequencerErrors.SubmissionRequestRefused("test"),
           testedProtocolVersion,
@@ -139,9 +139,9 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
   private def mkSendTracker(timeoutHandler: MessageId => Future[Unit] = _ => Future.unit): Env = {
     val store = new InMemorySendTrackerStore()
     val topologyClient =
-      TestingTopology(Set(DefaultTestIdentities.domainId))
+      TestingTopology(Set(DefaultTestIdentities.synchronizerId))
         .build(loggerFactory)
-        .forOwnerAndDomain(participant1, domainId)
+        .forOwnerAndDomain(participant1, synchronizerId)
 
     val histogramInventory = new HistogramInventory()
     val trafficStateController = new TrafficStateController(
@@ -152,7 +152,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
       testedProtocolVersion,
       new EventCostCalculator(loggerFactory),
       new TrafficConsumptionMetrics(MetricName("test"), metricsFactory(histogramInventory)),
-      domainId,
+      synchronizerId,
     )
     val tracker =
       new MySendTracker(
@@ -232,7 +232,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
         assertInContext(
           "test.event-delivered-cost",
           "domain",
-          domainId.toString,
+          synchronizerId.toString,
         )
         assertInContext(
           "test.event-delivered-cost",
@@ -250,7 +250,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
         assertInContext(
           "test.extra-traffic-consumed",
           "domain",
-          domainId.toString,
+          synchronizerId.toString,
         )
         // But not the event agnostic metrics
         assertNotInContext("test.extra-traffic-consumed", "test")

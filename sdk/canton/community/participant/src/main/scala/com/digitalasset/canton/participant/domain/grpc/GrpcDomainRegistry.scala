@@ -81,7 +81,7 @@ class GrpcDomainRegistry(
   override protected def timeouts: ProcessingTimeout = participantNodeParameters.processingTimeouts
 
   private class GrpcDomainHandle(
-      override val domainId: DomainId,
+      override val synchronizerId: SynchronizerId,
       override val domainAlias: DomainAlias,
       override val staticParameters: StaticDomainParameters,
       sequencer: RichSequencerClient,
@@ -123,7 +123,7 @@ class GrpcDomainRegistry(
       info <- sequencerInfoLoader
         .loadAndAggregateSequencerEndpoints(
           config.domain,
-          config.domainId,
+          config.synchronizerId,
           sequencerConnections,
           SequencerConnectionValidation.Active, // only validate active sequencers (not all endpoints)
         )(traceContext, CloseContext(this))
@@ -135,7 +135,7 @@ class GrpcDomainRegistry(
         .toEitherT[FutureUnlessShutdown]
 
       _ <- aliasManager
-        .processHandshake(config.domain, info.domainId)
+        .processHandshake(config.domain, info.synchronizerId)
         .leftMap(DomainRegistryHelpers.fromDomainAliasManagerError)
         .mapK(
           FutureUnlessShutdown.outcomeK
@@ -157,7 +157,7 @@ class GrpcDomainRegistry(
         metrics,
       )
     } yield new GrpcDomainHandle(
-      domainHandle.domainId,
+      domainHandle.synchronizerId,
       domainHandle.alias,
       domainHandle.staticParameters,
       domainHandle.sequencer,

@@ -5,10 +5,10 @@ package com.digitalasset.canton.participant.protocol
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.TopologyEvent.PartyToParticipantAuthorization
-import com.digitalasset.canton.ledger.participant.state.{SequencedUpdate, Update}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
@@ -39,7 +39,6 @@ import org.mockito.ArgumentCaptor
 import org.scalatest.wordspec.AsyncWordSpec
 import org.slf4j.event.Level
 
-import scala.concurrent.Future
 import scala.jdk.CollectionConverters.*
 
 class ParticipantTopologyTerminateProcessingTest
@@ -49,7 +48,7 @@ class ParticipantTopologyTerminateProcessingTest
     with HasExecutionContext {
 
   protected def mkStore: TopologyStore[TopologyStoreId.DomainStore] = new InMemoryTopologyStore(
-    TopologyStoreId.DomainStore(DefaultTestIdentities.domainId),
+    TopologyStoreId.DomainStore(DefaultTestIdentities.synchronizerId),
     testedProtocolVersion,
     loggerFactory,
     timeouts,
@@ -70,10 +69,6 @@ class ParticipantTopologyTerminateProcessingTest
 
     val recordOrderPublisher = mock[RecordOrderPublisher]
     when(
-      recordOrderPublisher.tick(any[SequencedUpdate])(any[TraceContext])
-    )
-      .thenReturn(Future.successful(()))
-    when(
       recordOrderPublisher.scheduleFloatingEventPublication(
         any[CantonTimestamp],
         eventCaptor.capture(),
@@ -82,7 +77,7 @@ class ParticipantTopologyTerminateProcessingTest
       .thenReturn(Right(()))
 
     val proc = new ParticipantTopologyTerminateProcessing(
-      DefaultTestIdentities.domainId,
+      DefaultTestIdentities.synchronizerId,
       testedProtocolVersion,
       recordOrderPublisher,
       store,
@@ -184,7 +179,6 @@ class ParticipantTopologyTerminateProcessingTest
           _ <- add(store, cts, txs)
           _ <- proc.terminate(sc, SequencedTime(cts), EffectiveTime(cts))
         } yield {
-          verify(rop, times(1)).tick(any[SequencedUpdate])(any[TraceContext])
           verify(rop, times(1)).scheduleFloatingEventPublication(
             any[CantonTimestamp],
             any[CantonTimestamp => Option[Update]],
@@ -225,7 +219,6 @@ class ParticipantTopologyTerminateProcessingTest
             EffectiveTime(cts1),
           )
         } yield {
-          verify(rop, times(1)).tick(any[SequencedUpdate])(any[TraceContext])
           verify(rop, times(1)).scheduleFloatingEventPublication(
             any[CantonTimestamp],
             any[CantonTimestamp => Option[Update]],
@@ -266,7 +259,6 @@ class ParticipantTopologyTerminateProcessingTest
             EffectiveTime(cts1),
           )
         } yield {
-          verify(rop, times(1)).tick(any[SequencedUpdate])(any[TraceContext])
           verify(rop, times(1)).scheduleFloatingEventPublication(
             any[CantonTimestamp],
             any[CantonTimestamp => Option[Update]],
@@ -292,7 +284,7 @@ class ParticipantTopologyTerminateProcessingTest
       }
     }
 
-    "tick empty if the party rights threshold change" in {
+    "no events if the party rights threshold change" in {
       loggerFactory.suppress(EventsEnabledSuppressionRule) {
         val (proc, store, eventCaptor, rop) = mk()
         val (cts0, _) = timestampWithCounter(0)
@@ -307,14 +299,13 @@ class ParticipantTopologyTerminateProcessingTest
             EffectiveTime(cts1),
           )
         } yield {
-          verify(rop, times(1)).tick(any[SequencedUpdate])(any[TraceContext])
           val events = eventCaptor.getAllValues.asScala
           events.size shouldBe 0
         }
       }
     }
 
-    "tick empty if no change" in {
+    "no events if no change" in {
       loggerFactory.suppress(EventsEnabledSuppressionRule) {
         val (proc, store, eventCaptor, rop) = mk()
         val (cts0, _) = timestampWithCounter(0)
@@ -325,14 +316,13 @@ class ParticipantTopologyTerminateProcessingTest
           _ <- add(store, cts1, List.empty)
           _ <- proc.terminate(sc1, SequencedTime(cts1), EffectiveTime(cts1))
         } yield {
-          verify(rop, times(1)).tick(any[SequencedUpdate])(any[TraceContext])
           val events = eventCaptor.getAllValues.asScala
           events.size shouldBe 0
         }
       }
     }
 
-    "not tick and no event publication if below initialRecordTime" in {
+    "no event publication if below initialRecordTime" in {
       loggerFactory.suppress(EventsEnabledSuppressionRule) {
         val (proc, store, _, rop) = mk(initialRecordTime = CantonTimestamp.ofEpochSecond(11))
         val (cts, sc) = timestampWithCounter(10)
@@ -347,7 +337,6 @@ class ParticipantTopologyTerminateProcessingTest
           _ <- proc.terminate(sc, SequencedTime(cts), EffectiveTime(cts))
           _ <- proc.terminate(sc1, SequencedTime(cts1), EffectiveTime(cts1))
           _ = {
-            verify(rop, times(0)).tick(any[SequencedUpdate])(any[TraceContext])
             verify(rop, times(0)).scheduleFloatingEventPublication(
               any[CantonTimestamp],
               any[CantonTimestamp => Option[Update]],
@@ -355,7 +344,6 @@ class ParticipantTopologyTerminateProcessingTest
           }
           _ <- proc.terminate(sc2, SequencedTime(cts2), EffectiveTime(cts2))
         } yield {
-          verify(rop, times(1)).tick(any[SequencedUpdate])(any[TraceContext])
           verify(rop, times(0)).scheduleFloatingEventPublication(
             any[CantonTimestamp],
             any[CantonTimestamp => Option[Update]],
@@ -384,7 +372,6 @@ class ParticipantTopologyTerminateProcessingTest
           _ <- add(store, cts, txs)
           err <- proc.terminate(sc, SequencedTime(cts), EffectiveTime(cts)).failed
         } yield {
-          verify(rop, times(0)).tick(any[SequencedUpdate])(any[TraceContext])
           verify(rop, times(1)).scheduleFloatingEventPublication(
             any[CantonTimestamp],
             any[CantonTimestamp => Option[Update]],
@@ -493,7 +480,6 @@ class ParticipantTopologyTerminateProcessingTest
             2,
           )
           _ = {
-            verify(rop, times(0)).tick(any[SequencedUpdate])(any[TraceContext])
             verify(rop, times(3)).scheduleFloatingEventPublication(
               any[CantonTimestamp],
               any[CantonTimestamp => Option[Update]],
@@ -517,7 +503,6 @@ class ParticipantTopologyTerminateProcessingTest
             2,
           )
         } yield {
-          verify(rop, times(0)).tick(any[SequencedUpdate])(any[TraceContext])
           verify(rop, times(6)).scheduleFloatingEventPublication(
             any[CantonTimestamp],
             any[CantonTimestamp => Option[Update]],

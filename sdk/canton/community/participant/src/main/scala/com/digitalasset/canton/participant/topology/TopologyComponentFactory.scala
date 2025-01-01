@@ -27,14 +27,14 @@ import com.digitalasset.canton.topology.processing.{
 }
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{PackageDependencyResolverUS, TopologyStore}
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
 class TopologyComponentFactory(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
     crypto: Crypto,
     clock: Clock,
@@ -69,7 +69,7 @@ class TopologyComponentFactory(
       val terminateTopologyProcessingFUS =
         if (experimentalEnableTopologyEvents) {
           val participantTerminateProcessing = new ParticipantTopologyTerminateProcessing(
-            domainId,
+            synchronizerId,
             protocolVersion,
             recordOrderPublisher,
             topologyStore,
@@ -81,7 +81,7 @@ class TopologyComponentFactory(
           for {
             topologyEventPublishedOnInitialRecordTime <- FutureUnlessShutdown.outcomeF(
               ledgerApiStore.topologyEventPublishedOnRecordTime(
-                domainId,
+                synchronizerId,
                 recordOrderPublisher.initTimestamp,
               )
             )
@@ -93,17 +93,13 @@ class TopologyComponentFactory(
           } yield participantTerminateProcessing
         } else {
           FutureUnlessShutdown.pure(
-            new ParticipantTopologyTerminateProcessingTicker(
-              recordOrderPublisher,
-              domainId,
-              loggerFactory,
-            )
+            new ParticipantTopologyTerminateProcessingTicker(loggerFactory)
           )
         }
 
       terminateTopologyProcessingFUS.map { terminateTopologyProcessing =>
         val processor = new TopologyTransactionProcessor(
-          domainId,
+          synchronizerId,
           new DomainCryptoPureApi(staticDomainParameters, crypto.pureCrypto),
           topologyStore,
           acsCommitmentScheduleEffectiveTime,
@@ -126,7 +122,7 @@ class TopologyComponentFactory(
       implicit executionContext: ExecutionContext
   ): InitialTopologySnapshotValidator =
     new InitialTopologySnapshotValidator(
-      domainId,
+      synchronizerId,
       new DomainCryptoPureApi(staticDomainParameters, crypto.pureCrypto),
       topologyStore,
       timeouts,
@@ -138,7 +134,7 @@ class TopologyComponentFactory(
   )(implicit executionContext: ExecutionContext): DomainTopologyClientWithInit =
     new StoreBasedDomainTopologyClient(
       clock,
-      domainId,
+      synchronizerId,
       topologyStore,
       packageDependencyResolver,
       timeouts,
@@ -153,7 +149,7 @@ class TopologyComponentFactory(
       traceContext: TraceContext,
   ): FutureUnlessShutdown[DomainTopologyClientWithInit] = CachingDomainTopologyClient.create(
     clock,
-    domainId,
+    synchronizerId,
     topologyStore,
     packageDependencyResolver,
     caching,

@@ -33,7 +33,7 @@ class TopologyTimestampPlusEpsilonTrackerTest
       parallelExecutionContext,
     )
     val store = new InMemoryTopologyStore(
-      TopologyStoreId.DomainStore(DefaultTestIdentities.domainId),
+      TopologyStoreId.DomainStore(DefaultTestIdentities.synchronizerId),
       testedProtocolVersion,
       loggerFactory,
       timeouts,
@@ -72,7 +72,7 @@ class TopologyTimestampPlusEpsilonTrackerTest
     ): Unit = {
       val tx = crypto.mkAdd(
         DomainParametersState(
-          DefaultTestIdentities.domainId,
+          DefaultTestIdentities.synchronizerId,
           DynamicDomainParameters.initialValues(
             topologyChangeDelay,
             testedProtocolVersion,

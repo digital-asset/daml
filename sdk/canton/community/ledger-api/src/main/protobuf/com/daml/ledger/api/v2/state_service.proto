@@ -90,14 +90,14 @@ message ActiveContract {
   // Required
   // The event as it appeared in the context of its last update (i.e. daml transaction or
   // reassignment). In particular, the last offset, node_id pair is preserved.
-  // The last update is the most recent update created or assigned this contract on domain_id domain.
+  // The last update is the most recent update created or assigned this contract on synchronizer_id domain.
   // The offset of the CreatedEvent might point to an already pruned update, therefore it cannot necessarily be used
   // for lookups.
   CreatedEvent created_event = 1;
 
-  // A valid domain ID
+  // A valid synchronizer id
   // Required
-  string domain_id = 2;
+  string synchronizer_id = 2;
 
   // Each corresponding assigned and unassigned event has the same reassignment_counter. This strictly increases
   // with each unassign command for the same contract. Creation of the contract corresponds to reassignment_counter
@@ -112,7 +112,7 @@ message IncompleteUnassigned {
   // Required
   // The event as it appeared in the context of its last activation update (i.e. daml transaction or
   // reassignment). In particular, the last activation offset, node_id pair is preserved.
-  // The last activation update is the most recent update created or assigned this contract on domain_id domain before
+  // The last activation update is the most recent update created or assigned this contract on synchronizer_id domain before
   // the unassigned_event.
   // The offset of the CreatedEvent might point to an already pruned update, therefore it cannot necessarily be used
   // for lookups.
@@ -148,7 +148,7 @@ message GetConnectedDomainsResponse {
 
     // The ID of the domain
     // Required
-    string domain_id = 2;
+    string synchronizer_id = 2;
 
     // The permission on the domain
     // Required

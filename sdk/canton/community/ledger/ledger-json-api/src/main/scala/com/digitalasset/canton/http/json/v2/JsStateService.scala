@@ -167,7 +167,7 @@ object JsContractEntry {
 
   final case class JsActiveContract(
       created_event: JsEvent.CreatedEvent,
-      domain_id: String,
+      synchronizer_id: String,
       reassignment_counter: Long,
   ) extends JsContractEntry
 }

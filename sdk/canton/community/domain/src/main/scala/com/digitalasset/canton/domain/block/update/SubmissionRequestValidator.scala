@@ -43,7 +43,7 @@ import scala.concurrent.ExecutionContext
 /** Validates a single [[SubmissionRequest]] within a chunk.
   */
 private[update] final class SubmissionRequestValidator(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
     domainSyncCryptoApi: DomainSyncCryptoClient,
     sequencerId: SequencerId,
@@ -55,7 +55,7 @@ private[update] final class SubmissionRequestValidator(
     extends NamedLogging {
 
   private val trafficControlValidator = new TrafficControlValidator(
-    domainId,
+    synchronizerId,
     protocolVersion,
     rateLimitManager,
     loggerFactory,
@@ -798,7 +798,7 @@ private[update] final class SubmissionRequestValidator(
     Deliver.create(
       SequencerCounter.Genesis,
       sequencingTimestamp,
-      domainId,
+      synchronizerId,
       Some(submissionRequest.messageId),
       Batch.empty(protocolVersion),
       // Since the receipt does not contain any envelopes and does not authenticate the envelopes
@@ -819,7 +819,7 @@ private[update] final class SubmissionRequestValidator(
       sequencingTimestamp,
       sequencerError,
       logger,
-      domainId,
+      synchronizerId,
       protocolVersion,
     )
 
@@ -909,7 +909,7 @@ private[update] object SubmissionRequestValidator {
       sequencingTimestamp: CantonTimestamp,
       sequencerError: SequencerDeliverError,
       logger: TracedLogger,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       protocolVersion: ProtocolVersion,
   )(implicit traceContext: TraceContext): SubmissionRequestOutcome = {
     val SubmissionRequest(sender, messageId, _, _, _, _, _) = submissionRequest
@@ -924,7 +924,7 @@ private[update] object SubmissionRequestValidator {
         .create(
           SequencerCounter.Genesis,
           sequencingTimestamp,
-          domainId,
+          synchronizerId,
           messageId,
           sequencerError,
           protocolVersion,

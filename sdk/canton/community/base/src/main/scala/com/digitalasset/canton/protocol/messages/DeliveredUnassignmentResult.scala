@@ -33,7 +33,7 @@ final case class DeliveredUnassignmentResult private (
   val unwrap: ConfirmationResultMessage = signedConfirmationResult.message
 
   def reassignmentId: ReassignmentId =
-    ReassignmentId(Source(unwrap.domainId), unwrap.requestId.unwrap)
+    ReassignmentId(Source(unwrap.synchronizerId), unwrap.requestId.unwrap)
 
   override protected def pretty: Pretty[DeliveredUnassignmentResult] = prettyOfParam(_.unwrap)
 }

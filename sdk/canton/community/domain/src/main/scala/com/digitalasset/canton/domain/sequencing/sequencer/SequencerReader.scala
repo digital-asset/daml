@@ -36,7 +36,7 @@ import com.digitalasset.canton.sequencing.{GroupAddressResolver, OrdinarySeriali
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{DomainId, Member, SequencerId}
+import com.digitalasset.canton.topology.{Member, SequencerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.util.PekkoUtil.{
@@ -97,7 +97,7 @@ object SequencerReaderConfig {
 
 class SequencerReader(
     config: SequencerReaderConfig,
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     store: SequencerStore,
     syncCryptoApi: SyncCryptoClient[SyncCryptoApi],
     eventSignaller: EventSignaller,
@@ -473,7 +473,7 @@ class SequencerReader(
             DeliverError.create(
               counter,
               unvalidatedEvent.timestamp,
-              domainId,
+              synchronizerId,
               unvalidatedEvent.event.messageId,
               error,
               protocolVersion,
@@ -486,7 +486,7 @@ class SequencerReader(
             Deliver.create(
               counter,
               unvalidatedEvent.timestamp,
-              domainId,
+              synchronizerId,
               None,
               emptyBatch,
               None,
@@ -753,7 +753,7 @@ class SequencerReader(
             Deliver.create[ClosedEnvelope](
               counter,
               timestamp,
-              domainId,
+              synchronizerId,
               messageIdO,
               filteredBatch,
               topologyTimestampO,
@@ -774,7 +774,7 @@ class SequencerReader(
             Deliver.create[ClosedEnvelope](
               counter,
               timestamp,
-              domainId,
+              synchronizerId,
               Some(messageId),
               emptyBatch,
               topologyTimestampO,
@@ -790,7 +790,7 @@ class SequencerReader(
             DeliverError.create(
               counter,
               timestamp,
-              domainId,
+              synchronizerId,
               messageId,
               status,
               protocolVersion,

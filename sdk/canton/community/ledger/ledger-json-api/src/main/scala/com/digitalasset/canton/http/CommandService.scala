@@ -266,7 +266,7 @@ class CommandService(
           submissionId = meta.flatMap(_.submissionId),
           workflowId = meta.flatMap(_.workflowId),
           meta.flatMap(_.disclosedContracts) getOrElse Seq.empty,
-          meta.flatMap(_.domainId),
+          meta.flatMap(_.synchronizerId),
           meta.flatMap(_.packageIdSelectionPreference) getOrElse Seq.empty,
         )
       }

@@ -12,10 +12,10 @@ import com.digitalasset.canton.domain.api.v30 as proto
 import com.digitalasset.canton.domain.api.v30.SequencerConnect
 import com.digitalasset.canton.domain.api.v30.SequencerConnect.GetDomainParametersResponse.Parameters
 import com.digitalasset.canton.domain.api.v30.SequencerConnect.{
-  GetDomainIdRequest,
-  GetDomainIdResponse,
   GetDomainParametersRequest,
   GetDomainParametersResponse,
+  GetSynchronizerIdRequest,
+  GetSynchronizerIdResponse,
   HandshakeRequest,
   HandshakeResponse,
   RegisterOnboardingTopologyTransactionsResponse,
@@ -43,7 +43,7 @@ import scala.concurrent.{ExecutionContext, Future}
 /** Sequencer connect service on gRPC
   */
 class GrpcSequencerConnectService(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     sequencerId: SequencerId,
     staticDomainParameters: StaticDomainParameters,
     domainTopologyManager: DomainTopologyManager,
@@ -55,15 +55,17 @@ class GrpcSequencerConnectService(
 
   protected val serverProtocolVersion: ProtocolVersion = staticDomainParameters.protocolVersion
 
-  def getDomainId(request: GetDomainIdRequest): Future[GetDomainIdResponse] =
+  override def getSynchronizerId(
+      request: GetSynchronizerIdRequest
+  ): Future[GetSynchronizerIdResponse] =
     Future.successful(
-      GetDomainIdResponse(
-        domainId = domainId.toProtoPrimitive,
+      GetSynchronizerIdResponse(
+        synchronizerId = synchronizerId.toProtoPrimitive,
         sequencerUid = sequencerId.uid.toProtoPrimitive,
       )
     )
 
-  def getDomainParameters(
+  override def getDomainParameters(
       request: GetDomainParametersRequest
   ): Future[GetDomainParametersResponse] = {
     val response = staticDomainParameters.protoVersion.v match {
@@ -79,7 +81,7 @@ class GrpcSequencerConnectService(
     response.map(GetDomainParametersResponse(_))
   }
 
-  def verifyActive(request: VerifyActiveRequest): Future[VerifyActiveResponse] = {
+  override def verifyActive(request: VerifyActiveRequest): Future[VerifyActiveResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val resultF = for {
       participant <- EitherT.fromEither[FutureUnlessShutdown](getParticipantFromGrpcContext())

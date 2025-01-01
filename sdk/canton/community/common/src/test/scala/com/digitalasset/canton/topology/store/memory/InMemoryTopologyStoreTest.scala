@@ -12,9 +12,9 @@ class InMemoryTopologyStoreTest extends TopologyStoreTest {
   }
 
   "InMemoryTopologyStore" should {
-    behave like topologyStore(domainId =>
+    behave like topologyStore(synchronizerId =>
       new InMemoryTopologyStore(
-        TopologyStoreId.DomainStore(domainId),
+        TopologyStoreId.DomainStore(synchronizerId),
         testedProtocolVersion,
         loggerFactory,
         timeouts,

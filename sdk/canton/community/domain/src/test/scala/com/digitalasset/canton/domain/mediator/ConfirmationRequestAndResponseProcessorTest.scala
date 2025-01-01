@@ -53,7 +53,7 @@ class ConfirmationRequestAndResponseProcessorTest
     with HasExecutionContext
     with FailOnShutdown {
 
-  protected val domainId: DomainId = DomainId(
+  protected val synchronizerId: SynchronizerId = SynchronizerId(
     UniqueIdentifier.tryFromProtoPrimitive("domain::test")
   )
   protected val activeMediator1 = MediatorId(UniqueIdentifier.tryCreate("mediator", "one"))
@@ -95,7 +95,10 @@ class ConfirmationRequestAndResponseProcessorTest
     OpenEnvelope(request, recipients)(testedProtocolVersion)
 
   protected lazy val factory: ExampleTransactionFactory =
-    new ExampleTransactionFactory()(domainId = domainId, mediatorGroup = mediatorGroupRecipient)
+    new ExampleTransactionFactory()(
+      synchronizerId = synchronizerId,
+      mediatorGroup = mediatorGroupRecipient,
+    )
   protected lazy val fullInformeeTree: FullInformeeTree =
     factory.MultipleRootsAndViewNestings.fullInformeeTree
   private lazy val view: TransactionView = factory.MultipleRootsAndViewNestings.view0
@@ -121,7 +124,7 @@ class ConfirmationRequestAndResponseProcessorTest
     initialDomainParameters,
     CantonTimestamp.Epoch,
     None,
-    domainId,
+    synchronizerId,
   )
 
   protected val confirmationResponseTimeout: NonNegativeFiniteDuration =
@@ -141,7 +144,7 @@ class ConfirmationRequestAndResponseProcessorTest
     SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
 
   private lazy val topology: TestingTopology = TestingTopology.from(
-    domains = Set(domainId),
+    domains = Set(synchronizerId),
     topology = Map(
       submitter -> Map(participant -> ParticipantPermission.Confirmation),
       signatory ->
@@ -165,7 +168,7 @@ class ConfirmationRequestAndResponseProcessorTest
 
   private lazy val identityFactory2 = {
     val topology2 = TestingTopology.from(
-      domains = Set(domainId),
+      domains = Set(synchronizerId),
       topology = Map(
         submitter -> Map(participant1 -> ParticipantPermission.Confirmation),
         signatory -> Map(participant2 -> ParticipantPermission.Confirmation),
@@ -197,7 +200,7 @@ class ConfirmationRequestAndResponseProcessorTest
   private lazy val identityFactoryOnlySubmitter =
     TestingIdentityFactory(
       TestingTopology.from(
-        domains = Set(domainId),
+        domains = Set(synchronizerId),
         topology = Map(
           submitter -> Map(participant1 -> ParticipantPermission.Confirmation)
         ),
@@ -210,7 +213,7 @@ class ConfirmationRequestAndResponseProcessorTest
     )
 
   protected lazy val domainSyncCryptoApi: DomainSyncCryptoClient =
-    identityFactory.forOwnerAndDomain(mediatorId, domainId)
+    identityFactory.forOwnerAndDomain(mediatorId, synchronizerId)
 
   protected lazy val requestIdTs = CantonTimestamp.Epoch
   protected lazy val requestId = RequestId(requestIdTs)
@@ -246,7 +249,7 @@ class ConfirmationRequestAndResponseProcessorTest
       loggerFactory,
     )
     val processor = new ConfirmationRequestAndResponseProcessor(
-      domainId,
+      synchronizerId,
       mediatorId,
       verdictSender,
       syncCryptoApi,
@@ -259,7 +262,7 @@ class ConfirmationRequestAndResponseProcessorTest
   }
 
   private lazy val domainSyncCryptoApi2: DomainSyncCryptoClient =
-    identityFactory2.forOwnerAndDomain(sequencer, domainId)
+    identityFactory2.forOwnerAndDomain(sequencer, synchronizerId)
 
   def signedResponse(
       confirmers: Set[LfPartyId],
@@ -274,7 +277,7 @@ class ConfirmationRequestAndResponseProcessorTest
       verdict,
       fullInformeeTree.transactionId.toRootHash,
       confirmers,
-      factory.domainId,
+      factory.synchronizerId,
       testedProtocolVersion,
     )
     val participantCrypto = identityFactory.forOwner(participant)
@@ -282,17 +285,17 @@ class ConfirmationRequestAndResponseProcessorTest
       .trySignAndCreate(
         response,
         participantCrypto
-          .tryForDomain(domainId, defaultStaticDomainParameters)
+          .tryForDomain(synchronizerId, defaultStaticDomainParameters)
           .currentSnapshotApproximation,
         testedProtocolVersion,
       )
   }
 
   def sign(tree: FullInformeeTree): Signature = identityFactory
-    .forOwnerAndDomain(participant, domainId)
+    .forOwnerAndDomain(participant, synchronizerId)
     .awaitSnapshot(CantonTimestamp.Epoch)
     .futureValue
-    .sign(tree.tree.rootHash.unwrap)
+    .sign(tree.tree.rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
     .failOnShutdown
     .futureValue
 
@@ -311,7 +314,7 @@ class ConfirmationRequestAndResponseProcessorTest
       OpenEnvelope(
         RootHashMessage(
           fullInformeeTree.tree.rootHash,
-          domainId,
+          synchronizerId,
           testedProtocolVersion,
           TransactionViewType,
           testTopologyTimestamp,
@@ -435,7 +438,7 @@ class ConfirmationRequestAndResponseProcessorTest
           LocalApprove(testedProtocolVersion),
           fullInformeeTree.transactionId.toRootHash,
           Set(submitter),
-          factory.domainId,
+          factory.synchronizerId,
           testedProtocolVersion,
         )
         signedResponse = SignedProtocolMessage(
@@ -457,7 +460,7 @@ class ConfirmationRequestAndResponseProcessorTest
             .failOnShutdown,
           _.shouldBeCantonError(
             MediatorError.MalformedMessage,
-            _ should include regex s"$domainId \\(timestamp: ${CantonTimestamp.Epoch}\\): invalid signature from $participant with SignatureWithWrongKey",
+            _ should include regex s"$synchronizerId \\(timestamp: ${CantonTimestamp.Epoch}\\): invalid signature from $participant with SignatureWithWrongKey",
           ),
         )
       } yield succeed
@@ -497,7 +500,7 @@ class ConfirmationRequestAndResponseProcessorTest
       val rootHashMessage =
         RootHashMessage(
           correctRootHash,
-          domainId,
+          synchronizerId,
           testedProtocolVersion,
           correctViewType,
           testTopologyTimestamp,
@@ -562,7 +565,7 @@ class ConfirmationRequestAndResponseProcessorTest
       val correctRootHashMessage =
         RootHashMessage(
           rootHash,
-          domainId,
+          synchronizerId,
           testedProtocolVersion,
           correctViewType,
           testTopologyTimestamp,
@@ -672,10 +675,10 @@ class ConfirmationRequestAndResponseProcessorTest
           List(Set[Member](participant) -> correctViewType, Set[Member](otherParticipant) -> wrongViewType),
 
         (batchWithRootHashMessageWithTooManyRecipients ->
-          show"Root hash messages with wrong recipients tree: RecipientsTree(recipient group = Seq(${mediatorGroupRecipient}, ${MemberRecipient(participant)}, ${MemberRecipient(otherParticipant)}))") ->
+          show"Root hash messages with wrong recipients tree: RecipientsTree(recipient group = Seq($mediatorGroupRecipient, ${MemberRecipient(participant)}, ${MemberRecipient(otherParticipant)}))") ->
           List(Set[Member](participant, otherParticipant) -> correctViewType),
 
-        (batchWithRootHashMessageWithTooFewRecipients -> show"Root hash messages with wrong recipients tree: RecipientsTree(recipient group = ${mediatorGroupRecipient})") -> List.empty,
+        (batchWithRootHashMessageWithTooFewRecipients -> show"Root hash messages with wrong recipients tree: RecipientsTree(recipient group = $mediatorGroupRecipient)") -> List.empty,
 
         (batchWithRepeatedRootHashMessage -> show"Several root hash messages for recipients: ${MemberRecipient(participant)}") ->
           List(Set[Member](participant) -> correctViewType),
@@ -745,7 +748,7 @@ class ConfirmationRequestAndResponseProcessorTest
       val otherMediatorGroupIndex = MediatorGroupRecipient(mediatorGroup2.index)
       val factoryOtherMediatorId =
         new ExampleTransactionFactory()(
-          domainId = domainId,
+          synchronizerId = synchronizerId,
           mediatorGroup = otherMediatorGroupIndex,
         )
       val fullInformeeTreeOther =
@@ -754,7 +757,7 @@ class ConfirmationRequestAndResponseProcessorTest
         InformeeMessage(fullInformeeTreeOther, sign(fullInformeeTreeOther))(testedProtocolVersion)
       val rootHashMessage = RootHashMessage(
         mediatorRequest.rootHash,
-        domainId,
+        synchronizerId,
         testedProtocolVersion,
         mediatorRequest.viewType,
         testTopologyTimestamp,
@@ -842,7 +845,7 @@ class ConfirmationRequestAndResponseProcessorTest
         InformeeMessage(fullInformeeTree, sign(fullInformeeTree))(testedProtocolVersion)
       val rootHashMessage = RootHashMessage(
         fullInformeeTree.transactionId.toRootHash,
-        domainId,
+        synchronizerId,
         testedProtocolVersion,
         ViewType.TransactionViewType,
         testTopologyTimestamp,
@@ -1103,7 +1106,7 @@ class ConfirmationRequestAndResponseProcessorTest
 
       val rootHashMessage = RootHashMessage(
         fullInformeeTree.transactionId.toRootHash,
-        domainId,
+        synchronizerId,
         testedProtocolVersion,
         ViewType.TransactionViewType,
         testTopologyTimestamp,
@@ -1127,7 +1130,7 @@ class ConfirmationRequestAndResponseProcessorTest
             .toLocalReject(testedProtocolVersion),
           fullInformeeTree.transactionId.toRootHash,
           Set.empty,
-          factory.domainId,
+          factory.synchronizerId,
           testedProtocolVersion,
         )
         val participantCrypto = identityFactory2.forOwner(participant)
@@ -1135,7 +1138,7 @@ class ConfirmationRequestAndResponseProcessorTest
           .trySignAndCreate(
             response,
             participantCrypto
-              .tryForDomain(domainId, defaultStaticDomainParameters)
+              .tryForDomain(synchronizerId, defaultStaticDomainParameters)
               .currentSnapshotApproximation,
             testedProtocolVersion,
           )
@@ -1236,7 +1239,7 @@ class ConfirmationRequestAndResponseProcessorTest
         InformeeMessage(fullInformeeTree, sign(fullInformeeTree))(testedProtocolVersion)
       val rootHashMessage = RootHashMessage(
         fullInformeeTree.transactionId.toRootHash,
-        domainId,
+        synchronizerId,
         testedProtocolVersion,
         ViewType.TransactionViewType,
         testTopologyTimestamp,
@@ -1292,7 +1295,7 @@ class ConfirmationRequestAndResponseProcessorTest
         InformeeMessage(fullInformeeTree, sign(fullInformeeTree))(testedProtocolVersion)
       val rootHashMessage = RootHashMessage(
         mediatorRequest.rootHash,
-        domainId,
+        synchronizerId,
         testedProtocolVersion,
         mediatorRequest.viewType,
         testTopologyTimestamp,
@@ -1352,7 +1355,7 @@ class ConfirmationRequestAndResponseProcessorTest
 
     "reject request if some informee is not hosted by an active participant" in {
       val domainSyncCryptoApi =
-        identityFactoryOnlySubmitter.forOwnerAndDomain(mediatorId, domainId)
+        identityFactoryOnlySubmitter.forOwnerAndDomain(mediatorId, synchronizerId)
       val sut = new Fixture(domainSyncCryptoApi)
 
       val request =
@@ -1381,14 +1384,14 @@ class ConfirmationRequestAndResponseProcessorTest
     }
 
     "inactive mediator ignores requests" in {
-      val domainSyncCryptoApi3 = identityFactory3.forOwnerAndDomain(mediatorId, domainId)
+      val domainSyncCryptoApi3 = identityFactory3.forOwnerAndDomain(mediatorId, synchronizerId)
       val sut = new Fixture(domainSyncCryptoApi3)
 
       val mediatorRequest =
         InformeeMessage(fullInformeeTree, sign(fullInformeeTree))(testedProtocolVersion)
       val rootHashMessage = RootHashMessage(
         mediatorRequest.rootHash,
-        domainId,
+        synchronizerId,
         testedProtocolVersion,
         mediatorRequest.viewType,
         testTopologyTimestamp,

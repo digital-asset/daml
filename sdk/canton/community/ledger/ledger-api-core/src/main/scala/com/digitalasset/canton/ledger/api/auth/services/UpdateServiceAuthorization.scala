@@ -44,12 +44,12 @@ final class UpdateServiceAuthorization(
       service.getUpdateTrees,
     )(request, responseObserver)
 
-  override def getTransactionTreeByEventId(
-      request: GetTransactionByEventIdRequest
+  override def getTransactionTreeByOffset(
+      request: GetTransactionByOffsetRequest
   ): Future[GetTransactionTreeResponse] =
     authorizer.requireReadClaimsForAllParties(
       request.requestingParties,
-      service.getTransactionTreeByEventId,
+      service.getTransactionTreeByOffset,
     )(request)
 
   override def getTransactionTreeById(
@@ -60,12 +60,12 @@ final class UpdateServiceAuthorization(
       service.getTransactionTreeById,
     )(request)
 
-  override def getTransactionByEventId(
-      request: GetTransactionByEventIdRequest
+  override def getTransactionByOffset(
+      request: GetTransactionByOffsetRequest
   ): Future[GetTransactionResponse] =
     authorizer.requireReadClaimsForAllParties(
       request.requestingParties,
-      service.getTransactionByEventId,
+      service.getTransactionByOffset,
     )(request)
 
   override def getTransactionById(

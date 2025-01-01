@@ -24,7 +24,7 @@ import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.sequencing.client.SequencerClient
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.version.ProtocolVersion
@@ -32,7 +32,7 @@ import com.digitalasset.canton.version.ProtocolVersion
 import scala.concurrent.ExecutionContext
 
 class AssignmentProcessor(
-    domainId: Target[DomainId],
+    synchronizerId: Target[SynchronizerId],
     override val participantId: ParticipantId,
     damle: DAMLe,
     staticDomainParameters: Target[StaticDomainParameters],
@@ -56,7 +56,7 @@ class AssignmentProcessor(
       ReassignmentProcessorError,
     ](
       new AssignmentProcessingSteps(
-        domainId,
+        synchronizerId,
         participantId,
         damle,
         reassignmentCoordination,
@@ -70,7 +70,7 @@ class AssignmentProcessor(
       ephemeral,
       domainCrypto,
       sequencerClient,
-      domainId.unwrap,
+      synchronizerId.unwrap,
       targetProtocolVersion.unwrap,
       loggerFactory,
       futureSupervisor,

@@ -107,7 +107,7 @@ object CommitmentPeriod {
   *  The interval is assumed to be a round number of seconds. The ticks then start at the Java EPOCH time, and are exactly `interval` apart.
   */
 abstract sealed case class AcsCommitment private (
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     sender: ParticipantId,
     counterParticipant: ParticipantId,
     period: CommitmentPeriod,
@@ -125,7 +125,7 @@ abstract sealed case class AcsCommitment private (
 
   protected def toProtoV30: v30.AcsCommitment =
     v30.AcsCommitment(
-      domainId = domainId.toProtoPrimitive,
+      synchronizerId = synchronizerId.toProtoPrimitive,
       sendingParticipantUid = sender.uid.toProtoPrimitive,
       counterParticipantUid = counterParticipant.uid.toProtoPrimitive,
       fromExclusive = period.fromExclusive.toProtoPrimitive,
@@ -144,7 +144,7 @@ abstract sealed case class AcsCommitment private (
 
   override lazy val pretty: Pretty[AcsCommitment] =
     prettyOfClass(
-      param("domainId", _.domainId),
+      param("synchronizerId", _.synchronizerId),
       param("sender", _.sender),
       param("counterParticipant", _.counterParticipant),
       param("period", _.period),
@@ -172,14 +172,14 @@ object AcsCommitment extends HasMemoizedProtocolVersionedWrapperCompanion[AcsCom
   def commitmentTypeFromByteString(bytes: ByteString): CommitmentType = bytes
 
   def create(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       sender: ParticipantId,
       counterParticipant: ParticipantId,
       period: CommitmentPeriod,
       commitment: CommitmentType,
       protocolVersion: ProtocolVersion,
   ): AcsCommitment =
-    new AcsCommitment(domainId, sender, counterParticipant, period, commitment)(
+    new AcsCommitment(synchronizerId, sender, counterParticipant, period, commitment)(
       protocolVersionRepresentativeFor(protocolVersion),
       None,
     ) {}
@@ -188,7 +188,10 @@ object AcsCommitment extends HasMemoizedProtocolVersionedWrapperCompanion[AcsCom
       bytes: ByteString
   ): ParsingResult[AcsCommitment] =
     for {
-      domainId <- DomainId.fromProtoPrimitive(protoMsg.domainId, "AcsCommitment.domainId")
+      synchronizerId <- SynchronizerId.fromProtoPrimitive(
+        protoMsg.synchronizerId,
+        "AcsCommitment.synchronizerId",
+      )
       sender <- UniqueIdentifier
         .fromProtoPrimitive(
           protoMsg.sendingParticipantUid,
@@ -220,7 +223,7 @@ object AcsCommitment extends HasMemoizedProtocolVersionedWrapperCompanion[AcsCom
       cmt = protoMsg.commitment
       commitment = commitmentTypeFromByteString(cmt)
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield new AcsCommitment(domainId, sender, counterParticipant, period, commitment)(
+    } yield new AcsCommitment(synchronizerId, sender, counterParticipant, period, commitment)(
       rpv,
       Some(bytes),
     ) {}
@@ -232,7 +235,7 @@ object AcsCommitment extends HasMemoizedProtocolVersionedWrapperCompanion[AcsCom
     }
 
   def getAcsCommitmentResultReader(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       protocolVersion: ProtocolVersion,
   ): GetResult[AcsCommitment] =
     new GetTupleResult[(ParticipantId, ParticipantId, CommitmentPeriod, CommitmentType)](
@@ -241,7 +244,7 @@ object AcsCommitment extends HasMemoizedProtocolVersionedWrapperCompanion[AcsCom
       GetResult[CommitmentPeriod],
       GetResult[CommitmentType],
     ).andThen { case (sender, counterParticipant, period, commitment) =>
-      new AcsCommitment(domainId, sender, counterParticipant, period, commitment)(
+      new AcsCommitment(synchronizerId, sender, counterParticipant, period, commitment)(
         protocolVersionRepresentativeFor(protocolVersion),
         None,
       ) {}

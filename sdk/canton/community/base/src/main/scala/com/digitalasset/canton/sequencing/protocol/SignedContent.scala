@@ -190,7 +190,7 @@ object SignedContent
     // so fine to call once for the hash here and then again when serializing to protobuf
     val hash = hashContent(cryptoApi, content, purpose)
     cryptoPrivateApi
-      .sign(hash)
+      .sign(hash, SigningKeyUsage.ProtocolOnly)
       .map(signature => SignedContent(content, signature, timestampOfSigningKey, protocolVersion))
   }
 

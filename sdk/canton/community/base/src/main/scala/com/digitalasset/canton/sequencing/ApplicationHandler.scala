@@ -72,7 +72,7 @@ trait ApplicationHandler[-Box[+_ <: Envelope[_]], -Env <: Envelope[_]]
       for {
         r1 <- ApplicationHandler.this.apply(boxedEnvelope: BoxedEnvelope[Box, Env])
         r2 <- other.apply(boxedEnvelope)
-      } yield Monoid[AsyncResult].combine(r1, r2)
+      } yield Monoid[AsyncResult[Unit]].combine(r1, r2)
   }
 }
 

@@ -17,10 +17,10 @@ import com.digitalasset.canton.health.{
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyInstances, PrettyPrinting, PrettyUtil}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{
-  DomainId,
   MediatorId,
   Member,
   ParticipantId,
+  SynchronizerId,
   UniqueIdentifier,
 }
 import com.digitalasset.canton.util.ShowUtil
@@ -30,7 +30,7 @@ import java.time.Duration
 
 final case class SequencerNodeStatus(
     uid: UniqueIdentifier,
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     uptime: Duration,
     ports: Map[String, Port],
     connectedMembers: Seq[Member],
@@ -55,7 +55,7 @@ final case class SequencerNodeStatus(
     prettyOfString(_ =>
       Seq(
         s"Sequencer id: ${uid.toProtoPrimitive}",
-        s"Domain id: ${domainId.toProtoPrimitive}",
+        s"Synchronizer id: ${synchronizerId.toProtoPrimitive}",
         show"Uptime: $uptime",
         s"Ports: ${portsString(ports)}",
         s"Connected participants: ${multiline(connectedParticipants.map(_.toString))}",
@@ -84,7 +84,7 @@ final case class SequencerNodeStatus(
       connectedParticipants = connectedParticipantsP,
       connectedMediators = connectedMediatorsP,
       sequencer = sequencer.toProtoV30.some,
-      domainId = domainId.toProtoPrimitive,
+      synchronizerId = synchronizerId.toProtoPrimitive,
       admin = admin.toProtoV30.some,
       protocolVersion = protocolVersion.toProtoPrimitive,
     )

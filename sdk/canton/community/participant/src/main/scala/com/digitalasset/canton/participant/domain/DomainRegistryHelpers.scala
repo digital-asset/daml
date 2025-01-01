@@ -17,7 +17,7 @@ import com.digitalasset.canton.crypto.SyncCryptoApiProvider
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.domain.DomainRegistryError.HandshakeErrors.DomainIdMismatch
+import com.digitalasset.canton.participant.domain.DomainRegistryError.HandshakeErrors.SynchronizerIdMismatch
 import com.digitalasset.canton.participant.domain.DomainRegistryHelpers.DomainHandle
 import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
 import com.digitalasset.canton.participant.store.SyncDomainPersistentState
@@ -78,21 +78,21 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, DomainRegistryError, DomainHandle] = {
-    import sequencerAggregatedInfo.domainId
+    import sequencerAggregatedInfo.synchronizerId
 
     for {
-      indexedDomainId <- EitherT
-        .right(syncDomainPersistentStateManager.indexedDomainId(domainId))
+      indexedSynchronizerId <- EitherT
+        .right(syncDomainPersistentStateManager.indexedSynchronizerId(synchronizerId))
 
       _ <- EitherT
-        .fromEither[Future](verifyDomainId(config, domainId))
+        .fromEither[Future](verifySynchronizerId(config, synchronizerId))
         .mapK(FutureUnlessShutdown.outcomeK)
 
       // fetch or create persistent state for the domain
       persistentState <- syncDomainPersistentStateManager
         .lookupOrCreatePersistentState(
           config.domain,
-          indexedDomainId,
+          indexedSynchronizerId,
           sequencerAggregatedInfo.staticDomainParameters,
         )
         .mapK(FutureUnlessShutdown.outcomeK)
@@ -103,17 +103,20 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
           EitherTUtil.unit.mapK(FutureUnlessShutdown.outcomeK)
         } else {
           topologyDispatcher
-            .trustDomain(domainId)
+            .trustDomain(synchronizerId)
             .leftMap(
               DomainRegistryError.ConfigurationErrors.CanNotIssueDomainTrustCertificate.Error(_)
             )
         }
 
-      domainLoggerFactory = loggerFactory.append("domainId", indexedDomainId.domainId.toString)
+      domainLoggerFactory = loggerFactory.append(
+        "synchronizerId",
+        indexedSynchronizerId.synchronizerId.toString,
+      )
 
       topologyFactory <- syncDomainPersistentStateManager
         .topologyFactoryFor(
-          domainId,
+          synchronizerId,
           sequencerAggregatedInfo.staticDomainParameters.protocolVersion,
         )
         .toRight(
@@ -133,7 +136,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
 
       domainCryptoApi <- EitherT.fromEither[FutureUnlessShutdown](
         cryptoApiProvider
-          .forDomain(domainId, sequencerAggregatedInfo.staticDomainParameters)
+          .forDomain(synchronizerId, sequencerAggregatedInfo.staticDomainParameters)
           .toRight(
             DomainRegistryError.DomainRegistryInternalError
               .InvalidState("crypto api for domain is unavailable"): DomainRegistryError
@@ -156,7 +159,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
         // Yields a unique path inside the given directory for record/replay purposes.
         def updateMemberRecordingPath(recordingConfig: RecordingConfig): RecordingConfig = {
           val namePrefix =
-            s"${participantId.show.stripSuffix("...")}-${domainId.show.stripSuffix("...")}"
+            s"${participantId.show.stripSuffix("...")}-${synchronizerId.show.stripSuffix("...")}"
           recordingConfig.setFilename(namePrefix)
         }
 
@@ -166,7 +169,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
         }
         (
           SequencerClientFactory(
-            domainId,
+            synchronizerId,
             domainCryptoApi,
             cryptoApiProvider.crypto,
             sequencerClientConfig,
@@ -195,7 +198,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
             participantNodeParameters.unsafeEnableOnlinePartyReplication
           )(
             new SequencerChannelClientFactory(
-              domainId,
+              synchronizerId,
               domainCryptoApi,
               cryptoApiProvider.crypto,
               sequencerClientConfig,
@@ -219,12 +222,12 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
         if (active) EitherT.pure[FutureUnlessShutdown, DomainRegistryError](())
         else {
           logger.debug(
-            s"Participant is not yet active on domain $domainId. Initializing topology"
+            s"Participant is not yet active on domain $synchronizerId. Initializing topology"
           )
           val client = sequencerConnectClient(config.domain, sequencerAggregatedInfo)
           for {
             success <- topologyDispatcher.onboardToDomain(
-              domainId,
+              synchronizerId,
               config.domain,
               client,
               sequencerAggregatedInfo.staticDomainParameters.protocolVersion,
@@ -264,7 +267,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
 
       _ <- downloadDomainTopologyStateForInitializationIfNeeded(
         syncDomainPersistentStateManager,
-        domainId,
+        synchronizerId,
         topologyFactory.createInitialTopologySnapshotValidator(
           sequencerAggregatedInfo.staticDomainParameters
         ),
@@ -288,7 +291,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
         }
       )
     } yield DomainHandle(
-      domainId,
+      synchronizerId,
       config.domain,
       sequencerAggregatedInfo.staticDomainParameters,
       sequencerClient,
@@ -302,7 +305,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
 
   private def downloadDomainTopologyStateForInitializationIfNeeded(
       syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       topologySnapshotValidator: InitialTopologySnapshotValidator,
       topologyClient: DomainTopologyClientWithInit,
       sequencerClient: SequencerClient,
@@ -314,7 +317,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
   ): EitherT[FutureUnlessShutdown, DomainRegistryError, Unit] =
     performUnlessClosingEitherUSF("check-for-domain-topology-initialization")(
       syncDomainPersistentStateManager.domainTopologyStateInitFor(
-        domainId,
+        synchronizerId,
         participantId,
       )
     ).flatMap {
@@ -349,19 +352,19 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
           )
     }
 
-  // if participant has provided domain id previously, compare and make sure the domain being
+  // if participant has provided synchronizer id previously, compare and make sure the domain being
   // connected to is the one expected
-  private def verifyDomainId(config: DomainConnectionConfig, domainId: DomainId)(implicit
-      loggingContext: ErrorLoggingContext
-  ): Either[DomainIdMismatch.Error, Unit] =
-    config.domainId match {
+  private def verifySynchronizerId(config: DomainConnectionConfig, synchronizerId: SynchronizerId)(
+      implicit loggingContext: ErrorLoggingContext
+  ): Either[SynchronizerIdMismatch.Error, Unit] =
+    config.synchronizerId match {
       case None => Either.unit
-      case Some(configuredDomainId) =>
+      case Some(configuredSynchronizerId) =>
         Either.cond(
-          configuredDomainId == domainId,
+          configuredSynchronizerId == synchronizerId,
           (),
-          DomainRegistryError.HandshakeErrors.DomainIdMismatch
-            .Error(expected = configuredDomainId, observed = domainId),
+          DomainRegistryError.HandshakeErrors.SynchronizerIdMismatch
+            .Error(expected = configuredSynchronizerId, observed = synchronizerId),
         )
     }
 
@@ -431,7 +434,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
 object DomainRegistryHelpers {
 
   private[domain] final case class DomainHandle(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       alias: DomainAlias,
       staticParameters: StaticDomainParameters,
       sequencer: RichSequencerClient,
@@ -462,11 +465,15 @@ object DomainRegistryHelpers {
     error match {
       case DomainAliasManager.GenericError(reason) =>
         DomainRegistryError.HandshakeErrors.HandshakeFailed.Error(reason)
-      case DomainAliasManager.DomainAliasDuplication(domainId, alias, previousDomainId) =>
+      case DomainAliasManager.DomainAliasDuplication(
+            synchronizerId,
+            alias,
+            previousSynchronizerId,
+          ) =>
         DomainRegistryError.HandshakeErrors.DomainAliasDuplication.Error(
-          domainId,
+          synchronizerId,
           alias,
-          previousDomainId,
+          previousSynchronizerId,
         )
     }
 

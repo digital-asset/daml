@@ -58,7 +58,8 @@ final class MediatorRuntime(
   )
 
   val timeService: ServerServiceDefinition = DomainTimeServiceGrpc.bindService(
-    GrpcDomainTimeService.forDomainEntity(mediator.domain, mediator.timeTracker, loggerFactory),
+    GrpcDomainTimeService
+      .forDomainEntity(mediator.synchronizerId, mediator.timeTracker, loggerFactory),
     ec,
   )
   val administrationService: ServerServiceDefinition =
@@ -90,7 +91,7 @@ final class MediatorRuntime(
 object MediatorRuntimeFactory {
   def create(
       mediatorId: MediatorId,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       storage: Storage,
       sequencerCounterTrackerStore: SequencerCounterTrackerStore,
       sequencedEventStore: SequencedEventStore,
@@ -146,7 +147,7 @@ object MediatorRuntimeFactory {
       loggerFactory,
     )
     val mediator = new Mediator(
-      domainId,
+      synchronizerId,
       mediatorId,
       sequencerClient,
       topologyClient,

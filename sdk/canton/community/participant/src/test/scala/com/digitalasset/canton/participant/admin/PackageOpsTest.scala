@@ -95,14 +95,14 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
         val contractId = TransactionBuilder.newCid
         when(activeContractStore.packageUsage(eqTo(pkgId1), eqTo(contractStore))(anyTraceContext))
           .thenReturn(FutureUnlessShutdown.pure(Some(contractId)))
-        val indexedDomain = IndexedDomain.tryCreate(domainId1, 1)
+        val indexedDomain = IndexedDomain.tryCreate(synchronizerId1, 1)
         when(syncDomainPersistentState.indexedDomain).thenReturn(indexedDomain)
 
         packageOps.checkPackageUnused(pkgId1).leftOrFail("active contract with package id").map {
           err =>
             err.pkg shouldBe pkgId1
             err.contract shouldBe contractId
-            err.domain shouldBe domainId1
+            err.synchronizerId shouldBe synchronizerId1
         }
       }.failOnShutdown
     }
@@ -125,20 +125,20 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
     val packagesToBeUnvetted = List(pkgId1, pkgId2)
 
     val missingPkgId = LfPackageId.assertFromString("missing")
-    val domainId1 = DomainId(UniqueIdentifier.tryCreate("domain", "one"))
-    val domainId2 = DomainId(UniqueIdentifier.tryCreate("domain", "two"))
+    val synchronizerId1 = SynchronizerId(UniqueIdentifier.tryCreate("domain", "one"))
+    val synchronizerId2 = SynchronizerId(UniqueIdentifier.tryCreate("domain", "two"))
 
     val syncDomainPersistentState: SyncDomainPersistentState = mock[SyncDomainPersistentState]
-    when(stateManager.getAll).thenReturn(Map(domainId1 -> syncDomainPersistentState))
+    when(stateManager.getAll).thenReturn(Map(synchronizerId1 -> syncDomainPersistentState))
     val topologyComponentFactory = mock[TopologyComponentFactory]
     when(topologyComponentFactory.createHeadTopologySnapshot()(any[ExecutionContext]))
       .thenReturn(anotherDomainTopologySnapshot)
 
     val contractStore = mock[ContractStore]
 
-    when(stateManager.topologyFactoryFor(domainId1, testedProtocolVersion))
+    when(stateManager.topologyFactoryFor(synchronizerId1, testedProtocolVersion))
       .thenReturn(Some(topologyComponentFactory))
-    when(stateManager.topologyFactoryFor(domainId2, testedProtocolVersion)).thenReturn(None)
+    when(stateManager.topologyFactoryFor(synchronizerId2, testedProtocolVersion)).thenReturn(None)
     when(stateManager.contractStore).thenReturn(Eval.now(contractStore))
 
     val activeContractStore = mock[ActiveContractStore]

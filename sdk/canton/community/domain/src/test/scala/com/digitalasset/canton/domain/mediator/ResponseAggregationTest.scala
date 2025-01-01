@@ -44,7 +44,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
 
     def salt(i: Int): Salt = TestSalt.generateSalt(i)
 
-    val domainId = DefaultTestIdentities.domainId
+    val synchronizerId = DefaultTestIdentities.synchronizerId
     val mediator = MediatorGroupRecipient(MediatorGroupIndex.zero)
     val participantId = DefaultTestIdentities.participant1
 
@@ -117,7 +117,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
 
     val commonMetadata = CommonMetadata
       .create(hashOps, testedProtocolVersion)(
-        domainId,
+        synchronizerId,
         mediator,
         salt(5417),
         new UUID(0L, 0L),
@@ -137,7 +137,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
         verdict,
         rootHash,
         confirmingParties,
-        domainId,
+        synchronizerId,
         testedProtocolVersion,
       )
 
@@ -206,7 +206,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
           LocalApprove(testedProtocolVersion),
           someOtherRootHash,
           Set(alice),
-          domainId,
+          synchronizerId,
           testedProtocolVersion,
         )
         val responseTs = requestId.unwrap.plusSeconds(1)
@@ -555,7 +555,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
             testReject("malformed view"),
             informeeMessage.rootHash,
             Set.empty,
-            domainId,
+            synchronizerId,
             testedProtocolVersion,
           )
           val result =
@@ -601,7 +601,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
               testReject(rejectMsg),
               informeeMessage.rootHash,
               Set.empty,
-              domainId,
+              synchronizerId,
               testedProtocolVersion,
             )
           val result =

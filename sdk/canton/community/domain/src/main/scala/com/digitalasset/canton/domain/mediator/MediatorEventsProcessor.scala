@@ -80,10 +80,10 @@ private[mediator] class MediatorEventsProcessor(
         case deliver: Deliver[DefaultOpenEnvelope] =>
           val domainEnvelopes = ProtocolMessage.filterDomainsEnvelopes(
             deliver.batch,
-            deliver.domainId,
+            deliver.synchronizerId,
             (wrongMessages: List[DefaultOpenEnvelope]) => {
-              val wrongDomainIds = wrongMessages.map(_.protocolMessage.domainId)
-              logger.error(s"Received messages with wrong domain ids: $wrongDomainIds")
+              val wrongsynchronizerIds = wrongMessages.map(_.protocolMessage.synchronizerId)
+              logger.error(s"Received messages with wrong synchronizer ids: $wrongsynchronizerIds")
             },
           )
           domainEnvelopes

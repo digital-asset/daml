@@ -8,7 +8,7 @@ nodes.all.foreach { node =>
   node.health.wait_for_running()
 }
 
-val myDomainId = bootstrap.domain(
+val mysynchronizerId =bootstrap.domain(
   "mydomain",
   sequencers = sequencers.all,
   mediators = Seq(mediator1, mediator2),
@@ -30,15 +30,15 @@ participant1.health.ping(participant2)
 // Create party "observabilityExample" and assign it to participant 2 as well
 val party = participant1.parties.enable("observabilityExample")
 import com.digitalasset.canton.console.ParticipantReference
-def addPartyToParticipant(partyId: PartyId, domainId: DomainId, createdAt: ParticipantReference, to: ParticipantReference): Unit = {
+def addPartyToParticipant(partyId: PartyId, synchronizerId: SynchronizerId, createdAt: ParticipantReference, to: ParticipantReference): Unit = {
   Seq(createdAt, to).foreach(participant =>
     participant.topology.party_to_participant_mappings.propose_delta(
       partyId,
       adds = List((to.id, ParticipantPermission.Submission)),
-      store = domainId.filterString,
+      store = synchronizerId.filterString,
     )
   )
 }
-addPartyToParticipant(party, myDomainId, participant1, participant2)
+addPartyToParticipant(party, mySynchronizerId, participant1, participant2)
 
 logger.info("Bootstrap succeeded")

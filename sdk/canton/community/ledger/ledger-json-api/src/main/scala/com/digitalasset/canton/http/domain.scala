@@ -86,7 +86,7 @@ package domain {
   import com.daml.ledger.api.v2.commands.Commands
   import com.digitalasset.daml.lf.data.Ref.{HexString, PackageId, PackageRef}
   import com.digitalasset.canton.fetchcontracts.domain.`fc domain ErrorOps`
-  import com.digitalasset.canton.topology.DomainId
+  import com.digitalasset.canton.topology.SynchronizerId
 
   sealed trait SubmissionIdTag
 
@@ -315,7 +315,7 @@ package domain {
       workflowId: Option[WorkflowId],
       deduplicationPeriod: Option[domain.DeduplicationPeriod],
       disclosedContracts: Option[List[DisclosedContract[TmplId]]],
-      domainId: Option[DomainId],
+      synchronizerId: Option[SynchronizerId],
       packageIdSelectionPreference: Option[List[PackageId]],
   )
 

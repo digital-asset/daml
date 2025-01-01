@@ -151,7 +151,7 @@ class LedgerTimeAwareCommandExecutorSpec
         commandsReference = "",
       ),
       ImmArray.empty,
-      domainId = None,
+      synchronizerId = None,
     )
 
     val instance = new LedgerTimeAwareCommandExecutor(

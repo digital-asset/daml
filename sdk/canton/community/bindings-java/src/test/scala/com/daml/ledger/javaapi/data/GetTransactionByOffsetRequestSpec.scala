@@ -8,16 +8,16 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
-class GetTransactionByEventIdRequestSpec
+class GetTransactionByOffsetRequestSpec
     extends AnyFlatSpec
     with Matchers
     with ScalaCheckDrivenPropertyChecks {
 
-  "GetTransactionByEventIdRequest.fromProto" should "convert Protoc-generated instances to data instances" in forAll(
-    getTransactionByEventIdRequestGen
-  ) { transactionByEventIdRequest =>
+  "GetTransactionByOffsetRequest.fromProto" should "convert Protoc-generated instances to data instances" in forAll(
+    getTransactionByOffsetRequestGen
+  ) { transactionByOffsetRequest =>
     val converted =
-      GetTransactionByEventIdRequest.fromProto(transactionByEventIdRequest)
-    GetTransactionByEventIdRequest.fromProto(converted.toProto) shouldEqual converted
+      GetTransactionByOffsetRequest.fromProto(transactionByOffsetRequest)
+    GetTransactionByOffsetRequest.fromProto(converted.toProto) shouldEqual converted
   }
 }

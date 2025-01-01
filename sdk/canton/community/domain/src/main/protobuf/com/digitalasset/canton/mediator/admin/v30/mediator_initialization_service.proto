@@ -16,8 +16,8 @@ service MediatorInitializationService {
 }
 
 message InitializeMediatorRequest {
-  // the domain identifier
-  string domain_id = 1;
+  // the synchronizer identifier
+  string synchronizer_id = 1;
 
   // how should the member connect to the domain sequencer
   com.digitalasset.canton.admin.domain.v30.SequencerConnections sequencer_connections = 2; // required

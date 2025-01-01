@@ -54,7 +54,7 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
 
   override protected val loggerFactory: NamedLoggerFactory =
     // only add the `store` key for the authorized store. In case this TopologyStateProcessor is for a domain,
-    // it will already have the `domain` key, so having `store` with the same domainId is just a waste
+    // it will already have the `domain` key, so having `store` with the same synchronizerId is just a waste
     if (store.storeId == AuthorizedStore) {
       loggerFactoryParent.append("store", store.storeId.toString)
     } else loggerFactoryParent

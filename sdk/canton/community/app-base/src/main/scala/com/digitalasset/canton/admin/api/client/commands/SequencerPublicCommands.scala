@@ -8,7 +8,7 @@ import com.digitalasset.canton.admin.api.client.data.StaticDomainParameters as C
 import com.digitalasset.canton.domain.api.v30 as proto
 import com.digitalasset.canton.domain.api.v30.SequencerConnect.GetDomainParametersResponse.Parameters
 import com.digitalasset.canton.domain.api.v30.SequencerConnectServiceGrpc.SequencerConnectServiceStub
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.google.protobuf.empty.Empty
 import io.grpc.ManagedChannel
 
@@ -24,24 +24,26 @@ object SequencerPublicCommands {
       proto.SequencerConnectServiceGrpc.stub(channel)
   }
 
-  final case object GetDomainId
+  final case object GetSynchronizerId
       extends SequencerConnectServiceCommands[
         Empty,
-        proto.SequencerConnect.GetDomainIdResponse,
-        DomainId,
+        proto.SequencerConnect.GetSynchronizerIdResponse,
+        SynchronizerId,
       ] {
     override protected def createRequest(): Either[String, Empty] = Right(Empty())
 
     override protected def submitRequest(
         service: SequencerConnectServiceStub,
         request: Empty,
-    ): Future[proto.SequencerConnect.GetDomainIdResponse] =
-      service.getDomainId(proto.SequencerConnect.GetDomainIdRequest())
+    ): Future[proto.SequencerConnect.GetSynchronizerIdResponse] =
+      service.getSynchronizerId(proto.SequencerConnect.GetSynchronizerIdRequest())
 
     override protected def handleResponse(
-        response: proto.SequencerConnect.GetDomainIdResponse
-    ): Either[String, DomainId] =
-      DomainId.fromProtoPrimitive(response.domainId, "domain_id").leftMap(_.message)
+        response: proto.SequencerConnect.GetSynchronizerIdResponse
+    ): Either[String, SynchronizerId] =
+      SynchronizerId
+        .fromProtoPrimitive(response.synchronizerId, "synchronizer_id")
+        .leftMap(_.message)
   }
 
   final case object GetStaticDomainParameters

@@ -15,7 +15,7 @@ message ActiveContract {
 
   // The ID of the domain where the contract was assigned at the time of the export
   // Required
-  string domain_id = 1;
+  string synchronizer_id = 1;
   // The contract and its associated metadata
   // Required
   Contract contract = 2;

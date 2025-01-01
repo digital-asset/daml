@@ -605,7 +605,7 @@ object ReferenceDemoScript {
 
     val bankingSequencers = consoleEnvironment.sequencers.all.filter(_.name == SequencerBanking)
     val bankingMediators = consoleEnvironment.mediators.all.filter(_.name == "mediatorBanking")
-    val bankingDomainId = ConsoleMacros.bootstrap.domain(
+    val bankingSynchronizerId = ConsoleMacros.bootstrap.domain(
       domainName = SequencerBanking,
       sequencers = bankingSequencers,
       mediators = bankingMediators,
@@ -615,7 +615,7 @@ object ReferenceDemoScript {
     )
     val medicalSequencers = consoleEnvironment.sequencers.all.filter(_.name == SequencerMedical)
     val medicalMediators = consoleEnvironment.mediators.all.filter(_.name == "mediatorMedical")
-    val medicalDomainId = ConsoleMacros.bootstrap.domain(
+    val medicalSynchronizerId = ConsoleMacros.bootstrap.domain(
       domainName = SequencerMedical,
       sequencers = medicalSequencers,
       mediators = medicalMediators,
@@ -641,11 +641,11 @@ object ReferenceDemoScript {
 
     // update domain parameters
     banking.topology.domain_parameters.propose_update(
-      bankingDomainId,
+      bankingSynchronizerId,
       _.update(reconciliationInterval = config.PositiveDurationSeconds.ofSeconds(1)),
     )
     medical.topology.domain_parameters.propose_update(
-      medicalDomainId,
+      medicalSynchronizerId,
       _.update(reconciliationInterval = config.PositiveDurationSeconds.ofSeconds(1)),
     )
 

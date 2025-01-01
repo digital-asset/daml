@@ -15,7 +15,7 @@ import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, TimeProof}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
@@ -134,7 +134,7 @@ object UnassignmentViewTree
   */
 final case class UnassignmentCommonData private (
     override val salt: Salt,
-    sourceDomain: Source[DomainId],
+    sourceDomain: Source[SynchronizerId],
     sourceMediatorGroup: MediatorGroupRecipient,
     stakeholders: Stakeholders,
     reassigningParticipants: Set[ParticipantId],
@@ -198,7 +198,7 @@ object UnassignmentCommonData
 
   def create(hashOps: HashOps)(
       salt: Salt,
-      sourceDomain: Source[DomainId],
+      sourceDomain: Source[SynchronizerId],
       sourceMediatorGroup: MediatorGroupRecipient,
       stakeholders: Stakeholders,
       reassigningParticipants: Set[ParticipantId],
@@ -234,7 +234,9 @@ object UnassignmentCommonData
 
     for {
       salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
-      sourceDomain <- DomainId.fromProtoPrimitive(sourceDomainP, "source_domain").map(Source(_))
+      sourceDomain <- SynchronizerId
+        .fromProtoPrimitive(sourceDomainP, "source_domain")
+        .map(Source(_))
       sourceMediatorGroup <- ProtoConverter.parseNonNegativeInt(
         "source_mediator_group",
         sourceMediatorGroupP,
@@ -279,7 +281,7 @@ object UnassignmentCommonData
 final case class UnassignmentView private (
     override val salt: Salt,
     contract: SerializableContract,
-    targetDomain: Target[DomainId],
+    targetDomain: Target[SynchronizerId],
     targetTimeProof: TimeProof,
     targetProtocolVersion: Target[ProtocolVersion],
     reassignmentCounter: ReassignmentCounter,
@@ -338,7 +340,7 @@ object UnassignmentView
   def create(hashOps: HashOps)(
       salt: Salt,
       contract: SerializableContract,
-      targetDomain: Target[DomainId],
+      targetDomain: Target[SynchronizerId],
       targetTimeProof: TimeProof,
       sourceProtocolVersion: Source[ProtocolVersion],
       targetProtocolVersion: Target[ProtocolVersion],
@@ -367,7 +369,7 @@ object UnassignmentView
 
     for {
       salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
-      targetDomain <- DomainId.fromProtoPrimitive(targetDomainP, "targetDomain")
+      targetDomain <- SynchronizerId.fromProtoPrimitive(targetDomainP, "targetDomain")
       targetProtocolVersion <- ProtocolVersion.fromProtoPrimitive(targetProtocolVersionP)
       targetTimeProof <- ProtoConverter
         .required("targetTimeProof", targetTimeProofP)
@@ -408,9 +410,9 @@ final case class FullUnassignmentTree(tree: UnassignmentViewTree)
   override def reassignmentRef: ContractIdRef = ContractIdRef(contractId)
 
   // Domains
-  override def domainId: DomainId = sourceDomain.unwrap
-  override def sourceDomain: Source[DomainId] = commonData.sourceDomain
-  override def targetDomain: Target[DomainId] = view.targetDomain
+  override def synchronizerId: SynchronizerId = sourceDomain.unwrap
+  override def sourceDomain: Source[SynchronizerId] = commonData.sourceDomain
+  override def targetDomain: Target[SynchronizerId] = view.targetDomain
   def targetTimeProof: TimeProof = view.targetTimeProof
   def targetProtocolVersion: Target[ProtocolVersion] = view.targetProtocolVersion
 

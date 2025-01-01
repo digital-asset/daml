@@ -14,7 +14,7 @@ import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf.ByteString
 
@@ -43,7 +43,7 @@ class DbMediatorDomainConfigurationStore(
       rowO <-
         storage
           .queryUnlessShutdown(
-            sql"""select domain_id, static_domain_parameters, sequencer_connection
+            sql"""select synchronizer_id, static_domain_parameters, sequencer_connection
             from mediator_domain_configuration #${storage.limit(1)}""".as[SerializedRow].headOption,
             "fetch-configuration",
           )
@@ -60,7 +60,7 @@ class DbMediatorDomainConfigurationStore(
   override def saveConfiguration(configuration: MediatorDomainConfiguration)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
-    val (domainId, domainParameters, sequencerConnection) = serialize(
+    val (synchronizerId, domainParameters, sequencerConnection) = serialize(
       configuration
     )
 
@@ -69,14 +69,14 @@ class DbMediatorDomainConfigurationStore(
         storage.profile match {
           case _: DbStorage.Profile.H2 =>
             sqlu"""merge into mediator_domain_configuration
-                   (lock, domain_id, static_domain_parameters, sequencer_connection)
+                   (lock, synchronizer_id, static_domain_parameters, sequencer_connection)
                    values
-                   ($singleRowLockValue, $domainId, $domainParameters, $sequencerConnection)"""
+                   ($singleRowLockValue, $synchronizerId, $domainParameters, $sequencerConnection)"""
           case _: DbStorage.Profile.Postgres =>
-            sqlu"""insert into mediator_domain_configuration (domain_id, static_domain_parameters, sequencer_connection)
-              values ($domainId, $domainParameters, $sequencerConnection)
+            sqlu"""insert into mediator_domain_configuration (synchronizer_id, static_domain_parameters, sequencer_connection)
+              values ($synchronizerId, $domainParameters, $sequencerConnection)
               on conflict (lock) do update set
-                domain_id = excluded.domain_id,
+                synchronizer_id = excluded.synchronizer_id,
                 static_domain_parameters = excluded.static_domain_parameters,
                 sequencer_connection = excluded.sequencer_connection"""
         },
@@ -86,12 +86,12 @@ class DbMediatorDomainConfigurationStore(
 
   private def serialize(config: MediatorDomainConfiguration): SerializedRow = {
     val MediatorDomainConfiguration(
-      domainId,
+      synchronizerId,
       domainParameters,
       sequencerConnections,
     ) = config
     (
-      domainId.toLengthLimitedString,
+      synchronizerId.toLengthLimitedString,
       domainParameters.toByteString,
       sequencerConnections.toByteString(domainParameters.protocolVersion),
     )
@@ -101,13 +101,13 @@ class DbMediatorDomainConfigurationStore(
       row: SerializedRow
   ): ParsingResult[MediatorDomainConfiguration] =
     for {
-      domainId <- DomainId.fromProtoPrimitive(row._1.unwrap, "domainId")
+      synchronizerId <- SynchronizerId.fromProtoPrimitive(row._1.unwrap, "synchronizerId")
       domainParameters <- StaticDomainParameters.fromTrustedByteString(
         row._2
       )
       sequencerConnections <- SequencerConnections.fromTrustedByteString(row._3)
     } yield MediatorDomainConfiguration(
-      domainId,
+      synchronizerId,
       domainParameters,
       sequencerConnections,
     )

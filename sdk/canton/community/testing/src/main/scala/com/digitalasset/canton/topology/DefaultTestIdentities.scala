@@ -19,7 +19,7 @@ object DefaultTestIdentities {
 
   val namespace = Namespace(Fingerprint.tryCreate("default"))
   val uid = UniqueIdentifier.tryCreate("da", namespace)
-  val domainId = DomainId(uid)
+  val synchronizerId = SynchronizerId(uid)
 
   val daSequencerId = SequencerId(uid)
   val daMediator = MediatorId(uid)

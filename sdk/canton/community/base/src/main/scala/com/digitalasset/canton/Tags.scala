@@ -39,7 +39,7 @@ object DomainAlias extends LengthLimitedStringWrapperCompanion[String255, Domain
   * - SequencerAlias is a node-local concept. This means that two different participants
   *   may assign different aliases to the same sequencer or group of HA sequencer replicas.
   *
-  * - The uniqueness of a SequencerAlias is only enforced within a given domain ID. This
+  * - The uniqueness of a SequencerAlias is only enforced within a given synchronizer id. This
   *   means a node can use the same sequencer alias for different sequencers as long as
   *   these sequencers belong to different domains.
   */

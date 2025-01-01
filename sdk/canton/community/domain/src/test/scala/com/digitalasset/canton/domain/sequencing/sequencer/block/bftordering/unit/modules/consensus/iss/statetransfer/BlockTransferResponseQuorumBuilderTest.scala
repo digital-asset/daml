@@ -115,7 +115,7 @@ object BlockTransferResponseQuorumBuilderTest {
               aSequencerId,
             )
             .fakeSign,
-          // TODO(#19661): Test commits once they are taken into account
+          // TODO(#22898): Test commits once they are taken into account
           commits = Seq.empty,
         )
       ),

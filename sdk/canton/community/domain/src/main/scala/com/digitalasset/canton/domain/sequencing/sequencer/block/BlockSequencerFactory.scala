@@ -32,7 +32,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.sequencing.traffic.EventCostCalculator
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.{DomainId, SequencerId}
+import com.digitalasset.canton.topology.{SequencerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.ProtocolVersion
@@ -92,7 +92,7 @@ abstract class BlockSequencerFactory(
 
   protected def createBlockSequencer(
       name: String,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       cryptoApi: DomainSyncCryptoClient,
       stateManager: BlockSequencerStateManager,
       store: SequencerBlockStore,
@@ -173,7 +173,7 @@ abstract class BlockSequencerFactory(
     )
 
   override final def create(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       sequencerId: SequencerId,
       clock: Clock,
       driverClock: Clock,
@@ -228,14 +228,14 @@ abstract class BlockSequencerFactory(
       trafficConfig,
     )
 
-    val domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
+    val domainLoggerFactory = loggerFactory.append("synchronizerId", synchronizerId.toString)
 
     for {
       initialBlockHeight <- FutureUnlessShutdown(Future.successful(initialBlockHeight))
       _ <- FutureUnlessShutdown.outcomeF(balanceManager.initialize)
       stateManager <- FutureUnlessShutdown.lift(
         BlockSequencerStateManager.create(
-          domainId,
+          synchronizerId,
           store,
           trafficConsumedStore,
           nodeParameters.enableAdditionalConsistencyChecks,
@@ -246,7 +246,7 @@ abstract class BlockSequencerFactory(
     } yield {
       val sequencer = createBlockSequencer(
         name,
-        domainId,
+        synchronizerId,
         domainSyncCryptoApi,
         stateManager,
         store,

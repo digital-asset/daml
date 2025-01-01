@@ -17,7 +17,12 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
-import com.digitalasset.canton.topology.{DomainId, SequencerGroup, SequencerId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{
+  SequencerGroup,
+  SequencerId,
+  SynchronizerId,
+  UniqueIdentifier,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.AnyWordSpec
@@ -101,6 +106,6 @@ object CantonOrderingTopologyProviderTest {
       ),
       validFrom = aTimestamp,
       validUntil = None,
-      domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("da::default")),
+      synchronizerId = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("da::default")),
     )
 }

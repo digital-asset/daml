@@ -18,7 +18,7 @@ public final class TopologyTransaction {
 
   @NonNull private final String updateId;
   @NonNull private final Long offset;
-  @NonNull private final String domainId;
+  @NonNull private final String synchronizerId;
   @NonNull private final Instant recordTime;
   @NonNull private final List<@NonNull TopologyEvent> events;
   private final TraceContextOuterClass.@NonNull TraceContext traceContext;
@@ -26,13 +26,13 @@ public final class TopologyTransaction {
   public TopologyTransaction(
       @NonNull String updateId,
       @NonNull Long offset,
-      @NonNull String domainId,
+      @NonNull String synchronizerId,
       @NonNull Instant recordTime,
       @NonNull List<@NonNull TopologyEvent> events,
       TraceContextOuterClass.@NonNull TraceContext traceContext) {
     this.updateId = updateId;
     this.offset = offset;
-    this.domainId = domainId;
+    this.synchronizerId = synchronizerId;
     this.recordTime = recordTime;
     this.events = events;
     this.traceContext = traceContext;
@@ -54,8 +54,8 @@ public final class TopologyTransaction {
   }
 
   @NonNull
-  public String getDomainId() {
-    return domainId;
+  public String getSynchronizerId() {
+    return synchronizerId;
   }
 
   public TraceContextOuterClass.@NonNull TraceContext getTraceContext() {
@@ -76,7 +76,7 @@ public final class TopologyTransaction {
     return new TopologyTransaction(
         topologyTransaction.getUpdateId(),
         topologyTransaction.getOffset(),
-        topologyTransaction.getDomainId(),
+        topologyTransaction.getSynchronizerId(),
         Utils.instantFromProto(topologyTransaction.getRecordTime()),
         events,
         topologyTransaction.getTraceContext());
@@ -87,7 +87,7 @@ public final class TopologyTransaction {
         .setUpdateId(updateId)
         .addAllEvents(events.stream().map(TopologyEvent::toProtoEvent).collect(Collectors.toList()))
         .setOffset(offset)
-        .setDomainId(domainId)
+        .setSynchronizerId(synchronizerId)
         .setTraceContext(traceContext)
         .setRecordTime(Utils.instantToProto(recordTime))
         .build();
@@ -103,8 +103,8 @@ public final class TopologyTransaction {
         + ", offset='"
         + offset
         + '\''
-        + ", domainId='"
-        + domainId
+        + ", synchronizerId='"
+        + synchronizerId
         + '\''
         + ", traceContext="
         + traceContext
@@ -121,7 +121,7 @@ public final class TopologyTransaction {
     return Objects.equals(updateId, that.updateId)
         && Objects.equals(events, that.events)
         && Objects.equals(offset, that.offset)
-        && Objects.equals(domainId, that.domainId)
+        && Objects.equals(synchronizerId, that.synchronizerId)
         && Objects.equals(traceContext, that.traceContext)
         && Objects.equals(recordTime, that.recordTime);
   }
@@ -129,6 +129,6 @@ public final class TopologyTransaction {
   @Override
   public int hashCode() {
 
-    return Objects.hash(updateId, events, offset, domainId, traceContext, recordTime);
+    return Objects.hash(updateId, events, offset, synchronizerId, traceContext, recordTime);
   }
 }

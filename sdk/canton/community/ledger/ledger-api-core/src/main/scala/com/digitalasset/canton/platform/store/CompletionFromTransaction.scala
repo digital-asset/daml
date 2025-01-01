@@ -27,7 +27,7 @@ object CompletionFromTransaction {
       commandId: String,
       updateId: String,
       applicationId: String,
-      domainId: String,
+      synchronizerId: String,
       traceContext: TraceContext,
       optSubmissionId: Option[String] = None,
       optDeduplicationOffset: Option[Long] = None,
@@ -48,7 +48,7 @@ object CompletionFromTransaction {
           optDeduplicationDurationSeconds = optDeduplicationDurationSeconds,
           optDeduplicationDurationNanos = optDeduplicationDurationNanos,
           offset = offset.unwrap,
-          domainTime = Some(toApiDomainTime(domainId, recordTime)),
+          domainTime = Some(toApiDomainTime(synchronizerId, recordTime)),
         )
       )
     )
@@ -60,7 +60,7 @@ object CompletionFromTransaction {
       commandId: String,
       status: StatusProto,
       applicationId: String,
-      domainId: String,
+      synchronizerId: String,
       traceContext: TraceContext,
       optSubmissionId: Option[String] = None,
       optDeduplicationOffset: Option[Long] = None,
@@ -81,14 +81,14 @@ object CompletionFromTransaction {
           optDeduplicationDurationSeconds = optDeduplicationDurationSeconds,
           optDeduplicationDurationNanos = optDeduplicationDurationNanos,
           offset = offset.unwrap,
-          domainTime = Some(toApiDomainTime(domainId, recordTime)),
+          domainTime = Some(toApiDomainTime(synchronizerId, recordTime)),
         )
       )
     )
 
-  private def toApiDomainTime(domainId: String, recordTime: Timestamp): DomainTime =
+  private def toApiDomainTime(synchronizerId: String, recordTime: Timestamp): DomainTime =
     DomainTime.of(
-      domainId = domainId,
+      synchronizerId = synchronizerId,
       recordTime = Some(fromInstant(recordTime.toInstant)),
     )
 

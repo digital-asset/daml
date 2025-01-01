@@ -28,10 +28,10 @@ import com.digitalasset.canton.sequencing.protocol.{
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.{
-  DomainId,
   MediatorGroup,
   MediatorId,
   ParticipantId,
+  SynchronizerId,
   TestingIdentityFactory,
   TestingTopology,
   UniqueIdentifier,
@@ -165,20 +165,23 @@ class DefaultVerdictSenderTest
       transactionMediatorGroup: MediatorGroupRecipient,
   ) {
 
-    val domainId: DomainId = DomainId(
+    val synchronizerId: SynchronizerId = SynchronizerId(
       UniqueIdentifier.tryFromProtoPrimitive("domain::test")
     )
     val testTopologyTimestamp = CantonTimestamp.Epoch
 
     val factory =
-      new ExampleTransactionFactory()(domainId = domainId, mediatorGroup = transactionMediatorGroup)
+      new ExampleTransactionFactory()(
+        synchronizerId = synchronizerId,
+        mediatorGroup = transactionMediatorGroup,
+      )
     val mediatorRecipient: MediatorGroupRecipient = factory.mediatorGroup
     val fullInformeeTree = factory.MultipleRootsAndViewNestings.fullInformeeTree
     val informeeMessage =
       InformeeMessage(fullInformeeTree, Signature.noSignature)(testedProtocolVersion)
     val rootHashMessage = RootHashMessage(
       fullInformeeTree.transactionId.toRootHash,
-      domainId,
+      synchronizerId,
       testedProtocolVersion,
       ViewType.TransactionViewType,
       testTopologyTimestamp,
@@ -203,7 +206,7 @@ class DefaultVerdictSenderTest
     val domainSyncCryptoApi: DomainSyncCryptoClient =
       if (testedProtocolVersion >= ProtocolVersion.v33) {
         val topology = TestingTopology.from(
-          Set(domainId),
+          Set(synchronizerId),
           Map(
             submitter -> Map(participant -> ParticipantPermission.Confirmation),
             signatory ->
@@ -220,10 +223,10 @@ class DefaultVerdictSenderTest
           dynamicDomainParameters = initialDomainParameters,
         )
 
-        identityFactory.forOwnerAndDomain(mediatorId, domainId)
+        identityFactory.forOwnerAndDomain(mediatorId, synchronizerId)
       } else {
         val topology = TestingTopology.from(
-          Set(domainId),
+          Set(synchronizerId),
           Map(
             submitter -> Map(participant -> ParticipantPermission.Confirmation),
             signatory ->
@@ -247,7 +250,7 @@ class DefaultVerdictSenderTest
           dynamicDomainParameters = initialDomainParameters,
         )
 
-        identityFactory.forOwnerAndDomain(mediatorId, domainId)
+        identityFactory.forOwnerAndDomain(mediatorId, synchronizerId)
       }
 
     private val sequencerClientSend: TestSequencerClientSend = new TestSequencerClientSend

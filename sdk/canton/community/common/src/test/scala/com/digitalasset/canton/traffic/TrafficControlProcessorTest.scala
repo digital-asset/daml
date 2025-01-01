@@ -31,7 +31,7 @@ import scala.concurrent.Future
 
 class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExecutionContext {
 
-  private val domainId = DefaultTestIdentities.domainId
+  private val synchronizerId = DefaultTestIdentities.synchronizerId
   private val participantId = DefaultTestIdentities.participant1
 
   private val ts1 = CantonTimestamp.ofEpochSecond(1)
@@ -43,7 +43,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
 
   private val domainCrypto = TestingTopology(domainParameters = List.empty)
     .build(loggerFactory)
-    .forOwnerAndDomain(DefaultTestIdentities.sequencerId, domainId)
+    .forOwnerAndDomain(DefaultTestIdentities.sequencerId, synchronizerId)
 
   private val dummySignature = SymbolicCrypto.emptySignature
 
@@ -51,7 +51,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
     new TopologyTransactionTestFactory(loggerFactory, initEc = parallelExecutionContext)
 
   private lazy val topoTx: TopologyTransactionsBroadcast = TopologyTransactionsBroadcast(
-    domainId,
+    synchronizerId,
     List(factory.ns1k1_k1),
     testedProtocolVersion,
   )
@@ -63,7 +63,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
       participantId,
       PositiveInt.one,
       NonNegativeLong.tryCreate(100),
-      domainId,
+      synchronizerId,
       testedProtocolVersion,
     )
 
@@ -96,7 +96,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
   ) = {
     val tcp = new TrafficControlProcessor(
       domainCrypto,
-      domainId,
+      synchronizerId,
       Option.empty[CantonTimestamp],
       loggerFactory,
     )
@@ -127,7 +127,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
     Deliver.create(
       sc,
       ts,
-      domainId,
+      synchronizerId,
       None,
       batch,
       None,
@@ -142,7 +142,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
     DeliverError.create(
       sc,
       ts,
-      domainId,
+      synchronizerId,
       MessageId.fromUuid(new UUID(0, 1)),
       SequencerErrors.SubmissionRequestRefused("Some error"),
       testedProtocolVersion,

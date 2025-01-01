@@ -95,7 +95,7 @@ final case class ResponseAggregation[VKEY](
       localVerdict,
       rootHash,
       confirmingParties,
-      _domainId,
+      _synchronizerId,
     ) = response
     val viewKeyO = ViewKey[VKEY].keyOfResponse(response)
 

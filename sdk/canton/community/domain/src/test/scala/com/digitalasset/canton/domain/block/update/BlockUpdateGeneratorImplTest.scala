@@ -18,7 +18,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerMember
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.sequencing.protocol.{AllMembersOfDomain, Recipients}
-import com.digitalasset.canton.topology.DefaultTestIdentities.{domainId, sequencerId}
+import com.digitalasset.canton.topology.DefaultTestIdentities.{sequencerId, synchronizerId}
 import com.digitalasset.canton.topology.TestingIdentityFactory
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, HasExecutorService}
@@ -48,13 +48,13 @@ class BlockUpdateGeneratorImplTest
         val syncCryptoApiFake =
           TestingIdentityFactory(loggerFactory).forOwnerAndDomain(
             sequencerId,
-            domainId,
+            synchronizerId,
             aTimestamp,
           )
 
         val blockUpdateGenerator =
           new BlockUpdateGeneratorImpl(
-            domainId,
+            synchronizerId,
             testedProtocolVersion,
             syncCryptoApiFake,
             sequencerId,
@@ -90,13 +90,13 @@ class BlockUpdateGeneratorImplTest
         val syncCryptoApiFake =
           TestingIdentityFactory(loggerFactory).forOwnerAndDomain(
             sequencerId,
-            domainId,
+            synchronizerId,
             topologyTickEventTimestamp,
           )
 
         val blockUpdateGenerator =
           new BlockUpdateGeneratorImpl(
-            domainId,
+            synchronizerId,
             testedProtocolVersion,
             syncCryptoApiFake,
             sequencerId,

@@ -24,10 +24,10 @@ import com.digitalasset.canton.sequencing.protocol.{HandshakeRequest, HandshakeR
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.{
-  DomainId,
   Member,
   ParticipantId,
   SequencerId,
+  SynchronizerId,
   UniqueIdentifier,
 }
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
@@ -72,7 +72,7 @@ class GrpcSequencerConnectClient(
       response <- CantonGrpcUtil
         .sendSingleGrpcRequest(
           serverName = domainAlias.unwrap,
-          requestDescription = "get domain id and sequencer id",
+          requestDescription = "get synchronizer id and sequencer id",
           channelBuilder = builder,
           stubFactory = v30.SequencerConnectServiceGrpc.stub,
           timeout = timeouts.network.unwrap,
@@ -81,14 +81,14 @@ class GrpcSequencerConnectClient(
           onShutdownRunner = this,
           retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
           token = None,
-        )(_.getDomainId(v30.SequencerConnect.GetDomainIdRequest()))
+        )(_.getSynchronizerId(v30.SequencerConnect.GetSynchronizerIdRequest()))
         .leftMap(err => Error.Transport(err.toString))
 
-      domainId = DomainId
-        .fromProtoPrimitive(response.domainId, "domainId")
+      synchronizerId = SynchronizerId
+        .fromProtoPrimitive(response.synchronizerId, "synchronizerId")
         .leftMap[Error](err => Error.DeserializationFailure(err.toString))
 
-      domainId <- EitherT.fromEither[FutureUnlessShutdown](domainId)
+      synchronizerId <- EitherT.fromEither[FutureUnlessShutdown](synchronizerId)
 
       sequencerId = UniqueIdentifier
         .fromProtoPrimitive(response.sequencerUid, "sequencerUid")
@@ -96,16 +96,16 @@ class GrpcSequencerConnectClient(
         .map(SequencerId(_))
 
       sequencerId <- EitherT.fromEither[FutureUnlessShutdown](sequencerId)
-    } yield DomainClientBootstrapInfo(domainId, sequencerId)
+    } yield DomainClientBootstrapInfo(synchronizerId, sequencerId)
 
   override def getDomainParameters(
-      domainIdentifier: String
+      synchronizerIdentifier: String
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Error, StaticDomainParameters] = for {
     responseP <- CantonGrpcUtil
       .sendSingleGrpcRequest(
-        serverName = domainIdentifier,
+        serverName = synchronizerIdentifier,
         requestDescription = "get domain parameters",
         channelBuilder = builder,
         stubFactory = v30.SequencerConnectServiceGrpc.stub,
@@ -126,30 +126,31 @@ class GrpcSequencerConnectClient(
 
   } yield domainParameters
 
-  override def getDomainId(
-      domainIdentifier: String
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Error, DomainId] = for {
-    responseP <- CantonGrpcUtil
-      .sendSingleGrpcRequest(
-        serverName = domainIdentifier,
-        requestDescription = "get domain id",
-        channelBuilder = builder,
-        stubFactory = v30.SequencerConnectServiceGrpc.stub,
-        timeout = timeouts.network.unwrap,
-        logger = logger,
-        logPolicy = CantonGrpcUtil.SilentLogPolicy,
-        onShutdownRunner = this,
-        retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
-        token = None,
-      )(_.getDomainId(v30.SequencerConnect.GetDomainIdRequest()))
-      .leftMap(err => Error.Transport(err.toString))
+  override def getSynchronizerId(
+      synchronizerIdentifier: String
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Error, SynchronizerId] =
+    for {
+      responseP <- CantonGrpcUtil
+        .sendSingleGrpcRequest(
+          serverName = synchronizerIdentifier,
+          requestDescription = "get synchronizer id",
+          channelBuilder = builder,
+          stubFactory = v30.SequencerConnectServiceGrpc.stub,
+          timeout = timeouts.network.unwrap,
+          logger = logger,
+          logPolicy = CantonGrpcUtil.SilentLogPolicy,
+          onShutdownRunner = this,
+          retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
+          token = None,
+        )(_.getSynchronizerId(v30.SequencerConnect.GetSynchronizerIdRequest()))
+        .leftMap(err => Error.Transport(err.toString))
 
-    domainId <- EitherT.fromEither[FutureUnlessShutdown](
-      DomainId
-        .fromProtoPrimitive(responseP.domainId, "domain_id")
-        .leftMap[Error](err => Error.DeserializationFailure(err.toString))
-    )
-  } yield domainId
+      synchronizerId <- EitherT.fromEither[FutureUnlessShutdown](
+        SynchronizerId
+          .fromProtoPrimitive(responseP.synchronizerId, "synchronizer_id")
+          .leftMap[Error](err => Error.DeserializationFailure(err.toString))
+      )
+    } yield synchronizerId
 
   override def handshake(
       domainAlias: DomainAlias,

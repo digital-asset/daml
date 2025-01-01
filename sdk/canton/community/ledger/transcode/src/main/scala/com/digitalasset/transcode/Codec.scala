@@ -3,8 +3,6 @@
 
 package com.digitalasset.transcode
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.IdString
 import com.digitalasset.transcode.schema.DynamicValue
 
 /** Codec encodes and decodes target protocol to and from an intermediary
@@ -28,7 +26,3 @@ class UnexpectedFieldsException(val unexpectedFields: Set[String])
 class MissingFieldException(
     val missingField: String
 ) extends Exception(s"Missing fields: $missingField") {}
-
-// TODO (i19398) ensure this is handled properly
-class UnknownChoiceException(templateId: Ref.Identifier, choiceName: IdString.Name)
-    extends Exception(s"Cannot find choice: $templateId:$choiceName") {}

@@ -54,7 +54,7 @@ import com.digitalasset.canton.store.SequencedEventStore.{
 }
 import com.digitalasset.canton.store.{SequencedEventRangeOverlapsWithPruning, SequencedEventStore}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.OptionUtils.OptionExtension
 import com.digitalasset.canton.util.ReassignmentTag.Source
@@ -76,15 +76,18 @@ import scala.collection.immutable.SortedMap
 import scala.concurrent.{ExecutionContext, Future}
 
 trait JournalGarbageCollectorControl {
-  def disable(domainId: DomainId)(implicit traceContext: TraceContext): Future[Unit]
-  def enable(domainId: DomainId)(implicit traceContext: TraceContext): Unit
+  def disable(synchronizerId: SynchronizerId)(implicit traceContext: TraceContext): Future[Unit]
+  def enable(synchronizerId: SynchronizerId)(implicit traceContext: TraceContext): Unit
 }
 
 object JournalGarbageCollectorControl {
   object NoOp extends JournalGarbageCollectorControl {
-    override def disable(domainId: DomainId)(implicit traceContext: TraceContext): Future[Unit] =
+    override def disable(synchronizerId: SynchronizerId)(implicit
+        traceContext: TraceContext
+    ): Future[Unit] =
       Future.unit
-    override def enable(domainId: DomainId)(implicit traceContext: TraceContext): Unit = ()
+    override def enable(synchronizerId: SynchronizerId)(implicit traceContext: TraceContext): Unit =
+      ()
   }
 }
 
@@ -119,7 +122,7 @@ final class SyncStateInspection(
   )(implicit
       traceContext: TraceContext
   ): Future[
-    Map[DomainId, SortedMap[LfContractId, Seq[(CantonTimestamp, ActivenessChangeDetail)]]]
+    Map[SynchronizerId, SortedMap[LfContractId, Seq[(CantonTimestamp, ActivenessChangeDetail)]]]
   ] =
     syncDomainPersistentStateManager.getAll.toList
       .map { case (id, state) =>
@@ -170,15 +173,15 @@ final class SyncStateInspection(
     )
 
   def findContractPayloads(
-      domain: DomainId,
+      synchronizerId: SynchronizerId,
       contractIds: Seq[LfContractId],
       limit: Int,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[LfContractId, SerializableContract]] = {
     val domainAlias = syncDomainPersistentStateManager
-      .aliasForDomainId(domain)
-      .getOrElse(throw new IllegalArgumentException(s"no such domain [$domain]"))
+      .aliasForSynchronizerId(synchronizerId)
+      .getOrElse(throw new IllegalArgumentException(s"no such domain [$synchronizerId]"))
 
     NonEmpty.from(contractIds) match {
       case None =>
@@ -187,7 +190,7 @@ final class SyncStateInspection(
         val domainAcsInspection =
           getOrFail(
             syncDomainPersistentStateManager
-              .get(domain),
+              .get(synchronizerId),
             domainAlias,
           ).acsInspection
 
@@ -199,8 +202,8 @@ final class SyncStateInspection(
   }
 
   def lookupReassignmentIds(
-      targetDomain: DomainId,
-      sourceDomainId: DomainId,
+      targetSynchronizerId: SynchronizerId,
+      sourceSynchronizerId: SynchronizerId,
       contractIds: Seq[LfContractId],
       minUnassignmentTs: Option[CantonTimestamp] = None,
       minCompletionTs: Option[CantonTimestamp] = None,
@@ -208,18 +211,18 @@ final class SyncStateInspection(
     timeouts.inspection
       .awaitUS(functionFullName) {
         syncDomainPersistentStateManager
-          .get(targetDomain)
+          .get(targetSynchronizerId)
           .traverse(
             _.reassignmentStore.findContractReassignmentId(
               contractIds,
-              Some(Source(sourceDomainId)),
+              Some(Source(sourceSynchronizerId)),
               minUnassignmentTs,
               minCompletionTs,
             )
           )
       }
       .asGrpcResponse
-      .getOrElse(throw new IllegalArgumentException(s"no such domain [$targetDomain]"))
+      .getOrElse(throw new IllegalArgumentException(s"no such domain [$targetSynchronizerId]"))
 
   @VisibleForTesting
   def acsPruningStatus(
@@ -235,31 +238,31 @@ final class SyncStateInspection(
       .asGrpcResponse
 
   private def disableJournalCleaningForFilter(
-      domains: Map[DomainId, SyncDomainPersistentState],
-      filterDomain: DomainId => Boolean,
+      domains: Map[SynchronizerId, SyncDomainPersistentState],
+      filterSynchronizerId: SynchronizerId => Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, AcsInspectionError, Unit] = {
     val disabledCleaningF = Future
       .sequence(domains.collect {
-        case (domainId, _) if filterDomain(domainId) =>
-          journalCleaningControl.disable(domainId)
+        case (synchronizerId, _) if filterSynchronizerId(synchronizerId) =>
+          journalCleaningControl.disable(synchronizerId)
       })
       .map(_ => ())
     EitherT.right(disabledCleaningF)
   }
 
-  def allProtocolVersions: Map[DomainId, ProtocolVersion] =
+  def allProtocolVersions: Map[SynchronizerId, ProtocolVersion] =
     syncDomainPersistentStateManager.getAll.view
       .mapValues(_.staticDomainParameters.protocolVersion)
       .toMap
 
   def exportAcsDumpActiveContracts(
       outputStream: OutputStream,
-      filterDomain: DomainId => Boolean,
+      filterSynchronizerId: SynchronizerId => Boolean,
       parties: Set[LfPartyId],
       timestamp: Option[CantonTimestamp],
-      contractDomainRenames: Map[DomainId, (DomainId, ProtocolVersion)],
+      contractDomainRenames: Map[SynchronizerId, (SynchronizerId, ProtocolVersion)],
       skipCleanTimestampCheck: Boolean,
       partiesOffboarding: Boolean,
   )(implicit
@@ -268,28 +271,28 @@ final class SyncStateInspection(
     val allDomains = syncDomainPersistentStateManager.getAll
 
     // disable journal cleaning for the duration of the dump
-    disableJournalCleaningForFilter(allDomains, filterDomain)
+    disableJournalCleaningForFilter(allDomains, filterSynchronizerId)
       .mapK(FutureUnlessShutdown.outcomeK)
       .flatMap { _ =>
         MonadUtil.sequentialTraverse_(allDomains) {
-          case (domainId, state) if filterDomain(domainId) =>
-            val (domainIdForExport, protocolVersion) =
+          case (synchronizerId, state) if filterSynchronizerId(synchronizerId) =>
+            val (synchronizerIdForExport, protocolVersion) =
               contractDomainRenames.getOrElse(
-                domainId,
-                (domainId, state.staticDomainParameters.protocolVersion),
+                synchronizerId,
+                (synchronizerId, state.staticDomainParameters.protocolVersion),
               )
             val acsInspection = state.acsInspection
 
             val ret = for {
               result <- acsInspection
                 .forEachVisibleActiveContract(
-                  domainId,
+                  synchronizerId,
                   parties,
                   timestamp,
                   skipCleanTimestampCheck = skipCleanTimestampCheck,
                 ) { case (contract, reassignmentCounter) =>
                   val activeContract =
-                    ActiveContract.create(domainIdForExport, contract, reassignmentCounter)(
+                    ActiveContract.create(synchronizerIdForExport, contract, reassignmentCounter)(
                       protocolVersion
                     )
 
@@ -297,7 +300,7 @@ final class SyncStateInspection(
                     case Left(errorMessage) =>
                       Left(
                         AcsInspectionError.SerializationIssue(
-                          domainId,
+                          synchronizerId,
                           contract.contractId,
                           errorMessage,
                         )
@@ -312,10 +315,10 @@ final class SyncStateInspection(
                 case Some((allStakeholders, snapshotTs)) if partiesOffboarding =>
                   for {
                     syncDomain <- EitherT.fromOption[FutureUnlessShutdown](
-                      connectedDomainsLookup.get(domainId),
+                      connectedDomainsLookup.get(synchronizerId),
                       AcsInspectionError.OffboardingParty(
-                        domainId,
-                        s"Unable to get topology client for domain $domainId; check domain connectivity.",
+                        synchronizerId,
+                        s"Unable to get topology client for domain $synchronizerId; check domain connectivity.",
                       ),
                     )
 
@@ -335,7 +338,7 @@ final class SyncStateInspection(
             } yield ()
             // re-enable journal cleaning after the dump
             ret.thereafter { _ =>
-              journalCleaningControl.enable(domainId)
+              journalCleaningControl.enable(synchronizerId)
             }
           case _ =>
             EitherTUtil.unitUS
@@ -368,7 +371,7 @@ final class SyncStateInspection(
     }
 
   def activeContractsStakeholdersFilter(
-      domain: DomainId,
+      synchronizerId: SynchronizerId,
       timestamp: CantonTimestamp,
       parties: Set[LfPartyId],
   )(implicit
@@ -377,8 +380,10 @@ final class SyncStateInspection(
     for {
       state <- FutureUnlessShutdown.fromTry(
         syncDomainPersistentStateManager
-          .get(domain)
-          .toTry(new IllegalArgumentException(s"Unable to find contract store for $domain."))
+          .get(synchronizerId)
+          .toTry(
+            new IllegalArgumentException(s"Unable to find contract store for $synchronizerId.")
+          )
       )
 
       snapshot <- FutureUnlessShutdown.outcomeF(state.activeContractStore.snapshot(timestamp))
@@ -389,7 +394,7 @@ final class SyncStateInspection(
         if (pruningStatus.exists(_.timestamp > timestamp)) {
           FutureUnlessShutdown.failed(
             new IllegalStateException(
-              s"Active contract store for domain $domain has been pruned up to ${pruningStatus
+              s"Active contract store for domain $synchronizerId has been pruned up to ${pruningStatus
                   .map(_.lastSuccess)}, which is after the requested timestamp $timestamp"
             )
           )
@@ -405,12 +410,12 @@ final class SyncStateInspection(
           }
       )
 
-      contractsWithTransferCounter = contracts.map(c => c -> snapshot(c.contractId)._2)
+      contractsWithReassignmentCounter = contracts.map(c => c -> snapshot(c.contractId)._2)
 
-      filteredByParty = contractsWithTransferCounter.collect {
-        case (contract, transferCounter)
-            if parties.intersect(contract.contract.metadata.stakeholders).nonEmpty =>
-          (contract.contractId, transferCounter)
+      filteredByParty = contractsWithReassignmentCounter.collect {
+        case (contract, reassignmentCounter)
+            if parties.intersect(contract.metadata.stakeholders).nonEmpty =>
+          (contract.contractId, reassignmentCounter)
       }
     } yield filteredByParty.toSet
 
@@ -541,8 +546,8 @@ final class SyncStateInspection(
         val searchResult = domainPeriods.map { dp =>
           for {
             domain <- syncDomainPersistentStateManager
-              .aliasForDomainId(dp.indexedDomain.domainId)
-              .toRight(s"No domain alias found for ${dp.indexedDomain.domainId}")
+              .aliasForSynchronizerId(dp.indexedDomain.synchronizerId)
+              .toRight(s"No domain alias found for ${dp.indexedDomain.synchronizerId}")
 
             persistentState <- getPersistentStateE(domain)
 
@@ -574,7 +579,7 @@ final class SyncStateInspection(
                     }
                 }
             } yield SentAcsCommitment
-              .compare(dp.indexedDomain.domainId, computed, received, outstanding, verbose)
+              .compare(dp.indexedDomain.synchronizerId, computed, received, outstanding, verbose)
               .filter(cmt => states.isEmpty || states.contains(cmt.state))
           } yield result
         }
@@ -602,8 +607,8 @@ final class SyncStateInspection(
         val searchResult = domainPeriods.map { dp =>
           for {
             domain <- syncDomainPersistentStateManager
-              .aliasForDomainId(dp.indexedDomain.domainId)
-              .toRight(s"No domain alias found for ${dp.indexedDomain.domainId}")
+              .aliasForSynchronizerId(dp.indexedDomain.synchronizerId)
+              .toRight(s"No domain alias found for ${dp.indexedDomain.synchronizerId}")
             persistentState <- getPersistentStateE(domain)
 
             result = for {
@@ -627,14 +632,14 @@ final class SyncStateInspection(
                 .peekThrough(dp.toInclusive) // peekThrough takes an upper bound parameter
                 .map(iter =>
                   iter.filter(cmt =>
-                    cmt.period.fromExclusive >= dp.fromExclusive && cmt.domainId == dp.indexedDomain.domainId && (counterParticipants.isEmpty ||
+                    cmt.period.fromExclusive >= dp.fromExclusive && cmt.synchronizerId == dp.indexedDomain.synchronizerId && (counterParticipants.isEmpty ||
                       counterParticipants
                         .contains(cmt.sender))
                   )
                 )
             } yield ReceivedAcsCommitment
               .compare(
-                dp.indexedDomain.domainId,
+                dp.indexedDomain.synchronizerId,
                 received,
                 computed,
                 buffered,
@@ -710,7 +715,7 @@ final class SyncStateInspection(
     getPersistentStateE(domain)
       .map(state =>
         participantNodePersistentState.value.ledgerApiStore
-          .cleanDomainIndex(state.indexedDomain.domainId)
+          .cleanDomainIndex(state.indexedDomain.synchronizerId)
       )
 
   def requestStateInJournal(rc: RequestCounter, domain: DomainAlias)(implicit
@@ -758,11 +763,14 @@ final class SyncStateInspection(
     participantNodePersistentState.value.acsCounterParticipantConfigStore
       .fetchAllSlowCounterParticipantConfig()
 
-  def getIntervalsBehindForParticipants(domains: Seq[DomainId], participants: Seq[ParticipantId])(
-      implicit traceContext: TraceContext
+  def getIntervalsBehindForParticipants(
+      domains: Seq[SynchronizerId],
+      participants: Seq[ParticipantId],
+  )(implicit
+      traceContext: TraceContext
   ): FutureUnlessShutdown[Iterable[CounterParticipantIntervalsBehind]] = {
     val result = for {
-      (domainId, syncDomain) <-
+      (synchronizerId, syncDomain) <-
         syncDomainPersistentStateManager.getAll
           .filter { case (domain, _) => domains.contains(domain) || domains.isEmpty }
     } yield for {
@@ -796,7 +804,7 @@ final class SyncStateInspection(
 
       sortedReconciliationProvider <- EitherTUtil.toFutureUnlessShutdown(
         sortedReconciliationIntervalsProviderFactory
-          .get(domainId, lastSentFinal)
+          .get(synchronizerId, lastSentFinal)
           .leftMap(string =>
             new IllegalStateException(
               s"failed to retrieve reconciliationIntervalProvider: $string"
@@ -824,7 +832,7 @@ final class SyncStateInspection(
         }
         .map { case (period, participant, _) =>
           CounterParticipantIntervalsBehind(
-            domainId,
+            synchronizerId,
             participant,
             NonNegativeLong
               .tryCreate(allCoveredTimePeriods.count(_.toInclusive > period.toInclusive).toLong),
@@ -844,7 +852,7 @@ final class SyncStateInspection(
           val isUpToDate =
             upToDate.exists(signMessage => signMessage.message.sender == participantId)
           CounterParticipantIntervalsBehind(
-            domainId,
+            synchronizerId,
             participantId,
             if (isUpToDate) NonNegativeLong.zero else NonNegativeLong.maxValue,
             NonNegativeFiniteDuration.tryOfSeconds(Long.MaxValue),
@@ -874,10 +882,10 @@ final class SyncStateInspection(
         getPersistentState(domain)
           .toRight(s"Unknown domain $domain")
       )
-      domainId = state.indexedDomain.domainId
+      synchronizerId = state.indexedDomain.synchronizerId
       unsequencedSubmissions <- EitherT.right(
         participantNodePersistentState.value.inFlightSubmissionStore
-          .lookupUnsequencedUptoUnordered(domainId, CantonTimestamp.now())
+          .lookupUnsequencedUptoUnordered(synchronizerId, CantonTimestamp.now())
       )
       pendingSubmissions = NonNegativeInt.tryCreate(unsequencedSubmissions.size)
       pendingTransactions <- EitherT.right[String](state.requestJournalStore.totalDirtyRequests())
@@ -899,7 +907,7 @@ final class SyncStateInspection(
           .awaitUS(functionFullName)(
             participantNodePersistentState.value.ledgerApiStore
               .onlyForTestingNumberOfAcceptedTransactionsFor(
-                domainPersistentState.indexedDomain.domainId
+                domainPersistentState.indexedDomain.synchronizerId
               )
           )
           .onShutdown(0)
@@ -915,7 +923,7 @@ final class SyncStateInspection(
       .onShutdown(throw new RuntimeException("onlyForTestingMoveLedgerEndBackToScratch"))
 
   def lastDomainOffset(
-      domainId: DomainId
+      synchronizerId: SynchronizerId
   )(implicit traceContext: TraceContext): Option[DomainOffset] =
     participantNodePersistentState.value.ledgerApiStore
       .ledgerEndCache()
@@ -924,7 +932,7 @@ final class SyncStateInspection(
         timeouts.inspection
           .awaitUS(s"$functionFullName")(
             participantNodePersistentState.value.ledgerApiStore.lastDomainOffsetBeforeOrAt(
-              domainId,
+              synchronizerId,
               ledgerEnd,
             )
           )
@@ -938,28 +946,31 @@ final class SyncStateInspection(
       )
       .onShutdown(None)
 
-  def getSequencerChannelClient(domainId: DomainId): Option[SequencerChannelClient] = for {
-    syncDomain <- connectedDomainsLookup.get(domainId)
-    sequencerChannelClient <- syncDomain.domainHandle.sequencerChannelClientO
-  } yield sequencerChannelClient
+  def getSequencerChannelClient(synchronizerId: SynchronizerId): Option[SequencerChannelClient] =
+    for {
+      syncDomain <- connectedDomainsLookup.get(synchronizerId)
+      sequencerChannelClient <- syncDomain.domainHandle.sequencerChannelClientO
+    } yield sequencerChannelClient
 
-  def getAcsInspection(domainId: DomainId): Option[AcsInspection] =
-    connectedDomainsLookup.get(domainId).map(_.domainHandle.domainPersistentState.acsInspection)
+  def getAcsInspection(synchronizerId: SynchronizerId): Option[AcsInspection] =
+    connectedDomainsLookup
+      .get(synchronizerId)
+      .map(_.domainHandle.domainPersistentState.acsInspection)
 
   def findAllKnownParticipants(
-      domainFilter: Seq[DomainId] = Seq.empty,
+      domainFilter: Seq[SynchronizerId] = Seq.empty,
       participantFilter: Seq[ParticipantId] = Seq.empty,
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[DomainId, Set[ParticipantId]]] = {
+  ): FutureUnlessShutdown[Map[SynchronizerId, Set[ParticipantId]]] = {
     val result = for {
-      (domainId, _) <-
-        syncDomainPersistentStateManager.getAll.filter { case (domainId, _) =>
-          domainFilter.contains(domainId) || domainFilter.isEmpty
+      (synchronizerId, _) <-
+        syncDomainPersistentStateManager.getAll.filter { case (synchronizerId, _) =>
+          domainFilter.contains(synchronizerId) || domainFilter.isEmpty
         }
     } yield for {
       _ <- FutureUnlessShutdown.unit
-      domainTopoClient = syncCrypto.ips.tryForDomain(domainId)
+      domainTopoClient = syncCrypto.ips.tryForDomain(synchronizerId)
       ipsSnapshot <- domainTopoClient.awaitSnapshotUS(domainTopoClient.approximateTimestamp)
       allMembers <- ipsSnapshot.allMembers()
       allParticipants = allMembers
@@ -967,7 +978,7 @@ final class SyncStateInspection(
         .map(member => ParticipantId.apply(member.uid))
         .excl(participantId)
         .filter(participantFilter.contains(_) || participantFilter.isEmpty)
-    } yield (domainId, allParticipants)
+    } yield (synchronizerId, allParticipants)
 
     FutureUnlessShutdown.sequence(result).map(_.toMap)
   }
@@ -979,7 +990,7 @@ final class SyncStateInspection(
       getPersistentState(domainAlias).map { domainState =>
         timeouts.inspection.await(functionFullName)(
           participantNodePersistentState.value.ledgerApiStore
-            .cleanDomainIndex(domainState.indexedDomain.domainId)
+            .cleanDomainIndex(domainState.indexedDomain.synchronizerId)
             .flatMap { domainIndexO =>
               val nextSequencerCounter = domainIndexO
                 .flatMap(_.sequencerIndex)

@@ -7,6 +7,7 @@ import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.TransactionMetering
 import com.digitalasset.canton.logging.SuppressingLogger
 import com.digitalasset.canton.platform.store.backend.common.EventIdSourceForInformees
+import com.digitalasset.canton.platform.store.backend.common.TransactionPointwiseQueries.LookupKey
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import org.scalatest.Inside
@@ -247,9 +248,15 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           unassignedEvents shouldBe List(hashCid("#103"), hashCid("#203")).map(
             _.coid
           ) // not constrained by ledger end
-          fetchIdsFromTransactionMeta(allDtos.collect { case meta: DbDto.TransactionMeta =>
+          fetchIdsFromTransactionMetaUpdateIds(allDtos.collect { case meta: DbDto.TransactionMeta =>
             meta.update_id
           }) shouldBe Set((1, 1), (2, 4))
+          fetchIdsFromTransactionMetaUpdateIds(allDtos.collect { case meta: DbDto.TransactionMeta =>
+            meta.update_id
+          }) shouldBe fetchIdsFromTransactionMetaOffsets(allDtos.collect {
+            case meta: DbDto.TransactionMeta =>
+              meta.event_offset
+          })
           fetchIdsCreateStakeholder() shouldBe List(
             1L,
             6L,
@@ -295,9 +302,15 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           unassignedEvents shouldBe List(hashCid("#103")).map(
             _.coid
           ) // not constrained by ledger end
-          fetchIdsFromTransactionMeta(allDtos.collect { case meta: DbDto.TransactionMeta =>
+          fetchIdsFromTransactionMetaUpdateIds(allDtos.collect { case meta: DbDto.TransactionMeta =>
             meta.update_id
           }) shouldBe Set((1, 1), (2, 4))
+          fetchIdsFromTransactionMetaUpdateIds(allDtos.collect { case meta: DbDto.TransactionMeta =>
+            meta.update_id
+          }) shouldBe fetchIdsFromTransactionMetaOffsets(allDtos.collect {
+            case meta: DbDto.TransactionMeta =>
+              meta.event_offset
+          })
           fetchIdsCreateStakeholder() shouldBe List(1L)
           fetchIdsCreateNonStakeholder() shouldBe List(1L)
           fetchIdsConsumingStakeholder() shouldBe List(3L)
@@ -338,8 +351,11 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           contractsAssigned.get(hashCid("#203")) shouldBe empty
           assignedEvents shouldBe empty
           unassignedEvents shouldBe empty
-          fetchIdsFromTransactionMeta(dtos.collect { case meta: DbDto.TransactionMeta =>
+          fetchIdsFromTransactionMetaUpdateIds(dtos.collect { case meta: DbDto.TransactionMeta =>
             meta.update_id
+          }) shouldBe empty
+          fetchIdsFromTransactionMetaOffsets(dtos.collect { case meta: DbDto.TransactionMeta =>
+            meta.event_offset
           }) shouldBe empty
           fetchIdsCreateStakeholder() shouldBe empty
           fetchIdsCreateNonStakeholder() shouldBe empty
@@ -428,12 +444,23 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       )
     )
 
-  private def fetchIdsFromTransactionMeta(udpateIds: Seq[String]): Set[(Long, Long)] = {
+  private def fetchIdsFromTransactionMetaUpdateIds(udpateIds: Seq[String]): Set[(Long, Long)] = {
     val txPointwiseQueries = backend.event.transactionPointwiseQueries
     udpateIds
       .map(Ref.TransactionId.assertFromString)
       .map { updateId =>
-        executeSql(txPointwiseQueries.fetchIdsFromTransactionMeta(updateId))
+        executeSql(txPointwiseQueries.fetchIdsFromTransactionMeta(LookupKey.UpdateId(updateId)))
+      }
+      .flatMap(_.toList)
+      .toSet
+  }
+
+  private def fetchIdsFromTransactionMetaOffsets(offsets: Seq[Long]): Set[(Long, Long)] = {
+    val txPointwiseQueries = backend.event.transactionPointwiseQueries
+    offsets
+      .map(Offset.tryFromLong)
+      .map { offset =>
+        executeSql(txPointwiseQueries.fetchIdsFromTransactionMeta(LookupKey.Offset(offset)))
       }
       .flatMap(_.toList)
       .toSet

@@ -56,7 +56,7 @@ message Created {
 
   // The domain which sequenced the creation of the contract
   // Required
-  string domain_id = 2;
+  string synchronizer_id = 2;
 }
 
 message Archived {
@@ -65,5 +65,5 @@ message Archived {
 
   // Required
   // The domain which sequenced the archival of the contract
-  string domain_id = 2;
+  string synchronizer_id = 2;
 }

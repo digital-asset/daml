@@ -143,8 +143,8 @@ class ParticipantNodeBootstrap(
       storeId: TopologyStoreId
   ): Option[DomainTopologyClient] =
     storeId match {
-      case DomainStore(domainId, _) =>
-        cantonSyncService.get.flatMap(_.lookupTopologyClient(domainId))
+      case DomainStore(synchronizerId, _) =>
+        cantonSyncService.get.flatMap(_.lookupTopologyClient(synchronizerId))
       case _ => None
     }
 
@@ -188,10 +188,10 @@ class ParticipantNodeBootstrap(
 
     val _ = packageDependencyResolver.putIfAbsent(resolver)
 
-    def acsInspectionPerDomain(): Map[DomainId, AcsInspection] =
+    def acsInspectionPerDomain(): Map[SynchronizerId, AcsInspection] =
       cantonSyncService.get
-        .map(_.syncDomainPersistentStateManager.getAll.map { case (domainId, state) =>
-          domainId -> state.acsInspection
+        .map(_.syncDomainPersistentStateManager.getAll.map { case (synchronizerId, state) =>
+          synchronizerId -> state.acsInspection
         })
         .getOrElse(Map.empty)
 
@@ -614,9 +614,9 @@ class ParticipantNodeBootstrap(
           parameterConfig.batchingConfig.maxPruningBatchSize,
           arguments.metrics.pruning,
           exitOnFatalFailures = arguments.parameterConfig.exitOnFatalFailures,
-          domainId =>
+          synchronizerId =>
             domainAliasManager
-              .aliasForDomainId(domainId)
+              .aliasForSynchronizerId(synchronizerId)
               .flatMap(domainAlias =>
                 domainConnectionConfigStore.get(domainAlias).toOption.map(_.status)
               ),
@@ -1082,7 +1082,7 @@ class ParticipantNode(
 
   override def close(): Unit = () // closing is done in the bootstrap class
 
-  def readyDomains: Map[DomainId, SubmissionReady] =
+  def readyDomains: Map[SynchronizerId, SubmissionReady] =
     sync.readyDomains.values.toMap
 
   private def supportedProtocolVersions: Seq[ProtocolVersion] = {

@@ -62,7 +62,7 @@ import TestingTopology.*
   * protocol perspective, we can conveniently use methods like [[SyncCryptoApi.sign]] or [[SyncCryptoApi.encryptFor]]
   *
   * The abstraction creates the following hierarchy of classes to resolve the state for a given [[Member]]
-  * on a per (domainId, timestamp)
+  * on a per (synchronizerId, timestamp)
   *
   * SyncCryptoApiProvider - root object that makes the synchronisation topology state known to a node accessible
   *   .forDomain          - method to get the specific view on a per domain basis
@@ -97,7 +97,7 @@ import TestingTopology.*
   * @param keyPurposes The purposes of the keys that will be generated.
   */
 final case class TestingTopology(
-    domains: Set[DomainId] = defaultDomains,
+    domains: Set[SynchronizerId] = defaultDomains,
     topology: Map[LfPartyId, PartyInfo] = Map.empty,
     mediatorGroups: Set[MediatorGroup] = defaultMediatorGroups,
     sequencerGroup: SequencerGroup = defaultSequencerGroup,
@@ -114,7 +114,7 @@ final case class TestingTopology(
     *
     * All domains will have exactly the same topology.
     */
-  def withDomains(domains: DomainId*): TestingTopology = this.copy(domains = domains.toSet)
+  def withDomains(domains: SynchronizerId*): TestingTopology = this.copy(domains = domains.toSet)
 
   def withDynamicDomainParameters(
       dynamicDomainParameters: DynamicDomainParameters,
@@ -234,7 +234,7 @@ final case class TestingTopology(
 
 object TestingTopology {
 
-  private val defaultDomains: Set[DomainId] = Set(DefaultTestIdentities.domainId)
+  private val defaultDomains: Set[SynchronizerId] = Set(DefaultTestIdentities.synchronizerId)
   private val defaultSequencerGroup: SequencerGroup = SequencerGroup(
     active = Seq(DefaultTestIdentities.sequencerId),
     passive = Seq.empty,
@@ -257,7 +257,7 @@ object TestingTopology {
   )
 
   def from(
-      domains: Set[DomainId] = defaultDomains,
+      domains: Set[SynchronizerId] = defaultDomains,
       topology: Map[LfPartyId, Map[ParticipantId, ParticipantPermission]] = Map.empty,
       mediatorGroups: Set[MediatorGroup] = defaultMediatorGroups,
       sequencerGroup: SequencerGroup = defaultSequencerGroup,
@@ -310,12 +310,12 @@ class TestingIdentityFactory(
 
   def forOwnerAndDomain(
       owner: Member,
-      domain: DomainId = DefaultTestIdentities.domainId,
+      synchronizerId: SynchronizerId = DefaultTestIdentities.synchronizerId,
       availableUpToInclusive: CantonTimestamp = CantonTimestamp.MaxValue,
       currentSnapshotApproximationTimestamp: CantonTimestamp = CantonTimestamp.Epoch,
   ): DomainSyncCryptoClient =
     forOwner(owner, availableUpToInclusive, currentSnapshotApproximationTimestamp).tryForDomain(
-      domain,
+      synchronizerId,
       defaultStaticDomainParameters,
     )
 
@@ -346,7 +346,7 @@ class TestingIdentityFactory(
             traceContext: TraceContext
         ): FutureUnlessShutdown[Boolean] = ???
 
-        override def domainId: DomainId = dId
+        override def synchronizerId: SynchronizerId = dId
 
         override def trySnapshot(timestamp: CantonTimestamp)(implicit
             traceContext: TraceContext
@@ -355,14 +355,14 @@ class TestingIdentityFactory(
             timestamp <= upToInclusive,
             s"Topology information not yet available for $timestamp",
           )
-          topologySnapshot(domainId, timestampForDomainParameters = timestamp)
+          topologySnapshot(synchronizerId, timestampForDomainParameters = timestamp)
         }
 
         override def currentSnapshotApproximation(implicit
             traceContext: TraceContext
         ): TopologySnapshot =
           topologySnapshot(
-            domainId,
+            synchronizerId,
             timestampForDomainParameters = currentSnapshotApproximationTimestamp,
             timestampOfSnapshot = currentSnapshotApproximationTimestamp,
           )
@@ -421,10 +421,10 @@ class TestingIdentityFactory(
 
   private val defaultProtocolVersion = BaseTest.testedProtocolVersion
 
-  private def domains: Set[DomainId] = topology.domains
+  private def domains: Set[SynchronizerId] = topology.domains
 
   def topologySnapshot(
-      domainId: DomainId = DefaultTestIdentities.domainId,
+      synchronizerId: SynchronizerId = DefaultTestIdentities.synchronizerId,
       packageDependencyResolver: PackageDependencyResolverUS =
         StoreBasedDomainTopologyClient.NoPackageDependencies,
       timestampForDomainParameters: CantonTimestamp = CantonTimestamp.Epoch,
@@ -461,7 +461,7 @@ class TestingIdentityFactory(
       mkAdd(
         MediatorDomainState
           .create(
-            domainId,
+            synchronizerId,
             group = group.index,
             threshold = group.threshold,
             active = group.active,
@@ -475,7 +475,7 @@ class TestingIdentityFactory(
       mkAdd(
         SequencerDomainState
           .create(
-            domainId,
+            synchronizerId,
             threshold = topology.sequencerGroup.threshold,
             active = topology.sequencerGroup.active,
             observers = topology.sequencerGroup.passive,
@@ -487,7 +487,10 @@ class TestingIdentityFactory(
 
     val domainGovernanceTxs = List(
       mkAdd(
-        DomainParametersState(domainId, domainParametersChangeTx(timestampForDomainParameters))
+        DomainParametersState(
+          synchronizerId,
+          domainParametersChangeTx(timestampForDomainParameters),
+        )
       )
     )
     val transactions = (participantTxs ++
@@ -625,11 +628,11 @@ class TestingIdentityFactory(
       pkgs ++ genKeyCollection(participantId) :+ mkAdd(
         DomainTrustCertificate(
           participantId,
-          domainId,
+          synchronizerId,
         )
       ) :+ mkAdd(
         ParticipantDomainPermission(
-          domainId,
+          synchronizerId,
           participantId,
           attributes.permission,
           limits = None,
@@ -704,14 +707,14 @@ class TestingOwnerWithKeys(
     val dtc1m =
       DomainTrustCertificate(
         participant1,
-        domainId,
+        synchronizerId,
       )
 
     private val defaultDomainParameters = TestDomainParameters.defaultDynamic
 
     val dpc1 = mkAdd(
       DomainParametersState(
-        DomainId(uid),
+        SynchronizerId(uid),
         defaultDomainParameters
           .tryUpdate(confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(1)),
       ),
@@ -719,7 +722,7 @@ class TestingOwnerWithKeys(
     )
     val dpc1Updated = mkAdd(
       DomainParametersState(
-        DomainId(uid),
+        SynchronizerId(uid),
         defaultDomainParameters
           .tryUpdate(
             confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(2),
@@ -730,7 +733,7 @@ class TestingOwnerWithKeys(
     )
 
     val dpc2 =
-      mkAdd(DomainParametersState(DomainId(uid2), defaultDomainParameters), key2)
+      mkAdd(DomainParametersState(SynchronizerId(uid2), defaultDomainParameters), key2)
 
     val p1_nsk2 = mkAdd(
       NamespaceDelegation.tryCreate(
@@ -747,9 +750,9 @@ class TestingOwnerWithKeys(
       )
     )
 
-    val p1_dtc = mkAdd(DomainTrustCertificate(participant1, domainId))
-    val p2_dtc = mkAdd(DomainTrustCertificate(participant2, domainId))
-    val p3_dtc = mkAdd(DomainTrustCertificate(participant3, domainId))
+    val p1_dtc = mkAdd(DomainTrustCertificate(participant1, synchronizerId))
+    val p2_dtc = mkAdd(DomainTrustCertificate(participant2, synchronizerId))
+    val p3_dtc = mkAdd(DomainTrustCertificate(participant3, synchronizerId))
     val p1_otk = mkAddMultiKey(
       OwnerToKeyMapping(participant1, NonEmpty(Seq, EncryptionKeys.key1, SigningKeys.key1)),
       NonEmpty(Set, key1),
@@ -765,7 +768,7 @@ class TestingOwnerWithKeys(
 
     val p1_pdp_observation = mkAdd(
       ParticipantDomainPermission(
-        domainId,
+        synchronizerId,
         participant1,
         ParticipantPermission.Observation,
         None,
@@ -775,7 +778,7 @@ class TestingOwnerWithKeys(
 
     val p2_pdp_confirmation = mkAdd(
       ParticipantDomainPermission(
-        domainId,
+        synchronizerId,
         participant2,
         ParticipantPermission.Confirmation,
         None,
@@ -799,13 +802,18 @@ class TestingOwnerWithKeys(
       isProposal: Boolean = false,
   )(implicit
       ec: ExecutionContext
-  ): SignedTopologyTransaction[Op, M] =
+  ): SignedTopologyTransaction[Op, M] = {
+    val keysWithUsage = TopologyManager
+      .assignExpectedUsageToKeys(
+        trans.mapping,
+        signingKeys = signingKeys.map(_.fingerprint),
+      )
     Await
       .result(
         SignedTopologyTransaction
           .create(
             trans,
-            signingKeys.map(_.id),
+            keysWithUsage,
             isProposal,
             cryptoApi.crypto.privateCrypto,
             BaseTest.testedProtocolVersion,
@@ -814,7 +822,8 @@ class TestingOwnerWithKeys(
         10.seconds,
       )
       .onShutdown(sys.error("aborted due to shutdown"))
-      .getOrElse(sys.error("failed to create signed topology transaction"))
+      .valueOr(err => sys.error(s"failed to create signed topology transaction: $err"))
+  }
 
   def setSerial(
       trans: SignedTopologyTransaction[TopologyChangeOp, TopologyMapping],

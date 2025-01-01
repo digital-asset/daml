@@ -26,7 +26,6 @@ import com.digitalasset.canton.topology.processing.*
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.FutureUnlessShutdownUtil
 
 import java.time.Duration
 import scala.concurrent.ExecutionContext
@@ -47,7 +46,7 @@ import scala.concurrent.ExecutionContext
   *                                 for this member should be terminated.
   */
 class MemberAuthenticationService(
-    domain: DomainId,
+    synchronizerId: SynchronizerId,
     cryptoApi: DomainSyncCryptoClient,
     store: MemberAuthenticationStore,
     clock: Clock,
@@ -63,7 +62,8 @@ class MemberAuthenticationService(
     with FlagCloseable {
 
   /** Domain generates nonce that he expects the participant to use to concatenate with the domain's id and sign
-    * to proceed with the authentication (step 2).
+    * to proceed with the authentication (step 2). We expect to find a key with usage 'SequencerAuthentication' to
+    * sign these messages.
     */
   def generateNonce(member: Member)(implicit
       traceContext: TraceContext
@@ -121,7 +121,7 @@ class MemberAuthenticationService(
         .mapK(FutureUnlessShutdown.outcomeK)
       StoredNonce(_, nonce, generatedAt, _expireAt) = value
       authentication <- EitherT.fromEither[FutureUnlessShutdown](MemberAuthentication(member))
-      hash = authentication.hashDomainNonce(nonce, domain, cryptoApi.pureCrypto)
+      hash = authentication.hashDomainNonce(nonce, synchronizerId, cryptoApi.pureCrypto)
       snapshot = cryptoApi.currentSnapshotApproximation
 
       _ <- snapshot
@@ -157,17 +157,17 @@ class MemberAuthenticationService(
     }
 
   /** Domain checks if the token given by the participant is the one previously assigned to it for authentication.
-    * The participant also provides the domain id for which they think they are connecting to. If this id does not match
+    * The participant also provides the synchronizer id for which they think they are connecting to. If this id does not match
     * this domain's id, it means the participant was previously connected to a different domain on the same address and
     * now should be informed that this address now hosts a different domain.
     */
   def validateToken(
-      intendedDomain: DomainId,
+      intendedSynchronizerId: SynchronizerId,
       member: Member,
       token: AuthenticationToken,
   ): Either[AuthenticationError, StoredAuthenticationToken] =
     for {
-      _ <- correctDomain(member, intendedDomain)
+      _ <- correctDomain(member, intendedSynchronizerId)
       validTokenO = store.fetchTokens(member).filter(_.expireAt > clock.now).find(_.token == token)
       validToken <- validTokenO.toRight(MissingToken(member)).leftWiden[AuthenticationError]
     } yield validToken
@@ -179,17 +179,16 @@ class MemberAuthenticationService(
   ): FutureUnlessShutdown[Either[LogoutTokenDoesNotExist.type, Unit]] =
     for {
       _ <- waitForInitialized
-    } yield {
-      store
-        .fetchToken(token)
-        .toRight(LogoutTokenDoesNotExist)
-        .map(token =>
+      storedTokenO = store.fetchToken(token)
+      res <- storedTokenO match {
+        case None => FutureUnlessShutdown.pure(Left(LogoutTokenDoesNotExist))
+        case Some(storedToken) =>
           // Force invalidation, whether the member is actually active or not
           invalidateAndExpire(isActiveCheck = (_: Member) => FutureUnlessShutdown.pure(false))(
-            token.member
-          )
-        )
-    }
+            storedToken.member
+          ).map(Right(_))
+      }
+    } yield res
 
   private def ignoreExpired[A <: HasExpiry](itemO: Option[A]): Option[A] =
     itemO.filter(_.expireAt > clock.now)
@@ -224,9 +223,13 @@ class MemberAuthenticationService(
 
   private def correctDomain(
       member: Member,
-      intendedDomain: DomainId,
+      intendedSynchronizerId: SynchronizerId,
   ): Either[AuthenticationError, Unit] =
-    Either.cond(intendedDomain == domain, (), NonMatchingDomainId(member, intendedDomain))
+    Either.cond(
+      intendedSynchronizerId == synchronizerId,
+      (),
+      NonMatchingSynchronizerId(member, intendedSynchronizerId),
+    )
 
   protected def isMemberActive(check: TopologySnapshot => FutureUnlessShutdown[Boolean])(implicit
       traceContext: TraceContext
@@ -249,8 +252,8 @@ class MemberAuthenticationService(
 
   protected def invalidateAndExpire[T <: Member](
       isActiveCheck: T => FutureUnlessShutdown[Boolean]
-  )(memberId: T)(implicit traceContext: TraceContext): Unit = {
-    val invalidateF = isActiveCheck(memberId).map { isActive =>
+  )(memberId: T)(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    isActiveCheck(memberId).map { isActive =>
       if (!isActive) {
         logger.debug(s"Expiring all auth-tokens of $memberId")
         // first, remove all auth tokens
@@ -259,11 +262,6 @@ class MemberAuthenticationService(
         invalidateMemberCallback(Traced(memberId))
       }
     }
-    FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
-      invalidateF,
-      s"Invalidating authentication for $memberId",
-    )
-  }
 
 }
 
@@ -287,7 +285,7 @@ object MemberAuthenticationService {
 }
 
 class MemberAuthenticationServiceImpl(
-    domain: DomainId,
+    synchronizerId: SynchronizerId,
     cryptoApi: DomainSyncCryptoClient,
     store: MemberAuthenticationStore,
     clock: Clock,
@@ -300,7 +298,7 @@ class MemberAuthenticationServiceImpl(
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends MemberAuthenticationService(
-      domain,
+      synchronizerId,
       cryptoApi,
       store,
       clock,
@@ -321,8 +319,8 @@ class MemberAuthenticationServiceImpl(
       sc: SequencerCounter,
       transactions: Seq[GenericSignedTopologyTransaction],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    FutureUnlessShutdown.lift(performUnlessClosing(functionFullName) {
-      transactions.map(_.transaction).foreach {
+    performUnlessClosingUSF(functionFullName) {
+      FutureUnlessShutdown.sequence(transactions.map(_.transaction).map {
         case TopologyTransaction(
               TopologyChangeOp.Remove,
               _serial,
@@ -354,9 +352,9 @@ class MemberAuthenticationServiceImpl(
           )
           invalidateAndExpire(isParticipantActive)(participant)
 
-        case _ =>
-      }
-    })
+        case _ => FutureUnlessShutdown.unit
+      })
+    }.map(_ => ())
 }
 
 trait MemberAuthenticationServiceFactory {
@@ -371,7 +369,7 @@ trait MemberAuthenticationServiceFactory {
 object MemberAuthenticationServiceFactory {
 
   def apply(
-      domain: DomainId,
+      synchronizerId: SynchronizerId,
       clock: Clock,
       nonceExpirationInterval: Duration,
       maxTokenExpirationInterval: Duration,
@@ -388,7 +386,7 @@ object MemberAuthenticationServiceFactory {
           isTopologyInitialized: FutureUnlessShutdown[Unit],
       )(implicit ec: ExecutionContext): MemberAuthenticationService = {
         val service = new MemberAuthenticationServiceImpl(
-          domain,
+          synchronizerId,
           syncCrypto,
           store,
           clock,

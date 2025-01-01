@@ -27,7 +27,7 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.SilentLogPolicy
 import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, GrpcClient}
 import com.digitalasset.canton.sequencing.authentication.grpc.AuthenticationTokenWithExpiry
 import com.digitalasset.canton.serialization.ProtoConverter
-import com.digitalasset.canton.topology.{DomainId, Member}
+import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.retry.ErrorKind.{FatalErrorKind, TransientErrorKind}
 import com.digitalasset.canton.util.retry.{ErrorKind, ExceptionRetryPolicy, Pause}
@@ -55,7 +55,7 @@ object AuthenticationTokenManagerConfig {
 
 /** Fetch an authentication token from the sequencer by using the sequencer authentication service */
 class AuthenticationTokenProvider(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     member: Member,
     crypto: Crypto,
     supportedProtocolVersions: Seq[ProtocolVersion],
@@ -138,7 +138,7 @@ class AuthenticationTokenProvider(
         .signDomainNonce(
           member,
           nonce,
-          domainId,
+          synchronizerId,
           fingerprintsNel,
           crypto,
         )

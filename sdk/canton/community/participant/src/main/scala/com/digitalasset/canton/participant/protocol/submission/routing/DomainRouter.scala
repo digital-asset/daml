@@ -39,7 +39,7 @@ import com.digitalasset.canton.participant.sync.TransactionRoutingError.{
 import com.digitalasset.canton.participant.sync.{ConnectedDomainsLookup, TransactionRoutingError}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.{LfKeyResolver, LfPartyId, checked}
@@ -56,7 +56,7 @@ import scala.concurrent.{ExecutionContext, Future}
   *               The inner future completes after the submission has been sequenced or if it will never be sequenced.
   */
 class DomainRouter(
-    submit: DomainId => (
+    submit: SynchronizerId => (
         SubmitterInfo,
         TransactionMeta,
         LfKeyResolver,
@@ -81,7 +81,7 @@ class DomainRouter(
 
   def submitTransaction(
       submitterInfo: SubmitterInfo,
-      optDomainId: Option[DomainId],
+      optSynchronizerId: Option[SynchronizerId],
       transactionMeta: TransactionMeta,
       keyResolver: LfKeyResolver,
       transaction: LfSubmittedTransaction,
@@ -138,14 +138,14 @@ class DomainRouter(
         snapshotProvider,
         contractsStakeholders,
         inputDisclosedContracts.map(_.contractId),
-        optDomainId,
+        optSynchronizerId,
       )
 
       domainSelector <- domainSelectorFactory
         .create(transactionData)
       inputDomains = transactionData.inputContractsDomainData.domains
 
-      isMultiDomainTx <- isMultiDomainTx(inputDomains, transactionData.informees, optDomainId)
+      isMultiDomainTx <- isMultiDomainTx(inputDomains, transactionData.informees, optSynchronizerId)
 
       domainRankTarget <- {
         if (!isMultiDomainTx) {
@@ -172,8 +172,8 @@ class DomainRouter(
           submitterInfo,
         )
         .mapK(FutureUnlessShutdown.outcomeK)
-      _ = logger.debug(s"Routing the transaction to the ${domainRankTarget.domainId}")
-      transactionSubmittedF <- submit(domainRankTarget.domainId)(
+      _ = logger.debug(s"Routing the transaction to the ${domainRankTarget.synchronizerId}")
+      transactionSubmittedF <- submit(domainRankTarget.synchronizerId)(
         submitterInfo,
         transactionMeta,
         keyResolver,
@@ -185,12 +185,12 @@ class DomainRouter(
 
   private def allInformeesOnDomain(
       informees: Set[LfPartyId]
-  )(domainId: DomainId)(implicit
+  )(synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, UnableToQueryTopologySnapshot.Failed, Boolean] =
     for {
       snapshot <- EitherT.fromEither[FutureUnlessShutdown](
-        snapshotProvider.getTopologySnapshotFor(domainId)
+        snapshotProvider.getTopologySnapshotFor(synchronizerId)
       )
       allInformeesOnDomain <- EitherT.right(
         snapshot.allHaveActiveParticipants(informees).bimap(_ => false, _ => true).merge
@@ -214,15 +214,15 @@ class DomainRouter(
     * Transactions without input contracts are always single-domain.
     */
   private def isMultiDomainTx(
-      inputDomains: Set[DomainId],
+      inputDomains: Set[SynchronizerId],
       informees: Set[LfPartyId],
-      optDomainId: Option[DomainId],
+      optSynchronizerId: Option[SynchronizerId],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, UnableToQueryTopologySnapshot.Failed, Boolean] =
     if (inputDomains.sizeCompare(2) >= 0) EitherT.rightT(true)
     else if (
-      optDomainId
+      optSynchronizerId
         .exists(targetDomain => inputDomains.exists(inputDomain => inputDomain != targetDomain))
     ) EitherT.rightT(true)
     else
@@ -239,7 +239,7 @@ class DomainRouter(
 
     val contractData = inputContractsDomainData.withDomainData
     val contractsDomainNotConnected = contractData.filter { contractData =>
-      snapshotProvider.getTopologySnapshotFor(contractData.domain).left.exists { _ =>
+      snapshotProvider.getTopologySnapshotFor(contractData.synchronizerId).left.exists { _ =>
         true
       }
     }
@@ -261,8 +261,8 @@ class DomainRouter(
       _ <- EitherTUtil
         .condUnitET[FutureUnlessShutdown](
           contractsDomainNotConnected.isEmpty, {
-            val contractsAndDomains: Map[String, DomainId] = contractsDomainNotConnected.map {
-              contractData => contractData.id.show -> contractData.domain
+            val contractsAndDomains: Map[String, SynchronizerId] = contractsDomainNotConnected.map {
+              contractData => contractData.id.show -> contractData.synchronizerId
             }.toMap
 
             NotConnectedToAllContractDomains.Error(contractsAndDomains)
@@ -295,14 +295,14 @@ object DomainRouter {
     val domainStateProvider = new DomainStateProviderImpl(connectedDomains)
     val domainRankComputation = new DomainRankComputation(
       participantId = participantId,
-      priorityOfDomain = priorityOfDomain(domainConnectionConfigStore, domainAliasManager),
+      priorityOfSynchronizer = priorityOfDomain(domainConnectionConfigStore, domainAliasManager),
       snapshotProvider = domainStateProvider,
       loggerFactory = loggerFactory,
     )
 
     val domainSelectorFactory = new DomainSelectorFactory(
       admissibleDomains = new AdmissibleDomains(participantId, connectedDomains, loggerFactory),
-      priorityOfDomain = priorityOfDomain(domainConnectionConfigStore, domainAliasManager),
+      priorityOfSynchronizer = priorityOfDomain(domainConnectionConfigStore, domainAliasManager),
       domainRankComputation = domainRankComputation,
       domainStateProvider = domainStateProvider,
       loggerFactory = loggerFactory,
@@ -325,9 +325,9 @@ object DomainRouter {
   private def priorityOfDomain(
       domainConnectionConfigStore: DomainConnectionConfigStore,
       domainAliasManager: DomainAliasManager,
-  )(domainId: DomainId): Int = {
+  )(synchronizerId: SynchronizerId): Int = {
     val maybePriority = for {
-      domainAlias <- domainAliasManager.aliasForDomainId(domainId)
+      domainAlias <- domainAliasManager.aliasForSynchronizerId(synchronizerId)
       config <- domainConnectionConfigStore.get(domainAlias).toOption.map(_.config)
     } yield config.priority
 
@@ -341,7 +341,7 @@ object DomainRouter {
     * because we do not (yet) need to deal with merging the mappings
     * in [[com.digitalasset.canton.protocol.WellFormedTransaction.merge]].
     */
-  private def submit(connectedDomains: ConnectedDomainsLookup)(domainId: DomainId)(
+  private def submit(connectedDomains: ConnectedDomainsLookup)(synchronizerId: SynchronizerId)(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       keyResolver: LfKeyResolver,
@@ -354,11 +354,11 @@ object DomainRouter {
     for {
       domain <- EitherT.fromEither[Future](
         connectedDomains
-          .get(domainId)
-          .toRight[TransactionRoutingError](SubmissionDomainNotReady.Error(domainId))
+          .get(synchronizerId)
+          .toRight[TransactionRoutingError](SubmissionDomainNotReady.Error(synchronizerId))
       )
-      _ <- EitherT.cond[Future](domain.ready, (), SubmissionDomainNotReady.Error(domainId))
-      result <- wrapSubmissionError(domain.domainId)(
+      _ <- EitherT.cond[Future](domain.ready, (), SubmissionDomainNotReady.Error(synchronizerId))
+      result <- wrapSubmissionError(domain.synchronizerId)(
         domain.submitTransaction(
           submitterInfo,
           transactionMeta,
@@ -369,10 +369,10 @@ object DomainRouter {
       )
     } yield result
 
-  private def wrapSubmissionError[T](domainId: DomainId)(
+  private def wrapSubmissionError[T](synchronizerId: SynchronizerId)(
       eitherT: EitherT[Future, TransactionSubmissionError, T]
   )(implicit ec: ExecutionContext): EitherT[Future, TransactionRoutingError, T] =
-    eitherT.leftMap(subm => TransactionRoutingError.SubmissionError(domainId, subm))
+    eitherT.leftMap(subm => TransactionRoutingError.SubmissionError(synchronizerId, subm))
 
   private[routing] def inputContractsStakeholders(
       tx: LfVersionedTransaction

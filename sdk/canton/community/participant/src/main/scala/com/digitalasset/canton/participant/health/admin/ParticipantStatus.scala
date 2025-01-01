@@ -15,7 +15,7 @@ import com.digitalasset.canton.health.admin.data.NodeStatus.{
 import com.digitalasset.canton.health.admin.data.{NodeStatus, TopologyQueueStatus}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.participant.sync.SyncDomain.SubmissionReady
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseVersion}
 
 import java.time.Duration
@@ -25,7 +25,7 @@ final case class ParticipantStatus(
     uid: UniqueIdentifier,
     uptime: Duration,
     ports: Map[String, Port],
-    connectedDomains: Map[DomainId, SubmissionReady],
+    connectedDomains: Map[SynchronizerId, SubmissionReady],
     active: Boolean,
     topologyQueue: TopologyQueueStatus,
     components: Seq[ComponentStatus],
@@ -34,13 +34,15 @@ final case class ParticipantStatus(
 ) extends NodeStatus.Status {
   val id: ParticipantId = ParticipantId(uid)
 
-  private def connectedHealthyDomains: immutable.Iterable[DomainId] = connectedDomains.collect {
-    case (domainId, submissionReady) if submissionReady.unwrap => domainId
-  }
+  private def connectedHealthyDomains: immutable.Iterable[SynchronizerId] =
+    connectedDomains.collect {
+      case (synchronizerId, submissionReady) if submissionReady.unwrap => synchronizerId
+    }
 
-  private def connectedUnhealthyDomains: immutable.Iterable[DomainId] = connectedDomains.collect {
-    case (domainId, submissionReady) if !submissionReady.unwrap => domainId
-  }
+  private def connectedUnhealthyDomains: immutable.Iterable[SynchronizerId] =
+    connectedDomains.collect {
+      case (synchronizerId, submissionReady) if !submissionReady.unwrap => synchronizerId
+    }
 
   override protected def pretty: Pretty[ParticipantStatus] =
     prettyOfString(_ =>
@@ -59,13 +61,13 @@ final case class ParticipantStatus(
   def toParticipantStatusProto
       : participantV30.ParticipantStatusResponse.ParticipantStatusResponseStatus = {
 
-    val domains = connectedDomains.map { case (domainId, isHealthy) =>
+    val domains = connectedDomains.map { case (synchronizerId, isHealthy) =>
       val health =
         if (isHealthy.unwrap) participantV30.ConnectedDomain.Health.HEALTH_HEALTHY
         else participantV30.ConnectedDomain.Health.HEALTH_UNHEALTHY
 
       ConnectedDomain(
-        domainId = domainId.toProtoPrimitive,
+        synchronizerId = synchronizerId.toProtoPrimitive,
         health = health,
       )
     }.toList

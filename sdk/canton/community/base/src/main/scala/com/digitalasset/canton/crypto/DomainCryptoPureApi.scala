@@ -129,7 +129,8 @@ final class DomainCryptoPureApi(
   override protected[crypto] def signBytes(
       bytes: ByteString,
       signingKey: SigningPrivateKey,
+      usage: NonEmpty[Set[SigningKeyUsage]],
       signingAlgorithmSpec: SigningAlgorithmSpec = defaultSigningAlgorithmSpec,
-  ): Either[SigningError, Signature] = pureCrypto.signBytes(bytes, signingKey, signingAlgorithmSpec)
-
+  ): Either[SigningError, Signature] =
+    pureCrypto.signBytes(bytes, signingKey, usage, signingAlgorithmSpec)
 }

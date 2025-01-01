@@ -10,11 +10,11 @@ import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.DomainAliasAndIdStore.{
   DomainAliasAlreadyAdded,
-  DomainIdAlreadyAdded,
   Error,
+  SynchronizerIdAlreadyAdded,
 }
 import com.digitalasset.canton.participant.store.RegisteredDomainsStore
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.collect.{BiMap, HashBiMap}
 
@@ -24,38 +24,48 @@ class InMemoryRegisteredDomainsStore(override protected val loggerFactory: Named
     extends RegisteredDomainsStore
     with NamedLogging {
 
-  private val domainAliasMap: BiMap[DomainAlias, DomainId] =
-    HashBiMap.create[DomainAlias, DomainId]()
+  private val domainAliasMap: BiMap[DomainAlias, SynchronizerId] =
+    HashBiMap.create[DomainAlias, SynchronizerId]()
 
   private val lock = new Object()
 
   private implicit val ec: ExecutionContext = DirectExecutionContext(noTracingLogger)
 
-  override def addMapping(alias: DomainAlias, domainId: DomainId)(implicit
+  override def addMapping(alias: DomainAlias, synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext
   ): EitherT[Future, Error, Unit] = {
     val swapped = blocking(lock.synchronized {
       for {
         _ <- Option(domainAliasMap.get(alias)).fold(Either.right[Either[Error, Unit], Unit](())) {
-          oldDomainId =>
+          oldSynchronizerId =>
             Left(
-              Either.cond(oldDomainId == domainId, (), DomainAliasAlreadyAdded(alias, oldDomainId))
+              Either.cond(
+                oldSynchronizerId == synchronizerId,
+                (),
+                DomainAliasAlreadyAdded(alias, oldSynchronizerId),
+              )
             )
         }
-        _ <- Option(domainAliasMap.inverse.get(domainId))
+        _ <- Option(domainAliasMap.inverse.get(synchronizerId))
           .fold(Either.right[Either[Error, Unit], Unit](())) { oldAlias =>
-            Left(Either.cond(oldAlias == alias, (), DomainIdAlreadyAdded(domainId, oldAlias)))
+            Left(
+              Either.cond(
+                oldAlias == alias,
+                (),
+                SynchronizerIdAlreadyAdded(synchronizerId, oldAlias),
+              )
+            )
           }
       } yield {
-        val _ = domainAliasMap.put(alias, domainId)
+        val _ = domainAliasMap.put(alias, synchronizerId)
       }
     })
     EitherT.fromEither[Future](swapped.swap.getOrElse(Either.unit))
   }
 
-  override def aliasToDomainIdMap(implicit
+  override def aliasToSynchronizerIdMap(implicit
       traceContext: TraceContext
-  ): Future[Map[DomainAlias, DomainId]] = {
+  ): Future[Map[DomainAlias, SynchronizerId]] = {
     val map = blocking {
       lock.synchronized {
         import scala.jdk.CollectionConverters.*

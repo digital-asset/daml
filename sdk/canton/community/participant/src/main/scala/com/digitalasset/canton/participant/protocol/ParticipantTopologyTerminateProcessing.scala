@@ -6,7 +6,6 @@ package com.digitalasset.canton.participant.protocol
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.Update
-import com.digitalasset.canton.ledger.participant.state.Update.SequencerIndexMoved
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
@@ -14,7 +13,7 @@ import com.digitalasset.canton.participant.protocol.ParticipantTopologyTerminate
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStore.EffectiveStateChange
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -35,7 +34,7 @@ object ParticipantTopologyTerminateProcessing {
 }
 
 class ParticipantTopologyTerminateProcessing(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
     recordOrderPublisher: RecordOrderPublisher,
     store: TopologyStore[TopologyStoreId.DomainStore],
@@ -94,16 +93,6 @@ class ParticipantTopologyTerminateProcessing(
               )
           }
         }
-        _ <- FutureUnlessShutdown.outcomeF(
-          recordOrderPublisher.tick(
-            SequencerIndexMoved(
-              domainId = domainId,
-              sequencerCounter = sc,
-              recordTime = sequencedTime.value,
-              requestCounterO = None,
-            )
-          )
-        )
       } yield ()
     } else {
       // invariant: initial record time < first processed record time, so we can safely omit ticking and publishing here
@@ -205,7 +194,7 @@ class ParticipantTopologyTerminateProcessing(
       traceContext: TraceContext
   ): Option[EventInfo] =
     TopologyTransactionDiff(
-      domainId = domainId,
+      synchronizerId = synchronizerId,
       oldRelevantState = effectiveStateChange.before.signedTransactions,
       currentRelevantState = effectiveStateChange.after.signedTransactions,
       participantId = participantId,
@@ -215,7 +204,7 @@ class ParticipantTopologyTerminateProcessing(
         Update.TopologyTransactionEffective(
           updateId = updateId,
           events = events,
-          domainId = domainId,
+          synchronizerId = synchronizerId,
           effectiveTime = effectiveStateChange.effectiveTime.value,
         ),
         requiresLocalPartyReplication,

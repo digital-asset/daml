@@ -756,7 +756,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
     private def in_domain(
         sequencers: NonEmpty[Seq[SequencerReference]],
         mediators: NonEmpty[Seq[MediatorReference]],
-    )(domainId: DomainId): Either[String, Option[DomainId]] = {
+    )(synchronizerId: SynchronizerId): Either[String, Option[SynchronizerId]] = {
       def isNotInitializedOrSuccessWithDomain(
           instance: InstanceReference
       ): Either[String, Boolean /* isInitializedWithDomain */ ] =
@@ -766,16 +766,16 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
           case NodeStatus.Success(status: SequencerStatus) =>
             // sequencer is already fully initialized for this domain
             Either.cond(
-              status.domainId == domainId,
+              status.synchronizerId == synchronizerId,
               true,
-              s"${instance.id.member} has already been initialized for domain ${status.domainId} instead of $domainId.",
+              s"${instance.id.member} has already been initialized for domain ${status.synchronizerId} instead of $synchronizerId.",
             )
           case NodeStatus.Success(status: MediatorStatus) =>
             // mediator is already fully initialized for this domain
             Either.cond(
-              status.domainId == domainId,
+              status.synchronizerId == synchronizerId,
               true,
-              s"${instance.id.member} has already been initialized for domain ${status.domainId} instead of $domainId",
+              s"${instance.id.member} has already been initialized for domain ${status.synchronizerId} instead of $synchronizerId",
             )
           case NodeStatus.NotInitialized(true, _) =>
             // the node is not yet initialized for this domain
@@ -792,7 +792,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       alreadyFullyInitialized
         .map(nodesOnDomainOrNotInitialized =>
           // any false in the result means, that some nodes haven't been initialized yet
-          if (nodesOnDomainOrNotInitialized.forall(identity)) Some(domainId)
+          if (nodesOnDomainOrNotInitialized.forall(identity)) Some(synchronizerId)
           else None
         )
     }
@@ -809,7 +809,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         owners: Seq[InstanceReference],
         sequencers: Seq[SequencerReference],
         mediators: Seq[MediatorReference],
-    ): Either[String, Option[DomainId]] =
+    ): Either[String, Option[SynchronizerId]] =
       for {
         neOwners <- NonEmpty.from(owners.distinct).toRight("you need at least one domain owner")
         neSequencers <- NonEmpty
@@ -819,9 +819,11 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         nodes = neOwners ++ neSequencers ++ neMediators
         _ = Either.cond(nodes.forall(_.health.is_running()), (), "all nodes must be running")
         ns <- expected_namespace(neOwners)
-        expectedId = ns.map(ns => DomainId(UniqueIdentifier.tryCreate(name, ns.toProtoPrimitive)))
+        expectedId = ns.map(ns =>
+          SynchronizerId(UniqueIdentifier.tryCreate(name, ns.toProtoPrimitive))
+        )
         actualIdIfAllNodesAreInitialized <- expectedId.fold(
-          no_domain(neSequencers ++ neMediators).map[Option[DomainId]](_ => None)
+          no_domain(neSequencers ++ neMediators).map[Option[SynchronizerId]](_ => None)
         )(in_domain(neSequencers, neMediators))
       } yield actualIdIfAllNodesAreInitialized
 
@@ -833,7 +835,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         sequencers: Seq[SequencerReference],
         mediatorsToSequencers: Map[MediatorReference, Seq[SequencerReference]],
         mediatorRequestAmplification: SubmissionRequestAmplification,
-    ): DomainId = {
+    ): SynchronizerId = {
       val (decentralizedNamespace, foundingTxs) =
         bootstrap.decentralized_namespace(
           domainOwners,
@@ -841,7 +843,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
           store = AuthorizedStore.filterName,
         )
 
-      val domainId = DomainId(
+      val synchronizerId = SynchronizerId(
         UniqueIdentifier.tryCreate(domainName, decentralizedNamespace.toProtoPrimitive)
       )
 
@@ -858,7 +860,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
 
       val domainGenesisTxs = domainOwners.flatMap(
         _.topology.domain_bootstrap.generate_genesis_topology(
-          domainId,
+          synchronizerId,
           domainOwners.map(_.id.member),
           sequencers.map(_.id),
           mediators.map(_.id),
@@ -911,7 +913,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         .filter(!_._1.health.initialized())
         .foreach { case (mediator, mediatorSequencers) =>
           mediator.setup.assign(
-            domainId,
+            synchronizerId,
             SequencerConnections.tryMany(
               mediatorSequencers
                 .map(s => s.sequencerConnection.withAlias(SequencerAlias.tryCreate(s.name))),
@@ -925,7 +927,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
           )
         }
 
-      domainId
+      synchronizerId
     }
 
     @Help.Summary(
@@ -945,7 +947,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         staticDomainParameters: data.StaticDomainParameters,
         mediatorRequestAmplification: SubmissionRequestAmplification =
           SubmissionRequestAmplification.NoAmplification,
-    ): DomainId =
+    ): SynchronizerId =
       domain(
         domainName,
         sequencers,
@@ -972,7 +974,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         domainThreshold: PositiveInt,
         staticDomainParameters: data.StaticDomainParameters,
         mediatorRequestAmplification: SubmissionRequestAmplification,
-    ): DomainId = {
+    ): SynchronizerId = {
       // skip over HA sequencers
       val uniqueSequencers =
         sequencers.groupBy(_.id).flatMap(_._2.headOption.toList).toList
@@ -985,9 +987,9 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         uniqueSequencers,
         mediators,
       ) match {
-        case Right(Some(domainId)) =>
-          logger.info(s"Domain $domainName has already been bootstrapped with ID $domainId")
-          domainId
+        case Right(Some(synchronizerId)) =>
+          logger.info(s"Domain $domainName has already been bootstrapped with ID $synchronizerId")
+          synchronizerId
         case Right(None) =>
           run_bootstrap(
             domainName,
@@ -1040,7 +1042,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         | Optional argument. If not given, the default file name on the console is used.""".stripMargin
     )
     def inspect_acs_commitment_mismatch(
-        domain: DomainId,
+        synchronizerId: SynchronizerId,
         mismatchTimestamp: CantonTimestamp,
         targetParticipant: ParticipantReference,
         // TODO(#20583) Pass only the ParticipantId and change to participant-to-participant communication when available.

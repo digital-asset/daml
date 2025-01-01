@@ -141,8 +141,6 @@ class ParticipantPartiesAdministrationGroup(
   @Help.Description("""This function registers a new party with the current participant within the participants
       |namespace. The function fails if the participant does not have appropriate signing keys
       |to issue the corresponding PartyToParticipant topology transaction.
-      |Optionally, a local display name can be added. This display name will be exposed on the
-      |ledger API party management endpoint.
       |Specifying a set of domains via the `WaitForDomain` parameter ensures that the domains have
       |enabled/added a party by the time the call returns, but other participants connected to the same domains may not
       |yet be aware of the party.
@@ -160,10 +158,10 @@ class ParticipantPartiesAdministrationGroup(
       mustFullyAuthorize: Boolean = true,
   ): PartyId = {
 
-    def registered(lst: => Seq[ListPartiesResult]): Set[DomainId] =
+    def registered(lst: => Seq[ListPartiesResult]): Set[SynchronizerId] =
       lst
         .flatMap(_.participants.flatMap(_.domains))
-        .map(_.domain)
+        .map(_.synchronizerId)
         .toSet
     def primaryRegistered(partyId: PartyId) =
       registered(
@@ -175,23 +173,23 @@ class ParticipantPartiesAdministrationGroup(
         .adminCommand(ParticipantAdminCommands.DomainConnectivity.ListConnectedDomains())
         .toEither
 
-    def findDomainIds(
+    def findsynchronizerIds(
         name: String,
         connected: Either[String, Seq[ListConnectedDomainsResult]],
-    ): Either[String, Set[DomainId]] =
+    ): Either[String, Set[SynchronizerId]] =
       for {
-        domainIds <- waitForDomain match {
+        synchronizerIds <- waitForDomain match {
           case DomainChoice.All =>
-            connected.map(_.map(_.domainId))
+            connected.map(_.map(_.synchronizerId))
           case DomainChoice.Only(Seq()) =>
             Right(Seq())
           case DomainChoice.Only(aliases) =>
             connected.flatMap { res =>
-              val connectedM = res.map(x => (x.domainAlias, x.domainId)).toMap
+              val connectedM = res.map(x => (x.domainAlias, x.synchronizerId)).toMap
               aliases.traverse(alias => connectedM.get(alias).toRight(s"Unknown: $alias for $name"))
             }
         }
-      } yield domainIds.toSet
+      } yield synchronizerIds.toSet
     def retryE(condition: => Boolean, message: => String): Either[String, Unit] =
       AdminCommandRunner
         .retryUntilTrue(consoleEnvironment.commandTimeouts.ledgerCommand)(condition)
@@ -199,14 +197,14 @@ class ParticipantPartiesAdministrationGroup(
         .leftMap(_ => message)
     def waitForParty(
         partyId: PartyId,
-        domainIds: Set[DomainId],
-        registered: => Set[DomainId],
+        synchronizerIds: Set[SynchronizerId],
+        registered: => Set[SynchronizerId],
         queriedParticipant: ParticipantId = participantId,
     ): Either[String, Unit] =
-      if (domainIds.nonEmpty) {
+      if (synchronizerIds.nonEmpty) {
         retryE(
-          domainIds subsetOf registered,
-          show"Party $partyId did not appear for $queriedParticipant on domain ${domainIds.diff(registered)}",
+          synchronizerIds subsetOf registered,
+          show"Party $partyId did not appear for $queriedParticipant on domain ${synchronizerIds.diff(registered)}",
         )
       } else Either.unit
     val syncLedgerApi = waitForDomain match {
@@ -216,17 +214,19 @@ class ParticipantPartiesAdministrationGroup(
     consoleEnvironment.run {
       ConsoleCommandResult.fromEither {
         for {
-          // validating party and display name here to prevent, e.g., a party being registered despite it having an invalid display name
           // assert that name is valid ParticipantId
-          partyId <- UniqueIdentifier.create(name, namespace).map(PartyId(_))
           _ <- Either
             .catchOnly[IllegalArgumentException](LedgerParticipantId.assertFromString(name))
             .leftMap(_.getMessage)
-          // find the domain ids
-          domainIds <- findDomainIds(this.participantId.identifier.unwrap, primaryConnected)
-          // find the domain ids the additional participants are connected to
+          partyId <- UniqueIdentifier.create(name, namespace).map(PartyId(_))
+          // find the synchronizer ids
+          synchronizerIds <- findsynchronizerIds(
+            this.participantId.identifier.unwrap,
+            primaryConnected,
+          )
+          // find the synchronizer ids the additional participants are connected to
           additionalSync <- synchronizeParticipants.traverse { p =>
-            findDomainIds(
+            findsynchronizerIds(
               p.name,
               Try(p.domains.list_connected()).toEither.leftMap {
                 case exception @ (_: CommandFailure | _: CantonInternalError) =>
@@ -234,7 +234,7 @@ class ParticipantPartiesAdministrationGroup(
                 case exception => throw exception
               },
             )
-              .map(domains => (p, domains intersect domainIds))
+              .map(domains => (p, domains intersect synchronizerIds))
           }
           _ <- runPartyCommand(
             partyId,
@@ -242,7 +242,7 @@ class ParticipantPartiesAdministrationGroup(
             threshold,
             mustFullyAuthorize,
           ).toEither
-          _ <- waitForParty(partyId, domainIds, primaryRegistered(partyId))
+          _ <- waitForParty(partyId, synchronizerIds, primaryRegistered(partyId))
           _ <-
             // sync with ledger-api server if this node is connected to at least one domain
             if (syncLedgerApi && primaryConnected.exists(_.nonEmpty))
@@ -341,7 +341,7 @@ class ParticipantPartiesAdministrationGroup(
   def start_party_replication(
       party: PartyId,
       sourceParticipant: ParticipantId,
-      domain: DomainId,
+      synchronizerId: SynchronizerId,
       id: Option[String] = None,
   ): Unit = check(FeatureFlag.Preview) {
     consoleEnvironment.run {
@@ -350,7 +350,7 @@ class ParticipantPartiesAdministrationGroup(
           id,
           party,
           sourceParticipant,
-          domain,
+          synchronizerId,
         )
       )
     }
@@ -382,9 +382,9 @@ object TopologySynchronisation {
         val partiesWithId = partyAssignment.map { case (party, participantRef) =>
           (party, participantRef.id)
         }
-        env.sequencers.all.map(_.domain_id).distinct.forall { domainId =>
-          !participant.domains.is_connected(domainId) || {
-            val timestamp = participant.testing.fetch_domain_time(domainId)
+        env.sequencers.all.map(_.synchronizer_id).distinct.forall { synchronizerId =>
+          !participant.domains.is_connected(synchronizerId) || {
+            val timestamp = participant.testing.fetch_domain_time(synchronizerId)
             partiesWithId.subsetOf(
               participant.parties
                 .list(asOf = Some(timestamp.toInstant))

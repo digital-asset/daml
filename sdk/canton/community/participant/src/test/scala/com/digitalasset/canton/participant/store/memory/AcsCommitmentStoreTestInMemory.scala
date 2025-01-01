@@ -17,7 +17,7 @@ class AcsCommitmentStoreTestInMemory extends AcsCommitmentStoreTest {
   "InMemoryAcsCommitmentStore" should {
     behave like acsCommitmentStore((ec: ExecutionContext) =>
       new InMemoryAcsCommitmentStore(
-        domainId,
+        synchronizerId,
         new InMemoryAcsCommitmentConfigStore(),
         loggerFactory,
       )(ec)

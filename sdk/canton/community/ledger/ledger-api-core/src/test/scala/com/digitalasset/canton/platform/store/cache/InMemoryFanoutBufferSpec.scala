@@ -14,7 +14,7 @@ import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer.{
   UnorderedException,
 }
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.Time
 import org.scalatest.Succeeded
 import org.scalatest.compatible.Assertion
@@ -36,7 +36,7 @@ class InMemoryFanoutBufferSpec
   private val offsetIdx = Vector(2, 4, 6, 8, 10)
   private val firstOffset = offset(1L)
   private val offsets = offsetIdx.map(i => offset(i.toLong))
-  private val someDomainId = DomainId.tryFromString("some::domain-id")
+  private val someSynchronizerId = SynchronizerId.tryFromString("some::synchronizer id")
 
   private val IdentityFilter: TransactionLogUpdate => Option[TransactionLogUpdate] =
     tracedUpdate => Some(tracedUpdate)
@@ -507,7 +507,7 @@ class InMemoryFanoutBufferSpec
       events = Vector.empty,
       completionStreamResponse = None,
       commandId = "",
-      domainId = someDomainId.toProtoPrimitive,
+      synchronizerId = someSynchronizerId.toProtoPrimitive,
       recordTime = Time.Timestamp.Epoch,
     )
 

@@ -10,6 +10,7 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{
   LtHash16,
   Signature,
+  SigningKeyUsage,
   SigningPublicKey,
   SyncCryptoApiProvider,
   TestHash,
@@ -42,7 +43,7 @@ import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.IndexedDomain
 import com.digitalasset.canton.store.db.{DbTest, PostgresTest}
 import com.digitalasset.canton.time.PositiveSeconds
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{
   BaseTest,
@@ -96,13 +97,17 @@ sealed trait SyncStateInspectionTest
   lazy val remoteId2NESet: NonEmpty[Set[ParticipantId]] = NonEmptyUtil.fromElement(remoteId2).toSet
 
   // values for domain1
-  lazy val domainId: DomainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::domain"))
-  lazy val domainIdAlias: DomainAlias = DomainAlias.tryCreate("domain")
-  lazy val indexedDomain: IndexedDomain = IndexedDomain.tryCreate(domainId, 1)
+  lazy val synchronizerId: SynchronizerId = SynchronizerId(
+    UniqueIdentifier.tryFromProtoPrimitive("domain::domain")
+  )
+  lazy val synchronizerIdAlias: DomainAlias = DomainAlias.tryCreate("domain")
+  lazy val indexedDomain: IndexedDomain = IndexedDomain.tryCreate(synchronizerId, 1)
   // values for domain2
-  lazy val domainId2: DomainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::domain2"))
-  lazy val domainId2Alias: DomainAlias = DomainAlias.tryCreate("domain2")
-  lazy val indexedDomain2: IndexedDomain = IndexedDomain.tryCreate(domainId2, 2)
+  lazy val synchronizerId2: SynchronizerId = SynchronizerId(
+    UniqueIdentifier.tryFromProtoPrimitive("domain::domain2")
+  )
+  lazy val synchronizerId2Alias: DomainAlias = DomainAlias.tryCreate("domain2")
+  lazy val indexedDomain2: IndexedDomain = IndexedDomain.tryCreate(synchronizerId2, 2)
 
   def buildSyncState(): (SyncStateInspection, SyncDomainPersistentStateManager) = {
     val stateManager = mock[SyncDomainPersistentStateManager]
@@ -122,9 +127,9 @@ sealed trait SyncStateInspectionTest
     (syncStateInspection, stateManager)
   }
 
-  def AddDomainToSyncState(
+  protected def addDomainToSyncState(
       stateManager: SyncDomainPersistentStateManager,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       domainAlias: DomainAlias,
   ): AcsCommitmentStore = {
     val persistentStateDomain = mock[SyncDomainPersistentState]
@@ -139,8 +144,8 @@ sealed trait SyncStateInspectionTest
       loggerFactory,
     )
     when(persistentStateDomain.acsCommitmentStore).thenReturn(acsCommitmentStore)
-    when(stateManager.aliasForDomainId(domainId)).thenReturn(Some(domainAlias))
-    when(stateManager.get(domainId)).thenReturn(Some(persistentStateDomain))
+    when(stateManager.aliasForSynchronizerId(synchronizerId)).thenReturn(Some(domainAlias))
+    when(stateManager.get(synchronizerId)).thenReturn(Some(persistentStateDomain))
     when(stateManager.getByAlias(domainAlias)).thenReturn(Some(persistentStateDomain))
 
     acsCommitmentStore
@@ -190,7 +195,7 @@ sealed trait SyncStateInspectionTest
     * The ReceivedAcsCommitment is in state Outstanding.
     */
   def createDummyReceivedCommitment(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       remoteParticipant: ParticipantId,
       commitmentPeriod: CommitmentPeriod,
       hashingState: HashingState = new HashingState(),
@@ -202,10 +207,11 @@ sealed trait SyncStateInspectionTest
       symbolicCrypto.sign(
         symbolicCrypto.pureCrypto.digest(TestHash.testHashPurpose, dummyCommitment),
         testKey.id,
+        SigningKeyUsage.ProtocolOnly,
       )
     val dummyCommitmentMsg: AcsCommitment =
       AcsCommitment.create(
-        domainId,
+        synchronizerId,
         remoteParticipant,
         localId,
         commitmentPeriod,
@@ -215,7 +221,7 @@ sealed trait SyncStateInspectionTest
     val signed =
       SignedProtocolMessage.from(dummyCommitmentMsg, testedProtocolVersion, dummySignature)
     val received = ReceivedAcsCommitment(
-      domainId,
+      synchronizerId,
       commitmentPeriod,
       remoteParticipant,
       Option.when(hashingState.isVerbose)(dummyCommitment),
@@ -230,7 +236,7 @@ sealed trait SyncStateInspectionTest
     * The SentAcsCommitment is in state Outstanding.
     */
   def createDummyComputedCommitment(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       counterParticipant: ParticipantId,
       period: CommitmentPeriod,
       hashingState: HashingState = new HashingState(),
@@ -240,7 +246,7 @@ sealed trait SyncStateInspectionTest
     val dummyCommitment = createDummyHash(hashingState.isOwnDefault)
     val commitmentData = CommitmentData(counterParticipant, period, dummyCommitment)
     val sent = SentAcsCommitment(
-      domainId,
+      synchronizerId,
       period,
       counterParticipant,
       Option.when(hashingState.isVerbose)(dummyCommitment),
@@ -271,7 +277,8 @@ sealed trait SyncStateInspectionTest
     loggerFactory,
   )
 
-  lazy val testKey: SigningPublicKey = symbolicCrypto.generateSymbolicSigningKey()
+  lazy val testKey: SigningPublicKey =
+    symbolicCrypto.generateSymbolicSigningKey(usage = SigningKeyUsage.ProtocolOnly)
 
   "fetch empty sets if no domains exists" in {
     val (syncStateInspection, _) = buildSyncState()
@@ -293,7 +300,7 @@ sealed trait SyncStateInspectionTest
 
   "fetch empty sets if no commitments exists" in {
     val (syncStateInspection, stateManager) = buildSyncState()
-    AddDomainToSyncState(stateManager, domainId, domainIdAlias)
+    addDomainToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
     val crossDomainReceived = syncStateInspection.crossDomainReceivedCommitmentMessages(
       Seq.empty,
       Seq.empty,
@@ -312,7 +319,7 @@ sealed trait SyncStateInspectionTest
 
   "fetch a received commitment if it has been stored" in {
     val (syncStateInspection, stateManager) = buildSyncState()
-    val store = AddDomainToSyncState(stateManager, domainId, domainIdAlias)
+    val store = addDomainToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
     val testPeriod = period(1, 2)
     val domainSearchPeriod = DomainSearchCommitmentPeriod(
       indexedDomain,
@@ -321,7 +328,7 @@ sealed trait SyncStateInspectionTest
     )
 
     val (received, dummyCommitment) =
-      createDummyReceivedCommitment(domainId, remoteId, testPeriod)
+      createDummyReceivedCommitment(synchronizerId, remoteId, testPeriod)
     for {
       _ <- store.markOutstanding(NonEmptyUtil.fromElement(testPeriod), remoteIdNESet)
       _ <- store.storeReceived(dummyCommitment)
@@ -339,7 +346,7 @@ sealed trait SyncStateInspectionTest
 
   "fetch a computed commitment if it has been computed" in {
     val (syncStateInspection, stateManager) = buildSyncState()
-    val store = AddDomainToSyncState(stateManager, domainId, domainIdAlias)
+    val store = addDomainToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
     val testPeriod = period(1, 2)
     val domainSearchPeriod = DomainSearchCommitmentPeriod(
       indexedDomain,
@@ -348,7 +355,7 @@ sealed trait SyncStateInspectionTest
     )
 
     val (sent, dummyCommitment) =
-      createDummyComputedCommitment(domainId, remoteId, testPeriod)
+      createDummyComputedCommitment(synchronizerId, remoteId, testPeriod)
     for {
       _ <- store.markOutstanding(NonEmptyUtil.fromElement(testPeriod), remoteIdNESet)
       nonEmpty = NonEmpty
@@ -367,7 +374,7 @@ sealed trait SyncStateInspectionTest
 
   "fetch matched received and computed commitments with hashes" in {
     val (syncStateInspection, stateManager) = buildSyncState()
-    val store = AddDomainToSyncState(stateManager, domainId, domainIdAlias)
+    val store = addDomainToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
     val testPeriod = period(1, 2)
     val domainSearchPeriod = DomainSearchCommitmentPeriod(
       indexedDomain,
@@ -378,7 +385,7 @@ sealed trait SyncStateInspectionTest
 
     val (received, dummyRecCommitment) =
       createDummyReceivedCommitment(
-        domainId,
+        synchronizerId,
         remoteId,
         testPeriod,
         receivedHashingState,
@@ -386,7 +393,7 @@ sealed trait SyncStateInspectionTest
       )
     val (sent, dummySentCommitment) =
       createDummyComputedCommitment(
-        domainId,
+        synchronizerId,
         remoteId,
         testPeriod,
         receivedHashingState.inverse(),
@@ -422,7 +429,7 @@ sealed trait SyncStateInspectionTest
 
   "fetch buffering commitments" in {
     val (syncStateInspection, stateManager) = buildSyncState()
-    val store = AddDomainToSyncState(stateManager, domainId, domainIdAlias)
+    val store = addDomainToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
     val testPeriod = period(1, 2)
     val domainSearchPeriod = DomainSearchCommitmentPeriod(
       indexedDomain,
@@ -432,7 +439,7 @@ sealed trait SyncStateInspectionTest
 
     val (received, dummyCommitment) =
       createDummyReceivedCommitment(
-        domainId,
+        synchronizerId,
         remoteId,
         testPeriod,
         state = CommitmentPeriodState.Buffered,
@@ -451,8 +458,8 @@ sealed trait SyncStateInspectionTest
 
   "only fetch requested domains" in {
     val (syncStateInspection, stateManager) = buildSyncState()
-    val store = AddDomainToSyncState(stateManager, domainId, domainIdAlias)
-    val store2 = AddDomainToSyncState(stateManager, domainId2, domainId2Alias)
+    val store = addDomainToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
+    val store2 = addDomainToSyncState(stateManager, synchronizerId2, synchronizerId2Alias)
     val testPeriod = period(1, 2)
     val domainSearchPeriod = DomainSearchCommitmentPeriod(
       indexedDomain,
@@ -462,14 +469,14 @@ sealed trait SyncStateInspectionTest
 
     val (received, dummyRecCommitment) =
       createDummyReceivedCommitment(
-        domainId,
+        synchronizerId,
         remoteId,
         testPeriod,
         state = CommitmentPeriodState.Matched,
       )
     val (sent, dummySentCommitment) =
       createDummyComputedCommitment(
-        domainId,
+        synchronizerId,
         remoteId,
         testPeriod,
         state = CommitmentPeriodState.Matched,
@@ -477,14 +484,14 @@ sealed trait SyncStateInspectionTest
 
     val (_, dummyRecCommitment2) =
       createDummyReceivedCommitment(
-        domainId2,
+        synchronizerId2,
         remoteId,
         testPeriod,
         state = CommitmentPeriodState.Matched,
       )
     val (_, dummySentCommitment2) =
       createDummyComputedCommitment(
-        domainId2,
+        synchronizerId2,
         remoteId,
         testPeriod,
         state = CommitmentPeriodState.Matched,
@@ -528,8 +535,8 @@ sealed trait SyncStateInspectionTest
 
   "fetch requested counter participant from multiple domains" in {
     val (syncStateInspection, stateManager) = buildSyncState()
-    val store = AddDomainToSyncState(stateManager, domainId, domainIdAlias)
-    val store2 = AddDomainToSyncState(stateManager, domainId2, domainId2Alias)
+    val store = addDomainToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
+    val store2 = addDomainToSyncState(stateManager, synchronizerId2, synchronizerId2Alias)
     val testPeriod = period(1, 2)
     val domainSearchPeriod = DomainSearchCommitmentPeriod(
       indexedDomain,
@@ -544,14 +551,14 @@ sealed trait SyncStateInspectionTest
 
     val (received, dummyRecCommitment) =
       createDummyReceivedCommitment(
-        domainId,
+        synchronizerId,
         remoteId,
         testPeriod,
         state = CommitmentPeriodState.Matched,
       )
     val (sent, dummySentCommitment) =
       createDummyComputedCommitment(
-        domainId,
+        synchronizerId,
         remoteId,
         testPeriod,
         state = CommitmentPeriodState.Matched,
@@ -559,14 +566,14 @@ sealed trait SyncStateInspectionTest
 
     val (received2, dummyRecCommitment2) =
       createDummyReceivedCommitment(
-        domainId2,
+        synchronizerId2,
         remoteId,
         testPeriod,
         state = CommitmentPeriodState.Matched,
       )
     val (sent2, dummySentCommitment2) =
       createDummyComputedCommitment(
-        domainId2,
+        synchronizerId2,
         remoteId,
         testPeriod,
         state = CommitmentPeriodState.Matched,
@@ -574,14 +581,14 @@ sealed trait SyncStateInspectionTest
 
     val (_, dummyRecCommitmentTrap) =
       createDummyReceivedCommitment(
-        domainId2,
+        synchronizerId2,
         remoteId2,
         testPeriod,
         state = CommitmentPeriodState.Matched,
       )
     val (_, dummySentCommitmentTrap) =
       createDummyComputedCommitment(
-        domainId2,
+        synchronizerId2,
         remoteId2,
         testPeriod,
         state = CommitmentPeriodState.Matched,
@@ -633,7 +640,7 @@ sealed trait SyncStateInspectionTest
 
   "only fetch requested states" in {
     val (syncStateInspection, stateManager) = buildSyncState()
-    val store = AddDomainToSyncState(stateManager, domainId, domainIdAlias)
+    val store = addDomainToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
     val testPeriod = period(1, 2) // period will be matches
     val testPeriod2 = period(2, 3) // period will be mismatched
     val testPeriod3 = period(3, 4) // period will be outstanding
@@ -644,35 +651,35 @@ sealed trait SyncStateInspectionTest
     )
     val (receivedMatched, dummyRecCommitment) =
       createDummyReceivedCommitment(
-        domainId,
+        synchronizerId,
         remoteId,
         testPeriod,
         state = CommitmentPeriodState.Matched,
       )
     val (sentMatched, dummySentCommitment) =
       createDummyComputedCommitment(
-        domainId,
+        synchronizerId,
         remoteId,
         testPeriod,
         state = CommitmentPeriodState.Matched,
       )
     val (receivedMismatched, dummyRecCommitment2) =
       createDummyReceivedCommitment(
-        domainId,
+        synchronizerId,
         remoteId,
         testPeriod2,
         state = CommitmentPeriodState.Mismatched,
       )
     val (sentMismatched, dummySentCommitment2) =
       createDummyComputedCommitment(
-        domainId,
+        synchronizerId,
         remoteId,
         testPeriod2,
         state = CommitmentPeriodState.Mismatched,
       )
     val (sentOutstanding, dummySentCommitment3) =
       createDummyComputedCommitment(
-        domainId,
+        synchronizerId,
         remoteId,
         testPeriod3,
         state = CommitmentPeriodState.Outstanding,
@@ -771,7 +778,7 @@ sealed trait SyncStateInspectionTest
   }
   "should fetch latest iteration if called with lastComputedAndSent" in {
     val (syncStateInspection, stateManager) = buildSyncState()
-    val store = AddDomainToSyncState(stateManager, domainId, domainIdAlias)
+    val store = addDomainToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
     val testPeriod = period(1, 2)
     val domainSearchPeriod = DomainSearchCommitmentPeriod(
       indexedDomain,
@@ -780,7 +787,7 @@ sealed trait SyncStateInspectionTest
     )
     val (sentMatched, dummySentCommitment) =
       createDummyComputedCommitment(
-        domainId,
+        synchronizerId,
         remoteId,
         testPeriod,
         state = CommitmentPeriodState.Outstanding,
@@ -803,7 +810,7 @@ sealed trait SyncStateInspectionTest
 
   "not include duplicates with overlapping time periods" in {
     val (syncStateInspection, stateManager) = buildSyncState()
-    val store = AddDomainToSyncState(stateManager, domainId, domainIdAlias)
+    val store = addDomainToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
     val testPeriod = period(1, 2)
     val domainSearchPeriod = DomainSearchCommitmentPeriod(
       indexedDomain,
@@ -812,7 +819,7 @@ sealed trait SyncStateInspectionTest
     )
 
     val (_, dummyCommitment) =
-      createDummyReceivedCommitment(domainId, remoteId, testPeriod)
+      createDummyReceivedCommitment(synchronizerId, remoteId, testPeriod)
     for {
       _ <- store.markOutstanding(NonEmptyUtil.fromElement(testPeriod), remoteIdNESet)
       _ <- store.storeReceived(dummyCommitment)

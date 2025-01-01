@@ -18,7 +18,7 @@ import com.digitalasset.canton.domain.mediator.store.MediatorState
 import com.digitalasset.canton.domain.metrics.MediatorMetrics
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.error.MediatorError
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, *}
+import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.MetricsHelper
 import com.digitalasset.canton.protocol.messages.{
@@ -38,9 +38,9 @@ import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor
 import com.digitalasset.canton.topology.{
-  DomainId,
   DomainOutboxHandle,
   MediatorId,
+  SynchronizerId,
   TopologyManagerStatus,
 }
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -58,7 +58,7 @@ import scala.concurrent.ExecutionContext
   * For scaling / high-availability, several instances need to be created.
   */
 private[mediator] class Mediator(
-    val domain: DomainId,
+    val synchronizerId: SynchronizerId,
     val mediatorId: MediatorId,
     @VisibleForTesting
     val sequencerClient: RichSequencerClient,
@@ -95,7 +95,7 @@ private[mediator] class Mediator(
     VerdictSender(sequencerClient, syncCrypto, mediatorId, protocolVersion, loggerFactory)
 
   private val processor = new ConfirmationRequestAndResponseProcessor(
-    domain,
+    synchronizerId,
     mediatorId,
     verdictSender,
     syncCrypto,
@@ -115,7 +115,7 @@ private[mediator] class Mediator(
   )
 
   private val eventsProcessor = MediatorEventsProcessor(
-    topologyTransactionProcessor.createHandler(domain),
+    topologyTransactionProcessor.createHandler(synchronizerId),
     processor,
     deduplicator,
     loggerFactory,

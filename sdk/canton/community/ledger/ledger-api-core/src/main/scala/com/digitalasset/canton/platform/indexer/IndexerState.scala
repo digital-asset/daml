@@ -18,7 +18,7 @@ import com.digitalasset.canton.ledger.participant.state.{
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil
 import com.digitalasset.canton.util.PekkoUtil.{FutureQueue, RecoveringFutureQueue}
@@ -231,35 +231,38 @@ class IndexerState(
       queueF.flatMap(_.done).transform(handleShutdownDoneResult)
   }
 
-  def ensureNoProcessingForDomain(domainId: DomainId): Future[Unit] = withStateUnlessShutdown {
-    case Normal(recoveringQueue, _) =>
-      RetryStrategy
-        .constant(None, Duration.create(200, "millis")) { case t: Throwable =>
-          t.getMessage.contains("Still uncommitted")
-        }((_, _) =>
-          withStateUnlessShutdown(_ =>
-            if (
-              recoveringQueue.uncommittedQueueSnapshot.iterator.map(_._2).exists {
-                case u: DomainUpdate => u.domainId == domainId
-                case _: Update.CommitRepair => false
-                case _: Update.PartyAddedToParticipant => false
-                case _: Update.PartyAllocationRejected => false
-              }
-            )
-              Future.failed(
-                new Exception(s"Still uncommitted activity for domain $domainId, waiting...")
+  def ensureNoProcessingForDomain(synchronizerId: SynchronizerId): Future[Unit] =
+    withStateUnlessShutdown {
+      case Normal(recoveringQueue, _) =>
+        RetryStrategy
+          .constant(None, Duration.create(200, "millis")) { case t: Throwable =>
+            t.getMessage.contains("Still uncommitted")
+          }((_, _) =>
+            withStateUnlessShutdown(_ =>
+              if (
+                recoveringQueue.uncommittedQueueSnapshot.iterator.map(_._2).exists {
+                  case u: DomainUpdate => u.synchronizerId == synchronizerId
+                  case _: Update.CommitRepair => false
+                  case _: Update.PartyAddedToParticipant => false
+                  case _: Update.PartyAllocationRejected => false
+                }
               )
-            else
-              Future.unit
+                Future.failed(
+                  new Exception(
+                    s"Still uncommitted activity for domain $synchronizerId, waiting..."
+                  )
+                )
+              else
+                Future.unit
+            )
           )
-        )
-        .recoverWith { case UnhandledFailureException(_, _, ShutdownInProgress) =>
-          Future.failed(ShutdownInProgress)
-        }
+          .recoverWith { case UnhandledFailureException(_, _, ShutdownInProgress) =>
+            Future.failed(ShutdownInProgress)
+          }
 
-    case Repair(_, repairDone, _) =>
-      Future.failed(new RepairInProgress(repairDone))
-  }
+      case Repair(_, repairDone, _) =>
+        Future.failed(new RepairInProgress(repairDone))
+    }
 
   private def withState[T](f: State => T): T =
     blocking(synchronized(f(state)))

@@ -5,7 +5,7 @@ package com.digitalasset.canton.topology.processing
 
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.{
@@ -28,7 +28,7 @@ abstract class TopologyTransactionHandlingBase
   object Factory extends TopologyTransactionTestFactory(loggerFactory, parallelExecutionContext)
 
   protected def mkStore(
-      domainId: DomainId = Factory.domainId1a
+      synchronizerId: SynchronizerId = Factory.synchronizerId1a
   ): TopologyStore[TopologyStoreId.DomainStore]
 
   protected def ts(idx: Int): CantonTimestamp = CantonTimestamp.Epoch.plusSeconds(idx.toLong)

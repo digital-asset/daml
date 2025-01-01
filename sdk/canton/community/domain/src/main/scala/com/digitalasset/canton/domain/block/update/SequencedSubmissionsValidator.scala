@@ -29,7 +29,7 @@ import scala.concurrent.ExecutionContext
 /** Validates a list of [[SequencedSubmission]]s corresponding to a chunk.
   */
 private[update] final class SequencedSubmissionsValidator(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
     domainSyncCryptoApi: DomainSyncCryptoClient,
     sequencerId: SequencerId,
@@ -42,7 +42,7 @@ private[update] final class SequencedSubmissionsValidator(
 
   private val submissionRequestValidator =
     new SubmissionRequestValidator(
-      domainId,
+      synchronizerId,
       protocolVersion,
       domainSyncCryptoApi,
       sequencerId,

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.interning
 
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
 
@@ -99,19 +99,19 @@ class MockStringInterning extends StringInterning {
         rawStringInterning.tryExternalize(id).map(Party.assertFromString)
     }
 
-  override val domainId: StringInterningDomain[DomainId] =
-    new StringInterningDomain[DomainId] {
+  override val synchronizerId: StringInterningDomain[SynchronizerId] =
+    new StringInterningDomain[SynchronizerId] {
       override val unsafe: StringInterningAccessor[String] = rawStringInterning
 
-      override def internalize(t: DomainId): Int = tryInternalize(t).get
+      override def internalize(t: SynchronizerId): Int = tryInternalize(t).get
 
-      override def tryInternalize(t: DomainId): Option[Int] =
+      override def tryInternalize(t: SynchronizerId): Option[Int] =
         rawStringInterning.tryInternalize(t.toProtoPrimitive)
 
-      override def externalize(id: Int): DomainId = tryExternalize(id).get
+      override def externalize(id: Int): SynchronizerId = tryExternalize(id).get
 
-      override def tryExternalize(id: Int): Option[DomainId] =
-        rawStringInterning.tryExternalize(id).map(DomainId.tryFromString)
+      override def tryExternalize(id: Int): Option[SynchronizerId] =
+        rawStringInterning.tryExternalize(id).map(SynchronizerId.tryFromString)
     }
 
   private[store] def reset(): Unit = blocking(synchronized {

@@ -62,7 +62,7 @@ final class CommandsValidator(
         domain.CommandId(_)
       )
       submitters <- validateSubmitters(effectiveSubmitters(prepareRequest))
-      domainId <- requireDomainId(prepareRequest.domainId, "domain_id")
+      synchronizerId <- requireSynchronizerId(prepareRequest.synchronizerId, "synchronizer_id")
       commandz <- requireNonEmpty(prepareRequest.commands, "commands")
       validatedCommands <- validateInnerCommands(commandz)
       ledgerEffectiveTime <- validateLedgerTime(
@@ -102,7 +102,7 @@ final class CommandsValidator(
         commandsReference = "",
       ),
       disclosedContracts = validatedDisclosedContracts,
-      domainId = Some(domainId),
+      synchronizerId = Some(synchronizerId),
       packageMap = packageResolutions.packageMap,
       packagePreferenceSet = packageResolutions.packagePreferenceSet,
     )
@@ -121,8 +121,8 @@ final class CommandsValidator(
       commandId <- requireLedgerString(commands.commandId, "command_id").map(domain.CommandId(_))
       submissionId <- validateSubmissionId(commands.submissionId)
       submitters <- validateSubmitters(effectiveSubmitters(commands))
-      domainId <- validateOptional(OptionUtil.emptyStringAsNone(commands.domainId))(
-        requireDomainId(_, "domain_id")
+      synchronizerId <- validateOptional(OptionUtil.emptyStringAsNone(commands.synchronizerId))(
+        requireSynchronizerId(_, "synchronizer_id")
       )
       commandz <- requireNonEmpty(commands.commands, "commands")
       validatedCommands <- validateInnerCommands(commandz)
@@ -162,7 +162,7 @@ final class CommandsValidator(
         commandsReference = workflowId.fold("")(_.unwrap),
       ),
       disclosedContracts = validatedDisclosedContracts,
-      domainId = domainId,
+      synchronizerId = synchronizerId,
       packageMap = packageResolutions.packageMap,
       packagePreferenceSet = packageResolutions.packagePreferenceSet,
     )

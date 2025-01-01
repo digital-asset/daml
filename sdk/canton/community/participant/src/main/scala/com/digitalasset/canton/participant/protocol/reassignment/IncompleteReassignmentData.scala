@@ -9,7 +9,7 @@ import com.digitalasset.canton.data.{CantonTimestamp, FullUnassignmentTree, Offs
 import com.digitalasset.canton.participant.protocol.reassignment.IncompleteReassignmentData.ReassignmentEventGlobalOffset
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.ProtocolVersion
 import io.scalaland.chimney.dsl.*
@@ -34,8 +34,8 @@ final case class IncompleteReassignmentData private (
     queryOffset: Offset,
 ) {
 
-  def sourceDomain: Source[DomainId] = unassignmentRequest.sourceDomain
-  def targetDomain: Target[DomainId] = unassignmentRequest.targetDomain
+  def sourceDomain: Source[SynchronizerId] = unassignmentRequest.sourceDomain
+  def targetDomain: Target[SynchronizerId] = unassignmentRequest.targetDomain
 
   def unassignmentGlobalOffset: Option[Offset] =
     reassignmentEventGlobalOffset.unassignmentGlobalOffset

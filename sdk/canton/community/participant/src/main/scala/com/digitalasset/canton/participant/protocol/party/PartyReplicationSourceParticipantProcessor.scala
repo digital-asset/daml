@@ -14,7 +14,7 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.data.ActiveContract
 import com.digitalasset.canton.participant.store.AcsInspection
 import com.digitalasset.canton.sequencing.client.channel.SequencerChannelProtocolProcessor
-import com.digitalasset.canton.topology.{DomainId, PartyId}
+import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -36,7 +36,7 @@ import scala.concurrent.ExecutionContext
   * - sends [[PartyReplicationSourceMessage.EndOfACS]] iff the processor is closed by the next message,
   * - and sends only deserializable payloads.
   *
-  * @param domainId      The domain id of the domain to replicate active contracts within.
+  * @param synchronizerId      The synchronizer id of the domain to replicate active contracts within.
   * @param partyId       The party id of the party to replicate active contracts for.
   * @param activeAt      The timestamp on which the ACS snapshot is based, i.e. the time at which the contract to be send are active.
   * @param acsInspection Interface to inspect the ACS.
@@ -44,7 +44,7 @@ import scala.concurrent.ExecutionContext
   *                        online party replication protocol is a different protocol from the canton protocol.
   */
 class PartyReplicationSourceParticipantProcessor private (
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     partyId: PartyId,
     activeAt: CantonTimestamp,
     acsInspection: AcsInspection, // TODO(#18525): Stream the ACS via the Ledger Api instead.
@@ -124,9 +124,9 @@ class PartyReplicationSourceParticipantProcessor private (
       s"Read ACS from ${newChunkToConsumerFrom.unwrap} to $newChunkToConsumeTo"
     )(
       acsInspection
-        .forEachVisibleActiveContract(domainId, Set(partyId.toLf), Some(activeAt)) {
+        .forEachVisibleActiveContract(synchronizerId, Set(partyId.toLf), Some(activeAt)) {
           case (contract, reassignmentCounter) =>
-            contracts += ActiveContract.create(domainId, contract, reassignmentCounter)(
+            contracts += ActiveContract.create(synchronizerId, contract, reassignmentCounter)(
               protocolVersion
             )
             Right(())
@@ -188,7 +188,7 @@ class PartyReplicationSourceParticipantProcessor private (
 
 object PartyReplicationSourceParticipantProcessor {
   def apply(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       partyId: PartyId,
       activeAt: CantonTimestamp,
       acsInspection: AcsInspection,
@@ -197,14 +197,14 @@ object PartyReplicationSourceParticipantProcessor {
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): PartyReplicationSourceParticipantProcessor =
     new PartyReplicationSourceParticipantProcessor(
-      domainId,
+      synchronizerId,
       partyId,
       activeAt,
       acsInspection,
       protocolVersion,
       timeouts,
       loggerFactory
-        .append("domainId", domainId.toProtoPrimitive)
+        .append("synchronizerId", synchronizerId.toProtoPrimitive)
         .append("partyId", partyId.toProtoPrimitive),
     )
 }

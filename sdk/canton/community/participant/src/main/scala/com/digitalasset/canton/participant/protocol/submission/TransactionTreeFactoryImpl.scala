@@ -27,7 +27,7 @@ import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.WellFormedTransaction.{WithSuffixes, WithoutSuffixes}
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
@@ -60,7 +60,7 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 class TransactionTreeFactoryImpl(
     participantId: ParticipantId,
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
     contractSerializer: LfContractInst => SerializableRawContractInstance,
     cryptoOps: HashOps & HmacOps,
@@ -121,7 +121,7 @@ class TransactionTreeFactoryImpl(
 
     val commonMetadata = CommonMetadata
       .create(cryptoOps, protocolVersion)(
-        domainId,
+        synchronizerId,
         mediator,
         commonMetadataSalt,
         transactionUuid,
@@ -161,7 +161,7 @@ class TransactionTreeFactoryImpl(
         if (validatePackageVettings)
           UsableDomains
             .checkPackagesVetted(
-              domainId = domainId,
+              synchronizerId = synchronizerId,
               snapshot = topologySnapshot,
               requiredPackagesByParty = requiredPackagesByParty(rootViewDecompositions),
               metadata.ledgerTime,
@@ -500,7 +500,7 @@ class TransactionTreeFactoryImpl(
     }
     val contractMetadata = LfTransactionUtil.metadataFromCreate(createNode)
     val (contractSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
-      domainId,
+      synchronizerId,
       state.mediator,
       state.transactionUUID,
       viewPosition,
@@ -903,14 +903,14 @@ object TransactionTreeFactoryImpl {
   /** Creates a `TransactionTreeFactory`. */
   def apply(
       submittingParticipant: ParticipantId,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       protocolVersion: ProtocolVersion,
       cryptoOps: HashOps & HmacOps,
       loggerFactory: NamedLoggerFactory,
   )(implicit ex: ExecutionContext): TransactionTreeFactoryImpl =
     new TransactionTreeFactoryImpl(
       submittingParticipant,
-      domainId,
+      synchronizerId,
       protocolVersion,
       contractSerializer,
       cryptoOps,

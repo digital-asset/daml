@@ -11,7 +11,7 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.version.{
   HasProtocolVersionedWithContextCompanion,
@@ -46,7 +46,7 @@ final case class AssignmentMediatorMessage(
       : RepresentativeProtocolVersion[AssignmentMediatorMessage.type] =
     AssignmentMediatorMessage.protocolVersionRepresentativeFor(protocolVersion.unwrap)
 
-  override def domainId: DomainId = commonData.targetDomain.unwrap
+  override def synchronizerId: SynchronizerId = commonData.targetDomain.unwrap
 
   override def mediator: MediatorGroupRecipient = commonData.targetMediatorGroup
 

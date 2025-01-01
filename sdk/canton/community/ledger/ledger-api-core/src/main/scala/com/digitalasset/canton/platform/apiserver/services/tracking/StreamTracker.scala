@@ -5,14 +5,16 @@ package com.digitalasset.canton.platform.apiserver.services.tracking
 
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.metrics.api.MetricHandle.Counter
+import com.daml.metrics.api.MetricHandle
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterAsyncOps
+import io.grpc.StatusRuntimeException
 import io.opentelemetry.api.trace.Tracer
 
 import scala.collection.concurrent.TrieMap
@@ -29,23 +31,37 @@ trait StreamTracker[K, I] extends AutoCloseable {
   def track(
       key: K,
       timeout: NonNegativeFiniteDuration,
-      start: TraceContext => FutureUnlessShutdown[Any],
+  )(
+      start: TraceContext => FutureUnlessShutdown[Any]
   )(implicit
       ec: ExecutionContext,
       errorLogger: ContextualizedErrorLogger,
       traceContext: TraceContext,
       tracer: Tracer,
+      errors: StreamTracker.Errors[K],
   ): Future[I]
 
   def onStreamItem(item: I): Unit
 }
 
 object StreamTracker {
-  def owner[Key <: Errors.KeyDescriptions, Item](
+  def withTimer[Key, Item](
+      timer: java.util.Timer,
+      itemKey: Item => Option[Key],
+      inFlightCounter: InFlight,
+      loggerFactory: NamedLoggerFactory,
+  ): StreamTracker[Key, Item] =
+    new StreamTrackerImpl(
+      new CancellableTimeoutSupportImpl(timer, loggerFactory),
+      itemKey,
+      inFlightCounter,
+      loggerFactory,
+    )
+
+  def owner[Key, Item](
       trackerThreadName: String,
-      itemKey: Item => Key,
-      maxInFlight: Int,
-      inFlightCount: Counter,
+      itemKey: Item => Option[Key],
+      inFlightCounter: InFlight,
       loggerFactory: NamedLoggerFactory,
   ): ResourceOwner[StreamTracker[Key, Item]] =
     for {
@@ -55,19 +71,24 @@ object StreamTracker {
         new StreamTrackerImpl(
           timeoutSupport,
           itemKey,
-          maxInFlight,
-          inFlightCount,
+          inFlightCounter,
           loggerFactory,
         )
       )
     } yield streamTracker
+
+  trait Errors[Key] {
+    def timedOut(key: Key)(implicit errorLogger: ContextualizedErrorLogger): StatusRuntimeException
+    def duplicated(key: Key)(implicit
+        errorLogger: ContextualizedErrorLogger
+    ): StatusRuntimeException
+  }
 }
 
-private[tracking] class StreamTrackerImpl[Key <: Errors.KeyDescriptions, Item](
+private[tracking] class StreamTrackerImpl[Key, Item](
     cancellableTimeoutSupport: CancellableTimeoutSupport,
-    itemKey: Item => Key,
-    maxInFlight: Int,
-    inFlightCount: Counter,
+    itemKey: Item => Option[Key],
+    inFlightCounter: InFlight,
     val loggerFactory: NamedLoggerFactory,
 ) extends StreamTracker[Key, Item]
     with NamedLogging
@@ -76,20 +97,22 @@ private[tracking] class StreamTrackerImpl[Key <: Errors.KeyDescriptions, Item](
   private[tracking] val pending =
     TrieMap.empty[Key, (ContextualizedErrorLogger, Promise[Item])]
 
-  def track(
+  override def track(
       key: Key,
       timeout: NonNegativeFiniteDuration,
-      start: TraceContext => FutureUnlessShutdown[Any],
+  )(
+      start: TraceContext => FutureUnlessShutdown[Any]
   )(implicit
       ec: ExecutionContext,
       errorLogger: ContextualizedErrorLogger,
       traceContext: TraceContext,
       tracer: Tracer,
+      errors: StreamTracker.Errors[Key],
   ): Future[Item] =
-    ensuringMaximumInFlight {
+    inFlightCounter.check(pending.size) {
       val promise = Promise[Item]()
       pending.putIfAbsent(key, (errorLogger, promise)) match {
-        case Some(_) => promise.failure(Errors.duplicated(key))
+        case Some(_) => promise.failure(errors.duplicated(key)(errorLogger))
         case None => trackWithCancelTimeout(key, timeout, promise, start)
       }
       promise.future
@@ -105,6 +128,7 @@ private[tracking] class StreamTrackerImpl[Key <: Errors.KeyDescriptions, Item](
       errorLogger: ContextualizedErrorLogger,
       traceContext: TraceContext,
       tracer: Tracer,
+      errors: StreamTracker.Errors[Key],
   ): Unit =
     Try(
       // Start the timeout timer before start to ensure that the timer scheduling
@@ -112,7 +136,7 @@ private[tracking] class StreamTrackerImpl[Key <: Errors.KeyDescriptions, Item](
       cancellableTimeoutSupport.scheduleOnce(
         duration = timeout,
         promise = promise,
-        onTimeout = Failure(Errors.timedOut(key)(errorLogger)),
+        onTimeout = Failure(errors.timedOut(key)(errorLogger)),
       )
     ) match {
       case Failure(err) =>
@@ -141,64 +165,51 @@ private[tracking] class StreamTrackerImpl[Key <: Errors.KeyDescriptions, Item](
         }
     }
 
-  def onStreamItem(item: Item): Unit =
-    pending.get(itemKey(item)).foreach { case (_traceCtx, promise) =>
-      promise.tryComplete(scala.util.Success(item)).discard
+  override def onStreamItem(item: Item): Unit =
+    itemKey(item).flatMap(pending.get(_)).foreach { case (_traceCtx, promise) =>
+      promise.tryComplete(Success(item)).discard
     }
 
   override def close(): Unit =
     pending.values.foreach { case (traceCtx, promise) =>
-      promise.tryFailure(Errors.closed(traceCtx)).discard
-    }
-
-  private def ensuringMaximumInFlight[T](
-      f: => Future[T]
-  )(implicit
-      ec: ExecutionContext,
-      errorLogger: ContextualizedErrorLogger,
-  ): Future[T] =
-    if (pending.sizeIs < maxInFlight) {
-      inFlightCount.inc()
-      f.thereafter(_ => inFlightCount.dec())
-    } else {
-      Future.failed(Errors.full(errorLogger))
+      promise.tryFailure(CommonErrors.ServerIsShuttingDown.Reject()(traceCtx).asGrpcError).discard
     }
 }
 
-object Errors {
-  import com.digitalasset.canton.ledger.error.CommonErrors
-  import com.digitalasset.canton.ledger.error.LedgerApiErrors
-  import com.digitalasset.canton.ledger.error.groups.ConsistencyErrors
+trait InFlight {
+  def check[T](currCount: Int)(
+      f: => Future[T]
+  )(implicit ec: ExecutionContext, errorLogger: ContextualizedErrorLogger): Future[T]
+}
 
-  trait KeyDescriptions {
-    def streamItemDescription: String
-    def requestDescription: String
-    def requestId: String
+object InFlight {
+  final case class Limited(maxCount: Int, metric: MetricHandle.Counter) extends InFlight {
+    import com.digitalasset.canton.ledger.error.LedgerApiErrors
+
+    def check[T](currCount: Int)(
+        f: => Future[T]
+    )(implicit
+        ec: ExecutionContext,
+        errorLogger: ContextualizedErrorLogger,
+    ): Future[T] =
+      if (currCount < maxCount) {
+        metric.inc()
+        f.thereafter(_ => metric.dec())
+      } else {
+        Future.failed(
+          LedgerApiErrors.ParticipantBackpressure
+            .Rejection("Maximum number of in-flight requests reached")
+            .asGrpcError
+        )
+      }
   }
 
-  def timedOut(key: KeyDescriptions)(implicit
-      errorLogger: ContextualizedErrorLogger
-  ): Throwable =
-    CommonErrors.RequestTimeOut
-      .Reject(
-        s"Timed out while awaiting for ${key.streamItemDescription} corresponding to ${key.requestDescription}.",
-        definiteAnswer = false,
-      )
-      .asGrpcError
-
-  def duplicated(
-      key: KeyDescriptions
-  )(implicit errorLogger: ContextualizedErrorLogger): Throwable =
-    // TODO(i22596): Stop hard-coding this to DuplicateCommand
-    ConsistencyErrors.DuplicateCommand
-      .Reject(existingCommandSubmissionId = Some(key.requestId))
-      .asGrpcError
-
-  def closed(implicit errorLogger: ContextualizedErrorLogger): Throwable =
-    CommonErrors.ServerIsShuttingDown.Reject().asGrpcError
-
-  def full(implicit errorLogger: ContextualizedErrorLogger): Throwable =
-    LedgerApiErrors.ParticipantBackpressure
-      .Rejection("Maximum number of in-flight requests reached")
-      .asGrpcError
+  object Unlimited extends InFlight {
+    def check[T](currCount: Int)(
+        f: => Future[T]
+    )(implicit
+        ec: ExecutionContext,
+        errorLogger: ContextualizedErrorLogger,
+    ): Future[T] = f
+  }
 }

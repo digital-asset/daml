@@ -115,7 +115,7 @@ object JwtPartiesTest {
       workflowId = None,
       deduplicationPeriod = None,
       disclosedContracts = None,
-      domainId = None,
+      synchronizerId = None,
       packageIdSelectionPreference = None,
     )
 }

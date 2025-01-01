@@ -196,7 +196,7 @@ private[mediator] class DefaultVerdictSender(
         )
       envelopes <- {
         val result = ConfirmationResultMessage.create(
-          crypto.domainId,
+          crypto.synchronizerId,
           request.viewType,
           requestId,
           request.rootHash,
@@ -320,7 +320,7 @@ private[mediator] class DefaultVerdictSender(
         envs <- recipientsByViewTypeAndRootHash.toSeq
           .parTraverse { case ((viewType, rootHash), flatRecipients) =>
             val rejection = ConfirmationResultMessage.create(
-              crypto.domainId,
+              crypto.synchronizerId,
               viewType,
               requestId,
               rootHash,

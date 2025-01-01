@@ -10,6 +10,7 @@ import com.digitalasset.canton.crypto.{
   HashPurpose,
   Signature,
   SignatureCheckError,
+  SigningKeyUsage,
   SyncCryptoApi,
   SyncCryptoError,
 }
@@ -22,7 +23,7 @@ import com.digitalasset.canton.sequencing.protocol.ClosedEnvelope
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
-import com.digitalasset.canton.topology.{DomainId, Member}
+import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{
   HasProtocolVersionedWithValidationCompanion,
@@ -91,7 +92,7 @@ case class SignedProtocolMessage[+M <: SignedProtocolMessageContent](
   ): SignedProtocolMessage[MM] =
     SignedProtocolMessage(typedMessage, signatures)(representativeProtocolVersion)
 
-  override def domainId: DomainId = message.domainId
+  override def synchronizerId: SynchronizerId = message.synchronizerId
 
   protected def toProtoV30: v30.SignedProtocolMessage =
     v30.SignedProtocolMessage(
@@ -175,7 +176,7 @@ object SignedProtocolMessage
     val serialization = typedMessage.getCryptographicEvidence
 
     val hash = cryptoApi.pureCrypto.digest(hashPurpose, serialization)
-    cryptoApi.sign(hash)
+    cryptoApi.sign(hash, SigningKeyUsage.ProtocolOnly)
   }
 
   def trySignAndCreate[M <: SignedProtocolMessageContent](

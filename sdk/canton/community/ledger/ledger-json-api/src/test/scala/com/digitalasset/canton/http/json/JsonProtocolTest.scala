@@ -17,7 +17,7 @@ import com.digitalasset.canton.http.Generators.{
 }
 import com.digitalasset.canton.http.domain
 import com.digitalasset.canton.http.json.SprayJson.JsonReaderError
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.Ref
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.scalacheck.Arbitrary
@@ -280,8 +280,9 @@ class JsonProtocolTest
       )
     }
 
-    "successfully parsed with domainId" in {
-      """{"domainId":"x::domain"}""".parseJson.convertTo[domain.CommandMeta[JsValue]] should ===(
+    "successfully parsed with synchronizerId" in {
+      """{"synchronizerId":"x::domain"}""".parseJson
+        .convertTo[domain.CommandMeta[JsValue]] should ===(
         domain.CommandMeta(
           None,
           None,
@@ -290,7 +291,7 @@ class JsonProtocolTest
           None,
           None,
           None,
-          Some(DomainId.tryFromString("x::domain")),
+          Some(SynchronizerId.tryFromString("x::domain")),
           None,
         )
       )

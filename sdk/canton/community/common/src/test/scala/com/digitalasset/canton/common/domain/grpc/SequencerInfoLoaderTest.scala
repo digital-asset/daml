@@ -20,7 +20,7 @@ import com.digitalasset.canton.sequencing.{
   SequencerConnectionValidation,
   SubmissionRequestAmplification,
 }
-import com.digitalasset.canton.topology.{DomainId, SequencerId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{SequencerId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.version.{ProtocolVersionCompatibility, ReleaseVersion}
 import com.digitalasset.canton.{
@@ -46,8 +46,8 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
   )
   private lazy val sequencerAlias1 = SequencerAlias.tryCreate("sequencer1")
   private lazy val sequencerAlias2 = SequencerAlias.tryCreate("sequencer2")
-  private lazy val domainId1 = DomainId.tryFromString("first::namespace")
-  private lazy val domainId2 = DomainId.tryFromString("second::namespace")
+  private lazy val synchronizerId1 = SynchronizerId.tryFromString("first::namespace")
+  private lazy val synchronizerId2 = SynchronizerId.tryFromString("second::namespace")
   private lazy val endpoint1 = Endpoint("localhost", Port.tryCreate(1001))
   private lazy val endpoint2 = Endpoint("localhost", Port.tryCreate(1002))
   private lazy val staticDomainParameters = BaseTest.defaultStaticDomainParametersWith()
@@ -82,26 +82,26 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
       }
 
   private def run(
-      expectDomainId: Option[DomainId],
+      expectSynchronizerId: Option[SynchronizerId],
       args: List[
         (SequencerAlias, Endpoint, Either[SequencerInfoLoaderError, DomainClientBootstrapInfo])
       ],
       activeOnly: Boolean,
   ) = SequencerInfoLoader
     .validateNewSequencerConnectionResults(
-      expectDomainId,
+      expectSynchronizerId,
       if (activeOnly) SequencerConnectionValidation.Active else SequencerConnectionValidation.All,
       logger,
     )(mapArgs(args))
 
   private def hasError(
-      expectDomainId: Option[DomainId],
+      expectSynchronizerId: Option[SynchronizerId],
       args: List[
         (SequencerAlias, Endpoint, Either[SequencerInfoLoaderError, DomainClientBootstrapInfo])
       ],
       activeOnly: Boolean = false,
   )(check: String => Assertion): Assertion = {
-    val result = run(expectDomainId, args, activeOnly)
+    val result = run(expectSynchronizerId, args, activeOnly)
     result.left.value should have length (1)
     result.left.value.foreach(x => check(x.error.cause))
     succeed
@@ -112,7 +112,11 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
       hasError(
         None,
         List(
-          (sequencerAlias1, endpoint1, Right(DomainClientBootstrapInfo(domainId1, sequencer1))),
+          (
+            sequencerAlias1,
+            endpoint1,
+            Right(DomainClientBootstrapInfo(synchronizerId1, sequencer1)),
+          ),
           (
             sequencerAlias2,
             endpoint2,
@@ -121,20 +125,32 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
         ),
       )(_ should include("booh"))
     }
-    "detect mismatches in domain-id" in {
+    "detect mismatches in synchronizer id" in {
       hasError(
         None,
         List(
-          (sequencerAlias1, endpoint1, Right(DomainClientBootstrapInfo(domainId1, sequencer1))),
-          (sequencerAlias2, endpoint2, Right(DomainClientBootstrapInfo(domainId2, sequencer2))),
+          (
+            sequencerAlias1,
+            endpoint1,
+            Right(DomainClientBootstrapInfo(synchronizerId1, sequencer1)),
+          ),
+          (
+            sequencerAlias2,
+            endpoint2,
+            Right(DomainClientBootstrapInfo(synchronizerId2, sequencer2)),
+          ),
         ),
-      )(_ should include("Domain-id mismatch"))
+      )(_ should include("Synchronizer id mismatch"))
     }
-    "detect if domain-id does not match expected one" in {
+    "detect if synchronizer id does not match expected one" in {
       hasError(
-        Some(domainId2),
+        Some(synchronizerId2),
         List(
-          (sequencerAlias1, endpoint1, Right(DomainClientBootstrapInfo(domainId1, sequencer1)))
+          (
+            sequencerAlias1,
+            endpoint1,
+            Right(DomainClientBootstrapInfo(synchronizerId1, sequencer1)),
+          )
         ),
       )(_ should include("does not match expected"))
     }
@@ -142,8 +158,16 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
       hasError(
         None,
         List(
-          (sequencerAlias1, endpoint1, Right(DomainClientBootstrapInfo(domainId1, sequencer1))),
-          (sequencerAlias1, endpoint2, Right(DomainClientBootstrapInfo(domainId1, sequencer2))),
+          (
+            sequencerAlias1,
+            endpoint1,
+            Right(DomainClientBootstrapInfo(synchronizerId1, sequencer1)),
+          ),
+          (
+            sequencerAlias1,
+            endpoint2,
+            Right(DomainClientBootstrapInfo(synchronizerId1, sequencer2)),
+          ),
         ),
       )(_ should include("sequencer-id mismatch"))
     }
@@ -151,8 +175,16 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
       hasError(
         None,
         List(
-          (sequencerAlias1, endpoint1, Right(DomainClientBootstrapInfo(domainId1, sequencer1))),
-          (sequencerAlias2, endpoint2, Right(DomainClientBootstrapInfo(domainId1, sequencer1))),
+          (
+            sequencerAlias1,
+            endpoint1,
+            Right(DomainClientBootstrapInfo(synchronizerId1, sequencer1)),
+          ),
+          (
+            sequencerAlias2,
+            endpoint2,
+            Right(DomainClientBootstrapInfo(synchronizerId1, sequencer1)),
+          ),
         ),
       )(_ should include("same sequencer-id reported by different alias"))
     }
@@ -160,8 +192,16 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
       run(
         None,
         List(
-          (sequencerAlias1, endpoint1, Right(DomainClientBootstrapInfo(domainId1, sequencer1))),
-          (sequencerAlias2, endpoint2, Right(DomainClientBootstrapInfo(domainId1, sequencer2))),
+          (
+            sequencerAlias1,
+            endpoint1,
+            Right(DomainClientBootstrapInfo(synchronizerId1, sequencer1)),
+          ),
+          (
+            sequencerAlias2,
+            endpoint2,
+            Right(DomainClientBootstrapInfo(synchronizerId1, sequencer2)),
+          ),
         ),
         activeOnly = false,
       ).value shouldBe (())
@@ -186,8 +226,16 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
     "accept if everything is fine" in {
       aggregate(
         List(
-          (sequencerAlias1, endpoint1, Right(DomainClientBootstrapInfo(domainId1, sequencer1))),
-          (sequencerAlias2, endpoint2, Right(DomainClientBootstrapInfo(domainId1, sequencer2))),
+          (
+            sequencerAlias1,
+            endpoint1,
+            Right(DomainClientBootstrapInfo(synchronizerId1, sequencer1)),
+          ),
+          (
+            sequencerAlias2,
+            endpoint2,
+            Right(DomainClientBootstrapInfo(synchronizerId1, sequencer2)),
+          ),
         )
       ) match {
         case Right(_) => succeed
@@ -198,7 +246,11 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
     "reject if we don't have enough sequencers" in {
       aggregate(
         List(
-          (sequencerAlias1, endpoint1, Right(DomainClientBootstrapInfo(domainId1, sequencer1))),
+          (
+            sequencerAlias1,
+            endpoint1,
+            Right(DomainClientBootstrapInfo(synchronizerId1, sequencer1)),
+          ),
           (sequencerAlias2, endpoint2, Left(SequencerInfoLoaderError.InvalidState("booh"))),
         )
       ) match {
@@ -347,7 +399,7 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
   private def validResult(sc: SequencerConnection): LoadSequencerEndpointInformationResult =
     LoadSequencerEndpointInformationResult.Valid(
       sc,
-      DomainClientBootstrapInfo(domainId1, sequencer1),
+      DomainClientBootstrapInfo(synchronizerId1, sequencer1),
       staticDomainParameters,
     )
 

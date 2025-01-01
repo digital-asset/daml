@@ -8,7 +8,7 @@ import com.digitalasset.canton.crypto.TestHash
 import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition}
 import com.digitalasset.canton.protocol.{LocalRejectError, RequestId, RootHash}
 import com.digitalasset.canton.serialization.HasCryptographicEvidenceTest
-import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.{BaseTest, LfPartyId, topology}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec
@@ -22,7 +22,7 @@ class ConfirmationResponseTest extends AnyWordSpec with BaseTest with HasCryptog
     LocalApprove(testedProtocolVersion),
     RootHash(TestHash.digest("txid1")),
     Set(LfPartyId.assertFromString("p1"), LfPartyId.assertFromString("p2")),
-    DomainId(UniqueIdentifier.tryFromProtoPrimitive("da::default")),
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("da::default")),
     testedProtocolVersion,
   )
   private lazy val response2: ConfirmationResponse = ConfirmationResponse.tryCreate(
@@ -34,7 +34,7 @@ class ConfirmationResponseTest extends AnyWordSpec with BaseTest with HasCryptog
       .toLocalReject(testedProtocolVersion),
     RootHash(TestHash.digest("txid3")),
     Set.empty,
-    DomainId(UniqueIdentifier.tryFromProtoPrimitive("da::default")),
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("da::default")),
     testedProtocolVersion,
   )
 

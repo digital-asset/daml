@@ -16,7 +16,7 @@ import com.digitalasset.canton.topology.admin.v30
 import com.digitalasset.canton.topology.client.*
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.topology.{DomainId, MemberCode, ParticipantId, PartyId}
+import com.digitalasset.canton.topology.{MemberCode, ParticipantId, PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.{MonadUtil, OptionUtil}
 import com.google.protobuf.timestamp.Timestamp as ProtoTimestamp
@@ -44,22 +44,22 @@ class GrpcTopologyAggregationService(
 
   private def snapshots(filterStore: String, asOf: Option[ProtoTimestamp])(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CantonError, List[(DomainId, TopologySnapshotLoader)]] =
+  ): EitherT[FutureUnlessShutdown, CantonError, List[(SynchronizerId, TopologySnapshotLoader)]] =
     for {
       asOfO <- wrapErrUS(asOf.traverse(CantonTimestamp.fromProtoTimestamp))
     } yield {
       stores.collect {
         case store if store.storeId.filterName.startsWith(filterStore) =>
-          val domainId = store.storeId.domainId
+          val synchronizerId = store.storeId.synchronizerId
           // get approximate timestamp from domain client to prevent race conditions (when we have written data into the stores but haven't yet updated the client)
           val asOf = asOfO.getOrElse(
             ips
-              .forDomain(domainId)
+              .forDomain(synchronizerId)
               .map(_.approximateTimestamp)
               .getOrElse(CantonTimestamp.MaxValue)
           )
           (
-            domainId,
+            synchronizerId,
             getTopologySnapshot(asOf, store),
           )
       }.toList
@@ -76,7 +76,7 @@ class GrpcTopologyAggregationService(
     }
 
   private def findMatchingParties(
-      clients: List[(DomainId, TopologySnapshotLoader)],
+      clients: List[(SynchronizerId, TopologySnapshotLoader)],
       filterParty: String,
       filterParticipant: String,
       limit: Int,
@@ -92,17 +92,17 @@ class GrpcTopologyAggregationService(
     .map(_._1)
 
   private def findParticipants(
-      clients: List[(DomainId, TopologySnapshotLoader)],
+      clients: List[(SynchronizerId, TopologySnapshotLoader)],
       partyId: PartyId,
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[ParticipantId, Map[DomainId, ParticipantPermission]]] =
+  ): FutureUnlessShutdown[Map[ParticipantId, Map[SynchronizerId, ParticipantPermission]]] =
     clients
-      .parFlatTraverse { case (domainId, client) =>
+      .parFlatTraverse { case (synchronizerId, client) =>
         client
           .activeParticipantsOf(partyId.toLf)
           .map(_.map { case (participantId, attributes) =>
-            (domainId, participantId, attributes.permission)
+            (synchronizerId, participantId, attributes.permission)
           }.toList)
       }
       .map(_.groupBy { case (_, participantId, _) => participantId }.map { case (k, v) =>
@@ -131,9 +131,9 @@ class GrpcTopologyAggregationService(
             participants = participants.map { case (participantId, domains) =>
               v30.ListPartiesResponse.Result.ParticipantDomains(
                 participantUid = participantId.uid.toProtoPrimitive,
-                domains = domains.map { case (domainId, permission) =>
+                domains = domains.map { case (synchronizerId, permission) =>
                   v30.ListPartiesResponse.Result.ParticipantDomains.DomainPermissions(
-                    domain = domainId.toProtoPrimitive,
+                    domain = synchronizerId.toProtoPrimitive,
                     permission = permission.toProtoV30,
                   )
                 }.toSeq,

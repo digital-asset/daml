@@ -25,7 +25,7 @@ trait DomainConnectionConfigStoreTest {
   this: AsyncWordSpec with BaseTest =>
 
   private val uid = DefaultTestIdentities.uid
-  private val domainId = DomainId(uid)
+  private val synchronizerId = SynchronizerId(uid)
   private val alias = DomainAlias.tryCreate("da")
   private val connection = GrpcSequencerConnection(
     NonEmpty(Seq, Endpoint("host1", Port.tryCreate(500)), Endpoint("host2", Port.tryCreate(600))),
@@ -37,7 +37,7 @@ trait DomainConnectionConfigStoreTest {
     alias,
     SequencerConnections.single(connection),
     manualConnect = false,
-    Some(domainId),
+    Some(synchronizerId),
     42,
     Some(NonNegativeFiniteDuration.tryOfSeconds(1)),
     Some(NonNegativeFiniteDuration.tryOfSeconds(5)),

@@ -16,7 +16,7 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, PositiveSeconds}
 import com.digitalasset.canton.topology.client.{DomainTopologyClient, TopologySnapshot}
-import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 
@@ -26,7 +26,7 @@ trait SortedReconciliationIntervalsHelpers {
   this: BaseTest =>
   protected val defaultParameters = TestDomainParameters.defaultDynamic
   protected val defaultReconciliationInterval = defaultParameters.reconciliationInterval
-  private lazy val defaultDomainId = DomainId(
+  private lazy val defaultSynchronizerId = SynchronizerId(
     UniqueIdentifier.tryFromProtoPrimitive("domain::default")
   )
 
@@ -44,7 +44,7 @@ trait SortedReconciliationIntervalsHelpers {
       ),
       fromEpoch(validFrom),
       Some(fromEpoch(validTo)),
-      defaultDomainId,
+      defaultSynchronizerId,
     )
 
   protected def mkDynamicDomainParameters(
@@ -60,7 +60,7 @@ trait SortedReconciliationIntervalsHelpers {
       ),
       fromEpoch(validFrom),
       None,
-      defaultDomainId,
+      defaultSynchronizerId,
     )
 
   protected def mkParameters(
@@ -92,7 +92,7 @@ trait SortedReconciliationIntervalsHelpers {
       defaultParameters.tryUpdate(reconciliationInterval = reconciliationInterval),
       validFrom,
       None,
-      defaultDomainId,
+      defaultSynchronizerId,
     )
 
   protected def fromEpoch(seconds: Long): CantonTimestamp =

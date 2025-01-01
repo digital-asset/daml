@@ -10,7 +10,7 @@ import com.digitalasset.canton.pruning.{
   ConfigForNoWaitCounterParticipants,
   ConfigForSlowCounterParticipants,
 }
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 
 import java.util.concurrent.atomic.AtomicReference
@@ -41,14 +41,14 @@ class InMemoryAcsCommitmentConfigStore(implicit val ec: ExecutionContext)
 
     slowCounterParticipantConfigs.updateAndGet { x =>
       val filteredConfigs = x.filterNot { config =>
-        configs.exists(_.domainId == config.domainId) || configs.isEmpty
+        configs.exists(_.synchronizerId == config.synchronizerId) || configs.isEmpty
       }
       filteredConfigs ++ configs
     }
 
     thresholdForDomainConfigs.updateAndGet { x =>
       val filteredConfigs = x.filterNot(config =>
-        thresholds.exists(_.domainId == config.domainId) || thresholds.isEmpty
+        thresholds.exists(_.synchronizerId == config.synchronizerId) || thresholds.isEmpty
       )
 
       filteredConfigs ++ thresholds
@@ -58,13 +58,17 @@ class InMemoryAcsCommitmentConfigStore(implicit val ec: ExecutionContext)
   }
 
   override def clearSlowCounterParticipants(
-      domainIds: Seq[DomainId]
+      synchronizerIds: Seq[SynchronizerId]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     slowCounterParticipantConfigs.updateAndGet(x =>
-      x.filter(config => domainIds.nonEmpty || !domainIds.contains(config.domainId))
+      x.filter(config =>
+        synchronizerIds.nonEmpty || !synchronizerIds.contains(config.synchronizerId)
+      )
     )
     thresholdForDomainConfigs.updateAndGet(x =>
-      x.filter(config => domainIds.nonEmpty || !domainIds.contains(config.domainId))
+      x.filter(config =>
+        synchronizerIds.nonEmpty || !synchronizerIds.contains(config.synchronizerId)
+      )
     )
     FutureUnlessShutdown.unit
   }
@@ -78,7 +82,7 @@ class InMemoryAcsCommitmentConfigStore(implicit val ec: ExecutionContext)
   }
 
   override def removeNoWaitCounterParticipant(
-      domains: Seq[DomainId],
+      domains: Seq[SynchronizerId],
       participants: Seq[ParticipantId],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val crossProduct = for {
@@ -87,14 +91,16 @@ class InMemoryAcsCommitmentConfigStore(implicit val ec: ExecutionContext)
     } yield (domain, participant)
     noWaitCounterParticipantConfigs.updateAndGet(conf =>
       conf.filter(config =>
-        !crossProduct.contains((config.domainId, config.participantId)) || crossProduct.isEmpty
+        !crossProduct.contains(
+          (config.synchronizerId, config.participantId)
+        ) || crossProduct.isEmpty
       )
     )
     FutureUnlessShutdown.unit
   }
 
   override def getAllActiveNoWaitCounterParticipants(
-      filterDomains: Seq[DomainId],
+      filterDomains: Seq[SynchronizerId],
       filterParticipants: Seq[ParticipantId],
   )(implicit
       traceContext: TraceContext
@@ -103,7 +109,7 @@ class InMemoryAcsCommitmentConfigStore(implicit val ec: ExecutionContext)
       noWaitCounterParticipantConfigs
         .get()
         .filter(c =>
-          (filterDomains.contains(c.domainId) || filterDomains.isEmpty) && (filterParticipants
+          (filterDomains.contains(c.synchronizerId) || filterDomains.isEmpty) && (filterParticipants
             .contains(c.participantId) || filterParticipants.isEmpty)
         )
         .toSeq

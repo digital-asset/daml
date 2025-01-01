@@ -36,7 +36,7 @@ import com.digitalasset.canton.platform.{
   ResourceOwnerFlagCloseableOps,
 }
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil
 import com.digitalasset.canton.util.PekkoUtil.{
@@ -75,12 +75,12 @@ class LedgerApiIndexer(
       .mapK(IndexerState.ShutdownInProgress.functionK)
 
   def ensureNoProcessingForDomain(
-      domainId: DomainId
+      synchronizerId: SynchronizerId
   )(implicit
       executionContext: ExecutionContext
   ): FutureUnlessShutdown[Unit] =
     IndexerState.ShutdownInProgress.transformToFUS(
-      indexerState.ensureNoProcessingForDomain(domainId)
+      indexerState.ensureNoProcessingForDomain(synchronizerId)
     )
 }
 
@@ -122,6 +122,7 @@ object LedgerApiIndexer {
       }
       (inMemoryState, inMemoryStateUpdaterFlow) <-
         LedgerApiServer.createInMemoryStateAndUpdater(
+          ledgerApiIndexerConfig.ledgerParticipantId,
           commandProgressTracker,
           ledgerApiIndexerConfig.serverConfig.indexService,
           ledgerApiIndexerConfig.serverConfig.commandService.maxCommandsInFlight,

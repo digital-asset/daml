@@ -49,7 +49,7 @@ class TopologyTransactionAuthorizationValidatorTest
 
     def mk(
         store: InMemoryTopologyStore[TopologyStoreId] = new InMemoryTopologyStore(
-          DomainStore(Factory.domainId1),
+          DomainStore(Factory.synchronizerId1),
           testedProtocolVersion,
           loggerFactory,
           timeouts,
@@ -204,7 +204,8 @@ class TopologyTransactionAuthorizationValidatorTest
       "reject if the transaction is for the wrong domain" in {
         val validator = mk()
         import Factory.*
-        val wrongDomain = DomainId(UniqueIdentifier.tryCreate("wrong", ns1.fingerprint.unwrap))
+        val wrongDomain =
+          SynchronizerId(UniqueIdentifier.tryCreate("wrong", ns1.fingerprint.unwrap))
         val pid = ParticipantId(UniqueIdentifier.tryCreate("correct", ns1.fingerprint.unwrap))
         val wrong = mkAdd(
           DomainTrustCertificate(

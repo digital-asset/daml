@@ -299,6 +299,7 @@ class StartableStoppableLedgerApiServer(
       _ <- ApiServiceOwner(
         indexService = indexService,
         submissionTracker = inMemoryState.submissionTracker,
+        partyAllocationTracker = inMemoryState.partyAllocationTracker,
         commandProgressTracker = commandProgressTracker,
         userManagementStore = userManagementStore,
         identityProviderConfigStore = getIdentityProviderConfigStore(

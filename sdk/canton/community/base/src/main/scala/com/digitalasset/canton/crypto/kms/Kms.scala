@@ -86,7 +86,7 @@ trait Kms extends FlagCloseable {
     * The specific encryption scheme is not necessary (default is taken)
     * because this is intended to be used to generate a KMS wrapper key.
     *
-    * @param name                an optional name to identify the key.
+    * @param name an optional name to identify the key.
     * @return a key id or an error if it fails to create a key
     */
   def generateSymmetricEncryptionKey(
@@ -109,7 +109,7 @@ trait Kms extends FlagCloseable {
   /** Creates a new (asymmetric) encryption key pair in the KMS and returns a key identifier.
     *
     * @param encryptionKeySpec defines the encryption key specification to which the key is going to be used for.
-    * @param name             an optional name to identify the key.
+    * @param name an optional name to identify the key.
     * @return a key id or an error if it fails to create a key
     */
   def generateAsymmetricEncryptionKeyPair(
@@ -146,9 +146,7 @@ trait Kms extends FlagCloseable {
     * @param keyId key identifier (e.g. AWS key ARN)
     * @return the public signing key for that keyId
     */
-  def getPublicSigningKey(
-      keyId: KmsKeyId
-  )(implicit
+  def getPublicSigningKey(keyId: KmsKeyId)(implicit
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, KmsError, SigningPublicKey] =
@@ -156,9 +154,7 @@ trait Kms extends FlagCloseable {
       getPublicSigningKeyInternal(keyId)
     )
 
-  protected def getPublicSigningKeyInternal(
-      keyId: KmsKeyId
-  )(implicit
+  protected def getPublicSigningKeyInternal(keyId: KmsKeyId)(implicit
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, KmsError, SigningPublicKey]
@@ -420,11 +416,6 @@ object KmsError {
 
   final case class KmsCannotFindKeyError(keyId: KmsKeyId, reason: String) extends KmsError {
     override protected def pretty: Pretty[KmsCannotFindKeyError] =
-      prettyOfClass(param("keyId", _.keyId), param("reason", _.reason.unquoted))
-  }
-
-  final case class KmsKeyWrongTypeError(keyId: KmsKeyId, reason: String) extends KmsError {
-    override protected def pretty: Pretty[KmsKeyWrongTypeError] =
       prettyOfClass(param("keyId", _.keyId), param("reason", _.reason.unquoted))
   }
 

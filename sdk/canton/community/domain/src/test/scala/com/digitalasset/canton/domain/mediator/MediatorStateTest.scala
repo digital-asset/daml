@@ -50,7 +50,7 @@ class MediatorStateTest
   "MediatorState" when {
     val requestId = RequestId(CantonTimestamp.Epoch)
     val fullInformeeTree = {
-      val domainId = DefaultTestIdentities.domainId
+      val synchronizerId = DefaultTestIdentities.synchronizerId
       val participantId = DefaultTestIdentities.participant1
       val alice = LfPartyId.assertFromString("alice")
       val bob = LfPartyId.assertFromString("bob")
@@ -89,7 +89,7 @@ class MediatorStateTest
       )
       val commonMetadata = CommonMetadata
         .create(hashOps, testedProtocolVersion)(
-          domainId,
+          synchronizerId,
           MediatorGroupRecipient(MediatorGroupIndex.zero),
           s(5417),
           new UUID(0, 0),

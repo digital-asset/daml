@@ -26,7 +26,7 @@ import static java.util.Optional.empty;
  *
  * Usage:
  * <pre>
- *   var submission = CommandsSubmission.create(applicationId, commandId, domainId, commands)
+ *   var submission = CommandsSubmission.create(applicationId, commandId, synchronizerId, commands)
  *                                   .withAccessToken(token)
  *                                   .withWorkflowId(workflowId)
  *                                   .with...
@@ -47,7 +47,7 @@ public final class CommandsSubmission {
   @NonNull private final List<@NonNull String> readAs;
   @NonNull private final Optional<String> submissionId;
   @NonNull private final List<DisclosedContract> disclosedContracts;
-  @NonNull private final String domainId;
+  @NonNull private final String synchronizerId;
   @NonNull private final Optional<String> accessToken;
   @NonNull private List<String> packageIdSelectionPreference;
 
@@ -64,7 +64,7 @@ public final class CommandsSubmission {
       @NonNull List<@NonNull String> readAs,
       @NonNull Optional<String> submissionId,
       @NonNull List<@NonNull DisclosedContract> disclosedContracts,
-      @NonNull String domainId,
+      @NonNull String synchronizerId,
       @NonNull Optional<String> accessToken,
       @NonNull List<String> packageIdSelectionPreference) {
     this.workflowId = workflowId;
@@ -79,7 +79,7 @@ public final class CommandsSubmission {
     this.readAs = readAs;
     this.submissionId = submissionId;
     this.disclosedContracts = disclosedContracts;
-    this.domainId = domainId;
+    this.synchronizerId = synchronizerId;
     this.accessToken = accessToken;
     this.packageIdSelectionPreference = packageIdSelectionPreference;
   }
@@ -87,7 +87,7 @@ public final class CommandsSubmission {
   public static CommandsSubmission create(
       String applicationId,
       String commandId,
-      String domainId,
+      String synchronizerId,
       @NonNull List<@NonNull ? extends HasCommands> commands) {
     return new CommandsSubmission(
         empty(),
@@ -102,7 +102,7 @@ public final class CommandsSubmission {
         emptyList(),
         empty(),
         emptyList(),
-        domainId,
+        synchronizerId,
         empty(),
         emptyList());
   }
@@ -173,8 +173,8 @@ public final class CommandsSubmission {
   }
 
   @NonNull
-  public String getDomainId() {
-    return domainId;
+  public String getSynchronizerId() {
+    return synchronizerId;
   }
 
   @NonNull
@@ -196,7 +196,7 @@ public final class CommandsSubmission {
         readAs,
         submissionId,
         disclosedContracts,
-        domainId,
+        synchronizerId,
         accessToken,
         packageIdSelectionPreference);
   }
@@ -215,7 +215,7 @@ public final class CommandsSubmission {
         readAs,
         submissionId,
         disclosedContracts,
-        domainId,
+        synchronizerId,
         accessToken,
         packageIdSelectionPreference);
   }
@@ -234,7 +234,7 @@ public final class CommandsSubmission {
         readAs,
         submissionId,
         disclosedContracts,
-        domainId,
+        synchronizerId,
         accessToken,
         packageIdSelectionPreference);
   }
@@ -253,7 +253,7 @@ public final class CommandsSubmission {
         readAs,
         submissionId,
         disclosedContracts,
-        domainId,
+        synchronizerId,
         accessToken,
         packageIdSelectionPreference);
   }
@@ -272,7 +272,7 @@ public final class CommandsSubmission {
         readAs,
         submissionId,
         disclosedContracts,
-        domainId,
+        synchronizerId,
         accessToken,
         packageIdSelectionPreference);
   }
@@ -291,7 +291,7 @@ public final class CommandsSubmission {
         readAs,
         submissionId,
         disclosedContracts,
-        domainId,
+        synchronizerId,
         accessToken,
         packageIdSelectionPreference);
   }
@@ -315,7 +315,7 @@ public final class CommandsSubmission {
         readAs,
         submissionId,
         disclosedContracts,
-        domainId,
+        synchronizerId,
         accessToken,
         packageIdSelectionPreference);
   }
@@ -339,7 +339,7 @@ public final class CommandsSubmission {
         readAs,
         submissionId,
         disclosedContracts,
-        domainId,
+        synchronizerId,
         accessToken,
         packageIdSelectionPreference);
   }
@@ -358,7 +358,7 @@ public final class CommandsSubmission {
         readAs,
         submissionId,
         disclosedContracts,
-        domainId,
+        synchronizerId,
         accessToken,
         packageIdSelectionPreference);
   }
@@ -377,7 +377,7 @@ public final class CommandsSubmission {
         readAs,
         submissionId,
         disclosedContracts,
-        domainId,
+        synchronizerId,
         Optional.of(accessToken),
         packageIdSelectionPreference);
   }
@@ -397,7 +397,7 @@ public final class CommandsSubmission {
         readAs,
         submissionId,
         disclosedContracts,
-        domainId,
+        synchronizerId,
         accessToken,
         packageIdSelectionPreference);
   }
@@ -417,7 +417,7 @@ public final class CommandsSubmission {
         readAs,
         submissionId,
         disclosedContracts,
-        domainId,
+        synchronizerId,
         accessToken,
         packageIdSelectionPreference);
   }
@@ -443,7 +443,7 @@ public final class CommandsSubmission {
             .addAllActAs(actAs)
             .addAllReadAs(readAs)
             .addAllDisclosedContracts(disclosedContractsConverted)
-            .setDomainId(domainId)
+            .setSynchronizerId(synchronizerId)
             .addAllPackageIdSelectionPreference(packageIdSelectionPreference);
 
     workflowId.ifPresent(builder::setWorkflowId);
@@ -521,7 +521,7 @@ public final class CommandsSubmission {
         readAs,
         submissionId,
         disclosedContracts,
-        commands.getDomainId(),
+        commands.getSynchronizerId(),
         empty(),
         packageIdSelectionPreference);
   }
@@ -556,8 +556,8 @@ public final class CommandsSubmission {
         + submissionId
         + ", disclosedContracts="
         + disclosedContracts
-        + ", domainId='"
-        + domainId
+        + ", synchronizerId='"
+        + synchronizerId
         + '\''
         + ", accessToken="
         + accessToken
@@ -584,7 +584,7 @@ public final class CommandsSubmission {
         && Objects.equals(readAs, commandsSubmission.readAs)
         && Objects.equals(submissionId, commandsSubmission.submissionId)
         && Objects.equals(disclosedContracts, commandsSubmission.disclosedContracts)
-        && Objects.equals(domainId, commandsSubmission.domainId)
+        && Objects.equals(synchronizerId, commandsSubmission.synchronizerId)
         && Objects.equals(accessToken, commandsSubmission.accessToken)
         && Objects.equals(
             packageIdSelectionPreference, commandsSubmission.packageIdSelectionPreference);
@@ -605,7 +605,7 @@ public final class CommandsSubmission {
         readAs,
         submissionId,
         disclosedContracts,
-        domainId,
+        synchronizerId,
         accessToken,
         packageIdSelectionPreference);
   }

@@ -39,7 +39,7 @@ trait MediatorDomainConfigurationStoreTest {
         SequencerAlias.Default,
       )
       val originalConfig = MediatorDomainConfiguration(
-        DefaultTestIdentities.domainId,
+        DefaultTestIdentities.synchronizerId,
         defaultStaticDomainParameters,
         SequencerConnections.single(connection),
       )
@@ -64,7 +64,7 @@ trait MediatorDomainConfigurationStoreTest {
         SequencerAlias.Default,
       )
       val originalConfig = MediatorDomainConfiguration(
-        DefaultTestIdentities.domainId,
+        DefaultTestIdentities.synchronizerId,
         defaultParams,
         SequencerConnections.single(connection),
       )

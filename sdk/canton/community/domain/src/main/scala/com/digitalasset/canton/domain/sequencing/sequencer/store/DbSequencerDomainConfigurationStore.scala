@@ -11,7 +11,7 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf.ByteString
 
@@ -40,7 +40,7 @@ class DbSequencerDomainConfigurationStore(
       rowO <- EitherT.right(
         storage
           .query(
-            sql"""select domain_id, static_domain_parameters from sequencer_domain_configuration #${storage
+            sql"""select synchronizer_id, static_domain_parameters from sequencer_domain_configuration #${storage
                 .limit(1)}"""
               .as[SerializedRow]
               .headOption,
@@ -57,7 +57,7 @@ class DbSequencerDomainConfigurationStore(
   override def saveConfiguration(configuration: SequencerDomainConfiguration)(implicit
       traceContext: TraceContext
   ): EitherT[Future, SequencerDomainConfigurationStoreError, Unit] = {
-    val (domainId, domainParameters) = serialize(configuration)
+    val (synchronizerId, domainParameters) = serialize(configuration)
 
     EitherT.right(
       storage
@@ -65,13 +65,13 @@ class DbSequencerDomainConfigurationStore(
           storage.profile match {
             case _: DbStorage.Profile.H2 =>
               sqlu"""merge into sequencer_domain_configuration
-                   (lock, domain_id, static_domain_parameters)
+                   (lock, synchronizer_id, static_domain_parameters)
                    values
-                   ($singleRowLockValue, $domainId, $domainParameters)"""
+                   ($singleRowLockValue, $synchronizerId, $domainParameters)"""
             case _: DbStorage.Profile.Postgres =>
-              sqlu"""insert into sequencer_domain_configuration (domain_id, static_domain_parameters)
-              values ($domainId, $domainParameters)
-              on conflict (lock) do update set domain_id = excluded.domain_id,
+              sqlu"""insert into sequencer_domain_configuration (synchronizer_id, static_domain_parameters)
+              values ($synchronizerId, $domainParameters)
+              on conflict (lock) do update set synchronizer_id = excluded.synchronizer_id,
                 static_domain_parameters = excluded.static_domain_parameters"""
           },
           "save-configuration",
@@ -81,16 +81,16 @@ class DbSequencerDomainConfigurationStore(
 
   private def serialize(config: SequencerDomainConfiguration): SerializedRow =
     (
-      config.domainId.toLengthLimitedString,
+      config.synchronizerId.toLengthLimitedString,
       config.domainParameters.toByteString,
     )
 
   private def deserialize(
       row: SerializedRow
   ): ParsingResult[SequencerDomainConfiguration] = for {
-    domainId <- DomainId.fromProtoPrimitive(row._1.unwrap, "domainId")
+    synchronizerId <- SynchronizerId.fromProtoPrimitive(row._1.unwrap, "synchronizerId")
     domainParameters <- StaticDomainParameters.fromTrustedByteString(
       row._2
     )
-  } yield SequencerDomainConfiguration(domainId, domainParameters)
+  } yield SequencerDomainConfiguration(synchronizerId, domainParameters)
 }

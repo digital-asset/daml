@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.store
 
-import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, DomainAlias}
 import org.scalatest.wordspec.AsyncWordSpec
@@ -14,15 +14,15 @@ trait RegisteredDomainsStoreTest {
   protected implicit def traceContext: TraceContext
 
   private def alias(a: String) = DomainAlias.tryCreate(a)
-  private def id(a: String) = DomainId(UniqueIdentifier.tryFromProtoPrimitive(s"$a::default"))
+  private def id(a: String) = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive(s"$a::default"))
 
   def registeredDomainsStore(mk: () => RegisteredDomainsStore): Unit = {
-    "be able to retrieve a map from alias to domain ids" in {
+    "be able to retrieve a map from alias to synchronizer ids" in {
       val sut = mk()
       for {
         _ <- valueOrFail(sut.addMapping(alias("first"), id("first")))("first")
         _ <- valueOrFail(sut.addMapping(alias("second"), id("second")))("second")
-        map <- sut.aliasToDomainIdMap
+        map <- sut.aliasToSynchronizerIdMap
       } yield map should contain.only(
         alias("first") -> id("first"),
         alias("second") -> id("second"),
@@ -47,13 +47,13 @@ trait RegisteredDomainsStoreTest {
       )
     }
 
-    "error if trying to add the same domain id again for a different alias" in {
+    "error if trying to add the same synchronizer id again for a different alias" in {
       val sut = mk()
       for {
         _ <- valueOrFail(sut.addMapping(alias("foo"), id("id")))("foo -> id")
         result <- sut.addMapping(alias("bar"), id("id")).value
       } yield result shouldBe Left(
-        DomainAliasAndIdStore.DomainIdAlreadyAdded(id("id"), alias("foo"))
+        DomainAliasAndIdStore.SynchronizerIdAlreadyAdded(id("id"), alias("foo"))
       )
     }
 

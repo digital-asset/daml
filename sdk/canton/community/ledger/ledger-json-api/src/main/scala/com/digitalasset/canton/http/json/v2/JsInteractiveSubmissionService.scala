@@ -80,7 +80,7 @@ final case class JsPrepareSubmissionRequest(
     act_as: Seq[String],
     read_as: Seq[String],
     disclosed_contracts: Seq[com.daml.ledger.api.v2.commands.DisclosedContract],
-    domain_id: String,
+    synchronizer_id: String,
     package_id_selection_preference: Seq[String],
     verbose_hashing: Boolean,
 )

@@ -189,7 +189,7 @@ class SequencerInfoLoader(
 
   def loadAndAggregateSequencerEndpoints(
       domainAlias: DomainAlias,
-      expectedDomainId: Option[DomainId],
+      expectedSynchronizerId: Option[SynchronizerId],
       sequencerConnections: SequencerConnections,
       sequencerConnectionValidation: SequencerConnectionValidation,
   )(implicit
@@ -206,14 +206,14 @@ class SequencerInfoLoader(
         sequencerTrustThreshold = sequencerConnections.sequencerTrustThreshold,
         submissionRequestAmplification = sequencerConnections.submissionRequestAmplification,
         sequencerConnectionValidation = sequencerConnectionValidation,
-        expectedDomainId = expectedDomainId,
+        expectedSynchronizerId = expectedSynchronizerId,
       )
     )
   )
 
   def validateSequencerConnection(
       alias: DomainAlias,
-      expectedDomainId: Option[DomainId],
+      expectedSynchronizerId: Option[SynchronizerId],
       sequencerConnections: SequencerConnections,
       sequencerConnectionValidation: SequencerConnectionValidation,
   )(implicit
@@ -231,7 +231,7 @@ class SequencerInfoLoader(
           )
             .map(
               SequencerInfoLoader.validateNewSequencerConnectionResults(
-                expectedDomainId,
+                expectedSynchronizerId,
                 sequencerConnectionValidation,
                 logger,
               )(_)
@@ -415,7 +415,7 @@ object SequencerInfoLoader {
   }
 
   final case class SequencerAggregatedInfo(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       staticDomainParameters: StaticDomainParameters,
       expectedSequencers: NonEmpty[Map[SequencerAlias, SequencerId]],
       sequencerConnections: SequencerConnections,
@@ -454,7 +454,7 @@ object SequencerInfoLoader {
 
   /** Small utility function used to validate the sequencer connections whenever the configuration changes */
   def validateNewSequencerConnectionResults(
-      expectedDomainId: Option[DomainId],
+      expectedSynchronizerId: Option[SynchronizerId],
       sequencerConnectionValidation: SequencerConnectionValidation,
       logger: TracedLogger,
   )(
@@ -462,7 +462,7 @@ object SequencerInfoLoader {
   )(implicit
       traceContext: TraceContext
   ): Either[Seq[LoadSequencerEndpointInformationResult.NotValid], Unit] = {
-    // now, check what failed and whether the reported sequencer ids and domain-ids aligned
+    // now, check what failed and whether the reported sequencer ids and synchronizer ids aligned
     @tailrec
     def go(
         reference: Option[LoadSequencerEndpointInformationResult.Valid],
@@ -475,22 +475,22 @@ object SequencerInfoLoader {
       case (notValid: LoadSequencerEndpointInformationResult.NotValid) :: rest =>
         if (sequencerConnectionValidation != SequencerConnectionValidation.All) {
           logger.info(
-            s"Skipping validation, as I am unable to obtain domain-id and sequencer-id: ${notValid.error} for ${notValid.sequencerConnection}"
+            s"Skipping validation, as I am unable to obtain synchronizer id and sequencer-id: ${notValid.error} for ${notValid.sequencerConnection}"
           )
           go(reference, sequencerIds, rest, accumulated)
         } else
           go(reference, sequencerIds, rest, notValid +: accumulated)
       case (valid: LoadSequencerEndpointInformationResult.Valid) :: rest =>
         val result = for {
-          // check that domain-id matches the reference
+          // check that synchronizer id matches the reference
           _ <- Either.cond(
             reference.forall(x =>
-              x.domainClientBootstrapInfo.domainId == valid.domainClientBootstrapInfo.domainId
+              x.domainClientBootstrapInfo.synchronizerId == valid.domainClientBootstrapInfo.synchronizerId
             ),
             (),
             SequencerInfoLoaderError.SequencersFromDifferentDomainsAreConfigured(
-              show"Domain-id mismatch ${valid.domainClientBootstrapInfo.domainId} vs the first one found ${reference
-                  .map(_.domainClientBootstrapInfo.domainId)}"
+              show"Synchronizer id mismatch ${valid.domainClientBootstrapInfo.synchronizerId} vs the first one found ${reference
+                  .map(_.domainClientBootstrapInfo.synchronizerId)}"
             ),
           )
           // check that static domain parameters match
@@ -502,12 +502,12 @@ object SequencerInfoLoader {
                   .map(_.staticDomainParameters.toString)}"
             ),
           )
-          // check that domain-id matches expected
+          // check that synchronizer id matches expected
           _ <- Either.cond(
-            expectedDomainId.forall(_ == valid.domainClientBootstrapInfo.domainId),
+            expectedSynchronizerId.forall(_ == valid.domainClientBootstrapInfo.synchronizerId),
             (),
             SequencerInfoLoaderError.InconsistentConnectivity(
-              show"Domain-id ${valid.domainClientBootstrapInfo.domainId} does not match expected $expectedDomainId"
+              show"Synchronizer id ${valid.domainClientBootstrapInfo.synchronizerId} does not match expected $expectedSynchronizerId"
             ),
           )
           // check that we don't have the same sequencer-id reported by different aliases
@@ -561,7 +561,7 @@ object SequencerInfoLoader {
 
   /** Aggregates the endpoint information into the actual connection
     *
-    * Given a set of sequencer connections and attempts to get the sequencer-id and domain-id
+    * Given a set of sequencer connections and attempts to get the sequencer-id and synchronizer id
     * from each of them, we'll recompute the actual connections to be used.
     * Note that this method here would require a bit more smartness as whether a sequencer
     * is considered or not depends on whether it was up when we made the connection.
@@ -572,7 +572,7 @@ object SequencerInfoLoader {
       sequencerTrustThreshold: PositiveInt,
       submissionRequestAmplification: SubmissionRequestAmplification,
       sequencerConnectionValidation: SequencerConnectionValidation,
-      expectedDomainId: Option[DomainId],
+      expectedSynchronizerId: Option[SynchronizerId],
   )(
       fullResult: Seq[LoadSequencerEndpointInformationResult]
   )(implicit
@@ -581,7 +581,11 @@ object SequencerInfoLoader {
 
     require(fullResult.nonEmpty, "Non-empty list of sequencerId-to-endpoint pair is expected")
 
-    validateNewSequencerConnectionResults(expectedDomainId, sequencerConnectionValidation, logger)(
+    validateNewSequencerConnectionResults(
+      expectedSynchronizerId,
+      sequencerConnectionValidation,
+      logger,
+    )(
       fullResult.toList
     ) match {
       case Right(()) =>
@@ -610,7 +614,8 @@ object SequencerInfoLoader {
             .leftMap(SequencerInfoLoaderError.FailedToConnectToSequencers.apply)
             .map(connections =>
               SequencerAggregatedInfo(
-                domainId = validSequencerConnectionsNE.head1.domainClientBootstrapInfo.domainId,
+                synchronizerId =
+                  validSequencerConnectionsNE.head1.domainClientBootstrapInfo.synchronizerId,
                 staticDomainParameters = validSequencerConnectionsNE.head1.staticDomainParameters,
                 expectedSequencers = expectedSequencers,
                 sequencerConnections = connections,

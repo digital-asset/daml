@@ -22,7 +22,7 @@ import com.digitalasset.canton.participant.store.ReassignmentStore
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
 import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{Checked, CheckedT, ErrorUtil, MapsUtil}
@@ -34,7 +34,7 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 
 class InMemoryReassignmentStore(
-    domain: Target[DomainId],
+    domain: Target[SynchronizerId],
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends ReassignmentStore
@@ -180,7 +180,7 @@ class InMemoryReassignmentStore(
     })
 
   override def find(
-      filterSource: Option[Source[DomainId]],
+      filterSource: Option[Source[SynchronizerId]],
       filterTimestamp: Option[CantonTimestamp],
       filterSubmitter: Option[LfPartyId],
       limit: Int,
@@ -206,8 +206,11 @@ class InMemoryReassignmentStore(
     FutureUnlessShutdown.unit
   }
 
-  override def findAfter(requestAfter: Option[(CantonTimestamp, Source[DomainId])], limit: Int)(
-      implicit traceContext: TraceContext
+  override def findAfter(
+      requestAfter: Option[(CantonTimestamp, Source[SynchronizerId])],
+      limit: Int,
+  )(implicit
+      traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[ReassignmentData]] = FutureUnlessShutdown.pure {
     def filter(entry: ReassignmentEntry): Boolean =
       entry.timeOfCompletion.isEmpty && // Always filter out completed assignment
@@ -227,14 +230,14 @@ class InMemoryReassignmentStore(
         // As Scala does not seem to infer the right implicits to use here
         Ordering.Tuple2(
           CantonTimestamp.orderCantonTimestamp.toOrdering,
-          DomainId.orderDomainId.toOrdering,
+          SynchronizerId.orderSynchronizerId.toOrdering,
         )
       )
       .take(limit)
   }
 
   override def findIncomplete(
-      sourceDomain: Option[Source[DomainId]],
+      sourceDomain: Option[Source[SynchronizerId]],
       validAt: Offset,
       stakeholders: Option[NonEmpty[Set[LfPartyId]]],
       limit: NonNegativeInt,
@@ -269,7 +272,7 @@ class InMemoryReassignmentStore(
 
   override def findEarliestIncomplete()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[(Offset, ReassignmentId, Target[DomainId])]] =
+  ): FutureUnlessShutdown[Option[(Offset, ReassignmentId, Target[SynchronizerId])]] =
     // empty table: there are no reassignments
     if (reassignmentDataMap.isEmpty) FutureUnlessShutdown.pure(None)
     else {
@@ -312,7 +315,7 @@ class InMemoryReassignmentStore(
 
   override def findContractReassignmentId(
       contractIds: Seq[LfContractId],
-      sourceDomain: Option[Source[DomainId]],
+      sourceDomain: Option[Source[SynchronizerId]],
       unassignmentTs: Option[CantonTimestamp],
       completionTs: Option[CantonTimestamp],
   )(implicit

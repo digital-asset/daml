@@ -31,7 +31,7 @@ class TopologyManagerSigningKeyDetectionTest
     def mk() =
       new TopologyManagerSigningKeyDetection(
         new InMemoryTopologyStore(
-          DomainStore(Factory.domainId1),
+          DomainStore(Factory.synchronizerId1),
           testedProtocolVersion,
           loggerFactory,
           timeouts,
@@ -44,14 +44,14 @@ class TopologyManagerSigningKeyDetectionTest
     val dtc_uid1a = TopologyTransaction(
       Replace,
       PositiveInt.one,
-      DomainTrustCertificate(ParticipantId(uid1a), domainId1),
+      DomainTrustCertificate(ParticipantId(uid1a), synchronizerId1),
       testedProtocolVersion,
     )
 
     val dtc_uid1b = TopologyTransaction(
       Replace,
       PositiveInt.one,
-      DomainTrustCertificate(ParticipantId(uid1b), domainId1),
+      DomainTrustCertificate(ParticipantId(uid1b), synchronizerId1),
       testedProtocolVersion,
     )
 

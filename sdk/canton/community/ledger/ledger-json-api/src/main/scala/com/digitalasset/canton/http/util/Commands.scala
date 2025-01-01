@@ -6,7 +6,7 @@ package com.digitalasset.canton.http.util
 import com.daml.ledger.api.v2 as lav2
 import com.digitalasset.canton.http.domain
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.Ref
 import scalaz.NonEmptyList
 import scalaz.syntax.foldable.*
@@ -79,7 +79,7 @@ object Commands {
       submissionId: Option[domain.SubmissionId],
       workflowId: Option[domain.WorkflowId],
       disclosedContracts: Seq[domain.DisclosedContract.LAV],
-      domainId: Option[DomainId],
+      synchronizerId: Option[SynchronizerId],
       packageIdSelectionPreference: Seq[Ref.PackageId],
   ): lav2.command_service.SubmitAndWaitRequest = {
     val commands = lav2.commands.Commands(
@@ -89,7 +89,7 @@ object Commands {
       readAs = lar.Party.unsubst(readAs),
       deduplicationPeriod = deduplicationPeriod,
       disclosedContracts = disclosedContracts map (_.toLedgerApi),
-      domainId = domainId.map(_.toProtoPrimitive).getOrElse(""),
+      synchronizerId = synchronizerId.map(_.toProtoPrimitive).getOrElse(""),
       packageIdSelectionPreference = packageIdSelectionPreference,
       commands = Seq(lav2.commands.Command(command)),
     )

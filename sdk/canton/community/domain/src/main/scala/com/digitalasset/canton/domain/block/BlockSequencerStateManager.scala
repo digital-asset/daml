@@ -27,7 +27,7 @@ import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficConsumedSt
 import com.digitalasset.canton.error.BaseAlarm
 import com.digitalasset.canton.lifecycle.{FlagCloseable, UnlessShutdown}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.topology.{DomainId, Member}
+import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.util.{ErrorUtil, LoggerUtil}
@@ -405,7 +405,7 @@ class BlockSequencerStateManager(
 object BlockSequencerStateManager {
 
   def create(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       store: SequencerBlockStore,
       trafficConsumedStore: TrafficConsumedStore,
       enableInvariantCheck: Boolean,
@@ -419,7 +419,7 @@ object BlockSequencerStateManager {
     implicit val errorLoggingContext: ErrorLoggingContext =
       ErrorLoggingContext.fromTracedLogger(logger)
     timeouts.unbounded
-      .awaitUS(s"Reading the head of the $domainId sequencer state")(store.readHead)
+      .awaitUS(s"Reading the head of the $synchronizerId sequencer state")(store.readHead)
       .map { headBlock =>
         new AtomicReference[HeadState]({
           logger.debug(s"Initialized the block sequencer with head block ${headBlock.latestBlock}")

@@ -17,7 +17,7 @@ import com.digitalasset.canton.lifecycle.{
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.time.{Clock, TimeAwaiter}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.{
   PackageDependencyResolverUS,
@@ -111,12 +111,12 @@ trait TopologyAwaiter extends FlagCloseable {
 
 /** The domain topology client that reads data from a topology store
   *
-  * @param domainId The domain-id corresponding to this store
+  * @param synchronizerId The synchronizer id corresponding to this store
   * @param store The store
   */
 class StoreBasedDomainTopologyClient(
     val clock: Clock,
-    val domainId: DomainId,
+    val synchronizerId: SynchronizerId,
     store: TopologyStore[TopologyStoreId],
     packageDependenciesResolver: PackageDependencyResolverUS,
     override val timeouts: ProcessingTimeout,

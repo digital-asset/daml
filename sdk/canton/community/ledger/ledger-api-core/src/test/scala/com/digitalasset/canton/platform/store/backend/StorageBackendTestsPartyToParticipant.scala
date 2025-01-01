@@ -8,7 +8,7 @@ import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel.Revoked
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.RawParticipantAuthorization
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import org.scalatest.flatspec.AnyFlatSpec
@@ -50,7 +50,7 @@ private[backend] trait StorageBackendTestsPartyToParticipant
       participant_permission =
         EventStorageBackend.intToAuthorizationLevel(dbDto.participant_permission),
       recordTime = Timestamp.assertFromLong(dbDto.record_time),
-      domainId = dbDto.domain_id,
+      synchronizerId = dbDto.synchronizer_id,
       traceContext = Some(dbDto.trace_context),
     )
 
@@ -136,8 +136,8 @@ private[backend] trait StorageBackendTestsPartyToParticipant
 
   behavior of "topologyEventPublishedOnRecordTime"
 
-  private val domainId1 = DomainId.tryFromString("x::domain1")
-  private val domainId2 = DomainId.tryFromString("x::domain2")
+  private val synchronizerId1 = SynchronizerId.tryFromString("x::domain1")
+  private val synchronizerId2 = SynchronizerId.tryFromString("x::domain2")
 
   it should "be true if there is one" in {
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
@@ -147,19 +147,19 @@ private[backend] trait StorageBackendTestsPartyToParticipant
           dtoPartyToParticipant(
             offset(1),
             1L,
-            domainId = domainId1.toProtoPrimitive,
+            synchronizerId = synchronizerId1.toProtoPrimitive,
             recordTime = Timestamp.assertFromLong(1504),
           ),
           dtoPartyToParticipant(
             offset(2),
             2L,
-            domainId = domainId1.toProtoPrimitive,
+            synchronizerId = synchronizerId1.toProtoPrimitive,
             recordTime = Timestamp.assertFromLong(1505),
           ),
           dtoPartyToParticipant(
             offset(3),
             3L,
-            domainId = domainId1.toProtoPrimitive,
+            synchronizerId = synchronizerId1.toProtoPrimitive,
             recordTime = Timestamp.assertFromLong(1506),
           ),
         ),
@@ -169,11 +169,11 @@ private[backend] trait StorageBackendTestsPartyToParticipant
     executeSql(
       updateLedgerEnd(offset(3), 3L)
     )
-    backend.stringInterningSupport.domainId.internalize(domainId1)
-    backend.stringInterningSupport.domainId.internalize(domainId2)
+    backend.stringInterningSupport.synchronizerId.internalize(synchronizerId1)
+    backend.stringInterningSupport.synchronizerId.internalize(synchronizerId2)
     executeSql(
       backend.event
-        .topologyEventPublishedOnRecordTime(domainId1, CantonTimestamp.ofEpochMicro(1505))
+        .topologyEventPublishedOnRecordTime(synchronizerId1, CantonTimestamp.ofEpochMicro(1505))
     ) shouldBe true
   }
 
@@ -185,13 +185,13 @@ private[backend] trait StorageBackendTestsPartyToParticipant
           dtoPartyToParticipant(
             offset(1),
             1L,
-            domainId = domainId1.toProtoPrimitive,
+            synchronizerId = synchronizerId1.toProtoPrimitive,
             recordTime = Timestamp.assertFromLong(1504),
           ),
           dtoPartyToParticipant(
             offset(3),
             3L,
-            domainId = domainId1.toProtoPrimitive,
+            synchronizerId = synchronizerId1.toProtoPrimitive,
             recordTime = Timestamp.assertFromLong(1506),
           ),
         ),
@@ -203,7 +203,7 @@ private[backend] trait StorageBackendTestsPartyToParticipant
     )
     executeSql(
       backend.event
-        .topologyEventPublishedOnRecordTime(domainId1, CantonTimestamp.ofEpochMilli(1505))
+        .topologyEventPublishedOnRecordTime(synchronizerId1, CantonTimestamp.ofEpochMilli(1505))
     ) shouldBe false
   }
 
@@ -215,19 +215,19 @@ private[backend] trait StorageBackendTestsPartyToParticipant
           dtoPartyToParticipant(
             offset(1),
             1L,
-            domainId = domainId1.toProtoPrimitive,
+            synchronizerId = synchronizerId1.toProtoPrimitive,
             recordTime = Timestamp.assertFromLong(1504),
           ),
           dtoPartyToParticipant(
             offset(2),
             2L,
-            domainId = domainId2.toProtoPrimitive,
+            synchronizerId = synchronizerId2.toProtoPrimitive,
             recordTime = Timestamp.assertFromLong(1505),
           ),
           dtoPartyToParticipant(
             offset(3),
             3L,
-            domainId = domainId1.toProtoPrimitive,
+            synchronizerId = synchronizerId1.toProtoPrimitive,
             recordTime = Timestamp.assertFromLong(1506),
           ),
         ),
@@ -239,7 +239,7 @@ private[backend] trait StorageBackendTestsPartyToParticipant
     )
     executeSql(
       backend.event
-        .topologyEventPublishedOnRecordTime(domainId1, CantonTimestamp.ofEpochMilli(1505))
+        .topologyEventPublishedOnRecordTime(synchronizerId1, CantonTimestamp.ofEpochMilli(1505))
     ) shouldBe false
   }
 
@@ -251,19 +251,19 @@ private[backend] trait StorageBackendTestsPartyToParticipant
           dtoPartyToParticipant(
             offset(1),
             1L,
-            domainId = domainId1.toProtoPrimitive,
+            synchronizerId = synchronizerId1.toProtoPrimitive,
             recordTime = Timestamp.assertFromLong(1504),
           ),
           dtoPartyToParticipant(
             offset(2),
             2L,
-            domainId = domainId1.toProtoPrimitive,
+            synchronizerId = synchronizerId1.toProtoPrimitive,
             recordTime = Timestamp.assertFromLong(1505),
           ),
           dtoPartyToParticipant(
             offset(3),
             3L,
-            domainId = domainId1.toProtoPrimitive,
+            synchronizerId = synchronizerId1.toProtoPrimitive,
             recordTime = Timestamp.assertFromLong(1506),
           ),
         ),
@@ -275,7 +275,7 @@ private[backend] trait StorageBackendTestsPartyToParticipant
     )
     executeSql(
       backend.event
-        .topologyEventPublishedOnRecordTime(domainId1, CantonTimestamp.ofEpochMilli(1505))
+        .topologyEventPublishedOnRecordTime(synchronizerId1, CantonTimestamp.ofEpochMilli(1505))
     ) shouldBe false
   }
 }

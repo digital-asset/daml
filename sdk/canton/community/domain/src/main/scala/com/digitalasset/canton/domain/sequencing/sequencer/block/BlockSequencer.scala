@@ -60,7 +60,7 @@ import scala.util.{Failure, Success}
 class BlockSequencer(
     blockOrderer: BlockOrderer,
     name: String,
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     cryptoApi: DomainSyncCryptoClient,
     sequencerId: SequencerId,
     stateManager: BlockSequencerStateManagerBase,
@@ -101,7 +101,7 @@ class BlockSequencer(
       None,
       health,
       clock,
-      domainId,
+      synchronizerId,
       sequencerId,
       protocolVersion,
       cryptoApi,
@@ -137,7 +137,7 @@ class BlockSequencer(
     noTracingLogger.info(s"Subscribing to block source from ${headState.block.height + 1}")
 
     val updateGenerator = new BlockUpdateGeneratorImpl(
-      domainId,
+      synchronizerId,
       protocolVersion,
       cryptoApi,
       sequencerId,
@@ -608,7 +608,7 @@ class BlockSequencer(
       )
       _ <- trafficPurchasedSubmissionHandler.sendTrafficPurchasedRequest(
         member,
-        domainId,
+        synchronizerId,
         protocolVersion,
         serial,
         totalTrafficPurchased,
