@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.store
 
 import cats.data.EitherT
-import com.digitalasset.canton.DomainAlias
+import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
@@ -31,7 +31,7 @@ final case class StoredDomainConnectionConfig(
   */
 trait DomainConnectionConfigStore extends AutoCloseable {
 
-  /** Stores a domain connection config together with the status. Primary identifier is the domain alias.
+  /** Stores a domain connection config together with the status. Primary identifier is the synchronizer alias.
     * Will return an [[DomainConnectionConfigStore.AlreadyAddedForAlias]] error if a config for that alias already exists.
     */
   def put(config: DomainConnectionConfig, status: DomainConnectionConfigStore.Status)(implicit
@@ -48,7 +48,7 @@ trait DomainConnectionConfigStore extends AutoCloseable {
   /** Retrieves the config for a given alias.
     * Will return an [[DomainConnectionConfigStore.MissingConfigForAlias]] error if there is no config for the alias.
     */
-  def get(alias: DomainAlias): Either[MissingConfigForAlias, StoredDomainConnectionConfig]
+  def get(alias: SynchronizerAlias): Either[MissingConfigForAlias, StoredDomainConnectionConfig]
 
   /** Retrieves all configured domains connection configs
     */
@@ -61,7 +61,7 @@ trait DomainConnectionConfigStore extends AutoCloseable {
 
   /** Set the domain configuration status */
   def setStatus(
-      source: DomainAlias,
+      source: SynchronizerAlias,
       status: DomainConnectionConfigStore.Status,
   )(implicit
       traceContext: TraceContext
@@ -118,8 +118,8 @@ object DomainConnectionConfigStore {
   }
 
   sealed trait Error extends Serializable with Product
-  final case class AlreadyAddedForAlias(alias: DomainAlias) extends Error
-  final case class MissingConfigForAlias(alias: DomainAlias) extends Error {
+  final case class AlreadyAddedForAlias(alias: SynchronizerAlias) extends Error
+  final case class MissingConfigForAlias(alias: SynchronizerAlias) extends Error {
     override def toString: String = s"$alias is unknown. Has the domain been registered?"
   }
 

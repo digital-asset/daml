@@ -49,7 +49,7 @@ final class TransactionTreeFactoryImplTest
   def createTransactionTreeFactory(version: ProtocolVersion): TransactionTreeFactoryImpl =
     TransactionTreeFactoryImpl(
       ExampleTransactionFactory.submittingParticipant,
-      factory.domainId,
+      factory.synchronizerId,
       version,
       factory.cryptoOps,
       loggerFactory,

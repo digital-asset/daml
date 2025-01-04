@@ -9,12 +9,12 @@ import com.digitalasset.canton.pruning.{
   ConfigForNoWaitCounterParticipants,
   ConfigForSlowCounterParticipants,
 }
-import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 
 import scala.concurrent.ExecutionContext
 
 trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
-  lazy val domainId2: DomainId = DomainId(
+  lazy val synchronizerId2: SynchronizerId = SynchronizerId(
     UniqueIdentifier.tryFromProtoPrimitive("domain2::domain2")
   )
 
@@ -28,13 +28,13 @@ trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
       "be able to add a config" in {
         val store = mk()
         val config1 = ConfigForSlowCounterParticipants(
-          domainId,
+          synchronizerId,
           remoteId,
           isDistinguished = true,
           isAddedToMetrics = true,
         )
         val threshold1 = ConfigForDomainThresholds(
-          domainId,
+          synchronizerId,
           NonNegativeLong.tryCreate(10),
           NonNegativeLong.tryCreate(10),
         )
@@ -48,27 +48,27 @@ trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
         }
       }.failOnShutdown("Aborted due to shutdown")
 
-      "only add one config if domainId is the same" in {
+      "only add one config if synchronizerId is the same" in {
         val store = mk()
         val config1 = ConfigForSlowCounterParticipants(
-          domainId,
+          synchronizerId,
           remoteId,
           isDistinguished = true,
           isAddedToMetrics = true,
         )
         val config2 = ConfigForSlowCounterParticipants(
-          domainId,
+          synchronizerId,
           remoteId2,
           isDistinguished = true,
           isAddedToMetrics = true,
         )
         val threshold1 = ConfigForDomainThresholds(
-          domainId,
+          synchronizerId,
           NonNegativeLong.tryCreate(10),
           NonNegativeLong.tryCreate(10),
         )
         val threshold2 = ConfigForDomainThresholds(
-          domainId,
+          synchronizerId,
           NonNegativeLong.tryCreate(15),
           NonNegativeLong.tryCreate(15),
         )
@@ -87,19 +87,19 @@ trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
       "add two configs for the same domain should only store latest" in {
         val store = mk()
         val config1 = ConfigForSlowCounterParticipants(
-          domainId,
+          synchronizerId,
           remoteId,
           isDistinguished = false,
           isAddedToMetrics = false,
         )
         val config2 = ConfigForSlowCounterParticipants(
-          domainId,
+          synchronizerId,
           remoteId,
           isDistinguished = true,
           isAddedToMetrics = true,
         )
         val threshold = ConfigForDomainThresholds(
-          domainId,
+          synchronizerId,
           NonNegativeLong.tryCreate(10),
           NonNegativeLong.tryCreate(10),
         )
@@ -117,25 +117,25 @@ trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
       "be able to remove specified domain" in {
         val store = mk()
         val config1 = ConfigForSlowCounterParticipants(
-          domainId,
+          synchronizerId,
           remoteId,
           isDistinguished = true,
           isAddedToMetrics = true,
         )
         val config2 = ConfigForSlowCounterParticipants(
-          domainId2,
+          synchronizerId2,
           remoteId2,
           isDistinguished = true,
           isAddedToMetrics = true,
         )
 
         val threshold1 = ConfigForDomainThresholds(
-          domainId,
+          synchronizerId,
           NonNegativeLong.tryCreate(10),
           NonNegativeLong.tryCreate(10),
         )
         val threshold2 = ConfigForDomainThresholds(
-          domainId2,
+          synchronizerId2,
           NonNegativeLong.tryCreate(15),
           NonNegativeLong.tryCreate(15),
         )
@@ -144,7 +144,7 @@ trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
           added1 <- store.fetchAllSlowCounterParticipantConfig()
           _ <- store.createOrUpdateCounterParticipantConfigs(Seq(config2), Seq(threshold2))
           added2 <- store.fetchAllSlowCounterParticipantConfig()
-          _ <- store.clearSlowCounterParticipants(Seq(domainId2))
+          _ <- store.clearSlowCounterParticipants(Seq(synchronizerId2))
           afterRemove <- store.fetchAllSlowCounterParticipantConfig()
         } yield {
           added1 shouldBe (Seq(config1), Seq(threshold1))
@@ -156,25 +156,25 @@ trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
       "remove all domains if empty seq is applied" in {
         val store = mk()
         val config1 = ConfigForSlowCounterParticipants(
-          domainId,
+          synchronizerId,
           remoteId,
           isDistinguished = true,
           isAddedToMetrics = true,
         )
         val config2 = ConfigForSlowCounterParticipants(
-          domainId2,
+          synchronizerId2,
           remoteId2,
           isDistinguished = true,
           isAddedToMetrics = true,
         )
 
         val threshold1 = ConfigForDomainThresholds(
-          domainId,
+          synchronizerId,
           NonNegativeLong.tryCreate(10),
           NonNegativeLong.tryCreate(10),
         )
         val threshold2 = ConfigForDomainThresholds(
-          domainId2,
+          synchronizerId2,
           NonNegativeLong.tryCreate(15),
           NonNegativeLong.tryCreate(15),
         )
@@ -202,11 +202,11 @@ trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
       def mk() = mkWith(executionContext)
 
       val config1 = ConfigForNoWaitCounterParticipants(
-        domainId,
+        synchronizerId,
         remoteId,
       )
       val config2 = ConfigForNoWaitCounterParticipants(
-        domainId2,
+        synchronizerId2,
         remoteId,
       )
 
@@ -239,7 +239,7 @@ trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
         for {
           _ <- store.addNoWaitCounterParticipant(Seq(config1))
           start <- store.getAllActiveNoWaitCounterParticipants(Seq.empty, Seq.empty)
-          _ <- store.removeNoWaitCounterParticipant(Seq(domainId), Seq(remoteId))
+          _ <- store.removeNoWaitCounterParticipant(Seq(synchronizerId), Seq(remoteId))
           end <- store.getAllActiveNoWaitCounterParticipants(Seq.empty, Seq.empty)
         } yield {
           start.toSet shouldBe Set(config1)
@@ -252,7 +252,7 @@ trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
         for {
           _ <- store.addNoWaitCounterParticipant(Seq(config1, config2))
           unfiltered <- store.getAllActiveNoWaitCounterParticipants(Seq.empty, Seq.empty)
-          filtered <- store.getAllActiveNoWaitCounterParticipants(Seq(domainId), Seq.empty)
+          filtered <- store.getAllActiveNoWaitCounterParticipants(Seq(synchronizerId), Seq.empty)
         } yield {
           unfiltered.toSet shouldBe Set(config2, config1)
           filtered.toSet shouldBe Set(config1)
@@ -262,7 +262,7 @@ trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
       "be able to filter active no waits by participant" in {
         val store = mk()
         val specialConfig = ConfigForNoWaitCounterParticipants(
-          domainId2,
+          synchronizerId2,
           remoteId2,
         )
 
@@ -279,11 +279,11 @@ trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
       "be able to filter active no waits by participant and domain" in {
         val store = mk()
         val specialConfig = ConfigForNoWaitCounterParticipants(
-          domainId2,
+          synchronizerId2,
           remoteId,
         )
         val specialConfig2 = ConfigForNoWaitCounterParticipants(
-          domainId2,
+          synchronizerId2,
           remoteId2,
         )
 
@@ -292,7 +292,10 @@ trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
             Seq(config1, config2, specialConfig, specialConfig2)
           )
           unfiltered <- store.getAllActiveNoWaitCounterParticipants(Seq.empty, Seq.empty)
-          filtered <- store.getAllActiveNoWaitCounterParticipants(Seq(domainId2), Seq(remoteId2))
+          filtered <- store.getAllActiveNoWaitCounterParticipants(
+            Seq(synchronizerId2),
+            Seq(remoteId2),
+          )
         } yield {
           unfiltered.toSet shouldBe Set(config1, config2, specialConfig, specialConfig2)
           filtered.toSet shouldBe Set(specialConfig2)
@@ -319,7 +322,7 @@ trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
           _ <- store.addNoWaitCounterParticipant(Seq(config1))
           _ <- store.addNoWaitCounterParticipant(Seq(config2))
           start <- store.getAllActiveNoWaitCounterParticipants(Seq.empty, Seq.empty)
-          _ <- store.removeNoWaitCounterParticipant(Seq(domainId), Seq.empty)
+          _ <- store.removeNoWaitCounterParticipant(Seq(synchronizerId), Seq.empty)
           end <- store.getAllActiveNoWaitCounterParticipants(Seq.empty, Seq.empty)
         } yield {
           start.toSet shouldBe Set(config1, config2)
@@ -330,7 +333,7 @@ trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
       "overwrite in case of matching domain and participant" in {
         val store = mk()
         val config = ConfigForNoWaitCounterParticipants(
-          domainId,
+          synchronizerId,
           remoteId,
         )
 

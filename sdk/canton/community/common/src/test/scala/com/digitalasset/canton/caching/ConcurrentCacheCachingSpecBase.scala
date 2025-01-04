@@ -3,6 +3,8 @@
 
 package com.digitalasset.canton.caching
 
+import com.digitalasset.canton.HasExecutionContext
+import com.digitalasset.canton.logging.NamedLogging
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 
@@ -11,7 +13,9 @@ import java.util.concurrent.atomic.AtomicInteger
 trait ConcurrentCacheCachingSpecBase
     extends ConcurrentCacheSpecBase
     with AnyWordSpecLike
-    with Matchers {
+    with Matchers
+    with HasExecutionContext
+    with NamedLogging {
   name should {
     "compute once, and cache" in {
       val cache = newCache()

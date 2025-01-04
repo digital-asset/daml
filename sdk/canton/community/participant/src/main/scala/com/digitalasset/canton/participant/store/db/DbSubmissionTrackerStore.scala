@@ -45,7 +45,7 @@ class DbSubmissionTrackerStore(
 
     val insertQuery =
       sqlu"""insert into par_fresh_submitted_transaction(
-                 domain_idx,
+                 synchronizer_idx,
                  root_hash_hex,
                  request_id,
                  max_sequencing_time)
@@ -55,7 +55,7 @@ class DbSubmissionTrackerStore(
     val selectQuery =
       sql"""select count(*)
               from par_fresh_submitted_transaction
-              where domain_idx=$indexedDomain and root_hash_hex=$rootHash and request_id=$dbRequestId"""
+              where synchronizer_idx=$indexedDomain and root_hash_hex=$rootHash and request_id=$dbRequestId"""
         .as[Int]
         .headOption
 
@@ -76,7 +76,7 @@ class DbSubmissionTrackerStore(
   )(implicit traceContext: TraceContext): Future[Int] = {
     val deleteQuery =
       sqlu"""delete from par_fresh_submitted_transaction
-             where domain_idx = $indexedDomain and max_sequencing_time <= $beforeAndIncluding"""
+             where synchronizer_idx = $indexedDomain and max_sequencing_time <= $beforeAndIncluding"""
 
     storage.queryAndUpdate(deleteQuery, "prune par_fresh_submitted_transaction")
   }
@@ -84,7 +84,7 @@ class DbSubmissionTrackerStore(
   override def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     storage.updateUnlessShutdown_(
       sqlu"""delete from par_fresh_submitted_transaction
-             where domain_idx = $indexedDomain""",
+             where synchronizer_idx = $indexedDomain""",
       "purge par_fresh_submitted_transaction",
     )
 
@@ -109,7 +109,7 @@ class DbSubmissionTrackerStore(
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val deleteQuery =
       sqlu"""delete from par_fresh_submitted_transaction
-         where domain_idx = $indexedDomain and request_id >= $including"""
+         where synchronizer_idx = $indexedDomain and request_id >= $including"""
 
     storage.update_(deleteQuery, "cleanup par_fresh_submitted_transaction")
   }

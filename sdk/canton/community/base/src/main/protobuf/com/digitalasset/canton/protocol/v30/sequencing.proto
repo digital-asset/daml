@@ -107,7 +107,7 @@ message SequencedEvent {
   int64 timestamp = 2;
 
   // The domain on which the event has been sequenced.
-  string domain_id = 3;
+  string synchronizer_id = 3;
 
   // The message_id of the request.
   // Optional, but will be defined iff the request sender is the subscriber.

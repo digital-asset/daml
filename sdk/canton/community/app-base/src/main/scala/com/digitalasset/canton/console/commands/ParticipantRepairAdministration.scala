@@ -28,11 +28,11 @@ import com.digitalasset.canton.participant.ParticipantNode
 import com.digitalasset.canton.participant.admin.data.ActiveContract
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
 import com.digitalasset.canton.protocol.LfContractId
-import com.digitalasset.canton.topology.{DomainId, PartyId}
+import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.ResourceUtil
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{DomainAlias, SequencerCounter}
+import com.digitalasset.canton.{SequencerCounter, SynchronizerAlias}
 import com.google.protobuf.ByteString
 import io.grpc.Context
 
@@ -64,14 +64,14 @@ class ParticipantRepairAdministration(
       |contract ids passed in. Be sure to not connect the participant to the domain until the call returns."""
   )
   def purge(
-      domain: DomainAlias,
+      synchronizerAlias: SynchronizerAlias,
       contractIds: Seq[LfContractId],
       ignoreAlreadyPurged: Boolean = true,
   ): Unit =
     consoleEnvironment.run {
       runner.adminCommand(
         ParticipantAdminCommands.ParticipantRepairManagement.PurgeContracts(
-          domain = domain,
+          synchronizerAlias = synchronizerAlias,
           contracts = contractIds,
           ignoreAlreadyPurged = ignoreAlreadyPurged,
         )
@@ -92,13 +92,13 @@ class ParticipantRepairAdministration(
         |Forcing a migration is intended for disaster recovery when a source domain cannot be recovered anymore.
         |
         |The arguments are:
-        |source: the domain alias of the source domain
+        |source: the synchronizer alias of the source domain
         |target: the configuration for the target domain
         |force: if true, migration is forced ignoring in-flight transactions. Defaults to false.
         """
   )
   def migrate_domain(
-      source: DomainAlias,
+      source: SynchronizerAlias,
       target: DomainConnectionConfig,
       force: Boolean = false,
   ): Unit =
@@ -123,9 +123,9 @@ class ParticipantRepairAdministration(
         |- parties: identifying contracts having at least one stakeholder from the given set
         |- partiesOffboarding: true if the parties will be offboarded (party migration)
         |- outputFile: the output file name where to store the data. Use .gz as a suffix to get a  compressed file (recommended)
-        |- filterDomainId: restrict the export to a given domain
+        |- filterSynchronizerId: restrict the export to a given domain
         |- timestamp: optionally a timestamp for which we should take the state (useful to reconcile states of a domain)
-        |- contractDomainRenames: As part of the export, allow to rename the associated domain id of contracts from one domain to another based on the mapping.
+        |- contractDomainRenames: As part of the export, allow to rename the associated synchronizer id of contracts from one domain to another based on the mapping.
         |- force: if is set to true, then the check that the timestamp is clean will not be done.
         |         For this option to yield a consistent snapshot, you need to wait at least
         |         confirmationResponseTimeout + mediatorReactionTimeout after the last submitted request.
@@ -135,9 +135,9 @@ class ParticipantRepairAdministration(
       parties: Set[PartyId],
       partiesOffboarding: Boolean,
       outputFile: String = ParticipantRepairAdministration.ExportAcsDefaultFile,
-      filterDomainId: Option[DomainId] = None,
+      filterSynchronizerId: Option[SynchronizerId] = None,
       timestamp: Option[Instant] = None,
-      contractDomainRenames: Map[DomainId, (DomainId, ProtocolVersion)] = Map.empty,
+      contractDomainRenames: Map[SynchronizerId, (SynchronizerId, ProtocolVersion)] = Map.empty,
       force: Boolean = false,
       timeout: NonNegativeDuration = timeouts.unbounded,
   ): Unit =
@@ -152,7 +152,7 @@ class ParticipantRepairAdministration(
               .ExportAcs(
                 parties,
                 partiesOffboarding = partiesOffboarding,
-                filterDomainId,
+                filterSynchronizerId,
                 timestamp,
                 responseObserver,
                 contractDomainRenames,
@@ -226,13 +226,13 @@ class ParticipantRepairAdministration(
         |contracts passed in. Be sure to not connect the participant to the domain until the call returns.
         |
         The arguments are:
-        - domainId: the id of the domain to which to add the contract
+        - synchronizerId: the id of the domain to which to add the contract
         - protocolVersion: to protocol version used by the domain
         - contracts: list of contracts to add with witness information
         """
   )
   def add(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       protocolVersion: ProtocolVersion,
       contracts: Seq[RepairContract],
       allowContractIdSuffixRecomputation: Boolean = false,
@@ -245,7 +245,7 @@ class ParticipantRepairAdministration(
       contracts
         .traverse_ { repairContract =>
           val activeContract = ActiveContract
-            .create(domainId, repairContract.contract, repairContract.reassignmentCounter)(
+            .create(synchronizerId, repairContract.contract, repairContract.reassignmentCounter)(
               protocolVersion
             )
           activeContract.writeDelimitedTo(outputStream).map(_ => outputStream.flush())
@@ -276,11 +276,13 @@ class ParticipantRepairAdministration(
        |Purging a deactivated domain is typically performed automatically as part of a hard domain migration via
        |``repair.migrate_domain``."""
   )
-  def purge_deactivated_domain(domain: DomainAlias): Unit =
+  def purge_deactivated_domain(synchronizerAlias: SynchronizerAlias): Unit =
     check(FeatureFlag.Repair) {
       consoleEnvironment.run {
         runner.adminCommand(
-          ParticipantAdminCommands.ParticipantRepairManagement.PurgeDeactivatedDomain(domain)
+          ParticipantAdminCommands.ParticipantRepairManagement.PurgeDeactivatedDomain(
+            synchronizerAlias
+          )
         )
       }
     }
@@ -302,7 +304,7 @@ class ParticipantRepairAdministration(
       |(Ignoring such events would normally have no effect, as they have already been processed.)"""
   )
   def ignore_events(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       fromInclusive: SequencerCounter,
       toInclusive: SequencerCounter,
       force: Boolean = false,
@@ -311,7 +313,7 @@ class ParticipantRepairAdministration(
       consoleEnvironment.run {
         runner.adminCommand(
           ParticipantAdminCommands.ParticipantRepairManagement
-            .IgnoreEvents(domainId, fromInclusive, toInclusive, force)
+            .IgnoreEvents(synchronizerId, fromInclusive, toInclusive, force)
         )
       }
     }
@@ -330,7 +332,7 @@ class ParticipantRepairAdministration(
       |(Unignoring such events would normally have no effect, as they have already been processed.)"""
   )
   def unignore_events(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       fromInclusive: SequencerCounter,
       toInclusive: SequencerCounter,
       force: Boolean = false,
@@ -338,7 +340,7 @@ class ParticipantRepairAdministration(
     consoleEnvironment.run {
       runner.adminCommand(
         ParticipantAdminCommands.ParticipantRepairManagement
-          .UnignoreEvents(domainId, fromInclusive, toInclusive, force)
+          .UnignoreEvents(synchronizerId, fromInclusive, toInclusive, force)
       )
     }
   }
@@ -389,8 +391,8 @@ abstract class LocalParticipantRepairAdministration(
   )
   def change_assignation(
       contractIds: Seq[LfContractId],
-      sourceDomain: DomainAlias,
-      targetDomain: DomainAlias,
+      sourceSynchronizerAlias: SynchronizerAlias,
+      targetSynchronizerAlias: SynchronizerAlias,
       skipInactive: Boolean = true,
       batchSize: Int = 100,
   ): Unit =
@@ -401,8 +403,8 @@ abstract class LocalParticipantRepairAdministration(
           access(
             _.sync.repairService.changeAssignationAwait(
               contractIds,
-              sourceDomain,
-              targetDomain,
+              sourceSynchronizerAlias,
+              targetSynchronizerAlias,
               skipInactive,
               PositiveInt.tryCreate(batchSize),
             )(tc)
@@ -420,13 +422,13 @@ abstract class LocalParticipantRepairAdministration(
     """This is a last resort command to recover from an unassignment that cannot be completed on the target domain.
         Arguments:
         - unassignId - set of contract ids that should change assignation to the new domain
-        - source - the source domain id
+        - source - the source synchronizer id
         - target - alias of the target domain"""
   )
   def rollback_unassignment(
       unassignId: String,
-      source: DomainId,
-      target: DomainId,
+      source: SynchronizerId,
+      target: SynchronizerId,
   ): Unit =
     check(FeatureFlag.Repair) {
       consoleEnvironment.run {

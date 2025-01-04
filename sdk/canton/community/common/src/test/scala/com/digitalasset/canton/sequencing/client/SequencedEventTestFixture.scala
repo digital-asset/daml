@@ -53,13 +53,13 @@ class SequencedEventTestFixture(
     traceContext,
   )
 
-  lazy val defaultDomainId: DomainId = DefaultTestIdentities.domainId
+  lazy val defaultSynchronizerId: SynchronizerId = DefaultTestIdentities.synchronizerId
   lazy val subscriberId: ParticipantId = ParticipantId("participant1-id")
   lazy val sequencerAlice: SequencerId = DefaultTestIdentities.sequencerId
   lazy val subscriberCryptoApi: DomainSyncCryptoClient =
-    TestingIdentityFactory(loggerFactory).forOwnerAndDomain(subscriberId, defaultDomainId)
+    TestingIdentityFactory(loggerFactory).forOwnerAndDomain(subscriberId, defaultSynchronizerId)
   private lazy val sequencerCryptoApi: DomainSyncCryptoClient =
-    TestingIdentityFactory(loggerFactory).forOwnerAndDomain(sequencerAlice, defaultDomainId)
+    TestingIdentityFactory(loggerFactory).forOwnerAndDomain(sequencerAlice, defaultSynchronizerId)
   lazy val updatedCounter: Long = 42L
   val sequencerBob: SequencerId = SequencerId(
     UniqueIdentifier.tryCreate("da2", namespace)
@@ -137,7 +137,7 @@ class SequencedEventTestFixture(
       syncCryptoApi: DomainSyncCryptoClient = subscriberCryptoApi
   )(implicit executionContext: ExecutionContext): SequencedEventValidatorImpl =
     new SequencedEventValidatorImpl(
-      defaultDomainId,
+      defaultSynchronizerId,
       testedProtocolVersion,
       syncCryptoApi,
       loggerFactory,
@@ -145,7 +145,7 @@ class SequencedEventTestFixture(
     )(executionContext)
 
   def createEvent(
-      domainId: DomainId = defaultDomainId,
+      synchronizerId: SynchronizerId = defaultSynchronizerId,
       signatureOverride: Option[Signature] = None,
       serializedOverride: Option[ByteString] = None,
       counter: Long = updatedCounter,
@@ -168,7 +168,7 @@ class SequencedEventTestFixture(
     val deliver: Deliver[ClosedEnvelope] = Deliver.create[ClosedEnvelope](
       SequencerCounter(counter),
       timestamp,
-      domainId,
+      synchronizerId,
       MessageId.tryCreate("test").some,
       Batch(List(envelope), testedProtocolVersion),
       topologyTimestamp,
@@ -218,7 +218,7 @@ class SequencedEventTestFixture(
     for {
       cryptoApi <- FutureUnlessShutdown.outcomeF(sequencerCryptoApi.snapshot(timestamp))
       signature <- cryptoApi
-        .sign(hash(bytes))
+        .sign(hash(bytes), SigningKeyUsage.ProtocolOnly)
         .value
         .map(_.valueOr(err => fail(s"Failed to sign: $err")))(executionContext)
     } yield signature

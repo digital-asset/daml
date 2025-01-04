@@ -12,6 +12,7 @@ import com.digitalasset.canton.crypto.{
   DomainSyncCryptoClient,
   HashPurpose,
   Signature,
+  SigningKeyUsage,
   TestHash,
 }
 import com.digitalasset.canton.data.{
@@ -44,8 +45,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 final case class ReassignmentDataHelpers(
     contract: SerializableContract,
-    sourceDomain: Source[DomainId],
-    targetDomain: Target[DomainId],
+    sourceDomain: Source[SynchronizerId],
+    targetDomain: Target[SynchronizerId],
     pureCrypto: DomainCryptoPureApi,
     // mediatorCryptoClient and sequencerCryptoClient need to be defined for computation of the DeliveredUnassignmentResult
     mediatorCryptoClient: Option[DomainSyncCryptoClient] = None,
@@ -133,7 +134,7 @@ final case class ReassignmentDataHelpers(
 
     val result =
       ConfirmationResultMessage.create(
-        domainId = sourceDomain.unwrap,
+        synchronizerId = sourceDomain.unwrap,
         viewType = ViewType.UnassignmentViewType,
         requestId = RequestId(reassignmentData.unassignmentTs),
         rootHash = reassignmentData.unassignmentRequest.rootHash,
@@ -199,8 +200,8 @@ object ReassignmentDataHelpers {
 
   def apply(
       contract: SerializableContract,
-      sourceDomain: Source[DomainId],
-      targetDomain: Target[DomainId],
+      sourceDomain: Source[SynchronizerId],
+      targetDomain: Target[SynchronizerId],
       identityFactory: TestingIdentityFactory,
   )(implicit executionContext: ExecutionContext) = {
     val pureCrypto = identityFactory
@@ -233,7 +234,7 @@ object ReassignmentDataHelpers {
       cryptoSnapshotSequencer: DomainSnapshotSyncCryptoApi,
       sequencingTime: CantonTimestamp = CantonTimestamp.Epoch,
   )(
-      domainId: DomainId = result.domainId,
+      synchronizerId: SynchronizerId = result.synchronizerId,
       additionalEnvelopes: List[(ProtocolMessage, Recipients)] = Nil,
       additionalMediatorSignatures: Seq[Signature] = Nil,
   )(implicit executionContext: ExecutionContext, traceContext: TraceContext): EitherT[
@@ -258,7 +259,7 @@ object ReassignmentDataHelpers {
         protocolVersion,
         cryptoSnapshotSequencer,
         sequencingTime,
-      )(domainId, additionalEnvelopes)
+      )(synchronizerId, additionalEnvelopes)
 
     } yield deliveredUnassignmentResult
   }
@@ -272,7 +273,7 @@ object ReassignmentDataHelpers {
       cryptoSnapshotSequencer: DomainSnapshotSyncCryptoApi,
       sequencingTime: CantonTimestamp = CantonTimestamp.Epoch,
   )(
-      domainId: DomainId = signedResult.domainId,
+      synchronizerId: SynchronizerId = signedResult.synchronizerId,
       additionalEnvelopes: List[(ProtocolMessage, Recipients)] = Nil,
   )(implicit executionContext: ExecutionContext, traceContext: TraceContext): EitherT[
     Future,
@@ -288,7 +289,7 @@ object ReassignmentDataHelpers {
     val deliver = Deliver.create(
       SequencerCounter(0),
       sequencingTime,
-      domainId,
+      synchronizerId,
       Some(MessageId.tryCreate("msg-0")),
       batch,
       None,
@@ -302,7 +303,7 @@ object ReassignmentDataHelpers {
     )
 
     val res = cryptoSnapshotSequencer
-      .sign(hash)
+      .sign(hash, SigningKeyUsage.ProtocolOnly)
       .value
       .onShutdown(sys.error("aborted due to shutdown"))
       .map(_.value)

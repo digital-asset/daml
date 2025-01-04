@@ -10,7 +10,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{DeserializationError, HasCryptographicEvidence}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.ByteStringUtil
 import com.digitalasset.canton.util.ReassignmentTag.Source
 import com.digitalasset.canton.{LedgerTransactionId, ProtoDeserializationError}
@@ -182,17 +182,19 @@ object RequestId {
 }
 
 /** A reassignment is identified by the source domain and the sequencer timestamp on the unassignment request. */
-final case class ReassignmentId(sourceDomain: Source[DomainId], unassignmentTs: CantonTimestamp)
-    extends PrettyPrinting {
+final case class ReassignmentId(
+    sourceDomain: Source[SynchronizerId],
+    unassignmentTs: CantonTimestamp,
+) extends PrettyPrinting {
   def toProtoV30: v30.ReassignmentId =
     v30.ReassignmentId(
-      sourceDomain = sourceDomain.unwrap.toProtoPrimitive,
+      sourceSynchronizerId = sourceDomain.unwrap.toProtoPrimitive,
       timestamp = unassignmentTs.toProtoPrimitive,
     )
 
   def toAdminProto: com.digitalasset.canton.admin.participant.v30.ReassignmentId =
     com.digitalasset.canton.admin.participant.v30.ReassignmentId(
-      sourceDomain = sourceDomain.unwrap.toProtoPrimitive,
+      sourceSynchronizerId = sourceDomain.unwrap.toProtoPrimitive,
       timestamp = Some(unassignmentTs.toProtoTimestamp),
     )
 
@@ -207,8 +209,11 @@ object ReassignmentId {
     reassignmentIdP match {
       case v30.ReassignmentId(originDomainP, requestTimestampP) =>
         for {
-          sourceDomain <- DomainId.fromProtoPrimitive(originDomainP, "ReassignmentId.origin_domain")
+          sourceSynchronizerId <- SynchronizerId.fromProtoPrimitive(
+            originDomainP,
+            "ReassignmentId.source_synchronizer_id",
+          )
           requestTimestamp <- CantonTimestamp.fromProtoPrimitive(requestTimestampP)
-        } yield ReassignmentId(Source(sourceDomain), requestTimestamp)
+        } yield ReassignmentId(Source(sourceSynchronizerId), requestTimestamp)
     }
 }

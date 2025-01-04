@@ -3,13 +3,20 @@
 
 package com.digitalasset.canton.caching
 
+import com.digitalasset.canton.HasExecutionContext
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 
 trait ConcurrentCacheBehaviorSpecBase
     extends ConcurrentCacheSpecBase
     with AnyWordSpecLike
-    with Matchers {
+    with Matchers
+    with HasExecutionContext
+    with NamedLogging {
+
+  override protected def loggerFactory: NamedLoggerFactory = NamedLoggerFactory.root
+
   name should {
     "compute the correct results" in {
       val cache = newCache()

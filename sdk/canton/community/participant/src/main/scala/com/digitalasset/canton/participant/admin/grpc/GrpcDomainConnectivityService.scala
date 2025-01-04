@@ -23,10 +23,10 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
 import com.digitalasset.canton.participant.domain.{
-  DomainAliasManager,
   DomainConnectionConfig,
   DomainRegistryError,
   DomainRegistryHelpers,
+  SynchronizerAliasManager,
 }
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.participant.sync.CantonSyncService.ConnectDomain
@@ -37,14 +37,14 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.{DomainAlias, ProtoDeserializationError}
+import com.digitalasset.canton.{ProtoDeserializationError, SynchronizerAlias}
 import io.grpc.Status
 
 import scala.concurrent.{ExecutionContext, Future}
 
 class GrpcDomainConnectivityService(
     sync: CantonSyncService,
-    aliasManager: DomainAliasManager,
+    aliasManager: SynchronizerAliasManager,
     timeouts: ProcessingTimeout,
     sequencerInfoLoader: SequencerInfoLoader,
     protected val loggerFactory: NamedLoggerFactory,
@@ -53,24 +53,24 @@ class GrpcDomainConnectivityService(
 ) extends v30.DomainConnectivityServiceGrpc.DomainConnectivityService
     with NamedLogging {
 
-  private def waitUntilActiveIfSuccess(success: Boolean, domain: DomainAlias)(implicit
-      traceContext: TraceContext
+  private def waitUntilActiveIfSuccess(success: Boolean, synchronizerAlias: SynchronizerAlias)(
+      implicit traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, BaseCantonError, Unit] =
-    if (success) waitUntilActive(domain) else EitherTUtil.unitUS[BaseCantonError]
+    if (success) waitUntilActive(synchronizerAlias) else EitherTUtil.unitUS[BaseCantonError]
 
   private def waitUntilActive(
-      domain: DomainAlias
+      synchronizerAlias: SynchronizerAlias
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, BaseCantonError, Unit] =
     for {
-      domainId <- EitherT.fromOption[FutureUnlessShutdown](
+      synchronizerId <- EitherT.fromOption[FutureUnlessShutdown](
         aliasManager
-          .domainIdForAlias(domain),
-        DomainIsMissingInternally(domain, "aliasManager"),
+          .synchronizerIdForAlias(synchronizerAlias),
+        DomainIsMissingInternally(synchronizerAlias, "aliasManager"),
       )
       client <- EitherT.fromOption[FutureUnlessShutdown](
         sync.syncCrypto.ips
-          .forDomain(domainId),
-        DomainIsMissingInternally(domain, "ips"),
+          .forDomain(synchronizerId),
+        DomainIsMissingInternally(synchronizerAlias, "ips"),
       )
       active <- EitherT
         .right(client.awaitUS(_.isParticipantActive(sync.participantId), timeouts.network.unwrap))
@@ -80,17 +80,17 @@ class GrpcDomainConnectivityService(
             active,
             (),
             DomainRegistryError.ConnectionErrors.ParticipantIsNotActive.Error(
-              s"While domain $domain promised, participant ${sync.participantId} never became active within `timeouts.network` (${timeouts.network})."
+              s"While synchronizerAlias $synchronizerAlias promised, participant ${sync.participantId} never became active within `timeouts.network` (${timeouts.network})."
             ): BaseCantonError,
           )
     } yield ()
 
-  private def parseDomainAlias(
-      domainAliasProto: String
-  ): EitherT[FutureUnlessShutdown, BaseCantonError, DomainAlias] =
+  private def parseSynchronizerAlias(
+      synchronizerAliasP: String
+  ): EitherT[FutureUnlessShutdown, BaseCantonError, SynchronizerAlias] =
     EitherT.fromEither[FutureUnlessShutdown](
-      DomainAlias
-        .create(domainAliasProto)
+      SynchronizerAlias
+        .create(synchronizerAliasP)
         .leftMap(ProtoDeserializationFailure.WrapNoLoggingStr.apply)
     )
 
@@ -127,9 +127,9 @@ class GrpcDomainConnectivityService(
       request: v30.ReconnectDomainRequest
   ): Future[v30.ReconnectDomainResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val v30.ReconnectDomainRequest(domainAlias, keepRetrying) = request
+    val v30.ReconnectDomainRequest(synchronizerAlias, keepRetrying) = request
     val ret = for {
-      alias <- parseDomainAlias(domainAlias)
+      alias <- parseSynchronizerAlias(synchronizerAlias)
       success <- sync.connectDomain(alias, keepRetrying, ConnectDomain.Connect)
       _ <- waitUntilActiveIfSuccess(success, alias)
     } yield v30.ReconnectDomainResponse(connectedSuccessfully = success)
@@ -140,9 +140,9 @@ class GrpcDomainConnectivityService(
       request: v30.DisconnectDomainRequest
   ): Future[v30.DisconnectDomainResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val v30.DisconnectDomainRequest(domainAlias) = request
+    val v30.DisconnectDomainRequest(synchronizerAlias) = request
     val ret = for {
-      alias <- parseDomainAlias(domainAlias)
+      alias <- parseSynchronizerAlias(synchronizerAlias)
       _ <- sync.disconnectDomain(alias).leftWiden[BaseCantonError]
     } yield v30.DisconnectDomainResponse()
     CantonGrpcUtil.mapErrNewEUS(ret)
@@ -158,18 +158,18 @@ class GrpcDomainConnectivityService(
 
   override def logout(request: v30.LogoutRequest): Future[v30.LogoutResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val v30.LogoutRequest(domainAliasP) = request
+    val v30.LogoutRequest(synchronizerAliasP) = request
 
     val ret = for {
-      domainAlias <- EitherT
-        .fromEither[Future](DomainAlias.create(domainAliasP))
+      synchronizerAlias <- EitherT
+        .fromEither[Future](SynchronizerAlias.create(synchronizerAliasP))
         .leftMap(err =>
           Status.INVALID_ARGUMENT
-            .withDescription(s"Failed to parse domain alias: $err")
+            .withDescription(s"Failed to parse synchronizer alias: $err")
             .asRuntimeException()
         )
       _ <- sync
-        .logout(domainAlias)
+        .logout(synchronizerAlias)
         .leftMap(err => err.asRuntimeException())
         .onShutdown(Left(AbortedDueToShutdown.Error().asGrpcError))
     } yield v30.LogoutResponse()
@@ -181,10 +181,10 @@ class GrpcDomainConnectivityService(
       request: v30.ListConnectedDomainsRequest
   ): Future[v30.ListConnectedDomainsResponse] =
     Future.successful(v30.ListConnectedDomainsResponse(sync.readyDomains.map {
-      case (alias, (domainId, healthy)) =>
+      case (alias, (synchronizerId, healthy)) =>
         new v30.ListConnectedDomainsResponse.Result(
-          domainAlias = alias.unwrap,
-          domainId = domainId.toProtoPrimitive,
+          synchronizerAlias = alias.unwrap,
+          synchronizerId = synchronizerId.toProtoPrimitive,
           healthy = healthy.unwrap,
         )
     }.toSeq))
@@ -203,7 +203,7 @@ class GrpcDomainConnectivityService(
           .map(cnf =>
             new v30.ListRegisteredDomainsResponse.Result(
               config = Some(cnf.toProtoV30),
-              connected = connected.contains(cnf.domain),
+              connected = connected.contains(cnf.synchronizerAlias),
             )
           )
       )
@@ -229,11 +229,11 @@ class GrpcDomainConnectivityService(
 
       _ = logger.info(s"Connecting to domain $config")
       success <- sync.connectDomain(
-        domainAlias = config.domain,
+        synchronizerAlias = config.synchronizerAlias,
         keepRetrying = false,
         connectDomain = ConnectDomain.Connect,
       )
-      _ <- waitUntilActiveIfSuccess(success, config.domain)
+      _ <- waitUntilActiveIfSuccess(success, config.synchronizerAlias)
 
     } yield v30.ConnectDomainResponse(success)
 
@@ -266,11 +266,11 @@ class GrpcDomainConnectivityService(
           for {
             success <-
               sync.connectDomain(
-                domainAlias = config.domain,
+                synchronizerAlias = config.synchronizerAlias,
                 keepRetrying = false,
                 connectDomain = ConnectDomain.HandshakeOnly,
               )
-            _ <- waitUntilActiveIfSuccess(success, config.domain)
+            _ <- waitUntilActiveIfSuccess(success, config.synchronizerAlias)
           } yield ()
         } else EitherT.rightT[FutureUnlessShutdown, BaseCantonError](())
     } yield v30.RegisterDomainResponse()
@@ -310,13 +310,15 @@ class GrpcDomainConnectivityService(
     CantonGrpcUtil.mapErrNewEUS(ret)
   }
 
-  /** Get the domain id of the given domain alias
+  /** Get the synchronizer id of the given synchronizer alias
     */
-  override def getDomainId(request: v30.GetDomainIdRequest): Future[v30.GetDomainIdResponse] = {
+  override def getSynchronizerId(
+      request: v30.GetSynchronizerIdRequest
+  ): Future[v30.GetSynchronizerIdResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val v30.GetDomainIdRequest(domainAlias) = request
+    val v30.GetSynchronizerIdRequest(synchronizerAlias) = request
     val ret = for {
-      alias <- parseDomainAlias(domainAlias)
+      alias <- parseSynchronizerAlias(synchronizerAlias)
       connectionConfig <-
         sync
           .domainConnectionConfigByAlias(alias)
@@ -326,7 +328,7 @@ class GrpcDomainConnectivityService(
       result <-
         sequencerInfoLoader
           .loadAndAggregateSequencerEndpoints(
-            connectionConfig.domain,
+            connectionConfig.synchronizerAlias,
             None,
             connectionConfig.sequencerConnections,
             SequencerConnectionValidation.Active,
@@ -336,11 +338,11 @@ class GrpcDomainConnectivityService(
           )
           .leftMap[BaseCantonError](err => DomainRegistryError.fromSequencerInfoLoaderError(err))
       _ <- aliasManager
-        .processHandshake(connectionConfig.domain, result.domainId)
-        .leftMap(DomainRegistryHelpers.fromDomainAliasManagerError)
+        .processHandshake(connectionConfig.synchronizerAlias, result.synchronizerId)
+        .leftMap(DomainRegistryHelpers.fromSynchronizerAliasManagerError)
         .mapK(FutureUnlessShutdown.outcomeK)
         .leftWiden[BaseCantonError]
-    } yield v30.GetDomainIdResponse(domainId = result.domainId.toProtoPrimitive)
+    } yield v30.GetSynchronizerIdResponse(synchronizerId = result.synchronizerId.toProtoPrimitive)
     CantonGrpcUtil.mapErrNewEUS(ret)
   }
 

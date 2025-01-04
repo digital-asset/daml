@@ -27,7 +27,7 @@ import com.digitalasset.canton.serialization.{
   HasCryptographicEvidence,
 }
 import com.digitalasset.canton.time.TimeProofTestUtil
-import com.digitalasset.canton.topology.{DomainId, Member}
+import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.version.{GeneratorsVersion, ProtocolVersion}
@@ -215,13 +215,13 @@ final class GeneratorsProtocol(
     for {
       sequencerCounter <- Arbitrary.arbitrary[SequencerCounter]
       ts <- Arbitrary.arbitrary[CantonTimestamp]
-      domainId <- Arbitrary.arbitrary[DomainId]
+      synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
       messageId <- Arbitrary.arbitrary[MessageId]
       error <- sequencerDeliverErrorArb.arbitrary
     } yield DeliverError.create(
       sequencerCounter,
       timestamp = ts,
-      domainId = domainId,
+      synchronizerId = synchronizerId,
       messageId,
       error,
       protocolVersion,
@@ -230,9 +230,9 @@ final class GeneratorsProtocol(
   )
   private implicit val deliverArbitrary: Arbitrary[Deliver[Envelope[?]]] = Arbitrary(
     for {
-      domainId <- Arbitrary.arbitrary[DomainId]
+      synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
       batch <- batchArb.arbitrary
-      deliver <- Arbitrary(deliverGen(domainId, batch, protocolVersion)).arbitrary
+      deliver <- Arbitrary(deliverGen(synchronizerId, batch, protocolVersion)).arbitrary
     } yield deliver
   )
 
@@ -303,7 +303,7 @@ object GeneratorsProtocol {
     }
   }
   def deliverGen[Env <: Envelope[?]](
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       batch: Batch[Env],
       protocolVersion: ProtocolVersion,
   ): Gen[Deliver[Env]] = for {
@@ -315,7 +315,7 @@ object GeneratorsProtocol {
   } yield Deliver.create(
     counter,
     timestamp,
-    domainId,
+    synchronizerId,
     messageIdO,
     batch,
     topologyTimestampO,
@@ -327,7 +327,7 @@ object GeneratorsProtocol {
     for {
       timestamp <- Arbitrary.arbitrary[CantonTimestamp]
       counter <- nonNegativeLongArb.arbitrary.map(_.unwrap)
-      targetDomain <- Arbitrary.arbitrary[Target[DomainId]]
-    } yield TimeProofTestUtil.mkTimeProof(timestamp, counter, targetDomain, protocolVersion)
+      targetSynchronizerId <- Arbitrary.arbitrary[Target[SynchronizerId]]
+    } yield TimeProofTestUtil.mkTimeProof(timestamp, counter, targetSynchronizerId, protocolVersion)
   )
 }

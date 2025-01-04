@@ -10,14 +10,14 @@ import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseVersion}
 
 import java.time.Duration
 
 final case class MediatorStatus(
     uid: UniqueIdentifier,
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     uptime: Duration,
     ports: Map[String, Port],
     active: Boolean,
@@ -31,7 +31,7 @@ final case class MediatorStatus(
     prettyOfString(_ =>
       Seq(
         s"Node uid: ${uid.toProtoPrimitive}",
-        s"Domain id: ${domainId.toProtoPrimitive}",
+        s"Synchronizer id: ${synchronizerId.toProtoPrimitive}",
         show"Uptime: $uptime",
         s"Ports: ${portsString(ports)}",
         s"Active: $active",
@@ -57,9 +57,9 @@ object MediatorStatus {
             mediatorStatusP.commonStatus,
           )
           status <- SimpleStatus.fromProtoV30(statusP)
-          domainId <- DomainId.fromProtoPrimitive(
-            mediatorStatusP.domainId,
-            "MediatorStatusResponse.domain_id",
+          synchronizerId <- SynchronizerId.fromProtoPrimitive(
+            mediatorStatusP.synchronizerId,
+            "MediatorStatusResponse.synchronizer_id",
           )
           protocolVersion <- ProtocolVersion.fromProtoPrimitive(
             mediatorStatusP.protocolVersion,
@@ -68,7 +68,7 @@ object MediatorStatus {
         } yield NodeStatus.Success(
           MediatorStatus(
             uid = status.uid,
-            domainId = domainId,
+            synchronizerId = synchronizerId,
             uptime = status.uptime,
             ports = status.ports,
             active = status.active,

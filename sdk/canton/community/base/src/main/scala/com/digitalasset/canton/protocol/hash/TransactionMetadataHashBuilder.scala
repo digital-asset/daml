@@ -21,7 +21,7 @@ object TransactionMetadataHashBuilder {
       commandId: Ref.CommandId,
       transactionUUID: UUID,
       mediatorGroup: Int,
-      domainId: String,
+      synchronizerId: String,
       ledgerEffectiveTime: Option[Time.Timestamp],
       submissionTime: Time.Timestamp,
       disclosedContracts: SortedMap[ContractId, FatContractInstance],
@@ -47,7 +47,7 @@ object TransactionMetadataHashBuilder {
       .withContext("Command Id")(_.add(metadata.commandId))
       .withContext("Transaction UUID")(_.add(metadata.transactionUUID.toString))
       .withContext("Mediator Group")(_.add(metadata.mediatorGroup))
-      .withContext("Domain Id")(_.add(metadata.domainId))
+      .withContext("Synchronizer Id")(_.add(metadata.synchronizerId))
       .withContext("Ledger Effective Time")(
         _.addOptional(
           metadata.ledgerEffectiveTime.map(_.micros),

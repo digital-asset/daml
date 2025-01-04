@@ -95,6 +95,5 @@ message SetTrafficPurchasedMessage {
   uint32 serial = 2;
   // New total traffic purchased entry
   uint64 total_traffic_purchased = 4;
-  // Domain Id
-  string domain_id = 5;
+  string synchronizer_id = 5;
 }

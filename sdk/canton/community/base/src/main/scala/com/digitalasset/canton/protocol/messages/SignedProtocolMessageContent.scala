@@ -10,7 +10,7 @@ import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 
 trait SignedProtocolMessageContent
     extends ProtocolVersionedMemoizedEvidence
-    with HasDomainId
+    with HasSynchronizerId
     with PrettyPrinting
     with Product
     with Serializable {

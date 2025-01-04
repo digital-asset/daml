@@ -8,6 +8,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.common.domain.RegisterTopologyTransactionHandle
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{ProcessingTimeout, TopologyConfig}
+import com.digitalasset.canton.crypto.SigningKeyUsage
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{
@@ -34,11 +35,11 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.{
   BaseTest,
-  DomainAlias,
   FailOnShutdown,
   HasExecutionContext,
   ProtocolVersionChecksAsyncWordSpec,
   SequencerCounter,
+  SynchronizerAlias,
 }
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -61,7 +62,7 @@ class QueueBasedDomainOutboxTest
     SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
   private lazy val publicKey = crypto.generateSymbolicSigningKey()
   private lazy val namespace = Namespace(publicKey.id)
-  private lazy val domain = DomainAlias.tryCreate("target")
+  private lazy val domain = SynchronizerAlias.tryCreate("target")
   private lazy val transactions =
     Seq[TopologyMapping](
       IdentifierDelegation(UniqueIdentifier.tryCreate("alpha", namespace), publicKey),
@@ -80,7 +81,10 @@ class QueueBasedDomainOutboxTest
         NamespaceDelegation.tryCreate(namespace, publicKey, isRootDelegation = true),
         testedProtocolVersion,
       ),
-      signingKeys = NonEmpty(Set, publicKey.fingerprint),
+      signingKeys = NonEmpty(
+        Map,
+        publicKey.fingerprint -> SigningKeyUsage.NamespaceOnly,
+      ),
       isProposal = false,
       crypto.privateCrypto,
       testedProtocolVersion,
@@ -102,7 +106,7 @@ class QueueBasedDomainOutboxTest
     )
   ] = {
     val target = new InMemoryTopologyStore(
-      TopologyStoreId.DomainStore(DefaultTestIdentities.domainId),
+      TopologyStoreId.DomainStore(DefaultTestIdentities.synchronizerId),
       testedProtocolVersion,
       loggerFactory,
       timeouts,
@@ -123,7 +127,7 @@ class QueueBasedDomainOutboxTest
     )
     val client = new StoreBasedDomainTopologyClient(
       clock,
-      domainId,
+      synchronizerId,
       store = target,
       packageDependenciesResolver = StoreBasedDomainTopologyClient.NoPackageDependencies,
       timeouts = timeouts,
@@ -264,7 +268,7 @@ class QueueBasedDomainOutboxTest
   ): FutureUnlessShutdown[QueueBasedDomainOutbox] = {
     val domainOutbox = new QueueBasedDomainOutbox(
       domain,
-      domainId,
+      synchronizerId,
       participant1,
       testedProtocolVersion,
       handle,

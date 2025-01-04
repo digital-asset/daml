@@ -80,6 +80,7 @@ case
   when $1 = 1 then 'IdentityDelegation'
   when $1 = 2 then 'SequencerAuthentication'
   when $1 = 3 then 'Protocol'
+  when $1 = 4 then 'ProofOfOwnership'
   else $1::text
 end;
 $$
@@ -184,7 +185,6 @@ create or replace view debug.par_contracts as
     instance,
     metadata,
     ledger_create_time,
-    request_counter,
     package_id,
     template_id,
     contract_salt
@@ -213,18 +213,18 @@ create or replace view debug.common_topology_dispatching as
 
 create or replace view debug.par_active_contracts as
   select
-    debug.resolve_common_static_string(domain_idx) as domain_idx,
+    debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
     contract_id,
     change, operation,
     debug.canton_timestamp(ts) as ts,
     request_counter,
-    debug.resolve_common_static_string(remote_domain_idx) as remote_domain_idx,
+    debug.resolve_common_static_string(remote_synchronizer_idx) as remote_synchronizer_idx,
     reassignment_counter
   from par_active_contracts;
 
 create or replace view debug.par_fresh_submitted_transaction as
   select
-    debug.resolve_common_static_string(domain_idx) as domain_idx,
+    debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
     root_hash_hex,
     debug.canton_timestamp(request_id) as request_id,
     debug.canton_timestamp(max_sequencing_time) as max_sequencing_time
@@ -232,7 +232,7 @@ create or replace view debug.par_fresh_submitted_transaction as
 
 create or replace view debug.par_fresh_submitted_transaction_pruning as
   select
-    debug.resolve_common_static_string(domain_idx) as domain_idx,
+    debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
     phase,
     debug.canton_timestamp(ts) as ts,
     debug.canton_timestamp(succeeded) as succeeded
@@ -249,7 +249,7 @@ create or replace view debug.med_response_aggregations as
 
 create or replace view debug.common_sequenced_events as
   select
-    debug.resolve_common_static_string(domain_idx) as domain_idx,
+    debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
     sequenced_event,
     type,
     debug.canton_timestamp(ts) as ts,
@@ -260,14 +260,14 @@ create or replace view debug.common_sequenced_events as
 
 create or replace view debug.sequencer_client_pending_sends as
   select
-    debug.resolve_common_static_string(domain_idx) as domain_idx,
+    debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
     message_id,
     debug.canton_timestamp(max_sequencing_time) as max_sequencing_time
   from sequencer_client_pending_sends;
 
 create or replace view debug.par_domain_connection_configs as
   select
-    domain_alias,
+    synchronizer_alias,
     config,
     status
   from par_domain_connection_configs;
@@ -276,14 +276,14 @@ create or replace view debug.par_domains as
   select
     order_number,
     alias,
-    domain_id,
+    synchronizer_id,
     status
   from par_domains;
 
 create or replace view debug.par_reassignments as
   select
-    debug.resolve_common_static_string(target_domain_idx) as target_domain_idx,
-    debug.resolve_common_static_string(source_domain_idx) as source_domain_idx,
+    debug.resolve_common_static_string(target_synchronizer_idx) as target_synchronizer_idx,
+    debug.resolve_common_static_string(source_synchronizer_idx) as source_synchronizer_idx,
     unassignment_global_offset,
     assignment_global_offset,
     debug.canton_timestamp(unassignment_timestamp) as unassignment_timestamp,
@@ -300,7 +300,7 @@ create or replace view debug.par_reassignments as
 
 create or replace view debug.par_journal_requests as
   select
-    debug.resolve_common_static_string(domain_idx) as domain_idx,
+    debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
     request_counter,
     request_state_index,
     debug.canton_timestamp(request_timestamp) as request_timestamp,
@@ -310,7 +310,7 @@ create or replace view debug.par_journal_requests as
 
 create or replace view debug.par_computed_acs_commitments as
   select
-    debug.resolve_common_static_string(domain_idx) as domain_idx,
+    debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
     counter_participant,
     debug.canton_timestamp(from_exclusive) as from_exclusive,
     debug.canton_timestamp(to_inclusive) as to_inclusive,
@@ -320,7 +320,7 @@ create or replace view debug.par_computed_acs_commitments as
 
 create or replace view debug.par_received_acs_commitments as
   select
-    debug.resolve_common_static_string(domain_idx) as domain_idx,
+    debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
     sender,
     debug.canton_timestamp(from_exclusive) as from_exclusive,
     debug.canton_timestamp(to_inclusive) as to_inclusive,
@@ -329,7 +329,7 @@ create or replace view debug.par_received_acs_commitments as
 
 create or replace view debug.par_outstanding_acs_commitments as
   select
-    debug.resolve_common_static_string(domain_idx) as domain_idx,
+    debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
     counter_participant,
     debug.canton_timestamp(from_exclusive) as from_exclusive,
     debug.canton_timestamp(to_inclusive) as to_inclusive,
@@ -338,13 +338,13 @@ create or replace view debug.par_outstanding_acs_commitments as
 
 create or replace view debug.par_last_computed_acs_commitments as
   select
-    debug.resolve_common_static_string(domain_idx) as domain_idx,
+    debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
     debug.canton_timestamp(ts) as ts
   from par_last_computed_acs_commitments;
 
 create or replace view debug.par_commitment_snapshot as
   select
-    debug.resolve_common_static_string(domain_idx) as domain_idx,
+    debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
     stakeholders_hash,
     stakeholders,
     commitment
@@ -352,14 +352,14 @@ create or replace view debug.par_commitment_snapshot as
 
 create or replace view debug.par_commitment_snapshot_time as
   select
-    debug.resolve_common_static_string(domain_idx) as domain_idx,
+    debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
     debug.canton_timestamp(ts) as ts,
     tie_breaker
   from par_commitment_snapshot_time;
 
 create or replace view debug.par_commitment_queue as
   select
-    debug.resolve_common_static_string(domain_idx) as domain_idx,
+    debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
     sender,
     counter_participant,
     debug.canton_timestamp(from_exclusive) as from_exclusive,
@@ -370,7 +370,7 @@ create or replace view debug.par_commitment_queue as
 
 create or replace view debug.par_static_domain_parameters as
   select
-    domain_id,
+    synchronizer_id,
     params
   from par_static_domain_parameters;
 
@@ -390,7 +390,7 @@ create or replace view debug.seq_block_height as
 
 create or replace view debug.par_active_contract_pruning as
   select
-    debug.resolve_common_static_string(domain_idx) as domain_idx,
+    debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
     phase,
     debug.canton_timestamp(ts) as ts,
     debug.canton_timestamp(succeeded) as succeeded
@@ -398,7 +398,7 @@ create or replace view debug.par_active_contract_pruning as
 
 create or replace view debug.par_commitment_pruning as
   select
-    debug.resolve_common_static_string(domain_idx) as domain_idx,
+    debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
     phase,
     debug.canton_timestamp(ts) as ts,
     debug.canton_timestamp(succeeded) as succeeded
@@ -406,7 +406,7 @@ create or replace view debug.par_commitment_pruning as
 
 create or replace view debug.par_contract_key_pruning as
   select
-    debug.resolve_common_static_string(domain_idx) as domain_idx,
+    debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
     phase,
     debug.canton_timestamp(ts) as ts,
     debug.canton_timestamp(succeeded) as succeeded
@@ -414,7 +414,7 @@ create or replace view debug.par_contract_key_pruning as
 
 create or replace view debug.common_sequenced_event_store_pruning as
   select
-    debug.resolve_common_static_string(domain_idx) as domain_idx,
+    debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
     phase,
     debug.canton_timestamp(ts) as ts,
     debug.canton_timestamp(succeeded) as succeeded
@@ -423,14 +423,14 @@ create or replace view debug.common_sequenced_event_store_pruning as
 create or replace view debug.mediator_domain_configuration as
   select
     lock,
-    domain_id,
+    synchronizer_id,
     static_domain_parameters,
     sequencer_connection
   from mediator_domain_configuration;
 
 create or replace view debug.common_head_sequencer_counters as
   select
-    debug.resolve_common_static_string(domain_idx) as domain_idx,
+    debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
     prehead_counter,
     debug.canton_timestamp(ts) as ts
   from common_head_sequencer_counters;
@@ -507,7 +507,7 @@ create or replace view debug.par_in_flight_submission as
   select
     change_id_hash,
     submission_id,
-    submission_domain_id,
+    submission_synchronizer_id,
     message_id,
     debug.canton_timestamp(sequencing_timeout) as sequencing_timeout,
     sequencer_counter,
@@ -552,7 +552,7 @@ create or replace view debug.par_command_deduplication_pruning as
 create or replace view debug.sequencer_domain_configuration as
   select
     lock,
-    domain_id,
+    synchronizer_id,
     static_domain_parameters
   from sequencer_domain_configuration;
 
@@ -688,20 +688,20 @@ create or replace view debug.ord_p2p_endpoints as
 
 create or replace VIEW debug.acs_no_wait_counter_participants as
     select
-        domain_id,
+        synchronizer_id,
         participant_id
         from acs_no_wait_counter_participants;
 
 create or replace VIEW debug.acs_slow_participant_config as
     select
-        domain_id,
+        synchronizer_id,
         threshold_distinguished,
         threshold_default
         from acs_slow_participant_config;
 
 create or replace VIEW debug.acs_slow_counter_participants as
     select
-        domain_id,
+        synchronizer_id,
         participant_id,
         is_distinguished,
         is_added_to_metrics

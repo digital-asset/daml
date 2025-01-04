@@ -18,7 +18,7 @@ import com.digitalasset.canton.sequencing.protocol.SignedContent
 import com.digitalasset.canton.sequencing.{OrdinarySerializedEvent, SequencerTestUtils}
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.store.memory.InMemorySequencedEventStore
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{
   BaseTest,
@@ -35,14 +35,14 @@ class SyncDomainEphemeralStateFactoryTest
     with CloseableTest
     with FailOnShutdown {
 
-  private lazy val domainId = DomainId.tryFromString("domain::da")
+  private lazy val synchronizerId = SynchronizerId.tryFromString("domain::da")
 
   private def dummyEvent(
-      domainId: DomainId
+      synchronizerId: SynchronizerId
   )(sc: SequencerCounter, timestamp: CantonTimestamp): OrdinarySerializedEvent =
     OrdinarySequencedEvent(
       SignedContent(
-        SequencerTestUtils.mockDeliver(sc.v, timestamp, domainId),
+        SequencerTestUtils.mockDeliver(sc.v, timestamp, synchronizerId),
         SymbolicCrypto.emptySignature,
         None,
         testedProtocolVersion,
@@ -79,7 +79,7 @@ class SyncDomainEphemeralStateFactoryTest
         val ts = CantonTimestamp.Epoch
         for {
           _ <- rjs.insert(RequestData.clean(rc, ts, ts.plusSeconds(1)))
-          _ <- ses.store(Seq(dummyEvent(domainId)(sc, ts)))
+          _ <- ses.store(Seq(dummyEvent(synchronizerId)(sc, ts)))
           withCleanSc <- SyncDomainEphemeralStateFactory.startingPoints(
             rjs,
             ses,
@@ -125,13 +125,13 @@ class SyncDomainEphemeralStateFactoryTest
           _ <- rjs.insert(RequestData.clean(rc + 2L, ts2, ts2.plusSeconds(4)))
           _ <- ses.store(
             Seq(
-              dummyEvent(domainId)(sc, ts0),
-              dummyEvent(domainId)(sc + 1L, ts1),
-              dummyEvent(domainId)(sc + 2L, ts2),
-              dummyEvent(domainId)(sc + 3L, ts3),
-              dummyEvent(domainId)(sc + 4L, ts4),
-              dummyEvent(domainId)(sc + 5L, ts5),
-              dummyEvent(domainId)(sc + 6L, ts6),
+              dummyEvent(synchronizerId)(sc, ts0),
+              dummyEvent(synchronizerId)(sc + 1L, ts1),
+              dummyEvent(synchronizerId)(sc + 2L, ts2),
+              dummyEvent(synchronizerId)(sc + 3L, ts3),
+              dummyEvent(synchronizerId)(sc + 4L, ts4),
+              dummyEvent(synchronizerId)(sc + 5L, ts5),
+              dummyEvent(synchronizerId)(sc + 6L, ts6),
             )
           )
           sp1 <- SyncDomainEphemeralStateFactory.startingPoints(
@@ -310,10 +310,10 @@ class SyncDomainEphemeralStateFactoryTest
             _ <- rjs.insert(RequestData.initial(rc + 2L, ts3))
             _ <- ses.store(
               Seq(
-                dummyEvent(domainId)(sc, ts0),
-                dummyEvent(domainId)(sc + 1L, ts1),
-                dummyEvent(domainId)(sc + 2L, ts2),
-                dummyEvent(domainId)(sc + 3L, ts3),
+                dummyEvent(synchronizerId)(sc, ts0),
+                dummyEvent(synchronizerId)(sc + 1L, ts1),
+                dummyEvent(synchronizerId)(sc + 2L, ts2),
+                dummyEvent(synchronizerId)(sc + 3L, ts3),
               )
             )
             sp0 <- SyncDomainEphemeralStateFactory.startingPoints(
@@ -382,7 +382,7 @@ class SyncDomainEphemeralStateFactoryTest
 
           for {
             _ <- ses.store(
-              Seq(dummyEvent(domainId)(sc, ts0), dummyEvent(domainId)(sc + 1L, ts1))
+              Seq(dummyEvent(synchronizerId)(sc, ts0), dummyEvent(synchronizerId)(sc + 1L, ts1))
             )
             _ <- rjs.insert(
               RequestData.clean(rc + 1L, ts1, ts1, Some(RepairContext.tryCreate("repair1")))

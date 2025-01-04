@@ -99,8 +99,8 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     extends NamedLogging
     with TransactionAuthorizationCache[PureCrypto] {
 
-  private val domainId =
-    TopologyStoreId.select[TopologyStoreId.DomainStore](store).map(_.storeId.domainId)
+  private val synchronizerId =
+    TopologyStoreId.select[TopologyStoreId.DomainStore](store).map(_.storeId.synchronizerId)
 
   /** Validates the provided topology transactions and applies the certificates to the auth state
     *
@@ -486,11 +486,12 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
   private def verifyDomain(
       toValidate: GenericSignedTopologyTransaction
   ): GenericValidatedTopologyTransaction =
-    toValidate.restrictedToDomain.zip(domainId) match {
-      case Some((txDomainId, underlyingDomainId)) if txDomainId != underlyingDomainId =>
+    toValidate.restrictedToDomain.zip(synchronizerId) match {
+      case Some((txSynchronizerId, underlyingSynchronizerId))
+          if txSynchronizerId != underlyingSynchronizerId =>
         ValidatedTopologyTransaction(
           toValidate,
-          Some(TopologyTransactionRejection.InvalidDomain(txDomainId)),
+          Some(TopologyTransactionRejection.InvalidDomain(txSynchronizerId)),
         )
       case _ => ValidatedTopologyTransaction(toValidate, None)
     }

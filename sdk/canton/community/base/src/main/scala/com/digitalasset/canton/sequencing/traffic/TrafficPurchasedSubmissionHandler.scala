@@ -23,7 +23,7 @@ import com.digitalasset.canton.sequencing.client.{SendCallback, SendResult, Sequ
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.TrafficControlError
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
-import com.digitalasset.canton.topology.{DomainId, Member}
+import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil}
@@ -42,7 +42,7 @@ class TrafficPurchasedSubmissionHandler(
 
   /** Send a signed traffic purchased entry request.
     * @param member recipient of the new balance
-    * @param domainId domainId of the domain where the top up is being sent to
+    * @param synchronizerId synchronizerId of the domain where the top up is being sent to
     * @param protocolVersion protocol version used
     * @param serial monotonically increasing serial number for the request
     * @param totalTrafficPurchased new total traffic purchased entry
@@ -51,7 +51,7 @@ class TrafficPurchasedSubmissionHandler(
     */
   def sendTrafficPurchasedRequest(
       member: Member,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       protocolVersion: ProtocolVersion,
       serial: PositiveInt,
       totalTrafficPurchased: NonNegativeLong,
@@ -136,7 +136,7 @@ class TrafficPurchasedSubmissionHandler(
         member,
         serial,
         totalTrafficPurchased,
-        domainId,
+        synchronizerId,
         protocolVersion,
       )
       signedTrafficPurchasedMessage <- EitherT

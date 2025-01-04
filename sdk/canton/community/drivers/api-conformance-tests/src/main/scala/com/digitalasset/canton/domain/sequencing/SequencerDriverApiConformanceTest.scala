@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.domain.sequencing
 
-import com.digitalasset.canton.domain.block.RawLedgerBlock
-import com.digitalasset.canton.domain.block.RawLedgerBlock.RawBlockEvent.Send
 import com.digitalasset.canton.domain.sequencing.BaseSequencerDriverApiTest.CompletionTimeout
+import com.digitalasset.canton.synchronizer.block.RawLedgerBlock
+import com.digitalasset.canton.synchronizer.block.RawLedgerBlock.RawBlockEvent.Send
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.google.protobuf.ByteString
 import org.apache.pekko.stream.scaladsl.Sink

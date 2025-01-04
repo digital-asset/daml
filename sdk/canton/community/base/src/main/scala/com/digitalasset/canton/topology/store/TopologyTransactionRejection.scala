@@ -89,12 +89,15 @@ object TopologyTransactionRejection {
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
       TopologyManagerError.InvalidSignatureError.Failure(err)
   }
-  final case class InvalidDomain(domain: DomainId) extends TopologyTransactionRejection {
-    override def asString: String = show"Invalid domain $domain"
-    override protected def pretty: Pretty[InvalidDomain] = prettyOfClass(param("domain", _.domain))
+  final case class InvalidDomain(synchronizerId: SynchronizerId)
+      extends TopologyTransactionRejection {
+    override def asString: String = show"Invalid domain $synchronizerId"
+    override protected def pretty: Pretty[InvalidDomain] = prettyOfClass(
+      param("domain", _.synchronizerId)
+    )
 
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.InvalidDomain.Failure(domain)
+      TopologyManagerError.InvalidDomain.Failure(synchronizerId)
   }
   final case class Duplicate(old: CantonTimestamp) extends TopologyTransactionRejection {
     override def asString: String = show"Duplicate transaction from $old"

@@ -70,9 +70,9 @@ message PrepareSubmissionRequest {
   // Optional
   repeated DisclosedContract disclosed_contracts = 7;
 
-  // Must be a valid domain ID
+  // Must be a valid synchronizer id
   // Required
-  string domain_id = 8;
+  string synchronizer_id = 8;
 
   // The package-id selection preference of the client for resolving
   // package names and interface instances in command submission and interpretation
@@ -262,7 +262,7 @@ message Metadata {
    */
   optional uint64 ledger_effective_time = 1;
   SubmitterInfo submitter_info = 2;
-  string domain_id = 3;
+  string synchronizer_id = 3;
   uint32 mediator_group = 4;
   string transaction_uuid = 5;
   uint64 submission_time = 6;

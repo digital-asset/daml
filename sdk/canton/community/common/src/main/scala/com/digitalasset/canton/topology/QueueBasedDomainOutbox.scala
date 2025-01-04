@@ -6,7 +6,7 @@ package com.digitalasset.canton.topology
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.DomainAlias
+import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.common.domain.RegisterTopologyTransactionHandle
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -30,8 +30,8 @@ import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Promise}
 
 class QueueBasedDomainOutbox(
-    domain: DomainAlias,
-    val domainId: DomainId,
+    synchronizerAlias: SynchronizerAlias,
+    val synchronizerId: SynchronizerId,
     val memberId: Member,
     val protocolVersion: ProtocolVersion,
     val handle: RegisterTopologyTransactionHandle,
@@ -234,7 +234,7 @@ class QueueBasedDomainOutbox(
             convertTransactions(notPresent)
           }
           // dispatch to domain
-          _ <- dispatch(domain, transactions = convertedTxs)
+          _ <- dispatch(synchronizerAlias, transactions = convertedTxs)
           observed <- EitherT.right[String](
             // for x-nodes, we either receive
             // * TopologyTransactionsBroadcast.State.Accepted: SendTracker returned Success
@@ -280,7 +280,7 @@ class QueueBasedDomainOutbox(
   }
 
   protected def dispatch(
-      domain: DomainAlias,
+      synchronizerAlias: SynchronizerAlias,
       transactions: Seq[GenericSignedTopologyTransaction],
   )(implicit
       traceContext: TraceContext,
@@ -302,12 +302,12 @@ class QueueBasedDomainOutbox(
           {
             if (logger.underlying.isDebugEnabled()) {
               logger.debug(
-                s"Attempting to push ${transactions.size} topology transactions to $domain, specifically: $transactions"
+                s"Attempting to push ${transactions.size} topology transactions to $synchronizerAlias, specifically: $transactions"
               )
             }
             FutureUnlessShutdownUtil.logOnFailureUnlessShutdown(
               handle.submit(transactions),
-              s"Pushing topology transactions to $domain",
+              s"Pushing topology transactions to $synchronizerAlias",
             )
           },
           AllExceptionRetryPolicy,
@@ -321,7 +321,7 @@ class QueueBasedDomainOutbox(
           val responsesWithTransactions = responses.zip(transactions)
           if (logger.underlying.isDebugEnabled()) {
             logger.debug(
-              s"$domain responded the following for the given topology transactions: $responsesWithTransactions"
+              s"$synchronizerAlias responded the following for the given topology transactions: $responsesWithTransactions"
             )
           }
           val failedResponses =
@@ -332,11 +332,10 @@ class QueueBasedDomainOutbox(
           Either.cond(
             failedResponses.isEmpty,
             responses,
-            s"The domain $domain failed the following topology transactions: $failedResponses",
+            s"The synchronizer $synchronizerAlias failed the following topology transactions: $failedResponses",
           )
         }
-      EitherT(
-        ret
-      )
+
+      EitherT(ret)
     }
 }

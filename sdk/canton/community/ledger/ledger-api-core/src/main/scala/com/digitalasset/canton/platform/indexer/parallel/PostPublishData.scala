@@ -11,14 +11,14 @@ import com.digitalasset.canton.ledger.participant.state.Update.{
   UnSequencedCommandRejected,
 }
 import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Update}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
 
 import java.util.UUID
 
 final case class PostPublishData(
-    submissionDomainId: DomainId,
+    submissionSynchronizerId: SynchronizerId,
     publishSource: PublishSource,
     applicationId: Ref.ApplicationId,
     commandId: Ref.CommandId,
@@ -37,13 +37,13 @@ object PostPublishData {
       publicationTime: CantonTimestamp,
   ): Option[PostPublishData] = {
     def from(
-        domainId: DomainId,
+        synchronizerId: SynchronizerId,
         publishSource: PublishSource,
         completionInfo: CompletionInfo,
         accepted: Boolean,
     ): PostPublishData =
       PostPublishData(
-        submissionDomainId = domainId,
+        submissionSynchronizerId = synchronizerId,
         publishSource = publishSource,
         applicationId = completionInfo.applicationId,
         commandId = completionInfo.commandId,
@@ -60,7 +60,7 @@ object PostPublishData {
       case u: SequencedTransactionAccepted =>
         u.completionInfoO.map(completionInfo =>
           from(
-            domainId = u.domainId,
+            synchronizerId = u.synchronizerId,
             publishSource = PublishSource.Sequencer(
               requestSequencerCounter = u.sequencerCounter,
               sequencerTimestamp = u.recordTime,
@@ -74,7 +74,7 @@ object PostPublishData {
       case u: SequencedCommandRejected =>
         Some(
           from(
-            domainId = u.domainId,
+            synchronizerId = u.synchronizerId,
             publishSource = PublishSource.Sequencer(
               requestSequencerCounter = u.sequencerCounter,
               sequencerTimestamp = u.recordTime,
@@ -87,7 +87,7 @@ object PostPublishData {
       case u: UnSequencedCommandRejected =>
         Some(
           from(
-            domainId = u.domainId,
+            synchronizerId = u.synchronizerId,
             publishSource = PublishSource.Local(
               messageUuid = u.messageUuid
             ),

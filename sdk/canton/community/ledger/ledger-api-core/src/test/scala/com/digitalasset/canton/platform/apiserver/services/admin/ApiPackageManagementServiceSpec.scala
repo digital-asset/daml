@@ -26,7 +26,7 @@ import com.digitalasset.canton.ledger.participant.state.{
   TransactionMeta,
 }
 import com.digitalasset.canton.logging.SuppressionRule
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{TestTelemetrySetup, TraceContext}
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.data.Ref.{ApplicationId, CommandId, Party, SubmissionId, WorkflowId}
@@ -164,7 +164,7 @@ object ApiPackageManagementServiceSpec {
 
     override def submitTransaction(
         submitterInfo: SubmitterInfo,
-        optDomainId: Option[DomainId],
+        optSynchronizerId: Option[SynchronizerId],
         transactionMeta: TransactionMeta,
         transaction: SubmittedTransaction,
         estimatedInterpretationCost: Long,

@@ -14,16 +14,19 @@ import com.digitalasset.canton.topology.transaction.*
 final case class ListPartiesResult(party: PartyId, participants: Seq[ParticipantDomains])
 
 object ListPartiesResult {
-  final case class DomainPermission(domain: DomainId, permission: ParticipantPermission)
+  final case class DomainPermission(
+      synchronizerId: SynchronizerId,
+      permission: ParticipantPermission,
+  )
   final case class ParticipantDomains(participant: ParticipantId, domains: Seq[DomainPermission])
 
   private def fromProtoV30(
-      value: v30.ListPartiesResponse.Result.ParticipantDomains.DomainPermissions
+      valueP: v30.ListPartiesResponse.Result.ParticipantDomains.DomainPermissions
   ): ParsingResult[DomainPermission] =
     for {
-      domainId <- DomainId.fromProtoPrimitive(value.domain, "domain")
-      permission <- ParticipantPermission.fromProtoV30(value.permission)
-    } yield DomainPermission(domainId, permission)
+      synchronizerId <- SynchronizerId.fromProtoPrimitive(valueP.synchronizerId, "domain")
+      permission <- ParticipantPermission.fromProtoV30(valueP.permission)
+    } yield DomainPermission(synchronizerId, permission)
 
   private def fromProtoV30(
       value: v30.ListPartiesResponse.Result.ParticipantDomains
@@ -55,7 +58,7 @@ object ListPartiesResult {
 }
 
 final case class ListKeyOwnersResult(
-    store: DomainId,
+    store: SynchronizerId,
     owner: Member,
     signingKeys: Seq[SigningPublicKey],
     encryptionKeys: Seq[EncryptionPublicKey],
@@ -71,9 +74,9 @@ object ListKeyOwnersResult {
       value: v30.ListKeyOwnersResponse.Result
   ): ParsingResult[ListKeyOwnersResult] =
     for {
-      domain <- DomainId.fromProtoPrimitive(value.domain, "domain")
+      synchronizerId <- SynchronizerId.fromProtoPrimitive(value.synchronizerId, "domain")
       owner <- Member.fromProtoPrimitive(value.keyOwner, "keyOwner")
       signingKeys <- value.signingKeys.traverse(SigningPublicKey.fromProtoV30)
       encryptionKeys <- value.encryptionKeys.traverse(EncryptionPublicKey.fromProtoV30)
-    } yield ListKeyOwnersResult(domain, owner, signingKeys, encryptionKeys)
+    } yield ListKeyOwnersResult(synchronizerId, owner, signingKeys, encryptionKeys)
 }

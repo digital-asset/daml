@@ -404,7 +404,7 @@ private[participant] class ConflictDetector(
             }
             val newStatus = unassignmentO.fold[Status](Archived) { unassignment =>
               ReassignedAway(
-                unassignment.targetDomainId,
+                unassignment.targetSynchronizerId,
                 unassignment.reassignmentCounter,
               )
             }

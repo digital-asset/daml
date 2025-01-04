@@ -4,7 +4,7 @@
 package com.digitalasset.canton.common.domain
 
 import cats.data.EitherT
-import com.digitalasset.canton.DomainAlias
+import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.common.domain.SequencerConnectClient.{
   DomainClientBootstrapInfo,
   Error,
@@ -19,39 +19,43 @@ import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.protocol.{HandshakeRequest, HandshakeResponse}
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnection}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.topology.{DomainId, Member, ParticipantId, SequencerId}
+import com.digitalasset.canton.topology.{Member, ParticipantId, SequencerId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
 
 import scala.concurrent.ExecutionContextExecutor
 
 trait SequencerConnectClient extends NamedLogging with AutoCloseable {
 
-  def getDomainClientBootstrapInfo(domainAlias: DomainAlias)(implicit
+  def getDomainClientBootstrapInfo(synchronizerAlias: SynchronizerAlias)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Error, DomainClientBootstrapInfo]
 
-  /** @param domainIdentifier Used for logging purpose
+  /** @param synchronizerIdentifier Used for logging purpose
     */
-  def getDomainParameters(domainIdentifier: String)(implicit
+  def getDomainParameters(synchronizerIdentifier: String)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Error, StaticDomainParameters]
 
-  /** @param domainIdentifier Used for logging purpose
+  /** @param synchronizerIdentifier Used for logging purpose
     */
-  def getDomainId(domainIdentifier: String)(implicit
+  def getSynchronizerId(synchronizerIdentifier: String)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, Error, DomainId]
+  ): EitherT[FutureUnlessShutdown, Error, SynchronizerId]
 
   def handshake(
-      domainAlias: DomainAlias,
+      synchronizerAlias: SynchronizerAlias,
       request: HandshakeRequest,
       dontWarnOnDeprecatedPV: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Error, HandshakeResponse]
 
-  def isActive(participantId: ParticipantId, domainAlias: DomainAlias, waitForActive: Boolean)(
-      implicit traceContext: TraceContext
+  def isActive(
+      participantId: ParticipantId,
+      synchronizerAlias: SynchronizerAlias,
+      waitForActive: Boolean,
+  )(implicit
+      traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Error, Boolean]
 
   protected def handleVerifyActiveResponse(
@@ -66,7 +70,7 @@ trait SequencerConnectClient extends NamedLogging with AutoCloseable {
   }
 
   def registerOnboardingTopologyTransactions(
-      domainAlias: DomainAlias,
+      synchronizerAlias: SynchronizerAlias,
       member: Member,
       topologyTransactions: Seq[GenericSignedTopologyTransaction],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Error, Unit]
@@ -74,7 +78,7 @@ trait SequencerConnectClient extends NamedLogging with AutoCloseable {
 
 object SequencerConnectClient {
 
-  type Builder = (DomainAlias, SequencerConnection) => SequencerConnectClient
+  type Builder = (SynchronizerAlias, SequencerConnection) => SequencerConnectClient
 
   sealed trait Error {
     def message: String
@@ -89,7 +93,7 @@ object SequencerConnectClient {
   }
 
   def apply(
-      domainAlias: DomainAlias,
+      synchronizerAlias: SynchronizerAlias,
       sequencerConnection: SequencerConnection,
       timeouts: ProcessingTimeout,
       traceContextPropagation: TracingConfig.Propagation,
@@ -105,12 +109,15 @@ object SequencerConnectClient {
           traceContextPropagation,
           SequencerClient
             .loggerFactoryWithSequencerAlias(
-              loggerFactory.append("domainAlias", domainAlias.toString),
+              loggerFactory.append("synchronizerAlias", synchronizerAlias.toString),
               connection.sequencerAlias,
             )
             .append("sequencerConnection", connection.endpoints.map(_.toString).mkString(",")),
         )
     }
 
-  final case class DomainClientBootstrapInfo(domainId: DomainId, sequencerId: SequencerId)
+  final case class DomainClientBootstrapInfo(
+      synchronizerId: SynchronizerId,
+      sequencerId: SequencerId,
+  )
 }

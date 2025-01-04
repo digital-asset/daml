@@ -539,12 +539,12 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
 
   override def findParticipantOnboardingTransactions(
       participantId: ParticipantId,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]] = {
     logger.debug(
-      s"Querying participant onboarding transactions for participant $participantId on domain $domainId"
+      s"Querying participant onboarding transactions for participant $participantId on domain $synchronizerId"
     )
 
     for {
@@ -557,7 +557,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       )
       filteredTransactions = TopologyStore.filterInitialParticipantDispatchingTransactions(
         participantId,
-        domainId,
+        synchronizerId,
         transactions.result,
       )
     } yield filteredTransactions

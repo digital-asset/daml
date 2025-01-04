@@ -21,7 +21,7 @@ import com.digitalasset.canton.platform.store.interning.{
   StringInterning,
   StringInterningDomain,
 }
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
@@ -169,7 +169,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
 
     override def updateLedgerEnd(
         params: ParameterStorageBackend.LedgerEnd,
-        domainIndexes: Map[DomainId, DomainIndex],
+        domainIndexes: Map[SynchronizerId, DomainIndex],
     )(connection: Connection): Unit =
       blocking(synchronized {
         connection shouldBe someConnection
@@ -221,7 +221,9 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     ): ParameterStorageBackend.PruneUptoInclusiveAndLedgerEnd =
       throw new UnsupportedOperationException
 
-    override def cleanDomainIndex(domainId: DomainId)(connection: Connection): Option[DomainIndex] =
+    override def cleanDomainIndex(synchronizerId: SynchronizerId)(
+        connection: Connection
+    ): Option[DomainIndex] =
       throw new UnsupportedOperationException
 
     override def updatePostProcessingEnd(postProcessingEnd: Option[Offset])(
@@ -285,7 +287,7 @@ object SequentialWriteDaoSpec {
     create_key_value_compression = None,
     event_sequential_id = 0,
     driver_metadata = Array.empty,
-    domain_id = "x::domain",
+    synchronizer_id = "x::synchronizer",
     trace_context = serializableTraceContext,
     record_time = 0,
   )
@@ -315,7 +317,7 @@ object SequentialWriteDaoSpec {
     exercise_argument_compression = None,
     exercise_result_compression = None,
     event_sequential_id = 0,
-    domain_id = "x::domain",
+    synchronizer_id = "x::synchronizer",
     trace_context = serializableTraceContext,
     record_time = 0,
   )
@@ -375,7 +377,8 @@ object SequentialWriteDaoSpec {
 
       override def party: StringInterningDomain[Party] = throw new NotImplementedException
 
-      override def domainId: StringInterningDomain[DomainId] = throw new NotImplementedException
+      override def synchronizerId: StringInterningDomain[SynchronizerId] =
+        throw new NotImplementedException
 
       override def packageVersion: StringInterningDomain[Ref.PackageVersion] =
         throw new NotImplementedException

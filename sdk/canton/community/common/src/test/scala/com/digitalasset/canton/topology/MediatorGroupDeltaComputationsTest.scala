@@ -23,7 +23,7 @@ class MediatorGroupDeltaComputationsTest extends AnyWordSpec with BaseTest {
     Some(
       MediatorDomainState
         .create(
-          DefaultTestIdentities.domainId,
+          DefaultTestIdentities.synchronizerId,
           NonNegativeInt.zero,
           PositiveInt.one,
           active,

@@ -35,10 +35,10 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.{
   BaseTest,
-  DomainAlias,
   FailOnShutdown,
   ProtocolVersionChecksAsyncWordSpec,
   SequencerCounter,
+  SynchronizerAlias,
 }
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -60,7 +60,7 @@ class StoreBasedDomainOutboxTest
     SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
   private lazy val publicKey = crypto.generateSymbolicSigningKey()
   private lazy val namespace = Namespace(publicKey.id)
-  private lazy val domain = DomainAlias.tryCreate("target")
+  private lazy val domain = SynchronizerAlias.tryCreate("target")
   private lazy val transactions =
     Seq[TopologyMapping](
       NamespaceDelegation.tryCreate(namespace, publicKey, isRootDelegation = true),
@@ -85,7 +85,7 @@ class StoreBasedDomainOutboxTest
       timeouts,
     )
     val target = new InMemoryTopologyStore(
-      TopologyStoreId.DomainStore(DefaultTestIdentities.domainId),
+      TopologyStoreId.DomainStore(DefaultTestIdentities.synchronizerId),
       testedProtocolVersion,
       loggerFactory,
       timeouts,
@@ -103,7 +103,7 @@ class StoreBasedDomainOutboxTest
     )
     val client = new StoreBasedDomainTopologyClient(
       clock,
-      domainId,
+      synchronizerId,
       store = target,
       packageDependenciesResolver = StoreBasedDomainTopologyClient.NoPackageDependencies,
       timeouts = timeouts,
@@ -232,7 +232,7 @@ class StoreBasedDomainOutboxTest
   ): FutureUnlessShutdown[StoreBasedDomainOutbox] = {
     val domainOutbox = new StoreBasedDomainOutbox(
       domain,
-      domainId,
+      synchronizerId,
       participant1,
       testedProtocolVersion,
       handle,
@@ -333,7 +333,7 @@ class StoreBasedDomainOutboxTest
       } yield {
         observed1.map(_.transaction) shouldBe slice1
         handle.buffer.map(_.transaction) shouldBe slice2
-        handle.batches should not be (empty)
+        handle.batches should not be empty
         forAll(handle.batches)(_.size shouldBe 1)
       }
     }

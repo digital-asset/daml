@@ -47,6 +47,8 @@ class BufferedCommandCompletionsReader(
     case rejected: TransactionLogUpdate.TransactionRejected =>
       Some(rejected.completionStreamResponse)
     case u: TransactionLogUpdate.ReassignmentAccepted => u.completionStreamResponse
+    case _: TransactionLogUpdate.PartyAllocationResponse => None
+    case _: TransactionLogUpdate.TopologyTransactionEffective => None
   }).flatMap(toApiCompletion(_, parties, applicationId))
 
   private def toApiCompletion(

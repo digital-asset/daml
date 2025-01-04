@@ -66,7 +66,7 @@ class ApiCommandService(
     val requestWithSubmissionId = generateSubmissionIdIfEmpty(request)
     validator
       .validate(
-        requestWithSubmissionId, // it is enough to validate V1 only, since at submission the SubmitRequest will be validated again (and the domainId as well)
+        requestWithSubmissionId, // it is enough to validate V1 only, since at submission the SubmitRequest will be validated again (and the synchronizerId as well)
         currentLedgerTime(),
         currentUtcTime(),
         maxDeduplicationDuration,

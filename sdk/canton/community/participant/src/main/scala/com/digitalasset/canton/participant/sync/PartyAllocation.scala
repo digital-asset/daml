@@ -124,19 +124,19 @@ private[sync] class PartyAllocation(
         // wait for parties to be available on the currently connected domains
         waitingSuccessful <- EitherT
           .right[SubmissionResult](
-            connectedDomainsLookup.snapshot.toSeq.parTraverse { case (domainId, syncDomain) =>
+            connectedDomainsLookup.snapshot.toSeq.parTraverse { case (synchronizerId, syncDomain) =>
               syncDomain.topologyClient
                 .awaitUS(
                   _.inspectKnownParties(partyId.filterString, participantId.filterString)
                     .map(_.nonEmpty),
                   timeouts.network.duration,
                 )
-                .map(domainId -> _)
+                .map(synchronizerId -> _)
             }
           )
-        _ = waitingSuccessful.foreach { case (domainId, successful) =>
+        _ = waitingSuccessful.foreach { case (synchronizerId, successful) =>
           if (!successful)
-            logger.warn(s"Waiting for allocation of $partyId on domain $domainId timed out.")
+            logger.warn(s"Waiting for allocation of $partyId on domain $synchronizerId timed out.")
         }
 
       } yield SubmissionResult.Acknowledged

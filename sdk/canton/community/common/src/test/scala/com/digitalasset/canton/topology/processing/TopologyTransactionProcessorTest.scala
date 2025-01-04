@@ -35,12 +35,12 @@ abstract class TopologyTransactionProcessorTest
   import Factory.*
 
   protected def mk(
-      store: TopologyStore[TopologyStoreId.DomainStore] = mkStore(Factory.domainId1a),
-      domainId: DomainId = Factory.domainId1a,
+      store: TopologyStore[TopologyStoreId.DomainStore] = mkStore(Factory.synchronizerId1a),
+      synchronizerId: SynchronizerId = Factory.synchronizerId1a,
   ): (TopologyTransactionProcessor, TopologyStore[TopologyStoreId.DomainStore]) = {
 
     val proc = new TopologyTransactionProcessor(
-      domainId,
+      synchronizerId,
       new DomainCryptoPureApi(defaultStaticDomainParameters, crypto),
       store,
       _ => (),
@@ -288,7 +288,7 @@ abstract class TopologyTransactionProcessorTest
         import SigningKeys.{ec as _, *}
         val dnsNamespace =
           DecentralizedNamespaceDefinition.computeNamespace(Set(ns1, ns7, ns8, ns9))
-        val domainId = DomainId(UniqueIdentifier.tryCreate("test-domain", dnsNamespace))
+        val synchronizerId = SynchronizerId(UniqueIdentifier.tryCreate("test-domain", dnsNamespace))
 
         val dns = mkAddMultiKey(
           DecentralizedNamespaceDefinition
@@ -302,7 +302,7 @@ abstract class TopologyTransactionProcessorTest
         )
 
         val dopMapping = DomainParametersState(
-          domainId,
+          synchronizerId,
           DynamicDomainParameters.defaultValues(testedProtocolVersion),
         )
         val dop = mkAddMultiKey(
@@ -310,7 +310,7 @@ abstract class TopologyTransactionProcessorTest
           NonEmpty(Set, key1, key7, key8),
         )
 
-        val (proc, store) = mk(mkStore(domainId), domainId)
+        val (proc, store) = mk(mkStore(synchronizerId), synchronizerId)
 
         def checkDop(
             ts: CantonTimestamp,
@@ -463,7 +463,7 @@ abstract class TopologyTransactionProcessorTest
         import SigningKeys.{ec as _, *}
         val dnsNamespace =
           DecentralizedNamespaceDefinition.computeNamespace(Set(ns1, ns7, ns8))
-        val domainId = DomainId(UniqueIdentifier.tryCreate("test-domain", dnsNamespace))
+        val synchronizerId = SynchronizerId(UniqueIdentifier.tryCreate("test-domain", dnsNamespace))
 
         val dns = mkAddMultiKey(
           DecentralizedNamespaceDefinition
@@ -478,7 +478,7 @@ abstract class TopologyTransactionProcessorTest
 
         // mapping and transactions for serial=1
         val dopMapping1 = DomainParametersState(
-          domainId,
+          synchronizerId,
           DynamicDomainParameters.defaultValues(testedProtocolVersion),
         )
         val dop1_k1k7 = mkAddMultiKey(
@@ -491,7 +491,7 @@ abstract class TopologyTransactionProcessorTest
 
         // mapping and transactions for serial=2
         val dopMapping2 = DomainParametersState(
-          domainId,
+          synchronizerId,
           DynamicDomainParameters
             .defaultValues(testedProtocolVersion)
             .update(
@@ -506,7 +506,7 @@ abstract class TopologyTransactionProcessorTest
         val dop2_k7_proposal =
           mkAdd(dopMapping2, signingKey = key7, serial = PositiveInt.two, isProposal = true)
 
-        val (proc, store) = mk(mkStore(domainId), domainId)
+        val (proc, store) = mk(mkStore(synchronizerId), synchronizerId)
 
         def checkDop(
             ts: CantonTimestamp,
@@ -623,7 +623,7 @@ abstract class TopologyTransactionProcessorTest
         import SigningKeys.{ec as _, *}
         val dnsNamespace =
           DecentralizedNamespaceDefinition.computeNamespace(Set(ns1, ns2))
-        val domainId = DomainId(UniqueIdentifier.tryCreate("test-domain", dnsNamespace))
+        val synchronizerId = SynchronizerId(UniqueIdentifier.tryCreate("test-domain", dnsNamespace))
 
         val dns = mkAddMultiKey(
           DecentralizedNamespaceDefinition
@@ -637,7 +637,7 @@ abstract class TopologyTransactionProcessorTest
         )
         val initialDomainParameters = mkAddMultiKey(
           DomainParametersState(
-            domainId,
+            synchronizerId,
             DynamicDomainParameters.defaultValues(testedProtocolVersion),
           ),
           signingKeys = NonEmpty(Set, key1, key2),
@@ -648,7 +648,7 @@ abstract class TopologyTransactionProcessorTest
         val updatedTopologyChangeDelay = initialTopologyChangeDelay.plusMillis(50)
 
         val updatedDomainParams = DomainParametersState(
-          domainId,
+          synchronizerId,
           DynamicDomainParameters.initialValues(
             topologyChangeDelay = NonNegativeFiniteDuration.tryCreate(updatedTopologyChangeDelay),
             testedProtocolVersion,
@@ -675,7 +675,7 @@ abstract class TopologyTransactionProcessorTest
             List(
               OpenEnvelope(
                 TopologyTransactionsBroadcast(
-                  domainId,
+                  synchronizerId,
                   List(transaction),
                   testedProtocolVersion,
                 ),
@@ -693,7 +693,7 @@ abstract class TopologyTransactionProcessorTest
         // in block3 we should see the new topology change delay being used to compute the effective time
         val block3 = mkEnvelope(ns3k3_k3)
 
-        val store = mkStore(domainId)
+        val store = mkStore(synchronizerId)
 
         store
           .update(
@@ -705,7 +705,7 @@ abstract class TopologyTransactionProcessorTest
           )
           .futureValueUS
 
-        val (proc, _) = mk(store, domainId)
+        val (proc, _) = mk(store, synchronizerId)
 
         val domainTimeTrackerMock = mock[DomainTimeTracker]
         when(domainTimeTrackerMock.awaitTick(any[CantonTimestamp])(anyTraceContext))
@@ -769,10 +769,10 @@ abstract class TopologyTransactionProcessorTest
 
 class TopologyTransactionProcessorTestInMemory extends TopologyTransactionProcessorTest {
   protected def mkStore(
-      domainId: DomainId = DomainId(Factory.uid1a)
+      synchronizerId: SynchronizerId = SynchronizerId(Factory.uid1a)
   ): TopologyStore[TopologyStoreId.DomainStore] =
     new InMemoryTopologyStore(
-      TopologyStoreId.DomainStore(domainId),
+      TopologyStoreId.DomainStore(synchronizerId),
       testedProtocolVersion,
       loggerFactory,
       timeouts,
@@ -784,6 +784,8 @@ class TopologyTransactionProcessorTestPostgres
     with DbTest
     with DbTopologyStoreHelper
     with PostgresTest {
-  override protected def mkStore(domainId: DomainId): TopologyStore[TopologyStoreId.DomainStore] =
-    createTopologyStore(domainId)
+  override protected def mkStore(
+      synchronizerId: SynchronizerId
+  ): TopologyStore[TopologyStoreId.DomainStore] =
+    createTopologyStore(synchronizerId)
 }

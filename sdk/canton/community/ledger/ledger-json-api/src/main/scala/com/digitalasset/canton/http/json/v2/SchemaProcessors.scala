@@ -9,6 +9,8 @@ import com.daml.ledger.api.v2.value.{Identifier, Value}
 import com.digitalasset.canton.caching.CaffeineCache
 import com.digitalasset.canton.fetchcontracts.util.IdentifierConverters
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidField
+import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
+import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidArgument
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{IdString, PackageId, PackageRef}
 import com.digitalasset.daml.lf.language.Ast
@@ -17,7 +19,7 @@ import com.digitalasset.transcode.codec.json.JsonCodec
 import com.digitalasset.transcode.codec.proto.GrpcValueCodec
 import com.digitalasset.transcode.daml_lf.{Dictionary, SchemaEntity, SchemaProcessor}
 import com.digitalasset.transcode.schema.SchemaVisitor
-import com.digitalasset.transcode.{Codec, Converter, UnknownChoiceException}
+import com.digitalasset.transcode.{Codec, Converter}
 import com.github.benmanes.caffeine.cache.Caffeine
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -40,10 +42,24 @@ class SchemaProcessors(
     case any => any
   }
 
+  private def extractTemplateValue[V](map: Map[Ref.Identifier, V])(key: Ref.Identifier)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): V =
+    map.getOrElse(
+      key,
+      throw RequestValidationErrors.NotFound.TemplateOrInterfaceIdsNotFound
+        .Reject(Seq(Left(key)))
+        .asGrpcError,
+    )
+
   private def convertGrpcToJson(templateId: Ref.Identifier, proto: value.Value)(
       token: Option[String]
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
   ): Future[ujson.Value] =
-    prepareToJson(templateId.packageId, token).map(_.templates(templateId).convert(proto))
+    prepareToJson(templateId.packageId, token).map(dict =>
+      extractTemplateValue(dict.templates)(templateId).convert(proto)
+    )
 
   def contractArgFromJsonToProto(
       template: value.Identifier,
@@ -53,8 +69,8 @@ class SchemaProcessors(
       contextualizedErrorLogger: ContextualizedErrorLogger,
   ): Future[value.Value] =
     findTemplate(template, token).flatMap(templateId =>
-      prepareToProto(templateId.packageId, token).map(
-        _.templates(templateId).convert(jsonArgsValue)
+      prepareToProto(templateId.packageId, token).map(dictionary =>
+        extractTemplateValue(dictionary.templates)(templateId).convert(jsonArgsValue)
       )
     )
 
@@ -69,7 +85,12 @@ class SchemaProcessors(
     findTemplate(template, token).flatMap { templateId =>
       prepareToProto(templateId.packageId, token)
         .map(
-          _.choiceArguments((templateId, choiceName)).convert(nullToEmpty(jsonArgsValue))
+          _.choiceArguments
+            .getOrElse(
+              (templateId, choiceName),
+              throw invalidChoiceException(templateId, choiceName),
+            )
+            .convert(nullToEmpty(jsonArgsValue))
         )
     }
 
@@ -97,11 +118,16 @@ class SchemaProcessors(
         _.choiceArguments
           .getOrElse(
             (templateId, choiceName),
-            throw new UnknownChoiceException(templateId, choiceName),
+            throw invalidChoiceException(templateId, choiceName),
           )
           .convert(protoArgs)
       )
     )
+
+  private def invalidChoiceException(templateId: Ref.Identifier, choiceName: IdString.Name)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ) =
+    InvalidArgument.Reject(s"Invalid template:$templateId or choice:$choiceName").asGrpcError
 
   def keyArgFromProtoToJson(
       template: value.Identifier,
@@ -111,7 +137,9 @@ class SchemaProcessors(
       contextualizedErrorLogger: ContextualizedErrorLogger,
   ): Future[ujson.Value] =
     findTemplate(template, token).flatMap(templateId =>
-      prepareToJson(templateId.packageId, token).map(_.templates(templateId).convert(protoArgs))
+      prepareToJson(templateId.packageId, token).map(dict =>
+        extractTemplateValue(dict.templates)(templateId).convert(protoArgs)
+      )
     )
 
   def keyArgFromJsonToProto(
@@ -122,7 +150,9 @@ class SchemaProcessors(
       contextualizedErrorLogger: ContextualizedErrorLogger,
   ): Future[value.Value] =
     findTemplate(template, token).flatMap(templateId =>
-      prepareToProto(templateId.packageId, token).map(_.templateKeys(templateId).convert(protoArgs))
+      prepareToProto(templateId.packageId, token).map(dict =>
+        extractTemplateValue(dict.templateKeys)(templateId).convert(protoArgs)
+      )
     )
 
   def exerciseResultFromProtoToJson(
@@ -135,7 +165,9 @@ class SchemaProcessors(
   ): Future[ujson.Value] =
     findTemplate(template, token).flatMap(templateId =>
       prepareToJson(templateId.packageId, token).map(
-        _.choiceResults((templateId, choiceName)).convert(v)
+        _.choiceResults
+          .getOrElse((templateId, choiceName), throw invalidChoiceException(templateId, choiceName))
+          .convert(v)
       )
     )
 
@@ -151,7 +183,13 @@ class SchemaProcessors(
     case _ =>
       findTemplate(template, token).flatMap(templateId =>
         prepareToProto(templateId.packageId, token)
-          .map(_.choiceResults((templateId, choiceName)).convert(value))
+          .flatMap(
+            _.choiceResults
+              .get(templateId -> choiceName)
+              .map(Future.successful)
+              .getOrElse(Future.failed(invalidChoiceException(templateId, choiceName)))
+              .map(_.convert(value))
+          )
           .map(Some(_))
       )
   }

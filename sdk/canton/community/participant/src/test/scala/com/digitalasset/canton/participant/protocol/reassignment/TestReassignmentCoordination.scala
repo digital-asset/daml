@@ -21,7 +21,7 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
   Observation,
   Submission,
 }
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, TestingTopology}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, TestingTopology}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{ReassignmentTag, SameReassignmentType, SingletonTraverse}
@@ -34,7 +34,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 private[reassignment] object TestReassignmentCoordination {
   def apply(
-      domains: Set[Target[DomainId]],
+      domains: Set[Target[SynchronizerId]],
       timeProofTimestamp: CantonTimestamp,
       snapshotOverride: Option[DomainSnapshotSyncCryptoApi] = None,
       awaitTimestampOverride: Option[Option[Future[Unit]]] = None,
@@ -44,7 +44,7 @@ private[reassignment] object TestReassignmentCoordination {
 
     val recentTimeProofProvider = mock[RecentTimeProofProvider]
     when(
-      recentTimeProofProvider.get(any[Target[DomainId]], any[Target[StaticDomainParameters]])(
+      recentTimeProofProvider.get(any[Target[SynchronizerId]], any[Target[StaticDomainParameters]])(
         any[TraceContext]
       )
     )
@@ -52,8 +52,9 @@ private[reassignment] object TestReassignmentCoordination {
 
     val reassignmentStores =
       domains.map(domain => domain -> new InMemoryReassignmentStore(domain, loggerFactory)).toMap
-    val assignmentBySubmission = { (_: DomainId) => None }
-    val protocolVersionGetter = (_: Traced[DomainId]) => Some(BaseTest.testedStaticDomainParameters)
+    val assignmentBySubmission = { (_: SynchronizerId) => None }
+    val protocolVersionGetter = (_: Traced[SynchronizerId]) =>
+      Some(BaseTest.testedStaticDomainParameters)
 
     new ReassignmentCoordination(
       reassignmentStoreFor = id =>
@@ -66,7 +67,7 @@ private[reassignment] object TestReassignmentCoordination {
     ) {
 
       override def awaitUnassignmentTimestamp(
-          sourceDomain: Source[DomainId],
+          sourceDomain: Source[SynchronizerId],
           staticDomainParameters: Source[StaticDomainParameters],
           timestamp: CantonTimestamp,
       )(implicit
@@ -79,7 +80,7 @@ private[reassignment] object TestReassignmentCoordination {
         }
 
       override def awaitTimestamp[T[X] <: ReassignmentTag[X]: SameReassignmentType](
-          domainId: T[DomainId],
+          synchronizerId: T[SynchronizerId],
           staticDomainParameters: T[StaticDomainParameters],
           timestamp: CantonTimestamp,
       )(implicit
@@ -87,28 +88,29 @@ private[reassignment] object TestReassignmentCoordination {
       ): Either[ReassignmentProcessorError, Option[Future[Unit]]] =
         awaitTimestampOverride match {
           case None =>
-            super.awaitTimestamp(domainId, staticDomainParameters, timestamp)
+            super.awaitTimestamp(synchronizerId, staticDomainParameters, timestamp)
           case Some(overridden) => Right(overridden)
         }
 
       override def cryptoSnapshot[T[X] <: ReassignmentTag[
         X
       ]: SameReassignmentType: SingletonTraverse](
-          domainId: T[DomainId],
+          synchronizerId: T[SynchronizerId],
           staticDomainParameters: T[StaticDomainParameters],
           timestamp: CantonTimestamp,
       )(implicit
           traceContext: TraceContext
       ): EitherT[Future, ReassignmentProcessorError, T[DomainSnapshotSyncCryptoApi]] =
         snapshotOverride match {
-          case None => super.cryptoSnapshot(domainId, staticDomainParameters, timestamp)
-          case Some(cs) => EitherT.pure[Future, ReassignmentProcessorError](domainId.map(_ => cs))
+          case None => super.cryptoSnapshot(synchronizerId, staticDomainParameters, timestamp)
+          case Some(cs) =>
+            EitherT.pure[Future, ReassignmentProcessorError](synchronizerId.map(_ => cs))
         }
     }
   }
 
   private def defaultSyncCryptoApi(
-      domains: Seq[DomainId],
+      domains: Seq[SynchronizerId],
       packages: Seq[LfPackageId],
       loggerFactory: NamedLoggerFactory,
   ): SyncCryptoApiProvider =

@@ -17,11 +17,11 @@ import com.daml.metrics.api.{
   MetricsContext,
 }
 import com.daml.metrics.grpc.GrpcServerMetrics
-import com.digitalasset.canton.DomainAlias
+import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.data.TaskSchedulerMetrics
 import com.digitalasset.canton.environment.BaseMetrics
 import com.digitalasset.canton.http.metrics.{HttpApiHistograms, HttpApiMetrics}
-import com.digitalasset.canton.metrics.{HasDocumentedMetrics, *}
+import com.digitalasset.canton.metrics.*
 import com.digitalasset.canton.participant.metrics.PruningMetrics as ParticipantPruningMetrics
 
 import scala.collection.concurrent.TrieMap
@@ -76,7 +76,7 @@ class ParticipantMetrics(
     consoleThroughput.docPoke()
     pruning.docPoke()
     (new SyncDomainMetrics(
-      DomainAlias.tryCreate("domain"),
+      SynchronizerAlias.tryCreate("domain"),
       inventory.syncDomain,
       openTelemetryMetricsFactory,
     )).docPoke()
@@ -117,15 +117,15 @@ class ParticipantMetrics(
   val httpApiServer: HttpApiMetrics =
     new HttpApiMetrics(inventory.httpApi, openTelemetryMetricsFactory)
 
-  private val clients = TrieMap[DomainAlias, Eval[SyncDomainMetrics]]()
+  private val clients = TrieMap[SynchronizerAlias, Eval[SyncDomainMetrics]]()
 
   object pruning extends ParticipantPruningMetrics(inventory.pruning, openTelemetryMetricsFactory)
 
-  def domainMetrics(alias: DomainAlias): SyncDomainMetrics =
+  def domainMetrics(alias: SynchronizerAlias): SyncDomainMetrics =
     clients
       .getOrElseUpdate(
         alias,
-        // Two concurrent calls with the same domain alias may cause getOrElseUpdate to evaluate the new value expression twice,
+        // Two concurrent calls with the same synchronizer alias may cause getOrElseUpdate to evaluate the new value expression twice,
         // even though only one of the results will be stored in the map.
         // Eval.later ensures that we actually create only one instance of SyncDomainMetrics in such a case
         // by delaying the creation until the getOrElseUpdate call has finished.
@@ -193,7 +193,7 @@ class SyncDomainHistograms(val parent: MetricName, val sequencerClient: Sequence
 }
 
 class SyncDomainMetrics(
-    domainAlias: DomainAlias,
+    synchronizerAlias: SynchronizerAlias,
     histograms: SyncDomainHistograms,
     factory: LabeledMetricsFactory,
 )(implicit metricsContext: MetricsContext)
@@ -244,7 +244,7 @@ class SyncDomainMetrics(
 
   }
 
-  object commitments extends CommitmentMetrics(domainAlias, histograms.commitments, factory)
+  object commitments extends CommitmentMetrics(synchronizerAlias, histograms.commitments, factory)
 
   object transactionProcessing
       extends TransactionProcessingMetrics(histograms.transactionProcessing, factory)

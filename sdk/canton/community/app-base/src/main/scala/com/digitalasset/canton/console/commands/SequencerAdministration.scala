@@ -22,11 +22,11 @@ import com.digitalasset.canton.console.{
   SequencerReference,
 }
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.sequencing.admin.grpc.InitializeSequencerResponse
-import com.digitalasset.canton.domain.sequencing.sequencer.SequencerSnapshot
 import com.digitalasset.canton.grpc.ByteStringStreamObserver
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.sequencer.admin.v30.OnboardingStateResponse
+import com.digitalasset.canton.synchronizer.sequencing.admin.grpc.InitializeSequencerResponse
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.SequencerSnapshot
 import com.digitalasset.canton.topology.SequencerId
 import com.google.protobuf.ByteString
 

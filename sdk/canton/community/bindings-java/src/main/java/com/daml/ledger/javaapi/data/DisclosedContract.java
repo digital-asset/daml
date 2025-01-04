@@ -13,10 +13,10 @@ public final class DisclosedContract {
   public final Identifier templateId;
   public final String contractId;
   public final ByteString createdEventBlob;
-  public final Optional<String> domainId;
+  public final Optional<String> synchronizerId;
 
   /**
-   * Constructor that does not require providing the domain id
+   * Constructor that does not require providing the synchronizer id
    *
    * @deprecated since 3.2.0. It will be removed in a future release
    */
@@ -25,15 +25,18 @@ public final class DisclosedContract {
     this.templateId = templateId;
     this.contractId = contractId;
     this.createdEventBlob = createdEventBlob;
-    this.domainId = Optional.empty();
+    this.synchronizerId = Optional.empty();
   }
 
   public DisclosedContract(
-      Identifier templateId, String contractId, ByteString createdEventBlob, String domainId) {
+      Identifier templateId,
+      String contractId,
+      ByteString createdEventBlob,
+      String synchronizerId) {
     this.templateId = templateId;
     this.contractId = contractId;
     this.createdEventBlob = createdEventBlob;
-    this.domainId = Optional.of(domainId);
+    this.synchronizerId = Optional.of(synchronizerId);
   }
 
   public CommandsOuterClass.DisclosedContract toProto() {
@@ -42,7 +45,7 @@ public final class DisclosedContract {
             .setTemplateId(this.templateId.toProto())
             .setContractId(this.contractId)
             .setCreatedEventBlob(this.createdEventBlob);
-    domainId.ifPresent(builder::setDomainId);
+    synchronizerId.ifPresent(builder::setSynchronizerId);
     return builder.build();
   }
 
@@ -52,9 +55,11 @@ public final class DisclosedContract {
     String contractId = disclosedContract.getContractId();
     ByteString createdEventBlob = disclosedContract.getCreatedEventBlob();
 
-    return Optional.of(disclosedContract.getDomainId())
-        .filter(domainIdO -> !domainIdO.isEmpty())
-        .map(domainId -> new DisclosedContract(templateId, contractId, createdEventBlob, domainId))
+    return Optional.of(disclosedContract.getSynchronizerId())
+        .filter(synchronizerIdO -> !synchronizerIdO.isEmpty())
+        .map(
+            synchronizerId ->
+                new DisclosedContract(templateId, contractId, createdEventBlob, synchronizerId))
         .orElseGet(() -> new DisclosedContract(templateId, contractId, createdEventBlob));
   }
 
@@ -69,8 +74,8 @@ public final class DisclosedContract {
         + ", createdEventBlob='"
         + createdEventBlob
         + '\''
-        + ", domainId="
-        + domainId
+        + ", synchronizerId="
+        + synchronizerId
         + '\''
         + '}';
   }
@@ -83,7 +88,7 @@ public final class DisclosedContract {
     return Objects.equals(templateId, that.templateId)
         && Objects.equals(contractId, that.contractId)
         && Objects.equals(createdEventBlob, that.createdEventBlob)
-        && Objects.equals(domainId, that.domainId);
+        && Objects.equals(synchronizerId, that.synchronizerId);
   }
 
   @Override

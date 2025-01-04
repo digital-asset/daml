@@ -10,13 +10,13 @@ import com.digitalasset.canton.config.{
   CommunityCryptoConfig,
   CommunityStorageConfig,
 }
-import com.digitalasset.canton.domain.config.CommunityPublicServerConfig
-import com.digitalasset.canton.domain.mediator.CommunityMediatorNodeConfig
-import com.digitalasset.canton.domain.sequencing.config.CommunitySequencerNodeConfig
 import com.digitalasset.canton.participant.config.{
   CommunityParticipantConfig,
   ParticipantInitConfig,
 }
+import com.digitalasset.canton.synchronizer.config.CommunityPublicServerConfig
+import com.digitalasset.canton.synchronizer.mediator.CommunityMediatorNodeConfig
+import com.digitalasset.canton.synchronizer.sequencing.config.CommunitySequencerNodeConfig
 
 /** Utilities for creating config objects for tests
   */

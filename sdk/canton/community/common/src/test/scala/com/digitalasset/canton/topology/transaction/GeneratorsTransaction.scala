@@ -10,13 +10,13 @@ import com.digitalasset.canton.crypto.{GeneratorsCrypto, PublicKey, Signature, S
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.GeneratorsProtocol
 import com.digitalasset.canton.topology.{
-  DomainId,
   GeneratorsTopology,
   MediatorId,
   Namespace,
   ParticipantId,
   PartyId,
   SequencerId,
+  SynchronizerId,
 }
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{Generators, GeneratorsLf, LfPackageId}
@@ -95,13 +95,13 @@ final class GeneratorsTransaction(
 
   implicit val mediatorDomainStateArb: Arbitrary[MediatorDomainState] = Arbitrary(
     for {
-      domainId <- Arbitrary.arbitrary[DomainId]
+      synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
       group <- Arbitrary.arbitrary[NonNegativeInt]
       active <- Arbitrary.arbitrary[NonEmpty[Seq[MediatorId]]]
       // Not using Arbitrary.arbitrary[PositiveInt] for threshold to honor constraint
       threshold <- Gen.choose(1, active.size).map(PositiveInt.tryCreate)
       observers <- Arbitrary.arbitrary[NonEmpty[Seq[MediatorId]]]
-    } yield MediatorDomainState.create(domainId, group, threshold, active, observers).value
+    } yield MediatorDomainState.create(synchronizerId, group, threshold, active, observers).value
   )
 
   implicit val namespaceDelegationArb: Arbitrary[NamespaceDelegation] = Arbitrary(
@@ -115,9 +115,9 @@ final class GeneratorsTransaction(
 
   implicit val purgeTopologyTransactionArb: Arbitrary[PurgeTopologyTransaction] = Arbitrary(
     for {
-      domain <- Arbitrary.arbitrary[DomainId]
+      synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
       mappings <- Arbitrary.arbitrary[NonEmpty[Seq[TopologyMapping]]]
-    } yield PurgeTopologyTransaction.create(domain, mappings).value
+    } yield PurgeTopologyTransaction.create(synchronizerId, mappings).value
   )
 
   implicit val partyToParticipantTopologyTransactionArb: Arbitrary[PartyToParticipant] = Arbitrary(
@@ -143,25 +143,25 @@ final class GeneratorsTransaction(
   implicit val partyToKeyTopologyTransactionArb: Arbitrary[PartyToKeyMapping] = Arbitrary(
     for {
       partyId <- Arbitrary.arbitrary[PartyId]
-      domain <- Arbitrary.arbitrary[Option[DomainId]]
+      synchronizerIdO <- Arbitrary.arbitrary[Option[SynchronizerId]]
       signingKeys <- Arbitrary.arbitrary[NonEmpty[Seq[SigningPublicKey]]]
       // Not using Arbitrary.arbitrary[PositiveInt] for threshold to honor constraint
       threshold <- Gen
         .choose(1, signingKeys.size)
         .map(PositiveInt.tryCreate)
     } yield PartyToKeyMapping
-      .create(partyId, domain, threshold, signingKeys)
+      .create(partyId, synchronizerIdO, threshold, signingKeys)
       .value
   )
 
   implicit val sequencerDomainStateArb: Arbitrary[SequencerDomainState] = Arbitrary(
     for {
-      domain <- Arbitrary.arbitrary[DomainId]
+      synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
       active <- Arbitrary.arbitrary[NonEmpty[Seq[SequencerId]]]
       // Not using Arbitrary.arbitrary[PositiveInt] for threshold to honor constraint
       threshold <- Gen.choose(1, active.size).map(PositiveInt.tryCreate)
       observers <- Arbitrary.arbitrary[NonEmpty[Seq[SequencerId]]]
-    } yield SequencerDomainState.create(domain, threshold, active, observers).value
+    } yield SequencerDomainState.create(synchronizerId, threshold, active, observers).value
   )
 
   implicit val topologyTransactionArb

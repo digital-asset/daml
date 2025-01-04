@@ -20,25 +20,6 @@ import com.digitalasset.canton.console.commands.*
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.domain.mediator.{
-  MediatorNode,
-  MediatorNodeBootstrap,
-  MediatorNodeConfigCommon,
-  RemoteMediatorConfig,
-}
-import com.digitalasset.canton.domain.sequencing.config.{
-  RemoteSequencerConfig,
-  SequencerNodeConfigCommon,
-}
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin.SequencerBftAdminData.{
-  OrderingTopology,
-  PeerNetworkStatus,
-}
-import com.digitalasset.canton.domain.sequencing.sequencer.{
-  SequencerClients,
-  SequencerPruningStatus,
-}
-import com.digitalasset.canton.domain.sequencing.{SequencerNode, SequencerNodeBootstrap}
 import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
@@ -53,6 +34,25 @@ import com.digitalasset.canton.participant.{ParticipantNode, ParticipantNodeBoot
 import com.digitalasset.canton.sequencer.admin.v30.SequencerPruningAdministrationServiceGrpc
 import com.digitalasset.canton.sequencer.admin.v30.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
+import com.digitalasset.canton.synchronizer.mediator.{
+  MediatorNode,
+  MediatorNodeBootstrap,
+  MediatorNodeConfigCommon,
+  RemoteMediatorConfig,
+}
+import com.digitalasset.canton.synchronizer.sequencing.config.{
+  RemoteSequencerConfig,
+  SequencerNodeConfigCommon,
+}
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.admin.SequencerBftAdminData.{
+  OrderingTopology,
+  PeerNetworkStatus,
+}
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.{
+  SequencerClients,
+  SequencerPruningStatus,
+}
+import com.digitalasset.canton.synchronizer.sequencing.{SequencerNode, SequencerNodeBootstrap}
 import com.digitalasset.canton.time.{DelegatingSimClock, SimClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.TimeQuery
@@ -418,7 +418,7 @@ class ExternalLedgerApiClient(
   override protected def optionallyAwait[Tx](
       tx: Tx,
       txId: String,
-      txDomainId: String,
+      txSynchronizerId: String,
       optTimeout: Option[NonNegativeDuration],
   ): Tx = tx
 
@@ -559,20 +559,20 @@ abstract class ParticipantReference(
     * the vetted_package transactions in the authorized store are the same as in the domain store.
     */
   override protected def waitPackagesVetted(timeout: NonNegativeDuration): Unit = {
-    val connected = domains.list_connected().map(_.domainId).toSet
+    val connected = domains.list_connected().map(_.synchronizerId).toSet
     // for every participant
     consoleEnvironment.participants.all
       .filter(p => p.health.is_running() && p.health.initialized())
       .foreach { participant =>
         // for every domain this participant is connected to as well
         participant.domains.list_connected().foreach {
-          case item if connected.contains(item.domainId) =>
+          case item if connected.contains(item.synchronizerId) =>
             ConsoleMacros.utils.retry_until_true(timeout)(
               {
                 // ensure that vetted packages on the domain match the ones in the authorized store
                 val onDomain = participant.topology.vetted_packages
                   .list(
-                    filterStore = item.domainId.filterString,
+                    filterStore = item.synchronizerId.filterString,
                     filterParticipant = id.filterString,
                     timeQuery = TimeQuery.HeadState,
                   )
@@ -588,28 +588,29 @@ abstract class ParticipantReference(
                 val ret = onParticipantAuthorizedStore == onDomain
                 if (!ret) {
                   logger.debug(
-                    show"Still waiting for package vetting updates to be observed by Participant ${participant.name} on ${item.domainId}: vetted -- onDomain is ${onParticipantAuthorizedStore -- onDomain} while onDomain -- vetted is ${onDomain -- onParticipantAuthorizedStore}"
+                    show"Still waiting for package vetting updates to be observed by Participant ${participant.name} on ${item.synchronizerId}: vetted -- onDomain is ${onParticipantAuthorizedStore -- onDomain} while onDomain -- vetted is ${onDomain -- onParticipantAuthorizedStore}"
                   )
                 }
                 ret
               },
-              show"Participant ${participant.name} has not observed all vetting txs of $id on domain ${item.domainId} within the given timeout.",
+              show"Participant ${participant.name} has not observed all vetting txs of $id on domain ${item.synchronizerId} within the given timeout.",
             )
           case _ =>
         }
       }
   }
   override protected def participantIsActiveOnDomain(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       participantId: ParticipantId,
   ): Boolean = {
     val hasDomainTrustCertificate =
-      topology.domain_trust_certificates.active(domainId, participantId)
+      topology.domain_trust_certificates.active(synchronizerId, participantId)
     val isDomainRestricted = topology.domain_parameters
-      .get_dynamic_domain_parameters(domainId)
+      .get_dynamic_domain_parameters(synchronizerId)
       .onboardingRestriction
       .isRestricted
-    val domainPermission = topology.participant_domain_permissions.find(domainId, participantId)
+    val domainPermission =
+      topology.participant_domain_permissions.find(synchronizerId, participantId)
 
     // notice the `exists`, expressing the requirement of a permission to exist
     val hasRequiredDomainPermission = domainPermission.exists(noLoginRestriction)
@@ -807,8 +808,8 @@ abstract class SequencerReference(
   private val staticDomainParameters: AtomicReference[Option[ConsoleStaticDomainParameters]] =
     new AtomicReference[Option[ConsoleStaticDomainParameters]](None)
 
-  private val domainId: AtomicReference[Option[DomainId]] =
-    new AtomicReference[Option[DomainId]](None)
+  private val synchronizerId: AtomicReference[Option[SynchronizerId]] =
+    new AtomicReference[Option[SynchronizerId]](None)
 
   @Help.Summary(
     "Yields the globally unique id of this sequencer. " +
@@ -847,15 +848,15 @@ abstract class SequencerReference(
   override def traffic_control: TrafficControlSequencerAdministrationGroup =
     sequencerTrafficControl
 
-  @Help.Summary("Return domain id of the domain")
-  def domain_id: DomainId =
-    domainId.get() match {
+  @Help.Summary("Return synchronizer id of the domain")
+  def synchronizer_id: SynchronizerId =
+    synchronizerId.get() match {
       case Some(id) => id
       case None =>
         val id = consoleEnvironment.run(
-          publicApiClient.publicApiCommand(SequencerPublicCommands.GetDomainId)
+          publicApiClient.publicApiCommand(SequencerPublicCommands.GetSynchronizerId)
         )
-        domainId.set(Some(id))
+        synchronizerId.set(Some(id))
 
         id
     }
@@ -876,19 +877,23 @@ abstract class SequencerReference(
           observers: Seq[MediatorReference] = Nil,
       ): Unit = {
 
-        val domainId = domain_id
+        val synchronizerId = synchronizer_id
 
         val mediators = active ++ observers
 
         mediators.foreach { mediator =>
           val identityState = mediator.topology.transactions.identity_transactions()
 
-          topology.transactions.load(identityState, domainId.filterString, ForceFlag.AlienMember)
+          topology.transactions.load(
+            identityState,
+            synchronizerId.filterString,
+            ForceFlag.AlienMember,
+          )
         }
 
         topology.mediators
           .propose(
-            domainId = domainId,
+            synchronizerId = synchronizerId,
             threshold = threshold,
             active = active.map(_.id),
             observers = observers.map(_.id),
@@ -898,7 +903,7 @@ abstract class SequencerReference(
 
         mediators.foreach(
           _.setup.assign(
-            domainId,
+            synchronizerId,
             SequencerConnections.single(sequencerConnection),
           )
         )
@@ -917,10 +922,10 @@ abstract class SequencerReference(
           additionalActive: Seq[MediatorReference],
           additionalObservers: Seq[MediatorReference] = Nil,
       ): Unit = {
-        val domainId = domain_id
+        val synchronizerId = synchronizer_id
 
         val currentMediators = topology.mediators
-          .list(filterStore = domainId.filterString, group = Some(group))
+          .list(filterStore = synchronizerId.filterString, group = Some(group))
           .maxByOption(_.context.serial)
           .getOrElse(throw new IllegalArgumentException(s"Unknown mediator group $group"))
 
@@ -935,12 +940,16 @@ abstract class SequencerReference(
         newMediators.foreach { med =>
           val identityState = med.topology.transactions.identity_transactions()
 
-          topology.transactions.load(identityState, domainId.filterString, ForceFlag.AlienMember)
+          topology.transactions.load(
+            identityState,
+            synchronizerId.filterString,
+            ForceFlag.AlienMember,
+          )
         }
 
         topology.mediators
           .propose(
-            domainId = domainId,
+            synchronizerId = synchronizerId,
             threshold = threshold,
             active = (currentActive ++ additionalActive.map(_.id)).distinct,
             observers = (currentObservers ++ additionalObservers.map(_.id)).distinct,
@@ -951,7 +960,7 @@ abstract class SequencerReference(
 
         newMediators.foreach(
           _.setup.assign(
-            domainId,
+            synchronizerId,
             SequencerConnections.single(sequencerConnection),
           )
         )

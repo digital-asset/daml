@@ -16,7 +16,7 @@ message PingRequest {
   repeated string validators = 2;
   google.protobuf.Duration timeout = 3;
   uint32 levels = 4;
-  string domain_id = 5; // optional
+  string synchronizer_id = 5; // optional
   string workflow_id = 6; // optional
   string id = 7; // optional UUID to be used for ping test
 }

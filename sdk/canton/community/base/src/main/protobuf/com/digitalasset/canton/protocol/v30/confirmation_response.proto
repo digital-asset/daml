@@ -32,7 +32,7 @@ message ConfirmationResponse {
   LocalVerdict local_verdict = 3;
   bytes root_hash = 4; // required since DAML 3.0
   repeated string confirming_parties = 5; // Empty iff the verdict is malformed.
-  string domain_id = 6;
+  string synchronizer_id = 6;
   ViewPosition view_position = 7;
 }
 

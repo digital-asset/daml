@@ -85,7 +85,7 @@ message Completion {
   int64 offset = 10;
 
   // The sequencing domain along with its record time.
-  // The domain-id provided, in case of
+  // The synchronizer id provided, in case of
   //
   //   - successful/failed transactions: identifies the sequencing domain of the transaction
   //   - for successful/failed unassign commands: identifies the source domain

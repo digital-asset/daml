@@ -24,7 +24,7 @@ import com.digitalasset.canton.participant.domain.DomainRegistryError
 import com.digitalasset.canton.participant.store.DomainConnectionConfigStore
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.{DomainAlias, LedgerSubmissionId}
+import com.digitalasset.canton.{LedgerSubmissionId, SynchronizerAlias}
 import com.google.rpc.status.Status
 import io.grpc.Status.Code
 import org.slf4j.event.Level
@@ -99,18 +99,21 @@ object SyncServiceInjectionError extends InjectionErrorGroup {
 object SyncServiceError extends SyncServiceErrorGroup {
 
   @Explanation(
-    "This error results if a domain connectivity command is referring to a domain alias that has not been registered."
+    "This error results if a domain connectivity command is referring to a synchronizer alias that has not been registered."
   )
   @Resolution(
-    "Please confirm the domain alias is correct, or configure the domain before (re)connecting."
+    "Please confirm the synchronizer alias is correct, or configure the domain before (re)connecting."
   )
   object SyncServiceUnknownDomain
       extends ErrorCode(
         "SYNC_SERVICE_UNKNOWN_DOMAIN",
         ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
       ) {
-    final case class Error(domain: DomainAlias)(implicit val loggingContext: ErrorLoggingContext)
-        extends CantonError.Impl(cause = s"The domain with alias ${domain.unwrap} is unknown.")
+    final case class Error(synchronizerAlias: SynchronizerAlias)(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"The domain with alias ${synchronizerAlias.unwrap} is unknown."
+        )
         with SyncServiceError
   }
 
@@ -122,8 +125,9 @@ object SyncServiceError extends SyncServiceErrorGroup {
         "SYNC_SERVICE_ALREADY_ADDED",
         ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
       ) {
-    final case class Error(domain: DomainAlias)(implicit val loggingContext: ErrorLoggingContext)
-        extends CantonError.Impl(cause = "The domain with the given alias has already been added.")
+    final case class Error(synchronizerAlias: SynchronizerAlias)(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(cause = "The domain with the given alias has already been added.")
         with SyncServiceError
   }
 
@@ -144,7 +148,7 @@ object SyncServiceError extends SyncServiceErrorGroup {
   @Explanation(
     """This error is reported in case of validation failures when attempting to register new or change existing
        sequencer connections. This can be caused by unreachable nodes, a bad TLS configuration, or in case of
-       a mismatch of domain-ids reported by the sequencers or mismatched sequencer-ids within a sequencer group."""
+       a mismatch of synchronizer ids reported by the sequencers or mismatched sequencer-ids within a sequencer group."""
   )
   @Resolution(
     """Check that the connection settings provided are correct. If they are but correspond to temporarily
@@ -169,7 +173,7 @@ object SyncServiceError extends SyncServiceErrorGroup {
   abstract class DomainRegistryErrorGroup extends ErrorGroup()
 
   final case class SyncServiceFailedDomainConnection(
-      domain: DomainAlias,
+      synchronizerAlias: SynchronizerAlias,
       parent: DomainRegistryError,
   )(implicit
       val loggingContext: ErrorLoggingContext
@@ -178,13 +182,13 @@ object SyncServiceError extends SyncServiceErrorGroup {
 
     override def logOnCreation: Boolean = false
 
-    override def mixinContext: Map[String, String] = Map("domain" -> domain.unwrap)
+    override def mixinContext: Map[String, String] = Map("domain" -> synchronizerAlias.unwrap)
 
   }
 
   final case class SyncServiceMigrationError(
-      from: Source[DomainAlias],
-      to: Target[DomainAlias],
+      from: Source[SynchronizerAlias],
+      to: Target[SynchronizerAlias],
       parent: SyncDomainMigrationError,
   )(implicit
       val loggingContext: ErrorLoggingContext
@@ -212,10 +216,10 @@ object SyncServiceError extends SyncServiceErrorGroup {
 
     override def logLevel: Level = Level.WARN
 
-    final case class Error(domain: DomainAlias, reason: String)(implicit
+    final case class Error(synchronizerAlias: SynchronizerAlias, reason: String)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = show"$domain rejected our subscription attempt with permission denied."
+          cause = show"$synchronizerAlias rejected our subscription attempt with permission denied."
         )
   }
 
@@ -232,16 +236,19 @@ object SyncServiceError extends SyncServiceErrorGroup {
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
 
-    final case class Error(domain: DomainAlias, status: DomainConnectionConfigStore.Status)(implicit
+    final case class Error(
+        synchronizerAlias: SynchronizerAlias,
+        status: DomainConnectionConfigStore.Status,
+    )(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = s"$domain has status $status and can therefore not be connected to."
+          cause = s"$synchronizerAlias has status $status and can therefore not be connected to."
         )
         with SyncServiceError
   }
 
   final case class SyncServicePurgeDomainError(
-      domain: DomainAlias,
+      synchronizerAlias: SynchronizerAlias,
       parent: PruningServiceError,
   )(implicit
       val loggingContext: ErrorLoggingContext
@@ -260,10 +267,10 @@ object SyncServiceError extends SyncServiceErrorGroup {
 
     override def logLevel: Level = Level.WARN
 
-    final case class Error(domain: DomainAlias)(implicit
+    final case class Error(synchronizerAlias: SynchronizerAlias)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = show"$domain disconnected because participant became passive."
+          cause = show"$synchronizerAlias disconnected because participant became passive."
         )
   }
 
@@ -277,7 +284,7 @@ object SyncServiceError extends SyncServiceErrorGroup {
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
 
-    final case class Error(connectedDomains: Seq[DomainAlias])(implicit
+    final case class Error(connectedDomains: Seq[SynchronizerAlias])(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = show"$connectedDomains must be disconnected for the given operation"
@@ -301,8 +308,11 @@ object SyncServiceError extends SyncServiceErrorGroup {
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
 
-    final case class Error(domain: DomainAlias)(implicit val loggingContext: ErrorLoggingContext)
-        extends CantonError.Impl(cause = show"$domain must not have in-flight transactions")
+    final case class Error(synchronizerAlias: SynchronizerAlias)(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = show"$synchronizerAlias must not have in-flight transactions"
+        )
         with SyncServiceError
 
   }
@@ -318,15 +328,20 @@ object SyncServiceError extends SyncServiceErrorGroup {
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
 
-    final case class UnrecoverableError(domain: DomainAlias, _reason: String)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(cause = show"$domain fatally disconnected because of ${_reason}")
+    final case class UnrecoverableError(synchronizerAlias: SynchronizerAlias, _reason: String)(
+        implicit val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = show"$synchronizerAlias fatally disconnected because of ${_reason}"
+        )
 
-    final case class UnrecoverableException(domain: DomainAlias, throwable: Throwable)(implicit
+    final case class UnrecoverableException(
+        synchronizerAlias: SynchronizerAlias,
+        throwable: Throwable,
+    )(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause =
-            show"Domain $domain fatally disconnected because of an exception ${throwable.getMessage}",
+            show"Domain $synchronizerAlias fatally disconnected because of an exception ${throwable.getMessage}",
           throwableO = Some(throwable),
         )
 
@@ -340,7 +355,7 @@ object SyncServiceError extends SyncServiceErrorGroup {
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
 
-    final case class Failure(domain: DomainAlias, throwable: Throwable)(implicit
+    final case class Failure(synchronizerAlias: SynchronizerAlias, throwable: Throwable)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = "The domain failed to startup due to an internal error",
@@ -348,14 +363,18 @@ object SyncServiceError extends SyncServiceErrorGroup {
         )
         with SyncServiceError
 
-    final case class DomainIsMissingInternally(domain: DomainAlias, where: String)(implicit
-        val loggingContext: ErrorLoggingContext
+    final case class DomainIsMissingInternally(synchronizerAlias: SynchronizerAlias, where: String)(
+        implicit val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = "Failed to await for participant becoming active due to missing domain objects"
         )
         with SyncServiceError
-    final case class CleanHeadAwaitFailed(domain: DomainAlias, ts: CantonTimestamp, err: String)(
-        implicit val loggingContext: ErrorLoggingContext
+    final case class CleanHeadAwaitFailed(
+        synchronizerAlias: SynchronizerAlias,
+        ts: CantonTimestamp,
+        err: String,
+    )(implicit
+        val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = s"Failed to await for clean-head at $ts: $err"
         )
@@ -384,7 +403,7 @@ object SyncServiceError extends SyncServiceErrorGroup {
         with SyncServiceError
 
     final case class InitError(
-        domain: DomainAlias,
+        synchronizerAlias: SynchronizerAlias,
         error: SyncDomainInitializationError,
     )(implicit
         val loggingContext: ErrorLoggingContext

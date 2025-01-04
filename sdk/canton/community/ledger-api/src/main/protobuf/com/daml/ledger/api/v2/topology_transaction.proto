@@ -23,10 +23,10 @@ message TopologyTransaction {
   // Required, it is a valid absolute offset (positive integer).
   int64 offset = 2;
 
-  // A valid domain ID.
+  // A valid synchronizer id.
   // Identifies the domain that synchronized the topology transaction.
   // Required
-  string domain_id = 3;
+  string synchronizer_id = 3;
 
   // The time at which the changes in the topology transaction become effective. There is a small delay between a
   // topology transaction being sequenced and the changes it contains becoming effective. Topology transactions appear

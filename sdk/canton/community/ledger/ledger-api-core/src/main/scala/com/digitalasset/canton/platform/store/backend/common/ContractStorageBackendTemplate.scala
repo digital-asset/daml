@@ -32,13 +32,17 @@ class ContractStorageBackendTemplate(
     stringInterning: StringInterning,
 ) extends ContractStorageBackend {
 
-  override def keyState(key: Key, validAt: Offset)(connection: Connection): KeyState = {
-    val resultParser =
-      (contractId("contract_id") ~ array[Int]("flat_event_witnesses")).map {
-        case cId ~ stakeholders =>
-          KeyAssigned(cId, stakeholders.view.map(stringInterning.party.externalize).toSet)
-      }.singleOpt
+  override def supportsBatchKeyStateLookups: Boolean = false
 
+  override def keyStates(keys: Seq[Key], validAt: Offset)(
+      connection: Connection
+  ): Map[Key, KeyState] = keys.map(key => key -> keyState(key, validAt)(connection)).toMap
+
+  override def keyState(key: Key, validAt: Offset)(connection: Connection): KeyState = {
+    val resultParser = (contractId("contract_id") ~ array[Int]("flat_event_witnesses")).map {
+      case cId ~ stakeholders =>
+        KeyAssigned(cId, stakeholders.view.map(stringInterning.party.externalize).toSet)
+    }.singleOpt
     import com.digitalasset.canton.platform.store.backend.Conversions.HashToStatement
     SQL"""
          WITH last_contract_key_create AS (

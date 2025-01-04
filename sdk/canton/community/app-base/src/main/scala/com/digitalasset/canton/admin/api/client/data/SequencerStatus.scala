@@ -11,7 +11,12 @@ import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyInstances, PrettyPrinting, PrettyUtil}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.{DomainId, MediatorId, ParticipantId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{
+  MediatorId,
+  ParticipantId,
+  SynchronizerId,
+  UniqueIdentifier,
+}
 import com.digitalasset.canton.util.ShowUtil
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseVersion}
 
@@ -19,7 +24,7 @@ import java.time.Duration
 
 final case class SequencerStatus(
     uid: UniqueIdentifier,
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     uptime: Duration,
     ports: Map[String, Port],
     connectedParticipants: Seq[ParticipantId],
@@ -38,7 +43,7 @@ final case class SequencerStatus(
     prettyOfString(_ =>
       Seq(
         s"Sequencer id: ${uid.toProtoPrimitive}",
-        s"Domain id: ${domainId.toProtoPrimitive}",
+        s"Synchronizer id: ${synchronizerId.toProtoPrimitive}",
         show"Uptime: $uptime",
         s"Ports: ${portsString(ports)}",
         s"Connected participants: ${multiline(connectedParticipants.map(_.toString))}",
@@ -90,9 +95,9 @@ object SequencerStatus {
             "SequencerStatusResponse.SequencerHealthStatus.sequencer",
             sequencerStatusP.sequencer,
           )
-          domainId <- DomainId.fromProtoPrimitive(
-            sequencerStatusP.domainId,
-            "SequencerStatusResponse.domain_id",
+          synchronizerId <- SynchronizerId.fromProtoPrimitive(
+            sequencerStatusP.synchronizerId,
+            "SequencerStatusResponse.synchronizer_id",
           )
           adminP <- ProtoConverter.required("admin", sequencerStatusP.admin)
           admin <- SequencerAdminStatus.fromProtoV30(adminP)
@@ -111,7 +116,7 @@ object SequencerStatus {
             components = status.components,
             version = status.version,
             protocolVersion = protocolVersion,
-            domainId = domainId,
+            synchronizerId = synchronizerId,
             sequencer = sequencer,
             admin = admin,
           )

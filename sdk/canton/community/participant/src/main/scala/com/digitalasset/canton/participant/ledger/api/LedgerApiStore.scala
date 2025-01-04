@@ -21,7 +21,7 @@ import com.digitalasset.canton.platform.store.interning.StringInterningView
 import com.digitalasset.canton.platform.store.{DbSupport, FlywayMigrations}
 import com.digitalasset.canton.platform.{ResourceCloseable, ResourceOwnerFlagCloseableOps}
 import com.digitalasset.canton.protocol.LfContractId
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{LedgerParticipantId, config}
 
@@ -82,20 +82,20 @@ class LedgerApiStore(
       integrityStorageBackend.onlyForTestingMoveLedgerEndBackToScratch()
     )
 
-  def onlyForTestingNumberOfAcceptedTransactionsFor(domainId: DomainId)(implicit
+  def onlyForTestingNumberOfAcceptedTransactionsFor(synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): FutureUnlessShutdown[Int] =
     executeSqlUS(DatabaseMetrics.ForTesting("numberOfAcceptedTransactionsFor"))(
-      integrityStorageBackend.onlyForTestingNumberOfAcceptedTransactionsFor(domainId)
+      integrityStorageBackend.onlyForTestingNumberOfAcceptedTransactionsFor(synchronizerId)
     )
 
-  def cleanDomainIndex(domainId: DomainId)(implicit
+  def cleanDomainIndex(synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): FutureUnlessShutdown[Option[DomainIndex]] =
     executeSqlUS(metrics.index.db.getCleanDomainIndex)(
-      parameterStorageBackend.cleanDomainIndex(domainId)
+      parameterStorageBackend.cleanDomainIndex(synchronizerId)
     )
 
   def ledgerEnd(implicit
@@ -107,17 +107,17 @@ class LedgerApiStore(
     )
 
   def topologyEventPublishedOnRecordTime(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       recordTime: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
   ): Future[Boolean] =
     executeSql(metrics.index.db.getTopologyEventPublishedOnRecordTime)(
-      eventStorageBackend.topologyEventPublishedOnRecordTime(domainId, recordTime)
+      eventStorageBackend.topologyEventPublishedOnRecordTime(synchronizerId, recordTime)
     )
 
   def firstDomainOffsetAfterOrAt(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       afterOrAtRecordTimeInclusive: CantonTimestamp,
   )(implicit
       traceContext: TraceContext,
@@ -125,20 +125,23 @@ class LedgerApiStore(
   ): FutureUnlessShutdown[Option[DomainOffset]] =
     executeSqlUS(metrics.index.db.firstDomainOffsetAfterOrAt)(
       eventStorageBackend.firstDomainOffsetAfterOrAt(
-        domainId,
+        synchronizerId,
         afterOrAtRecordTimeInclusive.underlying,
       )
     )
 
   def lastDomainOffsetBeforeOrAt(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       beforeOrAtOffsetInclusive: Offset,
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): FutureUnlessShutdown[Option[DomainOffset]] =
     executeSqlUS(metrics.index.db.lastDomainOffsetBeforeOrAt)(
-      eventStorageBackend.lastDomainOffsetBeforeOrAt(Some(domainId), beforeOrAtOffsetInclusive)
+      eventStorageBackend.lastDomainOffsetBeforeOrAt(
+        Some(synchronizerId),
+        beforeOrAtOffsetInclusive,
+      )
     )
 
   def lastDomainOffsetBeforeOrAt(

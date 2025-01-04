@@ -236,7 +236,7 @@ final case class JsCommands(
     read_as: Seq[String],
     submission_id: String,
     disclosed_contracts: Seq[com.daml.ledger.api.v2.commands.DisclosedContract],
-    domain_id: String,
+    synchronizer_id: String,
     package_id_selection_preference: Seq[String],
 )
 

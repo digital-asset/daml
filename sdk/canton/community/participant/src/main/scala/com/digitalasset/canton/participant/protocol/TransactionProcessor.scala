@@ -33,6 +33,7 @@ import com.digitalasset.canton.participant.protocol.submission.{
   TransactionConfirmationRequestFactory,
 }
 import com.digitalasset.canton.participant.protocol.validation.{
+  AuthorizationValidator,
   InternalConsistencyChecker,
   ModelConformanceChecker,
   TransactionConfirmationResponseFactory,
@@ -46,7 +47,7 @@ import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.hash.HashTracer.NoOp
 import com.digitalasset.canton.sequencing.client.{SendAsyncClientError, SequencerClient}
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.ProtocolVersion
@@ -58,7 +59,7 @@ import scala.concurrent.ExecutionContext
 class TransactionProcessor(
     override val participantId: ParticipantId,
     confirmationRequestFactory: TransactionConfirmationRequestFactory,
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     damle: DAMLe,
     staticDomainParameters: StaticDomainParameters,
     parameters: ParticipantNodeParameters,
@@ -82,12 +83,12 @@ class TransactionProcessor(
       TransactionProcessor.TransactionSubmissionError,
     ](
       new TransactionProcessingSteps(
-        domainId,
+        synchronizerId,
         participantId,
         confirmationRequestFactory,
         new TransactionConfirmationResponseFactory(
           participantId,
-          domainId,
+          synchronizerId,
           staticDomainParameters.protocolVersion,
           loggerFactory,
         ),
@@ -116,7 +117,7 @@ class TransactionProcessor(
       ephemeral,
       crypto,
       sequencerClient,
-      domainId,
+      synchronizerId,
       staticDomainParameters.protocolVersion,
       loggerFactory,
       futureSupervisor,
@@ -169,7 +170,7 @@ class TransactionProcessor(
             commandId = submitterInfo.commandId,
             transactionUUID = externallySignedSubmission.transactionUUID,
             mediatorGroup = externallySignedSubmission.mediatorGroup.value,
-            domainId = domainId,
+            synchronizerId = synchronizerId,
             ledgerEffectiveTime = Option.when(externallySignedSubmission.usesLedgerEffectiveTime)(
               wfTransaction.metadata.ledgerTime.toLf
             ),
@@ -359,7 +360,7 @@ object TransactionProcessor {
     final case class SubmissionAlreadyInFlight(
         changeId: ChangeId,
         existingSubmissionId: Option[LedgerSubmissionId],
-        existingSubmissionDomain: DomainId,
+        existingSubmissionSynchronizerId: SynchronizerId,
     ) extends TransactionErrorImpl(cause = "The submission is already in-flight")(
           ConsistencyErrors.SubmissionAlreadyInFlight.code
         )
@@ -462,8 +463,10 @@ object TransactionProcessor {
           id = "DOMAIN_WITHOUT_MEDIATOR",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
-      final case class Error(topology_snapshot_timestamp: CantonTimestamp, chosen_domain: DomainId)
-          extends TransactionErrorImpl(
+      final case class Error(
+          topologySnapshotTimestamp: CantonTimestamp,
+          chosenSynchronizerId: SynchronizerId,
+      ) extends TransactionErrorImpl(
             cause = "There are no active mediators on the domain"
           )
           with TransactionSubmissionError
@@ -531,10 +534,10 @@ object TransactionProcessor {
     }
   }
 
-  final case class DomainParametersError(domainId: DomainId, context: String)
+  final case class DomainParametersError(synchronizerId: SynchronizerId, context: String)
       extends TransactionProcessorError {
     override protected def pretty: Pretty[DomainParametersError] = prettyOfClass(
-      param("domain", _.domainId),
+      param("domain", _.synchronizerId),
       param("context", _.context.unquoted),
     )
   }

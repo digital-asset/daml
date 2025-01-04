@@ -112,7 +112,7 @@ message DisclosedContract {
 
   // The ID of the domain where the contract is currently assigned
   // Optional
-  string domain_id = 4;
+  string synchronizer_id = 4;
 }
 
 // A composite command that groups multiple commands together.
@@ -197,9 +197,9 @@ message Commands {
   // Optional
   repeated DisclosedContract disclosed_contracts = 12;
 
-  // Must be a valid domain ID
+  // Must be a valid synchronizer id
   // Optional
-  string domain_id = 13;
+  string synchronizer_id = 13;
 
   // The package-id selection preference of the client for resolving
   // package names and interface instances in command submission and interpretation

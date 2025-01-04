@@ -11,14 +11,14 @@ import com.digitalasset.canton.protocol.messages.SignedProtocolMessageContent.Si
 import com.digitalasset.canton.protocol.{RequestId, RootHash, v30}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.version.*
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 
 /** Result message that the mediator sends to all informees of a request with its verdict.
   *
-  * @param domainId the domain on which the request is running
+  * @param synchronizerId the domain on which the request is running
   * @param viewType determines which processor (transaction / reassignment) must process this message
   * @param requestId unique identifier of the confirmation request
   * @param rootHash hash over the contents of the request
@@ -27,7 +27,7 @@ import com.google.protobuf.ByteString
   */
 @SuppressWarnings(Array("org.wartremover.warts.FinalCaseClass")) // This class is mocked in tests
 case class ConfirmationResultMessage private (
-    override val domainId: DomainId,
+    override val synchronizerId: SynchronizerId,
     viewType: ViewType,
     override val requestId: RequestId,
     rootHash: RootHash,
@@ -39,7 +39,7 @@ case class ConfirmationResultMessage private (
     ],
     override val deserializedFrom: Option[ByteString],
 ) extends ProtocolVersionedMemoizedEvidence
-    with HasDomainId
+    with HasSynchronizerId
     with HasRequestId
     with SignedProtocolMessageContent
     with HasProtocolVersionedWrapper[ConfirmationResultMessage]
@@ -48,14 +48,14 @@ case class ConfirmationResultMessage private (
   override def signingTimestamp: Option[CantonTimestamp] = Some(requestId.unwrap)
 
   def copy(
-      domainId: DomainId = this.domainId,
+      synchronizerId: SynchronizerId = this.synchronizerId,
       viewType: ViewType = this.viewType,
       requestId: RequestId = this.requestId,
       rootHash: RootHash = this.rootHash,
       verdict: Verdict = this.verdict,
       informees: Set[LfPartyId] = this.informees,
   ): ConfirmationResultMessage =
-    ConfirmationResultMessage(domainId, viewType, requestId, rootHash, verdict, informees)(
+    ConfirmationResultMessage(synchronizerId, viewType, requestId, rootHash, verdict, informees)(
       representativeProtocolVersion,
       None,
     )
@@ -68,7 +68,7 @@ case class ConfirmationResultMessage private (
 
   protected def toProtoV30: v30.ConfirmationResultMessage =
     v30.ConfirmationResultMessage(
-      domainId = domainId.toProtoPrimitive,
+      synchronizerId = synchronizerId.toProtoPrimitive,
       viewType = viewType.toProtoEnum,
       requestId = requestId.toProtoPrimitive,
       rootHash = rootHash.toProtoPrimitive,
@@ -85,7 +85,7 @@ case class ConfirmationResultMessage private (
   @VisibleForTesting
   override def pretty: Pretty[ConfirmationResultMessage] =
     prettyOfClass(
-      param("domainId", _.domainId),
+      param("synchronizerId", _.synchronizerId),
       param("viewType", _.viewType),
       param("requestId", _.requestId.unwrap),
       param("rootHash", _.rootHash),
@@ -110,7 +110,7 @@ object ConfirmationResultMessage
   )
 
   def create(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       viewType: ViewType,
       requestId: RequestId,
       rootHash: RootHash,
@@ -118,7 +118,7 @@ object ConfirmationResultMessage
       informees: Set[LfPartyId],
       protocolVersion: ProtocolVersion,
   ): ConfirmationResultMessage =
-    ConfirmationResultMessage(domainId, viewType, requestId, rootHash, verdict, informees)(
+    ConfirmationResultMessage(synchronizerId, viewType, requestId, rootHash, verdict, informees)(
       protocolVersionRepresentativeFor(protocolVersion),
       None,
     )
@@ -127,7 +127,7 @@ object ConfirmationResultMessage
       bytes: ByteString
   ): ParsingResult[ConfirmationResultMessage] = {
     val v30.ConfirmationResultMessage(
-      domainIdP,
+      synchronizerIdP,
       viewTypeP,
       requestIdP,
       rootHashP,
@@ -136,7 +136,7 @@ object ConfirmationResultMessage
     ) = protoResultMessage
 
     for {
-      domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
+      synchronizerId <- SynchronizerId.fromProtoPrimitive(synchronizerIdP, "synchronizer_id")
       viewType <- ViewType.fromProtoEnum(viewTypeP)
       requestId <- RequestId.fromProtoPrimitive(requestIdP)
       rootHash <- RootHash.fromProtoPrimitive(rootHashP)
@@ -144,7 +144,7 @@ object ConfirmationResultMessage
       informees <- informeesP.traverse(ProtoConverter.parseLfPartyId(_, "informees"))
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield ConfirmationResultMessage(
-      domainId,
+      synchronizerId,
       viewType,
       requestId,
       rootHash,

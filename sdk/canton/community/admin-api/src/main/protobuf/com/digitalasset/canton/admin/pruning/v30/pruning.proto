@@ -86,14 +86,14 @@ message LocatePruningTimestamp {
 }
 
 // overwrites previous no-wait-configuration on the given domains for the given counter participants
-// the request will fail if the counter_participant_uids or domain_ids is invalid format, or if duplicates are present in the repeated strings
+// the request will fail if the counter_participant_uids or synchronizer_ids is invalid format, or if duplicates are present in the repeated strings
 message SetNoWaitCommitmentsFrom {
   message Request {
     // ignore the given participants; an empty list has no effect
     repeated string counter_participant_uids = 1;
     // ignore the given participants on these domains
     // an empty list has no effect
-    repeated string domain_ids = 2;
+    repeated string synchronizer_ids = 2;
   }
 
   message Response {}
@@ -105,7 +105,7 @@ message ResetNoWaitCommitmentsFrom {
     // an empty list has no effect
     repeated string counter_participant_uids = 1;
     // an empty list has no effect
-    repeated string domain_ids = 2;
+    repeated string synchronizer_ids = 2;
   }
 
   message Response {}
@@ -113,7 +113,7 @@ message ResetNoWaitCommitmentsFrom {
 
 
 message Domains {
-  repeated string domain_ids = 1;
+  repeated string synchronizer_ids = 1;
 }
 
 // Returns the state of no-wait-config at the time the request executes, with optional filtering on domains and
@@ -127,7 +127,7 @@ message Domains {
 // includes them if they are known to the participant or specified in the arguments.
 message GetNoWaitCommitmentsFrom {
   message Request {
-    repeated string domain_ids = 1;
+    repeated string synchronizer_ids = 1;
     repeated string participant_uids = 2;
   }
 
@@ -141,5 +141,5 @@ message GetNoWaitCommitmentsFrom {
 
 message WaitCommitmentsSetup {
   string counter_participant_uid = 1;
-  Domains domain_ids = 2;
+  Domains domains = 2;
 }

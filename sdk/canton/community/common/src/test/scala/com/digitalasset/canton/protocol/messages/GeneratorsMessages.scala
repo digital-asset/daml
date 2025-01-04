@@ -28,7 +28,7 @@ import com.digitalasset.canton.topology.transaction.{
   TopologyChangeOp,
   TopologyMapping,
 }
-import com.digitalasset.canton.topology.{DomainId, GeneratorsTopology, ParticipantId}
+import com.digitalasset.canton.topology.{GeneratorsTopology, ParticipantId, SynchronizerId}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{Generators, LfPartyId}
 import magnolify.scalacheck.auto.*
@@ -55,7 +55,7 @@ final class GeneratorsMessages(
 
   implicit val acsCommitmentArb: Arbitrary[AcsCommitment] = Arbitrary(
     for {
-      domainId <- Arbitrary.arbitrary[DomainId]
+      synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
       sender <- Arbitrary.arbitrary[ParticipantId]
       counterParticipant <- Arbitrary.arbitrary[ParticipantId]
 
@@ -65,7 +65,7 @@ final class GeneratorsMessages(
 
       commitment <- byteStringArb.arbitrary
     } yield AcsCommitment.create(
-      domainId,
+      synchronizerId,
       sender,
       counterParticipant,
       period,
@@ -76,7 +76,7 @@ final class GeneratorsMessages(
 
   implicit val confirmationResultMessageArb: Arbitrary[ConfirmationResultMessage] = Arbitrary(
     for {
-      domainId <- Arbitrary.arbitrary[DomainId]
+      synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
       viewType <- Arbitrary.arbitrary[ViewType]
       requestId <- Arbitrary.arbitrary[RequestId]
       rootHash <- Arbitrary.arbitrary[RootHash]
@@ -85,7 +85,7 @@ final class GeneratorsMessages(
 
       // TODO(#14515) Also generate instance that makes pv above cover all the values
     } yield ConfirmationResultMessage.create(
-      domainId,
+      synchronizerId,
       viewType,
       requestId,
       rootHash,
@@ -101,7 +101,7 @@ final class GeneratorsMessages(
       sender <- Arbitrary.arbitrary[ParticipantId]
       localVerdict <- localVerdictArb.arbitrary
 
-      domainId <- Arbitrary.arbitrary[DomainId]
+      synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
 
       confirmingParties <-
         if (localVerdict.isMalformed) Gen.const(Set.empty[LfPartyId])
@@ -122,7 +122,7 @@ final class GeneratorsMessages(
       localVerdict,
       rootHash,
       confirmingParties,
-      domainId,
+      synchronizerId,
       protocolVersion,
     )
   )
@@ -192,14 +192,14 @@ final class GeneratorsMessages(
       sessionKey <- Generators.nonEmptyListGen[AsymmetricEncrypted[SecureRandomness]]
       viewType <- viewTypeArb.arbitrary
       encryptedView = EncryptedView(viewType)(Encrypted.fromByteString(encryptedViewBytestring))
-      domainId <- Arbitrary.arbitrary[DomainId]
+      synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
       viewEncryptionScheme <- genArbitrary[SymmetricKeyScheme].arbitrary
     } yield EncryptedViewMessage.apply(
       submittingParticipantSignature = signatureO,
       viewHash = viewHash,
       sessionKeys = sessionKey,
       encryptedView = encryptedView,
-      domainId = domainId,
+      synchronizerId = synchronizerId,
       viewEncryptionScheme = viewEncryptionScheme,
       protocolVersion = protocolVersion,
     )
@@ -223,13 +223,13 @@ final class GeneratorsMessages(
     Arbitrary(
       for {
         rootHash <- Arbitrary.arbitrary[RootHash]
-        domainId <- Arbitrary.arbitrary[DomainId]
+        synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
         viewType <- viewTypeArb.arbitrary
         submissionTopologyTime <- Arbitrary.arbitrary[CantonTimestamp]
         payload <- Arbitrary.arbitrary[RootHashMessagePayload]
       } yield RootHashMessage.apply(
         rootHash,
-        domainId,
+        synchronizerId,
         protocolVersion,
         viewType,
         submissionTopologyTime,
@@ -239,11 +239,11 @@ final class GeneratorsMessages(
 
   implicit val topologyTransactionsBroadcast: Arbitrary[TopologyTransactionsBroadcast] = Arbitrary(
     for {
-      domainId <- Arbitrary.arbitrary[DomainId]
+      synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
       transactions <- Gen.listOf(
         Arbitrary.arbitrary[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]]
       )
-    } yield TopologyTransactionsBroadcast(domainId, transactions, protocolVersion)
+    } yield TopologyTransactionsBroadcast(synchronizerId, transactions, protocolVersion)
   )
 
   // TODO(#14515) Check that the generator is exhaustive

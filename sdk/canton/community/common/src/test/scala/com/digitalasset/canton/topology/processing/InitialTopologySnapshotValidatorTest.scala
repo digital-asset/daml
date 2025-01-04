@@ -8,7 +8,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.String256M
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.crypto.DomainCryptoPureApi
 import com.digitalasset.canton.store.db.{DbTest, PostgresTest}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.topology.store.db.DbTopologyStoreHelper
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.store.{
@@ -26,12 +26,12 @@ abstract class InitialTopologySnapshotValidatorTest
   import Factory.*
 
   protected def mk(
-      store: TopologyStore[TopologyStoreId.DomainStore] = mkStore(Factory.domainId1a),
-      domainId: DomainId = Factory.domainId1a,
+      store: TopologyStore[TopologyStoreId.DomainStore] = mkStore(Factory.synchronizerId1a),
+      synchronizerId: SynchronizerId = Factory.synchronizerId1a,
   ): (InitialTopologySnapshotValidator, TopologyStore[TopologyStoreId.DomainStore]) = {
 
     val validator = new InitialTopologySnapshotValidator(
-      domainId,
+      synchronizerId,
       new DomainCryptoPureApi(defaultStaticDomainParameters, crypto),
       store,
       DefaultProcessingTimeouts.testing,
@@ -139,10 +139,10 @@ abstract class InitialTopologySnapshotValidatorTest
 
 class InitialTopologySnapshotValidatorTestInMemory extends InitialTopologySnapshotValidatorTest {
   protected def mkStore(
-      domainId: DomainId = DomainId(Factory.uid1a)
+      synchronizerId: SynchronizerId = SynchronizerId(Factory.uid1a)
   ): TopologyStore[TopologyStoreId.DomainStore] =
     new InMemoryTopologyStore(
-      TopologyStoreId.DomainStore(domainId),
+      TopologyStoreId.DomainStore(synchronizerId),
       testedProtocolVersion,
       loggerFactory,
       timeouts,
@@ -154,6 +154,8 @@ class InitialTopologySnapshotValidatorTestPostgres
     with DbTest
     with DbTopologyStoreHelper
     with PostgresTest {
-  override protected def mkStore(domainId: DomainId): TopologyStore[TopologyStoreId.DomainStore] =
-    createTopologyStore(domainId)
+  override protected def mkStore(
+      synchronizerId: SynchronizerId
+  ): TopologyStore[TopologyStoreId.DomainStore] =
+    createTopologyStore(synchronizerId)
 }

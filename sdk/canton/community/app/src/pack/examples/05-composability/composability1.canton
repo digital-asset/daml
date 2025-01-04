@@ -74,7 +74,7 @@ val createIouCmd = new Iou(
   List.empty.asJava
 ).create.commands.asScala.toSeq
 val Seq(iouContractUnshared) = decodeAllCreated(Iou.COMPANION)(
-  participant1.ledger_api.javaapi.commands.submit_flat(Seq(Bank), createIouCmd, domainId = Some(iouId)))
+  participant1.ledger_api.javaapi.commands.submit_flat(Seq(Bank), createIouCmd, synchronizerId =Some(iouId)))
 
 // Wait until the house owner sees the IOU in the active contract store
 participant2.ledger_api.state.acs.await_active_contract(HouseOwner, iouContractUnshared.id.toLf)
@@ -82,7 +82,7 @@ participant2.ledger_api.state.acs.await_active_contract(HouseOwner, iouContractU
 // The house owner adds the Painter as an observer on the IOU
 val shareIouCmd = iouContractUnshared.id.exerciseShare(Painter.toProtoPrimitive).commands.asScala.toSeq
 val Seq(iouContract) = decodeAllCreated(Iou.COMPANION)(
-  participant2.ledger_api.javaapi.commands.submit_flat(Seq(HouseOwner), shareIouCmd, domainId = Some(iouId)))
+  participant2.ledger_api.javaapi.commands.submit_flat(Seq(HouseOwner), shareIouCmd, synchronizerId =Some(iouId)))
 // architecture-handbook-entry-end: iou
 
 // architecture-handbook-entry-begin: paint-offer
@@ -94,7 +94,7 @@ val paintOfferCmd = new OfferToPaintHouseByOwner(
   iouContract.id
 ).create.commands.asScala.toSeq
 val Seq(paintOffer) = decodeAllCreated(OfferToPaintHouseByOwner.COMPANION)(
-  participant2.ledger_api.javaapi.commands.submit_flat(Seq(HouseOwner), paintOfferCmd, domainId = Some(paintId)))
+  participant2.ledger_api.javaapi.commands.submit_flat(Seq(HouseOwner), paintOfferCmd, synchronizerId =Some(paintId)))
 // architecture-handbook-entry-end: paint-offer
 
 // architecture-handbook-entry-begin: reassignment
@@ -113,7 +113,7 @@ participant3.ledger_api.commands.submit_reassign(
 // architecture-handbook-entry-begin: accept
 // Painter accepts the paint offer on the IOU domain
 val acceptCmd = paintOffer.id.exerciseAcceptByPainter().commands.asScala.toSeq
-val acceptTx = participant3.ledger_api.javaapi.commands.submit_flat(Seq(Painter), acceptCmd, domainId = Some(iouId))
+val acceptTx = participant3.ledger_api.javaapi.commands.submit_flat(Seq(Painter), acceptCmd, synchronizerId =Some(iouId))
 val Seq(painterIou) = decodeAllCreated(Iou.COMPANION)(acceptTx)
 val Seq(paintHouse) = decodeAllCreated(PaintHouse.COMPANION)(acceptTx)
 // architecture-handbook-entry-end: accept
@@ -136,6 +136,6 @@ participant2.ledger_api.commands.submit_reassign(
 participant3.ledger_api.javaapi.commands.submit_flat(
   Seq(Painter),
   painterIou.id.exerciseCall().commands.asScala.toSeq,
-  domainId = Some(iouId)
+  synchronizerId =Some(iouId)
 )
 // architecture-handbook-entry-end: call

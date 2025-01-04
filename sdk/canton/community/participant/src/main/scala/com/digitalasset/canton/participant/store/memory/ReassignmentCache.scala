@@ -30,7 +30,7 @@ import com.digitalasset.canton.participant.store.memory.ReassignmentCache.Pendin
 import com.digitalasset.canton.participant.store.{ReassignmentLookup, ReassignmentStore}
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{Checked, CheckedT}
@@ -137,7 +137,7 @@ class ReassignmentCache(
     }
 
   override def find(
-      filterSource: Option[Source[DomainId]],
+      filterSource: Option[Source[SynchronizerId]],
       filterRequestTimestamp: Option[CantonTimestamp],
       filterSubmitter: Option[LfPartyId],
       limit: Int,
@@ -148,8 +148,11 @@ class ReassignmentCache(
         _.filter(reassignmentData => !pendingCompletions.contains(reassignmentData.reassignmentId))
       )
 
-  override def findAfter(requestAfter: Option[(CantonTimestamp, Source[DomainId])], limit: Int)(
-      implicit traceContext: TraceContext
+  override def findAfter(
+      requestAfter: Option[(CantonTimestamp, Source[SynchronizerId])],
+      limit: Int,
+  )(implicit
+      traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[ReassignmentData]] = reassignmentStore
     .findAfter(requestAfter, limit)
     .map(
@@ -163,7 +166,7 @@ class ReassignmentCache(
     * Hence, we don't need additional synchronization here and we can directly query the store.
     */
   override def findIncomplete(
-      sourceDomain: Option[Source[DomainId]],
+      sourceDomain: Option[Source[SynchronizerId]],
       validAt: Offset,
       stakeholders: Option[NonEmpty[Set[LfPartyId]]],
       limit: NonNegativeInt,
@@ -172,7 +175,7 @@ class ReassignmentCache(
 
   def findEarliestIncomplete()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[(Offset, ReassignmentId, Target[DomainId])]] =
+  ): FutureUnlessShutdown[Option[(Offset, ReassignmentId, Target[SynchronizerId])]] =
     reassignmentStore.findEarliestIncomplete()
 
   override def onClosed(): Unit =
@@ -182,7 +185,7 @@ class ReassignmentCache(
 
   override def findContractReassignmentId(
       contractIds: Seq[LfContractId],
-      sourceDomain: Option[Source[DomainId]],
+      sourceDomain: Option[Source[SynchronizerId]],
       unassignmentTs: Option[CantonTimestamp],
       completionTs: Option[CantonTimestamp],
   )(implicit

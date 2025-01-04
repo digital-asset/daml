@@ -14,7 +14,7 @@ import com.digitalasset.canton.participant.store.InFlightSubmissionStore.{
 }
 import com.digitalasset.canton.protocol.RootHash
 import com.digitalasset.canton.sequencing.protocol.{MessageId, SequencerErrors}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{BaseTest, DefaultDamlValues, SequencerCounter}
@@ -33,8 +33,8 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
   lazy val changeId4 = mkChangeIdHash(4)
   lazy val submissionId1 = DefaultDamlValues.submissionId(1).some
   lazy val submissionId2 = DefaultDamlValues.submissionId(2).some
-  lazy val domainId1 = DomainId.tryFromString("domain1::id")
-  lazy val domainId2 = DomainId.tryFromString("domain2::id")
+  lazy val synchronizerId1 = SynchronizerId.tryFromString("domain1::id")
+  lazy val synchronizerId2 = SynchronizerId.tryFromString("domain2::id")
   lazy val messageId1 = new UUID(0, 1)
   lazy val messageId2 = new UUID(0, 2)
   lazy val messageId3 = new UUID(0, 3)
@@ -45,7 +45,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
     TransactionSubmissionTrackingData(
       completionInfo,
       TransactionSubmissionTrackingData.TimeoutCause,
-      DomainId.tryFromString("da::default"),
+      SynchronizerId.tryFromString("da::default"),
       testedProtocolVersion,
     )
   lazy val trackingData3 = TransactionSubmissionTrackingData(
@@ -55,13 +55,13 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
         .SubmissionRequestRefused("Some invalid batch")
         .rpcStatusWithoutLoggingContext()
     ),
-    DomainId.tryFromString("da::default"),
+    SynchronizerId.tryFromString("da::default"),
     testedProtocolVersion,
   )
   lazy val submission1 = InFlightSubmission(
     changeId1,
     submissionId1,
-    domainId1,
+    synchronizerId1,
     messageId1,
     None,
     UnsequencedSubmission(CantonTimestamp.Epoch, trackingData1),
@@ -70,7 +70,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
   lazy val submission2 = InFlightSubmission(
     changeId2,
     submissionId2,
-    domainId1,
+    synchronizerId1,
     messageId2,
     None,
     UnsequencedSubmission(
@@ -82,7 +82,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
   lazy val submission3 = InFlightSubmission(
     changeId3,
     submissionId1,
-    domainId2,
+    synchronizerId2,
     messageId3,
     None,
     UnsequencedSubmission(CantonTimestamp.Epoch.plusSeconds(30), trackingData3),
@@ -105,32 +105,32 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
           ).failOnShutdown
           lookupUpto <- store
             .lookupUnsequencedUptoUnordered(
-              submission1.submissionDomain,
+              submission1.submissionSynchronizerId,
               submission1.sequencingInfo.timeout,
             )
             .failOnShutdown
           lookupBefore <- store
             .lookupUnsequencedUptoUnordered(
-              submission1.submissionDomain,
+              submission1.submissionSynchronizerId,
               submission1.sequencingInfo.timeout.minusMillis(1),
             )
             .failOnShutdown
           lookupOther <- store
-            .lookupUnsequencedUptoUnordered(domainId2, CantonTimestamp.MaxValue)
+            .lookupUnsequencedUptoUnordered(synchronizerId2, CantonTimestamp.MaxValue)
             .failOnShutdown
           lookupMin <- store
-            .lookupUnsequencedUptoUnordered(domainId1, CantonTimestamp.MinValue)
+            .lookupUnsequencedUptoUnordered(synchronizerId1, CantonTimestamp.MinValue)
             .failOnShutdown
-          lookupEarliest1 <- store.lookupEarliest(domainId1).failOnShutdown
-          lookupEarliest2 <- store.lookupEarliest(domainId2).failOnShutdown
+          lookupEarliest1 <- store.lookupEarliest(synchronizerId1).failOnShutdown
+          lookupEarliest2 <- store.lookupEarliest(synchronizerId2).failOnShutdown
           lookupMsgId1 <- store
             .lookupSomeMessageId(
-              submission1.submissionDomain,
+              submission1.submissionSynchronizerId,
               submission1.messageId,
             )
             .failOnShutdown
           lookupMsgIdWrongDomain <- store
-            .lookupSomeMessageId(domainId2, submission1.messageId)
+            .lookupSomeMessageId(synchronizerId2, submission1.messageId)
             .failOnShutdown
         } yield {
           lookup shouldBe submission1
@@ -153,8 +153,8 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
             .register(submission1.copy(messageUuid = messageId2))
             .leftOrFailShutdown("re-register submission with different message ID")
           existing2 <- store
-            .register(submission1.copy(submissionDomain = domainId2))
-            .leftOrFailShutdown("re-register submission with different domain ID")
+            .register(submission1.copy(submissionSynchronizerId = synchronizerId2))
+            .leftOrFailShutdown("re-register submission with different synchronizer id")
           lookup <- valueOrFailUS(store.lookup(submission1.changeIdHash))(
             "lookup submission"
           ).failOnShutdown
@@ -190,7 +190,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
 
           lookupBefore <- store
             .lookupUnsequencedUptoUnordered(
-              submission1.submissionDomain,
+              submission1.submissionSynchronizerId,
               CantonTimestamp.MaxValue,
             )
             .failOnShutdown
@@ -204,7 +204,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
 
           lookupAfter <- store
             .lookupUnsequencedUptoUnordered(
-              submission1.submissionDomain,
+              submission1.submissionSynchronizerId,
               CantonTimestamp.MaxValue,
             )
             .failOnShutdown
@@ -223,20 +223,20 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
 
           lookupUnseqBefore <- store
             .lookupUnsequencedUptoUnordered(
-              submission1.submissionDomain,
+              submission1.submissionSynchronizerId,
               CantonTimestamp.MaxValue,
             )
             .failOnShutdown
           lookupSeqBefore <- store
             .lookupSequencedUptoUnordered(
-              submission1.submissionDomain,
+              submission1.submissionSynchronizerId,
               CantonTimestamp.MaxValue,
             )
             .failOnShutdown
 
           () <- store
             .observeSequencing(
-              domainId1,
+              synchronizerId1,
               Map(submission1.messageId -> sequencedSubmission1),
             )
             .failOnShutdown
@@ -250,13 +250,13 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
 
           lookupUnseqAfter <- store
             .lookupUnsequencedUptoUnordered(
-              submission1.submissionDomain,
+              submission1.submissionSynchronizerId,
               CantonTimestamp.MaxValue,
             )
             .failOnShutdown
           lookupSeqAfter <- store
             .lookupSequencedUptoUnordered(
-              submission1.submissionDomain,
+              submission1.submissionSynchronizerId,
               CantonTimestamp.MaxValue,
             )
             .failOnShutdown
@@ -280,7 +280,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
 
           lookupBefore <- store
             .lookupUnsequencedUptoUnordered(
-              submission1.submissionDomain,
+              submission1.submissionSynchronizerId,
               CantonTimestamp.MaxValue,
             )
             .failOnShutdown
@@ -300,7 +300,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
 
           lookupAfter <- store
             .lookupUnsequencedUptoUnordered(
-              submission1.submissionDomain,
+              submission1.submissionSynchronizerId,
               CantonTimestamp.MaxValue,
             )
             .failOnShutdown
@@ -320,13 +320,13 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
           () <- store.register(submission3).valueOrFailShutdown("register submission3")
           lookupUpto1 <- store
             .lookupUnsequencedUptoUnordered(
-              submission1.submissionDomain,
+              submission1.submissionSynchronizerId,
               CantonTimestamp.MaxValue,
             )
             .failOnShutdown
           () <- store
             .observeSequencing(
-              domainId1,
+              synchronizerId1,
               Map(
                 submission1.messageId -> sequencedSubmission1,
                 submission2.messageId -> sequencedSubmission2,
@@ -337,7 +337,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
             .failOnShutdown
           lookupUpto2 <- store
             .lookupUnsequencedUptoUnordered(
-              submission1.submissionDomain,
+              submission1.submissionSynchronizerId,
               CantonTimestamp.MaxValue,
             )
             .failOnShutdown
@@ -350,35 +350,35 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
           unsequenced3 <- valueOrFailUS(store.lookup(submission3.changeIdHash))(
             "lookup submission3"
           ).failOnShutdown
-          earliest1 <- store.lookupEarliest(domainId1).failOnShutdown
-          earliest2 <- store.lookupEarliest(domainId2).failOnShutdown
+          earliest1 <- store.lookupEarliest(synchronizerId1).failOnShutdown
+          earliest2 <- store.lookupEarliest(synchronizerId2).failOnShutdown
           lookupSequenced <- store
             .lookupSequencedUptoUnordered(
-              submission1.submissionDomain,
+              submission1.submissionSynchronizerId,
               CantonTimestamp.MaxValue,
             )
             .failOnShutdown
           lookupSequenced1 <- store
             .lookupSequencedUptoUnordered(
-              submission1.submissionDomain,
+              submission1.submissionSynchronizerId,
               sequencedSubmission1.sequencingTime,
             )
             .failOnShutdown
           none <- store
             .lookupSequencedUptoUnordered(
-              submission3.submissionDomain,
+              submission3.submissionSynchronizerId,
               CantonTimestamp.MaxValue,
             )
             .failOnShutdown
           lookupMsgId1 <- store
             .lookupSomeMessageId(
-              submission1.submissionDomain,
+              submission1.submissionSynchronizerId,
               submission1.messageId,
             )
             .failOnShutdown
           lookupMsgId3 <- store
             .lookupSomeMessageId(
-              submission3.submissionDomain,
+              submission3.submissionSynchronizerId,
               submission3.messageId,
             )
             .failOnShutdown
@@ -404,20 +404,20 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
           () <- store.register(submission1).valueOrFailShutdown("register submission1")
           () <- store
             .observeSequencing(
-              domainId1,
+              synchronizerId1,
               Map(submission1.messageId -> sequencedSubmission1),
             )
             .failOnShutdown
           () <- store
             .observeSequencing(
-              domainId1,
+              synchronizerId1,
               Map(submission1.messageId -> sequencedSubmission2),
             )
             .failOnShutdown
           sequenced1 <- valueOrFailUS(store.lookup(submission1.changeIdHash))(
             "lookup submission1"
           ).failOnShutdown
-          earliest <- store.lookupEarliest(domainId1).failOnShutdown
+          earliest <- store.lookupEarliest(synchronizerId1).failOnShutdown
         } yield {
           sequenced1 shouldBe submission1.copy(sequencingInfo = sequencedSubmission1)
           earliest shouldBe Some(sequencedSubmission1.sequencingTime)
@@ -430,12 +430,15 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
         val store = mk()
         val submission2a = submission2.copy(messageUuid = submission1.messageUuid)
         val submission3a =
-          submission3.copy(messageUuid = submission1.messageUuid, submissionDomain = domainId1)
+          submission3.copy(
+            messageUuid = submission1.messageUuid,
+            submissionSynchronizerId = synchronizerId1,
+          )
         for {
           () <- store.register(submission1).valueOrFailShutdown("register submission1")
           () <- store
             .observeSequencing(
-              domainId1,
+              synchronizerId1,
               Map(submission1.messageId -> sequencedSubmission1),
             )
             .failOnShutdown
@@ -443,7 +446,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
           () <- store.register(submission3a).valueOrFailShutdown("register submission3a")
           () <- store
             .observeSequencing(
-              domainId1,
+              synchronizerId1,
               Map(submission1.messageId -> sequencedSubmission2),
             )
             .failOnShutdown
@@ -458,13 +461,13 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
           ).failOnShutdown
           lookupMsgId1 <- store
             .lookupSomeMessageId(
-              submission1.submissionDomain,
+              submission1.submissionSynchronizerId,
               submission1.messageId,
             )
             .failOnShutdown
           lookupMsgId2 <- store
             .lookupSomeMessageId(
-              submission3.submissionDomain,
+              submission3.submissionSynchronizerId,
               submission3a.messageId,
             )
             .failOnShutdown
@@ -489,11 +492,11 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
 
         def lookups = for {
           unsequenced <- store.lookupUnsequencedUptoUnordered(
-            submission1.submissionDomain,
+            submission1.submissionSynchronizerId,
             CantonTimestamp.MaxValue,
           )
           sequenced <- store.lookupSequencedUptoUnordered(
-            submission1.submissionDomain,
+            submission1.submissionSynchronizerId,
             CantonTimestamp.MaxValue,
           )
         } yield (unsequenced, sequenced)
@@ -580,7 +583,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
           sequenced1 <- valueOrFailUS(store.lookup(submission1.changeIdHash))(
             "lookup submission1"
           ).failOnShutdown
-          earliest <- store.lookupEarliest(domainId1).failOnShutdown
+          earliest <- store.lookupEarliest(synchronizerId1).failOnShutdown
         } yield {
           sequenced1 shouldBe submission1.copy(
             sequencingInfo = sequencedSubmission1,
@@ -619,7 +622,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
           sequenced1 <- valueOrFailUS(store.lookup(submission1.changeIdHash))(
             "lookup submission1"
           ).failOnShutdown
-          earliest <- store.lookupEarliest(domainId1).failOnShutdown
+          earliest <- store.lookupEarliest(synchronizerId1).failOnShutdown
         } yield {
           sequenced1 shouldBe submission1.copy(
             sequencingInfo = sequencedSubmission1,
@@ -686,13 +689,13 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
           () <- store.register(submission3).valueOrFailShutdown("register submission3")
           () <- store
             .observeSequencing(
-              domainId2,
+              synchronizerId2,
               Map(submission3.messageId -> sequencedSubmission1),
             )
             .failOnShutdown
           () <- store
             .delete(
-              InFlightByMessageId(domainId2, MessageId.fromUuid(messageId1)) +:
+              InFlightByMessageId(synchronizerId2, MessageId.fromUuid(messageId1)) +:
                 Seq(submission1, submission3).map(_.referenceByMessageId)
             )
             .failOnShutdown
@@ -703,11 +706,11 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
           lookup3 <- store.lookup(submission3.changeIdHash).value.failOnShutdown
           lookupUpto <- store
             .lookupUnsequencedUptoUnordered(
-              submission1.submissionDomain,
+              submission1.submissionSynchronizerId,
               submission1.sequencingInfo.timeout,
             )
             .failOnShutdown
-          earliest <- store.lookupEarliest(submission1.submissionDomain).failOnShutdown
+          earliest <- store.lookupEarliest(submission1.submissionSynchronizerId).failOnShutdown
         } yield {
           lookup1 shouldBe None
           lookup2 shouldBe submission2
@@ -736,7 +739,12 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
           () <- store.register(submission1).valueOrFailShutdown("register")
           () <- store
             .delete(
-              Seq(InFlightByMessageId(submission1.submissionDomain, MessageId.fromUuid(messageId4)))
+              Seq(
+                InFlightByMessageId(
+                  submission1.submissionSynchronizerId,
+                  MessageId.fromUuid(messageId4),
+                )
+              )
             )
             .failOnShutdown
           lookup <- valueOrFailUS(store.lookup(submission1.changeIdHash))("lookup").failOnShutdown
@@ -753,13 +761,13 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
           () <- store.register(submission3).valueOrFailShutdown("register submission3")
           () <- store
             .observeSequencing(
-              domainId2,
+              synchronizerId2,
               Map(submission3.messageId -> sequencedSubmission1),
             )
             .failOnShutdown
           () <- store
             .observeSequencing(
-              domainId1,
+              synchronizerId1,
               Map(
                 submission1.messageId -> sequencedSubmission1,
                 submission2.messageId -> sequencedSubmission2,
@@ -767,7 +775,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
             )
             .failOnShutdown
           () <- store
-            .delete(Seq(InFlightBySequencingInfo(domainId1, sequencedSubmission1)))
+            .delete(Seq(InFlightBySequencingInfo(synchronizerId1, sequencedSubmission1)))
             .failOnShutdown
           lookup1 <- store.lookup(submission1.changeIdHash).value.failOnShutdown
           lookup2 <- valueOrFailUS(store.lookup(submission2.changeIdHash))(
@@ -780,7 +788,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
           () <- store.register(submission1).valueOrFailShutdown("reregister submission1")
           () <- store
             .observeSequencing(
-              domainId1,
+              synchronizerId1,
               Map(submission1.messageId -> sequencedSubmission1),
             )
             .failOnShutdown
@@ -790,15 +798,15 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
           () <- store
             .delete(
               Seq(
-                InFlightBySequencingInfo(domainId1, sequencedSubmission1),
-                InFlightBySequencingInfo(domainId1, sequencedSubmission2),
+                InFlightBySequencingInfo(synchronizerId1, sequencedSubmission1),
+                InFlightBySequencingInfo(synchronizerId1, sequencedSubmission2),
               )
             )
             .failOnShutdown
           lookup1b <- store.lookup(submission1.changeIdHash).value.failOnShutdown
           lookup2b <- store.lookup(submission1.changeIdHash).value.failOnShutdown
           () <- store
-            .delete(Seq(InFlightBySequencingInfo(domainId2, sequencedSubmission1)))
+            .delete(Seq(InFlightBySequencingInfo(synchronizerId2, sequencedSubmission1)))
             .failOnShutdown
           lookup3b <- store.lookup(submission3.changeIdHash).value.failOnShutdown
         } yield {
@@ -820,13 +828,13 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
           () <- store.register(submission3).valueOrFailShutdown("register submission3")
           () <- store
             .observeSequencing(
-              domainId2,
+              synchronizerId2,
               Map(submission3.messageId -> sequencedSubmission1),
             )
             .failOnShutdown
           () <- store
             .observeSequencing(
-              domainId1,
+              synchronizerId1,
               Map(submission1.messageId -> sequencedSubmission1),
             )
             .failOnShutdown
@@ -834,7 +842,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
             .delete(
               Seq(
                 submission2.referenceByMessageId,
-                InFlightBySequencingInfo(domainId1, sequencedSubmission1),
+                InFlightBySequencingInfo(synchronizerId1, sequencedSubmission1),
                 submission3.referenceByMessageId,
               )
             )
@@ -857,7 +865,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
           () <- store
             .updateUnsequenced(
               submission1.changeIdHash,
-              submission1.submissionDomain,
+              submission1.submissionSynchronizerId,
               submission1.messageId,
               UnsequencedSubmission(CantonTimestamp.MaxValue, TestSubmissionTrackingData.default),
             )
@@ -879,7 +887,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
           () <- store
             .updateUnsequenced(
               submission1.changeIdHash,
-              submission1.submissionDomain,
+              submission1.submissionSynchronizerId,
               submission1.messageId,
               newSequencingInfo1,
             )
@@ -890,7 +898,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
           () <- store
             .updateUnsequenced(
               submission1.changeIdHash,
-              submission1.submissionDomain,
+              submission1.submissionSynchronizerId,
               submission1.messageId,
               newSequencingInfo2,
             )
@@ -898,7 +906,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
           lookup2 <- valueOrFailUS(store.lookup(submission1.changeIdHash))(
             "lookup 2"
           ).failOnShutdown
-          earliest <- store.lookupEarliest(submission1.submissionDomain).failOnShutdown
+          earliest <- store.lookupEarliest(submission1.submissionSynchronizerId).failOnShutdown
         } yield {
           lookup1 shouldBe submission1.copy(sequencingInfo = newSequencingInfo1)
           lookup2 shouldBe submission1.copy(sequencingInfo = newSequencingInfo2)
@@ -916,7 +924,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
             store
               .updateUnsequenced(
                 submission1.changeIdHash,
-                submission1.submissionDomain,
+                submission1.submissionSynchronizerId,
                 submission1.messageId,
                 newSequencingInfo,
               )
@@ -925,7 +933,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
               s"Sequencing timeout for submission \\(change ID hash .*, message Id .* on .*\\) is at ${submission1.associatedTimestamp} before ${newSequencingInfo.timeout}",
           )
           lookup <- valueOrFailUS(store.lookup(submission1.changeIdHash))("lookup").failOnShutdown
-          earliest <- store.lookupEarliest(submission1.submissionDomain).failOnShutdown
+          earliest <- store.lookupEarliest(submission1.submissionSynchronizerId).failOnShutdown
         } yield {
           lookup shouldBe submission1
           earliest shouldBe Some(submission1.associatedTimestamp)
@@ -940,7 +948,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
           () <- store.register(submission1).valueOrFailShutdown("register")
           () <- store
             .observeSequencing(
-              submission1.submissionDomain,
+              submission1.submissionSynchronizerId,
               Map(submission1.messageId -> sequencedSubmission1),
             )
             .failOnShutdown
@@ -948,13 +956,13 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
             store
               .updateUnsequenced(
                 submission1.changeIdHash,
-                submission1.submissionDomain,
+                submission1.submissionSynchronizerId,
                 submission1.messageId,
                 newSequencingInfo,
               )
               .failOnShutdown,
             _.warningMessage should include(
-              show"Submission (change ID hash ${submission1.changeIdHash}, message Id ${submission1.messageId}) on ${submission1.submissionDomain} has already been sequenced. $sequencedSubmission1"
+              show"Submission (change ID hash ${submission1.changeIdHash}, message Id ${submission1.messageId}) on ${submission1.submissionSynchronizerId} has already been sequenced. $sequencedSubmission1"
             ),
           )
           lookup <- valueOrFailUS(store.lookup(submission1.changeIdHash))("lookup").failOnShutdown

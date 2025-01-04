@@ -15,7 +15,7 @@ import com.digitalasset.canton.participant.store.DomainConnectionConfigStore.{
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.{BaseTest, DomainAlias, SequencerAlias}
+import com.digitalasset.canton.{BaseTest, SequencerAlias, SynchronizerAlias}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -25,8 +25,8 @@ trait DomainConnectionConfigStoreTest {
   this: AsyncWordSpec with BaseTest =>
 
   private val uid = DefaultTestIdentities.uid
-  private val domainId = DomainId(uid)
-  private val alias = DomainAlias.tryCreate("da")
+  private val synchronizerId = SynchronizerId(uid)
+  private val alias = SynchronizerAlias.tryCreate("da")
   private val connection = GrpcSequencerConnection(
     NonEmpty(Seq, Endpoint("host1", Port.tryCreate(500)), Endpoint("host2", Port.tryCreate(600))),
     false,
@@ -37,7 +37,7 @@ trait DomainConnectionConfigStoreTest {
     alias,
     SequencerConnections.single(connection),
     manualConnect = false,
-    Some(domainId),
+    Some(synchronizerId),
     42,
     Some(NonNegativeFiniteDuration.tryOfSeconds(1)),
     Some(NonNegativeFiniteDuration.tryOfSeconds(5)),
@@ -65,7 +65,7 @@ trait DomainConnectionConfigStoreTest {
         } yield succeed
 
       }
-      "return error if domain alias config already exists with a different value" in {
+      "return error if synchronizer alias config already exists with a different value" in {
         for {
           sut <- mk
           _ <- sut.put(config, status).valueOrFail("first store of config")
@@ -118,7 +118,7 @@ trait DomainConnectionConfigStoreTest {
         } yield result shouldBe Left(MissingConfigForAlias(alias))
       }
       "be able to retrieve all configs" in {
-        val secondConfig = config.copy(domain = DomainAlias.tryCreate("another"))
+        val secondConfig = config.copy(synchronizerAlias = SynchronizerAlias.tryCreate("another"))
         for {
           sut <- mk
           _ <- valueOrFail(sut.put(config, status))("failed to add config to domain config store")
@@ -136,7 +136,7 @@ trait DomainConnectionConfigStoreTest {
           sut <- mk
           _ <- valueOrFail(sut.put(config, status))("put")
           _ <- sut.refreshCache()
-          fetchedConfig = valueOrFail(sut.get(config.domain))("get")
+          fetchedConfig = valueOrFail(sut.get(config.synchronizerAlias))("get")
         } yield fetchedConfig.config shouldBe config
       }
     }

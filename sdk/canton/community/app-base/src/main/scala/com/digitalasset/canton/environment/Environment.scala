@@ -19,9 +19,6 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.domain.mediator.{MediatorNodeBootstrap, MediatorNodeParameters}
-import com.digitalasset.canton.domain.metrics.MediatorMetrics
-import com.digitalasset.canton.domain.sequencing.SequencerNodeBootstrap
 import com.digitalasset.canton.environment.CantonNodeBootstrap.HealthDumpFunction
 import com.digitalasset.canton.environment.Environment.*
 import com.digitalasset.canton.lifecycle.LifeCycle
@@ -31,6 +28,9 @@ import com.digitalasset.canton.metrics.{CantonHistograms, MetricsRegistry}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.participant.*
 import com.digitalasset.canton.resource.DbMigrationsFactory
+import com.digitalasset.canton.synchronizer.mediator.{MediatorNodeBootstrap, MediatorNodeParameters}
+import com.digitalasset.canton.synchronizer.metrics.MediatorMetrics
+import com.digitalasset.canton.synchronizer.sequencing.SequencerNodeBootstrap
 import com.digitalasset.canton.telemetry.{ConfiguredOpenTelemetry, OpenTelemetryFactory}
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext

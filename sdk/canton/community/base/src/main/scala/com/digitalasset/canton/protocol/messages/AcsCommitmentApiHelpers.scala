@@ -10,7 +10,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.AcsCommitment.CommitmentType
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.IndexedDomain
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import slick.jdbc.{GetResult, SetParameter}
 
 final case class DomainSearchCommitmentPeriod(
@@ -20,7 +20,7 @@ final case class DomainSearchCommitmentPeriod(
 ) extends PrettyPrinting {
   override protected def pretty: Pretty[DomainSearchCommitmentPeriod] =
     prettyOfClass(
-      param("domainId", _.indexedDomain.domainId),
+      param("synchronizerId", _.indexedDomain.synchronizerId),
       param("fromExclusive", _.fromExclusive),
       param("toInclusive", _.toInclusive),
     )
@@ -115,7 +115,7 @@ object CommitmentPeriodState extends {
 }
 
 final case class SentAcsCommitment(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     interval: CommitmentPeriod,
     counterParticipant: ParticipantId,
     sentCommitment: Option[CommitmentType],
@@ -126,7 +126,7 @@ final case class SentAcsCommitment(
 object SentAcsCommitment {
 
   def compare(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       computed: Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.CommitmentType)],
       received: Iterable[AcsCommitment],
       outstanding: Iterable[(CommitmentPeriod, ParticipantId, ValidSentPeriodState)],
@@ -152,7 +152,7 @@ object SentAcsCommitment {
 
     } yield {
       SentAcsCommitment(
-        domainId,
+        synchronizerId,
         period,
         participant,
         receivedCommitment,
@@ -162,7 +162,7 @@ object SentAcsCommitment {
     }
 
   def toProtoV30(sents: Iterable[SentAcsCommitment]): Seq[v30.SentAcsCommitmentPerDomain] = {
-    sents.groupBy(_.domainId).map { case (domain, commitment) =>
+    sents.groupBy(_.synchronizerId).map { case (domain, commitment) =>
       v30.SentAcsCommitmentPerDomain(
         domain.toProtoPrimitive,
         commitment.map { comm =>
@@ -185,7 +185,7 @@ object SentAcsCommitment {
 }
 
 final case class ReceivedAcsCommitment(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     interval: CommitmentPeriod,
     originCounterParticipant: ParticipantId,
     receivedCommitment: Option[CommitmentType],
@@ -196,7 +196,7 @@ final case class ReceivedAcsCommitment(
 object ReceivedAcsCommitment {
 
   def compare(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       received: Iterable[AcsCommitment],
       computed: Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.CommitmentType)],
       buffering: Iterable[AcsCommitment],
@@ -234,7 +234,7 @@ object ReceivedAcsCommitment {
         else None
     } yield {
       ReceivedAcsCommitment(
-        domainId,
+        synchronizerId,
         recCmt.period,
         recCmt.sender,
         Option.when(verbose)(recCmt.commitment),
@@ -243,7 +243,7 @@ object ReceivedAcsCommitment {
       )
     }) ++ buffering.map(cmt =>
       ReceivedAcsCommitment(
-        cmt.domainId,
+        cmt.synchronizerId,
         cmt.period,
         cmt.sender,
         Option.when(verbose)(cmt.commitment),
@@ -254,7 +254,7 @@ object ReceivedAcsCommitment {
   def toProtoV30(
       received: Iterable[ReceivedAcsCommitment]
   ): Seq[v30.ReceivedAcsCommitmentPerDomain] = {
-    received.groupBy(_.domainId).map { case (domain, commitment) =>
+    received.groupBy(_.synchronizerId).map { case (domain, commitment) =>
       v30.ReceivedAcsCommitmentPerDomain(
         domain.toProtoPrimitive,
         commitment.map { cmt =>

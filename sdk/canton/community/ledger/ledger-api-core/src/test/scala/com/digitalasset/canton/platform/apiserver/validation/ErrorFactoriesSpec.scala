@@ -299,7 +299,7 @@ class ErrorFactoriesSpec
         s"TRANSACTION_NOT_FOUND(11,$truncatedCorrelationId): Transaction not found, or not visible."
       assertError(
         RequestValidationErrors.NotFound.Transaction
-          .Reject(Ref.TransactionId.assertFromString("tId"))(contextualizedErrorLogger)
+          .RejectWithTxId(Ref.TransactionId.assertFromString("tId"))(contextualizedErrorLogger)
       )(
         code = Code.NOT_FOUND,
         message = msg,

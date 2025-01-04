@@ -8,7 +8,7 @@ import com.daml.metrics.api.{HistogramInventory, MetricName, MetricsContext}
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.metrics.{IndexerHistograms, IndexerMetrics}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 import com.digitalasset.daml.lf.crypto.Hash
@@ -100,7 +100,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
       updateId = Ref.TransactionId.assertFromString("UpdateId"),
       hostedWitnesses = Nil,
       Map.empty,
-      domainId = DomainId.tryFromString("da::default"),
+      synchronizerId = SynchronizerId.tryFromString("da::default"),
       RequestCounter(10),
       SequencerCounter(10),
       CantonTimestamp.now(),

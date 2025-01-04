@@ -95,7 +95,9 @@ sealed trait AcsCommitmentProcessorBaseTest
     SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
 
   protected lazy val interval = PositiveSeconds.tryOfSeconds(5)
-  protected lazy val domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::da"))
+  protected lazy val synchronizerId = SynchronizerId(
+    UniqueIdentifier.tryFromProtoPrimitive("domain::da")
+  )
   protected lazy val localId = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("localParticipant::domain")
   )
@@ -161,7 +163,7 @@ sealed trait AcsCommitmentProcessorBaseTest
                 .assignContract(
                   cid,
                   TimeOfChange(RequestCounter(0), lifespan.activatedTs),
-                  Source(domainId),
+                  Source(synchronizerId),
                   lifespan.reassignmentCounterAtActivation,
                 )
                 .value
@@ -185,7 +187,7 @@ sealed trait AcsCommitmentProcessorBaseTest
                 .unassignContracts(
                   cid,
                   TimeOfChange(RequestCounter(0), lifespan.deactivatedTs),
-                  Target(domainId),
+                  Target(synchronizerId),
                   reassignmentCounterAtUnassignment,
                 )
                 .value
@@ -327,7 +329,7 @@ sealed trait AcsCommitmentProcessorBaseTest
     val acsCommitmentConfigStore = new InMemoryAcsCommitmentConfigStore()
     val store =
       optCommitmentStore.getOrElse(
-        new InMemoryAcsCommitmentStore(domainId, acsCommitmentConfigStore, loggerFactory)
+        new InMemoryAcsCommitmentStore(synchronizerId, acsCommitmentConfigStore, loggerFactory)
       )
 
     val sortedReconciliationIntervalsProvider =
@@ -342,7 +344,7 @@ sealed trait AcsCommitmentProcessorBaseTest
     val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1)
 
     val acsCommitmentProcessor = AcsCommitmentProcessor(
-      domainId,
+      synchronizerId,
       localId,
       sequencerClient,
       domainCrypto,
@@ -513,7 +515,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       ),
       unassignments = Map[LfContractId, UnassignmentCommit](
         coid(1, 0) -> UnassignmentCommit(
-          Target(domainId),
+          Target(synchronizerId),
           Set(alice, bob),
           reassignmentCounter2,
         )
@@ -537,7 +539,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       unassignments = Map.empty[LfContractId, UnassignmentCommit],
       assignments = Map[LfContractId, AssignmentCommit](
         coid(1, 0) -> AssignmentCommit(
-          ReassignmentId(Source(domainId), ts(4).forgetRefinement),
+          ReassignmentId(Source(synchronizerId), ts(4).forgetRefinement),
           ContractMetadata.tryCreate(Set.empty, Set(alice, bob), None),
           reassignmentCounter2,
         )
@@ -558,7 +560,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       ),
       unassignments = Map[LfContractId, UnassignmentCommit](
         coid(2, 0) -> UnassignmentCommit(
-          Target(domainId),
+          Target(synchronizerId),
           Set(alice, bob, carol),
           reassignmentCounter2,
         )
@@ -599,7 +601,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       unassignments = Map.empty[LfContractId, UnassignmentCommit],
       assignments = Map[LfContractId, AssignmentCommit](
         coid(2, 0) -> AssignmentCommit(
-          ReassignmentId(Source(domainId), ts(8).forgetRefinement),
+          ReassignmentId(Source(synchronizerId), ts(8).forgetRefinement),
           ContractMetadata.tryCreate(Set.empty, Set(alice, bob, carol), None),
           reassignmentCounter2,
         )
@@ -616,7 +618,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       archivals = Map.empty[LfContractId, ArchivalCommit],
       unassignments = Map[LfContractId, UnassignmentCommit](
         coid(2, 0) -> UnassignmentCommit(
-          Target(domainId),
+          Target(synchronizerId),
           Set(alice, bob, carol),
           reassignmentCounter3,
         )
@@ -884,7 +886,7 @@ class AcsCommitmentProcessorTest
         )
         .value
     val payload =
-      AcsCommitment.create(domainId, remote, localId, period, cmt, testedProtocolVersion)
+      AcsCommitment.create(synchronizerId, remote, localId, period, cmt, testedProtocolVersion)
 
     snapshotF.flatMap { snapshot =>
       SignedProtocolMessage
@@ -981,7 +983,7 @@ class AcsCommitmentProcessorTest
             earliestInFlightSubmissionFUS = FutureUnlessShutdown.pure(None),
             sortedReconciliationIntervalsProvider =
               constantSortedReconciliationIntervalsProvider(longInterval),
-            domainId,
+            synchronizerId,
           )
           .failOnShutdown
       } yield res shouldBe None
@@ -999,7 +1001,7 @@ class AcsCommitmentProcessorTest
             earliestInFlightSubmissionFUS = FutureUnlessShutdown.pure(None),
             sortedReconciliationIntervalsProvider =
               constantSortedReconciliationIntervalsProvider(longInterval),
-            domainId,
+            synchronizerId,
           )
           .failOnShutdown
       } yield res shouldBe Some(CantonTimestampSecond.MinValue)
@@ -1030,7 +1032,7 @@ class AcsCommitmentProcessorTest
             earliestInFlightSubmissionFUS = FutureUnlessShutdown.pure(None),
             sortedReconciliationIntervalsProvider =
               constantSortedReconciliationIntervalsProvider(longInterval),
-            domainId,
+            synchronizerId,
           )
           .failOnShutdown
       }
@@ -1447,7 +1449,7 @@ class AcsCommitmentProcessorTest
             constantSortedReconciliationIntervalsProvider(defaultReconciliationInterval),
             acsCommitmentStore,
             inFlightSubmissionStore,
-            domainId,
+            synchronizerId,
             checkForOutstandingCommitments = true,
           )
       } yield {
@@ -1478,7 +1480,7 @@ class AcsCommitmentProcessorTest
             constantSortedReconciliationIntervalsProvider(defaultReconciliationInterval),
             acsCommitmentStore,
             inFlightSubmissionStore,
-            domainId,
+            synchronizerId,
             checkForOutstandingCommitments = true,
           )
           .failOnShutdown
@@ -1564,7 +1566,7 @@ class AcsCommitmentProcessorTest
             sortedReconciliationIntervalsProvider,
             acsCommitmentStore,
             inFlightSubmissionStore,
-            domainId,
+            synchronizerId,
             checkForOutstandingCommitments = true,
           )
         _ <- requestJournalStore
@@ -1600,7 +1602,7 @@ class AcsCommitmentProcessorTest
             sortedReconciliationIntervalsProvider,
             acsCommitmentStore,
             inFlightSubmissionStore,
-            domainId,
+            synchronizerId,
             checkForOutstandingCommitments = true,
           )
       } yield {
@@ -1671,7 +1673,7 @@ class AcsCommitmentProcessorTest
             sortedReconciliationIntervalsProvider,
             acsCommitmentStore,
             inFlightSubmissionStore,
-            domainId,
+            synchronizerId,
             checkForOutstandingCommitments = true,
           )
       } yield assertInIntervalBefore(tsCleanRequest, reconciliationInterval)(res)
@@ -1713,7 +1715,7 @@ class AcsCommitmentProcessorTest
       val submission1 = InFlightSubmission(
         changeId1,
         submissionId,
-        domainId,
+        synchronizerId,
         new UUID(0, 1),
         None,
         UnsequencedSubmission(ts1, TestSubmissionTrackingData.default),
@@ -1722,7 +1724,7 @@ class AcsCommitmentProcessorTest
       val submission2 = InFlightSubmission(
         changeId2,
         submissionId,
-        domainId,
+        synchronizerId,
         new UUID(0, 2),
         None,
         UnsequencedSubmission(CantonTimestamp.MaxValue, TestSubmissionTrackingData.default),
@@ -1745,7 +1747,7 @@ class AcsCommitmentProcessorTest
           .value
         _ <- inFlightSubmissionStore
           .observeSequencing(
-            submission2.submissionDomain,
+            submission2.submissionSynchronizerId,
             Map(submission2.messageId -> SequencedSubmission(SequencerCounter(2), tsCleanRequest)),
           )
         testeeSafeToPrune = () =>
@@ -1773,7 +1775,7 @@ class AcsCommitmentProcessorTest
               sortedReconciliationIntervalsProvider,
               acsCommitmentStore,
               inFlightSubmissionStore,
-              domainId,
+              synchronizerId,
               checkForOutstandingCommitments = true,
             )
         res1 <- testeeSafeToPrune()
@@ -1904,11 +1906,11 @@ class AcsCommitmentProcessorTest
         ),
         unassignments = Map[LfContractId, UnassignmentCommit](
           cid2.leftSide -> CommitSet
-            .UnassignmentCommit(Target(domainId), Set(alice), reassignmentCounter2)
+            .UnassignmentCommit(Target(synchronizerId), Set(alice), reassignmentCounter2)
         ),
         assignments = Map[LfContractId, AssignmentCommit](
           cid3.leftSide -> CommitSet.AssignmentCommit(
-            ReassignmentId(Source(domainId), CantonTimestamp.Epoch),
+            ReassignmentId(Source(synchronizerId), CantonTimestamp.Epoch),
             ContractMetadata.tryCreate(Set.empty, Set(bob), None),
             reassignmentCounter1,
           )
@@ -3692,7 +3694,7 @@ class AcsCommitmentProcessorTest
         val acsCommitmentConfigStore = new InMemoryAcsCommitmentConfigStore()
         val inMemoryCommitmentStore =
           new InMemoryAcsCommitmentStore(
-            domainId,
+            synchronizerId,
             acsCommitmentConfigStore,
             loggerFactory,
           )
@@ -3770,7 +3772,7 @@ class AcsCommitmentProcessorTest
         val acsCommitmentConfigStore = new InMemoryAcsCommitmentConfigStore()
         val inMemoryCommitmentStore =
           new InMemoryAcsCommitmentStore(
-            domainId,
+            synchronizerId,
             acsCommitmentConfigStore,
             loggerFactory,
           )
@@ -3839,7 +3841,7 @@ class AcsCommitmentProcessorTest
         val acsCommitmentConfigStore = new InMemoryAcsCommitmentConfigStore()
         val inMemoryCommitmentStore =
           new InMemoryAcsCommitmentStore(
-            domainId,
+            synchronizerId,
             acsCommitmentConfigStore,
             loggerFactory,
           )
@@ -3910,7 +3912,7 @@ class AcsCommitmentProcessorTest
         val acsCommitmentConfigStore = new InMemoryAcsCommitmentConfigStore()
         val inMemoryCommitmentStore =
           new InMemoryAcsCommitmentStore(
-            domainId,
+            synchronizerId,
             acsCommitmentConfigStore,
             loggerFactory,
           )
@@ -4028,7 +4030,7 @@ class AcsCommitmentProcessorTest
           .createOrUpdateCounterParticipantConfigs(
             Seq(
               new ConfigForSlowCounterParticipants(
-                domainId = domainId,
+                synchronizerId = synchronizerId,
                 participantId = remoteId3,
                 isDistinguished = true,
                 isAddedToMetrics = false,
@@ -4036,7 +4038,7 @@ class AcsCommitmentProcessorTest
             ),
             Seq(
               new ConfigForDomainThresholds(
-                domainId = domainId,
+                synchronizerId = synchronizerId,
                 thresholdDistinguished = NonNegativeLong.zero,
                 thresholdDefault = NonNegativeLong.zero,
               )
@@ -4118,13 +4120,13 @@ class AcsCommitmentProcessorTest
           .createOrUpdateCounterParticipantConfigs(
             Seq(
               new ConfigForSlowCounterParticipants(
-                domainId = domainId,
+                synchronizerId = synchronizerId,
                 participantId = remoteId3,
                 isDistinguished = false,
                 isAddedToMetrics = true,
               ),
               new ConfigForSlowCounterParticipants(
-                domainId = domainId,
+                synchronizerId = synchronizerId,
                 participantId = remoteId2,
                 isDistinguished = false,
                 isAddedToMetrics = true,
@@ -4132,7 +4134,7 @@ class AcsCommitmentProcessorTest
             ),
             Seq(
               new ConfigForDomainThresholds(
-                domainId = domainId,
+                synchronizerId = synchronizerId,
                 thresholdDistinguished = NonNegativeLong.zero,
                 thresholdDefault = NonNegativeLong.zero,
               )
@@ -4218,7 +4220,7 @@ class AcsCommitmentProcessorTest
           .createOrUpdateCounterParticipantConfigs(
             Seq(
               new ConfigForSlowCounterParticipants(
-                domainId = domainId,
+                synchronizerId = synchronizerId,
                 participantId = remoteId3,
                 isDistinguished = true,
                 isAddedToMetrics = false,
@@ -4226,7 +4228,7 @@ class AcsCommitmentProcessorTest
             ),
             Seq(
               new ConfigForDomainThresholds(
-                domainId = domainId,
+                synchronizerId = synchronizerId,
                 thresholdDistinguished = NonNegativeLong.tryCreate(5),
                 thresholdDefault = NonNegativeLong.tryCreate(5),
               )

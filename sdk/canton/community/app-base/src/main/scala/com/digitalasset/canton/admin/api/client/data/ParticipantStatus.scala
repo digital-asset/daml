@@ -14,7 +14,7 @@ import com.digitalasset.canton.health.admin.data.NodeStatus.multiline
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseVersion}
 
 import java.time.Duration
@@ -24,7 +24,7 @@ final case class ParticipantStatus(
     id: ParticipantId,
     uptime: Duration,
     ports: Map[String, Port],
-    connectedDomains: Map[DomainId, SubmissionReady],
+    connectedDomains: Map[SynchronizerId, SubmissionReady],
     active: Boolean,
     topologyQueue: TopologyQueueStatus,
     components: Seq[ComponentStatus],
@@ -34,13 +34,15 @@ final case class ParticipantStatus(
 
   val uid: UniqueIdentifier = id.uid
 
-  private def connectedHealthyDomains: immutable.Iterable[DomainId] = connectedDomains.collect {
-    case (domainId, submissionReady) if submissionReady.unwrap => domainId
-  }
+  private def connectedHealthyDomains: immutable.Iterable[SynchronizerId] =
+    connectedDomains.collect {
+      case (synchronizerId, submissionReady) if submissionReady.unwrap => synchronizerId
+    }
 
-  private def connectedUnhealthyDomains: immutable.Iterable[DomainId] = connectedDomains.collect {
-    case (domainId, submissionReady) if !submissionReady.unwrap => domainId
-  }
+  private def connectedUnhealthyDomains: immutable.Iterable[SynchronizerId] =
+    connectedDomains.collect {
+      case (synchronizerId, submissionReady) if !submissionReady.unwrap => synchronizerId
+    }
 
   override protected def pretty: Pretty[ParticipantStatus] =
     prettyOfString(_ =>
@@ -65,15 +67,15 @@ object ParticipantStatus {
 
   private def connectedDomainFromProtoV30(
       proto: participantV30.ConnectedDomain
-  ): ParsingResult[(DomainId, SubmissionReady)] = for {
-    domainId <- DomainId.fromProtoPrimitive(proto.domainId, "domain_id")
+  ): ParsingResult[(SynchronizerId, SubmissionReady)] = for {
+    synchronizerId <- SynchronizerId.fromProtoPrimitive(proto.synchronizerId, "synchronizer_id")
     isHealth <- proto.health match {
       case Health.HEALTH_UNSPECIFIED => Left(ProtoDeserializationError.FieldNotSet("health"))
       case Health.HEALTH_HEALTHY => Right(true)
       case Health.HEALTH_UNHEALTHY => Right(false)
       case Health.Unrecognized(i) => Left(ProtoDeserializationError.UnrecognizedEnum("health", i))
     }
-  } yield (domainId, SubmissionReady(isHealth))
+  } yield (synchronizerId, SubmissionReady(isHealth))
 
   def fromProtoV30(
       proto: participantV30.ParticipantStatusResponse

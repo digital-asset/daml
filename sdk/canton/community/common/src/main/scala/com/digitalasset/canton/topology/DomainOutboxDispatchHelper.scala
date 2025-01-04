@@ -5,7 +5,7 @@ package com.digitalasset.canton.topology
 
 import cats.data.{EitherT, OptionT}
 import cats.syntax.parallel.*
-import com.digitalasset.canton.DomainAlias
+import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.common.domain.RegisterTopologyTransactionHandle
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
@@ -30,7 +30,7 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
 
 trait DomainOutboxDispatchHelper extends NamedLogging {
-  protected def domainId: DomainId
+  protected def synchronizerId: SynchronizerId
 
   protected def memberId: Member
 
@@ -59,7 +59,7 @@ trait DomainOutboxDispatchHelper extends NamedLogging {
       transactions: Seq[GenericSignedTopologyTransaction]
   ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]] =
     FutureUnlessShutdown.pure(
-      transactions.filter(x => x.mapping.restrictedToDomain.forall(_ == domainId))
+      transactions.filter(x => x.mapping.restrictedToDomain.forall(_ == synchronizerId))
     )
 
   protected def isFailedState(response: TopologyTransactionsBroadcast.State): Boolean =
@@ -155,7 +155,7 @@ trait DomainOutboxDispatch extends NamedLogging with FlagCloseable {
   }
 
   protected def dispatch(
-      domain: DomainAlias,
+      synchronizerAlias: SynchronizerAlias,
       transactions: Seq[GenericSignedTopologyTransaction],
   )(implicit
       traceContext: TraceContext,
@@ -176,11 +176,11 @@ trait DomainOutboxDispatch extends NamedLogging with FlagCloseable {
         .unlessShutdown(
           {
             logger.debug(
-              s"Attempting to push ${transactions.size} topology transactions to $domain: $transactions"
+              s"Attempting to push ${transactions.size} topology transactions to $synchronizerAlias: $transactions"
             )
             FutureUnlessShutdownUtil.logOnFailureUnlessShutdown(
               handle.submit(transactions),
-              s"Pushing topology transactions to $domain",
+              s"Pushing topology transactions to $synchronizerAlias",
             )
           },
           AllExceptionRetryPolicy,
@@ -192,7 +192,7 @@ trait DomainOutboxDispatch extends NamedLogging with FlagCloseable {
             )
           }
           logger.debug(
-            s"$domain responded the following for the given topology transactions: $responses"
+            s"$synchronizerAlias responded the following for the given topology transactions: $responses"
           )
           val failedResponses =
             responses.zip(transactions).collect {
@@ -202,7 +202,7 @@ trait DomainOutboxDispatch extends NamedLogging with FlagCloseable {
           Either.cond(
             failedResponses.isEmpty,
             responses,
-            s"The domain $domain failed the following topology transactions: $failedResponses",
+            s"The synchronizer $synchronizerAlias failed the following topology transactions: $failedResponses",
           )
         }
       EitherT(

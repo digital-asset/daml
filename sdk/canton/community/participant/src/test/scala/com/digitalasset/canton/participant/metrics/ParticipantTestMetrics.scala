@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.metrics
 
 import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.metrics.api.{HistogramInventory, MetricName}
-import com.digitalasset.canton.DomainAlias
+import com.digitalasset.canton.SynchronizerAlias
 
 object ParticipantTestMetrics
     extends ParticipantMetrics(
@@ -13,5 +13,5 @@ object ParticipantTestMetrics
       new NoOpMetricsFactory,
     ) {
 
-  val domain: SyncDomainMetrics = this.domainMetrics(DomainAlias.tryCreate("test"))
+  val domain: SyncDomainMetrics = this.domainMetrics(SynchronizerAlias.tryCreate("test"))
 }

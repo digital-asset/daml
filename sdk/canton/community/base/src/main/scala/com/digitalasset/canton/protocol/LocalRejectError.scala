@@ -307,56 +307,28 @@ object LocalRejectError extends LocalRejectionGroup {
       final case class Reject(override val _details: String)
           extends LocalRejectErrorImpl(_causePrefix = "Activeness check failed.")
     }
-
   }
 
-  object AssignmentRejects extends ErrorGroup() {
+  object ReassignmentRejects extends ErrorGroup() {
     @Explanation(
-      """This rejection is emitted by a participant if a reassignment would be invoked on an already archived contract."""
+      """Validation checks failed for reassignments."""
     )
-    object ContractAlreadyArchived
+    @Resolution(
+      "This indicates a race condition due to a in-flight topology change, or malicious or faulty behaviour."
+    )
+    object ValidationFailed
         extends LocalRejectErrorCode(
-          id = "ASSIGNMENT_CONTRACT_ALREADY_ARCHIVED",
+          id = "REASSIGNMENT_VALIDATION_FAILED",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
 
       final case class Reject(override val _details: String)
-          extends LocalRejectErrorImpl(
-            _causePrefix = "Rejected reassignment as reassigned contract is already archived. "
-          )
+          extends LocalRejectErrorImpl(_causePrefix = "Validation check failed. ")
     }
 
-    @Explanation(
-      """This rejection is emitted by a participant if an assignment has already been made by another entity."""
-    )
-    object ContractAlreadyActive
-        extends LocalRejectErrorCode(
-          id = "ASSIGNMENT_CONTRACT_ALREADY_ACTIVE",
-          ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
-        ) {
+  }
 
-      final case class Reject(override val _details: String)
-          extends LocalRejectErrorImpl(
-            _causePrefix =
-              "Rejected reassignment as the contract is already active on the target domain. "
-          )
-    }
-
-    @Explanation(
-      """This rejection is emitted by a participant if a assignment is referring to an already locked contract."""
-    )
-    object ContractIsLocked
-        extends LocalRejectErrorCode(
-          id = "ASSIGNMENT_CONTRACT_IS_LOCKED",
-          ErrorCategory.ContentionOnSharedResources,
-        ) {
-
-      final case class Reject(override val _details: String)
-          extends LocalRejectErrorImpl(
-            _causePrefix = "Rejected reassignment as the reassigned contract is locked."
-          )
-    }
-
+  object AssignmentRejects extends ErrorGroup() {
     @Explanation(
       """This rejection is emitted by a participant if an assignment has already been completed."""
     )
@@ -369,6 +341,21 @@ object LocalRejectError extends LocalRejectionGroup {
       final case class Reject(override val _details: String)
           extends LocalRejectErrorImpl(
             _causePrefix = "Rejected reassignment as the reassignment has already completed "
+          )
+    }
+
+    @Explanation(
+      """This error indicates that the assignment would activate already existing contracts."""
+    )
+    @Resolution("This error indicates either faulty or malicious behaviour.")
+    object ActivatesExistingContracts
+        extends MalformedErrorCode(
+          id = "LOCAL_VERDICT_ACTIVATES_EXISTING_CONTRACTS"
+        ) {
+      final case class Reject(override val _resources: Seq[String])
+          extends Malformed(
+            _causePrefix = "Rejected assignment would activates contract(s) that already exist ",
+            _resourcesType = Some(ErrorResource.ContractId),
           )
     }
   }

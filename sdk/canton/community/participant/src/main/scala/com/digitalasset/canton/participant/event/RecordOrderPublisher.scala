@@ -17,7 +17,7 @@ import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
 
@@ -55,7 +55,7 @@ sealed trait PublishesOnlinePartyReplicationEvents {
   * @param executionContextForPublishing Execution context for publishing the events
   */
 class RecordOrderPublisher(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     initSc: SequencerCounter,
     val initTimestamp: CantonTimestamp,
     ledgerApiIndexer: LedgerApiIndexer,
@@ -224,7 +224,7 @@ class RecordOrderPublisher(
     if (sequencerCounter >= initSc) {
       scheduleFloatingEventPublication(
         timestamp = timestamp,
-        eventFactory = EmptyAcsPublicationRequired(domainId, _).some,
+        eventFactory = EmptyAcsPublicationRequired(synchronizerId, _).some,
       ).toOption.getOrElse(
         ErrorUtil.invalidState(
           "Trying to schedule empty ACS change publication too late: the specified timestamp is already ticked."

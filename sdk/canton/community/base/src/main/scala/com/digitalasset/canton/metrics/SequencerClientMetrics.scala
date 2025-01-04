@@ -133,7 +133,7 @@ class SequencerClientMetrics(
         0L,
       )(context.withExtraLabels("sequencer" -> alias.unwrap))
 
-      // Two concurrent calls with the same domain alias may cause getOrElseUpdate to evaluate the new value expression twice,
+      // Two concurrent calls with the same synchronizer alias may cause getOrElseUpdate to evaluate the new value expression twice,
       // even though only one of the results will be stored in the map.
       // Eval.later ensures that we actually create only one instance of SyncDomainMetrics in such a case
       // by delaying the creation until the getOrElseUpdate call has finished.

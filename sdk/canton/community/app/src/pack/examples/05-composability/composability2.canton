@@ -56,12 +56,12 @@ participant3.parties.await_topology_observed(initialPartyAssignment)
 // Enable the house owner on participant 5 and the painter on participant 4
 // This works here because the parties are fresh, i.e., they do not have any contracts yet.
 import com.digitalasset.canton.console.ParticipantReference
-def addPartyToParticipant(partyId: PartyId, domainId: DomainId, createdAt: ParticipantReference, to: ParticipantReference): Unit = {
+def addPartyToParticipant(partyId: PartyId, synchronizerId: SynchronizerId, createdAt: ParticipantReference, to: ParticipantReference): Unit = {
   Seq(createdAt, to).foreach(participant =>
     participant.topology.party_to_participant_mappings.propose_delta(
       partyId,
       adds = List((to.id, ParticipantPermission.Submission)),
-      store = domainId.filterString,
+      store = synchronizerId.filterString,
     )
   )
 }
@@ -94,7 +94,7 @@ val createIouCmd = new Iou(
   List.empty.asJava
 ).create.commands.asScala.toSeq
 val Seq(iouContractUnshared) = decodeAllCreated(Iou.COMPANION)(
-  participant1.ledger_api.javaapi.commands.submit_flat(Seq(Bank), createIouCmd, domainId = Some(iouId)))
+  participant1.ledger_api.javaapi.commands.submit_flat(Seq(Bank), createIouCmd, synchronizerId =Some(iouId)))
 
 // Wait until the house owner sees the IOU in the active contract store
 participant2.ledger_api.state.acs.await_active_contract(HouseOwner, iouContractUnshared.id.toLf)
@@ -102,7 +102,7 @@ participant2.ledger_api.state.acs.await_active_contract(HouseOwner, iouContractU
 // The house owner adds the Painter as an observer on the IOU
 val shareIouCmd = iouContractUnshared.id.exerciseShare(Painter.toProtoPrimitive).commands.asScala.toSeq
 val Seq(iouContract) = decodeAllCreated(Iou.COMPANION)(
-  participant2.ledger_api.javaapi.commands.submit_flat(Seq(HouseOwner), shareIouCmd, domainId = Some(iouId)))
+  participant2.ledger_api.javaapi.commands.submit_flat(Seq(HouseOwner), shareIouCmd, synchronizerId =Some(iouId)))
 // architecture-handbook-entry-end: setup
 
 // architecture-handbook-entry-begin: paint-offer
@@ -114,7 +114,7 @@ val paintOfferCmd = new OfferToPaintHouseByOwner(
   iouContract.id
 ).create.commands.asScala.toSeq
 val Seq(paintOffer) = decodeAllCreated(OfferToPaintHouseByOwner.COMPANION)(
-  participant2.ledger_api.javaapi.commands.submit_flat(Seq(HouseOwner), paintOfferCmd, domainId = Some(paintId)))
+  participant2.ledger_api.javaapi.commands.submit_flat(Seq(HouseOwner), paintOfferCmd, synchronizerId =Some(paintId)))
 // architecture-handbook-entry-end: paint-offer
 
 // architecture-handbook-entry-begin: unassignment
@@ -145,7 +145,7 @@ participant3.ledger_api.state.acs.await_active_contract(Painter, iouContract.id.
 
 // Painter accepts the paint offer on the Iou domain
 val acceptCmd = paintOffer.id.exerciseAcceptByPainter().commands.asScala.toSeq
-val acceptTx = participant3.ledger_api.javaapi.commands.submit_flat(Seq(Painter), acceptCmd, domainId = Some(iouId))
+val acceptTx = participant3.ledger_api.javaapi.commands.submit_flat(Seq(Painter), acceptCmd, synchronizerId =Some(iouId))
 val Seq(painterIou) = decodeAllCreated(Iou.COMPANION)(acceptTx)
 val Seq(paintHouse) = decodeAllCreated(PaintHouse.COMPANION)(acceptTx)
 // architecture-handbook-entry-end: accept
@@ -179,6 +179,6 @@ utils.retry_until_true(10.seconds) {
 participant4.ledger_api.javaapi.commands.submit_flat(
   Seq(Painter),
   painterIou.id.exerciseCall().commands.asScala.toSeq,
-  domainId = Some(iouId)
+  synchronizerId =Some(iouId)
 )
 // architecture-handbook-entry-end: call

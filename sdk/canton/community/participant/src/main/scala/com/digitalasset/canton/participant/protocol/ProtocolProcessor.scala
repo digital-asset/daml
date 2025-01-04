@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.protocol
 
 import cats.data.{EitherT, NonEmptyChain}
-import cats.implicits.catsStdInstancesForFuture
 import cats.syntax.either.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
@@ -21,7 +20,6 @@ import com.digitalasset.canton.crypto.{
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.TransactionError
-import com.digitalasset.canton.ledger.participant.state.Update.SequencerIndexMoved
 import com.digitalasset.canton.ledger.participant.state.{CommitSetUpdate, SequencedUpdate}
 import com.digitalasset.canton.lifecycle.{
   FutureUnlessShutdown,
@@ -58,7 +56,7 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.{AsyncResult, HandlerResult}
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, SubmissionTopologyHelper}
+import com.digitalasset.canton.topology.{ParticipantId, SubmissionTopologyHelper, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.EitherTUtil.{condUnitET, ifThenET}
@@ -99,7 +97,7 @@ abstract class ProtocolProcessor[
     ephemeral: SyncDomainEphemeralState,
     crypto: DomainSyncCryptoClient,
     sequencerClient: SequencerClientSend,
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
     override protected val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
@@ -111,7 +109,7 @@ abstract class ProtocolProcessor[
       crypto,
       sequencerClient,
       protocolVersion,
-      domainId,
+      synchronizerId,
     )
     with RequestProcessor[RequestViewType] {
 
@@ -298,7 +296,7 @@ abstract class ProtocolProcessor[
     val inFlightSubmission = InFlightSubmission(
       changeIdHash = tracked.changeIdHash,
       submissionId = tracked.submissionId,
-      submissionDomain = domainId,
+      submissionSynchronizerId = synchronizerId,
       messageUuid = messageUuid,
       rootHashO = None,
       sequencingInfo =
@@ -712,7 +710,7 @@ abstract class ProtocolProcessor[
               _.leftMap(_ =>
                 steps.embedRequestError(
                   UnableToGetDynamicDomainParameters(
-                    snapshot.domainId,
+                    snapshot.synchronizerId,
                     snapshot.ipsSnapshot.timestamp,
                   )
                 )
@@ -1278,19 +1276,6 @@ abstract class ProtocolProcessor[
     val snapshotTs = requestId.unwrap
 
     for {
-      _ <- EitherT
-        .right(
-          ephemeral.recordOrderPublisher.tick(
-            SequencerIndexMoved(
-              domainId = domainId,
-              sequencerCounter = sc,
-              recordTime = resultTs,
-              requestCounterO = None,
-            )
-          )
-        )
-        .mapK(FutureUnlessShutdown.outcomeK)
-
       snapshot <- EitherT.right(
         crypto.ips.awaitSnapshotUSSupervised(s"await crypto snapshot $snapshotTs")(snapshotTs)
       )
@@ -1302,7 +1287,7 @@ abstract class ProtocolProcessor[
             _.leftMap(_ =>
               steps.embedResultError(
                 UnableToGetDynamicDomainParameters(
-                  domainId,
+                  synchronizerId,
                   requestId.unwrap,
                 )
               )
@@ -1560,11 +1545,7 @@ abstract class ProtocolProcessor[
         domainParameters,
       ).leftMap(err => steps.embedResultError(RequestTrackerError(err)))
 
-      _ <- EitherT.right(
-        ephemeral.contractStore.storeCreatedContracts(
-          contractsToBeStored.map((_, requestCounter))
-        )
-      )
+      _ <- EitherT.right(ephemeral.contractStore.storeContracts(contractsToBeStored))
 
       _ <- ifThenET(!cleanReplay) {
         logger.info(
@@ -1894,11 +1875,13 @@ object ProtocolProcessor {
     )
   }
 
-  final case class UnableToGetDynamicDomainParameters(domainId: DomainId, ts: CantonTimestamp)
-      extends RequestProcessingError
+  final case class UnableToGetDynamicDomainParameters(
+      synchronizerId: SynchronizerId,
+      ts: CantonTimestamp,
+  ) extends RequestProcessingError
       with ResultProcessingError {
     override protected def pretty: Pretty[UnableToGetDynamicDomainParameters] = prettyOfClass(
-      param("domain id", _.domainId),
+      param("synchronizer id", _.synchronizerId),
       param("timestamp", _.ts),
     )
   }
@@ -1942,10 +1925,10 @@ object ProtocolProcessor {
     )
   }
 
-  final case class DomainParametersError(domainId: DomainId, context: String)
+  final case class DomainParametersError(synchronizerId: SynchronizerId, context: String)
       extends ProcessorError {
     override protected def pretty: Pretty[DomainParametersError] = prettyOfClass(
-      param("domain", _.domainId),
+      param("domain", _.synchronizerId),
       param("context", _.context.unquoted),
     )
   }

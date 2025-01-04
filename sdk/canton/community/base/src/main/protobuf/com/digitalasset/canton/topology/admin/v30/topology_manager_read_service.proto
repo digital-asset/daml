@@ -223,7 +223,7 @@ message ListPartyToParticipantResponse {
 
 message ListDomainParametersStateRequest {
   BaseQuery base_query = 1;
-  string filter_domain = 2;
+  string filter_synchronizer_id = 2;
 }
 
 message ListDomainParametersStateResponse {
@@ -236,7 +236,7 @@ message ListDomainParametersStateResponse {
 
 message ListMediatorDomainStateRequest {
   BaseQuery base_query = 1;
-  string filter_domain = 2;
+  string filter_synchronizer_id = 2;
 }
 
 message ListMediatorDomainStateResponse {
@@ -249,7 +249,7 @@ message ListMediatorDomainStateResponse {
 
 message ListSequencerDomainStateRequest {
   BaseQuery base_query = 1;
-  string filter_domain = 2;
+  string filter_synchronizer_id = 2;
 }
 
 message ListSequencerDomainStateResponse {
@@ -262,7 +262,7 @@ message ListSequencerDomainStateResponse {
 
 message ListPurgeTopologyTransactionRequest {
   BaseQuery base_query = 1;
-  string filter_domain = 2;
+  string filter_synchronizer_id = 2;
 }
 
 message ListPurgeTopologyTransactionResponse {

@@ -15,6 +15,8 @@ final class MapBackedCacheForTestingSpec
     with ConcurrentCacheCachingSpecBase {
   override def name: String = "map-backed cache"
 
-  override protected def newCache(): ConcurrentCache[Integer, String] =
+  override protected def newCache()(implicit
+      executionContext: scala.concurrent.ExecutionContext
+  ): ConcurrentCache[Integer, String] =
     new MapBackedCacheForTesting(new ConcurrentHashMap)
 }

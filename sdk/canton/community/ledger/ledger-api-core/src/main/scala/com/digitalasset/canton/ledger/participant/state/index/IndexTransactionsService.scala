@@ -46,6 +46,16 @@ trait IndexTransactionsService extends LedgerEndService {
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]]
 
+  def getTransactionByOffset(
+      offset: Offset,
+      requestingParties: Set[Ref.Party],
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]]
+
+  def getTransactionTreeByOffset(
+      offset: Offset,
+      requestingParties: Set[Ref.Party],
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]]
+
   def latestPrunedOffsets()(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[(Option[Offset], Option[Offset])]

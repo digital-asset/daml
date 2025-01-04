@@ -115,7 +115,7 @@ class DbSyncDomainPersistentState(
   )
 
   val parameterStore: DbDomainParameterStore =
-    new DbDomainParameterStore(indexedDomain.domainId, storage, timeouts, loggerFactory)
+    new DbDomainParameterStore(indexedDomain.synchronizerId, storage, timeouts, loggerFactory)
   // TODO(i5660): Use the db-based send tracker store
   val sendTrackerStore = new InMemorySendTrackerStore()
 
@@ -131,7 +131,7 @@ class DbSyncDomainPersistentState(
   override val topologyStore =
     new DbTopologyStore(
       storage,
-      DomainStore(indexedDomain.domainId),
+      DomainStore(indexedDomain.synchronizerId),
       staticDomainParameters.protocolVersion,
       timeouts,
       loggerFactory,
@@ -163,7 +163,7 @@ class DbSyncDomainPersistentState(
         currentlyVettedPackages,
         nextPackageIds,
         packageDependencyResolver,
-        acsInspections = () => Map(indexedDomain.domainId -> acsInspection),
+        acsInspections = () => Map(indexedDomain.synchronizerId -> acsInspection),
         forceFlags,
       )
 
@@ -176,7 +176,7 @@ class DbSyncDomainPersistentState(
       checkCannotDisablePartyWithActiveContracts(
         partyId,
         forceFlags,
-        acsInspections = () => Map(indexedDomain.domainId -> acsInspection),
+        acsInspections = () => Map(indexedDomain.synchronizerId -> acsInspection),
       )
   }
 
@@ -197,5 +197,10 @@ class DbSyncDomainPersistentState(
   override def isMemory: Boolean = false
 
   override def acsInspection: AcsInspection =
-    new AcsInspection(indexedDomain.domainId, activeContractStore, contractStore, ledgerApiStore)
+    new AcsInspection(
+      indexedDomain.synchronizerId,
+      activeContractStore,
+      contractStore,
+      ledgerApiStore,
+    )
 }

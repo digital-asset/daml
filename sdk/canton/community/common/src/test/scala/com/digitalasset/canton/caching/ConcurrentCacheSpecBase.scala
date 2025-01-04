@@ -3,8 +3,12 @@
 
 package com.digitalasset.canton.caching
 
+import scala.concurrent.ExecutionContext
+
 trait ConcurrentCacheSpecBase {
   protected def name: String
 
-  protected def newCache(): ConcurrentCache[Integer, String]
+  protected def newCache()(implicit
+      executionContext: ExecutionContext
+  ): ConcurrentCache[Integer, String]
 }

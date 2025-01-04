@@ -10,7 +10,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
 import com.digitalasset.canton.sequencing.SequencerConnectionValidation
-import com.digitalasset.canton.{DomainAlias, SequencerAlias}
+import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias}
 
 class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(implicit
     override val consoleEnvironment: ConsoleEnvironment
@@ -71,7 +71,7 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
   object domains extends Helpful {
 
     @Help.Summary("Disconnect from domain")
-    def disconnect(alias: DomainAlias): Unit =
+    def disconnect(alias: SynchronizerAlias): Unit =
       ConsoleCommandResult
         .runAll(participants)(ParticipantCommands.domains.disconnect(_, alias))
         .discard
@@ -88,7 +88,7 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
     @Help.Description(
       "If retry is set to true (default), the command will return after the first attempt, but keep on trying in the background."
     )
-    def reconnect(alias: DomainAlias, retry: Boolean = true): Unit =
+    def reconnect(alias: SynchronizerAlias, retry: Boolean = true): Unit =
       ConsoleCommandResult
         .runAll(participants)(
           ParticipantCommands.domains.reconnect(_, alias, retry)
@@ -140,7 +140,7 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
         """)
     def connect_local(
         domain: SequencerReference,
-        alias: DomainAlias,
+        alias: SynchronizerAlias,
         manualConnect: Boolean = false,
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded

@@ -4,11 +4,6 @@
 package com.digitalasset.canton.admin.api.client.commands
 
 import cats.syntax.either.*
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin.SequencerBftAdminData.{
-  OrderingTopology,
-  PeerNetworkStatus,
-  endpointToProto,
-}
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.sequencer.admin.v30.SequencerBftAdministrationServiceGrpc.SequencerBftAdministrationServiceStub
 import com.digitalasset.canton.sequencer.admin.v30.{
@@ -21,6 +16,11 @@ import com.digitalasset.canton.sequencer.admin.v30.{
   RemovePeerEndpointRequest,
   RemovePeerEndpointResponse,
   SequencerBftAdministrationServiceGrpc,
+}
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.admin.SequencerBftAdminData.{
+  OrderingTopology,
+  PeerNetworkStatus,
+  endpointToProto,
 }
 import io.grpc.ManagedChannel
 

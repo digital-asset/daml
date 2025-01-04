@@ -35,7 +35,8 @@ class CachedUserManagementStore(
     ScaffeineCache.buildAsync[Future, CacheKey, Result[UserInfo]](
       Scaffeine()
         .expireAfterWrite(expiryAfterWriteInSeconds.seconds)
-        .maximumSize(maximumCacheSize.toLong),
+        .maximumSize(maximumCacheSize.toLong)
+        .executor(executionContext.execute(_)),
       loader = key => delegate.getUserInfo(key.id, key.identityProviderId),
       metrics = Some(metrics.userManagement.cache),
     )(logger, "cache")

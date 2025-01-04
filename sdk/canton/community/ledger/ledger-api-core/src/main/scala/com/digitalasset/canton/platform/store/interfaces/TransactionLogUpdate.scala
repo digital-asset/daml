@@ -6,6 +6,8 @@ package com.digitalasset.canton.platform.store.interfaces
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.ReassignmentInfo
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel
+import com.digitalasset.canton.ledger.participant.state.index.PartyEntry
 import com.digitalasset.canton.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.digitalasset.canton.platform.{ContractId, Identifier}
 import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}
@@ -45,7 +47,7 @@ object TransactionLogUpdate {
       offset: Offset,
       events: Vector[Event],
       completionStreamResponse: Option[CompletionStreamResponse],
-      domainId: String,
+      synchronizerId: String,
       recordTime: Timestamp,
   )(implicit override val traceContext: TraceContext)
       extends TransactionLogUpdate
@@ -70,6 +72,21 @@ object TransactionLogUpdate {
       completionStreamResponse: Option[CompletionStreamResponse],
       reassignmentInfo: ReassignmentInfo,
       reassignment: ReassignmentAccepted.Reassignment,
+  )(implicit override val traceContext: TraceContext)
+      extends TransactionLogUpdate
+
+  final case class PartyAllocationResponse(
+      offset: Offset,
+      partyEntry: PartyEntry,
+  )(implicit override val traceContext: TraceContext)
+      extends TransactionLogUpdate
+
+  final case class TopologyTransactionEffective(
+      updateId: String,
+      offset: Offset,
+      effectiveTime: Timestamp,
+      synchronizerId: String,
+      events: Vector[PartyToParticipantAuthorization],
   )(implicit override val traceContext: TraceContext)
       extends TransactionLogUpdate
 
@@ -147,4 +164,11 @@ object TransactionLogUpdate {
       exerciseResult: Option[LfValue.VersionedValue],
       consuming: Boolean,
   ) extends Event
+
+  final case class PartyToParticipantAuthorization(
+      party: Party,
+      participant: Ref.ParticipantId,
+      level: AuthorizationLevel,
+  )
+
 }
