@@ -54,6 +54,7 @@ genrule(
             "upgrades-example/**",
             "quickstart-java/**",
             "copy-trigger/**",
+            "multi-package-example/**",
             "gsg-trigger.patch",
         ],
         exclude = ["**/NO_AUTO_COPYRIGHT"],
@@ -86,6 +87,7 @@ genrule(
                  empty-skeleton \
                  create-daml-app \
                  upgrades-example \
+                 multi-package-example \
                  quickstart-java \
                  copy-trigger \
                  gsg-trigger; do
