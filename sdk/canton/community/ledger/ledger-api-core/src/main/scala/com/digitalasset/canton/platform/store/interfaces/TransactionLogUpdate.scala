@@ -15,7 +15,6 @@ import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.{PackageName, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
-import com.digitalasset.daml.lf.ledger.EventId
 import com.digitalasset.daml.lf.transaction.GlobalKey
 import com.digitalasset.daml.lf.value.Value as LfValue
 
@@ -103,7 +102,6 @@ object TransactionLogUpdate {
     def eventOffset: Offset
     def eventSequentialId: EventSequentialId
     def updateId: String
-    def eventId: EventId
     def commandId: String
     def workflowId: String
     def ledgerEffectiveTime: Timestamp
@@ -119,7 +117,6 @@ object TransactionLogUpdate {
       updateId: String,
       nodeIndex: Int,
       eventSequentialId: Long,
-      eventId: EventId,
       contractId: ContractId,
       ledgerEffectiveTime: Timestamp,
       templateId: Identifier,
@@ -145,7 +142,6 @@ object TransactionLogUpdate {
       updateId: String,
       nodeIndex: Int,
       eventSequentialId: Long,
-      eventId: EventId,
       contractId: ContractId,
       ledgerEffectiveTime: Timestamp,
       templateId: Identifier,
@@ -159,7 +155,7 @@ object TransactionLogUpdate {
       submitters: Set[Party],
       choice: String,
       actingParties: Set[Party],
-      children: Seq[String],
+      children: Seq[Int],
       exerciseArgument: LfValue.VersionedValue,
       exerciseResult: Option[LfValue.VersionedValue],
       consuming: Boolean,

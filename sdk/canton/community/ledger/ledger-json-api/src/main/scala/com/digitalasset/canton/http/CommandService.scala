@@ -346,9 +346,9 @@ class CommandService(
   private def firstExercisedEvent(
       tx: lav2.transaction.TransactionTree
   ): Option[lav2.event.ExercisedEvent] = {
-    val lookup: String => Option[lav2.event.ExercisedEvent] = id =>
+    val lookup: Int => Option[lav2.event.ExercisedEvent] = id =>
       tx.eventsById.get(id).flatMap(_.kind.exercised)
-    tx.rootEventIds.collectFirst(Function unlift lookup)
+    tx.rootNodeIds.collectFirst(Function unlift lookup)
   }
 }
 

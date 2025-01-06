@@ -12,8 +12,6 @@ public final class ArchivedEvent implements Event {
 
   private final List<String> witnessParties;
 
-  private final String eventId;
-
   private final Long offset;
 
   private final Integer nodeId;
@@ -26,14 +24,12 @@ public final class ArchivedEvent implements Event {
 
   public ArchivedEvent(
       @NonNull List<@NonNull String> witnessParties,
-      @NonNull String eventId,
       @NonNull Long offset,
       @NonNull Integer nodeId,
       @NonNull Identifier templateId,
       @NonNull String packageName,
       @NonNull String contractId) {
     this.witnessParties = witnessParties;
-    this.eventId = eventId;
     this.offset = offset;
     this.nodeId = nodeId;
     this.templateId = templateId;
@@ -45,12 +41,6 @@ public final class ArchivedEvent implements Event {
   @Override
   public List<@NonNull String> getWitnessParties() {
     return witnessParties;
-  }
-
-  @NonNull
-  @Override
-  public String getEventId() {
-    return eventId;
   }
 
   @NonNull
@@ -89,7 +79,6 @@ public final class ArchivedEvent implements Event {
     if (o == null || getClass() != o.getClass()) return false;
     ArchivedEvent that = (ArchivedEvent) o;
     return Objects.equals(witnessParties, that.witnessParties)
-        && Objects.equals(eventId, that.eventId)
         && Objects.equals(offset, that.offset)
         && Objects.equals(nodeId, that.nodeId)
         && Objects.equals(templateId, that.templateId)
@@ -99,8 +88,7 @@ public final class ArchivedEvent implements Event {
 
   @Override
   public int hashCode() {
-    return Objects.hash(
-        witnessParties, eventId, offset, nodeId, templateId, packageName, contractId);
+    return Objects.hash(witnessParties, offset, nodeId, templateId, packageName, contractId);
   }
 
   @Override
@@ -108,9 +96,6 @@ public final class ArchivedEvent implements Event {
     return "ArchivedEvent{"
         + "witnessParties="
         + witnessParties
-        + ", eventId='"
-        + eventId
-        + '\''
         + ", offset="
         + offset
         + ", nodeId="
@@ -128,7 +113,6 @@ public final class ArchivedEvent implements Event {
   public EventOuterClass.ArchivedEvent toProto() {
     return EventOuterClass.ArchivedEvent.newBuilder()
         .setContractId(getContractId())
-        .setEventId(getEventId())
         .setOffset(getOffset())
         .setNodeId(getNodeId())
         .setTemplateId(getTemplateId().toProto())
@@ -140,7 +124,6 @@ public final class ArchivedEvent implements Event {
   public static ArchivedEvent fromProto(EventOuterClass.ArchivedEvent archivedEvent) {
     return new ArchivedEvent(
         archivedEvent.getWitnessPartiesList(),
-        archivedEvent.getEventId(),
         archivedEvent.getOffset(),
         archivedEvent.getNodeId(),
         Identifier.fromProto(archivedEvent.getTemplateId()),

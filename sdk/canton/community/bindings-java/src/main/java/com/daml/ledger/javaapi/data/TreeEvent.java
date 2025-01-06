@@ -20,9 +20,6 @@ public interface TreeEvent {
   List<@NonNull String> getWitnessParties();
 
   @NonNull
-  String getEventId();
-
-  @NonNull
   Long getOffset();
 
   @NonNull

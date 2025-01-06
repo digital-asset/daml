@@ -10,8 +10,7 @@ import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.platform.store.entries.LedgerEntry
 import com.digitalasset.canton.platform.store.utils.EventOps.TreeEventOps
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.ledger.EventId
-import com.digitalasset.daml.lf.transaction.{Node, NodeId}
+import com.digitalasset.daml.lf.transaction.Node
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.scalatest.*
@@ -80,8 +79,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           transaction.updateId shouldBe tx.updateId
           transaction.workflowId shouldBe tx.workflowId.getOrElse("")
           val created = transaction.eventsById.values.loneElement.getCreated
-          transaction.rootEventIds.loneElement shouldEqual created.eventId
-          created.eventId shouldBe EventId(tx.updateId, nodeId).toLedgerString
+          transaction.rootNodeIds.loneElement shouldEqual created.nodeId
           created.offset shouldBe offset.unwrap
           created.nodeId shouldBe nodeId.index
           created.witnessParties should contain only (tx.actAs*)
@@ -119,15 +117,14 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             transaction.updateId shouldBe exercise.updateId
             transaction.workflowId shouldBe exercise.workflowId.getOrElse("")
             val exercised = transaction.eventsById.values.loneElement.getExercised
-            transaction.rootEventIds.loneElement shouldEqual exercised.eventId
-            exercised.eventId shouldBe EventId(transaction.updateId, nodeId).toLedgerString
+            transaction.rootNodeIds.loneElement shouldEqual exercised.nodeId
             exercised.offset shouldBe offset.unwrap
             exercised.nodeId shouldBe nodeId.index
             exercised.witnessParties should contain only (exercise.actAs*)
             exercised.contractId shouldBe exerciseNode.targetCoid.coid
             exercised.templateId shouldNot be(None)
             exercised.actingParties should contain theSameElementsAs exerciseNode.actingParties
-            exercised.childEventIds shouldBe Seq.empty
+            exercised.childNodeIds shouldBe Seq.empty
             exercised.choice shouldBe exerciseNode.choiceId
             exercised.choiceArgument shouldNot be(None)
             exercised.consuming shouldBe true
@@ -165,24 +162,17 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           TimestampConversion.ConversionMode.Exact,
         ) shouldBe tx.ledgerEffectiveTime
 
-        transaction.rootEventIds should have size 2
-        transaction.rootEventIds(0) shouldBe EventId(
-          transaction.updateId,
-          createNodeId,
-        ).toLedgerString
-        transaction.rootEventIds(1) shouldBe EventId(
-          transaction.updateId,
-          exerciseNodeId,
-        ).toLedgerString
+        transaction.rootNodeIds should have size 2
+        transaction.rootNodeIds(0) shouldBe createNodeId.index
+        transaction.rootNodeIds(1) shouldBe exerciseNodeId.index
 
         val created = transaction
-          .eventsById(EventId(transaction.updateId, createNodeId).toLedgerString)
+          .eventsById(createNodeId.index)
           .getCreated
         val exercised = transaction
-          .eventsById(EventId(transaction.updateId, exerciseNodeId).toLedgerString)
+          .eventsById(exerciseNodeId.index)
           .getExercised
 
-        created.eventId shouldBe EventId(transaction.updateId, createNodeId).toLedgerString
         created.offset shouldBe offset.unwrap
         created.nodeId shouldBe createNodeId.index
         created.witnessParties should contain only (tx.actAs*)
@@ -194,14 +184,13 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
         )
         created.templateId shouldNot be(None)
 
-        exercised.eventId shouldBe EventId(transaction.updateId, exerciseNodeId).toLedgerString
         exercised.offset shouldBe offset.unwrap
         exercised.nodeId shouldBe exerciseNodeId.index
         exercised.witnessParties should contain only (tx.actAs*)
         exercised.contractId shouldBe exerciseNode.targetCoid.coid
         exercised.templateId shouldNot be(None)
         exercised.actingParties should contain theSameElementsAs exerciseNode.actingParties
-        exercised.childEventIds shouldBe Seq.empty
+        exercised.childNodeIds shouldBe Seq.empty
         exercised.choice shouldBe exerciseNode.choiceId
         exercised.choiceArgument shouldNot be(None)
         exercised.consuming shouldBe true
@@ -225,15 +214,9 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       inside(resultById.value.transaction) { case Some(transaction) =>
         transaction.eventsById should have size 2
 
-        transaction.rootEventIds should have size 2
-        transaction.rootEventIds(0) shouldBe EventId(
-          transaction.updateId,
-          NodeId(2),
-        ).toLedgerString
-        transaction.rootEventIds(1) shouldBe EventId(
-          transaction.updateId,
-          NodeId(3),
-        ).toLedgerString
+        transaction.rootNodeIds should have size 2
+        transaction.rootNodeIds(0) shouldBe 2
+        transaction.rootNodeIds(1) shouldBe 3
       }
       resultByOffset shouldBe resultById
     }

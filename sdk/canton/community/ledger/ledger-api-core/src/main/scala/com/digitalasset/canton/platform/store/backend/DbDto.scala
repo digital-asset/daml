@@ -64,7 +64,7 @@ object DbDto {
       exercise_argument: Array[Byte],
       exercise_result: Option[Array[Byte]],
       exercise_actors: Set[String],
-      exercise_child_event_ids: Vector[String],
+      exercise_child_node_ids: Vector[Int],
       create_key_value_compression: Option[Int],
       exercise_argument_compression: Option[Int],
       exercise_result_compression: Option[Int],
