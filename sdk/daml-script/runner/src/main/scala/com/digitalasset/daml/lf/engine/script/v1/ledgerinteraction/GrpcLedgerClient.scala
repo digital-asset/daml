@@ -293,7 +293,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       }
     transactionTreeF.map(r =>
       r.map(transactionTree => {
-        val events = transactionTree.getTransaction.rootEventIds
+        val events = transactionTree.getTransaction.rootNodeIds
           .map(evId => transactionTree.getTransaction.eventsById(evId))
           .toList
         events.traverse(fromTreeEvent(_)) match {
