@@ -28,9 +28,9 @@ final class UpdateServiceImpl(ledgerContent: Observable[LedgerItem])
 
   val lastUpdatesRequest = new AtomicReference[GetUpdatesRequest]()
   val lastUpdatesTreesRequest = new AtomicReference[GetUpdatesRequest]()
-  val lastTransactionTreeByEventIdRequest = new AtomicReference[GetTransactionByEventIdRequest]()
+  val lastTransactionTreeByOffsetRequest = new AtomicReference[GetTransactionByOffsetRequest]()
   val lastTransactionTreeByIdRequest = new AtomicReference[GetTransactionByIdRequest]()
-  val lastTransactionByEventIdRequest = new AtomicReference[GetTransactionByEventIdRequest]()
+  val lastTransactionByOffsetRequest = new AtomicReference[GetTransactionByOffsetRequest]()
   val lastTransactionByIdRequest = new AtomicReference[GetTransactionByIdRequest]()
 
   override def getUpdates(
@@ -68,10 +68,10 @@ final class UpdateServiceImpl(ledgerContent: Observable[LedgerItem])
     responseObserver.onCompleted()
   }
 
-  override def getTransactionTreeByEventId(
-      request: GetTransactionByEventIdRequest
+  override def getTransactionTreeByOffset(
+      request: GetTransactionByOffsetRequest
   ): Future[GetTransactionTreeResponse] = {
-    lastTransactionTreeByEventIdRequest.set(request)
+    lastTransactionTreeByOffsetRequest.set(request)
     Future.successful(
       new GetTransactionTreeResponse(None)
     ) // just a mock, not intended for consumption
@@ -86,10 +86,10 @@ final class UpdateServiceImpl(ledgerContent: Observable[LedgerItem])
     ) // just a mock, not intended for consumption
   }
 
-  override def getTransactionByEventId(
-      request: GetTransactionByEventIdRequest
+  override def getTransactionByOffset(
+      request: GetTransactionByOffsetRequest
   ): Future[GetTransactionResponse] = {
-    lastTransactionByEventIdRequest.set(request)
+    lastTransactionByOffsetRequest.set(request)
     Future.successful(
       new GetTransactionResponse(None)
     ) // just a mock, not intended for consumption
@@ -131,10 +131,10 @@ object UpdateServiceImpl {
       )
   }
 
-  def eventId(event: Event): String = event.event match {
-    case Archived(archivedEvent) => archivedEvent.eventId
-    case Created(createdEvent) => createdEvent.eventId
-    case Empty => ""
+  def eventOffset(event: Event): Long = event.event match {
+    case Archived(archivedEvent) => archivedEvent.offset
+    case Created(createdEvent) => createdEvent.offset
+    case Empty => 0
   }
 
   def createWithRef(ledgerContent: Observable[LedgerItem], authorizer: Authorizer)(implicit

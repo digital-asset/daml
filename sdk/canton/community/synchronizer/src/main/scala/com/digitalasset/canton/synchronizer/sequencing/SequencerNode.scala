@@ -6,11 +6,8 @@ package com.digitalasset.canton.synchronizer.sequencing
 import cats.data.EitherT
 import com.digitalasset.canton.admin.domain.v30.SequencerStatusServiceGrpc
 import com.digitalasset.canton.auth.CantonAdminToken
-import com.digitalasset.canton.concurrent.{
-  ExecutionContextIdlenessExecutorService,
-  ExecutionContextIdlenessExecutorService as _,
-}
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeInt as _}
+import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.{Crypto, DomainCryptoPureApi, DomainSyncCryptoClient}
