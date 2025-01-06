@@ -16,6 +16,7 @@ import com.digitalasset.canton.ledger.client.LedgerClient
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data.{codegen => jcg, _}
 import com.daml.ledger.javaapi.data.codegen.HasCommands
+import com.daml.timer.RetryStrategy
 import io.grpc.Channel
 import org.scalatest.{Assertion, Suite}
 
@@ -47,9 +48,25 @@ trait TestLedger extends CantonFixture with SuiteResourceManagementAroundAll {
 
   protected def allocateParty: Future[String] = {
     implicit val ec: ExecutionContextExecutor = system.dispatcher
-    client.partyManagementClient
-      .allocateParty(hint = None, token = None)
-      .map(_.party)
+    for {
+      party <- client.partyManagementClient
+        .allocateParty(hint = None, token = None)
+        .map(_.party)
+      _ <- RetryStrategy.constant(5, 200.milliseconds) { case (_, _) =>
+        for {
+          res <- client.stateService
+            .getConnectedDomains(party = party, token = None)
+          _ <-
+            if (res.connectedDomains.isEmpty)
+              Future.failed(
+                new java.util.concurrent.TimeoutException(
+                  "Party not allocated on any domains within 1 second"
+                )
+              )
+            else Future.unit
+        } yield ()
+      }
+    } yield party
   }
 
   def withClient(testCode: Channel => Future[Assertion]): Future[Assertion] = testCode(
