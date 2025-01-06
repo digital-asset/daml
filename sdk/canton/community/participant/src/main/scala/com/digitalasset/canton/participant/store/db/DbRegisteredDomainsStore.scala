@@ -7,17 +7,17 @@ import cats.Monad
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.DomainAlias
+import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.store.DomainAliasAndIdStore.{
-  DomainAliasAlreadyAdded,
-  DomainIdAlreadyAdded,
-  Error,
-}
 import com.digitalasset.canton.participant.store.RegisteredDomainsStore
+import com.digitalasset.canton.participant.store.SynchronizerAliasAndIdStore.{
+  Error,
+  SynchronizerAliasAlreadyAdded,
+  SynchronizerIdAlreadyAdded,
+}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -29,26 +29,26 @@ class DbRegisteredDomainsStore(
 )(implicit ec: ExecutionContext)
     extends RegisteredDomainsStore
     with DbStore {
-  import DomainAlias.*
-  import DomainId.*
+  import SynchronizerAlias.*
+  import SynchronizerId.*
   import storage.api.*
 
-  override def addMapping(alias: DomainAlias, domainId: DomainId)(implicit
+  override def addMapping(alias: SynchronizerAlias, synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext
   ): EitherT[Future, Error, Unit] =
     EitherT {
       val insert = storage.profile match {
         case _: DbStorage.Profile.Postgres =>
           sqlu"""
-        insert into par_domains(alias, domain_id)
-        values ($alias, $domainId)
+        insert into par_domains(alias, synchronizer_id)
+        values ($alias, $synchronizerId)
         on conflict do nothing
         """
         case _ =>
           sqlu"""
-        insert into par_domains(alias, domain_id)
-        select $alias, $domainId from dual
-        where not exists (select * from par_domains where domain_id = $domainId)
+        insert into par_domains(alias, synchronizer_id)
+        select $alias, $synchronizerId from dual
+        where not exists (select * from par_domains where synchronizer_id = $synchronizerId)
           and not exists (select * from par_domains where alias = $alias)
           """
       }
@@ -63,33 +63,39 @@ class DbRegisteredDomainsStore(
           // We may have inserted the row even if the row count is lower. So check whether the row is actually there.
           doubleAlias <- EitherT.right[Either[Error, Unit]](
             storage.query(
-              sql"select domain_id from par_domains where alias = $alias".as[DomainId],
+              sql"select synchronizer_id from par_domains where alias = $alias".as[SynchronizerId],
               functionFullName,
             )
           )
           _ <- EitherT.fromEither[Future](
             doubleAlias.headOption.fold(Either.right[Either[Error, Unit], Unit](())) {
-              oldDomainId =>
+              oldSynchronizerId =>
                 Left(
                   Either.cond(
-                    oldDomainId == domainId,
+                    oldSynchronizerId == synchronizerId,
                     (),
-                    DomainAliasAlreadyAdded(alias, oldDomainId),
+                    SynchronizerAliasAlreadyAdded(alias, oldSynchronizerId),
                   )
                 )
             }
           )
-          doubleDomainId <- EitherT.right[Either[Error, Unit]](
+          doubleSynchronizerId <- EitherT.right[Either[Error, Unit]](
             storage.query(
-              sql"select alias from par_domains where domain_id = $domainId"
-                .as[DomainAlias],
+              sql"select alias from par_domains where synchronizer_id = $synchronizerId"
+                .as[SynchronizerAlias],
               functionFullName,
             )
           )
           _ <- EitherT.fromEither[Future](
-            doubleDomainId.headOption.fold(Either.right[Either[Error, Unit], Unit](())) {
+            doubleSynchronizerId.headOption.fold(Either.right[Either[Error, Unit], Unit](())) {
               oldAlias =>
-                Left(Either.cond(oldAlias == alias, (), DomainIdAlreadyAdded(domainId, oldAlias)))
+                Left(
+                  Either.cond(
+                    oldAlias == alias,
+                    (),
+                    SynchronizerIdAlreadyAdded(synchronizerId, oldAlias),
+                  )
+                )
             }
           )
         } yield () // We get here only if rowCount is not 1 and neither the alias nor the domain was found. So try inserting again.
@@ -98,13 +104,13 @@ class DbRegisteredDomainsStore(
       Monad[Future].tailRecM(())(_ => step())
     }
 
-  override def aliasToDomainIdMap(implicit
+  override def aliasToSynchronizerIdMap(implicit
       traceContext: TraceContext
-  ): Future[Map[DomainAlias, DomainId]] =
+  ): Future[Map[SynchronizerAlias, SynchronizerId]] =
     storage
       .query(
-        sql"""select alias, domain_id from par_domains"""
-          .as[(DomainAlias, DomainId)]
+        sql"""select alias, synchronizer_id from par_domains"""
+          .as[(SynchronizerAlias, SynchronizerId)]
           .map(_.toMap),
         functionFullName,
       )

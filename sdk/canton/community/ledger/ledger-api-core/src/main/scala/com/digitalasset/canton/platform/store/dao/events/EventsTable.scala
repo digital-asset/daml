@@ -62,7 +62,7 @@ object EventsTable {
               workflowId = first.workflowId.getOrElse(""),
               offset = first.offset,
               events = flatEvents,
-              domainId = first.domainId,
+              synchronizerId = first.synchronizerId,
               traceContext = extractTraceContext(events),
               recordTime = Some(TimestampConversion.fromLf(first.recordTime)),
             )
@@ -167,7 +167,7 @@ object EventsTable {
           offset = first.offset,
           eventsById = eventsById,
           rootEventIds = rootEventIds,
-          domainId = first.domainId,
+          synchronizerId = first.synchronizerId,
           traceContext = traceContext,
           recordTime = Some(TimestampConversion.fromLf(first.recordTime)),
         )

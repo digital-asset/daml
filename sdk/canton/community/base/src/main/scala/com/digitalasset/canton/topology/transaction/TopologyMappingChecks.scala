@@ -402,7 +402,7 @@ class ValidatingTopologyMappingChecks(
           val isAllowlisted = storedPermissions.view
             .flatMap(_.selectMapping[ParticipantDomainPermission])
             .collectFirst {
-              case x if x.mapping.domainId == toValidate.mapping.domainId =>
+              case x if x.mapping.synchronizerId == toValidate.mapping.synchronizerId =>
                 x.mapping.loginAfter
             }
           isAllowlisted match {

@@ -137,7 +137,7 @@ object CantonRequireTypes {
       }
 
     // In general, if you would create a case class that would simply wrap a `LengthLimitedString`, use a type alias instead
-    // Some very frequently-used classes (like `Identifier` or `DomainAlias`) are however given their 'own' case class
+    // Some very frequently-used classes (like `Identifier` or `SynchronizerAlias`) are however given their 'own' case class
     // despite essentially being a wrapper around `LengthLimitedString255` (because the documentation UX is nicer this way,
     // and one can e.g. write `Fingerprint.tryCreate` instead of `LengthLimitedString68.tryCreate`)
     type DisplayName = String255

@@ -9,14 +9,14 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.store.DomainParameterStore
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import slick.jdbc.SetParameter
 
 import scala.concurrent.{ExecutionContext, Future}
 
 class DbDomainParameterStore(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     override protected val storage: DbStorage,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -36,8 +36,8 @@ class DbDomainParameterStore(
     // We do not check equality of the parameters on the serialized format in the DB query because serialization may
     // be different even though the parameters are the same
     val query =
-      sqlu"""insert into par_static_domain_parameters(domain_id, params)
-             values ($domainId, $newParameters)
+      sqlu"""insert into par_static_domain_parameters(synchronizer_id, params)
+             values ($synchronizerId, $newParameters)
              on conflict do nothing"""
 
     storage.update(query, functionFullName).flatMap { rowCount =>
@@ -66,7 +66,7 @@ class DbDomainParameterStore(
   ): Future[Option[StaticDomainParameters]] =
     storage
       .query(
-        sql"select params from par_static_domain_parameters where domain_id=$domainId"
+        sql"select params from par_static_domain_parameters where synchronizer_id=$synchronizerId"
           .as[StaticDomainParameters]
           .headOption,
         functionFullName,

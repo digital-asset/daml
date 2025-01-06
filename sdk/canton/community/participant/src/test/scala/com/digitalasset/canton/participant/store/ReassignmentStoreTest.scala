@@ -1179,7 +1179,7 @@ trait ReassignmentStoreTest {
         val store = mk(IndexedDomain.tryCreate(sourceDomain1.unwrap, 2))
         loggerFactory.assertInternalError[IllegalArgumentException](
           store.addReassignment(reassignmentData),
-          _.getMessage shouldBe s"Domain ${Target(sourceDomain1.unwrap)}: Reassignment store cannot store reassignment for domain $targetDomainId",
+          _.getMessage shouldBe s"Domain ${Target(sourceDomain1.unwrap)}: Reassignment store cannot store reassignment for domain $targetSynchronizerId",
         )
       }
     }
@@ -1481,20 +1481,20 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
     ledgerTime = CantonTimestamp.Epoch,
   )
 
-  val domain1 = DomainId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1"))
-  val sourceDomain1 = Source(DomainId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))
-  val targetDomain1 = Target(DomainId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))
+  val domain1 = SynchronizerId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1"))
+  val sourceDomain1 = Source(SynchronizerId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))
+  val targetDomain1 = Target(SynchronizerId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))
   val mediator1 = MediatorGroupRecipient(MediatorGroupIndex.zero)
 
-  val domain2 = DomainId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2"))
-  val sourceDomain2 = Source(DomainId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2")))
-  val targetDomain2 = Target(DomainId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2")))
+  val domain2 = SynchronizerId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2"))
+  val sourceDomain2 = Source(SynchronizerId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2")))
+  val targetDomain2 = Target(SynchronizerId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2")))
   val mediator2 = MediatorGroupRecipient(MediatorGroupIndex.one)
 
   val indexedTargetDomain =
-    IndexedDomain.tryCreate(DomainId(UniqueIdentifier.tryCreate("target", "DOMAIN")), 1)
-  val targetDomainId = Target(indexedTargetDomain.domainId)
-  val targetDomain = Target(DomainId(UniqueIdentifier.tryCreate("target", "DOMAIN")))
+    IndexedDomain.tryCreate(SynchronizerId(UniqueIdentifier.tryCreate("target", "DOMAIN")), 1)
+  val targetSynchronizerId = Target(indexedTargetDomain.synchronizerId)
+  val targetDomain = Target(SynchronizerId(UniqueIdentifier.tryCreate("target", "DOMAIN")))
 
   val reassignment10 = ReassignmentId(sourceDomain1, CantonTimestamp.Epoch)
   val reassignment11 = ReassignmentId(sourceDomain1, CantonTimestamp.ofEpochMilli(1))
@@ -1519,7 +1519,7 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
         .build(TestHash.testHashPurpose)
         .addWithoutLengthPrefix(str)
         .finish()
-    crypto.sign(hash, sequencerKey.id)
+    crypto.sign(hash, sequencerKey.id, SigningKeyUsage.ProtocolOnly)
   }
 
   val seedGenerator = new SeedGenerator(crypto.pureCrypto)
@@ -1528,7 +1528,7 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
       reassignmentId: ReassignmentId,
       sourceMediator: MediatorGroupRecipient,
       submittingParty: LfPartyId = LfPartyId.assertFromString("submitter"),
-      targetDomainId: Target[DomainId],
+      targetSynchronizerId: Target[SynchronizerId],
       contract: SerializableContract = contract,
       unassignmentGlobalOffset: Option[Offset] = None,
   ): ReassignmentData = {
@@ -1540,7 +1540,7 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
     val helpers = ReassignmentDataHelpers(
       contract,
       reassignmentId.sourceDomain,
-      targetDomainId,
+      targetSynchronizerId,
       identityFactory,
     )
 
@@ -1564,7 +1564,7 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
       reassignmentId,
       sourceMediator,
       submitter,
-      targetDomainId,
+      targetSynchronizerId,
       contract,
       unassignmentGlobalOffset,
     )
@@ -1575,7 +1575,7 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
     val mediatorMessage =
       reassignmentData.unassignmentRequest.tree.mediatorMessage(Signature.noSignature)
     val result = ConfirmationResultMessage.create(
-      mediatorMessage.domainId,
+      mediatorMessage.synchronizerId,
       ViewType.UnassignmentViewType,
       requestId,
       mediatorMessage.rootHash,

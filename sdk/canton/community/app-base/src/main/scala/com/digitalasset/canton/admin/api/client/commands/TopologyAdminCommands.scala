@@ -368,7 +368,7 @@ object TopologyAdminCommands {
 
     final case class DomainParametersState(
         query: BaseQuery,
-        filterDomain: String,
+        filterSynchronizerId: String,
     ) extends BaseCommand[
           v30.ListDomainParametersStateRequest,
           v30.ListDomainParametersStateResponse,
@@ -379,7 +379,7 @@ object TopologyAdminCommands {
         Right(
           new v30.ListDomainParametersStateRequest(
             baseQuery = Some(query.toProtoV1),
-            filterDomain = filterDomain,
+            filterSynchronizerId = filterSynchronizerId,
           )
         )
 
@@ -399,7 +399,7 @@ object TopologyAdminCommands {
 
     final case class MediatorDomainState(
         query: BaseQuery,
-        filterDomain: String,
+        filterSynchronizerId: String,
     ) extends BaseCommand[
           v30.ListMediatorDomainStateRequest,
           v30.ListMediatorDomainStateResponse,
@@ -410,7 +410,7 @@ object TopologyAdminCommands {
         Right(
           v30.ListMediatorDomainStateRequest(
             baseQuery = Some(query.toProtoV1),
-            filterDomain = filterDomain,
+            filterSynchronizerId = filterSynchronizerId,
           )
         )
 
@@ -430,7 +430,7 @@ object TopologyAdminCommands {
 
     final case class SequencerDomainState(
         query: BaseQuery,
-        filterDomain: String,
+        filterSynchronizerId: String,
     ) extends BaseCommand[
           v30.ListSequencerDomainStateRequest,
           v30.ListSequencerDomainStateResponse,
@@ -441,7 +441,7 @@ object TopologyAdminCommands {
         Right(
           new v30.ListSequencerDomainStateRequest(
             baseQuery = Some(query.toProtoV1),
-            filterDomain = filterDomain,
+            filterSynchronizerId = filterSynchronizerId,
           )
         )
 
@@ -461,7 +461,7 @@ object TopologyAdminCommands {
 
     final case class PurgeTopologyTransaction(
         query: BaseQuery,
-        filterDomain: String,
+        filterSynchronizerId: String,
     ) extends BaseCommand[
           v30.ListPurgeTopologyTransactionRequest,
           v30.ListPurgeTopologyTransactionResponse,
@@ -473,7 +473,7 @@ object TopologyAdminCommands {
         Right(
           new v30.ListPurgeTopologyTransactionRequest(
             baseQuery = Some(query.toProtoV1),
-            filterDomain = filterDomain,
+            filterSynchronizerId = filterSynchronizerId,
           )
         )
 
@@ -590,11 +590,11 @@ object TopologyAdminCommands {
           CancellableContext,
         ] {
       override protected def createRequest(): Either[String, v30.GenesisStateRequest] = {
-        val domainStore = filterDomainStore.traverse(DomainId.fromString)
-        domainStore.flatMap(domainId =>
+        val domainStore = filterDomainStore.traverse(SynchronizerId.fromString)
+        domainStore.flatMap(synchronizerId =>
           Right(
             v30.GenesisStateRequest(
-              domainId.map(Domain.apply).map(_.toProto),
+              synchronizerId.map(Domain.apply).map(_.toProto),
               timestamp.map(_.toProtoTimestamp),
             )
           )
@@ -629,7 +629,7 @@ object TopologyAdminCommands {
     }
 
     final case class ListParties(
-        filterDomain: String,
+        filterSynchronizerId: String,
         filterParty: String,
         filterParticipant: String,
         asOf: Option[Instant],
@@ -641,7 +641,7 @@ object TopologyAdminCommands {
       override protected def createRequest(): Either[String, v30.ListPartiesRequest] =
         Right(
           v30.ListPartiesRequest(
-            filterDomain = filterDomain,
+            filterSynchronizerId = filterSynchronizerId,
             filterParty = filterParty,
             filterParticipant = filterParticipant,
             asOf = asOf.map(ts => Timestamp(ts.getEpochSecond)),
@@ -666,7 +666,7 @@ object TopologyAdminCommands {
     }
 
     final case class ListKeyOwners(
-        filterDomain: String,
+        filterSynchronizerId: String,
         filterKeyOwnerType: Option[MemberCode],
         filterKeyOwnerUid: String,
         asOf: Option[Instant],
@@ -678,7 +678,7 @@ object TopologyAdminCommands {
       override protected def createRequest(): Either[String, v30.ListKeyOwnersRequest] =
         Right(
           v30.ListKeyOwnersRequest(
-            filterDomain = filterDomain,
+            filterSynchronizerId = filterSynchronizerId,
             filterKeyOwnerType = filterKeyOwnerType.map(_.toProtoPrimitive).getOrElse(""),
             filterKeyOwnerUid = filterKeyOwnerUid,
             asOf = asOf.map(ts => Timestamp(ts.getEpochSecond)),

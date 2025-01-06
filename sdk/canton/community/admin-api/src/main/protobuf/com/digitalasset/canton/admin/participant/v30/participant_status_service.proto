@@ -20,7 +20,7 @@ message ConnectedDomain {
     HEALTH_UNHEALTHY = 2;
   }
 
-  string domain_id = 1;
+  string synchronizer_id = 1;
   Health health = 2;
 }
 

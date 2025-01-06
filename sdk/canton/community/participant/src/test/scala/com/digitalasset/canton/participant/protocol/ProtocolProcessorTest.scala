@@ -119,7 +119,7 @@ class ProtocolProcessorTest
     UniqueIdentifier.tryFromProtoPrimitive("participant::other-participant")
   )
   private val party = PartyId(UniqueIdentifier.tryFromProtoPrimitive("party::participant"))
-  private val domain = DefaultTestIdentities.domainId
+  private val domain = DefaultTestIdentities.synchronizerId
   private val topology: TestingTopology = TestingTopology.from(
     Set(domain),
     Map(
@@ -191,7 +191,7 @@ class ProtocolProcessorTest
   when(trm.pretty).thenAnswer(Pretty.adHocPrettyInstance[ConfirmationResultMessage])
   when(trm.verdict).thenAnswer(Verdict.Approve(testedProtocolVersion))
   when(trm.rootHash).thenAnswer(rootHash)
-  when(trm.domainId).thenAnswer(DefaultTestIdentities.domainId)
+  when(trm.synchronizerId).thenAnswer(DefaultTestIdentities.synchronizerId)
 
   private val requestId = RequestId(CantonTimestamp.Epoch)
   private val requestSc = SequencerCounter(0)
@@ -222,7 +222,8 @@ class ProtocolProcessorTest
       TestProcessingSteps.TestProcessingError,
     ]
 
-  private def waitForAsyncResult(asyncResult: AsyncResult) = asyncResult.unwrap.unwrap.futureValue
+  private def waitForAsyncResult(asyncResult: AsyncResult[Unit]) =
+    asyncResult.unwrap.unwrap.futureValue
 
   private def testProcessingSteps(
       overrideConstructedPendingRequestDataO: Option[TestPendingRequestData] = None,
@@ -290,7 +291,7 @@ class ProtocolProcessorTest
 
     val timeTracker = mock[DomainTimeTracker]
     val recordOrderPublisher = new RecordOrderPublisher(
-      domainId = domain,
+      synchronizerId = domain,
       initSc = SequencerCounter.Genesis,
       initTimestamp = CantonTimestamp.MinValue,
       ledgerApiIndexer = ledgerApiIndexer,
@@ -361,7 +362,7 @@ class ProtocolProcessorTest
         ephemeralState.get(),
         crypto,
         sequencerClient,
-        domainId = DefaultTestIdentities.domainId,
+        synchronizerId = DefaultTestIdentities.synchronizerId,
         testedProtocolVersion,
         loggerFactory,
         FutureSupervisor.Noop,
@@ -400,13 +401,13 @@ class ProtocolProcessorTest
     viewHash = viewHash,
     sessionKeys = sessionKeyMapTest,
     encryptedView = encryptedView,
-    domainId = DefaultTestIdentities.domainId,
+    synchronizerId = DefaultTestIdentities.synchronizerId,
     SymmetricKeyScheme.Aes128Gcm,
     testedProtocolVersion,
   )
   private lazy val rootHashMessage = RootHashMessage(
     rootHash,
-    DefaultTestIdentities.domainId,
+    DefaultTestIdentities.synchronizerId,
     testedProtocolVersion,
     TestViewType,
     testTopologyTimestamp,
@@ -427,7 +428,7 @@ class ProtocolProcessorTest
   private lazy val unsequencedSubmission = InFlightSubmission(
     changeIdHash = changeIdHash,
     submissionId = Some(subId),
-    submissionDomain = domain,
+    submissionSynchronizerId = domain,
     messageUuid = UUID.randomUUID(),
     rootHashO = Some(rootHash),
     sequencingInfo = UnsequencedSubmission(
@@ -663,7 +664,7 @@ class ProtocolProcessorTest
         viewHash = viewHash1,
         sessionKeys = sessionKeyMapTest,
         encryptedView = encryptedViewWrongRH,
-        domainId = DefaultTestIdentities.domainId,
+        synchronizerId = DefaultTestIdentities.synchronizerId,
         SymmetricKeyScheme.Aes128Gcm,
         testedProtocolVersion,
       )
@@ -698,7 +699,7 @@ class ProtocolProcessorTest
         viewHash = viewHash,
         sessionKeys = sessionKeyMapTest,
         encryptedView = EncryptedView(TestViewType)(Encrypted.fromByteString(ByteString.EMPTY)),
-        domainId = DefaultTestIdentities.domainId,
+        synchronizerId = DefaultTestIdentities.synchronizerId,
         viewEncryptionScheme = SymmetricKeyScheme.Aes128Gcm,
         protocolVersion = testedProtocolVersion,
       )

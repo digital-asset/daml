@@ -18,7 +18,12 @@ import com.digitalasset.canton.protocol.messages.{AcsCommitment, CommitmentPerio
 import com.digitalasset.canton.protocol.{ExampleTransactionFactory, LfContractId}
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, TestingTopology, UniqueIdentifier}
+import com.digitalasset.canton.topology.{
+  ParticipantId,
+  SynchronizerId,
+  TestingTopology,
+  UniqueIdentifier,
+}
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, LfPartyId, ReassignmentCounter}
 import org.scalatest.wordspec.AsyncWordSpec
@@ -46,7 +51,7 @@ class AcsCommitmentMultiHostedPartyTrackerTest
   protected def period(i: Long): CommitmentPeriod =
     new CommitmentPeriod(ts(i), intervalSeconds)
 
-  protected lazy val domainId: DomainId = DomainId(
+  protected lazy val synchronizerId: SynchronizerId = SynchronizerId(
     UniqueIdentifier.tryFromProtoPrimitive("domain::da")
   )
 
@@ -71,7 +76,7 @@ class AcsCommitmentMultiHostedPartyTrackerTest
 
   private def buildFakeCommitment(period: CommitmentPeriod, sender: ParticipantId): AcsCommitment =
     AcsCommitment.create(
-      domainId,
+      synchronizerId,
       sender,
       localId,
       period,

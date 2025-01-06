@@ -4,8 +4,8 @@
 package com.digitalasset.canton.metrics
 
 import com.daml.metrics.api.{HistogramInventory, MetricName}
-import com.digitalasset.canton.domain.metrics.{MediatorHistograms, SequencerHistograms}
 import com.digitalasset.canton.participant.metrics.ParticipantHistograms
+import com.digitalasset.canton.synchronizer.metrics.{MediatorHistograms, SequencerHistograms}
 
 /** Pre-register histogram metrics
   *

@@ -8,16 +8,19 @@ import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.ConfigErrors.CantonConfigError
-import com.digitalasset.canton.domain.config.CommunityPublicServerConfig
-import com.digitalasset.canton.domain.mediator.{CommunityMediatorNodeConfig, RemoteMediatorConfig}
-import com.digitalasset.canton.domain.sequencing.config.{
-  CommunitySequencerNodeConfig,
-  RemoteSequencerConfig,
-}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.participant.config.{
   CommunityParticipantConfig,
   RemoteParticipantConfig,
+}
+import com.digitalasset.canton.synchronizer.config.CommunityPublicServerConfig
+import com.digitalasset.canton.synchronizer.mediator.{
+  CommunityMediatorNodeConfig,
+  RemoteMediatorConfig,
+}
+import com.digitalasset.canton.synchronizer.sequencing.config.{
+  CommunitySequencerNodeConfig,
+  RemoteSequencerConfig,
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.typesafe.config.{Config, ConfigValue}

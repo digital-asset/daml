@@ -16,7 +16,7 @@ import com.digitalasset.canton.participant.util.{StateChange, TimeOfChange}
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{Checked, CheckedT}
@@ -225,13 +225,13 @@ trait ActiveContractStore
     *         </ul>
     */
   def assignContracts(
-      assignments: Seq[(LfContractId, Source[DomainId], ReassignmentCounter, TimeOfChange)]
+      assignments: Seq[(LfContractId, Source[SynchronizerId], ReassignmentCounter, TimeOfChange)]
   )(implicit traceContext: TraceContext): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit]
 
   def assignContract(
       contractId: LfContractId,
       toc: TimeOfChange,
-      sourceDomain: Source[DomainId],
+      sourceDomain: Source[SynchronizerId],
       reassignmentCounter: ReassignmentCounter,
   )(implicit
       traceContext: TraceContext
@@ -252,13 +252,13 @@ trait ActiveContractStore
     *         </ul>
     */
   def unassignContracts(
-      unassignments: Seq[(LfContractId, Target[DomainId], ReassignmentCounter, TimeOfChange)]
+      unassignments: Seq[(LfContractId, Target[SynchronizerId], ReassignmentCounter, TimeOfChange)]
   )(implicit traceContext: TraceContext): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit]
 
   def unassignContracts(
       contractId: LfContractId,
       toc: TimeOfChange,
-      targetDomain: Target[DomainId],
+      targetDomain: Target[SynchronizerId],
       reassignmentCounter: ReassignmentCounter,
   )(implicit
       traceContext: TraceContext
@@ -300,25 +300,25 @@ trait ActiveContractStore
       traceContext: TraceContext
   ): Future[Int]
 
-  protected def domainIdFromIdxFUS(
+  protected def synchronizerIdFromIdxFUS(
       idx: Int
   )(implicit
       ec: ExecutionContext,
       loggingContext: ErrorLoggingContext,
-  ): FutureUnlessShutdown[DomainId] =
+  ): FutureUnlessShutdown[SynchronizerId] =
     IndexedDomain
       .fromDbIndexOT("par_active_contracts remote domain index", indexedStringStore)(idx)
-      .fold[DomainId](
-        throw new RuntimeException(s"Unable to find domain ID for domain with index $idx")
-      )(_.domainId)
+      .fold[SynchronizerId](
+        throw new RuntimeException(s"Unable to find synchronizer id for domain with index $idx")
+      )(_.synchronizerId)
 
   protected def getDomainIndices(
-      domains: Seq[DomainId]
-  ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Map[DomainId, IndexedDomain]] =
+      domains: Seq[SynchronizerId]
+  ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Map[SynchronizerId, IndexedDomain]] =
     CheckedT.result(
       domains
-        .parTraverse { domainId =>
-          IndexedDomain.indexed(indexedStringStore)(domainId).map(domainId -> _)
+        .parTraverse { synchronizerId =>
+          IndexedDomain.indexed(indexedStringStore)(synchronizerId).map(synchronizerId -> _)
         }
         .map(_.toMap)
     )
@@ -349,7 +349,7 @@ object ActiveContractStore {
     def name: LengthLimitedString
 
     def reassignmentCounterO: Option[ReassignmentCounter]
-    def remoteDomainIdxO: Option[Int]
+    def remoteSynchronizerIdxO: Option[Int]
 
     def changeType: ChangeType
     def contractChange: ContractChange
@@ -373,8 +373,8 @@ object ActiveContractStore {
 
     sealed trait ReassignmentChangeDetail extends HasReassignmentCounter {
       def toReassignmentType: ActiveContractStore.ReassignmentType
-      def remoteDomainIdx: Int
-      override def remoteDomainIdxO: Option[Int] = Some(remoteDomainIdx)
+      def remoteSynchronizerIdx: Int
+      override def remoteSynchronizerIdxO: Option[Int] = Some(remoteSynchronizerIdx)
 
       override def isReassignment: Boolean = true
     }
@@ -384,7 +384,7 @@ object ActiveContractStore {
       override val name = ActivenessChangeDetail.create
       override def reassignmentCounterO: Option[ReassignmentCounter] = Some(reassignmentCounter)
 
-      override def remoteDomainIdxO: Option[Int] = None
+      override def remoteSynchronizerIdxO: Option[Int] = None
 
       override def changeType: ChangeType = ChangeType.Activation
 
@@ -398,7 +398,7 @@ object ActiveContractStore {
 
     final case class Add(reassignmentCounter: ReassignmentCounter) extends HasReassignmentCounter {
       override val name = ActivenessChangeDetail.add
-      override def remoteDomainIdxO: Option[Int] = None
+      override def remoteSynchronizerIdxO: Option[Int] = None
 
       override def changeType: ChangeType = ChangeType.Activation
 
@@ -419,7 +419,7 @@ object ActiveContractStore {
     case object Archive extends ActivenessChangeDetail {
       override val name = ActivenessChangeDetail.archive
       override def reassignmentCounterO: Option[ReassignmentCounter] = None
-      override def remoteDomainIdxO: Option[Int] = None
+      override def remoteSynchronizerIdxO: Option[Int] = None
       override def changeType: ChangeType = ChangeType.Deactivation
 
       override def contractChange: ContractChange = ContractChange.Archived
@@ -433,7 +433,7 @@ object ActiveContractStore {
       override val name = ActivenessChangeDetail.purge
       override def reassignmentCounterO: Option[ReassignmentCounter] = None
 
-      override def remoteDomainIdxO: Option[Int] = None
+      override def remoteSynchronizerIdxO: Option[Int] = None
 
       override def changeType: ChangeType = ChangeType.Deactivation
 
@@ -444,8 +444,10 @@ object ActiveContractStore {
       override protected def pretty: Pretty[Purge.this.type] = prettyOfObject[Purge.this.type]
     }
 
-    final case class Assignment(reassignmentCounter: ReassignmentCounter, remoteDomainIdx: Int)
-        extends ReassignmentChangeDetail {
+    final case class Assignment(
+        reassignmentCounter: ReassignmentCounter,
+        remoteSynchronizerIdx: Int,
+    ) extends ReassignmentChangeDetail {
       override val name = ActivenessChangeDetail.assign
 
       override def changeType: ChangeType = ChangeType.Activation
@@ -457,12 +459,14 @@ object ActiveContractStore {
       override protected def pretty: Pretty[Assignment.this.type] = prettyOfClass(
         param("contract change", _.contractChange),
         param("reassignment counter", _.reassignmentCounter),
-        param("remote domain index", _.remoteDomainIdx),
+        param("remote domain index", _.remoteSynchronizerIdx),
       )
     }
 
-    final case class Unassignment(reassignmentCounter: ReassignmentCounter, remoteDomainIdx: Int)
-        extends ReassignmentChangeDetail {
+    final case class Unassignment(
+        reassignmentCounter: ReassignmentCounter,
+        remoteSynchronizerIdx: Int,
+    ) extends ReassignmentChangeDetail {
       override val name = ActivenessChangeDetail.unassignment
 
       override def changeType: ChangeType = ChangeType.Deactivation
@@ -474,7 +478,7 @@ object ActiveContractStore {
       override protected def pretty: Pretty[Unassignment.this.type] = prettyOfClass(
         param("contract change", _.contractChange),
         param("reassignment counter", _.reassignmentCounter),
-        param("remote domain index", _.remoteDomainIdx),
+        param("remote domain index", _.remoteSynchronizerIdx),
       )
     }
 
@@ -482,7 +486,7 @@ object ActiveContractStore {
       (v, pp) => {
         pp >> v.name
         pp >> v.reassignmentCounterO
-        pp >> v.remoteDomainIdxO
+        pp >> v.remoteSynchronizerIdxO
       }
 
     implicit val getResultChangeType: GetResult[ActivenessChangeDetail] = GetResult { r =>
@@ -540,7 +544,7 @@ object ActiveContractStore {
   /** Error cases returned by the operations on the [[ActiveContractStore!]] */
   sealed trait AcsError extends AcsBaseError
 
-  final case class UnableToFindIndex(id: DomainId) extends AcsError
+  final case class UnableToFindIndex(id: SynchronizerId) extends AcsError
 
   final case class ActiveContractsDataInvariantViolation(
       errorMessage: String
@@ -671,7 +675,7 @@ object ActiveContractStore {
     * @param reassignmentCounter The reassignment counter of the unassignment request that reassigned the contract away.
     */
   final case class ReassignedAway(
-      targetDomain: Target[DomainId],
+      targetDomain: Target[SynchronizerId],
       reassignmentCounter: ReassignmentCounter,
   ) extends Status {
     override def prunable: Boolean = true

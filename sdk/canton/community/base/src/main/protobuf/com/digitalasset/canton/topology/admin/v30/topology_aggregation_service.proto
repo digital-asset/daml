@@ -55,7 +55,7 @@ service TopologyAggregationService {
 message ListPartiesRequest {
   google.protobuf.Timestamp as_of = 1;
   int32 limit = 2;
-  string filter_domain = 3;
+  string filter_synchronizer_id = 3;
   string filter_party = 4;
   string filter_participant = 5;
 }
@@ -66,7 +66,7 @@ message ListPartiesResponse {
 
     message ParticipantDomains {
       message DomainPermissions {
-        string domain = 1;
+        string synchronizer_id = 1;
         com.digitalasset.canton.protocol.v30.Enums.ParticipantPermission permission = 2;
       }
 
@@ -89,14 +89,14 @@ message ListPartiesResponse {
 message ListKeyOwnersRequest {
   google.protobuf.Timestamp as_of = 1;
   int32 limit = 2;
-  string filter_domain = 3;
+  string filter_synchronizer_id = 3;
   string filter_key_owner_type = 4;
   string filter_key_owner_uid = 5;
 }
 
 message ListKeyOwnersResponse {
   message Result {
-    string domain = 1;
+    string synchronizer_id = 1;
     string key_owner = 2;
     repeated com.digitalasset.canton.crypto.v30.SigningPublicKey signing_keys = 3;
     repeated com.digitalasset.canton.crypto.v30.EncryptionPublicKey encryption_keys = 4;

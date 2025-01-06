@@ -58,7 +58,11 @@ import com.digitalasset.canton.protocol.messages.{
   CommitmentPeriod,
   SignedProtocolMessage,
 }
-import com.digitalasset.canton.protocol.{AcsCommitmentsCatchUpConfig, LfContractId}
+import com.digitalasset.canton.protocol.{
+  AcsCommitmentsCatchUpConfig,
+  LfContractId,
+  SerializableContract,
+}
 import com.digitalasset.canton.pruning.{
   ConfigForDomainThresholds,
   ConfigForNoWaitCounterParticipants,
@@ -71,7 +75,7 @@ import com.digitalasset.canton.sequencing.protocol.{Batch, OpenEnvelope, Recipie
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.processing.EffectiveTime
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.EitherUtil.RichEither
@@ -194,7 +198,7 @@ import scala.math.Ordering.Implicits.*
   */
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 class AcsCommitmentProcessor private (
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     participantId: ParticipantId,
     sequencerClient: SequencerClientSend,
     domainCrypto: SyncCryptoClient[SyncCryptoApi],
@@ -870,14 +874,16 @@ class AcsCommitmentProcessor private (
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
 
     if (batch.lengthCompare(1) != 0) {
-      Errors.InternalError.MultipleCommitmentsInBatch(domainId, timestamp, batch.length).discard
+      Errors.InternalError
+        .MultipleCommitmentsInBatch(synchronizerId, timestamp, batch.length)
+        .discard
     }
 
     val future = for {
       allConfigs <- acsCounterParticipantConfigStore.fetchAllSlowCounterParticipantConfig()
       (configsForSlowCounterParticipants, configsForDomainThreshold) = allConfigs
       allNoWaits <- acsCounterParticipantConfigStore.getAllActiveNoWaitCounterParticipants(
-        Seq(domainId),
+        Seq(synchronizerId),
         Seq.empty,
       )
       _ <- batch.parTraverse_ { envelope =>
@@ -934,10 +940,10 @@ class AcsCommitmentProcessor private (
       reconIntervals.intervals.headOption.fold(1L)(_.intervalLength.duration.toMillis * 1000)
 
     val threshold = thresholds
-      .find(cfg => cfg.domainId == domainId)
+      .find(cfg => cfg.synchronizerId == synchronizerId)
       .getOrElse(
         // we use a default value of 0 for threshold if no config have been provided
-        ConfigForDomainThresholds(domainId, NonNegativeLong.zero, NonNegativeLong.zero)
+        ConfigForDomainThresholds(synchronizerId, NonNegativeLong.zero, NonNegativeLong.zero)
       )
 
     val defaultMax = threshold.thresholdDefault.value * reconIntervalLength
@@ -949,7 +955,7 @@ class AcsCommitmentProcessor private (
           .find(cfg => cfg.participantId == participantId)
           .fold(
             slowConfigs
-              .find(cfg => cfg.domainId == domainId)
+              .find(cfg => cfg.synchronizerId == synchronizerId)
               .map(default => default.copy(isDistinguished = false, isAddedToMetrics = false))
           )(Some(_))
         (
@@ -1245,7 +1251,7 @@ class AcsCommitmentProcessor private (
         // not having received a commitment from us; in this case, we simply reply with an empty commitment, but we
         // issue a mismatch only if the counter-commitment was not empty
         if (remote.commitment != LtHash16().getByteString())
-          Errors.MismatchError.NoSharedContracts.Mismatch(domainId, remote).report()
+          Errors.MismatchError.NoSharedContracts.Mismatch(synchronizerId, remote).report()
 
         // Due to the condition of this branch, in catch-up mode we don't reply with an empty commitment in between
         // catch-up boundaries. If the counter-participant thinks that there is still a shared contract at the
@@ -1275,7 +1281,7 @@ class AcsCommitmentProcessor private (
           true
         case mismatches =>
           Errors.MismatchError.CommitmentsMismatch
-            .Mismatch(domainId, remote, mismatches.toSeq)
+            .Mismatch(synchronizerId, remote, mismatches.toSeq)
             .report()
           false
       }
@@ -1409,7 +1415,7 @@ class AcsCommitmentProcessor private (
       period: CommitmentPeriod,
   ) =
     AcsCommitment.create(
-      domainId,
+      synchronizerId,
       participantId,
       counterParticipant,
       period,
@@ -1769,7 +1775,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
   val emptyCommitment: AcsCommitment.CommitmentType = LtHash16().getByteString()
 
   def apply(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       participantId: ParticipantId,
       sequencerClient: SequencerClientSend,
       domainCrypto: SyncCryptoClient[SyncCryptoApi],
@@ -1826,7 +1832,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       init <- initCommitmentProcessor(store)
       (endOfLastProcessedPeriod, runningCommitments) = init
       processor = new AcsCommitmentProcessor(
-        domainId,
+        synchronizerId,
         participantId,
         sequencerClient,
         domainCrypto,
@@ -2256,7 +2262,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       namedLoggingContext: NamedLoggingContext,
   ): Future[Unit] = {
 
-    def withMetadataSeq(cids: Seq[LfContractId]): Future[Seq[StoredContract]] =
+    def withMetadataSeq(cids: Seq[LfContractId]): Future[Seq[SerializableContract]] =
       contractStore
         .lookupManyExistingUncached(cids)(namedLoggingContext.traceContext)
         .valueOr { missingContractId =>
@@ -2282,7 +2288,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
             .map(c =>
               c.contractId ->
                 ContractStakeholdersAndReassignmentCounter(
-                  c.contract.metadata.stakeholders,
+                  c.metadata.stakeholders,
                   activations(c.contractId),
                 )
             )
@@ -2332,7 +2338,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       override protected def exposedViaApi: Boolean = false
 
       final case class MultipleCommitmentsInBatch(
-          domain: DomainId,
+          synchronizerId: SynchronizerId,
           timestamp: CantonTimestamp,
           num: Int,
       )(implicit
@@ -2368,7 +2374,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
             |the store of this participant or of the counterparty."""
       )
       object NoSharedContracts extends AlarmErrorCode(id = "ACS_MISMATCH_NO_SHARED_CONTRACTS") {
-        final case class Mismatch(domain: DomainId, remote: AcsCommitment)
+        final case class Mismatch(synchronizerId: SynchronizerId, remote: AcsCommitment)
             extends Alarm(
               cause = "Received a commitment where we have no shared contract with the sender"
             )
@@ -2385,7 +2391,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       )
       object CommitmentsMismatch extends AlarmErrorCode(id = "ACS_COMMITMENT_MISMATCH") {
         final case class Mismatch(
-            domain: DomainId,
+            synchronizerId: SynchronizerId,
             remote: AcsCommitment,
             local: Seq[(CommitmentPeriod, AcsCommitment.CommitmentType)],
         ) extends Alarm(cause = "The local commitment does not match the remote commitment")

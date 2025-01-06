@@ -57,12 +57,12 @@ class GrpcDomainRegistry(
     cryptoConfig: CryptoConfig,
     clock: Clock,
     val participantNodeParameters: ParticipantNodeParameters,
-    aliasManager: DomainAliasManager,
+    aliasManager: SynchronizerAliasManager,
     testingConfig: TestingConfigInternal,
     recordSequencerInteractions: AtomicReference[Option[RecordingConfig]],
     replaySequencerConfig: AtomicReference[Option[ReplayConfig]],
     packageDependencyResolver: PackageDependencyResolverUS,
-    metrics: DomainAlias => SyncDomainMetrics,
+    metrics: SynchronizerAlias => SyncDomainMetrics,
     sequencerInfoLoader: SequencerInfoLoader,
     partyNotifier: LedgerServerPartyNotifier,
     override protected val futureSupervisor: FutureSupervisor,
@@ -81,8 +81,8 @@ class GrpcDomainRegistry(
   override protected def timeouts: ProcessingTimeout = participantNodeParameters.processingTimeouts
 
   private class GrpcDomainHandle(
-      override val domainId: DomainId,
-      override val domainAlias: DomainAlias,
+      override val synchronizerId: SynchronizerId,
+      override val synchronizerAlias: SynchronizerAlias,
       override val staticParameters: StaticDomainParameters,
       sequencer: RichSequencerClient,
       override val sequencerChannelClientO: Option[SequencerChannelClient],
@@ -102,7 +102,7 @@ class GrpcDomainRegistry(
       List[AsyncOrSyncCloseable](
         SyncCloseable(
           "topologyOutbox",
-          topologyDispatcher.domainDisconnected(domainAlias),
+          topologyDispatcher.domainDisconnected(synchronizerAlias),
         ),
         SyncCloseable("sequencerClient", sequencerClient.close()),
         SyncCloseable("sequencerChannelClient", sequencerChannelClientO.foreach(_.close())),
@@ -122,8 +122,8 @@ class GrpcDomainRegistry(
     val runE = for {
       info <- sequencerInfoLoader
         .loadAndAggregateSequencerEndpoints(
-          config.domain,
-          config.domainId,
+          config.synchronizerAlias,
+          config.synchronizerId,
           sequencerConnections,
           SequencerConnectionValidation.Active, // only validate active sequencers (not all endpoints)
         )(traceContext, CloseContext(this))
@@ -135,8 +135,8 @@ class GrpcDomainRegistry(
         .toEitherT[FutureUnlessShutdown]
 
       _ <- aliasManager
-        .processHandshake(config.domain, info.domainId)
-        .leftMap(DomainRegistryHelpers.fromDomainAliasManagerError)
+        .processHandshake(config.synchronizerAlias, info.synchronizerId)
+        .leftMap(DomainRegistryHelpers.fromSynchronizerAliasManagerError)
         .mapK(
           FutureUnlessShutdown.outcomeK
         )
@@ -157,7 +157,7 @@ class GrpcDomainRegistry(
         metrics,
       )
     } yield new GrpcDomainHandle(
-      domainHandle.domainId,
+      domainHandle.synchronizerId,
       domainHandle.alias,
       domainHandle.staticParameters,
       domainHandle.sequencer,

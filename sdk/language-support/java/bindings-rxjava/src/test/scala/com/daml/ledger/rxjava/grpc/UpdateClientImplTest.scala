@@ -52,7 +52,7 @@ final class UpdateClientImplTest
         t.getEffectiveAt,
         t.getEvents.asScala.toList,
         t.getOffset,
-        t.getDomainId,
+        t.getSynchronizerId,
         t.getTraceContext,
       )
   }
@@ -197,31 +197,31 @@ final class UpdateClientImplTest
     }
   }
 
-  behavior of "8.9 TransactionClient.getTransactionTreeByEventId"
+  behavior of "8.9 TransactionClient.getTransactionTreeByOffset"
 
-  it should "look up transaction by event ID" ignore forAll(ledgerContentWithEventIdGen) {
-    case (ledgerContent, eventId, transactionTree) =>
+  it should "look up transaction by offset" ignore forAll(ledgerContentWithOffsetGen) {
+    case (ledgerContent, offset, transactionTree) =>
       ledgerServices.withUpdateClient(Observable.fromIterable(ledgerContent.asJava)) {
         (transactionClient, transactionService) =>
           transactionClient
-            .getTransactionTreeByEventId(eventId, Set.empty[String].asJava)
+            .getTransactionTreeByOffset(offset, Set.empty[String].asJava)
             .blockingGet() shouldBe transactionTree
 
-          transactionService.lastTransactionTreeByEventIdRequest.get().eventId shouldBe eventId
+          transactionService.lastTransactionTreeByOffsetRequest.get().offset shouldBe offset
       }
   }
 
-  behavior of "8.10 TransactionClient.getTransactionTreeByEventId"
+  behavior of "8.10 TransactionClient.getTransactionTreeByOffset"
 
   it should "pass the requesting parties with the request" ignore {
     ledgerServices.withUpdateClient(Observable.empty()) { (transactionClient, transactionService) =>
       val requestingParties = Set("Alice", "Bob")
 
       transactionClient
-        .getTransactionTreeByEventId("eventId", requestingParties.asJava)
+        .getTransactionTreeByOffset(0, requestingParties.asJava)
         .blockingGet()
 
-      transactionService.lastTransactionTreeByEventIdRequest
+      transactionService.lastTransactionTreeByOffsetRequest
         .get()
         .requestingParties
         .toSet shouldBe requestingParties
@@ -290,10 +290,10 @@ final class UpdateClientImplTest
         )
       }
     }
-    withClue("getTransactionTreeByEventId") {
+    withClue("getTransactionTreeByOffset") {
       expectUnauthenticated {
         toAuthenticatedServer(
-          _.getTransactionTreeByEventId("...", Set(someParty).asJava).blockingGet()
+          _.getTransactionTreeByOffset(0, Set(someParty).asJava).blockingGet()
         )
       }
     }
@@ -302,10 +302,10 @@ final class UpdateClientImplTest
         toAuthenticatedServer(_.getTransactionTreeById("...", Set(someParty).asJava).blockingGet())
       }
     }
-    withClue("getTransactionByEventId") {
+    withClue("getTransactionByOffset") {
       expectUnauthenticated {
         toAuthenticatedServer(
-          _.getTransactionByEventId("...", Set(someParty).asJava).blockingGet()
+          _.getTransactionByOffset(0, Set(someParty).asJava).blockingGet()
         )
       }
     }
@@ -351,10 +351,10 @@ final class UpdateClientImplTest
         )
       }
     }
-    withClue("getTransactionTreeByEventId") {
+    withClue("getTransactionTreeByOffset") {
       expectPermissionDenied {
         toAuthenticatedServer(
-          _.getTransactionTreeByEventId("...", Set(someParty).asJava, someOtherPartyReadWriteToken)
+          _.getTransactionTreeByOffset(0, Set(someParty).asJava, someOtherPartyReadWriteToken)
             .blockingGet()
         )
       }
@@ -367,10 +367,10 @@ final class UpdateClientImplTest
         )
       }
     }
-    withClue("getTransactionByEventId") {
+    withClue("getTransactionByOffset") {
       expectPermissionDenied {
         toAuthenticatedServer(
-          _.getTransactionByEventId("...", Set(someParty).asJava, someOtherPartyReadWriteToken)
+          _.getTransactionByOffset(0, Set(someParty).asJava, someOtherPartyReadWriteToken)
             .blockingGet()
         )
       }
@@ -416,9 +416,9 @@ final class UpdateClientImplTest
           .size
       )
     }
-    withClue("getTransactionTreeByEventId") {
+    withClue("getTransactionTreeByOffset") {
       toAuthenticatedServer(
-        _.getTransactionTreeByEventId("...", Set(someParty).asJava, somePartyReadWriteToken)
+        _.getTransactionTreeByOffset(0, Set(someParty).asJava, somePartyReadWriteToken)
           .blockingGet()
       )
     }
@@ -428,9 +428,9 @@ final class UpdateClientImplTest
           .blockingGet()
       )
     }
-    withClue("getTransactionByEventId") {
+    withClue("getTransactionByOffset") {
       toAuthenticatedServer(
-        _.getTransactionByEventId("...", Set(someParty).asJava, somePartyReadWriteToken)
+        _.getTransactionByOffset(0, Set(someParty).asJava, somePartyReadWriteToken)
           .blockingGet()
       )
     }

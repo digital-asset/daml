@@ -460,6 +460,10 @@ private object MutableCacheBackedContractStoreRaceTests {
         })
         .getOrElse(KeyUnassigned)
     }(ec)
+
+    override def lookupKeyStatesFromDb(keys: Seq[Key], notEarlierThanOffset: CreatedAt)(implicit
+        loggingContext: LoggingContextWithTrace
+    ): Future[Map[Key, KeyState]] = ??? // not used in this test
   }
 
   private def offset(idx: Long) = {

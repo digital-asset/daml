@@ -33,29 +33,6 @@ import com.digitalasset.canton.config.StartupMemoryCheckConfig.ReportingLevel
 import com.digitalasset.canton.console.{AmmoniteConsoleConfig, FeatureFlag}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.kms.driver.v1.DriverKms
-import com.digitalasset.canton.domain.block.{SequencerDriver, SequencerDriverFactory}
-import com.digitalasset.canton.domain.mediator.{
-  MediatorConfig,
-  MediatorNodeConfigCommon,
-  MediatorNodeParameterConfig,
-  MediatorNodeParameters,
-  MediatorPruningConfig,
-  RemoteMediatorConfig,
-}
-import com.digitalasset.canton.domain.sequencing.config.{
-  RemoteSequencerConfig,
-  SequencerNodeConfigCommon,
-  SequencerNodeInitConfig,
-  SequencerNodeParameterConfig,
-  SequencerNodeParameters,
-}
-import com.digitalasset.canton.domain.sequencing.sequencer.*
-import com.digitalasset.canton.domain.sequencing.sequencer.block.DriverBlockSequencerFactory
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.driver.{
-  BftBlockOrderer,
-  BftSequencerFactory,
-}
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficConfig
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.http.{HttpServerConfig, JsonApiConfig, WebsocketConfig}
 import com.digitalasset.canton.ledger.runner.common.PureConfigReaderWriter.Secure.{
@@ -85,6 +62,29 @@ import com.digitalasset.canton.protocol.AcsCommitmentsCatchUpConfig
 import com.digitalasset.canton.pureconfigutils.SharedConfigReaders.catchConvertError
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
+import com.digitalasset.canton.synchronizer.block.{SequencerDriver, SequencerDriverFactory}
+import com.digitalasset.canton.synchronizer.mediator.{
+  MediatorConfig,
+  MediatorNodeConfigCommon,
+  MediatorNodeParameterConfig,
+  MediatorNodeParameters,
+  MediatorPruningConfig,
+  RemoteMediatorConfig,
+}
+import com.digitalasset.canton.synchronizer.sequencing.config.{
+  RemoteSequencerConfig,
+  SequencerNodeConfigCommon,
+  SequencerNodeInitConfig,
+  SequencerNodeParameterConfig,
+  SequencerNodeParameters,
+}
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.*
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.DriverBlockSequencerFactory
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.driver.{
+  BftBlockOrderer,
+  BftSequencerFactory,
+}
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.traffic.SequencerTrafficConfig
 import com.digitalasset.canton.tracing.TracingConfig
 import com.typesafe.config.ConfigException.UnresolvedSubstitution
 import com.typesafe.config.{

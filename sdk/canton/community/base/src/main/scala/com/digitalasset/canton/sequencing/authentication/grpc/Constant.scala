@@ -31,8 +31,8 @@ object Constant {
     Metadata.Key.of("endpoint", ENDPOINT_MARSHALLER)
   val MEMBER_ID_METADATA_KEY: Metadata.Key[String] =
     Metadata.Key.of("memberId", ASCII_STRING_MARSHALLER)
-  val DOMAIN_ID_METADATA_KEY: Metadata.Key[String] =
-    Metadata.Key.of("domainId", ASCII_STRING_MARSHALLER)
+  val SYNCHRONIZER_ID_METADATA_KEY: Metadata.Key[String] =
+    Metadata.Key.of("synchronizerId", ASCII_STRING_MARSHALLER)
   val AUTHENTICATION_ERROR_CODE: Metadata.Key[String] =
     Metadata.Key.of("authErrorCode", ASCII_STRING_MARSHALLER)
 }

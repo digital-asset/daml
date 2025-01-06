@@ -72,7 +72,7 @@ sealed trait TopologyMapping extends Product with Serializable with PrettyPrinti
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
   ): RequiredAuth
 
-  def restrictedToDomain: Option[DomainId]
+  def restrictedToDomain: Option[SynchronizerId]
 
   def toProtoV30: v30.TopologyMapping
 
@@ -232,16 +232,6 @@ object TopologyMapping {
 
   object RequiredAuth {
 
-    private[transaction] case object EmptyAuthorization extends RequiredAuth {
-      override def satisfiedByActualAuthorizers(
-          provided: ReferencedAuthorizations
-      ): Either[ReferencedAuthorizations, Unit] = Either.unit
-
-      override def referenced: ReferencedAuthorizations = ReferencedAuthorizations()
-
-      override protected def pretty: Pretty[EmptyAuthorization.this.type] = adHocPrettyInstance
-    }
-
     final case class RequiredNamespaces(
         namespaces: Set[Namespace],
         override val requireRootDelegation: Boolean = false,
@@ -302,7 +292,7 @@ object TopologyMapping {
       )
     }
 
-    private[transaction] final case class Or(
+    private[topology] final case class Or(
         first: RequiredAuth,
         second: RequiredAuth,
     ) extends RequiredAuth {
@@ -344,11 +334,11 @@ object TopologyMapping {
       case Mapping.PurgeTopologyTxs(value) => PurgeTopologyTransaction.fromProtoV30(value)
     }
 
-  private[transaction] def addDomainId(
+  private[transaction] def addSynchronizerId(
       builder: HashBuilder,
-      domainId: Option[DomainId],
+      synchronizerId: Option[SynchronizerId],
   ): HashBuilder =
-    builder.add(domainId.map(_.uid.toProtoPrimitive).getOrElse("none"))
+    builder.add(synchronizerId.map(_.uid.toProtoPrimitive).getOrElse("none"))
 
 }
 
@@ -384,7 +374,7 @@ final case class NamespaceDelegation private (
 
   override def maybeUid: Option[UniqueIdentifier] = None
 
-  override def restrictedToDomain: Option[DomainId] = None
+  override def restrictedToDomain: Option[SynchronizerId] = None
 
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
@@ -489,7 +479,7 @@ final case class DecentralizedNamespaceDefinition private (
 
   override def maybeUid: Option[UniqueIdentifier] = None
 
-  override def restrictedToDomain: Option[DomainId] = None
+  override def restrictedToDomain: Option[SynchronizerId] = None
 
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
@@ -599,7 +589,7 @@ final case class IdentifierDelegation(identifier: UniqueIdentifier, target: Sign
   override def namespace: Namespace = identifier.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(identifier)
 
-  override def restrictedToDomain: Option[DomainId] = None
+  override def restrictedToDomain: Option[SynchronizerId] = None
 
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
@@ -629,6 +619,11 @@ object IdentifierDelegation {
     } yield IdentifierDelegation(identifier, target)
 }
 
+/** A topology mapping that maps to a set of public keys for which ownership has to be proven. */
+sealed trait KeyMapping extends Product with Serializable {
+  def mappedKeys: NonEmpty[Seq[PublicKey]]
+}
+
 /** A key owner (participant, mediator, sequencer) to key mapping
   *
   * In Canton, we need to know keys for all participating entities. The entities are
@@ -638,7 +633,8 @@ object IdentifierDelegation {
 final case class OwnerToKeyMapping(
     member: Member,
     keys: NonEmpty[Seq[PublicKey]],
-) extends TopologyMapping {
+) extends TopologyMapping
+    with KeyMapping {
 
   def toProto: v30.OwnerToKeyMapping = v30.OwnerToKeyMapping(
     member = member.toProtoPrimitive,
@@ -657,7 +653,7 @@ final case class OwnerToKeyMapping(
   override def namespace: Namespace = member.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(member.uid)
 
-  override def restrictedToDomain: Option[DomainId] = None
+  override def restrictedToDomain: Option[SynchronizerId] = None
 
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
@@ -673,6 +669,8 @@ final case class OwnerToKeyMapping(
   }
 
   override def uniqueKey: MappingHash = OwnerToKeyMapping.uniqueKey(member)
+
+  override def mappedKeys: NonEmpty[Seq[PublicKey]] = keys
 }
 
 object OwnerToKeyMapping {
@@ -708,14 +706,15 @@ object OwnerToKeyMapping {
   */
 final case class PartyToKeyMapping private (
     party: PartyId,
-    domain: Option[DomainId],
+    synchronizerId: Option[SynchronizerId],
     threshold: PositiveInt,
     signingKeys: NonEmpty[Seq[SigningPublicKey]],
-) extends TopologyMapping {
+) extends TopologyMapping
+    with KeyMapping {
 
   def toProto: v30.PartyToKeyMapping = v30.PartyToKeyMapping(
     party = party.toProtoPrimitive,
-    domain = domain.map(_.toProtoPrimitive).getOrElse(""),
+    synchronizerId = synchronizerId.map(_.toProtoPrimitive).getOrElse(""),
     threshold = threshold.unwrap,
     signingKeys = signingKeys.map(_.toProtoV30),
   )
@@ -730,9 +729,10 @@ final case class PartyToKeyMapping private (
   def code: TopologyMapping.Code = Code.PartyToKeyMapping
 
   override def namespace: Namespace = party.namespace
+
   override def maybeUid: Option[UniqueIdentifier] = Some(party.uid)
 
-  override def restrictedToDomain: Option[DomainId] = domain
+  override def restrictedToDomain: Option[SynchronizerId] = synchronizerId
 
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
@@ -746,14 +746,16 @@ final case class PartyToKeyMapping private (
     RequiredUids(Set(party.uid), newKeys.map(_.fingerprint))
   }
 
-  override def uniqueKey: MappingHash = PartyToKeyMapping.uniqueKey(party, domain)
+  override def uniqueKey: MappingHash = PartyToKeyMapping.uniqueKey(party, synchronizerId)
+
+  override def mappedKeys: NonEmpty[Seq[PublicKey]] = signingKeys.toSeq
 }
 
 object PartyToKeyMapping {
 
   def create(
       partyId: PartyId,
-      domainId: Option[DomainId],
+      synchronizerId: Option[SynchronizerId],
       threshold: PositiveInt,
       signingKeys: NonEmpty[Seq[SigningPublicKey]],
   ): Either[String, PartyToKeyMapping] = {
@@ -773,24 +775,24 @@ object PartyToKeyMapping {
           (),
           s"Party $partyId cannot meet threshold of $threshold signing keys with participants ${signingKeys.size} keys",
         )
-        .map(_ => PartyToKeyMapping(partyId, domainId, threshold, signingKeys))
+        .map(_ => PartyToKeyMapping(partyId, synchronizerId, threshold, signingKeys))
 
     noDuplicateKeys.flatMap(_ => thresholdCanBeMet)
   }
 
   def tryCreate(
       partyId: PartyId,
-      domainId: Option[DomainId],
+      synchronizerId: Option[SynchronizerId],
       threshold: PositiveInt,
       signingKeys: NonEmpty[Seq[SigningPublicKey]],
   ): PartyToKeyMapping =
-    create(partyId, domainId, threshold, signingKeys).valueOr(err =>
+    create(partyId, synchronizerId, threshold, signingKeys).valueOr(err =>
       throw new IllegalArgumentException(err)
     )
 
-  def uniqueKey(party: PartyId, domain: Option[DomainId]): MappingHash =
+  def uniqueKey(party: PartyId, domain: Option[SynchronizerId]): MappingHash =
     TopologyMapping.buildUniqueKey(code)(b =>
-      TopologyMapping.addDomainId(b.add(party.uid.toProtoPrimitive), domain)
+      TopologyMapping.addSynchronizerId(b.add(party.uid.toProtoPrimitive), domain)
     )
 
   def code: TopologyMapping.Code = Code.PartyToKeyMapping
@@ -807,13 +809,13 @@ object PartyToKeyMapping {
           "signing_keys",
           signingKeysP,
         )
-      domain <- OptionUtil
+      synchronizerIdO <- OptionUtil
         .emptyStringAsNone(domainP)
-        .traverse(DomainId.fromProtoPrimitive(_, "domain"))
+        .traverse(SynchronizerId.fromProtoPrimitive(_, "domain"))
       threshold <- PositiveInt
         .create(thresholdP)
         .leftMap(InvariantViolation.toProtoDeserializationError("threshold", _))
-    } yield PartyToKeyMapping(party, domain, threshold, signingKeysNE)
+    } yield PartyToKeyMapping(party, synchronizerIdO, threshold, signingKeysNE)
   }
 
 }
@@ -822,13 +824,13 @@ object PartyToKeyMapping {
   */
 final case class DomainTrustCertificate(
     participantId: ParticipantId,
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
 ) extends TopologyMapping {
 
   def toProto: v30.DomainTrustCertificate =
     v30.DomainTrustCertificate(
       participantUid = participantId.uid.toProtoPrimitive,
-      domain = domainId.toProtoPrimitive,
+      synchronizerId = synchronizerId.toProtoPrimitive,
     )
 
   override def toProtoV30: v30.TopologyMapping =
@@ -843,37 +845,38 @@ final case class DomainTrustCertificate(
   override def namespace: Namespace = participantId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(participantId.uid)
 
-  override def restrictedToDomain: Option[DomainId] = Some(domainId)
+  override def restrictedToDomain: Option[SynchronizerId] = Some(synchronizerId)
 
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
   ): RequiredAuth =
     RequiredUids(Set(participantId.uid))
 
-  override def uniqueKey: MappingHash = DomainTrustCertificate.uniqueKey(participantId, domainId)
+  override def uniqueKey: MappingHash =
+    DomainTrustCertificate.uniqueKey(participantId, synchronizerId)
 }
 
 object DomainTrustCertificate {
 
-  def uniqueKey(participantId: ParticipantId, domainId: DomainId): MappingHash =
+  def uniqueKey(participantId: ParticipantId, synchronizerId: SynchronizerId): MappingHash =
     TopologyMapping.buildUniqueKey(code)(
-      _.add(participantId.toProtoPrimitive).add(domainId.toProtoPrimitive)
+      _.add(participantId.toProtoPrimitive).add(synchronizerId.toProtoPrimitive)
     )
 
   def code: Code = Code.DomainTrustCertificate
 
   def fromProtoV30(
-      value: v30.DomainTrustCertificate
+      valueP: v30.DomainTrustCertificate
   ): ParsingResult[DomainTrustCertificate] =
     for {
       participantId <- TopologyMapping.participantIdFromProtoPrimitive(
-        value.participantUid,
+        valueP.participantUid,
         "participant_uid",
       )
-      domainId <- DomainId.fromProtoPrimitive(value.domain, "domain")
+      synchronizerId <- SynchronizerId.fromProtoPrimitive(valueP.synchronizerId, "domain")
     } yield DomainTrustCertificate(
       participantId,
-      domainId,
+      synchronizerId,
     )
 }
 
@@ -955,7 +958,7 @@ object ParticipantDomainLimits {
     } yield ParticipantDomainLimits(confirmationRequestsMaxRate)
 }
 final case class ParticipantDomainPermission(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     participantId: ParticipantId,
     permission: ParticipantPermission,
     limits: Option[ParticipantDomainLimits],
@@ -967,7 +970,7 @@ final case class ParticipantDomainPermission(
 
   def toProto: v30.ParticipantDomainPermission =
     v30.ParticipantDomainPermission(
-      domain = domainId.toProtoPrimitive,
+      synchronizerId = synchronizerId.toProtoPrimitive,
       participantUid = participantId.uid.toProtoPrimitive,
       permission = permission.toProtoV30,
       limits = limits.map(_.toProto),
@@ -986,15 +989,15 @@ final case class ParticipantDomainPermission(
   override def namespace: Namespace = participantId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(participantId.uid)
 
-  override def restrictedToDomain: Option[DomainId] = Some(domainId)
+  override def restrictedToDomain: Option[SynchronizerId] = Some(synchronizerId)
 
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
   ): RequiredAuth =
-    RequiredUids(Set(domainId.uid))
+    RequiredUids(Set(synchronizerId.uid))
 
   override def uniqueKey: MappingHash =
-    ParticipantDomainPermission.uniqueKey(domainId, participantId)
+    ParticipantDomainPermission.uniqueKey(synchronizerId, participantId)
 
   def setDefaultLimitIfNotSet(
       defaultLimits: ParticipantDomainLimits
@@ -1003,7 +1006,7 @@ final case class ParticipantDomainPermission(
       this
     else
       ParticipantDomainPermission(
-        domainId,
+        synchronizerId,
         participantId,
         permission,
         Some(defaultLimits),
@@ -1013,19 +1016,19 @@ final case class ParticipantDomainPermission(
 
 object ParticipantDomainPermission {
 
-  def uniqueKey(domainId: DomainId, participantId: ParticipantId): MappingHash =
+  def uniqueKey(synchronizerId: SynchronizerId, participantId: ParticipantId): MappingHash =
     TopologyMapping.buildUniqueKey(
       code
-    )(_.add(domainId.toProtoPrimitive).add(participantId.toProtoPrimitive))
+    )(_.add(synchronizerId.toProtoPrimitive).add(participantId.toProtoPrimitive))
 
   def code: Code = Code.ParticipantDomainPermission
 
   def default(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       participantId: ParticipantId,
   ): ParticipantDomainPermission =
     ParticipantDomainPermission(
-      domainId,
+      synchronizerId,
       participantId,
       ParticipantPermission.Submission,
       None,
@@ -1033,19 +1036,19 @@ object ParticipantDomainPermission {
     )
 
   def fromProtoV30(
-      value: v30.ParticipantDomainPermission
+      valueP: v30.ParticipantDomainPermission
   ): ParsingResult[ParticipantDomainPermission] =
     for {
-      domainId <- DomainId.fromProtoPrimitive(value.domain, "domain")
+      synchronizerId <- SynchronizerId.fromProtoPrimitive(valueP.synchronizerId, "domain")
       participantId <- TopologyMapping.participantIdFromProtoPrimitive(
-        value.participantUid,
+        valueP.participantUid,
         "participant_uid",
       )
-      permission <- ParticipantPermission.fromProtoV30(value.permission)
-      limits <- value.limits.traverse(ParticipantDomainLimits.fromProtoV30)
-      loginAfter <- value.loginAfter.traverse(CantonTimestamp.fromProtoPrimitive)
+      permission <- ParticipantPermission.fromProtoV30(valueP.permission)
+      limits <- valueP.limits.traverse(ParticipantDomainLimits.fromProtoV30)
+      loginAfter <- valueP.loginAfter.traverse(CantonTimestamp.fromProtoPrimitive)
     } yield ParticipantDomainPermission(
-      domainId,
+      synchronizerId,
       participantId,
       permission,
       limits,
@@ -1055,13 +1058,13 @@ object ParticipantDomainPermission {
 
 // Party hosting limits
 final case class PartyHostingLimits(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     partyId: PartyId,
 ) extends TopologyMapping {
 
   def toProto: v30.PartyHostingLimits =
     v30.PartyHostingLimits(
-      domain = domainId.toProtoPrimitive,
+      synchronizerId = synchronizerId.toProtoPrimitive,
       party = partyId.toProtoPrimitive,
     )
 
@@ -1077,32 +1080,32 @@ final case class PartyHostingLimits(
   override def namespace: Namespace = partyId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(partyId.uid)
 
-  override def restrictedToDomain: Option[DomainId] = Some(domainId)
+  override def restrictedToDomain: Option[SynchronizerId] = Some(synchronizerId)
 
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
   ): RequiredAuth =
-    RequiredUids(Set(domainId.uid))
+    RequiredUids(Set(synchronizerId.uid))
 
-  override def uniqueKey: MappingHash = PartyHostingLimits.uniqueKey(domainId, partyId)
+  override def uniqueKey: MappingHash = PartyHostingLimits.uniqueKey(synchronizerId, partyId)
 }
 
 object PartyHostingLimits {
 
-  def uniqueKey(domainId: DomainId, partyId: PartyId): MappingHash =
+  def uniqueKey(synchronizerId: SynchronizerId, partyId: PartyId): MappingHash =
     TopologyMapping.buildUniqueKey(code)(
-      _.add(domainId.toProtoPrimitive).add(partyId.toProtoPrimitive)
+      _.add(synchronizerId.toProtoPrimitive).add(partyId.toProtoPrimitive)
     )
 
   def code: Code = Code.PartyHostingLimits
 
   def fromProtoV30(
-      value: v30.PartyHostingLimits
+      valueP: v30.PartyHostingLimits
   ): ParsingResult[PartyHostingLimits] =
     for {
-      domainId <- DomainId.fromProtoPrimitive(value.domain, "domain")
-      partyId <- PartyId.fromProtoPrimitive(value.party, "party")
-    } yield PartyHostingLimits(domainId, partyId)
+      synchronizerId <- SynchronizerId.fromProtoPrimitive(valueP.synchronizerId, "domain")
+      partyId <- PartyId.fromProtoPrimitive(valueP.party, "party")
+    } yield PartyHostingLimits(synchronizerId, partyId)
 }
 
 /** Represents a package with an optional validity period. No start or end means that the validity
@@ -1173,7 +1176,7 @@ final case class VettedPackages private (
   override def namespace: Namespace = participantId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(participantId.uid)
 
-  override def restrictedToDomain: Option[DomainId] = None
+  override def restrictedToDomain: Option[SynchronizerId] = None
 
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
@@ -1309,7 +1312,7 @@ final case class PartyToParticipant private (
   override def namespace: Namespace = partyId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(partyId.uid)
 
-  override def restrictedToDomain: Option[DomainId] = None
+  override def restrictedToDomain: Option[SynchronizerId] = None
 
   def participantIds: Seq[ParticipantId] = participants.map(_.participantId)
 
@@ -1416,14 +1419,16 @@ object PartyToParticipant {
   * These changes are authorized by the owner of the domain and distributed
   * to all nodes accordingly.
   */
-final case class DomainParametersState(domain: DomainId, parameters: DynamicDomainParameters)
-    extends TopologyMapping {
+final case class DomainParametersState(
+    synchronizerId: SynchronizerId,
+    parameters: DynamicDomainParameters,
+) extends TopologyMapping {
 
   def toProtoV30: v30.TopologyMapping =
     v30.TopologyMapping(
       v30.TopologyMapping.Mapping.DomainParametersState(
         v30.DomainParametersState(
-          domain = domain.toProtoPrimitive,
+          synchronizerId = synchronizerId.toProtoPrimitive,
           domainParameters = Some(parameters.toProtoV30),
         )
       )
@@ -1431,37 +1436,37 @@ final case class DomainParametersState(domain: DomainId, parameters: DynamicDoma
 
   def code: TopologyMapping.Code = Code.DomainParametersState
 
-  override def namespace: Namespace = domain.namespace
-  override def maybeUid: Option[UniqueIdentifier] = Some(domain.uid)
+  override def namespace: Namespace = synchronizerId.namespace
+  override def maybeUid: Option[UniqueIdentifier] = Some(synchronizerId.uid)
 
-  override def restrictedToDomain: Option[DomainId] = Some(domain)
+  override def restrictedToDomain: Option[SynchronizerId] = Some(synchronizerId)
 
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
-  ): RequiredAuth = RequiredUids(Set(domain.uid))
+  ): RequiredAuth = RequiredUids(Set(synchronizerId.uid))
 
-  override def uniqueKey: MappingHash = DomainParametersState.uniqueKey(domain)
+  override def uniqueKey: MappingHash = DomainParametersState.uniqueKey(synchronizerId)
 }
 
 object DomainParametersState {
 
-  def uniqueKey(domainId: DomainId): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(domainId.toProtoPrimitive))
+  def uniqueKey(synchronizerId: SynchronizerId): MappingHash =
+    TopologyMapping.buildUniqueKey(code)(_.add(synchronizerId.toProtoPrimitive))
 
   def code: TopologyMapping.Code = Code.DomainParametersState
 
   def fromProtoV30(
       value: v30.DomainParametersState
   ): ParsingResult[DomainParametersState] = {
-    val v30.DomainParametersState(domainIdP, domainParametersP) = value
+    val v30.DomainParametersState(synchronizerIdP, domainParametersP) = value
     for {
-      domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain")
+      synchronizerId <- SynchronizerId.fromProtoPrimitive(synchronizerIdP, "domain")
       parameters <- ProtoConverter.parseRequired(
         DynamicDomainParameters.fromProtoV30,
         "domainParameters",
         domainParametersP,
       )
-    } yield DomainParametersState(domainId, parameters)
+    } yield DomainParametersState(synchronizerId, parameters)
   }
 }
 
@@ -1472,7 +1477,7 @@ object DomainParametersState {
   * to all nodes accordingly.
   */
 final case class DynamicSequencingParametersState(
-    domain: DomainId,
+    synchronizerId: SynchronizerId,
     parameters: DynamicSequencingParameters,
 ) extends TopologyMapping {
 
@@ -1480,7 +1485,7 @@ final case class DynamicSequencingParametersState(
     v30.TopologyMapping(
       v30.TopologyMapping.Mapping.SequencingDynamicParametersState(
         v30.DynamicSequencingParametersState(
-          domain = domain.toProtoPrimitive,
+          synchronizerId = synchronizerId.toProtoPrimitive,
           sequencingParameters = Some(parameters.toProtoV30),
         )
       )
@@ -1488,38 +1493,38 @@ final case class DynamicSequencingParametersState(
 
   def code: TopologyMapping.Code = Code.SequencingDynamicParametersState
 
-  override def namespace: Namespace = domain.namespace
-  override def maybeUid: Option[UniqueIdentifier] = Some(domain.uid)
+  override def namespace: Namespace = synchronizerId.namespace
+  override def maybeUid: Option[UniqueIdentifier] = Some(synchronizerId.uid)
 
-  override def restrictedToDomain: Option[DomainId] = Some(domain)
+  override def restrictedToDomain: Option[SynchronizerId] = Some(synchronizerId)
 
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
-  ): RequiredAuth = RequiredUids(Set(domain.uid))
+  ): RequiredAuth = RequiredUids(Set(synchronizerId.uid))
 
-  override def uniqueKey: MappingHash = DomainParametersState.uniqueKey(domain)
+  override def uniqueKey: MappingHash = DomainParametersState.uniqueKey(synchronizerId)
 }
 
 object DynamicSequencingParametersState {
 
-  def uniqueKey(domainId: DomainId): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(domainId.toProtoPrimitive))
+  def uniqueKey(synchronizerId: SynchronizerId): MappingHash =
+    TopologyMapping.buildUniqueKey(code)(_.add(synchronizerId.toProtoPrimitive))
 
   def code: TopologyMapping.Code = Code.SequencingDynamicParametersState
 
   def fromProtoV30(
       value: v30.DynamicSequencingParametersState
   ): ParsingResult[DynamicSequencingParametersState] = {
-    val v30.DynamicSequencingParametersState(domainIdP, sequencingParametersP) = value
+    val v30.DynamicSequencingParametersState(synchronizerIdP, sequencingParametersP) = value
     for {
-      domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain")
+      synchronizerId <- SynchronizerId.fromProtoPrimitive(synchronizerIdP, "domain")
       representativeProtocolVersion <- DynamicSequencingParameters.protocolVersionRepresentativeFor(
         ProtoVersion(30)
       )
       parameters <- sequencingParametersP
         .map(DynamicSequencingParameters.fromProtoV30)
         .getOrElse(Right(DynamicSequencingParameters.default(representativeProtocolVersion)))
-    } yield DynamicSequencingParametersState(domainId, parameters)
+    } yield DynamicSequencingParametersState(synchronizerId, parameters)
   }
 }
 
@@ -1530,7 +1535,7 @@ object DynamicSequencingParametersState {
   * they get informed but they don't have to reply.
   */
 final case class MediatorDomainState private (
-    domain: DomainId,
+    synchronizerId: SynchronizerId,
     group: MediatorGroupIndex,
     threshold: PositiveInt,
     active: NonEmpty[Seq[MediatorId]],
@@ -1541,7 +1546,7 @@ final case class MediatorDomainState private (
 
   def toProto: v30.MediatorDomainState =
     v30.MediatorDomainState(
-      domain = domain.toProtoPrimitive,
+      synchronizerId = synchronizerId.toProtoPrimitive,
       group = group.unwrap,
       threshold = threshold.unwrap,
       active = active.map(_.uid.toProtoPrimitive),
@@ -1557,27 +1562,27 @@ final case class MediatorDomainState private (
 
   override def code: TopologyMapping.Code = Code.MediatorDomainState
 
-  override def namespace: Namespace = domain.namespace
-  override def maybeUid: Option[UniqueIdentifier] = Some(domain.uid)
+  override def namespace: Namespace = synchronizerId.namespace
+  override def maybeUid: Option[UniqueIdentifier] = Some(synchronizerId.uid)
 
-  override def restrictedToDomain: Option[DomainId] = Some(domain)
+  override def restrictedToDomain: Option[SynchronizerId] = Some(synchronizerId)
 
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
-  ): RequiredAuth = RequiredUids(Set(domain.uid))
+  ): RequiredAuth = RequiredUids(Set(synchronizerId.uid))
 
-  override def uniqueKey: MappingHash = MediatorDomainState.uniqueKey(domain, group)
+  override def uniqueKey: MappingHash = MediatorDomainState.uniqueKey(synchronizerId, group)
 }
 
 object MediatorDomainState {
 
-  def uniqueKey(domainId: DomainId, group: MediatorGroupIndex): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(domainId.toProtoPrimitive).add(group.unwrap))
+  def uniqueKey(synchronizerId: SynchronizerId, group: MediatorGroupIndex): MappingHash =
+    TopologyMapping.buildUniqueKey(code)(_.add(synchronizerId.toProtoPrimitive).add(group.unwrap))
 
   def code: TopologyMapping.Code = Code.MediatorDomainState
 
   def create(
-      domain: DomainId,
+      synchronizerId: SynchronizerId,
       group: MediatorGroupIndex,
       threshold: PositiveInt,
       active: Seq[MediatorId],
@@ -1598,14 +1603,14 @@ object MediatorDomainState {
     activeNE <- NonEmpty
       .from(active.distinct)
       .toRight("mediator domain state requires at least one active mediator")
-  } yield MediatorDomainState(domain, group, threshold, activeNE, observers.distinct)
+  } yield MediatorDomainState(synchronizerId, group, threshold, activeNE, observers.distinct)
 
   def fromProtoV30(
       value: v30.MediatorDomainState
   ): ParsingResult[MediatorDomainState] = {
-    val v30.MediatorDomainState(domainIdP, groupP, thresholdP, activeP, observersP) = value
+    val v30.MediatorDomainState(synchronizerIdP, groupP, thresholdP, activeP, observersP) = value
     for {
-      domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain")
+      synchronizerId <- SynchronizerId.fromProtoPrimitive(synchronizerIdP, "domain")
       group <- NonNegativeInt
         .create(groupP)
         .leftMap(ProtoDeserializationError.InvariantViolation("group", _))
@@ -1616,7 +1621,7 @@ object MediatorDomainState {
       observers <- observersP.traverse(
         UniqueIdentifier.fromProtoPrimitive(_, "observers").map(MediatorId(_))
       )
-      result <- create(domainId, group, threshold, active, observers).leftMap(
+      result <- create(synchronizerId, group, threshold, active, observers).leftMap(
         ProtoDeserializationError.OtherError.apply
       )
     } yield result
@@ -1633,7 +1638,7 @@ object MediatorDomainState {
   * UNIQUE(domain)
   */
 final case class SequencerDomainState private (
-    domain: DomainId,
+    synchronizerId: SynchronizerId,
     threshold: PositiveInt,
     active: NonEmpty[Seq[SequencerId]],
     observers: Seq[SequencerId],
@@ -1643,7 +1648,7 @@ final case class SequencerDomainState private (
 
   def toProto: v30.SequencerDomainState =
     v30.SequencerDomainState(
-      domain = domain.toProtoPrimitive,
+      synchronizerId = synchronizerId.toProtoPrimitive,
       threshold = threshold.unwrap,
       active = active.map(_.uid.toProtoPrimitive),
       observers = observers.map(_.uid.toProtoPrimitive),
@@ -1658,27 +1663,27 @@ final case class SequencerDomainState private (
 
   def code: TopologyMapping.Code = Code.SequencerDomainState
 
-  override def namespace: Namespace = domain.namespace
-  override def maybeUid: Option[UniqueIdentifier] = Some(domain.uid)
+  override def namespace: Namespace = synchronizerId.namespace
+  override def maybeUid: Option[UniqueIdentifier] = Some(synchronizerId.uid)
 
-  override def restrictedToDomain: Option[DomainId] = Some(domain)
+  override def restrictedToDomain: Option[SynchronizerId] = Some(synchronizerId)
 
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
-  ): RequiredAuth = RequiredUids(Set(domain.uid))
+  ): RequiredAuth = RequiredUids(Set(synchronizerId.uid))
 
-  override def uniqueKey: MappingHash = SequencerDomainState.uniqueKey(domain)
+  override def uniqueKey: MappingHash = SequencerDomainState.uniqueKey(synchronizerId)
 }
 
 object SequencerDomainState {
 
-  def uniqueKey(domainId: DomainId): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(domainId.toProtoPrimitive))
+  def uniqueKey(synchronizerId: SynchronizerId): MappingHash =
+    TopologyMapping.buildUniqueKey(code)(_.add(synchronizerId.toProtoPrimitive))
 
   def code: TopologyMapping.Code = Code.SequencerDomainState
 
   def create(
-      domain: DomainId,
+      synchronizerId: SynchronizerId,
       threshold: PositiveInt,
       active: Seq[SequencerId],
       observers: Seq[SequencerId],
@@ -1698,14 +1703,14 @@ object SequencerDomainState {
     activeNE <- NonEmpty
       .from(active.distinct)
       .toRight("sequencer domain state requires at least one active sequencer")
-  } yield SequencerDomainState(domain, threshold, activeNE, observers.distinct)
+  } yield SequencerDomainState(synchronizerId, threshold, activeNE, observers.distinct)
 
   def fromProtoV30(
       value: v30.SequencerDomainState
   ): ParsingResult[SequencerDomainState] = {
-    val v30.SequencerDomainState(domainIdP, thresholdP, activeP, observersP) = value
+    val v30.SequencerDomainState(synchronizerIdP, thresholdP, activeP, observersP) = value
     for {
-      domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain")
+      synchronizerId <- SynchronizerId.fromProtoPrimitive(synchronizerIdP, "domain")
       threshold <- ProtoConverter.parsePositiveInt("threshold", thresholdP)
       active <- activeP.traverse(
         UniqueIdentifier.fromProtoPrimitive(_, "active").map(SequencerId(_))
@@ -1713,7 +1718,7 @@ object SequencerDomainState {
       observers <- observersP.traverse(
         UniqueIdentifier.fromProtoPrimitive(_, "observers").map(SequencerId(_))
       )
-      result <- create(domainId, threshold, active, observers).leftMap(
+      result <- create(synchronizerId, threshold, active, observers).leftMap(
         ProtoDeserializationError.OtherError.apply
       )
     } yield result
@@ -1721,15 +1726,15 @@ object SequencerDomainState {
 
 }
 
-// Purge topology transaction-x
+// Purge topology transaction
 final case class PurgeTopologyTransaction private (
-    domain: DomainId,
+    synchronizerId: SynchronizerId,
     mappings: NonEmpty[Seq[TopologyMapping]],
 ) extends TopologyMapping {
 
   def toProto: v30.PurgeTopologyTransaction =
     v30.PurgeTopologyTransaction(
-      domain = domain.toProtoPrimitive,
+      synchronizerId = synchronizerId.toProtoPrimitive,
       mappings = mappings.map(_.toProtoV30),
     )
 
@@ -1742,42 +1747,42 @@ final case class PurgeTopologyTransaction private (
 
   def code: TopologyMapping.Code = Code.PurgeTopologyTransaction
 
-  override def namespace: Namespace = domain.namespace
-  override def maybeUid: Option[UniqueIdentifier] = Some(domain.uid)
+  override def namespace: Namespace = synchronizerId.namespace
+  override def maybeUid: Option[UniqueIdentifier] = Some(synchronizerId.uid)
 
-  override def restrictedToDomain: Option[DomainId] = Some(domain)
+  override def restrictedToDomain: Option[SynchronizerId] = Some(synchronizerId)
 
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
-  ): RequiredAuth = RequiredUids(Set(domain.uid))
+  ): RequiredAuth = RequiredUids(Set(synchronizerId.uid))
 
-  override def uniqueKey: MappingHash = PurgeTopologyTransaction.uniqueKey(domain)
+  override def uniqueKey: MappingHash = PurgeTopologyTransaction.uniqueKey(synchronizerId)
 }
 
 object PurgeTopologyTransaction {
 
-  def uniqueKey(domainId: DomainId): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(domainId.toProtoPrimitive))
+  def uniqueKey(synchronizerId: SynchronizerId): MappingHash =
+    TopologyMapping.buildUniqueKey(code)(_.add(synchronizerId.toProtoPrimitive))
 
   def code: TopologyMapping.Code = Code.PurgeTopologyTransaction
 
   def create(
-      domain: DomainId,
+      synchronizerId: SynchronizerId,
       mappings: Seq[TopologyMapping],
   ): Either[String, PurgeTopologyTransaction] = for {
     mappingsToPurge <- NonEmpty
       .from(mappings)
-      .toRight("purge topology transaction-x requires at least one topology mapping")
-  } yield PurgeTopologyTransaction(domain, mappingsToPurge)
+      .toRight("purge topology transaction requires at least one topology mapping")
+  } yield PurgeTopologyTransaction(synchronizerId, mappingsToPurge)
 
   def fromProtoV30(
       value: v30.PurgeTopologyTransaction
   ): ParsingResult[PurgeTopologyTransaction] = {
-    val v30.PurgeTopologyTransaction(domainIdP, mappingsP) = value
+    val v30.PurgeTopologyTransaction(synchronizerIdP, mappingsP) = value
     for {
-      domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain")
+      synchronizerId <- SynchronizerId.fromProtoPrimitive(synchronizerIdP, "domain")
       mappings <- mappingsP.traverse(TopologyMapping.fromProtoV30)
-      result <- create(domainId, mappings).leftMap(
+      result <- create(synchronizerId, mappings).leftMap(
         ProtoDeserializationError.OtherError.apply
       )
     } yield result

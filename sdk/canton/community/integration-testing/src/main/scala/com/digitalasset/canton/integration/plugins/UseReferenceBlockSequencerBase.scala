@@ -6,7 +6,6 @@ package com.digitalasset.canton.integration.plugins
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.domain.sequencing.sequencer.SequencerConfig
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.{
   MultiDomain,
@@ -15,6 +14,7 @@ import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBas
 }
 import com.digitalasset.canton.integration.{EnvironmentSetupPlugin, TestConsoleEnvironment}
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.SequencerConfig
 
 /** @param sequencerGroups If sequencerGroups is defined, all the sequencers of the same set will share the same storage
   *                        (which means they are part of the same domain).

@@ -32,7 +32,7 @@ import scala.concurrent.{ExecutionContext, Future}
 private[participant] object AutomaticAssignment {
   def perform(
       id: ReassignmentId,
-      targetDomain: Target[DomainId],
+      targetDomain: Target[SynchronizerId],
       targetStaticDomainParameters: Target[StaticDomainParameters],
       reassignmentCoordination: ReassignmentCoordination,
       stakeholders: Set[LfPartyId],
@@ -142,7 +142,9 @@ private[participant] object AutomaticAssignment {
                   targetDomain,
                   targetStaticDomainParameters,
                   exclusivityLimit,
-                  Future.successful(logger.debug(s"Automatic assignment triggered immediately")),
+                  Future.successful(
+                    logger.debug(s"Automatic assignment triggered immediately")
+                  ),
                 )
                 .mapK(FutureUnlessShutdown.outcomeK)
 
@@ -173,6 +175,7 @@ private[participant] object AutomaticAssignment {
           t0,
         )
         .mapK(FutureUnlessShutdown.outcomeK)
+
       targetSnapshot = targetIps.map(_.ipsSnapshot)
 
       targetDomainParameters <- EitherT(

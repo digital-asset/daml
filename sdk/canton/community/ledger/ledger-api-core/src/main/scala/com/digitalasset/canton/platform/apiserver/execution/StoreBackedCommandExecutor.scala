@@ -31,7 +31,7 @@ import com.digitalasset.canton.protocol.{
   SerializableContract,
 }
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Checked
 import com.digitalasset.canton.util.Thereafter.syntax.*
@@ -80,15 +80,36 @@ private[apiserver] final class StoreBackedCommandExecutor(
   ): FutureUnlessShutdown[Either[ErrorCause, CommandExecutionResult]] = {
     val interpretationTimeNanos = new AtomicLong(0L)
     val start = System.nanoTime()
-    val coids = commands.commands.commands.toSeq.foldLeft(Set.empty[Value.ContractId]) {
-      case (acc, com.digitalasset.daml.lf.command.ApiCommand.Exercise(_, coid, _, argument)) =>
-        argument.collectCids(acc) + coid
-      case (acc, _) => acc
-    }
+    val coids =
+      commands.commands.commands.toSeq
+        .foldLeft(Set.empty[Value.ContractId]) {
+          case (
+                contractIds,
+                com.digitalasset.daml.lf.command.ApiCommand.Exercise(_, coid, _, argument),
+              ) =>
+            argument.collectCids(contractIds) + coid
+          case (
+                contractIds,
+                com.digitalasset.daml.lf.command.ApiCommand.ExerciseByKey(_, _, _, argument),
+              ) =>
+            argument.collectCids(contractIds)
+          case (acc, _) => acc
+        }
+        .diff(commands.disclosedContracts.map(_.fatContractInstance.contractId).toSeq.toSet)
+
+    // Trigger loading through the state cache and the batch aggregator.
+    // Loading of contracts is a multi-stage process.
+    // - start with N items
+    // - trigger a single load in contractStore (1:1)
+    // - visit the mutableStateCache which will use the read through lookup
+    // - the read through lookup will ask the contract reader
+    // - the contract reader will ask the batchLoader
+    // - the batch loader will put independent requests together into db batches and respond
+    val loadContractsF = Future.sequence(coids.map(contractStore.lookupContractState))
     for {
       ledgerTimeRecordTimeToleranceO <- dynParamGetter
         // TODO(i15313):
-        // We should really pass the domainId here, but it is not available within the ledger API for 2.x.
+        // We should really pass the synchronizerId here, but it is not available within the ledger API for 2.x.
         .getLedgerTimeRecordTimeTolerance(None)
         .leftMap { error =>
           logger.info(
@@ -97,9 +118,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
         }
         .value
         .map(_.toOption)
-      _ <- FutureUnlessShutdown.outcomeF(
-        Future.sequence(coids.map(contractStore.lookupContractState))
-      )
+      _ <- FutureUnlessShutdown.outcomeF(loadContractsF)
       submissionResult <- submitToEngine(commands, submissionSeed, interpretationTimeNanos)
       submission <- consume(
         commands.actAs,
@@ -133,7 +152,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
       interpretationTimeNanos: Long,
   )(implicit
       tc: TraceContext
-  ): Either[ErrorCause.DisclosedContractsDomainIdMismatch, CommandExecutionResult] = {
+  ): Either[ErrorCause.DisclosedContractsSynchronizerIdMismatch, CommandExecutionResult] = {
     val disclosedContractsMap =
       commands.disclosedContracts.iterator.map(d => d.fatContractInstance.contractId -> d).toMap
 
@@ -144,18 +163,18 @@ private[apiserver] final class StoreBackedCommandExecutor(
           create = event,
           createdAt = disclosedContract.fatContractInstance.createdAt,
           driverMetadata = disclosedContract.fatContractInstance.cantonData,
-        ) -> disclosedContract.domainIdO
+        ) -> disclosedContract.synchronizerIdO
       }
 
     StoreBackedCommandExecutor
-      .considerDisclosedContractsDomainId(
-        commands.domainId,
-        processedDisclosedContractsDomains.map { case (disclosed, domainIdO) =>
-          disclosed.contractId -> domainIdO
+      .considerDisclosedContractsSynchronizerId(
+        commands.synchronizerId,
+        processedDisclosedContractsDomains.map { case (disclosed, synchronizerIdO) =>
+          disclosed.contractId -> synchronizerIdO
         },
         logger,
       )
-      .map { prescribedDomainIdO =>
+      .map { prescribedSynchronizerIdO =>
         CommandExecutionResult(
           submitterInfo = state.SubmitterInfo(
             commands.actAs.toList,
@@ -166,7 +185,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
             commands.submissionId.map(_.unwrap),
             externallySignedSubmission = None,
           ),
-          optDomainId = prescribedDomainIdO,
+          optSynchronizerId = prescribedSynchronizerIdO,
           transactionMeta = state.TransactionMeta(
             commands.commands.ledgerEffectiveTime,
             commands.workflowId.map(_.unwrap),
@@ -362,7 +381,16 @@ private[apiserver] final class StoreBackedCommandExecutor(
                 )
               )
             }
-        case ResultPrefetch(_, resume) => resolveStep(resume())
+
+        case ResultPrefetch(keys, resume) =>
+          // prefetch the contract keys via the mutable state cache / batch aggregator
+          keys
+            .parTraverse_(key =>
+              FutureUnlessShutdown.outcomeF(contractStore.lookupContractKey(Set.empty, key))
+            )
+            .flatMap { _ =>
+              resolveStep(resume())
+            }
       }
 
     resolveStep(result).thereafter { _ =>
@@ -588,52 +616,54 @@ private[apiserver] final class StoreBackedCommandExecutor(
 object StoreBackedCommandExecutor {
   type AuthenticateContract = SerializableContract => Either[String, Unit]
 
-  def considerDisclosedContractsDomainId(
-      prescribedDomainIdO: Option[DomainId],
-      disclosedContractsUsedInInterpretation: ImmArray[(ContractId, Option[DomainId])],
+  def considerDisclosedContractsSynchronizerId(
+      prescribedSynchronizerIdO: Option[SynchronizerId],
+      disclosedContractsUsedInInterpretation: ImmArray[(ContractId, Option[SynchronizerId])],
       logger: TracedLogger,
   )(implicit
       tc: TraceContext
-  ): Either[ErrorCause.DisclosedContractsDomainIdMismatch, Option[DomainId]] = {
-    val disclosedContractsDomainIds: View[(ContractId, DomainId)] =
+  ): Either[ErrorCause.DisclosedContractsSynchronizerIdMismatch, Option[SynchronizerId]] = {
+    val disclosedContractssynchronizerIds: View[(ContractId, SynchronizerId)] =
       disclosedContractsUsedInInterpretation.toSeq.view.collect {
-        case (contractId, Some(domainId)) => contractId -> domainId
+        case (contractId, Some(synchronizerId)) => contractId -> synchronizerId
       }
 
-    val domainIdsOfDisclosedContracts = disclosedContractsDomainIds.map(_._2).toSet
-    if (domainIdsOfDisclosedContracts.sizeIs > 1) {
-      // Reject on diverging domain-ids for used disclosed contracts
+    val synchronizerIdsOfDisclosedContracts = disclosedContractssynchronizerIds.map(_._2).toSet
+    if (synchronizerIdsOfDisclosedContracts.sizeIs > 1) {
+      // Reject on diverging synchronizer ids for used disclosed contracts
       Left(
-        ErrorCause.DisclosedContractsDomainIdsMismatch(disclosedContractsDomainIds.toMap)
+        ErrorCause.DisclosedContractssynchronizerIdsMismatch(
+          disclosedContractssynchronizerIds.toMap
+        )
       )
     } else
-      disclosedContractsDomainIds.headOption match {
+      disclosedContractssynchronizerIds.headOption match {
         case None =>
-          // If no disclosed contracts with a specified domain-id, use the prescribed one (if specified)
-          Right(prescribedDomainIdO)
-        case Some((_, domainIdOfDisclosedContracts)) =>
-          prescribedDomainIdO
+          // If no disclosed contracts with a specified synchronizer id, use the prescribed one (if specified)
+          Right(prescribedSynchronizerIdO)
+        case Some((_, synchronizerIdOfDisclosedContracts)) =>
+          prescribedSynchronizerIdO
             .map {
-              // Both prescribed and from disclosed contracts domain-id - check for equality
-              case prescribed if domainIdOfDisclosedContracts == prescribed =>
+              // Both prescribed and from disclosed contracts synchronizer id - check for equality
+              case prescribed if synchronizerIdOfDisclosedContracts == prescribed =>
                 Right(Some(prescribed))
               case mismatchingPrescribed =>
                 Left(
-                  ErrorCause.PrescribedDomainIdMismatch(
-                    disclosedContractIds = disclosedContractsDomainIds.map(_._1).toSet,
-                    domainIdOfDisclosedContracts = domainIdOfDisclosedContracts,
-                    commandsDomainId = mismatchingPrescribed,
+                  ErrorCause.PrescribedSynchronizerIdMismatch(
+                    disclosedContractIds = disclosedContractssynchronizerIds.map(_._1).toSet,
+                    synchronizerIdOfDisclosedContracts = synchronizerIdOfDisclosedContracts,
+                    commandsSynchronizerId = mismatchingPrescribed,
                   )
                 )
             }
-            // If the prescribed domain-id is not specified, use the domain id of the disclosed contracts
+            // If the prescribed synchronizer id is not specified, use the synchronizer id of the disclosed contracts
             .getOrElse {
               logger.debug(
-                s"Using the domain-id ($domainIdOfDisclosedContracts) of the disclosed contracts used in command interpretation (${disclosedContractsDomainIds
+                s"Using the synchronizer id ($synchronizerIdOfDisclosedContracts) of the disclosed contracts used in command interpretation (${disclosedContractssynchronizerIds
                     .map(_._1)
-                    .mkString("[", ",", "]")}) as the prescribed domain-id."
+                    .mkString("[", ",", "]")}) as the prescribed synchronizer id."
               )
-              Right(Some(domainIdOfDisclosedContracts))
+              Right(Some(synchronizerIdOfDisclosedContracts))
             }
       }
   }

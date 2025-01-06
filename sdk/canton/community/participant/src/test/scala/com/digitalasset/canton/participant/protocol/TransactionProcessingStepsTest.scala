@@ -16,18 +16,18 @@ import com.digitalasset.canton.participant.protocol.submission.TransactionConfir
 import com.digitalasset.canton.participant.protocol.validation.*
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.protocol.{ContractMetadata, LfContractId, SerializableContract}
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 
 class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
-  private val domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("the::domain"))
+  private val synchronizerId = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("the::domain"))
   private val participantId: ParticipantId = ParticipantId("participant")
 
   private def buildTestInstance(
       contractAuthenticatorBehaviors: (SerializableContract, Either[String, Unit])*
   ) = new TransactionProcessingSteps(
-    domainId = domainId,
+    synchronizerId = synchronizerId,
     participantId = participantId,
     confirmationRequestFactory = mock[TransactionConfirmationRequestFactory],
     confirmationResponseFactory = mock[TransactionConfirmationResponseFactory],

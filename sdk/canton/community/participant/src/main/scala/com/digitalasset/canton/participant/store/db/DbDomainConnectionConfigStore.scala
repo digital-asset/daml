@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.store.db
 
 import cats.data.EitherT
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.DomainAlias
+import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -39,8 +39,8 @@ class DbDomainConnectionConfigStore private[store] (
   import storage.api.*
   import storage.converters.*
 
-  // Eagerly maintained cache of domain config indexed by DomainAlias
-  private val domainConfigCache = TrieMap.empty[DomainAlias, StoredDomainConnectionConfig]
+  // Eagerly maintained cache of domain config indexed by SynchronizerAlias
+  private val domainConfigCache = TrieMap.empty[SynchronizerAlias, StoredDomainConnectionConfig]
 
   private implicit val setParameterDomainConnectionConfig: SetParameter[DomainConnectionConfig] =
     DomainConnectionConfig.getVersionedSetParameter(releaseProtocolVersion.v)
@@ -52,11 +52,13 @@ class DbDomainConnectionConfigStore private[store] (
     for {
       configs <- getAllInternal
       _ = configs.foreach(s =>
-        domainConfigCache.put(s.config.domain, s).discard[Option[StoredDomainConnectionConfig]]
+        domainConfigCache
+          .put(s.config.synchronizerAlias, s)
+          .discard[Option[StoredDomainConnectionConfig]]
       )
     } yield this
 
-  private def getInternal(domainAlias: DomainAlias)(implicit
+  private def getInternal(synchronizerAlias: SynchronizerAlias)(implicit
       traceContext: TraceContext
   ): EitherT[
     Future,
@@ -66,13 +68,13 @@ class DbDomainConnectionConfigStore private[store] (
     EitherT {
       storage
         .query(
-          sql"""select config, status from par_domain_connection_configs where domain_alias = $domainAlias"""
+          sql"""select config, status from par_domain_connection_configs where synchronizer_alias = $synchronizerAlias"""
             .as[(DomainConnectionConfig, DomainConnectionConfigStore.Status)]
             .headOption
             .map(_.map((StoredDomainConnectionConfig.apply _).tupled)),
           functionFullName,
         )
-        .map(_.toRight(MissingConfigForAlias(domainAlias)))
+        .map(_.toRight(MissingConfigForAlias(synchronizerAlias)))
     }
 
   private def getAllInternal(implicit
@@ -95,12 +97,12 @@ class DbDomainConnectionConfigStore private[store] (
       status: DomainConnectionConfigStore.Status,
   )(implicit traceContext: TraceContext): EitherT[Future, AlreadyAddedForAlias, Unit] = {
 
-    val domainAlias = config.domain
+    val synchronizerAlias = config.synchronizerAlias
 
     val insertAction: DbAction.WriteOnly[Int] =
       sqlu"""insert
-             into par_domain_connection_configs(domain_alias, config, status)
-             values ($domainAlias, $config, $status)
+             into par_domain_connection_configs(synchronizer_alias, config, status)
+             values ($synchronizerAlias, $config, $status)
              on conflict do nothing"""
 
     for {
@@ -110,7 +112,7 @@ class DbDomainConnectionConfigStore private[store] (
         case 0 =>
           // If no rows were updated (due to conflict on alias), check if the existing config matches
           EitherT {
-            getInternal(config.domain)
+            getInternal(config.synchronizerAlias)
               .valueOr { err =>
                 ErrorUtil.internalError(
                   new IllegalStateException(
@@ -119,7 +121,11 @@ class DbDomainConnectionConfigStore private[store] (
                 )
               }
               .map { existingConfig =>
-                Either.cond(existingConfig.config == config, (), AlreadyAddedForAlias(domainAlias))
+                Either.cond(
+                  existingConfig.config == config,
+                  (),
+                  AlreadyAddedForAlias(synchronizerAlias),
+                )
               }
           }
         case _ =>
@@ -129,48 +135,51 @@ class DbDomainConnectionConfigStore private[store] (
       }
     } yield {
       // Eagerly update cache
-      val _ = domainConfigCache.put(config.domain, StoredDomainConnectionConfig(config, status))
+      val _ = domainConfigCache.put(
+        config.synchronizerAlias,
+        StoredDomainConnectionConfig(config, status),
+      )
     }
   }
 
   override def replace(
       config: DomainConnectionConfig
   )(implicit traceContext: TraceContext): EitherT[Future, MissingConfigForAlias, Unit] = {
-    val domainAlias = config.domain
+    val synchronizerAlias = config.synchronizerAlias
     val updateAction = sqlu"""update par_domain_connection_configs
                               set config=$config
-                              where domain_alias=$domainAlias"""
+                              where synchronizer_alias=$synchronizerAlias"""
     for {
-      _ <- getInternal(domainAlias) // Make sure an existing config exists for the alias
+      _ <- getInternal(synchronizerAlias) // Make sure an existing config exists for the alias
       _ <- EitherT.right(storage.update_(updateAction, functionFullName))
     } yield {
       // Eagerly update cache
-      val _ = domainConfigCache.updateWith(config.domain)(_.map(_.copy(config = config)))
+      domainConfigCache.updateWith(config.synchronizerAlias)(_.map(_.copy(config = config))).discard
     }
   }
 
   override def get(
-      alias: DomainAlias
+      alias: SynchronizerAlias
   ): Either[MissingConfigForAlias, StoredDomainConnectionConfig] =
     domainConfigCache.get(alias).toRight(MissingConfigForAlias(alias))
 
   override def getAll(): Seq[StoredDomainConnectionConfig] = domainConfigCache.values.toSeq
 
   def setStatus(
-      source: DomainAlias,
+      source: SynchronizerAlias,
       status: DomainConnectionConfigStore.Status,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, MissingConfigForAlias, Unit] = {
     val updateAction = sqlu"""update par_domain_connection_configs
                               set status=$status
-                              where domain_alias=$source"""
+                              where synchronizer_alias=$source"""
     for {
       _ <- getInternal(source) // Make sure an existing config exists for the alias
       _ <- EitherT.right(storage.update_(updateAction, functionFullName))
     } yield {
       // Eagerly update cache
-      val _ = domainConfigCache.updateWith(source)(_.map(_.copy(status = status)))
+      domainConfigCache.updateWith(source)(_.map(_.copy(status = status))).discard
     }
   }
 

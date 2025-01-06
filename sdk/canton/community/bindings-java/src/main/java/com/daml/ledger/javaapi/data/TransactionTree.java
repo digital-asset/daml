@@ -29,7 +29,7 @@ public final class TransactionTree {
 
   @NonNull private final List<String> rootEventIds;
 
-  @NonNull private final String domainId;
+  @NonNull private final String synchronizerId;
 
   private final TraceContextOuterClass.@NonNull TraceContext traceContext;
 
@@ -43,7 +43,7 @@ public final class TransactionTree {
       @NonNull Long offset,
       @NonNull Map<@NonNull String, @NonNull TreeEvent> eventsById,
       List<String> rootEventIds,
-      @NonNull String domainId,
+      @NonNull String synchronizerId,
       TraceContextOuterClass.@NonNull TraceContext traceContext,
       @NonNull Instant recordTime) {
     this.updateId = updateId;
@@ -53,7 +53,7 @@ public final class TransactionTree {
     this.offset = offset;
     this.eventsById = eventsById;
     this.rootEventIds = rootEventIds;
-    this.domainId = domainId;
+    this.synchronizerId = synchronizerId;
     this.traceContext = traceContext;
     this.recordTime = recordTime;
   }
@@ -82,7 +82,7 @@ public final class TransactionTree {
         tree.getOffset(),
         eventsById,
         rootEventIds,
-        tree.getDomainId(),
+        tree.getSynchronizerId(),
         tree.getTraceContext(),
         Utils.instantFromProto(tree.getRecordTime()));
   }
@@ -102,7 +102,7 @@ public final class TransactionTree {
             eventsById.values().stream()
                 .collect(Collectors.toMap(TreeEvent::getEventId, TreeEvent::toProtoTreeEvent)))
         .addAllRootEventIds(rootEventIds)
-        .setDomainId(domainId)
+        .setSynchronizerId(synchronizerId)
         .setTraceContext(traceContext)
         .setRecordTime(Utils.instantToProto(recordTime))
         .build();
@@ -144,8 +144,8 @@ public final class TransactionTree {
   }
 
   @NonNull
-  public String getDomainId() {
-    return domainId;
+  public String getSynchronizerId() {
+    return synchronizerId;
   }
 
   public TraceContextOuterClass.@NonNull TraceContext getTraceContext() {
@@ -178,8 +178,8 @@ public final class TransactionTree {
         + eventsById
         + ", rootEventIds="
         + rootEventIds
-        + ", domainId='"
-        + domainId
+        + ", synchronizerId='"
+        + synchronizerId
         + '\''
         + ", traceContext="
         + traceContext
@@ -200,7 +200,7 @@ public final class TransactionTree {
         && Objects.equals(eventsById, that.eventsById)
         && Objects.equals(rootEventIds, that.rootEventIds)
         && Objects.equals(offset, that.offset)
-        && Objects.equals(domainId, that.domainId)
+        && Objects.equals(synchronizerId, that.synchronizerId)
         && Objects.equals(traceContext, that.traceContext)
         && Objects.equals(recordTime, that.recordTime);
   }
@@ -215,7 +215,7 @@ public final class TransactionTree {
         offset,
         eventsById,
         rootEventIds,
-        domainId,
+        synchronizerId,
         traceContext,
         recordTime);
   }

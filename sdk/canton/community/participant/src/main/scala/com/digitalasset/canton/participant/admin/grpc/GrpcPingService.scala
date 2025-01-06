@@ -15,7 +15,7 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.participant.admin.PingService
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.{DomainId, PartyId}
+import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.Spanning
 import com.digitalasset.canton.util.OptionUtil
 import io.opentelemetry.api.trace.Tracer
@@ -37,7 +37,7 @@ class GrpcPingService(service: PingService, val loggerFactory: NamedLoggerFactor
         validatorsP,
         timeoutP,
         levelsP,
-        domainIdP,
+        synchronizerIdP,
         workflowIdP,
         idP,
       ) =
@@ -54,9 +54,9 @@ class GrpcPingService(service: PingService, val loggerFactory: NamedLoggerFactor
         levels <- NonNegativeInt
           .create(levelsP)
           .leftMap(x => ProtoDeserializationError.ValueDeserializationError("levels", x.message))
-        domainId <- OptionUtil
-          .emptyStringAsNone(domainIdP)
-          .traverse(DomainId.fromProtoPrimitive(_, "domain_id"))
+        synchronizerId <- OptionUtil
+          .emptyStringAsNone(synchronizerIdP)
+          .traverse(SynchronizerId.fromProtoPrimitive(_, "synchronizer_id"))
       } yield {
         val id = if (request.id.isEmpty) UUID.randomUUID().toString else request.id
         val workflowId =
@@ -72,7 +72,7 @@ class GrpcPingService(service: PingService, val loggerFactory: NamedLoggerFactor
             validators.toSet,
             timeout,
             levels,
-            domainId,
+            synchronizerId,
             workflowId,
             id,
           )

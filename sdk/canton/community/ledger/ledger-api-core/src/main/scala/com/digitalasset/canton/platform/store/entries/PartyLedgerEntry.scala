@@ -19,12 +19,4 @@ private[platform] object PartyLedgerEntry {
       recordTime: Timestamp,
       partyDetails: IndexerPartyDetails,
   ) extends PartyLedgerEntry
-
-  final case class AllocationRejected(
-      submissionId: SubmissionId,
-      recordTime: Timestamp,
-      reason: String,
-  ) extends PartyLedgerEntry {
-    override val submissionIdOpt: Option[SubmissionId] = Some(submissionId)
-  }
 }

@@ -223,7 +223,7 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
     submissionSyncService
       .submitTransaction(
         result.submitterInfo,
-        result.optDomainId,
+        result.optSynchronizerId,
         result.transactionMeta,
         result.transaction,
         result.interpretationTimeNanos,

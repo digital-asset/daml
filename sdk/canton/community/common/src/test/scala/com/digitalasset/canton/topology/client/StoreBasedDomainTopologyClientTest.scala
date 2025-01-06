@@ -68,7 +68,7 @@ trait StoreBasedTopologySnapshotTest
       val client =
         new StoreBasedDomainTopologyClient(
           mock[Clock],
-          domainId,
+          synchronizerId,
           store,
           StoreBasedDomainTopologyClient.NoPackageDependencies,
           DefaultProcessingTimeouts.testing,
@@ -371,7 +371,7 @@ trait DbStoreBasedTopologySnapshotTest
   this: AsyncWordSpec with BaseTest with HasExecutionContext with DbTest =>
 
   "DbStoreBasedTopologySnapshot" should {
-    behave like topologySnapshot(() => createTopologyStore(DefaultTestIdentities.domainId))
+    behave like topologySnapshot(() => createTopologyStore(DefaultTestIdentities.synchronizerId))
   }
 
 }

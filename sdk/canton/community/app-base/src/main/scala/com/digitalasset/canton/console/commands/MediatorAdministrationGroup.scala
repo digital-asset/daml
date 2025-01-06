@@ -28,7 +28,7 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.mediator.admin.v30
 import com.digitalasset.canton.sequencing.{SequencerConnectionValidation, SequencerConnections}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -131,7 +131,7 @@ class MediatorPruningAdministrationGroup(
 class MediatorSetupGroup(node: MediatorReference) extends ConsoleCommandGroup.Impl(node) {
   @Help.Summary("Assign a mediator to a domain")
   def assign(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       sequencerConnections: SequencerConnections,
       sequencerConnectionValidation: SequencerConnectionValidation =
         SequencerConnectionValidation.All,
@@ -142,7 +142,7 @@ class MediatorSetupGroup(node: MediatorReference) extends ConsoleCommandGroup.Im
     consoleEnvironment.run {
       runner.adminCommand(
         Initialize(
-          domainId,
+          synchronizerId,
           sequencerConnections,
           sequencerConnectionValidation,
         )

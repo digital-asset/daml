@@ -31,7 +31,7 @@ import com.digitalasset.canton.topology.TopologyManagerError.{
   NoAppropriateSigningKeyInStore,
   SecretKeyNotInStore,
 }
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced, TracerProvider}
 import com.digitalasset.canton.util.FutureInstances.*
@@ -98,7 +98,7 @@ class AdminWorkflowServices(
       tracer,
       new PingService.SyncServiceHandle {
         override def isActive: Boolean = syncService.isActive()
-        override def subscribeToConnections(subscriber: Traced[DomainId] => Unit): Unit =
+        override def subscribeToConnections(subscriber: Traced[SynchronizerId] => Unit): Unit =
           syncService.subscribeToConnections(subscriber)
       },
       futureSupervisor,

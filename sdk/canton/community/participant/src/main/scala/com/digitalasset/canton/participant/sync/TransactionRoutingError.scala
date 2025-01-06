@@ -10,21 +10,25 @@ import com.digitalasset.canton.error.*
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.RoutingErrorGroup
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.TransactionSubmissionError
 import com.digitalasset.canton.protocol.LfContractId
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 
 sealed trait TransactionRoutingError extends TransactionError with Product with Serializable
 sealed trait TransactionRoutingErrorWithDomain extends TransactionRoutingError {
-  def domainId: DomainId
+  def synchronizerId: SynchronizerId
 }
 
 /** All routing errors happen before in-flight submission checking and are therefore never definite answers. */
 object TransactionRoutingError extends RoutingErrorGroup {
 
-  final case class SubmissionError(domainId: DomainId, parent: TransactionSubmissionError)
-      extends TransactionParentError[TransactionSubmissionError]
+  final case class SubmissionError(
+      synchronizerId: SynchronizerId,
+      parent: TransactionSubmissionError,
+  ) extends TransactionParentError[TransactionSubmissionError]
       with TransactionRoutingError {
 
-    override def mixinContext: Map[String, String] = Map("domainId" -> domainId.toString)
+    override def mixinContext: Map[String, String] = Map(
+      "synchronizerId" -> synchronizerId.toString
+    )
 
   }
 
@@ -40,7 +44,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
           id = "MULTI_DOMAIN_SUPPORT_NOT_ENABLED",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      final case class Error(domains: Set[DomainId])
+      final case class Error(domains: Set[SynchronizerId])
           extends TransactionErrorImpl(
             cause =
               s"""This transaction requires multi-domain support which is turned off on this participant.
@@ -59,7 +63,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
           id = "SUBMISSION_DOMAIN_NOT_READY",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
-      final case class Error(domainId: DomainId)
+      final case class Error(synchronizerId: SynchronizerId)
           extends TransactionErrorImpl(
             cause = "Trying to submit to a disconnected or not configured domain."
           )
@@ -67,32 +71,34 @@ object TransactionRoutingError extends RoutingErrorGroup {
           with TransactionSubmissionError
     }
 
-    object InvalidPrescribedDomainId
+    object InvalidPrescribedSynchronizerId
         extends ErrorCode(
-          id = "INVALID_PRESCRIBED_DOMAIN_ID",
+          id = "INVALID_PRESCRIBED_SYNCHRONIZER_ID",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
 
       final case class InputContractsNotOnDomain(
-          domainId: DomainId,
-          inputContractDomain: DomainId,
+          synchronizerId: SynchronizerId,
+          inputContractSynchronizerId: SynchronizerId,
       ) extends TransactionErrorImpl(
-            cause = s"The needed input contracts are not on $domainId, but on $inputContractDomain"
+            cause =
+              s"The needed input contracts are not on $synchronizerId, but on $inputContractSynchronizerId"
           )
           with TransactionRoutingErrorWithDomain
 
       final case class NotAllInformeeAreOnDomain(
-          domainId: DomainId,
-          domainsOfAllInformee: NonEmpty[Set[DomainId]],
+          synchronizerId: SynchronizerId,
+          domainsOfAllInformee: NonEmpty[Set[SynchronizerId]],
       ) extends TransactionErrorImpl(
             cause =
-              s"Not all informee are on the specified domain: $domainId, but on $domainsOfAllInformee"
+              s"Not all informee are on the specified domain: $synchronizerId, but on $domainsOfAllInformee"
           )
           with TransactionRoutingErrorWithDomain
 
-      final case class Generic(domainId: DomainId, reason: String)
+      final case class Generic(synchronizerId: SynchronizerId, reason: String)
           extends TransactionErrorImpl(
-            cause = s"Cannot submit transaction to prescribed domain `$domainId` because: $reason"
+            cause =
+              s"Cannot submit transaction to prescribed domain `$synchronizerId` because: $reason"
           )
           with TransactionRoutingErrorWithDomain
     }
@@ -268,7 +274,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
           id = "SUBMITTERS_NOT_ACTIVE",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      final case class Error(domains: Set[DomainId], informees: Set[LfPartyId])
+      final case class Error(domains: Set[SynchronizerId], informees: Set[LfPartyId])
           extends TransactionErrorImpl(
             cause = "There is no common domain where all submitters are active"
           )
@@ -285,7 +291,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
           id = "INFORMEES_NOT_ACTIVE",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      final case class Error(domains: Set[DomainId], informees: Set[LfPartyId])
+      final case class Error(domains: Set[SynchronizerId], informees: Set[LfPartyId])
           extends TransactionErrorImpl(
             cause = "There is no common domain where all informees are active"
           )
@@ -343,7 +349,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
 
       /** @param domainsNotUsed The reason why each domain cannot be used for submission.
         */
-      final case class Error(domainsNotUsed: Map[DomainId, String])
+      final case class Error(domainsNotUsed: Map[SynchronizerId, String])
           extends TransactionErrorImpl(
             cause = "No valid domain for submission found."
           )
@@ -360,7 +366,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
 
-      final case class Error(contractIds: Map[String, DomainId])
+      final case class Error(contractIds: Map[String, SynchronizerId])
           extends TransactionErrorImpl(
             cause =
               s"The given contracts ${contractIds.keySet} reside on domains ${contractIds.values} to which this participant is currently not connected."
@@ -423,9 +429,9 @@ object TransactionRoutingError extends RoutingErrorGroup {
         id = "UNABLE_TO_GET_TOPOLOGY_SNAPSHOT",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
-    final case class Failed(domainId: DomainId)
+    final case class Failed(synchronizerId: SynchronizerId)
         extends TransactionErrorImpl(
-          cause = s"Participant is not connected to domain `$domainId`."
+          cause = s"Participant is not connected to domain `$synchronizerId`."
         )
         with TransactionRoutingErrorWithDomain
   }
@@ -449,7 +455,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
         with TransactionRoutingError
 
     // should not happen as this is caught earlier
-    final case class InputContractsOnDifferentDomains(domainIds: Iterable[DomainId])
+    final case class InputContractsOnDifferentDomains(synchronizerIds: Iterable[SynchronizerId])
         extends TransactionErrorImpl(
           cause = "Input contracts are on different domains"
         )

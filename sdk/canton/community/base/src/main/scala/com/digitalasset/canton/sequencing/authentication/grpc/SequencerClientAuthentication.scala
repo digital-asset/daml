@@ -14,7 +14,7 @@ import com.digitalasset.canton.sequencing.authentication.{
   AuthenticationTokenManagerConfig,
 }
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.{DomainId, Member}
+import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.google.common.annotations.VisibleForTesting
 import io.grpc.*
@@ -31,7 +31,7 @@ import scala.util.control.NonFatal
   * metadata, then cause the token to be invalidated if an UNAUTHORIZED response is returned.
   */
 private[grpc] class SequencerClientTokenAuthentication(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     member: Member,
     tokenManagerPerEndpoint: NonEmpty[Map[Endpoint, AuthenticationTokenManager]],
     protected val loggerFactory: NamedLoggerFactory,
@@ -151,7 +151,7 @@ private[grpc] class SequencerClientTokenAuthentication(
     val metadata = new Metadata()
     metadata.put(Constant.MEMBER_ID_METADATA_KEY, member.toProtoPrimitive)
     metadata.put(Constant.AUTH_TOKEN_METADATA_KEY, token)
-    metadata.put(Constant.DOMAIN_ID_METADATA_KEY, domainId.toProtoPrimitive)
+    metadata.put(Constant.SYNCHRONIZER_ID_METADATA_KEY, synchronizerId.toProtoPrimitive)
     maybeEndpoint.foreach(endpoint => metadata.put(Constant.ENDPOINT_METADATA_KEY, endpoint))
     metadata
   }
@@ -159,7 +159,7 @@ private[grpc] class SequencerClientTokenAuthentication(
 
 object SequencerClientTokenAuthentication {
   def apply(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       member: Member,
       obtainTokenPerEndpoint: NonEmpty[
         Map[
@@ -182,7 +182,7 @@ object SequencerClientTokenAuthentication {
       )
     }
     new SequencerClientTokenAuthentication(
-      domainId,
+      synchronizerId,
       member,
       tokenManagerPerEndpoint,
       loggerFactory,

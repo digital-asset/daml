@@ -53,7 +53,7 @@ object SyncDomainPersistentState {
   def create(
       participantId: ParticipantId,
       storage: Storage,
-      domainId: IndexedDomain,
+      synchronizerIdx: IndexedDomain,
       staticDomainParameters: StaticDomainParameters,
       clock: Clock,
       crypto: Crypto,
@@ -66,14 +66,15 @@ object SyncDomainPersistentState {
       loggerFactory: NamedLoggerFactory,
       futureSupervisor: FutureSupervisor,
   )(implicit ec: ExecutionContext): SyncDomainPersistentState = {
-    val domainLoggerFactory = loggerFactory.append("domainId", domainId.domainId.toString)
+    val domainLoggerFactory =
+      loggerFactory.append("synchronizerId", synchronizerIdx.synchronizerId.toString)
     storage match {
       case _: MemoryStorage =>
         new InMemorySyncDomainPersistentState(
           participantId,
           clock,
           crypto,
-          domainId,
+          synchronizerIdx,
           staticDomainParameters,
           parameters.enableAdditionalConsistencyChecks,
           indexedStringStore,
@@ -89,7 +90,7 @@ object SyncDomainPersistentState {
       case db: DbStorage =>
         new DbSyncDomainPersistentState(
           participantId,
-          domainId,
+          synchronizerIdx,
           staticDomainParameters,
           clock,
           db,

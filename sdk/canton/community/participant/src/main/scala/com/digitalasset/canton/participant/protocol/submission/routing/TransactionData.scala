@@ -18,7 +18,7 @@ import com.digitalasset.canton.protocol.{
   LfVersionedTransaction,
   Stakeholders,
 }
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{LfPackageId, LfPartyId}
 import com.digitalasset.daml.lf.data.Ref
@@ -45,7 +45,7 @@ private[routing] final case class TransactionData private (
     readAs: Set[LfPartyId],
     externallySignedSubmissionO: Option[ExternallySignedSubmission],
     inputContractsDomainData: ContractsDomainData,
-    prescribedDomainO: Option[DomainId],
+    prescribedDomainO: Option[SynchronizerId],
 ) {
   val informees: Set[LfPartyId] = requiredPackagesPerParty.keySet
   val version: LfLanguageVersion = transaction.version
@@ -62,7 +62,7 @@ private[routing] object TransactionData {
       domainStateProvider: DomainStateProvider,
       contractsStakeholders: Map[LfContractId, Stakeholders],
       disclosedContracts: Seq[LfContractId],
-      prescribedDomainIdO: Option[DomainId],
+      prescribedSynchronizerIdO: Option[SynchronizerId],
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -87,7 +87,7 @@ private[routing] object TransactionData {
       readAs = readAs,
       externallySignedSubmissionO = externallySignedSubmissionO,
       inputContractsDomainData = contractsDomainData,
-      prescribedDomainO = prescribedDomainIdO,
+      prescribedDomainO = prescribedSynchronizerIdO,
     )
 
   def create(
@@ -97,7 +97,7 @@ private[routing] object TransactionData {
       domainStateProvider: DomainStateProvider,
       inputContractStakeholders: Map[LfContractId, Stakeholders],
       disclosedContracts: Seq[LfContractId],
-      prescribedDomainO: Option[DomainId],
+      prescribedDomainO: Option[SynchronizerId],
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,

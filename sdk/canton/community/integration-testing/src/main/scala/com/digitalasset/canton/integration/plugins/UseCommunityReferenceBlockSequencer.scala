@@ -12,15 +12,6 @@ import com.digitalasset.canton.config.{
   CommunityStorageConfig,
   DbParametersConfig,
 }
-import com.digitalasset.canton.domain.sequencing.config.CommunitySequencerNodeConfig
-import com.digitalasset.canton.domain.sequencing.sequencer.reference.{
-  CommunityReferenceSequencerDriverFactory,
-  ReferenceSequencerDriver,
-}
-import com.digitalasset.canton.domain.sequencing.sequencer.{
-  BlockSequencerConfig,
-  CommunitySequencerConfig,
-}
 import com.digitalasset.canton.environment.CommunityEnvironment
 import com.digitalasset.canton.integration.CommunityConfigTransforms.generateUniqueH2DatabaseName
 import com.digitalasset.canton.integration.CommunityTests.CommunityTestConsoleEnvironment
@@ -31,6 +22,15 @@ import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBas
 }
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
 import com.digitalasset.canton.store.db.DbStorageSetup.DbBasicConfig
+import com.digitalasset.canton.synchronizer.sequencing.config.CommunitySequencerNodeConfig
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.{
+  CommunityReferenceSequencerDriverFactory,
+  ReferenceSequencerDriver,
+}
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.{
+  BlockSequencerConfig,
+  CommunitySequencerConfig,
+}
 import com.digitalasset.canton.util.ErrorUtil
 import monocle.macros.syntax.lens.*
 import pureconfig.ConfigCursor

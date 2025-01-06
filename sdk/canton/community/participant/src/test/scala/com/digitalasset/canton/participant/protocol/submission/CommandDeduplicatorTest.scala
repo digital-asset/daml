@@ -16,7 +16,7 @@ import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.memory.InMemoryCommandDeduplicationStore
 import com.digitalasset.canton.platform.indexer.parallel.{PostPublishData, PublishSource}
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, DefaultDamlValues}
 import org.scalatest.wordspec.AsyncWordSpec
@@ -28,7 +28,7 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
 
   private lazy val clock = new SimClock(loggerFactory = loggerFactory)
 
-  private val domainId = DomainId.tryFromString("da::default")
+  private val synchronizerId = SynchronizerId.tryFromString("da::default")
   private lazy val submissionId1 = DefaultDamlValues.submissionId().some
   private lazy val event1CompletionInfo = DefaultParticipantStateValues.completionInfo(List.empty)
   private lazy val changeId1 = event1CompletionInfo.changeId
@@ -65,7 +65,7 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
       publicationTime: CantonTimestamp,
   ): PostPublishData =
     PostPublishData(
-      submissionDomainId = domainId,
+      submissionSynchronizerId = synchronizerId,
       publishSource = PublishSource.Local(messageUuid),
       applicationId = completionInfo.applicationId,
       commandId = completionInfo.commandId,

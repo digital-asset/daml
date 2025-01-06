@@ -7,7 +7,7 @@ import com.digitalasset.canton
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
 
@@ -83,7 +83,7 @@ final case class DynamicSequencingParametersWithValidity(
     parameters: DynamicSequencingParameters,
     validFrom: CantonTimestamp,
     validUntil: Option[CantonTimestamp],
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
 ) {
   def map[T](f: DynamicSequencingParameters => T): DomainParameters.WithValidity[T] =
     DomainParameters.WithValidity(validFrom, validUntil, f(parameters))

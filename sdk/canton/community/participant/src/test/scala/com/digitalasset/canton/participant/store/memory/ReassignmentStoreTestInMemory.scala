@@ -16,7 +16,7 @@ class ReassignmentStoreTestInMemory
     with ReassignmentStoreTest {
 
   private def mk(domain: IndexedDomain): InMemoryReassignmentStore =
-    new InMemoryReassignmentStore(Target(domain.domainId), loggerFactory)
+    new InMemoryReassignmentStore(Target(domain.synchronizerId), loggerFactory)
 
   "ReassignmentStoreTestInMemory" should {
     behave like reassignmentStore(mk)

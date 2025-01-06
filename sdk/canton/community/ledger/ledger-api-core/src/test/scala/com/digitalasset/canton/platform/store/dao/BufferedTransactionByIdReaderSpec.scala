@@ -12,7 +12,7 @@ import com.digitalasset.canton.platform.store.dao.BufferedTransactionByIdReader.
   ToApiResponse,
 }
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -29,7 +29,7 @@ class BufferedTransactionByIdReaderSpec extends AsyncFlatSpec with MockitoSugar 
   )
 
   private val requestingParties = Set("p1", "p2").map(Ref.Party.assertFromString)
-  private val someDomainId = DomainId.tryFromString("some::domain-id")
+  private val someSynchronizerId = SynchronizerId.tryFromString("some::synchronizer id")
 
   private val bufferedUpdateId1 = "bufferedTid_1"
   private val bufferedUpdateId2 = "bufferedTid_2"
@@ -104,7 +104,7 @@ class BufferedTransactionByIdReaderSpec extends AsyncFlatSpec with MockitoSugar 
       offset = Offset.firstOffset,
       events = Vector(null),
       completionStreamResponse = None,
-      domainId = someDomainId.toProtoPrimitive,
+      synchronizerId = someSynchronizerId.toProtoPrimitive,
       recordTime = Timestamp.Epoch,
     )
 }

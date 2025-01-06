@@ -59,7 +59,10 @@ class TestingIdentityFactoryTest
 
       val signature =
         Await
-          .result(p1.currentSnapshotApproximation.sign(hash).value, 10.seconds)
+          .result(
+            p1.currentSnapshotApproximation.sign(hash, SigningKeyUsage.ProtocolOnly).value,
+            10.seconds,
+          )
           .failOnShutdown
           .valueOr(err => fail(s"Failed to sign: $err"))
 
@@ -102,7 +105,10 @@ class TestingIdentityFactoryTest
       }
       "participant2 can't sign messages without appropriate keys" in {
         Await
-          .result(p2.currentSnapshotApproximation.sign(hash).value, 10.seconds)
+          .result(
+            p2.currentSnapshotApproximation.sign(hash, SigningKeyUsage.ProtocolOnly).value,
+            10.seconds,
+          )
           .failOnShutdown
           .left
           .value shouldBe a[SyncCryptoError]
@@ -135,7 +141,7 @@ class TestingIdentityFactoryTest
       }
       "invalid domain entities don't have keys" in {
         val did = participant2.uid
-        require(did != DefaultTestIdentities.domainId.unwrap)
+        require(did != DefaultTestIdentities.synchronizerId.unwrap)
         checkDomainKeys(
           sequencers = Seq(SequencerId(participant2.uid.tryChangeId("fake-sequencer"))),
           mediators = Seq(MediatorId(participant2.uid.tryChangeId("fake-mediator"))),
@@ -204,7 +210,10 @@ class TestingIdentityFactoryTest
 
       val signature =
         Await
-          .result(p2.currentSnapshotApproximation.sign(hash).value, 10.seconds)
+          .result(
+            p2.currentSnapshotApproximation.sign(hash, SigningKeyUsage.ProtocolOnly).value,
+            10.seconds,
+          )
           .failOnShutdown
           .valueOr(err => fail(s"Failed to sign: $err"))
 

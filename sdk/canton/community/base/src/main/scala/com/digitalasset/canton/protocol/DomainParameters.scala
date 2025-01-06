@@ -27,7 +27,7 @@ import com.digitalasset.canton.time.{
   RemoteClock,
   SimClock,
 }
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.topology.transaction.ParticipantDomainLimits
 import com.digitalasset.canton.util.EitherUtil.RichEither
 import com.digitalasset.canton.version.*
@@ -795,7 +795,7 @@ final case class DynamicDomainParametersWithValidity(
     parameters: DynamicDomainParameters,
     validFrom: CantonTimestamp,
     validUntil: Option[CantonTimestamp],
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
 ) {
   def map[T](f: DynamicDomainParameters => T): DomainParameters.WithValidity[T] =
     DomainParameters.WithValidity(validFrom, validUntil, f(parameters))

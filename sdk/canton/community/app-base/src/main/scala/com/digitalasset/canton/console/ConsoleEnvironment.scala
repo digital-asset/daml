@@ -37,7 +37,7 @@ import com.digitalasset.canton.sequencing.{
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.{ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext, TracerProvider}
-import com.digitalasset.canton.{DomainAlias, LfPartyId}
+import com.digitalasset.canton.{LfPartyId, SynchronizerAlias}
 import com.typesafe.scalalogging.Logger
 import io.opentelemetry.api.trace.Tracer
 import org.tpolecat.typename.TypeName
@@ -543,11 +543,12 @@ object ConsoleEnvironment {
     ): LocalParticipantReferencesExtensions =
       new LocalParticipantReferencesExtensions(participants)
 
-    /** Implicitly map strings to DomainAlias, Fingerprint and Identifier
+    /** Implicitly map strings to SynchronizerAlias, Fingerprint and Identifier
       */
-    implicit def toDomainAlias(alias: String): DomainAlias = DomainAlias.tryCreate(alias)
-    implicit def toDomainAliases(aliases: Seq[String]): Seq[DomainAlias] =
-      aliases.map(DomainAlias.tryCreate)
+    implicit def toSynchronizerAlias(alias: String): SynchronizerAlias =
+      SynchronizerAlias.tryCreate(alias)
+    implicit def toSynchronizerAliases(aliases: Seq[String]): Seq[SynchronizerAlias] =
+      aliases.map(SynchronizerAlias.tryCreate)
 
     implicit def toInstanceName(name: String): InstanceName = InstanceName.tryCreate(name)
 

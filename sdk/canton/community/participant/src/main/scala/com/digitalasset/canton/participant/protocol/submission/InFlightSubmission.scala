@@ -10,7 +10,7 @@ import com.digitalasset.canton.participant.store.InFlightSubmissionStore.InFligh
 import com.digitalasset.canton.protocol.RootHash
 import com.digitalasset.canton.sequencing.protocol.MessageId
 import com.digitalasset.canton.store.db.DbSerializationException
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.{LedgerSubmissionId, SequencerCounter}
 import slick.jdbc.GetResult
@@ -27,7 +27,7 @@ import java.util.UUID
   *                     of the [[com.digitalasset.canton.ledger.participant.state.ChangeId]] when
   *                     we read an [[InFlightSubmission]] from the store.
   * @param submissionId Optional submission id.
-  * @param submissionDomain The domain to which the submission is supposed to be/was sent.
+  * @param submissionSynchronizerId The domain to which the submission is supposed to be/was sent.
   * @param messageUuid The message UUID that will be/has been used for the
   *                  [[com.digitalasset.canton.sequencing.protocol.SubmissionRequest]]
   * @param rootHashO The root hash contained in the [[com.digitalasset.canton.sequencing.protocol.SubmissionRequest]].
@@ -42,7 +42,7 @@ import java.util.UUID
 final case class InFlightSubmission[+SequencingInfo <: SubmissionSequencingInfo](
     changeIdHash: ChangeIdHash,
     submissionId: Option[LedgerSubmissionId],
-    submissionDomain: DomainId,
+    submissionSynchronizerId: SynchronizerId,
     messageUuid: UUID,
     rootHashO: Option[RootHash],
     sequencingInfo: SequencingInfo,
@@ -75,14 +75,15 @@ final case class InFlightSubmission[+SequencingInfo <: SubmissionSequencingInfo]
   override protected def pretty: Pretty[InFlightSubmission.this.type] = prettyOfClass(
     param("change ID hash", _.changeIdHash),
     paramIfDefined("submissionid", _.submissionId),
-    param("submission domain", _.submissionDomain),
+    param("submission domain", _.submissionSynchronizerId),
     param("message UUID", _.messageUuid),
     paramIfDefined("root hash", _.rootHashO),
     param("sequencing info", _.sequencingInfo),
     param("submission trace context", _.submissionTraceContext),
   )
 
-  def referenceByMessageId: InFlightByMessageId = InFlightByMessageId(submissionDomain, messageId)
+  def referenceByMessageId: InFlightByMessageId =
+    InFlightByMessageId(submissionSynchronizerId, messageId)
 }
 
 object InFlightSubmission {
@@ -92,7 +93,7 @@ object InFlightSubmission {
     import com.digitalasset.canton.resource.DbStorage.Implicits.*
     val changeId = r.<<[ChangeIdHash]
     val submissionId = r.<<[Option[SerializableSubmissionId]].map(_.submissionId)
-    val submissionDomain = r.<<[DomainId]
+    val submissionDomain = r.<<[SynchronizerId]
     val messageId = r.<<[UUID]
     val rootHashO = r.<<[Option[RootHash]]
     val sequencingInfo = r.<<[SequencingInfo]

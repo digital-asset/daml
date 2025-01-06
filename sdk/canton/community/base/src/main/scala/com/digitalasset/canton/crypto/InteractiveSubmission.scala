@@ -18,7 +18,7 @@ import com.digitalasset.canton.protocol.hash.{
   TransactionMetadataHashBuilder,
 }
 import com.digitalasset.canton.protocol.{LfContractId, LfHash, SerializableContract}
-import com.digitalasset.canton.topology.{DomainId, PartyId}
+import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
@@ -55,7 +55,7 @@ object InteractiveSubmission {
         commandId: Ref.CommandId,
         transactionUUID: UUID,
         mediatorGroup: Int,
-        domainId: DomainId,
+        synchronizerId: SynchronizerId,
         ledgerEffectiveTime: Option[Time.Timestamp],
         submissionTime: Time.Timestamp,
         disclosedContracts: Map[ContractId, FatContractInstance],
@@ -64,7 +64,7 @@ object InteractiveSubmission {
       commandId = commandId,
       transactionUUID = transactionUUID,
       mediatorGroup = mediatorGroup,
-      domainId = domainId,
+      synchronizerId = synchronizerId,
       ledgerEffectiveTime = ledgerEffectiveTime,
       submissionTime = submissionTime,
       disclosedContracts = SortedMap.from(disclosedContracts),
@@ -75,7 +75,7 @@ object InteractiveSubmission {
         commandId: Ref.CommandId,
         transactionUUID: UUID,
         mediatorGroup: Int,
-        domainId: DomainId,
+        synchronizerId: SynchronizerId,
         ledgerEffectiveTime: Option[Time.Timestamp],
         submissionTime: Time.Timestamp,
         disclosedContracts: Map[ContractId, SerializableContract],
@@ -101,7 +101,7 @@ object InteractiveSubmission {
         commandId,
         transactionUUID,
         mediatorGroup,
-        domainId,
+        synchronizerId,
         ledgerEffectiveTime,
         submissionTime,
         SortedMap.from(asFatContracts),
@@ -114,7 +114,7 @@ object InteractiveSubmission {
       commandId: Ref.CommandId,
       transactionUUID: UUID,
       mediatorGroup: Int,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       ledgerEffectiveTime: Option[Time.Timestamp],
       submissionTime: Time.Timestamp,
       disclosedContracts: SortedMap[ContractId, FatContractInstance],
@@ -141,7 +141,7 @@ object InteractiveSubmission {
       metadata.commandId,
       metadata.transactionUUID,
       metadata.mediatorGroup,
-      metadata.domainId.toProtoPrimitive,
+      metadata.synchronizerId.toProtoPrimitive,
       metadata.ledgerEffectiveTime,
       metadata.submissionTime,
       metadata.disclosedContracts,

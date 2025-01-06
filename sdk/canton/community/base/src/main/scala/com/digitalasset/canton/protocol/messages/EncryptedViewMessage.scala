@@ -25,7 +25,7 @@ import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.serialization.DeserializationError
 import com.digitalasset.canton.serialization.ProtoConverter.{ParsingResult, parseRequiredNonEmpty}
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.*
@@ -207,7 +207,7 @@ final case class EncryptedViewMessage[+VT <: ViewType](
     viewHash: ViewHash,
     sessionKeys: NonEmpty[Seq[AsymmetricEncrypted[SecureRandomness]]],
     encryptedView: EncryptedView[VT],
-    override val domainId: DomainId,
+    override val synchronizerId: SynchronizerId,
     viewEncryptionScheme: SymmetricKeyScheme,
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
@@ -225,14 +225,14 @@ final case class EncryptedViewMessage[+VT <: ViewType](
       viewHash: ViewHash = this.viewHash,
       sessionKeyRandomness: NonEmpty[Seq[AsymmetricEncrypted[SecureRandomness]]] = this.sessionKeys,
       encryptedView: EncryptedView[A] = this.encryptedView,
-      domainId: DomainId = this.domainId,
+      synchronizerId: SynchronizerId = this.synchronizerId,
       viewEncryptionScheme: SymmetricKeyScheme = this.viewEncryptionScheme,
   ): EncryptedViewMessage[A] = new EncryptedViewMessage(
     submittingParticipantSignature,
     viewHash,
     sessionKeyRandomness,
     encryptedView,
-    domainId,
+    synchronizerId,
     viewEncryptionScheme,
   )(representativeProtocolVersion)
 
@@ -242,7 +242,7 @@ final case class EncryptedViewMessage[+VT <: ViewType](
     submittingParticipantSignature = submittingParticipantSignature.map(_.toProtoV30),
     viewHash = viewHash.toProtoPrimitive,
     sessionKeyLookup = sessionKeys.map(EncryptedViewMessage.serializeSessionKeyEntry),
-    domainId = domainId.toProtoPrimitive,
+    synchronizerId = synchronizerId.toProtoPrimitive,
     viewType = viewType.toProtoEnum,
   )
 
@@ -283,7 +283,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
       viewHash: ViewHash,
       sessionKeys: NonEmpty[Seq[AsymmetricEncrypted[SecureRandomness]]],
       encryptedView: EncryptedView[VT],
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       viewEncryptionScheme: SymmetricKeyScheme,
       protocolVersion: ProtocolVersion,
   ): EncryptedViewMessage[VT] = EncryptedViewMessage(
@@ -291,7 +291,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
     viewHash,
     sessionKeys,
     encryptedView,
-    domainId,
+    synchronizerId,
     viewEncryptionScheme,
   )(protocolVersionRepresentativeFor(protocolVersion))
 
@@ -318,7 +318,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
       signatureP,
       viewHashP,
       sessionKeyMapP,
-      domainIdP,
+      synchronizerIdP,
       viewTypeP,
     ) =
       encryptedViewMessageP
@@ -337,14 +337,14 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
         "session key",
         sessionKeyMapP,
       )
-      domainUid <- UniqueIdentifier.fromProtoPrimitive(domainIdP, "domainId")
+      domainUid <- UniqueIdentifier.fromProtoPrimitive(synchronizerIdP, "synchronizerId")
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield new EncryptedViewMessage(
       signature,
       viewHash,
       sessionKeyRandomnessNE,
       encryptedView,
-      DomainId(domainUid),
+      SynchronizerId(domainUid),
       viewEncryptionScheme,
     )(rpv)
   }
@@ -471,11 +471,11 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
       )
       _ <- eitherT(
         Either.cond(
-          decrypted.domainId == encrypted.domainId,
+          decrypted.synchronizerId == encrypted.synchronizerId,
           (),
-          EncryptedViewMessageError.WrongDomainIdInEncryptedViewMessage(
-            encrypted.domainId,
-            decrypted.domainId,
+          EncryptedViewMessageError.WrongSynchronizerIdInEncryptedViewMessage(
+            encrypted.synchronizerId,
+            decrypted.synchronizerId,
           ),
         )
       )
@@ -557,9 +557,9 @@ object EncryptedViewMessageError {
       decryptError: DecryptionError
   ) extends EncryptedViewMessageError
 
-  final case class WrongDomainIdInEncryptedViewMessage(
-      declaredDomainId: DomainId,
-      containedDomainId: DomainId,
+  final case class WrongSynchronizerIdInEncryptedViewMessage(
+      declaredSynchronizerId: SynchronizerId,
+      containedSynchronizerId: SynchronizerId,
   ) extends EncryptedViewMessageError
 
   final case class WrongRandomnessLength(

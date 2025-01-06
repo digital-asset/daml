@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant
 
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.participant.store.DomainConnectionConfigStore
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.ShowUtil.*
 
 object Pruning {
@@ -22,9 +22,10 @@ object Pruning {
 
   final case class LedgerPruningInternalError(message: String) extends LedgerPruningError
 
-  final case class LedgerPruningOffsetUnsafeDomain(domain: DomainId) extends LedgerPruningError {
+  final case class LedgerPruningOffsetUnsafeDomain(synchronizerId: SynchronizerId)
+      extends LedgerPruningError {
     override def message =
-      s"No safe-to-prune offset for domain $domain."
+      s"No safe-to-prune offset for domain $synchronizerId."
   }
 
   case object LedgerPruningOffsetAfterLedgerEnd extends LedgerPruningError {
@@ -34,32 +35,32 @@ object Pruning {
 
   final case class LedgerPruningOffsetUnsafeToPrune(
       offset: Offset,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       recordTime: CantonTimestamp,
       cause: String,
       lastSafeOffset: Option[Offset],
   ) extends LedgerPruningError {
     override def message =
-      show"Unsafe to prune offset $offset due to the event for $domainId with record time $recordTime"
+      show"Unsafe to prune offset $offset due to the event for $synchronizerId with record time $recordTime"
   }
 
   final case class LedgerPruningNotPossibleDuringHardMigration(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       status: DomainConnectionConfigStore.Status,
   ) extends LedgerPruningError {
     override def message =
-      s"The domain $domainId can not be pruned as there is a pending domain migration: $status"
+      s"The domain $synchronizerId can not be pruned as there is a pending domain migration: $status"
   }
 
-  final case class PurgingUnknownDomain(domainId: DomainId) extends LedgerPruningError {
-    override def message = s"Domain $domainId does not exist."
+  final case class PurgingUnknownDomain(synchronizerId: SynchronizerId) extends LedgerPruningError {
+    override def message = s"Domain $synchronizerId does not exist."
   }
 
   final case class PurgingOnlyAllowedOnInactiveDomain(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       status: DomainConnectionConfigStore.Status,
   ) extends LedgerPruningError {
     override def message: String =
-      s"Domain $domainId status needs to be inactive, but is ${status.getClass.getSimpleName}"
+      s"Domain $synchronizerId status needs to be inactive, but is ${status.getClass.getSimpleName}"
   }
 }

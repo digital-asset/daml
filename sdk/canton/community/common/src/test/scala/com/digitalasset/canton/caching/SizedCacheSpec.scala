@@ -5,6 +5,8 @@ package com.digitalasset.canton.caching
 
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.concurrent.ExecutionContext
+
 class SizedCacheSpec
     extends AnyWordSpec
     with ConcurrentCacheBehaviorSpecBase
@@ -12,9 +14,13 @@ class SizedCacheSpec
     with ConcurrentCacheEvictionSpecBase {
   override protected lazy val name: String = "a sized cache"
 
-  override protected def newCache(): ConcurrentCache[Integer, String] =
+  override protected def newCache()(implicit
+      executionContext: ExecutionContext
+  ): ConcurrentCache[Integer, String] =
     SizedCache.from[Integer, String](SizedCache.Configuration(maximumSize = 16))
 
-  override protected def newLargeCache(): ConcurrentCache[Integer, String] =
+  override protected def newLargeCache()(implicit
+      executionContext: ExecutionContext
+  ): ConcurrentCache[Integer, String] =
     SizedCache.from[Integer, String](SizedCache.Configuration(maximumSize = 128))
 }

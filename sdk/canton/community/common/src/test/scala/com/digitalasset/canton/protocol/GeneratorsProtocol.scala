@@ -16,7 +16,7 @@ import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, PositiveSeconds}
 import com.digitalasset.canton.topology.transaction.ParticipantDomainLimits
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
+import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId}
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
 import com.digitalasset.daml.lf.transaction.Versioned
 import com.google.protobuf.ByteString
@@ -127,13 +127,13 @@ final class GeneratorsProtocol(
   implicit val counterParticipantIntervalsBehindArb: Arbitrary[CounterParticipantIntervalsBehind] =
     Arbitrary(
       for {
-        domainId <- Arbitrary.arbitrary[DomainId]
+        synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
         participantId <- Arbitrary.arbitrary[ParticipantId]
         intervalsBehind <- Arbitrary.arbitrary[NonNegativeLong]
         timeBehind <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
         asOfSequencingTime <- Arbitrary.arbitrary[CantonTimestamp]
       } yield CounterParticipantIntervalsBehind(
-        domainId,
+        synchronizerId,
         participantId,
         intervalsBehind,
         timeBehind,
@@ -182,14 +182,14 @@ final class GeneratorsProtocol(
         metadata <- contractMetadataArb(canHaveEmptyKey).arbitrary
         ledgerCreateTime <- Arbitrary.arbitrary[LedgerCreateTime]
 
-        domainId <- Arbitrary.arbitrary[DomainId]
+        synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
         mediatorGroup <- Arbitrary.arbitrary[MediatorGroupRecipient]
 
         saltIndex <- Gen.choose(Int.MinValue, Int.MaxValue)
         transactionUUID <- Gen.uuid
 
         (computedSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
-          domainId = domainId,
+          synchronizerId = synchronizerId,
           mediator = mediatorGroup,
           transactionUuid = transactionUUID,
           viewPosition = ViewPosition(List.empty),

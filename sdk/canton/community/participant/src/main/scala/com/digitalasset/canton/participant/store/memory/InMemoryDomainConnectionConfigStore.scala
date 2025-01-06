@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.store.memory
 
 import cats.data.EitherT
 import cats.syntax.either.*
-import com.digitalasset.canton.DomainAlias
+import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
@@ -29,7 +29,7 @@ class InMemoryDomainConnectionConfigStore(protected override val loggerFactory: 
   private implicit val ec: ExecutionContext = DirectExecutionContext(noTracingLogger)
 
   private val configuredDomainMap =
-    new ConcurrentHashMap[DomainAlias, StoredDomainConnectionConfig].asScala
+    new ConcurrentHashMap[SynchronizerAlias, StoredDomainConnectionConfig].asScala
 
   override def put(
       config: DomainConnectionConfig,
@@ -38,21 +38,25 @@ class InMemoryDomainConnectionConfigStore(protected override val loggerFactory: 
     EitherT.fromEither[Future](
       configuredDomainMap
         .putIfAbsent(
-          config.domain,
+          config.synchronizerAlias,
           StoredDomainConnectionConfig(config, status),
         )
         .fold(Either.unit[AlreadyAddedForAlias])(existingConfig =>
-          Either.cond(config == existingConfig.config, (), AlreadyAddedForAlias(config.domain))
+          Either.cond(
+            config == existingConfig.config,
+            (),
+            AlreadyAddedForAlias(config.synchronizerAlias),
+          )
         )
     )
 
   override def replace(
       config: DomainConnectionConfig
   )(implicit traceContext: TraceContext): EitherT[Future, MissingConfigForAlias, Unit] =
-    replaceInternal(config.domain, _.copy(config = config))
+    replaceInternal(config.synchronizerAlias, _.copy(config = config))
 
   private def replaceInternal(
-      alias: DomainAlias,
+      alias: SynchronizerAlias,
       modifier: StoredDomainConnectionConfig => StoredDomainConnectionConfig,
   ): EitherT[Future, MissingConfigForAlias, Unit] =
     EitherT.fromEither[Future](
@@ -64,7 +68,7 @@ class InMemoryDomainConnectionConfigStore(protected override val loggerFactory: 
     )
 
   override def get(
-      alias: DomainAlias
+      alias: SynchronizerAlias
   ): Either[MissingConfigForAlias, StoredDomainConnectionConfig] =
     configuredDomainMap.get(alias).toRight(MissingConfigForAlias(alias))
 
@@ -77,7 +81,7 @@ class InMemoryDomainConnectionConfigStore(protected override val loggerFactory: 
   override def close(): Unit = ()
 
   override def setStatus(
-      source: DomainAlias,
+      source: SynchronizerAlias,
       status: DomainConnectionConfigStore.Status,
   )(implicit
       traceContext: TraceContext

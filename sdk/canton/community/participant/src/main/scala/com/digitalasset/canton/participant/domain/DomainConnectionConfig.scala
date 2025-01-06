@@ -18,7 +18,7 @@ import com.digitalasset.canton.sequencing.{
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.canton.version.{
   HasVersionedMessageCompanion,
@@ -27,20 +27,20 @@ import com.digitalasset.canton.version.{
   ProtoVersion,
   ProtocolVersion,
 }
-import com.digitalasset.canton.{DomainAlias, SequencerAlias}
+import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias}
 import com.google.protobuf.ByteString
 
 import java.net.URI
 
 /** The domain connection configuration object
   *
-  * @param domain alias to be used internally to refer to this domain connection
+  * @param synchronizer alias to be used internally to refer to this domain connection
   * @param sequencerConnections Configuration for the sequencers. In case of BFT domain - there could be sequencers with multiple connections.
   *                             Each sequencer can also support high availability, so multiple endpoints could be provided for each individual sequencer.
   * @param manualConnect if set to true (default false), the domain is not connected automatically on startup.
-  * @param domainId if the domain-id is known, then it can be passed as an argument. during the handshake, the
-  *                 participant will check that the domain-id on the remote port is indeed the one given
-  *                 in the configuration. the domain-id can not be faked by a domain. therefore, this additional
+  * @param synchronizerId if the synchronizer id is known, then it can be passed as an argument. during the handshake, the
+  *                 participant will check that the synchronizer id on the remote port is indeed the one given
+  *                 in the configuration. the synchronizer id can not be faked by a domain. therefore, this additional
   *                 check can be used to really ensure that you are talking to the right domain.
   * @param priority the priority of this domain connection. if there are more than one domain connections,
   *                 the [[com.digitalasset.canton.participant.protocol.submission.routing.DomainRouter]]
@@ -52,10 +52,10 @@ import java.net.URI
   * @param initializeFromTrustedDomain if false will automatically generate a DomainTrustCertificate when connecting to a new domain.
   */
 final case class DomainConnectionConfig(
-    domain: DomainAlias,
+    synchronizerAlias: SynchronizerAlias,
     sequencerConnections: SequencerConnections,
     manualConnect: Boolean = false,
-    domainId: Option[DomainId] = None,
+    synchronizerId: Option[SynchronizerId] = None,
     priority: Int = 0,
     initialRetryDelay: Option[NonNegativeFiniteDuration] = None,
     maxRetryDelay: Option[NonNegativeFiniteDuration] = None,
@@ -102,10 +102,10 @@ final case class DomainConnectionConfig(
 
   override protected def pretty: Pretty[DomainConnectionConfig] =
     prettyOfClass(
-      param("domain", _.domain),
+      param("domain", _.synchronizerAlias),
       param("sequencerConnections", _.sequencerConnections),
       param("manualConnect", _.manualConnect),
-      paramIfDefined("domainId", _.domainId),
+      paramIfDefined("synchronizerId", _.synchronizerId),
       paramIfDefined("priority", x => Option.when(x.priority != 0)(x.priority)),
       paramIfDefined("initialRetryDelay", _.initialRetryDelay),
       paramIfDefined("maxRetryDelay", _.maxRetryDelay),
@@ -115,10 +115,10 @@ final case class DomainConnectionConfig(
 
   def toProtoV30: v30.DomainConnectionConfig =
     v30.DomainConnectionConfig(
-      domainAlias = domain.unwrap,
+      synchronizerAlias = synchronizerAlias.unwrap,
       sequencerConnections = sequencerConnections.toProtoV30.some,
       manualConnect = manualConnect,
-      domainId = domainId.fold("")(_.toProtoPrimitive),
+      synchronizerId = synchronizerId.fold("")(_.toProtoPrimitive),
       priority = priority,
       initialRetryDelay = initialRetryDelay.map(_.toProtoPrimitive),
       maxRetryDelay = maxRetryDelay.map(_.toProtoPrimitive),
@@ -141,10 +141,10 @@ object DomainConnectionConfig
 
   def grpc(
       sequencerAlias: SequencerAlias,
-      domainAlias: DomainAlias,
+      synchronizerAlias: SynchronizerAlias,
       connection: String,
       manualConnect: Boolean = false,
-      domainId: Option[DomainId] = None,
+      synchronizerId: Option[SynchronizerId] = None,
       certificates: Option[ByteString] = None,
       priority: Int = 0,
       initialRetryDelay: Option[NonNegativeFiniteDuration] = None,
@@ -153,12 +153,12 @@ object DomainConnectionConfig
       initializeFromTrustedDomain: Boolean = false,
   ): DomainConnectionConfig =
     DomainConnectionConfig(
-      domainAlias,
+      synchronizerAlias,
       SequencerConnections.single(
         GrpcSequencerConnection.tryCreate(connection, certificates, sequencerAlias)
       ),
       manualConnect,
-      domainId,
+      synchronizerId,
       priority,
       initialRetryDelay,
       maxRetryDelay,
@@ -170,10 +170,10 @@ object DomainConnectionConfig
       domainConnectionConfigP: v30.DomainConnectionConfig
   ): ParsingResult[DomainConnectionConfig] = {
     val v30.DomainConnectionConfig(
-      domainAlias,
+      synchronizerAlias,
       sequencerConnectionsPO,
       manualConnect,
-      domainId,
+      synchronizerId,
       priority,
       initialRetryDelayP,
       maxRetryDelayP,
@@ -182,15 +182,15 @@ object DomainConnectionConfig
     ) =
       domainConnectionConfigP
     for {
-      alias <- DomainAlias
-        .create(domainAlias)
-        .leftMap(err => InvariantViolation(s"DomainConnectionConfig.domain_alias", err))
+      alias <- SynchronizerAlias
+        .create(synchronizerAlias)
+        .leftMap(err => InvariantViolation(s"DomainConnectionConfig.synchronizer_alias", err))
       sequencerConnections <- ProtoConverter
         .required("sequencerConnections", sequencerConnectionsPO)
         .flatMap(SequencerConnections.fromProtoV30)
-      domainId <- OptionUtil
-        .emptyStringAsNone(domainId)
-        .traverse(DomainId.fromProtoPrimitive(_, "domain_id"))
+      synchronizerId <- OptionUtil
+        .emptyStringAsNone(synchronizerId)
+        .traverse(SynchronizerId.fromProtoPrimitive(_, "synchronizer_id"))
       initialRetryDelay <- initialRetryDelayP.traverse(
         NonNegativeFiniteDuration.fromProtoPrimitive("initialRetryDelay")
       )
@@ -206,7 +206,7 @@ object DomainConnectionConfig
       alias,
       sequencerConnections,
       manualConnect,
-      domainId,
+      synchronizerId,
       priority,
       initialRetryDelay,
       maxRetryDelay,

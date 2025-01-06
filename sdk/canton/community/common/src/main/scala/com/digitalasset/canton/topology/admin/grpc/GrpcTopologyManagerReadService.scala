@@ -111,7 +111,7 @@ object TopologyStore {
 
   def tryFromString(store: String): TopologyStore =
     if (store.toLowerCase == "authorized") Authorized
-    else Domain(DomainId.tryFromString(store))
+    else Domain(SynchronizerId.tryFromString(store))
 
   def fromProto(
       store: adminProto.Store,
@@ -121,10 +121,10 @@ object TopologyStore {
       case adminProto.Store.Store.Empty => Left(ProtoDeserializationError.FieldNotSet(fieldName))
       case adminProto.Store.Store.Authorized(_) => Right(TopologyStore.Authorized)
       case adminProto.Store.Store.Domain(domain) =>
-        DomainId.fromProtoPrimitive(domain.id, fieldName).map(TopologyStore.Domain.apply)
+        SynchronizerId.fromProtoPrimitive(domain.id, fieldName).map(TopologyStore.Domain.apply)
     }
 
-  final case class Domain(id: DomainId) extends TopologyStore {
+  final case class Domain(id: SynchronizerId) extends TopologyStore {
     override def toProto: adminProto.Store =
       adminProto.Store(
         adminProto.Store.Store.Domain(adminProto.Store.Domain(id.toProtoPrimitive))
@@ -208,9 +208,9 @@ class GrpcTopologyManagerReadService(
 
   private def createBaseResult(context: TransactionSearchResult): adminProto.BaseResult = {
     val storeProto: adminProto.Store = context.store match {
-      case DomainStore(domainId, _) =>
+      case DomainStore(synchronizerId, _) =>
         adminProto.Store(
-          adminProto.Store.Store.Domain(adminProto.Store.Domain(domainId.toProtoPrimitive))
+          adminProto.Store.Store.Domain(adminProto.Store.Domain(synchronizerId.toProtoPrimitive))
         )
       case TopologyStoreId.AuthorizedStore =>
         adminProto.Store(
@@ -617,7 +617,7 @@ class GrpcTopologyManagerReadService(
       res <- collectFromStoresByFilterString(
         request.baseQuery,
         DomainParametersState.code,
-        request.filterDomain,
+        request.filterSynchronizerId,
       )
     } yield {
       val results = res
@@ -642,7 +642,7 @@ class GrpcTopologyManagerReadService(
       res <- collectFromStoresByFilterString(
         request.baseQuery,
         MediatorDomainState.code,
-        request.filterDomain,
+        request.filterSynchronizerId,
       )
     } yield {
       val results = res
@@ -667,7 +667,7 @@ class GrpcTopologyManagerReadService(
       res <- collectFromStoresByFilterString(
         request.baseQuery,
         SequencerDomainState.code,
-        request.filterDomain,
+        request.filterSynchronizerId,
       )
     } yield {
       val results = res
@@ -874,7 +874,7 @@ class GrpcTopologyManagerReadService(
       res <- collectFromStoresByFilterString(
         request.baseQuery,
         PurgeTopologyTransaction.code,
-        request.filterDomain,
+        request.filterSynchronizerId,
       )
     } yield {
       val results = res

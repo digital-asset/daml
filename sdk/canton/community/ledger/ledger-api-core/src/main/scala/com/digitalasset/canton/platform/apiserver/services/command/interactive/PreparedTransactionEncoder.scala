@@ -19,7 +19,7 @@ import com.digitalasset.canton.ledger.participant.state.SubmitterInfo
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.apiserver.execution.CommandExecutionResult
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.PreparedTransactionCodec.*
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.crypto
@@ -110,7 +110,8 @@ final class PreparedTransactionEncoder(
 
   private implicit val timestampTransformer: Transformer[lf.data.Time.Timestamp, Long] = _.micros
 
-  private implicit val domainIdTransformer: Transformer[DomainId, String] = _.toProtoPrimitive
+  private implicit val synchronizerIdTransformer: Transformer[SynchronizerId, String] =
+    _.toProtoPrimitive
 
   private implicit val nodeIdHashTransformer: Transformer[
     (lf.transaction.NodeId, lf.crypto.Hash),
@@ -287,7 +288,7 @@ final class PreparedTransactionEncoder(
 
   // Transformer for the transaction metadata
   private def resultToMetadataTransformer(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       transactionUUID: UUID,
       mediatorGroup: Int,
   ): PartialTransformer[CommandExecutionResult, iss.Metadata] =
@@ -310,7 +311,7 @@ final class PreparedTransactionEncoder(
             _.transformIntoPartial[iss.Metadata.ProcessedDisclosedContract]
           ),
       )
-      .withFieldConst(_.domainId, domainId.transformInto[String])
+      .withFieldConst(_.synchronizerId, synchronizerId.transformInto[String])
       .withFieldConst(_.transactionUuid, transactionUUID.toString)
       .withFieldConst(_.mediatorGroup, mediatorGroup)
       .buildTransformer
@@ -337,7 +338,7 @@ final class PreparedTransactionEncoder(
 
   def serializeCommandExecutionResult(
       result: CommandExecutionResult,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       transactionUUID: UUID,
       mediatorGroup: Int,
   )(implicit
@@ -347,7 +348,7 @@ final class PreparedTransactionEncoder(
   ): Future[iss.PreparedTransaction] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
     implicit val metadataTransformer: PartialTransformer[CommandExecutionResult, Metadata] =
-      resultToMetadataTransformer(domainId, transactionUUID, mediatorGroup)
+      resultToMetadataTransformer(synchronizerId, transactionUUID, mediatorGroup)
     val versionedTransaction = lf.transaction.VersionedTransaction(
       result.transaction.version,
       result.transaction.nodes,

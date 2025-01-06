@@ -184,7 +184,9 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
       targetManager <- targetManagerET(requestP.store)
 
       extendedTransactions <- signedTxs.parTraverse(tx =>
-        targetManager.extendSignature(tx, signingKeys, forceFlags).leftWiden[CantonError]
+        targetManager
+          .extendSignature(tx, signingKeys, forceFlags)
+          .leftWiden[CantonError]
       )
     } yield extendedTransactions
 

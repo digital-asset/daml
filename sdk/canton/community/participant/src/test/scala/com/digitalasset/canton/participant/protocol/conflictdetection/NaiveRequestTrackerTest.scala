@@ -33,7 +33,7 @@ class NaiveRequestTrackerTest
     val reassignmentCache =
       new ReassignmentCache(
         new InMemoryReassignmentStore(
-          ReassignmentStoreTest.targetDomainId,
+          ReassignmentStoreTest.targetSynchronizerId,
           loggerFactory,
         ),
         FutureSupervisor.Noop,

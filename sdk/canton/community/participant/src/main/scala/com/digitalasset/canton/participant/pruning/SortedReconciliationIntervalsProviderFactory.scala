@@ -9,7 +9,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.topology.client.StoreBasedDomainTopologyClient
 import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTime, SequencedTime}
 import com.digitalasset.canton.tracing.TraceContext
@@ -22,24 +22,24 @@ class SortedReconciliationIntervalsProviderFactory(
     val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
-  def get(domainId: DomainId, subscriptionTs: CantonTimestamp)(implicit
+  def get(synchronizerId: SynchronizerId, subscriptionTs: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): EitherT[Future, String, SortedReconciliationIntervalsProvider] =
     for {
       syncDomainPersistentState <- EitherT.fromEither[Future](
         syncDomainPersistentStateManager
-          .get(domainId)
-          .toRight(s"Unable to get sync domain persistent state for domain $domainId")
+          .get(synchronizerId)
+          .toRight(s"Unable to get sync domain persistent state for domain $synchronizerId")
       )
 
       staticDomainParameters <- EitherT(
         syncDomainPersistentState.parameterStore.lastParameters.map(
-          _.toRight(s"Unable to fetch static domain parameters for domain $domainId")
+          _.toRight(s"Unable to fetch static domain parameters for domain $synchronizerId")
         )
       )
       topologyFactory <- syncDomainPersistentStateManager
-        .topologyFactoryFor(domainId, staticDomainParameters.protocolVersion)
-        .toRight(s"Can not obtain topology factory for $domainId")
+        .topologyFactoryFor(synchronizerId, staticDomainParameters.protocolVersion)
+        .toRight(s"Can not obtain topology factory for $synchronizerId")
         .toEitherT[Future]
     } yield {
       val topologyClient = topologyFactory.createTopologyClient(

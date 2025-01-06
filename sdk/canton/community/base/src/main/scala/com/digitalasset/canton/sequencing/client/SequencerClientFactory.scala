@@ -63,7 +63,7 @@ trait SequencerClientFactory {
 
 object SequencerClientFactory {
   def apply(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       syncCryptoApi: SyncCryptoClient[SyncCryptoApi],
       crypto: Crypto,
       config: SequencerClientConfig,
@@ -186,7 +186,7 @@ object SequencerClientFactory {
             domainParameters.protocolVersion,
             new EventCostCalculator(loggerFactory),
             metrics.trafficConsumption,
-            domainId,
+            synchronizerId,
           )
           sendTracker = new SendTracker(
             initialPendingSends,
@@ -202,12 +202,12 @@ object SequencerClientFactory {
                 traceContext: TraceContext
             ): SequencedEventValidator =
               if (config.skipSequencedEventValidation) {
-                SequencedEventValidator.noValidation(domainId)(
+                SequencedEventValidator.noValidation(synchronizerId)(
                   NamedLoggingContext(loggerFactory, traceContext)
                 )
               } else {
                 new SequencedEventValidatorImpl(
-                  domainId,
+                  synchronizerId,
                   domainParameters.protocolVersion,
                   syncCryptoApi,
                   loggerFactory,
@@ -216,7 +216,7 @@ object SequencerClientFactory {
               }
           }
         } yield new RichSequencerClientImpl(
-          domainId,
+          synchronizerId,
           member,
           sequencerTransports,
           config,
@@ -338,7 +338,7 @@ object SequencerClientFactory {
           endpoint -> createChannel(subConnection)
         }.toMap
         new GrpcSequencerClientAuth(
-          domainId,
+          synchronizerId,
           member,
           crypto,
           channelPerEndpoint,

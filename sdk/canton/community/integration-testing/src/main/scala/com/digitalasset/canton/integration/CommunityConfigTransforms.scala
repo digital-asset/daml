@@ -12,9 +12,9 @@ import com.digitalasset.canton.config.{
   H2DbConfig,
   StorageConfig,
 }
-import com.digitalasset.canton.domain.mediator.CommunityMediatorNodeConfig
-import com.digitalasset.canton.domain.sequencing.config.CommunitySequencerNodeConfig
 import com.digitalasset.canton.participant.config.CommunityParticipantConfig
+import com.digitalasset.canton.synchronizer.mediator.CommunityMediatorNodeConfig
+import com.digitalasset.canton.synchronizer.sequencing.config.CommunitySequencerNodeConfig
 import com.digitalasset.canton.version.{ParticipantProtocolVersion, ProtocolVersion}
 import com.typesafe.config.{Config, ConfigValueFactory}
 import monocle.macros.syntax.lens.*

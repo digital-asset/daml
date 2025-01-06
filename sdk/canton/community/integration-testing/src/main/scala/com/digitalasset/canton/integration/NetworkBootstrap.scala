@@ -5,7 +5,7 @@ package com.digitalasset.canton.integration
 
 import com.digitalasset.canton.console.InstanceReference
 import com.digitalasset.canton.protocol.StaticDomainParameters
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 
 /** Used to bootstrap one or more domains at the start of a test.
   */
@@ -16,7 +16,7 @@ trait NetworkBootstrap {
 /** A data container to hold useful information for initialized domains
   */
 final case class InitializedDomain(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     staticDomainParameters: StaticDomainParameters,
     domainOwners: Set[InstanceReference],
 )

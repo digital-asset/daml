@@ -8,6 +8,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Second, Span}
 import org.scalatest.wordspec.AnyWordSpecLike
 
+import scala.concurrent.ExecutionContext
 import scala.util.Random
 
 trait ConcurrentCacheEvictionSpecBase
@@ -15,9 +16,12 @@ trait ConcurrentCacheEvictionSpecBase
     with AnyWordSpecLike
     with Matchers
     with Eventually {
+
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(scaled(Span(1, Second)))
 
-  protected def newLargeCache(): ConcurrentCache[Integer, String]
+  protected def newLargeCache()(implicit
+      executionContext: ExecutionContext
+  ): ConcurrentCache[Integer, String]
 
   name should {
     "evict values eventually, once the limit has been reached" in {

@@ -6,7 +6,7 @@ package com.digitalasset.canton.topology
 import cats.data.EitherT
 import cats.syntax.option.*
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.DomainAlias
+import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.common.domain.{
   RegisterTopologyTransactionHandle,
   SequencerBasedRegisterTopologyTransactionHandle,
@@ -48,8 +48,8 @@ import scala.concurrent.{ExecutionContext, Promise}
 import scala.util.chaining.*
 
 class StoreBasedDomainOutbox(
-    domain: DomainAlias,
-    val domainId: DomainId,
+    synchronizerAlias: SynchronizerAlias,
+    val synchronizerId: SynchronizerId,
     val memberId: Member,
     val protocolVersion: ProtocolVersion,
     val handle: RegisterTopologyTransactionHandle,
@@ -255,7 +255,7 @@ class StoreBasedDomainOutbox(
             convertTransactions(applicable)
           }
           // dispatch to domain
-          responses <- dispatch(domain, transactions = convertedTxs)
+          responses <- dispatch(synchronizerAlias, transactions = convertedTxs)
           observed <- EitherT.right(
             // we either receive accepted or failed for all transactions in a submission batch.
             // failed submissions are turned into a Left in dispatch. Therefore it's safe to await without additional checks.
@@ -408,7 +408,7 @@ class DomainOutboxDynamicObserver(val loggerFactory: NamedLoggerFactory)
 }
 
 class DomainOutboxFactory(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     memberId: Member,
     authorizedTopologyManager: AuthorizedTopologyManager,
     domainTopologyManager: DomainTopologyManager,
@@ -434,7 +434,7 @@ class DomainOutboxFactory(
   ): DomainOutboxHandle = {
     val handle = new SequencerBasedRegisterTopologyTransactionHandle(
       sequencerClient,
-      domainId,
+      synchronizerId,
       memberId,
       clock,
       topologyConfig,
@@ -453,8 +453,8 @@ class DomainOutboxFactory(
       authorizedObserverRef.getOrElse(throw new IllegalStateException("Must have observer"))
 
     val storeBasedDomainOutbox = new StoreBasedDomainOutbox(
-      DomainAlias(domainId.uid.toLengthLimitedString),
-      domainId,
+      SynchronizerAlias(synchronizerId.uid.toLengthLimitedString),
+      synchronizerId,
       memberId = memberId,
       protocolVersion = protocolVersion,
       handle = handle,
@@ -484,8 +484,8 @@ class DomainOutboxFactory(
 
     val queueBasedDomainOutbox =
       new QueueBasedDomainOutbox(
-        DomainAlias(domainId.uid.toLengthLimitedString),
-        domainId,
+        SynchronizerAlias(synchronizerId.uid.toLengthLimitedString),
+        synchronizerId,
         memberId = memberId,
         protocolVersion = protocolVersion,
         handle = handle,
@@ -525,7 +525,7 @@ class DomainOutboxFactory(
 }
 
 class DomainOutboxFactorySingleCreate(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     memberId: Member,
     authorizedTopologyManager: AuthorizedTopologyManager,
     domainTopologyManager: DomainTopologyManager,
@@ -535,7 +535,7 @@ class DomainOutboxFactorySingleCreate(
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
 ) extends DomainOutboxFactory(
-      domainId,
+      synchronizerId,
       memberId,
       authorizedTopologyManager,
       domainTopologyManager,

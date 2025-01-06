@@ -186,11 +186,11 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     """This error is returned if a transaction was submitted that is restricted to another domain."""
   )
   @Resolution(
-    """Recreate the content of the transaction with a correct domain identifier."""
+    """Recreate the content of the transaction with a correct synchronizer identifier."""
   )
   object InvalidDomain
       extends ErrorCode(id = "INVALID_DOMAIN", ErrorCategory.InvalidIndependentOfSystemState) {
-    final case class Failure(invalid: DomainId)(implicit
+    final case class Failure(invalid: SynchronizerId)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = s"Invalid domain $invalid"
@@ -208,7 +208,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause =
-            s"Multiple domain stores found for the filter store provided: $filterStore. Specify the entire domainID to avoid ambiguity."
+            s"Multiple domain stores found for the filter store provided: $filterStore. Specify the entire synchronizerId to avoid ambiguity."
         )
         with TopologyManagerError
   }
@@ -819,11 +819,15 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
           id = "TOPOLOGY_PACKAGE_ID_IN_USE",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      final case class Reject(used: PackageId, contract: ContractId, domain: DomainId)(implicit
+      final case class Reject(
+          used: PackageId,
+          contract: ContractId,
+          synchronizerId: SynchronizerId,
+      )(implicit
           val loggingContext: ErrorLoggingContext
       ) extends CantonError.Impl(
             cause =
-              s"Cannot unvet package $used as it is still in use by $contract on domain $domain. " +
+              s"Cannot unvet package $used as it is still in use by $contract on domain $synchronizerId. " +
                 s"It may also be used by contracts on other domains."
           )
           with TopologyManagerError
@@ -841,11 +845,11 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
           id = "TOPOLOGY_DISABLE_PARTY_WITH_ACTIVE_CONTRACTS",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      final case class Reject(partyId: PartyId, domainId: DomainId)(implicit
+      final case class Reject(partyId: PartyId, synchronizerId: SynchronizerId)(implicit
           val loggingContext: ErrorLoggingContext
       ) extends CantonError.Impl(
             cause =
-              s"Disable party $partyId failed because there are active contracts on domain $domainId, on which the party is a stakeholder. " +
+              s"Disable party $partyId failed because there are active contracts on domain $synchronizerId, on which the party is a stakeholder. " +
                 s"It may also have other contracts on other domains. " +
                 s"Set the ForceFlag.DisablePartyWithActiveContracts if you really know what you are doing."
           )

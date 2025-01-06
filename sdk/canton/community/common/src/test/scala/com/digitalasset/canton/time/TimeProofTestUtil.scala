@@ -9,7 +9,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.sequencing.protocol.{Batch, Deliver, SignedContent, TimeProof}
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
-import com.digitalasset.canton.topology.{DefaultTestIdentities, DomainId}
+import com.digitalasset.canton.topology.{DefaultTestIdentities, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.version.ProtocolVersion
@@ -19,7 +19,7 @@ object TimeProofTestUtil {
   def mkTimeProof(
       timestamp: CantonTimestamp,
       counter: Long = 0L,
-      targetDomain: Target[DomainId] = Target(DefaultTestIdentities.domainId),
+      targetDomain: Target[SynchronizerId] = Target(DefaultTestIdentities.synchronizerId),
       protocolVersion: ProtocolVersion = BaseTest.testedProtocolVersion,
   ): TimeProof = {
     val deliver = Deliver.create(

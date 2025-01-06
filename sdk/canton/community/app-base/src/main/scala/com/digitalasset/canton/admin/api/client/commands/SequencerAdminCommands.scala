@@ -21,18 +21,18 @@ import com.digitalasset.canton.admin.domain.v30.{
 import com.digitalasset.canton.admin.pruning.v30.LocatePruningTimestamp
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.sequencing.admin.grpc.InitializeSequencerResponse
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.TimestampSelector.TimestampSelector
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
+import com.digitalasset.canton.sequencer.admin.v30
+import com.digitalasset.canton.sequencing.protocol.TrafficState
+import com.digitalasset.canton.synchronizer.sequencing.admin.grpc.InitializeSequencerResponse
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.traffic.TimestampSelector.TimestampSelector
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.traffic.{
   SequencerTrafficStatus,
   TimestampSelector,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.{
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.{
   SequencerPruningStatus,
   SequencerSnapshot,
 }
-import com.digitalasset.canton.sequencer.admin.v30
-import com.digitalasset.canton.sequencing.protocol.TrafficState
 import com.digitalasset.canton.topology.{Member, SequencerId}
 import com.digitalasset.canton.util.GrpcStreamingUtils
 import com.google.protobuf.ByteString

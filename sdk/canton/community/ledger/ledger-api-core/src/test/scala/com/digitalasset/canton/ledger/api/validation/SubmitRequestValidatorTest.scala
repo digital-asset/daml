@@ -24,7 +24,7 @@ import com.digitalasset.canton.ledger.api.DomainMocks.{
 import com.digitalasset.canton.ledger.api.domain.{Commands as ApiCommands, DisclosedContract}
 import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampConversion}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.command.{ApiCommand as LfCommand, ApiCommands as LfCommands}
 import com.digitalasset.daml.lf.data.*
 import com.digitalasset.daml.lf.data.Ref.TypeConRef
@@ -61,7 +61,7 @@ class SubmitRequestValidatorTest
     val constructor = "constructor"
     val submitter = "party"
     val deduplicationDuration = new Duration().withSeconds(10)
-    val domainId = "x::domainId"
+    val synchronizerId = "x::synchronizerId"
 
     private def commandDef(createPackageId: String, moduleName: String = moduleName) =
       Command.of(
@@ -92,7 +92,7 @@ class SubmitRequestValidatorTest
       minLedgerTimeAbs = None,
       minLedgerTimeRel = None,
       packageIdSelectionPreference = Seq.empty,
-      domainId = domainId,
+      synchronizerId = synchronizerId,
     )
   }
 
@@ -134,7 +134,7 @@ class SubmitRequestValidatorTest
           createTime = Time.Timestamp.now(),
           cantonData = Bytes.Empty,
         ),
-        domainIdO = Some(DomainId.tryFromString(api.domainId)),
+        synchronizerIdO = Some(SynchronizerId.tryFromString(api.synchronizerId)),
       )
     )
 
@@ -169,7 +169,7 @@ class SubmitRequestValidatorTest
       ),
       disclosedContracts,
       packagePreferenceSet = packagePreferenceSet,
-      domainId = Some(DomainId.tryFromString(api.domainId)),
+      synchronizerId = Some(SynchronizerId.tryFromString(api.synchronizerId)),
       packageMap = packageMap,
     )
   }
@@ -246,14 +246,14 @@ class SubmitRequestValidatorTest
         )
       }
 
-      "tolerate a missing domainId" in {
+      "tolerate a missing synchronizerId" in {
         testedCommandValidator.validateCommands(
-          api.commands.withDomainId(""),
+          api.commands.withSynchronizerId(""),
           internal.ledgerTime,
           internal.submittedAt,
           internal.maxDeduplicationDuration,
         ) shouldEqual Right(
-          internal.emptyCommands.copy(domainId = None)
+          internal.emptyCommands.copy(synchronizerId = None)
         )
       }
 

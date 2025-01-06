@@ -56,8 +56,8 @@ class CommandClientImplTest
 
   it should "send the given command to the Ledger" in {
     withCommandClient() { (client, service) =>
-      val domainId = UUID.randomUUID().toString
-      val params = genCommands(List.empty, Some(domainId))
+      val synchronizerId = UUID.randomUUID().toString
+      val params = genCommands(List.empty, Some(synchronizerId))
         .withActAs("party")
 
       client
@@ -76,9 +76,9 @@ class CommandClientImplTest
       val recordId = new Identifier("recordPackageId", "recordModuleName", "recordEntityName")
       val record = new DamlRecord(recordId, List.empty[DamlRecord.Field].asJava)
       val command = new CreateCommand(new Identifier("a", "a", "b"), record)
-      val domainId = UUID.randomUUID().toString
+      val synchronizerId = UUID.randomUUID().toString
 
-      val params = genCommands(List(command), Some(domainId))
+      val params = genCommands(List(command), Some(synchronizerId))
         .withActAs("party")
 
       client
@@ -91,7 +91,7 @@ class CommandClientImplTest
       service.getLastRequest.value.getCommands.actAs shouldBe params.getActAs.asScala
       service.getLastRequest.value.getCommands.readAs shouldBe params.getReadAs.asScala
       service.getLastRequest.value.getCommands.workflowId shouldBe params.getWorkflowId.get()
-      service.getLastRequest.value.getCommands.domainId shouldBe domainId
+      service.getLastRequest.value.getCommands.synchronizerId shouldBe synchronizerId
       service.getLastRequest.value.getCommands.minLedgerTimeRel
         .map(_.seconds) shouldBe params.getMinLedgerTimeRel.asScala.map(_.getSeconds)
       service.getLastRequest.value.getCommands.minLedgerTimeRel

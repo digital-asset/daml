@@ -17,7 +17,7 @@ import com.digitalasset.canton.participant.util.{StateChange, TimeOfChange}
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.pruning.{PruningPhase, PruningStatus}
 import com.digitalasset.canton.store.IndexedStringStore
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{CheckedT, ReassignmentTag}
@@ -44,7 +44,7 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
   private val nextReassignmentHook =
     new AtomicReference[
       (
-          Seq[(LfContractId, ReassignmentTag[DomainId], ReassignmentCounter, TimeOfChange)],
+          Seq[(LfContractId, ReassignmentTag[SynchronizerId], ReassignmentCounter, TimeOfChange)],
           Boolean, // true for unassignments, false for assignments
       ) => Future[Unit]
     ](
@@ -63,7 +63,7 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
     nextArchivePurgeHook.set(preArchive)
   def setReassignmentHook(
       preReassignment: (
-          Seq[(LfContractId, ReassignmentTag[DomainId], ReassignmentCounter, TimeOfChange)],
+          Seq[(LfContractId, ReassignmentTag[SynchronizerId], ReassignmentCounter, TimeOfChange)],
           Boolean,
       ) => Future[Unit]
   ): Unit =
@@ -97,7 +97,7 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
   }
 
   override def assignContracts(
-      assignments: Seq[(LfContractId, Source[DomainId], ReassignmentCounter, TimeOfChange)]
+      assignments: Seq[(LfContractId, Source[SynchronizerId], ReassignmentCounter, TimeOfChange)]
   )(implicit
       traceContext: TraceContext
   ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] = CheckedT {
@@ -108,7 +108,7 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
   }
 
   override def unassignContracts(
-      unassignments: Seq[(LfContractId, Target[DomainId], ReassignmentCounter, TimeOfChange)]
+      unassignments: Seq[(LfContractId, Target[SynchronizerId], ReassignmentCounter, TimeOfChange)]
   )(implicit
       traceContext: TraceContext
   ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] = CheckedT {
@@ -216,7 +216,7 @@ object HookedAcs {
     Future.unit
 
   private val noReassignmentAction: (
-      Seq[(LfContractId, ReassignmentTag[DomainId], ReassignmentCounter, TimeOfChange)],
+      Seq[(LfContractId, ReassignmentTag[SynchronizerId], ReassignmentCounter, TimeOfChange)],
       Boolean,
   ) => Future[Unit] = { (_, _) => Future.unit }
 

@@ -5,9 +5,9 @@ package com.digitalasset.canton.domain.sequencing
 
 import com.digitalasset.canton.HasExecutionContext
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
-import com.digitalasset.canton.domain.block.SequencerDriver
 import com.digitalasset.canton.domain.sequencing.BaseSequencerDriverApiTest.CompletionTimeout
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.synchronizer.block.SequencerDriver
 import com.digitalasset.canton.time.TimeProvider
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{TraceContext, W3CTraceContext}
@@ -45,13 +45,13 @@ trait BaseSequencerDriverApiTest[ConfigType]
       config = Some(ConfigFactory.load),
     )
 
-  protected final def domainId: DomainId = DefaultTestIdentities.domainId
+  protected final def synchronizerId: SynchronizerId = DefaultTestIdentities.synchronizerId
 
   protected final def mediatorId: MediatorId = DefaultTestIdentities.daMediator
 
   private val topologyFactory = TestingTopology().build(loggerFactory)
   private val topologyClient =
-    topologyFactory.forOwnerAndDomain(owner = mediatorId, domainId)
+    topologyFactory.forOwnerAndDomain(owner = mediatorId, synchronizerId)
 
   protected val driverConfig: AtomicReference[Option[ConfigType]]
 

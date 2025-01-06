@@ -42,9 +42,9 @@ class CommandSubmissionClientImplTest
       sequence(stuck, success),
       timeout = Optional.of(Duration.of(5, ChronoUnit.SECONDS)),
     ) { (client, _) =>
-      val domainId = UUID.randomUUID().toString
+      val synchronizerId = UUID.randomUUID().toString
 
-      val params = genCommands(List.empty, Some(domainId))
+      val params = genCommands(List.empty, Some(synchronizerId))
         .withActAs("party")
 
       withClue("The first command should be stuck") {
@@ -70,9 +70,9 @@ class CommandSubmissionClientImplTest
 
   it should "send a commands to the ledger" in {
     ledgerServices.withCommandSubmissionClient(alwaysSucceed) { (client, serviceImpl) =>
-      val domainId = UUID.randomUUID().toString
+      val synchronizerId = UUID.randomUUID().toString
 
-      val params = genCommands(List.empty, Some(domainId))
+      val params = genCommands(List.empty, Some(synchronizerId))
         .withActAs("party")
 
       client
@@ -82,7 +82,7 @@ class CommandSubmissionClientImplTest
 
       val receivedCommands = serviceImpl.getSubmittedRequest.value.getCommands
 
-      receivedCommands.domainId shouldBe domainId
+      receivedCommands.synchronizerId shouldBe synchronizerId
       receivedCommands.applicationId shouldBe params.getApplicationId
       receivedCommands.workflowId shouldBe params.getWorkflowId.get()
       receivedCommands.commandId shouldBe params.getCommandId
@@ -121,9 +121,9 @@ class CommandSubmissionClientImplTest
     val recordId = new Identifier("recordPackageId", "recordModuleName", "recordEntityName")
     val record = new DamlRecord(recordId, List.empty[DamlRecord.Field].asJava)
     val command = new CreateCommand(new Identifier("a", "a", "b"), record)
-    val domainId = UUID.randomUUID().toString
+    val synchronizerId = UUID.randomUUID().toString
 
-    val params = genCommands(List[Command](command), Some(domainId))
+    val params = genCommands(List[Command](command), Some(synchronizerId))
       .withActAs(someParty)
       .pipe(p => accessToken.fold(p)(p.withAccessToken))
 

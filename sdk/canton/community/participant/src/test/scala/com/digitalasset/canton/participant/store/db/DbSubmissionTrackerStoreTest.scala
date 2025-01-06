@@ -29,7 +29,7 @@ trait DbSubmissionTrackerStoreTest extends SubmissionTrackerStoreTest {
   private def mkDbStore(): DbSubmissionTrackerStore =
     new DbSubmissionTrackerStore(
       storage,
-      IndexedDomain.tryCreate(DefaultTestIdentities.domainId, 1),
+      IndexedDomain.tryCreate(DefaultTestIdentities.synchronizerId, 1),
       PrunableByTimeParameters.testingParams,
       timeouts,
       loggerFactory,

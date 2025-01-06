@@ -5,7 +5,13 @@ package com.digitalasset.canton.participant.store
 
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
-import com.digitalasset.canton.crypto.{LtHash16, Signature, SigningPublicKey, TestHash}
+import com.digitalasset.canton.crypto.{
+  LtHash16,
+  Signature,
+  SigningKeyUsage,
+  SigningPublicKey,
+  TestHash,
+}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.event.RecordTime
@@ -24,7 +30,7 @@ import com.digitalasset.canton.protocol.messages.{
 import com.digitalasset.canton.pruning.ConfigForNoWaitCounterParticipants
 import com.digitalasset.canton.store.PrunableByTimeTest
 import com.digitalasset.canton.time.PositiveSeconds
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.{
   BaseTest,
   CloseableTest,
@@ -46,38 +52,41 @@ trait CommitmentStoreBaseTest
     with CloseableTest
     with HasExecutionContext {
 
-  lazy val domainId: DomainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::domain"))
+  protected lazy val synchronizerId: SynchronizerId = SynchronizerId(
+    UniqueIdentifier.tryFromProtoPrimitive("domain::domain")
+  )
 
-  lazy val crypto: SymbolicCrypto = SymbolicCrypto.create(
+  protected lazy val crypto: SymbolicCrypto = SymbolicCrypto.create(
     testedReleaseProtocolVersion,
     timeouts,
     loggerFactory,
   )
 
-  lazy val testKey: SigningPublicKey = crypto.generateSymbolicSigningKey()
+  protected lazy val testKey: SigningPublicKey = crypto.generateSymbolicSigningKey()
 
-  lazy val localId: ParticipantId = ParticipantId(
+  protected lazy val localId: ParticipantId = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("localParticipant::domain")
   )
-  lazy val remoteId: ParticipantId = ParticipantId(
+  protected lazy val remoteId: ParticipantId = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant::domain")
   )
-  lazy val remoteId2: ParticipantId = ParticipantId(
+  protected lazy val remoteId2: ParticipantId = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant2::domain")
   )
-  lazy val remoteId3: ParticipantId = ParticipantId(
+  protected lazy val remoteId3: ParticipantId = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant3::domain")
   )
-  lazy val remoteId4: ParticipantId = ParticipantId(
+  protected lazy val remoteId4: ParticipantId = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant4::domain")
   )
 
-  lazy val remoteIdNESet: NonEmpty[Set[ParticipantId]] = NonEmptyUtil.fromElement(remoteId).toSet
-  lazy val remoteId1And2NESet: NonEmpty[Set[ParticipantId]] =
+  protected lazy val remoteIdNESet: NonEmpty[Set[ParticipantId]] =
+    NonEmptyUtil.fromElement(remoteId).toSet
+  protected lazy val remoteId1And2NESet: NonEmpty[Set[ParticipantId]] =
     NonEmptyUtil.fromUnsafe(Set(remoteId, remoteId2))
 
-  lazy val intervalInt: Int = 1
-  lazy val interval: PositiveSeconds = PositiveSeconds.tryOfSeconds(intervalInt.toLong)
+  protected lazy val intervalInt: Int = 1
+  protected lazy val interval: PositiveSeconds = PositiveSeconds.tryOfSeconds(intervalInt.toLong)
 
   def ts(time: Int): CantonTimestamp = CantonTimestamp.ofEpochSecond(time.toLong)
   def meta(stakeholders: LfPartyId*): ContractMetadata =
@@ -141,11 +150,12 @@ trait CommitmentStoreBaseTest
     crypto.sign(
       crypto.pureCrypto.digest(TestHash.testHashPurpose, dummyCommitment),
       testKey.id,
+      SigningKeyUsage.ProtocolOnly,
     )
 
   lazy val dummyCommitmentMsg: AcsCommitment =
     AcsCommitment.create(
-      domainId,
+      synchronizerId,
       remoteId,
       localId,
       deriveFullPeriod(periods(0, 1)),
@@ -373,15 +383,15 @@ trait AcsCommitmentStoreTest
     "correctly compute the no outstanding when ignoring participants" in {
       val store = mk()
       val configRemoteId1 = ConfigForNoWaitCounterParticipants(
-        domainId,
+        synchronizerId,
         remoteId,
       )
       val configRemoteId2 = ConfigForNoWaitCounterParticipants(
-        domainId,
+        synchronizerId,
         remoteId2,
       )
       val configRemoteId3 = ConfigForNoWaitCounterParticipants(
-        domainId,
+        synchronizerId,
         remoteId3,
       )
       val endOfTime = ts(10)
@@ -411,7 +421,7 @@ trait AcsCommitmentStoreTest
         )
         limitIgnoreAll <- store.noOutstandingCommitments(endOfTime)
         _ <- store.acsCounterParticipantConfigStore
-          .removeNoWaitCounterParticipant(Seq(domainId), Seq(remoteId, remoteId2, remoteId3))
+          .removeNoWaitCounterParticipant(Seq(synchronizerId), Seq(remoteId, remoteId2, remoteId3))
       } yield {
         limitNoIgnore shouldBe Some(ts(2)) // remoteId stopped after ts(2)
         // remoteId is ignored
@@ -559,7 +569,7 @@ trait AcsCommitmentStoreTest
       val store = mk()
 
       val dummyMsg2 = AcsCommitment.create(
-        domainId,
+        synchronizerId,
         remoteId,
         localId,
         deriveFullPeriod(periods(2, 3)),
@@ -569,7 +579,7 @@ trait AcsCommitmentStoreTest
       val dummySigned2 =
         SignedProtocolMessage.from(dummyMsg2, testedProtocolVersion, dummySignature)
       val dummyMsg3 = AcsCommitment.create(
-        domainId,
+        synchronizerId,
         remoteId2,
         localId,
         deriveFullPeriod(periods(0, 1)),
@@ -642,7 +652,7 @@ trait AcsCommitmentStoreTest
       val store = mk()
 
       val dummyMsg2 = AcsCommitment.create(
-        domainId,
+        synchronizerId,
         remoteId,
         localId,
         deriveFullPeriod(periods(0, 1)),
@@ -915,7 +925,7 @@ trait CommitmentQueueTest extends CommitmentStoreBaseTest {
         cmt: AcsCommitment.CommitmentType,
     ) =
       AcsCommitment.create(
-        domainId,
+        synchronizerId,
         remoteId,
         localId,
         CommitmentPeriod.create(ts(start), ts(end), PositiveSeconds.tryOfSeconds(5)).value,
@@ -1017,7 +1027,7 @@ trait CommitmentQueueTest extends CommitmentStoreBaseTest {
 
       val dummyCommitmentMsg =
         AcsCommitment.create(
-          domainId,
+          synchronizerId,
           remoteId,
           localId,
           deriveFullPeriod(periods(0, 5)),
@@ -1027,7 +1037,7 @@ trait CommitmentQueueTest extends CommitmentStoreBaseTest {
 
       val dummyCommitmentMsg2 =
         AcsCommitment.create(
-          domainId,
+          synchronizerId,
           remoteId,
           localId,
           deriveFullPeriod(periods(10, 15)),
@@ -1037,7 +1047,7 @@ trait CommitmentQueueTest extends CommitmentStoreBaseTest {
 
       val dummyCommitmentMsg3 =
         AcsCommitment.create(
-          domainId,
+          synchronizerId,
           remoteId,
           localId,
           deriveFullPeriod(periods(0, 10)),

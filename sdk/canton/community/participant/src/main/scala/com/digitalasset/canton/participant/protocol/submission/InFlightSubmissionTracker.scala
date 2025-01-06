@@ -34,7 +34,7 @@ import com.digitalasset.canton.protocol.RootHash
 import com.digitalasset.canton.sequencing.protocol.SequencerErrors.AggregateSubmissionAlreadySent
 import com.digitalasset.canton.sequencing.protocol.{DeliverError, MessageId}
 import com.digitalasset.canton.time.DomainTimeTracker
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 
 import java.util.UUID
@@ -72,13 +72,13 @@ class InFlightSubmissionTracker(
         publication.publishSource match {
           case PublishSource.Local(messageUuid) =>
             InFlightByMessageId(
-              domainId = publication.submissionDomainId,
+              synchronizerId = publication.submissionSynchronizerId,
               messageId = MessageId.fromUuid(messageUuid),
             )
 
           case PublishSource.Sequencer(requestSequencerCounter, sequencerTimestamp) =>
             InFlightBySequencingInfo(
-              domainId = publication.submissionDomainId,
+              synchronizerId = publication.submissionSynchronizerId,
               sequenced = SequencedSubmission(
                 sequencerCounter = requestSequencerCounter,
                 sequencingTime = sequencerTimestamp,
@@ -90,7 +90,7 @@ class InFlightSubmissionTracker(
         .delete(trackedReferences)
     } yield ()
 
-  /** Create and initialize an InFlightSubmissionDomainTracker for domainId.
+  /** Create and initialize an InFlightSubmissionDomainTracker for synchronizerId.
     *
     * Steps of initialization:
     * Deletes the published, sequenced in-flight submissions with sequencing timestamps up to the given bound
@@ -99,7 +99,7 @@ class InFlightSubmissionTracker(
     * and schedules for them potential publication at the retrieved timeout (or immediately if already in the past).
     */
   def inFlightSubmissionDomainTracker(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       recordOrderPublisher: RecordOrderPublisher,
       timeTracker: DomainTimeTracker,
       metrics: SyncDomainMetrics,
@@ -108,7 +108,7 @@ class InFlightSubmissionTracker(
   ): FutureUnlessShutdown[InFlightSubmissionDomainTracker] = {
     val unsequencedSubmissionMap: UnsequencedSubmissionMap[SubmissionTrackingData] =
       new UnsequencedSubmissionMap(
-        domainId = domainId,
+        synchronizerId = synchronizerId,
         sizeWarnThreshold = 1000000,
         unsequencedInFlightGauge = metrics.inFlightSubmissionDomainTracker.unsequencedInFlight,
         loggerFactory = loggerFactory,
@@ -126,7 +126,7 @@ class InFlightSubmissionTracker(
 
     for {
       unsequencedInFlights <- store.value.lookupUnsequencedUptoUnordered(
-        domainId,
+        synchronizerId,
         CantonTimestamp.MaxValue,
       )
       // Re-request ticks for all remaining unsequenced timestamps
@@ -161,7 +161,7 @@ class InFlightSubmissionTracker(
           }
       }
     } yield new InFlightSubmissionDomainTracker(
-      domainId = domainId,
+      synchronizerId = synchronizerId,
       store = store,
       deduplicator = deduplicator,
       recordOrderPublisher = recordOrderPublisher,
@@ -173,7 +173,7 @@ class InFlightSubmissionTracker(
 }
 
 class InFlightSubmissionDomainTracker(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     store: Eval[InFlightSubmissionStore],
     deduplicator: CommandDeduplicator,
     recordOrderPublisher: RecordOrderPublisher,
@@ -266,7 +266,7 @@ class InFlightSubmissionDomainTracker(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
     store.value
-      .observeSequencing(domainId, sequenceds)
+      .observeSequencing(synchronizerId, sequenceds)
       .map(_ =>
         sequenceds.keysIterator
           .foreach(unsequencedSubmissionMap.pull(_).discard)
@@ -293,7 +293,7 @@ class InFlightSubmissionDomainTracker(
     store.value
       .updateUnsequenced(
         changeIdHash,
-        domainId,
+        synchronizerId,
         messageId,
         UnsequencedSubmission(
           // This timeout has relevance only for crash recovery (will be used there to publish the rejection).
@@ -355,16 +355,17 @@ class InFlightSubmissionDomainTracker(
       .exists(_.code.id == AggregateSubmissionAlreadySent.id)
     if (isAlreadySequencedError) {
       logger.debug(
-        s"Ignoring deliver error $deliverError for $domainId and $messageId because the message was already sequenced."
+        s"Ignoring deliver error $deliverError for $synchronizerId and $messageId because the message was already sequenced."
       )
       FutureUnlessShutdown.unit
     } else
       for {
-        inFlightO <- store.value.lookupSomeMessageId(domainId, messageId)
+        inFlightO <- store.value.lookupSomeMessageId(synchronizerId, messageId)
         toUpdateO = updatedTrackingData(inFlightO)
         _ <- toUpdateO.traverse_ { case (changeIdHash, newTrackingData, submissionTraceContext) =>
-          store.value.updateUnsequenced(changeIdHash, domainId, messageId, newTrackingData).map {
-            _ =>
+          store.value
+            .updateUnsequenced(changeIdHash, synchronizerId, messageId, newTrackingData)
+            .map { _ =>
               unsequencedSubmissionMap.changeIfExists(
                 key = messageId,
                 trackingData = newTrackingData.trackingData,
@@ -381,7 +382,7 @@ class InFlightSubmissionDomainTracker(
                   )
                 )
                 .merge
-          }
+            }
         }
       } yield ()
   }
@@ -422,7 +423,7 @@ object InFlightSubmissionTracker {
     * @param unsequencedInFlightGauge for tracking the size of the in-memory storage
     */
   final class UnsequencedSubmissionMap[T](
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       sizeWarnThreshold: Int,
       unsequencedInFlightGauge: Gauge[Int],
       override val loggerFactory: NamedLoggerFactory,
@@ -487,7 +488,7 @@ object InFlightSubmissionTracker {
         unsequencedInFlightGauge.updateValue(mutableUnsequencedMap.size)
         if (mutableUnsequencedMap.sizeIs > sizeWarnThreshold)
           logger.warn(
-            s"UnsequencedSubmissionMap for domain $domainId is growing too large (threshold with $sizeWarnThreshold breached: ${mutableUnsequencedMap.size})"
+            s"UnsequencedSubmissionMap for domain $synchronizerId is growing too large (threshold with $sizeWarnThreshold breached: ${mutableUnsequencedMap.size})"
           )
       }
     })

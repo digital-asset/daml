@@ -11,10 +11,10 @@ import com.digitalasset.canton.ledger.participant.state.SyncService.{
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{DomainAlias, LfPartyId}
+import com.digitalasset.canton.{LfPartyId, SynchronizerAlias}
 
 /** An interface to change a ledger via a participant.
   * '''Please note that this interface is unstable and may significantly change.'''
@@ -51,7 +51,8 @@ trait SyncService
     throw new UnsupportedOperationException()
 
   // TODO(i20688): Temporary until prepared transactions run through the domain router
-  def getProtocolVersionForDomain(domainId: Traced[DomainId]): Option[ProtocolVersion] = None
+  def getProtocolVersionForDomain(synchronizerId: Traced[SynchronizerId]): Option[ProtocolVersion] =
+    None
 
   // temporary implementation, will be removed as topology events on Ledger API proceed
   /** Get the offsets of the incomplete assigned/unassigned events for a set of stakeholders.
@@ -81,8 +82,8 @@ object SyncService {
 
   object ConnectedDomainResponse {
     final case class ConnectedDomain(
-        domainAlias: DomainAlias,
-        domainId: DomainId,
+        synchronizerAlias: SynchronizerAlias,
+        synchronizerId: SynchronizerId,
         permission: ParticipantPermission,
     )
   }

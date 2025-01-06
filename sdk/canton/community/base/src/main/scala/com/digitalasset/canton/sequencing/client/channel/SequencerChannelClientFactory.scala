@@ -20,7 +20,7 @@ import com.digitalasset.canton.sequencing.{
   SequencerConnections,
 }
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.{DomainId, Member, SequencerId}
+import com.digitalasset.canton.topology.{Member, SequencerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.ManagedChannel
@@ -30,7 +30,7 @@ import scala.concurrent.ExecutionContextExecutor
 /** The SequencerChannelClientFactory creates a SequencerChannelClient and its embedded GRPC channel transports
   */
 final class SequencerChannelClientFactory(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     domainCryptoApi: DomainSyncCryptoClient,
     crypto: Crypto,
     config: SequencerClientConfig,
@@ -124,7 +124,7 @@ final class SequencerChannelClientFactory(
       endpoint -> createChannel(subConnection)
     }.toMap
     new GrpcSequencerClientAuth(
-      domainId,
+      synchronizerId,
       member,
       crypto,
       channelPerEndpoint,

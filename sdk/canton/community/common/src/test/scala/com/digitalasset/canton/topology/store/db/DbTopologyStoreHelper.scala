@@ -10,7 +10,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.String68
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.DbTest
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -36,10 +36,10 @@ trait DbTopologyStoreHelper {
 
   protected val maxItemsInSqlQuery: PositiveInt = PositiveInt.tryCreate(20)
 
-  protected def createTopologyStore(domainId: DomainId): TopologyStore[DomainStore] =
+  protected def createTopologyStore(synchronizerId: SynchronizerId): TopologyStore[DomainStore] =
     new DbTopologyStore(
       storage,
-      TopologyStoreId.DomainStore(domainId, discriminator.str),
+      TopologyStoreId.DomainStore(synchronizerId, discriminator.str),
       testedProtocolVersion,
       timeouts,
       loggerFactory,

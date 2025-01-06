@@ -15,7 +15,7 @@ import com.digitalasset.canton.participant.protocol.ProtocolProcessor.{
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, checked}
@@ -24,7 +24,7 @@ import scala.concurrent.ExecutionContext
 
 class TransactionConfirmationResponseFactory(
     participantId: ParticipantId,
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
     protected val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
@@ -262,7 +262,7 @@ class TransactionConfirmationResponseFactory(
                     localVerdict,
                     transactionValidationResult.transactionId.toRootHash,
                     parties,
-                    domainId,
+                    synchronizerId,
                     protocolVersion,
                   )
               )
@@ -317,7 +317,7 @@ class TransactionConfirmationResponseFactory(
           rejectError.toLocalReject(protocolVersion),
           rootHash,
           Set.empty,
-          domainId,
+          synchronizerId,
           protocolVersion,
         )
     )

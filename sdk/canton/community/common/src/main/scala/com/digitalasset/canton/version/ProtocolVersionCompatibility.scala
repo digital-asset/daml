@@ -7,7 +7,7 @@ import cats.syntax.either.*
 import com.daml.error.ErrorCategory.SecurityAlert
 import com.daml.error.{ErrorCode, Explanation, Resolution}
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.DomainAlias
+import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.error.CantonError
@@ -148,8 +148,11 @@ object HandshakeErrors extends HandshakeErrorGroup {
     """Migrate to a new domain that uses the most recent protocol version."""
   )
   object DeprecatedProtocolVersion extends ErrorCode("DEPRECATED_PROTOCOL_VERSION", SecurityAlert) {
-    final case class WarnSequencerClient(domainAlias: DomainAlias, version: ProtocolVersion)(
-        implicit val loggingContext: ErrorLoggingContext
+    final case class WarnSequencerClient(
+        synchronizerAlias: SynchronizerAlias,
+        version: ProtocolVersion,
+    )(implicit
+        val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = s"This node is connecting to a sequencer using the deprecated protocol version " +
             s"$version which should not be used in production. We recommend only connecting to sequencers with a later protocol version (such as ${ProtocolVersion.latest})."

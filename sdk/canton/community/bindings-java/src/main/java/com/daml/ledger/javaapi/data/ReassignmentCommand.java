@@ -18,7 +18,7 @@ import static java.util.Optional.empty;
  *
  * Usage:
  * <pre>
- *   var submission = ReassignmentCommand.create(applicationId, commandId, domainId, unassingnCommand)
+ *   var submission = ReassignmentCommand.create(applicationId, commandId, synchronizerId, unassingnCommand)
  *                                   .withWorkflowId(workflowId)
  *                                   .with...
  * <pre/>

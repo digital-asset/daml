@@ -60,6 +60,7 @@ import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFa
   SerializableContractOfId,
   UnknownPackageError,
 }
+import com.digitalasset.canton.participant.protocol.validation.*
 import com.digitalasset.canton.participant.protocol.validation.ContractConsistencyChecker.ReferenceToFutureContractError
 import com.digitalasset.canton.participant.protocol.validation.InternalConsistencyChecker.ErrorWithInternalConsistencyCheck
 import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.{
@@ -67,7 +68,6 @@ import com.digitalasset.canton.participant.protocol.validation.ModelConformanceC
   LazyAsyncReInterpretation,
 }
 import com.digitalasset.canton.participant.protocol.validation.TimeValidator.TimeCheckFailure
-import com.digitalasset.canton.participant.protocol.validation.{AuthenticationError, *}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.*
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
@@ -87,7 +87,7 @@ import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.{ConfirmationRequestSessionKeyStore, SessionKeyStore}
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
@@ -118,7 +118,7 @@ import scala.util.{Failure, Success}
   */
 @nowarn("msg=dead code following this construct")
 class TransactionProcessingSteps(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     participantId: ParticipantId,
     confirmationRequestFactory: TransactionConfirmationRequestFactory,
     confirmationResponseFactory: TransactionConfirmationResponseFactory,
@@ -208,7 +208,7 @@ class TransactionProcessingSteps(
   }
 
   override def embedNoMediatorError(error: NoMediatorError): TransactionSubmissionError =
-    DomainWithoutMediatorError.Error(error.topologySnapshotTimestamp, domainId)
+    DomainWithoutMediatorError.Error(error.topologySnapshotTimestamp, synchronizerId)
 
   override def getSubmitterInformation(
       views: Seq[DecryptedView]
@@ -289,7 +289,7 @@ class TransactionProcessingSteps(
       TransactionSubmissionTrackingData(
         completionInfo,
         TransactionSubmissionTrackingData.CauseWithTemplate(error),
-        domainId,
+        synchronizerId,
         protocolVersion,
       )
 
@@ -404,7 +404,7 @@ class TransactionProcessingSteps(
         val trackingData = TransactionSubmissionTrackingData(
           submitterInfoWithDedupPeriod.toCompletionInfo,
           rejectionCause,
-          domainId,
+          synchronizerId,
           protocolVersion,
         )
         Success(Outcome(Left(trackingData)))
@@ -435,7 +435,7 @@ class TransactionProcessingSteps(
       TransactionSubmissionTrackingData(
         submitterInfo.toCompletionInfo.copy(optDeduplicationPeriod = None),
         TransactionSubmissionTrackingData.TimeoutCause,
-        domainId,
+        synchronizerId,
         protocolVersion,
       )
 
@@ -446,7 +446,7 @@ class TransactionProcessingSteps(
         TransactionProcessor.SubmissionErrors.SubmissionAlreadyInFlight(
           changeId,
           existingSubmission.submissionId,
-          existingSubmission.submissionDomain,
+          existingSubmission.submissionSynchronizerId,
         )
       case TimeoutTooLow(_submission, lowerBound) =>
         TransactionProcessor.SubmissionErrors.TimeoutError.Error(lowerBound)
@@ -505,7 +505,7 @@ class TransactionProcessingSteps(
       TransactionSubmissionTrackingData(
         completionInfo,
         rejectionCause,
-        domainId,
+        synchronizerId,
         protocolVersion,
       )
     }
@@ -839,7 +839,6 @@ class TransactionProcessingSteps(
                 .reInterpret(
                   viewTree.view,
                   keyResolverFor(viewTree.view),
-                  rc,
                   ledgerTime,
                   parsedRequest.submissionTime,
                   () => engineController.abortStatus,
@@ -852,7 +851,7 @@ class TransactionProcessingSteps(
         authenticationResult <- AuthenticationValidator.verifyViewSignatures(
           parsedRequest,
           reInterpretedTopLevelViews,
-          domainId,
+          synchronizerId,
           protocolVersion,
           transactionEnricher,
           logger,
@@ -893,7 +892,6 @@ class TransactionProcessingSteps(
           .check(
             parsedRequest.rootViewTrees,
             keyResolverFor(_),
-            rc,
             ipsSnapshot,
             commonData,
             getEngineAbortStatus = () => engineController.abortStatus,
@@ -1077,7 +1075,7 @@ class TransactionProcessingSteps(
         Update.SequencedCommandRejected(
           completionInfo,
           rejection,
-          domainId,
+          synchronizerId,
           rc,
           sc,
           ts,
@@ -1120,7 +1118,7 @@ class TransactionProcessingSteps(
       Update.SequencedCommandRejected(
         info,
         rejection,
-        domainId,
+        synchronizerId,
         requestCounter,
         requestSequencerCounter,
         requestTime,
@@ -1276,7 +1274,7 @@ class TransactionProcessingSteps(
           updateId = lfTxId,
           hostedWitnesses = hostedWitnesses.toList,
           contractMetadata = contractMetadata,
-          domainId = domainId,
+          synchronizerId = synchronizerId,
           requestCounter = requestCounter,
           sequencerCounter = requestSequencerCounter,
           recordTime = requestTime,
@@ -1464,7 +1462,7 @@ class TransactionProcessingSteps(
 
       maxDecisionTime <- ProcessingSteps
         .getDecisionTime(topologySnapshot, pendingRequestData.requestTime)
-        .leftMap(DomainParametersError(domainId, _))
+        .leftMap(DomainParametersError(synchronizerId, _))
 
       _ <-
         (if (ts <= maxDecisionTime) EitherT.pure[Future, TransactionProcessorError](())

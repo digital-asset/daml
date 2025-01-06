@@ -85,14 +85,14 @@ class PackageOpsImpl(
   ): EitherT[FutureUnlessShutdown, PackageInUse, Unit] =
     stateManager.getAll.toList
       // Sort to keep tests deterministic
-      .sortBy { case (domainId, _) => domainId.toProtoPrimitive }
+      .sortBy { case (synchronizerId, _) => synchronizerId.toProtoPrimitive }
       .parTraverse_ { case (_, state) =>
         EitherT(
           state.activeContractStore
             .packageUsage(packageId, stateManager.contractStore.value)
             .map(opt =>
               opt.fold(Either.unit[PackageInUse])(contractId =>
-                Left(new PackageInUse(packageId, contractId, state.indexedDomain.domainId))
+                Left(new PackageInUse(packageId, contractId, state.indexedDomain.synchronizerId))
               )
             )
         )

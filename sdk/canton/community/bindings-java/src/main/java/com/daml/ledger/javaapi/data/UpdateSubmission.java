@@ -43,7 +43,7 @@ public final class UpdateSubmission<U> {
   @NonNull private final List<DisclosedContract> disclosedContracts;
   @NonNull private final List<@NonNull String> packageIdSelectionPreference;
 
-  @NonNull private final String domainId;
+  @NonNull private final String synchronizerId;
 
   private UpdateSubmission(
       @NonNull String applicationId,
@@ -57,7 +57,7 @@ public final class UpdateSubmission<U> {
       @NonNull Optional<Duration> deduplicationDuration,
       @NonNull Optional<Long> deduplicationOffset,
       @NonNull Optional<String> accessToken,
-      @NonNull String domainId,
+      @NonNull String synchronizerId,
       @NonNull List<DisclosedContract> disclosedContracts,
       @NonNull List<@NonNull String> packageIdSelectionPreference) {
     this.workflowId = workflowId;
@@ -71,7 +71,7 @@ public final class UpdateSubmission<U> {
     this.deduplicationOffset = deduplicationOffset;
     this.update = update;
     this.accessToken = accessToken;
-    this.domainId = domainId;
+    this.synchronizerId = synchronizerId;
     this.disclosedContracts = disclosedContracts;
     this.packageIdSelectionPreference = packageIdSelectionPreference;
   }
@@ -139,8 +139,8 @@ public final class UpdateSubmission<U> {
     return accessToken;
   }
 
-  public String getDomainId() {
-    return domainId;
+  public String getSynchronizerId() {
+    return synchronizerId;
   }
 
   public @NonNull List<DisclosedContract> getDisclosedContracts() {
@@ -164,7 +164,7 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId,
+        synchronizerId,
         disclosedContracts,
         packageIdSelectionPreference);
   }
@@ -182,7 +182,7 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId,
+        synchronizerId,
         disclosedContracts,
         packageIdSelectionPreference);
   }
@@ -200,7 +200,7 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId,
+        synchronizerId,
         disclosedContracts,
         packageIdSelectionPreference);
   }
@@ -218,7 +218,7 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId,
+        synchronizerId,
         disclosedContracts,
         packageIdSelectionPreference);
   }
@@ -236,7 +236,7 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId,
+        synchronizerId,
         disclosedContracts,
         packageIdSelectionPreference);
   }
@@ -254,7 +254,7 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId,
+        synchronizerId,
         disclosedContracts,
         packageIdSelectionPreference);
   }
@@ -272,7 +272,7 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId,
+        synchronizerId,
         disclosedContracts,
         packageIdSelectionPreference);
   }
@@ -290,7 +290,7 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId,
+        synchronizerId,
         disclosedContracts,
         packageIdSelectionPreference);
   }
@@ -308,12 +308,12 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId,
+        synchronizerId,
         disclosedContracts,
         packageIdSelectionPreference);
   }
 
-  public UpdateSubmission<U> withDomainId(String domanId) {
+  public UpdateSubmission<U> withSynchronizerId(String synchronizerId) {
     return new UpdateSubmission<U>(
         applicationId,
         commandId,
@@ -326,7 +326,7 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId,
+        this.synchronizerId,
         disclosedContracts,
         packageIdSelectionPreference);
   }
@@ -345,7 +345,7 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId,
+        synchronizerId,
         disclosedContracts,
         packageIdSelectionPreference);
   }
@@ -364,7 +364,7 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId,
+        synchronizerId,
         disclosedContracts,
         packageIdSelectionPreference);
   }
@@ -383,7 +383,7 @@ public final class UpdateSubmission<U> {
         readAs,
         empty(),
         emptyList(),
-        domainId,
+        synchronizerId,
         accessToken,
         packageIdSelectionPreference);
   }

@@ -161,7 +161,7 @@ class TransactionConfirmationRequestFactory(
         protocolVersion,
       )
       submittingParticipantSignature <- cryptoSnapshot
-        .sign(transactionTree.rootHash.unwrap)
+        .sign(transactionTree.rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
         .leftMap[TransactionConfirmationRequestCreationError](TransactionSigningError.apply)
     } yield {
       if (loggingConfig.eventDetails) {
@@ -351,7 +351,11 @@ class TransactionConfirmationRequestFactory(
 }
 
 object TransactionConfirmationRequestFactory {
-  def apply(submitterNode: ParticipantId, domainId: DomainId, protocolVersion: ProtocolVersion)(
+  def apply(
+      submitterNode: ParticipantId,
+      synchronizerId: SynchronizerId,
+      protocolVersion: ProtocolVersion,
+  )(
       cryptoOps: HashOps & HmacOps,
       seedGenerator: SeedGenerator,
       loggingConfig: LoggingConfig,
@@ -361,7 +365,7 @@ object TransactionConfirmationRequestFactory {
     val transactionTreeFactory =
       TransactionTreeFactoryImpl(
         submitterNode,
-        domainId,
+        synchronizerId,
         protocolVersion,
         cryptoOps,
         loggerFactory,

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.integration.tests
 
-import com.digitalasset.canton.DomainAlias
+import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.admin.api.client.data.{NodeStatus, WaitingForInitialization}
 import com.digitalasset.canton.config.CommunityStorageConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -25,7 +25,7 @@ sealed trait CommunityPruningSmokeIntegrationTest
     extends CommunityIntegrationTest
     with SharedCommunityEnvironment {
 
-  private val domainAlias = "da"
+  private val synchronizerAlias = "da"
 
   override def environmentDefinition: CommunityEnvironmentDefinition =
     CommunityEnvironmentDefinition.simpleTopology
@@ -48,7 +48,7 @@ sealed trait CommunityPruningSmokeIntegrationTest
         )
 
         bootstrap.domain(
-          domainAlias,
+          synchronizerAlias,
           Seq(sequencer1),
           Seq(mediator1),
           Seq[InstanceReference](sequencer1, mediator1),
@@ -101,7 +101,7 @@ sealed trait CommunityPruningSmokeIntegrationTest
     participant1.start()
     participant1.domains.connect_local(
       sequencer1,
-      alias = DomainAlias.tryCreate(domainAlias),
+      alias = SynchronizerAlias.tryCreate(synchronizerAlias),
     )
 
     // Generate some data to have something to prune

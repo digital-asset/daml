@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.domain
 
 import com.daml.error.*
-import com.digitalasset.canton.DomainAlias
+import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader.SequencerInfoLoaderError
 import com.digitalasset.canton.error.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -16,7 +16,7 @@ import com.digitalasset.canton.participant.topology.TopologyComponentFactory
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.sequencing.client.RichSequencerClient
 import com.digitalasset.canton.sequencing.client.channel.SequencerChannelClient
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.tracing.TraceContext
 import org.slf4j.event.Level
@@ -88,7 +88,7 @@ object DomainRegistryError extends DomainRegistryErrorGroup {
     )
     object DomainIsNotAvailable
         extends ErrorCode(id = "DOMAIN_IS_NOT_AVAILABLE", ErrorCategory.TransientServerFailure) {
-      final case class Error(alias: DomainAlias, reason: String)(implicit
+      final case class Error(alias: SynchronizerAlias, reason: String)(implicit
           val loggingContext: ErrorLoggingContext
       ) extends CantonError.Impl(cause = s"Cannot connect to domain $alias")
           with DomainRegistryError
@@ -263,39 +263,44 @@ object DomainRegistryError extends DomainRegistryErrorGroup {
     }
 
     @Explanation(
-      """This error indicates that the domain-id does not match the one that the
-        participant expects. If this error happens on a first connect, then the domain id
+      """This error indicates that the synchronizer id does not match the one that the
+        participant expects. If this error happens on a first connect, then the synchronizer id
         defined in the domain connection settings does not match the remote domain.
         If this happens on a reconnect, then the remote domain has been reset for some reason."""
     )
     @Resolution("Carefully verify the connection settings.")
-    object DomainIdMismatch
+    object SynchronizerIdMismatch
         extends ErrorCode(
-          id = "DOMAIN_ID_MISMATCH",
+          id = "SYNCHRONIZER_ID_MISMATCH",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      final case class Error(expected: DomainId, observed: DomainId)(implicit
+      final case class Error(expected: SynchronizerId, observed: SynchronizerId)(implicit
           val loggingContext: ErrorLoggingContext
       ) extends CantonError.Impl(
-            cause = "The domain reports a different domain-id than the participant is expecting"
+            cause =
+              "The domain reports a different synchronizer id than the participant is expecting"
           )
           with DomainRegistryError
     }
 
-    @Explanation("""This error indicates that the domain alias was previously used to
-        connect to a domain with a different domain id. This is a known situation when an existing participant
+    @Explanation("""This error indicates that the synchronizer alias was previously used to
+        connect to a domain with a different synchronizer id. This is a known situation when an existing participant
         is trying to connect to a freshly re-initialised domain.""")
     @Resolution("Carefully verify the connection settings.")
-    object DomainAliasDuplication
+    object SynchronizerAliasDuplication
         extends ErrorCode(
-          id = "DOMAIN_ALIAS_DUPLICATION",
+          id = "SYNCHRONIZER_ALIAS_DUPLICATION",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      final case class Error(domainId: DomainId, alias: DomainAlias, expectedDomainId: DomainId)(
-          implicit val loggingContext: ErrorLoggingContext
+      final case class Error(
+          synchronizerId: SynchronizerId,
+          alias: SynchronizerAlias,
+          expectedSynchronizerId: SynchronizerId,
+      )(implicit
+          val loggingContext: ErrorLoggingContext
       ) extends CantonError.Impl(
             cause =
-              "The domain with the given alias reports a different domain id than the participant is expecting"
+              "The domain with the given alias reports a different synchronizer id than the participant is expecting"
           )
           with DomainRegistryError
     }
@@ -379,9 +384,9 @@ trait DomainHandle extends AutoCloseable {
 
   def staticParameters: StaticDomainParameters
 
-  def domainId: DomainId
+  def synchronizerId: SynchronizerId
 
-  def domainAlias: DomainAlias
+  def synchronizerAlias: SynchronizerAlias
 
   def topologyClient: DomainTopologyClientWithInit
 

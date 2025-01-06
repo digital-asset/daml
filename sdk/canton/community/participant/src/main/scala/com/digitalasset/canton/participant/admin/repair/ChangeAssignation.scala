@@ -41,11 +41,11 @@ private final class ChangeAssignation(
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
 
-  private val sourceDomainId = repairSource.map(_.domain.id)
-  private val sourceDomainAlias = repairSource.map(_.domain.alias)
-  private val sourcePersistentState = repairSource.map(_.domain.persistentState)
-  private val targetDomainId = repairTarget.map(_.domain.id)
-  private val targetPersistentState = repairTarget.map(_.domain.persistentState)
+  private val sourceSynchronizerId = repairSource.map(_.synchronizer.id)
+  private val sourceSynchronizerAlias = repairSource.map(_.synchronizer.alias)
+  private val sourcePersistentState = repairSource.map(_.synchronizer.persistentState)
+  private val targetSynchronizerId = repairTarget.map(_.synchronizer.id)
+  private val targetPersistentState = repairTarget.map(_.synchronizer.persistentState)
 
   /** Completes the processing of unassigned contract. Insert the contract in the target domain
     * and publish the assignment event.
@@ -64,7 +64,7 @@ private final class ChangeAssignation(
       _ <- EitherT.cond[FutureUnlessShutdown](
         contractStatusAtSource.get(contractId).exists(_.status.isReassignedAway),
         (),
-        s"Contract $contractId is not unassigned in source domain $sourceDomainAlias. " +
+        s"Contract $contractId is not unassigned in source domain $sourceSynchronizerAlias. " +
           s"Current status: ${contractStatusAtSource.get(contractId).map(_.status.toString).getOrElse("NOT_FOUND")}.",
       )
 
@@ -200,7 +200,9 @@ private final class ChangeAssignation(
   ): EitherT[FutureUnlessShutdown, String, Map[LfContractId, Set[LfPartyId]]] =
     contractStore
       .lookupStakeholders(contractIds)
-      .leftMap(e => s"Failed to look up stakeholder of contracts in domain $sourceDomainAlias: $e")
+      .leftMap(e =>
+        s"Failed to look up stakeholder of contracts in domain $sourceSynchronizerAlias: $e"
+      )
 
   private def atLeastOneHostedStakeholderAtTarget(
       contractId: LfContractId,
@@ -209,14 +211,14 @@ private final class ChangeAssignation(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] =
     EitherT(
-      hostsParties(repairTarget.unwrap.domain.topologySnapshot, stakeholders, participantId).map {
-        hosted =>
+      hostsParties(repairTarget.unwrap.synchronizer.topologySnapshot, stakeholders, participantId)
+        .map { hosted =>
           Either.cond(
             hosted.nonEmpty,
             (),
-            show"Not allowed to move contract $contractId without at least one stakeholder of $stakeholders existing locally on the target domain asOf=${repairTarget.unwrap.domain.topologySnapshot.timestamp}",
+            show"Not allowed to move contract $contractId without at least one stakeholder of $stakeholders existing locally on the target domain asOf=${repairTarget.unwrap.synchronizer.topologySnapshot.timestamp}",
           )
-      }
+        }
     )
 
   /** Read contract instances from [[ContractStore]]
@@ -234,8 +236,10 @@ private final class ChangeAssignation(
       .lookupManyExistingUncached(contractIdsWithReassignmentCounters.map {
         case ChangeAssignation.Data((cid, _), _, _) => cid
       })
-      .map(_.map(_.contract).zip(contractIdsWithReassignmentCounters))
-      .leftMap(contractId => s"Failed to look up contract $contractId in domain $sourceDomainAlias")
+      .map(_.zip(contractIdsWithReassignmentCounters))
+      .leftMap(contractId =>
+        s"Failed to look up contract $contractId in domain $sourceSynchronizerAlias"
+      )
       .mapK(FutureUnlessShutdown.outcomeK)
 
   private def readContract(
@@ -300,11 +304,7 @@ private final class ChangeAssignation(
     EitherT.right {
       contracts.parTraverse_ { contract =>
         if (contract.payload.isNew)
-          contractStore
-            .storeCreatedContract(
-              contract.targetTimeOfChange.unwrap.rc,
-              contract.payload.contract,
-            )
+          contractStore.storeContract(contract.payload.contract)
         else FutureUnlessShutdown.unit
       }
     }
@@ -317,7 +317,7 @@ private final class ChangeAssignation(
         contracts.map { contract =>
           (
             contract.payload.contract.contractId,
-            sourceDomainId,
+            sourceSynchronizerId,
             contract.payload.reassignmentCounter,
             contract.targetTimeOfChange.unwrap,
           )
@@ -336,7 +336,7 @@ private final class ChangeAssignation(
         contracts.map { contract =>
           (
             contract.payload.contract.contractId,
-            targetDomainId,
+            targetSynchronizerId,
             contract.payload.reassignmentCounter,
             contract.sourceTimeOfChange.unwrap,
           )
@@ -356,7 +356,7 @@ private final class ChangeAssignation(
       hostedTargetParties <- repairTarget
         .traverse(repair =>
           hostedParties(
-            repair.domain.topologySnapshot,
+            repair.synchronizer.topologySnapshot,
             changedContract.payload.contract.metadata.stakeholders,
             participantId,
           )
@@ -373,20 +373,20 @@ private final class ChangeAssignation(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
-    val reassignmentId = ReassignmentId(sourceDomainId, repairSource.unwrap.timestamp)
+    val reassignmentId = ReassignmentId(sourceSynchronizerId, repairSource.unwrap.timestamp)
     val allStakeholders = changedContracts.flatMap(_.payload.contract.metadata.stakeholders).toSet
 
     for {
       hostedSourceParties <- repairSource.traverse(repair =>
         hostedParties(
-          repair.domain.topologySnapshot,
+          repair.synchronizer.topologySnapshot,
           allStakeholders,
           participantId,
         )
       )
       hostedTargetParties <- repairTarget.traverse(repair =>
         hostedParties(
-          repair.domain.topologySnapshot,
+          repair.synchronizer.topologySnapshot,
           allStakeholders,
           participantId,
         )
@@ -426,8 +426,8 @@ private final class ChangeAssignation(
       workflowId = None,
       updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
       reassignmentInfo = ReassignmentInfo(
-        sourceDomain = sourceDomainId,
-        targetDomain = targetDomainId,
+        sourceDomain = sourceSynchronizerId,
+        targetDomain = targetSynchronizerId,
         submitter = None,
         reassignmentCounter = contract.payload.reassignmentCounter.v,
         hostedStakeholders =
@@ -456,8 +456,8 @@ private final class ChangeAssignation(
       workflowId = None,
       updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
       reassignmentInfo = ReassignmentInfo(
-        sourceDomain = sourceDomainId,
-        targetDomain = targetDomainId,
+        sourceDomain = sourceSynchronizerId,
+        targetDomain = targetSynchronizerId,
         submitter = None,
         reassignmentCounter = contract.payload.reassignmentCounter.v,
         hostedStakeholders =
@@ -470,7 +470,7 @@ private final class ChangeAssignation(
         createNode = contract.payload.contract.toLf,
         contractMetadata = Bytes.fromByteString(
           contract.payload.contract.metadata
-            .toByteString(repairTarget.unwrap.domain.parameters.protocolVersion)
+            .toByteString(repairTarget.unwrap.synchronizer.parameters.protocolVersion)
         ),
       ),
       requestCounter = contract.targetTimeOfChange.unwrap.rc,

@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.apiserver.execution
 import cats.data.EitherT
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
@@ -16,7 +16,7 @@ class TestDynamicDomainParameterGetter(
 )(implicit
     ec: ExecutionContext
 ) extends DynamicDomainParameterGetter {
-  override def getLedgerTimeRecordTimeTolerance(domainIdO: Option[DomainId])(implicit
+  override def getLedgerTimeRecordTimeTolerance(synchronizerIdO: Option[SynchronizerId])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, NonNegativeFiniteDuration] =
     EitherT.pure[FutureUnlessShutdown, String](ledgerTimeRecordTimeTolerance)
