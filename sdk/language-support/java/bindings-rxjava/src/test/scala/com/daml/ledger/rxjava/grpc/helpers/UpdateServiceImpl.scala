@@ -10,7 +10,6 @@ import com.daml.ledger.rxjava.grpc.helpers.UpdateServiceImpl.LedgerItem
 import com.digitalasset.canton.auth.Authorizer
 import com.digitalasset.canton.ledger.api.auth.services.UpdateServiceAuthorization
 import com.daml.ledger.api.v2.event.Event
-import com.daml.ledger.api.v2.event.Event.Event.{Archived, Created, Empty}
 import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.api.v2.update_service.UpdateServiceGrpc.UpdateService
 import com.daml.ledger.api.v2.update_service._
@@ -129,12 +128,6 @@ object UpdateServiceImpl {
         domainId,
         Some(traceContext),
       )
-  }
-
-  def eventOffset(event: Event): Long = event.event match {
-    case Archived(archivedEvent) => archivedEvent.offset
-    case Created(createdEvent) => createdEvent.offset
-    case Empty => 0
   }
 
   def createWithRef(ledgerContent: Observable[LedgerItem], authorizer: Authorizer)(implicit

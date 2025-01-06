@@ -434,10 +434,8 @@ object TransactionGenerator {
     (arbitraryLedgerContent, _) <- ledgerContentTreeGen
     (queriedLedgerContent, queriedTransaction) <- transactionTreeGen.suchThat(_._1.events.nonEmpty)
     ledgerContent = arbitraryLedgerContent :+ queriedLedgerContent
-    eventOffsets = queriedLedgerContent.events.map(UpdateServiceImpl.eventOffset)
-    eventOffsetList <- Gen.pick(1, eventOffsets)
-    eventOffset = eventOffsetList.head
-  } yield (ledgerContent, eventOffset, queriedTransaction)
+    offset = queriedTransaction.getOffset
+  } yield (ledgerContent, offset, queriedTransaction)
 
   val ledgerContentWithTransactionIdGen: Gen[(List[LedgerItem], String, TransactionTree)] =
     for {
