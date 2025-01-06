@@ -20,7 +20,6 @@ schedules:
   branches:
     include:
     - main
-    - main-2.x
   always: true
 
 jobs:
