@@ -128,11 +128,11 @@ object EventsTable {
 
     private def treeOf(
         events: Seq[Entry[TreeEvent]]
-    ): (Map[String, TreeEvent], Seq[String], Option[DamlTraceContext]) = {
+    ): (Map[Int, TreeEvent], Seq[Int], Option[DamlTraceContext]) = {
 
       // The identifiers of all visible events in this transactions, preserving
       // the order in which they are retrieved from the index
-      val visible = events.map(_.event.eventId)
+      val visible = events.map(_.event.nodeId)
       val visibleSet = visible.toSet
 
       // All events in this transaction by their identifier, with their children
@@ -140,11 +140,11 @@ object EventsTable {
       val eventsById =
         events.iterator
           .map(_.event)
-          .map(e => e.eventId -> e.filterChildEventIds(visibleSet))
+          .map(e => e.nodeId -> e.filterChildNodeIds(visibleSet))
           .toMap
 
       // All event identifiers that appear as a child of another item in this response
-      val children = eventsById.valuesIterator.flatMap(_.childEventIds).toSet
+      val children = eventsById.valuesIterator.flatMap(_.childNodeIds).toSet
 
       // The roots for this request are all visible items
       // that are not a child of some other visible item
@@ -158,7 +158,7 @@ object EventsTable {
         events: Seq[Entry[TreeEvent]]
     ): Option[ApiTransactionTree] =
       events.headOption.map { first =>
-        val (eventsById, rootEventIds, traceContext) = treeOf(events)
+        val (eventsById, rootNodeIds, traceContext) = treeOf(events)
         ApiTransactionTree(
           updateId = first.updateId,
           commandId = first.commandId.getOrElse(""),
@@ -166,7 +166,7 @@ object EventsTable {
           effectiveAt = Some(TimestampConversion.fromLf(first.ledgerEffectiveTime)),
           offset = first.offset,
           eventsById = eventsById,
-          rootEventIds = rootEventIds,
+          rootNodeIds = rootNodeIds,
           synchronizerId = first.synchronizerId,
           traceContext = traceContext,
           recordTime = Some(TimestampConversion.fromLf(first.recordTime)),

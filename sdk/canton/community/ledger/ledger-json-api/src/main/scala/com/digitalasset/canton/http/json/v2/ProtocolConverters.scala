@@ -451,7 +451,6 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
                 exercised.getExerciseResult,
               )
             } yield JsTreeEvent.ExercisedTreeEvent(
-              event_id = exercised.eventId,
               offset = exercised.offset,
               node_id = exercised.nodeId,
               contract_id = exercised.contractId,
@@ -462,7 +461,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
               acting_parties = exercised.actingParties,
               consuming = exercised.consuming,
               witness_parties = exercised.witnessParties,
-              child_event_ids = exercised.childEventIds,
+              child_node_ids = exercised.childNodeIds,
               exercise_result = exerciseResult,
               package_name = exercised.packageName,
             )
@@ -480,7 +479,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
             effective_at = lapiTransactionTree.effectiveAt,
             offset = lapiTransactionTree.offset,
             events_by_id = jsEvents,
-            root_event_ids = lapiTransactionTree.rootEventIds,
+            root_node_ids = lapiTransactionTree.rootNodeIds,
             synchronizer_id = lapiTransactionTree.synchronizerId,
             trace_context = lapiTransactionTree.traceContext,
             record_time = lapiTransactionTree.getRecordTime,
@@ -522,7 +521,6 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
             } yield lapi.transaction.TreeEvent(
               kind = lapi.transaction.TreeEvent.Kind.Exercised(
                 lapi.event.ExercisedEvent(
-                  eventId = exercised.event_id,
                   offset = exercised.offset,
                   nodeId = exercised.node_id,
                   contractId = exercised.contract_id,
@@ -533,7 +531,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
                   actingParties = exercised.acting_parties,
                   consuming = exercised.consuming,
                   witnessParties = exercised.witness_parties,
-                  childEventIds = exercised.child_event_ids,
+                  childNodeIds = exercised.child_node_ids,
                   exerciseResult = lapiExerciseResult,
                   packageName = exercised.package_name,
                 )
@@ -547,7 +545,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         .map(events =>
           lapi.transaction.TransactionTree(
             eventsById = events.toMap,
-            rootEventIds = jsTransactionTree.root_event_ids,
+            rootNodeIds = jsTransactionTree.root_node_ids,
             offset = jsTransactionTree.offset,
             updateId = jsTransactionTree.update_id,
             commandId = jsTransactionTree.command_id,
@@ -709,7 +707,6 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
 
   object ArchivedEvent extends ProtocolConverter[lapi.event.ArchivedEvent, JsEvent.ArchivedEvent] {
     def toJson(e: lapi.event.ArchivedEvent): JsEvent.ArchivedEvent = JsEvent.ArchivedEvent(
-      event_id = e.eventId,
       offset = e.offset,
       node_id = e.nodeId,
       contract_id = e.contractId,
@@ -719,7 +716,6 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     )
 
     def fromJson(ev: JsEvent.ArchivedEvent): lapi.event.ArchivedEvent = lapi.event.ArchivedEvent(
-      eventId = ev.event_id,
       offset = ev.offset,
       nodeId = ev.node_id,
       contractId = ev.contract_id,
@@ -757,7 +753,6 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
           .getOrElse(Future(None))
         interfaceViews <- Future.sequence(created.interfaceViews.map(InterfaceView.toJson))
       } yield JsEvent.CreatedEvent(
-        event_id = created.eventId,
         offset = created.offset,
         node_id = created.nodeId,
         contract_id = created.contractId,
@@ -795,7 +790,6 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
           .getOrElse(Future(None))
         interfaceViews <- Future.sequence(createdEvent.interface_views.map(InterfaceView.fromJson))
       } yield lapi.event.CreatedEvent(
-        eventId = createdEvent.event_id,
         offset = createdEvent.offset,
         nodeId = createdEvent.node_id,
         contractId = createdEvent.contract_id,

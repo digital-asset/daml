@@ -45,7 +45,6 @@ class EventSpec extends AnyFlatSpec with Matchers with ScalaCheckDrivenPropertyC
 
     val event = new CreatedEvent(
       mutatingWitnesses,
-      base.getEventId,
       base.getOffset,
       base.getNodeId,
       base.getTemplateId,

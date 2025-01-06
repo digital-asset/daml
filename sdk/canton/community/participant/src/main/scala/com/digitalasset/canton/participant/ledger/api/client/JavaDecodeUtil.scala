@@ -101,11 +101,13 @@ object JavaDecodeUtil {
   def decodeAllArchivedTree[TCid](
       companion: ContractCompanion[?, TCid, ?]
   )(transaction: TransactionTree): Seq[TCid] =
-    decodeAllArchivedTreeFromTreeEvents(companion)(transaction.getEventsById.asScala.toMap)
+    decodeAllArchivedTreeFromTreeEvents(companion)(transaction.getEventsById.asScala.toMap.map {
+      case (nodeId, event) => (nodeId.toInt, event)
+    })
 
   def decodeAllArchivedTreeFromTreeEvents[TCid](
       companion: ContractCompanion[?, TCid, ?]
-  )(eventsById: Map[String, TreeEvent]): Seq[TCid] =
+  )(eventsById: Map[Int, TreeEvent]): Seq[TCid] =
     for {
       event <- eventsById.values.toList
       archive = event.toProtoTreeEvent.getExercised

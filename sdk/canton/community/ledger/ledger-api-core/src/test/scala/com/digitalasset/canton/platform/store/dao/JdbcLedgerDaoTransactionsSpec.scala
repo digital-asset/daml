@@ -16,7 +16,6 @@ import com.digitalasset.canton.platform.store.entries.{LedgerEntry, PartyLedgerE
 import com.digitalasset.canton.platform.store.utils.EventOps.EventOps
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.ledger.EventId
 import com.digitalasset.daml.lf.transaction.Node
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
@@ -86,7 +85,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         transaction.workflowId shouldBe tx.workflowId.getOrElse("")
         inside(transaction.events.loneElement.event.created) { case Some(created) =>
           inside(tx.transaction.nodes.headOption) { case Some((nodeId, createNode: Node.Create)) =>
-            created.eventId shouldBe EventId(tx.updateId, nodeId).toLedgerString
             created.offset shouldBe offset.unwrap
             created.nodeId shouldBe nodeId.index
             created.witnessParties should contain only (tx.actAs*)
@@ -125,7 +123,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         inside(transaction.events.loneElement.event.archived) { case Some(archived) =>
           inside(exercise.transaction.nodes.headOption) {
             case Some((nodeId, exerciseNode: Node.Exercise)) =>
-              archived.eventId shouldBe EventId(transaction.updateId, nodeId).toLedgerString
               archived.offset shouldBe offset.unwrap
               archived.nodeId shouldBe nodeId.index
               archived.witnessParties should contain only (exercise.actAs*)

@@ -101,7 +101,6 @@ public class TemplateMethodTest {
   private static final CreatedEvent createdEvent =
       new CreatedEvent(
           Collections.emptyList(),
-          "eventId",
           1L,
           0,
           SimpleTemplate.TEMPLATE_ID,

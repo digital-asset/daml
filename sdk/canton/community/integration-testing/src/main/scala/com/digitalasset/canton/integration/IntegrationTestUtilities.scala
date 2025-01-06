@@ -91,10 +91,10 @@ object IntegrationTestUtilities {
 
   def extractSubmissionResult(tree: TransactionTreeV2): Value.Sum = {
     require(
-      tree.rootEventIds.size == 1,
+      tree.rootNodeIds.size == 1,
       s"Received transaction with not exactly one root node: $tree",
     )
-    tree.eventsById(tree.rootEventIds.head).kind match {
+    tree.eventsById(tree.rootNodeIds.head).kind match {
       case Created(created) => Value.Sum.ContractId(created.contractId)
       case Exercised(exercised) =>
         val Value(result) = exercised.exerciseResult.getOrElse(

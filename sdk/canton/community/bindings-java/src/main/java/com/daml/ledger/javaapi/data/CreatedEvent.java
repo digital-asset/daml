@@ -17,8 +17,6 @@ public final class CreatedEvent implements Event, TreeEvent {
 
   private final @NonNull List<@NonNull String> witnessParties;
 
-  private final String eventId;
-
   private final Long offset;
 
   private final Integer nodeId;
@@ -50,7 +48,6 @@ public final class CreatedEvent implements Event, TreeEvent {
 
   public CreatedEvent(
       @NonNull List<@NonNull String> witnessParties,
-      @NonNull String eventId,
       @NonNull Long offset,
       @NonNull Integer nodeId,
       @NonNull Identifier templateId,
@@ -65,7 +62,6 @@ public final class CreatedEvent implements Event, TreeEvent {
       @NonNull Collection<@NonNull String> observers,
       @NonNull Instant createdAt) {
     this.witnessParties = List.copyOf(witnessParties);
-    this.eventId = eventId;
     this.offset = offset;
     this.nodeId = nodeId;
     this.templateId = templateId;
@@ -85,12 +81,6 @@ public final class CreatedEvent implements Event, TreeEvent {
   @Override
   public List<@NonNull String> getWitnessParties() {
     return witnessParties;
-  }
-
-  @NonNull
-  @Override
-  public String getEventId() {
-    return eventId;
   }
 
   @NonNull
@@ -174,7 +164,6 @@ public final class CreatedEvent implements Event, TreeEvent {
     if (o == null || getClass() != o.getClass()) return false;
     CreatedEvent that = (CreatedEvent) o;
     return Objects.equals(witnessParties, that.witnessParties)
-        && Objects.equals(eventId, that.eventId)
         && Objects.equals(offset, that.offset)
         && Objects.equals(nodeId, that.nodeId)
         && Objects.equals(templateId, that.templateId)
@@ -194,7 +183,6 @@ public final class CreatedEvent implements Event, TreeEvent {
   public int hashCode() {
     return Objects.hash(
         witnessParties,
-        eventId,
         offset,
         nodeId,
         templateId,
@@ -215,9 +203,6 @@ public final class CreatedEvent implements Event, TreeEvent {
     return "CreatedEvent{"
         + "witnessParties="
         + witnessParties
-        + ", eventId='"
-        + eventId
-        + '\''
         + ", offset="
         + offset
         + ", nodeId="
@@ -262,7 +247,6 @@ public final class CreatedEvent implements Event, TreeEvent {
                         toProtoInterfaceViews(
                             failedInterfaceViews, (b, status) -> b.setViewStatus(status)))
                     .collect(Collectors.toUnmodifiableList()))
-            .setEventId(this.getEventId())
             .setOffset(this.getOffset())
             .setNodeId(this.getNodeId())
             .setTemplateId(this.getTemplateId().toProto())
@@ -300,7 +284,6 @@ public final class CreatedEvent implements Event, TreeEvent {
             .collect(Collectors.partitioningBy(EventOuterClass.InterfaceView::hasViewValue));
     return new CreatedEvent(
         createdEvent.getWitnessPartiesList(),
-        createdEvent.getEventId(),
         createdEvent.getOffset(),
         createdEvent.getNodeId(),
         Identifier.fromProto(createdEvent.getTemplateId()),

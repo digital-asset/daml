@@ -56,7 +56,6 @@ import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.ledger.EventId
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateTransactionVersion
 import com.digitalasset.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
 import com.digitalasset.daml.lf.transaction.{CommittedTransaction, Node, NodeId}
@@ -455,7 +454,6 @@ object InMemoryStateUpdaterSpec {
             updateId = txId3,
             nodeIndex = 0,
             eventSequentialId = 0,
-            eventId = EventId(txId3, NodeId(0)),
             contractId = someCreateNode.coid,
             ledgerEffectiveTime = Timestamp.assertFromLong(12222),
             templateId = someCreateNode.templateId,
@@ -718,7 +716,6 @@ object InMemoryStateUpdaterSpec {
       updateId = updateId,
       nodeIndex = nodeId.index,
       eventSequentialId = 0,
-      eventId = EventId(updateId, nodeId),
       contractId = createdNode.coid,
       ledgerEffectiveTime = Timestamp.assertFromLong(12222),
       templateId = createdNode.templateId,

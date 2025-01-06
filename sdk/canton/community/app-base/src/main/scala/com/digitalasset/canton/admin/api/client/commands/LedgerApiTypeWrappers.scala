@@ -116,13 +116,14 @@ object LedgerApiTypeWrappers {
    */
   final case class WrappedCreatedEvent(event: CreatedEvent) {
 
-    private def corrupt: String = s"corrupt event ${event.eventId} / ${event.contractId}"
+    private def corrupt: String =
+      s"corrupt event ${event.nodeId} / ${event.contractId} at ${event.offset}"
 
     def templateId: TemplateId =
       TemplateId.fromIdentifier(
         event.templateId.getOrElse(
           throw new IllegalArgumentException(
-            s"Template Id not specified for event ${event.eventId} / ${event.contractId}"
+            s"Template Id not specified for event ${event.nodeId} / ${event.contractId} at ${event.offset}"
           )
         )
       )

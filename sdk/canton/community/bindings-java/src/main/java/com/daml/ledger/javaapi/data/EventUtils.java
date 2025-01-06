@@ -20,8 +20,8 @@ public class EventUtils {
   /** @hidden */
   public static ExercisedEvent firstExercisedEvent(TransactionTree txTree) {
     var maybeExercisedEvent =
-        txTree.getRootEventIds().stream()
-            .map(eventId -> txTree.getEventsById().get(eventId))
+        txTree.getRootNodeIds().stream()
+            .map(nodeId -> txTree.getEventsById().get(nodeId))
             .filter(e -> e instanceof ExercisedEvent)
             .map(e -> (ExercisedEvent) e)
             .findFirst();

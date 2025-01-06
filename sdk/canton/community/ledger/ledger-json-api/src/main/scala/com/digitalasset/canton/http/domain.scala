@@ -392,19 +392,19 @@ package domain {
     def fromTransactionTree(
         tx: lav2.transaction.TransactionTree
     ): Error \/ Vector[Contract[lav2.value.Value]] =
-      tx.rootEventIds.toVector
+      tx.rootNodeIds.toVector
         .map(fromTreeEvent(tx.eventsById))
         .sequence
         .map(_.flatten)
 
     private[this] def fromTreeEvent(
-        eventsById: Map[String, lav2.transaction.TreeEvent]
-    )(eventId: String): Error \/ Vector[Contract[lav2.value.Value]] = {
+        eventsById: Map[Int, lav2.transaction.TreeEvent]
+    )(nodeId: Int): Error \/ Vector[Contract[lav2.value.Value]] = {
       @tailrec
       def loop(
-          es: Vector[String],
+          nodeIds: Vector[Int],
           acc: Error \/ Vector[Contract[lav2.value.Value]],
-      ): Error \/ Vector[Contract[lav2.value.Value]] = es match {
+      ): Error \/ Vector[Contract[lav2.value.Value]] = nodeIds match {
         case head +: tail =>
           eventsById(head).kind match {
             case lav2.transaction.TreeEvent.Kind.Created(created) =>
@@ -419,7 +419,7 @@ package domain {
                 .fromLedgerApi(exercised)
                 .map(_.map(a => Contract[lav2.value.Value](-\/(a))))
               val newAcc = ^(acc, a)(_ ++ _.toVector)
-              loop(exercised.childEventIds.toVector ++ tail, newAcc)
+              loop(exercised.childNodeIds.toVector ++ tail, newAcc)
             case lav2.transaction.TreeEvent.Kind.Empty =>
               val errorMsg = s"Expected either Created or Exercised event, got: Empty"
               -\/(Error(Symbol("Contract_fromTreeEvent"), errorMsg))
@@ -429,7 +429,7 @@ package domain {
           acc
       }
 
-      loop(Vector(eventId), \/-(Vector()))
+      loop(Vector(nodeId), \/-(Vector()))
     }
 
     implicit val covariant: Traverse[Contract] = new Traverse[Contract] {

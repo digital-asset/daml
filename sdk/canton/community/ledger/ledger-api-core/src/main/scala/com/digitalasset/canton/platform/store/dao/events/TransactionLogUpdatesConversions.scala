@@ -281,7 +281,6 @@ private[events] object TransactionLogUpdatesConversions {
       apiEvent.Event(
         apiEvent.Event.Event.Archived(
           apiEvent.ArchivedEvent(
-            eventId = exercisedEvent.eventId.toLedgerString,
             offset = exercisedEvent.eventOffset.unwrap,
             nodeId = exercisedEvent.nodeIndex,
             contractId = exercisedEvent.contractId.coid,
@@ -408,18 +407,18 @@ private[events] object TransactionLogUpdatesConversions {
             )(event)
           )
           .map { treeEvents =>
-            val visible = treeEvents.map(_.eventId)
+            val visible = treeEvents.map(_.nodeId)
             val visibleSet = visible.toSet
             val eventsById = treeEvents.iterator
-              .map(e => e.eventId -> e.filterChildEventIds(visibleSet))
+              .map(e => e.nodeId -> e.filterChildNodeIds(visibleSet))
               .toMap
 
             // All event identifiers that appear as a child of another item in this response
-            val children = eventsById.valuesIterator.flatMap(_.childEventIds).toSet
+            val children = eventsById.valuesIterator.flatMap(_.childNodeIds).toSet
 
             // The roots for this request are all visible items
             // that are not a child of some other visible item
-            val rootEventIds = visible.filterNot(children)
+            val rootNodeIds = visible.filterNot(children)
 
             TransactionTree(
               updateId = transactionAccepted.updateId,
@@ -428,7 +427,7 @@ private[events] object TransactionLogUpdatesConversions {
               effectiveAt = Some(TimestampConversion.fromLf(transactionAccepted.effectiveAt)),
               offset = transactionAccepted.offset.unwrap,
               eventsById = eventsById,
-              rootEventIds = rootEventIds,
+              rootNodeIds = rootNodeIds,
               synchronizerId = transactionAccepted.synchronizerId,
               traceContext = SerializableTraceContext(traceContext).toDamlProtoOpt,
               recordTime = Some(TimestampConversion.fromLf(transactionAccepted.recordTime)),
@@ -515,7 +514,6 @@ private[events] object TransactionLogUpdatesConversions {
       } yield TreeEvent(
         TreeEvent.Kind.Exercised(
           apiEvent.ExercisedEvent(
-            eventId = exercisedEvent.eventId.toLedgerString,
             offset = exercisedEvent.eventOffset.unwrap,
             nodeId = exercisedEvent.nodeIndex,
             contractId = exercisedEvent.contractId.coid,
@@ -531,7 +529,7 @@ private[events] object TransactionLogUpdatesConversions {
                 _.filter(exercisedEvent.treeEventWitnesses)
               )
               .toSeq,
-            childEventIds = exercisedEvent.children,
+            childNodeIds = exercisedEvent.children,
             exerciseResult = maybeExerciseResult,
           )
         )
@@ -596,7 +594,6 @@ private[events] object TransactionLogUpdatesConversions {
       )
       .map(apiContractData =>
         apiEvent.CreatedEvent(
-          eventId = createdEvent.eventId.toLedgerString,
           offset = createdEvent.eventOffset.unwrap,
           nodeId = createdEvent.nodeIndex,
           contractId = createdEvent.contractId.coid,

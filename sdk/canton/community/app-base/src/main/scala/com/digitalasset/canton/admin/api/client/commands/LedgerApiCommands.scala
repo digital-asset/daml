@@ -129,6 +129,7 @@ import com.daml.ledger.api.v2.transaction_filter.{
 import com.daml.ledger.api.v2.update_service.UpdateServiceGrpc.UpdateServiceStub
 import com.daml.ledger.api.v2.update_service.{
   GetTransactionByIdRequest,
+  GetTransactionByOffsetRequest,
   GetTransactionTreeResponse,
   GetUpdateTreesResponse,
   GetUpdatesRequest,
@@ -1187,6 +1188,44 @@ object LedgerApiCommands {
       override protected def pretty: Pretty[GetTransactionById] =
         prettyOfClass(
           param("id", _.id.unquoted),
+          param("parties", _.parties),
+        )
+    }
+
+    final case class GetTransactionByOffset(parties: Set[LfPartyId], offset: Long)(implicit
+        ec: ExecutionContext
+    ) extends BaseCommand[GetTransactionByOffsetRequest, GetTransactionTreeResponse, Option[
+          TransactionTree
+        ]]
+        with PrettyPrinting {
+      override protected def createRequest(): Either[String, GetTransactionByOffsetRequest] =
+        Right {
+          GetTransactionByOffsetRequest(
+            offset = offset,
+            requestingParties = parties.toSeq,
+          )
+        }
+
+      override protected def submitRequest(
+          service: UpdateServiceStub,
+          request: GetTransactionByOffsetRequest,
+      ): Future[GetTransactionTreeResponse] =
+        // The Ledger API will throw an error if it can't find a transaction by ID.
+        // However, as Canton is distributed, a transaction ID might show up later, so we don't treat this as
+        // an error and change it to a None
+        service.getTransactionTreeByOffset(request).recover {
+          case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND =>
+            GetTransactionTreeResponse(None)
+        }
+
+      override protected def handleResponse(
+          response: GetTransactionTreeResponse
+      ): Either[String, Option[TransactionTree]] =
+        Right(response.transaction)
+
+      override protected def pretty: Pretty[GetTransactionByOffset] =
+        prettyOfClass(
+          param("offset", _.offset),
           param("parties", _.parties),
         )
     }
