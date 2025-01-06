@@ -13,6 +13,7 @@ genrule(
             "skeleton/**",
             "empty-skeleton/**",
             "upgrades-example/**",
+            "multi-package-example/**",
             "quickstart-java/**",
         ],
         exclude = ["**/NO_AUTO_COPYRIGHT"],
@@ -40,6 +41,7 @@ genrule(
         for d in skeleton \
                  empty-skeleton \
                  upgrades-example \
+                 multi-package-example \
                  quickstart-java; do
             mkdir -p $$OUT/$$d
             cp -rL $$SRC/$$d/* $$OUT/$$d/
