@@ -1,7 +1,7 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# OPTIONS_GHC -Wno-orphans -Wno-dodgy-exports #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 module DA.Daml.LF.TypeChecker.Error(
     Context(..),
     Error(..),
@@ -16,7 +16,7 @@ module DA.Daml.LF.TypeChecker.Error(
     errorLocation,
     toDiagnostic,
     Warning(..),
-    UnerrorableWarning(..),
+    UnerrorableWarning,
     PackageUpgradeOrigin(..),
     UpgradeMismatchReason(..),
     DamlWarningFlag(..),
@@ -401,7 +401,7 @@ upgradedTemplateChangedFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrW
 upgradedTemplateChangedFlag status = RawDamlWarningFlag upgradedTemplateChangedName status upgradedTemplateChangedFilter
 
 upgradedTemplateChangedName :: String
-upgradedTemplateChangedName = "upgraded-template-changed"
+upgradedTemplateChangedName = "upgraded-template-expression-changed"
 
 upgradedTemplateChangedFilter :: ErrorOrWarning -> Bool
 upgradedTemplateChangedFilter =
@@ -418,7 +418,7 @@ upgradedChoiceChangedFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWar
 upgradedChoiceChangedFlag status = RawDamlWarningFlag upgradedChoiceChangedName status upgradedChoiceChangedFilter
 
 upgradedChoiceChangedName :: String
-upgradedChoiceChangedName = "upgraded-choice-changed"
+upgradedChoiceChangedName = "upgraded-choice-expression-changed"
 
 upgradedChoiceChangedFilter :: ErrorOrWarning -> Bool
 upgradedChoiceChangedFilter =
@@ -1039,7 +1039,6 @@ instance Pretty UnerrorableWarning where
 instance Pretty Warning where
   pPrint = \case
     WContext ctx warning -> prettyWithContext ctx (Left warning)
-    --WUnerrorableWarning standaloneWarning -> pPrint standaloneWarning
     WErrorToWarning err ->
       case filterNameForErrorOrWarning err of
         Just name ->
