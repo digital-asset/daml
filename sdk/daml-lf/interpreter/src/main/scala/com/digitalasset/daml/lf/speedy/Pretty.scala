@@ -377,7 +377,7 @@ private[lf] object Pretty {
   def prettyEventInfo(l: ScenarioLedger, txId: TransactionId)(nodeId: NodeId): Doc = {
     def arrowRight(d: Doc) = text("└─>") & d
     def meta(d: Doc) = text("│  ") & d
-    val eventId = EventId(txId.id, nodeId)
+    val eventId = EventId(txId.index.toLong, nodeId)
     val ni = l.ledgerData.nodeInfos(eventId)
     val ppNode = ni.node match {
       case Node.Rollback(children) =>

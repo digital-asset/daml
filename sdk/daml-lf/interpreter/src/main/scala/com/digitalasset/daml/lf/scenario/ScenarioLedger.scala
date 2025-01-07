@@ -72,7 +72,7 @@ object ScenarioLedger {
       actAs: Set[Party],
       readAs: Set[Party],
       effectiveAt: Time.Timestamp,
-      transactionId: LedgerString,
+      transactionOffset: Long,
       transaction: CommittedTransaction,
       blindingInfo: BlindingInfo,
   )
@@ -89,7 +89,7 @@ object ScenarioLedger {
         actAs: Set[Party],
         readAs: Set[Party],
         effectiveAt: Time.Timestamp,
-        transactionId: LedgerString,
+        transactionOffset: Long,
         submittedTransaction: SubmittedTransaction,
     ): RichTransaction = {
       val blindingInfo =
@@ -98,7 +98,7 @@ object ScenarioLedger {
         actAs = actAs,
         readAs = readAs,
         effectiveAt = effectiveAt,
-        transactionId = transactionId,
+        transactionOffset = transactionOffset,
         transaction = Tx.commitTransaction(submittedTransaction),
         blindingInfo = blindingInfo,
       )
@@ -242,8 +242,8 @@ object ScenarioLedger {
   ): Either[CommitError, CommitResult] = {
     // transactionId is small enough (< 20 chars), so we do no exceed the 255
     // chars limit when concatenate in EventId#toLedgerString method.
-    val transactionId = l.scenarioStepId.id
-    val richTr = RichTransaction(actAs, readAs, effectiveAt, transactionId, tx)
+    val transactionOffset = l.scenarioStepId.index.toLong
+    val richTr = RichTransaction(actAs, readAs, effectiveAt, transactionOffset, tx)
     processTransaction(l.scenarioStepId, richTr, locationInfo, l.ledgerData) match {
       case Left(err) => Left(CommitError.UniqueKeyViolation(err))
       case Right(updatedCache) =>
@@ -392,7 +392,7 @@ object ScenarioLedger {
     def addNewLedgerNodes(historicalLedgerData: LedgerData): LedgerData =
       richTr.transaction.transaction.fold[LedgerData](historicalLedgerData) {
         case (ledgerData, (nodeId, node)) =>
-          val eventId = EventId(trId.id, nodeId)
+          val eventId = EventId(trId.index.toLong, nodeId)
           val newLedgerNodeInfo = LedgerNodeInfo(
             node = node,
             optLocation = locationInfo.get(nodeId),
@@ -410,19 +410,19 @@ object ScenarioLedger {
     def createdInAndReferenceByUpdates(historicalLedgerData: LedgerData): LedgerData =
       richTr.transaction.transaction.fold[LedgerData](historicalLedgerData) {
         case (ledgerData, (nodeId, createNode: Node.Create)) =>
-          ledgerData.createdIn(createNode.coid, EventId(trId.id, nodeId))
+          ledgerData.createdIn(createNode.coid, EventId(trId.index.toLong, nodeId))
 
         case (ledgerData, (nodeId, exerciseNode: Node.Exercise)) =>
           ledgerData.updateLedgerNodeInfo(exerciseNode.targetCoid)(ledgerNodeInfo =>
             ledgerNodeInfo.copy(referencedBy =
-              ledgerNodeInfo.referencedBy + EventId(trId.id, nodeId)
+              ledgerNodeInfo.referencedBy + EventId(trId.index.toLong, nodeId)
             )
           )
 
         case (ledgerData, (nodeId, fetchNode: Node.Fetch)) =>
           ledgerData.updateLedgerNodeInfo(fetchNode.coid)(ledgerNodeInfo =>
             ledgerNodeInfo.copy(referencedBy =
-              ledgerNodeInfo.referencedBy + EventId(trId.id, nodeId)
+              ledgerNodeInfo.referencedBy + EventId(trId.index.toLong, nodeId)
             )
           )
 
@@ -434,7 +434,7 @@ object ScenarioLedger {
             case Some(referencedCoid) =>
               ledgerData.updateLedgerNodeInfo(referencedCoid)(ledgerNodeInfo =>
                 ledgerNodeInfo.copy(referencedBy =
-                  ledgerNodeInfo.referencedBy + EventId(trId.id, nodeId)
+                  ledgerNodeInfo.referencedBy + EventId(trId.index.toLong, nodeId)
                 )
               )
           }
@@ -448,7 +448,7 @@ object ScenarioLedger {
 
       for ((contractId, nodeId) <- richTr.transaction.transaction.consumedBy) {
         ledgerDataResult = ledgerDataResult.updateLedgerNodeInfo(contractId) { ledgerNodeInfo =>
-          ledgerNodeInfo.copy(consumedBy = Some(EventId(trId.id, nodeId)))
+          ledgerNodeInfo.copy(consumedBy = Some(EventId(trId.index.toLong, nodeId)))
         }
       }
 
@@ -473,7 +473,7 @@ object ScenarioLedger {
       // NOTE(MH): Since `addDisclosures` is biased towards existing
       // disclosures, we need to add the "stronger" explicit ones first.
       richTr.blindingInfo.disclosure.foldLeft(ledgerData) { case (cacheP, (nodeId, witnesses)) =>
-        cacheP.updateLedgerNodeInfo(EventId(richTr.transactionId, nodeId))(
+        cacheP.updateLedgerNodeInfo(EventId(richTr.transactionOffset, nodeId))(
           _.addDisclosures(witnesses.map(_ -> Disclosure(since = trId, explicit = true)).toMap)
         )
       }
@@ -645,5 +645,5 @@ final case class ScenarioLedger(
   // Given a ledger and the node index of a node in a partial transaction
   // turn it into a event id that can be used in scenario error messages.
   def ptxEventId(nodeIdx: NodeId): EventId =
-    EventId(scenarioStepId.id, nodeIdx)
+    EventId(scenarioStepId.index.toLong, nodeIdx)
 }
