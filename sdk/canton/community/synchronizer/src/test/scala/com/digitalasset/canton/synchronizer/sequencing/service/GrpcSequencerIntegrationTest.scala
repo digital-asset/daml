@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.service
@@ -21,8 +21,6 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{HashPurpose, Nonce, SigningKeyUsage, SyncCryptoApi}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.domain.api.v30
-import com.digitalasset.canton.domain.api.v30.SequencerAuthenticationServiceGrpc.SequencerAuthenticationService
 import com.digitalasset.canton.lifecycle.{
   AsyncOrSyncCloseable,
   FutureUnlessShutdown,
@@ -32,15 +30,17 @@ import com.digitalasset.canton.lifecycle.{
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.CommonMockMetrics
 import com.digitalasset.canton.networking.Endpoint
-import com.digitalasset.canton.protocol.DomainParametersLookup.SequencerDomainParameters
+import com.digitalasset.canton.protocol.SynchronizerParametersLookup.SequencerSynchronizerParameters
 import com.digitalasset.canton.protocol.messages.UnsignedProtocolMessage
 import com.digitalasset.canton.protocol.{
-  DomainParametersLookup,
-  DynamicDomainParameters,
-  DynamicDomainParametersLookup,
-  TestDomainParameters,
+  DynamicSynchronizerParameters,
+  DynamicSynchronizerParametersLookup,
+  SynchronizerParametersLookup,
+  TestSynchronizerParameters,
   v30 as protocolV30,
 }
+import com.digitalasset.canton.sequencer.api.v30
+import com.digitalasset.canton.sequencer.api.v30.SequencerAuthenticationServiceGrpc.SequencerAuthenticationService
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.authentication.AuthenticationToken
 import com.digitalasset.canton.sequencing.client.*
@@ -51,9 +51,9 @@ import com.digitalasset.canton.synchronizer.metrics.SequencerTestMetrics
 import com.digitalasset.canton.synchronizer.sequencing.config.SequencerParameters
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.Sequencer
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.errors.CreateSubscriptionError
-import com.digitalasset.canton.time.{DomainTimeTracker, SimClock}
+import com.digitalasset.canton.time.{SimClock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.client.{DomainTopologyClient, TopologySnapshot}
+import com.digitalasset.canton.topology.client.{SynchronizerTopologyClient, TopologySnapshot}
 import com.digitalasset.canton.topology.store.TopologyStateForInitializationService
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
 import com.digitalasset.canton.util.PekkoUtil
@@ -96,17 +96,17 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
     TestingTopology()
       .withSimpleParticipants(participant)
       .build()
-      .forOwnerAndDomain(participant, synchronizerId)
+      .forOwnerAndSynchronizer(participant, synchronizerId)
   private val clock = new SimClock(loggerFactory = loggerFactory)
   private val sequencerSubscriptionFactory = mock[DirectSequencerSubscriptionFactory]
   def timeouts = DefaultProcessingTimeouts.testing
   private val futureSupervisor = FutureSupervisor.Noop
-  private val topologyClient = mock[DomainTopologyClient]
-  private val mockDomainTopologyManager = mock[DomainTopologyManager]
+  private val topologyClient = mock[SynchronizerTopologyClient]
+  private val mockSynchronizerTopologyManager = mock[SynchronizerTopologyManager]
   private val mockTopologySnapshot = mock[TopologySnapshot]
   private val confirmationRequestsMaxRate =
-    DynamicDomainParameters.defaultConfirmationRequestsMaxRate
-  private val maxRequestSize = DynamicDomainParameters.defaultMaxRequestSize
+    DynamicSynchronizerParameters.defaultConfirmationRequestsMaxRate
+  private val maxRequestSize = DynamicSynchronizerParameters.defaultMaxRequestSize
   private val topologyStateForInitializationService = mock[TopologyStateForInitializationService]
 
   when(topologyClient.currentSnapshotApproximation(any[TraceContext]))
@@ -122,23 +122,24 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
   )
     .thenReturn(FutureUnlessShutdown.pure(None))
   when(
-    mockTopologySnapshot.findDynamicDomainParametersOrDefault(
+    mockTopologySnapshot.findDynamicSynchronizerParametersOrDefault(
       any[ProtocolVersion],
       anyBoolean,
     )(any[TraceContext])
   )
     .thenReturn(
       FutureUnlessShutdown.pure(
-        TestDomainParameters.defaultDynamic(
+        TestSynchronizerParameters.defaultDynamic(
           confirmationRequestsMaxRate = confirmationRequestsMaxRate,
           maxRequestSize = maxRequestSize,
         )
       )
     )
 
-  private val domainParamsLookup: DynamicDomainParametersLookup[SequencerDomainParameters] =
-    DomainParametersLookup.forSequencerDomainParameters(
-      BaseTest.defaultStaticDomainParameters,
+  private val domainParamsLookup
+      : DynamicSynchronizerParametersLookup[SequencerSynchronizerParameters] =
+    SynchronizerParametersLookup.forSequencerSynchronizerParameters(
+      BaseTest.defaultStaticSynchronizerParameters,
       None,
       topologyClient,
       loggerFactory,
@@ -183,9 +184,9 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
   private val connectService = new GrpcSequencerConnectService(
     synchronizerId = synchronizerId,
     sequencerId = sequencerId,
-    staticDomainParameters = BaseTest.defaultStaticDomainParameters,
+    staticSynchronizerParameters = BaseTest.defaultStaticSynchronizerParameters,
     cryptoApi = cryptoApi,
-    domainTopologyManager = mockDomainTopologyManager,
+    synchronizerTopologyManager = mockSynchronizerTopologyManager,
     loggerFactory = loggerFactory,
   )
 
@@ -248,7 +249,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
         SequencerClientConfig(),
         TracingConfig.Propagation.Disabled,
         TestingConfigInternal(),
-        BaseTest.defaultStaticDomainParameters,
+        BaseTest.defaultStaticSynchronizerParameters,
         DefaultProcessingTimeouts.testing,
         clock,
         topologyClient,
@@ -356,8 +357,8 @@ class GrpcSequencerIntegrationTest
       // return to caller a subscription that will resolve the unsubscribe promise on close
       env.mockSubscription(_ => subscribePromise.success(()), _ => unsubscribePromise.success(()))
 
-      val domainTimeTracker = mock[DomainTimeTracker]
-      when(domainTimeTracker.wrapHandler(any[OrdinaryApplicationHandler[Envelope[_]]]))
+      val synchronizerTimeTracker = mock[SynchronizerTimeTracker]
+      when(synchronizerTimeTracker.wrapHandler(any[OrdinaryApplicationHandler[Envelope[_]]]))
         .thenAnswer(Predef.identity[OrdinaryApplicationHandler[Envelope[_]]] _)
 
       // kick of subscription
@@ -365,7 +366,7 @@ class GrpcSequencerIntegrationTest
         CantonTimestamp.MinValue,
         None,
         ApplicationHandler.success(),
-        domainTimeTracker,
+        synchronizerTimeTracker,
         PeriodicAcknowledgements.noAcknowledgements,
       )
 

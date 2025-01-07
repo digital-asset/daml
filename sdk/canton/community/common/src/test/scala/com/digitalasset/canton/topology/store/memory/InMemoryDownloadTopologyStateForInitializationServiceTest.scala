@@ -1,10 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store.memory
 
 import com.digitalasset.canton.topology.SynchronizerId
-import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
+import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.{
   DownloadTopologyStateForInitializationServiceTest,
   TopologyStore,
@@ -15,9 +15,9 @@ class InMemoryDownloadTopologyStateForInitializationServiceTest
     extends DownloadTopologyStateForInitializationServiceTest {
   override protected def createTopologyStore(
       synchronizerId: SynchronizerId
-  ): TopologyStore[TopologyStoreId.DomainStore] = {
-    val storeId = DomainStore(synchronizerId, getClass.getSimpleName.take(40))
-    new InMemoryTopologyStore[TopologyStoreId.DomainStore](
+  ): TopologyStore[TopologyStoreId.SynchronizerStore] = {
+    val storeId = SynchronizerStore(synchronizerId, getClass.getSimpleName.take(40))
+    new InMemoryTopologyStore[TopologyStoreId.SynchronizerStore](
       storeId,
       testedProtocolVersion,
       loggerFactory,

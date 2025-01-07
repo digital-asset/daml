@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -47,19 +47,20 @@ class ParticipantTopologyTerminateProcessingTest
     with FailOnShutdown
     with HasExecutionContext {
 
-  protected def mkStore: TopologyStore[TopologyStoreId.DomainStore] = new InMemoryTopologyStore(
-    TopologyStoreId.DomainStore(DefaultTestIdentities.synchronizerId),
-    testedProtocolVersion,
-    loggerFactory,
-    timeouts,
-  )
+  protected def mkStore: TopologyStore[TopologyStoreId.SynchronizerStore] =
+    new InMemoryTopologyStore(
+      TopologyStoreId.SynchronizerStore(DefaultTestIdentities.synchronizerId),
+      testedProtocolVersion,
+      loggerFactory,
+      timeouts,
+    )
 
   private def mk(
-      store: TopologyStore[TopologyStoreId.DomainStore] = mkStore,
+      store: TopologyStore[TopologyStoreId.SynchronizerStore] = mkStore,
       initialRecordTime: CantonTimestamp = CantonTimestamp.MinValue,
   ): (
       ParticipantTopologyTerminateProcessing,
-      TopologyStore[TopologyStoreId.DomainStore],
+      TopologyStore[TopologyStoreId.SynchronizerStore],
       ArgumentCaptor[CantonTimestamp => Option[Update]],
       RecordOrderPublisher,
   ) = {
@@ -136,14 +137,14 @@ class ParticipantTopologyTerminateProcessingTest
   )
 
   def add(
-      store: TopologyStore[TopologyStoreId.DomainStore],
+      store: TopologyStore[TopologyStoreId.SynchronizerStore],
       timestamp: CantonTimestamp,
       transactions: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
   ): FutureUnlessShutdown[Unit] =
     add(store, timestamp, timestamp, transactions)
 
   def add(
-      store: TopologyStore[TopologyStoreId.DomainStore],
+      store: TopologyStore[TopologyStoreId.SynchronizerStore],
       sequencedTimestamp: CantonTimestamp,
       effectiveTimestamp: CantonTimestamp,
       transactions: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],

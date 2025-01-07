@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer
@@ -722,10 +722,10 @@ class SequencerReader(
                 case x if x.isEmpty =>
                   // an optimization in case there are no group addresses
                   FutureUnlessShutdown.pure(Map.empty[GroupRecipient, Set[Member]])
-                case x if x.sizeCompare(1) == 0 && x.contains(AllMembersOfDomain) =>
+                case x if x.sizeCompare(1) == 0 && x.contains(AllMembersOfSynchronizer) =>
                   // an optimization to avoid group address resolution on topology txs
                   FutureUnlessShutdown.pure(
-                    Map[GroupRecipient, Set[Member]](AllMembersOfDomain -> Set(member))
+                    Map[GroupRecipient, Set[Member]](AllMembersOfSynchronizer -> Set(member))
                   )
                 case _ =>
                   for {

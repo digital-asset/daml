@@ -1,10 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.block
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.crypto.DomainSyncCryptoClient
+import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -70,7 +70,7 @@ class DriverBlockSequencerFactory[C](
   override protected final def createBlockSequencer(
       name: String,
       synchronizerId: SynchronizerId,
-      cryptoApi: DomainSyncCryptoClient,
+      cryptoApi: SynchronizerSyncCryptoClient,
       stateManager: BlockSequencerStateManager,
       store: SequencerBlockStore,
       balanceStore: TrafficPurchasedStore,

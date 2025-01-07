@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -11,10 +11,10 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{
-  DomainSnapshotSyncCryptoApi,
   Signature,
   SigningKeyUsage,
   SyncCryptoError,
+  SynchronizerSnapshotSyncCryptoApi,
   TestHash,
 }
 import com.digitalasset.canton.data.*
@@ -68,7 +68,7 @@ import com.digitalasset.canton.store.{
   IndexedDomain,
   SessionKeyStoreWithInMemoryCache,
 }
-import com.digitalasset.canton.time.{DomainTimeTracker, TimeProofTestUtil, WallClock}
+import com.digitalasset.canton.time.{SynchronizerTimeTracker, TimeProofTestUtil, WallClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -161,7 +161,7 @@ final class UnassignmentProcessingStepsTest
       clock,
       crypto,
       IndexedDomain.tryCreate(sourceDomain.unwrap, 1),
-      defaultStaticDomainParameters,
+      defaultStaticSynchronizerParameters,
       enableAdditionalConsistencyChecks = true,
       indexedStringStore = indexedStringStore,
       contractStore = contractStore,
@@ -178,7 +178,7 @@ final class UnassignmentProcessingStepsTest
     new SyncDomainEphemeralState(
       submittingParticipant,
       mock[RecordOrderPublisher],
-      mock[DomainTimeTracker],
+      mock[SynchronizerTimeTracker],
       mock[InFlightSubmissionDomainTracker],
       persistentState,
       ledgerApiIndexer,
@@ -258,7 +258,7 @@ final class UnassignmentProcessingStepsTest
       testingIdentityFactory: TestingIdentityFactory = cryptoFactory
   ) =
     testingIdentityFactory
-      .forOwnerAndDomain(submittingParticipant, sourceDomain.unwrap)
+      .forOwnerAndSynchronizer(submittingParticipant, sourceDomain.unwrap)
       .currentSnapshotApproximation
 
   private lazy val cryptoSnapshot = createCryptoSnapshot()
@@ -266,7 +266,7 @@ final class UnassignmentProcessingStepsTest
   private lazy val seedGenerator = new SeedGenerator(crypto.pureCrypto)
 
   private def createReassignmentCoordination(
-      cryptoSnapshot: DomainSnapshotSyncCryptoApi = cryptoSnapshot
+      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi = cryptoSnapshot
   ) =
     TestReassignmentCoordination(
       Set(Target(sourceDomain.unwrap), targetDomain),
@@ -289,7 +289,7 @@ final class UnassignmentProcessingStepsTest
       damle,
       reassignmentCoordination,
       seedGenerator,
-      Source(defaultStaticDomainParameters),
+      Source(defaultStaticSynchronizerParameters),
       SerializableContractAuthenticator(crypto.pureCrypto),
       Source(testedProtocolVersion),
       loggerFactory,
@@ -339,7 +339,7 @@ final class UnassignmentProcessingStepsTest
     Seq.empty,
     sourceMediator,
     cryptoSnapshot,
-    cryptoSnapshot.ipsSnapshot.findDynamicDomainParameters().futureValueUS.value,
+    cryptoSnapshot.ipsSnapshot.findDynamicSynchronizerParameters().futureValueUS.value,
   )
 
   "UnassignmentRequest.validated" should {
@@ -455,7 +455,7 @@ final class UnassignmentProcessingStepsTest
 
     // TODO(i13201) This should ideally be covered in integration tests as well
     "fail if the package for the contract being reassigned is unvetted on the target domain" in {
-      val sourceDomainTopology =
+      val sourceSynchronizerTopology =
         createTestingTopologySnapshot(
           Map(
             submittingParticipant -> Map(submitter -> Submission),
@@ -469,7 +469,7 @@ final class UnassignmentProcessingStepsTest
           ),
         )
 
-      val targetDomainTopology =
+      val targetSynchronizerTopology =
         createTestingTopologySnapshot(
           topology = Map(
             submittingParticipant -> Map(submitter -> Submission),
@@ -480,8 +480,8 @@ final class UnassignmentProcessingStepsTest
 
       val stakeholders = Stakeholders.tryCreate(Set(submitter, adminSubmitter, admin1), Set())
       val result = mkUnassignmentResult(
-        sourceTopologySnapshot = sourceDomainTopology,
-        targetTopologySnapshot = targetDomainTopology,
+        sourceTopologySnapshot = sourceSynchronizerTopology,
+        targetTopologySnapshot = targetSynchronizerTopology,
         stakeholdersOverride = Some(stakeholders),
       )
 
@@ -498,7 +498,7 @@ final class UnassignmentProcessingStepsTest
 
     "fail if the package for the contract being reassigned is unvetted on one non-reassigning participant connected to the target domain" in {
 
-      val sourceDomainTopology =
+      val sourceSynchronizerTopology =
         createTestingIdentityFactory(
           topology = Map(
             submittingParticipant -> Map(submitter -> Submission),
@@ -510,7 +510,7 @@ final class UnassignmentProcessingStepsTest
             .toMap,
         ).topologySnapshot()
 
-      val targetDomainTopology =
+      val targetSynchronizerTopology =
         createTestingIdentityFactory(
           topology = Map(
             submittingParticipant -> Map(submitter -> Submission),
@@ -526,8 +526,8 @@ final class UnassignmentProcessingStepsTest
 
       val result =
         mkUnassignmentResult(
-          sourceTopologySnapshot = sourceDomainTopology,
-          targetTopologySnapshot = targetDomainTopology,
+          sourceTopologySnapshot = sourceSynchronizerTopology,
+          targetTopologySnapshot = targetSynchronizerTopology,
           stakeholdersOverride = Some(stakeholders),
         )
 
@@ -834,8 +834,8 @@ final class UnassignmentProcessingStepsTest
           testedProtocolVersion,
         )
 
-      val domainParameters = DynamicDomainParametersWithValidity(
-        DynamicDomainParameters.defaultValues(testedProtocolVersion),
+      val domainParameters = DynamicSynchronizerParametersWithValidity(
+        DynamicSynchronizerParameters.defaultValues(testedProtocolVersion),
         CantonTimestamp.MinValue,
         None,
         targetDomain.unwrap,

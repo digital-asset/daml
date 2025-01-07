@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.submission
@@ -80,7 +80,7 @@ class TransactionConfirmationRequestFactory(
       workflowId: Option[WorkflowId],
       keyResolver: LfKeyResolver,
       mediator: MediatorGroupRecipient,
-      cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
       sessionKeyStore: SessionKeyStore,
       contractInstanceOfId: SerializableContractOfId,
       maxSequencingTime: CantonTimestamp,
@@ -143,7 +143,7 @@ class TransactionConfirmationRequestFactory(
 
   def createConfirmationRequest(
       transactionTree: GenTransactionTree,
-      cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
       sessionKeyStore: SessionKeyStore,
       protocolVersion: ProtocolVersion,
   )(implicit
@@ -182,7 +182,7 @@ class TransactionConfirmationRequestFactory(
   private def assertNonLocalPartiesCanSubmit(
       submitterInfo: SubmitterInfo,
       externallySignedSubmission: ExternallySignedSubmission,
-      cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ParticipantAuthorizationError, Unit] = {
@@ -212,7 +212,7 @@ class TransactionConfirmationRequestFactory(
 
   private def assertPartiesCanSubmit(
       submitterInfo: SubmitterInfo,
-      cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ParticipantAuthorizationError, Unit] =
@@ -261,7 +261,7 @@ class TransactionConfirmationRequestFactory(
 
   private def createTransactionViewEnvelopes(
       transactionTree: GenTransactionTree,
-      cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
       sessionKeyStore: SessionKeyStore,
       protocolVersion: ProtocolVersion,
   )(implicit

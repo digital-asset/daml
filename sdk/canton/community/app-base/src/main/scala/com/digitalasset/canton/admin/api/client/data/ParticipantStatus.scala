@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.admin.api.client.data
@@ -24,7 +24,7 @@ final case class ParticipantStatus(
     id: ParticipantId,
     uptime: Duration,
     ports: Map[String, Port],
-    connectedDomains: Map[SynchronizerId, SubmissionReady],
+    connectedSynchronizers: Map[SynchronizerId, SubmissionReady],
     active: Boolean,
     topologyQueue: TopologyQueueStatus,
     components: Seq[ComponentStatus],
@@ -35,12 +35,12 @@ final case class ParticipantStatus(
   val uid: UniqueIdentifier = id.uid
 
   private def connectedHealthyDomains: immutable.Iterable[SynchronizerId] =
-    connectedDomains.collect {
+    connectedSynchronizers.collect {
       case (synchronizerId, submissionReady) if submissionReady.unwrap => synchronizerId
     }
 
   private def connectedUnhealthyDomains: immutable.Iterable[SynchronizerId] =
-    connectedDomains.collect {
+    connectedSynchronizers.collect {
       case (synchronizerId, submissionReady) if !submissionReady.unwrap => synchronizerId
     }
 
@@ -50,8 +50,8 @@ final case class ParticipantStatus(
         s"Participant id: ${id.toProtoPrimitive}",
         show"Uptime: $uptime",
         s"Ports: ${portsString(ports)}",
-        s"Connected domains: ${multiline(connectedHealthyDomains.map(_.toString))}",
-        s"Unhealthy domains: ${multiline(connectedUnhealthyDomains.map(_.toString))}",
+        s"Connected synchronizers: ${multiline(connectedHealthyDomains.map(_.toString))}",
+        s"Unhealthy synchronizers: ${multiline(connectedUnhealthyDomains.map(_.toString))}",
         s"Active: $active",
         s"Components: ${multiline(components.map(_.toString))}",
         s"Version: $version",

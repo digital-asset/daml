@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing
@@ -38,17 +38,17 @@ object GroupAddressResolver {
             } yield asGroupRecipientsToMembers(groups)
         }
         allRecipients <- {
-          if (!groupRecipients.contains(AllMembersOfDomain)) {
+          if (!groupRecipients.contains(AllMembersOfSynchronizer)) {
             FutureUnlessShutdown.pure(Map.empty[GroupRecipient, Set[Member]])
           } else {
             topologyOrSequencingSnapshot
               .allMembers()
-              .map(members => Map((AllMembersOfDomain: GroupRecipient, members)))
+              .map(members => Map((AllMembersOfSynchronizer: GroupRecipient, members)))
           }
         }
 
         sequencersOfDomain <- {
-          val useSequencersOfDomain = groupRecipients.contains(SequencersOfDomain)
+          val useSequencersOfDomain = groupRecipients.contains(SequencersOfSynchronizer)
           if (useSequencersOfDomain) {
             for {
               sequencers <-
@@ -58,7 +58,7 @@ object GroupAddressResolver {
                     _.map(group => (group.active ++ group.passive).toSet[Member])
                       .getOrElse(Set.empty[Member])
                   )
-            } yield Map((SequencersOfDomain: GroupRecipient) -> sequencers)
+            } yield Map((SequencersOfSynchronizer: GroupRecipient) -> sequencers)
           } else
             FutureUnlessShutdown.pure(Map.empty[GroupRecipient, Set[Member]])
         }

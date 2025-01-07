@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.console.commands
@@ -11,7 +11,7 @@ import com.digitalasset.canton.admin.api.client.commands.TopologyAdminCommands.W
 import com.digitalasset.canton.admin.api.client.commands.{GrpcAdminCommand, TopologyAdminCommands}
 import com.digitalasset.canton.admin.api.client.data.topology.*
 import com.digitalasset.canton.admin.api.client.data.{
-  DynamicDomainParameters as ConsoleDynamicDomainParameters,
+  DynamicSynchronizerParameters as ConsoleDynamicSynchronizerParameters,
   TopologyQueueStatus,
 }
 import com.digitalasset.canton.config
@@ -94,7 +94,7 @@ class TopologyAdministrationGroup(
                       |During initialisation, we have to pick such a unique identifier.
                       |By default, initialisation happens automatically, but it can be turned off by setting the auto-init
                       |option to false.
-                      |Automatic node initialisation is usually turned off to preserve the identity of a participant or domain
+                      |Automatic node initialisation is usually turned off to preserve the identity of a participant or synchronizer
                       |node (during major version upgrades) or if the topology transactions are managed through
                       |a different topology manager than the one integrated into this node.""")
   def init_id(identifier: UniqueIdentifier, waitForReady: Boolean = true): Unit = {
@@ -149,12 +149,14 @@ class TopologyAdministrationGroup(
   object synchronisation {
 
     @Help.Summary("Check if the topology processing of a node is idle")
-    @Help.Description("""Topology transactions pass through a set of queues before becoming effective on a domain.
+    @Help.Description(
+      """Topology transactions pass through a set of queues before becoming effective on a synchronizer.
         |This function allows to check if all the queues are empty.
-        |While both domain and participant nodes support similar queues, there is some ambiguity around
-        |the participant queues. While the domain does really know about all in-flight transactions at any
+        |While both synchronizer and participant nodes support similar queues, there is some ambiguity around
+        |the participant queues. While the synchronizer does really know about all in-flight transactions at any
         |point in time, a participant won't know about the state of any transaction that is currently being processed
-        |by the domain topology dispatcher.""")
+        |by the synchronizer topology dispatcher."""
+    )
     def is_idle(): Boolean =
       topologyQueueStatus
         .forall(_.isIdle) // report un-initialised as idle to not break manual init process
@@ -189,23 +191,23 @@ class TopologyAdministrationGroup(
     }
   }
 
-  /** If `filterStore` is not `Authorized` and if `filterDomain` is non-empty, they should correspond to the same domain.
+  /** If `filterStore` is not `Authorized` and if `filterSynchronizer` is non-empty, they should correspond to the same synchronizer.
     */
-  private def areFilterStoreFilterDomainCompatible(
+  private def areFilterStoreFilterSynchronizerCompatible(
       filterStore: String,
       filterSynchronizerId: String,
   ): Either[String, Unit] = {
     val storeO: Option[TopologyStore] =
       OptionUtil.emptyStringAsNone(filterStore).map(TopologyStore.tryFromString)
-    val domainO: Option[SynchronizerId] =
+    val synchronizerO: Option[SynchronizerId] =
       OptionUtil.emptyStringAsNone(filterSynchronizerId).map(SynchronizerId.tryFromString)
 
-    (storeO, domainO) match {
-      case (Some(TopologyStore.Domain(domainStore)), Some(domain)) =>
+    (storeO, synchronizerO) match {
+      case (Some(TopologyStore.Synchronizer(synchronizerStore)), Some(synchronizer)) =>
         Either.cond(
-          domainStore == domain,
+          synchronizerStore == synchronizer,
           (),
-          s"Expecting filterDomain and filterStore to relate to the same domain but found `$domain` and `$domainStore`",
+          s"Expecting filterSynchronizer and filterStore to relate to the same synchronizer but found `$synchronizer` and `$synchronizerStore`",
         )
 
       case _ => Either.unit
@@ -411,16 +413,16 @@ class TopologyAdministrationGroup(
     }
 
     @Help.Summary(
-      "Download the genesis state for a sequencer. This method should be used when performing a major domain upgrade."
+      "Download the genesis state for a sequencer. This method should be used when performing a major synchronizer upgrade."
     )
     @Help.Description(
-      """Download the topology snapshot which includes the entire history of topology transactions to initialize a sequencer for a major domain upgrades. The validFrom and validUntil are set to SignedTopologyTransaction.InitialTopologySequencingTime.
-        |filterDomainStore: Must be specified if the genesis state is requested from a participant node.
+      """Download the topology snapshot which includes the entire history of topology transactions to initialize a sequencer for a major synchronizer upgrades. The validFrom and validUntil are set to SignedTopologyTransaction.InitialTopologySequencingTime.
+        |filterSynchronizerStore: Must be specified if the genesis state is requested from a participant node.
         |timestamp: If not specified, the max effective time of the latest topology transaction is used. Otherwise, the given timestamp is used.
         """
     )
     def genesis_state(
-        filterDomainStore: String = "",
+        filterSynchronizerStore: String = "",
         timestamp: Option[CantonTimestamp] = None,
         timeout: NonNegativeDuration = timeouts.unbounded,
     ): ByteString =
@@ -431,8 +433,8 @@ class TopologyAdministrationGroup(
           adminCommand(
             TopologyAdminCommands.Read.GenesisState(
               responseObserver,
-              filterDomainStore = OptionUtil
-                .emptyStringAsNone(filterDomainStore),
+              filterSynchronizerStore = OptionUtil
+                .emptyStringAsNone(filterSynchronizerStore),
               timestamp = timestamp,
             )
           )
@@ -445,7 +447,7 @@ class TopologyAdministrationGroup(
       """
         mappingHash: the unique key of the topology mapping to find
         store: - "Authorized": the topology transaction will be looked up in the node's authorized store.
-               - "<synchronizer id>": the topology transaction will be looked up in the specified domain store.
+               - "<synchronizer id>": the topology transaction will be looked up in the specified synchronizer store.
         includeProposals: when true, the result could be the latest proposal, otherwise will only return the latest fully authorized transaction"""
     )
     def find_latest_by_mapping_hash[M <: TopologyMapping: ClassTag](
@@ -471,7 +473,7 @@ class TopologyAdministrationGroup(
     @Help.Description(
       """
         store: - "Authorized": the topology transaction will be looked up in the node's authorized store.
-               - "<synchronizer id>": the topology transaction will be looked up in the specified domain store.
+               - "<synchronizer id>": the topology transaction will be looked up in the specified synchronizer store.
         includeProposals: when true, the result could be the latest proposal, otherwise will only return the latest fully authorized transaction"""
     )
     def find_latest_by_mapping[M <: TopologyMapping: ClassTag](
@@ -498,7 +500,7 @@ class TopologyAdministrationGroup(
           proposals: Boolean = false,
           timeQuery: TimeQuery = TimeQuery.HeadState,
           operation: Option[TopologyChangeOp] = Some(TopologyChangeOp.Replace),
-          filterDomain: String = "",
+          filterSynchronizer: String = "",
           filterSigningKey: String = "",
           protocolVersion: Option[String] = None,
       ): Seq[ListPurgeTopologyTransactionResult] = consoleEnvironment.run {
@@ -512,7 +514,7 @@ class TopologyAdministrationGroup(
               filterSigningKey,
               protocolVersion.map(ProtocolVersion.tryCreate),
             ),
-            filterDomain,
+            filterSynchronizer,
           )
         )
       }
@@ -521,20 +523,20 @@ class TopologyAdministrationGroup(
     }
   }
 
-  object domain_bootstrap {
+  object synchronizer_bootstrap {
 
     @Help.Summary(
-      """Creates and returns proposals of topology transactions to bootstrap a domain, specifically
-        |DomainParametersState, SequencerDomainState, and MediatorDomainState.""".stripMargin
+      """Creates and returns proposals of topology transactions to bootstrap a synchronizer, specifically
+        |SynchronizerParametersState, SequencerSynchronizerState, and MediatorSynchronizerState.""".stripMargin
     )
     def generate_genesis_topology(
         synchronizerId: SynchronizerId,
-        domainOwners: Seq[Member],
+        synchronizerOwners: Seq[Member],
         sequencers: Seq[SequencerId],
         mediators: Seq[MediatorId],
     ): Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]] = {
-      val isDomainOwner = domainOwners.contains(instance.id)
-      require(isDomainOwner, s"Only domain owners should call $functionFullName.")
+      val isSynchronizerOwner = synchronizerOwners.contains(instance.id)
+      require(isSynchronizerOwner, s"Only synchronizer owners should call $functionFullName.")
 
       def latest[M <: TopologyMapping: ClassTag](hash: MappingHash) =
         instance.topology.transactions
@@ -545,13 +547,13 @@ class TopologyAdministrationGroup(
           )
           .map(_.transaction)
 
-      // create and sign the initial domain parameters
-      val domainParameterState =
-        latest[DomainParametersState](DomainParametersState.uniqueKey(synchronizerId))
+      // create and sign the initial synchronizer parameters
+      val synchronizerParameterState =
+        latest[SynchronizerParametersState](SynchronizerParametersState.uniqueKey(synchronizerId))
           .getOrElse(
-            instance.topology.domain_parameters.propose(
+            instance.topology.synchronizer_parameters.propose(
               synchronizerId,
-              ConsoleDynamicDomainParameters
+              ConsoleDynamicSynchronizerParameters
                 .initialValues(
                   consoleEnvironment.environment.clock,
                   ProtocolVersion.latest,
@@ -563,8 +565,8 @@ class TopologyAdministrationGroup(
           )
 
       val mediatorState =
-        latest[MediatorDomainState](
-          MediatorDomainState.uniqueKey(synchronizerId, NonNegativeInt.zero)
+        latest[MediatorSynchronizerState](
+          MediatorSynchronizerState.uniqueKey(synchronizerId, NonNegativeInt.zero)
         )
           .getOrElse(
             instance.topology.mediators.propose(
@@ -578,7 +580,7 @@ class TopologyAdministrationGroup(
           )
 
       val sequencerState =
-        latest[SequencerDomainState](SequencerDomainState.uniqueKey(synchronizerId))
+        latest[SequencerSynchronizerState](SequencerSynchronizerState.uniqueKey(synchronizerId))
           .getOrElse(
             instance.topology.sequencers.propose(
               synchronizerId,
@@ -589,7 +591,7 @@ class TopologyAdministrationGroup(
             )
           )
 
-      Seq(domainParameterState, sequencerState, mediatorState)
+      Seq(synchronizerParameterState, sequencerState, mediatorState)
     }
   }
 
@@ -627,9 +629,9 @@ class TopologyAdministrationGroup(
                    satisfy authorization requirements on topology transactions for the namespace of the decentralized namespace.
 
         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                               propagated to connected domains, if applicable.
-               - "<synchronizer id>": the topology transaction will be directly submitted to the specified domain without
-                                storing it locally first. This also means it will _not_ be synchronized to other domains
+                               propagated to connected synchronizers, if applicable.
+               - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
+                                storing it locally first. This also means it will _not_ be synchronized to other synchronizers
                                 automatically.
         mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
                             sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
@@ -681,9 +683,9 @@ class TopologyAdministrationGroup(
         decentralizedNamespace: the DecentralizedNamespaceDefinition to propose
 
         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                               propagated to connected domains, if applicable.
-               - "<synchronizer id>": the topology transaction will be directly submitted to the specified domain without
-                                storing it locally first. This also means it will _not_ be synchronized to other domains
+                               propagated to connected synchronizers, if applicable.
+               - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
+                                storing it locally first. This also means it will _not_ be synchronized to other synchronizers
                                 automatically.
         mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
                             sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
@@ -734,9 +736,9 @@ class TopologyAdministrationGroup(
                           when set to false, the target key may not authorize other namespace delegations for this namespace.
 
         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                               propagated to connected domains, if applicable.
-               - "<synchronizer id>": the topology transaction will be directly submitted to the specified domain without
-                                storing it locally first. This also means it will _not_ be synchronized to other domains
+                               propagated to connected synchronizers, if applicable.
+               - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
+                                storing it locally first. This also means it will _not_ be synchronized to other synchronizers
                                 automatically.
         mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
                             sufficient to fully authorize the topology transaction. If this is not the case, the request fails.
@@ -782,9 +784,9 @@ class TopologyAdministrationGroup(
         targetKey: the target key to be revoked
 
         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                               propagated to connected domains, if applicable.
-               - "<synchronizer id>": the topology transaction will be directly submitted to the specified domain without
-                                storing it locally first. This also means it will _not_ be synchronized to other domains
+                               propagated to connected synchronizers, if applicable.
+               - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
+                                storing it locally first. This also means it will _not_ be synchronized to other synchronizers
                                 automatically.
         mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
                             sufficient to fully authorize the topology transaction. If this is not the case, the request fails.
@@ -878,9 +880,9 @@ class TopologyAdministrationGroup(
         targetKey: the target key to be used for signing topology transactions on behalf of the unique identifier
 
         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                               propagated to connected domains, if applicable.
-               - "<synchronizer id>": the topology transaction will be directly submitted to the specified domain without
-                                storing it locally first. This also means it will _not_ be synchronized to other domains
+                               propagated to connected synchronizers, if applicable.
+               - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
+                                storing it locally first. This also means it will _not_ be synchronized to other synchronizers
                                 automatically.
         mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
                             sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
@@ -980,7 +982,7 @@ class TopologyAdministrationGroup(
     @Help.Summary("Add a key to an owner to key mapping")
     @Help.Description(
       """Add a key to an owner to key mapping. A key owner is anyone in the system that needs a key-pair known
-        |to all members (participants, mediators, sequencers) of a domain. If no owner to key mapping exists for the
+        |to all members (participants, mediators, sequencers) of a synchronizer. If no owner to key mapping exists for the
         |specified key owner, create a new mapping with the specified key. The specified key needs to have
         |been created previously via the `keys.secret` api.
 
@@ -1017,7 +1019,7 @@ class TopologyAdministrationGroup(
     @Help.Summary("Remove a key from an owner to key mapping")
     @Help.Description(
       """Remove a key from an owner to key mapping. A key owner is anyone in the system that needs a key-pair known
-        |to all members (participants, mediators, sequencers) of a domain. If the specified key is the last key in the
+        |to all members (participants, mediators, sequencers) of a synchronizer. If the specified key is the last key in the
         |owner to key mapping (which requires the force to be true), the owner to key mapping will be removed.
         |The specified key needs to have been created previously via the `keys.secret` api.
 
@@ -1299,7 +1301,7 @@ class TopologyAdministrationGroup(
 
     private def findCurrent(party: PartyId, store: String) =
       TopologyStoreId(store) match {
-        case TopologyStoreId.DomainStore(synchronizerId, _) =>
+        case TopologyStoreId.SynchronizerStore(synchronizerId, _) =>
           expectAtMostOneResult(
             list(
               synchronizerId,
@@ -1333,9 +1335,9 @@ class TopologyAdministrationGroup(
                           When set to false, the proposal retains the proposal status until enough signatures are accumulated to
                           satisfy the mapping's authorization requirements.
       store: - "Authorized": The topology transaction will be stored in the node's authorized store and automatically
-                             propagated to connected domains, if applicable.
-             - "<synchronizer id>": The topology transaction will be directly submitted to the specified domain without
-                              storing it locally first. This also means it will _not_ be synchronized to other domains
+                             propagated to connected synchronizers, if applicable.
+             - "<synchronizer id>": The topology transaction will be directly submitted to the specified synchronizer without
+                              storing it locally first. This also means it will _not_ be synchronized to other synchronizers
                               automatically.
       force: must be set when disabling a party with active contracts
       """)
@@ -1438,9 +1440,9 @@ class TopologyAdministrationGroup(
                           When set to false, the proposal retains the proposal status until enough signatures are accumulated to
                           satisfy the mapping's authorization requirements.
       store: - "Authorized": The topology transaction will be stored in the node's authorized store and automatically
-                             propagated to connected domains, if applicable.
-             - "<synchronizer id>": The topology transaction will be directly submitted to the specified domain without
-                              storing it locally first. This also means it will _not_ be synchronized to other domains
+                             propagated to connected synchronizers, if applicable.
+             - "<synchronizer id>": The topology transaction will be directly submitted to the specified synchronizer without
+                              storing it locally first. This also means it will _not_ be synchronized to other synchronizers
                               automatically.
       """)
     def propose(
@@ -1474,13 +1476,13 @@ class TopologyAdministrationGroup(
       synchronisation.runAdminCommand(synchronize)(command)
     }
 
-    @Help.Summary("List party to participant mapping transactions from domain store")
+    @Help.Summary("List party to participant mapping transactions from synchronizer store")
     @Help.Description(
       """List the party to participant mapping transactions present in the stores. Party to participant mappings
         |are topology transactions used to allocate a party to certain participants. The same party can be allocated
         |on several participants with different privileges.
 
-        synchronizerId: Domain to be considered
+        synchronizerId: Synchronizer to be considered
         proposals: Whether to query proposals instead of authorized transactions.
         timeQuery: The time query allows to customize the query by time. The following options are supported:
                    TimeQuery.HeadState (default): The most recent known state.
@@ -1519,9 +1521,9 @@ class TopologyAdministrationGroup(
       )
     }
 
-    /** Check whether the node knows about `party` being hosted on `hostingParticipants` and domain `synchronizerId`,
+    /** Check whether the node knows about `party` being hosted on `hostingParticipants` and synchronizer `synchronizerId`,
       * optionally the specified expected permission and threshold.
-      * @param synchronizerId             Domain on which the party should be hosted
+      * @param synchronizerId             Synchronizer on which the party should be hosted
       * @param party                The party which needs to be hosted
       * @param hostingParticipants  Expected hosting participants
       * @param permission           If specified, the expected permission
@@ -1569,8 +1571,8 @@ class TopologyAdministrationGroup(
       participantsError.isEmpty
     }
 
-    /** Check whether the node knows about `parties` being hosted on `hostingParticipants` and domain `synchronizerId`.
-      * @param synchronizerId             Domain on which the party should be hosted
+    /** Check whether the node knows about `parties` being hosted on `hostingParticipants` and synchronizer `synchronizerId`.
+      * @param synchronizerId             Synchronizer on which the party should be hosted
       * @param parties              The parties which needs to be hosted
       * @param hostingParticipants  Expected hosting participants
       */
@@ -1688,9 +1690,9 @@ class TopologyAdministrationGroup(
     }
   }
 
-  @Help.Summary("Manage domain trust certificates")
-  @Help.Group("Domain trust certificates")
-  object domain_trust_certificates extends Helpful {
+  @Help.Summary("Manage synchronizer trust certificates")
+  @Help.Group("Synchronizer trust certificates")
+  object synchronizer_trust_certificates extends Helpful {
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
@@ -1699,9 +1701,9 @@ class TopologyAdministrationGroup(
         filterUid: String = "",
         filterSigningKey: String = "",
         protocolVersion: Option[String] = None,
-    ): Seq[ListDomainTrustCertificateResult] = consoleEnvironment.run {
+    ): Seq[ListSynchronizerTrustCertificateResult] = consoleEnvironment.run {
       adminCommand(
-        TopologyAdminCommands.Read.ListDomainTrustCertificate(
+        TopologyAdminCommands.Read.ListSynchronizerTrustCertificate(
           BaseQuery(
             filterStore,
             proposals,
@@ -1725,17 +1727,17 @@ class TopologyAdministrationGroup(
         x.item.synchronizerId == synchronizerId && x.item.participantId == participantId
       }
 
-    @Help.Summary("Propose a change to a participant's domain trust certificate.")
+    @Help.Summary("Propose a change to a participant's synchronizer trust certificate.")
     @Help.Description(
-      """A participant's domain trust certificate signals to the domain that the participant would like to act on the domain.
+      """A participant's synchronizer trust certificate signals to the synchronizer that the participant would like to act on the synchronizer.
 
         participantId: the identifier of the trust certificate's target participant
-        synchronizerId: the identifier of the domain on which the participant would like to act
+        synchronizerId: the identifier of the synchronizer on which the participant would like to act
 
         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                               propagated to connected domains, if applicable.
-               - "<synchronizer id>": the topology transaction will be directly submitted to the specified domain without
-                                storing it locally first. This also means it will _not_ be synchronized to other domains
+                               propagated to connected synchronizers, if applicable.
+               - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
+                                storing it locally first. This also means it will _not_ be synchronized to other synchronizers
                                 automatically.
         mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
                             sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
@@ -1753,14 +1755,14 @@ class TopologyAdministrationGroup(
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
-        // Using the authorized store by default, because the trust cert upon connecting to a domain is also stored in the authorized store
+        // Using the authorized store by default, because the trust cert upon connecting to a synchronizer is also stored in the authorized store
         store: Option[String] = Some(AuthorizedStore.filterName),
         mustFullyAuthorize: Boolean = true,
         serial: Option[PositiveInt] = None,
         change: TopologyChangeOp = TopologyChangeOp.Replace,
-    ): SignedTopologyTransaction[TopologyChangeOp, DomainTrustCertificate] = {
+    ): SignedTopologyTransaction[TopologyChangeOp, SynchronizerTrustCertificate] = {
       val cmd = TopologyAdminCommands.Write.Propose(
-        mapping = DomainTrustCertificate(
+        mapping = SynchronizerTrustCertificate(
           participantId,
           synchronizerId,
         ),
@@ -1775,23 +1777,23 @@ class TopologyAdministrationGroup(
 
   }
 
-  @Help.Summary("Inspect participant domain permissions")
-  @Help.Group("Participant Domain Permissions")
-  object participant_domain_permissions extends Helpful {
-    @Help.Summary("Propose changes to the domain permissions of participants.")
+  @Help.Summary("Inspect participant synchronizer permissions")
+  @Help.Group("Participant Synchronizer Permissions")
+  object participant_synchronizer_permissions extends Helpful {
+    @Help.Summary("Propose changes to the synchronizer permissions of participants.")
     @Help.Description(
-      """Domain operators may use this command to change a participant's permissions on a domain.
+      """Synchronizer operators may use this command to change a participant's permissions on a synchronizer.
 
-        synchronizerId: the target domain
+        synchronizerId: the target synchronizer
         participantId: the participant whose permissions should be changed
         permission: the participant's permission
-        loginAfter: the earliest time a participant may connect to the domain
-        limits: domain limits for this participant
+        loginAfter: the earliest time a participant may connect to the synchronizer
+        limits: synchronizer limits for this participant
 
         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                               propagated to connected domains, if applicable.
-               - "<synchronizer id>": the topology transaction will be directly submitted to the specified domain without
-                                storing it locally first. This also means it will _not_ be synchronized to other domains
+                               propagated to connected synchronizers, if applicable.
+               - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
+                                storing it locally first. This also means it will _not_ be synchronized to other synchronizers
                                 automatically.
         mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
                             sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
@@ -1807,7 +1809,7 @@ class TopologyAdministrationGroup(
         participantId: ParticipantId,
         permission: ParticipantPermission,
         loginAfter: Option[CantonTimestamp] = None,
-        limits: Option[ParticipantDomainLimits] = None,
+        limits: Option[ParticipantSynchronizerLimits] = None,
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
@@ -1815,9 +1817,9 @@ class TopologyAdministrationGroup(
         mustFullyAuthorize: Boolean = false,
         serial: Option[PositiveInt] = None,
         change: TopologyChangeOp = TopologyChangeOp.Replace,
-    ): SignedTopologyTransaction[TopologyChangeOp, ParticipantDomainPermission] = {
+    ): SignedTopologyTransaction[TopologyChangeOp, ParticipantSynchronizerPermission] = {
       val cmd = TopologyAdminCommands.Write.Propose(
-        mapping = ParticipantDomainPermission(
+        mapping = ParticipantSynchronizerPermission(
           synchronizerId = synchronizerId,
           participantId = participantId,
           permission = permission,
@@ -1834,17 +1836,17 @@ class TopologyAdministrationGroup(
       synchronisation.runAdminCommand(synchronize)(cmd)
     }
 
-    @Help.Summary("Revokes the domain permissions of a participant.")
+    @Help.Summary("Revokes the synchronizer permissions of a participant.")
     @Help.Description(
-      """Domain operators may use this command to revoke a participant's permissions on a domain.
+      """Synchronizer operators may use this command to revoke a participant's permissions on a synchronizer.
 
-        synchronizerId: the target domain
+        synchronizerId: the target synchronizer
         participantId: the participant whose permissions should be revoked
 
         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                               propagated to connected domains, if applicable.
-               - "<synchronizer id>": the topology transaction will be directly submitted to the specified domain without
-                                storing it locally first. This also means it will _not_ be synchronized to other domains
+                               propagated to connected synchronizers, if applicable.
+               - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
+                                storing it locally first. This also means it will _not_ be synchronized to other synchronizers
                                 automatically.
         mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
                             sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
@@ -1859,14 +1861,14 @@ class TopologyAdministrationGroup(
         ),
         mustFullyAuthorize: Boolean = false,
         store: Option[String] = None,
-    ): SignedTopologyTransaction[TopologyChangeOp, ParticipantDomainPermission] =
+    ): SignedTopologyTransaction[TopologyChangeOp, ParticipantSynchronizerPermission] =
       list(
         filterStore = store.getOrElse(synchronizerId.filterString),
         filterUid = participantId.filterString,
       ) match {
         case Seq() =>
           throw new IllegalStateException(
-            s"No ParticipantDomainPermission found for participant $participantId."
+            s"No ParticipantSynchronizerPermission found for participant $participantId."
           ) with NoStackTrace
         case Seq(result) =>
           val item = result.item
@@ -1884,7 +1886,7 @@ class TopologyAdministrationGroup(
           )
         case otherwise =>
           throw new IllegalStateException(
-            s"Found more than one ParticipantDomainPermission for participant $participantId on domain $synchronizerId"
+            s"Found more than one ParticipantSynchronizerPermission for participant $participantId on synchronizer $synchronizerId"
           ) with NoStackTrace
       }
 
@@ -1896,9 +1898,9 @@ class TopologyAdministrationGroup(
         filterUid: String = "",
         filterSigningKey: String = "",
         protocolVersion: Option[String] = None,
-    ): Seq[ListParticipantDomainPermissionResult] = consoleEnvironment.run {
+    ): Seq[ListParticipantSynchronizerPermissionResult] = consoleEnvironment.run {
       adminCommand(
-        TopologyAdminCommands.Read.ListParticipantDomainPermission(
+        TopologyAdminCommands.Read.ListParticipantSynchronizerPermission(
           BaseQuery(
             filterStore,
             proposals,
@@ -1912,12 +1914,12 @@ class TopologyAdministrationGroup(
       )
     }
 
-    @Help.Summary("Looks up the participant permission for a participant on a domain")
-    @Help.Description("""Returns the optional participant domain permission.""")
+    @Help.Summary("Looks up the participant permission for a participant on a synchronizer")
+    @Help.Description("""Returns the optional participant synchronizer permission.""")
     def find(
         synchronizerId: SynchronizerId,
         participantId: ParticipantId,
-    ): Option[ListParticipantDomainPermissionResult] =
+    ): Option[ListParticipantSynchronizerPermissionResult] =
       expectAtMostOneResult(
         list(filterStore = synchronizerId.filterString, filterUid = participantId.filterString)
       ).filter(p =>
@@ -1925,17 +1927,19 @@ class TopologyAdministrationGroup(
       )
   }
 
-  @Help.Summary("Inspect participant domain states")
-  @Help.Group("Participant Domain States")
-  object participant_domain_states extends Helpful {
-    @Help.Summary("Returns true if the given participant is currently active on the given domain")
+  @Help.Summary("Inspect participant synchronizer states")
+  @Help.Group("Participant Synchronizer States")
+  object participant_synchronizer_states extends Helpful {
+    @Help.Summary(
+      "Returns true if the given participant is currently active on the given synchronizer"
+    )
     @Help.Description(
-      """Active means that the participant has been granted at least observation rights on the domain
-         |and that the participant has registered a domain trust certificate"""
+      """Active means that the participant has been granted at least observation rights on the synchronizer
+         |and that the participant has registered a synchronizer trust certificate"""
     )
     def active(synchronizerId: SynchronizerId, participantId: ParticipantId): Boolean =
-      // TODO(#14048) Should we check the other side (domain accepts participant)?
-      domain_trust_certificates.active(synchronizerId, participantId)
+      // TODO(#14048) Should we check the other side (synchronizer accepts participant)?
+      synchronizer_trust_certificates.active(synchronizerId, participantId)
   }
 
   @Help.Summary("Manage party hosting limits")
@@ -1998,7 +2002,7 @@ class TopologyAdministrationGroup(
     @Help.Summary("Change package vettings")
     @Help.Description(
       """A participant will only process transactions that reference packages that all involved participants have
-         |vetted previously. Vetting is done by registering a respective topology transaction with the domain,
+         |vetted previously. Vetting is done by registering a respective topology transaction with the synchronizer,
          |which can then be used by other participants to verify that a transaction is only using
          |vetted packages.
          |Note that all referenced and dependent packages must exist in the package store.
@@ -2007,9 +2011,9 @@ class TopologyAdministrationGroup(
          adds: The lf-package ids to be vetted.
          removes: The lf-package ids to be unvetted.
          store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                             propagated to connected domains, if applicable.
-                - "<synchronizer id>": the topology transaction will be directly submitted to the specified domain without
-                              storing it locally first. This also means it will _not_ be synchronized to other domains
+                             propagated to connected synchronizers, if applicable.
+                - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
+                              storing it locally first. This also means it will _not_ be synchronized to other synchronizers
                               automatically.
          filterParticipant: Filter for participants starting with the given filter string.
          mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
@@ -2094,7 +2098,7 @@ class TopologyAdministrationGroup(
     }
     @Help.Summary("Replace package vettings")
     @Help.Description("""A participant will only process transactions that reference packages that all involved participants have
-        |vetted previously. Vetting is done by registering a respective topology transaction with the domain,
+        |vetted previously. Vetting is done by registering a respective topology transaction with the synchronizer,
         |which can then be used by other participants to verify that a transaction is only using
         |vetted packages.
         |Note that all referenced and dependent packages must exist in the package store.
@@ -2102,9 +2106,9 @@ class TopologyAdministrationGroup(
         participantId: the identifier of the participant vetting the packages
         packages: The lf-package ids with validity boundaries to be vetted that will replace the previous vetted packages.
         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                              propagated to connected domains, if applicable.
-               - "<synchronizer id>": the topology transaction will be directly submitted to the specified domain without
-                              storing it locally first. This also means it will _not_ be synchronized to other domains automatically.
+                              propagated to connected synchronizers, if applicable.
+               - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
+                              storing it locally first. This also means it will _not_ be synchronized to other synchronizers automatically.
         mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
                               sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
                               when set to false, the proposal retains the proposal status until enough signatures are accumulated to
@@ -2172,29 +2176,30 @@ class TopologyAdministrationGroup(
     }
   }
 
-  @Help.Summary("Inspect mediator domain state")
-  @Help.Group("Mediator Domain State")
+  @Help.Summary("Inspect mediator synchronizer state")
+  @Help.Group("Mediator Synchronizer State")
   object mediators extends Helpful {
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOp] = Some(TopologyChangeOp.Replace),
-        filterDomain: String = "",
+        filterSynchronizer: String = "",
         filterSigningKey: String = "",
         protocolVersion: Option[String] = None,
         group: Option[NonNegativeInt] = None,
-    ): Seq[ListMediatorDomainStateResult] = {
-      def predicate(res: ListMediatorDomainStateResult): Boolean = group.forall(_ == res.item.group)
+    ): Seq[ListMediatorSynchronizerStateResult] = {
+      def predicate(res: ListMediatorSynchronizerStateResult): Boolean =
+        group.forall(_ == res.item.group)
 
-      areFilterStoreFilterDomainCompatible(filterStore, filterDomain).valueOr(err =>
+      areFilterStoreFilterSynchronizerCompatible(filterStore, filterSynchronizer).valueOr(err =>
         throw new IllegalArgumentException(err)
       )
 
       consoleEnvironment
         .run {
           adminCommand(
-            TopologyAdminCommands.Read.MediatorDomainState(
+            TopologyAdminCommands.Read.MediatorSynchronizerState(
               BaseQuery(
                 filterStore,
                 proposals,
@@ -2203,7 +2208,7 @@ class TopologyAdministrationGroup(
                 filterSigningKey,
                 protocolVersion.map(ProtocolVersion.tryCreate),
               ),
-              filterDomain,
+              filterSynchronizer,
             )
           )
         }
@@ -2213,7 +2218,7 @@ class TopologyAdministrationGroup(
     @Help.Summary("Propose changes to the mediator topology")
     @Help.Description(
       """
-     synchronizerId: the target domain
+     synchronizerId: the target synchronizer
      group: the mediator group identifier
      adds: The unique identifiers of the active mediators to add.
      removes: The unique identifiers of the mediators that should no longer be active mediators.
@@ -2246,7 +2251,7 @@ class TopologyAdministrationGroup(
         .verifyProposalConsistency(adds, removes, observerAdds, observerRemoves, updateThreshold)
         .valueOr(err => throw new IllegalArgumentException(err))
 
-      def queryStore(proposals: Boolean): Option[(PositiveInt, MediatorDomainState)] =
+      def queryStore(proposals: Boolean): Option[(PositiveInt, MediatorSynchronizerState)] =
         expectAtMostOneResult(
           list(
             synchronizerId.filterString,
@@ -2256,11 +2261,11 @@ class TopologyAdministrationGroup(
           )
         ).map(result => (result.context.serial, result.item))
 
-      val maybeSerialAndMediatorDomainState = queryStore(proposals = false)
+      val maybeSerialAndMediatorSynchronizerState = queryStore(proposals = false)
 
       MediatorGroupDeltaComputations
         .verifyProposalAgainstCurrentState(
-          maybeSerialAndMediatorDomainState.map(_._2),
+          maybeSerialAndMediatorSynchronizerState.map(_._2),
           adds,
           removes,
           observerAdds,
@@ -2269,7 +2274,7 @@ class TopologyAdministrationGroup(
         )
         .valueOr(err => throw new IllegalArgumentException(err))
 
-      val (serial, threshold, active, observers) = maybeSerialAndMediatorDomainState match {
+      val (serial, threshold, active, observers) = maybeSerialAndMediatorSynchronizerState match {
         case Some((currentSerial, mds)) =>
           (
             currentSerial.increment,
@@ -2296,7 +2301,7 @@ class TopologyAdministrationGroup(
 
       await.foreach { timeout =>
         ConsoleMacros.utils.retry_until_true(timeout) {
-          def areAllChangesPersisted: ((PositiveInt, MediatorDomainState)) => Boolean = {
+          def areAllChangesPersisted: ((PositiveInt, MediatorSynchronizerState)) => Boolean = {
             case (serialFound, mds) =>
               serialFound == serial &&
               adds.forall(mds.active.contains) && removes.forall(!mds.active.contains(_)) &&
@@ -2319,15 +2324,15 @@ class TopologyAdministrationGroup(
 
     @Help.Summary("Replace the mediator topology")
     @Help.Description("""
-         synchronizerId: the target domain
+         synchronizerId: the target synchronizer
          threshold: the minimum number of mediators that need to come to a consensus for a message to be sent to other members.
          active: the list of mediators that will take part in the mediator consensus in this mediator group
          passive: the mediators that will receive all messages but will not participate in mediator consensus
          group: the mediator group identifier
          store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                                propagated to connected domains, if applicable.
-                - "<synchronizer id>": the topology transaction will be directly submitted to the specified domain without
-                                 storing it locally first. This also means it will _not_ be synchronized to other domains
+                                propagated to connected synchronizers, if applicable.
+                - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
+                                 storing it locally first. This also means it will _not_ be synchronized to other synchronizers
                                  automatically.
          mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
                              sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
@@ -2351,9 +2356,9 @@ class TopologyAdministrationGroup(
         mustFullyAuthorize: Boolean = false,
         signedBy: Option[Fingerprint] = None,
         serial: Option[PositiveInt] = None,
-    ): SignedTopologyTransaction[TopologyChangeOp, MediatorDomainState] = {
+    ): SignedTopologyTransaction[TopologyChangeOp, MediatorSynchronizerState] = {
       val command = TopologyAdminCommands.Write.Propose(
-        mapping = MediatorDomainState
+        mapping = MediatorSynchronizerState
           .create(synchronizerId, group, threshold, active, observers),
         signedBy = signedBy.toList,
         serial = serial,
@@ -2368,13 +2373,13 @@ class TopologyAdministrationGroup(
 
     @Help.Summary("Propose to remove a mediator group")
     @Help.Description("""
-         synchronizerId: the target domain
+         synchronizerId: the target synchronizer
          group: the mediator group identifier
 
          store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                                propagated to connected domains, if applicable.
-                - "<synchronizer id>": the topology transaction will be directly submitted to the specified domain without
-                                 storing it locally first. This also means it will _not_ be synchronized to other domains
+                                propagated to connected synchronizers, if applicable.
+                - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
+                                 storing it locally first. This also means it will _not_ be synchronized to other synchronizers
                                  automatically.
          mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
                              sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
@@ -2388,7 +2393,7 @@ class TopologyAdministrationGroup(
           consoleEnvironment.commandTimeouts.bounded
         ),
         mustFullyAuthorize: Boolean = false,
-    ): SignedTopologyTransaction[TopologyChangeOp, MediatorDomainState] = {
+    ): SignedTopologyTransaction[TopologyChangeOp, MediatorSynchronizerState] = {
 
       val mediatorStateResult = list(filterStore = synchronizerId.filterString, group = Some(group))
         .maxByOption(_.context.serial)
@@ -2408,20 +2413,20 @@ class TopologyAdministrationGroup(
     }
   }
 
-  @Help.Summary("Inspect sequencer domain state")
-  @Help.Group("Sequencer Domain State")
+  @Help.Summary("Inspect sequencer synchronizer state")
+  @Help.Group("Sequencer Synchronizer State")
   object sequencers extends Helpful {
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOp] = Some(TopologyChangeOp.Replace),
-        filterDomain: String = "",
+        filterSynchronizer: String = "",
         filterSigningKey: String = "",
         protocolVersion: Option[String] = None,
-    ): Seq[ListSequencerDomainStateResult] = consoleEnvironment.run {
+    ): Seq[ListSequencerSynchronizerStateResult] = consoleEnvironment.run {
       adminCommand(
-        TopologyAdminCommands.Read.SequencerDomainState(
+        TopologyAdminCommands.Read.SequencerSynchronizerState(
           BaseQuery(
             filterStore,
             proposals,
@@ -2430,7 +2435,7 @@ class TopologyAdministrationGroup(
             filterSigningKey,
             protocolVersion.map(ProtocolVersion.tryCreate),
           ),
-          filterDomain,
+          filterSynchronizer,
         )
       )
     }
@@ -2438,14 +2443,14 @@ class TopologyAdministrationGroup(
     @Help.Summary("Propose changes to the sequencer topology")
     @Help.Description(
       """
-         synchronizerId: the target domain
+         synchronizerId: the target synchronizer
          active: the list of active sequencers
          passive: sequencers that receive messages but are not available for members to connect to
 
          store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                                propagated to connected domains, if applicable.
-                - "<synchronizer id>": the topology transaction will be directly submitted to the specified domain without
-                                 storing it locally first. This also means it will _not_ be synchronized to other domains
+                                propagated to connected synchronizers, if applicable.
+                - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
+                                 storing it locally first. This also means it will _not_ be synchronized to other synchronizers
                                  automatically.
          mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
                              sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
@@ -2466,11 +2471,11 @@ class TopologyAdministrationGroup(
         mustFullyAuthorize: Boolean = false,
         signedBy: Option[Fingerprint] = None,
         serial: Option[PositiveInt] = None,
-    ): SignedTopologyTransaction[TopologyChangeOp, SequencerDomainState] =
+    ): SignedTopologyTransaction[TopologyChangeOp, SequencerSynchronizerState] =
       consoleEnvironment.run {
         adminCommand(
           TopologyAdminCommands.Write.Propose(
-            mapping = SequencerDomainState.create(synchronizerId, threshold, active, passive),
+            mapping = SequencerSynchronizerState.create(synchronizerId, threshold, active, passive),
             signedBy = signedBy.toList,
             serial = serial,
             change = TopologyChangeOp.Replace,
@@ -2482,21 +2487,21 @@ class TopologyAdministrationGroup(
       }
   }
 
-  @Help.Summary("Manage domain parameters state", FeatureFlag.Preview)
-  @Help.Group("Domain Parameters State")
-  object domain_parameters extends Helpful {
-    @Help.Summary("List dynamic domain parameters")
+  @Help.Summary("Manage synchronizer parameters state", FeatureFlag.Preview)
+  @Help.Group("Synchronizer Parameters State")
+  object synchronizer_parameters extends Helpful {
+    @Help.Summary("List dynamic synchronizer parameters")
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOp] = Some(TopologyChangeOp.Replace),
-        filterDomain: String = "",
+        filterSynchronizer: String = "",
         filterSigningKey: String = "",
         protocolVersion: Option[String] = None,
-    ): Seq[ListDomainParametersStateResult] = consoleEnvironment.run {
+    ): Seq[ListSynchronizerParametersStateResult] = consoleEnvironment.run {
       adminCommand(
-        TopologyAdminCommands.Read.DomainParametersState(
+        TopologyAdminCommands.Read.SynchronizerParametersState(
           BaseQuery(
             filterStore,
             proposals,
@@ -2505,37 +2510,37 @@ class TopologyAdministrationGroup(
             filterSigningKey,
             protocolVersion.map(ProtocolVersion.tryCreate),
           ),
-          filterDomain,
+          filterSynchronizer,
         )
       )
     }
 
-    @Help.Summary("Get the configured dynamic domain parameters")
-    def get_dynamic_domain_parameters(
+    @Help.Summary("Get the configured dynamic synchronizer parameters")
+    def get_dynamic_synchronizer_parameters(
         synchronizerId: SynchronizerId
-    ): ConsoleDynamicDomainParameters =
-      ConsoleDynamicDomainParameters(
+    ): ConsoleDynamicSynchronizerParameters =
+      ConsoleDynamicSynchronizerParameters(
         expectExactlyOneResult(
           list(
             filterStore = synchronizerId.filterString,
             proposals = false,
             timeQuery = TimeQuery.HeadState,
             operation = Some(TopologyChangeOp.Replace),
-            filterDomain = synchronizerId.filterString,
+            filterSynchronizer = synchronizerId.filterString,
           )
         ).item
       )
 
-    @Help.Summary("Propose changes to dynamic domain parameters")
+    @Help.Summary("Propose changes to dynamic synchronizer parameters")
     @Help.Description(
       """
-       synchronizerId: the target domain
-       parameters: the new dynamic domain parameters to be used on the domain
+       synchronizerId: the target synchronizer
+       parameters: the new dynamic synchronizer parameters to be used on the synchronizer
 
        store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                              propagated to connected domains, if applicable.
-              - "<synchronizer id>": the topology transaction will be directly submitted to the specified domain without
-                               storing it locally first. This also means it will _not_ be synchronized to other domains
+                              propagated to connected synchronizers, if applicable.
+              - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
+                               storing it locally first. This also means it will _not_ be synchronized to other synchronizers
                                automatically.
        mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
                            sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
@@ -2553,7 +2558,7 @@ class TopologyAdministrationGroup(
     )
     def propose(
         synchronizerId: SynchronizerId,
-        parameters: ConsoleDynamicDomainParameters,
+        parameters: ConsoleDynamicSynchronizerParameters,
         store: Option[String] = None,
         mustFullyAuthorize: Boolean = false,
         signedBy: Option[Fingerprint] = None,
@@ -2563,14 +2568,14 @@ class TopologyAdministrationGroup(
         ),
         waitForParticipants: Seq[ParticipantReference] = consoleEnvironment.participants.all,
         force: ForceFlags = ForceFlags.none,
-    ): SignedTopologyTransaction[TopologyChangeOp, DomainParametersState] = { // TODO(#15815): Don't expose internal TopologyMapping and TopologyChangeOp classes
+    ): SignedTopologyTransaction[TopologyChangeOp, SynchronizerParametersState] = { // TODO(#15815): Don't expose internal TopologyMapping and TopologyChangeOp classes
 
       val parametersInternal =
         parameters.toInternal.valueOr(err => throw new IllegalArgumentException(err))
 
       val res = synchronisation.runAdminCommand(synchronize)(
         TopologyAdminCommands.Write.Propose(
-          DomainParametersState(
+          SynchronizerParametersState(
             synchronizerId,
             parametersInternal,
           ),
@@ -2587,26 +2592,28 @@ class TopologyAdministrationGroup(
           .foreach(timeout =>
             ConsoleMacros.utils.retry_until_true(timeout)(
               {
-                // cannot use get_dynamic_domain_parameters, as this will throw if there are no prior parameters
-                val headState = ref.domain_parameters
+                // cannot use get_dynamic_synchronizer_parameters, as this will throw if there are no prior parameters
+                val headState = ref.synchronizer_parameters
                   .list(
                     filterStore = synchronizerId.filterString,
                     timeQuery = TimeQuery.HeadState,
                     operation = Some(TopologyChangeOp.Replace),
-                    filterDomain = synchronizerId.filterString,
+                    filterSynchronizer = synchronizerId.filterString,
                   )
-                  .map(r => ConsoleDynamicDomainParameters(r.item))
+                  .map(r => ConsoleDynamicSynchronizerParameters(r.item))
 
                 headState == Seq(parameters)
               },
-              s"The dynamic domain parameters never became effective within $timeout",
+              s"The dynamic synchronizer parameters never became effective within $timeout",
             )
           )
 
       waitForParameters(TopologyAdministrationGroup.this)
       waitForParticipants
         .filter(p =>
-          p.health.is_running() && p.health.initialized() && p.domains.is_connected(synchronizerId)
+          p.health.is_running() && p.health.initialized() && p.synchronizers.is_connected(
+            synchronizerId
+          )
         )
         .map(_.topology)
         .foreach(waitForParameters)
@@ -2614,11 +2621,11 @@ class TopologyAdministrationGroup(
       res
     }
 
-    @Help.Summary("Propose an update to dynamic domain parameters")
+    @Help.Summary("Propose an update to dynamic synchronizer parameters")
     @Help.Description(
       """
-       synchronizerId: the target domain
-       update: the new dynamic domain parameters to be used on the domain
+       synchronizerId: the target synchronizer
+       update: the new dynamic synchronizer parameters to be used on the synchronizer
        mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
                            sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
                            when set to false, the proposal retains the proposal status until enough signatures are accumulated to
@@ -2631,7 +2638,7 @@ class TopologyAdministrationGroup(
     )
     def propose_update(
         synchronizerId: SynchronizerId,
-        update: ConsoleDynamicDomainParameters => ConsoleDynamicDomainParameters,
+        update: ConsoleDynamicSynchronizerParameters => ConsoleDynamicSynchronizerParameters,
         mustFullyAuthorize: Boolean = false,
         signedBy: Option[Fingerprint] = None,
         synchronize: Option[config.NonNegativeDuration] = Some(
@@ -2640,23 +2647,23 @@ class TopologyAdministrationGroup(
         waitForParticipants: Seq[ParticipantReference] = consoleEnvironment.participants.all,
         force: ForceFlags = ForceFlags.none,
     ): Unit = {
-      val domainStore = synchronizerId.filterString
+      val synchronizerStore = synchronizerId.filterString
 
       val previousParameters = expectExactlyOneResult(
         list(
-          filterDomain = synchronizerId.filterString,
-          filterStore = domainStore,
+          filterSynchronizer = synchronizerId.filterString,
+          filterStore = synchronizerStore,
           operation = Some(TopologyChangeOp.Replace),
         )
       )
-      val newParameters = update(ConsoleDynamicDomainParameters(previousParameters.item))
+      val newParameters = update(ConsoleDynamicSynchronizerParameters(previousParameters.item))
 
       // Avoid topology manager ALREADY_EXISTS error by not submitting a no-op proposal.
-      if (ConsoleDynamicDomainParameters(previousParameters.item) != newParameters) {
+      if (ConsoleDynamicSynchronizerParameters(previousParameters.item) != newParameters) {
         propose(
           synchronizerId,
           newParameters,
-          Some(domainStore),
+          Some(synchronizerStore),
           mustFullyAuthorize,
           signedBy,
           Some(previousParameters.context.serial.increment),
@@ -2667,11 +2674,13 @@ class TopologyAdministrationGroup(
       }
     }
 
-    @Help.Summary("Update the ledger time record time tolerance in the dynamic domain parameters")
+    @Help.Summary(
+      "Update the ledger time record time tolerance in the dynamic synchronizer parameters"
+    )
     @Help.Description(
       """
-        synchronizerId: the target domain
-        newLedgerTimeRecordTimeTolerance: the new ledgerTimeRecordTimeTolerance value to apply to the domain
+        synchronizerId: the target synchronizer
+        newLedgerTimeRecordTimeTolerance: the new ledgerTimeRecordTimeTolerance value to apply to the synchronizer
 
         Note: The force parameter has no effect anymore since Canton 3.2.
               Updating ledger time record time tolerance is no longer unsafe.
@@ -2688,11 +2697,13 @@ class TopologyAdministrationGroup(
         force: Boolean = false,
     ): Unit = setLedgerTimeRecordTimeTolerance(synchronizerId, newLedgerTimeRecordTimeTolerance)
 
-    @Help.Summary("Update the ledger time record time tolerance in the dynamic domain parameters")
+    @Help.Summary(
+      "Update the ledger time record time tolerance in the dynamic synchronizer parameters"
+    )
     @Help.Description(
       """
-        synchronizerId: the target domain
-        newLedgerTimeRecordTimeTolerance: the new ledgerTimeRecordTimeTolerance value to apply to the domain"""
+        synchronizerId: the target synchronizer
+        newLedgerTimeRecordTimeTolerance: the new ledgerTimeRecordTimeTolerance value to apply to the synchronizer"""
     )
     def set_ledger_time_record_time_tolerance(
         synchronizerId: SynchronizerId,
@@ -2714,7 +2725,7 @@ class TopologyAdministrationGroup(
       }
 
     @Help.Summary(
-      "Update the submission time record time tolerance in the dynamic domain parameters"
+      "Update the submission time record time tolerance in the dynamic synchronizer parameters"
     )
     @Help.Description(
       """If it would be insecure to perform the change immediately,
@@ -2723,11 +2734,11 @@ class TopologyAdministrationGroup(
         |
         |The method will fail if ``mediatorDeduplicationTimeout`` is less than twice of ``newSubmissionTimeRecordTimeTolerance``.
         |
-        |Do not modify domain parameters concurrently while running this command,
+        |Do not modify synchronizer parameters concurrently while running this command,
         |because the command may override concurrent changes.
         |
         |force: update ``newSubmissionTimeRecordTimeTolerance`` immediately without blocking.
-        |This is safe to do during domain bootstrapping and in test environments, but should not be done in operational production systems."""
+        |This is safe to do during synchronizer bootstrapping and in test environments, but should not be done in operational production systems."""
     )
     def set_submission_time_record_time_tolerance(
         synchronizerId: SynchronizerId,
@@ -2764,17 +2775,19 @@ class TopologyAdministrationGroup(
       // submissionTimeRecordTimeTolerance, the validation was moved to it instead of ledgerTimeRecordTimeTolerance
 
       // Compute new parameters
-      val oldDomainParameters = get_dynamic_domain_parameters(synchronizerId)
+      val oldSynchronizerParameters = get_dynamic_synchronizer_parameters(synchronizerId)
       val oldSubmissionTimeRecordTimeTolerance =
-        oldDomainParameters.submissionTimeRecordTimeTolerance
+        oldSynchronizerParameters.submissionTimeRecordTimeTolerance
 
       val minMediatorDeduplicationTimeout = newSubmissionTimeRecordTimeTolerance * 2
 
-      if (oldDomainParameters.mediatorDeduplicationTimeout < minMediatorDeduplicationTimeout) {
+      if (
+        oldSynchronizerParameters.mediatorDeduplicationTimeout < minMediatorDeduplicationTimeout
+      ) {
         val err = TopologyManagerError.IncreaseOfSubmissionTimeRecordTimeTolerance
           .PermanentlyInsecure(
             newSubmissionTimeRecordTimeTolerance.toInternal,
-            oldDomainParameters.mediatorDeduplicationTimeout.toInternal,
+            oldSynchronizerParameters.mediatorDeduplicationTimeout.toInternal,
           )
         val msg = CantonError.stringFromContext(err)
         consoleEnvironment.run(GenericCommandError(msg))
@@ -2797,7 +2810,7 @@ class TopologyAdministrationGroup(
           _.copy(submissionTimeRecordTimeTolerance = oldSubmissionTimeRecordTimeTolerance),
         )
 
-        logger.debug("Check for incompatible past domain parameters...")
+        logger.debug("Check for incompatible past synchronizer parameters...")
 
         val allTransactions = list(
           synchronizerId.filterString,
@@ -2811,15 +2824,15 @@ class TopologyAdministrationGroup(
           allTransactions
             .map(_.context.validFrom)
             .maxOption
-            .getOrElse(throw new NoSuchElementException("Missing domain parameters!"))
+            .getOrElse(throw new NoSuchElementException("Missing synchronizer parameters!"))
 
         logger.debug(s"Last sequencer timestamp is $lastSequencerTs.")
 
-        // Determine how long we need to wait until all incompatible domainParameters have become
+        // Determine how long we need to wait until all incompatible synchronizerParameters have become
         // invalid for at least minMediatorDeduplicationTimeout.
         val waitDuration = allTransactions
           .filterNot(tx =>
-            ConsoleDynamicDomainParameters(tx.item)
+            ConsoleDynamicSynchronizerParameters(tx.item)
               .compatibleWithNewSubmissionTimeRecordTimeTolerance(
                 newSubmissionTimeRecordTimeTolerance
               )
@@ -2836,7 +2849,7 @@ class TopologyAdministrationGroup(
 
         if (waitDuration > Duration.ZERO) {
           logger.info(
-            show"Found incompatible past domain parameters. Waiting for $waitDuration..."
+            show"Found incompatible past synchronizer parameters. Waiting for $waitDuration..."
           )
 
           // Use the clock instead of Threading.sleep to support sim clock based tests.

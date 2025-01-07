@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client.channel.endpoint
@@ -6,11 +6,11 @@ package com.digitalasset.canton.sequencing.client.channel.endpoint
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.crypto.{AsymmetricEncrypted, Encrypted}
-import com.digitalasset.canton.domain.api.v30
-import com.digitalasset.canton.domain.api.v30.ConnectToSequencerChannelResponse.Response
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.ProtocolSymmetricKey
+import com.digitalasset.canton.sequencer.api.v30
+import com.digitalasset.canton.sequencer.api.v30.ConnectToSequencerChannelResponse.Response
 import com.digitalasset.canton.sequencing.channel.ConnectToSequencerChannelRequest
 import com.digitalasset.canton.sequencing.client.channel.SequencerChannelProtocolProcessor
 import com.digitalasset.canton.sequencing.client.channel.endpoint.ChannelStage.{

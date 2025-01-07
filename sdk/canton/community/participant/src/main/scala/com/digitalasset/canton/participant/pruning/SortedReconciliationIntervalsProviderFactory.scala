@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.pruning
@@ -10,7 +10,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
 import com.digitalasset.canton.topology.SynchronizerId
-import com.digitalasset.canton.topology.client.StoreBasedDomainTopologyClient
+import com.digitalasset.canton.topology.client.StoreBasedSynchronizerTopologyClient
 import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTime, SequencedTime}
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -29,21 +29,21 @@ class SortedReconciliationIntervalsProviderFactory(
       syncDomainPersistentState <- EitherT.fromEither[Future](
         syncDomainPersistentStateManager
           .get(synchronizerId)
-          .toRight(s"Unable to get sync domain persistent state for domain $synchronizerId")
+          .toRight(s"Unable to get sync synchronizer persistent state for domain $synchronizerId")
       )
 
-      staticDomainParameters <- EitherT(
+      staticSynchronizerParameters <- EitherT(
         syncDomainPersistentState.parameterStore.lastParameters.map(
-          _.toRight(s"Unable to fetch static domain parameters for domain $synchronizerId")
+          _.toRight(s"Unable to fetch static synchronizer parameters for domain $synchronizerId")
         )
       )
       topologyFactory <- syncDomainPersistentStateManager
-        .topologyFactoryFor(synchronizerId, staticDomainParameters.protocolVersion)
+        .topologyFactoryFor(synchronizerId, staticSynchronizerParameters.protocolVersion)
         .toRight(s"Can not obtain topology factory for $synchronizerId")
         .toEitherT[Future]
     } yield {
       val topologyClient = topologyFactory.createTopologyClient(
-        StoreBasedDomainTopologyClient.NoPackageDependencies
+        StoreBasedSynchronizerTopologyClient.NoPackageDependencies
       )
       topologyClient.updateHead(
         SequencedTime(subscriptionTs),

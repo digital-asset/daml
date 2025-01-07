@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant
@@ -11,7 +11,7 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.admin.participant.v30.*
 import com.digitalasset.canton.auth.CantonAdminToken
-import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
+import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
@@ -39,8 +39,6 @@ import com.digitalasset.canton.participant.admin.*
 import com.digitalasset.canton.participant.admin.grpc.*
 import com.digitalasset.canton.participant.admin.workflows.java.canton
 import com.digitalasset.canton.participant.config.*
-import com.digitalasset.canton.participant.domain.SynchronizerAliasManager
-import com.digitalasset.canton.participant.domain.grpc.GrpcDomainRegistry
 import com.digitalasset.canton.participant.health.admin.ParticipantStatus
 import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapper.IndexerLockIds
 import com.digitalasset.canton.participant.ledger.api.{
@@ -64,6 +62,8 @@ import com.digitalasset.canton.participant.scheduler.ParticipantPruningScheduler
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.*
 import com.digitalasset.canton.participant.sync.SyncDomain.SubmissionReady
+import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
+import com.digitalasset.canton.participant.synchronizer.grpc.GrpcDomainRegistry
 import com.digitalasset.canton.participant.topology.*
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
@@ -75,8 +75,11 @@ import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.time.admin.v30.DomainTimeServiceGrpc
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.client.{DomainTopologyClient, StoreBasedTopologySnapshot}
-import com.digitalasset.canton.topology.store.TopologyStoreId.{AuthorizedStore, DomainStore}
+import com.digitalasset.canton.topology.client.{
+  StoreBasedTopologySnapshot,
+  SynchronizerTopologyClient,
+}
+import com.digitalasset.canton.topology.store.TopologyStoreId.{AuthorizedStore, SynchronizerStore}
 import com.digitalasset.canton.topology.store.{PartyMetadataStore, TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, SingleUseCell}
@@ -129,21 +132,21 @@ class ParticipantNodeBootstrap(
       sys.error("packageDependencyResolver should be defined")
     )
 
-  override protected def sequencedTopologyStores: Seq[TopologyStore[DomainStore]] =
+  override protected def sequencedTopologyStores: Seq[TopologyStore[SynchronizerStore]] =
     cantonSyncService.get.toList.flatMap(_.syncDomainPersistentStateManager.getAll.values).collect {
       case s: SyncDomainPersistentState => s.topologyStore
     }
 
-  override protected def sequencedTopologyManagers: Seq[DomainTopologyManager] =
+  override protected def sequencedTopologyManagers: Seq[SynchronizerTopologyManager] =
     cantonSyncService.get.toList.flatMap(_.syncDomainPersistentStateManager.getAll.values).collect {
       case s: SyncDomainPersistentState => s.topologyManager
     }
 
   override protected def lookupTopologyClient(
       storeId: TopologyStoreId
-  ): Option[DomainTopologyClient] =
+  ): Option[SynchronizerTopologyClient] =
     storeId match {
-      case DomainStore(synchronizerId, _) =>
+      case SynchronizerStore(synchronizerId, _) =>
         cantonSyncService.get.flatMap(_.lookupTopologyClient(synchronizerId))
       case _ => None
     }
@@ -771,7 +774,8 @@ class ParticipantNodeBootstrap(
         adminServerRegistry
           .addServiceU(
             DomainTimeServiceGrpc.bindService(
-              GrpcDomainTimeService.forParticipant(sync.lookupDomainTimeTracker, loggerFactory),
+              GrpcDomainTimeService
+                .forParticipant(sync.lookupSynchronizerTimeTracker, loggerFactory),
               executionContext,
             )
           )

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer
@@ -619,10 +619,10 @@ object SequenceWritesFlow {
             // We only check that the signing timestamp is at most the assigned timestamp.
             // The lower bound will be checked only when reading the event
             // because only then we know the topology state at the signing timestamp,
-            // which we need to determine the dynamic domain parameter sequencerSigningTolerance.
+            // which we need to determine the dynamic synchronizer parameter sequencerSigningTolerance.
             //
             // Sequencer clients should set the signing timestamp only to timestamps that they have read from the
-            // domain. In a setting with multiple sequencers, the SequencerReader delivers only events up to
+            // synchronizer. In a setting with multiple sequencers, the SequencerReader delivers only events up to
             // the lowest watermark of all sequencers. So even if the sequencer client sends a follow-up submission request
             // to a different sequencer, this sequencer will assign a higher timestamp than the requested topology timestamp.
             // So this check should only fail if the sequencer client violates this policy.

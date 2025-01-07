@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin.inspection
@@ -254,7 +254,7 @@ final class SyncStateInspection(
 
   def allProtocolVersions: Map[SynchronizerId, ProtocolVersion] =
     syncDomainPersistentStateManager.getAll.view
-      .mapValues(_.staticDomainParameters.protocolVersion)
+      .mapValues(_.staticSynchronizerParameters.protocolVersion)
       .toMap
 
   def exportAcsDumpActiveContracts(
@@ -279,7 +279,7 @@ final class SyncStateInspection(
             val (synchronizerIdForExport, protocolVersion) =
               contractDomainRenames.getOrElse(
                 synchronizerId,
-                (synchronizerId, state.staticDomainParameters.protocolVersion),
+                (synchronizerId, state.staticSynchronizerParameters.protocolVersion),
               )
             val acsInspection = state.acsInspection
 
@@ -426,7 +426,9 @@ final class SyncStateInspection(
     timeouts.inspection
       .await(functionFullName)(state.parameterStore.lastParameters)
       .getOrElse(
-        throw new IllegalStateException(s"No static domain parameters found for $synchronizerAlias")
+        throw new IllegalStateException(
+          s"No static synchronizer parameters found for $synchronizerAlias"
+        )
       )
       .protocolVersion
 
@@ -442,7 +444,7 @@ final class SyncStateInspection(
         .map(_.protocolVersion)
         .getOrElse(
           throw new IllegalStateException(
-            s"No static domain parameters found for $synchronizerAlias"
+            s"No static synchronizer parameters found for $synchronizerAlias"
           )
         )
     }
@@ -964,13 +966,13 @@ final class SyncStateInspection(
   def getSequencerChannelClient(synchronizerId: SynchronizerId): Option[SequencerChannelClient] =
     for {
       syncDomain <- connectedDomainsLookup.get(synchronizerId)
-      sequencerChannelClient <- syncDomain.domainHandle.sequencerChannelClientO
+      sequencerChannelClient <- syncDomain.synchronizerHandle.sequencerChannelClientO
     } yield sequencerChannelClient
 
   def getAcsInspection(synchronizerId: SynchronizerId): Option[AcsInspection] =
     connectedDomainsLookup
       .get(synchronizerId)
-      .map(_.domainHandle.domainPersistentState.acsInspection)
+      .map(_.synchronizerHandle.domainPersistentState.acsInspection)
 
   def findAllKnownParticipants(
       domainFilter: Seq[SynchronizerId] = Seq.empty,
@@ -985,7 +987,7 @@ final class SyncStateInspection(
         }
     } yield for {
       _ <- FutureUnlessShutdown.unit
-      domainTopoClient = syncCrypto.ips.tryForDomain(synchronizerId)
+      domainTopoClient = syncCrypto.ips.tryForSynchronizer(synchronizerId)
       ipsSnapshot <- domainTopoClient.awaitSnapshotUS(domainTopoClient.approximateTimestamp)
       allMembers <- ipsSnapshot.allMembers()
       allParticipants = allMembers

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
@@ -20,12 +20,12 @@ trait DomainParameterStoreTest { this: AsyncWordSpec & BaseTest =>
     else
       ProtocolVersion.dev
 
-  def domainParameterStore(mk: SynchronizerId => DomainParameterStore): Unit = {
+  def domainParameterStore(mk: SynchronizerId => SynchronizerParameterStore): Unit = {
 
     "setParameters" should {
       "store new parameters" in {
         val store = mk(synchronizerId)
-        val params = defaultStaticDomainParameters
+        val params = defaultStaticSynchronizerParameters
         for {
           _ <- store.setParameters(params)
           last <- store.lastParameters
@@ -37,7 +37,7 @@ trait DomainParameterStoreTest { this: AsyncWordSpec & BaseTest =>
       "be idempotent" in {
         val store = mk(synchronizerId)
         val params =
-          BaseTest.defaultStaticDomainParametersWith(protocolVersion =
+          BaseTest.defaultStaticSynchronizerParametersWith(protocolVersion =
             anotherProtocolVersion(testedProtocolVersion)
           )
         for {
@@ -51,9 +51,9 @@ trait DomainParameterStoreTest { this: AsyncWordSpec & BaseTest =>
 
       "not overwrite changed domain parameters" in {
         val store = mk(synchronizerId)
-        val params = defaultStaticDomainParameters
+        val params = defaultStaticSynchronizerParameters
         val modified =
-          BaseTest.defaultStaticDomainParametersWith(protocolVersion =
+          BaseTest.defaultStaticSynchronizerParametersWith(protocolVersion =
             anotherProtocolVersion(testedProtocolVersion)
           )
         for {

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -8,10 +8,10 @@ import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.crypto.{
-  DomainSnapshotSyncCryptoApi,
   HashOps,
   Signature,
   SigningKeyUsage,
+  SynchronizerSnapshotSyncCryptoApi,
 }
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.data.ViewType.UnassignmentViewType
@@ -73,9 +73,9 @@ class UnassignmentProcessingSteps(
     val engine: DAMLe,
     reassignmentCoordination: ReassignmentCoordination,
     seedGenerator: SeedGenerator,
-    staticDomainParameters: Source[StaticDomainParameters],
+    staticSynchronizerParameters: Source[StaticSynchronizerParameters],
     override protected val serializableContractAuthenticator: SerializableContractAuthenticator,
-    val sourceDomainProtocolVersion: Source[ProtocolVersion],
+    val sourceSynchronizerProtocolVersion: Source[ProtocolVersion],
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends ReassignmentProcessingSteps[
@@ -108,23 +108,23 @@ class UnassignmentProcessingSteps(
       submissionParam: SubmissionParam,
       mediator: MediatorGroupRecipient,
       ephemeralState: SyncDomainEphemeralStateLookup,
-      sourceRecentSnapshot: DomainSnapshotSyncCryptoApi,
+      sourceRecentSnapshot: SynchronizerSnapshotSyncCryptoApi,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Submission] = {
     val SubmissionParam(
       submitterMetadata,
       contractId,
-      targetDomain,
+      targetSynchronizer,
       targetProtocolVersion,
     ) = submissionParam
     val pureCrypto = sourceRecentSnapshot.pureCrypto
 
-    def withDetails(message: String) = s"unassign $contractId to $targetDomain: $message"
+    def withDetails(message: String) = s"unassign $contractId to $targetSynchronizer: $message"
 
     for {
       _ <- condUnitET[FutureUnlessShutdown](
-        targetDomain.unwrap != synchronizerId.unwrap,
+        targetSynchronizer.unwrap != synchronizerId.unwrap,
         TargetDomainIsSourceDomain(synchronizerId.unwrap, contractId),
       )
       contract <- ephemeralState.contractLookup
@@ -132,14 +132,14 @@ class UnassignmentProcessingSteps(
         .toRight[ReassignmentProcessorError](UnassignmentProcessorError.UnknownContract(contractId))
         .mapK(FutureUnlessShutdown.outcomeK)
 
-      targetStaticDomainParameters <- reassignmentCoordination
-        .getStaticDomainParameter(targetDomain)
+      targetStaticSynchronizerParameters <- reassignmentCoordination
+        .getStaticSynchronizerParameter(targetSynchronizer)
         .mapK(FutureUnlessShutdown.outcomeK)
 
       timeProofAndSnapshot <- reassignmentCoordination
         .getTimeProofAndSnapshot(
-          targetDomain,
-          targetStaticDomainParameters,
+          targetSynchronizer,
+          targetStaticSynchronizerParameters,
         )
       (timeProof, targetCrypto) = timeProofAndSnapshot
       _ = logger.debug(withDetails(s"Picked time proof ${timeProof.timestamp}"))
@@ -173,9 +173,9 @@ class UnassignmentProcessingSteps(
           contract,
           submitterMetadata,
           synchronizerId,
-          sourceDomainProtocolVersion,
+          sourceSynchronizerProtocolVersion,
           mediator,
-          targetDomain,
+          targetSynchronizer,
           targetProtocolVersion,
           Source(sourceRecentSnapshot.ipsSnapshot),
           targetCrypto.map(_.ipsSnapshot),
@@ -220,7 +220,7 @@ class UnassignmentProcessingSteps(
           fullTree,
           (viewKey, viewKeyMap),
           sourceRecentSnapshot,
-          sourceDomainProtocolVersion.unwrap,
+          sourceSynchronizerProtocolVersion.unwrap,
         )
         .leftMap[ReassignmentProcessorError](EncryptionError(contractId, _))
     } yield {
@@ -228,7 +228,7 @@ class UnassignmentProcessingSteps(
         RootHashMessage(
           rootHash,
           synchronizerId.unwrap,
-          sourceDomainProtocolVersion.unwrap,
+          sourceSynchronizerProtocolVersion.unwrap,
           ViewType.UnassignmentViewType,
           sourceRecentSnapshot.ipsSnapshot.timestamp,
           EmptyRootHashMessagePayload,
@@ -250,7 +250,10 @@ class UnassignmentProcessingSteps(
         viewMessage -> recipientsT,
         rootHashMessage -> rootHashRecipients,
       )
-      ReassignmentsSubmission(Batch.of(sourceDomainProtocolVersion.unwrap, messages*), rootHash)
+      ReassignmentsSubmission(
+        Batch.of(sourceSynchronizerProtocolVersion.unwrap, messages*),
+        rootHash,
+      )
     }
   }
 
@@ -276,7 +279,7 @@ class UnassignmentProcessingSteps(
   }
 
   override protected def decryptTree(
-      sourceSnapshot: DomainSnapshotSyncCryptoApi,
+      sourceSnapshot: SynchronizerSnapshotSyncCryptoApi,
       sessionKeyStore: ConfirmationRequestSessionKeyStore,
   )(
       envelope: OpenEnvelope[EncryptedViewMessage[UnassignmentViewType]]
@@ -289,14 +292,14 @@ class UnassignmentProcessingSteps(
   ] =
     EncryptedViewMessage
       .decryptFor(
-        staticDomainParameters.unwrap,
+        staticSynchronizerParameters.unwrap,
         sourceSnapshot,
         sessionKeyStore,
         envelope.protocolMessage,
         participantId,
       ) { bytes =>
         FullUnassignmentTree
-          .fromByteString(sourceSnapshot.pureCrypto, sourceDomainProtocolVersion)(bytes)
+          .fromByteString(sourceSnapshot.pureCrypto, sourceSynchronizerProtocolVersion)(bytes)
           .leftMap(e => DefaultDeserializationError(e.toString))
       }
       .map(fullTree =>
@@ -312,7 +315,7 @@ class UnassignmentProcessingSteps(
       traceContext: TraceContext
   ): Either[ReassignmentProcessorError, ActivenessSet] =
     // TODO(i12926): Send a rejection if malformedPayloads is non-empty
-    if (parsedRequest.fullViewTree.sourceDomain == synchronizerId) {
+    if (parsedRequest.fullViewTree.sourceSynchronizer == synchronizerId) {
       val contractId = parsedRequest.fullViewTree.contractId
       val contractIdS = Set(contractId)
       val contractsCheck = ActivenessCheck.tryCreate(
@@ -330,7 +333,10 @@ class UnassignmentProcessingSteps(
     } else
       Left(
         UnexpectedDomain(
-          ReassignmentId(parsedRequest.fullViewTree.sourceDomain, parsedRequest.requestTimestamp),
+          ReassignmentId(
+            parsedRequest.fullViewTree.sourceSynchronizer,
+            parsedRequest.requestTimestamp,
+          ),
           synchronizerId.unwrap,
         )
       )
@@ -366,14 +372,14 @@ class UnassignmentProcessingSteps(
       ec: ExecutionContext,
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Target[TopologySnapshot]] =
     for {
-      targetStaticDomainParameters <- reassignmentCoordination
-        .getStaticDomainParameter(synchronizerId)
+      targetStaticSynchronizerParameters <- reassignmentCoordination
+        .getStaticSynchronizerParameter(synchronizerId)
         .mapK(FutureUnlessShutdown.outcomeK)
 
       snapshot <- reassignmentCoordination
         .awaitTimestampAndGetTaggedCryptoSnapshot(
           synchronizerId,
-          targetStaticDomainParameters,
+          targetStaticSynchronizerParameters,
           timestamp,
         )
     } yield snapshot.map(_.ipsSnapshot)
@@ -402,7 +408,7 @@ class UnassignmentProcessingSteps(
       targetTopologyO <-
         if (isReassigningParticipant)
           getTopologySnapshotAtTimestamp(
-            fullTree.targetDomain,
+            fullTree.targetSynchronizer,
             fullTree.targetTimeProof.timestamp,
           ).map(Option(_))
         else EitherT.pure[FutureUnlessShutdown, ReassignmentProcessorError](None)
@@ -419,7 +425,7 @@ class UnassignmentProcessingSteps(
         .leftMap(ReassignmentParametersError(synchronizerId.unwrap, _))
 
       reassignmentData = ReassignmentData(
-        sourceProtocolVersion = sourceDomainProtocolVersion,
+        sourceProtocolVersion = sourceSynchronizerProtocolVersion,
         unassignmentTs = requestTimestamp,
         unassignmentRequestCounter = requestCounter,
         unassignmentRequest = fullTree,
@@ -436,7 +442,7 @@ class UnassignmentProcessingSteps(
         createConfirmationResponse(
           parsedRequest.requestId,
           sourceSnapshot.unwrap,
-          sourceDomainProtocolVersion.unwrap,
+          sourceSynchronizerProtocolVersion.unwrap,
           fullTree.confirmingParties,
           unassignmentValidationResult,
         ).map(_.map((_, Recipients.cc(parsedRequest.mediator))).toList)
@@ -470,7 +476,7 @@ class UnassignmentProcessingSteps(
           entry,
           LocalRejectError.TimeRejects.LocalTimeout
             .Reject()
-            .toLocalReject(sourceDomainProtocolVersion.unwrap),
+            .toLocalReject(sourceSynchronizerProtocolVersion.unwrap),
         ),
       )
     }
@@ -573,7 +579,7 @@ class UnassignmentProcessingSteps(
   override def handleTimeout(parsedRequest: ParsedReassignmentRequest[FullView])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
-    deleteReassignment(parsedRequest.fullViewTree.targetDomain, parsedRequest.requestId)
+    deleteReassignment(parsedRequest.fullViewTree.targetSynchronizer, parsedRequest.requestId)
 
   private[this] def triggerAssignmentWhenExclusivityTimeoutExceeded(
       pendingRequestData: RequestType#PendingRequestData
@@ -585,15 +591,15 @@ class UnassignmentProcessingSteps(
     val t0 = pendingRequestData.unassignmentValidationResult.targetTimeProof.timestamp
 
     for {
-      targetStaticDomainParameters <- reassignmentCoordination
-        .getStaticDomainParameter(targetDomain)
+      targetStaticSynchronizerParameters <- reassignmentCoordination
+        .getStaticSynchronizerParameter(targetDomain)
         .mapK(FutureUnlessShutdown.outcomeK)
 
       automaticAssignment <- AutomaticAssignment
         .perform(
           pendingRequestData.unassignmentValidationResult.reassignmentId,
           targetDomain,
-          targetStaticDomainParameters,
+          targetStaticSynchronizerParameters,
           reassignmentCoordination,
           pendingRequestData.unassignmentValidationResult.stakeholders,
           pendingRequestData.submitterMetadata,

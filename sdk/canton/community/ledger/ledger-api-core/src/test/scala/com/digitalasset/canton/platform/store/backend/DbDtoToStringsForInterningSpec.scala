@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
@@ -151,7 +151,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       event_sequential_id = 1,
       exercise_choice = "60",
       exercise_result = None,
-      exercise_child_event_ids = Vector("61", "62", "63"),
+      exercise_child_node_ids = Vector(61, 62, 63),
       exercise_result_compression = Some(1),
       synchronizer_id = "domain3",
       trace_context = serializableTraceContext,

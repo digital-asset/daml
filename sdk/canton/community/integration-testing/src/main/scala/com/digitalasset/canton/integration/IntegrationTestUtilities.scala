@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration
@@ -91,10 +91,10 @@ object IntegrationTestUtilities {
 
   def extractSubmissionResult(tree: TransactionTreeV2): Value.Sum = {
     require(
-      tree.rootEventIds.size == 1,
+      tree.rootNodeIds.size == 1,
       s"Received transaction with not exactly one root node: $tree",
     )
-    tree.eventsById(tree.rootEventIds.head).kind match {
+    tree.eventsById(tree.rootNodeIds.head).kind match {
       case Created(created) => Value.Sum.ContractId(created.contractId)
       case Exercised(exercised) =>
         val Value(result) = exercised.exerciseResult.getOrElse(
@@ -127,14 +127,14 @@ object IntegrationTestUtilities {
   }
 
   def runOnAllInitializedDomainsForAllOwners(
-      initializedDomains: Map[SynchronizerAlias, InitializedDomain],
-      run: (InstanceReference, InitializedDomain) => Unit,
+      initializedDomains: Map[SynchronizerAlias, InitializedSynchronizer],
+      run: (InstanceReference, InitializedSynchronizer) => Unit,
       topologyAwaitIdle: Boolean,
   ): Unit =
     initializedDomains.foreach { case (_, initializedDomain) =>
       if (topologyAwaitIdle) {
-        initializedDomain.domainOwners.foreach(_.topology.synchronisation.await_idle())
+        initializedDomain.synchronizerOwners.foreach(_.topology.synchronisation.await_idle())
       }
-      initializedDomain.domainOwners.foreach(run(_, initializedDomain))
+      initializedDomain.synchronizerOwners.foreach(run(_, initializedDomain))
     }
 }

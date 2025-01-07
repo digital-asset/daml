@@ -1,12 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.api
 
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
 import com.digitalasset.daml.lf.value.Value as Lf
-import scalaz.syntax.tag.*
 import scalaz.{@@, Tag}
 
 import java.net.URI
@@ -23,12 +21,6 @@ package object domain {
 
   type UpdateId = Ref.TransactionId @@ UpdateIdTag
   val UpdateId: Tag.TagOf[UpdateIdTag] = Tag.of[UpdateIdTag]
-
-  // TODO(#22794) remove type
-  type EventId = Ref.LedgerString @@ EventIdTag
-  val EventId: Tag.TagOf[EventIdTag] = Tag.of[EventIdTag]
-  implicit val eventIdOrdering: Ordering[EventId] =
-    Ordering.by[EventId, Ref.LedgerString](_.unwrap)
 
   type ParticipantId = Ref.ParticipantId @@ ParticipantIdTag
   val ParticipantId: Tag.TagOf[ParticipantIdTag] = Tag.of[ParticipantIdTag]

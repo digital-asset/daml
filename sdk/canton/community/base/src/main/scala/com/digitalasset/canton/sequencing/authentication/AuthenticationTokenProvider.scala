@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.authentication
@@ -13,18 +13,18 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{NonNegativeFiniteDuration, ProcessingTimeout}
 import com.digitalasset.canton.crypto.{Crypto, Fingerprint, Nonce}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.api.v30.SequencerAuthentication.{
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.SilentLogPolicy
+import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, GrpcClient}
+import com.digitalasset.canton.sequencer.api.v30.SequencerAuthentication.{
   AuthenticateRequest,
   AuthenticateResponse,
   ChallengeRequest,
   ChallengeResponse,
   LogoutRequest,
 }
-import com.digitalasset.canton.domain.api.v30.SequencerAuthenticationServiceGrpc.SequencerAuthenticationServiceStub
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
-import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.SilentLogPolicy
-import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, GrpcClient}
+import com.digitalasset.canton.sequencer.api.v30.SequencerAuthenticationServiceGrpc.SequencerAuthenticationServiceStub
 import com.digitalasset.canton.sequencing.authentication.grpc.AuthenticationTokenWithExpiry
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.{Member, SynchronizerId}

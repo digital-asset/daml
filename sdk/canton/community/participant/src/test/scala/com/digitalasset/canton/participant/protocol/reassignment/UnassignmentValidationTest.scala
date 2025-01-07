@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -82,7 +82,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
     Set(confirmingParticipant, observingParticipant)
 
   private val identityFactory: TestingIdentityFactory = TestingTopology()
-    .withDomains(sourceDomain.unwrap)
+    .withSynchronizers(sourceDomain.unwrap)
     .withReversedTopology(
       Map(
         confirmingParticipant -> Map(
@@ -314,7 +314,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
   }
 
   private val cryptoSnapshot = identityFactory
-    .forOwnerAndDomain(confirmingParticipant, sourceDomain.unwrap)
+    .forOwnerAndSynchronizer(confirmingParticipant, sourceDomain.unwrap)
     .currentSnapshotApproximation
 
   private def mkParsedRequest(
@@ -333,7 +333,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
     Seq.empty,
     sourceMediator,
     cryptoSnapshot,
-    cryptoSnapshot.ipsSnapshot.findDynamicDomainParameters().futureValueUS.value,
+    cryptoSnapshot.ipsSnapshot.findDynamicSynchronizerParameters().futureValueUS.value,
   )
 
   private def validateUnassignmentTree(

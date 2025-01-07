@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -61,9 +61,9 @@ class TransactionProcessor(
     confirmationRequestFactory: TransactionConfirmationRequestFactory,
     synchronizerId: SynchronizerId,
     damle: DAMLe,
-    staticDomainParameters: StaticDomainParameters,
+    staticSynchronizerParameters: StaticSynchronizerParameters,
     parameters: ParticipantNodeParameters,
-    crypto: DomainSyncCryptoClient,
+    crypto: SynchronizerSyncCryptoClient,
     sequencerClient: SequencerClient,
     inFlightSubmissionDomainTracker: InFlightSubmissionDomainTracker,
     ephemeral: SyncDomainEphemeralState,
@@ -89,7 +89,7 @@ class TransactionProcessor(
         new TransactionConfirmationResponseFactory(
           participantId,
           synchronizerId,
-          staticDomainParameters.protocolVersion,
+          staticSynchronizerParameters.protocolVersion,
           loggerFactory,
         ),
         ModelConformanceChecker(
@@ -100,7 +100,7 @@ class TransactionProcessor(
           packageResolver,
           loggerFactory,
         ),
-        staticDomainParameters,
+        staticSynchronizerParameters,
         crypto,
         metrics,
         SerializableContractAuthenticator(crypto.pureCrypto),
@@ -118,7 +118,7 @@ class TransactionProcessor(
       crypto,
       sequencerClient,
       synchronizerId,
-      staticDomainParameters.protocolVersion,
+      staticSynchronizerParameters.protocolVersion,
       loggerFactory,
       futureSupervisor,
       promiseFactory,
@@ -134,7 +134,7 @@ class TransactionProcessor(
 
   override protected def preSubmissionValidations(
       params: TransactionProcessingSteps.SubmissionParam,
-      cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
       protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
@@ -154,7 +154,7 @@ class TransactionProcessor(
       wfTransaction: WellFormedTransaction[WithoutSuffixes],
       submitterInfo: SubmitterInfo,
       disclosedContracts: Map[LfContractId, SerializableContract],
-      cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
       protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
@@ -443,7 +443,7 @@ object TransactionProcessor {
       """Resubmit if the delay is caused by high load.
         |If the command requires substantial processing on the participant,
         |specify a higher minimum ledger time with the command submission so that a higher max sequencing time is derived.
-        |Alternatively, you can increase the dynamic domain parameter ledgerTimeRecordTimeTolerance.
+        |Alternatively, you can increase the dynamic synchronizer parameter ledgerTimeRecordTimeTolerance.
         |"""
     )
     object TimeoutError
@@ -456,8 +456,10 @@ object TransactionProcessor {
           with TransactionSubmissionError
     }
 
-    @Explanation("The participant routed the transaction to a domain without an active mediator.")
-    @Resolution("Add a mediator to the domain.")
+    @Explanation(
+      "The participant routed the transaction to a synchronizer without an active mediator."
+    )
+    @Resolution("Add a mediator to the synchronizer.")
     object DomainWithoutMediatorError
         extends ErrorCode(
           id = "DOMAIN_WITHOUT_MEDIATOR",
@@ -467,7 +469,7 @@ object TransactionProcessor {
           topologySnapshotTimestamp: CantonTimestamp,
           chosenSynchronizerId: SynchronizerId,
       ) extends TransactionErrorImpl(
-            cause = "There are no active mediators on the domain"
+            cause = "There are no active mediators on the synchronizer"
           )
           with TransactionSubmissionError
     }
@@ -512,7 +514,7 @@ object TransactionProcessor {
         ) {
       final case class Error(chosen_mediator: MediatorGroupRecipient, timestamp: CantonTimestamp)
           extends TransactionErrorImpl(
-            cause = "the chosen mediator is not active on the domain"
+            cause = "the chosen mediator is not active on the synchronizer"
           )
     }
 
@@ -534,10 +536,10 @@ object TransactionProcessor {
     }
   }
 
-  final case class DomainParametersError(synchronizerId: SynchronizerId, context: String)
+  final case class SynchronizerParametersError(synchronizerId: SynchronizerId, context: String)
       extends TransactionProcessorError {
-    override protected def pretty: Pretty[DomainParametersError] = prettyOfClass(
-      param("domain", _.synchronizerId),
+    override protected def pretty: Pretty[SynchronizerParametersError] = prettyOfClass(
+      param("synchronizer", _.synchronizerId),
       param("context", _.context.unquoted),
     )
   }

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.store
@@ -17,7 +17,7 @@ import com.digitalasset.canton.sequencing.protocol.{Batch, MessageId, SequencerE
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.db.DbTest
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.*
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.DomainSequencingTestUtils.deliverStoreEventWithPayloadWithDefaults
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.SynchronizerSequencingTestUtils.deliverStoreEventWithPayloadWithDefaults
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.{DefaultTestIdentities, Member, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext

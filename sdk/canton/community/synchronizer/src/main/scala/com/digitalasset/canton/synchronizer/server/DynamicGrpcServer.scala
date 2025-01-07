@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.server
@@ -15,7 +15,7 @@ import com.digitalasset.canton.health.{
 import com.digitalasset.canton.lifecycle.LifeCycle.{CloseableServer, toCloseableServer}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
-import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
+import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
 import com.digitalasset.canton.synchronizer.config.PublicServerConfig
 import com.digitalasset.canton.synchronizer.sequencing.SequencerRuntime
 import io.grpc.protobuf.services.ProtoReflectionService
@@ -65,7 +65,7 @@ class DynamicGrpcServer(
         NoOpTelemetry,
       )
       // Overriding the dummy setting from PublicServerConfig.
-      // To avoid being locked out if the dynamic domain parameter maxRequestSize is too small.
+      // To avoid being locked out if the dynamic synchronizer parameter maxRequestSize is too small.
       .maxInboundMessageSize(
         serverConfig.overrideMaxRequestSize.getOrElse(maxRequestSize.value)
       )

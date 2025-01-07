@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.config
@@ -997,10 +997,10 @@ object CantonConfig {
         deriveReader[PackageMetadataViewConfig]
       deriveReader[ParticipantNodeParameterConfig]
     }
-    lazy implicit final val timeTrackerConfigReader: ConfigReader[DomainTimeTrackerConfig] = {
+    lazy implicit final val timeTrackerConfigReader: ConfigReader[SynchronizerTimeTrackerConfig] = {
       implicit val timeRequestConfigReader: ConfigReader[TimeProofRequestConfig] =
         deriveReader[TimeProofRequestConfig]
-      deriveReader[DomainTimeTrackerConfig]
+      deriveReader[SynchronizerTimeTrackerConfig]
     }
 
     lazy implicit final val sequencerClientConfigReader: ConfigReader[SequencerClientConfig] = {
@@ -1482,10 +1482,10 @@ object CantonConfig {
         deriveWriter[PackageMetadataViewConfig]
       deriveWriter[ParticipantNodeParameterConfig]
     }
-    lazy implicit final val timeTrackerConfigWriter: ConfigWriter[DomainTimeTrackerConfig] = {
+    lazy implicit final val timeTrackerConfigWriter: ConfigWriter[SynchronizerTimeTrackerConfig] = {
       implicit val timeRequestConfigWriter: ConfigWriter[TimeProofRequestConfig] =
         deriveWriter[TimeProofRequestConfig]
-      deriveWriter[DomainTimeTrackerConfig]
+      deriveWriter[SynchronizerTimeTrackerConfig]
     }
 
     lazy implicit final val sequencerClientConfigWriter: ConfigWriter[SequencerClientConfig] = {

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.traffic
@@ -16,7 +16,7 @@ import com.digitalasset.canton.protocol.messages.{
   SetTrafficPurchasedMessage,
   SignedProtocolMessage,
 }
-import com.digitalasset.canton.protocol.{DomainParameters, DynamicDomainParameters}
+import com.digitalasset.canton.protocol.{DynamicSynchronizerParameters, SynchronizerParameters}
 import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.sequencing.client.{
   SendAsyncClientError,
@@ -24,13 +24,13 @@ import com.digitalasset.canton.sequencing.client.{
   SendResult,
   SequencerClientSend,
 }
-import com.digitalasset.canton.sequencing.protocol.{SequencersOfDomain, *}
+import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.{
   TrafficControlErrors,
   TrafficPurchasedSubmissionHandler,
   TrafficReceipt,
 }
-import com.digitalasset.canton.time.{DomainTimeTracker, SimClock}
+import com.digitalasset.canton.time.{SimClock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{
@@ -59,23 +59,23 @@ class TrafficPurchasedSubmissionHandlerTest
 
   private val recipient1 = DefaultTestIdentities.participant1.member
   private val sequencerClient = mock[SequencerClientSend]
-  private val domainTimeTracker = mock[DomainTimeTracker]
+  private val synchronizerTimeTracker = mock[SynchronizerTimeTracker]
   private val synchronizerId = SynchronizerId.tryFromString("da::default")
   private val clock = new SimClock(loggerFactory = loggerFactory)
   private val trafficParams = TrafficControlParameters()
   private val handler = new TrafficPurchasedSubmissionHandler(clock, loggerFactory)
   val crypto = TestingTopology(
-    domainParameters = List(
-      DomainParameters.WithValidity(
+    synchronizerParameters = List(
+      SynchronizerParameters.WithValidity(
         validFrom = CantonTimestamp.Epoch.minusSeconds(1),
         validUntil = None,
-        parameter = DynamicDomainParameters
+        parameter = DynamicSynchronizerParameters
           .defaultValues(testedProtocolVersion)
           .tryUpdate(trafficControlParameters = Some(trafficParams)),
       )
     )
   ).build(loggerFactory)
-    .forOwnerAndDomain(DefaultTestIdentities.sequencerId, synchronizerId)
+    .forOwnerAndSynchronizer(DefaultTestIdentities.sequencerId, synchronizerId)
 
   override def beforeEach(): Unit = {
     super.beforeEach()
@@ -110,7 +110,7 @@ class TrafficPurchasedSubmissionHandlerTest
         PositiveInt.tryCreate(5),
         NonNegativeLong.tryCreate(1000),
         sequencerClient,
-        domainTimeTracker,
+        synchronizerTimeTracker,
         crypto,
       )
       .value
@@ -137,7 +137,7 @@ class TrafficPurchasedSubmissionHandlerTest
             RecipientsTree.recipientsLeaf( // Leaf of the tree: sequencers of domain group
               NonEmpty.mk(
                 Set,
-                SequencersOfDomain: Recipient,
+                SequencersOfSynchronizer: Recipient,
               )
             )
           ),
@@ -192,7 +192,7 @@ class TrafficPurchasedSubmissionHandlerTest
         PositiveInt.tryCreate(5),
         NonNegativeLong.tryCreate(1000),
         sequencerClient,
-        domainTimeTracker,
+        synchronizerTimeTracker,
         crypto,
       )
       .value
@@ -248,7 +248,7 @@ class TrafficPurchasedSubmissionHandlerTest
         PositiveInt.tryCreate(5),
         NonNegativeLong.tryCreate(1000),
         sequencerClient,
-        domainTimeTracker,
+        synchronizerTimeTracker,
         crypto,
       )
       .value
@@ -296,7 +296,7 @@ class TrafficPurchasedSubmissionHandlerTest
           PositiveInt.tryCreate(5),
           NonNegativeLong.tryCreate(1000),
           sequencerClient,
-          domainTimeTracker,
+          synchronizerTimeTracker,
           crypto,
         )
 
@@ -338,7 +338,7 @@ class TrafficPurchasedSubmissionHandlerTest
       )(any[TraceContext], any[MetricsContext])
     )
       .thenReturn(EitherT.pure(()))
-    clearInvocations(domainTimeTracker)
+    clearInvocations(synchronizerTimeTracker)
 
     loggerFactory.assertEventuallyLogsSeq(SuppressionRule.Level(Level.WARN))(
       {
@@ -349,7 +349,7 @@ class TrafficPurchasedSubmissionHandlerTest
           PositiveInt.tryCreate(5),
           NonNegativeLong.tryCreate(1000),
           sequencerClient,
-          domainTimeTracker,
+          synchronizerTimeTracker,
           crypto,
         )
 
@@ -376,6 +376,8 @@ class TrafficPurchasedSubmissionHandlerTest
     )
 
     // Check that a tick was requested so that the sequencer will actually observe the timeout
-    verify(domainTimeTracker).requestTick(any[CantonTimestamp], any[Boolean])(any[TraceContext])
+    verify(synchronizerTimeTracker).requestTick(any[CantonTimestamp], any[Boolean])(
+      any[TraceContext]
+    )
   }
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.store
@@ -7,7 +7,7 @@ import cats.data.EitherT
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
@@ -16,7 +16,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 final case class SequencerDomainConfiguration(
     synchronizerId: SynchronizerId,
-    domainParameters: StaticDomainParameters,
+    synchronizerParameters: StaticSynchronizerParameters,
 )
 
 sealed trait SequencerDomainConfigurationStoreError

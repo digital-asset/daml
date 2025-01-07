@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -73,7 +73,7 @@ import com.digitalasset.canton.store.{
   IndexedDomain,
   SessionKeyStoreWithInMemoryCache,
 }
-import com.digitalasset.canton.time.{DomainTimeTracker, WallClock}
+import com.digitalasset.canton.time.{SynchronizerTimeTracker, WallClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
@@ -145,7 +145,7 @@ class AssignmentProcessingStepsTest
   private lazy val seedGenerator = new SeedGenerator(crypto.pureCrypto)
 
   private lazy val identityFactory = TestingTopology()
-    .withDomains(sourceDomain.unwrap)
+    .withSynchronizers(sourceDomain.unwrap)
     .withReversedTopology(
       Map(
         participant -> Map(
@@ -159,7 +159,7 @@ class AssignmentProcessingStepsTest
 
   private lazy val cryptoSnapshot =
     identityFactory
-      .forOwnerAndDomain(participant, sourceDomain.unwrap)
+      .forOwnerAndSynchronizer(participant, sourceDomain.unwrap)
       .currentSnapshotApproximation
 
   private lazy val assignmentProcessingSteps =
@@ -177,7 +177,7 @@ class AssignmentProcessingStepsTest
         clock,
         crypto,
         IndexedDomain.tryCreate(targetDomain.unwrap, 1),
-        defaultStaticDomainParameters,
+        defaultStaticSynchronizerParameters,
         enableAdditionalConsistencyChecks = true,
         indexedStringStore = indexedStringStore,
         contractStore = contractStore,
@@ -191,12 +191,12 @@ class AssignmentProcessingStepsTest
       )
 
     for {
-      _ <- persistentState.parameterStore.setParameters(defaultStaticDomainParameters)
+      _ <- persistentState.parameterStore.setParameters(defaultStaticSynchronizerParameters)
     } yield {
       val state = new SyncDomainEphemeralState(
         participant,
         mock[RecordOrderPublisher],
-        mock[DomainTimeTracker],
+        mock[SynchronizerTimeTracker],
         mock[InFlightSubmissionDomainTracker],
         persistentState,
         ledgerApiIndexer,
@@ -256,7 +256,7 @@ class AssignmentProcessingStepsTest
       Seq.empty,
       targetMediator,
       cryptoSnapshot,
-      cryptoSnapshot.ipsSnapshot.findDynamicDomainParameters().futureValueUS.value,
+      cryptoSnapshot.ipsSnapshot.findDynamicSynchronizerParameters().futureValueUS.value,
     )
   }
 
@@ -904,7 +904,7 @@ class AssignmentProcessingStepsTest
       targetDomain: Target[SynchronizerId],
       signatories: Set[LfPartyId],
       stakeholders: Set[LfPartyId],
-      snapshotOverride: DomainSnapshotSyncCryptoApi,
+      snapshotOverride: SynchronizerSnapshotSyncCryptoApi,
       awaitTimestampOverride: Option[Future[Unit]],
   ): AssignmentProcessingSteps = {
 
@@ -925,7 +925,7 @@ class AssignmentProcessingStepsTest
       ),
       seedGenerator,
       SerializableContractAuthenticator(pureCrypto),
-      Target(defaultStaticDomainParameters),
+      Target(defaultStaticSynchronizerParameters),
       Target(testedProtocolVersion),
       loggerFactory = loggerFactory,
     )

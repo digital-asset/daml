@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin.repair
@@ -9,7 +9,7 @@ import com.digitalasset.canton.participant.protocol.ProcessingStartingPoints
 import com.digitalasset.canton.participant.protocol.RequestJournal.{RequestData, RequestState}
 import com.digitalasset.canton.participant.store.SyncDomainPersistentState
 import com.digitalasset.canton.participant.util.TimeOfChange
-import com.digitalasset.canton.protocol.{StaticDomainParameters, TransactionId}
+import com.digitalasset.canton.protocol.{StaticSynchronizerParameters, TransactionId}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.{RequestCounter, SynchronizerAlias}
@@ -51,7 +51,7 @@ private[repair] object RepairRequest {
       alias: SynchronizerAlias,
       topologySnapshot: TopologySnapshot,
       persistentState: SyncDomainPersistentState,
-      parameters: StaticDomainParameters,
+      parameters: StaticSynchronizerParameters,
       startingPoints: ProcessingStartingPoints,
   )
 

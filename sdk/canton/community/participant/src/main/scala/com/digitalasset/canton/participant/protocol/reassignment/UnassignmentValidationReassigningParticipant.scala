@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -98,7 +98,7 @@ private[reassignment] class UnassignmentValidationReassigningParticipant(
   ): EitherT[FutureUnlessShutdown, ReassignmentValidationError, Unit] =
     UsableDomains
       .checkPackagesVetted(
-        request.targetDomain.unwrap,
+        request.targetSynchronizer.unwrap,
         targetTopology.unwrap,
         stakeholders.view.map(_ -> Set(templateId.packageId)).toMap,
         targetTopology.unwrap.referenceTime,

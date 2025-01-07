@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.mediator
@@ -55,7 +55,7 @@ trait MediatorReplicaManager extends NamedLogging with FlagCloseableAsync {
 
   def getTopologyQueueStatus: TopologyQueueStatus = TopologyQueueStatus(
     manager = mediatorRuntime.map(_.mediator.topologyManagerStatus.queueSize).getOrElse(0),
-    dispatcher = mediatorRuntime.map(_.mediator.domainOutboxHandle.queueSize).getOrElse(0),
+    dispatcher = mediatorRuntime.map(_.mediator.synchronizerOutboxHandle.queueSize).getOrElse(0),
     clients = mediatorRuntime.map(x => x.mediator.topologyClient.numPendingChanges).getOrElse(0),
   )
 

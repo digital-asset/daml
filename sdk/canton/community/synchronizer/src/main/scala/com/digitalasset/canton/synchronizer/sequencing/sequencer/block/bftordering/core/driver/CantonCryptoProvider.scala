@@ -1,17 +1,17 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.driver
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.{
-  DomainSnapshotSyncCryptoApi,
   Hash,
   HashPurpose,
   Signature,
   SignatureCheckError,
   SigningKeyUsage,
   SyncCryptoError,
+  SynchronizerSnapshotSyncCryptoApi,
 }
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.topology.CryptoProvider
@@ -28,8 +28,9 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
 
-class CantonCryptoProvider(cryptoApi: DomainSnapshotSyncCryptoApi)(implicit ec: ExecutionContext)
-    extends CryptoProvider[PekkoEnv] {
+class CantonCryptoProvider(cryptoApi: SynchronizerSnapshotSyncCryptoApi)(implicit
+    ec: ExecutionContext
+) extends CryptoProvider[PekkoEnv] {
   override def sign(
       hash: Hash,
       usage: NonEmpty[Set[SigningKeyUsage]],

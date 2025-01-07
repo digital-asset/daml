@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin.grpc
@@ -313,7 +313,7 @@ class GrpcPruningService(
         }
     } yield for {
       _ <- FutureUnlessShutdown.unit
-      domainTopoClient = ips.tryForDomain(synchronizerId)
+      domainTopoClient = ips.tryForSynchronizer(synchronizerId)
       ipsSnapshot <- domainTopoClient.awaitSnapshotUS(domainTopoClient.approximateTimestamp)
       allMembers <- ipsSnapshot.allMembers()
       allParticipants = allMembers

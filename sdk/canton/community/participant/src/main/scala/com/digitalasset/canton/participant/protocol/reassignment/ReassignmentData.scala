@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -36,12 +36,12 @@ final case class ReassignmentData(
   def assignmentGlobalOffset: Option[Offset] =
     reassignmentGlobalOffset.flatMap(_.assignment)
 
-  def targetDomain: Target[SynchronizerId] = unassignmentRequest.targetDomain
+  def targetDomain: Target[SynchronizerId] = unassignmentRequest.targetSynchronizer
 
-  def sourceDomain: Source[SynchronizerId] = unassignmentRequest.sourceDomain
+  def sourceDomain: Source[SynchronizerId] = unassignmentRequest.sourceSynchronizer
 
   def reassignmentId: ReassignmentId =
-    ReassignmentId(unassignmentRequest.sourceDomain, unassignmentTs)
+    ReassignmentId(unassignmentRequest.sourceSynchronizer, unassignmentTs)
 
   def sourceMediator: MediatorGroupRecipient = unassignmentRequest.mediator
 

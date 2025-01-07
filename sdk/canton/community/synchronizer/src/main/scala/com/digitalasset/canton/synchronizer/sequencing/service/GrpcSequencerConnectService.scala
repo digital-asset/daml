@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.service
@@ -7,26 +7,26 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
-import com.digitalasset.canton.crypto.DomainSyncCryptoClient
-import com.digitalasset.canton.domain.api.v30 as proto
-import com.digitalasset.canton.domain.api.v30.SequencerConnect
-import com.digitalasset.canton.domain.api.v30.SequencerConnect.GetDomainParametersResponse.Parameters
-import com.digitalasset.canton.domain.api.v30.SequencerConnect.{
-  GetDomainParametersRequest,
-  GetDomainParametersResponse,
+import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcFUSExtended
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
+import com.digitalasset.canton.sequencer.api.v30 as proto
+import com.digitalasset.canton.sequencer.api.v30.SequencerConnect
+import com.digitalasset.canton.sequencer.api.v30.SequencerConnect.GetSynchronizerParametersResponse.Parameters
+import com.digitalasset.canton.sequencer.api.v30.SequencerConnect.{
   GetSynchronizerIdRequest,
   GetSynchronizerIdResponse,
+  GetSynchronizerParametersRequest,
+  GetSynchronizerParametersResponse,
   HandshakeRequest,
   HandshakeResponse,
   RegisterOnboardingTopologyTransactionsResponse,
   VerifyActiveRequest,
   VerifyActiveResponse,
 }
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
-import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcFUSExtended
-import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.synchronizer.sequencing.authentication.grpc.IdentityContextHelper
 import com.digitalasset.canton.synchronizer.service.HandshakeValidator
 import com.digitalasset.canton.topology.*
@@ -45,15 +45,16 @@ import scala.concurrent.{ExecutionContext, Future}
 class GrpcSequencerConnectService(
     synchronizerId: SynchronizerId,
     sequencerId: SequencerId,
-    staticDomainParameters: StaticDomainParameters,
-    domainTopologyManager: DomainTopologyManager,
-    cryptoApi: DomainSyncCryptoClient,
+    staticSynchronizerParameters: StaticSynchronizerParameters,
+    synchronizerTopologyManager: SynchronizerTopologyManager,
+    cryptoApi: SynchronizerSyncCryptoClient,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends proto.SequencerConnectServiceGrpc.SequencerConnectService
     with NamedLogging {
 
-  protected val serverProtocolVersion: ProtocolVersion = staticDomainParameters.protocolVersion
+  protected val serverProtocolVersion: ProtocolVersion =
+    staticSynchronizerParameters.protocolVersion
 
   override def getSynchronizerId(
       request: GetSynchronizerIdRequest
@@ -65,20 +66,20 @@ class GrpcSequencerConnectService(
       )
     )
 
-  override def getDomainParameters(
-      request: GetDomainParametersRequest
-  ): Future[GetDomainParametersResponse] = {
-    val response = staticDomainParameters.protoVersion.v match {
-      case 30 => Future.successful(Parameters.ParametersV1(staticDomainParameters.toProtoV30))
+  override def getSynchronizerParameters(
+      request: GetSynchronizerParametersRequest
+  ): Future[GetSynchronizerParametersResponse] = {
+    val response = staticSynchronizerParameters.protoVersion.v match {
+      case 30 => Future.successful(Parameters.ParametersV1(staticSynchronizerParameters.toProtoV30))
       case unsupported =>
         Future.failed(
           new IllegalStateException(
-            s"Unsupported Proto version $unsupported for static domain parameters"
+            s"Unsupported Proto version $unsupported for static synchronizer parameters"
           )
         )
     }
 
-    response.map(GetDomainParametersResponse(_))
+    response.map(GetSynchronizerParametersResponse(_))
   }
 
   override def verifyActive(request: VerifyActiveRequest): Future[VerifyActiveResponse] = {
@@ -138,7 +139,7 @@ class GrpcSequencerConnectService(
       )
       _ <- EitherTUtil.condUnitET[Future](
         !isKnown,
-        failedPrecondition(s"Member $member is already known on the domain"),
+        failedPrecondition(s"Member $member is already known on the synchronizer"),
       )
       // check that the onboarding member is not attempting to re-onboard
       // TODO(#14045) Topology Pruning: Make sure that we retain evidence that a member was offboarded
@@ -162,7 +163,7 @@ class GrpcSequencerConnectService(
 
       _ <- checkForOnlyOnboardingTransactions(member, transactions)
       _ <- CantonGrpcUtil.mapErrNewETUS(
-        domainTopologyManager
+        synchronizerTopologyManager
           .add(transactions, ForceFlags.all, expectFullAuthorization = false)
       )
     } yield RegisterOnboardingTopologyTransactionsResponse.defaultInstance

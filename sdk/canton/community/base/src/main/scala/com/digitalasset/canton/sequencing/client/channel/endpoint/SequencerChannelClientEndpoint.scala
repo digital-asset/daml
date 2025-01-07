@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client.channel.endpoint
@@ -7,9 +7,9 @@ import cats.data.EitherT
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, OnShutdownRunner}
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.sequencer.api.v30
 import com.digitalasset.canton.sequencing.channel.ConnectToSequencerChannelRequest
 import com.digitalasset.canton.sequencing.channel.ConnectToSequencerChannelRequest.Payload
 import com.digitalasset.canton.sequencing.client.SubscriptionCloseReason
@@ -64,7 +64,7 @@ private[channel] final class SequencerChannelClientEndpoint(
     member: Member,
     connectTo: Member,
     processor: SequencerChannelProtocolProcessor,
-    domainCryptoApi: DomainSyncCryptoClient,
+    domainCryptoApi: SynchronizerSyncCryptoClient,
     isSessionKeyOwner: Boolean,
     timestamp: CantonTimestamp,
     protocolVersion: ProtocolVersion,

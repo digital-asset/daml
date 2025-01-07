@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.console.commands
@@ -11,7 +11,7 @@ import com.digitalasset.canton.admin.api.client.commands.{GrpcAdminCommand, Sequ
 import com.digitalasset.canton.admin.api.client.data.{
   NodeStatus,
   SequencerStatus,
-  StaticDomainParameters,
+  StaticSynchronizerParameters,
 }
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.console.{
@@ -95,7 +95,7 @@ class SequencerAdministration(node: SequencerReference) extends ConsoleCommandGr
   )
   def assign_from_genesis_state(
       genesisState: ByteString,
-      domainParameters: StaticDomainParameters,
+      domainParameters: StaticSynchronizerParameters,
       waitForReady: Boolean = true,
   ): InitializeSequencerResponse = {
     if (waitForReady) node.health.wait_for_ready_for_initialization()

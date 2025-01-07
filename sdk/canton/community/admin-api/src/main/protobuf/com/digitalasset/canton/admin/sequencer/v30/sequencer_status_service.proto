@@ -1,0 +1,58 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.admin.sequencer.v30;
+
+import "com/digitalasset/canton/admin/health/v30/status_service.proto";
+
+service SequencerStatusService {
+  rpc SequencerStatus(SequencerStatusRequest) returns (SequencerStatusResponse);
+}
+
+message SequencerStatusRequest {}
+
+message SequencerStatusResponse {
+  oneof kind {
+    SequencerStatusResponseStatus status = 1;
+    com.digitalasset.canton.admin.health.v30.NotInitialized not_initialized = 2;
+  }
+
+  message ConnectedParticipant {
+    string uid = 1;
+  }
+
+  message ConnectedMediator {
+    string uid = 1;
+  }
+
+  message SequencerStatusResponseStatus {
+    com.digitalasset.canton.admin.health.v30.Status common_status = 1;
+
+    repeated ConnectedParticipant connected_participants = 2;
+    repeated ConnectedMediator connected_mediators = 3;
+
+    // required - status of the sequencer component it is running
+    SequencerHealthStatus sequencer = 4;
+
+    string synchronizer_id = 5;
+
+    SequencerAdminStatus admin = 6;
+
+    int32 protocol_version = 7;
+  }
+}
+
+message SequencerHealthStatus {
+  // is the sequencer component active - can vary by implementation for what this means
+  bool active = 1;
+  // optionally set details on how sequencer is healthy/unhealthy
+  optional string details = 2;
+}
+
+message SequencerAdminStatus {
+  // Indicate if the sequencer node accepts administration changes, particularly relevant for HA sequencers
+  // where admin change ability is determined via active-passive model
+  bool accepts_admin_changes = 1;
+}

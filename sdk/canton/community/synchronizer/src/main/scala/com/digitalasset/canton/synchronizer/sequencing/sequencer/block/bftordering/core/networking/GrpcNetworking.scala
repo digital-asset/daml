@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.networking
@@ -8,12 +8,6 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1.{
-  BftOrderingServiceGrpc,
-  BftOrderingServiceReceiveRequest,
-  BftOrderingServiceReceiveResponse,
-  PingRequest,
-}
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
@@ -23,6 +17,12 @@ import com.digitalasset.canton.lifecycle.{
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.CommunityClientChannelBuilder
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1.{
+  BftOrderingServiceGrpc,
+  BftOrderingServiceReceiveRequest,
+  BftOrderingServiceReceiveResponse,
+  PingRequest,
+}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.p2p.grpc.GrpcClientEndpoint
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.SequencerId

@@ -1,10 +1,14 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.traffic
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.sequencing.protocol.{AllMembersOfDomain, ClosedEnvelope, Recipients}
+import com.digitalasset.canton.sequencing.protocol.{
+  AllMembersOfSynchronizer,
+  ClosedEnvelope,
+  Recipients,
+}
 import com.digitalasset.canton.sequencing.traffic.EventCostCalculator
 import com.digitalasset.canton.sequencing.traffic.EventCostCalculator.EnvelopeCostDetails
 import com.digitalasset.canton.topology.Member
@@ -40,10 +44,10 @@ class EventCostCalculatorTest
   }
 
   "use resolved group recipients" in {
-    val recipients = Recipients.cc(AllMembersOfDomain)
+    val recipients = Recipients.cc(AllMembersOfSynchronizer)
     new EventCostCalculator(loggerFactory).computeEnvelopeCost(
       PositiveInt.tryCreate(5000),
-      Map(AllMembersOfDomain -> Set(recipient1, recipient2)),
+      Map(AllMembersOfSynchronizer -> Set(recipient1, recipient2)),
     )(
       ClosedEnvelope.create(
         ByteString.copyFrom(Array.fill(5)(1.toByte)),
@@ -64,11 +68,11 @@ class EventCostCalculatorTest
     // ~ 500 recipients, cost multiplier 200, estimated payload 25000
     // This overflows an Int computation (-154496 instead of 275000)
 
-    val recipients = Recipients.cc(AllMembersOfDomain)
+    val recipients = Recipients.cc(AllMembersOfSynchronizer)
     val manyRecipients = List.fill(500)(mock[Member]).toSet
     new EventCostCalculator(loggerFactory).computeEnvelopeCost(
       PositiveInt.tryCreate(200),
-      Map(AllMembersOfDomain -> manyRecipients),
+      Map(AllMembersOfSynchronizer -> manyRecipients),
     )(
       ClosedEnvelope.create(
         ByteString.copyFrom(Array.fill(25000)(1.toByte)),
@@ -90,11 +94,11 @@ class EventCostCalculatorTest
     val exception = intercept[IllegalStateException](
       new EventCostCalculator(loggerFactory).computeEnvelopeCost(
         PositiveInt.tryCreate(1_000_000_000),
-        Map(AllMembersOfDomain -> manyRecipients),
+        Map(AllMembersOfSynchronizer -> manyRecipients),
       )(
         ClosedEnvelope.create(
           ByteString.copyFrom(Array.fill(10_000_000)(1.toByte)),
-          Recipients.cc(AllMembersOfDomain),
+          Recipients.cc(AllMembersOfSynchronizer),
           Seq.empty,
           testedProtocolVersion,
         )

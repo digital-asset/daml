@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.common
@@ -165,7 +165,7 @@ private[backend] object AppendOnlySchema {
         "exercise_actors" -> fieldStrategy.intArray(stringInterning =>
           _.exercise_actors.map(stringInterning.party.unsafe.internalize)
         ),
-        "exercise_child_event_ids" -> fieldStrategy.stringArray(_ => _.exercise_child_event_ids),
+        "exercise_child_node_ids" -> fieldStrategy.intArray(_ => _.exercise_child_node_ids),
         "template_id" -> fieldStrategy.int(stringInterning =>
           dbDto => stringInterning.templateId.unsafe.internalize(dbDto.template_id)
         ),

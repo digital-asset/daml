@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.mediator.store
@@ -187,7 +187,7 @@ private[mediator] class MediatorState(
   )
 
   /** Prune unnecessary data from before and including the given timestamp which should be calculated by the [[Mediator]]
-    * based on the confirmation response timeout domain parameters. In practice a much larger retention period
+    * based on the confirmation response timeout synchronizer parameters. In practice a much larger retention period
     * may be kept.
     *
     * Also updates the current age of the oldest finalized response after pruning.

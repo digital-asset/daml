@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.block
@@ -37,12 +37,18 @@ class DriverBlockOrderer(
     driver.subscribe()
 
   override def send(
-      signedSubmission: SignedOrderingRequest
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] =
+      signedOrderingRequest: SignedOrderingRequest
+  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] = {
+    val submissionRequest = signedOrderingRequest.content.content.content
     // The driver API doesn't provide error reporting, so we don't attempt to translate the exception
     EitherT.right(
-      driver.send(signedSubmission.toByteString)
+      driver.send(
+        signedOrderingRequest = signedOrderingRequest.toByteString,
+        submissionId = submissionRequest.messageId.toProtoPrimitive,
+        senderId = submissionRequest.sender.toProtoPrimitive,
+      )
     )
+  }
 
   override def acknowledge(signedAcknowledgeRequest: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext

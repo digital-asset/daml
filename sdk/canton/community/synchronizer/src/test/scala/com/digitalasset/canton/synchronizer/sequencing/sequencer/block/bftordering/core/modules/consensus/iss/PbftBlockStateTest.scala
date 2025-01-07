@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss
@@ -353,41 +353,42 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
     }
 
     "complete block as leader with out-of-order Pbft messages" in {
-      val block = createBlockState(otherPeers.toSet, myId)
+      val blockState = createBlockState(otherPeers.toSet, myId)
       val myPrepare = createPrepare(myId)
       val myCommit = createCommit(myId)
 
       // As a leader, the PrePrepare must always come first
-      assertNoLogs(block.processMessage(prePrepare)) shouldBe true
-      block.advance() should contain theSameElementsInOrderAs List(
+      assertNoLogs(blockState.processMessage(prePrepare)) shouldBe true
+      blockState.advance() should contain theSameElementsInOrderAs List(
         SendPbftMessage(prePrepare, store = Some(StorePrePrepare(prePrepare))),
         SendPbftMessage(myPrepare, store = None),
       )
-      block.confirmPrePrepareStored()
+      blockState.confirmPrePrepareStored()
 
-      // Receive quorum of commits first, which should NOT complete the block (nor advance progress)
-      otherPeers.foreach { peer =>
-        assertNoLogs(block.processMessage(createCommit(peer))) shouldBe true
-        block.advance() shouldBe empty
+      // Receive some commits first, but not enough yet to complete the block
+      otherPeers.dropRight(1).foreach { peer =>
+        assertNoLogs(blockState.processMessage(createCommit(peer))) shouldBe true
+        blockState.advance() shouldBe empty
       }
 
-      // Receive one prepare from a peer, which should still be one short of threshold
-      assertNoLogs(block.processMessage(createPrepare(otherPeers.head))) shouldBe true
-      block.advance() shouldBe empty
+      // Receive one prepare from a peer, which should be one short of threshold to send a local commit
+      assertNoLogs(blockState.processMessage(createPrepare(otherPeers.head))) shouldBe true
+      blockState.advance() shouldBe empty
 
-      // Receive the final prepare that should complete the block
-      assertNoLogs(block.processMessage(createPrepare(otherPeer2))) shouldBe true
-      inside(block.advance()) {
+      // Receive the final prepare that should result in a local commit sent
+      assertNoLogs(blockState.processMessage(createPrepare(otherPeer2))) shouldBe true
+      inside(blockState.advance()) {
         case List(SendPbftMessage(commit, Some(StorePrepares(preparesToStore)))) =>
           commit shouldBe myCommit
           val expectedPreparesToStore = otherPeers.take(2).map(createPrepare(_)) :+ myPrepare
           preparesToStore should contain theSameElementsAs expectedPreparesToStore
       }
 
-      block.confirmPreparesStored()
-      block.advance() should contain only CompletedBlock(
+      // Confirm storage of the prepares, which should then enable block completion
+      blockState.confirmPreparesStored()
+      blockState.advance() should contain only CompletedBlock(
         prePrepare,
-        Seq(createCommit(otherPeer1), createCommit(otherPeer2), createCommit(otherPeer3)),
+        Seq(createCommit(otherPeer1), createCommit(otherPeer2), myCommit),
         ViewNumber.First,
       )
     }
@@ -408,17 +409,18 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       )
       blockState.confirmPrePrepareStored()
 
-      // Receive quorum of commits first, which should NOT complete the block (nor advance progress)
-      otherPeers.foreach { peer =>
+      // Receive some commits first, but not enough yet to complete the block
+      otherPeers.dropRight(1).foreach { peer =>
         assertNoLogs(blockState.processMessage(createCommit(peer, hash))) shouldBe true
         blockState.advance() shouldBe empty
       }
 
-      // Receive the last prepares needed to complete the block
+      // Receive another prepare from a peer, which should be one short of threshold to send a local commit
       assertNoLogs(blockState.processMessage(createPrepare(otherPeers.head, hash))) shouldBe true
       blockState.advance() shouldBe empty
-      assertNoLogs(blockState.processMessage(createPrepare(otherPeer2, hash))) shouldBe true
 
+      // Receive the final prepare that should result in a local commit sent
+      assertNoLogs(blockState.processMessage(createPrepare(otherPeer2, hash))) shouldBe true
       inside(blockState.advance()) {
         case List(SendPbftMessage(commit, Some(StorePrepares(preparesToStore)))) =>
           commit shouldBe myCommit
@@ -427,16 +429,94 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           preparesToStore should contain theSameElementsAs expectedPreparesToStore
       }
 
+      // Confirm storage of the prepares, which should then enable block completion
       blockState.confirmPreparesStored()
       blockState.advance() should contain only CompletedBlock(
         pp,
         Seq(
           createCommit(otherPeer1, hash),
           createCommit(otherPeer2, hash),
-          createCommit(otherPeer3, hash),
+          myCommit,
         ),
         ViewNumber.First,
       )
+    }
+
+    "complete block as leader with only PrePrepare and non-local Commits" in {
+      val blockState = createBlockState(otherPeers.toSet, myId)
+      val myPrepare = createPrepare(myId)
+
+      // As a leader, the PrePrepare must always come first
+      assertNoLogs(blockState.processMessage(prePrepare)) shouldBe true
+      blockState.advance() should contain theSameElementsInOrderAs List(
+        SendPbftMessage(prePrepare, store = Some(StorePrePrepare(prePrepare))),
+        SendPbftMessage(myPrepare, store = None),
+      )
+      blockState.confirmPrePrepareStored()
+
+      // Receive commits from all but the last peer, which should not complete the block
+      otherPeers.dropRight(1).foreach { peer =>
+        assertNoLogs(blockState.processMessage(createCommit(peer))) shouldBe true
+        blockState.advance() shouldBe empty
+      }
+
+      // Receive a commit from the last peer, which should be a strong quorum of non-local commits
+      otherPeers.takeRight(1).foreach { peer =>
+        assertNoLogs(blockState.processMessage(createCommit(peer))) shouldBe true
+        blockState.advance() should contain only CompletedBlock(
+          prePrepare,
+          Seq(createCommit(otherPeer1), createCommit(otherPeer2), createCommit(otherPeer3)),
+          ViewNumber.First,
+        )
+      }
+
+      // Finish receiving a quorum of prepares and assert that the local commit action is NOT fired
+      otherPeers.dropRight(1).foreach { peer =>
+        assertNoLogs(blockState.processMessage(createPrepare(peer))) shouldBe true
+      }
+      blockState.advance() shouldBe empty
+    }
+
+    "complete block as follower with only PrePrepare and non-local Commits" in {
+      val leader = otherPeers.head
+      val blockState = createBlockState(otherPeers.toSet, leader)
+
+      // As a follower, receive the PrePrepare and send a Prepare
+      val pp = createPrePrepare(leader)
+      val hash = pp.message.hash
+      val myPrepare = createPrepare(myId, hash)
+
+      assertNoLogs(blockState.processMessage(pp)) shouldBe true
+      blockState.advance() should contain theSameElementsInOrderAs List(
+        SendPbftMessage(myPrepare, store = Some(StorePrePrepare(pp)))
+      )
+      blockState.confirmPrePrepareStored()
+
+      // Receive commits from all but the last peer, which should not complete the block
+      otherPeers.dropRight(1).foreach { peer =>
+        assertNoLogs(blockState.processMessage(createCommit(peer, hash))) shouldBe true
+        blockState.advance() shouldBe empty
+      }
+
+      // Receive a commit from the last peer, which should be a strong quorum of non-local commits
+      otherPeers.takeRight(1).foreach { peer =>
+        assertNoLogs(blockState.processMessage(createCommit(peer, hash))) shouldBe true
+        blockState.advance() should contain only CompletedBlock(
+          pp,
+          Seq(
+            createCommit(otherPeer1, hash),
+            createCommit(otherPeer2, hash),
+            createCommit(otherPeer3, hash),
+          ),
+          ViewNumber.First,
+        )
+      }
+
+      // Finish receiving a quorum of prepares and assert that the local commit action is NOT fired
+      otherPeers.dropRight(1).foreach { peer =>
+        assertNoLogs(blockState.processMessage(createPrepare(peer, hash))) shouldBe true
+      }
+      blockState.advance() shouldBe empty
     }
 
     "produce correct consensus certificate" in {

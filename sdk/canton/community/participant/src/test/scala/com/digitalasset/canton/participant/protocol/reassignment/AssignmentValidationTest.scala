@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -92,7 +92,7 @@ class AssignmentValidationTest
     )
 
   private val identityFactory = TestingTopology()
-    .withDomains(sourceDomain.unwrap)
+    .withSynchronizers(sourceDomain.unwrap)
     .withReversedTopology(
       Map(
         submittingParticipant -> Map(signatory -> ParticipantPermission.Submission),
@@ -107,7 +107,7 @@ class AssignmentValidationTest
 
   private val cryptoSnapshot =
     identityFactory
-      .forOwnerAndDomain(submittingParticipant, sourceDomain.unwrap)
+      .forOwnerAndSynchronizer(submittingParticipant, sourceDomain.unwrap)
       .currentSnapshotApproximation
 
   private val pureCrypto = new SymbolicPureCrypto
@@ -143,7 +143,7 @@ class AssignmentValidationTest
       Seq.empty,
       targetMediator,
       cryptoSnapshot,
-      cryptoSnapshot.ipsSnapshot.findDynamicDomainParameters().futureValueUS.value,
+      cryptoSnapshot.ipsSnapshot.findDynamicSynchronizerParameters().futureValueUS.value,
     )
   }
 
@@ -400,7 +400,7 @@ class AssignmentValidationTest
 
   private def testInstance(
       synchronizerId: Target[SynchronizerId],
-      snapshotOverride: DomainSnapshotSyncCryptoApi,
+      snapshotOverride: SynchronizerSnapshotSyncCryptoApi,
       awaitTimestampOverride: Option[Future[Unit]],
       participantId: ParticipantId,
   ): AssignmentValidation = {
@@ -412,7 +412,7 @@ class AssignmentValidationTest
 
     new AssignmentValidation(
       synchronizerId,
-      Target(defaultStaticDomainParameters),
+      Target(defaultStaticSynchronizerParameters),
       participantId,
       TestReassignmentCoordination.apply(
         Set(),

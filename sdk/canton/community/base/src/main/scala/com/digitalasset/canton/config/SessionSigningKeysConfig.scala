@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.config
@@ -15,7 +15,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
   *                            the crash, its lifespan must be at least as long as the participant's response timeout.
   *                            The response's signature will rely on the topology snapshot from the request's original
   *                            timestamp (i.e., pre-crash), so the key must remain valid at least until that request
-  *                            has timed out. Since this timeout is a dynamic domain parameter, it can only be
+  *                            has timed out. Since this timeout is a dynamic synchronizer parameter, it can only be
   *                            evaluated when a request is sent. If the initially configured validity duration is too
   *                            short, we will use the participant's response timeout instead (and issue a warning).
   */

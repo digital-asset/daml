@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests
@@ -47,13 +47,14 @@ sealed trait CommunityPruningSmokeIntegrationTest
           Some(WaitingForInitialization),
         )
 
-        bootstrap.domain(
+        bootstrap.synchronizer(
           synchronizerAlias,
           Seq(sequencer1),
           Seq(mediator1),
           Seq[InstanceReference](sequencer1, mediator1),
           PositiveInt.two,
-          staticDomainParameters = CommunityEnvironmentDefinition.defaultStaticDomainParameters,
+          staticSynchronizerParameters =
+            CommunityEnvironmentDefinition.defaultStaticSynchronizerParameters,
         )
 
         sequencer1.health.wait_for_initialized()
@@ -99,7 +100,7 @@ sealed trait CommunityPruningSmokeIntegrationTest
     import env.*
 
     participant1.start()
-    participant1.domains.connect_local(
+    participant1.synchronizers.connect_local(
       sequencer1,
       alias = SynchronizerAlias.tryCreate(synchronizerAlias),
     )

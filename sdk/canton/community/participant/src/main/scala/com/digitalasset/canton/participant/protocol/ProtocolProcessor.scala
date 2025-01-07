@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -13,9 +13,9 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.TestingConfigInternal
 import com.digitalasset.canton.crypto.{
-  DomainSnapshotSyncCryptoApi,
-  DomainSyncCryptoClient,
   Signature,
+  SynchronizerSnapshotSyncCryptoApi,
+  SynchronizerSyncCryptoClient,
 }
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -95,7 +95,7 @@ abstract class ProtocolProcessor[
     ],
     inFlightSubmissionDomainTracker: InFlightSubmissionDomainTracker,
     ephemeral: SyncDomainEphemeralState,
-    crypto: DomainSyncCryptoClient,
+    crypto: SynchronizerSyncCryptoClient,
     sequencerClient: SequencerClientSend,
     synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
@@ -141,7 +141,7 @@ abstract class ProtocolProcessor[
     */
   protected def preSubmissionValidations(
       params: SubmissionParam,
-      cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
       protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
@@ -521,7 +521,7 @@ abstract class ProtocolProcessor[
     val removeF = for {
       domainParameters <- crypto.ips
         .awaitSnapshotUS(submissionTimestamp)
-        .flatMap(snapshot => snapshot.findDynamicDomainParameters())
+        .flatMap(snapshot => snapshot.findDynamicSynchronizerParameters())
         .flatMap(_.toFutureUS(new RuntimeException(_)))
 
       decisionTime <- domainParameters.decisionTimeForF(submissionTimestamp)
@@ -705,7 +705,7 @@ abstract class ProtocolProcessor[
         )
         domainParameters <- EitherT(
           snapshot.ipsSnapshot
-            .findDynamicDomainParameters()
+            .findDynamicSynchronizerParameters()
             .map(
               _.leftMap(_ =>
                 steps.embedRequestError(
@@ -1177,7 +1177,7 @@ abstract class ProtocolProcessor[
         steps.requestType.PendingRequestData
       ],
       mediatorGroup: MediatorGroupRecipient,
-      snapshot: DomainSnapshotSyncCryptoApi,
+      snapshot: SynchronizerSnapshotSyncCryptoApi,
       malformedPayloads: Seq[MalformedPayload],
   )(implicit
       traceContext: TraceContext
@@ -1282,7 +1282,7 @@ abstract class ProtocolProcessor[
 
       domainParameters <- EitherT(
         snapshot
-          .findDynamicDomainParameters()
+          .findDynamicSynchronizerParameters()
           .map(
             _.leftMap(_ =>
               steps.embedResultError(
@@ -1359,7 +1359,7 @@ abstract class ProtocolProcessor[
       requestId: RequestId,
       resultTs: CantonTimestamp,
       sc: SequencerCounter,
-      domainParameters: DynamicDomainParametersWithValidity,
+      domainParameters: DynamicSynchronizerParametersWithValidity,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, steps.ResultError, EitherT[
@@ -1478,7 +1478,7 @@ abstract class ProtocolProcessor[
       requestId: RequestId,
       resultTs: CantonTimestamp,
       sc: SequencerCounter,
-      domainParameters: DynamicDomainParametersWithValidity,
+      domainParameters: DynamicSynchronizerParametersWithValidity,
       pendingRequestDataOrReplayData: ReplayDataOr[
         steps.requestType.PendingRequestData
       ],
@@ -1658,7 +1658,7 @@ abstract class ProtocolProcessor[
       resultTimestamp: CantonTimestamp,
       commitTime: CantonTimestamp,
       commitSetOF: Option[FutureUnlessShutdown[CommitSet]],
-      domainParameters: DynamicDomainParametersWithValidity,
+      domainParameters: DynamicSynchronizerParametersWithValidity,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,

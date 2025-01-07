@@ -1,11 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
 
 package com.digitalasset.canton.mediator.admin.v30;
 
-import "com/digitalasset/canton/admin/domain/v30/sequencer_connection.proto";
+import "com/digitalasset/canton/admin/sequencer/v30/sequencer_connection.proto";
 
 service MediatorInitializationService {
   // Initialize a Mediator service
@@ -20,10 +20,10 @@ message InitializeMediatorRequest {
   string synchronizer_id = 1;
 
   // how should the member connect to the domain sequencer
-  com.digitalasset.canton.admin.domain.v30.SequencerConnections sequencer_connections = 2; // required
+  com.digitalasset.canton.admin.sequencer.v30.SequencerConnections sequencer_connections = 2; // required
 
   // how strictly we should validate the connection to the sequencer
-  com.digitalasset.canton.admin.domain.v30.SequencerConnectionValidation sequencer_connection_validation = 3; // required
+  com.digitalasset.canton.admin.sequencer.v30.SequencerConnectionValidation sequencer_connection_validation = 3; // required
 }
 
 message InitializeMediatorResponse {}

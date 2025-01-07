@@ -1,11 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.block.update
 
 import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, SyncCryptoApi}
+import com.digitalasset.canton.crypto.{SyncCryptoApi, SynchronizerSyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
@@ -92,7 +92,7 @@ object BlockUpdateGenerator {
 class BlockUpdateGeneratorImpl(
     synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
-    domainSyncCryptoApi: DomainSyncCryptoClient,
+    domainSyncCryptoApi: SynchronizerSyncCryptoClient,
     sequencerId: SequencerId,
     rateLimitManager: SequencerRateLimitManager,
     orderingTimeFixMode: OrderingTimeFixMode,
@@ -178,8 +178,8 @@ class BlockUpdateGeneratorImpl(
       case Send(_, signedOrderingRequest, _) =>
         val allRecipients =
           signedOrderingRequest.signedSubmissionRequest.content.batch.allRecipients
-        allRecipients.contains(AllMembersOfDomain) ||
-        allRecipients.contains(SequencersOfDomain)
+        allRecipients.contains(AllMembersOfSynchronizer) ||
+        allRecipients.contains(SequencersOfSynchronizer)
       case _ => false
     }
 

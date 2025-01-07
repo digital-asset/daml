@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.processing
@@ -7,7 +7,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.SigningPublicKey
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.protocol.TestDomainParameters
+import com.digitalasset.canton.protocol.TestSynchronizerParameters
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.DefaultTestIdentities.sequencerId
@@ -85,16 +85,16 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
     )
   val sdmS1_k1 =
     mkAdd(
-      SequencerDomainState
+      SequencerSynchronizerState
         .create(synchronizerId1, PositiveInt.one, Seq(sequencer1), Seq.empty)
         .getOrElse(sys.error("Failed to create SequencerDomainState")),
       key1,
     )
 
   val dtcp1_k1 =
-    mkAdd(DomainTrustCertificate(participant1, SynchronizerId(uid1a)), key1)
+    mkAdd(SynchronizerTrustCertificate(participant1, SynchronizerId(uid1a)), key1)
 
-  val defaultDomainParameters = TestDomainParameters.defaultDynamic
+  val defaultDomainParameters = TestSynchronizerParameters.defaultDynamic
 
   val p1p1B_k2 =
     mkAdd(
@@ -146,12 +146,12 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
     )
 
   val dmp1_k2 = mkAdd(
-    DomainParametersState(SynchronizerId(uid1a), defaultDomainParameters),
+    SynchronizerParametersState(SynchronizerId(uid1a), defaultDomainParameters),
     key2,
   )
 
   val dmp1_k1 = mkAdd(
-    DomainParametersState(
+    SynchronizerParametersState(
       SynchronizerId(uid1a),
       defaultDomainParameters
         .tryUpdate(confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(1)),
@@ -160,7 +160,7 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
   )
 
   val dmp1_k1_bis = mkAdd(
-    DomainParametersState(
+    SynchronizerParametersState(
       SynchronizerId(uid1a),
       defaultDomainParameters
         .tryUpdate(confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(2)),

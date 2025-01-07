@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.mediator.service
@@ -11,7 +11,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.mediator.admin.v30
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
-import com.digitalasset.canton.synchronizer.Synchronizer.FailedToInitialiseDomainNode
+import com.digitalasset.canton.synchronizer.Synchronizer.FailedToInitialiseSynchronizerNode
 import com.digitalasset.canton.synchronizer.mediator.admin.gprc.{
   InitializeMediatorRequest,
   InitializeMediatorResponse,
@@ -43,8 +43,8 @@ class GrpcMediatorInitializationService(
       )
       result <- handler
         .initialize(request)
-        .leftMap(FailedToInitialiseDomainNode.Failure(_))
-        .onShutdown(Left(FailedToInitialiseDomainNode.Shutdown())): EitherT[
+        .leftMap(FailedToInitialiseSynchronizerNode.Failure(_))
+        .onShutdown(Left(FailedToInitialiseSynchronizerNode.Shutdown())): EitherT[
         Future,
         CantonError,
         InitializeMediatorResponse,

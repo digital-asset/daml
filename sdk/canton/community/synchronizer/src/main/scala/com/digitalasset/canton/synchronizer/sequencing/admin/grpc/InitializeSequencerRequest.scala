@@ -1,14 +1,14 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.admin.grpc
 
-import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.SequencerSnapshot
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 
 final case class InitializeSequencerRequest(
     topologySnapshot: GenericStoredTopologyTransactions,
-    domainParameters: StaticDomainParameters,
+    synchronizerParameters: StaticSynchronizerParameters,
     sequencerSnapshot: Option[SequencerSnapshot] = None,
 )

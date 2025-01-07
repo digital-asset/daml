@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store
@@ -9,7 +9,7 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.SigningPublicKey
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.protocol.DynamicDomainParameters
+import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.*
@@ -150,9 +150,9 @@ class TopologyStoreTestData(
     )
   )(dnd_p1p2_keys*)
   val dop_domain1_proposal = makeSignedTx(
-    DomainParametersState(
+    SynchronizerParametersState(
       domain1_p1p2_synchronizerId,
-      DynamicDomainParameters
+      DynamicSynchronizerParameters
         .initialValues(
           topologyChangeDelay = NonNegativeFiniteDuration.Zero,
           protocolVersion = testedProtocolVersion,
@@ -163,9 +163,9 @@ class TopologyStoreTestData(
   )(p1Key)
 
   val dop_domain1 = makeSignedTx(
-    DomainParametersState(
+    SynchronizerParametersState(
       domain1_p1p2_synchronizerId,
-      DynamicDomainParameters
+      DynamicSynchronizerParameters
         .initialValues(
           topologyChangeDelay = NonNegativeFiniteDuration.Zero,
           protocolVersion = testedProtocolVersion,
@@ -185,7 +185,7 @@ class TopologyStoreTestData(
     serial = PositiveInt.tryCreate(2),
   )(dnd_p1p2_keys*)
   val dtc_p1_domain1 = makeSignedTx(
-    DomainTrustCertificate(
+    SynchronizerTrustCertificate(
       p1Id,
       domain1_p1p2_synchronizerId,
     )
@@ -228,20 +228,20 @@ class TopologyStoreTestData(
     )
   )(p1Key, p2Key)
   val dtc_p2_domain1 = makeSignedTx(
-    DomainTrustCertificate(
+    SynchronizerTrustCertificate(
       p2Id,
       domain1_p1p2_synchronizerId,
     )
   )(p2Key)
   val dtc_p2_domain1_update = makeSignedTx(
-    DomainTrustCertificate(
+    SynchronizerTrustCertificate(
       p2Id,
       domain1_p1p2_synchronizerId,
     ),
     serial = PositiveInt.tryCreate(2),
   )(p2Key)
   val mds_med1_domain1 = makeSignedTx(
-    MediatorDomainState
+    MediatorSynchronizerState
       .create(
         synchronizerId = domain1_p1p2_synchronizerId,
         group = NonNegativeInt.one,
@@ -253,7 +253,7 @@ class TopologyStoreTestData(
   )(dnd_p1p2_keys*)
 
   val mds_med1_domain1_invalid = makeSignedTx(
-    MediatorDomainState
+    MediatorSynchronizerState
       .create(
         synchronizerId = domain1_p1p2_synchronizerId,
         group = NonNegativeInt.one,
@@ -265,7 +265,7 @@ class TopologyStoreTestData(
   )(seqKey)
 
   val mds_med1_domain1_update = makeSignedTx(
-    MediatorDomainState
+    MediatorSynchronizerState
       .create(
         synchronizerId = domain1_p1p2_synchronizerId,
         group = NonNegativeInt.one,
@@ -278,7 +278,7 @@ class TopologyStoreTestData(
   )(dnd_p1p2_keys*)
 
   val sds_seq1_domain1 = makeSignedTx(
-    SequencerDomainState
+    SequencerSynchronizerState
       .create(
         synchronizerId = domain1_p1p2_synchronizerId,
         threshold = PositiveInt.one,

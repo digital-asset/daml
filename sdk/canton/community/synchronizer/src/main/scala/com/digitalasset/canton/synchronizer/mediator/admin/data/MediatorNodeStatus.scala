@@ -1,10 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.mediator.admin.data
 
 import cats.syntax.option.*
-import com.digitalasset.canton.admin.domain.v30 as domainV30
+import com.digitalasset.canton.admin.mediator.v30 as mediatorV30
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.health.ComponentStatus
 import com.digitalasset.canton.health.admin.data.NodeStatus.{multiline, portsString}
@@ -40,8 +40,8 @@ final case class MediatorNodeStatus(
       ).mkString(System.lineSeparator())
     )
 
-  def toMediatorStatusProto: domainV30.MediatorStatusResponse.MediatorStatusResponseStatus =
-    domainV30.MediatorStatusResponse.MediatorStatusResponseStatus(
+  def toMediatorStatusProto: mediatorV30.MediatorStatusResponse.MediatorStatusResponseStatus =
+    mediatorV30.MediatorStatusResponse.MediatorStatusResponseStatus(
       commonStatus = toProtoV30.some,
       synchronizerId = synchronizerId.toProtoPrimitive,
       protocolVersion = protocolVersion.toProtoPrimitive,

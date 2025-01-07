@@ -1,17 +1,17 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.DomainTimeTrackerConfig
 import com.digitalasset.canton.config.RequireTypes.Port
+import com.digitalasset.canton.config.SynchronizerTimeTrackerConfig
 import com.digitalasset.canton.networking.Endpoint
-import com.digitalasset.canton.participant.domain.DomainConnectionConfig
 import com.digitalasset.canton.participant.store.DomainConnectionConfigStore.{
   AlreadyAddedForAlias,
   MissingConfigForAlias,
 }
+import com.digitalasset.canton.participant.synchronizer.DomainConnectionConfig
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.*
@@ -41,7 +41,7 @@ trait DomainConnectionConfigStoreTest {
     42,
     Some(NonNegativeFiniteDuration.tryOfSeconds(1)),
     Some(NonNegativeFiniteDuration.tryOfSeconds(5)),
-    DomainTimeTrackerConfig(),
+    SynchronizerTimeTrackerConfig(),
   )
 
   def domainConnectionConfigStore(mk: => Future[DomainConnectionConfigStore]): Unit = {
@@ -100,7 +100,7 @@ trait DomainConnectionConfigStoreTest {
           99,
           None,
           None,
-          DomainTimeTrackerConfig(),
+          SynchronizerTimeTrackerConfig(),
         )
         for {
           sut <- mk

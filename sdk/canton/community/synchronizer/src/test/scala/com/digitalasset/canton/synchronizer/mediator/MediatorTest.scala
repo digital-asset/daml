@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.mediator
@@ -6,7 +6,10 @@ package com.digitalasset.canton.synchronizer.mediator
 import cats.data.NonEmptySeq
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.protocol.{DynamicDomainParametersWithValidity, TestDomainParameters}
+import com.digitalasset.canton.protocol.{
+  DynamicSynchronizerParametersWithValidity,
+  TestSynchronizerParameters,
+}
 import com.digitalasset.canton.synchronizer.mediator.Mediator.{Safe, SafeUntil}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
@@ -15,7 +18,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class MediatorTest extends AnyWordSpec with BaseTest {
   private def parametersWith(confirmationResponseTimeout: NonNegativeFiniteDuration) =
-    TestDomainParameters.defaultDynamic.tryUpdate(confirmationResponseTimeout =
+    TestSynchronizerParameters.defaultDynamic.tryUpdate(confirmationResponseTimeout =
       confirmationResponseTimeout
     )
 
@@ -26,13 +29,13 @@ class MediatorTest extends AnyWordSpec with BaseTest {
   private def relTime(offset: Long): CantonTimestamp = origin.plusSeconds(offset)
 
   private lazy val synchronizerId = SynchronizerId(
-    UniqueIdentifier.tryFromProtoPrimitive("domain::default")
+    UniqueIdentifier.tryFromProtoPrimitive("synchronizer::default")
   )
 
   "Mediator.checkPruningStatus" should {
-    "deal with current domain parameters" in {
+    "deal with current synchronizer parameters" in {
       val parameters =
-        DynamicDomainParametersWithValidity(
+        DynamicSynchronizerParametersWithValidity(
           defaultParameters,
           CantonTimestamp.Epoch,
           None,
@@ -47,12 +50,12 @@ class MediatorTest extends AnyWordSpec with BaseTest {
       )
     }
 
-    "cap the time using DomainParameters.WithValidity[DynamicDomainParameters].validFrom" in {
+    "cap the time using SynchronizerParameters.WithValidity[DynamicSynchronizerParameters].validFrom" in {
       val validFrom = origin
 
       def test(validUntil: Option[CantonTimestamp]): Assertion = {
         val parameters =
-          DynamicDomainParametersWithValidity(
+          DynamicSynchronizerParametersWithValidity(
             defaultParameters,
             validFrom,
             validUntil,
@@ -74,9 +77,9 @@ class MediatorTest extends AnyWordSpec with BaseTest {
       test(validUntil = Some(validFrom.plus(defaultTimeout.unwrap.multipliedBy(2))))
     }
 
-    "deal with future domain parameters" in {
+    "deal with future synchronizer parameters" in {
       val parameters =
-        DynamicDomainParametersWithValidity(
+        DynamicSynchronizerParametersWithValidity(
           defaultParameters,
           origin,
           None,
@@ -89,11 +92,11 @@ class MediatorTest extends AnyWordSpec with BaseTest {
       ) shouldBe Safe
     }
 
-    "deal with past domain parameters" in {
+    "deal with past synchronizer parameters" in {
       val dpChangeTs = relTime(60)
 
       val parameters =
-        DynamicDomainParametersWithValidity(
+        DynamicSynchronizerParametersWithValidity(
           defaultParameters,
           origin,
           Some(dpChangeTs),
@@ -133,20 +136,20 @@ class MediatorTest extends AnyWordSpec with BaseTest {
     val dpChangeTs2 = relTime(40)
 
     val parameters = NonEmptySeq.of(
-      DynamicDomainParametersWithValidity(
+      DynamicSynchronizerParametersWithValidity(
         defaultParameters,
         origin,
         Some(dpChangeTs1),
         synchronizerId,
       ),
       // This one prevents pruning for some time
-      DynamicDomainParametersWithValidity(
+      DynamicSynchronizerParametersWithValidity(
         parametersWith(hugeTimeout),
         dpChangeTs1,
         Some(dpChangeTs2),
         synchronizerId,
       ),
-      DynamicDomainParametersWithValidity(
+      DynamicSynchronizerParametersWithValidity(
         defaultParameters,
         dpChangeTs2,
         None,
@@ -173,7 +176,7 @@ class MediatorTest extends AnyWordSpec with BaseTest {
         Mediator.latestSafePruningTsBefore(
           parameters,
           cleanTs,
-        ) shouldBe Some(cleanTs - defaultTimeout) // effect of the first domain parameters
+        ) shouldBe Some(cleanTs - defaultTimeout) // effect of the first synchronizer parameters
       }
 
       {

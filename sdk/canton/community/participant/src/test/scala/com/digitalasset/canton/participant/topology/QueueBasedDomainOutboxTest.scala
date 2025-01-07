@@ -1,11 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.topology
 
 import cats.implicits.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.common.domain.RegisterTopologyTransactionHandle
+import com.digitalasset.canton.common.sequencer.RegisterTopologyTransactionHandle
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{ProcessingTimeout, TopologyConfig}
 import com.digitalasset.canton.crypto.SigningKeyUsage
@@ -22,8 +22,8 @@ import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast.S
 import com.digitalasset.canton.time.WallClock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{
-  DomainTopologyClientWithInit,
-  StoreBasedDomainTopologyClient,
+  StoreBasedSynchronizerTopologyClient,
+  SynchronizerTopologyClientWithInit,
 }
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.*
@@ -99,24 +99,24 @@ class QueueBasedDomainOutboxTest
       rejections: Iterator[Option[TopologyTransactionRejection]] = Iterator.continually(None),
   ): FutureUnlessShutdown[
     (
-        InMemoryTopologyStore[TopologyStoreId.DomainStore],
-        DomainTopologyManager,
+        InMemoryTopologyStore[TopologyStoreId.SynchronizerStore],
+        SynchronizerTopologyManager,
         MockHandle,
-        StoreBasedDomainTopologyClient,
+        StoreBasedSynchronizerTopologyClient,
     )
   ] = {
     val target = new InMemoryTopologyStore(
-      TopologyStoreId.DomainStore(DefaultTestIdentities.synchronizerId),
+      TopologyStoreId.SynchronizerStore(DefaultTestIdentities.synchronizerId),
       testedProtocolVersion,
       loggerFactory,
       timeouts,
     )
-    val queue = new DomainOutboxQueue(loggerFactory)
-    val manager = new DomainTopologyManager(
+    val queue = new SynchronizerOutboxQueue(loggerFactory)
+    val manager = new SynchronizerTopologyManager(
       participant1.uid,
       clock,
       crypto,
-      defaultStaticDomainParameters,
+      defaultStaticSynchronizerParameters,
       target,
       queue,
       // we don't need the validation logic to run, because we control the outcome of transactions manually
@@ -125,11 +125,11 @@ class QueueBasedDomainOutboxTest
       futureSupervisor,
       loggerFactory,
     )
-    val client = new StoreBasedDomainTopologyClient(
+    val client = new StoreBasedSynchronizerTopologyClient(
       clock,
       synchronizerId,
       store = target,
-      packageDependenciesResolver = StoreBasedDomainTopologyClient.NoPackageDependencies,
+      packageDependenciesResolver = StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
       timeouts = timeouts,
       futureSupervisor = futureSupervisor,
       loggerFactory = loggerFactory,
@@ -164,7 +164,7 @@ class QueueBasedDomainOutboxTest
       expectI: Int,
       responses: Iterator[State],
       store: TopologyStore[TopologyStoreId],
-      targetClient: StoreBasedDomainTopologyClient,
+      targetClient: StoreBasedSynchronizerTopologyClient,
       rejections: Iterator[Option[TopologyTransactionRejection]] = Iterator.continually(None),
   ) extends RegisterTopologyTransactionHandle {
     val buffer: mutable.ListBuffer[GenericSignedTopologyTransaction] = ListBuffer()
@@ -241,7 +241,7 @@ class QueueBasedDomainOutboxTest
   }
 
   private def push(
-      manager: DomainTopologyManager,
+      manager: SynchronizerTopologyManager,
       transactions: Seq[GenericTopologyTransaction],
   ): FutureUnlessShutdown[
     Either[TopologyManagerError, Seq[GenericSignedTopologyTransaction]]
@@ -260,13 +260,13 @@ class QueueBasedDomainOutboxTest
       .value
 
   private def outboxConnected(
-      manager: DomainTopologyManager,
+      manager: SynchronizerTopologyManager,
       handle: RegisterTopologyTransactionHandle,
-      client: DomainTopologyClientWithInit,
-      target: TopologyStore[TopologyStoreId.DomainStore],
+      client: SynchronizerTopologyClientWithInit,
+      target: TopologyStore[TopologyStoreId.SynchronizerStore],
       broadcastBatchSize: PositiveInt = TopologyConfig.defaultBroadcastBatchSize,
-  ): FutureUnlessShutdown[QueueBasedDomainOutbox] = {
-    val domainOutbox = new QueueBasedDomainOutbox(
+  ): FutureUnlessShutdown[QueueBasedSynchronizerOutbox] = {
+    val domainOutbox = new QueueBasedSynchronizerOutbox(
       domain,
       synchronizerId,
       participant1,
@@ -282,7 +282,7 @@ class QueueBasedDomainOutboxTest
     )
     domainOutbox
       .startup()
-      .fold[QueueBasedDomainOutbox](
+      .fold[QueueBasedSynchronizerOutbox](
         s => fail(s"Failed to start domain outbox $s"),
         _ =>
           domainOutbox.tap(outbox =>
@@ -300,7 +300,7 @@ class QueueBasedDomainOutboxTest
       )
   }
 
-  private def outboxDisconnected(manager: DomainTopologyManager): Unit =
+  private def outboxDisconnected(manager: SynchronizerTopologyManager): Unit =
     manager.clearObservers()
 
   private def txAddFromMapping(mapping: TopologyMapping) =

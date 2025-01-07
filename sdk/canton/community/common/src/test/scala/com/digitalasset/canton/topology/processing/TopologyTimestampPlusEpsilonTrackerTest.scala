@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.processing
@@ -6,7 +6,7 @@ package com.digitalasset.canton.topology.processing
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.protocol.DynamicDomainParameters
+import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.store.{
@@ -33,7 +33,7 @@ class TopologyTimestampPlusEpsilonTrackerTest
       parallelExecutionContext,
     )
     val store = new InMemoryTopologyStore(
-      TopologyStoreId.DomainStore(DefaultTestIdentities.synchronizerId),
+      TopologyStoreId.SynchronizerStore(DefaultTestIdentities.synchronizerId),
       testedProtocolVersion,
       loggerFactory,
       timeouts,
@@ -71,9 +71,9 @@ class TopologyTimestampPlusEpsilonTrackerTest
         topologyChangeDelay: NonNegativeFiniteDuration,
     ): Unit = {
       val tx = crypto.mkAdd(
-        DomainParametersState(
+        SynchronizerParametersState(
           DefaultTestIdentities.synchronizerId,
-          DynamicDomainParameters.initialValues(
+          DynamicSynchronizerParameters.initialValues(
             topologyChangeDelay,
             testedProtocolVersion,
           ),

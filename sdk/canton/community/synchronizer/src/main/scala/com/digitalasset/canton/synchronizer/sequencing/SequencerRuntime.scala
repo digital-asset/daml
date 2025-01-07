@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing
@@ -8,25 +8,25 @@ import cats.syntax.parallel.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
-import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, SigningKeyUsage}
+import com.digitalasset.canton.crypto.{SigningKeyUsage, SynchronizerSyncCryptoClient}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.health.HealthListener
 import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
-import com.digitalasset.canton.protocol.DomainParametersLookup.SequencerDomainParameters
+import com.digitalasset.canton.protocol.SynchronizerParametersLookup.SequencerSynchronizerParameters
 import com.digitalasset.canton.protocol.{
-  DomainParametersLookup,
-  DynamicDomainParametersLookup,
-  StaticDomainParameters,
+  DynamicSynchronizerParametersLookup,
+  StaticSynchronizerParameters,
+  SynchronizerParametersLookup,
 }
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.sequencer.admin.v30.{
   SequencerAdministrationServiceGrpc,
   SequencerPruningAdministrationServiceGrpc,
 }
+import com.digitalasset.canton.sequencer.api.v30
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.handlers.{
   DiscardIgnoredEvents,
@@ -61,22 +61,22 @@ import com.digitalasset.canton.synchronizer.sequencing.service.{
   GrpcSequencerPruningAdministrationService,
   GrpcSequencerService,
 }
-import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
+import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
+import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
   SequencedTime,
   TopologyTransactionProcessingSubscriber,
   TopologyTransactionProcessor,
 }
-import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
+import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.{TopologyStateForInitializationService, TopologyStore}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.{
-  DomainTrustCertificate,
-  MediatorDomainState,
-  SequencerDomainState,
+  MediatorSynchronizerState,
+  SequencerSynchronizerState,
+  SynchronizerTrustCertificate,
 }
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil}
@@ -102,7 +102,7 @@ object SequencerAuthenticationConfig {
 /** Run a sequencer and its supporting services.
   *
   * @param authenticationConfig   Authentication setup if supported, otherwise none.
-  * @param staticDomainParameters The set of members to register on startup statically.
+  * @param staticSynchronizerParameters The set of members to register on startup statically.
   *
   * Creates a sequencer client and connect it to a topology client
   * to power sequencer authentication.
@@ -111,16 +111,16 @@ class SequencerRuntime(
     sequencerId: SequencerId,
     val sequencer: Sequencer,
     client: SequencerClient,
-    staticDomainParameters: StaticDomainParameters,
+    staticSynchronizerParameters: StaticSynchronizerParameters,
     localNodeParameters: SequencerNodeParameters,
     publicServerConfig: PublicServerConfig,
-    timeTracker: DomainTimeTracker,
+    timeTracker: SynchronizerTimeTracker,
     val metrics: SequencerMetrics,
     indexedDomain: IndexedDomain,
-    val syncCrypto: DomainSyncCryptoClient,
-    domainTopologyManager: DomainTopologyManager,
-    topologyStore: TopologyStore[DomainStore],
-    topologyClient: DomainTopologyClientWithInit,
+    val syncCrypto: SynchronizerSyncCryptoClient,
+    synchronizerTopologyManager: SynchronizerTopologyManager,
+    topologyStore: TopologyStore[SynchronizerStore],
+    topologyClient: SynchronizerTopologyClientWithInit,
     topologyProcessor: TopologyTransactionProcessor,
     topologyManagerStatusO: Option[TopologyManagerStatus],
     storage: Storage,
@@ -129,7 +129,7 @@ class SequencerRuntime(
     staticMembersToRegister: Seq[Member],
     memberAuthenticationServiceFactory: MemberAuthenticationServiceFactory,
     topologyStateForInitializationService: TopologyStateForInitializationService,
-    maybeDomainOutboxFactory: Option[DomainOutboxFactorySingleCreate],
+    maybeSynchronizerOutboxFactory: Option[SynchronizerOutboxFactorySingleCreate],
     protected val loggerFactory: NamedLoggerFactory,
     runtimeReadyPromise: PromiseUnlessShutdown[Unit],
 )(implicit
@@ -187,10 +187,10 @@ class SequencerRuntime(
     } yield ()
   }
 
-  private val sequencerDomainParamsLookup
-      : DynamicDomainParametersLookup[SequencerDomainParameters] =
-    DomainParametersLookup.forSequencerDomainParameters(
-      staticDomainParameters,
+  private val sequencerSynchronizerParamsLookup
+      : DynamicSynchronizerParametersLookup[SequencerSynchronizerParameters] =
+    SynchronizerParametersLookup.forSequencerSynchronizerParameters(
+      staticSynchronizerParameters,
       publicServerConfig.overrideMaxRequestSize,
       topologyClient,
       loggerFactory,
@@ -201,9 +201,9 @@ class SequencerRuntime(
     metrics,
     authenticationConfig.check,
     clock,
-    sequencerDomainParamsLookup,
+    sequencerSynchronizerParamsLookup,
     localNodeParameters,
-    staticDomainParameters.protocolVersion,
+    staticSynchronizerParameters.protocolVersion,
     topologyStateForInitializationService,
     loggerFactory,
   )
@@ -214,7 +214,7 @@ class SequencerRuntime(
     GrpcSequencerChannelService(
       authenticationConfig.check,
       clock,
-      staticDomainParameters.protocolVersion,
+      staticSynchronizerParameters.protocolVersion,
       localNodeParameters.processingTimeouts,
       loggerFactory,
     )
@@ -274,7 +274,7 @@ class SequencerRuntime(
     val sequencerAuthenticationService =
       new GrpcSequencerAuthenticationService(
         authenticationService,
-        staticDomainParameters.protocolVersion,
+        staticSynchronizerParameters.protocolVersion,
         loggerFactory,
       )
 
@@ -292,7 +292,7 @@ class SequencerRuntime(
 
   def topologyQueue: TopologyQueueStatus = TopologyQueueStatus(
     manager = topologyManagerStatusO.map(_.queueSize).getOrElse(0),
-    dispatcher = domainOutboxO.map(_.queueSize).getOrElse(0),
+    dispatcher = synchronizerOutboxO.map(_.queueSize).getOrElse(0),
     clients = topologyClient.numPendingChanges,
   )
 
@@ -344,8 +344,8 @@ class SequencerRuntime(
           new GrpcSequencerConnectService(
             synchronizerId,
             sequencerId,
-            staticDomainParameters,
-            domainTopologyManager,
+            staticSynchronizerParameters,
+            synchronizerTopologyManager,
             syncCrypto,
             loggerFactory,
           )(
@@ -390,9 +390,9 @@ class SequencerRuntime(
     )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
 
       val possibleNewMembers = transactions.map(_.mapping).flatMap {
-        case dtc: DomainTrustCertificate => Seq(dtc.participantId)
-        case mds: MediatorDomainState => mds.active ++ mds.observers
-        case sds: SequencerDomainState => sds.active ++ sds.observers
+        case dtc: SynchronizerTrustCertificate => Seq(dtc.participantId)
+        case mds: MediatorSynchronizerState => mds.active ++ mds.observers
+        case sds: SequencerSynchronizerState => sds.active ++ sds.observers
         case _ => Seq.empty
       }
 
@@ -407,11 +407,11 @@ class SequencerRuntime(
     }
   })
 
-  private lazy val domainOutboxO: Option[DomainOutboxHandle] =
-    maybeDomainOutboxFactory
+  private lazy val synchronizerOutboxO: Option[SynchronizerOutboxHandle] =
+    maybeSynchronizerOutboxFactory
       .map(
         _.createOnlyOnce(
-          staticDomainParameters.protocolVersion,
+          staticSynchronizerParameters.protocolVersion,
           topologyClient,
           client,
           clock,
@@ -439,7 +439,7 @@ class SequencerRuntime(
       topologyStore,
       topologyClient,
       timeTracker,
-      staticDomainParameters,
+      staticSynchronizerParameters,
       loggerFactory,
     )
 
@@ -454,14 +454,14 @@ class SequencerRuntime(
           client.subscribeTracking(
             topologyManagerSequencerCounterTrackerStore,
             DiscardIgnoredEvents(loggerFactory) {
-              EnvelopeOpener(staticDomainParameters.protocolVersion, syncCrypto.pureCrypto)(
+              EnvelopeOpener(staticSynchronizerParameters.protocolVersion, syncCrypto.pureCrypto)(
                 eventHandler
               )
             },
             timeTracker,
           )
         )
-      _ <- domainOutboxO
+      _ <- synchronizerOutboxO
         .map(_.startup())
         .getOrElse(EitherT.rightT[FutureUnlessShutdown, String](()))
     } yield {

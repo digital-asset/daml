@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.transaction
@@ -93,7 +93,7 @@ final class GeneratorsTransaction(
       } yield DecentralizedNamespaceDefinition.create(namespace, threshold, owners).value
     )
 
-  implicit val mediatorDomainStateArb: Arbitrary[MediatorDomainState] = Arbitrary(
+  implicit val mediatorDomainStateArb: Arbitrary[MediatorSynchronizerState] = Arbitrary(
     for {
       synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
       group <- Arbitrary.arbitrary[NonNegativeInt]
@@ -101,7 +101,9 @@ final class GeneratorsTransaction(
       // Not using Arbitrary.arbitrary[PositiveInt] for threshold to honor constraint
       threshold <- Gen.choose(1, active.size).map(PositiveInt.tryCreate)
       observers <- Arbitrary.arbitrary[NonEmpty[Seq[MediatorId]]]
-    } yield MediatorDomainState.create(synchronizerId, group, threshold, active, observers).value
+    } yield MediatorSynchronizerState
+      .create(synchronizerId, group, threshold, active, observers)
+      .value
   )
 
   implicit val namespaceDelegationArb: Arbitrary[NamespaceDelegation] = Arbitrary(
@@ -143,25 +145,24 @@ final class GeneratorsTransaction(
   implicit val partyToKeyTopologyTransactionArb: Arbitrary[PartyToKeyMapping] = Arbitrary(
     for {
       partyId <- Arbitrary.arbitrary[PartyId]
-      synchronizerIdO <- Arbitrary.arbitrary[Option[SynchronizerId]]
       signingKeys <- Arbitrary.arbitrary[NonEmpty[Seq[SigningPublicKey]]]
       // Not using Arbitrary.arbitrary[PositiveInt] for threshold to honor constraint
       threshold <- Gen
         .choose(1, signingKeys.size)
         .map(PositiveInt.tryCreate)
     } yield PartyToKeyMapping
-      .create(partyId, synchronizerIdO, threshold, signingKeys)
+      .create(partyId, threshold, signingKeys)
       .value
   )
 
-  implicit val sequencerDomainStateArb: Arbitrary[SequencerDomainState] = Arbitrary(
+  implicit val sequencerDomainStateArb: Arbitrary[SequencerSynchronizerState] = Arbitrary(
     for {
       synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
       active <- Arbitrary.arbitrary[NonEmpty[Seq[SequencerId]]]
       // Not using Arbitrary.arbitrary[PositiveInt] for threshold to honor constraint
       threshold <- Gen.choose(1, active.size).map(PositiveInt.tryCreate)
       observers <- Arbitrary.arbitrary[NonEmpty[Seq[SequencerId]]]
-    } yield SequencerDomainState.create(synchronizerId, threshold, active, observers).value
+    } yield SequencerSynchronizerState.create(synchronizerId, threshold, active, observers).value
   )
 
   implicit val topologyTransactionArb

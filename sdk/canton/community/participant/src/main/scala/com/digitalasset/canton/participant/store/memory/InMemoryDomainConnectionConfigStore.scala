@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.memory
@@ -8,7 +8,6 @@ import cats.syntax.either.*
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.domain.DomainConnectionConfig
 import com.digitalasset.canton.participant.store.DomainConnectionConfigStore.{
   AlreadyAddedForAlias,
   MissingConfigForAlias,
@@ -17,6 +16,7 @@ import com.digitalasset.canton.participant.store.{
   DomainConnectionConfigStore,
   StoredDomainConnectionConfig,
 }
+import com.digitalasset.canton.participant.synchronizer.DomainConnectionConfig
 import com.digitalasset.canton.tracing.TraceContext
 
 import java.util.concurrent.ConcurrentHashMap

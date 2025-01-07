@@ -1,11 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.sync
 
 import com.daml.error.{ErrorCategory, ErrorCode, ErrorGroup, Explanation, Resolution}
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader.LoadSequencerEndpointInformationResult
+import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader.LoadSequencerEndpointInformationResult
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.SyncServiceErrorGroup
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.InjectionErrorGroup
@@ -20,8 +20,8 @@ import com.digitalasset.canton.error.{
 import com.digitalasset.canton.ledger.participant.state.SubmissionResult
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.participant.admin.grpc.PruningServiceError
-import com.digitalasset.canton.participant.domain.DomainRegistryError
 import com.digitalasset.canton.participant.store.DomainConnectionConfigStore
+import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryError
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{LedgerSubmissionId, SynchronizerAlias}
@@ -174,11 +174,11 @@ object SyncServiceError extends SyncServiceErrorGroup {
 
   final case class SyncServiceFailedDomainConnection(
       synchronizerAlias: SynchronizerAlias,
-      parent: DomainRegistryError,
+      parent: SynchronizerRegistryError,
   )(implicit
       val loggingContext: ErrorLoggingContext
   ) extends SyncServiceError
-      with ParentCantonError[DomainRegistryError] {
+      with ParentCantonError[SynchronizerRegistryError] {
 
     override def logOnCreation: Boolean = false
 
@@ -208,7 +208,7 @@ object SyncServiceError extends SyncServiceErrorGroup {
   @Resolution(
     "Contact the sequencer operator and inquire why you are not allowed to connect anymore."
   )
-  object SyncServiceDomainDisabledUs
+  object SyncServiceSynchronizerDisabledUs
       extends ErrorCode(
         "SYNC_SERVICE_DOMAIN_DISABLED_US",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,

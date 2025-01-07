@@ -1,43 +1,43 @@
 // start all local instances defined in the configuration file
 nodes.local.start()
 
-// Bootstrap the domain
-bootstrap.domain(
-  domainName = "da",
+// Bootstrap the synchronizer
+bootstrap.synchronizer(
+  synchronizerName = "da",
   sequencers = Seq(sequencer1),
   mediators = Seq(mediator1),
-  domainOwners = Seq(sequencer1, mediator1),
-  domainThreshold = PositiveInt.two,
-  staticDomainParameters = StaticDomainParameters.defaultsWithoutKMS(ProtocolVersion.latest),
+  synchronizerOwners = Seq(sequencer1, mediator1),
+  synchronizerThreshold = PositiveInt.two,
+  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.latest),
 )
 
 // Connect participant1 to da using the connect macro.
-// The connect macro will inspect the domain configuration to find the correct URL and Port.
+// The connect macro will inspect the synchronizer configuration to find the correct URL and Port.
 // The macro is convenient for local testing, but obviously doesn't work in a distributed setup.
-participant1.domains.connect_local(sequencer1, alias = "da")
+participant1.synchronizers.connect_local(sequencer1, alias = "da")
 
 val daPort = Option(System.getProperty("canton-examples.da-port")).getOrElse("5001")
 
 // Connect participant2 to da using just the target URL and a local name we use to refer to this particular
 // connection. This is actually everything Canton requires and this second type of connect call can be used
-// in order to connect to a remote Canton domain.
+// in order to connect to a remote Canton synchronizer.
 //
-// The connect call is just a wrapper that invokes the `domains.register`, `domains.get_agreement` and `domains.accept_agreement` calls.
+// The connect call is just a wrapper that invokes the `synchronizers.register`, `synchronizers.get_agreement` and `synchronizers.accept_agreement` calls.
 //
 // The address can be either HTTP or HTTPS. From a security perspective, we do assume that we either trust TLS to
-// initially introduce the domain. If we don't trust TLS for that, we can also optionally include a so called
-// EssentialState that establishes the trust of the participant to the domain.
-// Whether a domain will let a participant connect or not is at the discretion of the domain and can be configured
+// initially introduce the synchronizer. If we don't trust TLS for that, we can also optionally include a so called
+// EssentialState that establishes the trust of the participant to the synchronizer.
+// Whether a synchronizer will let a participant connect or not is at the discretion of the synchronizer and can be configured
 // there. While Canton establishes the connection, we perform a handshake, exchanging keys, authorizing the connection
 // and verifying version compatibility.
-participant2.domains.connect("da", s"http://localhost:$daPort")
+participant2.synchronizers.connect("da", s"http://localhost:$daPort")
 
-// The above connect operation is asynchronous. It is generally at the discretion of the domain
+// The above connect operation is asynchronous. It is generally at the discretion of the synchronizer
 // to decide if a participant can join and when. Therefore, we need to asynchronously wait here
-// until the participant observes its activation on the domain. As the domain is configured to be
+// until the participant observes its activation on the synchronizer. As the synchronizer is configured to be
 // permissionless in this example, the approval will be granted immediately.
 utils.retry_until_true {
-    participant2.domains.active("da")
+    participant2.synchronizers.active("da")
 }
 
 participant2.health.ping(participant1)

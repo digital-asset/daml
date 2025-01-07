@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology
@@ -7,7 +7,7 @@ import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.BaseTest.{
-  defaultStaticDomainParameters,
+  defaultStaticSynchronizerParameters,
   testedReleaseProtocolVersion,
 }
 import com.digitalasset.canton.concurrent.{
@@ -23,9 +23,9 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.{
-  DomainParameters,
-  DynamicDomainParameters,
-  TestDomainParameters,
+  DynamicSynchronizerParameters,
+  SynchronizerParameters,
+  TestSynchronizerParameters,
 }
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.DefaultTestIdentities.*
@@ -65,10 +65,10 @@ import TestingTopology.*
   * on a per (synchronizerId, timestamp)
   *
   * SyncCryptoApiProvider - root object that makes the synchronisation topology state known to a node accessible
-  *   .forDomain          - method to get the specific view on a per domain basis
-  * = DomainSyncCryptoApi
+  *   .forSynchronizer          - method to get the specific view on a per synchronizer basis
+  * = SynchronizerSyncCryptoApi
   *   .snapshot(timestamp) | recentState - method to get the view for a specific time
-  * = DomainSnapshotSyncCryptoApi (extends SyncCryptoApi)
+  * = SynchronizerSnapshotSyncCryptoApi (extends SyncCryptoApi)
   *
   * All these object carry the necessary objects ([[CryptoPureApi]], [[TopologySnapshot]], [[KeyVaultApi]])
   * as arguments with them.
@@ -83,12 +83,12 @@ import TestingTopology.*
   *
   * Common usage patterns are:
   * <ul>
-  *   <li>Get a [[DomainSyncCryptoClient]] with an empty topology: `TestingIdentityFactory().forOwnerAndDomain(participant1)`</li>
-  *   <li>To get a [[DomainSnapshotSyncCryptoApi]]: same as above, just add `.recentState`.</li>
+  *   <li>Get a [[SynchronizerSyncCryptoClient]] with an empty topology: `TestingIdentityFactory().forOwnerAndSynchronizer(participant1)`</li>
+  *   <li>To get a [[SynchronizerSnapshotSyncCryptoApi]]: same as above, just add `.recentState`.</li>
   *   <li>Define a specific topology and get the [[SyncCryptoApiProvider]]: `TestingTopology().withTopology(Map(party1 -> participant1)).build()`.</li>
   * </ul>
   *
-  * @param domains Set of domains for which the topology is valid
+  * @param synchronizers Set of synchronizers for which the topology is valid
   * @param topology Static association of parties to participants in the most complete way it can be defined in this testing class.
   * @param participants participants for which keys should be added.
   *                     A participant mentioned in `topology` will be included automatically in the topology state,
@@ -97,35 +97,37 @@ import TestingTopology.*
   * @param keyPurposes The purposes of the keys that will be generated.
   */
 final case class TestingTopology(
-    domains: Set[SynchronizerId] = defaultDomains,
+    synchronizers: Set[SynchronizerId] = defaultSynchronizers,
     topology: Map[LfPartyId, PartyInfo] = Map.empty,
     mediatorGroups: Set[MediatorGroup] = defaultMediatorGroups,
     sequencerGroup: SequencerGroup = defaultSequencerGroup,
     participants: Map[ParticipantId, ParticipantAttributes] = Map.empty,
     packages: Map[ParticipantId, Seq[VettedPackage]] = Map.empty,
     keyPurposes: Set[KeyPurpose] = KeyPurpose.All,
-    domainParameters: List[DomainParameters.WithValidity[DynamicDomainParameters]] =
-      defaultDomainParams,
+    synchronizerParameters: List[
+      SynchronizerParameters.WithValidity[DynamicSynchronizerParameters]
+    ] = defaultSynchronizerParams,
     freshKeys: Boolean = false,
 ) {
   def mediators: Seq[MediatorId] = mediatorGroups.toSeq.flatMap(_.all)
 
-  /** Define for which domains the topology should apply.
+  /** Define for which synchronizers the topology should apply.
     *
-    * All domains will have exactly the same topology.
+    * All synchronizers will have exactly the same topology.
     */
-  def withDomains(domains: SynchronizerId*): TestingTopology = this.copy(domains = domains.toSet)
+  def withSynchronizers(synchronizers: SynchronizerId*): TestingTopology =
+    this.copy(synchronizers = synchronizers.toSet)
 
-  def withDynamicDomainParameters(
-      dynamicDomainParameters: DynamicDomainParameters,
+  def withDynamicSynchronizerParameters(
+      dynamicSynchronizerParameters: DynamicSynchronizerParameters,
       validFrom: CantonTimestamp = CantonTimestamp.Epoch,
   ) =
     copy(
-      domainParameters = List(
-        DomainParameters.WithValidity(
+      synchronizerParameters = List(
+        SynchronizerParameters.WithValidity(
           validFrom = validFrom,
           validUntil = None,
-          parameter = dynamicDomainParameters,
+          parameter = dynamicSynchronizerParameters,
         )
       )
     )
@@ -229,12 +231,12 @@ final case class TestingTopology(
       crypto: SymbolicCrypto,
       loggerFactory: NamedLoggerFactory,
   ): TestingIdentityFactory =
-    new TestingIdentityFactory(this, crypto, loggerFactory, domainParameters)
+    new TestingIdentityFactory(this, crypto, loggerFactory, synchronizerParameters)
 }
 
 object TestingTopology {
 
-  private val defaultDomains: Set[SynchronizerId] = Set(DefaultTestIdentities.synchronizerId)
+  private val defaultSynchronizers: Set[SynchronizerId] = Set(DefaultTestIdentities.synchronizerId)
   private val defaultSequencerGroup: SequencerGroup = SequencerGroup(
     active = Seq(DefaultTestIdentities.sequencerId),
     passive = Seq.empty,
@@ -248,32 +250,33 @@ object TestingTopology {
       PositiveInt.one,
     )
   )
-  private val defaultDomainParams = List(
-    DomainParameters.WithValidity(
+  private val defaultSynchronizerParams = List(
+    SynchronizerParameters.WithValidity(
       validFrom = CantonTimestamp.Epoch,
       validUntil = None,
-      parameter = DefaultTestIdentities.defaultDynamicDomainParameters,
+      parameter = DefaultTestIdentities.defaultDynamicSynchronizerParameters,
     )
   )
 
   def from(
-      domains: Set[SynchronizerId] = defaultDomains,
+      synchronizers: Set[SynchronizerId] = defaultSynchronizers,
       topology: Map[LfPartyId, Map[ParticipantId, ParticipantPermission]] = Map.empty,
       mediatorGroups: Set[MediatorGroup] = defaultMediatorGroups,
       sequencerGroup: SequencerGroup = defaultSequencerGroup,
       participants: Map[ParticipantId, ParticipantAttributes] = Map.empty,
       packages: Map[ParticipantId, Seq[VettedPackage]] = Map.empty,
-      domainParameters: List[DomainParameters.WithValidity[DynamicDomainParameters]] =
-        defaultDomainParams,
+      synchronizerParameters: List[
+        SynchronizerParameters.WithValidity[DynamicSynchronizerParameters]
+      ] = defaultSynchronizerParams,
   ): TestingTopology =
     new TestingTopology(
-      domains = domains,
+      synchronizers = synchronizers,
       topology = topology.fmap(toPartyInfo),
       mediatorGroups = mediatorGroups,
       sequencerGroup = sequencerGroup,
       participants = participants,
       packages = packages,
-      domainParameters = domainParameters,
+      synchronizerParameters = synchronizerParameters,
     )
 
   private def toPartyInfo(participants: Map[ParticipantId, ParticipantPermission]): PartyInfo = {
@@ -288,7 +291,9 @@ class TestingIdentityFactory(
     topology: TestingTopology,
     crypto: SymbolicCrypto,
     override protected val loggerFactory: NamedLoggerFactory,
-    dynamicDomainParameters: List[DomainParameters.WithValidity[DynamicDomainParameters]],
+    dynamicSynchronizerParameters: List[
+      SynchronizerParameters.WithValidity[DynamicSynchronizerParameters]
+    ],
 ) extends NamedLogging {
   protected implicit val directExecutionContext: ExecutionContext =
     DirectExecutionContext(noTracingLogger)
@@ -308,24 +313,25 @@ class TestingIdentityFactory(
       loggerFactory,
     )
 
-  def forOwnerAndDomain(
+  def forOwnerAndSynchronizer(
       owner: Member,
       synchronizerId: SynchronizerId = DefaultTestIdentities.synchronizerId,
       availableUpToInclusive: CantonTimestamp = CantonTimestamp.MaxValue,
       currentSnapshotApproximationTimestamp: CantonTimestamp = CantonTimestamp.Epoch,
-  ): DomainSyncCryptoClient =
-    forOwner(owner, availableUpToInclusive, currentSnapshotApproximationTimestamp).tryForDomain(
-      synchronizerId,
-      defaultStaticDomainParameters,
-    )
+  ): SynchronizerSyncCryptoClient =
+    forOwner(owner, availableUpToInclusive, currentSnapshotApproximationTimestamp)
+      .tryForSynchronizer(
+        synchronizerId,
+        defaultStaticSynchronizerParameters,
+      )
 
   private def ips(
       upToInclusive: CantonTimestamp,
       currentSnapshotApproximationTimestamp: CantonTimestamp,
   ): IdentityProvidingServiceClient = {
     val ips = new IdentityProvidingServiceClient()
-    domains.foreach(dId =>
-      ips.add(new DomainTopologyClient() with HasFutureSupervision with NamedLogging {
+    synchronizers.foreach(dId =>
+      ips.add(new SynchronizerTopologyClient() with HasFutureSupervision with NamedLogging {
 
         override protected def loggerFactory: NamedLoggerFactory =
           TestingIdentityFactory.this.loggerFactory
@@ -355,7 +361,7 @@ class TestingIdentityFactory(
             timestamp <= upToInclusive,
             s"Topology information not yet available for $timestamp",
           )
-          topologySnapshot(synchronizerId, timestampForDomainParameters = timestamp)
+          topologySnapshot(synchronizerId, timestampForSynchronizerParameters = timestamp)
         }
 
         override def currentSnapshotApproximation(implicit
@@ -363,7 +369,7 @@ class TestingIdentityFactory(
         ): TopologySnapshot =
           topologySnapshot(
             synchronizerId,
-            timestampForDomainParameters = currentSnapshotApproximationTimestamp,
+            timestampForSynchronizerParameters = currentSnapshotApproximationTimestamp,
             timestampOfSnapshot = currentSnapshotApproximationTimestamp,
           )
 
@@ -421,13 +427,13 @@ class TestingIdentityFactory(
 
   private val defaultProtocolVersion = BaseTest.testedProtocolVersion
 
-  private def domains: Set[SynchronizerId] = topology.domains
+  private def synchronizers: Set[SynchronizerId] = topology.synchronizers
 
   def topologySnapshot(
       synchronizerId: SynchronizerId = DefaultTestIdentities.synchronizerId,
       packageDependencyResolver: PackageDependencyResolverUS =
-        StoreBasedDomainTopologyClient.NoPackageDependencies,
-      timestampForDomainParameters: CantonTimestamp = CantonTimestamp.Epoch,
+        StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
+      timestampForSynchronizerParameters: CantonTimestamp = CantonTimestamp.Epoch,
       timestampOfSnapshot: CantonTimestamp = CantonTimestamp.Epoch,
   ): TopologySnapshot = {
 
@@ -453,13 +459,13 @@ class TestingIdentityFactory(
 
     val participantTxs = participantsTxs(defaultPermissionByParticipant, topology.packages)
 
-    val domainMembers =
+    val synchronizerMembers =
       (topology.sequencerGroup.active ++ topology.sequencerGroup.passive ++ topology.mediators)
         .flatMap(m => genKeyCollection(m))
 
     val mediatorOnboarding = topology.mediatorGroups.map(group =>
       mkAdd(
-        MediatorDomainState
+        MediatorSynchronizerState
           .create(
             synchronizerId,
             group = group.index,
@@ -467,38 +473,40 @@ class TestingIdentityFactory(
             active = group.active,
             observers = group.passive,
           )
-          .getOrElse(sys.error("creating MediatorDomainState should not have failed"))
+          .getOrElse(sys.error("creating MediatorSynchronizerState should not have failed"))
       )
     )
 
     val sequencerOnboarding =
       mkAdd(
-        SequencerDomainState
+        SequencerSynchronizerState
           .create(
             synchronizerId,
             threshold = topology.sequencerGroup.threshold,
             active = topology.sequencerGroup.active,
             observers = topology.sequencerGroup.passive,
           )
-          .valueOr(err => sys.error(s"creating SequencerDomainState should not have failed: $err"))
+          .valueOr(err =>
+            sys.error(s"creating SequencerSynchronizerState should not have failed: $err")
+          )
       )
 
     val partyDataTx = partyToParticipantTxs()
 
-    val domainGovernanceTxs = List(
+    val synchronizerGovernanceTxs = List(
       mkAdd(
-        DomainParametersState(
+        SynchronizerParametersState(
           synchronizerId,
-          domainParametersChangeTx(timestampForDomainParameters),
+          synchronizerParametersChangeTx(timestampForSynchronizerParameters),
         )
       )
     )
     val transactions = (participantTxs ++
-      domainMembers ++
+      synchronizerMembers ++
       mediatorOnboarding ++
       Seq(sequencerOnboarding) ++
       partyDataTx ++
-      domainGovernanceTxs)
+      synchronizerGovernanceTxs)
       .map(ValidatedTopologyTransaction(_, rejectionReason = None))
 
     val updateF = store.update(
@@ -521,15 +529,16 @@ class TestingIdentityFactory(
     )
   }
 
-  private def domainParametersChangeTx(ts: CantonTimestamp): DynamicDomainParameters =
-    dynamicDomainParameters.collect { case dp if dp.isValidAt(ts) => dp.parameter } match {
+  private def synchronizerParametersChangeTx(ts: CantonTimestamp): DynamicSynchronizerParameters =
+    dynamicSynchronizerParameters.collect { case dp if dp.isValidAt(ts) => dp.parameter } match {
       case dp :: Nil => dp
       case Nil =>
-        DynamicDomainParameters.initialValues(
+        DynamicSynchronizerParameters.initialValues(
           NonNegativeFiniteDuration.Zero,
           BaseTest.testedProtocolVersion,
         )
-      case _ => throw new IllegalStateException(s"Multiple domain parameters are valid at $ts")
+      case _ =>
+        throw new IllegalStateException(s"Multiple synchronizer parameters are valid at $ts")
     }
 
   private val signedTxProtocolRepresentative =
@@ -626,12 +635,12 @@ class TestingIdentityFactory(
           .map(packages => mkAdd(VettedPackages.tryCreate(participantId, packages)))
           .toList
       pkgs ++ genKeyCollection(participantId) :+ mkAdd(
-        DomainTrustCertificate(
+        SynchronizerTrustCertificate(
           participantId,
           synchronizerId,
         )
       ) :+ mkAdd(
-        ParticipantDomainPermission(
+        ParticipantSynchronizerPermission(
           synchronizerId,
           participantId,
           attributes.permission,
@@ -649,7 +658,7 @@ class TestingOwnerWithKeys(
     initEc: ExecutionContext,
 ) extends NoTracing {
 
-  val cryptoApi = TestingIdentityFactory(loggerFactory).forOwnerAndDomain(keyOwner)
+  val cryptoApi = TestingIdentityFactory(loggerFactory).forOwnerAndSynchronizer(keyOwner)
 
   object SigningKeys {
 
@@ -705,25 +714,25 @@ class TestingOwnerWithKeys(
       NonEmpty(Set, namespaceKey, key3),
     )
     val dtc1m =
-      DomainTrustCertificate(
+      SynchronizerTrustCertificate(
         participant1,
         synchronizerId,
       )
 
-    private val defaultDomainParameters = TestDomainParameters.defaultDynamic
+    private val defaultSynchronizerParameters = TestSynchronizerParameters.defaultDynamic
 
     val dpc1 = mkAdd(
-      DomainParametersState(
+      SynchronizerParametersState(
         SynchronizerId(uid),
-        defaultDomainParameters
+        defaultSynchronizerParameters
           .tryUpdate(confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(1)),
       ),
       namespaceKey,
     )
     val dpc1Updated = mkAdd(
-      DomainParametersState(
+      SynchronizerParametersState(
         SynchronizerId(uid),
-        defaultDomainParameters
+        defaultSynchronizerParameters
           .tryUpdate(
             confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(2),
             topologyChangeDelay = NonNegativeFiniteDuration.tryOfMillis(100),
@@ -733,7 +742,7 @@ class TestingOwnerWithKeys(
     )
 
     val dpc2 =
-      mkAdd(DomainParametersState(SynchronizerId(uid2), defaultDomainParameters), key2)
+      mkAdd(SynchronizerParametersState(SynchronizerId(uid2), defaultSynchronizerParameters), key2)
 
     val p1_nsk2 = mkAdd(
       NamespaceDelegation.tryCreate(
@@ -750,9 +759,9 @@ class TestingOwnerWithKeys(
       )
     )
 
-    val p1_dtc = mkAdd(DomainTrustCertificate(participant1, synchronizerId))
-    val p2_dtc = mkAdd(DomainTrustCertificate(participant2, synchronizerId))
-    val p3_dtc = mkAdd(DomainTrustCertificate(participant3, synchronizerId))
+    val p1_dtc = mkAdd(SynchronizerTrustCertificate(participant1, synchronizerId))
+    val p2_dtc = mkAdd(SynchronizerTrustCertificate(participant2, synchronizerId))
+    val p3_dtc = mkAdd(SynchronizerTrustCertificate(participant3, synchronizerId))
     val p1_otk = mkAddMultiKey(
       OwnerToKeyMapping(participant1, NonEmpty(Seq, EncryptionKeys.key1, SigningKeys.key1)),
       NonEmpty(Set, key1),
@@ -767,7 +776,7 @@ class TestingOwnerWithKeys(
     )
 
     val p1_pdp_observation = mkAdd(
-      ParticipantDomainPermission(
+      ParticipantSynchronizerPermission(
         synchronizerId,
         participant1,
         ParticipantPermission.Observation,
@@ -777,7 +786,7 @@ class TestingOwnerWithKeys(
     )
 
     val p2_pdp_confirmation = mkAdd(
-      ParticipantDomainPermission(
+      ParticipantSynchronizerPermission(
         synchronizerId,
         participant2,
         ParticipantPermission.Confirmation,
@@ -935,7 +944,7 @@ object TestingIdentityFactory {
     TestingIdentityFactory(
       TestingTopology.from(topology = topology),
       loggerFactory,
-      TestDomainParameters.defaultDynamic,
+      TestSynchronizerParameters.defaultDynamic,
       SymbolicCrypto
         .create(testedReleaseProtocolVersion, DefaultProcessingTimeouts.testing, loggerFactory),
     )
@@ -943,17 +952,17 @@ object TestingIdentityFactory {
   def apply(
       topology: TestingTopology,
       loggerFactory: NamedLoggerFactory,
-      dynamicDomainParameters: DynamicDomainParameters,
+      dynamicSynchronizerParameters: DynamicSynchronizerParameters,
       crypto: SymbolicCrypto,
   ): TestingIdentityFactory = new TestingIdentityFactory(
     topology,
     crypto,
     loggerFactory,
-    dynamicDomainParameters = List(
-      DomainParameters.WithValidity(
+    dynamicSynchronizerParameters = List(
+      SynchronizerParameters.WithValidity(
         validFrom = CantonTimestamp.Epoch,
         validUntil = None,
-        parameter = dynamicDomainParameters,
+        parameter = dynamicSynchronizerParameters,
       )
     ),
   )
@@ -961,11 +970,11 @@ object TestingIdentityFactory {
   def apply(
       topology: TestingTopology,
       loggerFactory: NamedLoggerFactory,
-      dynamicDomainParameters: DynamicDomainParameters,
+      dynamicSynchronizerParameters: DynamicSynchronizerParameters,
   ): TestingIdentityFactory = TestingIdentityFactory(
     topology,
     loggerFactory,
-    dynamicDomainParameters,
+    dynamicSynchronizerParameters,
     SymbolicCrypto.create(
       testedReleaseProtocolVersion,
       DefaultProcessingTimeouts.testing,

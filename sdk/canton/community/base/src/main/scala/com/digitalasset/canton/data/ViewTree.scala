@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -59,8 +59,8 @@ trait FullReassignmentViewTree extends ViewTree {
   val viewPosition: ViewPosition =
     ViewPosition.root // Use a dummy value, as there is only one view.
 
-  def sourceDomain: Source[SynchronizerId]
-  def targetDomain: Target[SynchronizerId]
+  def sourceSynchronizer: Source[SynchronizerId]
+  def targetSynchronizer: Target[SynchronizerId]
 
   // Submissions
   def submitterMetadata: ReassignmentSubmitterMetadata = commonData.submitterMetadata

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao.events
@@ -34,7 +34,13 @@ final class TransactionConversionSpec extends AnyWordSpec with Matchers {
     val create1 = create(contractId1)
     val create2 = create(contractId2)
     val archive1 = Event.of(
-      Event.Event.Archived(ArchivedEvent("", contractId1.coid, None, Seq.empty))
+      Event.Event.Archived(
+        ArchivedEvent(
+          contractId = contractId1.coid,
+          templateId = None,
+          witnessParties = Seq.empty,
+        )
+      )
     )
 
     "removeTransient" should {

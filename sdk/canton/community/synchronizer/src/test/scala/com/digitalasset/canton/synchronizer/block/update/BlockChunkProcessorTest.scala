@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.block.update
@@ -42,7 +42,7 @@ class BlockChunkProcessorTest extends AsyncWordSpec with BaseTest {
       "processing a tick chunk" in {
         val tickSequencingTimestamp = aTimestamp.immediateSuccessor
         val syncCryptoApiFake =
-          TestingIdentityFactory(loggerFactory).forOwnerAndDomain(
+          TestingIdentityFactory(loggerFactory).forOwnerAndSynchronizer(
             sequencerId,
             synchronizerId,
             tickSequencingTimestamp,

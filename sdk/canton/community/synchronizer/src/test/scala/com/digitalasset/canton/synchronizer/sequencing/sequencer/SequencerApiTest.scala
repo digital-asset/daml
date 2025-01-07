@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer
@@ -9,10 +9,10 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{
-  DomainSyncCryptoClient,
   HashPurpose,
   Signature,
   SigningKeyUsage,
+  SynchronizerSyncCryptoClient,
 }
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -57,14 +57,14 @@ abstract class SequencerApiTest
 
     lazy val sequencer: CantonSequencer = {
       val sequencer = SequencerApiTest.this.createSequencer(
-        topologyFactory.forOwnerAndDomain(owner = mediatorId, synchronizerId)
+        topologyFactory.forOwnerAndSynchronizer(owner = mediatorId, synchronizerId)
       )
       registerAllTopologyMembers(topologyFactory.topologySnapshot(), sequencer)
       sequencer
     }
 
     val topologyFactory: TestingIdentityFactory =
-      TestingTopology(domainParameters = List.empty)
+      TestingTopology(synchronizerParameters = List.empty)
         .withSimpleParticipants(
           p1,
           p2,
@@ -91,7 +91,7 @@ abstract class SequencerApiTest
         request: SubmissionRequest
     ): SignedContent[SubmissionRequest] = {
       val cryptoSnapshot =
-        topologyFactory.forOwnerAndDomain(request.sender).currentSnapshotApproximation
+        topologyFactory.forOwnerAndSynchronizer(request.sender).currentSnapshotApproximation
       SignedContent
         .create(
           cryptoSnapshot.pureCrypto,
@@ -139,7 +139,7 @@ abstract class SequencerApiTest
   def mediatorId: MediatorId = DefaultTestIdentities.mediatorId
   def sequencerId: SequencerId = DefaultTestIdentities.sequencerId
 
-  def createSequencer(crypto: DomainSyncCryptoClient)(implicit
+  def createSequencer(crypto: SynchronizerSyncCryptoClient)(implicit
       materializer: Materializer
   ): CantonSequencer
 
@@ -496,9 +496,9 @@ abstract class SequencerApiTest
         val messageId1 = MessageId.tryCreate(s"request1")
         val messageId2 = MessageId.tryCreate(s"request2")
         val messageId3 = MessageId.tryCreate(s"request3")
-        val p11Crypto = topologyFactory.forOwnerAndDomain(p11, synchronizerId)
-        val p12Crypto = topologyFactory.forOwnerAndDomain(p12, synchronizerId)
-        val p13Crypto = topologyFactory.forOwnerAndDomain(p13, synchronizerId)
+        val p11Crypto = topologyFactory.forOwnerAndSynchronizer(p11, synchronizerId)
+        val p12Crypto = topologyFactory.forOwnerAndSynchronizer(p12, synchronizerId)
+        val p13Crypto = topologyFactory.forOwnerAndSynchronizer(p13, synchronizerId)
 
         def mkRequest(
             sender: Member,
@@ -618,8 +618,8 @@ abstract class SequencerApiTest
         val messageId1 = MessageId.tryCreate(s"request1")
         val messageId2 = MessageId.tryCreate(s"request2")
         val messageId3 = MessageId.tryCreate(s"request3")
-        val p14Crypto = topologyFactory.forOwnerAndDomain(p14, synchronizerId)
-        val p15Crypto = topologyFactory.forOwnerAndDomain(p15, synchronizerId)
+        val p14Crypto = topologyFactory.forOwnerAndSynchronizer(p14, synchronizerId)
+        val p15Crypto = topologyFactory.forOwnerAndSynchronizer(p15, synchronizerId)
 
         def mkRequest(
             sender: Member,
@@ -1125,7 +1125,7 @@ trait SequencerApiTestUtils
     }
 
   def signEnvelope(
-      crypto: DomainSyncCryptoClient,
+      crypto: SynchronizerSyncCryptoClient,
       envelope: ClosedEnvelope,
   ): FutureUnlessShutdown[ClosedEnvelope] = {
     val hash = crypto.pureCrypto.digest(HashPurpose.SignedProtocolMessageSignature, envelope.bytes)

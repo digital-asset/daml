@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer
@@ -75,7 +75,7 @@ import scala.collection.immutable.SortedSet
 import scala.concurrent.duration.*
 import scala.concurrent.{Future, Promise}
 
-import DomainSequencingTestUtils.*
+import SynchronizerSequencingTestUtils.*
 
 class SequencerReaderTest
     extends FixtureAsyncWordSpec
@@ -101,9 +101,11 @@ class SequencerReaderTest
   ).build(loggerFactory).forOwner(SequencerId(synchronizerId.uid))
   private val cryptoD =
     valueOrFail(
-      crypto.forDomain(synchronizerId, defaultStaticDomainParameters).toRight("no crypto api")
+      crypto
+        .forSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
+        .toRight("no crypto api")
     )(
-      "domain crypto"
+      "synchronizer crypto"
     )
   private val instanceDiscriminator = new UUID(1L, 2L)
 
@@ -664,9 +666,10 @@ class SequencerReaderTest
         import env.*
 
         for {
-          domainParamsO <- cryptoD.headSnapshot.ipsSnapshot.findDynamicDomainParameters()
-          domainParams = domainParamsO.valueOrFail("No domain parameters found")
-          topologyTimestampTolerance = domainParams.sequencerTopologyTimestampTolerance
+          synchronizerParamsO <- cryptoD.headSnapshot.ipsSnapshot
+            .findDynamicSynchronizerParameters()
+          synchronizerParams = synchronizerParamsO.valueOrFail("No synchronizer parameters found")
+          topologyTimestampTolerance = synchronizerParams.sequencerTopologyTimestampTolerance
           topologyTimestampToleranceInSec = topologyTimestampTolerance.duration.toSeconds
 
           _ <- store.registerMember(topologyClientMember, ts0)
@@ -847,11 +850,11 @@ class SequencerReaderTest
         import env.*
 
         for {
-          domainParamsO <- cryptoD.headSnapshot.ipsSnapshot
-            .findDynamicDomainParameters()
+          synchronizerParamsO <- cryptoD.headSnapshot.ipsSnapshot
+            .findDynamicSynchronizerParameters()
             .failOnShutdown
-          domainParams = domainParamsO.valueOrFail("No domain parameters found")
-          signingTolerance = domainParams.sequencerTopologyTimestampTolerance
+          synchronizerParams = synchronizerParamsO.valueOrFail("No synchronizer parameters found")
+          signingTolerance = synchronizerParams.sequencerTopologyTimestampTolerance
           signingToleranceInSec = signingTolerance.duration.toSeconds
 
           topologyClientMemberId <- store.registerMember(topologyClientMember, ts0).failOnShutdown

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.transaction
@@ -114,7 +114,8 @@ case class SignedTopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
       paramIfTrue("proposal", _.isProposal),
     )
 
-  def restrictedToDomain: Option[SynchronizerId] = transaction.mapping.restrictedToDomain
+  def restrictedToSynchronizer: Option[SynchronizerId] =
+    transaction.mapping.restrictedToSynchronizer
 
   @VisibleForTesting
   def copy[Op2 <: TopologyChangeOp, M2 <: TopologyMapping](
@@ -210,7 +211,7 @@ object SignedTopologyTransaction
             )
             .leftMap { err =>
               s"Failed to resign topology transaction $originTx (${originTx.representativeProtocolVersion}) for " +
-                s"domain version $protocolVersion: $err"
+                s"synchronizer version $protocolVersion: $err"
             }
         } yield signedTopologyTransaction
       }
@@ -234,7 +235,7 @@ object SignedTopologyTransaction
     } yield SignedTopologyTransaction(transaction, signatures.toSet, isProposal)(rpv)
   }
 
-  def createGetResultDomainTopologyTransaction: GetResult[GenericSignedTopologyTransaction] =
+  def createGetResultSynchronizerTopologyTransaction: GetResult[GenericSignedTopologyTransaction] =
     GetResult { r =>
       fromTrustedByteString(r.<<[ByteString]).valueOr(err =>
         throw new DbSerializationException(

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol
@@ -157,7 +157,7 @@ object LocalRejectError extends LocalRejectionGroup {
         This can happen in an overloaded system due to high latencies or for transactions with long interpretation times."""
     )
     @Resolution(
-      "For long-running transactions, specify a ledger time with the command submission or adjust the dynamic domain parameter ledgerTimeRecordTimeTolerance (and possibly the participant and mediator reaction timeout). For short-running transactions, simply retry."
+      "For long-running transactions, specify a ledger time with the command submission or adjust the dynamic synchronizer parameter ledgerTimeRecordTimeTolerance (and possibly the participant and mediator reaction timeout). For short-running transactions, simply retry."
     )
     object LedgerTime
         extends LocalRejectErrorCode(
@@ -195,7 +195,7 @@ object LocalRejectError extends LocalRejectionGroup {
     )
     @Resolution("""In the first instance, resubmit your transaction.
                   | If the rejection still appears spuriously, consider increasing the `confirmationResponseTimeout` or
-                  | `mediatorReactionTimeout` values in the `DynamicDomainParameters`.
+                  | `mediatorReactionTimeout` values in the `DynamicSynchronizerParameters`.
                   | If the rejection appears unrelated to timeout settings, validate that the sequencer and mediator
                   | function correctly.
                   |""")
@@ -293,7 +293,7 @@ object LocalRejectError extends LocalRejectionGroup {
     @Explanation(
       """Activeness check failed for unassignment submission. This rejection occurs if the contract to be
         |reassigned has already been reassigned or is currently locked (due to a competing transaction)
-        |on  domain."""
+        |on  synchronizer."""
     )
     @Resolution(
       "Depending on your use-case and your expectation, retry the transaction."

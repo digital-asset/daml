@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin.grpc
@@ -19,18 +19,18 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.{GrpcFUSExtended, wrapErrUS}
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection.InFlightCount
-import com.digitalasset.canton.participant.domain.SynchronizerAliasManager
 import com.digitalasset.canton.participant.pruning.{
   CommitmentContractMetadata,
   CommitmentInspectContract,
 }
+import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
 import com.digitalasset.canton.protocol.messages.{
   CommitmentPeriodState,
   DomainSearchCommitmentPeriod,
   ReceivedAcsCommitment,
   SentAcsCommitment,
 }
-import com.digitalasset.canton.protocol.{DomainParametersLookup, LfContractId}
+import com.digitalasset.canton.protocol.{LfContractId, SynchronizerParametersLookup}
 import com.digitalasset.canton.pruning.{ConfigForDomainThresholds, ConfigForSlowCounterParticipants}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
@@ -461,7 +461,7 @@ class GrpcInspectionService(
         // 2. Retrieve the contracts for the domain and the time of the commitment
 
         topologySnapshot <- EitherT.fromOption[FutureUnlessShutdown](
-          ips.forDomain(synchronizerId),
+          ips.forSynchronizer(synchronizerId),
           InspectionServiceError.InternalServerError.Error(
             s"Failed to retrieve ips for domain: $synchronizerId"
           ),
@@ -480,8 +480,8 @@ class GrpcInspectionService(
         // given timestamp.
         domainParamsF <- EitherTUtil
           .fromFuture(
-            DomainParametersLookup
-              .forAcsCommitmentDomainParameters(
+            SynchronizerParametersLookup
+              .forAcsCommitmentSynchronizerParameters(
                 pv,
                 topologySnapshot,
                 loggerFactory,

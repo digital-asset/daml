@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer
@@ -6,7 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencing.sequencer
 import cats.syntax.parallel.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts, ProcessingTimeout}
-import com.digitalasset.canton.crypto.DomainSyncCryptoClient
+import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.TracedLogger
@@ -85,7 +85,7 @@ class SequencerTest
       loggerFactory = loggerFactory,
     )
     val clock = new WallClock(timeouts, loggerFactory = loggerFactory)
-    val crypto: DomainSyncCryptoClient = valueOrFail(
+    val crypto: SynchronizerSyncCryptoClient = valueOrFail(
       TestingTopology(
         sequencerGroup = SequencerGroup(
           active = Seq(SequencerId(synchronizerId.uid)),
@@ -100,7 +100,7 @@ class SequencerTest
       )
         .build(loggerFactory)
         .forOwner(SequencerId(synchronizerId.uid))
-        .forDomain(synchronizerId, defaultStaticDomainParameters)
+        .forSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
         .toRight("crypto error")
     )("building crypto")
     val metrics: SequencerMetrics = SequencerMetrics.noop("sequencer-test")

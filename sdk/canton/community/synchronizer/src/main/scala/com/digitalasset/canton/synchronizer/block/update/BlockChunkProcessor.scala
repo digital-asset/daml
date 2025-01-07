@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.block.update
@@ -11,7 +11,7 @@ import cats.syntax.traverse.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.SequencerCounter
-import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, HashPurpose, SyncCryptoClient}
+import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoClient, SynchronizerSyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.BaseAlarm
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
@@ -47,7 +47,7 @@ import SequencedSubmissionsValidator.SequencedSubmissionsValidationResult
 private[update] final class BlockChunkProcessor(
     synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
-    domainSyncCryptoApi: DomainSyncCryptoClient,
+    domainSyncCryptoApi: SynchronizerSyncCryptoClient,
     sequencerId: SequencerId,
     rateLimitManager: SequencerRateLimitManager,
     orderingTimeFixMode: OrderingTimeFixMode,
@@ -211,7 +211,7 @@ private[update] final class BlockChunkProcessor(
       )
       sequencerRecipients <-
         GroupAddressResolver.resolveGroupsToMembers(
-          Set(SequencersOfDomain),
+          Set(SequencersOfSynchronizer),
           snapshot.ipsSnapshot,
         )
     } yield {
@@ -236,7 +236,7 @@ private[update] final class BlockChunkProcessor(
               protocolVersion = protocolVersion,
             ),
             sequencingTime = tickSequencingTimestamp,
-            deliverToMembers = sequencerRecipients(SequencersOfDomain),
+            deliverToMembers = sequencerRecipients(SequencersOfSynchronizer),
             batch = Batch.empty(protocolVersion),
             submissionTraceContext = TraceContext.createNew(),
             trafficReceiptO = None,

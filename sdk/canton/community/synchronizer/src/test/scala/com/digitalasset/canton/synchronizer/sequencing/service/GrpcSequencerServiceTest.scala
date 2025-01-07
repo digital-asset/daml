@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.service
@@ -9,18 +9,18 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDouble, PositiveInt}
-import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, Signature}
+import com.digitalasset.canton.crypto.{Signature, SynchronizerSyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
-import com.digitalasset.canton.protocol.DomainParametersLookup.SequencerDomainParameters
+import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
+import com.digitalasset.canton.protocol.SynchronizerParametersLookup.SequencerSynchronizerParameters
 import com.digitalasset.canton.protocol.{
-  DomainParametersLookup,
-  DynamicDomainParametersLookup,
-  TestDomainParameters,
+  DynamicSynchronizerParametersLookup,
+  SynchronizerParametersLookup,
+  TestSynchronizerParameters,
   v30 as protocolV30,
 }
+import com.digitalasset.canton.sequencer.api.v30
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.BytestringWithCryptographicEvidence
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -30,7 +30,7 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.Sequencer
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.errors.SequencerError
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
-import com.digitalasset.canton.topology.client.{DomainTopologyClient, TopologySnapshot}
+import com.digitalasset.canton.topology.client.{SynchronizerTopologyClient, TopologySnapshot}
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
   SequencedTime,
@@ -86,35 +86,39 @@ class GrpcSequencerServiceTest
       .thenReturn(EitherT.rightT[FutureUnlessShutdown, SendAsyncError](()))
     when(sequencer.acknowledgeSigned(any[SignedContent[AcknowledgeRequest]])(anyTraceContext))
       .thenReturn(EitherT.rightT(()))
-    val cryptoApi: DomainSyncCryptoClient =
-      TestingIdentityFactory(loggerFactory).forOwnerAndDomain(member)
+    val cryptoApi: SynchronizerSyncCryptoClient =
+      TestingIdentityFactory(loggerFactory).forOwnerAndSynchronizer(member)
     val subscriptionPool: SubscriptionPool[Subscription] =
       mock[SubscriptionPool[GrpcManagedSubscription[?]]]
 
     private val confirmationRequestsMaxRate = NonNegativeInt.tryCreate(5)
     private val maxRequestSize = NonNegativeInt.tryCreate(1000)
     val sequencerSubscriptionFactory = mock[DirectSequencerSubscriptionFactory]
-    private val topologyClient = mock[DomainTopologyClient]
+    private val topologyClient = mock[SynchronizerTopologyClient]
     private val mockTopologySnapshot = mock[TopologySnapshot]
     when(topologyClient.currentSnapshotApproximation(any[TraceContext]))
       .thenReturn(mockTopologySnapshot)
     when(
-      mockTopologySnapshot.findDynamicDomainParametersOrDefault(any[ProtocolVersion], anyBoolean)(
+      mockTopologySnapshot.findDynamicSynchronizerParametersOrDefault(
+        any[ProtocolVersion],
+        anyBoolean,
+      )(
         any[TraceContext]
       )
     )
       .thenReturn(
         FutureUnlessShutdown.pure(
-          TestDomainParameters.defaultDynamic(
+          TestSynchronizerParameters.defaultDynamic(
             confirmationRequestsMaxRate = confirmationRequestsMaxRate,
             maxRequestSize = MaxRequestSize(maxRequestSize),
           )
         )
       )
 
-    private val domainParamLookup: DynamicDomainParametersLookup[SequencerDomainParameters] =
-      DomainParametersLookup.forSequencerDomainParameters(
-        BaseTest.defaultStaticDomainParameters,
+    private val domainParamLookup
+        : DynamicSynchronizerParametersLookup[SequencerSynchronizerParameters] =
+      SynchronizerParametersLookup.forSequencerSynchronizerParameters(
+        BaseTest.defaultStaticSynchronizerParameters,
         None,
         topologyClient,
         loggerFactory,

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -413,9 +413,9 @@ final case class FullUnassignmentTree(tree: UnassignmentViewTree)
   override def reassignmentRef: ContractIdRef = ContractIdRef(contractId)
 
   // Domains
-  override def synchronizerId: SynchronizerId = sourceDomain.unwrap
-  override def sourceDomain: Source[SynchronizerId] = commonData.sourceSynchronizerId
-  override def targetDomain: Target[SynchronizerId] = view.targetSynchronizerId
+  override def synchronizerId: SynchronizerId = sourceSynchronizer.unwrap
+  override def sourceSynchronizer: Source[SynchronizerId] = commonData.sourceSynchronizerId
+  override def targetSynchronizer: Target[SynchronizerId] = view.targetSynchronizerId
   def targetTimeProof: TimeProof = view.targetTimeProof
   def targetProtocolVersion: Target[ProtocolVersion] = view.targetProtocolVersion
 

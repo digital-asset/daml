@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.plugins
@@ -16,9 +16,9 @@ import com.digitalasset.canton.environment.CommunityEnvironment
 import com.digitalasset.canton.integration.CommunityConfigTransforms.generateUniqueH2DatabaseName
 import com.digitalasset.canton.integration.CommunityTests.CommunityTestConsoleEnvironment
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.{
-  MultiDomain,
+  MultiSynchronizer,
   SequencerDomainGroups,
-  SingleDomain,
+  SingleSynchronizer,
 }
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
 import com.digitalasset.canton.store.db.DbStorageSetup.DbBasicConfig
@@ -39,7 +39,7 @@ import scala.reflect.ClassTag
 
 class UseCommunityReferenceBlockSequencer[S <: CommunityStorageConfig](
     override protected val loggerFactory: NamedLoggerFactory,
-    sequencerGroups: SequencerDomainGroups = SingleDomain,
+    sequencerGroups: SequencerDomainGroups = SingleSynchronizer,
 )(implicit c: ClassTag[S])
     extends UseReferenceBlockSequencerBase[
       S,
@@ -108,12 +108,12 @@ class UseCommunityReferenceBlockSequencer[S <: CommunityStorageConfig](
       }
 
     val storageConfigMap: Map[InstanceName, S] = sequencerGroups match {
-      case SingleDomain =>
+      case SingleSynchronizer =>
         config.sequencers.map { case (name, sequencerConfig) =>
           val dbParameters = sequencerConfig.storage.parameters
           (name, dbToStorageConfig(dbNames.head1, dbParameters))
         }
-      case MultiDomain(groups) =>
+      case MultiSynchronizer(groups) =>
         groups.zipWithIndex.flatMap { case (sequencers, i) =>
           val dbName = dbNameForGroup(i + 1)
           sequencers.map { name =>

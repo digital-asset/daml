@@ -1,12 +1,12 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.networking.grpc
 
 import com.digitalasset.canton.config.ApiLoggingConfig
-import com.digitalasset.canton.domain.api.v0.HelloServiceGrpc.HelloService
-import com.digitalasset.canton.domain.api.v0.{Hello, HelloServiceGrpc}
 import com.digitalasset.canton.logging.{NamedEventCapturingLogger, TracedLogger}
+import com.digitalasset.canton.protobuf.HelloServiceGrpc.HelloService
+import com.digitalasset.canton.protobuf.{Hello, HelloServiceGrpc}
 import com.digitalasset.canton.sequencing.authentication.grpc.Constant
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
@@ -31,35 +31,39 @@ import scala.util.control.NonFatal
 @nowarn("msg=match may not be exhaustive")
 class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionContext {
 
-  val ChannelName: String = "testSender"
+  private val ChannelName: String = "testSender"
 
-  val Request: Hello.Request = Hello.Request("Hello server")
-  val Response: Hello.Response = Hello.Response("Hello client")
+  private val Request: Hello.Request = Hello.Request("Hello server")
+  private val Response: Hello.Response = Hello.Response("Hello client")
 
   // Exception messages are carefully chosen such that errors logged by SerializingExecutor will be suppressed.
-  val Exception: RuntimeException = new RuntimeException("test exception (runtime exception)")
-  val CheckedException: Exception = new Exception("test exception (checked exception)")
-  val Error: UnknownError = new java.lang.UnknownError("test exception (error)")
+  private val Exception: RuntimeException = new RuntimeException(
+    "test exception (runtime exception)"
+  )
+  private val CheckedException: Exception = new Exception("test exception (checked exception)")
+  private val Error: UnknownError = new java.lang.UnknownError("test exception (error)")
 
   override protected def exitOnFatal =
     false // As we are testing with fatal errors, switch off call to system.exit
 
-  val StatusDescription: String = "test status description"
+  private val StatusDescription: String = "test status description"
 
-  val Trailers: Metadata = {
+  private val Trailers: Metadata = {
     val m = new Metadata()
     m.put(Constant.MEMBER_ID_METADATA_KEY, "testValue")
     m
   }
 
-  val InvalidArgumentStatus: Status = Status.INVALID_ARGUMENT.withDescription(StatusDescription)
-  val AbortedStatus: Status = Status.ABORTED
-  val InternalStatus: Status =
+  private val InvalidArgumentStatus: Status =
+    Status.INVALID_ARGUMENT.withDescription(StatusDescription)
+  private val AbortedStatus: Status = Status.ABORTED
+  private val InternalStatus: Status =
     Status.INTERNAL.withDescription(StatusDescription).withCause(Exception)
-  val UnknownStatus: Status = Status.UNKNOWN.withCause(Error)
-  val UnauthenticatedStatus: Status = Status.UNAUTHENTICATED.withDescription(StatusDescription)
+  private val UnknownStatus: Status = Status.UNKNOWN.withCause(Error)
+  private val UnauthenticatedStatus: Status =
+    Status.UNAUTHENTICATED.withDescription(StatusDescription)
 
-  val failureCases: TableFor5[Status, Metadata, String, Level, String] = Table(
+  private val failureCases: TableFor5[Status, Metadata, String, Level, String] = Table(
     ("Status", "Trailers", "Expected description", "Expected log level", "Expected log message"),
     (
       InvalidArgumentStatus,
@@ -86,20 +90,20 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
     ),
   )
 
-  val throwableCases: TableFor2[String, Throwable] = Table(
+  private val throwableCases: TableFor2[String, Throwable] = Table(
     ("Description", "Throwable"),
     ("RuntimeException", Exception),
     ("Exception", CheckedException),
     ("Error", Error),
   )
 
-  val ClientCancelsStatus: Status = Status.CANCELLED.withDescription("Context cancelled")
-  val ServerCancelsStatus: Status =
+  private val ClientCancelsStatus: Status = Status.CANCELLED.withDescription("Context cancelled")
+  private val ServerCancelsStatus: Status =
     Status.CANCELLED.withDescription("cancelling due to cancellation by client")
 
-  val grpcClientCancelledStreamed: String = "failed with CANCELLED/call already cancelled"
+  private val grpcClientCancelledStreamed: String = "failed with CANCELLED/call already cancelled"
 
-  val cancelCases: TableFor5[String, Any, Level, String, Throwable] = Table(
+  private val cancelCases: TableFor5[String, Any, Level, String, Throwable] = Table(
     (
       "Description",
       "Action after cancellation",
@@ -125,7 +129,7 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
     ),
   )
 
-  implicit val eqMetadata: Equality[Metadata] = (a: Metadata, b: Any) => {
+  private implicit val eqMetadata: Equality[Metadata] = (a: Metadata, b: Any) => {
     val first = Option(a).getOrElse(new Metadata())
     val secondAny = Option(b).getOrElse(new Metadata())
 
@@ -136,7 +140,7 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
     }
   }
 
-  def assertClientFailure(
+  private def assertClientFailure(
       clientCompletion: Future[_],
       serverStatus: Status,
       serverTrailers: Metadata = new Metadata(),
@@ -250,7 +254,7 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
         content: String,
         includeRequestTraceContext: Boolean = false,
     ): String = {
-      val mainMessage = s"Request c.d.c.d.a.v.HelloService/Hello by testSender: $content"
+      val mainMessage = s"Request c.d.c.p.HelloService/Hello by testSender: $content"
       val traceContextMessage = s"\n  Request ${requestTraceContext.showTraceId}"
       if (includeRequestTraceContext) mainMessage + traceContextMessage else mainMessage
     }
@@ -258,7 +262,7 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
     def assertRequestLogged: Assertion = {
       capturingLogger.assertNextMessage(
         _ should startWith(
-          "Request c.d.c.d.a.v.HelloService/Hello by testSender: " +
+          "Request c.d.c.p.HelloService/Hello by testSender: " +
             s"received headers Metadata(" +
             s"traceparent=${requestTraceContext.asW3CTraceContext.value.parent}," +
             s"grpc-accept-encoding=gzip,user-agent=grpc-java-inprocess"
@@ -525,7 +529,7 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
         content: String,
         includeRequestTraceContext: Boolean = false,
     ): String = {
-      val mainMessage = s"Request c.d.c.d.a.v.HelloService/HelloStreamed by testSender: $content"
+      val mainMessage = s"Request c.d.c.p.HelloService/HelloStreamed by testSender: $content"
       val traceContextMessage = s"\n  Request ${requestTraceContext.showTraceId}"
       if (includeRequestTraceContext) mainMessage + traceContextMessage else mainMessage
     }
@@ -533,7 +537,7 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
     def assertRequestAndResponsesLogged: Assertion = {
       capturingLogger.assertNextMessage(
         _ should startWith(
-          "Request c.d.c.d.a.v.HelloService/HelloStreamed by testSender: " +
+          "Request c.d.c.p.HelloService/HelloStreamed by testSender: " +
             s"received headers Metadata(" +
             s"traceparent=${requestTraceContext.asW3CTraceContext.value.parent}," +
             s"grpc-accept-encoding=gzip,user-agent=grpc-java-inprocess"
@@ -750,7 +754,7 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
         content: String,
         includeRequestTraceContext: Boolean = false,
     ): String = {
-      val mainMessage = s"Request c.d.c.d.a.v.HelloService/Hello by testSender: $content"
+      val mainMessage = s"Request c.d.c.p.HelloService/Hello by testSender: $content"
       val traceContextMessage = s"\n  Request ${requestTraceContext.showTraceId}"
       if (includeRequestTraceContext) mainMessage + traceContextMessage else mainMessage
     }
@@ -820,14 +824,14 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
         content: String,
         includeRequestTraceContext: Boolean = false,
     ): String = {
-      val mainMessage = s"Request c.d.c.d.a.v.HelloService/HelloStreamed by testSender: $content"
+      val mainMessage = s"Request c.d.c.p.HelloService/HelloStreamed by testSender: $content"
       val traceContextMessage = s"\n  Request ${requestTraceContext.showTraceId}"
       if (includeRequestTraceContext) mainMessage + traceContextMessage else mainMessage
     }
 
     def assertRequestAndResponsesLogged: Assertion = {
       capturingLogger.assertNextMessageIs(
-        "Request c.d.c.d.a.v.HelloService/HelloStreamed by testSender: " +
+        "Request c.d.c.p.HelloService/HelloStreamed by testSender: " +
           "received headers Met...",
         TRACE,
       )

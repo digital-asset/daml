@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol.signer
@@ -31,7 +31,7 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 class ProtocolSignerDefault(
     member: Member,
-    signPublicApi: DomainCryptoPureApi,
+    signPublicApi: SynchronizerCryptoPureApi,
     signPrivateApi: SigningPrivateOps,
     cryptoPrivateStore: CryptoPrivateStore,
     logger: TracedLogger,

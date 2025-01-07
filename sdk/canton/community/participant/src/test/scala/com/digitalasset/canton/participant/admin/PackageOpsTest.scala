@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin
@@ -115,7 +115,7 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
     val participantId = ParticipantId(UniqueIdentifier.tryCreate("participant", "one"))
 
     val headAuthorizedTopologySnapshot = mock[TopologySnapshot]
-    val anotherDomainTopologySnapshot = mock[TopologySnapshot]
+    val anotherSynchronizerTopologySnapshot = mock[TopologySnapshot]
 
     val pkgId1 = LfPackageId.assertFromString("pkgId1")
     val pkgId2 = LfPackageId.assertFromString("pkgId2")
@@ -132,7 +132,7 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
     when(stateManager.getAll).thenReturn(Map(synchronizerId1 -> syncDomainPersistentState))
     val topologyComponentFactory = mock[TopologyComponentFactory]
     when(topologyComponentFactory.createHeadTopologySnapshot()(any[ExecutionContext]))
-      .thenReturn(anotherDomainTopologySnapshot)
+      .thenReturn(anotherSynchronizerTopologySnapshot)
 
     val contractStore = mock[ContractStore]
 
@@ -163,7 +163,7 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
         )
       ).thenReturn(FutureUnlessShutdown.pure(unvettedForAuthorizedSnapshot))
       when(
-        anotherDomainTopologySnapshot.determinePackagesWithNoVettingEntry(
+        anotherSynchronizerTopologySnapshot.determinePackagesWithNoVettingEntry(
           participantId,
           Set(pkgId1),
         )

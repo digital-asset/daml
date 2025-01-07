@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.processing
@@ -29,7 +29,7 @@ abstract class TopologyTransactionHandlingBase
 
   protected def mkStore(
       synchronizerId: SynchronizerId = Factory.synchronizerId1a
-  ): TopologyStore[TopologyStoreId.DomainStore]
+  ): TopologyStore[TopologyStoreId.SynchronizerStore]
 
   protected def ts(idx: Int): CantonTimestamp = CantonTimestamp.Epoch.plusSeconds(idx.toLong)
   protected def fetch(

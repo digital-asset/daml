@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.transaction
@@ -8,13 +8,13 @@ import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.{Fingerprint, SigningPublicKey}
-import com.digitalasset.canton.protocol.{DynamicDomainParameters, OnboardingRestriction}
+import com.digitalasset.canton.protocol.{DynamicSynchronizerParameters, OnboardingRestriction}
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.DefaultTestIdentities.{mediatorId, sequencerId}
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.*
-import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
+import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.TopologyTransactionRejection.InvalidTopologyMapping
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
@@ -55,7 +55,7 @@ class ValidatingTopologyMappingChecksTest
   def mk() = {
     val store =
       new InMemoryTopologyStore(
-        DomainStore(DefaultTestIdentities.synchronizerId),
+        SynchronizerStore(DefaultTestIdentities.synchronizerId),
         testedProtocolVersion,
         loggerFactory,
         timeouts,
@@ -571,10 +571,10 @@ class ValidatingTopologyMappingChecksTest
           store,
           ptp,
         )
-        val prior = factory.mkAdd(DomainTrustCertificate(participant1, synchronizerId))
+        val prior = factory.mkAdd(SynchronizerTrustCertificate(participant1, synchronizerId))
 
         val dtc =
-          factory.mkRemove(DomainTrustCertificate(participant1, synchronizerId))
+          factory.mkRemove(SynchronizerTrustCertificate(participant1, synchronizerId))
         checkTransaction(checks, dtc, Some(prior)) shouldBe Left(
           TopologyTransactionRejection.ParticipantStillHostsParties(participant1, Seq(party1))
         )
@@ -604,9 +604,9 @@ class ValidatingTopologyMappingChecksTest
         )
 
         val dop = factory.mkAdd(
-          DomainParametersState(
+          SynchronizerParametersState(
             synchronizerId,
-            DynamicDomainParameters.defaultValues(testedProtocolVersion),
+            DynamicSynchronizerParameters.defaultValues(testedProtocolVersion),
           )
         )
 
@@ -634,9 +634,9 @@ class ValidatingTopologyMappingChecksTest
           .foreach { restriction =>
             val (checks, store) = mk()
             val dop = factory.mkAdd(
-              DomainParametersState(
+              SynchronizerParametersState(
                 synchronizerId,
-                DynamicDomainParameters
+                DynamicSynchronizerParameters
                   .defaultValues(testedProtocolVersion)
                   .tryUpdate(onboardingRestriction = restriction),
               )
@@ -644,7 +644,7 @@ class ValidatingTopologyMappingChecksTest
             addToStore(store, dop)
 
             val dtc =
-              factory.mkAdd(DomainTrustCertificate(participant1, synchronizerId))
+              factory.mkAdd(SynchronizerTrustCertificate(participant1, synchronizerId))
 
             checkTransaction(checks, dtc) shouldBe Left(
               TopologyTransactionRejection.OnboardingRestrictionInPlace(
@@ -659,9 +659,9 @@ class ValidatingTopologyMappingChecksTest
       "reject the addition if the domain is restricted" in {
         val (checks, store) = mk()
         val dop = factory.mkAdd(
-          DomainParametersState(
+          SynchronizerParametersState(
             synchronizerId,
-            DynamicDomainParameters
+            DynamicSynchronizerParameters
               .defaultValues(testedProtocolVersion)
               .tryUpdate(onboardingRestriction = OnboardingRestriction.RestrictedOpen),
           )
@@ -670,7 +670,7 @@ class ValidatingTopologyMappingChecksTest
           store,
           dop,
           factory.mkAdd(
-            ParticipantDomainPermission(
+            ParticipantSynchronizerPermission(
               synchronizerId,
               participant1,
               ParticipantPermission.Submission,
@@ -683,7 +683,7 @@ class ValidatingTopologyMappingChecksTest
         // participant2 does not have permission from the domain to join
         checkTransaction(
           checks,
-          factory.mkAdd(DomainTrustCertificate(participant2, synchronizerId)),
+          factory.mkAdd(SynchronizerTrustCertificate(participant2, synchronizerId)),
         ) shouldBe Left(
           TopologyTransactionRejection.OnboardingRestrictionInPlace(
             participant2,
@@ -695,7 +695,7 @@ class ValidatingTopologyMappingChecksTest
         // participant1 has been permissioned by the domain
         checkTransaction(
           checks,
-          factory.mkAdd(DomainTrustCertificate(participant1, synchronizerId)),
+          factory.mkAdd(SynchronizerTrustCertificate(participant1, synchronizerId)),
           None,
         ) shouldBe Either.unit
       }
@@ -703,7 +703,7 @@ class ValidatingTopologyMappingChecksTest
       "reject a rejoining participant" in {
         val (checks, store) = mk()
         val dtcRemoval = factory.mkRemove(
-          DomainTrustCertificate(
+          SynchronizerTrustCertificate(
             participant1,
             synchronizerId,
           )
@@ -714,12 +714,12 @@ class ValidatingTopologyMappingChecksTest
         )
         val rejoin =
           factory.mkAdd(
-            DomainTrustCertificate(participant1, synchronizerId),
+            SynchronizerTrustCertificate(participant1, synchronizerId),
             serial = PositiveInt.two,
           )
 
         checkTransaction(checks, rejoin, Some(dtcRemoval)) shouldBe Left(
-          TopologyTransactionRejection.MembersCannotRejoinDomain(Seq(participant1))
+          TopologyTransactionRejection.MembersCannotRejoinSynchronizer(Seq(participant1))
         )
       }
 
@@ -732,7 +732,7 @@ class ValidatingTopologyMappingChecksTest
         addToStore(store, transactions*)
 
         val mds1 = factory.mkAdd(
-          MediatorDomainState
+          MediatorSynchronizerState
             .create(
               synchronizerId,
               NonNegativeInt.zero,
@@ -746,7 +746,7 @@ class ValidatingTopologyMappingChecksTest
         )
 
         val mds2 = factory.mkAdd(
-          MediatorDomainState
+          MediatorSynchronizerState
             .create(
               synchronizerId,
               NonNegativeInt.zero,
@@ -773,7 +773,7 @@ class ValidatingTopologyMappingChecksTest
           NonNegativeInt.two -> Seq(med1, med2, med3),
         ).map { case (group, mediators) =>
           factory.mkAdd(
-            MediatorDomainState
+            MediatorSynchronizerState
               .create(
                 synchronizerId,
                 group,
@@ -800,7 +800,7 @@ class ValidatingTopologyMappingChecksTest
       "report mediators defined both as active and observers" in {
         val (Seq(med1, med2), _transactions) = generateMemberIdentities(2, MediatorId(_))
 
-        MediatorDomainState
+        MediatorSynchronizerState
           .create(
             synchronizerId,
             NonNegativeInt.zero,
@@ -819,10 +819,10 @@ class ValidatingTopologyMappingChecksTest
         def mkGroups(
             serial: PositiveInt,
             groupSetup: (NonNegativeInt, Seq[MediatorId])*
-        ): Seq[SignedTopologyTransaction[TopologyChangeOp.Replace, MediatorDomainState]] =
+        ): Seq[SignedTopologyTransaction[TopologyChangeOp.Replace, MediatorSynchronizerState]] =
           groupSetup.map { case (group, mediators) =>
             factory.mkAdd(
-              MediatorDomainState
+              MediatorSynchronizerState
                 .create(
                   synchronizerId,
                   group,
@@ -876,11 +876,11 @@ class ValidatingTopologyMappingChecksTest
         )
 
         checkTransaction(checks, med1RejoinsGroup0, Some(group0RemoveMed1)) shouldBe Left(
-          TopologyTransactionRejection.MembersCannotRejoinDomain(Seq(med1))
+          TopologyTransactionRejection.MembersCannotRejoinSynchronizer(Seq(med1))
         )
 
         checkTransaction(checks, med2RejoinsGroup0, Some(group0RemoveMed1)) shouldBe Left(
-          TopologyTransactionRejection.MembersCannotRejoinDomain(Seq(med2))
+          TopologyTransactionRejection.MembersCannotRejoinSynchronizer(Seq(med2))
         )
       }
 
@@ -893,7 +893,7 @@ class ValidatingTopologyMappingChecksTest
         addToStore(store, transactions*)
 
         val sds1 = factory.mkAdd(
-          SequencerDomainState
+          SequencerSynchronizerState
             .create(
               synchronizerId,
               PositiveInt.one,
@@ -906,7 +906,7 @@ class ValidatingTopologyMappingChecksTest
         )
 
         val sds2 = factory.mkAdd(
-          SequencerDomainState
+          SequencerSynchronizerState
             .create(
               synchronizerId,
               PositiveInt.one,
@@ -924,7 +924,7 @@ class ValidatingTopologyMappingChecksTest
       "report sequencers defined both as active and observers" in {
         val (Seq(seq1, seq2), _transactions) = generateMemberIdentities(2, SequencerId(_))
 
-        SequencerDomainState
+        SequencerSynchronizerState
           .create(
             synchronizerId,
             PositiveInt.one,
@@ -942,9 +942,9 @@ class ValidatingTopologyMappingChecksTest
         def mkSDS(
             serial: PositiveInt,
             sequencers: SequencerId*
-        ): SignedTopologyTransaction[TopologyChangeOp.Replace, SequencerDomainState] =
+        ): SignedTopologyTransaction[TopologyChangeOp.Replace, SequencerSynchronizerState] =
           factory.mkAdd(
-            SequencerDomainState
+            SequencerSynchronizerState
               .create(
                 synchronizerId,
                 PositiveInt.one,
@@ -984,7 +984,7 @@ class ValidatingTopologyMappingChecksTest
         val sds_S1_rejoining_S2 = mkSDS(PositiveInt.three, seq1, seq2)
 
         checkTransaction(checks, sds_S1_rejoining_S2, Some(sds_S1)) shouldBe Left(
-          TopologyTransactionRejection.MembersCannotRejoinDomain(Seq(seq2))
+          TopologyTransactionRejection.MembersCannotRejoinSynchronizer(Seq(seq2))
         )
       }
     }
@@ -1073,7 +1073,7 @@ class ValidatingTopologyMappingChecksTest
   }
 
   private def addToStore(
-      store: TopologyStore[DomainStore],
+      store: TopologyStore[SynchronizerStore],
       transactions: GenericSignedTopologyTransaction*
   ): Unit =
     store

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer
@@ -12,7 +12,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong, PositiveInt}
-import com.digitalasset.canton.crypto.DomainSyncCryptoClient
+import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
@@ -36,7 +36,7 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.traffic.{
   SequencerRateLimitError,
   SequencerTrafficStatus,
 }
-import com.digitalasset.canton.time.{Clock, DomainTimeTracker, NonNegativeFiniteDuration}
+import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.{Member, SequencerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
@@ -68,7 +68,7 @@ object DatabaseSequencer {
       synchronizerId: SynchronizerId,
       topologyClientMember: Member,
       protocolVersion: ProtocolVersion,
-      cryptoApi: DomainSyncCryptoClient,
+      cryptoApi: SynchronizerSyncCryptoClient,
       metrics: SequencerMetrics,
       loggerFactory: NamedLoggerFactory,
   )(implicit
@@ -130,7 +130,7 @@ class DatabaseSequencer(
     synchronizerId: SynchronizerId,
     topologyClientMember: Member,
     protocolVersion: ProtocolVersion,
-    cryptoApi: DomainSyncCryptoClient,
+    cryptoApi: SynchronizerSyncCryptoClient,
     metrics: SequencerMetrics,
     loggerFactory: NamedLoggerFactory,
     blockSequencerMode: Boolean,
@@ -505,7 +505,7 @@ class DatabaseSequencer(
       serial: PositiveInt,
       totalTrafficPurchased: NonNegativeLong,
       sequencerClient: SequencerClientSend,
-      domainTimeTracker: DomainTimeTracker,
+      synchronizerTimeTracker: SynchronizerTimeTracker,
   )(implicit
       traceContext: TraceContext
   ): EitherT[

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.metrics
@@ -25,11 +25,11 @@ import com.digitalasset.canton.metrics.{
   TrafficConsumptionMetrics,
 }
 import com.digitalasset.canton.sequencing.protocol.{
-  AllMembersOfDomain,
+  AllMembersOfSynchronizer,
   MediatorGroupRecipient,
   MemberRecipient,
   Recipient,
-  SequencersOfDomain,
+  SequencersOfSynchronizer,
 }
 import com.digitalasset.canton.topology.{MediatorId, Member, ParticipantId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -306,9 +306,9 @@ object SequencerMetrics {
           acc.copy(participants = true)
         case (acc, MemberRecipient(MediatorId(_)) | MediatorGroupRecipient(_)) =>
           acc.copy(mediators = true)
-        case (acc, MemberRecipient(SequencerId(_)) | SequencersOfDomain) =>
+        case (acc, MemberRecipient(SequencerId(_)) | SequencersOfSynchronizer) =>
           acc.copy(sequencers = true)
-        case (acc, AllMembersOfDomain) => acc.copy(broadcast = true)
+        case (acc, AllMembersOfSynchronizer) => acc.copy(broadcast = true)
       }
       .metricsContext(member, logger, warnOnUnexpected)
 }

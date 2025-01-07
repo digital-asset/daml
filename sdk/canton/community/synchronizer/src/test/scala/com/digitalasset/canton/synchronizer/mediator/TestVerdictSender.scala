@@ -1,9 +1,9 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.mediator
 
-import com.digitalasset.canton.crypto.DomainSyncCryptoClient
+import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -21,7 +21,7 @@ import scala.jdk.CollectionConverters.*
 import TestVerdictSender.Result
 
 class TestVerdictSender(
-    crypto: DomainSyncCryptoClient,
+    crypto: SynchronizerSyncCryptoClient,
     mediatorId: MediatorId,
     sequencerSend: SequencerClientSend,
     protocolVersion: ProtocolVersion,

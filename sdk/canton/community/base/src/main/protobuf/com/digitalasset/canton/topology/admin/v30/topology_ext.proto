@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -7,7 +7,7 @@ package com.digitalasset.canton.topology.admin.v30;
 
 import "google/protobuf/timestamp.proto";
 
-/** Topology transaction collection used during bootstrapping of domain nodes and on the admin API
+/** Topology transaction collection used during bootstrapping of synchronizer nodes and on the admin API
  *
  * Please note that this message should not be in the protocol package, as it is not used on the protocol
  * itself but on the admin apis. But as we can't rename the package name due to backwards compatibility

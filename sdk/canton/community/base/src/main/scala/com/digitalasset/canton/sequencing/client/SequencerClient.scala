@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client
@@ -28,15 +28,15 @@ import com.digitalasset.canton.health.{
   DelegatingMutableHealthComponent,
   HealthComponent,
 }
+import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.lifecycle.LifeCycle.toCloseableOption
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, *}
 import com.digitalasset.canton.logging.pretty.{CantonPrettyPrinter, Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.SequencerClientMetrics
-import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
-import com.digitalasset.canton.protocol.DomainParametersLookup.SequencerDomainParameters
-import com.digitalasset.canton.protocol.DynamicDomainParametersLookup
+import com.digitalasset.canton.protocol.DynamicSynchronizerParametersLookup
+import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
+import com.digitalasset.canton.protocol.SynchronizerParametersLookup.SequencerSynchronizerParameters
 import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
 import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
 import com.digitalasset.canton.sequencing.*
@@ -66,7 +66,7 @@ import com.digitalasset.canton.sequencing.traffic.{TrafficReceipt, TrafficStateC
 import com.digitalasset.canton.store.*
 import com.digitalasset.canton.store.CursorPrehead.SequencerCounterCursorPrehead
 import com.digitalasset.canton.store.SequencedEventStore.PossiblyIgnoredSequencedEvent
-import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
+import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.tracing.{HasTraceContext, Spanning, TraceContext, Traced}
@@ -121,7 +121,7 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
   def subscribeTracking(
       sequencerCounterTrackerStore: SequencerCounterTrackerStore,
       eventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
-      timeTracker: DomainTimeTracker,
+      timeTracker: SynchronizerTimeTracker,
       onCleanHandler: Traced[SequencerCounterCursorPrehead] => Unit = _ => (),
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
@@ -149,7 +149,7 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
       priorTimestamp: CantonTimestamp,
       cleanPreheadTsO: Option[CantonTimestamp],
       eventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
-      timeTracker: DomainTimeTracker,
+      timeTracker: SynchronizerTimeTracker,
       fetchCleanTimestamp: PeriodicAcknowledgements.FetchCleanTimestamp,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
@@ -197,7 +197,7 @@ abstract class SequencerClientImpl(
     val config: SequencerClientConfig,
     testingConfig: TestingConfigInternal,
     val protocolVersion: ProtocolVersion,
-    domainParametersLookup: DynamicDomainParametersLookup[SequencerDomainParameters],
+    domainParametersLookup: DynamicSynchronizerParametersLookup[SequencerSynchronizerParameters],
     override val timeouts: ProcessingTimeout,
     clock: Clock,
     val requestSigner: RequestSigner,
@@ -636,7 +636,7 @@ abstract class SequencerClientImpl(
   def subscribeTracking(
       sequencerCounterTrackerStore: SequencerCounterTrackerStore,
       eventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
-      timeTracker: DomainTimeTracker,
+      timeTracker: SynchronizerTimeTracker,
       onCleanHandler: Traced[SequencerCounterCursorPrehead] => Unit = _ => (),
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     FutureUnlessShutdown.outcomeF(sequencerCounterTrackerStore.preheadSequencerCounter).flatMap {
@@ -682,7 +682,7 @@ abstract class SequencerClientImpl(
       priorTimestamp: CantonTimestamp,
       cleanPreheadTsO: Option[CantonTimestamp],
       eventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
-      timeTracker: DomainTimeTracker,
+      timeTracker: SynchronizerTimeTracker,
       fetchCleanTimestamp: PeriodicAcknowledgements.FetchCleanTimestamp,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val timeLimittedEventHandler = new TimeLimitingApplicationEventHandler(
@@ -705,7 +705,7 @@ abstract class SequencerClientImpl(
       priorTimestamp: CantonTimestamp,
       cleanPreheadTsO: Option[CantonTimestamp],
       nonThrottledEventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
-      timeTracker: DomainTimeTracker,
+      timeTracker: SynchronizerTimeTracker,
       fetchCleanTimestamp: PeriodicAcknowledgements.FetchCleanTimestamp,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
@@ -759,7 +759,7 @@ class RichSequencerClientImpl(
     config: SequencerClientConfig,
     testingConfig: TestingConfigInternal,
     protocolVersion: ProtocolVersion,
-    domainParametersLookup: DynamicDomainParametersLookup[SequencerDomainParameters],
+    domainParametersLookup: DynamicSynchronizerParametersLookup[SequencerSynchronizerParameters],
     timeouts: ProcessingTimeout,
     eventValidatorFactory: SequencedEventValidatorFactory,
     clock: Clock,
@@ -855,7 +855,7 @@ class RichSequencerClientImpl(
       priorTimestamp: CantonTimestamp,
       cleanPreheadTsO: Option[CantonTimestamp],
       nonThrottledEventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
-      timeTracker: DomainTimeTracker,
+      timeTracker: SynchronizerTimeTracker,
       fetchCleanTimestamp: PeriodicAcknowledgements.FetchCleanTimestamp,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val throttledEventHandler = ThrottlingApplicationEventHandler.throttle(
@@ -1435,7 +1435,7 @@ class SequencerClientImplPekko[E: Pretty](
     config: SequencerClientConfig,
     testingConfig: TestingConfigInternal,
     protocolVersion: ProtocolVersion,
-    domainParametersLookup: DynamicDomainParametersLookup[SequencerDomainParameters],
+    domainParametersLookup: DynamicSynchronizerParametersLookup[SequencerSynchronizerParameters],
     timeouts: ProcessingTimeout,
     eventValidatorFactory: SequencedEventValidatorFactory,
     clock: Clock,
@@ -1485,7 +1485,7 @@ class SequencerClientImplPekko[E: Pretty](
       priorTimestamp: CantonTimestamp,
       cleanPreheadTsO: Option[CantonTimestamp],
       nonThrottledEventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
-      timeTracker: DomainTimeTracker,
+      timeTracker: SynchronizerTimeTracker,
       fetchCleanTimestamp: FetchCleanTimestamp,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val throttledEventHandler = ThrottlingApplicationEventHandler.throttle(

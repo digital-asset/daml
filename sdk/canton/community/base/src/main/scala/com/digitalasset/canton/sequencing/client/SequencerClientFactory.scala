@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client
@@ -17,7 +17,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NamedL
 import com.digitalasset.canton.metrics.SequencerClientMetrics
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
-import com.digitalasset.canton.protocol.{DomainParametersLookup, StaticDomainParameters}
+import com.digitalasset.canton.protocol.{StaticSynchronizerParameters, SynchronizerParametersLookup}
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.client.ReplayAction.{SequencerEvents, SequencerSends}
 import com.digitalasset.canton.sequencing.client.SequencerClient.SequencerTransports
@@ -33,7 +33,7 @@ import com.digitalasset.canton.sequencing.traffic.{EventCostCalculator, TrafficS
 import com.digitalasset.canton.store.*
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.client.DomainTopologyClient
+import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{SequencerAlias, SequencerCounter}
@@ -69,10 +69,10 @@ object SequencerClientFactory {
       config: SequencerClientConfig,
       traceContextPropagation: TracingConfig.Propagation,
       testingConfig: TestingConfigInternal,
-      domainParameters: StaticDomainParameters,
+      domainParameters: StaticSynchronizerParameters,
       processingTimeout: ProcessingTimeout,
       clock: Clock,
-      topologyClient: DomainTopologyClient,
+      topologyClient: SynchronizerTopologyClient,
       futureSupervisor: FutureSupervisor,
       recordingConfigForMember: Member => Option[RecordingConfig],
       replayConfigForMember: Member => Option[ReplayConfig],
@@ -107,12 +107,13 @@ object SequencerClientFactory {
             loggerFactory,
           )
         }
-        val sequencerDomainParamsLookup = DomainParametersLookup.forSequencerDomainParameters(
-          domainParameters,
-          config.overrideMaxRequestSize,
-          topologyClient,
-          loggerFactory,
-        )
+        val sequencerDomainParamsLookup =
+          SynchronizerParametersLookup.forSequencerSynchronizerParameters(
+            domainParameters,
+            config.overrideMaxRequestSize,
+            topologyClient,
+            loggerFactory,
+          )
 
         val sequencerTransportsMap = makeTransport(
           sequencerConnections,

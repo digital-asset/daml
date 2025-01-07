@@ -11,8 +11,8 @@ lint:
   ignore_only:
     # TODO(i16943) Remove coupling between sequencer subscription endpoints
     RPC_REQUEST_RESPONSE_UNIQUE:
-      - com/digitalasset/canton/domain/api/v30/sequencer_service.proto
+      - com/digitalasset/canton/sequencer/api/v30/sequencer_service.proto
     RPC_REQUEST_STANDARD_NAME:
-      - com/digitalasset/canton/domain/api/v30/sequencer_service.proto
+      - com/digitalasset/canton/sequencer/api/v30/sequencer_service.proto
     RPC_RESPONSE_STANDARD_NAME:
-      - com/digitalasset/canton/domain/api/v30/sequencer_service.proto
+      - com/digitalasset/canton/sequencer/api/v30/sequencer_service.proto

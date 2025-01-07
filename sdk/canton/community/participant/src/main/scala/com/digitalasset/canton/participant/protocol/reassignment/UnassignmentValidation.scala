@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -39,7 +39,7 @@ private[reassignment] class UnassignmentValidation(
     val fullTree = parsedRequest.fullViewTree
 
     val reassignmentId: ReassignmentId =
-      ReassignmentId(fullTree.sourceDomain, parsedRequest.requestTimestamp)
+      ReassignmentId(fullTree.sourceSynchronizer, parsedRequest.requestTimestamp)
     val contract = fullTree.contract
 
     for {
@@ -63,7 +63,10 @@ private[reassignment] class UnassignmentValidation(
         ProcessingSteps
           .getAssignmentExclusivity(targetTopology, fullTree.targetTimeProof.timestamp)
           .leftMap(
-            ReassignmentParametersError(fullTree.targetDomain.unwrap, _): ReassignmentProcessorError
+            ReassignmentParametersError(
+              fullTree.targetSynchronizer.unwrap,
+              _,
+            ): ReassignmentProcessorError
           )
       }
 
@@ -75,7 +78,7 @@ private[reassignment] class UnassignmentValidation(
       packageName = contract.rawContractInstance.contractInstance.unversioned.packageName,
       submitterMetadata = fullTree.submitterMetadata,
       reassignmentId = reassignmentId,
-      targetDomain = fullTree.targetDomain,
+      targetDomain = fullTree.targetSynchronizer,
       stakeholders = fullTree.stakeholders.all,
       targetTimeProof = fullTree.targetTimeProof,
       hostedStakeholders = hostedStakeholders,

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.topology
@@ -8,8 +8,8 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.store.SequencedEventStore
 import com.digitalasset.canton.store.SequencedEventStore.SearchCriterion
 import com.digitalasset.canton.topology.client.{
-  DomainTopologyClientHeadStateInitializer,
-  DomainTopologyClientWithInit,
+  SynchronizerTopologyClientHeadStateInitializer,
+  SynchronizerTopologyClientWithInit,
 }
 import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
@@ -23,13 +23,13 @@ import scala.concurrent.ExecutionContext
   */
 final class SequencedEventStoreBasedTopologyHeadInitializer(
     sequencedEventStore: SequencedEventStore,
-    topologyStore: TopologyStore[TopologyStoreId.DomainStore],
-) extends DomainTopologyClientHeadStateInitializer {
+    topologyStore: TopologyStore[TopologyStoreId.SynchronizerStore],
+) extends SynchronizerTopologyClientHeadStateInitializer {
 
-  override def initialize(client: DomainTopologyClientWithInit)(implicit
+  override def initialize(client: SynchronizerTopologyClientWithInit)(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): FutureUnlessShutdown[DomainTopologyClientWithInit] =
+  ): FutureUnlessShutdown[SynchronizerTopologyClientWithInit] =
     for {
       latestSequencedEvent <- sequencedEventStore
         .find(SearchCriterion.Latest)

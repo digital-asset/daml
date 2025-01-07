@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.block
@@ -75,7 +75,8 @@ trait SequencerDriverFactory {
   ): SequencerDriver
 
   /** Returns whether the driver produced by [[create]] will use the [[com.digitalasset.canton.time.TimeProvider]]
-    * for generating timestamps on [[block.RawLedgerBlock.RawBlockEvent.Send]] events.
+    * for generating timestamps on [[com.digitalasset.canton.synchronizer.block.RawLedgerBlock.RawBlockEvent.Send]]
+    * events.
     *
     * This information is used to prevent using the driver in an environment
     * that needs to control time, e.g., for testing.
@@ -94,28 +95,28 @@ trait SequencerDriverFactory {
   * The driver must make sure that all sequencer nodes of a domain receive the same stream of [[RawLedgerBlock]]s eventually.
   * That is, if one sequencer node receives a block `b` at block height `h`, then every other sequencer node has already
   * or will eventually receive `b` at height `h` unless the node fails permanently.
-  * Each [[RawLedgerBlock]] contains [[block.RawLedgerBlock.RawBlockEvent]]s
+  * Each [[RawLedgerBlock]] contains [[com.digitalasset.canton.synchronizer.block.RawLedgerBlock.RawBlockEvent]]s
   * that correspond to the sequenced requests. The [[com.digitalasset.canton.tracing.TraceContext]]
   * passed to the write operations should be propagated into the corresponding
-  * [[block.RawLedgerBlock.RawBlockEvent]].
+  * [[com.digitalasset.canton.synchronizer.block.RawLedgerBlock.RawBlockEvent]].
   *
   * All write operations are asynchronous: the [[scala.concurrent.Future]] may complete
   * before the request is actually sequenced. Under normal circumstances, the request should then also eventually
-  * be delivered in a [[block.RawLedgerBlock.RawBlockEvent]],
+  * be delivered in a [[com.digitalasset.canton.synchronizer.block.RawLedgerBlock.RawBlockEvent]],
   * but there is no guarantee. A write operation may fail with an exception; in that case,
   * the request must not be sequenced. Every write operation may result in at most one corresponding
-  * [[block.RawLedgerBlock.RawBlockEvent]].
+  * [[com.digitalasset.canton.synchronizer.block.RawLedgerBlock.RawBlockEvent]].
   *
   * The [[SequencerDriver]] is responsible for assigning timestamps to
-  * [[block.RawLedgerBlock.RawBlockEvent.Send]] events.
+  * [[com.digitalasset.canton.synchronizer.block.RawLedgerBlock.RawBlockEvent.Send]] events.
   * The assigned timestamps must be close to real-world time given the trust assumptions of the [[SequencerDriver]].
   * For example, assume that the clocks among all honest sequencer nodes are synchronized up to a given `skew`.
   * Let `ts0` be the local sequencer's time when an honest sequencer node calls [[SequencerDriver.send]].
   * Let `ts1` be the local sequencer's time when it receives the corresponding
-  * [[block.RawLedgerBlock.RawBlockEvent.Send]].
+  * [[com.digitalasset.canton.synchronizer.block.RawLedgerBlock.RawBlockEvent.Send]].
   * Then the assigned timestamp `ts` must satisfy `ts0 - skew <= ts <= ts1 + skew`.
   *
-  * Several [[block.RawLedgerBlock.RawBlockEvent.Send]] events may
+  * Several [[com.digitalasset.canton.synchronizer.block.RawLedgerBlock.RawBlockEvent.Send]] events may
   * have the same timestamp or go backwards, as long as they remain close to real-world time.
   */
 trait SequencerDriver extends AutoCloseable {
@@ -132,14 +133,21 @@ trait SequencerDriver extends AutoCloseable {
   // Write operations
 
   /** Distribute an acknowledgement request.
-    * Results in a [[block.RawLedgerBlock.RawBlockEvent.Acknowledgment]].
+    * Results in a [[com.digitalasset.canton.synchronizer.block.RawLedgerBlock.RawBlockEvent.Acknowledgment]].
     */
   def acknowledge(acknowledgement: ByteString)(implicit traceContext: TraceContext): Future[Unit]
 
   /** Send a submission request.
-    * Results in a [[block.RawLedgerBlock.RawBlockEvent.Send]].
+    * Results in a [[com.digitalasset.canton.synchronizer.block.RawLedgerBlock.RawBlockEvent.Send]].
+    *
+    * @param signedOrderingRequest The serialized sequencer-signed ordering request (which is in turn
+    *                              a submitter-signed submission request).
+    * @param submissionId The protobuf representation of the message ID of the underlying submission request.
+    * @param senderId The protobuf representation of the member ID of the sender.
     */
-  def send(request: ByteString)(implicit traceContext: TraceContext): Future[Unit]
+  def send(signedOrderingRequest: ByteString, submissionId: String, senderId: String)(implicit
+      traceContext: TraceContext
+  ): Future[Unit]
 
   // Read operations
 
@@ -164,7 +172,6 @@ trait SequencerDriver extends AutoCloseable {
   // Operability
 
   def health(implicit traceContext: TraceContext): Future[SequencerDriverHealthStatus]
-
 }
 
 object SequencerDriver {

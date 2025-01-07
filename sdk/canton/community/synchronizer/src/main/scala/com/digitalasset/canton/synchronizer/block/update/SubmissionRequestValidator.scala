@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.block.update
@@ -11,7 +11,7 @@ import cats.syntax.foldable.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.SequencerCounter
-import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, HashPurpose, SyncCryptoApi}
+import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoApi, SynchronizerSyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.{BaseAlarm, BaseCantonError}
@@ -46,7 +46,7 @@ import SubmissionRequestValidator.*
 private[update] final class SubmissionRequestValidator(
     synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
-    domainSyncCryptoApi: DomainSyncCryptoClient,
+    synchronizerSyncCryptoApi: SynchronizerSyncCryptoClient,
     sequencerId: SequencerId,
     rateLimitManager: SequencerRateLimitManager,
     override val loggerFactory: NamedLoggerFactory,
@@ -248,22 +248,22 @@ private[update] final class SubmissionRequestValidator(
             groupRecipients,
             topologyOrSequencingSnapshot,
           )
-        allMembersOfDomainToMembers <-
-          expandAllMembersOfDomainGroupRecipients(
+        allMembersOfSynchronizerToMembers <-
+          expandAllMembersOfSynchronizerGroupRecipients(
             topologyOrSequencingSnapshot,
             groupRecipients,
           )
-        sequencersOfDomainToMembers <-
-          expandSequencersOfDomainGroupRecipients(
+        sequencersOfSynchronizerToMembers <-
+          expandSequencersOfSynchronizerGroupRecipients(
             submissionRequest,
             sequencingTimestamp,
             topologyOrSequencingSnapshot,
             groupRecipients,
           )
-      } yield mediatorGroupsToMembers ++ sequencersOfDomainToMembers ++ allMembersOfDomainToMembers
+      } yield mediatorGroupsToMembers ++ sequencersOfSynchronizerToMembers ++ allMembersOfSynchronizerToMembers
   }
 
-  private def expandSequencersOfDomainGroupRecipients(
+  private def expandSequencersOfSynchronizerGroupRecipients(
       submissionRequest: SubmissionRequest,
       sequencingTimestamp: CantonTimestamp,
       topologyOrSequencingSnapshot: SyncCryptoApi,
@@ -272,8 +272,8 @@ private[update] final class SubmissionRequestValidator(
       executionContext: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, SubmissionRequestOutcome, Map[GroupRecipient, Set[Member]]] = {
-    val useSequencersOfDomain = groupRecipients.contains(SequencersOfDomain)
-    if (useSequencersOfDomain) {
+    val useSequencersOfSynchronizer = groupRecipients.contains(SequencersOfSynchronizer)
+    if (useSequencersOfSynchronizer) {
       for {
         sequencers <- EitherT(
           topologyOrSequencingSnapshot.ipsSnapshot
@@ -291,21 +291,21 @@ private[update] final class SubmissionRequestValidator(
               )(group => Right((group.active ++ group.passive).toSet))
             )
         )
-      } yield Map((SequencersOfDomain: GroupRecipient) -> sequencers)
+      } yield Map((SequencersOfSynchronizer: GroupRecipient) -> sequencers)
     } else
       EitherT.rightT[FutureUnlessShutdown, SubmissionRequestOutcome](
         Map.empty[GroupRecipient, Set[Member]]
       )
   }
 
-  private def expandAllMembersOfDomainGroupRecipients(
+  private def expandAllMembersOfSynchronizerGroupRecipients(
       topologyOrSequencingSnapshot: SyncCryptoApi,
       groupRecipients: Set[GroupRecipient],
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, SubmissionRequestOutcome, Map[GroupRecipient, Set[Member]]] =
-    if (!groupRecipients.contains(AllMembersOfDomain)) {
+    if (!groupRecipients.contains(AllMembersOfSynchronizer)) {
       EitherT.rightT[FutureUnlessShutdown, SubmissionRequestOutcome](
         Map.empty[GroupRecipient, Set[Member]]
       )
@@ -314,7 +314,7 @@ private[update] final class SubmissionRequestValidator(
         allMembers <- EitherT.right[SubmissionRequestOutcome](
           topologyOrSequencingSnapshot.ipsSnapshot.allMembers()
         )
-      } yield Map((AllMembersOfDomain: GroupRecipient, allMembers))
+      } yield Map((AllMembersOfSynchronizer: GroupRecipient, allMembers))
     }
 
   private def expandMediatorGroupRecipients(
@@ -415,20 +415,20 @@ private[update] final class SubmissionRequestValidator(
   ): EitherT[FutureUnlessShutdown, SubmissionRequestOutcome, Unit] =
     submissionRequest.aggregationRule.traverse_ { _ =>
       for {
-        domainParameters <- EitherT(
-          topologyOrSequencingSnapshot.ipsSnapshot.findDynamicDomainParameters()
+        synchronizerParameters <- EitherT(
+          topologyOrSequencingSnapshot.ipsSnapshot.findDynamicSynchronizerParameters()
         )
           .leftMap(error =>
             invalidSubmissionRequest(
               submissionRequest,
               sequencingTimestamp,
               SequencerErrors.SubmissionRequestRefused(
-                s"Could not fetch dynamic domain parameters: $error"
+                s"Could not fetch dynamic synchronizer parameters: $error"
               ),
             )
           )
         maxSequencingTimeUpperBound = sequencingTimestamp.toInstant.plus(
-          domainParameters.parameters.sequencerAggregateSubmissionTimeout.duration
+          synchronizerParameters.parameters.sequencerAggregateSubmissionTimeout.duration
         )
         _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
           submissionRequest.maxSequencingTime.toInstant.isBefore(maxSequencingTimeUpperBound),
@@ -551,7 +551,7 @@ private[update] final class SubmissionRequestValidator(
       )
       aggregationIdO <- EitherT.fromEither[FutureUnlessShutdown](
         submissionRequest
-          .aggregationId(domainSyncCryptoApi.pureCrypto)
+          .aggregationId(synchronizerSyncCryptoApi.pureCrypto)
           .leftMap { err =>
             logger.error(
               s"Internal error occurred when processing request $sequencingTimestamp: computation of aggregation id: ${err.message}"
@@ -601,8 +601,8 @@ private[update] final class SubmissionRequestValidator(
       // various sequencers reaching a different value.
       //
       // Currently, the only use cases of addressing a sequencer are:
-      //   * via AllMembersOfDomain for topology transactions
-      //   * via SequencersOfDomain for traffic control top-up messages
+      //   * via AllMembersOfSynchronizer for topology transactions
+      //   * via SequencersOfSynchronizer for traffic control top-up messages
       //
       // Therefore, we check whether this sequencer was addressed via a group address to avoid the above
       // case.
@@ -830,10 +830,10 @@ private[update] final class SubmissionRequestValidator(
   //  since they are not active in the Canton topology anymore (i.e., group recipients don't include them).
   private def isThisSequencerAddressed(groupToMembers: Map[GroupRecipient, Set[Member]]): Boolean =
     groupToMembers
-      .get(AllMembersOfDomain)
+      .get(AllMembersOfSynchronizer)
       .exists(_.contains(sequencerId)) ||
       groupToMembers
-        .get(SequencersOfDomain)
+        .get(SequencersOfSynchronizer)
         .exists(_.contains(sequencerId))
 }
 
