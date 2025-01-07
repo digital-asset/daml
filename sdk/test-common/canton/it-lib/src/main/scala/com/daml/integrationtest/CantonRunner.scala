@@ -150,7 +150,7 @@ object CantonRunner {
 
     val bootstrapConnectParticipants =
       config.participantIds
-        .map(id => s"$id.domains.connect_local(sequencer1, \"mydomain\")")
+        .map(id => s"$id.synchronizers.connect_local(sequencer1, \"mySynchronizer\")")
         .mkString("\n")
     val bootstrapUploadDar = darFiles
       .map(darFile =>
@@ -168,9 +168,9 @@ object CantonRunner {
          |import com.digitalasset.canton.config.RequireTypes.PositiveInt
          |import com.digitalasset.canton.version.ProtocolVersion
          |
-         |val staticDomainParameters = StaticDomainParameters.defaults(sequencer1.config.crypto, $protocolVersion)
-         |val domainOwners = Seq(sequencer1, mediator1)
-         |bootstrap.domain("mydomain", Seq(sequencer1), Seq(mediator1), domainOwners, PositiveInt.one, staticDomainParameters)
+         |val staticSynchronizerParameters = StaticSynchronizerParameters.defaults(sequencer1.config.crypto, $protocolVersion)
+         |val synchronizerOwners = Seq(sequencer1, mediator1)
+         |bootstrap.synchronizer("mySynchronizer", Seq(sequencer1), Seq(mediator1), synchronizerOwners, PositiveInt.one, staticSynchronizerParameters)
          |${bootstrapConnectParticipants}
          |${config.bootstrapScript.getOrElse("")}
          |$bootstrapUploadDar
