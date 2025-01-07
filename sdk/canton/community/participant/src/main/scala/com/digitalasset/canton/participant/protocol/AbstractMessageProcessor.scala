@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -7,7 +7,10 @@ import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, DomainSyncCryptoClient}
+import com.digitalasset.canton.crypto.{
+  SynchronizerSnapshotSyncCryptoApi,
+  SynchronizerSyncCryptoClient,
+}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.SequencedUpdate
 import com.digitalasset.canton.ledger.participant.state.Update.SequencerIndexMoved
@@ -35,7 +38,7 @@ import scala.concurrent.ExecutionContext
 /** Collects helper methods for message processing */
 abstract class AbstractMessageProcessor(
     ephemeral: SyncDomainEphemeralState,
-    crypto: DomainSyncCryptoClient,
+    crypto: SynchronizerSyncCryptoClient,
     sequencerClient: SequencerClientSend,
     protocolVersion: ProtocolVersion,
     synchronizerId: SynchronizerId,
@@ -83,8 +86,11 @@ abstract class AbstractMessageProcessor(
   ): FutureUnlessShutdown[Unit] =
     if (isCleanReplay(requestCounter)) FutureUnlessShutdown.unit else f.void
 
-  protected def signResponse(ips: DomainSnapshotSyncCryptoApi, response: ConfirmationResponse)(
-      implicit traceContext: TraceContext
+  protected def signResponse(
+      ips: SynchronizerSnapshotSyncCryptoApi,
+      response: ConfirmationResponse,
+  )(implicit
+      traceContext: TraceContext
   ): FutureUnlessShutdown[SignedProtocolMessage[ConfirmationResponse]] =
     SignedProtocolMessage.trySignAndCreate(response, ips, protocolVersion)
 
@@ -106,7 +112,7 @@ abstract class AbstractMessageProcessor(
       for {
         domainParameters <- crypto.ips
           .awaitSnapshotUS(requestId.unwrap)
-          .flatMap(snapshot => snapshot.findDynamicDomainParametersOrDefault(protocolVersion))
+          .flatMap(snapshot => snapshot.findDynamicSynchronizerParametersOrDefault(protocolVersion))
 
         maxSequencingTime = requestId.unwrap.add(
           domainParameters.confirmationResponseTimeout.unwrap
@@ -141,7 +147,7 @@ abstract class AbstractMessageProcessor(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     crypto.ips
       .awaitSnapshotUS(timestamp)
-      .flatMap(snapshot => snapshot.findDynamicDomainParameters())
+      .flatMap(snapshot => snapshot.findDynamicSynchronizerParameters())
       .flatMap { domainParametersE =>
         val decisionTimeE = domainParametersE.flatMap(_.decisionTimeFor(timestamp))
         val decisionTimeF = decisionTimeE.fold(

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.transaction
@@ -10,7 +10,7 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.KeyPurpose
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.protocol.{DynamicDomainParameters, OnboardingRestriction}
+import com.digitalasset.canton.protocol.{DynamicSynchronizerParameters, OnboardingRestriction}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.store.*
@@ -87,21 +87,21 @@ class ValidatingTopologyMappingChecks(
     )
 
     lazy val checkOpt = (toValidate.mapping.code, inStore.map(_.mapping.code)) match {
-      case (Code.DomainTrustCertificate, None | Some(Code.DomainTrustCertificate)) =>
+      case (Code.SynchronizerTrustCertificate, None | Some(Code.SynchronizerTrustCertificate)) =>
         val checkReplace = toValidate
-          .select[TopologyChangeOp.Replace, DomainTrustCertificate]
+          .select[TopologyChangeOp.Replace, SynchronizerTrustCertificate]
           .map(
-            checkDomainTrustCertificateReplace(
+            checkSynchronizerTrustCertificateReplace(
               effective,
               _,
-              inStore.flatMap(_.selectMapping[DomainTrustCertificate]),
+              inStore.flatMap(_.selectMapping[SynchronizerTrustCertificate]),
               pendingChangesLookup,
             )
           )
 
         val checkRemove = toValidate
-          .select[TopologyChangeOp.Remove, DomainTrustCertificate]
-          .map(checkDomainTrustCertificateRemove(effective, _, pendingChangesLookup))
+          .select[TopologyChangeOp.Remove, SynchronizerTrustCertificate]
+          .map(checkSynchronizerTrustCertificateRemove(effective, _, pendingChangesLookup))
 
         checkReplace.orElse(checkRemove)
 
@@ -134,25 +134,25 @@ class ValidatingTopologyMappingChecks(
 
         checkReplace.orElse(checkRemove)
 
-      case (Code.MediatorDomainState, None | Some(Code.MediatorDomainState)) =>
+      case (Code.MediatorSynchronizerState, None | Some(Code.MediatorSynchronizerState)) =>
         toValidate
-          .select[TopologyChangeOp.Replace, MediatorDomainState]
+          .select[TopologyChangeOp.Replace, MediatorSynchronizerState]
           .map(
-            checkMediatorDomainStateReplace(
+            checkMediatorSynchronizerStateReplace(
               effective,
               _,
-              inStore.flatMap(_.select[TopologyChangeOp.Replace, MediatorDomainState]),
+              inStore.flatMap(_.select[TopologyChangeOp.Replace, MediatorSynchronizerState]),
               pendingChangesLookup,
             )
           )
-      case (Code.SequencerDomainState, None | Some(Code.SequencerDomainState)) =>
+      case (Code.SequencerSynchronizerState, None | Some(Code.SequencerSynchronizerState)) =>
         toValidate
-          .select[TopologyChangeOp.Replace, SequencerDomainState]
+          .select[TopologyChangeOp.Replace, SequencerSynchronizerState]
           .map(
-            checkSequencerDomainStateReplace(
+            checkSequencerSynchronizerStateReplace(
               effective,
               _,
-              inStore.flatMap(_.select[TopologyChangeOp.Replace, SequencerDomainState]),
+              inStore.flatMap(_.select[TopologyChangeOp.Replace, SequencerSynchronizerState]),
               pendingChangesLookup,
             )
           )
@@ -180,14 +180,14 @@ class ValidatingTopologyMappingChecks(
           .select[TopologyChangeOp.Replace, NamespaceDelegation]
           .map(checkNamespaceDelegationReplace(effective, _, pendingChangesLookup))
 
-      case (Code.DomainParametersState, None | Some(Code.DomainParametersState)) =>
+      case (Code.SynchronizerParametersState, None | Some(Code.SynchronizerParametersState)) =>
         toValidate
-          .select[TopologyChangeOp.Remove, DomainParametersState]
+          .select[TopologyChangeOp.Remove, SynchronizerParametersState]
           .map(_ =>
             EitherT.leftT[FutureUnlessShutdown, Unit](
               TopologyTransactionRejection
                 .Other(
-                  "Removal of DomainParameterState is not supported. Use Replace instead."
+                  "Removal of SynchronizerParameterState is not supported. Use Replace instead."
                 ): TopologyTransactionRejection
             )
           )
@@ -308,9 +308,9 @@ class ValidatingTopologyMappingChecks(
       )
     } yield ()
 
-  private def checkDomainTrustCertificateRemove(
+  private def checkSynchronizerTrustCertificateRemove(
       effective: EffectiveTime,
-      toValidate: SignedTopologyTransaction[TopologyChangeOp, DomainTrustCertificate],
+      toValidate: SignedTopologyTransaction[TopologyChangeOp, SynchronizerTrustCertificate],
       pendingChangesLookup: PendingChangesLookup,
   )(implicit
       traceContext: TraceContext
@@ -325,53 +325,53 @@ class ValidatingTopologyMappingChecks(
       pendingChangesLookup,
     )
 
-  private def loadDomainParameters(
+  private def loadSynchronizerParameters(
       effective: EffectiveTime,
       pendingChangesLookup: PendingChangesLookup,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, DynamicDomainParameters] =
-    loadFromStore(effective, Set(Code.DomainParametersState), pendingChangesLookup).subflatMap {
-      domainParamCandidates =>
-        val params = domainParamCandidates.view
-          .flatMap(_.selectMapping[DomainParametersState])
+  ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, DynamicSynchronizerParameters] =
+    loadFromStore(effective, Set(Code.SynchronizerParametersState), pendingChangesLookup)
+      .subflatMap { synchronizerParamCandidates =>
+        val params = synchronizerParamCandidates.view
+          .flatMap(_.selectMapping[SynchronizerParametersState])
           .map(_.mapping.parameters)
           .toList
         params match {
           case Nil =>
             logger.error(
-              "Can not determine domain parameters."
+              "Can not determine synchronizer parameters."
             )
-            Left(TopologyTransactionRejection.MissingDomainParameters(effective))
+            Left(TopologyTransactionRejection.MissingSynchronizerParameters(effective))
           case param :: Nil => Right(param)
           case param :: rest =>
             logger.error(
-              s"Multiple domain parameters at $effective ${rest.size + 1}. Using first one: $param."
+              s"Multiple synchronizer parameters at $effective ${rest.size + 1}. Using first one: $param."
             )
             Right(param)
         }
-    }
+      }
 
-  private def checkDomainTrustCertificateReplace(
+  private def checkSynchronizerTrustCertificateReplace(
       effective: EffectiveTime,
-      toValidate: SignedTopologyTransaction[TopologyChangeOp.Replace, DomainTrustCertificate],
-      inStore: Option[SignedTopologyTransaction[TopologyChangeOp, DomainTrustCertificate]],
+      toValidate: SignedTopologyTransaction[TopologyChangeOp.Replace, SynchronizerTrustCertificate],
+      inStore: Option[SignedTopologyTransaction[TopologyChangeOp, SynchronizerTrustCertificate]],
       pendingChangesLookup: PendingChangesLookup,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Unit] = {
-    // Checks if the participant is allowed to submit its domain trust certificate
+    // Checks if the participant is allowed to submit its synchronizer trust certificate
     val participantId = toValidate.mapping.participantId
 
     def loadOnboardingRestriction()
         : EitherT[FutureUnlessShutdown, TopologyTransactionRejection, OnboardingRestriction] =
-      loadDomainParameters(effective, pendingChangesLookup).map(_.onboardingRestriction)
+      loadSynchronizerParameters(effective, pendingChangesLookup).map(_.onboardingRestriction)
 
-    def checkDomainIsNotLocked(restriction: OnboardingRestriction) =
+    def checkSynchronizerIsNotLocked(restriction: OnboardingRestriction) =
       EitherTUtil.condUnitET[FutureUnlessShutdown](
         restriction.isOpen, {
           logger.info(
-            s"Domain is locked at $effective. Rejecting onboarding of new participant ${toValidate.mapping}"
+            s"Synchronizer is locked at $effective. Rejecting onboarding of new participant ${toValidate.mapping}"
           )
           TopologyTransactionRejection
             .OnboardingRestrictionInPlace(
@@ -389,18 +389,18 @@ class ValidatingTopologyMappingChecks(
       // future proof in case we will add additional restrictions in the future and would miss a case,
       // because there is no exhaustiveness check without full pattern matching
       if (restrictions.isUnrestricted && restrictions.isOpen) {
-        // No further checks to be done. any participant can join the domain
+        // No further checks to be done. any participant can join the synchronizer
         EitherTUtil.unitUS
       } else if (restrictions.isRestricted && restrictions.isOpen) {
-        // Only participants with explicit permission may join the domain
+        // Only participants with explicit permission may join the synchronizer
         loadFromStore(
           effective,
-          Set(Code.ParticipantDomainPermission),
+          Set(Code.ParticipantSynchronizerPermission),
           pendingChangesLookup,
           filterUid = Some(Seq(toValidate.mapping.participantId.uid)),
         ).subflatMap { storedPermissions =>
           val isAllowlisted = storedPermissions.view
-            .flatMap(_.selectMapping[ParticipantDomainPermission])
+            .flatMap(_.selectMapping[ParticipantSynchronizerPermission])
             .collectFirst {
               case x if x.mapping.synchronizerId == toValidate.mapping.synchronizerId =>
                 x.mapping.loginAfter
@@ -463,14 +463,16 @@ class ValidatingTopologyMappingChecks(
 
     def checkParticipantDoesNotRejoin() = EitherTUtil.condUnitET[FutureUnlessShutdown](
       inStore.forall(_.operation != TopologyChangeOp.Remove),
-      TopologyTransactionRejection.MembersCannotRejoinDomain(Seq(toValidate.mapping.participantId)),
+      TopologyTransactionRejection.MembersCannotRejoinSynchronizer(
+        Seq(toValidate.mapping.participantId)
+      ),
     )
 
     for {
       _ <- checkParticipantDoesNotRejoin()
       _ <- checkPartyIdDoesntExist()
       restriction <- loadOnboardingRestriction()
-      _ <- checkDomainIsNotLocked(restriction)
+      _ <- checkSynchronizerIsNotLocked(restriction)
       _ <- checkParticipantIsNotRestricted(restriction)
     } yield ()
   }
@@ -496,7 +498,7 @@ class ValidatingTopologyMappingChecks(
       for {
         participantTransactions <- loadFromStore(
           effective,
-          Set(Code.DomainTrustCertificate, Code.OwnerToKeyMapping),
+          Set(Code.SynchronizerTrustCertificate, Code.OwnerToKeyMapping),
           pendingChangesLookup,
           filterUid = Some(newParticipants.toSeq.map(_.uid) :+ mapping.partyId.uid),
         )
@@ -504,7 +506,7 @@ class ValidatingTopologyMappingChecks(
         // if we found a DTC with the same uid as the partyId,
         // check that the PTP is an explicit admin party allocation, otherwise reject the PTP
         foundAdminPartyWithSameUID = participantTransactions
-          .flatMap(_.selectMapping[DomainTrustCertificate])
+          .flatMap(_.selectMapping[SynchronizerTrustCertificate])
           .exists(_.mapping.participantId.uid == mapping.partyId.uid)
         _ <- EitherTUtil.ifThenET(foundAdminPartyWithSameUID)(
           isExplicitAdminPartyAllocation(
@@ -515,9 +517,9 @@ class ValidatingTopologyMappingChecks(
           )
         )
 
-        // check that all participants are known on the domain
+        // check that all participants are known on the synchronizer
         missingParticipantCertificates = newParticipants -- participantTransactions
-          .flatMap(_.selectMapping[DomainTrustCertificate])
+          .flatMap(_.selectMapping[SynchronizerTrustCertificate])
           .map(_.mapping.participantId)
 
         _ <- EitherTUtil.condUnitET[FutureUnlessShutdown][TopologyTransactionRejection](
@@ -597,10 +599,12 @@ class ValidatingTopologyMappingChecks(
       case _ => EitherTUtil.unitUS
     }
 
-  private def checkMediatorDomainStateReplace(
+  private def checkMediatorSynchronizerStateReplace(
       effectiveTime: EffectiveTime,
-      toValidate: SignedTopologyTransaction[TopologyChangeOp.Replace, MediatorDomainState],
-      inStore: Option[SignedTopologyTransaction[TopologyChangeOp.Replace, MediatorDomainState]],
+      toValidate: SignedTopologyTransaction[TopologyChangeOp.Replace, MediatorSynchronizerState],
+      inStore: Option[
+        SignedTopologyTransaction[TopologyChangeOp.Replace, MediatorSynchronizerState]
+      ],
       pendingChangesLookup: PendingChangesLookup,
   )(implicit
       traceContext: TraceContext
@@ -611,9 +615,13 @@ class ValidatingTopologyMappingChecks(
 
     def checkMediatorNotAlreadyAssignedToOtherGroup() =
       for {
-        result <- loadFromStore(effectiveTime, Set(Code.MediatorDomainState), pendingChangesLookup)
+        result <- loadFromStore(
+          effectiveTime,
+          Set(Code.MediatorSynchronizerState),
+          pendingChangesLookup,
+        )
         mediatorsAlreadyAssignedToGroups = result
-          .flatMap(_.selectMapping[MediatorDomainState])
+          .flatMap(_.selectMapping[MediatorSynchronizerState])
           .flatMap(tx =>
             tx.mapping.allMediatorsInGroup.collect {
               case med if newMediators.contains(med) => med -> tx.mapping.group
@@ -631,16 +639,20 @@ class ValidatingTopologyMappingChecks(
 
     def checkMediatorsDontRejoin()
         : EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Unit] =
-      loadHistoryFromStore(effectiveTime, code = Code.MediatorDomainState, pendingChangesLookup)
+      loadHistoryFromStore(
+        effectiveTime,
+        code = Code.MediatorSynchronizerState,
+        pendingChangesLookup,
+      )
         .flatMap { mdsHistory =>
-          val allMediatorsPreviouslyOnDomain = mdsHistory.view
-            .flatMap(_.selectMapping[MediatorDomainState])
+          val allMediatorsPreviouslyOnSynchronizer = mdsHistory.view
+            .flatMap(_.selectMapping[MediatorSynchronizerState])
             .flatMap(_.mapping.allMediatorsInGroup)
             .toSet[Member]
-          val rejoiningMediators = newMediators.intersect(allMediatorsPreviouslyOnDomain)
+          val rejoiningMediators = newMediators.intersect(allMediatorsPreviouslyOnSynchronizer)
           EitherTUtil.condUnitET(
             rejoiningMediators.isEmpty,
-            TopologyTransactionRejection.MembersCannotRejoinDomain(rejoiningMediators.toSeq),
+            TopologyTransactionRejection.MembersCannotRejoinSynchronizer(rejoiningMediators.toSeq),
           )
         }
 
@@ -650,10 +662,12 @@ class ValidatingTopologyMappingChecks(
     } yield ()
   }
 
-  private def checkSequencerDomainStateReplace(
+  private def checkSequencerSynchronizerStateReplace(
       effectiveTime: EffectiveTime,
-      toValidate: SignedTopologyTransaction[TopologyChangeOp.Replace, SequencerDomainState],
-      inStore: Option[SignedTopologyTransaction[TopologyChangeOp.Replace, SequencerDomainState]],
+      toValidate: SignedTopologyTransaction[TopologyChangeOp.Replace, SequencerSynchronizerState],
+      inStore: Option[
+        SignedTopologyTransaction[TopologyChangeOp.Replace, SequencerSynchronizerState]
+      ],
       pendingChangesLookup: PendingChangesLookup,
   )(implicit
       traceContext: TraceContext
@@ -666,19 +680,19 @@ class ValidatingTopologyMappingChecks(
         : EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Unit] =
       loadHistoryFromStore(
         effectiveTime,
-        code = Code.SequencerDomainState,
+        code = Code.SequencerSynchronizerState,
         pendingChangesLookup,
       )
         .flatMap { sdsHistory =>
-          val allSequencersPreviouslyOnDomain = sdsHistory.view
-            .flatMap(_.selectMapping[SequencerDomainState])
+          val allSequencersPreviouslyOnSynchronizer = sdsHistory.view
+            .flatMap(_.selectMapping[SequencerSynchronizerState])
             .flatMap(_.mapping.allSequencers)
             .toSet[Member]
-          val rejoiningSequencers = newSequencers.intersect(allSequencersPreviouslyOnDomain)
+          val rejoiningSequencers = newSequencers.intersect(allSequencersPreviouslyOnSynchronizer)
           EitherTUtil.condUnitET(
             rejoiningSequencers.isEmpty,
             TopologyTransactionRejection
-              .MembersCannotRejoinDomain(rejoiningSequencers.toSeq),
+              .MembersCannotRejoinSynchronizer(rejoiningSequencers.toSeq),
           )
         }
 

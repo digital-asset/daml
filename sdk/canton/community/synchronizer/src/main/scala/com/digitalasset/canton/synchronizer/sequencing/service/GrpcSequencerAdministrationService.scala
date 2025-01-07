@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.service
@@ -15,7 +15,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
-import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.sequencer.admin.v30.OnboardingStateRequest.Request
 import com.digitalasset.canton.sequencer.admin.v30.{
@@ -30,11 +30,11 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.{
   OnboardingStateForSequencer,
   Sequencer,
 }
-import com.digitalasset.canton.time.DomainTimeTracker
-import com.digitalasset.canton.topology.client.DomainTopologyClient
+import com.digitalasset.canton.time.SynchronizerTimeTracker
+import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStore
-import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
+import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.{
   Member,
   SequencerId,
@@ -52,10 +52,10 @@ import scala.concurrent.{ExecutionContext, Future}
 class GrpcSequencerAdministrationService(
     sequencer: Sequencer,
     sequencerClient: SequencerClientSend,
-    topologyStore: TopologyStore[DomainStore],
-    topologyClient: DomainTopologyClient,
-    domainTimeTracker: DomainTimeTracker,
-    staticDomainParameters: StaticDomainParameters,
+    topologyStore: TopologyStore[SynchronizerStore],
+    topologyClient: SynchronizerTopologyClient,
+    synchronizerTimeTracker: SynchronizerTimeTracker,
+    staticSynchronizerParameters: StaticSynchronizerParameters,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit
     executionContext: ExecutionContext
@@ -194,7 +194,7 @@ class GrpcSequencerAdministrationService(
           EitherT.rightT[FutureUnlessShutdown, CantonError](EffectiveTime(timestamp))
       }
 
-      _ <- domainTimeTracker
+      _ <- synchronizerTimeTracker
         .awaitTick(referenceEffective.value)
         .map(EitherT.right[CantonError](_).mapK(FutureUnlessShutdown.outcomeK).void)
         .getOrElse(EitherTUtil.unitUS[CantonError])
@@ -238,9 +238,9 @@ class GrpcSequencerAdministrationService(
         )
     } yield OnboardingStateForSequencer(
       topologySnapshot,
-      staticDomainParameters,
+      staticSynchronizerParameters,
       sequencerSnapshot,
-      staticDomainParameters.protocolVersion,
+      staticSynchronizerParameters.protocolVersion,
     ).toByteString.writeTo(out)
 
     mapErrNewEUS(res)
@@ -287,7 +287,7 @@ class GrpcSequencerAdministrationService(
           serial,
           totalTrafficPurchased,
           sequencerClient,
-          domainTimeTracker,
+          synchronizerTimeTracker,
         )
         .leftWiden[CantonError]
     } yield SetTrafficPurchasedResponse()

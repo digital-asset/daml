@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.block
@@ -8,13 +8,13 @@ import cats.syntax.either.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
-import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, HashPurpose, Signature}
+import com.digitalasset.canton.crypto.{HashPurpose, Signature, SynchronizerSyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.api.v30.TrafficControlErrorReason
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.pretty.CantonPrettyPrinter
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
+import com.digitalasset.canton.sequencer.api.v30.TrafficControlErrorReason
 import com.digitalasset.canton.sequencing.client.SequencerClientSend
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.TrafficControlError
@@ -40,7 +40,7 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.traffic.{
   SequencerTrafficStatus,
 }
 import com.digitalasset.canton.synchronizer.sequencing.traffic.store.TrafficPurchasedStore
-import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
+import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
@@ -62,7 +62,7 @@ class BlockSequencer(
     blockOrderer: BlockOrderer,
     name: String,
     synchronizerId: SynchronizerId,
-    cryptoApi: DomainSyncCryptoClient,
+    cryptoApi: SynchronizerSyncCryptoClient,
     sequencerId: SequencerId,
     stateManager: BlockSequencerStateManagerBase,
     store: SequencerBlockStore,
@@ -202,14 +202,14 @@ class BlockSequencer(
             submission.topologyTimestamp.getOrElse(CantonTimestamp.MaxValue)
           )
           snapshot <- EitherT.right(cryptoApi.snapshotUS(topologyTimestamp))
-          domainParameters <- EitherT(
-            snapshot.ipsSnapshot.findDynamicDomainParameters()
+          synchronizerParameters <- EitherT(
+            snapshot.ipsSnapshot.findDynamicSynchronizerParameters()
           )
             .leftMap(error =>
-              SendAsyncError.Internal(s"Could not fetch dynamic domain parameters: $error")
+              SendAsyncError.Internal(s"Could not fetch dynamic synchronizer parameters: $error")
             )
           maxSequencingTimeUpperBound = estimatedSequencingTimestamp.add(
-            domainParameters.parameters.sequencerAggregateSubmissionTimeout.duration
+            synchronizerParameters.parameters.sequencerAggregateSubmissionTimeout.duration
           )
           _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
             submission.maxSequencingTime < maxSequencingTimeUpperBound,
@@ -594,7 +594,7 @@ class BlockSequencer(
       serial: PositiveInt,
       totalTrafficPurchased: NonNegativeLong,
       sequencerClient: SequencerClientSend,
-      domainTimeTracker: DomainTimeTracker,
+      synchronizerTimeTracker: SynchronizerTimeTracker,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TrafficControlError, Unit] =
@@ -614,7 +614,7 @@ class BlockSequencer(
         serial,
         totalTrafficPurchased,
         sequencerClient,
-        domainTimeTracker,
+        synchronizerTimeTracker,
         cryptoApi,
       )
     } yield ()

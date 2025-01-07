@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.block
@@ -11,7 +11,7 @@ import com.digitalasset.canton.config.{
   ProcessingTimeout,
   SessionSigningKeysConfig,
 }
-import com.digitalasset.canton.crypto.DomainSyncCryptoClient
+import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.TracedLogger
@@ -43,14 +43,14 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.{
 import com.digitalasset.canton.synchronizer.sequencing.traffic.RateLimitManagerTesting
 import com.digitalasset.canton.synchronizer.sequencing.traffic.store.memory.InMemoryTrafficPurchasedStore
 import com.digitalasset.canton.time.{Clock, SimClock}
-import com.digitalasset.canton.topology.client.StoreBasedDomainTopologyClient
+import com.digitalasset.canton.topology.client.StoreBasedSynchronizerTopologyClient
 import com.digitalasset.canton.topology.processing.{
   ApproximateTime,
   EffectiveTime,
   SequencedTime,
   TopologyTransactionTestFactory,
 }
-import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
+import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -98,7 +98,7 @@ class BlockSequencerTest
     private val sequencer1 = topologyTransactionFactory.sequencer1
     private val topologyStore =
       new InMemoryTopologyStore(
-        DomainStore(synchronizerId),
+        SynchronizerStore(synchronizerId),
         testedProtocolVersion,
         loggerFactory,
         timeouts,
@@ -119,11 +119,11 @@ class BlockSequencerTest
       )
       .futureValueUS
 
-    private val topologyClient = new StoreBasedDomainTopologyClient(
+    private val topologyClient = new StoreBasedSynchronizerTopologyClient(
       mock[Clock],
       synchronizerId,
       topologyStore,
-      StoreBasedDomainTopologyClient.NoPackageDependencies,
+      StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
       DefaultProcessingTimeouts.testing,
       FutureSupervisor.Noop,
       loggerFactory,
@@ -134,13 +134,13 @@ class BlockSequencerTest
       ApproximateTime(CantonTimestamp.Epoch),
       potentialTopologyChange = true,
     )
-    private val cryptoApi = new DomainSyncCryptoClient(
+    private val cryptoApi = new SynchronizerSyncCryptoClient(
       member = sequencer1,
       synchronizerId,
       topologyClient,
       topologyTransactionFactory.cryptoApi.crypto,
       SessionSigningKeysConfig.disabled,
-      defaultStaticDomainParameters,
+      defaultStaticSynchronizerParameters,
       DefaultProcessingTimeouts.testing,
       FutureSupervisor.Noop,
       loggerFactory,
@@ -232,7 +232,7 @@ class BlockSequencerTest
     override def close(): Unit = ()
 
     // No need to implement these methods for the test
-    override def send(signedSubmission: SignedOrderingRequest)(implicit
+    override def send(signedOrderingRequest: SignedOrderingRequest)(implicit
         traceContext: TraceContext
     ): EitherT[Future, SendAsyncError, Unit] = ???
     override def health(implicit traceContext: TraceContext): Future[SequencerDriverHealthStatus] =

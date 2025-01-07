@@ -31,24 +31,32 @@ message Event {
 
 // Records that a contract has been created, and choices may now be exercised on it.
 message CreatedEvent {
-  // The ID of this particular event.
-  // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
-  string event_id = 1;
+  // The offset of origin, which has contextual meaning, please see description at usage.
+  // Offsets are managed by the participant nodes.
+  // Transactions can thus NOT be assumed to have the same offsets on different participant nodes.
+  // Required, it is a valid absolute offset (positive integer)
+  int64 offset = 1;
+
+  // The position of this event in the originating transaction or reassignment.
+  // The origin has contextual meaning, please see description at usage.
+  // Node ids are not necessarily equal across participants,
+  // as these may see different projections/parts of transactions.
+  // Required, must be valid node ID (non-negative integer)
+  int32 node_id = 2;
 
   // The ID of the created contract.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
-  string contract_id = 2;
+  string contract_id = 3;
 
   // The template of the created contract.
   // Required
-  Identifier template_id = 3;
+  Identifier template_id = 4;
 
   // The key of the created contract.
   // This will be set if and only if ``create_arguments`` is set and ``template_id`` defines a contract key.
   // Optional
-  Value contract_key = 4;
+  Value contract_key = 5;
 
   // The arguments that have been used to create the contract.
   // Set either:
@@ -60,13 +68,13 @@ message CreatedEvent {
   //     and for which a wildcard filter exists (``Filters`` with a ``CumulativeFilter`` of ``WildcardFilter``).
   //
   // Optional
-  Record create_arguments = 5;
+  Record create_arguments = 6;
 
   // Opaque representation of contract create event payload intended for forwarding
   // to an API server as a contract disclosed as part of a command
   // submission.
   // Optional
-  bytes created_event_blob = 6;
+  bytes created_event_blob = 7;
 
   // Interface views specified in the transaction filter.
   // Includes an ``InterfaceView`` for each interface for which there is a ``InterfaceFilter`` with
@@ -76,7 +84,7 @@ message CreatedEvent {
   //   - and which has ``include_interface_view`` set.
   //
   // Optional
-  repeated InterfaceView interface_views = 7;
+  repeated InterfaceView interface_views = 8;
 
   // The parties that are notified of this event. When a ``CreatedEvent``
   // is returned as part of a transaction tree, this will include all
@@ -92,39 +100,24 @@ message CreatedEvent {
   // ``TransactionFilter`` that are stakeholders of the contract.
   //
   // Required
-  repeated string witness_parties = 8;
+  repeated string witness_parties = 9;
 
   // The signatories for this contract as specified by the template.
   // Required
-  repeated string signatories = 9;
+  repeated string signatories = 10;
 
   // The observers for this contract as specified explicitly by the template or implicitly as choice controllers.
   // This field never contains parties that are signatories.
   // Required
-  repeated string observers = 10;
+  repeated string observers = 11;
 
   // Ledger effective time of the transaction that created the contract.
   // Required
-  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp created_at = 12;
 
   // The package name of the created contract.
   // Required
-  string package_name = 12;
-
-  // TODO(#22794) renumber to 1
-  // The offset of origin, which has contextual meaning, please see description at usage.
-  // Offsets are managed by the participant nodes.
-  // Transactions can thus NOT be assumed to have the same offsets on different participant nodes.
-  // Required, it is a valid absolute offset (positive integer)
-  int64 offset = 13;
-
-  // TODO(#22794) renumber to 2
-  // The position of this event in the originating transaction or reassignment.
-  // The origin has contextual meaning, please see description at usage.
-  // Node ids are not necessarily equal across participants,
-  // as these may see different projections/parts of transactions.
-  // Required, must be valid node ID (non-negative integer)
-  int32 node_id = 14;
+  string package_name = 13;
 }
 
 // View of a create event matched by an interface filter.
@@ -148,19 +141,26 @@ message InterfaceView {
 
 // Records that a contract has been archived, and choices may no longer be exercised on it.
 message ArchivedEvent {
-  // The ID of this particular event.
-  // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
-  string event_id = 1;
+  // The offset of origin.
+  // Offsets are managed by the participant nodes.
+  // Transactions can thus NOT be assumed to have the same offsets on different participant nodes.
+  // Required, it is a valid absolute offset (positive integer)
+  int64 offset = 1;
+
+  // The position of this event in the originating transaction or reassignment.
+  // Node ids are not necessarily equal across participants,
+  // as these may see different projections/parts of transactions.
+  // Required, must be valid node ID (non-negative integer)
+  int32 node_id = 2;
 
   // The ID of the archived contract.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
-  string contract_id = 2;
+  string contract_id = 3;
 
   // The template of the archived contract.
   // Required
-  Identifier template_id = 3;
+  Identifier template_id = 4;
 
   // The parties that are notified of this event. For an ``ArchivedEvent``,
   // these are the intersection of the stakeholders of the contract in
@@ -170,64 +170,57 @@ message ArchivedEvent {
   // Each one of its elements must be a valid PartyIdString (as described
   // in ``value.proto``).
   // Required
-  repeated string witness_parties = 4;
+  repeated string witness_parties = 5;
 
   // The package name of the contract.
   // Required
-  string package_name = 5;
-
-  // TODO(#22794) renumber to 1
-  // The offset of origin.
-  // Offsets are managed by the participant nodes.
-  // Transactions can thus NOT be assumed to have the same offsets on different participant nodes.
-  // Required, it is a valid absolute offset (positive integer)
-  int64 offset = 6;
-
-  // TODO(#22794) renumber to 2
-  // The position of this event in the originating transaction or reassignment.
-  // Node ids are not necessarily equal across participants,
-  // as these may see different projections/parts of transactions.
-  // Required, must be valid node ID (non-negative integer)
-  int32 node_id = 7;
+  string package_name = 6;
 }
 
 // Records that a choice has been exercised on a target contract.
 message ExercisedEvent {
-  // The ID of this particular event.
-  // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
-  string event_id = 1;
+  // The offset of origin.
+  // Offsets are managed by the participant nodes.
+  // Transactions can thus NOT be assumed to have the same offsets on different participant nodes.
+  // Required, it is a valid absolute offset (positive integer)
+  int64 offset = 1;
+
+  // The position of this event in the originating transaction or reassignment.
+  // Node ids are not necessarily equal across participants,
+  // as these may see different projections/parts of transactions.
+  // Required, must be valid node ID (non-negative integer)
+  int32 node_id = 2;
 
   // The ID of the target contract.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
-  string contract_id = 2;
+  string contract_id = 3;
 
   // The template of the target contract.
   // Required
-  Identifier template_id = 3;
+  Identifier template_id = 4;
 
   // The interface where the choice is defined, if inherited.
   // Optional
-  Identifier interface_id = 4;
+  Identifier interface_id = 5;
 
   // The choice that was exercised on the target contract.
   // Must be a valid NameString (as described in ``value.proto``).
   // Required
-  string choice = 5;
+  string choice = 6;
 
   // The argument of the exercised choice.
   // Required
-  Value choice_argument = 6;
+  Value choice_argument = 7;
 
   // The parties that exercised the choice.
   // Each element must be a valid PartyIdString (as described in ``value.proto``).
   // Required
-  repeated string acting_parties = 7;
+  repeated string acting_parties = 8;
 
   // If true, the target contract may no longer be exercised.
   // Required
-  bool consuming = 8;
+  bool consuming = 9;
 
   // The parties that are notified of this event. The witnesses of an exercise
   // node will depend on whether the exercise was consuming or not.
@@ -241,34 +234,20 @@ message ExercisedEvent {
   // explicitly marked as observers.
   // Each element must be a valid PartyIdString (as described in ``value.proto``).
   // Required
-  repeated string witness_parties = 9;
+  repeated string witness_parties = 10;
 
   // References to further events in the same transaction that appeared as a result of this ``ExercisedEvent``.
   // It contains only the immediate children of this event, not all members of the subtree rooted at this node.
   // The order of the children is the same as the event order in the transaction.
-  // Each element must be a valid LedgerString (as described in ``value.proto``).
+  // Each element must be a valid node ID (non-negative integer).
   // Optional
-  repeated string child_event_ids = 10;
+  repeated int32 child_node_ids = 11;
 
   // The result of exercising the choice.
   // Required
-  Value exercise_result = 11;
+  Value exercise_result = 12;
 
   // The package name of the contract.
   // Required
-  string package_name = 12;
-
-  // TODO(#22794) renumber to 1
-  // The offset of origin.
-  // Offsets are managed by the participant nodes.
-  // Transactions can thus NOT be assumed to have the same offsets on different participant nodes.
-  // Required, it is a valid absolute offset (positive integer)
-  int64 offset = 13;
-
-  // TODO(#22794) renumber to 2
-  // The position of this event in the originating transaction or reassignment.
-  // Node ids are not necessarily equal across participants,
-  // as these may see different projections/parts of transactions.
-  // Required, must be valid node ID (non-negative integer)
-  int32 node_id = 14;
+  string package_name = 13;
 }

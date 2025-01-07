@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.console
@@ -217,7 +217,7 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
   lazy val grpcLedgerCommandRunner: ConsoleGrpcAdminCommandRunner =
     createAdminCommandRunner(this, CantonGrpcUtil.ApiName.LedgerApi)
 
-  lazy val grpcDomainCommandRunner: ConsoleGrpcAdminCommandRunner =
+  lazy val grpcSequencerCommandRunner: ConsoleGrpcAdminCommandRunner =
     createAdminCommandRunner(this, CantonGrpcUtil.ApiName.SequencerPublicApi)
 
   def runE[E, A](result: => Either[E, A]): A =
@@ -497,14 +497,14 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
     LifeCycle.close(
       grpcAdminCommandRunner,
       grpcLedgerCommandRunner,
-      grpcDomainCommandRunner,
+      grpcSequencerCommandRunner,
       environment,
     )(logger)
 
   def closeChannels(): Unit = {
     grpcAdminCommandRunner.closeChannels()
     grpcLedgerCommandRunner.closeChannels()
-    grpcDomainCommandRunner.closeChannels()
+    grpcSequencerCommandRunner.closeChannels()
   }
 
   def startAll(): Unit = runE(environment.startAll())

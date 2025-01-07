@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store.memory
@@ -14,7 +14,7 @@ class InMemoryTopologyStoreTest extends TopologyStoreTest {
   "InMemoryTopologyStore" should {
     behave like topologyStore(synchronizerId =>
       new InMemoryTopologyStore(
-        TopologyStoreId.DomainStore(synchronizerId),
+        TopologyStoreId.SynchronizerStore(synchronizerId),
         testedProtocolVersion,
         loggerFactory,
         timeouts,

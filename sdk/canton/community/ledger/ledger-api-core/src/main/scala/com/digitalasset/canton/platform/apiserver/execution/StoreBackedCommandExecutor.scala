@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.execution
@@ -61,7 +61,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
     metrics: LedgerApiServerMetrics,
     config: EngineLoggingConfig,
     val loggerFactory: NamedLoggerFactory,
-    dynParamGetter: DynamicDomainParameterGetter,
+    dynParamGetter: DynamicSynchronizerParameterGetter,
     timeProvider: TimeProvider,
 )(implicit
     ec: ExecutionContext
@@ -326,7 +326,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           //
           //    Ledger Effective Time + skew > wall clock
           //
-          // The skew is given by the dynamic domain parameter `ledgerTimeRecordTimeTolerance`.
+          // The skew is given by the dynamic synchronizer parameter `ledgerTimeRecordTimeTolerance`.
           //
           // As defined in the "Time on Daml Ledgers" chapter of the documentation, if this condition
           // is true, then the Record Time (assigned later on when the transaction is sequenced) is already

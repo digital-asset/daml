@@ -1,9 +1,9 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer
 
-import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -13,7 +13,7 @@ import com.digitalasset.canton.version.*
 
 final case class OnboardingStateForSequencer(
     topologySnapshot: GenericStoredTopologyTransactions,
-    staticDomainParameters: StaticDomainParameters,
+    staticSynchronizerParameters: StaticSynchronizerParameters,
     sequencerSnapshot: SequencerSnapshot,
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
@@ -26,7 +26,7 @@ final case class OnboardingStateForSequencer(
 
   private def toProtoV30: v30.OnboardingStateForSequencer = v30.OnboardingStateForSequencer(
     Some(topologySnapshot.toProtoV30),
-    Some(staticDomainParameters.toProtoV30),
+    Some(staticSynchronizerParameters.toProtoV30),
     Some(sequencerSnapshot.toProtoV30),
   )
 }
@@ -37,11 +37,11 @@ object OnboardingStateForSequencer
 
   def apply(
       topologySnapshot: GenericStoredTopologyTransactions,
-      staticDomainParameters: StaticDomainParameters,
+      staticSynchronizerParameters: StaticSynchronizerParameters,
       sequencerSnapshot: SequencerSnapshot,
       protocolVersion: ProtocolVersion,
   ): OnboardingStateForSequencer =
-    OnboardingStateForSequencer(topologySnapshot, staticDomainParameters, sequencerSnapshot)(
+    OnboardingStateForSequencer(topologySnapshot, staticSynchronizerParameters, sequencerSnapshot)(
       protocolVersionRepresentativeFor(protocolVersion)
     )
 
@@ -63,10 +63,10 @@ object OnboardingStateForSequencer
         "topology_snapshot",
         value.topologySnapshot,
       )
-      staticDomainParams <- ProtoConverter.parseRequired(
-        StaticDomainParameters.fromProtoV30,
-        "static_domain_parameters",
-        value.staticDomainParameters,
+      staticSynchronizerParams <- ProtoConverter.parseRequired(
+        StaticSynchronizerParameters.fromProtoV30,
+        "static_synchronizer_parameters",
+        value.staticSynchronizerParameters,
       )
       sequencerSnapshot <- ProtoConverter.parseRequired(
         SequencerSnapshot.fromProtoV30,
@@ -74,7 +74,11 @@ object OnboardingStateForSequencer
         value.sequencerSnapshot,
       )
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield OnboardingStateForSequencer(topologySnapshot, staticDomainParams, sequencerSnapshot)(
+    } yield OnboardingStateForSequencer(
+      topologySnapshot,
+      staticSynchronizerParams,
+      sequencerSnapshot,
+    )(
       rpv
     )
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing
@@ -8,7 +8,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.sequencing.protocol.Envelope
-import com.digitalasset.canton.time.DomainTimeTracker
+import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 
@@ -22,9 +22,12 @@ trait ApplicationHandler[-Box[+_ <: Envelope[_]], -Env <: Envelope[_]]
   def name: String
 
   /** Called by the [[com.digitalasset.canton.sequencing.client.SequencerClient]] before the start of a subscription.
-    * @param domainTimeTracker The domain time tracker that listens to this application handler's subscription
+    * @param synchronizerTimeTracker The domain time tracker that listens to this application handler's subscription
     */
-  def subscriptionStartsAt(start: SubscriptionStart, domainTimeTracker: DomainTimeTracker)(implicit
+  def subscriptionStartsAt(
+      start: SubscriptionStart,
+      synchronizerTimeTracker: SynchronizerTimeTracker,
+  )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 
@@ -39,11 +42,11 @@ trait ApplicationHandler[-Box[+_ <: Envelope[_]], -Env <: Envelope[_]]
 
     override def subscriptionStartsAt(
         start: SubscriptionStart,
-        domainTimeTracker: DomainTimeTracker,
+        synchronizerTimeTracker: SynchronizerTimeTracker,
     )(implicit
         traceContext: TraceContext
     ): FutureUnlessShutdown[Unit] =
-      ApplicationHandler.this.subscriptionStartsAt(start, domainTimeTracker)
+      ApplicationHandler.this.subscriptionStartsAt(start, synchronizerTimeTracker)
 
     override def apply(boxedEnvelope: BoxedEnvelope[Box2, Env2]): HandlerResult =
       f(boxedEnvelope)
@@ -61,11 +64,11 @@ trait ApplicationHandler[-Box[+_ <: Envelope[_]], -Env <: Envelope[_]]
 
     override def subscriptionStartsAt(
         start: SubscriptionStart,
-        domainTimeTracker: DomainTimeTracker,
+        synchronizerTimeTracker: SynchronizerTimeTracker,
     )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
       for {
-        _ <- ApplicationHandler.this.subscriptionStartsAt(start, domainTimeTracker)
-        _ <- other.subscriptionStartsAt(start, domainTimeTracker)
+        _ <- ApplicationHandler.this.subscriptionStartsAt(start, synchronizerTimeTracker)
+        _ <- other.subscriptionStartsAt(start, synchronizerTimeTracker)
       } yield ()
 
     override def apply(boxedEnvelope: BoxedEnvelope[Box2, Env2]): HandlerResult =
@@ -91,7 +94,7 @@ object ApplicationHandler {
 
       override def subscriptionStartsAt(
           start: SubscriptionStart,
-          domainTimeTracker: DomainTimeTracker,
+          synchronizerTimeTracker: SynchronizerTimeTracker,
       )(implicit
           traceContext: TraceContext
       ): FutureUnlessShutdown[Unit] =

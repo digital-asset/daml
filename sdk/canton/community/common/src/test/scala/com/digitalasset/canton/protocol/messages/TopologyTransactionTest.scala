@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol.messages
@@ -7,7 +7,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.SigningKeyUsage
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.protocol.TestDomainParameters
+import com.digitalasset.canton.protocol.TestSynchronizerParameters
 import com.digitalasset.canton.serialization.HasCryptographicEvidenceTest
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.*
@@ -33,7 +33,7 @@ class TopologyTransactionTest
         passive = Seq.empty,
         threshold = PositiveInt.one,
       )
-    ).build(loggerFactory).forOwnerAndDomain(sequencerId, synchronizerId)
+    ).build(loggerFactory).forOwnerAndSynchronizer(sequencerId, synchronizerId)
   private val publicKey =
     crypto.currentSnapshotApproximation.ipsSnapshot
       .signingKeys(sequencerId, SigningKeyUsage.All)
@@ -41,7 +41,7 @@ class TopologyTransactionTest
       // for this test it does not really matter what public signing key we use
       .lastOption
       .getOrElse(sys.error("no keys"))
-  private val defaultDynamicDomainParameters = TestDomainParameters.defaultDynamic
+  private val defaultDynamicSynchronizerParameters = TestSynchronizerParameters.defaultDynamic
 
   private def mk[T <: TopologyMapping](
       mapping: T
@@ -69,7 +69,7 @@ class TopologyTransactionTest
     )
   }
 
-  "domain topology transactions" when {
+  "synchronizer topology transactions" when {
 
     "namespace mappings" should {
 
@@ -121,7 +121,7 @@ class TopologyTransactionTest
 
     "participant state" should {
       val ps1 = mk(
-        ParticipantDomainPermission(
+        ParticipantSynchronizerPermission(
           synchronizerId,
           ParticipantId(uid),
           ParticipantPermission.Submission,
@@ -130,11 +130,11 @@ class TopologyTransactionTest
         )
       )
       val ps2 = mk(
-        ParticipantDomainPermission(
+        ParticipantSynchronizerPermission(
           synchronizerId,
           ParticipantId(uid),
           ParticipantPermission.Observation,
-          limits = Some(ParticipantDomainLimits(NonNegativeInt.tryCreate(13))),
+          limits = Some(ParticipantSynchronizerLimits(NonNegativeInt.tryCreate(13))),
           loginAfter = Some(CantonTimestamp.MinValue.plusSeconds(17)),
         )
       )
@@ -143,9 +143,11 @@ class TopologyTransactionTest
 
     }
 
-    "domain parameters change" should {
-      val dmp1 = mk(DomainParametersState(SynchronizerId(uid), defaultDynamicDomainParameters))
-      val dmp2 = mk(DomainParametersState(SynchronizerId(uid), defaultDynamicDomainParameters))
+    "synchronizer parameters change" should {
+      val dmp1 =
+        mk(SynchronizerParametersState(SynchronizerId(uid), defaultDynamicSynchronizerParameters))
+      val dmp2 =
+        mk(SynchronizerParametersState(SynchronizerId(uid), defaultDynamicSynchronizerParameters))
       runTest(dmp1, dmp2)
     }
 

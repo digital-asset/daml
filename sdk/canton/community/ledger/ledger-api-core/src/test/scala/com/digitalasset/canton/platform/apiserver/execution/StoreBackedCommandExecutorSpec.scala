@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.execution
@@ -179,7 +179,7 @@ class StoreBackedCommandExecutorSpec
       metrics = LedgerApiServerMetrics.ForTesting,
       EngineLoggingConfig(),
       loggerFactory = loggerFactory,
-      dynParamGetter = new TestDynamicDomainParameterGetter(tolerance),
+      dynParamGetter = new TestDynamicSynchronizerParameterGetter(tolerance),
       TimeProvider.UTC,
     )
 
@@ -378,7 +378,7 @@ class StoreBackedCommandExecutorSpec
         metrics = LedgerApiServerMetrics.ForTesting,
         EngineLoggingConfig(),
         loggerFactory = loggerFactory,
-        dynParamGetter = new TestDynamicDomainParameterGetter(NonNegativeFiniteDuration.Zero),
+        dynParamGetter = new TestDynamicSynchronizerParameterGetter(NonNegativeFiniteDuration.Zero),
         TimeProvider.UTC,
       )
 

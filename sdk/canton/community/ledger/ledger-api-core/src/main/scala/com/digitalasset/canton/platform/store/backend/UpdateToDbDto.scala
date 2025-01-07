@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
@@ -22,7 +22,6 @@ import com.digitalasset.canton.platform.store.dao.events.*
 import com.digitalasset.canton.tracing.SerializableTraceContext
 import com.digitalasset.canton.{SequencerCounter, data}
 import com.digitalasset.daml.lf.data.{Ref, Time}
-import com.digitalasset.daml.lf.ledger.EventId
 import io.grpc.Status
 
 import java.util.UUID
@@ -414,9 +413,8 @@ object UpdateToDbDto {
       nodeId: NodeId,
       exercise: Exercise,
   ): Iterator[DbDto] = {
-    val eventId = EventId(transactionAccepted.updateId, nodeId)
     val (exerciseArgument, exerciseResult, createKeyValue) =
-      translation.serialize(eventId, exercise)
+      translation.serialize(exercise)
     val stakeholders = exercise.stakeholders.map(_.toString)
     val informees =
       transactionAccepted.blindingInfo.disclosure.getOrElse(nodeId, Set.empty).map(_.toString)
@@ -447,9 +445,7 @@ object UpdateToDbDto {
         exercise_result = exerciseResult
           .map(compressionStrategy.exerciseResultCompression.compress),
         exercise_actors = exercise.actingParties.map(_.toString),
-        exercise_child_event_ids = exercise.children.iterator
-          .map(EventId(transactionAccepted.updateId, _).toLedgerString)
-          .toVector,
+        exercise_child_node_ids = exercise.children.iterator.map(_.index).toVector,
         create_key_value_compression = compressionStrategy.createKeyValueCompression.id,
         exercise_argument_compression = compressionStrategy.exerciseArgumentCompression.id,
         exercise_result_compression = compressionStrategy.exerciseResultCompression.id,

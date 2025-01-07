@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.processing
@@ -30,7 +30,7 @@ trait TerminateProcessing {
 object TerminateProcessing {
 
   /** On the participant, [[TerminateProcessing.terminate]] should tick the record order publisher when processing
-    * is finished. Hence, this no-op terminate processing should be used only in domain nodes.
+    * is finished. Hence, this no-op terminate processing should be used only in synchronizer nodes.
     */
 
   private[canton] object NoOpTerminateTopologyProcessing extends TerminateProcessing {

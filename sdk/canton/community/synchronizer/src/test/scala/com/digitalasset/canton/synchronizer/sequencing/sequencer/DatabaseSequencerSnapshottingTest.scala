@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer
@@ -6,9 +6,9 @@ package com.digitalasset.canton.synchronizer.sequencing.sequencer
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
-import com.digitalasset.canton.crypto.DomainSyncCryptoClient
+import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.protocol.DynamicDomainParameters
+import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.sequencing.protocol.{Recipients, SubmissionRequest}
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
@@ -24,7 +24,7 @@ import java.time.Duration
 class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
 
   def createSequencer(
-      crypto: DomainSyncCryptoClient
+      crypto: SynchronizerSyncCryptoClient
   )(implicit materializer: Materializer): CantonSequencer =
     createSequencerWithSnapshot(None)
 
@@ -36,8 +36,8 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
     val crypto = TestingIdentityFactory(
       TestingTopology(),
       loggerFactory,
-      DynamicDomainParameters.initialValues(clock, testedProtocolVersion),
-    ).forOwnerAndDomain(owner = mediatorId, synchronizerId)
+      DynamicSynchronizerParameters.initialValues(clock, testedProtocolVersion),
+    ).forOwnerAndSynchronizer(owner = mediatorId, synchronizerId)
     val metrics = SequencerMetrics.noop("database-sequencer-test")
 
     val dbConfig = TestDatabaseSequencerConfig()

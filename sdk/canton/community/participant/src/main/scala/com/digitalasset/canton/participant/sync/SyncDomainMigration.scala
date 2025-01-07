@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.sync
@@ -12,7 +12,7 @@ import com.daml.error.{ErrorCategory, ErrorCode, Explanation}
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SynchronizerAlias
-import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
+import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.error.{CantonError, ParentCantonError}
@@ -21,16 +21,16 @@ import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory,
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection.SyncStateInspectionError
 import com.digitalasset.canton.participant.admin.repair.RepairService
-import com.digitalasset.canton.participant.domain.{
-  DomainConnectionConfig,
-  DomainRegistryError,
-  DomainRegistryHelpers,
-  SynchronizerAliasManager,
-}
 import com.digitalasset.canton.participant.store.DomainConnectionConfigStore
 import com.digitalasset.canton.participant.sync.SyncServiceError.{
   MigrationErrors,
   SyncServiceUnknownDomain,
+}
+import com.digitalasset.canton.participant.synchronizer.{
+  DomainConnectionConfig,
+  DomainRegistryHelpers,
+  SynchronizerAliasManager,
+  SynchronizerRegistryError,
 }
 import com.digitalasset.canton.sequencing.SequencerConnectionValidation
 import com.digitalasset.canton.topology.SynchronizerId
@@ -162,8 +162,8 @@ class SyncDomainMigration(
               SequencerConnectionValidation.Active,
             )(traceContext, CloseContext(this))
             .leftMap[SyncServiceError] { err =>
-              val error = DomainRegistryError.ConnectionErrors.FailedToConnectToSequencer
-                .Error(DomainRegistryError.fromSequencerInfoLoaderError(err).cause)
+              val error = SynchronizerRegistryError.ConnectionErrors.FailedToConnectToSequencer
+                .Error(SynchronizerRegistryError.fromSequencerInfoLoaderError(err).cause)
               SyncServiceError
                 .SyncServiceFailedDomainConnection(domainConnectionConfig.synchronizerAlias, error)
             }

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.traffic
@@ -34,7 +34,9 @@ trait RateLimitManagerTesting { this: BaseTest with HasExecutionContext =>
   lazy val defaultRateLimiter = mkRateLimiter(trafficPurchasedStore)
 
   lazy val cryptoClient =
-    TestingTopology().build(loggerFactory).forOwnerAndDomain(DefaultTestIdentities.participant1)
+    TestingTopology()
+      .build(loggerFactory)
+      .forOwnerAndSynchronizer(DefaultTestIdentities.participant1)
 
   def defaultRateLimiterWithEventCostCalculator(eventCostCalculator: EventCostCalculator) =
     new EnterpriseSequencerRateLimitManager(

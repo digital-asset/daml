@@ -1,11 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.admin.api.client.data
 
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.admin.api.client.data.NodeStatus.*
-import com.digitalasset.canton.admin.domain.v30 as domainV30
+import com.digitalasset.canton.admin.mediator.v30 as mediatorV30
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -44,13 +44,13 @@ final case class MediatorStatus(
 
 object MediatorStatus {
   def fromProtoV30(
-      proto: domainV30.MediatorStatusResponse
+      proto: mediatorV30.MediatorStatusResponse
   ): ParsingResult[NodeStatus[MediatorStatus]] =
     proto.kind match {
-      case domainV30.MediatorStatusResponse.Kind.Empty =>
+      case mediatorV30.MediatorStatusResponse.Kind.Empty =>
         Left(ProtoDeserializationError.FieldNotSet("MediatorStatusResponse.Kind"))
 
-      case domainV30.MediatorStatusResponse.Kind.Status(mediatorStatusP) =>
+      case mediatorV30.MediatorStatusResponse.Kind.Status(mediatorStatusP) =>
         for {
           statusP <- ProtoConverter.required(
             "MediatorStatusResponse.common_status",
@@ -79,7 +79,7 @@ object MediatorStatus {
           )
         )
 
-      case domainV30.MediatorStatusResponse.Kind.NotInitialized(notInitialized) =>
+      case mediatorV30.MediatorStatusResponse.Kind.NotInitialized(notInitialized) =>
         WaitingForExternalInput
           .fromProtoV30(notInitialized.waitingForExternalInput)
           .map(NodeStatus.NotInitialized(notInitialized.active, _))

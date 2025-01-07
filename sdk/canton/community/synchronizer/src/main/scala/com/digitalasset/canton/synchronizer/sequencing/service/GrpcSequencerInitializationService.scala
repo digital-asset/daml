@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.service
@@ -10,7 +10,7 @@ import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
-import com.digitalasset.canton.protocol.{StaticDomainParameters, v30}
+import com.digitalasset.canton.protocol.{StaticSynchronizerParameters, v30}
 import com.digitalasset.canton.sequencer.admin.v30.SequencerInitializationServiceGrpc.SequencerInitializationService
 import com.digitalasset.canton.sequencer.admin.v30.{
   InitializeSequencerFromGenesisStateRequest,
@@ -19,7 +19,7 @@ import com.digitalasset.canton.sequencer.admin.v30.{
   InitializeSequencerFromOnboardingStateResponse,
 }
 import com.digitalasset.canton.serialization.ProtoConverter
-import com.digitalasset.canton.synchronizer.Synchronizer.FailedToInitialiseDomainNode
+import com.digitalasset.canton.synchronizer.Synchronizer.FailedToInitialiseSynchronizerNode
 import com.digitalasset.canton.synchronizer.sequencing.admin.grpc.{
   InitializeSequencerRequest,
   InitializeSequencerResponse,
@@ -56,15 +56,17 @@ class GrpcSequencerInitializationService(
   ): StreamObserver[InitializeSequencerFromGenesisStateRequest] =
     GrpcStreamingUtils.streamFromClient(
       _.topologySnapshot,
-      _.domainParameters,
-      (topologySnapshot: ByteString, domainParams: Option[v30.StaticDomainParameters]) =>
-        initializeSequencerFromGenesisState(topologySnapshot, domainParams),
+      _.synchronizerParameters,
+      (
+          topologySnapshot: ByteString,
+          synchronizerParams: Option[v30.StaticSynchronizerParameters],
+      ) => initializeSequencerFromGenesisState(topologySnapshot, synchronizerParams),
       responseObserver,
     )
 
   private def initializeSequencerFromGenesisState(
       topologySnapshot: ByteString,
-      domainParameters: Option[v30.StaticDomainParameters],
+      synchronizerParameters: Option[v30.StaticSynchronizerParameters],
   ): Future[InitializeSequencerFromGenesisStateResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
@@ -75,12 +77,12 @@ class GrpcSequencerInitializationService(
           .leftMap(ProtoDeserializationFailure.Wrap(_))
       )
 
-      domainParameters <- EitherT.fromEither[Future](
+      synchronizerParameters <- EitherT.fromEither[Future](
         ProtoConverter
           .parseRequired(
-            StaticDomainParameters.fromProtoV30,
-            "domain_parameters",
-            domainParameters,
+            StaticSynchronizerParameters.fromProtoV30,
+            "synchronizer_parameters",
+            synchronizerParameters,
           )
           .leftMap(ProtoDeserializationFailure.Wrap(_))
       )
@@ -151,11 +153,11 @@ class GrpcSequencerInitializationService(
         ),
       )
 
-      initializeRequest = InitializeSequencerRequest(genesisState, domainParameters, None)
+      initializeRequest = InitializeSequencerRequest(genesisState, synchronizerParameters, None)
       result <- handler
         .initialize(initializeRequest)
-        .leftMap(FailedToInitialiseDomainNode.Failure(_))
-        .onShutdown(Left(FailedToInitialiseDomainNode.Shutdown())): EitherT[
+        .leftMap(FailedToInitialiseSynchronizerNode.Failure(_))
+        .onShutdown(Left(FailedToInitialiseSynchronizerNode.Shutdown())): EitherT[
         Future,
         CantonError,
         InitializeSequencerResponse,
@@ -189,13 +191,13 @@ class GrpcSequencerInitializationService(
       )
       initializeRequest = InitializeSequencerRequest(
         onboardingState.topologySnapshot,
-        onboardingState.staticDomainParameters,
+        onboardingState.staticSynchronizerParameters,
         Some(onboardingState.sequencerSnapshot),
       )
       result <- handler
         .initialize(initializeRequest)
-        .leftMap(FailedToInitialiseDomainNode.Failure(_))
-        .onShutdown(Left(FailedToInitialiseDomainNode.Shutdown())): EitherT[
+        .leftMap(FailedToInitialiseSynchronizerNode.Failure(_))
+        .onShutdown(Left(FailedToInitialiseSynchronizerNode.Shutdown())): EitherT[
         Future,
         CantonError,
         InitializeSequencerResponse,

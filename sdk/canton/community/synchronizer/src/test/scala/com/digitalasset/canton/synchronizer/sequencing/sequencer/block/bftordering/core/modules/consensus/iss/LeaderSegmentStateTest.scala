@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss
@@ -222,21 +222,24 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         .fakeSign
     val ppHash = prePrepare.message.hash
     val _ = assertNoLogs(segmentState.processEvent(PbftSignedNetworkMessage(prePrepare)))
+    segmentState.processEvent(prePrepare.message.stored)
+
     otherPeers.foreach { peer =>
       val prepare =
         Prepare
           .create(metadata, ViewNumber.First, ppHash, CantonTimestamp.Epoch, from = peer)
           .fakeSign
       val _ = assertNoLogs(segmentState.processEvent(PbftSignedNetworkMessage(prepare)))
+    }
+    segmentState.processEvent(PreparesStored(metadata, ViewNumber.First))
 
+    otherPeers.foreach { peer =>
       val commit =
         Commit
           .create(metadata, ViewNumber.First, ppHash, CantonTimestamp.Epoch, from = peer)
           .fakeSign
       val _ = assertNoLogs(segmentState.processEvent(PbftSignedNetworkMessage(commit)))
     }
-    segmentState.processEvent(prePrepare.message.stored)
-    segmentState.processEvent(PreparesStored(metadata, ViewNumber.First))
     segmentState.isBlockComplete(blockNumber) shouldBe false
     segmentState.confirmCompleteBlockStored(blockNumber, ViewNumber.First)
     segmentState.isBlockComplete(blockNumber) shouldBe true

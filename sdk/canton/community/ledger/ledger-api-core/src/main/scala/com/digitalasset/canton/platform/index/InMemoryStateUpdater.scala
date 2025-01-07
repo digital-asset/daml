@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.index
@@ -29,9 +29,7 @@ import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.platform.{Contract, InMemoryState, Key, Party}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.ledger.EventId
 import com.digitalasset.daml.lf.transaction.Node.{Create, Exercise}
-import com.digitalasset.daml.lf.transaction.NodeId
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.FlowShape
 import org.apache.pekko.stream.scaladsl.{Broadcast, Flow, GraphDSL, Merge, Sink, Source}
@@ -416,7 +414,6 @@ private[platform] object InMemoryStateUpdater {
           updateId = txAccepted.updateId,
           nodeIndex = nodeId.index,
           eventSequentialId = 0L,
-          eventId = EventId(txAccepted.updateId, nodeId),
           contractId = create.coid,
           ledgerEffectiveTime = txAccepted.transactionMeta.ledgerEffectiveTime,
           templateId = create.templateId,
@@ -450,7 +447,6 @@ private[platform] object InMemoryStateUpdater {
           updateId = txAccepted.updateId,
           nodeIndex = nodeId.index,
           eventSequentialId = 0L,
-          eventId = EventId(txAccepted.updateId, nodeId),
           contractId = exercise.targetCoid,
           ledgerEffectiveTime = txAccepted.transactionMeta.ledgerEffectiveTime,
           templateId = exercise.templateId,
@@ -467,9 +463,7 @@ private[platform] object InMemoryStateUpdater {
             .getOrElse(Set.empty),
           choice = exercise.choiceId,
           actingParties = exercise.actingParties,
-          children = exercise.children.iterator
-            .map(EventId(txAccepted.updateId, _).toLedgerString)
-            .toSeq,
+          children = exercise.children.iterator.map(_.index).toSeq,
           exerciseArgument = exercise.versionedChosenValue,
           exerciseResult = exercise.versionedExerciseResult,
           consuming = exercise.consuming,
@@ -583,7 +577,6 @@ private[platform] object InMemoryStateUpdater {
               updateId = u.updateId,
               nodeIndex = 0, // set 0 for assign-created
               eventSequentialId = 0L,
-              eventId = EventId(u.updateId, NodeId(0)), // set 0 for assign-created
               contractId = create.coid,
               ledgerEffectiveTime = assign.ledgerEffectiveTime,
               templateId = create.templateId,

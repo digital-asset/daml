@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.traffic
@@ -16,8 +16,8 @@ object TrafficControlErrors extends TrafficControlErrorGroup {
     """This error indicates that the participant does not have a traffic state."""
   )
   @Resolution(
-    """Ensure that the the participant is connected to a domain with traffic control enabled,
-        and that it has received at least one event from the domain since its connection."""
+    """Ensure that the the participant is connected to a synchronizer with traffic control enabled,
+        and that it has received at least one event from the synchronizer since its connection."""
   )
   object TrafficStateNotFound
       extends ErrorCode(
@@ -33,10 +33,10 @@ object TrafficControlErrors extends TrafficControlErrorGroup {
   }
 
   @Explanation(
-    """Traffic control is not active on the domain."""
+    """Traffic control is not active on the synchronizer."""
   )
   @Resolution(
-    """Enable traffic control by setting the traffic control dynamic domain parameter."""
+    """Enable traffic control by setting the traffic control dynamic synchronizer parameter."""
   )
   object TrafficControlDisabled
       extends ErrorCode(

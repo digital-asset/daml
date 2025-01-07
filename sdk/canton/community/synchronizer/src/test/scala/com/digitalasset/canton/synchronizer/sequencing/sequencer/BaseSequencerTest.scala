@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer
@@ -29,7 +29,7 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.traffic.{
   SequencerRateLimitError,
   SequencerTrafficStatus,
 }
-import com.digitalasset.canton.time.{DomainTimeTracker, SimClock}
+import com.digitalasset.canton.time.{SimClock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.DefaultTestIdentities.{
   participant1,
   participant2,
@@ -169,7 +169,7 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest with FailOnShutdown 
         serial: PositiveInt,
         totalTrafficPurchased: NonNegativeLong,
         sequencerClient: SequencerClientSend,
-        domainTimeTracker: DomainTimeTracker,
+        synchronizerTimeTracker: SynchronizerTimeTracker,
     )(implicit
         traceContext: TraceContext
     ): EitherT[

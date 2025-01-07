@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -34,8 +34,8 @@ final case class IncompleteReassignmentData private (
     queryOffset: Offset,
 ) {
 
-  def sourceDomain: Source[SynchronizerId] = unassignmentRequest.sourceDomain
-  def targetDomain: Target[SynchronizerId] = unassignmentRequest.targetDomain
+  def sourceDomain: Source[SynchronizerId] = unassignmentRequest.sourceSynchronizer
+  def targetDomain: Target[SynchronizerId] = unassignmentRequest.targetSynchronizer
 
   def unassignmentGlobalOffset: Option[Offset] =
     reassignmentEventGlobalOffset.unassignmentGlobalOffset

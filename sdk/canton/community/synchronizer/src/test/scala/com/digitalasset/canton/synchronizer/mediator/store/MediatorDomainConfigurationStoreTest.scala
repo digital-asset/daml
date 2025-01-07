@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.mediator.store
@@ -40,7 +40,7 @@ trait MediatorDomainConfigurationStoreTest {
       )
       val originalConfig = MediatorDomainConfiguration(
         DefaultTestIdentities.synchronizerId,
-        defaultStaticDomainParameters,
+        defaultStaticSynchronizerParameters,
         SequencerConnections.single(connection),
       )
 
@@ -52,7 +52,7 @@ trait MediatorDomainConfigurationStoreTest {
 
     "supports updating the config" in {
       val store = mkStore
-      val defaultParams = defaultStaticDomainParameters
+      val defaultParams = defaultStaticSynchronizerParameters
       val connection = GrpcSequencerConnection(
         NonEmpty(
           Seq,
@@ -70,9 +70,9 @@ trait MediatorDomainConfigurationStoreTest {
       )
 
       val updatedConfig = originalConfig
-        .focus(_.domainParameters)
+        .focus(_.synchronizerParameters)
         .replace(
-          BaseTest.defaultStaticDomainParameters
+          BaseTest.defaultStaticSynchronizerParameters
         )
 
       for {

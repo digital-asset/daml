@@ -233,7 +233,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       intendedPackageIds: List[PackageId],
   ): Either[String, ScriptLedgerClient.TransactionTree] = {
     def convEvent(
-        ev: String,
+        ev: Int,
         oIntendedPackageId: Option[PackageId],
     ): Either[String, ScriptLedgerClient.TreeEvent] =
       tree.eventsById.get(ev).toRight(s"Event id $ev does not exist").flatMap { event =>
@@ -268,7 +268,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
                 .validateValue(exercised.getExerciseResult)
                 .left
                 .map(_.toString)
-              childEvents <- exercised.childEventIds.toList.traverse(convEvent(_, None))
+              childEvents <- exercised.childNodeIds.toList.traverse(convEvent(_, None))
             } yield ScriptLedgerClient.Exercised(
               oIntendedPackageId
                 .fold(tplId)(intendedPackageId => tplId.copy(packageId = intendedPackageId)),
@@ -283,8 +283,8 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
         }
       }
     for {
-      rootEvents <- tree.rootEventIds.toList.zip(intendedPackageIds).traverse {
-        case (evId, intendedPackageId) => convEvent(evId, Some(intendedPackageId))
+      rootEvents <- tree.rootNodeIds.toList.zip(intendedPackageIds).traverse {
+        case (nodeId, intendedPackageId) => convEvent(nodeId, Some(intendedPackageId))
       }
     } yield {
       ScriptLedgerClient.TransactionTree(rootEvents)

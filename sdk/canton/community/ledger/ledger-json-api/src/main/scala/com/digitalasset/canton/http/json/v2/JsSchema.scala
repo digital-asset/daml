@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http.json.v2
@@ -47,8 +47,8 @@ object JsSchema {
       workflow_id: String,
       effective_at: Option[protobuf.timestamp.Timestamp],
       offset: Long,
-      events_by_id: Map[String, JsTreeEvent.TreeEvent],
-      root_event_ids: Seq[String],
+      events_by_id: Map[Int, JsTreeEvent.TreeEvent],
+      root_node_ids: Seq[Int],
       synchronizer_id: String,
       trace_context: Option[TraceContext],
       record_time: protobuf.timestamp.Timestamp,
@@ -79,7 +79,6 @@ object JsSchema {
     sealed trait Event
 
     final case class CreatedEvent(
-        event_id: String,
         offset: Long,
         node_id: Int,
         contract_id: String,
@@ -96,7 +95,6 @@ object JsSchema {
     ) extends Event
 
     final case class ArchivedEvent(
-        event_id: String,
         offset: Long,
         node_id: Int,
         contract_id: String,
@@ -125,7 +123,6 @@ object JsSchema {
     sealed trait TreeEvent
 
     final case class ExercisedTreeEvent(
-        event_id: String,
         offset: Long,
         node_id: Int,
         contract_id: String,
@@ -136,7 +133,7 @@ object JsSchema {
         acting_parties: Seq[String],
         consuming: Boolean,
         witness_parties: Seq[String],
-        child_event_ids: Seq[String],
+        child_node_ids: Seq[Int],
         exercise_result: Json,
         package_name: String,
     ) extends TreeEvent

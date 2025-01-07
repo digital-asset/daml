@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
@@ -16,7 +16,7 @@ import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
 import com.digitalasset.canton.participant.protocol.*
 import com.digitalasset.canton.store.*
 import com.digitalasset.canton.store.SequencedEventStore.ByTimestamp
-import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
+import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
@@ -31,7 +31,7 @@ trait SyncDomainEphemeralStateFactory {
       ledgerApiIndexer: Eval[LedgerApiIndexer],
       contractStore: Eval[ContractStore],
       participantNodeEphemeralState: ParticipantNodeEphemeralState,
-      createTimeTracker: () => DomainTimeTracker,
+      createTimeTracker: () => SynchronizerTimeTracker,
       metrics: SyncDomainMetrics,
       sessionKeyCacheConfig: SessionEncryptionKeyCacheConfig,
       participantId: ParticipantId,
@@ -56,7 +56,7 @@ class SyncDomainEphemeralStateFactoryImpl(
       ledgerApiIndexer: Eval[LedgerApiIndexer],
       contractStore: Eval[ContractStore],
       participantNodeEphemeralState: ParticipantNodeEphemeralState,
-      createTimeTracker: () => DomainTimeTracker,
+      createTimeTracker: () => SynchronizerTimeTracker,
       metrics: SyncDomainMetrics,
       sessionKeyCacheConfig: SessionEncryptionKeyCacheConfig,
       participantId: ParticipantId,

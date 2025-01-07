@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.admin.api.client.commands
@@ -116,13 +116,14 @@ object LedgerApiTypeWrappers {
    */
   final case class WrappedCreatedEvent(event: CreatedEvent) {
 
-    private def corrupt: String = s"corrupt event ${event.eventId} / ${event.contractId}"
+    private def corrupt: String =
+      s"corrupt event ${event.nodeId} / ${event.contractId} at ${event.offset}"
 
     def templateId: TemplateId =
       TemplateId.fromIdentifier(
         event.templateId.getOrElse(
           throw new IllegalArgumentException(
-            s"Template Id not specified for event ${event.eventId} / ${event.contractId}"
+            s"Template Id not specified for event ${event.nodeId} / ${event.contractId} at ${event.offset}"
           )
         )
       )

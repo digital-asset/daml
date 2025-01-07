@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.validation
@@ -8,10 +8,10 @@ import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.{
-  DomainSnapshotSyncCryptoApi,
   Hash,
   InteractiveSubmission,
   Signature,
+  SynchronizerSnapshotSyncCryptoApi,
 }
 import com.digitalasset.canton.data.{
   FullReassignmentViewTree,
@@ -97,7 +97,7 @@ private[protocol] object AuthenticationValidator {
 
   private def verifyParticipantSignature(
       requestId: RequestId,
-      snapshot: DomainSnapshotSyncCryptoApi,
+      snapshot: SynchronizerSnapshotSyncCryptoApi,
       view: ViewTree,
       signatureO: Option[Signature],
       submittingParticipant: ParticipantId,
@@ -150,7 +150,7 @@ private[protocol] object AuthenticationValidator {
   def verifyExternalPartySignature(
       viewTree: FullTransactionViewTree,
       submitterMetadata: SubmitterMetadata,
-      topology: DomainSnapshotSyncCryptoApi,
+      topology: SynchronizerSnapshotSyncCryptoApi,
       protocolVersion: ProtocolVersion,
       reInterpretedTopLevelViews: LazyAsyncReInterpretation,
       synchronizerId: SynchronizerId,

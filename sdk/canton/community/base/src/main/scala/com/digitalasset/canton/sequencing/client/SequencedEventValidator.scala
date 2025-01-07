@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client
@@ -37,7 +37,7 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
   NamedLoggingContext,
 }
-import com.digitalasset.canton.protocol.DynamicDomainParametersWithValidity
+import com.digitalasset.canton.protocol.DynamicSynchronizerParametersWithValidity
 import com.digitalasset.canton.sequencing.client.SequencedEventValidationError.UpstreamSubscriptionError
 import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, SequencedEvent}
 import com.digitalasset.canton.sequencing.{OrdinarySerializedEvent, PossiblyIgnoredSerializedEvent}
@@ -247,8 +247,8 @@ object SequencedEventValidator extends HasLoggerName {
   }
 
   /** Validates the requested topology timestamp against the sequencing timestamp and the
-    * [[com.digitalasset.canton.protocol.DynamicDomainParameters.sequencerTopologyTimestampTolerance]]
-    * of the domain parameters valid at the requested topology timestamp.
+    * [[com.digitalasset.canton.protocol.DynamicSynchronizerParameters.sequencerTopologyTimestampTolerance]]
+    * of the synchronizer parameters valid at the requested topology timestamp.
     *
     * @param latestTopologyClientTimestamp The timestamp of an earlier event sent to the topology client
     *                                      such that no topology update has happened
@@ -256,7 +256,7 @@ object SequencedEventValidator extends HasLoggerName {
     * @param warnIfApproximate             Whether to emit a warning if an approximate topology snapshot is used
     * @return [[scala.Left$]] if the topology timestamp is after the sequencing timestamp or the sequencing timestamp
     *         is after the topology timestamp by more than the
-    *         [[com.digitalasset.canton.protocol.DynamicDomainParameters.sequencerTopologyTimestampTolerance]] valid at the topology timestamp.
+    *         [[com.digitalasset.canton.protocol.DynamicSynchronizerParameters.sequencerTopologyTimestampTolerance]] valid at the topology timestamp.
     *         [[scala.Right$]] the topology snapshot that can be used for signing the event
     *         and verifying the signature on the event;
     */
@@ -267,7 +267,7 @@ object SequencedEventValidator extends HasLoggerName {
       latestTopologyClientTimestamp: Option[CantonTimestamp],
       protocolVersion: ProtocolVersion,
       warnIfApproximate: Boolean,
-      getTolerance: DynamicDomainParametersWithValidity => NonNegativeFiniteDuration,
+      getTolerance: DynamicSynchronizerParametersWithValidity => NonNegativeFiniteDuration,
   )(implicit
       loggingContext: NamedLoggingContext,
       executionContext: ExecutionContext,
@@ -282,7 +282,7 @@ object SequencedEventValidator extends HasLoggerName {
       getTolerance,
     )(
       SyncCryptoClient.getSnapshotForTimestamp _,
-      (topology, traceContext) => topology.findDynamicDomainParameters()(traceContext),
+      (topology, traceContext) => topology.findDynamicSynchronizerParameters()(traceContext),
     )
 
   def validateTopologyTimestampUS(
@@ -292,7 +292,7 @@ object SequencedEventValidator extends HasLoggerName {
       latestTopologyClientTimestamp: Option[CantonTimestamp],
       protocolVersion: ProtocolVersion,
       warnIfApproximate: Boolean,
-      getTolerance: DynamicDomainParametersWithValidity => NonNegativeFiniteDuration,
+      getTolerance: DynamicSynchronizerParametersWithValidity => NonNegativeFiniteDuration,
   )(implicit
       loggingContext: NamedLoggingContext,
       executionContext: ExecutionContext,
@@ -310,7 +310,7 @@ object SequencedEventValidator extends HasLoggerName {
       SyncCryptoClient.getSnapshotForTimestampUS _,
       (topology, traceContext) =>
         closeContext.context.performUnlessClosingUSF("get-dynamic-parameters")(
-          topology.findDynamicDomainParameters()(traceContext)
+          topology.findDynamicSynchronizerParameters()(traceContext)
         )(executionContext, traceContext),
     )
 
@@ -324,7 +324,7 @@ object SequencedEventValidator extends HasLoggerName {
       latestTopologyClientTimestamp: Option[CantonTimestamp],
       protocolVersion: ProtocolVersion,
       warnIfApproximate: Boolean,
-      getTolerance: DynamicDomainParametersWithValidity => NonNegativeFiniteDuration,
+      getTolerance: DynamicSynchronizerParametersWithValidity => NonNegativeFiniteDuration,
   )(
       getSnapshotF: (
           SyncCryptoClient[SyncCryptoApi],
@@ -336,7 +336,7 @@ object SequencedEventValidator extends HasLoggerName {
       getDynamicDomainParameters: (
           TopologySnapshot,
           TraceContext,
-      ) => F[Either[String, DynamicDomainParametersWithValidity]],
+      ) => F[Either[String, DynamicSynchronizerParametersWithValidity]],
   )(implicit
       loggingContext: NamedLoggingContext
   ): EitherT[F, TopologyTimestampVerificationError, SyncCryptoApi] = {

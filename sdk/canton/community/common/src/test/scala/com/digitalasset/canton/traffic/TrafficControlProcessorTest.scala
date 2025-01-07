@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.traffic
@@ -41,9 +41,9 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
   private val sc2 = SequencerCounter(2)
   private val sc3 = SequencerCounter(3)
 
-  private val domainCrypto = TestingTopology(domainParameters = List.empty)
+  private val domainCrypto = TestingTopology(synchronizerParameters = List.empty)
     .build(loggerFactory)
-    .forOwnerAndDomain(DefaultTestIdentities.sequencerId, synchronizerId)
+    .forOwnerAndSynchronizer(DefaultTestIdentities.sequencerId, synchronizerId)
 
   private val dummySignature = SymbolicCrypto.emptySignature
 
@@ -171,7 +171,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
     "notify subscribers of updates" in {
       val update = mkSetTrafficPurchased()
       val batch =
-        Batch.of(testedProtocolVersion, update -> Recipients.cc(SequencersOfDomain))
+        Batch.of(testedProtocolVersion, update -> Recipients.cc(SequencersOfSynchronizer))
 
       val (tcp, observedTs, updates) = mkTrafficProcessor()
 
@@ -210,7 +210,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
     "drop updates with invalid signatures" in {
       val update = mkSetTrafficPurchased(Some(dummySignature))
       val batch =
-        Batch.of(testedProtocolVersion, update -> Recipients.cc(SequencersOfDomain))
+        Batch.of(testedProtocolVersion, update -> Recipients.cc(SequencersOfSynchronizer))
 
       val (tcp, observedTs, updates) = mkTrafficProcessor()
 
@@ -238,7 +238,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
     "drop updates with invalid timestamp of signing key" in {
       val update = mkSetTrafficPurchased()
       val batch =
-        Batch.of(testedProtocolVersion, update -> Recipients.cc(SequencersOfDomain))
+        Batch.of(testedProtocolVersion, update -> Recipients.cc(SequencersOfSynchronizer))
 
       val (tcp, observedTs, updates) = mkTrafficProcessor()
 

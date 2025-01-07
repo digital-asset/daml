@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -13,7 +13,7 @@ import "google/protobuf/timestamp.proto";
  * Topology information aggregation service
  *
  * This service allows deep inspection into the aggregated topology state.
- * The services runs both on the domain and on the participant and uses the same
+ * The services runs both on the synchronizer and on the participant and uses the same
  * data. The service provides GRPC access to the information aggregated by the identity providing
  * service client.
  */
@@ -21,14 +21,14 @@ service TopologyAggregationService {
   /**
    * Obtain information about a certain set of active parties matching a given filter criterion.
    *
-   * The request allows to filter per (domain, party, asOf) where the domain and party argument are
+   * The request allows to filter per (synchronizer, party, asOf) where the synchronizer and party argument are
    * used in order to filter the result list using the `startsWith` method on the respective resulting string.
    *
    * As such, if you just need to do a lookup, then define a precise filter. Given the uniqueness of the
    * identifiers (and the fact that the identifiers contain key fingerprints), we should only ever get a single
    * result back if we are doing a precise lookup.
    *
-   * The response is a sequence of tuples (party, domain, participant, privilege, trust-level).
+   * The response is a sequence of tuples (party, synchronizer, participant, privilege, trust-level).
    * The response is restricted to active parties and their active participants.
    */
   rpc ListParties(ListPartiesRequest) returns (ListPartiesResponse);
@@ -36,11 +36,11 @@ service TopologyAggregationService {
   /**
    * Obtain key owner information matching a given filter criterion.
    *
-   * Key owners in the system are different types of entities: Participant, Mediator, Domain Topology Manager and
+   * Key owners in the system are different types of entities: Participant, Mediator, and
    * Sequencer. The present method allows to define a filter to search for a key owner
-   * using filters on (asOf, domain, ownerType, owner)
+   * using filters on (asOf, synchronizer_id, ownerType, owner)
    *
-   * The response is a sequence of (domain, ownerType, owner, keys) where keys is a sequence of
+   * The response is a sequence of (synchronizer_id, ownerType, owner, keys) where keys is a sequence of
    * (fingerprint, bytes, key purpose). As such, we can use this method to export currently used signing or encryption
    * public keys.
    *
@@ -64,8 +64,8 @@ message ListPartiesResponse {
   message Result {
     string party = 1;
 
-    message ParticipantDomains {
-      message DomainPermissions {
+    message ParticipantSynchronizers {
+      message SynchronizerPermissions {
         string synchronizer_id = 1;
         com.digitalasset.canton.protocol.v30.Enums.ParticipantPermission permission = 2;
       }
@@ -73,14 +73,14 @@ message ListPartiesResponse {
       string participant_uid = 1;
 
       /**
-       * permissions of this participant for this party on a per domain basis
+       * permissions of this participant for this party on a per synchronizer basis
        *
        * for records that only exist in the authorized store, this list will be empty.
        */
-      repeated DomainPermissions domains = 2;
+      repeated SynchronizerPermissions synchronizers = 2;
     }
 
-    repeated ParticipantDomains participants = 2;
+    repeated ParticipantSynchronizers participants = 2;
   }
 
   repeated Result results = 2;

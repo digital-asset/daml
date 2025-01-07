@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol
@@ -85,8 +85,8 @@ final case class DynamicSequencingParametersWithValidity(
     validUntil: Option[CantonTimestamp],
     synchronizerId: SynchronizerId,
 ) {
-  def map[T](f: DynamicSequencingParameters => T): DomainParameters.WithValidity[T] =
-    DomainParameters.WithValidity(validFrom, validUntil, f(parameters))
+  def map[T](f: DynamicSequencingParameters => T): SynchronizerParameters.WithValidity[T] =
+    SynchronizerParameters.WithValidity(validFrom, validUntil, f(parameters))
 
   def isValidAt(ts: CantonTimestamp): Boolean =
     validFrom < ts && validUntil.forall(ts <= _)

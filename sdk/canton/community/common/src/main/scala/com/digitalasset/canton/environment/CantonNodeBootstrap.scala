@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.environment
@@ -77,10 +77,10 @@ import com.digitalasset.canton.topology.admin.grpc.{
 }
 import com.digitalasset.canton.topology.admin.v30 as adminV30
 import com.digitalasset.canton.topology.client.{
-  DomainTopologyClient,
   IdentityProvidingServiceClient,
+  SynchronizerTopologyClient,
 }
-import com.digitalasset.canton.topology.store.TopologyStoreId.{AuthorizedStore, DomainStore}
+import com.digitalasset.canton.topology.store.TopologyStoreId.{AuthorizedStore, SynchronizerStore}
 import com.digitalasset.canton.topology.store.{InitializationStore, TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.{
   NamespaceDelegation,
@@ -330,9 +330,9 @@ abstract class CantonNodeBootstrapImpl[
     * topology stores which are only available in a later startup stage (domain nodes) or
     * in the node runtime itself (participant sync domain)
     */
-  protected def sequencedTopologyStores: Seq[TopologyStore[DomainStore]]
+  protected def sequencedTopologyStores: Seq[TopologyStore[SynchronizerStore]]
 
-  protected def sequencedTopologyManagers: Seq[DomainTopologyManager]
+  protected def sequencedTopologyManagers: Seq[SynchronizerTopologyManager]
 
   protected val bootstrapStageCallback = new BootstrapStage.Callback {
     override def loggerFactory: NamedLoggerFactory = CantonNodeBootstrapImpl.this.loggerFactory
@@ -351,7 +351,7 @@ abstract class CantonNodeBootstrapImpl[
     override def ec: ExecutionContext = CantonNodeBootstrapImpl.this.executionContext
   }
 
-  protected def lookupTopologyClient(storeId: TopologyStoreId): Option[DomainTopologyClient]
+  protected def lookupTopologyClient(storeId: TopologyStoreId): Option[SynchronizerTopologyClient]
 
   private val startupStage =
     new BootstrapStage[T, SetupCrypto](
@@ -671,7 +671,9 @@ abstract class CantonNodeBootstrapImpl[
       .addServiceU(
         adminV30.TopologyAggregationServiceGrpc.bindService(
           new GrpcTopologyAggregationService(
-            sequencedTopologyStores.mapFilter(TopologyStoreId.select[TopologyStoreId.DomainStore]),
+            sequencedTopologyStores.mapFilter(
+              TopologyStoreId.select[TopologyStoreId.SynchronizerStore]
+            ),
             ips,
             bootstrapStageCallback.loggerFactory,
           ),

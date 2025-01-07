@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -7,12 +7,12 @@ import cats.data.EitherT
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.{
-  DomainCryptoPureApi,
-  DomainSnapshotSyncCryptoApi,
-  DomainSyncCryptoClient,
   HashPurpose,
   Signature,
   SigningKeyUsage,
+  SynchronizerCryptoPureApi,
+  SynchronizerSnapshotSyncCryptoApi,
+  SynchronizerSyncCryptoClient,
   TestHash,
 }
 import com.digitalasset.canton.data.{
@@ -47,10 +47,10 @@ final case class ReassignmentDataHelpers(
     contract: SerializableContract,
     sourceDomain: Source[SynchronizerId],
     targetDomain: Target[SynchronizerId],
-    pureCrypto: DomainCryptoPureApi,
+    pureCrypto: SynchronizerCryptoPureApi,
     // mediatorCryptoClient and sequencerCryptoClient need to be defined for computation of the DeliveredUnassignmentResult
-    mediatorCryptoClient: Option[DomainSyncCryptoClient] = None,
-    sequencerCryptoClient: Option[DomainSyncCryptoClient] = None,
+    mediatorCryptoClient: Option[SynchronizerSyncCryptoClient] = None,
+    sequencerCryptoClient: Option[SynchronizerSyncCryptoClient] = None,
     targetTime: CantonTimestamp = CantonTimestamp.Epoch,
 )(implicit executionContext: ExecutionContext) {
   import org.scalatest.OptionValues.*
@@ -156,8 +156,8 @@ final case class ReassignmentDataHelpers(
       result: ConfirmationResultMessage,
       recipients: NonEmpty[Seq[ParticipantId]],
       sequencingTime: CantonTimestamp = CantonTimestamp.Epoch,
-      overrideCryptoSnapshotMediator: Option[DomainSnapshotSyncCryptoApi] = None,
-      overrideCryptoSnapshotSequencer: Option[DomainSnapshotSyncCryptoApi] = None,
+      overrideCryptoSnapshotMediator: Option[SynchronizerSnapshotSyncCryptoApi] = None,
+      overrideCryptoSnapshotSequencer: Option[SynchronizerSnapshotSyncCryptoApi] = None,
       additionalEnvelopes: List[(ProtocolMessage, Recipients)] = Nil,
   )(implicit traceContext: TraceContext): EitherT[
     Future,
@@ -205,7 +205,7 @@ object ReassignmentDataHelpers {
       identityFactory: TestingIdentityFactory,
   )(implicit executionContext: ExecutionContext) = {
     val pureCrypto = identityFactory
-      .forOwnerAndDomain(DefaultTestIdentities.mediatorId, sourceDomain.unwrap)
+      .forOwnerAndSynchronizer(DefaultTestIdentities.mediatorId, sourceDomain.unwrap)
       .pureCrypto
 
     new ReassignmentDataHelpers(
@@ -215,11 +215,11 @@ object ReassignmentDataHelpers {
       pureCrypto = pureCrypto,
       mediatorCryptoClient = Some(
         identityFactory
-          .forOwnerAndDomain(DefaultTestIdentities.mediatorId, sourceDomain.unwrap)
+          .forOwnerAndSynchronizer(DefaultTestIdentities.mediatorId, sourceDomain.unwrap)
       ),
       sequencerCryptoClient = Some(
         identityFactory
-          .forOwnerAndDomain(DefaultTestIdentities.sequencerId, sourceDomain.unwrap)
+          .forOwnerAndSynchronizer(DefaultTestIdentities.sequencerId, sourceDomain.unwrap)
       ),
     )
   }
@@ -230,8 +230,8 @@ object ReassignmentDataHelpers {
       result: ConfirmationResultMessage,
       recipients: NonEmpty[Seq[ParticipantId]],
       protocolVersion: ProtocolVersion,
-      cryptoSnapshotMediator: DomainSnapshotSyncCryptoApi,
-      cryptoSnapshotSequencer: DomainSnapshotSyncCryptoApi,
+      cryptoSnapshotMediator: SynchronizerSnapshotSyncCryptoApi,
+      cryptoSnapshotSequencer: SynchronizerSnapshotSyncCryptoApi,
       sequencingTime: CantonTimestamp = CantonTimestamp.Epoch,
   )(
       synchronizerId: SynchronizerId = result.synchronizerId,
@@ -270,7 +270,7 @@ object ReassignmentDataHelpers {
       signedResult: SignedProtocolMessage[ConfirmationResultMessage],
       recipients: NonEmpty[Seq[Recipient]],
       protocolVersion: ProtocolVersion,
-      cryptoSnapshotSequencer: DomainSnapshotSyncCryptoApi,
+      cryptoSnapshotSequencer: SynchronizerSnapshotSyncCryptoApi,
       sequencingTime: CantonTimestamp = CantonTimestamp.Epoch,
   )(
       synchronizerId: SynchronizerId = signedResult.synchronizerId,

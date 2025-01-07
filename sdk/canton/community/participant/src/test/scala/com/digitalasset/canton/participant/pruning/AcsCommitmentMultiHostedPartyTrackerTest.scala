@@ -1,11 +1,15 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.pruning
 
 import cats.syntax.functor.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, LtHash16, SyncCryptoClient}
+import com.digitalasset.canton.crypto.{
+  LtHash16,
+  SyncCryptoClient,
+  SynchronizerSnapshotSyncCryptoApi,
+}
 import com.digitalasset.canton.data.CantonTimestampSecond
 import com.digitalasset.canton.participant.event.{
   AcsChange,
@@ -140,7 +144,7 @@ class AcsCommitmentMultiHostedPartyTrackerTest
   protected def cryptoSetup(
       owner: ParticipantId,
       topology: Map[LfPartyId, (Int, Set[ParticipantId])],
-  ): SyncCryptoClient[DomainSnapshotSyncCryptoApi] = {
+  ): SyncCryptoClient[SynchronizerSnapshotSyncCryptoApi] = {
 
     val topologyWithPermissions =
       topology.fmap { case (threshold, participants) =>
@@ -153,7 +157,7 @@ class AcsCommitmentMultiHostedPartyTrackerTest
     TestingTopology()
       .withThreshold(topologyWithPermissions)
       .build(loggerFactory)
-      .forOwnerAndDomain(owner)
+      .forOwnerAndSynchronizer(owner)
   }
 
   protected def rt(timestamp: Long, tieBreaker: Int): RecordTime =

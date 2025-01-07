@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client
@@ -252,7 +252,7 @@ class SequencedEventValidatorTest
 
     "validate correctly with explicit topology timestamp" in { fixture =>
       import fixture.*
-      val syncCrypto = mock[DomainSyncCryptoClient]
+      val syncCrypto = mock[SynchronizerSyncCryptoClient]
       when(syncCrypto.pureCrypto).thenReturn(subscriberCryptoApi.pureCrypto)
       when(syncCrypto.snapshotUS(timestamp = ts(1))(fixtureTraceContext))
         .thenAnswer[CantonTimestamp](tm => subscriberCryptoApi.snapshotUS(tm)(fixtureTraceContext))
@@ -480,7 +480,11 @@ class SequencedEventValidatorTest
       import fixture.*
 
       val syncCryptoApi = TestingIdentityFactory(loggerFactory)
-        .forOwnerAndDomain(subscriberId, defaultSynchronizerId, CantonTimestamp.ofEpochSecond(2))
+        .forOwnerAndSynchronizer(
+          subscriberId,
+          defaultSynchronizerId,
+          CantonTimestamp.ofEpochSecond(2),
+        )
       val validator = mkValidator(syncCryptoApi)
       val deliver1 = createEventWithCounterAndTs(1L, CantonTimestamp.Epoch).futureValueUS
       val deliver2 = createEventWithCounterAndTs(2L, CantonTimestamp.ofEpochSecond(1)).futureValueUS

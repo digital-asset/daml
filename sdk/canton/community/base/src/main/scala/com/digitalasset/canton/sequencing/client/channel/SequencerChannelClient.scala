@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client.channel
@@ -6,7 +6,7 @@ package com.digitalasset.canton.sequencing.client.channel
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.DomainSyncCryptoClient
+import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
@@ -15,7 +15,7 @@ import com.digitalasset.canton.lifecycle.{
   UnlessShutdown,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.sequencing.client.SubscriptionCloseReason
 import com.digitalasset.canton.sequencing.client.channel.endpoint.SequencerChannelClientEndpoint
 import com.digitalasset.canton.sequencing.client.channel.endpoint.SequencerChannelClientEndpoint.OnSentMessageForTesting
@@ -37,8 +37,8 @@ import scala.util.Try
 final class SequencerChannelClient(
     member: Member,
     clientState: SequencerChannelClientState,
-    domainCryptoApi: DomainSyncCryptoClient,
-    domainParameters: StaticDomainParameters,
+    domainCryptoApi: SynchronizerSyncCryptoClient,
+    domainParameters: StaticSynchronizerParameters,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)

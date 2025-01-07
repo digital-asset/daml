@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.admin.grpc
@@ -24,7 +24,7 @@ import com.google.protobuf.timestamp.Timestamp as ProtoTimestamp
 import scala.concurrent.{ExecutionContext, Future}
 
 class GrpcTopologyAggregationService(
-    stores: => Seq[TopologyStore[TopologyStoreId.DomainStore]],
+    stores: => Seq[TopologyStore[TopologyStoreId.SynchronizerStore]],
     ips: IdentityProvidingServiceClient,
     val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
@@ -33,12 +33,12 @@ class GrpcTopologyAggregationService(
 
   private def getTopologySnapshot(
       asOf: CantonTimestamp,
-      store: TopologyStore[TopologyStoreId.DomainStore],
+      store: TopologyStore[TopologyStoreId.SynchronizerStore],
   ): TopologySnapshotLoader =
     new StoreBasedTopologySnapshot(
       asOf,
       store,
-      StoreBasedDomainTopologyClient.NoPackageDependencies,
+      StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
       loggerFactory,
     )
 
@@ -54,7 +54,7 @@ class GrpcTopologyAggregationService(
           // get approximate timestamp from domain client to prevent race conditions (when we have written data into the stores but haven't yet updated the client)
           val asOf = asOfO.getOrElse(
             ips
-              .forDomain(synchronizerId)
+              .forSynchronizer(synchronizerId)
               .map(_.approximateTimestamp)
               .getOrElse(CantonTimestamp.MaxValue)
           )
@@ -128,11 +128,11 @@ class GrpcTopologyAggregationService(
         results = results.map { case (partyId, participants) =>
           v30.ListPartiesResponse.Result(
             party = partyId.toProtoPrimitive,
-            participants = participants.map { case (participantId, domains) =>
-              v30.ListPartiesResponse.Result.ParticipantDomains(
+            participants = participants.map { case (participantId, synchronizers) =>
+              v30.ListPartiesResponse.Result.ParticipantSynchronizers(
                 participantUid = participantId.uid.toProtoPrimitive,
-                domains = domains.map { case (synchronizerId, permission) =>
-                  v30.ListPartiesResponse.Result.ParticipantDomains.DomainPermissions(
+                synchronizers = synchronizers.map { case (synchronizerId, permission) =>
+                  v30.ListPartiesResponse.Result.ParticipantSynchronizers.SynchronizerPermissions(
                     synchronizerId = synchronizerId.toProtoPrimitive,
                     permission = permission.toProtoV30,
                   )

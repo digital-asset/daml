@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology
@@ -183,32 +183,35 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation(
-    """This error is returned if a transaction was submitted that is restricted to another domain."""
+    """This error is returned if a transaction was submitted that is restricted to another synchronizer."""
   )
   @Resolution(
     """Recreate the content of the transaction with a correct synchronizer identifier."""
   )
-  object InvalidDomain
-      extends ErrorCode(id = "INVALID_DOMAIN", ErrorCategory.InvalidIndependentOfSystemState) {
+  object InvalidSynchronizer
+      extends ErrorCode(
+        id = "INVALID_SYNCHRONIZER",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
     final case class Failure(invalid: SynchronizerId)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = s"Invalid domain $invalid"
+          cause = s"Invalid synchronizer $invalid"
         )
         with TopologyManagerError
 
     final case class InvalidFilterStore(filterStore: String)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = s"No domain store found for the filter store provided: $filterStore"
+          cause = s"No synchronizer store found for the filter store provided: $filterStore"
         )
         with TopologyManagerError
 
-    final case class MultipleDomainStores(filterStore: String)(implicit
+    final case class MultipleSynchronizerStores(filterStore: String)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause =
-            s"Multiple domain stores found for the filter store provided: $filterStore. Specify the entire synchronizerId to avoid ambiguity."
+            s"Multiple synchronizer stores found for the filter store provided: $filterStore. Specify the entire synchronizerId to avoid ambiguity."
         )
         with TopologyManagerError
   }
@@ -378,18 +381,18 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation(
-    """This error indicates that it has been attempted to increase the ``submissionTimeRecordTimeTolerance`` domain parameter in an insecure manner.
+    """This error indicates that it has been attempted to increase the ``submissionTimeRecordTimeTolerance`` synchronizer parameter in an insecure manner.
       |Increasing this parameter may disable security checks and can therefore be a security risk.
       |"""
   )
   @Resolution(
-    """Make sure that the new value of ``submissionTimeRecordTimeTolerance`` is at most half of the ``mediatorDeduplicationTimeout`` domain parameter.
+    """Make sure that the new value of ``submissionTimeRecordTimeTolerance`` is at most half of the ``mediatorDeduplicationTimeout`` synchronizer parameter.
       |
-      |Use ``myDomain.service.set_submission_time_record_time_tolerance`` for securely increasing submissionTimeRecordTimeTolerance.
+      |Use ``mySynchronizer.service.set_submission_time_record_time_tolerance`` for securely increasing submissionTimeRecordTimeTolerance.
       |
       |Alternatively, add the flag ``ForceFlag.SubmissionTimeRecordTimeToleranceIncrease`` to your command, if security is not a concern for you.
       |The security checks will be effective again after twice the new value of ``submissionTimeRecordTimeTolerance``.
-      |Using ``ForceFlag.SubmissionTimeRecordTimeToleranceIncrease`` is safe upon domain bootstrapping.
+      |Using ``ForceFlag.SubmissionTimeRecordTimeToleranceIncrease`` is safe upon synchronizer bootstrapping.
       |"""
   )
   object IncreaseOfSubmissionTimeRecordTimeTolerance
@@ -507,16 +510,16 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation(
-    """This error indicates that a participant is trying to rescind their domain trust certificate
+    """This error indicates that a participant is trying to rescind their synchronizer trust certificate
       |while still being hosting parties."""
   )
   @Resolution(
     """The participant should work with the owners of the parties mentioned in the ``parties`` field in the
       |error details metadata to get itself removed from the list of hosting participants of those parties."""
   )
-  object IllegalRemovalOfDomainTrustCertificate
+  object IllegalRemovalOfSynchronizerTrustCertificate
       extends ErrorCode(
-        id = "ILLEGAL_REMOVAL_OF_DOMAIN_TRUST_CERTIFICATE",
+        id = "ILLEGAL_REMOVAL_OF_SYNCHRONIZER_TRUST_CERTIFICATE",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     final case class ParticipantStillHostsParties(
@@ -526,17 +529,17 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         override val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause =
-            s"Cannot remove domain trust certificate for $participantId because it still hosts parties ${parties.sorted
+            s"Cannot remove synchronizer trust certificate for $participantId because it still hosts parties ${parties.sorted
                 .mkString(",")}"
         )
         with TopologyManagerError
   }
 
   @Explanation(
-    """This error indicates that a participant was not able to onboard to a domain because onboarding restrictions are in place."""
+    """This error indicates that a participant was not able to onboard to a synchronizer because onboarding restrictions are in place."""
   )
   @Resolution(
-    """Verify the onboarding restrictions of the domain. If the domain is not locked, then the participant needs first to be put on the allow list by issuing a ParticipantDomainPermission transaction."""
+    """Verify the onboarding restrictions of the synchronizer. If the synchronizer is not locked, then the participant needs first to be put on the allow list by issuing a ParticipantSynchronizerPermission transaction."""
   )
   object ParticipantOnboardingRefused
       extends ErrorCode(
@@ -550,7 +553,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         override val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause =
-            s"The $participantId can not join the domain because onboarding restrictions are in place"
+            s"The $participantId can not join the synchronizer because onboarding restrictions are in place"
         )
         with TopologyManagerError
   }
@@ -640,10 +643,10 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         )
         with TopologyManagerError
 
-    final case class MissingDomainParameters(effectiveTime: EffectiveTime)(implicit
+    final case class MissingSynchronizerParameters(effectiveTime: EffectiveTime)(implicit
         override val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = s"Missing domain parameters at $effectiveTime"
+          cause = s"Missing synchronizer parameters at $effectiveTime"
         )
         with TopologyManagerError
   }
@@ -672,16 +675,16 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         with TopologyManagerError
   }
 
-  object MemberCannotRejoinDomain
+  object MemberCannotRejoinSynchronizer
       extends ErrorCode(
-        id = "MEMBER_CANNOT_REJOIN_DOMAIN",
+        id = "MEMBER_CANNOT_REJOIN_SYNCHRONIZER",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     final case class Reject(members: Seq[Member])(implicit
         override val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause =
-            s"Members ${members.sorted} tried to rejoin a domain which they had previously left."
+            s"Members ${members.sorted} tried to rejoin a synchronizer which they had previously left."
         )
         with TopologyManagerError
   }
@@ -729,7 +732,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     "This error indicates that a participant failed to be onboarded, because it has the same UID as an already existing party."
   )
   @Resolution(
-    "Change the identity of the participant by either changing the namespace or the participant's UID and try to onboard to the domain again."
+    "Change the identity of the participant by either changing the namespace or the participant's UID and try to onboard to the synchronizer again."
   )
   object ParticipantIdConflictWithPartyId
       extends ErrorCode(
@@ -745,7 +748,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         with TopologyManagerError
   }
 
-  abstract class DomainErrorGroup extends ErrorGroup()
+  abstract class SynchronizerErrorGroup extends ErrorGroup()
 
   abstract class ParticipantErrorGroup extends ErrorGroup()
 
@@ -827,8 +830,8 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
           val loggingContext: ErrorLoggingContext
       ) extends CantonError.Impl(
             cause =
-              s"Cannot unvet package $used as it is still in use by $contract on domain $synchronizerId. " +
-                s"It may also be used by contracts on other domains."
+              s"Cannot unvet package $used as it is still in use by $contract on synchronizer $synchronizerId. " +
+                s"It may also be used by contracts on other synchronizers."
           )
           with TopologyManagerError
     }
@@ -849,8 +852,8 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
           val loggingContext: ErrorLoggingContext
       ) extends CantonError.Impl(
             cause =
-              s"Disable party $partyId failed because there are active contracts on domain $synchronizerId, on which the party is a stakeholder. " +
-                s"It may also have other contracts on other domains. " +
+              s"Disable party $partyId failed because there are active contracts on synchronizer $synchronizerId, on which the party is a stakeholder. " +
+                s"It may also have other contracts on other synchronizers. " +
                 s"Set the ForceFlag.DisablePartyWithActiveContracts if you really know what you are doing."
           )
           with TopologyManagerError

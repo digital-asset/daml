@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao
@@ -312,7 +312,7 @@ object SequentialWriteDaoSpec {
     exercise_argument = Array.empty,
     exercise_result = None,
     exercise_actors = Set.empty,
-    exercise_child_event_ids = Vector.empty,
+    exercise_child_node_ids = Vector.empty,
     create_key_value_compression = None,
     exercise_argument_compression = None,
     exercise_result_compression = None,

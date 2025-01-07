@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.mediator
@@ -25,7 +25,7 @@ import com.digitalasset.canton.synchronizer.mediator.store.{
   MediatorState,
 }
 import com.digitalasset.canton.synchronizer.metrics.MediatorTestMetrics
-import com.digitalasset.canton.time.{Clock, DomainTimeTracker, NonNegativeFiniteDuration}
+import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -118,10 +118,10 @@ class ConfirmationRequestAndResponseProcessorTest
 
   protected val notSignificantCounter: SequencerCounter = SequencerCounter(0)
 
-  protected val initialDomainParameters: DynamicDomainParameters =
-    TestDomainParameters.defaultDynamic
+  protected val initialDomainParameters: DynamicSynchronizerParameters =
+    TestSynchronizerParameters.defaultDynamic
 
-  protected val initialDomainParametersWithValidity = DynamicDomainParametersWithValidity(
+  protected val initialDomainParametersWithValidity = DynamicSynchronizerParametersWithValidity(
     initialDomainParameters,
     CantonTimestamp.Epoch,
     None,
@@ -145,7 +145,7 @@ class ConfirmationRequestAndResponseProcessorTest
     SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
 
   private lazy val topology: TestingTopology = TestingTopology.from(
-    domains = Set(synchronizerId),
+    synchronizers = Set(synchronizerId),
     topology = Map(
       submitter -> Map(participant -> ParticipantPermission.Confirmation),
       signatory ->
@@ -162,14 +162,14 @@ class ConfirmationRequestAndResponseProcessorTest
   private lazy val identityFactory = TestingIdentityFactory(
     topology,
     loggerFactory,
-    dynamicDomainParameters =
+    dynamicSynchronizerParameters =
       initialDomainParameters.tryUpdate(confirmationResponseTimeout = confirmationResponseTimeout),
     crypto,
   )
 
   private lazy val identityFactory2 = {
     val topology2 = TestingTopology.from(
-      domains = Set(synchronizerId),
+      synchronizers = Set(synchronizerId),
       topology = Map(
         submitter -> Map(participant1 -> ParticipantPermission.Confirmation),
         signatory -> Map(participant2 -> ParticipantPermission.Confirmation),
@@ -193,7 +193,7 @@ class ConfirmationRequestAndResponseProcessorTest
     TestingIdentityFactory(
       topology3,
       loggerFactory,
-      dynamicDomainParameters = initialDomainParameters,
+      dynamicSynchronizerParameters = initialDomainParameters,
       crypto,
     )
   }
@@ -201,7 +201,7 @@ class ConfirmationRequestAndResponseProcessorTest
   private lazy val identityFactoryOnlySubmitter =
     TestingIdentityFactory(
       TestingTopology.from(
-        domains = Set(synchronizerId),
+        synchronizers = Set(synchronizerId),
         topology = Map(
           submitter -> Map(participant1 -> ParticipantPermission.Confirmation)
         ),
@@ -209,19 +209,19 @@ class ConfirmationRequestAndResponseProcessorTest
         sequencerGroup = sequencerGroup,
       ),
       loggerFactory,
-      dynamicDomainParameters = initialDomainParameters,
+      dynamicSynchronizerParameters = initialDomainParameters,
       crypto,
     )
 
-  protected lazy val domainSyncCryptoApi: DomainSyncCryptoClient =
-    identityFactory.forOwnerAndDomain(mediatorId, synchronizerId)
+  protected lazy val domainSyncCryptoApi: SynchronizerSyncCryptoClient =
+    identityFactory.forOwnerAndSynchronizer(mediatorId, synchronizerId)
 
   protected lazy val requestIdTs = CantonTimestamp.Epoch
   protected lazy val requestId = RequestId(requestIdTs)
   protected lazy val participantResponseDeadline = requestIdTs.plusSeconds(60)
   protected lazy val decisionTime = requestIdTs.plusSeconds(120)
 
-  class Fixture(syncCryptoApi: DomainSyncCryptoClient = domainSyncCryptoApi) {
+  class Fixture(syncCryptoApi: SynchronizerSyncCryptoClient = domainSyncCryptoApi) {
     private val sequencerSend: TestSequencerClientSend = new TestSequencerClientSend
 
     def drainInterceptedBatches(): List[Batch[DefaultOpenEnvelope]] = {
@@ -238,7 +238,7 @@ class ConfirmationRequestAndResponseProcessorTest
         testedProtocolVersion,
         loggerFactory,
       )
-    private val timeTracker: DomainTimeTracker = mock[DomainTimeTracker]
+    private val timeTracker: SynchronizerTimeTracker = mock[SynchronizerTimeTracker]
     val mediatorState = new MediatorState(
       new InMemoryFinalizedResponseStore(loggerFactory),
       new InMemoryMediatorDeduplicationStore(loggerFactory, timeouts),
@@ -262,8 +262,8 @@ class ConfirmationRequestAndResponseProcessorTest
     )
   }
 
-  private lazy val domainSyncCryptoApi2: DomainSyncCryptoClient =
-    identityFactory2.forOwnerAndDomain(sequencer, synchronizerId)
+  private lazy val domainSyncCryptoApi2: SynchronizerSyncCryptoClient =
+    identityFactory2.forOwnerAndSynchronizer(sequencer, synchronizerId)
 
   def signedResponse(
       confirmers: Set[LfPartyId],
@@ -286,14 +286,14 @@ class ConfirmationRequestAndResponseProcessorTest
       .trySignAndCreate(
         response,
         participantCrypto
-          .tryForDomain(synchronizerId, defaultStaticDomainParameters)
+          .tryForSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
           .currentSnapshotApproximation,
         testedProtocolVersion,
       )
   }
 
   def sign(tree: FullInformeeTree): Signature = identityFactory
-    .forOwnerAndDomain(participant, synchronizerId)
+    .forOwnerAndSynchronizer(participant, synchronizerId)
     .awaitSnapshot(CantonTimestamp.Epoch)
     .futureValue
     .sign(tree.tree.rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
@@ -1139,7 +1139,7 @@ class ConfirmationRequestAndResponseProcessorTest
           .trySignAndCreate(
             response,
             participantCrypto
-              .tryForDomain(synchronizerId, defaultStaticDomainParameters)
+              .tryForSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
               .currentSnapshotApproximation,
             testedProtocolVersion,
           )
@@ -1356,7 +1356,7 @@ class ConfirmationRequestAndResponseProcessorTest
 
     "reject request if some informee is not hosted by an active participant" in {
       val domainSyncCryptoApi =
-        identityFactoryOnlySubmitter.forOwnerAndDomain(mediatorId, synchronizerId)
+        identityFactoryOnlySubmitter.forOwnerAndSynchronizer(mediatorId, synchronizerId)
       val sut = new Fixture(domainSyncCryptoApi)
 
       val request =
@@ -1385,7 +1385,8 @@ class ConfirmationRequestAndResponseProcessorTest
     }
 
     "inactive mediator ignores requests" in {
-      val domainSyncCryptoApi3 = identityFactory3.forOwnerAndDomain(mediatorId, synchronizerId)
+      val domainSyncCryptoApi3 =
+        identityFactory3.forOwnerAndSynchronizer(mediatorId, synchronizerId)
       val sut = new Fixture(domainSyncCryptoApi3)
 
       val mediatorRequest =

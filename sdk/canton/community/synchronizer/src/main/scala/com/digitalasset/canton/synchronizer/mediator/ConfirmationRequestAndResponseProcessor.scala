@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.mediator
@@ -12,7 +12,10 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, DomainSyncCryptoClient}
+import com.digitalasset.canton.crypto.{
+  SynchronizerSnapshotSyncCryptoApi,
+  SynchronizerSyncCryptoClient,
+}
 import com.digitalasset.canton.data.{CantonTimestamp, ViewConfirmationParameters, ViewType}
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
@@ -22,7 +25,7 @@ import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.HandlerResult
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.synchronizer.mediator.store.MediatorState
-import com.digitalasset.canton.time.{DomainTimeTracker, NonNegativeFiniteDuration}
+import com.digitalasset.canton.time.{NonNegativeFiniteDuration, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
@@ -44,8 +47,8 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
     synchronizerId: SynchronizerId,
     private val mediatorId: MediatorId,
     verdictSender: VerdictSender,
-    crypto: DomainSyncCryptoClient,
-    timeTracker: DomainTimeTracker,
+    crypto: SynchronizerSyncCryptoClient,
+    timeTracker: SynchronizerTimeTracker,
     val mediatorState: MediatorState,
     protocolVersion: ProtocolVersion,
     protected val loggerFactory: NamedLoggerFactory,
@@ -80,7 +83,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
 
       domainParameters <-
         snapshot
-          .findDynamicDomainParameters()(callerTraceContext)
+          .findDynamicSynchronizerParameters()(callerTraceContext)
           .flatMap(_.toFutureUS(new IllegalStateException(_)))
 
       participantResponseDeadline <- FutureUnlessShutdown.outcomeF(
@@ -172,7 +175,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
 
         domainParameters <-
           snapshot
-            .findDynamicDomainParameters()(traceContext)
+            .findDynamicSynchronizerParameters()(traceContext)
             .flatMap(_.toFutureUS(new IllegalStateException(_)))
         decisionTime = domainParameters.decisionTimeFor(responseAggregation.requestId.unwrap)
         state <- mediatorState
@@ -283,7 +286,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
       requestId: RequestId,
       requestEnvelope: OpenEnvelope[MediatorConfirmationRequest],
       rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
-      snapshot: DomainSnapshotSyncCryptoApi,
+      snapshot: SynchronizerSnapshotSyncCryptoApi,
       batchAlsoContainsTopologyTransaction: Boolean,
   )(implicit
       traceContext: TraceContext

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.block.update
@@ -6,7 +6,7 @@ package com.digitalasset.canton.synchronizer.block.update
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable, FutureUnlessShutdown}
-import com.digitalasset.canton.sequencing.protocol.{AllMembersOfDomain, Recipients}
+import com.digitalasset.canton.sequencing.protocol.{AllMembersOfSynchronizer, Recipients}
 import com.digitalasset.canton.synchronizer.HasTopologyTransactionTestFactory
 import com.digitalasset.canton.synchronizer.block.update.BlockUpdateGenerator.{
   EndOfBlock,
@@ -47,7 +47,7 @@ class BlockUpdateGeneratorImplTest
         val rateLimitManagerMock = mock[SequencerRateLimitManager]
         val memberValidatorMock = mock[SequencerMemberValidator]
         val syncCryptoApiFake =
-          TestingIdentityFactory(loggerFactory).forOwnerAndDomain(
+          TestingIdentityFactory(loggerFactory).forOwnerAndSynchronizer(
             sequencerId,
             synchronizerId,
             aTimestamp,
@@ -89,7 +89,7 @@ class BlockUpdateGeneratorImplTest
         val rateLimitManagerMock = mock[SequencerRateLimitManager]
         val memberValidatorMock = mock[SequencerMemberValidator]
         val syncCryptoApiFake =
-          TestingIdentityFactory(loggerFactory).forOwnerAndDomain(
+          TestingIdentityFactory(loggerFactory).forOwnerAndSynchronizer(
             sequencerId,
             synchronizerId,
             topologyTickEventTimestamp,
@@ -112,7 +112,7 @@ class BlockUpdateGeneratorImplTest
           signedSubmissionRequest <- FutureUnlessShutdown.outcomeF(
             sequencerSignedAndSenderSignedSubmissionRequest(
               topologyTransactionFactory.participant1,
-              Recipients.cc(AllMembersOfDomain),
+              Recipients.cc(AllMembersOfSynchronizer),
             )
           )
           chunks = blockUpdateGenerator.chunkBlock(

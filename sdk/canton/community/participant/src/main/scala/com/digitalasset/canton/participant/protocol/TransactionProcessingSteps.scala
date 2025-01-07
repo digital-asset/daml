@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -123,8 +123,8 @@ class TransactionProcessingSteps(
     confirmationRequestFactory: TransactionConfirmationRequestFactory,
     confirmationResponseFactory: TransactionConfirmationResponseFactory,
     modelConformanceChecker: ModelConformanceChecker,
-    staticDomainParameters: StaticDomainParameters,
-    crypto: DomainSyncCryptoClient,
+    staticSynchronizerParameters: StaticSynchronizerParameters,
+    crypto: SynchronizerSyncCryptoClient,
     metrics: TransactionProcessingMetrics,
     serializableContractAuthenticator: SerializableContractAuthenticator,
     transactionEnricher: TransactionEnricher,
@@ -141,7 +141,7 @@ class TransactionProcessingSteps(
       TransactionSubmissionError,
     ]
     with NamedLogging {
-  private def protocolVersion = staticDomainParameters.protocolVersion
+  private def protocolVersion = staticSynchronizerParameters.protocolVersion
 
   override type SubmissionSendError = TransactionProcessor.SubmissionErrors.SequencerRequest.Error
   override type PendingSubmissions = Unit
@@ -181,7 +181,7 @@ class TransactionProcessingSteps(
       submissionParam: SubmissionParam,
       mediator: MediatorGroupRecipient,
       ephemeralState: SyncDomainEphemeralStateLookup,
-      recentSnapshot: DomainSnapshotSyncCryptoApi,
+      recentSnapshot: SynchronizerSnapshotSyncCryptoApi,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionSubmissionError, Submission] = {
@@ -221,7 +221,7 @@ class TransactionProcessingSteps(
       keyResolver: LfKeyResolver,
       wfTransaction: WellFormedTransaction[WithoutSuffixes],
       mediator: MediatorGroupRecipient,
-      recentSnapshot: DomainSnapshotSyncCryptoApi,
+      recentSnapshot: SynchronizerSnapshotSyncCryptoApi,
       contractLookup: ContractLookup,
       disclosedContracts: Map[LfContractId, SerializableContract],
   )(implicit traceContext: TraceContext)
@@ -296,7 +296,7 @@ class TransactionProcessingSteps(
     override def submissionId: Option[LedgerSubmissionId] = submitterInfo.submissionId
 
     override def maxSequencingTimeO: OptionT[FutureUnlessShutdown, CantonTimestamp] = OptionT.liftF(
-      recentSnapshot.ipsSnapshot.findDynamicDomainParametersOrDefault(protocolVersion).map {
+      recentSnapshot.ipsSnapshot.findDynamicSynchronizerParametersOrDefault(protocolVersion).map {
         domainParameters =>
           CantonTimestamp(transactionMeta.ledgerEffectiveTime)
             .add(domainParameters.ledgerTimeRecordTimeTolerance.unwrap)
@@ -527,7 +527,7 @@ class TransactionProcessingSteps(
   // TODO(#8057) extract the decryption into a helper class that can be unit-tested.
   override def decryptViews(
       batch: NonEmpty[Seq[OpenEnvelope[EncryptedViewMessage[TransactionViewType]]]],
-      snapshot: DomainSnapshotSyncCryptoApi,
+      snapshot: SynchronizerSnapshotSyncCryptoApi,
       sessionKeyStore: ConfirmationRequestSessionKeyStore,
   )(implicit
       traceContext: TraceContext
@@ -552,7 +552,7 @@ class TransactionProcessingSteps(
           optRandomness: Option[SecureRandomness],
       ): EitherT[FutureUnlessShutdown, EncryptedViewMessageError, LightTransactionViewTree] =
         EncryptedViewMessage.decryptFor(
-          staticDomainParameters,
+          staticSynchronizerParameters,
           snapshot,
           sessionKeyStore,
           vt,
@@ -615,7 +615,7 @@ class TransactionProcessingSteps(
           val message = transactionViewEnvelope.protocolMessage
           val randomnessF = EncryptedViewMessage
             .decryptRandomness(
-              staticDomainParameters.requiredEncryptionSpecs,
+              staticSynchronizerParameters.requiredEncryptionSpecs,
               snapshot,
               sessionKeyStore,
               message,
@@ -653,7 +653,7 @@ class TransactionProcessingSteps(
         for {
           ltvt <- decryptTree(viewMessage, Some(randomness))
           _ = ltvt.subviewHashesAndKeys
-            .map { case ViewHashAndKey(subviewHash, subviewKey) =>
+            .foreach { case ViewHashAndKey(subviewHash, subviewKey) =>
               randomnessMap.get(subviewHash) match {
                 case Some(promise) =>
                   promise.outcome(addRandomnessToMap(subviewHash, subviewKey))
@@ -741,8 +741,8 @@ class TransactionProcessingSteps(
       isFreshOwnTimelyRequest: Boolean,
       malformedPayloads: Seq[MalformedPayload],
       mediator: MediatorGroupRecipient,
-      snapshot: DomainSnapshotSyncCryptoApi,
-      domainParameters: DynamicDomainParametersWithValidity,
+      snapshot: SynchronizerSnapshotSyncCryptoApi,
+      domainParameters: DynamicSynchronizerParametersWithValidity,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[ParsedTransactionRequest] = {
     val rootViewTrees = rootViewsWithMetadata.map { case (WithRecipients(view, _), _) => view }
     for {
@@ -864,7 +864,7 @@ class TransactionProcessingSteps(
           )
 
         domainParameters <-
-          ipsSnapshot.findDynamicDomainParametersOrDefault(protocolVersion)
+          ipsSnapshot.findDynamicSynchronizerParametersOrDefault(protocolVersion)
 
         // `tryCommonData` should never throw here because all views have the same root hash
         // which already commits to the ParticipantMetadata and CommonMetadata
@@ -1462,7 +1462,7 @@ class TransactionProcessingSteps(
 
       maxDecisionTime <- ProcessingSteps
         .getDecisionTime(topologySnapshot, pendingRequestData.requestTime)
-        .leftMap(DomainParametersError(synchronizerId, _))
+        .leftMap(SynchronizerParametersError(synchronizerId, _))
 
       _ <-
         (if (ts <= maxDecisionTime) EitherT.pure[Future, TransactionProcessorError](())
@@ -1540,8 +1540,8 @@ object TransactionProcessingSteps {
       override val mediator: MediatorGroupRecipient,
       usedAndCreated: UsedAndCreated,
       workflowIdO: Option[WorkflowId],
-      override val snapshot: DomainSnapshotSyncCryptoApi,
-      override val domainParameters: DynamicDomainParametersWithValidity,
+      override val snapshot: SynchronizerSnapshotSyncCryptoApi,
+      override val domainParameters: DynamicSynchronizerParametersWithValidity,
   ) extends ParsedRequest[SubmitterMetadata] {
 
     lazy val rootViewTrees: NonEmpty[Seq[FullTransactionViewTree]] = rootViewTreesWithMetadata.map {

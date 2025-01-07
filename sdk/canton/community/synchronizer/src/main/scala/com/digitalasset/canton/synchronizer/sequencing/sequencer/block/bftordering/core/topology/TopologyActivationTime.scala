@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.topology
@@ -16,7 +16,7 @@ object TopologyActivationTime {
   /** Computes the activation time for a topology change effective at `effectiveTime`, i.e.,
     *  the timestamp of the first topology snapshot that includes such a topology change.
     *  In Canton, the effective time, AKA `validFrom`, of a topology change, is computed as its sequencing time plus
-    *  an `epsilon` that is greater or equal to dynamic domain parameter `delay` (it can be greater due to adjustments
+    *  an `epsilon` that is greater or equal to dynamic synchronizer parameter `delay` (it can be greater due to adjustments
     *  to ensure that effective order is the same as sequencing order even if the `delay` changes).
     *  A topology snapshot at time `t` includes by definition all topology changes with effective time `et` < `t`.
     */

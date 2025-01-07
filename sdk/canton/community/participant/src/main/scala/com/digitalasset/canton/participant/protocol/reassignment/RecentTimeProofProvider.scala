@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -13,7 +13,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentPro
   NoTimeProofFromDomain,
   ReassignmentProcessorError,
 }
-import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.sequencing.protocol.TimeProof
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.SynchronizerId
@@ -41,7 +41,7 @@ private[reassignment] class RecentTimeProofProvider(
 
   def get(
       targetSynchronizerId: Target[SynchronizerId],
-      staticDomainParameters: Target[StaticDomainParameters],
+      staticSynchronizerParameters: Target[StaticSynchronizerParameters],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, TimeProof] = {
@@ -49,21 +49,21 @@ private[reassignment] class RecentTimeProofProvider(
 
     for {
       handle <- EitherT.fromEither[FutureUnlessShutdown](
-        submissionHandles(domain).toRight(NoTimeProofFromDomain(domain, "unknown domain"))
+        submissionHandles(domain).toRight(NoTimeProofFromDomain(domain, "unknown synchronizer"))
       )
 
       crypto <- EitherT.fromEither[FutureUnlessShutdown](
         syncCryptoApi
-          .forDomain(domain, staticDomainParameters.value)
+          .forSynchronizer(domain, staticSynchronizerParameters.value)
           .toRight(NoTimeProofFromDomain(domain, "getting the crypto client"))
       )
 
       parameters <- EitherT(
         crypto.ips.currentSnapshotApproximation
-          .findDynamicDomainParameters()
+          .findDynamicSynchronizerParameters()
           .map(
             _.leftMap(err =>
-              NoTimeProofFromDomain(domain, s"unable to find domain parameters: $err")
+              NoTimeProofFromDomain(domain, s"unable to find synchronizer parameters: $err")
             )
           )
       )

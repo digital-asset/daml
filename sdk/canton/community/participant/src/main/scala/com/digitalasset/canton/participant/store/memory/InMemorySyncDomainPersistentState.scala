@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.memory
@@ -20,18 +20,18 @@ import com.digitalasset.canton.participant.store.{
   SyncDomainPersistentState,
 }
 import com.digitalasset.canton.participant.topology.ParticipantTopologyValidation
-import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.store.memory.{InMemorySendTrackerStore, InMemorySequencedEventStore}
 import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
+import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.{
-  DomainOutboxQueue,
-  DomainTopologyManager,
   ForceFlags,
   ParticipantId,
   PartyId,
+  SynchronizerOutboxQueue,
+  SynchronizerTopologyManager,
   TopologyManagerError,
 }
 import com.digitalasset.canton.tracing.TraceContext
@@ -44,7 +44,7 @@ class InMemorySyncDomainPersistentState(
     clock: Clock,
     crypto: Crypto,
     override val indexedDomain: IndexedDomain,
-    val staticDomainParameters: StaticDomainParameters,
+    val staticSynchronizerParameters: StaticSynchronizerParameters,
     override val enableAdditionalConsistencyChecks: Boolean,
     indexedStringStore: IndexedStringStore,
     contractStore: ContractStore,
@@ -75,24 +75,24 @@ class InMemorySyncDomainPersistentState(
       acsCounterParticipantConfigStore,
       loggerFactory,
     )
-  val parameterStore = new InMemoryDomainParameterStore()
+  val parameterStore = new InMemorySynchronizerParameterStore()
   val sendTrackerStore = new InMemorySendTrackerStore()
   val submissionTrackerStore = new InMemorySubmissionTrackerStore(loggerFactory)
 
   override val topologyStore =
     new InMemoryTopologyStore(
-      DomainStore(indexedDomain.synchronizerId),
-      staticDomainParameters.protocolVersion,
+      SynchronizerStore(indexedDomain.synchronizerId),
+      staticSynchronizerParameters.protocolVersion,
       loggerFactory,
       timeouts,
     )
 
-  override val domainOutboxQueue = new DomainOutboxQueue(loggerFactory)
-  override val topologyManager: DomainTopologyManager = new DomainTopologyManager(
+  override val domainOutboxQueue = new SynchronizerOutboxQueue(loggerFactory)
+  override val topologyManager: SynchronizerTopologyManager = new SynchronizerTopologyManager(
     participantId.uid,
     clock,
     crypto,
-    staticDomainParameters,
+    staticSynchronizerParameters,
     topologyStore,
     domainOutboxQueue,
     exitOnFatalFailures = exitOnFatalFailures,

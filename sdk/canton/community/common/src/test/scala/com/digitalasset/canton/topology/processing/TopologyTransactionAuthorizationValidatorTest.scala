@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.processing
@@ -8,12 +8,12 @@ import cats.instances.list.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.SignatureCheckError.{InvalidSignature, UnsupportedKeySpec}
-import com.digitalasset.canton.crypto.{DomainCryptoPureApi, Signature, SigningPublicKey}
+import com.digitalasset.canton.crypto.{Signature, SigningPublicKey, SynchronizerCryptoPureApi}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.*
-import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
+import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.TopologyTransactionRejection.{
   NoDelegationFoundForKeys,
   NotAuthorized,
@@ -49,7 +49,7 @@ class TopologyTransactionAuthorizationValidatorTest
 
     def mk(
         store: InMemoryTopologyStore[TopologyStoreId] = new InMemoryTopologyStore(
-          DomainStore(Factory.synchronizerId1),
+          SynchronizerStore(Factory.synchronizerId1),
           testedProtocolVersion,
           loggerFactory,
           timeouts,
@@ -58,8 +58,8 @@ class TopologyTransactionAuthorizationValidatorTest
     ) = {
       val validator =
         new TopologyTransactionAuthorizationValidator(
-          new DomainCryptoPureApi(
-            defaultStaticDomainParameters,
+          new SynchronizerCryptoPureApi(
+            defaultStaticSynchronizerParameters,
             Factory.cryptoApi.crypto.pureCrypto,
           ),
           store,
@@ -84,7 +84,7 @@ class TopologyTransactionAuthorizationValidatorTest
     }
 
     def validate(
-        validator: TopologyTransactionAuthorizationValidator[DomainCryptoPureApi],
+        validator: TopologyTransactionAuthorizationValidator[SynchronizerCryptoPureApi],
         timestamp: CantonTimestamp,
         toValidate: Seq[GenericSignedTopologyTransaction],
         inStore: Map[MappingHash, GenericSignedTopologyTransaction],
@@ -165,7 +165,7 @@ class TopologyTransactionAuthorizationValidatorTest
                 case TopologyTransactionRejection.SignatureCheckFailed(
                       UnsupportedKeySpec(
                         Factory.SigningKeys.key1_unsupportedSpec.keySpec,
-                        defaultStaticDomainParameters.requiredSigningSpecs.keys,
+                        defaultStaticSynchronizerParameters.requiredSigningSpecs.keys,
                       )
                     ) =>
                   true
@@ -208,7 +208,7 @@ class TopologyTransactionAuthorizationValidatorTest
           SynchronizerId(UniqueIdentifier.tryCreate("wrong", ns1.fingerprint.unwrap))
         val pid = ParticipantId(UniqueIdentifier.tryCreate("correct", ns1.fingerprint.unwrap))
         val wrong = mkAdd(
-          DomainTrustCertificate(
+          SynchronizerTrustCertificate(
             pid,
             wrongDomain,
           ),
@@ -228,7 +228,7 @@ class TopologyTransactionAuthorizationValidatorTest
             Seq(
               None,
               Some {
-                case TopologyTransactionRejection.InvalidDomain(_) => true
+                case TopologyTransactionRejection.InvalidSynchronizer(_) => true
                 case _ => false
               },
             ),

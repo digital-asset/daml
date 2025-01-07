@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol.messages
@@ -351,7 +351,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
 
   def decryptRandomness[VT <: ViewType](
       allowedEncryptionSpecs: RequiredEncryptionSpecs,
-      snapshot: DomainSnapshotSyncCryptoApi,
+      snapshot: SynchronizerSnapshotSyncCryptoApi,
       sessionKeyStore: ConfirmationRequestSessionKeyStore,
       encrypted: EncryptedViewMessage[VT],
       participantId: ParticipantId,
@@ -437,7 +437,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
   // This method is not defined as a member of EncryptedViewMessage because the covariant parameter VT conflicts
   // with the parameter deserialize.
   private def decryptWithRandomness[VT <: ViewType](
-      snapshot: DomainSnapshotSyncCryptoApi,
+      snapshot: SynchronizerSnapshotSyncCryptoApi,
       encrypted: EncryptedViewMessage[VT],
       viewRandomness: SecureRandomness,
   )(deserialize: ByteString => Either[DeserializationError, encrypted.encryptedView.viewType.View])(
@@ -483,8 +483,8 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
   }
 
   def decryptFor[VT <: ViewType](
-      staticDomainParameters: StaticDomainParameters,
-      snapshot: DomainSnapshotSyncCryptoApi,
+      staticSynchronizerParameters: StaticSynchronizerParameters,
+      snapshot: SynchronizerSnapshotSyncCryptoApi,
       sessionKeyStore: ConfirmationRequestSessionKeyStore,
       encrypted: EncryptedViewMessage[VT],
       participantId: ParticipantId,
@@ -496,14 +496,14 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
   ): EitherT[FutureUnlessShutdown, EncryptedViewMessageError, VT#View] =
     // verify that the view symmetric encryption scheme is part of the required schemes
     if (
-      !staticDomainParameters.requiredSymmetricKeySchemes
+      !staticSynchronizerParameters.requiredSymmetricKeySchemes
         .contains(encrypted.viewEncryptionScheme)
     ) {
       EitherT.leftT[FutureUnlessShutdown, VT#View](
         EncryptedViewMessageError.SymmetricDecryptError(
           InvariantViolation(
             s"The view symmetric encryption scheme ${encrypted.viewEncryptionScheme} is not " +
-              s"part of the required schemes: ${staticDomainParameters.requiredSymmetricKeySchemes}"
+              s"part of the required schemes: ${staticSynchronizerParameters.requiredSymmetricKeySchemes}"
           )
         )
       )
@@ -511,7 +511,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
       for {
         viewRandomness <- optViewRandomness.fold(
           decryptRandomness(
-            staticDomainParameters.requiredEncryptionSpecs,
+            staticSynchronizerParameters.requiredEncryptionSpecs,
             snapshot,
             sessionKeyStore,
             encrypted,

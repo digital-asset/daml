@@ -1,42 +1,42 @@
 // Composability tutorial part 1 - auto reassignments section
 
-// create the domains
+// create the synchronizers
 val iouAlias = "iou"
 val paintAlias = "paint"
 
-val iouDomainOwner = iou_sequencer
-val iouId = bootstrap.domain(
+val iouSynchronizerOwner = iou_sequencer
+val iouId = bootstrap.synchronizer(
   iouAlias,
   sequencers = Seq(iou_sequencer),
   mediators = Seq(iou_mediator),
-  domainOwners = Seq(iouDomainOwner),
-  domainThreshold = PositiveInt.one,
-  staticDomainParameters = StaticDomainParameters.defaultsWithoutKMS(ProtocolVersion.latest),
+  synchronizerOwners = Seq(iouSynchronizerOwner),
+  synchronizerThreshold = PositiveInt.one,
+  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.latest),
 )
 
-val paintDomainOwner = paint_sequencer
-val paintId = bootstrap.domain(
+val paintSynchronizerOwner = paint_sequencer
+val paintId = bootstrap.synchronizer(
   paintAlias,
   sequencers = Seq(paint_sequencer),
   mediators = Seq(paint_mediator),
-  domainOwners = Seq(paintDomainOwner),
-  domainThreshold = PositiveInt.one,
-  staticDomainParameters = StaticDomainParameters.defaultsWithoutKMS(ProtocolVersion.latest),
+  synchronizerOwners = Seq(paintSynchronizerOwner),
+  synchronizerThreshold = PositiveInt.one,
+  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.latest),
 )
 
 // update parameters
 // disable automatic assignments
-iouDomainOwner.topology.domain_parameters
+iouSynchronizerOwner.topology.synchronizer_parameters
   .propose_update(iouId, _.update(assignmentExclusivityTimeout = 0 seconds))
-paintDomainOwner.topology.domain_parameters
+paintSynchronizerOwner.topology.synchronizer_parameters
   .propose_update(paintId, _.update(assignmentExclusivityTimeout = 2 seconds))
 
-// connect participants to the domains
-participant1.domains.connect_local(iou_sequencer, alias = iouAlias)
-participant2.domains.connect_local(iou_sequencer, alias = iouAlias)
-participant3.domains.connect_local(iou_sequencer, alias = iouAlias)
-participant2.domains.connect_local(paint_sequencer, alias = paintAlias)
-participant3.domains.connect_local(paint_sequencer, alias = paintAlias)
+// connect participants to the synchronizers
+participant1.synchronizers.connect_local(iou_sequencer, alias = iouAlias)
+participant2.synchronizers.connect_local(iou_sequencer, alias = iouAlias)
+participant3.synchronizers.connect_local(iou_sequencer, alias = iouAlias)
+participant2.synchronizers.connect_local(paint_sequencer, alias = paintAlias)
+participant3.synchronizers.connect_local(paint_sequencer, alias = paintAlias)
 
 // create the parties
 val Bank = participant1.parties.enable("Bank")
@@ -78,7 +78,7 @@ val showIouCmd = iouContractUnshared.id.exerciseShare(Painter.toProtoPrimitive).
 val Seq(iouContract) = decodeAllCreated(Iou.COMPANION)(
   participant2.ledger_api.javaapi.commands.submit_flat(Seq(HouseOwner), showIouCmd, synchronizerId =Some(iouId)))
 
-// The house owner creates a paint offer using participant 2 and the Paint domain
+// The house owner creates a paint offer using participant 2 and the Paint synchronizer
 val paintOfferCmd = new OfferToPaintHouseByOwner(
   HouseOwner.toProtoPrimitive,
   Painter.toProtoPrimitive,
@@ -93,7 +93,7 @@ val Seq(paintOffer) = decodeAllCreated(OfferToPaintHouseByOwner.COMPANION)(
 // Wait until the painter sees the paint offer in the active contract store
 participant3.ledger_api.state.acs.await_active_contract(Painter, paintOffer.id.toLf)
 
-// Painter accepts the paint offer on the IOU domain
+// Painter accepts the paint offer on the IOU synchronizer
 val acceptCmd = paintOffer.id.exerciseAcceptByPainter().commands.asScala.toSeq
 val acceptTx = participant3.ledger_api.javaapi.commands.submit_flat(Seq(Painter), acceptCmd, synchronizerId =Some(iouId))
 val Seq(painterIou) = decodeAllCreated(Iou.COMPANION)(acceptTx)

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.service
@@ -13,15 +13,15 @@ import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFai
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeNumeric, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
-import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
-import com.digitalasset.canton.protocol.DomainParametersLookup.SequencerDomainParameters
-import com.digitalasset.canton.protocol.DynamicDomainParametersLookup
+import com.digitalasset.canton.protocol.DynamicSynchronizerParametersLookup
+import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
+import com.digitalasset.canton.protocol.SynchronizerParametersLookup.SequencerSynchronizerParameters
+import com.digitalasset.canton.sequencer.api.v30
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
@@ -115,7 +115,7 @@ object GrpcSequencerService {
       metrics: SequencerMetrics,
       authenticationCheck: AuthenticationCheck,
       clock: Clock,
-      domainParamsLookup: DynamicDomainParametersLookup[SequencerDomainParameters],
+      domainParamsLookup: DynamicSynchronizerParametersLookup[SequencerSynchronizerParameters],
       parameters: SequencerParameters,
       protocolVersion: ProtocolVersion,
       topologyStateForInitializationService: TopologyStateForInitializationService,
@@ -165,7 +165,7 @@ class GrpcSequencerService(
     authenticationCheck: AuthenticationCheck,
     subscriptionPool: SubscriptionPool[GrpcManagedSubscription[_]],
     directSequencerSubscriptionFactory: DirectSequencerSubscriptionFactory,
-    domainParamsLookup: DynamicDomainParametersLookup[SequencerDomainParameters],
+    domainParamsLookup: DynamicSynchronizerParametersLookup[SequencerSynchronizerParameters],
     parameters: SequencerParameters,
     topologyStateForInitializationService: TopologyStateForInitializationService,
     protocolVersion: ProtocolVersion,

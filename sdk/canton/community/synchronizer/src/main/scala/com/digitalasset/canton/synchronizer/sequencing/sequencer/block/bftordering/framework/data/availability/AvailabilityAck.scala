@@ -1,11 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.availability
 
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose, Signature, v30}
-import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1.AvailabilityAck as ProtoAvailabilityAck
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1.AvailabilityAck as ProtoAvailabilityAck
 import com.digitalasset.canton.topology.{SequencerId, UniqueIdentifier}
 
 final case class AvailabilityAck(from: SequencerId, signature: Signature)

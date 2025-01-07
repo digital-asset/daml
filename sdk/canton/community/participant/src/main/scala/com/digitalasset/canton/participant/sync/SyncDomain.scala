@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.sync
@@ -13,7 +13,7 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
-import com.digitalasset.canton.crypto.DomainSyncCryptoClient
+import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
 import com.digitalasset.canton.data.{CantonTimestamp, ReassignmentSubmitterMetadata}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.{
@@ -26,7 +26,6 @@ import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.PackageService
-import com.digitalasset.canton.participant.domain.{DomainHandle, DomainRegistryError}
 import com.digitalasset.canton.participant.event.{
   AcsChange,
   ContractStakeholdersAndReassignmentCounter,
@@ -57,6 +56,7 @@ import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
 import com.digitalasset.canton.participant.sync.SyncDomain.SubmissionReady
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
+import com.digitalasset.canton.participant.synchronizer.{DomainHandle, SynchronizerRegistryError}
 import com.digitalasset.canton.participant.topology.ParticipantTopologyDispatcher
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.participant.traffic.ParticipantTrafficControlSubscriber
@@ -72,8 +72,8 @@ import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, Envelope, Tr
 import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor
 import com.digitalasset.canton.store.SequencedEventStore
 import com.digitalasset.canton.store.SequencedEventStore.PossiblyIgnoredSequencedEvent
-import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
-import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
+import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
+import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.{
   ApproximateTime,
   EffectiveTime,
@@ -97,16 +97,16 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 /** A connected domain from the synchronization service.
   *
   * @param synchronizerId          The identifier of the connected domain.
-  * @param domainHandle      A domain handle providing sequencer clients.
+  * @param synchronizerHandle      A domain handle providing sequencer clients.
   * @param participantId     The participant node id hosting this sync service.
   * @param persistent        The persistent state of the sync domain.
   * @param ephemeral         The ephemeral state of the sync domain.
   * @param packageService    Underlying package management service.
-  * @param domainCrypto      Synchronisation crypto utility combining IPS and Crypto operations for a single domain.
+  * @param synchronizerCrypto      Synchronisation crypto utility combining IPS and Crypto operations for a single domain.
   */
 class SyncDomain(
     val synchronizerId: SynchronizerId,
-    val domainHandle: DomainHandle,
+    val synchronizerHandle: DomainHandle,
     participantId: ParticipantId,
     engine: Engine,
     parameters: ParticipantNodeParameters,
@@ -114,7 +114,7 @@ class SyncDomain(
     private[sync] val persistent: SyncDomainPersistentState,
     val ephemeral: SyncDomainEphemeralState,
     val packageService: Eval[PackageService],
-    domainCrypto: DomainSyncCryptoClient,
+    synchronizerCrypto: SynchronizerSyncCryptoClient,
     identityPusher: ParticipantTopologyDispatcher,
     topologyProcessor: TopologyTransactionProcessor,
     missingKeysAlerter: MissingKeysAlerter,
@@ -136,31 +136,32 @@ class SyncDomain(
     with AtomicHealthComponent
     with HasCloseContext {
 
-  val topologyClient: DomainTopologyClientWithInit = domainHandle.topologyClient
+  val topologyClient: SynchronizerTopologyClientWithInit = synchronizerHandle.topologyClient
 
   override protected def timeouts: ProcessingTimeout = parameters.processingTimeouts
 
   override val name: String = SyncDomain.healthName
   override def initialHealthState: ComponentHealthState = ComponentHealthState.NotInitializedState
   override def closingState: ComponentHealthState =
-    ComponentHealthState.failed("Disconnected from domain")
+    ComponentHealthState.failed("Disconnected from synchronizer")
 
-  private[canton] val sequencerClient: RichSequencerClient = domainHandle.sequencerClient
+  private[canton] val sequencerClient: RichSequencerClient = synchronizerHandle.sequencerClient
   private[canton] val sequencerChannelClientO: Option[SequencerChannelClient] =
-    domainHandle.sequencerChannelClientO
-  val timeTracker: DomainTimeTracker = ephemeral.timeTracker
-  val staticDomainParameters: StaticDomainParameters = domainHandle.staticParameters
+    synchronizerHandle.sequencerChannelClientO
+  val timeTracker: SynchronizerTimeTracker = ephemeral.timeTracker
+  val staticSynchronizerParameters: StaticSynchronizerParameters =
+    synchronizerHandle.staticParameters
 
   private val seedGenerator =
-    new SeedGenerator(domainCrypto.crypto.pureCrypto)
+    new SeedGenerator(synchronizerCrypto.crypto.pureCrypto)
 
   private[canton] val requestGenerator =
     TransactionConfirmationRequestFactory(
       participantId,
       synchronizerId,
-      staticDomainParameters.protocolVersion,
+      staticSynchronizerParameters.protocolVersion,
     )(
-      domainCrypto.crypto.pureCrypto,
+      synchronizerCrypto.crypto.pureCrypto,
       seedGenerator,
       parameters.loggingConfig,
       loggerFactory,
@@ -182,9 +183,9 @@ class SyncDomain(
     requestGenerator,
     synchronizerId,
     damle,
-    staticDomainParameters,
+    staticSynchronizerParameters,
     parameters,
-    domainCrypto,
+    synchronizerCrypto,
     sequencerClient,
     ephemeral.inFlightSubmissionDomainTracker,
     ephemeral,
@@ -202,15 +203,15 @@ class SyncDomain(
     Source(synchronizerId),
     participantId,
     damle,
-    Source(staticDomainParameters),
+    Source(staticSynchronizerParameters),
     reassignmentCoordination,
     ephemeral.inFlightSubmissionDomainTracker,
     ephemeral,
-    domainCrypto,
+    synchronizerCrypto,
     seedGenerator,
     sequencerClient,
     timeouts,
-    Source(staticDomainParameters.protocolVersion),
+    Source(staticSynchronizerParameters.protocolVersion),
     loggerFactory,
     futureSupervisor,
     testingConfig = testingConfig,
@@ -221,15 +222,15 @@ class SyncDomain(
     Target(synchronizerId),
     participantId,
     damle,
-    Target(staticDomainParameters),
+    Target(staticSynchronizerParameters),
     reassignmentCoordination,
     ephemeral.inFlightSubmissionDomainTracker,
     ephemeral,
-    domainCrypto,
+    synchronizerCrypto,
     seedGenerator,
     sequencerClient,
     timeouts,
-    Target(staticDomainParameters.protocolVersion),
+    Target(staticSynchronizerParameters.protocolVersion),
     loggerFactory,
     futureSupervisor,
     testingConfig = testingConfig,
@@ -238,7 +239,7 @@ class SyncDomain(
 
   private val trafficProcessor =
     new TrafficControlProcessor(
-      domainCrypto,
+      synchronizerCrypto,
       synchronizerId,
       Option.empty[CantonTimestamp],
       loggerFactory,
@@ -257,11 +258,11 @@ class SyncDomain(
   private val badRootHashMessagesRequestProcessor: BadRootHashMessagesRequestProcessor =
     new BadRootHashMessagesRequestProcessor(
       ephemeral,
-      domainCrypto,
+      synchronizerCrypto,
       sequencerClient,
       synchronizerId,
       participantId,
-      staticDomainParameters.protocolVersion,
+      staticSynchronizerParameters.protocolVersion,
       timeouts,
       loggerFactory,
     )
@@ -273,17 +274,17 @@ class SyncDomain(
     )
 
   private val registerIdentityTransactionHandle = identityPusher.createHandler(
-    domainHandle.synchronizerAlias,
+    synchronizerHandle.synchronizerAlias,
     synchronizerId,
-    staticDomainParameters.protocolVersion,
-    domainHandle.topologyClient,
+    staticSynchronizerParameters.protocolVersion,
+    synchronizerHandle.topologyClient,
     sequencerClient,
   )
 
   // MARK
   private val messageDispatcher: MessageDispatcher =
     messageDispatcherFactory.create(
-      staticDomainParameters.protocolVersion,
+      staticSynchronizerParameters.protocolVersion,
       synchronizerId,
       participantId,
       ephemeral.requestTracker,
@@ -384,7 +385,7 @@ class SyncDomain(
     def loadPendingEffectiveTimesFromTopologyStore(
         timestamp: CantonTimestamp
     ): EitherT[FutureUnlessShutdown, SyncDomainInitializationError, Unit] = {
-      val store = domainHandle.domainPersistentState.topologyStore
+      val store = synchronizerHandle.domainPersistentState.topologyStore
       for {
         _ <- EitherT
           .right(store.findUpcomingEffectiveChanges(timestamp).map { changes =>
@@ -452,8 +453,8 @@ class SyncDomain(
       topologyClient
         .awaitSnapshotUS(resubscriptionTs)
         .flatMap(snapshot =>
-          snapshot.findDynamicDomainParametersOrDefault(
-            staticDomainParameters.protocolVersion,
+          snapshot.findDynamicSynchronizerParametersOrDefault(
+            staticSynchronizerParameters.protocolVersion,
             warnOnUsingDefault = false,
           )
         )
@@ -553,7 +554,7 @@ class SyncDomain(
           initializationTraceContext: TraceContext
       ): EitherT[FutureUnlessShutdown, SyncDomainInitializationError, Unit] =
         EitherT(
-          domainHandle.topologyClient
+          synchronizerHandle.topologyClient
             .awaitUS(_.isParticipantActive(participantId), timeouts.verifyActive.duration)
             .map(isActive =>
               Either.cond(
@@ -587,11 +588,13 @@ class SyncDomain(
 
             override def subscriptionStartsAt(
                 start: SubscriptionStart,
-                domainTimeTracker: DomainTimeTracker,
+                synchronizerTimeTracker: SynchronizerTimeTracker,
             )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
               Seq(
-                topologyProcessor.subscriptionStartsAt(start, domainTimeTracker)(traceContext),
-                trafficProcessor.subscriptionStartsAt(start, domainTimeTracker)(traceContext),
+                topologyProcessor.subscriptionStartsAt(start, synchronizerTimeTracker)(
+                  traceContext
+                ),
+                trafficProcessor.subscriptionStartsAt(start, synchronizerTimeTracker)(traceContext),
               ).parSequence_
 
             override def apply(
@@ -602,8 +605,8 @@ class SyncDomain(
               tracedEvents.withTraceContext { traceContext => closedEvents =>
                 val openEvents = closedEvents.map { event =>
                   val openedEvent = PossiblyIgnoredSequencedEvent.openEnvelopes(event)(
-                    staticDomainParameters.protocolVersion,
-                    domainCrypto.crypto.pureCrypto,
+                    staticSynchronizerParameters.protocolVersion,
+                    synchronizerCrypto.crypto.pureCrypto,
                   )
 
                   // Raise alarms
@@ -680,7 +683,7 @@ class SyncDomain(
                 AutomaticAssignment.perform(
                   data.reassignmentId,
                   Target(synchronizerId),
-                  Target(staticDomainParameters),
+                  Target(staticSynchronizerParameters),
                   reassignmentCoordination,
                   data.contract.metadata.stakeholders,
                   data.unassignmentRequest.submitterMetadata,
@@ -725,8 +728,8 @@ class SyncDomain(
       )
 
       _params <- performUnlessClosingUSF(functionFullName)(
-        topologyClient.currentSnapshotApproximation.findDynamicDomainParametersOrDefault(
-          staticDomainParameters.protocolVersion
+        topologyClient.currentSnapshotApproximation.findDynamicSynchronizerParametersOrDefault(
+          staticSynchronizerParameters.protocolVersion
         )
       )
 
@@ -872,7 +875,7 @@ class SyncDomain(
         "sync-domain",
         LifeCycle.close(
           // Close the domain crypto client first to stop waiting for snapshots that may block the sequencer subscription
-          domainCrypto,
+          synchronizerCrypto,
           // Close the sequencer client so that the processors won't receive or handle events when
           // their shutdown is initiated.
           sequencerClient,
@@ -884,7 +887,7 @@ class SyncDomain(
           badRootHashMessagesRequestProcessor,
           topologyProcessor,
           ephemeral.timeTracker, // need to close time tracker before domain handle, as it might otherwise send messages
-          domainHandle,
+          synchronizerHandle,
           ephemeral,
         )(logger),
       )
@@ -951,7 +954,7 @@ object SyncDomain {
         persistentState: SyncDomainPersistentState,
         ephemeralState: SyncDomainEphemeralState,
         packageService: Eval[PackageService],
-        domainCrypto: DomainSyncCryptoClient,
+        domainCrypto: SynchronizerSyncCryptoClient,
         identityPusher: ParticipantTopologyDispatcher,
         topologyProcessorFactory: TopologyTransactionProcessor.Factory,
         missingKeysAlerter: MissingKeysAlerter,
@@ -976,7 +979,7 @@ object SyncDomain {
         persistentState: SyncDomainPersistentState,
         ephemeralState: SyncDomainEphemeralState,
         packageService: Eval[PackageService],
-        domainCrypto: DomainSyncCryptoClient,
+        domainCrypto: SynchronizerSyncCryptoClient,
         identityPusher: ParticipantTopologyDispatcher,
         topologyProcessorFactory: TopologyTransactionProcessor.Factory,
         missingKeysAlerter: MissingKeysAlerter,
@@ -1074,7 +1077,7 @@ final case class AbortedDueToShutdownError(msg: String) extends SyncDomainInitia
 final case class SequencedEventStoreError(err: store.SequencedEventStoreError)
     extends SyncDomainInitializationError
 
-final case class ParticipantTopologyHandshakeError(err: DomainRegistryError)
+final case class ParticipantTopologyHandshakeError(err: SynchronizerRegistryError)
     extends SyncDomainInitializationError
 
 final case class ParticipantDidNotBecomeActive(msg: String) extends SyncDomainInitializationError

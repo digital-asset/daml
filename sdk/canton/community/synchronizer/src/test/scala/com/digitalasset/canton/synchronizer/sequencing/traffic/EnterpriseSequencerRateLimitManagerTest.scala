@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.traffic
@@ -8,7 +8,7 @@ import cats.syntax.parallel.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.protocol.DomainParameters
+import com.digitalasset.canton.protocol.SynchronizerParameters
 import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.EventCostCalculator.EventCostDetails
@@ -66,7 +66,7 @@ class EnterpriseSequencerRateLimitManagerTest
   private val sequencerFactor = PositiveInt.two
   private val sequencingFactor = PositiveInt.three
 
-  private val defaultDDP = DefaultTestIdentities.defaultDynamicDomainParameters
+  private val defaultDDP = DefaultTestIdentities.defaultDynamicSynchronizerParameters
   private val ddp1 = defaultDDP
     .tryUpdate(trafficControlParameters =
       Some(trafficConfig.copy(readVsWriteScalingFactor = senderFactor))
@@ -83,18 +83,18 @@ class EnterpriseSequencerRateLimitManagerTest
   override lazy val cryptoClient =
     TestingTopology()
       .copy(
-        domainParameters = List(
-          DomainParameters.WithValidity(
+        synchronizerParameters = List(
+          SynchronizerParameters.WithValidity(
             validFrom = CantonTimestamp.MinValue,
             validUntil = Some(sequencerTs.immediatePredecessor),
             parameter = ddp1,
           ),
-          DomainParameters.WithValidity(
+          SynchronizerParameters.WithValidity(
             validFrom = sequencerTs.immediatePredecessor,
             validUntil = Some(sequencingTs.immediatePredecessor),
             parameter = ddp2,
           ),
-          DomainParameters.WithValidity(
+          SynchronizerParameters.WithValidity(
             validFrom = sequencingTs.immediatePredecessor,
             validUntil = None,
             parameter = ddp3,
@@ -102,7 +102,7 @@ class EnterpriseSequencerRateLimitManagerTest
         )
       )
       .build(loggerFactory)
-      .forOwnerAndDomain(
+      .forOwnerAndSynchronizer(
         DefaultTestIdentities.participant1,
         currentSnapshotApproximationTimestamp = sequencerTs,
       )

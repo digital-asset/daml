@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.mediator
@@ -11,7 +11,7 @@ import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.crypto.DomainSyncCryptoClient
+import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.error.MediatorError
@@ -23,7 +23,7 @@ import com.digitalasset.canton.protocol.messages.{
   RootHashMessage,
   SerializedRootHashMessagePayload,
 }
-import com.digitalasset.canton.protocol.{DynamicDomainParametersWithValidity, RequestId}
+import com.digitalasset.canton.protocol.{DynamicSynchronizerParametersWithValidity, RequestId}
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.client.RichSequencerClient
 import com.digitalasset.canton.sequencing.handlers.DiscardIgnoredEvents
@@ -34,13 +34,13 @@ import com.digitalasset.canton.store.{SequencedEventStore, SequencerCounterTrack
 import com.digitalasset.canton.synchronizer.mediator.Mediator.PruningError
 import com.digitalasset.canton.synchronizer.mediator.store.MediatorState
 import com.digitalasset.canton.synchronizer.metrics.MediatorMetrics
-import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
-import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
+import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
+import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor
 import com.digitalasset.canton.topology.{
-  DomainOutboxHandle,
   MediatorId,
   SynchronizerId,
+  SynchronizerOutboxHandle,
   TopologyManagerStatus,
 }
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -62,12 +62,12 @@ private[mediator] class Mediator(
     val mediatorId: MediatorId,
     @VisibleForTesting
     val sequencerClient: RichSequencerClient,
-    val topologyClient: DomainTopologyClientWithInit,
-    private[canton] val syncCrypto: DomainSyncCryptoClient,
+    val topologyClient: SynchronizerTopologyClientWithInit,
+    private[canton] val syncCrypto: SynchronizerSyncCryptoClient,
     topologyTransactionProcessor: TopologyTransactionProcessor,
     val topologyManagerStatus: TopologyManagerStatus,
-    val domainOutboxHandle: DomainOutboxHandle,
-    val timeTracker: DomainTimeTracker,
+    val synchronizerOutboxHandle: SynchronizerOutboxHandle,
+    val timeTracker: SynchronizerTimeTracker,
     state: MediatorState,
     private[canton] val sequencerCounterTrackerStore: SequencerCounterTrackerStore,
     sequencedEventStore: SequencedEventStore,
@@ -181,24 +181,24 @@ private[mediator] class Mediator(
           PruningError.CannotPruneAtTimestamp(timestamp, cleanTimestamp),
         )
 
-      domainParametersChanges <- EitherT
+      synchronizerParametersChanges <- EitherT
         .right(
           topologyClient
             .awaitSnapshotUS(timestamp)
-            .flatMap(snapshot => snapshot.listDynamicDomainParametersChanges())
+            .flatMap(snapshot => snapshot.listDynamicSynchronizerParametersChanges())
         )
 
-      _ <- NonEmptySeq.fromSeq(domainParametersChanges) match {
-        case Some(domainParametersChangesNes) =>
+      _ <- NonEmptySeq.fromSeq(synchronizerParametersChanges) match {
+        case Some(synchronizerParametersChangesNes) =>
           prune(
             pruneAt = timestamp,
             cleanTimestamp = cleanTimestamp,
-            domainParametersChanges = domainParametersChangesNes,
+            synchronizerParametersChanges = synchronizerParametersChangesNes,
           )
 
         case None =>
           logger.info(
-            s"No domain parameters found for pruning at $timestamp. This is likely due to $timestamp being before domain bootstrapping. Will not prune."
+            s"No synchronizer parameters found for pruning at $timestamp. This is likely due to $timestamp being before synchronizer bootstrapping. Will not prune."
           )
           EitherT.pure[FutureUnlessShutdown, PruningError](())
       }
@@ -208,17 +208,17 @@ private[mediator] class Mediator(
   private def prune(
       pruneAt: CantonTimestamp,
       cleanTimestamp: CantonTimestamp,
-      domainParametersChanges: NonEmptySeq[DynamicDomainParametersWithValidity],
+      synchronizerParametersChanges: NonEmptySeq[DynamicSynchronizerParametersWithValidity],
   )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, PruningError, Unit] = {
     val latestSafePruningTsO = Mediator.latestSafePruningTsBefore(
-      domainParametersChanges,
+      synchronizerParametersChanges,
       cleanTimestamp,
     )
 
     for {
       _ <- EitherT.fromEither[FutureUnlessShutdown] {
         latestSafePruningTsO
-          .toRight(PruningError.MissingDomainParametersForValidPruningTsComputation(pruneAt))
+          .toRight(PruningError.MissingSynchronizerParametersForValidPruningTsComputation(pruneAt))
           .flatMap { latestSafePruningTs =>
             Either.cond[PruningError, Unit](
               pruneAt <= latestSafePruningTs,
@@ -250,9 +250,9 @@ private[mediator] class Mediator(
 
       override def subscriptionStartsAt(
           start: SubscriptionStart,
-          domainTimeTracker: DomainTimeTracker,
+          synchronizerTimeTracker: SynchronizerTimeTracker,
       )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-        topologyTransactionProcessor.subscriptionStartsAt(start, domainTimeTracker)
+        topologyTransactionProcessor.subscriptionStartsAt(start, synchronizerTimeTracker)
 
       private def sendMalformedRejection(
           rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
@@ -263,11 +263,11 @@ private[mediator] class Mediator(
 
         for {
           snapshot <- syncCrypto.awaitSnapshotUS(timestamp)
-          domainParameters <- snapshot.ipsSnapshot
-            .findDynamicDomainParameters()
+          synchronizerParameters <- snapshot.ipsSnapshot
+            .findDynamicSynchronizerParameters()
             .flatMap(_.toFutureUS(new RuntimeException(_)))
 
-          decisionTime <- domainParameters.decisionTimeForF(timestamp)
+          decisionTime <- synchronizerParameters.decisionTimeForF(timestamp)
           _ <- verdictSender.sendReject(
             requestId,
             None,
@@ -362,11 +362,11 @@ private[mediator] object Mediator {
       lazy val message: String = "There is no mediator data available for pruning"
     }
 
-    /** Dynamic domain parameters available for ts were not found */
-    final case class MissingDomainParametersForValidPruningTsComputation(ts: CantonTimestamp)
+    /** Dynamic synchronizer parameters available for ts were not found */
+    final case class MissingSynchronizerParametersForValidPruningTsComputation(ts: CantonTimestamp)
         extends PruningError {
       override def message: String =
-        show"Dynamic domain parameters to compute earliest available pruning timestamp not found for ts [$ts]"
+        show"Dynamic synchronizer parameters to compute earliest available pruning timestamp not found for ts [$ts]"
     }
 
     /** The mediator can prune some data but data for the requested timestamp cannot yet be removed */
@@ -384,16 +384,16 @@ private[mediator] object Mediator {
   final case class SafeUntil(ts: CantonTimestamp) extends PruningSafetyCheck
 
   private[mediator] def checkPruningStatus(
-      domainParameters: DynamicDomainParametersWithValidity,
+      synchronizerParameters: DynamicSynchronizerParametersWithValidity,
       cleanTs: CantonTimestamp,
   ): PruningSafetyCheck = {
-    lazy val timeout = domainParameters.parameters.confirmationResponseTimeout
-    lazy val cappedSafePruningTs = domainParameters.validFrom.max(cleanTs - timeout)
+    lazy val timeout = synchronizerParameters.parameters.confirmationResponseTimeout
+    lazy val cappedSafePruningTs = synchronizerParameters.validFrom.max(cleanTs - timeout)
 
-    if (cleanTs <= domainParameters.validFrom) // If these parameters apply only to the future
+    if (cleanTs <= synchronizerParameters.validFrom) // If these parameters apply only to the future
       Safe
     else {
-      domainParameters.validUntil match {
+      synchronizerParameters.validUntil match {
         case None => SafeUntil(cappedSafePruningTs)
         case Some(validUntil) if cleanTs <= validUntil => SafeUntil(cappedSafePruningTs)
         case Some(validUntil) =>
@@ -404,9 +404,9 @@ private[mediator] object Mediator {
 
   /** Returns the latest safe pruning ts which is <= cleanTs */
   private[mediator] def latestSafePruningTsBefore(
-      allDomainParametersChanges: NonEmptySeq[DynamicDomainParametersWithValidity],
+      allSynchronizerParametersChanges: NonEmptySeq[DynamicSynchronizerParametersWithValidity],
       cleanTs: CantonTimestamp,
-  ): Option[CantonTimestamp] = allDomainParametersChanges
+  ): Option[CantonTimestamp] = allSynchronizerParametersChanges
     .map(checkPruningStatus(_, cleanTs))
     .collect { case SafeUntil(ts) => ts }
     .minOption

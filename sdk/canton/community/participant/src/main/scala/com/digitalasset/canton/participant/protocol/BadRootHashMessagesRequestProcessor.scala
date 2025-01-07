@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.protocol
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.DomainSyncCryptoClient
+import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -23,7 +23,7 @@ import scala.concurrent.ExecutionContext
 
 class BadRootHashMessagesRequestProcessor(
     ephemeral: SyncDomainEphemeralState,
-    crypto: DomainSyncCryptoClient,
+    crypto: SynchronizerSyncCryptoClient,
     sequencerClient: SequencerClient,
     synchronizerId: SynchronizerId,
     participantId: ParticipantId,

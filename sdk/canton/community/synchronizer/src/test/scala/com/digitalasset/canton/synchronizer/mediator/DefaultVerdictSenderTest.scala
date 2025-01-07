@@ -1,11 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.mediator
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, Signature}
+import com.digitalasset.canton.crypto.{Signature, SynchronizerSyncCryptoClient}
 import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
 import com.digitalasset.canton.error.MediatorError.MalformedMessage
 import com.digitalasset.canton.protocol.messages.{
@@ -15,7 +15,11 @@ import com.digitalasset.canton.protocol.messages.{
   SerializedRootHashMessagePayload,
   Verdict,
 }
-import com.digitalasset.canton.protocol.{ExampleTransactionFactory, RequestId, TestDomainParameters}
+import com.digitalasset.canton.protocol.{
+  ExampleTransactionFactory,
+  RequestId,
+  TestSynchronizerParameters,
+}
 import com.digitalasset.canton.sequencing.client.TestSequencerClientSend
 import com.digitalasset.canton.sequencing.protocol.{
   AggregationRule,
@@ -201,9 +205,9 @@ class DefaultVerdictSenderTest
     val requestId = RequestId(requestIdTs)
     val decisionTime = requestIdTs.plusSeconds(120)
 
-    val initialDomainParameters = TestDomainParameters.defaultDynamic
+    val initialDomainParameters = TestSynchronizerParameters.defaultDynamic
 
-    val domainSyncCryptoApi: DomainSyncCryptoClient =
+    val domainSyncCryptoApi: SynchronizerSyncCryptoClient =
       if (testedProtocolVersion >= ProtocolVersion.v33) {
         val topology = TestingTopology.from(
           Set(synchronizerId),
@@ -220,10 +224,10 @@ class DefaultVerdictSenderTest
         val identityFactory = TestingIdentityFactory(
           topology,
           loggerFactory,
-          dynamicDomainParameters = initialDomainParameters,
+          dynamicSynchronizerParameters = initialDomainParameters,
         )
 
-        identityFactory.forOwnerAndDomain(mediatorId, synchronizerId)
+        identityFactory.forOwnerAndSynchronizer(mediatorId, synchronizerId)
       } else {
         val topology = TestingTopology.from(
           Set(synchronizerId),
@@ -247,10 +251,10 @@ class DefaultVerdictSenderTest
         val identityFactory = TestingIdentityFactory(
           topology,
           loggerFactory,
-          dynamicDomainParameters = initialDomainParameters,
+          dynamicSynchronizerParameters = initialDomainParameters,
         )
 
-        identityFactory.forOwnerAndDomain(mediatorId, synchronizerId)
+        identityFactory.forOwnerAndSynchronizer(mediatorId, synchronizerId)
       }
 
     private val sequencerClientSend: TestSequencerClientSend = new TestSequencerClientSend

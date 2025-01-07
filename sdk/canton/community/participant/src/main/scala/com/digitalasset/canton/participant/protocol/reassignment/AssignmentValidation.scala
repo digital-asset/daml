@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.protocol.reassignment
 import cats.data.EitherT
 import cats.implicits.toFunctorOps
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.crypto.DomainSnapshotSyncCryptoApi
+import com.digitalasset.canton.crypto.SynchronizerSnapshotSyncCryptoApi
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -36,7 +36,7 @@ import scala.concurrent.ExecutionContext
 
 private[reassignment] class AssignmentValidation(
     synchronizerId: Target[SynchronizerId],
-    staticDomainParameters: Target[StaticDomainParameters],
+    staticSynchronizerParameters: Target[StaticSynchronizerParameters],
     participantId: ParticipantId,
     reassignmentCoordination: ReassignmentCoordination,
     engine: DAMLe,
@@ -50,7 +50,7 @@ private[reassignment] class AssignmentValidation(
   /** Validate the assignment request
     */
   def perform(
-      targetCrypto: Target[DomainSnapshotSyncCryptoApi],
+      targetCrypto: Target[SynchronizerSnapshotSyncCryptoApi],
       reassignmentDataE: Either[ReassignmentStore.ReassignmentLookupError, ReassignmentData],
       activenessF: FutureUnlessShutdown[ActivenessResult],
       engineController: EngineController,
@@ -115,7 +115,7 @@ private[reassignment] class AssignmentValidation(
   }
 
   private def performValidation(
-      targetCrypto: Target[DomainSnapshotSyncCryptoApi],
+      targetCrypto: Target[SynchronizerSnapshotSyncCryptoApi],
       activenessF: FutureUnlessShutdown[ActivenessResult],
       engineController: EngineController,
   )(parsedRequest: ParsedReassignmentRequest[FullAssignmentTree])(implicit
@@ -165,27 +165,27 @@ private[reassignment] class AssignmentValidation(
       reassignmentData: ReassignmentData,
       assignmentRequest: FullAssignmentTree,
       assignmentRequestTs: CantonTimestamp,
-      targetCrypto: Target[DomainSnapshotSyncCryptoApi],
+      targetCrypto: Target[SynchronizerSnapshotSyncCryptoApi],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Seq[ReassignmentValidationError]] = {
-    val sourceDomain = reassignmentData.unassignmentRequest.sourceDomain
+    val sourceSynchronizer = reassignmentData.unassignmentRequest.sourceSynchronizer
     val unassignmentTs = reassignmentData.unassignmentTs
     val reassignmentId = reassignmentData.reassignmentId
     val targetSnapshot = targetCrypto.map(_.ipsSnapshot)
     for {
-      sourceStaticDomainParam <- reassignmentCoordination
-        .getStaticDomainParameter(sourceDomain)
+      sourceStaticSynchronizerParam <- reassignmentCoordination
+        .getStaticSynchronizerParameter(sourceSynchronizer)
         .mapK(FutureUnlessShutdown.outcomeK)
 
       _ready <- {
         logger.info(
-          s"Waiting for topology state at $unassignmentTs on unassignment domain $sourceDomain ..."
+          s"Waiting for topology state at $unassignmentTs on unassignment synchronizer $sourceSynchronizer ..."
         )
         reassignmentCoordination
           .awaitUnassignmentTimestamp(
-            sourceDomain,
-            sourceStaticDomainParam,
+            sourceSynchronizer,
+            sourceStaticSynchronizerParam,
             unassignmentTs,
           )
           .mapK(FutureUnlessShutdown.outcomeK)
@@ -193,8 +193,8 @@ private[reassignment] class AssignmentValidation(
 
       sourceCrypto <- reassignmentCoordination
         .cryptoSnapshot(
-          sourceDomain,
-          sourceStaticDomainParam,
+          sourceSynchronizer,
+          sourceStaticSynchronizerParam,
           unassignmentTs,
         )
         .mapK(FutureUnlessShutdown.outcomeK)
@@ -205,7 +205,7 @@ private[reassignment] class AssignmentValidation(
       cryptoSnapshotAtTimeProof <- reassignmentCoordination
         .cryptoSnapshot(
           reassignmentData.targetDomain,
-          staticDomainParameters,
+          staticSynchronizerParameters,
           targetTimeProof,
         )
         .mapK(FutureUnlessShutdown.outcomeK)
@@ -342,6 +342,6 @@ object AssignmentValidation {
       receivedOn: SynchronizerId,
   ) extends AssignmentProcessorError {
     override def message: String =
-      s"Cannot assign `$reassignmentId`: expecting domain `$targetSynchronizerId` but received on `$receivedOn`"
+      s"Cannot assign `$reassignmentId`: expecting synchronizer `$targetSynchronizerId` but received on `$receivedOn`"
   }
 }

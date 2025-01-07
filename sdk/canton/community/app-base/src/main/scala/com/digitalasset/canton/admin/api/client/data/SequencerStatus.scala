@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.admin.api.client.data
@@ -6,7 +6,7 @@ package com.digitalasset.canton.admin.api.client.data
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.admin.api.client.data.NodeStatus.*
-import com.digitalasset.canton.admin.domain.v30 as domainV30
+import com.digitalasset.canton.admin.sequencer.v30 as sequencerV30
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyInstances, PrettyPrinting, PrettyUtil}
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -60,26 +60,26 @@ final case class SequencerStatus(
 
 object SequencerStatus {
   private def fromProtoV30(
-      proto: domainV30.SequencerStatusResponse.ConnectedMediator
+      proto: sequencerV30.SequencerStatusResponse.ConnectedMediator
   ): ParsingResult[MediatorId] =
     UniqueIdentifier
       .fromProtoPrimitive(proto.uid, "uid")
       .map(MediatorId(_))
 
   private def fromProtoV30(
-      proto: domainV30.SequencerStatusResponse.ConnectedParticipant
+      proto: sequencerV30.SequencerStatusResponse.ConnectedParticipant
   ): ParsingResult[ParticipantId] =
     UniqueIdentifier
       .fromProtoPrimitive(proto.uid, "uid")
       .map(ParticipantId(_))
 
   def fromProtoV30(
-      proto: domainV30.SequencerStatusResponse
+      proto: sequencerV30.SequencerStatusResponse
   ): ParsingResult[NodeStatus[SequencerStatus]] =
     proto.kind match {
-      case domainV30.SequencerStatusResponse.Kind.Empty =>
+      case sequencerV30.SequencerStatusResponse.Kind.Empty =>
         Left(ProtoDeserializationError.FieldNotSet("SequencerStatusResponse.Kind"))
-      case domainV30.SequencerStatusResponse.Kind.Status(sequencerStatusP) =>
+      case sequencerV30.SequencerStatusResponse.Kind.Status(sequencerStatusP) =>
         for {
           statusP <- ProtoConverter.required(
             "SequencerStatusResponse.common_status",
@@ -122,7 +122,7 @@ object SequencerStatus {
           )
         )
 
-      case domainV30.SequencerStatusResponse.Kind.NotInitialized(notInitialized) =>
+      case sequencerV30.SequencerStatusResponse.Kind.NotInitialized(notInitialized) =>
         WaitingForExternalInput
           .fromProtoV30(notInitialized.waitingForExternalInput)
           .map(NodeStatus.NotInitialized(notInitialized.active, _))
@@ -140,7 +140,7 @@ final case class SequencerHealthStatus(isActive: Boolean, details: Option[String
 
 object SequencerHealthStatus extends PrettyUtil with ShowUtil {
   def fromProtoV30(
-      statusP: domainV30.SequencerHealthStatus
+      statusP: sequencerV30.SequencerHealthStatus
   ): ParsingResult[SequencerHealthStatus] =
     Right(SequencerHealthStatus(statusP.active, statusP.details))
 
@@ -162,7 +162,7 @@ final case class SequencerAdminStatus(acceptsAdminChanges: Boolean) extends Pret
 
 object SequencerAdminStatus extends PrettyUtil with ShowUtil {
   def fromProtoV30(
-      statusP: domainV30.SequencerAdminStatus
+      statusP: sequencerV30.SequencerAdminStatus
   ): ParsingResult[SequencerAdminStatus] =
     Right(SequencerAdminStatus(statusP.acceptsAdminChanges))
 

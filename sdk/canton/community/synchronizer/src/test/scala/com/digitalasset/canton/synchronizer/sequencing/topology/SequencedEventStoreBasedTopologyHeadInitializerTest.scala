@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.topology
@@ -12,7 +12,7 @@ import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.SequencedEventStore.{OrdinarySequencedEvent, SearchCriterion}
 import com.digitalasset.canton.store.{SequencedEventNotFoundError, SequencedEventStore}
 import com.digitalasset.canton.topology.SynchronizerId
-import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
+import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -97,8 +97,8 @@ class SequencedEventStoreBasedTopologyHeadInitializerTest
                 EitherT.leftT(SequencedEventNotFoundError(SearchCriterion.Latest))
             })
 
-          val topologyClientMock = mock[DomainTopologyClientWithInit]
-          val topologyStoreMock = mock[TopologyStore[TopologyStoreId.DomainStore]]
+          val topologyClientMock = mock[SynchronizerTopologyClientWithInit]
+          val topologyStoreMock = mock[TopologyStore[TopologyStoreId.SynchronizerStore]]
           val initializer = new SequencedEventStoreBasedTopologyHeadInitializer(
             sequencedEventStoreMock,
             topologyStoreMock,

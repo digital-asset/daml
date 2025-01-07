@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store
@@ -8,7 +8,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.FailOnShutdown
 import com.digitalasset.canton.config.CantonRequireTypes.{String255, String256M}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.DomainCryptoPureApi
+import com.digitalasset.canton.crypto.SynchronizerCryptoPureApi
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
@@ -170,7 +170,9 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
 
   // TODO(#14066): Test coverage is rudimentary - enough to convince ourselves that queries basically seem to work.
   //  Increase coverage.
-  def topologyStore(mk: SynchronizerId => TopologyStore[TopologyStoreId.DomainStore]): Unit = {
+  def topologyStore(
+      mk: SynchronizerId => TopologyStore[TopologyStoreId.SynchronizerStore]
+  ): Unit = {
 
     val bootstrapTransactions = StoredTopologyTransactions(
       Seq[
@@ -270,8 +272,10 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
               store,
               TimeQuery.Range(ts1.some, ts4.some),
               proposals = true,
-              types =
-                Seq(DomainParametersState.code, PartyToParticipant.code), // to test the types filter
+              types = Seq(
+                SynchronizerParametersState.code,
+                PartyToParticipant.code,
+              ), // to test the types filter
             )
             proposalTransactionsFiltered2 <- inspect(
               store,
@@ -362,7 +366,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
               store,
               TimeQuery.HeadState,
               types = Seq(
-                DomainTrustCertificate.code,
+                SynchronizerTrustCertificate.code,
                 OwnerToKeyMapping.code,
               ), // to test the types filter
             )
@@ -400,8 +404,8 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
           for {
             _ <- new InitialTopologySnapshotValidator(
               synchronizerId = domain1_p1p2_synchronizerId,
-              pureCrypto = new DomainCryptoPureApi(
-                defaultStaticDomainParameters,
+              pureCrypto = new SynchronizerCryptoPureApi(
+                defaultStaticSynchronizerParameters,
                 testData.factory.cryptoApi.crypto.pureCrypto,
               ),
               store = store,
@@ -536,8 +540,8 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
           for {
             _ <- new InitialTopologySnapshotValidator(
               domain1_p1p2_synchronizerId,
-              new DomainCryptoPureApi(
-                defaultStaticDomainParameters,
+              new SynchronizerCryptoPureApi(
+                defaultStaticSynchronizerParameters,
                 factory.cryptoApi.crypto.pureCrypto,
               ),
               store,
@@ -584,8 +588,8 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
           for {
             _ <- new InitialTopologySnapshotValidator(
               domain1_p1p2_synchronizerId,
-              new DomainCryptoPureApi(
-                defaultStaticDomainParameters,
+              new SynchronizerCryptoPureApi(
+                defaultStaticSynchronizerParameters,
                 factory.cryptoApi.crypto.pureCrypto,
               ),
               store,

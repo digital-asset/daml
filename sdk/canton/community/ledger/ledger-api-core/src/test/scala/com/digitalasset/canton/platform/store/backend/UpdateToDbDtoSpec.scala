@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
@@ -27,7 +27,6 @@ import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
-import com.digitalasset.daml.lf.ledger.EventId
 import com.digitalasset.daml.lf.transaction.GlobalKey
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateKey
 import com.digitalasset.daml.lf.transaction.test.{
@@ -374,7 +373,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_argument = emptyArray,
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
-          exercise_child_event_ids = Vector.empty,
+          exercise_child_node_ids = Vector.empty,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
@@ -486,7 +485,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_argument = emptyArray,
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
-          exercise_child_event_ids = Vector.empty,
+          exercise_child_node_ids = Vector.empty,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
@@ -618,9 +617,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_argument = emptyArray,
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
-          exercise_child_event_ids = Vector(
-            EventId(updateId, exerciseNodeBId).toLedgerString,
-            EventId(updateId, exerciseNodeCId).toLedgerString,
+          exercise_child_node_ids = Vector(
+            exerciseNodeBId.index,
+            exerciseNodeCId.index,
           ),
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
@@ -654,7 +653,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_argument = emptyArray,
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
-          exercise_child_event_ids = Vector.empty,
+          exercise_child_node_ids = Vector.empty,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
@@ -687,7 +686,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_argument = emptyArray,
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
-          exercise_child_event_ids = Vector.empty,
+          exercise_child_node_ids = Vector.empty,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
@@ -877,7 +876,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_argument = emptyArray,
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
-          exercise_child_event_ids = Vector.empty,
+          exercise_child_node_ids = Vector.empty,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
@@ -1028,7 +1027,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         exercise_argument = emptyArray,
         exercise_result = Some(emptyArray),
         exercise_actors = Set("signatory"),
-        exercise_child_event_ids = Vector.empty,
+        exercise_child_node_ids = Vector.empty,
         create_key_value_compression = compressionAlgorithmId,
         exercise_argument_compression = compressionAlgorithmId,
         exercise_result_compression = compressionAlgorithmId,
@@ -1706,8 +1705,7 @@ object UpdateToDbDtoSpec {
 
     /** Returns (choice argument, exercise result, contract key) */
     override def serialize(
-        eventId: EventId,
-        exercise: Exercise,
+        exercise: Exercise
     ): (Array[Byte], Option[Array[Byte]], Option[Array[Byte]]) =
       (
         emptyArray,

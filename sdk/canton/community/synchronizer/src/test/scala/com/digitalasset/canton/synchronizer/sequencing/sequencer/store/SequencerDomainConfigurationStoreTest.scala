@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.store
@@ -30,7 +30,7 @@ trait SequencerDomainConfigurationStoreTest {
       val store = mkStore
       val originalConfig = SequencerDomainConfiguration(
         DefaultTestIdentities.synchronizerId,
-        defaultStaticDomainParameters,
+        defaultStaticSynchronizerParameters,
       )
 
       for {
@@ -41,15 +41,15 @@ trait SequencerDomainConfigurationStoreTest {
 
     "supports updating the config" in {
       val store = mkStore
-      val defaultParams = defaultStaticDomainParameters
+      val defaultParams = defaultStaticSynchronizerParameters
       val originalConfig = SequencerDomainConfiguration(
         DefaultTestIdentities.synchronizerId,
         defaultParams,
       )
       val updatedConfig = originalConfig
-        .focus(_.domainParameters)
+        .focus(_.synchronizerParameters)
         .replace(
-          BaseTest.defaultStaticDomainParameters
+          BaseTest.defaultStaticSynchronizerParameters
         )
 
       for {

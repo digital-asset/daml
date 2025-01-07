@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.transaction
@@ -88,9 +88,9 @@ trait DelegatedTopologyTransactionLike[+Op <: TopologyChangeOp, +M <: TopologyMa
   override final def hash: TxHash = transactionLikeDelegate.hash
 }
 
-/** Change to the distributed domain topology
+/** Change to the distributed synchronizer topology
   *
-  * A topology transaction is a state change to the domain topology. There are different
+  * A topology transaction is a state change to the synchronizer topology. There are different
   * types of topology states (so called mappings, because they map some id to some value).
   *
   * Each mapping has some variables and some combination of these variables makes a

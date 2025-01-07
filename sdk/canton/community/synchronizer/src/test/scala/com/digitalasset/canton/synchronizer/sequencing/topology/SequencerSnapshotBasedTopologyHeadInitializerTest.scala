@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.topology
@@ -9,7 +9,7 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.{
   SequencerPruningStatus,
   SequencerSnapshot,
 }
-import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
+import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext}
@@ -36,8 +36,8 @@ class SequencerSnapshotBasedTopologyHeadInitializerTest
           (Some(aSnapshotLastTs.plusMillis(1)), aSnapshotLastTs.plusMillis(1)),
         )
       ) { case (maxTopologyStoreEffectiveTimeO, expectedHeadStateEffectiveTime) =>
-        val topologyStoreMock = mock[TopologyStore[TopologyStoreId.DomainStore]]
-        val topologyClientMock = mock[DomainTopologyClientWithInit]
+        val topologyStoreMock = mock[TopologyStore[TopologyStoreId.SynchronizerStore]]
+        val topologyClientMock = mock[SynchronizerTopologyClientWithInit]
         val initializer = new SequencerSnapshotBasedTopologyHeadInitializer(
           SequencerSnapshot(
             aSnapshotLastTs,

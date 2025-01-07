@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.pruning
@@ -202,9 +202,9 @@ sealed trait AcsCommitmentProcessorBaseTest
       owner: ParticipantId,
       topology: Map[ParticipantId, Set[LfPartyId]],
       dynamicDomainParametersWithValidity: List[
-        DomainParameters.WithValidity[DynamicDomainParameters]
+        SynchronizerParameters.WithValidity[DynamicSynchronizerParameters]
       ] = List.empty,
-  ): SyncCryptoClient[DomainSnapshotSyncCryptoApi] = {
+  ): SyncCryptoClient[SynchronizerSnapshotSyncCryptoApi] = {
 
     val topologyWithPermissions =
       topology.fmap(_.map(p => (p, ParticipantPermission.Submission)).toMap)
@@ -212,13 +212,13 @@ sealed trait AcsCommitmentProcessorBaseTest
     val testingTopology = dynamicDomainParametersWithValidity match {
       // this way we get default values for an empty List
       case Nil => TestingTopology()
-      case _ => TestingTopology(domainParameters = dynamicDomainParametersWithValidity)
+      case _ => TestingTopology(synchronizerParameters = dynamicDomainParametersWithValidity)
     }
 
     testingTopology
       .withReversedTopology(topologyWithPermissions)
       .build(crypto, loggerFactory)
-      .forOwnerAndDomain(owner)
+      .forOwnerAndSynchronizer(owner)
   }
 
   protected def changesAtToc(
@@ -283,8 +283,9 @@ sealed trait AcsCommitmentProcessorBaseTest
         SortedReconciliationIntervalsProvider
       ] = None,
       acsCommitmentsCatchUpModeEnabled: Boolean = false,
-      domainParametersUpdates: List[DomainParameters.WithValidity[DynamicDomainParameters]] =
-        List.empty,
+      domainParametersUpdates: List[
+        SynchronizerParameters.WithValidity[DynamicSynchronizerParameters]
+      ] = List.empty,
   )(implicit ec: ExecutionContext): (
       FutureUnlessShutdown[AcsCommitmentProcessor],
       AcsCommitmentStore,
@@ -302,7 +303,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       localId,
       topology,
       domainParametersUpdates.appended(
-        DomainParameters.WithValidity(
+        SynchronizerParameters.WithValidity(
           validFrom = CantonTimestamp.MinValue,
           validUntil = domainParametersUpdates
             .sortBy(_.validFrom)
@@ -873,7 +874,7 @@ class AcsCommitmentProcessorTest
       TestingTopology()
         .withSimpleParticipants(remote)
         .build(crypto, loggerFactory)
-        .forOwnerAndDomain(remote)
+        .forOwnerAndSynchronizer(remote)
     // we assume that the participant has a single stakeholder group
     val cmt = commitmentsFromStkhdCmts(Seq(stakeholderCommitment(contracts)))
     val snapshotF = syncCrypto.snapshotUS(CantonTimestamp.Epoch)
@@ -898,7 +899,7 @@ class AcsCommitmentProcessorTest
       acs: ActiveContractSnapshot,
       at: CantonTimestampSecond,
       contractSetup: Map[LfContractId, (Set[Ref.IdString.Party], NonEmpty[Seq[Lifespan]])],
-      crypto: SyncCryptoClient[DomainSnapshotSyncCryptoApi],
+      crypto: SyncCryptoClient[SynchronizerSnapshotSyncCryptoApi],
   ): Future[Map[ParticipantId, AcsCommitment.CommitmentType]] = {
     val stakeholderLookup = { (cid: LfContractId) =>
       contractSetup
@@ -1346,7 +1347,7 @@ class AcsCommitmentProcessorTest
 
       val sortedReconciliationIntervalsProvider = constantSortedReconciliationIntervalsProvider(
         interval,
-        domainBootstrappingTime = CantonTimestamp.ofEpochSecond(6),
+        synchronizerBootstrappingTime = CantonTimestamp.ofEpochSecond(6),
       )
 
       val (proc, store, _) = testSetup(
@@ -2234,7 +2235,7 @@ class AcsCommitmentProcessorTest
                 PositiveInt.tryCreate(Int.MaxValue / 8),
                 PositiveInt.tryCreate(8),
               )
-            val startConfigWithValidity = DomainParameters.WithValidity(
+            val startConfigWithValidity = SynchronizerParameters.WithValidity(
               validFrom = CantonTimestamp.MinValue,
               validUntil = Some(CantonTimestamp.MaxValue),
               parameter = defaultParameters.tryUpdate(acsCommitmentsCatchUpConfigParameter =
@@ -2325,7 +2326,7 @@ class AcsCommitmentProcessorTest
 
         val startConfig =
           new AcsCommitmentsCatchUpConfig(PositiveInt.tryCreate(2), PositiveInt.tryCreate(3))
-        val startConfigWithValidity = DomainParameters.WithValidity(
+        val startConfigWithValidity = SynchronizerParameters.WithValidity(
           validFrom = testSequences.head.addMicros(-1),
           validUntil = Some(CantonTimestamp.MaxValue),
           parameter =
@@ -2404,7 +2405,7 @@ class AcsCommitmentProcessorTest
 
         val startConfig =
           new AcsCommitmentsCatchUpConfig(PositiveInt.tryCreate(10), PositiveInt.tryCreate(2))
-        val startConfigWithValidity = DomainParameters.WithValidity(
+        val startConfigWithValidity = SynchronizerParameters.WithValidity(
           validFrom = testSequences.head.addMicros(-1),
           validUntil = Some(CantonTimestamp.MaxValue),
           parameter =
@@ -2732,14 +2733,14 @@ class AcsCommitmentProcessorTest
         val midConfig =
           new AcsCommitmentsCatchUpConfig(PositiveInt.tryCreate(1), PositiveInt.tryCreate(2))
         val disabledConfig = AcsCommitmentsCatchUpConfig.disabledCatchUp()
-        val changedConfigWithValidity = DomainParameters.WithValidity(
+        val changedConfigWithValidity = SynchronizerParameters.WithValidity(
           validFrom = testSequences.last.head,
           validUntil = None,
           parameter =
             defaultParameters.tryUpdate(acsCommitmentsCatchUpConfigParameter = Some(midConfig)),
         )
 
-        val disabledConfigWithValidity = DomainParameters.WithValidity(
+        val disabledConfigWithValidity = SynchronizerParameters.WithValidity(
           validFrom = testSequences.apply(1).head,
           validUntil = Some(testSequences.apply(1).last),
           parameter =
@@ -2836,14 +2837,14 @@ class AcsCommitmentProcessorTest
 
         val startConfig =
           new AcsCommitmentsCatchUpConfig(PositiveInt.tryCreate(3), PositiveInt.tryCreate(1))
-        val startConfigWithValidity = DomainParameters.WithValidity(
+        val startConfigWithValidity = SynchronizerParameters.WithValidity(
           validFrom = testSequences.head.addMicros(-1),
           validUntil = Some(changeConfigTimestamp),
           parameter =
             defaultParameters.tryUpdate(acsCommitmentsCatchUpConfigParameter = Some(startConfig)),
         )
 
-        val disabledConfigWithValidity = DomainParameters.WithValidity(
+        val disabledConfigWithValidity = SynchronizerParameters.WithValidity(
           validFrom = changeConfigTimestamp,
           validUntil = None,
           parameter = defaultParameters.tryUpdate(acsCommitmentsCatchUpConfigParameter = None),
@@ -2920,7 +2921,7 @@ class AcsCommitmentProcessorTest
 
         val startConfig =
           new AcsCommitmentsCatchUpConfig(PositiveInt.tryCreate(3), PositiveInt.tryCreate(1))
-        val startConfigWithValidity = DomainParameters.WithValidity(
+        val startConfigWithValidity = SynchronizerParameters.WithValidity(
           validFrom = testSequences.head.addMicros(-1),
           validUntil = Some(changeConfigTimestamp),
           parameter =
@@ -2929,7 +2930,7 @@ class AcsCommitmentProcessorTest
 
         val changeConfig =
           new AcsCommitmentsCatchUpConfig(PositiveInt.tryCreate(2), PositiveInt.tryCreate(1))
-        val changeConfigWithValidity = DomainParameters.WithValidity(
+        val changeConfigWithValidity = SynchronizerParameters.WithValidity(
           validFrom = changeConfigTimestamp,
           validUntil = None,
           parameter =

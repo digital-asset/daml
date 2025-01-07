@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client
@@ -56,10 +56,16 @@ class SequencedEventTestFixture(
   lazy val defaultSynchronizerId: SynchronizerId = DefaultTestIdentities.synchronizerId
   lazy val subscriberId: ParticipantId = ParticipantId("participant1-id")
   lazy val sequencerAlice: SequencerId = DefaultTestIdentities.sequencerId
-  lazy val subscriberCryptoApi: DomainSyncCryptoClient =
-    TestingIdentityFactory(loggerFactory).forOwnerAndDomain(subscriberId, defaultSynchronizerId)
-  private lazy val sequencerCryptoApi: DomainSyncCryptoClient =
-    TestingIdentityFactory(loggerFactory).forOwnerAndDomain(sequencerAlice, defaultSynchronizerId)
+  lazy val subscriberCryptoApi: SynchronizerSyncCryptoClient =
+    TestingIdentityFactory(loggerFactory).forOwnerAndSynchronizer(
+      subscriberId,
+      defaultSynchronizerId,
+    )
+  private lazy val sequencerCryptoApi: SynchronizerSyncCryptoClient =
+    TestingIdentityFactory(loggerFactory).forOwnerAndSynchronizer(
+      sequencerAlice,
+      defaultSynchronizerId,
+    )
   lazy val updatedCounter: Long = 42L
   val sequencerBob: SequencerId = SequencerId(
     UniqueIdentifier.tryCreate("da2", namespace)
@@ -134,7 +140,7 @@ class SequencedEventTestFixture(
     )
 
   def mkValidator(
-      syncCryptoApi: DomainSyncCryptoClient = subscriberCryptoApi
+      syncCryptoApi: SynchronizerSyncCryptoClient = subscriberCryptoApi
   )(implicit executionContext: ExecutionContext): SequencedEventValidatorImpl =
     new SequencedEventValidatorImpl(
       defaultSynchronizerId,

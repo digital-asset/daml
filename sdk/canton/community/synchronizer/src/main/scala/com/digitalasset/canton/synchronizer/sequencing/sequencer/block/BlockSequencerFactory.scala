@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.block
@@ -7,7 +7,7 @@ import cats.data.EitherT
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.crypto.DomainSyncCryptoClient
+import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -97,7 +97,7 @@ abstract class BlockSequencerFactory(
   protected def createBlockSequencer(
       name: String,
       synchronizerId: SynchronizerId,
-      cryptoApi: DomainSyncCryptoClient,
+      cryptoApi: SynchronizerSyncCryptoClient,
       stateManager: BlockSequencerStateManager,
       store: SequencerBlockStore,
       balanceStore: TrafficPurchasedStore,
@@ -160,7 +160,7 @@ abstract class BlockSequencerFactory(
   @VisibleForTesting
   protected def makeRateLimitManager(
       trafficPurchasedManager: TrafficPurchasedManager,
-      domainSyncCryptoApi: DomainSyncCryptoClient,
+      domainSyncCryptoApi: SynchronizerSyncCryptoClient,
       protocolVersion: ProtocolVersion,
       trafficConfig: SequencerTrafficConfig,
   ): SequencerRateLimitManager =
@@ -181,7 +181,7 @@ abstract class BlockSequencerFactory(
       sequencerId: SequencerId,
       clock: Clock,
       driverClock: Clock,
-      domainSyncCryptoApi: DomainSyncCryptoClient,
+      domainSyncCryptoApi: SynchronizerSyncCryptoClient,
       futureSupervisor: FutureSupervisor,
       trafficConfig: SequencerTrafficConfig,
       runtimeReady: FutureUnlessShutdown[Unit],

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -67,7 +67,7 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.IndexedDomain
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
-import com.digitalasset.canton.time.{DomainTimeTracker, NonNegativeFiniteDuration, WallClock}
+import com.digitalasset.canton.time.{NonNegativeFiniteDuration, SynchronizerTimeTracker, WallClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
@@ -137,8 +137,8 @@ class ProtocolProcessorTest
     ),
   )
   private val crypto =
-    TestingIdentityFactory(topology, loggerFactory, TestDomainParameters.defaultDynamic)
-      .forOwnerAndDomain(participant, domain)
+    TestingIdentityFactory(topology, loggerFactory, TestSynchronizerParameters.defaultDynamic)
+      .forOwnerAndSynchronizer(participant, domain)
   private val mockSequencerClient = mock[SequencerClientSend]
   when(
     mockSequencerClient.sendAsync(
@@ -197,8 +197,9 @@ class ProtocolProcessorTest
   private val requestSc = SequencerCounter(0)
   private val resultSc = SequencerCounter(1)
   private val rc = RequestCounter(0)
-  private val parameters = DynamicDomainParametersWithValidity(
-    DynamicDomainParameters.initialValues(NonNegativeFiniteDuration.Zero, testedProtocolVersion),
+  private val parameters = DynamicSynchronizerParametersWithValidity(
+    DynamicSynchronizerParameters
+      .initialValues(NonNegativeFiniteDuration.Zero, testedProtocolVersion),
     CantonTimestamp.MinValue,
     None,
     domain,
@@ -230,7 +231,7 @@ class ProtocolProcessorTest
       startingPoints: ProcessingStartingPoints = ProcessingStartingPoints.default,
       pendingSubmissionMap: concurrent.Map[Int, Unit] = TrieMap[Int, Unit](),
       sequencerClient: SequencerClientSend = mockSequencerClient,
-      crypto: DomainSyncCryptoClient = crypto,
+      crypto: SynchronizerSyncCryptoClient = crypto,
       overrideInFlightSubmissionDomainTrackerO: Option[InFlightSubmissionDomainTracker] = None,
       submissionDataForTrackerO: Option[SubmissionTrackerData] = None,
       overrideInFlightSubmissionStoreO: Option[InFlightSubmissionStore] = None,
@@ -269,7 +270,7 @@ class ProtocolProcessorTest
         clock,
         crypto.crypto,
         IndexedDomain.tryCreate(domain, 1),
-        defaultStaticDomainParameters,
+        defaultStaticSynchronizerParameters,
         enableAdditionalConsistencyChecks = true,
         new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1), // only one domain needed
         contractStore,
@@ -289,7 +290,7 @@ class ProtocolProcessorTest
     when(ledgerApiIndexer.enqueue).thenAnswer((_: Update) => FutureUnlessShutdown.unit)
     when(ledgerApiIndexer.onlyForTestingTransactionInMemoryStore).thenAnswer(None)
 
-    val timeTracker = mock[DomainTimeTracker]
+    val timeTracker = mock[SynchronizerTimeTracker]
     val recordOrderPublisher = new RecordOrderPublisher(
       synchronizerId = domain,
       initSc = SequencerCounter.Genesis,
@@ -380,7 +381,7 @@ class ProtocolProcessorTest
 
         override protected def preSubmissionValidations(
             params: Int,
-            cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+            cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
             protocolVersion: ProtocolVersion,
         )(implicit
             traceContext: TraceContext
@@ -523,7 +524,7 @@ class ProtocolProcessorTest
         TestingTopology(mediatorGroups = Set.empty),
         loggerFactory,
         parameters.parameters,
-      ).forOwnerAndDomain(participant, domain)
+      ).forOwnerAndSynchronizer(participant, domain)
       val (sut, persistent, ephemeral, _) = testProcessingSteps(crypto = crypto2)
       val res = sut.submit(1).onShutdown(fail("submission shutdown")).value.futureValue
       res shouldBe Left(TestProcessorError(NoMediatorError(CantonTimestamp.Epoch)))
@@ -772,7 +773,7 @@ class ProtocolProcessorTest
         topology.copy(mediatorGroups = Set.empty), // Topology without any mediator active
         loggerFactory,
         parameters.parameters,
-      ).forOwnerAndDomain(participant, domain)
+      ).forOwnerAndSynchronizer(participant, domain)
 
       val (sut, _persistent, _ephemeral, _) = testProcessingSteps(crypto = testCrypto)
       loggerFactory
@@ -954,7 +955,7 @@ class ProtocolProcessorTest
     ): Unit = {
 
       val setupF = for {
-        _ <- persistent.parameterStore.setParameters(defaultStaticDomainParameters)
+        _ <- persistent.parameterStore.setParameters(defaultStaticSynchronizerParameters)
 
         _ <- ephemeral.requestJournal.insert(rc, CantonTimestamp.Epoch).failOnShutdown
       } yield ephemeral.phase37Synchronizer

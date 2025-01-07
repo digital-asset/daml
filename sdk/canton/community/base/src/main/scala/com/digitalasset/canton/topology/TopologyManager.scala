@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology
@@ -16,7 +16,10 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.protocol.{DynamicDomainParameters, StaticDomainParameters}
+import com.digitalasset.canton.protocol.{
+  DynamicSynchronizerParameters,
+  StaticSynchronizerParameters,
+}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.TopologyManager.assignExpectedUsageToKeys
 import com.digitalasset.canton.topology.TopologyManagerError.{
@@ -29,7 +32,7 @@ import com.digitalasset.canton.topology.processing.{
   SequencedTime,
   TopologyManagerSigningKeyDetection,
 }
-import com.digitalasset.canton.topology.store.TopologyStoreId.{AuthorizedStore, DomainStore}
+import com.digitalasset.canton.topology.store.TopologyStoreId.{AuthorizedStore, SynchronizerStore}
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.*
@@ -55,24 +58,24 @@ trait TopologyManagerObserver {
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 }
 
-class DomainTopologyManager(
+class SynchronizerTopologyManager(
     nodeId: UniqueIdentifier,
     clock: Clock,
     crypto: Crypto,
-    staticDomainParameters: StaticDomainParameters,
-    override val store: TopologyStore[DomainStore],
-    val outboxQueue: DomainOutboxQueue,
+    staticSynchronizerParameters: StaticSynchronizerParameters,
+    override val store: TopologyStore[SynchronizerStore],
+    val outboxQueue: SynchronizerOutboxQueue,
     exitOnFatalFailures: Boolean,
     timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends TopologyManager[DomainStore, DomainCryptoPureApi](
+    extends TopologyManager[SynchronizerStore, SynchronizerCryptoPureApi](
       nodeId,
       clock,
       crypto,
       store,
-      TopologyManager.PV(staticDomainParameters.protocolVersion),
+      TopologyManager.PV(staticSynchronizerParameters.protocolVersion),
       exitOnFatalFailures = exitOnFatalFailures,
       timeouts,
       futureSupervisor,
@@ -80,16 +83,16 @@ class DomainTopologyManager(
     ) {
   def synchronizerId: SynchronizerId = store.storeId.synchronizerId
 
-  override protected val processor: TopologyStateProcessor[DomainCryptoPureApi] =
-    new TopologyStateProcessor[DomainCryptoPureApi](
+  override protected val processor: TopologyStateProcessor[SynchronizerCryptoPureApi] =
+    new TopologyStateProcessor[SynchronizerCryptoPureApi](
       store,
       Some(outboxQueue),
       new ValidatingTopologyMappingChecks(store, loggerFactory),
-      new DomainCryptoPureApi(staticDomainParameters, crypto.pureCrypto),
+      new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto),
       loggerFactory,
     )
 
-  // When evaluating transactions against the domain store, we want to validate against
+  // When evaluating transactions against the synchronizer store, we want to validate against
   // the head state. We need to take all previously sequenced transactions into account, because
   // we don't know when the submitted transaction actually gets sequenced.
   override def timestampForValidation(): CantonTimestamp = CantonTimestamp.MaxValue
@@ -239,7 +242,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
     * @param protocolVersion the protocol version corresponding to the transaction
     * @param expectFullAuthorization whether the transaction must be fully signed and authorized by keys on this node
     * @param forceChanges    force dangerous operations, such as removing the last signing key of a participant
-    * @return the domain state (initialized or not initialized) or an error code of why the addition failed
+    * @return the synchronizer state (initialized or not initialized) or an error code of why the addition failed
     */
   def proposeAndAuthorize(
       op: TopologyChangeOp,
@@ -623,10 +626,10 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] = transaction.mapping match {
-    case DomainParametersState(synchronizerId, newDomainParameters) =>
+    case SynchronizerParametersState(synchronizerId, newSynchronizerParameters) =>
       checkSubmissionTimeRecordTimeToleranceNotIncreasing(
         synchronizerId,
-        newDomainParameters,
+        newSynchronizerParameters,
         forceChanges,
       )
     case OwnerToKeyMapping(member, _) =>
@@ -662,7 +665,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
 
   private def checkSubmissionTimeRecordTimeToleranceNotIncreasing(
       synchronizerId: SynchronizerId,
-      newDomainParameters: DynamicDomainParameters,
+      newSynchronizerParameters: DynamicSynchronizerParameters,
       forceChanges: ForceFlags,
   )(implicit
       traceContext: TraceContext
@@ -675,34 +678,34 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
           asOf = CantonTimestamp.MaxValue,
           asOfInclusive = false,
           isProposal = false,
-          types = Seq(DomainParametersState.code),
+          types = Seq(SynchronizerParametersState.code),
           filterUid = Some(Seq(synchronizerId.uid)),
           filterNamespace = None,
         )
     } yield {
       headTransactions
-        .collectOfMapping[DomainParametersState]
+        .collectOfMapping[SynchronizerParametersState]
         .collectLatestByUniqueKey
         .toTopologyState
-        .collectFirst { case DomainParametersState(_, previousParameters) =>
+        .collectFirst { case SynchronizerParametersState(_, previousParameters) =>
           previousParameters
         } match {
         case None => Either.unit
-        case Some(domainParameters) =>
+        case Some(synchronizerParameters) =>
           val changeIsDangerous =
-            newDomainParameters.submissionTimeRecordTimeTolerance > domainParameters.submissionTimeRecordTimeTolerance
+            newSynchronizerParameters.submissionTimeRecordTimeTolerance > synchronizerParameters.submissionTimeRecordTimeTolerance
           val force = forceChanges.permits(ForceFlag.SubmissionTimeRecordTimeToleranceIncrease)
           if (changeIsDangerous && force) {
             logger.info(
-              s"Forcing dangerous increase of submission time record time tolerance from ${domainParameters.submissionTimeRecordTimeTolerance} to ${newDomainParameters.submissionTimeRecordTimeTolerance}"
+              s"Forcing dangerous increase of submission time record time tolerance from ${synchronizerParameters.submissionTimeRecordTimeTolerance} to ${newSynchronizerParameters.submissionTimeRecordTimeTolerance}"
             )
           }
           Either.cond(
             !changeIsDangerous || force,
             (),
             IncreaseOfSubmissionTimeRecordTimeTolerance.TemporarilyInsecure(
-              domainParameters.submissionTimeRecordTimeTolerance,
-              newDomainParameters.submissionTimeRecordTimeTolerance,
+              synchronizerParameters.submissionTimeRecordTimeTolerance,
+              newSynchronizerParameters.submissionTimeRecordTimeTolerance,
             ),
           )
       }

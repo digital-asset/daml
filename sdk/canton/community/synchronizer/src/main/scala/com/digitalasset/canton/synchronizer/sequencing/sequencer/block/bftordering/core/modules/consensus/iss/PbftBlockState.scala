@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss
@@ -124,7 +124,6 @@ object PbftBlockState {
     // In-memory storage for block's PBFT votes in this view
     private var prePrepare: Option[SignedMessage[PrePrepare]] = None
     private val prepareMap = mutable.HashMap[SequencerId, SignedMessage[Prepare]]()
-    private var myCommit: Option[Commit] = None
     private val commitMap = mutable.HashMap[SequencerId, SignedMessage[Commit]]()
 
     // TRUE when PrePrepare is stored
@@ -185,10 +184,14 @@ object PbftBlockState {
             )
           matchingHash.sizeIs >= membership.orderingTopology.strongQuorum
         }
-        // we send our local commit if we have reached a quorum of prepares for the first time.
-        // Also, because we store the quorum of prepares together with sending this commit,
-        // we only want to do it after we've stored the pre-prepare
-        hasReachedQuorumOfPrepares && prePrepareStored
+        // We send our local commit when all the following conditions are true:
+        //   1. the complete action has NOT yet fired
+        //       if the complete action has fired, the block is complete, we have a commit certificate,
+        //       and the segment may already be cleaned up, so we want to avoid unnecessary async events
+        //   2. we reached a quorum of (valid, matching) prepares for the first time
+        //   3. we confirmed storage of the corresponding PrePrepare, which needs to finish before
+        //      storing the quorum of prepares and broadcasting our local commit
+        !completeAction.isFired && hasReachedQuorumOfPrepares && prePrepareStored
       }
     ) { case (hash, pp) =>
       implicit traceContext =>
@@ -197,7 +200,6 @@ object PbftBlockState {
             Commit.create(pp.message.blockMetadata, view, hash, clock.now, membership.myId),
             Signature.noSignature, // TODO(#20458)
           )
-        myCommit = Some(commit.message)
         addCommit(commit).discard
         Seq(
           SendPbftMessage(
@@ -209,15 +211,22 @@ object PbftBlockState {
 
     private val completeAction = pbftAction(implicit traceContext =>
       prePrepare.fold(false) { pp =>
-        val hash = pp.message.hash
-        val (matchingHash, nonMatchingHash) = commitMap.values.partition(_.message.hash == hash)
-        val result =
-          matchingHash.sizeIs >= membership.orderingTopology.strongQuorum && myCommit.isDefined && preparesStored
-        if (nonMatchingHash.nonEmpty)
-          logger.warn(
-            s"Found non-matching hashes for commit messages from peers (${nonMatchingHash.map(_.from)})"
-          )
-        result
+        val hasReachedQuorumOfCommits = {
+          val hash = pp.message.hash
+          val (matchingHash, nonMatchingHash) = commitMap.values.partition(_.message.hash == hash)
+          if (nonMatchingHash.nonEmpty)
+            logger.warn(
+              s"Found non-matching hashes for commit messages from peers (${nonMatchingHash.map(_.from)})"
+            )
+          matchingHash.sizeIs >= membership.orderingTopology.strongQuorum
+        }
+        val allNecessaryVotesStored =
+          prePrepareStored && (preparesStored || !commitMap.contains(membership.myId))
+        // We complete ordering for this block when all the following conditions are true:
+        //   1. we reached a quorum of (valid, matching) commits for the first time
+        //   2. all necessary Pbft votes have been stored. This is always the PrePrepare and,
+        //      if we sent a local commit earlier, also the matching set of Prepares
+        hasReachedQuorumOfCommits && allNecessaryVotesStored
       }
     ) { case (_, pp) => _ => Seq(CompletedBlock(pp, commitMessageQuorum, view)) }
 

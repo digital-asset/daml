@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.authentication
@@ -47,7 +47,7 @@ import scala.concurrent.ExecutionContext
   */
 class MemberAuthenticationService(
     synchronizerId: SynchronizerId,
-    cryptoApi: DomainSyncCryptoClient,
+    cryptoApi: SynchronizerSyncCryptoClient,
     store: MemberAuthenticationStore,
     clock: Clock,
     nonceExpirationInterval: Duration,
@@ -286,7 +286,7 @@ object MemberAuthenticationService {
 
 class MemberAuthenticationServiceImpl(
     synchronizerId: SynchronizerId,
-    cryptoApi: DomainSyncCryptoClient,
+    cryptoApi: SynchronizerSyncCryptoClient,
     store: MemberAuthenticationStore,
     clock: Clock,
     nonceExpirationInterval: Duration,
@@ -324,7 +324,7 @@ class MemberAuthenticationServiceImpl(
         case TopologyTransaction(
               TopologyChangeOp.Remove,
               _serial,
-              cert: DomainTrustCertificate,
+              cert: SynchronizerTrustCertificate,
             ) =>
           val participant = cert.participantId
           logger.info(
@@ -334,7 +334,7 @@ class MemberAuthenticationServiceImpl(
         case TopologyTransaction(
               TopologyChangeOp.Replace,
               _serial,
-              cert: ParticipantDomainPermission,
+              cert: ParticipantSynchronizerPermission,
             ) if cert.loginAfter.exists(_ > clock.now) =>
           val participant = cert.participantId
           logger.info(
@@ -344,7 +344,7 @@ class MemberAuthenticationServiceImpl(
         case TopologyTransaction(
               TopologyChangeOp.Remove,
               _serial,
-              cert: ParticipantDomainPermission,
+              cert: ParticipantSynchronizerPermission,
             ) =>
           val participant = cert.participantId
           logger.info(
@@ -359,7 +359,7 @@ class MemberAuthenticationServiceImpl(
 
 trait MemberAuthenticationServiceFactory {
   def createAndSubscribe(
-      syncCrypto: DomainSyncCryptoClient,
+      syncCrypto: SynchronizerSyncCryptoClient,
       store: MemberAuthenticationStore,
       invalidateMemberCallback: Traced[Member] => Unit,
       isTopologyInitialized: FutureUnlessShutdown[Unit],
@@ -380,7 +380,7 @@ object MemberAuthenticationServiceFactory {
   ): MemberAuthenticationServiceFactory =
     new MemberAuthenticationServiceFactory {
       override def createAndSubscribe(
-          syncCrypto: DomainSyncCryptoClient,
+          syncCrypto: SynchronizerSyncCryptoClient,
           store: MemberAuthenticationStore,
           invalidateMemberCallback: Traced[Member] => Unit,
           isTopologyInitialized: FutureUnlessShutdown[Unit],

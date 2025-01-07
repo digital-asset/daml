@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.mediator
@@ -7,7 +7,7 @@ import cats.data.EitherT
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
-import com.digitalasset.canton.crypto.DomainSyncCryptoClient
+import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
@@ -25,9 +25,9 @@ import com.digitalasset.canton.synchronizer.mediator.store.{
 }
 import com.digitalasset.canton.synchronizer.metrics.MediatorMetrics
 import com.digitalasset.canton.time.admin.v30.DomainTimeServiceGrpc
-import com.digitalasset.canton.time.{Clock, DomainTimeTracker, GrpcDomainTimeService}
+import com.digitalasset.canton.time.{Clock, GrpcDomainTimeService, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
+import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
@@ -39,7 +39,7 @@ import scala.concurrent.ExecutionContext
 /** Mediator component and its supporting services */
 final class MediatorRuntime(
     val mediator: Mediator,
-    domainOutbox: DomainOutboxHandle,
+    domainOutbox: SynchronizerOutboxHandle,
     config: MediatorConfig,
     storage: Storage,
     clock: Clock,
@@ -96,12 +96,12 @@ object MediatorRuntimeFactory {
       sequencerCounterTrackerStore: SequencerCounterTrackerStore,
       sequencedEventStore: SequencedEventStore,
       sequencerClient: RichSequencerClient,
-      syncCrypto: DomainSyncCryptoClient,
-      topologyClient: DomainTopologyClientWithInit,
+      syncCrypto: SynchronizerSyncCryptoClient,
+      topologyClient: SynchronizerTopologyClientWithInit,
       topologyTransactionProcessor: TopologyTransactionProcessor,
       topologyManagerStatus: TopologyManagerStatus,
-      domainOutboxFactory: DomainOutboxFactory,
-      timeTracker: DomainTimeTracker,
+      domainOutboxFactory: SynchronizerOutboxFactory,
+      timeTracker: SynchronizerTimeTracker,
       nodeParameters: CantonNodeParameters,
       protocolVersion: ProtocolVersion,
       clock: Clock,

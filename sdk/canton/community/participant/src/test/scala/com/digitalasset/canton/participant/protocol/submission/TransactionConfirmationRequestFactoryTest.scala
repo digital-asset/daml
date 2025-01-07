@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.submission
@@ -81,16 +81,16 @@ class TransactionConfirmationRequestFactoryTest
       permission: ParticipantPermission = Submission,
       keyPurposes: Set[KeyPurpose] = KeyPurpose.All,
       freshKeys: Boolean = false,
-  ): DomainSnapshotSyncCryptoApi = {
+  ): SynchronizerSnapshotSyncCryptoApi = {
 
     val map = partyToParticipant.fmap(parties => parties.map(_ -> permission).toMap)
     TestingTopology()
       .withReversedTopology(map)
-      .withDomains(synchronizerId)
+      .withSynchronizers(synchronizerId)
       .withKeyPurposes(keyPurposes)
       .withFreshKeys(freshKeys)
       .build(loggerFactory)
-      .forOwnerAndDomain(submittingParticipant, synchronizerId)
+      .forOwnerAndSynchronizer(submittingParticipant, synchronizerId)
       .currentSnapshotApproximation
   }
 
@@ -106,7 +106,7 @@ class TransactionConfirmationRequestFactoryTest
   // This is a def (and not a val), as the crypto api has the next symmetric key as internal state
   // Therefore, it would not make sense to reuse an instance. We also force the crypto api to not randomize
   // asymmetric encryption ciphertexts.
-  private def newCryptoSnapshot: DomainSnapshotSyncCryptoApi = {
+  private def newCryptoSnapshot: SynchronizerSnapshotSyncCryptoApi = {
     val cryptoSnapshot = createCryptoSnapshot(defaultTopology)
     cryptoSnapshot.crypto.pureCrypto match {
       case crypto: SymbolicPureCrypto => crypto.setRandomnessFlag(true)
@@ -247,7 +247,7 @@ class TransactionConfirmationRequestFactoryTest
   // Expected output factory
   def expectedConfirmationRequest(
       example: ExampleTransaction,
-      cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
   )(implicit traceContext: TraceContext): TransactionConfirmationRequest = {
     val cryptoPureApi = cryptoSnapshot.pureCrypto
     val viewEncryptionScheme = cryptoPureApi.defaultSymmetricKeyScheme
@@ -463,7 +463,9 @@ class TransactionConfirmationRequestFactoryTest
             CachingConfigs.defaultSessionEncryptionKeyCacheConfig
           )
 
-        def getSessionKeyFromConfirmationRequest(cryptoSnapshot: DomainSnapshotSyncCryptoApi) =
+        def getSessionKeyFromConfirmationRequest(
+            cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi
+        ) =
           factory
             .createConfirmationRequest(
               singleFetch.wellFormedUnsuffixedTransaction,
@@ -672,7 +674,7 @@ class TransactionConfirmationRequestFactoryTest
                 Seq.empty,
                 mayContain = Seq(
                   _.warningMessage should include(
-                    "has a domain trust certificate, but no keys on domain"
+                    "has a synchronizer trust certificate, but no keys on synchronizer"
                   )
                 ),
               ),

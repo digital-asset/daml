@@ -1,17 +1,17 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.console
 
 import com.digitalasset.canton.admin.api.client.commands.*
 import com.digitalasset.canton.admin.api.client.commands.SequencerAdminCommands.LocatePruningTimestampCommand
-import com.digitalasset.canton.admin.api.client.data.topology.ListParticipantDomainPermissionResult
+import com.digitalasset.canton.admin.api.client.data.topology.ListParticipantSynchronizerPermissionResult
 import com.digitalasset.canton.admin.api.client.data.{
   MediatorStatus,
   NodeStatus,
   ParticipantStatus,
   SequencerStatus,
-  StaticDomainParameters as ConsoleStaticDomainParameters,
+  StaticSynchronizerParameters as ConsoleStaticSynchronizerParameters,
 }
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.{ExistingFile, NonNegativeInt, Port, PositiveInt}
@@ -139,7 +139,7 @@ object InstanceReference {
   }
 }
 
-/** Pointer for a potentially running instance by instance type (domain/participant) and its id.
+/** Pointer for a potentially running instance by instance type (sequencer/mediator/participant) and its id.
   * These methods define the REPL interface for these instances (e.g. participant1 start)
   */
 trait LocalInstanceReference extends InstanceReference with NoTracing {
@@ -445,7 +445,7 @@ class SequencerPublicApiClient(
   protected[console] def publicApiCommand[Result](
       command: GrpcAdminCommand[?, ?, Result]
   ): ConsoleCommandResult[Result] =
-    consoleEnvironment.grpcDomainCommandRunner
+    consoleEnvironment.grpcSequencerCommandRunner
       .runCommand(
         sequencerConnection.sequencerAlias.unwrap,
         command,
@@ -555,22 +555,22 @@ abstract class ParticipantReference(
   def repair: ParticipantRepairAdministration
 
   /** Waits until for every participant p (drawn from consoleEnvironment.participants.all) that is running and initialized
-    * and for each domain to which both this participant and p are connected
-    * the vetted_package transactions in the authorized store are the same as in the domain store.
+    * and for each synchronizer to which both this participant and p are connected
+    * the vetted_package transactions in the authorized store are the same as in the synchronizer store.
     */
   override protected def waitPackagesVetted(timeout: NonNegativeDuration): Unit = {
-    val connected = domains.list_connected().map(_.synchronizerId).toSet
+    val connected = synchronizers.list_connected().map(_.synchronizerId).toSet
     // for every participant
     consoleEnvironment.participants.all
       .filter(p => p.health.is_running() && p.health.initialized())
       .foreach { participant =>
-        // for every domain this participant is connected to as well
-        participant.domains.list_connected().foreach {
+        // for every synchronizer this participant is connected to as well
+        participant.synchronizers.list_connected().foreach {
           case item if connected.contains(item.synchronizerId) =>
             ConsoleMacros.utils.retry_until_true(timeout)(
               {
-                // ensure that vetted packages on the domain match the ones in the authorized store
-                val onDomain = participant.topology.vetted_packages
+                // ensure that vetted packages on the synchronizer match the ones in the authorized store
+                val onSynchronizer = participant.topology.vetted_packages
                   .list(
                     filterStore = item.synchronizerId.filterString,
                     filterParticipant = id.filterString,
@@ -585,49 +585,49 @@ abstract class ParticipantReference(
                   .flatMap(_.item.packages)
                   .toSet
 
-                val ret = onParticipantAuthorizedStore == onDomain
+                val ret = onParticipantAuthorizedStore == onSynchronizer
                 if (!ret) {
                   logger.debug(
-                    show"Still waiting for package vetting updates to be observed by Participant ${participant.name} on ${item.synchronizerId}: vetted -- onDomain is ${onParticipantAuthorizedStore -- onDomain} while onDomain -- vetted is ${onDomain -- onParticipantAuthorizedStore}"
+                    show"Still waiting for package vetting updates to be observed by Participant ${participant.name} on ${item.synchronizerId}: vetted -- onSynchronizer is ${onParticipantAuthorizedStore -- onSynchronizer} while onSynchronizer -- vetted is ${onSynchronizer -- onParticipantAuthorizedStore}"
                   )
                 }
                 ret
               },
-              show"Participant ${participant.name} has not observed all vetting txs of $id on domain ${item.synchronizerId} within the given timeout.",
+              show"Participant ${participant.name} has not observed all vetting txs of $id on synchronizer ${item.synchronizerId} within the given timeout.",
             )
           case _ =>
         }
       }
   }
-  override protected def participantIsActiveOnDomain(
+  override protected def participantIsActiveOnSynchronizer(
       synchronizerId: SynchronizerId,
       participantId: ParticipantId,
   ): Boolean = {
-    val hasDomainTrustCertificate =
-      topology.domain_trust_certificates.active(synchronizerId, participantId)
-    val isDomainRestricted = topology.domain_parameters
-      .get_dynamic_domain_parameters(synchronizerId)
+    val hasSynchronizerTrustCertificate =
+      topology.synchronizer_trust_certificates.active(synchronizerId, participantId)
+    val isSynchronizerRestricted = topology.synchronizer_parameters
+      .get_dynamic_synchronizer_parameters(synchronizerId)
       .onboardingRestriction
       .isRestricted
-    val domainPermission =
-      topology.participant_domain_permissions.find(synchronizerId, participantId)
+    val synchronizerPermission =
+      topology.participant_synchronizer_permissions.find(synchronizerId, participantId)
 
     // notice the `exists`, expressing the requirement of a permission to exist
-    val hasRequiredDomainPermission = domainPermission.exists(noLoginRestriction)
+    val hasRequiredSynchronizerPermission = synchronizerPermission.exists(noLoginRestriction)
     // notice the forall, expressing optionality for the permission to exist
-    val hasOptionalDomainPermission = domainPermission.forall(noLoginRestriction)
+    val hasOptionalSynchronizerPermission = synchronizerPermission.forall(noLoginRestriction)
 
-    // for a participant to be considered active, it must have a domain trust certificate
-    hasDomainTrustCertificate &&
+    // for a participant to be considered active, it must have a synchronizer trust certificate
+    hasSynchronizerTrustCertificate &&
     (
-      // if the domain is restricted, the participant MUST have the permission
-      (isDomainRestricted && hasRequiredDomainPermission) ||
-        // if the domain is UNrestricted, the participant may still be restricted by the domain
-        (!isDomainRestricted && hasOptionalDomainPermission)
+      // if the synchronizer is restricted, the participant MUST have the permission
+      (isSynchronizerRestricted && hasRequiredSynchronizerPermission) ||
+        // if the synchronizer is UNrestricted, the participant may still be restricted by the synchronizer
+        (!isSynchronizerRestricted && hasOptionalSynchronizerPermission)
     )
   }
 
-  private def noLoginRestriction(result: ListParticipantDomainPermissionResult): Boolean =
+  private def noLoginRestriction(result: ListParticipantSynchronizerPermissionResult): Boolean =
     result.item.loginAfter
       .forall(
         _ <= consoleEnvironment.environment.clock.now
@@ -805,8 +805,9 @@ abstract class SequencerReference(
 
   override def parties: PartiesAdministrationGroup = parties_
 
-  private val staticDomainParameters: AtomicReference[Option[ConsoleStaticDomainParameters]] =
-    new AtomicReference[Option[ConsoleStaticDomainParameters]](None)
+  private val staticSynchronizerParameters
+      : AtomicReference[Option[ConsoleStaticSynchronizerParameters]] =
+    new AtomicReference[Option[ConsoleStaticSynchronizerParameters]](None)
 
   private val synchronizerId: AtomicReference[Option[SynchronizerId]] =
     new AtomicReference[Option[SynchronizerId]](None)
@@ -848,7 +849,7 @@ abstract class SequencerReference(
   override def traffic_control: TrafficControlSequencerAdministrationGroup =
     sequencerTrafficControl
 
-  @Help.Summary("Return synchronizer id of the domain")
+  @Help.Summary("Return synchronizer id of the synchronizer")
   def synchronizer_id: SynchronizerId =
     synchronizerId.get() match {
       case Some(id) => id
@@ -968,20 +969,22 @@ abstract class SequencerReference(
     }
   }
 
-  @Help.Summary("Domain parameters related commands")
-  @Help.Group("Domain parameters")
-  object domain_parameters {
+  @Help.Summary("Synchronizer parameters related commands")
+  @Help.Group("Synchronizer parameters")
+  object synchronizer_parameters {
     object static {
-      @Help.Summary("Return static domain parameters of the domain")
-      def get(): ConsoleStaticDomainParameters =
-        staticDomainParameters.get() match {
+      @Help.Summary("Return static synchronizer parameters of the synchronizer")
+      def get(): ConsoleStaticSynchronizerParameters =
+        staticSynchronizerParameters.get() match {
           case Some(parameters) => parameters
           case None =>
             val parameters = consoleEnvironment.run(
-              publicApiClient.publicApiCommand(SequencerPublicCommands.GetStaticDomainParameters)
+              publicApiClient.publicApiCommand(
+                SequencerPublicCommands.GetStaticSynchronizerParameters
+              )
             )
 
-            staticDomainParameters.set(Some(parameters))
+            staticSynchronizerParameters.set(Some(parameters))
             parameters
         }
     }
@@ -1008,7 +1011,7 @@ abstract class SequencerReference(
     @Help.Description(
       """Provides a detailed breakdown of information required for pruning:
         | - the current time according to this sequencer instance
-        | - domain members that the sequencer supports
+        | - synchronizer members that the sequencer supports
         | - for each member when they were registered and whether they are enabled
         | - a list of clients for each member, their last acknowledgement, and whether they are enabled
         |"""
@@ -1029,7 +1032,7 @@ abstract class SequencerReference(
         |If no data is being removed it could indicate that clients are not reading or acknowledging data
         |in a timely fashion (typically due to nodes going offline for long periods).
         |You have the option of disabling the members running on these nodes to allow removal of this data,
-        |however this will mean that they will be unable to reconnect to the domain in the future.
+        |however this will mean that they will be unable to reconnect to the synchronizer in the future.
         |To do this run `force_prune(dryRun = true)` to return a description of which members would be
         |disabled in order to prune the Sequencer.
         |If you are happy to disable the described clients then run `force_prune(dryRun = false)` to
@@ -1050,8 +1053,8 @@ abstract class SequencerReference(
     @Help.Description(
       """Will force pruning up until the default retention period by potentially disabling clients
         |that have not yet read data we would like to remove.
-        |Disabling these clients will prevent them from ever reconnecting to the Domain so should only be
-        |used if the Domain operator is confident they can be permanently ignored.
+        |Disabling these clients will prevent them from ever reconnecting to the Synchronizer so should only be
+        |used if the Synchronizer operator is confident they can be permanently ignored.
         |Run with `dryRun = true` to review a description of which clients will be disabled first.
         |Run with `dryRun = false` to disable these clients and perform a forced pruning.
         |"""
@@ -1186,7 +1189,7 @@ abstract class SequencerReference(
     @Help.Description(
       """This will prevent any client for the given member to reconnect the Sequencer
         |and allow any unread/unacknowledged data they have to be removed.
-        |This should only be used if the domain operation is confident the member will never need
+        |This should only be used if the synchronizer operation is confident the member will never need
         |to reconnect as there is no way to re-enable the member.
         |To view members using the sequencer run `sequencer.status()`.""""
     )

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
@@ -180,7 +180,7 @@ private[store] object StorageBackendTestValues {
       exercise_argument = someSerializedDamlLfValue,
       exercise_result = Some(someSerializedDamlLfValue),
       exercise_actors = Set(actor),
-      exercise_child_event_ids = Vector.empty,
+      exercise_child_node_ids = Vector.empty,
       create_key_value_compression = None,
       exercise_argument_compression = None,
       exercise_result_compression = None,

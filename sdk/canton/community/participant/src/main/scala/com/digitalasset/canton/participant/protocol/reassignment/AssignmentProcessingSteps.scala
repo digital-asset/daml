@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -65,7 +65,7 @@ private[reassignment] class AssignmentProcessingSteps(
     reassignmentCoordination: ReassignmentCoordination,
     seedGenerator: SeedGenerator,
     override protected val serializableContractAuthenticator: SerializableContractAuthenticator,
-    staticDomainParameters: Target[StaticDomainParameters],
+    staticSynchronizerParameters: Target[StaticSynchronizerParameters],
     targetProtocolVersion: Target[ProtocolVersion],
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
@@ -96,7 +96,7 @@ private[reassignment] class AssignmentProcessingSteps(
 
   private val assignmentValidation = new AssignmentValidation(
     synchronizerId,
-    staticDomainParameters,
+    staticSynchronizerParameters,
     participantId,
     reassignmentCoordination,
     engine,
@@ -110,7 +110,7 @@ private[reassignment] class AssignmentProcessingSteps(
       submissionParam: SubmissionParam,
       mediator: MediatorGroupRecipient,
       ephemeralState: SyncDomainEphemeralStateLookup,
-      recentSnapshot: DomainSnapshotSyncCryptoApi,
+      recentSnapshot: SynchronizerSnapshotSyncCryptoApi,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Submission] = {
@@ -272,7 +272,7 @@ private[reassignment] class AssignmentProcessingSteps(
     SubmissionResult(pendingSubmission.reassignmentCompletion.future)
 
   override protected def decryptTree(
-      snapshot: DomainSnapshotSyncCryptoApi,
+      snapshot: SynchronizerSnapshotSyncCryptoApi,
       sessionKeyStore: ConfirmationRequestSessionKeyStore,
   )(
       envelope: OpenEnvelope[EncryptedViewMessage[AssignmentViewType]]
@@ -285,7 +285,7 @@ private[reassignment] class AssignmentProcessingSteps(
   ] =
     EncryptedViewMessage
       .decryptFor(
-        staticDomainParameters.unwrap,
+        staticSynchronizerParameters.unwrap,
         snapshot,
         sessionKeyStore,
         envelope.protocolMessage,
@@ -308,7 +308,7 @@ private[reassignment] class AssignmentProcessingSteps(
       traceContext: TraceContext
   ): Either[ReassignmentProcessorError, ActivenessSet] =
     // TODO(i12926): Send a rejection if malformedPayloads is non-empty
-    if (parsedRequest.fullViewTree.targetDomain == synchronizerId) {
+    if (parsedRequest.fullViewTree.targetSynchronizer == synchronizerId) {
       val contractId = parsedRequest.fullViewTree.contract.contractId
       val contractCheck = ActivenessCheck.tryCreate(
         checkFresh = Set.empty,

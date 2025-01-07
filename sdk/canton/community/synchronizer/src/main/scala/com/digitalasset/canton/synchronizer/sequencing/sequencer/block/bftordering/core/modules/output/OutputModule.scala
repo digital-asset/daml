@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.output
@@ -8,7 +8,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
-import com.digitalasset.canton.sequencing.protocol.AllMembersOfDomain
+import com.digitalasset.canton.sequencing.protocol.AllMembersOfSynchronizer
 import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.block.BlockFormat.OrderedRequest
 import com.digitalasset.canton.synchronizer.block.LedgerBlockEvent.deserializeSignedOrderingRequest
@@ -607,7 +607,7 @@ object OutputModule {
       deserializeSignedOrderingRequest(protocolVersion)(request.payload) match {
         case Right(signedSubmissionRequest) =>
           signedSubmissionRequest.content.content.content.batch.allRecipients
-            .contains(AllMembersOfDomain)
+            .contains(AllMembersOfSynchronizer)
         case Left(error) =>
           logger.info(
             s"Skipping ordering request while looking for sequencer events as it failed to deserialize: $error"

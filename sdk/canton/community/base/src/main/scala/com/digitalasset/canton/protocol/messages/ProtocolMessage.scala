@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol.messages
@@ -44,15 +44,15 @@ object ProtocolMessage {
   /** Returns the envelopes from the batch that match the given synchronizer id. If any other messages exist, it gives them
     * to the provided callback
     */
-  def filterDomainsEnvelopes[M <: ProtocolMessage](
+  def filterSynchronizerEnvelopes[M <: ProtocolMessage](
       batch: Batch[OpenEnvelope[M]],
       synchronizerId: SynchronizerId,
-      onWrongDomain: List[OpenEnvelope[M]] => Unit,
+      onWrongSynchronizer: List[OpenEnvelope[M]] => Unit,
   ): List[OpenEnvelope[M]] = {
     val (withCorrectSynchronizerId, withWrongSynchronizerId) =
       batch.envelopes.partition(_.protocolMessage.synchronizerId == synchronizerId)
     if (withWrongSynchronizerId.nonEmpty)
-      onWrongDomain(withWrongSynchronizerId)
+      onWrongSynchronizer(withWrongSynchronizerId)
     withCorrectSynchronizerId
   }
 

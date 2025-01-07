@@ -1,10 +1,13 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.driver
 
 import cats.syntax.traverse.*
-import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, DomainSyncCryptoClient}
+import com.digitalasset.canton.crypto.{
+  SynchronizerSnapshotSyncCryptoApi,
+  SynchronizerSyncCryptoClient,
+}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.topology.{
@@ -27,7 +30,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import scala.concurrent.ExecutionContext
 
 private[driver] final class CantonOrderingTopologyProvider(
-    cryptoApi: DomainSyncCryptoClient,
+    cryptoApi: SynchronizerSyncCryptoClient,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit
     ec: ExecutionContext
@@ -122,7 +125,7 @@ private[driver] final class CantonOrderingTopologyProvider(
 
   private def computeFirstKnownAtTimestamps(
       peers: Seq[SequencerId],
-      snapshot: DomainSnapshotSyncCryptoApi,
+      snapshot: SynchronizerSnapshotSyncCryptoApi,
   )(implicit traceContext: TraceContext) =
     peers
       .map { peerId =>

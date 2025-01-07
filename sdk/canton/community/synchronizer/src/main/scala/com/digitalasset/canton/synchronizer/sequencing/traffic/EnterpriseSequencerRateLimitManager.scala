@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.traffic
@@ -12,10 +12,10 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
 import com.digitalasset.canton.crypto.{
-  DomainSyncCryptoClient,
   Signature,
   SyncCryptoApi,
   SyncCryptoClient,
+  SynchronizerSyncCryptoClient,
 }
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{
@@ -58,7 +58,7 @@ class EnterpriseSequencerRateLimitManager(
     override protected val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
     metrics: SequencerMetrics,
-    domainSyncCryptoApi: DomainSyncCryptoClient,
+    domainSyncCryptoApi: SynchronizerSyncCryptoClient,
     protocolVersion: ProtocolVersion,
     trafficConfig: SequencerTrafficConfig,
     sequencerMemberRateLimiterFactory: TrafficConsumedManagerFactory =

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.pruning
@@ -8,10 +8,10 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.protocol.DomainParameters
+import com.digitalasset.canton.protocol.SynchronizerParameters
 import com.digitalasset.canton.protocol.messages.CommitmentPeriod
 import com.digitalasset.canton.time.PositiveSeconds
-import com.digitalasset.canton.topology.client.DomainTopologyClient
+import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherUtil.*
 
@@ -21,7 +21,7 @@ import scala.concurrent.ExecutionContext
 import scala.util.chaining.*
 
 class SortedReconciliationIntervalsProvider(
-    topologyClient: DomainTopologyClient,
+    topologyClient: SynchronizerTopologyClient,
     futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -37,12 +37,13 @@ class SortedReconciliationIntervalsProvider(
 
   private def getAll(validAt: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Seq[DomainParameters.WithValidity[PositiveSeconds]]] = futureSupervisor
-    .supervisedUS(s"Querying for list of domain parameters changes valid at $validAt") {
-      topologyClient.awaitSnapshotUS(validAt)
-    }
-    .flatMap(snapshot => snapshot.listDynamicDomainParametersChanges())
-    .map(_.map(_.map(_.reconciliationInterval)))
+  ): FutureUnlessShutdown[Seq[SynchronizerParameters.WithValidity[PositiveSeconds]]] =
+    futureSupervisor
+      .supervisedUS(s"Querying for list of synchronizer parameters changes valid at $validAt") {
+        topologyClient.awaitSnapshotUS(validAt)
+      }
+      .flatMap(snapshot => snapshot.listDynamicSynchronizerParametersChanges())
+      .map(_.map(_.map(_.reconciliationInterval)))
 
   def reconciliationIntervals(
       validAt: CantonTimestamp

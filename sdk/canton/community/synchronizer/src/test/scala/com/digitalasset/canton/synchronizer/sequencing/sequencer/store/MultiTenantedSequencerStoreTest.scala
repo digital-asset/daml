@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.store
@@ -8,7 +8,7 @@ import cats.syntax.option.*
 import com.daml.nonempty.NonEmptyUtil
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.DomainSequencingTestUtils
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.SynchronizerSequencingTestUtils
 import com.digitalasset.canton.topology.{Member, ParticipantId}
 import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import org.scalatest.compatible.Assertion
@@ -35,7 +35,7 @@ trait MultiTenantedSequencerStoreTest
     def deliver(ts: CantonTimestamp, sender: SequencerMemberId): Sequenced[PayloadId] =
       Sequenced(
         ts,
-        DomainSequencingTestUtils.mockDeliverStoreEvent(
+        SynchronizerSequencingTestUtils.mockDeliverStoreEvent(
           sender = sender,
           payloadId = PayloadId(ts),
           traceContext = traceContext,
@@ -47,7 +47,7 @@ trait MultiTenantedSequencerStoreTest
     ) = {
       val delivers: List[Sequenced[PayloadId]] =
         epochSeconds.map(ts).map(ts => deliver(ts, sender)).toList
-      val payloads = DomainSequencingTestUtils.payloadsForEvents(delivers)
+      val payloads = SynchronizerSequencingTestUtils.payloadsForEvents(delivers)
       for {
         _unit <- store
           .savePayloads(NonEmptyUtil.fromUnsafe(payloads), instanceDiscriminator)

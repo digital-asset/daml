@@ -1,5 +1,5 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data;
 
@@ -20,8 +20,8 @@ public class EventUtils {
   /** @hidden */
   public static ExercisedEvent firstExercisedEvent(TransactionTree txTree) {
     var maybeExercisedEvent =
-        txTree.getRootEventIds().stream()
-            .map(eventId -> txTree.getEventsById().get(eventId))
+        txTree.getRootNodeIds().stream()
+            .map(nodeId -> txTree.getEventsById().get(nodeId))
             .filter(e -> e instanceof ExercisedEvent)
             .map(e -> (ExercisedEvent) e)
             .findFirst();

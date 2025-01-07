@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.authentication
@@ -34,7 +34,7 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest with F
   private val clock: SimClock = new SimClock(loggerFactory = loggerFactory)
 
   private val topology = TestingTopology().withSimpleParticipants(participant1).build()
-  private val syncCrypto = topology.forOwnerAndDomain(participant1, synchronizerId)
+  private val syncCrypto = topology.forOwnerAndSynchronizer(participant1, synchronizerId)
 
   private def service(
       participantIsActive: Boolean,

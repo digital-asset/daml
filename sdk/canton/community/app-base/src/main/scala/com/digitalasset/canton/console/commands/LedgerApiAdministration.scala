@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.console.commands
@@ -363,7 +363,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             override def onNext(tree: UpdateTreeWrapper): Unit = {
               val (s, serializedSize) = tree match {
                 case TransactionTreeWrapper(transactionTree) =>
-                  transactionTree.rootEventIds.size.toLong -> transactionTree.serializedSize
+                  transactionTree.rootNodeIds.size.toLong -> transactionTree.serializedSize
                 case reassignmentWrapper: ReassignmentWrapper =>
                   1L -> reassignmentWrapper.reassignment.serializedSize
                 case TopologyTransactionWrapper(topologyTransaction) =>
@@ -417,6 +417,20 @@ trait BaseLedgerApiAdministration extends NoTracing {
         check(FeatureFlag.Testing)(consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.UpdateService.GetTransactionById(parties.map(_.toLf), id)(
+              consoleEnvironment.environment.executionContext
+            )
+          )
+        })
+
+      @Help.Summary("Get a transaction tree by its offset", FeatureFlag.Testing)
+      @Help.Description(
+        """Get a transaction tree from the update stream by its offset. Returns None if the transaction is not (yet)
+          |known at the participant or if the transaction has been pruned via `pruning.prune`."""
+      )
+      def by_offset(parties: Set[PartyId], offset: Long): Option[TransactionTreeProto] =
+        check(FeatureFlag.Testing)(consoleEnvironment.run {
+          ledgerApiCommand(
+            LedgerApiCommands.UpdateService.GetTransactionByOffset(parties.map(_.toLf), offset)(
               consoleEnvironment.environment.executionContext
             )
           )
@@ -2583,7 +2597,7 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
               consoleEnvironment.participants.all
                 .filter(x => x.health.is_running() && x.health.initialized())
                 .find(identityIs(_, pd.participant))
-            _ <- pd.domains.find(_.synchronizerId == txDomain)
+            _ <- pd.synchronizers.find(_.synchronizerId == txDomain)
           } yield participantReference
         }
         involvedConsoleParticipants

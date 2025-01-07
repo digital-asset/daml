@@ -1,11 +1,14 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.driver
 
 import com.digitalasset.canton.BaseTest.testedProtocolVersion
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, DomainSyncCryptoClient}
+import com.digitalasset.canton.crypto.{
+  SynchronizerSnapshotSyncCryptoApi,
+  SynchronizerSyncCryptoClient,
+}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.{
@@ -50,9 +53,9 @@ class CantonOrderingTopologyProviderTest
         )
       when(topologySnapshotMock.findDynamicSequencingParameters()(any[TraceContext]))
         .thenReturn(FutureUnlessShutdown.pure(Right(someDynamicSequencingParameters)))
-      val domainSnapshotSyncCryptoApiMock = mock[DomainSnapshotSyncCryptoApi]
+      val domainSnapshotSyncCryptoApiMock = mock[SynchronizerSnapshotSyncCryptoApi]
       when(domainSnapshotSyncCryptoApiMock.ipsSnapshot).thenReturn(topologySnapshotMock)
-      val cryptoApiMock = mock[DomainSyncCryptoClient]
+      val cryptoApiMock = mock[SynchronizerSyncCryptoClient]
       when(cryptoApiMock.awaitSnapshotUS(any[CantonTimestamp])(any[TraceContext]))
         .thenReturn(FutureUnlessShutdown.pure(domainSnapshotSyncCryptoApiMock))
 

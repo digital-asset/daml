@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -7,7 +7,7 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.crypto.DomainSyncCryptoClient
+import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.SubmissionErrors.ContractAuthenticationFailed
@@ -32,8 +32,8 @@ class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
     confirmationRequestFactory = mock[TransactionConfirmationRequestFactory],
     confirmationResponseFactory = mock[TransactionConfirmationResponseFactory],
     modelConformanceChecker = mock[ModelConformanceChecker],
-    staticDomainParameters = defaultStaticDomainParameters,
-    crypto = mock[DomainSyncCryptoClient],
+    staticSynchronizerParameters = defaultStaticSynchronizerParameters,
+    crypto = mock[SynchronizerSyncCryptoClient],
     metrics = ParticipantTestMetrics.domain.transactionProcessing,
     serializableContractAuthenticator = new SerializableContractAuthenticator {
       val behaviors: Map[SerializableContract, Either[String, Unit]] =

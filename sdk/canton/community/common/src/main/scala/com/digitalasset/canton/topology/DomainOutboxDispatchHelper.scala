@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology
@@ -6,7 +6,7 @@ package com.digitalasset.canton.topology
 import cats.data.{EitherT, OptionT}
 import cats.syntax.parallel.*
 import com.digitalasset.canton.SynchronizerAlias
-import com.digitalasset.canton.common.domain.RegisterTopologyTransactionHandle
+import com.digitalasset.canton.common.sequencer.RegisterTopologyTransactionHandle
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{
@@ -59,7 +59,7 @@ trait DomainOutboxDispatchHelper extends NamedLogging {
       transactions: Seq[GenericSignedTopologyTransaction]
   ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]] =
     FutureUnlessShutdown.pure(
-      transactions.filter(x => x.mapping.restrictedToDomain.forall(_ == synchronizerId))
+      transactions.filter(x => x.mapping.restrictedToSynchronizer.forall(_ == synchronizerId))
     )
 
   protected def isFailedState(response: TopologyTransactionsBroadcast.State): Boolean =
@@ -71,7 +71,7 @@ trait DomainOutboxDispatchHelper extends NamedLogging {
   }
 }
 
-trait StoreBasedDomainOutboxDispatchHelper extends DomainOutboxDispatchHelper {
+trait StoreBasedSynchronizerOutboxDispatchHelper extends DomainOutboxDispatchHelper {
 
   def authorizedStore: TopologyStore[TopologyStoreId.AuthorizedStore]
   override protected def convertTransactions(
@@ -129,10 +129,10 @@ trait QueueBasedDomainOutboxDispatchHelper extends DomainOutboxDispatchHelper {
       }
 }
 
-trait DomainOutboxDispatch extends NamedLogging with FlagCloseable {
+trait SynchronizerOutboxDispatch extends NamedLogging with FlagCloseable {
   this: DomainOutboxDispatchHelper =>
 
-  protected def targetStore: TopologyStore[TopologyStoreId.DomainStore]
+  protected def targetStore: TopologyStore[TopologyStoreId.SynchronizerStore]
   protected def handle: RegisterTopologyTransactionHandle
 
   // register handle close task

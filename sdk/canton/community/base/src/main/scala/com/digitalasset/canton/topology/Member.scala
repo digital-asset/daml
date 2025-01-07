@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology
@@ -62,7 +62,7 @@ object MemberCode {
 
 }
 
-/** A member in a domain such as a participant and or domain entities
+/** A member in a synchronizer such as a participant and or synchronizer entities
   *
   * A member can be addressed and talked to on the transaction level
   * through the sequencer.
@@ -329,9 +329,9 @@ object MediatorId {
 
 }
 
-/** Contains only sequencers from SequencerDomainState that also have at least 1 signing key.
+/** Contains only sequencers from SequencerSynchronizerState that also have at least 1 signing key.
   *
-  * When reading `threshold`, recall the contract of `SequencerDomainState`:
+  * When reading `threshold`, recall the contract of `SequencerSynchronizerState`:
   * The system must tolerate up to `min(threshold - 1, (active.size - 1)/3)` malicious active sequencers.
   */
 final case class SequencerGroup(

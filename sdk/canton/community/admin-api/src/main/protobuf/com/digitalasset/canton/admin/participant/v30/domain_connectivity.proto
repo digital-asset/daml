@@ -6,7 +6,7 @@ syntax = "proto3";
 package com.digitalasset.canton.admin.participant.v30;
 
 import "com/digitalasset/canton/admin/time/v30/time_tracker_config.proto";
-import "com/digitalasset/canton/admin/domain/v30/sequencer_connection.proto";
+import "com/digitalasset/canton/admin/sequencer/v30/sequencer_connection.proto";
 import "google/protobuf/duration.proto";
 
 /**
@@ -50,7 +50,7 @@ message DomainConnectionConfig {
   // participant local identifier of the target domain
   string synchronizer_alias = 1;
   // connection information to sequencers
-  com.digitalasset.canton.admin.domain.v30.SequencerConnections sequencer_connections = 2;
+  com.digitalasset.canton.admin.sequencer.v30.SequencerConnections sequencer_connections = 2;
   // if false, then domain needs to be manually connected to (default false)
   bool manual_connect = 3;
   // optional synchronizer id (if TLS isn't to be trusted)
@@ -83,7 +83,7 @@ message RegisterDomainRequest {
     DOMAIN_CONNECTION_NONE = 1;
 
     // Only performs the handshake with the sequencer (including fetching and persisting the static
-    // domain parameters) but does not establish an active connection to the domain.
+    // synchronizer parameters) but does not establish an active connection to the domain.
     // In that case domain connection will need to be performed subsequently.
     // This is useful during major version upgrades where we need to locally initialize the domain
     // connection, but don't want to start processing contracts before we have imported the ACS.
@@ -98,14 +98,14 @@ message RegisterDomainRequest {
   // Determines how well the provided sequencer connections should be validated before they are
   // persisted. The more paranoid the validation, the higher the chance of the command failing,
   // as it will require the sequencer to be online and responsive.
-  com.digitalasset.canton.admin.domain.v30.SequencerConnectionValidation sequencer_connection_validation = 3;
+  com.digitalasset.canton.admin.sequencer.v30.SequencerConnectionValidation sequencer_connection_validation = 3;
 }
 
 message RegisterDomainResponse {}
 
 message ModifyDomainRequest {
   DomainConnectionConfig new_config = 1;
-  com.digitalasset.canton.admin.domain.v30.SequencerConnectionValidation sequencer_connection_validation = 2;
+  com.digitalasset.canton.admin.sequencer.v30.SequencerConnectionValidation sequencer_connection_validation = 2;
 }
 
 message ModifyDomainResponse {}
@@ -137,7 +137,7 @@ message ConnectDomainRequest {
   // Determines how well the provided sequencer connections should be validated before they are
   // persisted. The more paranoid the validation, the higher the chance of the command failing,
   // as it will require the sequencer to be online and responsive.
-  com.digitalasset.canton.admin.domain.v30.SequencerConnectionValidation sequencer_connection_validation = 2;
+  com.digitalasset.canton.admin.sequencer.v30.SequencerConnectionValidation sequencer_connection_validation = 2;
 }
 
 message ConnectDomainResponse {

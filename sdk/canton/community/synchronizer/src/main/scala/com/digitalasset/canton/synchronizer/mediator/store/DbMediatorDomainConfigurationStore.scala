@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.mediator.store
@@ -9,7 +9,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.{String1, String255}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -102,7 +102,7 @@ class DbMediatorDomainConfigurationStore(
   ): ParsingResult[MediatorDomainConfiguration] =
     for {
       synchronizerId <- SynchronizerId.fromProtoPrimitive(row._1.unwrap, "synchronizerId")
-      domainParameters <- StaticDomainParameters.fromTrustedByteString(
+      domainParameters <- StaticSynchronizerParameters.fromTrustedByteString(
         row._2
       )
       sequencerConnections <- SequencerConnections.fromTrustedByteString(row._3)

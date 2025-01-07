@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.block
@@ -72,7 +72,7 @@ trait BlockOrderer extends AutoCloseable {
     * The sequencer signature may be used by the implementation to ensure that the submission originates from the
     * expected sequencer node. This may be necessary if the implementation is split across multiple processes.
     */
-  def send(signedSubmission: SignedOrderingRequest)(implicit
+  def send(signedOrderingRequest: SignedOrderingRequest)(implicit
       traceContext: TraceContext
   ): EitherT[Future, SendAsyncError, Unit]
 

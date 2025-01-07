@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.time
@@ -21,7 +21,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** Admin service to expose the time of domains to a participant and other nodes */
 private[time] class GrpcDomainTimeService(
-    lookupTimeTracker: Option[SynchronizerId] => Either[String, DomainTimeTracker],
+    lookupTimeTracker: Option[SynchronizerId] => Either[String, SynchronizerTimeTracker],
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends v30.DomainTimeServiceGrpc.DomainTimeService
@@ -146,7 +146,7 @@ object GrpcDomainTimeService {
 
   /** To use the time service for a participant a SynchronizerId must be specified as a participant can be connected to many domains */
   def forParticipant(
-      timeTrackerLookup: SynchronizerId => Option[DomainTimeTracker],
+      timeTrackerLookup: SynchronizerId => Option[SynchronizerTimeTracker],
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): GrpcDomainTimeService =
     new GrpcDomainTimeService(
@@ -165,7 +165,7 @@ object GrpcDomainTimeService {
   /** Domain entities have a constant synchronizer id so always have the same time tracker and cannot fetch another */
   def forDomainEntity(
       synchronizerId: SynchronizerId,
-      timeTracker: DomainTimeTracker,
+      timeTracker: SynchronizerTimeTracker,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): GrpcDomainTimeService =
     new GrpcDomainTimeService(

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.config
@@ -24,7 +24,7 @@ final case class CommunitySequencerNodeConfig(
     override val crypto: CommunityCryptoConfig = CommunityCryptoConfig(),
     override val sequencer: CommunitySequencerConfig = CommunitySequencerConfig.default,
     override val auditLogging: Boolean = false,
-    override val timeTracker: DomainTimeTrackerConfig = DomainTimeTrackerConfig(),
+    override val timeTracker: SynchronizerTimeTrackerConfig = SynchronizerTimeTrackerConfig(),
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig(),
     override val parameters: SequencerNodeParameterConfig = SequencerNodeParameterConfig(),
     override val health: SequencerHealthConfig = SequencerHealthConfig(),

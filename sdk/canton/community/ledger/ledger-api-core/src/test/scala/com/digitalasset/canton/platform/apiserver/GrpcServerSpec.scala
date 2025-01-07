@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver
@@ -8,9 +8,6 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
 import com.daml.metrics.api.{HistogramInventory, MetricName}
 import com.digitalasset.canton.config.RequireTypes.Port
-import com.digitalasset.canton.domain.api.v0
-import com.digitalasset.canton.domain.api.v0.Hello
-import com.digitalasset.canton.domain.api.v0.HelloServiceGrpc.HelloService
 import com.digitalasset.canton.grpc.sampleservice.HelloServiceReferenceImplementation
 import com.digitalasset.canton.ledger.client.GrpcChannel
 import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
@@ -30,7 +27,9 @@ import com.digitalasset.canton.platform.apiserver.ratelimiting.{
   LimitResult,
   RateLimitingInterceptor,
 }
-import com.digitalasset.canton.{BaseTest, HasExecutionContext}
+import com.digitalasset.canton.protobuf.Hello
+import com.digitalasset.canton.protobuf.HelloServiceGrpc.HelloService
+import com.digitalasset.canton.{BaseTest, HasExecutionContext, protobuf}
 import io.grpc.{BindableService, ManagedChannel, ServerInterceptor, StatusRuntimeException}
 import org.scalacheck.Gen
 import org.scalatest.Assertion
@@ -49,9 +48,9 @@ final class GrpcServerSpec
   "a GRPC server" should {
     "handle a request to a valid service" in {
       resources(loggerFactory).use { channel =>
-        val helloService = v0.HelloServiceGrpc.stub(channel)
+        val helloService = protobuf.HelloServiceGrpc.stub(channel)
         for {
-          response <- helloService.hello(v0.Hello.Request("foo"))
+          response <- helloService.hello(protobuf.Hello.Request("foo"))
         } yield {
           response.msg shouldBe "foofoo"
         }
@@ -60,10 +59,10 @@ final class GrpcServerSpec
 
     "fail with a nice exception" in {
       resources(loggerFactory, helloService = new FailingHelloService()(_)).use { channel =>
-        val helloService = v0.HelloServiceGrpc.stub(channel)
+        val helloService = protobuf.HelloServiceGrpc.stub(channel)
         for {
           exception <- helloService
-            .hello(v0.Hello.Request("This is some text."))
+            .hello(protobuf.Hello.Request("This is some text."))
             .failed
         } yield {
           exception.getMessage shouldBe "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: This is some text."
@@ -75,10 +74,10 @@ final class GrpcServerSpec
       val errorMessage = "There was an error. " + "x" * 2048
       val returnedMessage = "There was an error. " + "x" * 447 + "..."
       resources(loggerFactory, helloService = new FailingHelloService()(_)).use { channel =>
-        val helloService = v0.HelloServiceGrpc.stub(channel)
+        val helloService = protobuf.HelloServiceGrpc.stub(channel)
         for {
           exception <- helloService
-            .hello(v0.Hello.Request(errorMessage))
+            .hello(protobuf.Hello.Request(errorMessage))
             .failed
         } yield {
           exception.getMessage shouldBe s"INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: $returnedMessage"
@@ -94,10 +93,10 @@ final class GrpcServerSpec
           " And then some extra text that won't be sent."
 
       resources(loggerFactory, helloService = new FailingHelloService()(_)).use { channel =>
-        val helloService = v0.HelloServiceGrpc.stub(channel)
+        val helloService = protobuf.HelloServiceGrpc.stub(channel)
         for {
           exception <- helloService
-            .hello(v0.Hello.Request(exceptionMessage))
+            .hello(protobuf.Hello.Request(exceptionMessage))
             .failed
         } yield {
           // We don't want to test the exact message content, just that it does indeed contain a
@@ -159,8 +158,8 @@ final class GrpcServerSpec
         },
       )
       resources(loggerFactory, metrics, List(rateLimitingInterceptor)).use { channel =>
-        val helloService = v0.HelloServiceGrpc.stub(channel)
-        helloService.hello(v0.Hello.Request("foo")).failed.map {
+        val helloService = protobuf.HelloServiceGrpc.stub(channel)
+        helloService.hello(protobuf.Hello.Request("foo")).failed.map {
           case s: StatusRuntimeException =>
             s.getStatus.getDescription shouldBe overLimitRejection.asGrpcStatus.getMessage
           case o => fail(s"Expected StatusRuntimeException, not $o")
@@ -182,7 +181,7 @@ final class GrpcServerSpec
     }
 
     resources(loggerFactory, helloService = _ => randomExceptionGeneratingService).use { channel =>
-      val helloService = v0.HelloServiceGrpc.stub(channel)
+      val helloService = protobuf.HelloServiceGrpc.stub(channel)
       for (_ <- 1 to numberOfIterations) {
         val f = for {
           exception <- helloService.hello(Hello.Request("not relevant")).failed
@@ -204,7 +203,7 @@ object GrpcServerSpec {
 
   class FailingHelloService(implicit ec: ExecutionContext)
       extends HelloServiceReferenceImplementation {
-    override def hello(request: v0.Hello.Request): Future[v0.Hello.Response] = {
+    override def hello(request: protobuf.Hello.Request): Future[protobuf.Hello.Response] = {
       val loggerFactory = SuppressingLogger(getClass)
       val logger = loggerFactory.getTracedLogger(getClass)
       val errorLogger = ErrorLoggingContext(logger, LoggingContextWithTrace.ForTesting)

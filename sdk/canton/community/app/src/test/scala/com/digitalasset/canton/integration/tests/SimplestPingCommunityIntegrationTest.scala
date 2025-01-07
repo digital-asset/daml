@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests
@@ -42,13 +42,14 @@ sealed trait SimplestPingCommunityIntegrationTest
       Some(WaitingForInitialization),
     )
 
-    bootstrap.domain(
+    bootstrap.synchronizer(
       "da",
       Seq(sequencer1),
       Seq(mediator1),
       Seq[InstanceReference](sequencer1, mediator1),
       PositiveInt.two,
-      staticDomainParameters = CommunityEnvironmentDefinition.defaultStaticDomainParameters,
+      staticSynchronizerParameters =
+        CommunityEnvironmentDefinition.defaultStaticSynchronizerParameters,
     )
 
     sequencer1.health.status shouldBe a[NodeStatus.Success[?]]
@@ -56,7 +57,7 @@ sealed trait SimplestPingCommunityIntegrationTest
 
     participants.local.start()
 
-    participants.local.domains.connect_local(sequencer1, "da")
+    participants.local.synchronizers.connect_local(sequencer1, "da")
     mediator1.testing
       .fetch_domain_time() // Test if the DomainTimeService works for community mediators as well.
     participant1.health.ping(participant2)

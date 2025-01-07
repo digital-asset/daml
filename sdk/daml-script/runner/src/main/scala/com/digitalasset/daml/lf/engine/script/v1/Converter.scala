@@ -222,8 +222,8 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
   def fromTransactionTree(
       tree: TransactionTree
   ): Either[String, ScriptLedgerClient.TransactionTree] = {
-    def convEvent(ev: String): Either[String, ScriptLedgerClient.TreeEvent] =
-      tree.eventsById.get(ev).toRight(s"Event id $ev does not exist").flatMap { event =>
+    def convEvent(nodeId: Int): Either[String, ScriptLedgerClient.TreeEvent] =
+      tree.eventsById.get(nodeId).toRight(s"Node id $nodeId does not exist").flatMap { event =>
         event.kind match {
           case TreeEvent.Kind.Created(created) =>
             for {
@@ -251,7 +251,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
                 .validateValue(exercised.getChoiceArgument)
                 .left
                 .map(err => s"Failed to validate exercise argument: $err")
-              childEvents <- exercised.childEventIds.toList.traverse(convEvent(_))
+              childEvents <- exercised.childNodeIds.toList.traverse(convEvent(_))
             } yield ScriptLedgerClient.Exercised(
               tplId,
               ifaceId,
@@ -264,7 +264,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
         }
       }
     for {
-      rootEvents <- tree.rootEventIds.toList.traverse(convEvent(_))
+      rootEvents <- tree.rootNodeIds.toList.traverse(convEvent(_))
     } yield {
       ScriptLedgerClient.TransactionTree(rootEvents)
     }

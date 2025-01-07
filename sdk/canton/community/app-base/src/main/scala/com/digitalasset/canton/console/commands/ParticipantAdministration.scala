@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.console.commands
@@ -8,39 +8,13 @@ import cats.syntax.option.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.commands.*
-import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Inspection.{
-  CounterParticipantInfo,
-  DomainTimeRange,
-  GetConfigForSlowCounterParticipants,
-  GetIntervalsBehindForCounterParticipants,
-  LookupReceivedAcsCommitments,
-  LookupSentAcsCommitments,
-  ReceivedAcsCmt,
-  SentAcsCmt,
-  SetConfigForSlowCounterParticipants,
-  SlowCounterParticipantDomainConfig,
-}
-import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Pruning.{
-  GetNoWaitCommitmentsFrom,
-  GetParticipantScheduleCommand,
-  NoWaitCommitments,
-  SetNoWaitCommitmentsFrom,
-  SetParticipantScheduleCommand,
-  SetWaitCommitmentsFrom,
-  WaitCommitments,
-}
+import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Inspection.*
+import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Pruning.*
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Resources.{
   GetResourceLimits,
   SetResourceLimits,
 }
-import com.digitalasset.canton.admin.api.client.data.{
-  DarMetadata,
-  InFlightCount,
-  ListConnectedDomainsResult,
-  NodeStatus,
-  ParticipantPruningSchedule,
-  ParticipantStatus,
-}
+import com.digitalasset.canton.admin.api.client.data.*
 import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.admin.participant.v30.PruningServiceGrpc.PruningServiceStub
 import com.digitalasset.canton.admin.participant.v30.{
@@ -51,8 +25,8 @@ import com.digitalasset.canton.admin.participant.v30.{
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{
   ConsoleCommandTimeout,
-  DomainTimeTrackerConfig,
   NonNegativeDuration,
+  SynchronizerTimeTrackerConfig,
 }
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
@@ -77,7 +51,6 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, Traced
 import com.digitalasset.canton.participant.ParticipantNode
 import com.digitalasset.canton.participant.admin.ResourceLimits
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
-import com.digitalasset.canton.participant.domain.DomainConnectionConfig
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.{
   ReceivedCmtState,
   SentCmtState,
@@ -86,6 +59,7 @@ import com.digitalasset.canton.participant.pruning.{
   CommitmentContractMetadata,
   CommitmentInspectContract,
 }
+import com.digitalasset.canton.participant.synchronizer.DomainConnectionConfig
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
   CommitmentPeriod,
@@ -93,13 +67,7 @@ import com.digitalasset.canton.protocol.messages.{
   SignedProtocolMessage,
 }
 import com.digitalasset.canton.protocol.{LfContractId, LfVersionedTransaction, SerializableContract}
-import com.digitalasset.canton.sequencing.{
-  PossiblyIgnoredProtocolEvent,
-  SequencerConnection,
-  SequencerConnectionValidation,
-  SequencerConnections,
-  SubmissionRequestAmplification,
-}
+import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId}
@@ -114,10 +82,10 @@ import java.time.Instant
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
 
-sealed trait DomainChoice
-object DomainChoice {
-  object All extends DomainChoice
-  final case class Only(aliases: Seq[SynchronizerAlias]) extends DomainChoice
+sealed trait SynchronizerChoice
+object SynchronizerChoice {
+  object All extends SynchronizerChoice
+  final case class Only(aliases: Seq[SynchronizerAlias]) extends SynchronizerChoice
 }
 
 private[console] object ParticipantCommands {
@@ -174,7 +142,7 @@ private[console] object ParticipantCommands {
         priority,
         None,
         maxRetryDelay,
-        DomainTimeTrackerConfig(),
+        SynchronizerTimeTrackerConfig(),
       )
 
     def to_config(
@@ -186,7 +154,7 @@ private[console] object ParticipantCommands {
         priority: Int = 0,
         initialRetryDelay: Option[NonNegativeFiniteDuration] = None,
         maxRetryDelay: Option[NonNegativeFiniteDuration] = None,
-        timeTrackerConfig: DomainTimeTrackerConfig = DomainTimeTrackerConfig(),
+        timeTrackerConfig: SynchronizerTimeTrackerConfig = SynchronizerTimeTrackerConfig(),
     ): DomainConnectionConfig = {
       // architecture-handbook-entry-begin: OnboardParticipantToConfig
       val certificates = OptionUtil.emptyStringAsNone(certificatesPath).map { path =>
@@ -335,17 +303,17 @@ class ParticipantTestingGroup(
     }).toOption
 
   @Help.Summary("Fetch the current time from the given domain", FeatureFlag.Testing)
-  def fetch_domain_time(
+  def fetch_synchronizer_time(
       synchronizerAlias: SynchronizerAlias,
       timeout: NonNegativeDuration,
   ): CantonTimestamp =
     check(FeatureFlag.Testing) {
-      val id = participantRef.domains.id_of(synchronizerAlias)
-      fetch_domain_time(id, timeout)
+      val id = participantRef.synchronizers.id_of(synchronizerAlias)
+      fetch_synchronizer_time(id, timeout)
     }
 
   @Help.Summary("Fetch the current time from the given domain", FeatureFlag.Testing)
-  def fetch_domain_time(
+  def fetch_synchronizer_time(
       synchronizerId: SynchronizerId,
       timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.ledgerCommand,
   ): CantonTimestamp =
@@ -362,23 +330,23 @@ class ParticipantTestingGroup(
     }
 
   @Help.Summary("Fetch the current time from all connected domains", FeatureFlag.Testing)
-  def fetch_domain_times(
+  def fetch_synchronizer_times(
       timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.ledgerCommand
   ): Unit =
     check(FeatureFlag.Testing) {
-      participantRef.domains.list_connected().foreach { item =>
-        fetch_domain_time(item.synchronizerId, timeout).discard[CantonTimestamp]
+      participantRef.synchronizers.list_connected().foreach { item =>
+        fetch_synchronizer_time(item.synchronizerId, timeout).discard[CantonTimestamp]
       }
     }
 
   @Help.Summary("Await for the given time to be reached on the given domain", FeatureFlag.Testing)
-  def await_domain_time(
+  def await_synchronizer_time(
       synchronizerAlias: SynchronizerAlias,
       time: CantonTimestamp,
       timeout: NonNegativeDuration,
   ): Unit =
     check(FeatureFlag.Testing) {
-      val id = participantRef.domains.id_of(synchronizerAlias)
+      val id = participantRef.synchronizers.id_of(synchronizerAlias)
       await_domain_time(id, time, timeout)
     }
 
@@ -1425,7 +1393,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.bounded
   ): Unit
 
-  protected def participantIsActiveOnDomain(
+  protected def participantIsActiveOnSynchronizer(
       synchronizerId: SynchronizerId,
       participantId: ParticipantId,
   ): Boolean
@@ -1652,8 +1620,8 @@ trait ParticipantAdministration extends FeatureFlagFilter {
   }
 
   @Help.Summary("Manage domain connections")
-  @Help.Group("Domains")
-  object domains extends Helpful {
+  @Help.Group("Synchronizers")
+  object synchronizers extends Helpful {
 
     @Help.Summary("Returns the id of the given synchronizer alias")
     def id_of(synchronizerAlias: SynchronizerAlias): SynchronizerId =
@@ -1675,7 +1643,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       list_connected().exists { r =>
         r.synchronizerAlias == synchronizerAlias &&
         r.healthy &&
-        participantIsActiveOnDomain(r.synchronizerId, id)
+        participantIsActiveOnSynchronizer(r.synchronizerId, id)
       }
 
     @Help.Summary(
@@ -1904,7 +1872,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         synchronizerId: Option[SynchronizerId] = None,
         certificatesPath: String = "",
         priority: Int = 0,
-        timeTrackerConfig: DomainTimeTrackerConfig = DomainTimeTrackerConfig(),
+        timeTrackerConfig: SynchronizerTimeTrackerConfig = SynchronizerTimeTrackerConfig(),
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),

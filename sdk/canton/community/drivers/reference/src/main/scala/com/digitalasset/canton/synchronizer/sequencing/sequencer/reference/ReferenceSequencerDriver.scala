@@ -1,15 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.reference
 
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.{ProcessingTimeout, QueryCostMonitoringConfig, StorageConfig}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.v1.{
-  TracedBatchedBlockOrderingRequests,
-  TracedBlockOrderingRequest,
-}
 import com.digitalasset.canton.lifecycle.{
   AsyncCloseable,
   AsyncOrSyncCloseable,
@@ -40,6 +36,10 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.Refer
   batchRequests,
 }
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.store.ReferenceBlockOrderingStore
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.store.v1.{
+  TracedBatchedBlockOrderingRequests,
+  TracedBlockOrderingRequest,
+}
 import com.digitalasset.canton.time.TimeProvider
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.{ErrorUtil, PekkoUtil}
@@ -99,7 +99,9 @@ class ReferenceSequencerDriver(
       .subscribe(firstBlockHeight)(store, config.pollInterval, logger)
       .map(blockOrdererBlockToRawLedgerBlock(logger))
 
-  override def send(request: ByteString)(implicit traceContext: TraceContext): Future[Unit] =
+  override def send(request: ByteString, submissionId: String, senderId: String)(implicit
+      traceContext: TraceContext
+  ): Future[Unit] =
     sendRequest(SendTag, request)
 
   override def acknowledge(acknowledgement: ByteString)(implicit

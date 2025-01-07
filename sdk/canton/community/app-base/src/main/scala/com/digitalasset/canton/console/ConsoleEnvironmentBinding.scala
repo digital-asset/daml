@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.console
@@ -27,15 +27,15 @@ class ConsoleEnvironmentBinding {
        |import com.digitalasset.canton.config._
        |import com.digitalasset.canton.version.ProtocolVersion
        |import com.digitalasset.canton.admin.api.client.data._
-       |import com.digitalasset.canton.participant.domain.DomainConnectionConfig
-       |import com.digitalasset.canton.synchronizer.config.DomainParametersConfig
+       |import com.digitalasset.canton.participant.synchronizer.DomainConnectionConfig
+       |import com.digitalasset.canton.synchronizer.config.SynchronizerParametersConfig
        |import com.digitalasset.canton.SequencerAlias
        |import com.digitalasset.canton.sequencing.SequencerConnection
        |import com.digitalasset.canton.sequencing.SequencerConnections
        |import com.digitalasset.canton.sequencing.SequencerConnectionValidation._
        |import com.digitalasset.canton.sequencing.GrpcSequencerConnection
        |$consoleMacrosImport
-       |import com.digitalasset.canton.console.commands.DomainChoice
+       |import com.digitalasset.canton.console.commands.SynchronizerChoice
        |import ${classOf[com.digitalasset.canton.console.BootstrapScriptException].getName}
        |import com.digitalasset.canton.config.RequireTypes._
        |import com.digitalasset.canton.participant.admin.ResourceLimits

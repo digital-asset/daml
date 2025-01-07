@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin.repair
@@ -37,12 +37,12 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.admin.repair.RepairService.{ContractToAdd, DomainLookup}
-import com.digitalasset.canton.participant.domain.SynchronizerAliasManager
 import com.digitalasset.canton.participant.event.RecordTime
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.RequestJournal.RequestState
 import com.digitalasset.canton.participant.store.*
+import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
 import com.digitalasset.canton.participant.topology.TopologyComponentFactory
 import com.digitalasset.canton.participant.util.DAMLe.ContractWithMetadata
 import com.digitalasset.canton.participant.util.{DAMLe, TimeOfChange}
@@ -349,11 +349,11 @@ final class RepairService(
                 .synchronizerIdForAlias(synchronizerAlias)
                 .toRight(s"Could not find $synchronizerAlias")
             )
-            sychronizer <- readDomainData(synchronizerId, synchronizerAlias)
+            synchronizer <- readDomainData(synchronizerId, synchronizerAlias)
 
             contractStates <- EitherT.right[String](
               readContractAcsStates(
-                sychronizer.persistentState,
+                synchronizer.persistentState,
                 contracts.map(_.contract.contractId),
               )
             )
@@ -394,7 +394,7 @@ final class RepairService(
                   val workflowIds = workflowIdsFromPrefix(workflowIdPrefix, groupCount)
                   for {
                     repair <- initRepairRequestAndVerifyPreconditions(
-                      domain = sychronizer,
+                      domain = synchronizer,
                       requestCountersToAllocate = groupCount,
                     )
 

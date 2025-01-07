@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.submission
@@ -42,7 +42,7 @@ object EncryptedViewMessageFactory {
   def create[VT <: ViewType](viewType: VT)(
       viewTree: viewType.View,
       viewKeyData: (SymmetricKey, Seq[AsymmetricEncrypted[SecureRandomness]]),
-      cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
       protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext,
@@ -206,7 +206,7 @@ object EncryptedViewMessageFactory {
       viewRecipients: Seq[(ViewHashAndRecipients, Option[Recipients], List[LfPartyId])],
       parallel: Boolean,
       pureCrypto: CryptoPureApi,
-      cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
       sessionKeyStore: ConfirmationRequestSessionKeyStore,
   )(implicit
       ec: ExecutionContext,
@@ -398,7 +398,7 @@ object EncryptedViewMessageFactory {
   private def createDataMap[M <: HasToByteString](
       participants: LazyList[ParticipantId],
       data: M,
-      cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.db
@@ -20,20 +20,20 @@ import com.digitalasset.canton.participant.store.{
   SyncDomainPersistentState,
 }
 import com.digitalasset.canton.participant.topology.ParticipantTopologyValidation
-import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.DbSequencedEventStore
 import com.digitalasset.canton.store.memory.InMemorySendTrackerStore
 import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
+import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.db.DbTopologyStore
 import com.digitalasset.canton.topology.{
-  DomainOutboxQueue,
-  DomainTopologyManager,
   ForceFlags,
   ParticipantId,
   PartyId,
+  SynchronizerOutboxQueue,
+  SynchronizerTopologyManager,
   TopologyManagerError,
 }
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
@@ -44,7 +44,7 @@ import scala.concurrent.ExecutionContext
 class DbSyncDomainPersistentState(
     participantId: ParticipantId,
     override val indexedDomain: IndexedDomain,
-    val staticDomainParameters: StaticDomainParameters,
+    val staticSynchronizerParameters: StaticSynchronizerParameters,
     clock: Clock,
     storage: DbStorage,
     crypto: Crypto,
@@ -73,7 +73,7 @@ class DbSyncDomainPersistentState(
     storage,
     ReassignmentTag.Target(indexedDomain),
     indexedStringStore,
-    ReassignmentTag.Target(staticDomainParameters.protocolVersion),
+    ReassignmentTag.Target(staticSynchronizerParameters.protocolVersion),
     pureCryptoApi,
     futureSupervisor,
     exitOnFatalFailures = parameters.exitOnFatalFailures,
@@ -93,7 +93,7 @@ class DbSyncDomainPersistentState(
   val sequencedEventStore = new DbSequencedEventStore(
     storage,
     indexedDomain,
-    staticDomainParameters.protocolVersion,
+    staticSynchronizerParameters.protocolVersion,
     timeouts,
     loggerFactory,
   )
@@ -109,13 +109,13 @@ class DbSyncDomainPersistentState(
     storage,
     indexedDomain,
     acsCounterParticipantConfigStore,
-    staticDomainParameters.protocolVersion,
+    staticSynchronizerParameters.protocolVersion,
     timeouts,
     loggerFactory,
   )
 
-  val parameterStore: DbDomainParameterStore =
-    new DbDomainParameterStore(indexedDomain.synchronizerId, storage, timeouts, loggerFactory)
+  val parameterStore: DbSynchronizerParameterStore =
+    new DbSynchronizerParameterStore(indexedDomain.synchronizerId, storage, timeouts, loggerFactory)
   // TODO(i5660): Use the db-based send tracker store
   val sendTrackerStore = new InMemorySendTrackerStore()
 
@@ -131,19 +131,19 @@ class DbSyncDomainPersistentState(
   override val topologyStore =
     new DbTopologyStore(
       storage,
-      DomainStore(indexedDomain.synchronizerId),
-      staticDomainParameters.protocolVersion,
+      SynchronizerStore(indexedDomain.synchronizerId),
+      staticSynchronizerParameters.protocolVersion,
       timeouts,
       loggerFactory,
     )
 
-  override val domainOutboxQueue = new DomainOutboxQueue(loggerFactory)
+  override val domainOutboxQueue = new SynchronizerOutboxQueue(loggerFactory)
 
-  override val topologyManager: DomainTopologyManager = new DomainTopologyManager(
+  override val topologyManager: SynchronizerTopologyManager = new SynchronizerTopologyManager(
     participantId.uid,
     clock = clock,
     crypto = crypto,
-    staticDomainParameters = staticDomainParameters,
+    staticSynchronizerParameters = staticSynchronizerParameters,
     store = topologyStore,
     outboxQueue = domainOutboxQueue,
     exitOnFatalFailures = parameters.exitOnFatalFailures,

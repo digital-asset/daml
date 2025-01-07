@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.errors
@@ -9,7 +9,7 @@ import com.digitalasset.canton.crypto.SignatureCheckError
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonErrorGroups.SequencerErrorGroup
 import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, BaseCantonError, LogOnCreation}
-import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
+import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
   MessageId,
@@ -65,7 +65,7 @@ object SequencerError extends SequencerErrorGroup {
     """This error means that the request size has exceeded the configured value maxRequestSize."""
   )
   @Resolution(
-    """Send smaller requests or increase the maxRequestSize in the domain parameters"""
+    """Send smaller requests or increase the maxRequestSize in the synchronizer parameters"""
   )
   object MaxRequestSizeExceeded extends AlarmErrorCode("MAX_REQUEST_SIZE_EXCEEDED") {
 

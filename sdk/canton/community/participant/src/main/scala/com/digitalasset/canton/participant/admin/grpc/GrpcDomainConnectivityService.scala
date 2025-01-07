@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin.grpc
@@ -7,14 +7,14 @@ import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
-import com.digitalasset.canton.admin.domain.v30 as domainV30
 import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.admin.participant.v30.RegisterDomainRequest.DomainConnection
 import com.digitalasset.canton.admin.participant.v30.{
   DisconnectAllDomainsRequest,
   DisconnectAllDomainsResponse,
 }
-import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
+import com.digitalasset.canton.admin.sequencer.v30 as sequencerV30
+import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.error.BaseCantonError
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
@@ -22,16 +22,16 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
-import com.digitalasset.canton.participant.domain.{
-  DomainConnectionConfig,
-  DomainRegistryError,
-  DomainRegistryHelpers,
-  SynchronizerAliasManager,
-}
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.participant.sync.CantonSyncService.ConnectDomain
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceInternalError.DomainIsMissingInternally
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceUnknownDomain
+import com.digitalasset.canton.participant.synchronizer.{
+  DomainConnectionConfig,
+  DomainRegistryHelpers,
+  SynchronizerAliasManager,
+  SynchronizerRegistryError,
+}
 import com.digitalasset.canton.sequencing.SequencerConnectionValidation
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
@@ -69,7 +69,7 @@ class GrpcDomainConnectivityService(
       )
       client <- EitherT.fromOption[FutureUnlessShutdown](
         sync.syncCrypto.ips
-          .forDomain(synchronizerId),
+          .forSynchronizer(synchronizerId),
         DomainIsMissingInternally(synchronizerAlias, "ips"),
       )
       active <- EitherT
@@ -79,7 +79,7 @@ class GrpcDomainConnectivityService(
           .cond[FutureUnlessShutdown](
             active,
             (),
-            DomainRegistryError.ConnectionErrors.ParticipantIsNotActive.Error(
+            SynchronizerRegistryError.ConnectionErrors.ParticipantIsNotActive.Error(
               s"While synchronizerAlias $synchronizerAlias promised, participant ${sync.participantId} never became active within `timeouts.network` (${timeouts.network})."
             ): BaseCantonError,
           )
@@ -103,7 +103,7 @@ class GrpcDomainConnectivityService(
       .leftMap(ProtoDeserializationFailure.WrapNoLogging.apply)
 
   private def parseSequencerConnectionValidation(
-      proto: domainV30.SequencerConnectionValidation
+      proto: sequencerV30.SequencerConnectionValidation
   ): Either[BaseCantonError, SequencerConnectionValidation] =
     SequencerConnectionValidation
       .fromProtoV30(proto)
@@ -336,7 +336,9 @@ class GrpcDomainConnectivityService(
             traceContext,
             CloseContext(sync),
           )
-          .leftMap[BaseCantonError](err => DomainRegistryError.fromSequencerInfoLoaderError(err))
+          .leftMap[BaseCantonError](err =>
+            SynchronizerRegistryError.fromSequencerInfoLoaderError(err)
+          )
       _ <- aliasManager
         .processHandshake(connectionConfig.synchronizerAlias, result.synchronizerId)
         .leftMap(DomainRegistryHelpers.fromSynchronizerAliasManagerError)

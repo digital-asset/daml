@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.environment
@@ -45,12 +45,12 @@ import com.digitalasset.canton.resource.{
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
+import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.{
   AuthorizedTopologyManager,
-  DomainTopologyManager,
   Member,
+  SynchronizerTopologyManager,
   UniqueIdentifier,
 }
 import com.digitalasset.canton.tracing.TracingConfig
@@ -198,12 +198,12 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       EitherT.pure[Future, String](())
     override protected def lookupTopologyClient(
         storeId: TopologyStoreId
-    ): Option[DomainTopologyClientWithInit] = ???
+    ): Option[SynchronizerTopologyClientWithInit] = ???
 
     override protected def sequencedTopologyStores
-        : Seq[TopologyStore[TopologyStoreId.DomainStore]] = Nil
+        : Seq[TopologyStore[TopologyStoreId.SynchronizerStore]] = Nil
 
-    override protected def sequencedTopologyManagers: Seq[DomainTopologyManager] = Nil
+    override protected def sequencedTopologyManagers: Seq[SynchronizerTopologyManager] = Nil
   }
 
   class TestNodeFactory {

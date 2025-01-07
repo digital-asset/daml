@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -446,9 +446,9 @@ final case class FullAssignmentTree(tree: AssignmentViewTree)
   ): AssignmentMediatorMessage = tree.mediatorMessage(submittingParticipantSignature)
 
   // Domains
-  override def sourceDomain: Source[SynchronizerId] =
+  override def sourceSynchronizer: Source[SynchronizerId] =
     view.unassignmentResultEvent.reassignmentId.sourceDomain
-  override def targetDomain: Target[SynchronizerId] = commonData.targetSynchronizerId
+  override def targetSynchronizer: Target[SynchronizerId] = commonData.targetSynchronizerId
   override def synchronizerId: SynchronizerId = commonData.targetSynchronizerId.unwrap
   override def mediator: MediatorGroupRecipient = commonData.targetMediatorGroup
 

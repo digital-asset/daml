@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.service
@@ -8,7 +8,11 @@ import cats.syntax.either.*
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation}
 import com.digitalasset.canton.crypto.{Nonce, Signature}
 import com.digitalasset.canton.discard.Implicits.*
-import com.digitalasset.canton.domain.api.v30.SequencerAuthentication.{
+import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcFUSExtended
+import com.digitalasset.canton.sequencer.api.v30.SequencerAuthentication.{
   AuthenticateRequest,
   AuthenticateResponse,
   ChallengeRequest,
@@ -16,11 +20,7 @@ import com.digitalasset.canton.domain.api.v30.SequencerAuthentication.{
   LogoutRequest,
   LogoutResponse,
 }
-import com.digitalasset.canton.domain.api.v30.SequencerAuthenticationServiceGrpc.SequencerAuthenticationService
-import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError}
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcFUSExtended
+import com.digitalasset.canton.sequencer.api.v30.SequencerAuthenticationServiceGrpc.SequencerAuthenticationService
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.{
   AuthenticationError,
   LogoutTokenDoesNotExist,

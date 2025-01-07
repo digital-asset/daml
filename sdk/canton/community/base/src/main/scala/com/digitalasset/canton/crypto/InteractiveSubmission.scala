@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto
@@ -192,7 +192,7 @@ object InteractiveSubmission {
   def verifySignatures(
       hash: Hash,
       signatures: Map[PartyId, Seq[Signature]],
-      cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
       actAs: Set[LfPartyId],
       logger: TracedLogger,
   )(implicit
@@ -239,7 +239,7 @@ object InteractiveSubmission {
   private def verifySignatures(
       hash: Hash,
       signatures: Map[PartyId, Seq[Signature]],
-      cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
       logger: TracedLogger,
   )(implicit
       traceContext: TraceContext,

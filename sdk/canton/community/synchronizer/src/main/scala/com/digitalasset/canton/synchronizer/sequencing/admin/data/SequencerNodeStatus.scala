@@ -1,10 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.admin.data
 
 import cats.syntax.option.*
-import com.digitalasset.canton.admin.domain.v30 as domainV30
+import com.digitalasset.canton.admin.sequencer.v30 as sequencerV30
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.health.ComponentHealthState.UnhealthyState
 import com.digitalasset.canton.health.admin.data.*
@@ -69,17 +69,17 @@ final case class SequencerNodeStatus(
       ).mkString(System.lineSeparator())
     )
 
-  def toSequencerStatusProto: domainV30.SequencerStatusResponse.SequencerStatusResponseStatus = {
+  def toSequencerStatusProto: sequencerV30.SequencerStatusResponse.SequencerStatusResponseStatus = {
 
     val connectedParticipantsP = connectedParticipants.map { p =>
-      domainV30.SequencerStatusResponse.ConnectedParticipant(p.uid.toProtoPrimitive)
+      sequencerV30.SequencerStatusResponse.ConnectedParticipant(p.uid.toProtoPrimitive)
     }
 
     val connectedMediatorsP = connectedMediators.map { m =>
-      domainV30.SequencerStatusResponse.ConnectedMediator(m.uid.toProtoPrimitive)
+      sequencerV30.SequencerStatusResponse.ConnectedMediator(m.uid.toProtoPrimitive)
     }
 
-    domainV30.SequencerStatusResponse.SequencerStatusResponseStatus(
+    sequencerV30.SequencerStatusResponse.SequencerStatusResponseStatus(
       commonStatus = toProtoV30.some,
       connectedParticipants = connectedParticipantsP,
       connectedMediators = connectedMediatorsP,
@@ -97,8 +97,8 @@ final case class SequencerNodeStatus(
 final case class SequencerHealthStatus(isActive: Boolean, details: Option[String] = None)
     extends ToComponentHealthState
     with PrettyPrinting {
-  def toProtoV30: domainV30.SequencerHealthStatus =
-    domainV30.SequencerHealthStatus(isActive, details)
+  def toProtoV30: sequencerV30.SequencerHealthStatus =
+    sequencerV30.SequencerHealthStatus(isActive, details)
 
   override def toComponentHealthState: ComponentHealthState = if (isActive)
     ComponentHealthState.Ok(details)
@@ -114,7 +114,7 @@ object SequencerHealthStatus extends PrettyUtil with ShowUtil {
     SequencerHealthStatus(isActive = false, details = Some("Sequencer is closed"))
 
   def fromProto(
-      statusP: domainV30.SequencerHealthStatus
+      statusP: sequencerV30.SequencerHealthStatus
   ): ParsingResult[SequencerHealthStatus] =
     Right(SequencerHealthStatus(statusP.active, statusP.details))
 
@@ -132,8 +132,8 @@ object SequencerHealthStatus extends PrettyUtil with ShowUtil {
 final case class SequencerAdminStatus(acceptsAdminChanges: Boolean)
     extends ToComponentHealthState
     with PrettyPrinting {
-  def toProtoV30: domainV30.SequencerAdminStatus =
-    domainV30.SequencerAdminStatus(acceptsAdminChanges)
+  def toProtoV30: sequencerV30.SequencerAdminStatus =
+    sequencerV30.SequencerAdminStatus(acceptsAdminChanges)
 
   override def toComponentHealthState: ComponentHealthState =
     ComponentHealthState.Ok(Option.when(acceptsAdminChanges)("sequencer accepts admin commands"))
@@ -144,7 +144,7 @@ final case class SequencerAdminStatus(acceptsAdminChanges: Boolean)
 
 object SequencerAdminStatus extends PrettyUtil with ShowUtil {
   def fromProto(
-      statusP: domainV30.SequencerAdminStatus
+      statusP: sequencerV30.SequencerAdminStatus
   ): ParsingResult[SequencerAdminStatus] =
     Right(SequencerAdminStatus(statusP.acceptsAdminChanges))
 

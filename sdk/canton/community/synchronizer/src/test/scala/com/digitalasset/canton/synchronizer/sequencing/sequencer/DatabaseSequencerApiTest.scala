@@ -1,12 +1,12 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer
 
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
-import com.digitalasset.canton.crypto.DomainSyncCryptoClient
-import com.digitalasset.canton.protocol.DynamicDomainParameters
+import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
+import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.Sequencer as CantonSequencer
@@ -19,14 +19,14 @@ import org.apache.pekko.stream.Materializer
 abstract class DatabaseSequencerApiTest extends SequencerApiTest {
 
   def createSequencer(
-      crypto: DomainSyncCryptoClient
+      crypto: SynchronizerSyncCryptoClient
   )(implicit materializer: Materializer): CantonSequencer = {
     val clock = new SimClock(loggerFactory = loggerFactory)
     val crypto = TestingIdentityFactory(
       TestingTopology(),
       loggerFactory,
-      DynamicDomainParameters.initialValues(clock, testedProtocolVersion),
-    ).forOwnerAndDomain(owner = mediatorId, synchronizerId)
+      DynamicSynchronizerParameters.initialValues(clock, testedProtocolVersion),
+    ).forOwnerAndSynchronizer(owner = mediatorId, synchronizerId)
     val metrics = SequencerMetrics.noop("database-sequencer-test")
 
     // we explicitly pass the parallel executor service to use as the execution context
