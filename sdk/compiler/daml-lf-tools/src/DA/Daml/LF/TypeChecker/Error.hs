@@ -337,6 +337,8 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       , (upgradeDependencyMetadataName, upgradeDependencyMetadataFlag)
       , (upgradeSerializedLF15DependencyName, upgradeSerializedLF15DependencyFlag)
       , (referencesDamlScriptDatatypeName, referencesDamlScriptDatatypeFlag)
+      , (upgradedTemplateChangedName, upgradedTemplateChangedFlag)
+      , (upgradedChoiceChangedName, upgradedChoiceChangedFlag)
       ]
   , dwfpDefault = \case
       WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> AsError
@@ -365,6 +367,8 @@ filterNameForErrorOrWarning err | upgradeExceptionsFilter err = Just upgradeExce
 filterNameForErrorOrWarning err | upgradeDependencyMetadataFilter err = Just upgradeDependencyMetadataName
 filterNameForErrorOrWarning err | upgradeSerializedLF15DependencyFilter err = Just upgradeSerializedLF15DependencyName
 filterNameForErrorOrWarning err | referencesDamlScriptDatatypeFilter err = Just referencesDamlScriptDatatypeName
+filterNameForErrorOrWarning err | upgradedTemplateChangedFilter err = Just upgradedTemplateChangedName
+filterNameForErrorOrWarning err | upgradedChoiceChangedFilter err = Just upgradedChoiceChangedName
 filterNameForErrorOrWarning _ = Nothing
 
 upgradeSerializedLF15DependencyFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
@@ -389,6 +393,37 @@ referencesDamlScriptDatatypeFilter :: ErrorOrWarning -> Bool
 referencesDamlScriptDatatypeFilter =
     \case
         WEDependsOnDatatypeFromNewDamlScript {} -> True
+        _ -> False
+
+upgradedTemplateChangedFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+upgradedTemplateChangedFlag status = RawDamlWarningFlag upgradedTemplateChangedName status upgradedTemplateChangedFilter
+
+upgradedTemplateChangedName :: String
+upgradedTemplateChangedName = "upgraded-template-changed"
+
+upgradedTemplateChangedFilter :: ErrorOrWarning -> Bool
+upgradedTemplateChangedFilter =
+    \case
+        WEUpgradedTemplateChangedPrecondition {} -> True
+        WEUpgradedTemplateChangedSignatories {} -> True
+        WEUpgradedTemplateChangedObservers {} -> True
+        WEUpgradedTemplateChangedAgreement {} -> True
+        WEUpgradedTemplateChangedKeyExpression {} -> True
+        WEUpgradedTemplateChangedKeyMaintainers {} -> True
+        _ -> False
+
+upgradedChoiceChangedFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+upgradedChoiceChangedFlag status = RawDamlWarningFlag upgradedChoiceChangedName status upgradedChoiceChangedFilter
+
+upgradedChoiceChangedName :: String
+upgradedChoiceChangedName = "upgraded-choice-changed"
+
+upgradedChoiceChangedFilter :: ErrorOrWarning -> Bool
+upgradedChoiceChangedFilter =
+    \case
+        WEUpgradedChoiceChangedControllers {} -> True
+        WEUpgradedChoiceChangedObservers {} -> True
+        WEUpgradedChoiceChangedAuthorizers {} -> True
         _ -> False
 
 upgradeInterfacesFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
