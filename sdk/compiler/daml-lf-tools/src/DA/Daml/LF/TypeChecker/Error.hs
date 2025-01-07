@@ -339,6 +339,7 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       , (referencesDamlScriptDatatypeName, referencesDamlScriptDatatypeFlag)
       , (upgradedTemplateChangedName, upgradedTemplateChangedFlag)
       , (upgradedChoiceChangedName, upgradedChoiceChangedFlag)
+      , (couldNotExtractUpgradedExpressionName, couldNotExtractUpgradedExpressionFlag)
       ]
   , dwfpDefault = \case
       WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> AsError
@@ -369,6 +370,7 @@ filterNameForErrorOrWarning err | upgradeSerializedLF15DependencyFilter err = Ju
 filterNameForErrorOrWarning err | referencesDamlScriptDatatypeFilter err = Just referencesDamlScriptDatatypeName
 filterNameForErrorOrWarning err | upgradedTemplateChangedFilter err = Just upgradedTemplateChangedName
 filterNameForErrorOrWarning err | upgradedChoiceChangedFilter err = Just upgradedChoiceChangedName
+filterNameForErrorOrWarning err | couldNotExtractUpgradedExpressionFilter err = Just couldNotExtractUpgradedExpressionName
 filterNameForErrorOrWarning _ = Nothing
 
 upgradeSerializedLF15DependencyFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
@@ -424,6 +426,18 @@ upgradedChoiceChangedFilter =
         WEUpgradedChoiceChangedControllers {} -> True
         WEUpgradedChoiceChangedObservers {} -> True
         WEUpgradedChoiceChangedAuthorizers {} -> True
+        _ -> False
+
+couldNotExtractUpgradedExpressionFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+couldNotExtractUpgradedExpressionFlag status = RawDamlWarningFlag couldNotExtractUpgradedExpressionName status couldNotExtractUpgradedExpressionFilter
+
+couldNotExtractUpgradedExpressionName :: String
+couldNotExtractUpgradedExpressionName = "could-not-extract-upgraded-expression"
+
+couldNotExtractUpgradedExpressionFilter :: ErrorOrWarning -> Bool
+couldNotExtractUpgradedExpressionFilter =
+    \case
+        WECouldNotExtractForUpgradeChecking {} -> True
         _ -> False
 
 upgradeInterfacesFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
