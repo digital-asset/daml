@@ -9,12 +9,7 @@ import com.daml.lf.engine.BlindingSpec._
 import com.daml.lf.ledger.BlindingTransaction
 import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey
 import com.daml.lf.transaction.test.TreeTransactionBuilder.NodeOps
-import com.daml.lf.transaction.test.{
-  NodeIdTransactionBuilder,
-  TestNodeBuilder,
-  TransactionBuilder,
-  TreeTransactionBuilder,
-}
+import com.daml.lf.transaction.test._
 import com.daml.lf.transaction.{BlindingInfo, Node, VersionedTransaction}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ValueRecord, ValueTrue}
@@ -322,6 +317,45 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
       ),
     )
   }
+
+  "divulge created contracts" in {
+
+    val templateId = pkg1 | defaultQualifiedName
+    val arg = ValueRecord(None, ImmArray.Empty)
+
+    val builder = new TxBuilder with TestIdFactory
+
+    val create0 = builder.create(
+      id = builder.newCid,
+      templateId = templateId,
+      argument = ValueRecord(None, ImmArray.Empty),
+      signatories = Set(sig1),
+    )
+
+    val create1 = builder.create(
+      id = builder.newCid,
+      templateId = templateId,
+      argument = arg,
+      signatories = Set(sig2),
+    )
+
+    val exercise0 = builder
+      .exercise(
+        contract = create0,
+        choice = "C",
+        consuming = false,
+        actingParties = Set(sig3),
+        argument = arg,
+        byKey = false,
+      )
+      .withChildren(create1)
+
+    val tx = TreeTransactionBuilder.toVersionedTransaction(exercise0)
+
+    val (_, visibility) = BlindingTransaction.calculateBlindingInfoWithContractVisibility(tx)
+    visibility.get(create1.coid) shouldBe Some(Set(sig1, sig2, sig3))
+  }
+
 }
 
 object BlindingSpec {

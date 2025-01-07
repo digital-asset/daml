@@ -98,7 +98,12 @@ object BlindingTransaction {
 
           action match {
 
-            case _: Node.Create => state
+            case create: Node.Create =>
+              state.divulgeCoidTo(
+                Set.empty,
+                witnesses,
+                create.coid,
+              )
 
             case lbk: Node.LookupByKey =>
               lbk.result.fold(state) { coid =>
