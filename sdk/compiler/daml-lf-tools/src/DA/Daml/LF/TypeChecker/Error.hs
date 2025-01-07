@@ -247,15 +247,15 @@ data ErrorOrWarning
   | WEUpgradeShouldDefineExceptionsAndTemplatesSeparately
   | WEUpgradeDependsOnSerializableNonUpgradeableDataType (PackageId, Maybe PackageMetadata, Version) Version !(Qualified TypeConName)
   | WEDependsOnDatatypeFromNewDamlScript (PackageId, PackageMetadata) Version !(Qualified TypeConName)
-  | WETemplateChangedPrecondition !TypeConName ![Mismatch UpgradeMismatchReason]
-  | WETemplateChangedSignatories !TypeConName ![Mismatch UpgradeMismatchReason]
-  | WETemplateChangedObservers !TypeConName ![Mismatch UpgradeMismatchReason]
-  | WETemplateChangedAgreement !TypeConName ![Mismatch UpgradeMismatchReason]
-  | WEChoiceChangedControllers !ChoiceName ![Mismatch UpgradeMismatchReason]
-  | WEChoiceChangedObservers !ChoiceName ![Mismatch UpgradeMismatchReason]
-  | WEChoiceChangedAuthorizers !ChoiceName ![Mismatch UpgradeMismatchReason]
-  | WETemplateChangedKeyExpression !TypeConName ![Mismatch UpgradeMismatchReason]
-  | WETemplateChangedKeyMaintainers !TypeConName ![Mismatch UpgradeMismatchReason]
+  | WEUpgradedTemplateChangedPrecondition !TypeConName ![Mismatch UpgradeMismatchReason]
+  | WEUpgradedTemplateChangedSignatories !TypeConName ![Mismatch UpgradeMismatchReason]
+  | WEUpgradedTemplateChangedObservers !TypeConName ![Mismatch UpgradeMismatchReason]
+  | WEUpgradedTemplateChangedAgreement !TypeConName ![Mismatch UpgradeMismatchReason]
+  | WEUpgradedChoiceChangedControllers !ChoiceName ![Mismatch UpgradeMismatchReason]
+  | WEUpgradedChoiceChangedObservers !ChoiceName ![Mismatch UpgradeMismatchReason]
+  | WEUpgradedChoiceChangedAuthorizers !ChoiceName ![Mismatch UpgradeMismatchReason]
+  | WEUpgradedTemplateChangedKeyExpression !TypeConName ![Mismatch UpgradeMismatchReason]
+  | WEUpgradedTemplateChangedKeyMaintainers !TypeConName ![Mismatch UpgradeMismatchReason]
   | WECouldNotExtractForUpgradeChecking !T.Text !(Maybe T.Text)
     -- ^ When upgrading, we extract relevant expressions for things like
     -- signatories. If the expression changes shape so that we can't get the
@@ -301,15 +301,15 @@ instance Pretty ErrorOrWarning where
         [ "This package depends on a datatype " <> pPrint tcn <> " from " <> pprintDep (depPkgId, Just depMeta) <> " with LF version " <> pPrint depLfVersion <> "."
         , "It is not recommended that >= LF1.17 packages use datatypes from Daml Script, because those datatypes will not be upgradeable."
         ]
-    WETemplateChangedPrecondition template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its precondition."
-    WETemplateChangedSignatories template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its signatories."
-    WETemplateChangedObservers template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its observers."
-    WETemplateChangedAgreement template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of agreement."
-    WEChoiceChangedControllers choice mismatches -> withMismatchInfo mismatches $ "The upgraded choice " <> pPrint choice <> " has changed the definition of controllers."
-    WEChoiceChangedObservers choice mismatches -> withMismatchInfo mismatches $ "The upgraded choice " <> pPrint choice <> " has changed the definition of observers."
-    WEChoiceChangedAuthorizers choice mismatches -> withMismatchInfo mismatches $ "The upgraded choice " <> pPrint choice <> " has changed the definition of authorizers."
-    WETemplateChangedKeyExpression template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the expression for computing its key."
-    WETemplateChangedKeyMaintainers template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the maintainers for its key."
+    WEUpgradedTemplateChangedPrecondition template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its precondition."
+    WEUpgradedTemplateChangedSignatories template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its signatories."
+    WEUpgradedTemplateChangedObservers template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its observers."
+    WEUpgradedTemplateChangedAgreement template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of agreement."
+    WEUpgradedChoiceChangedControllers choice mismatches -> withMismatchInfo mismatches $ "The upgraded choice " <> pPrint choice <> " has changed the definition of controllers."
+    WEUpgradedChoiceChangedObservers choice mismatches -> withMismatchInfo mismatches $ "The upgraded choice " <> pPrint choice <> " has changed the definition of observers."
+    WEUpgradedChoiceChangedAuthorizers choice mismatches -> withMismatchInfo mismatches $ "The upgraded choice " <> pPrint choice <> " has changed the definition of authorizers."
+    WEUpgradedTemplateChangedKeyExpression template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the expression for computing its key."
+    WEUpgradedTemplateChangedKeyMaintainers template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the maintainers for its key."
     WECouldNotExtractForUpgradeChecking attribute mbExtra -> "Could not check if the upgrade of " <> text attribute <> " is valid because its expression is the not the right shape." <> foldMap (const " Extra context: " <> text) mbExtra
     where
     withMismatchInfo :: [Mismatch UpgradeMismatchReason] -> Doc ann -> Doc ann
@@ -347,15 +347,15 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       WEDependencyHasNoMetadataDespiteUpgradeability {} -> AsWarning
       WEUpgradeDependsOnSerializableNonUpgradeableDataType {} -> AsWarning
       WEDependsOnDatatypeFromNewDamlScript {} -> AsWarning
-      WETemplateChangedPrecondition {} -> AsWarning
-      WETemplateChangedSignatories {} -> AsWarning
-      WETemplateChangedObservers {} -> AsWarning
-      WETemplateChangedAgreement {} -> AsWarning
-      WEChoiceChangedControllers {} -> AsWarning
-      WEChoiceChangedObservers {} -> AsWarning
-      WEChoiceChangedAuthorizers {} -> AsWarning
-      WETemplateChangedKeyExpression {} -> AsWarning
-      WETemplateChangedKeyMaintainers {} -> AsWarning
+      WEUpgradedTemplateChangedPrecondition {} -> AsWarning
+      WEUpgradedTemplateChangedSignatories {} -> AsWarning
+      WEUpgradedTemplateChangedObservers {} -> AsWarning
+      WEUpgradedTemplateChangedAgreement {} -> AsWarning
+      WEUpgradedChoiceChangedControllers {} -> AsWarning
+      WEUpgradedChoiceChangedObservers {} -> AsWarning
+      WEUpgradedChoiceChangedAuthorizers {} -> AsWarning
+      WEUpgradedTemplateChangedKeyExpression {} -> AsWarning
+      WEUpgradedTemplateChangedKeyMaintainers {} -> AsWarning
       WECouldNotExtractForUpgradeChecking {} -> AsWarning
   }
 
