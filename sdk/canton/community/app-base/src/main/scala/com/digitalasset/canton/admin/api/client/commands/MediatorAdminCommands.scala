@@ -1,12 +1,12 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.admin.api.client.commands
 
 import cats.implicits.toBifunctorOps
 import com.digitalasset.canton.admin.api.client.data.{MediatorStatus, NodeStatus}
-import com.digitalasset.canton.admin.domain.v30.MediatorStatusServiceGrpc.MediatorStatusServiceStub
-import com.digitalasset.canton.admin.domain.v30.{
+import com.digitalasset.canton.admin.mediator.v30.MediatorStatusServiceGrpc.MediatorStatusServiceStub
+import com.digitalasset.canton.admin.mediator.v30.{
   MediatorStatusRequest,
   MediatorStatusResponse,
   MediatorStatusServiceGrpc,

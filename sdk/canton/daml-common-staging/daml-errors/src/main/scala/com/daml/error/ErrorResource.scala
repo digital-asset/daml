@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.error
@@ -31,10 +31,11 @@ object ErrorResource {
   lazy val ExceptionType: ErrorResource = ErrorResource("EXCEPTION_TYPE")
   lazy val ExceptionText: ErrorResource = ErrorResource("EXCEPTION_TEXT")
   lazy val DevErrorType: ErrorResource = ErrorResource("DEV_ERROR_TYPE")
-  lazy val DomainId: ErrorResource = ErrorResource("DOMAIN_ID")
-  lazy val DomainAlias: ErrorResource = ErrorResource("DOMAIN_ALIAS")
+  lazy val SynchronizerId: ErrorResource = ErrorResource("SYNCHRONIZER_ID")
+  lazy val SynchronizerAlias: ErrorResource = ErrorResource("SYNCHRONIZER_ALIAS")
+  lazy val Offset: ErrorResource = ErrorResource("OFFSET")
 
-  lazy val all = Seq(
+  lazy val all: Seq[ErrorResource] = Seq(
     CommandId,
     ContractArg,
     ContractId,
@@ -54,8 +55,9 @@ object ErrorResource {
     TemplateId,
     TransactionId,
     User,
-    DomainId,
-    DomainAlias,
+    SynchronizerId,
+    SynchronizerAlias,
+    Offset,
   )
 
   def fromString(str: String): Option[ErrorResource] = all.find(_.asString == str)

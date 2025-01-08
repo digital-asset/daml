@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.environment
@@ -14,11 +14,6 @@ import com.digitalasset.canton.console.{
 import com.digitalasset.canton.crypto.CommunityCryptoFactory
 import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService.CommunityGrpcVaultServiceFactory
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
-import com.digitalasset.canton.domain.mediator.*
-import com.digitalasset.canton.domain.metrics.MediatorMetrics
-import com.digitalasset.canton.domain.sequencing.SequencerNodeBootstrap
-import com.digitalasset.canton.domain.sequencing.config.CommunitySequencerNodeConfig
-import com.digitalasset.canton.domain.sequencing.sequencer.CommunitySequencerFactory
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.ParticipantNodeBootstrap
 import com.digitalasset.canton.resource.{
@@ -26,6 +21,17 @@ import com.digitalasset.canton.resource.{
   CommunityStorageFactory,
   DbMigrationsFactory,
 }
+import com.digitalasset.canton.synchronizer.mediator.{
+  CommunityMediatorNodeConfig,
+  CommunityMediatorReplicaManager,
+  MediatorNodeBootstrap,
+  MediatorNodeConfigCommon,
+  MediatorNodeParameters,
+}
+import com.digitalasset.canton.synchronizer.metrics.MediatorMetrics
+import com.digitalasset.canton.synchronizer.sequencing.SequencerNodeBootstrap
+import com.digitalasset.canton.synchronizer.sequencing.config.CommunitySequencerNodeConfig
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.CommunitySequencerFactory
 
 class CommunityEnvironment(
     override val config: CantonCommunityConfig,

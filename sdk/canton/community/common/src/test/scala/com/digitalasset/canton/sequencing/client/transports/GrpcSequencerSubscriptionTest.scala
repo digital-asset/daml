@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client.transports
@@ -7,14 +7,14 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.crypto.v30 as cryptoproto
-import com.digitalasset.canton.domain.api.v30 as v30domain
 import com.digitalasset.canton.lifecycle.OnShutdownRunner.PureOnShutdownRunner
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.networking.grpc.GrpcError
 import com.digitalasset.canton.protocol.v30
+import com.digitalasset.canton.sequencer.api.v30 as v30domain
 import com.digitalasset.canton.sequencing.SequencerTestUtils.MockMessageContent
 import com.digitalasset.canton.sequencing.client.SubscriptionCloseReason
-import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.SerializableTraceContext
 import com.digitalasset.canton.util.ByteStringUtil
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
@@ -28,7 +28,7 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Future, Promise}
 
 class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasExecutionContext {
-  private lazy val domainId: DomainId = DomainId(
+  private lazy val synchronizerId: SynchronizerId = SynchronizerId(
     UniqueIdentifier.tryFromProtoPrimitive("da::default")
   )
 
@@ -59,7 +59,7 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
                     ),
                   )
                 ),
-                domainId = domainId.toProtoPrimitive,
+                synchronizerId = synchronizerId.toProtoPrimitive,
                 counter = 0L,
                 messageId = None,
                 deliverErrorReason = None,

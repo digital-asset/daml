@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services.command.interactive
@@ -48,7 +48,7 @@ import com.digitalasset.canton.platform.apiserver.services.{
 import com.digitalasset.canton.platform.config.InteractiveSubmissionServiceConfig
 import com.digitalasset.canton.platform.store.dao.events.LfValueTranslation
 import com.digitalasset.canton.protocol.hash.HashTracer
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
@@ -196,14 +196,14 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
         SubmittedTransaction(enrichedTransaction)
       )
       // Domain is required to be explicitly provided for now
-      domainId <- EitherT.fromEither[FutureUnlessShutdown](
-        commandExecutionResult.optDomainId.toRight(
-          RequestValidationErrors.MissingField.Reject("domain_id")
+      synchronizerId <- EitherT.fromEither[FutureUnlessShutdown](
+        commandExecutionResult.optSynchronizerId.toRight(
+          RequestValidationErrors.MissingField.Reject("synchronizer_id")
         )
       )
       // Require this participant to be connected to the domain on which the transaction will be run
       protocolVersionForChosenDomain <- EitherT.fromEither[FutureUnlessShutdown](
-        protocolVersionForDomainId(domainId)
+        protocolVersionForSynchronizerId(synchronizerId)
       )
       // Use the highest hashing versions supported on that protocol version
       hashVersion = HashingSchemeVersion
@@ -215,8 +215,8 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
         .liftF(
           transactionEncoder.serializeCommandExecutionResult(
             commandExecutionResult,
-            // TODO(i20688) Domain ID should be picked by the domain router
-            domainId,
+            // TODO(i20688) Synchronizer id should be picked by the domain router
+            synchronizerId,
             // TODO(i20688) Transaction UUID should be picked in the TransactionConfirmationRequestFactory
             transactionUUID,
             // TODO(i20688) Mediator group should be picked in the ProtocolProcessor
@@ -229,7 +229,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
         commandExecutionResult.submitterInfo.commandId,
         transactionUUID,
         mediatorGroup,
-        domainId,
+        synchronizerId,
         Option.when(commandExecutionResult.dependsOnLedgerTime)(
           commandExecutionResult.transactionMeta.ledgerEffectiveTime
         ),
@@ -322,7 +322,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
     syncService
       .submitTransaction(
         result.submitterInfo,
-        result.optDomainId,
+        result.optSynchronizerId,
         result.transactionMeta,
         result.transaction,
         result.interpretationTimeNanos,
@@ -332,14 +332,14 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
       .toScalaUnwrapped
   }
 
-  private def protocolVersionForDomainId(
-      domainId: DomainId
+  private def protocolVersionForSynchronizerId(
+      synchronizerId: SynchronizerId
   )(implicit loggingContext: LoggingContextWithTrace): Either[DamlError, ProtocolVersion] =
     syncService
-      .getProtocolVersionForDomain(Traced(domainId))
+      .getProtocolVersionForDomain(Traced(synchronizerId))
       .toRight(
         CommandExecutionErrors.InteractiveSubmissionPreparationError
-          .Reject(s"Unknown domain ID $domainId")
+          .Reject(s"Unknown synchronizer id $synchronizerId")
       )
 
   private def handleSubmissionResult(result: Try[state.SubmissionResult])(implicit

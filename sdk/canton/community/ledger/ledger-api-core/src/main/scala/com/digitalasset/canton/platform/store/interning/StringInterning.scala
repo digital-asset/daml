@@ -1,10 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.interning
 
 import com.digitalasset.canton.platform.{Identifier, PackageName, Party}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.Ref.PackageVersion
 
 /** The facade for all supported string-interning domains
@@ -17,7 +17,7 @@ trait StringInterning {
   def packageName: StringInterningDomain[PackageName]
   def packageVersion: StringInterningDomain[PackageVersion]
   def party: StringInterningDomain[Party]
-  def domainId: StringInterningDomain[DomainId]
+  def synchronizerId: StringInterningDomain[SynchronizerId]
 }
 
 /** Composes a StringInterningAccessor for the domain-string type and an unsafe StringInterningAccessor for raw strings

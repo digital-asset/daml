@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology
@@ -40,12 +40,12 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
 
-/** @param outboxQueue If a [[DomainOutboxQueue]] is provided, the processed transactions are not directly stored,
-  *                    but rather sent to the domain via an ephemeral queue (i.e. no persistence).
+/** @param outboxQueue If a [[SynchronizerOutboxQueue]] is provided, the processed transactions are not directly stored,
+  *                    but rather sent to the synchronizer via an ephemeral queue (i.e. no persistence).
   */
 class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
     val store: TopologyStore[TopologyStoreId],
-    outboxQueue: Option[DomainOutboxQueue],
+    outboxQueue: Option[SynchronizerOutboxQueue],
     topologyMappingChecks: TopologyMappingChecks,
     pureCrypto: PureCrypto,
     loggerFactoryParent: NamedLoggerFactory,
@@ -53,8 +53,8 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
     extends NamedLogging {
 
   override protected val loggerFactory: NamedLoggerFactory =
-    // only add the `store` key for the authorized store. In case this TopologyStateProcessor is for a domain,
-    // it will already have the `domain` key, so having `store` with the same domainId is just a waste
+    // only add the `store` key for the authorized store. In case this TopologyStateProcessor is for a synchronizer,
+    // it will already have the `synchronizer` key, so having `store` with the same synchronizerId is just a waste
     if (store.storeId == AuthorizedStore) {
       loggerFactoryParent.append("store", store.storeId.toString)
     } else loggerFactoryParent
@@ -110,7 +110,7 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[GenericValidatedTopologyTransaction]] = {
-    // if transactions aren't persisted in the store but rather enqueued in the domain outbox queue,
+    // if transactions aren't persisted in the store but rather enqueued in the synchronizer outbox queue,
     // the processing should abort on errors, because we don't want to enqueue rejected transactions.
     val abortOnError = outboxQueue.nonEmpty
 
@@ -184,7 +184,7 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
       }
       _ <- outboxQueue match {
         case Some(queue) =>
-          // if we use the domain outbox queue, we must also reset the caches, because the local validation
+          // if we use the synchronizer outbox queue, we must also reset the caches, because the local validation
           // doesn't automatically imply successful validation once the transactions have been sequenced.
           clearCaches()
           EitherT

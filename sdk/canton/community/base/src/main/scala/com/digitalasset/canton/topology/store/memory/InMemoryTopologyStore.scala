@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store.memory
@@ -265,7 +265,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
                 _.participantId.uid
                   .matchesPrefixes(prefixParticipantIdentifier, prefixParticipantNS)
               ))
-          case cert: DomainTrustCertificate =>
+          case cert: SynchronizerTrustCertificate =>
             cert.participantId.adminParty.uid
               .matchesPrefixes(prefixPartyIdentifier, prefixPartyNS) &&
             cert.participantId.uid
@@ -383,7 +383,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[
-    Option[StoredTopologyTransaction[TopologyChangeOp.Replace, SequencerDomainState]]
+    Option[StoredTopologyTransaction[TopologyChangeOp.Replace, SequencerSynchronizerState]]
   ] =
     filteredState(
       blocking(synchronized(topologyTransactionStore.toSeq)),
@@ -391,11 +391,11 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
         !entry.transaction.isProposal &&
           entry.operation == TopologyChangeOp.Replace &&
           entry.mapping
-            .select[SequencerDomainState]
+            .select[SequencerSynchronizerState]
             .exists(m => m.allSequencers.contains(sequencerId)),
     ).map(
       _.collectOfType[TopologyChangeOp.Replace]
-        .collectOfMapping[SequencerDomainState]
+        .collectOfMapping[SequencerSynchronizerState]
         .result
         .minByOption(_.serial)
     )
@@ -405,7 +405,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[
-    Option[StoredTopologyTransaction[TopologyChangeOp.Replace, MediatorDomainState]]
+    Option[StoredTopologyTransaction[TopologyChangeOp.Replace, MediatorSynchronizerState]]
   ] =
     filteredState(
       blocking(synchronized(topologyTransactionStore.toSeq)),
@@ -413,11 +413,11 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
         !entry.transaction.isProposal &&
           entry.operation == TopologyChangeOp.Replace &&
           entry.mapping
-            .select[MediatorDomainState]
+            .select[MediatorSynchronizerState]
             .exists(m => m.observers.contains(mediatorId) || m.active.contains(mediatorId)),
     ).map(
       _.collectOfType[TopologyChangeOp.Replace]
-        .collectOfMapping[MediatorDomainState]
+        .collectOfMapping[MediatorSynchronizerState]
         .result
         .minByOption(_.serial)
     )
@@ -427,7 +427,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[
-    Option[StoredTopologyTransaction[TopologyChangeOp.Replace, DomainTrustCertificate]]
+    Option[StoredTopologyTransaction[TopologyChangeOp.Replace, SynchronizerTrustCertificate]]
   ] =
     filteredState(
       blocking(synchronized(topologyTransactionStore.toSeq)),
@@ -435,11 +435,11 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
         !entry.transaction.isProposal &&
           entry.operation == TopologyChangeOp.Replace &&
           entry.mapping
-            .select[DomainTrustCertificate]
+            .select[SynchronizerTrustCertificate]
             .exists(_.participantId == participant),
     ).map(
       _.collectOfType[TopologyChangeOp.Replace]
-        .collectOfMapping[DomainTrustCertificate]
+        .collectOfMapping[SynchronizerTrustCertificate]
         .result
         .minByOption(_.serial)
     )
@@ -588,7 +588,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
 
   override def findParticipantOnboardingTransactions(
       participantId: ParticipantId,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]] = {
@@ -603,7 +603,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
     FutureUnlessShutdown.pure(
       TopologyStore.filterInitialParticipantDispatchingTransactions(
         participantId,
-        domainId,
+        synchronizerId,
         res.map(_.toStoredTransaction).toSeq,
       )
     )

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.execution
@@ -150,8 +150,9 @@ class LedgerTimeAwareCommandExecutorSpec
         ledgerEffectiveTime = Time.Timestamp.Epoch,
         commandsReference = "",
       ),
-      ImmArray.empty,
-      domainId = None,
+      disclosedContracts = ImmArray.empty,
+      synchronizerId = None,
+      prefetchKeys = Seq.empty,
     )
 
     val instance = new LedgerTimeAwareCommandExecutor(

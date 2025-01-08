@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
@@ -22,7 +22,6 @@ import com.digitalasset.canton.platform.store.dao.events.*
 import com.digitalasset.canton.tracing.SerializableTraceContext
 import com.digitalasset.canton.{SequencerCounter, data}
 import com.digitalasset.daml.lf.data.{Ref, Time}
-import com.digitalasset.daml.lf.ledger.EventId
 import io.grpc.Status
 
 import java.util.UUID
@@ -92,7 +91,7 @@ object UpdateToDbDto {
 
       case u: SequencerIndexMoved =>
         // nothing to persist, this is only a synthetic DbDto to facilitate updating the StringInterning
-        Iterator(DbDto.SequencerIndexMoved(u.domainId.toProtoPrimitive))
+        Iterator(DbDto.SequencerIndexMoved(u.synchronizerId.toProtoPrimitive))
 
       case _: EmptyAcsPublicationRequired =>
         Iterator.empty
@@ -140,7 +139,7 @@ object UpdateToDbDto {
         recordTime = commandRejected.recordTime.toLf,
         updateId = None,
         completionInfo = commandRejected.completionInfo,
-        domainId = commandRejected.domainId.toProtoPrimitive,
+        synchronizerId = commandRejected.synchronizerId.toProtoPrimitive,
         requestSequencerCounter = requestSequencerCounter,
         messageUuid = messageUuid,
         serializedTraceContext = serializedTraceContext,
@@ -226,7 +225,7 @@ object UpdateToDbDto {
       event_offset = offset.unwrap,
       publication_time = 0, // this is filled later
       record_time = topologyTransaction.recordTime.toMicros,
-      domain_id = topologyTransaction.domainId.toProtoPrimitive,
+      synchronizer_id = topologyTransaction.synchronizerId.toProtoPrimitive,
       event_sequential_id_first = 0, // this is filled later
       event_sequential_id_last = 0, // this is filled later
     )
@@ -240,7 +239,7 @@ object UpdateToDbDto {
           party_id = party,
           participant_id = participant,
           participant_permission = authorizationLevelToInt(level),
-          domain_id = topologyTransaction.domainId.toProtoPrimitive,
+          synchronizer_id = topologyTransaction.synchronizerId.toProtoPrimitive,
           record_time = topologyTransaction.recordTime.toMicros,
           trace_context = serializedTraceContext,
         )
@@ -278,7 +277,7 @@ object UpdateToDbDto {
       event_offset = offset.unwrap,
       publication_time = 0, // this is filled later
       record_time = transactionAccepted.recordTime.toMicros,
-      domain_id = transactionAccepted.domainId.toProtoPrimitive,
+      synchronizer_id = transactionAccepted.synchronizerId.toProtoPrimitive,
       event_sequential_id_first = 0, // this is filled later
       event_sequential_id_last = 0, // this is filled later
     )
@@ -325,7 +324,7 @@ object UpdateToDbDto {
         recordTime = transactionAccepted.recordTime.toLf,
         updateId = Some(transactionAccepted.updateId),
         completionInfo = completionInfo,
-        domainId = transactionAccepted.domainId.toProtoPrimitive,
+        synchronizerId = transactionAccepted.synchronizerId.toProtoPrimitive,
         requestSequencerCounter = Some(requestSequencerCounter),
         messageUuid = None,
         serializedTraceContext = serializedTraceContext,
@@ -387,7 +386,7 @@ object UpdateToDbDto {
           .getOrElse(
             throw new IllegalStateException(s"missing driver metadata for contract ${create.coid}")
           ),
-        domain_id = transactionAccepted.domainId.toProtoPrimitive,
+        synchronizer_id = transactionAccepted.synchronizerId.toProtoPrimitive,
         trace_context = serializedTraceContext,
         record_time = transactionAccepted.recordTime.toMicros,
       )
@@ -414,9 +413,8 @@ object UpdateToDbDto {
       nodeId: NodeId,
       exercise: Exercise,
   ): Iterator[DbDto] = {
-    val eventId = EventId(transactionAccepted.updateId, nodeId)
     val (exerciseArgument, exerciseResult, createKeyValue) =
-      translation.serialize(eventId, exercise)
+      translation.serialize(exercise)
     val stakeholders = exercise.stakeholders.map(_.toString)
     val informees =
       transactionAccepted.blindingInfo.disclosure.getOrElse(nodeId, Set.empty).map(_.toString)
@@ -447,14 +445,12 @@ object UpdateToDbDto {
         exercise_result = exerciseResult
           .map(compressionStrategy.exerciseResultCompression.compress),
         exercise_actors = exercise.actingParties.map(_.toString),
-        exercise_child_event_ids = exercise.children.iterator
-          .map(EventId(transactionAccepted.updateId, _).toLedgerString)
-          .toVector,
+        exercise_child_node_ids = exercise.children.iterator.map(_.index).toVector,
         create_key_value_compression = compressionStrategy.createKeyValueCompression.id,
         exercise_argument_compression = compressionStrategy.exerciseArgumentCompression.id,
         exercise_result_compression = compressionStrategy.exerciseResultCompression.id,
         event_sequential_id = 0, // this is filled later
-        domain_id = transactionAccepted.domainId.toProtoPrimitive,
+        synchronizer_id = transactionAccepted.synchronizerId.toProtoPrimitive,
         trace_context = serializedTraceContext,
         record_time = transactionAccepted.recordTime.toMicros,
       )
@@ -533,7 +529,7 @@ object UpdateToDbDto {
         recordTime = reassignmentAccepted.recordTime.toLf,
         updateId = Some(reassignmentAccepted.updateId),
         completionInfo = completionInfo,
-        domainId = reassignmentAccepted.domainId.toProtoPrimitive,
+        synchronizerId = reassignmentAccepted.synchronizerId.toProtoPrimitive,
         requestSequencerCounter = Some(requestSequencerCounter),
         messageUuid = None,
         serializedTraceContext = serializedTraceContext,
@@ -545,7 +541,7 @@ object UpdateToDbDto {
       event_offset = offset.unwrap,
       publication_time = 0, // this is filled later
       record_time = reassignmentAccepted.recordTime.toMicros,
-      domain_id = reassignmentAccepted.domainId.toProtoPrimitive,
+      synchronizer_id = reassignmentAccepted.synchronizerId.toProtoPrimitive,
       event_sequential_id_first = 0, // this is filled later
       event_sequential_id_last = 0, // this is filled later
     )
@@ -577,9 +573,9 @@ object UpdateToDbDto {
         package_name = unassign.packageName,
         flat_event_witnesses = flatEventWitnesses.toSet,
         event_sequential_id = 0L, // this is filled later
-        source_domain_id =
+        source_synchronizer_id =
           reassignmentAccepted.reassignmentInfo.sourceDomain.unwrap.toProtoPrimitive,
-        target_domain_id =
+        target_synchronizer_id =
           reassignmentAccepted.reassignmentInfo.targetDomain.unwrap.toProtoPrimitive,
         unassign_id = reassignmentAccepted.reassignmentInfo.unassignId.toMicros.toString,
         reassignment_counter = reassignmentAccepted.reassignmentInfo.reassignmentCounter,
@@ -635,9 +631,9 @@ object UpdateToDbDto {
         event_sequential_id = 0L, // this is filled later
         ledger_effective_time = assign.ledgerEffectiveTime.micros,
         driver_metadata = assign.contractMetadata.toByteArray,
-        source_domain_id =
+        source_synchronizer_id =
           reassignmentAccepted.reassignmentInfo.sourceDomain.unwrap.toProtoPrimitive,
-        target_domain_id =
+        target_synchronizer_id =
           reassignmentAccepted.reassignmentInfo.targetDomain.unwrap.toProtoPrimitive,
         unassign_id = reassignmentAccepted.reassignmentInfo.unassignId.toMicros.toString,
         reassignment_counter = reassignmentAccepted.reassignmentInfo.reassignmentCounter,
@@ -672,7 +668,7 @@ object UpdateToDbDto {
       recordTime: Time.Timestamp,
       updateId: Option[data.UpdateId],
       completionInfo: CompletionInfo,
-      domainId: String,
+      synchronizerId: String,
       requestSequencerCounter: Option[SequencerCounter],
       messageUuid: Option[UUID],
       isTransaction: Boolean,
@@ -715,7 +711,7 @@ object UpdateToDbDto {
       deduplication_offset = deduplicationOffset,
       deduplication_duration_seconds = deduplicationDurationSeconds,
       deduplication_duration_nanos = deduplicationDurationNanos,
-      domain_id = domainId,
+      synchronizer_id = synchronizerId,
       message_uuid = messageUuid.map(_.toString),
       request_sequencer_counter = requestSequencerCounter.map(_.unwrap),
       is_transaction = isTransaction,

@@ -1,11 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests
 
 import better.files.*
 import com.digitalasset.canton.ConsoleScriptRunner
-import com.digitalasset.canton.config.CommunityDbConfig.H2
+import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.Environment
@@ -96,7 +96,7 @@ sealed abstract class SimplePingExampleIntegrationTest
 
 final class SimplePingExampleReferenceIntegrationTestDefault
     extends SimplePingExampleIntegrationTest {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[H2](loggerFactory))
+  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 }
 
 sealed abstract class RepairExampleIntegrationTest
@@ -115,5 +115,5 @@ sealed abstract class RepairExampleIntegrationTest
 }
 
 final class RepairExampleReferenceIntegrationTestDefault extends RepairExampleIntegrationTest {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[H2](loggerFactory))
+  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services
@@ -95,8 +95,9 @@ final class ApiCommandSubmissionService(
               readAs,
               submissionId,
               disclosedContracts,
-              domainId,
+              synchronizerId,
               packageIdSelectionPreference,
+              prefetchKeys,
             ) =>
           tracker.registerCommand(
             commandId,
@@ -172,14 +173,14 @@ final class ApiCommandSubmissionService(
               reassignmentCommand = request.reassignmentCommand match {
                 case Left(assignCommand) =>
                   ReassignmentCommand.Assign(
-                    sourceDomain = assignCommand.sourceDomainId,
-                    targetDomain = assignCommand.targetDomainId,
+                    sourceDomain = assignCommand.sourceSynchronizerId,
+                    targetDomain = assignCommand.targetSynchronizerId,
                     unassignId = CantonTimestamp(assignCommand.unassignId),
                   )
                 case Right(unassignCommand) =>
                   ReassignmentCommand.Unassign(
-                    sourceDomain = unassignCommand.sourceDomainId,
-                    targetDomain = unassignCommand.targetDomainId,
+                    sourceDomain = unassignCommand.sourceSynchronizerId,
+                    targetDomain = unassignCommand.targetSynchronizerId,
                     contractId = unassignCommand.contractId,
                   )
               },

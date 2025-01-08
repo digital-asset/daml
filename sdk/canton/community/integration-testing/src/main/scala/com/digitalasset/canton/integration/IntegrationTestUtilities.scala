@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration
@@ -6,7 +6,7 @@ package com.digitalasset.canton.integration
 import com.daml.ledger.api.v2.transaction.TreeEvent.Kind.{Created, Exercised}
 import com.daml.ledger.api.v2.transaction.{TransactionTree as TransactionTreeV2, TreeEvent}
 import com.daml.ledger.api.v2.value.Value
-import com.digitalasset.canton.DomainAlias
+import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.console.{InstanceReference, LocalParticipantReference}
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
@@ -36,13 +36,13 @@ object IntegrationTestUtilities {
   }
 
   def grabCountsRemote(
-      domain: DomainAlias,
+      synchronizerAlias: SynchronizerAlias,
       pr: SyncStateInspection,
       limit: Int = 100,
   ): GrabbedCounts = {
     implicit val traceContext: TraceContext = TraceContext.empty
-    val pcsCount = pr.findContracts(domain, None, None, None, limit = limit).length
-    val acceptedTransactionCount = pr.acceptedTransactionCount(domain)
+    val pcsCount = pr.findContracts(synchronizerAlias, None, None, None, limit = limit).length
+    val acceptedTransactionCount = pr.acceptedTransactionCount(synchronizerAlias)
     mkGrabCounts(pcsCount, acceptedTransactionCount, limit)
   }
 
@@ -64,15 +64,15 @@ object IntegrationTestUtilities {
   }
 
   def grabCounts(
-      domainAlias: DomainAlias,
+      synchronizerAlias: SynchronizerAlias,
       participant: LocalParticipantReference,
       limit: Int = 100,
   ): GrabbedCounts = {
-    val pcsCount = participant.testing.pcs_search(domainAlias, limit = limit).length
+    val pcsCount = participant.testing.pcs_search(synchronizerAlias, limit = limit).length
     val acceptedTransactionCount =
       Integer.min(
         participant.testing.state_inspection
-          .acceptedTransactionCount(domainAlias)(TraceContext.empty),
+          .acceptedTransactionCount(synchronizerAlias)(TraceContext.empty),
         limit,
       )
     mkGrabCounts(pcsCount, acceptedTransactionCount, limit)
@@ -91,10 +91,10 @@ object IntegrationTestUtilities {
 
   def extractSubmissionResult(tree: TransactionTreeV2): Value.Sum = {
     require(
-      tree.rootEventIds.size == 1,
+      tree.rootNodeIds.size == 1,
       s"Received transaction with not exactly one root node: $tree",
     )
-    tree.eventsById(tree.rootEventIds.head).kind match {
+    tree.eventsById(tree.rootNodeIds.head).kind match {
       case Created(created) => Value.Sum.ContractId(created.contractId)
       case Exercised(exercised) =>
         val Value(result) = exercised.exerciseResult.getOrElse(
@@ -127,14 +127,14 @@ object IntegrationTestUtilities {
   }
 
   def runOnAllInitializedDomainsForAllOwners(
-      initializedDomains: Map[DomainAlias, InitializedDomain],
-      run: (InstanceReference, InitializedDomain) => Unit,
+      initializedDomains: Map[SynchronizerAlias, InitializedSynchronizer],
+      run: (InstanceReference, InitializedSynchronizer) => Unit,
       topologyAwaitIdle: Boolean,
   ): Unit =
     initializedDomains.foreach { case (_, initializedDomain) =>
       if (topologyAwaitIdle) {
-        initializedDomain.domainOwners.foreach(_.topology.synchronisation.await_idle())
+        initializedDomain.synchronizerOwners.foreach(_.topology.synchronisation.await_idle())
       }
-      initializedDomain.domainOwners.foreach(run(_, initializedDomain))
+      initializedDomain.synchronizerOwners.foreach(run(_, initializedDomain))
     }
 }

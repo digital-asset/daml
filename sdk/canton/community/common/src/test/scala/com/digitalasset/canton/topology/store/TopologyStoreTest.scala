@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store
@@ -8,7 +8,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.FailOnShutdown
 import com.digitalasset.canton.config.CantonRequireTypes.{String255, String256M}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.DomainCryptoPureApi
+import com.digitalasset.canton.crypto.SynchronizerCryptoPureApi
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
@@ -21,7 +21,12 @@ import com.digitalasset.canton.topology.store.TopologyTransactionRejection.Inval
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
-import com.digitalasset.canton.topology.{DefaultTestIdentities, DomainId, ParticipantId, PartyId}
+import com.digitalasset.canton.topology.{
+  DefaultTestIdentities,
+  ParticipantId,
+  PartyId,
+  SynchronizerId,
+}
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import org.scalatest.Assertion
@@ -165,7 +170,9 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
 
   // TODO(#14066): Test coverage is rudimentary - enough to convince ourselves that queries basically seem to work.
   //  Increase coverage.
-  def topologyStore(mk: DomainId => TopologyStore[TopologyStoreId.DomainStore]): Unit = {
+  def topologyStore(
+      mk: SynchronizerId => TopologyStore[TopologyStoreId.SynchronizerStore]
+  ): Unit = {
 
     val bootstrapTransactions = StoredTopologyTransactions(
       Seq[
@@ -205,8 +212,8 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
     "topology store" should {
 
       "clear all data without affecting other stores" in {
-        val store1 = mk(domain1_p1p2_domainId)
-        val store2 = mk(da_p1p2_domainId)
+        val store1 = mk(domain1_p1p2_synchronizerId)
+        val store2 = mk(da_p1p2_synchronizerId)
 
         for {
           _ <- update(store1, ts1, add = Seq(nsd_p1))
@@ -240,7 +247,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
 
       "deal with authorized transactions" when {
         "handle simple operations" in {
-          val store = mk(domain1_p1p2_domainId)
+          val store = mk(domain1_p1p2_synchronizerId)
 
           for {
             _ <- update(store, ts1, add = Seq(nsd_p1, dop_domain1_proposal))
@@ -265,8 +272,10 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
               store,
               TimeQuery.Range(ts1.some, ts4.some),
               proposals = true,
-              types =
-                Seq(DomainParametersState.code, PartyToParticipant.code), // to test the types filter
+              types = Seq(
+                SynchronizerParametersState.code,
+                PartyToParticipant.code,
+              ), // to test the types filter
             )
             proposalTransactionsFiltered2 <- inspect(
               store,
@@ -342,7 +351,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
           }
         }
         "able to filter with inspect" in {
-          val store = mk(domain1_p1p2_domainId)
+          val store = mk(domain1_p1p2_synchronizerId)
 
           for {
             _ <- update(store, ts2, add = Seq(otk_p1))
@@ -357,7 +366,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
               store,
               TimeQuery.HeadState,
               types = Seq(
-                DomainTrustCertificate.code,
+                SynchronizerTrustCertificate.code,
                 OwnerToKeyMapping.code,
               ), // to test the types filter
             )
@@ -390,13 +399,13 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
         }
 
         "able to inspect" in {
-          val store = mk(domain1_p1p2_domainId)
+          val store = mk(domain1_p1p2_synchronizerId)
 
           for {
             _ <- new InitialTopologySnapshotValidator(
-              domainId = domain1_p1p2_domainId,
-              pureCrypto = new DomainCryptoPureApi(
-                defaultStaticDomainParameters,
+              synchronizerId = domain1_p1p2_synchronizerId,
+              pureCrypto = new SynchronizerCryptoPureApi(
+                defaultStaticSynchronizerParameters,
                 testData.factory.cryptoApi.crypto.pureCrypto,
               ),
               store = store,
@@ -503,7 +512,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
         }
 
         "handle rejected transactions" in {
-          val store = mk(domain1_p1p2_domainId)
+          val store = mk(domain1_p1p2_synchronizerId)
 
           val bootstrapTransactions = StoredTopologyTransactions(
             Seq[
@@ -530,9 +539,9 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
 
           for {
             _ <- new InitialTopologySnapshotValidator(
-              domain1_p1p2_domainId,
-              new DomainCryptoPureApi(
-                defaultStaticDomainParameters,
+              domain1_p1p2_synchronizerId,
+              new SynchronizerCryptoPureApi(
+                defaultStaticSynchronizerParameters,
                 factory.cryptoApi.crypto.pureCrypto,
               ),
               store,
@@ -551,7 +560,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
         }
 
         "able to findEssentialStateAtSequencedTime" in {
-          val store = mk(domain1_p1p2_domainId)
+          val store = mk(domain1_p1p2_synchronizerId)
           for {
             _ <- update(store, ts2, add = Seq(otk_p1))
             _ <- update(store, ts5, add = Seq(dtc_p2_domain1))
@@ -574,13 +583,13 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
         }
 
         "able to find positive transactions" in {
-          val store = mk(domain1_p1p2_domainId)
+          val store = mk(domain1_p1p2_synchronizerId)
 
           for {
             _ <- new InitialTopologySnapshotValidator(
-              domain1_p1p2_domainId,
-              new DomainCryptoPureApi(
-                defaultStaticDomainParameters,
+              domain1_p1p2_synchronizerId,
+              new SynchronizerCryptoPureApi(
+                defaultStaticSynchronizerParameters,
                 factory.cryptoApi.crypto.pureCrypto,
               ),
               store,
@@ -646,7 +655,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
             onboardingTransactionUnlessShutdown <- store
               .findParticipantOnboardingTransactions(
                 p2Id,
-                domain1_p1p2_domainId,
+                domain1_p1p2_synchronizerId,
               )
           } yield {
             expectTransactions(
@@ -737,7 +746,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
         }
 
         "correctly store rejected and accepted topology transactions with the same unique key within a batch" in {
-          val store = mk(domain1_p1p2_domainId)
+          val store = mk(domain1_p1p2_synchronizerId)
 
           // * create two transactions with the same unique key but different content.
           // * use the signatures of the transaction to accept for the transaction to reject.
@@ -801,7 +810,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
         }
 
         "store is evolving in different ways" in {
-          val store = mk(domain1_p1p2_domainId)
+          val store = mk(domain1_p1p2_synchronizerId)
 
           for {
             // store is empty

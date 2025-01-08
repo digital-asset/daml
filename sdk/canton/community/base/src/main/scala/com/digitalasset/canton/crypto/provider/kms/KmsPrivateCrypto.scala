@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto.provider.kms
@@ -8,6 +8,7 @@ import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.crypto.SigningKeyUsage.nonEmptyIntersection
 import com.digitalasset.canton.crypto.kms.{Kms, KmsKeyId}
 import com.digitalasset.canton.crypto.store.KmsMetadataStore.KmsMetadata
 import com.digitalasset.canton.crypto.store.{CryptoPublicStore, KmsCryptoPrivateStore}
@@ -55,7 +56,8 @@ trait KmsPrivateCrypto extends CryptoPrivateApi with FlagCloseable {
   ): EitherT[FutureUnlessShutdown, SigningKeyGenerationError, SigningPublicKey] =
     for {
       publicKeyNoUsage <- getPublicSigningKey(keyId)
-      publicKey = publicKeyNoUsage.copy(usage = usage)(migrated = false)
+      publicKey = publicKeyNoUsage
+        .copy(usage = SigningKeyUsage.addProofOfOwnership(usage))(migrated = false)
       _ <- EitherT.right(publicStore.storeSigningKey(publicKey, keyName))
       _ = privateStore.storeKeyMetadata(
         KmsMetadata(publicKey.id, keyId, KeyPurpose.Signing, Some(publicKey.usage))
@@ -85,7 +87,8 @@ trait KmsPrivateCrypto extends CryptoPrivateApi with FlagCloseable {
         .leftMap[SigningKeyGenerationError](err =>
           SigningKeyGenerationError.GeneralKmsError(err.show)
         )
-      publicKey = publicKeyNoUsage.copy(usage = usage)(migrated = false)
+      publicKey = publicKeyNoUsage
+        .copy(usage = SigningKeyUsage.addProofOfOwnership(usage))(migrated = false)
       _ = privateStore.storeKeyMetadata(
         KmsMetadata(publicKey.id, keyId, KeyPurpose.Signing, Some(publicKey.usage))
       )
@@ -94,6 +97,7 @@ trait KmsPrivateCrypto extends CryptoPrivateApi with FlagCloseable {
   protected[crypto] def signBytes(
       bytes: ByteString,
       signingKeyId: Fingerprint,
+      usage: NonEmpty[Set[SigningKeyUsage]],
       signingAlgorithmSpec: SigningAlgorithmSpec,
   )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, SigningError, Signature] =
     for {
@@ -111,17 +115,27 @@ trait KmsPrivateCrypto extends CryptoPrivateApi with FlagCloseable {
                 )
                 .leftWiden[SigningError]
             case Right(bytes) =>
-              kms
-                .sign(kmsKeyId, bytes, signingAlgorithmSpec)
-                .leftMap[SigningError](err => SigningError.FailedToSign(err.show))
-                .map(signatureRaw =>
-                  new Signature(
-                    SignatureFormat.Raw,
-                    signatureRaw,
-                    signingKeyId,
-                    Some(signingAlgorithmSpec),
-                  )
+              for {
+                pubKey <- publicStore
+                  .signingKey(signingKeyId)
+                  .toRight[SigningError](SigningError.UnknownSigningKey(signingKeyId))
+                _ <- EitherT.cond[FutureUnlessShutdown](
+                  nonEmptyIntersection(usage, pubKey.usage),
+                  (),
+                  SigningError.InvalidSigningKey(
+                    s"Signing key ${pubKey.fingerprint} [${pubKey.usage}] is not valid for usage $usage"
+                  ),
                 )
+                signatureRaw <- kms
+                  .sign(kmsKeyId, bytes, signingAlgorithmSpec)
+                  .leftMap[SigningError](err => SigningError.FailedToSign(err.show))
+              } yield new Signature(
+                SignatureFormat.Raw,
+                signatureRaw,
+                signingKeyId,
+                Some(signingAlgorithmSpec),
+              )
+
           }
         case None =>
           EitherT

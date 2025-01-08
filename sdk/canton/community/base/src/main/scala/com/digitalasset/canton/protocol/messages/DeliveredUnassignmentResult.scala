@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol.messages
@@ -33,7 +33,7 @@ final case class DeliveredUnassignmentResult private (
   val unwrap: ConfirmationResultMessage = signedConfirmationResult.message
 
   def reassignmentId: ReassignmentId =
-    ReassignmentId(Source(unwrap.domainId), unwrap.requestId.unwrap)
+    ReassignmentId(Source(unwrap.synchronizerId), unwrap.requestId.unwrap)
 
   override protected def pretty: Pretty[DeliveredUnassignmentResult] = prettyOfParam(_.unwrap)
 }

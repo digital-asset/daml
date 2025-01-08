@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.common
@@ -66,7 +66,7 @@ class CompletionStorageBackendTemplate(
           deduplication_offset,
           deduplication_duration_seconds,
           deduplication_duration_nanos,
-          domain_id,
+          synchronizer_id,
           trace_context
         FROM
           lapi_command_completions
@@ -95,7 +95,7 @@ class CompletionStorageBackendTemplate(
       str("command_id") ~
       str("application_id") ~
       str("submission_id").? ~
-      int("domain_id") ~
+      int("synchronizer_id") ~
       traceContextOption("trace_context")(noTracingLogger)
 
   private val acceptedCommandSharedColumns: RowParser[
@@ -118,7 +118,7 @@ class CompletionStorageBackendTemplate(
     acceptedCommandSharedColumns ~
       deduplicationOffsetColumn ~
       deduplicationDurationSecondsColumn ~ deduplicationDurationNanosColumn map {
-        case submitters ~ offset ~ recordTime ~ commandId ~ applicationId ~ submissionId ~ internedDomainId ~ traceContext ~ updateId ~
+        case submitters ~ offset ~ recordTime ~ commandId ~ applicationId ~ submissionId ~ internedSynchronizerId ~ traceContext ~ updateId ~
             deduplicationOffset ~ deduplicationDurationSeconds ~ deduplicationDurationNanos =>
           submitters -> CompletionFromTransaction.acceptedCompletion(
             submitters = submitters.iterator
@@ -134,7 +134,8 @@ class CompletionStorageBackendTemplate(
             optDeduplicationOffset = deduplicationOffset,
             optDeduplicationDurationSeconds = deduplicationDurationSeconds,
             optDeduplicationDurationNanos = deduplicationDurationNanos,
-            domainId = stringInterning.domainId.unsafe.externalize(internedDomainId),
+            synchronizerId =
+              stringInterning.synchronizerId.unsafe.externalize(internedSynchronizerId),
             traceContext = traceContext,
           )
       }
@@ -153,7 +154,7 @@ class CompletionStorageBackendTemplate(
       rejectionStatusCodeColumn ~
       rejectionStatusMessageColumn ~
       rejectionStatusDetailsColumn map {
-        case submitters ~ offset ~ recordTime ~ commandId ~ applicationId ~ submissionId ~ internedDomainId ~ traceContext ~
+        case submitters ~ offset ~ recordTime ~ commandId ~ applicationId ~ submissionId ~ internedSynchronizerId ~ traceContext ~
             deduplicationOffset ~ deduplicationDurationSeconds ~ deduplicationDurationNanos ~
             rejectionStatusCode ~ rejectionStatusMessage ~ rejectionStatusDetails =>
           val status =
@@ -172,7 +173,8 @@ class CompletionStorageBackendTemplate(
             optDeduplicationOffset = deduplicationOffset,
             optDeduplicationDurationSeconds = deduplicationDurationSeconds,
             optDeduplicationDurationNanos = deduplicationDurationNanos,
-            domainId = stringInterning.domainId.unsafe.externalize(internedDomainId),
+            synchronizerId =
+              stringInterning.synchronizerId.unsafe.externalize(internedSynchronizerId),
             traceContext = traceContext,
           )
       }
@@ -183,7 +185,7 @@ class CompletionStorageBackendTemplate(
     acceptedCommandParser(internedParties) | rejectedCommandParser(internedParties)
 
   private val postPublishDataParser: RowParser[Option[PostPublishData]] =
-    int("domain_id") ~
+    int("synchronizer_id") ~
       str("message_uuid").? ~
       long("request_sequencer_counter").? ~
       long("record_time") ~
@@ -196,12 +198,13 @@ class CompletionStorageBackendTemplate(
       str("update_id").? ~
       traceContextOption("trace_context")(noTracingLogger) ~
       bool("is_transaction") map {
-        case internedDomainId ~ messageUuidString ~ requestSequencerCounterLong ~ recordTimeMicros ~ applicationId ~
+        case internedSynchronizerId ~ messageUuidString ~ requestSequencerCounterLong ~ recordTimeMicros ~ applicationId ~
             commandId ~ submitters ~ offset ~ publicationTimeMicros ~ submissionId ~ updateIdOpt ~ traceContext ~ true =>
           // note: we only collect completions for transactions here for acceptance and transactions and reassignments for rejection (is_transaction will be true in rejection reassignment case as well)
           Some(
             PostPublishData(
-              submissionDomainId = stringInterning.domainId.externalize(internedDomainId),
+              submissionSynchronizerId =
+                stringInterning.synchronizerId.externalize(internedSynchronizerId),
               publishSource = messageUuidString
                 .map(UUID.fromString)
                 .map(PublishSource.Local(_): PublishSource)
@@ -276,7 +279,7 @@ class CompletionStorageBackendTemplate(
     import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
     SQL"""
       SELECT
-        domain_id,
+        synchronizer_id,
         message_uuid,
         request_sequencer_counter,
         record_time,

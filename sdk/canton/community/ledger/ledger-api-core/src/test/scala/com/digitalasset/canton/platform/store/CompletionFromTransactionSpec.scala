@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store
@@ -75,7 +75,7 @@ class CompletionFromTransactionSpec
             "commandId",
             "transactionId",
             "applicationId",
-            "domain-id",
+            "synchronizer id",
             traceContext,
             submissionId,
             deduplicationOffset,
@@ -112,7 +112,7 @@ class CompletionFromTransactionSpec
             "commandId",
             "transactionId",
             "applicationId",
-            "domain-id",
+            "synchronizer id",
             traceContext,
             Some("submissionId"),
             None,
@@ -132,7 +132,7 @@ class CompletionFromTransactionSpec
         "commandId",
         status,
         "applicationId",
-        "domain-id",
+        "synchronizer id",
         traceContext,
         Some("submissionId"),
       )

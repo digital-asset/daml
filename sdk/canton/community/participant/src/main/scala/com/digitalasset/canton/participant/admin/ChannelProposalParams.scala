@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin
@@ -11,10 +11,10 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.admin.PartyReplicationCoordinator.ChannelId
 import com.digitalasset.canton.participant.admin.workflows.java.canton.internal as M
 import com.digitalasset.canton.topology.{
-  DomainId,
   ParticipantId,
   PartyId,
   SequencerId,
+  SynchronizerId,
   UniqueIdentifier,
 }
 
@@ -25,7 +25,7 @@ final case class ChannelProposalParams private (
     partyId: PartyId,
     targetParticipantId: ParticipantId,
     sequencerIds: NonEmpty[List[SequencerId]],
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
 )
 
 object ChannelProposalParams {
@@ -58,14 +58,14 @@ object ChannelProposalParams {
             .bimap(err => s"Invalid unique identifier $sequencerUid: $err", SequencerId(_))
         )
       sequencerIdsNE <- NonEmpty.from(sequencerIds).toRight("Empty sequencerIds")
-      domainId <-
-        DomainId
+      synchronizerId <-
+        SynchronizerId
           .fromProtoPrimitive(domain, "domain")
-          // The following error is impossible to trigger as the ledger-api does not emit invalid domain ids
-          .leftMap(err => s"Invalid domainId $err")
+          // The following error is impossible to trigger as the ledger-api does not emit invalid synchronizer ids
+          .leftMap(err => s"Invalid synchronizerId $err")
       _ <- ChannelId.fromString(c.payloadMetadata.id)
       _ <- NonNegativeLong
         .create(c.payloadMetadata.startAtWatermark)
         .leftMap(_ => s"Invalid, negative startAtWatermark ${c.payloadMetadata.startAtWatermark}")
-    } yield ChannelProposalParams(ts, partyId, targetParticipantId, sequencerIdsNE, domainId)
+    } yield ChannelProposalParams(ts, partyId, targetParticipantId, sequencerIdsNE, synchronizerId)
 }

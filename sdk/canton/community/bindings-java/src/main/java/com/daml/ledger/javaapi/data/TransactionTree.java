@@ -1,5 +1,5 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data;
 
@@ -25,11 +25,11 @@ public final class TransactionTree {
 
   @NonNull private final Long offset;
 
-  @NonNull private final Map<String, TreeEvent> eventsById;
+  @NonNull private final Map<Integer, TreeEvent> eventsById;
 
-  @NonNull private final List<String> rootEventIds;
+  @NonNull private final List<Integer> rootNodeIds;
 
-  @NonNull private final String domainId;
+  @NonNull private final String synchronizerId;
 
   private final TraceContextOuterClass.@NonNull TraceContext traceContext;
 
@@ -41,9 +41,9 @@ public final class TransactionTree {
       @NonNull String workflowId,
       @NonNull Instant effectiveAt,
       @NonNull Long offset,
-      @NonNull Map<@NonNull String, @NonNull TreeEvent> eventsById,
-      List<String> rootEventIds,
-      @NonNull String domainId,
+      @NonNull Map<@NonNull Integer, @NonNull TreeEvent> eventsById,
+      List<Integer> rootNodeIds,
+      @NonNull String synchronizerId,
       TraceContextOuterClass.@NonNull TraceContext traceContext,
       @NonNull Instant recordTime) {
     this.updateId = updateId;
@@ -52,8 +52,8 @@ public final class TransactionTree {
     this.effectiveAt = effectiveAt;
     this.offset = offset;
     this.eventsById = eventsById;
-    this.rootEventIds = rootEventIds;
-    this.domainId = domainId;
+    this.rootNodeIds = rootNodeIds;
+    this.synchronizerId = synchronizerId;
     this.traceContext = traceContext;
     this.recordTime = recordTime;
   }
@@ -61,19 +61,19 @@ public final class TransactionTree {
   public static TransactionTree fromProto(TransactionOuterClass.TransactionTree tree) {
     Instant effectiveAt =
         Instant.ofEpochSecond(tree.getEffectiveAt().getSeconds(), tree.getEffectiveAt().getNanos());
-    Map<String, TreeEvent> eventsById =
+    Map<Integer, TreeEvent> eventsById =
         tree.getEventsByIdMap().values().stream()
             .collect(
                 Collectors.toMap(
                     e -> {
-                      if (e.hasCreated()) return e.getCreated().getEventId();
-                      else if (e.hasExercised()) return e.getExercised().getEventId();
+                      if (e.hasCreated()) return e.getCreated().getNodeId();
+                      else if (e.hasExercised()) return e.getExercised().getNodeId();
                       else
                         throw new IllegalArgumentException(
-                            "Event is neither created not exercied: " + e);
+                            "Event is neither created nor exercised: " + e);
                     },
                     TreeEvent::fromProtoTreeEvent));
-    List<String> rootEventIds = tree.getRootEventIdsList();
+    List<Integer> rootNodeIds = tree.getRootNodeIdsList();
     return new TransactionTree(
         tree.getUpdateId(),
         tree.getCommandId(),
@@ -81,8 +81,8 @@ public final class TransactionTree {
         effectiveAt,
         tree.getOffset(),
         eventsById,
-        rootEventIds,
-        tree.getDomainId(),
+        rootNodeIds,
+        tree.getSynchronizerId(),
         tree.getTraceContext(),
         Utils.instantFromProto(tree.getRecordTime()));
   }
@@ -100,9 +100,9 @@ public final class TransactionTree {
         .setOffset(offset)
         .putAllEventsById(
             eventsById.values().stream()
-                .collect(Collectors.toMap(TreeEvent::getEventId, TreeEvent::toProtoTreeEvent)))
-        .addAllRootEventIds(rootEventIds)
-        .setDomainId(domainId)
+                .collect(Collectors.toMap(TreeEvent::getNodeId, TreeEvent::toProtoTreeEvent)))
+        .addAllRootNodeIds(rootNodeIds)
+        .setSynchronizerId(synchronizerId)
         .setTraceContext(traceContext)
         .setRecordTime(Utils.instantToProto(recordTime))
         .build();
@@ -134,18 +134,18 @@ public final class TransactionTree {
   }
 
   @NonNull
-  public Map<String, TreeEvent> getEventsById() {
+  public Map<Integer, TreeEvent> getEventsById() {
     return eventsById;
   }
 
   @NonNull
-  public List<String> getRootEventIds() {
-    return rootEventIds;
+  public List<Integer> getRootNodeIds() {
+    return rootNodeIds;
   }
 
   @NonNull
-  public String getDomainId() {
-    return domainId;
+  public String getSynchronizerId() {
+    return synchronizerId;
   }
 
   public TraceContextOuterClass.@NonNull TraceContext getTraceContext() {
@@ -176,10 +176,10 @@ public final class TransactionTree {
         + '\''
         + ", eventsById="
         + eventsById
-        + ", rootEventIds="
-        + rootEventIds
-        + ", domainId='"
-        + domainId
+        + ", rootNodeIds="
+        + rootNodeIds
+        + ", synchronizerId='"
+        + synchronizerId
         + '\''
         + ", traceContext="
         + traceContext
@@ -198,9 +198,9 @@ public final class TransactionTree {
         && Objects.equals(workflowId, that.workflowId)
         && Objects.equals(effectiveAt, that.effectiveAt)
         && Objects.equals(eventsById, that.eventsById)
-        && Objects.equals(rootEventIds, that.rootEventIds)
+        && Objects.equals(rootNodeIds, that.rootNodeIds)
         && Objects.equals(offset, that.offset)
-        && Objects.equals(domainId, that.domainId)
+        && Objects.equals(synchronizerId, that.synchronizerId)
         && Objects.equals(traceContext, that.traceContext)
         && Objects.equals(recordTime, that.recordTime);
   }
@@ -214,8 +214,8 @@ public final class TransactionTree {
         effectiveAt,
         offset,
         eventsById,
-        rootEventIds,
-        domainId,
+        rootNodeIds,
+        synchronizerId,
         traceContext,
         recordTime);
   }

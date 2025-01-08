@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto
@@ -51,14 +51,20 @@ object GeneratorsCrypto {
     Generators.lengthLimitedStringGen(String68).map(s => Fingerprint.tryCreate(s.str))
   )
 
+  val validUsageGen: Gen[Set[SigningKeyUsage]] = for {
+    usages <- Gen.someOf(SigningKeyUsage.All)
+    if SigningKeyUsage.isUsageValid(NonEmptyUtil.fromUnsafe(usages.toSet))
+  } yield usages.toSet
+
   // TODO(#15813): Change arbitrary signing keys to match real keys
   implicit val signingPublicKeyArb: Arbitrary[SigningPublicKey] = Arbitrary(for {
     key <- Arbitrary.arbitrary[ByteString]
     keySpec <- Arbitrary.arbitrary[SigningKeySpec]
     format = CryptoKeyFormat.Symbolic
     usage <- Gen
-      .nonEmptyListOf[SigningKeyUsage](Arbitrary.arbitrary[SigningKeyUsage])
-      .map(usageAux => NonEmptyUtil.fromUnsafe(usageAux.toSet))
+      .nonEmptyListOf(Gen.oneOf(SigningKeyUsage.All.toList))
+      .map(usages => NonEmptyUtil.fromUnsafe(usages.toSet))
+      .suchThat(usagesNE => SigningKeyUsage.isUsageValid(usagesNE))
   } yield SigningPublicKey.create(format, key, keySpec, usage).value)
 
   implicit val signatureDelegationArb: Arbitrary[SignatureDelegation] = Arbitrary(
@@ -155,9 +161,9 @@ object GeneratorsCrypto {
     Gen.oneOf(Arbitrary.arbitrary[SigningPublicKey], Arbitrary.arbitrary[EncryptionPublicKey])
   )
 
-  def sign(str: String, purpose: HashPurpose): Signature = {
+  def sign(str: String, purpose: HashPurpose, usage: NonEmpty[Set[SigningKeyUsage]]): Signature = {
     val hash = crypto.pureCrypto.build(purpose).addWithoutLengthPrefix(str).finish()
-    crypto.sign(hash, sequencerKey.id)
+    crypto.sign(hash, sequencerKey.id, usage)
   }
 
   implicit val symmetricKeyArb: Arbitrary[SymmetricKey] =

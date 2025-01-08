@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.utils
@@ -16,7 +16,7 @@ object EventOps {
 
   implicit class EventOps(val event: Event) extends AnyVal {
 
-    def eventId: String = event.event.eventId
+    def nodeId: Int = event.event.nodeId
 
     def witnessParties: Seq[String] = event.event.witnessParties
     def updateWitnessParties(set: Seq[String]): Event =
@@ -35,9 +35,9 @@ object EventOps {
 
   implicit class EventEventOps(val event: Event.Event) extends AnyVal {
 
-    def eventId: String = event match {
-      case Archived(value) => value.eventId
-      case Created(value) => value.eventId
+    def nodeId: Int = event match {
+      case Archived(value) => value.nodeId
+      case Created(value) => value.nodeId
       case Empty => throw new IllegalArgumentException("Cannot extract Event ID from Empty event.")
     }
 
@@ -90,12 +90,12 @@ object EventOps {
   }
 
   implicit final class TreeEventOps(val event: TreeEvent) extends AnyVal {
-    def eventId: String = event.kind.fold(_.eventId, _.eventId)
-    def childEventIds: Seq[String] = event.kind.fold(_.childEventIds, _ => Nil)
-    def filterChildEventIds(f: String => Boolean): TreeEvent =
+    def nodeId: Int = event.kind.fold(_.nodeId, _.nodeId)
+    def childNodeIds: Seq[Int] = event.kind.fold(_.childNodeIds, _ => Nil)
+    def filterChildNodeIds(f: Int => Boolean): TreeEvent =
       event.kind.fold(
         exercise =>
-          TreeEvent(TreeExercised(exercise.copy(childEventIds = exercise.childEventIds.filter(f)))),
+          TreeEvent(TreeExercised(exercise.copy(childNodeIds = exercise.childNodeIds.filter(f)))),
         create => TreeEvent(TreeCreated(create)),
       )
     def witnessParties: Seq[String] = event.kind.fold(_.witnessParties, _.witnessParties)

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -13,10 +13,10 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentPro
   NoTimeProofFromDomain,
   ReassignmentProcessorError,
 }
-import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.sequencing.protocol.TimeProof
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.Target
 
@@ -24,7 +24,7 @@ import scala.concurrent.ExecutionContext
 
 /** Returns a recent time proof received from the given domain. */
 private[reassignment] class RecentTimeProofProvider(
-    submissionHandles: DomainId => Option[ReassignmentSubmissionHandle],
+    submissionHandles: SynchronizerId => Option[ReassignmentSubmissionHandle],
     syncCryptoApi: SyncCryptoApiProvider,
     override val loggerFactory: NamedLoggerFactory,
     reassignmentTimeProofFreshnessProportion: NonNegativeInt,
@@ -39,28 +39,31 @@ private[reassignment] class RecentTimeProofProvider(
     else
       exclusivityTimeout / reassignmentTimeProofFreshnessProportion
 
-  def get(targetDomainId: Target[DomainId], staticDomainParameters: Target[StaticDomainParameters])(
-      implicit traceContext: TraceContext
+  def get(
+      targetSynchronizerId: Target[SynchronizerId],
+      staticSynchronizerParameters: Target[StaticSynchronizerParameters],
+  )(implicit
+      traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, TimeProof] = {
-    val domain = targetDomainId.unwrap
+    val domain = targetSynchronizerId.unwrap
 
     for {
       handle <- EitherT.fromEither[FutureUnlessShutdown](
-        submissionHandles(domain).toRight(NoTimeProofFromDomain(domain, "unknown domain"))
+        submissionHandles(domain).toRight(NoTimeProofFromDomain(domain, "unknown synchronizer"))
       )
 
       crypto <- EitherT.fromEither[FutureUnlessShutdown](
         syncCryptoApi
-          .forDomain(domain, staticDomainParameters.value)
+          .forSynchronizer(domain, staticSynchronizerParameters.value)
           .toRight(NoTimeProofFromDomain(domain, "getting the crypto client"))
       )
 
       parameters <- EitherT(
         crypto.ips.currentSnapshotApproximation
-          .findDynamicDomainParameters()
+          .findDynamicSynchronizerParameters()
           .map(
             _.leftMap(err =>
-              NoTimeProofFromDomain(domain, s"unable to find domain parameters: $err")
+              NoTimeProofFromDomain(domain, s"unable to find synchronizer parameters: $err")
             )
           )
       )

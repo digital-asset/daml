@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.config
@@ -33,29 +33,6 @@ import com.digitalasset.canton.config.StartupMemoryCheckConfig.ReportingLevel
 import com.digitalasset.canton.console.{AmmoniteConsoleConfig, FeatureFlag}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.kms.driver.v1.DriverKms
-import com.digitalasset.canton.domain.block.{SequencerDriver, SequencerDriverFactory}
-import com.digitalasset.canton.domain.mediator.{
-  MediatorConfig,
-  MediatorNodeConfigCommon,
-  MediatorNodeParameterConfig,
-  MediatorNodeParameters,
-  MediatorPruningConfig,
-  RemoteMediatorConfig,
-}
-import com.digitalasset.canton.domain.sequencing.config.{
-  RemoteSequencerConfig,
-  SequencerNodeConfigCommon,
-  SequencerNodeInitConfig,
-  SequencerNodeParameterConfig,
-  SequencerNodeParameters,
-}
-import com.digitalasset.canton.domain.sequencing.sequencer.*
-import com.digitalasset.canton.domain.sequencing.sequencer.block.DriverBlockSequencerFactory
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.driver.{
-  BftBlockOrderer,
-  BftSequencerFactory,
-}
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficConfig
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.http.{HttpServerConfig, JsonApiConfig, WebsocketConfig}
 import com.digitalasset.canton.ledger.runner.common.PureConfigReaderWriter.Secure.{
@@ -85,6 +62,29 @@ import com.digitalasset.canton.protocol.AcsCommitmentsCatchUpConfig
 import com.digitalasset.canton.pureconfigutils.SharedConfigReaders.catchConvertError
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
+import com.digitalasset.canton.synchronizer.block.{SequencerDriver, SequencerDriverFactory}
+import com.digitalasset.canton.synchronizer.mediator.{
+  MediatorConfig,
+  MediatorNodeConfigCommon,
+  MediatorNodeParameterConfig,
+  MediatorNodeParameters,
+  MediatorPruningConfig,
+  RemoteMediatorConfig,
+}
+import com.digitalasset.canton.synchronizer.sequencing.config.{
+  RemoteSequencerConfig,
+  SequencerNodeConfigCommon,
+  SequencerNodeInitConfig,
+  SequencerNodeParameterConfig,
+  SequencerNodeParameters,
+}
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.*
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.DriverBlockSequencerFactory
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.driver.{
+  BftBlockOrderer,
+  BftSequencerFactory,
+}
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.traffic.SequencerTrafficConfig
 import com.digitalasset.canton.tracing.TracingConfig
 import com.typesafe.config.ConfigException.UnresolvedSubstitution
 import com.typesafe.config.{
@@ -537,8 +537,8 @@ object CantonConfig {
   import pureconfig.generic.semiauto.*
   import pureconfig.module.cats.*
 
-  implicit val communityStorageConfigTypeHint: FieldCoproductHint[CommunityStorageConfig] =
-    CantonConfigUtil.lowerCaseStorageConfigType[CommunityStorageConfig]
+  implicit val communityStorageConfigTypeHint: FieldCoproductHint[StorageConfig] =
+    CantonConfigUtil.lowerCaseStorageConfigType[StorageConfig]
 
   /** In the external config we use `port` for an optionally set port, while internally we store it as `internalPort` */
   implicit def serverConfigProductHint[SC <: ServerConfig]: ProductHint[SC] = ProductHint[SC](
@@ -683,8 +683,8 @@ object CantonConfig {
       deriveReader[TestingTimeServiceConfig]
     }
 
-    lazy implicit final val communityAdminServerReader: ConfigReader[CommunityAdminServerConfig] =
-      deriveReader[CommunityAdminServerConfig]
+    lazy implicit final val adminServerReader: ConfigReader[AdminServerConfig] =
+      deriveReader[AdminServerConfig]
     lazy implicit final val tlsBaseServerConfigReader: ConfigReader[TlsBaseServerConfig] =
       deriveReader[TlsBaseServerConfig]
 
@@ -997,10 +997,10 @@ object CantonConfig {
         deriveReader[PackageMetadataViewConfig]
       deriveReader[ParticipantNodeParameterConfig]
     }
-    lazy implicit final val timeTrackerConfigReader: ConfigReader[DomainTimeTrackerConfig] = {
+    lazy implicit final val timeTrackerConfigReader: ConfigReader[SynchronizerTimeTrackerConfig] = {
       implicit val timeRequestConfigReader: ConfigReader[TimeProofRequestConfig] =
         deriveReader[TimeProofRequestConfig]
-      deriveReader[DomainTimeTrackerConfig]
+      deriveReader[SynchronizerTimeTrackerConfig]
     }
 
     lazy implicit final val sequencerClientConfigReader: ConfigReader[SequencerClientConfig] = {
@@ -1189,9 +1189,8 @@ object CantonConfig {
       deriveWriter[TestingTimeServiceConfig]
     }
 
-    lazy implicit final val communityAdminServerConfigWriter
-        : ConfigWriter[CommunityAdminServerConfig] =
-      deriveWriter[CommunityAdminServerConfig]
+    lazy implicit final val adminServerConfigWriter: ConfigWriter[AdminServerConfig] =
+      deriveWriter[AdminServerConfig]
     lazy implicit final val tlsBaseServerConfigWriter: ConfigWriter[TlsBaseServerConfig] =
       deriveWriter[TlsBaseServerConfig]
 
@@ -1482,10 +1481,10 @@ object CantonConfig {
         deriveWriter[PackageMetadataViewConfig]
       deriveWriter[ParticipantNodeParameterConfig]
     }
-    lazy implicit final val timeTrackerConfigWriter: ConfigWriter[DomainTimeTrackerConfig] = {
+    lazy implicit final val timeTrackerConfigWriter: ConfigWriter[SynchronizerTimeTrackerConfig] = {
       implicit val timeRequestConfigWriter: ConfigWriter[TimeProofRequestConfig] =
         deriveWriter[TimeProofRequestConfig]
-      deriveWriter[DomainTimeTrackerConfig]
+      deriveWriter[SynchronizerTimeTrackerConfig]
     }
 
     lazy implicit final val sequencerClientConfigWriter: ConfigWriter[SequencerClientConfig] = {

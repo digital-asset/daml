@@ -1,10 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.topology.transaction.MediatorDomainState
+import com.digitalasset.canton.topology.transaction.MediatorSynchronizerState
 
 object MediatorGroupDeltaComputations {
 
@@ -37,7 +37,7 @@ object MediatorGroupDeltaComputations {
   } yield ()
 
   def verifyProposalAgainstCurrentState(
-      mdsO: Option[MediatorDomainState],
+      mdsO: Option[MediatorSynchronizerState],
       adds: Seq[MediatorId],
       removes: Seq[MediatorId],
       observerAdds: Seq[MediatorId],

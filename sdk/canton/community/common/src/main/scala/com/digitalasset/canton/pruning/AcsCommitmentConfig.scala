@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.pruning
@@ -11,11 +11,11 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.{ParsingResult, parseNonNegativeLong}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.version.*
 
 final case class ConfigForDomainThresholds(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     thresholdDistinguished: NonNegativeLong,
     thresholdDefault: NonNegativeLong,
 )
@@ -26,17 +26,20 @@ object ConfigForDomainThresholds {
       config: partV30.SlowCounterParticipantDomainConfig
   ): Seq[ParsingResult[ConfigForDomainThresholds]] =
     for {
-      domainIdAsString <- config.domainIds
+      synchronizerIdAsString <- config.synchronizerIds
     } yield {
       for {
-        domainId <- DomainId.fromProtoPrimitive(domainIdAsString, "domainId")
+        synchronizerId <- SynchronizerId.fromProtoPrimitive(
+          synchronizerIdAsString,
+          "synchronizerId",
+        )
         thresholdDistinguished <- parseNonNegativeLong(
           "thresholdDistinguished",
           config.thresholdDistinguished,
         )
         thresholdDefault <- parseNonNegativeLong("thresholdDefault", config.thresholdDefault)
       } yield ConfigForDomainThresholds(
-        domainId,
+        synchronizerId,
         thresholdDistinguished,
         thresholdDefault,
       )
@@ -44,7 +47,7 @@ object ConfigForDomainThresholds {
 }
 
 final case class ConfigForSlowCounterParticipants(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     participantId: ParticipantId,
     isDistinguished: Boolean,
     isAddedToMetrics: Boolean,
@@ -54,7 +57,7 @@ final case class ConfigForSlowCounterParticipants(
       thresholds: ConfigForDomainThresholds
   ): partV30.SlowCounterParticipantDomainConfig =
     partV30.SlowCounterParticipantDomainConfig(
-      domainIds = Seq(domainId.toProtoPrimitive),
+      synchronizerIds = Seq(synchronizerId.toProtoPrimitive),
       distinguishedParticipantUids =
         if (isDistinguished) Seq(participantId.toProtoPrimitive) else Seq.empty,
       thresholds.thresholdDistinguished.value,
@@ -71,16 +74,19 @@ object ConfigForSlowCounterParticipants {
       config: partV30.SlowCounterParticipantDomainConfig
   ): Seq[ParsingResult[ConfigForSlowCounterParticipants]] =
     for {
-      domainIdAsString <- config.domainIds
+      synchronizerIdAsString <- config.synchronizerIds
       participantIdAsString <-
         config.distinguishedParticipantUids ++ config.participantUidsMetrics
     } yield {
       for {
-        domainId <- DomainId.fromProtoPrimitive(domainIdAsString, "domainId")
+        synchronizerId <- SynchronizerId.fromProtoPrimitive(
+          synchronizerIdAsString,
+          "synchronizerId",
+        )
         participantId <- ParticipantId
           .fromProtoPrimitive(participantIdAsString, "counter_participant_uid")
       } yield ConfigForSlowCounterParticipants(
-        domainId,
+        synchronizerId,
         participantId,
         config.distinguishedParticipantUids.contains(participantIdAsString),
         config.participantUidsMetrics.contains(participantIdAsString),
@@ -89,20 +95,20 @@ object ConfigForSlowCounterParticipants {
 }
 
 final case class ConfigForNoWaitCounterParticipants(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     participantId: ParticipantId,
 ) {
 
   def toProtoV30: prunV30.WaitCommitmentsSetup =
     prunV30.WaitCommitmentsSetup(
       participantId.toProtoPrimitive,
-      Some(prunV30.Domains(Seq(domainId.toProtoPrimitive))),
+      Some(prunV30.Domains(Seq(synchronizerId.toProtoPrimitive))),
     )
 
 }
 
 final case class CounterParticipantIntervalsBehind(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     participantId: ParticipantId,
     intervalsBehind: NonNegativeLong,
     timeBehind: NonNegativeFiniteDuration,
@@ -112,7 +118,7 @@ final case class CounterParticipantIntervalsBehind(
   def toProtoV30: partV30.GetIntervalsBehindForCounterParticipants.CounterParticipantInfo =
     partV30.GetIntervalsBehindForCounterParticipants.CounterParticipantInfo(
       participantId.toProtoPrimitive,
-      domainId.toProtoPrimitive,
+      synchronizerId.toProtoPrimitive,
       intervalsBehind.value,
       Some(timeBehind.toProtoPrimitive),
       Some(asOfSequencingTime.toProtoTimestamp),
@@ -122,7 +128,7 @@ final case class CounterParticipantIntervalsBehind(
 
   override def pretty: Pretty[CounterParticipantIntervalsBehind] =
     prettyOfClass(
-      param("domain", _.domainId),
+      param("domain", _.synchronizerId),
       param("participant", _.participantId),
       param("intervals behind", _.intervalsBehind),
       param("time behind", _.timeBehind),
@@ -154,7 +160,10 @@ object CounterParticipantIntervalsBehind
         counterParticipantInfoProto.counterParticipantUid,
         "counterParticipantUid",
       )
-      domainId <- DomainId.fromProtoPrimitive(counterParticipantInfoProto.domainId, "domainId")
+      synchronizerId <- SynchronizerId.fromProtoPrimitive(
+        counterParticipantInfoProto.synchronizerId,
+        "synchronizerId",
+      )
       intervalsBehind <- parseNonNegativeLong(
         "thresholdDistinguished",
         counterParticipantInfoProto.intervalsBehind,
@@ -168,7 +177,7 @@ object CounterParticipantIntervalsBehind
         counterParticipantInfoProto.asOfSequencingTimestamp,
       )
     } yield CounterParticipantIntervalsBehind(
-      domainId,
+      synchronizerId,
       participantId,
       intervalsBehind,
       timeBehind,

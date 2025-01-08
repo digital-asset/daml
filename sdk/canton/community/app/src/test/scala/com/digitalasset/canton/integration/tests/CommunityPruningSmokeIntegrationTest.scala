@@ -1,12 +1,12 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests
 
-import com.digitalasset.canton.DomainAlias
+import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.admin.api.client.data.{NodeStatus, WaitingForInitialization}
-import com.digitalasset.canton.config.CommunityStorageConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.StorageConfig
 import com.digitalasset.canton.console.{CommandFailure, InstanceReference}
 import com.digitalasset.canton.integration.CommunityTests.{
   CommunityIntegrationTest,
@@ -25,7 +25,7 @@ sealed trait CommunityPruningSmokeIntegrationTest
     extends CommunityIntegrationTest
     with SharedCommunityEnvironment {
 
-  private val domainAlias = "da"
+  private val synchronizerAlias = "da"
 
   override def environmentDefinition: CommunityEnvironmentDefinition =
     CommunityEnvironmentDefinition.simpleTopology
@@ -47,13 +47,14 @@ sealed trait CommunityPruningSmokeIntegrationTest
           Some(WaitingForInitialization),
         )
 
-        bootstrap.domain(
-          domainAlias,
+        bootstrap.synchronizer(
+          synchronizerAlias,
           Seq(sequencer1),
           Seq(mediator1),
           Seq[InstanceReference](sequencer1, mediator1),
           PositiveInt.two,
-          staticDomainParameters = CommunityEnvironmentDefinition.defaultStaticDomainParameters,
+          staticSynchronizerParameters =
+            CommunityEnvironmentDefinition.defaultStaticSynchronizerParameters,
         )
 
         sequencer1.health.wait_for_initialized()
@@ -99,9 +100,9 @@ sealed trait CommunityPruningSmokeIntegrationTest
     import env.*
 
     participant1.start()
-    participant1.domains.connect_local(
+    participant1.synchronizers.connect_local(
       sequencer1,
-      alias = DomainAlias.tryCreate(domainAlias),
+      alias = SynchronizerAlias.tryCreate(synchronizerAlias),
     )
 
     // Generate some data to have something to prune
@@ -125,6 +126,6 @@ sealed trait CommunityPruningSmokeIntegrationTest
 final class CommunityReferencePruningSmokeIntegrationTest
     extends CommunityPruningSmokeIntegrationTest {
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[CommunityStorageConfig.Memory](loggerFactory)
+    new UseCommunityReferenceBlockSequencer[StorageConfig.Memory](loggerFactory)
   )
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
@@ -27,7 +27,7 @@ import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissio
 import com.digitalasset.canton.participant.store.memory.ReassignmentCache
 import com.digitalasset.canton.protocol.RootHash
 import com.digitalasset.canton.store.SessionKeyStore
-import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
+import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -41,7 +41,7 @@ import scala.concurrent.ExecutionContext
 class SyncDomainEphemeralState(
     participantId: ParticipantId,
     val recordOrderPublisher: RecordOrderPublisher,
-    val timeTracker: DomainTimeTracker,
+    val timeTracker: SynchronizerTimeTracker,
     val inFlightSubmissionDomainTracker: InFlightSubmissionDomainTracker,
     persistentState: SyncDomainPersistentState,
     val ledgerApiIndexer: LedgerApiIndexer,

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.admin.api.client.commands
@@ -18,7 +18,7 @@ import com.digitalasset.canton.time.{
   FetchTimeResponse,
   NonNegativeFiniteDuration,
 }
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import io.grpc.ManagedChannel
 
 import scala.concurrent.Future
@@ -32,13 +32,13 @@ object DomainTimeCommands {
   }
 
   final case class FetchTime(
-      domainIdO: Option[DomainId],
+      synchronizerIdO: Option[SynchronizerId],
       freshnessBound: NonNegativeFiniteDuration,
       timeout: NonNegativeDuration,
   ) extends BaseDomainTimeCommand[FetchTimeRequest, v30.FetchTimeResponse, FetchTimeResponse] {
 
     override protected def createRequest(): Either[String, FetchTimeRequest] =
-      Right(FetchTimeRequest(domainIdO, freshnessBound))
+      Right(FetchTimeRequest(synchronizerIdO, freshnessBound))
 
     override protected def submitRequest(
         service: DomainTimeServiceStub,
@@ -55,13 +55,13 @@ object DomainTimeCommands {
   }
 
   final case class AwaitTime(
-      domainIdO: Option[DomainId],
+      synchronizerIdO: Option[SynchronizerId],
       time: CantonTimestamp,
       timeout: NonNegativeDuration,
   ) extends BaseDomainTimeCommand[AwaitTimeRequest, v30.AwaitTimeResponse, Unit] {
 
     override protected def createRequest(): Either[String, AwaitTimeRequest] =
-      Right(AwaitTimeRequest(domainIdO, time))
+      Right(AwaitTimeRequest(synchronizerIdO, time))
 
     override protected def submitRequest(
         service: DomainTimeServiceStub,

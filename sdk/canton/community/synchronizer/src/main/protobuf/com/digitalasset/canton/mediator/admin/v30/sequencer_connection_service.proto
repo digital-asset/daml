@@ -1,0 +1,34 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.mediator.admin.v30;
+
+import "com/digitalasset/canton/admin/sequencer/v30/sequencer_connection.proto";
+
+// service used by sequencer clients to manage connection to the sequencer
+// used by the mediator
+service SequencerConnectionService {
+  rpc GetConnection(GetConnectionRequest) returns (GetConnectionResponse);
+  rpc SetConnection(SetConnectionRequest) returns (SetConnectionResponse);
+  // Revoke the authentication tokens for all the sequencers on the domain and disconnect the sequencer clients
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+}
+
+message GetConnectionRequest {}
+
+message GetConnectionResponse {
+  com.digitalasset.canton.admin.sequencer.v30.SequencerConnections sequencer_connections = 1; // optional
+}
+
+message SetConnectionRequest {
+  com.digitalasset.canton.admin.sequencer.v30.SequencerConnections sequencer_connections = 1; // required
+  com.digitalasset.canton.admin.sequencer.v30.SequencerConnectionValidation sequencer_connection_validation = 2; // required
+}
+
+message SetConnectionResponse {}
+
+message LogoutRequest {}
+
+message LogoutResponse {}

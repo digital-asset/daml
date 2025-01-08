@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.memory
@@ -24,7 +24,7 @@ import com.digitalasset.canton.protocol.messages.{
   SignedProtocolMessage,
 }
 import com.digitalasset.canton.store.memory.InMemoryPrunableByTime
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.IterableUtil.Ops
@@ -37,7 +37,7 @@ import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future, blocking}
 
 class InMemoryAcsCommitmentStore(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     override val acsCounterParticipantConfigStore: AcsCounterParticipantConfigStore,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit
@@ -179,7 +179,7 @@ class InMemoryAcsCommitmentStore(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[CantonTimestamp]] =
     for {
       ignoredParticipants <- acsCounterParticipantConfigStore
-        .getAllActiveNoWaitCounterParticipants(Seq(domainId), Seq.empty)
+        .getAllActiveNoWaitCounterParticipants(Seq(synchronizerId), Seq.empty)
       result <- FutureUnlessShutdown.pure {
         for {
           lastTs <- lastComputed.get

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http.json.v2
@@ -15,6 +15,7 @@ import com.digitalasset.canton.http.json.v2.JsSchema.{
   JsTransaction,
   JsTransactionTree,
 }
+import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.Codecs.*
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
@@ -55,12 +56,12 @@ class JsUpdateService(
       getTrees,
     ),
     withServerLogic(
-      JsUpdateService.getTransactionTreeByEventIdEndpoint,
-      getTreeByEventId,
+      JsUpdateService.getTransactionTreeByOffsetEndpoint,
+      getTreeByOffset,
     ),
     withServerLogic(
-      JsUpdateService.getTransactionByEventIdEndpoint,
-      getTransactionByEventId,
+      JsUpdateService.getTransactionByOffsetEndpoint,
+      getTransactionByOffset,
     ),
     withServerLogic(
       JsUpdateService.getTransactionByIdEndpoint,
@@ -72,17 +73,17 @@ class JsUpdateService(
     ),
   )
 
-  private def getTreeByEventId(
+  private def getTreeByOffset(
       caller: CallerContext
-  ): TracedInput[(String, List[String])] => Future[
+  ): TracedInput[(Long, List[String])] => Future[
     Either[JsCantonError, JsGetTransactionTreeResponse]
   ] = { req =>
     implicit val token: Option[String] = caller.token()
     implicit val tc: TraceContext = req.traceContext
     updateServiceClient(caller.token())(req.traceContext)
-      .getTransactionTreeByEventId(
-        update_service.GetTransactionByEventIdRequest(
-          eventId = req.in._1,
+      .getTransactionTreeByOffset(
+        update_service.GetTransactionByOffsetRequest(
+          offset = req.in._1,
           requestingParties = req.in._2,
         )
       )
@@ -90,18 +91,18 @@ class JsUpdateService(
       .resultToRight
   }
 
-  private def getTransactionByEventId(
+  private def getTransactionByOffset(
       caller: CallerContext
-  ): TracedInput[(String, List[String])] => Future[
+  ): TracedInput[(Long, List[String])] => Future[
     Either[JsCantonError, JsGetTransactionResponse]
   ] =
     req => {
       implicit val token = caller.token()
       implicit val tc = req.traceContext
       updateServiceClient(caller.token())(req.traceContext)
-        .getTransactionByEventId(
-          update_service.GetTransactionByEventIdRequest(
-            eventId = req.in._1,
+        .getTransactionByOffset(
+          update_service.GetTransactionByOffsetRequest(
+            offset = req.in._1,
             requestingParties = req.in._2,
           )
         )
@@ -210,12 +211,12 @@ object JsUpdateService extends DocumentationEndpoints {
     )
     .description("Get update transactions tree stream")
 
-  val getTransactionTreeByEventIdEndpoint = updates.get
-    .in(sttp.tapir.stringToPath("transaction-tree-by-event-id"))
-    .in(path[String]("event-id"))
+  val getTransactionTreeByOffsetEndpoint = updates.get
+    .in(sttp.tapir.stringToPath("transaction-tree-by-offset"))
+    .in(path[Long]("offset"))
     .in(query[List[String]]("parties"))
     .out(jsonBody[JsGetTransactionTreeResponse])
-    .description("Get transaction tree by event id")
+    .description("Get transaction tree by offset")
 
   val getTransactionTreeByIdEndpoint: Endpoint[
     CallerContext,
@@ -238,19 +239,19 @@ object JsUpdateService extends DocumentationEndpoints {
       .out(jsonBody[JsGetTransactionResponse])
       .description("Get transaction by id")
 
-  val getTransactionByEventIdEndpoint =
+  val getTransactionByOffsetEndpoint =
     updates.get
-      .in(sttp.tapir.stringToPath("transaction-by-event-id"))
-      .in(path[String]("event-id"))
+      .in(sttp.tapir.stringToPath("transaction-by-offset"))
+      .in(path[Long]("offset"))
       .in(query[List[String]]("parties"))
       .out(jsonBody[JsGetTransactionResponse])
-      .description("Get transaction by event id")
+      .description("Get transaction by offset")
 
   override def documentation: Seq[AnyEndpoint] = List(
     getUpdatesFlatEndpoint,
     getUpdatesTreeEndpoint,
-    getTransactionTreeByEventIdEndpoint,
-    getTransactionByEventIdEndpoint,
+    getTransactionTreeByOffsetEndpoint,
+    getTransactionByOffsetEndpoint,
     getTransactionByIdEndpoint,
     getTransactionTreeByIdEndpoint,
   )

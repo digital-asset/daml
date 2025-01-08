@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
@@ -16,11 +16,11 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.store.AcsInspection.*
 import com.digitalasset.canton.protocol.ContractIdSyntax.orderingLfContractId
-import com.digitalasset.canton.protocol.messages.HasDomainId
+import com.digitalasset.canton.protocol.messages.HasSynchronizerId
 import com.digitalasset.canton.protocol.{LfContractId, SerializableContract}
 import com.digitalasset.canton.pruning.PruningStatus
-import com.digitalasset.canton.topology.client.DomainTopologyClient
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
+import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
+import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
@@ -30,7 +30,7 @@ import scala.collection.mutable
 import scala.concurrent.ExecutionContext
 
 class AcsInspection(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     val activeContractStore: ActiveContractStore,
     val contractStore: ContractStore,
     val ledgerApiStore: Eval[LedgerApiStore],
@@ -83,7 +83,9 @@ class AcsInspection(
     Option[AcsSnapshot[SortedMap[LfContractId, (CantonTimestamp, ReassignmentCounter)]]]
   ] =
     for {
-      requestIndex <- ledgerApiStore.value.cleanDomainIndex(domainId).map(_.flatMap(_.requestIndex))
+      requestIndex <- ledgerApiStore.value
+        .cleanDomainIndex(synchronizerId)
+        .map(_.flatMap(_.requestIndex))
       snapshot <- FutureUnlessShutdown.outcomeF(
         requestIndex
           .traverse { cursorHead =>
@@ -101,7 +103,7 @@ class AcsInspection(
     } yield snapshot
 
   // fetch acs, checking that the requested timestamp is clean
-  private def getSnapshotAt(domainId: DomainId)(
+  private def getSnapshotAt(synchronizerId: SynchronizerId)(
       timestamp: CantonTimestamp,
       skipCleanTimestampCheck: Boolean,
   )(implicit
@@ -115,8 +117,8 @@ class AcsInspection(
         if (!skipCleanTimestampCheck)
           TimestampValidation
             .beforeRequestIndex(
-              domainId,
-              ledgerApiStore.value.cleanDomainIndex(domainId).map(_.flatMap(_.requestIndex)),
+              synchronizerId,
+              ledgerApiStore.value.cleanDomainIndex(synchronizerId).map(_.flatMap(_.requestIndex)),
               timestamp,
             )
         else EitherT.pure[FutureUnlessShutdown, AcsInspectionError](())
@@ -125,7 +127,7 @@ class AcsInspection(
         .mapK(FutureUnlessShutdown.outcomeK)
       // check after getting the snapshot in case a pruning was happening concurrently
       _ <- TimestampValidation.afterPruning(
-        domainId,
+        synchronizerId,
         activeContractStore.pruningStatus,
         timestamp,
       )
@@ -133,7 +135,7 @@ class AcsInspection(
 
   // sort acs for easier comparison
   private def getAcsSnapshot(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       timestamp: Option[CantonTimestamp],
       skipCleanTimestampCheck: Boolean,
   )(implicit
@@ -149,7 +151,10 @@ class AcsInspection(
     val maybeSnapshotET: EitherT[FutureUnlessShutdown, AcsInspectionError, MaybeSnapshot] =
       timestamp match {
         case Some(timestamp) =>
-          getSnapshotAt(domainId)(timestamp, skipCleanTimestampCheck = skipCleanTimestampCheck)
+          getSnapshotAt(synchronizerId)(
+            timestamp,
+            skipCleanTimestampCheck = skipCleanTimestampCheck,
+          )
             .map(Some(_))
 
         case None =>
@@ -182,7 +187,7 @@ class AcsInspection(
       offboardedParties: Set[LfPartyId],
       allStakeholders: Set[LfPartyId],
       snapshotTs: CantonTimestamp,
-      topologyClient: DomainTopologyClient,
+      topologyClient: SynchronizerTopologyClient,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -205,7 +210,7 @@ class AcsInspection(
         remainingHostedStakeholders.isEmpty,
         (),
         AcsInspectionError.OffboardingParty(
-          topologyClient.domainId,
+          topologyClient.synchronizerId,
           s"Cannot take snapshot to offboard parties ${offboardedParties.toSeq} at $snapshotTs, because the following parties have contracts: ${remainingHostedStakeholders
               .mkString(", ")}",
         ): AcsInspectionError,
@@ -213,7 +218,7 @@ class AcsInspection(
     } yield ()
 
   def forEachVisibleActiveContract(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       parties: Set[LfPartyId],
       timestamp: Option[CantonTimestamp],
       skipCleanTimestampCheck: Boolean = false,
@@ -223,14 +228,14 @@ class AcsInspection(
   ): EitherT[FutureUnlessShutdown, AcsInspectionError, Option[(Set[LfPartyId], CantonTimestamp)]] =
     for {
       acsSnapshotO <- getAcsSnapshot(
-        domainId,
+        synchronizerId,
         timestamp,
         skipCleanTimestampCheck = skipCleanTimestampCheck,
       )
       allStakeholdersAndTs <- acsSnapshotO.traverse { acsSnapshot =>
         MonadUtil
           .sequentialTraverseMonoid(acsSnapshot.snapshot)(
-            forEachBatch(domainId, parties, f)
+            forEachBatch(synchronizerId, parties, f)
           )
           .map((_, acsSnapshot.ts))
       }
@@ -242,7 +247,7 @@ class AcsInspection(
     * @return The union of all stakeholders of all contracts on which `f` was applied
     */
   private def forEachBatch(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       parties: Set[LfPartyId],
       f: (SerializableContract, ReassignmentCounter) => Either[AcsInspectionError, Unit],
   )(batch: Seq[(LfContractId, ReassignmentCounter)])(implicit
@@ -257,17 +262,17 @@ class AcsInspection(
       batch <- contractStore
         .lookupManyExistingUncached(cids)
         .leftMap(missingContract =>
-          AcsInspectionError.InconsistentSnapshot(domainId, missingContract)
+          AcsInspectionError.InconsistentSnapshot(synchronizerId, missingContract)
         )
         .mapK(FutureUnlessShutdown.outcomeK)
 
       contractsWithReassignmentCounter = batch.zip(reassignmentCounters)
 
       stakeholdersE = contractsWithReassignmentCounter
-        .traverse_ { case (storedContract, reassignmentCounter) =>
-          if (parties.exists(storedContract.contract.metadata.stakeholders)) {
-            allStakeholders ++= storedContract.contract.metadata.stakeholders
-            f(storedContract.contract, reassignmentCounter)
+        .traverse_ { case (contract, reassignmentCounter) =>
+          if (parties.exists(contract.metadata.stakeholders)) {
+            allStakeholders ++= contract.metadata.stakeholders
+            f(contract, reassignmentCounter)
           } else
             Either.unit
         }
@@ -294,16 +299,16 @@ object AcsInspection {
       EitherT(ffa.map(_.traverse_(a => Either.cond(p(a), (), fail(a)))))
 
     def beforeRequestIndex(
-        domainId: DomainId,
+        synchronizerId: SynchronizerId,
         requestIndex: FutureUnlessShutdown[Option[RequestIndex]],
         timestamp: CantonTimestamp,
     )(implicit ec: ExecutionContext): EitherT[FutureUnlessShutdown, AcsInspectionError, Unit] =
       validate(requestIndex)(timestamp < _.timestamp)(cp =>
-        AcsInspectionError.TimestampAfterCleanRequestIndex(domainId, timestamp, cp.timestamp)
+        AcsInspectionError.TimestampAfterCleanRequestIndex(synchronizerId, timestamp, cp.timestamp)
       )
 
     def afterPruning(
-        domainId: DomainId,
+        synchronizerId: SynchronizerId,
         pruningStatus: FutureUnlessShutdown[Option[PruningStatus]],
         timestamp: CantonTimestamp,
     )(implicit
@@ -311,46 +316,47 @@ object AcsInspection {
     ): EitherT[FutureUnlessShutdown, AcsInspectionError, Unit] =
       validate(pruningStatus)(
         timestamp >= _.timestamp
-      )(ps => AcsInspectionError.TimestampBeforePruning(domainId, timestamp, ps.timestamp))
+      )(ps => AcsInspectionError.TimestampBeforePruning(synchronizerId, timestamp, ps.timestamp))
 
   }
 }
 
-sealed abstract class AcsInspectionError extends Product with Serializable with HasDomainId
+sealed abstract class AcsInspectionError extends Product with Serializable with HasSynchronizerId
 
 object AcsInspectionError {
   final case class TimestampAfterCleanRequestIndex(
-      override val domainId: DomainId,
+      override val synchronizerId: SynchronizerId,
       requestedTimestamp: CantonTimestamp,
       cleanTimestamp: CantonTimestamp,
   ) extends AcsInspectionError
 
   final case class TimestampBeforePruning(
-      override val domainId: DomainId,
+      override val synchronizerId: SynchronizerId,
       requestedTimestamp: CantonTimestamp,
       prunedTimestamp: CantonTimestamp,
   ) extends AcsInspectionError
 
   final case class InconsistentSnapshot(
-      override val domainId: DomainId,
+      override val synchronizerId: SynchronizerId,
       missingContract: LfContractId,
   ) extends AcsInspectionError
 
   final case class InvariantIssue(
-      override val domainId: DomainId,
+      override val synchronizerId: SynchronizerId,
       contract: LfContractId,
       errorMessage: String,
   ) extends AcsInspectionError
 
-  final case class OffboardingParty(domainId: DomainId, error: String) extends AcsInspectionError
+  final case class OffboardingParty(synchronizerId: SynchronizerId, error: String)
+      extends AcsInspectionError
   final case class SerializationIssue(
-      override val domainId: DomainId,
+      override val synchronizerId: SynchronizerId,
       contract: LfContractId,
       errorMessage: String,
   ) extends AcsInspectionError
 
   final case class ContractLookupIssue(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       contracts: Seq[LfContractId],
       errorMessage: String,
   ) extends AcsInspectionError

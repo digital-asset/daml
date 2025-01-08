@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.protocol
@@ -190,7 +190,7 @@ object SignedContent
     // so fine to call once for the hash here and then again when serializing to protobuf
     val hash = hashContent(cryptoApi, content, purpose)
     cryptoPrivateApi
-      .sign(hash)
+      .sign(hash, SigningKeyUsage.ProtocolOnly)
       .map(signature => SignedContent(content, signature, timestampOfSigningKey, protocolVersion))
   }
 

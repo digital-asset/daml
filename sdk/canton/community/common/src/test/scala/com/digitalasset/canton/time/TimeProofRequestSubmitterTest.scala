@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.time
@@ -84,7 +84,7 @@ class TimeProofRequestSubmitterTest extends FixtureAsyncWordSpec with BaseTest {
             Deliver.create(
               SequencerCounter(0),
               CantonTimestamp.ofEpochSecond(seconds.toLong),
-              DefaultTestIdentities.domainId,
+              DefaultTestIdentities.synchronizerId,
               Some(MessageId(String73.tryCreate(s"tick-$seconds"))),
               Batch.empty(testedProtocolVersion),
               None,

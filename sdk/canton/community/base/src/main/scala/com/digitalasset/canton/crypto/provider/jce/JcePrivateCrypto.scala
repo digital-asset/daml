@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto.provider.jce
@@ -63,7 +63,7 @@ class JcePrivateCrypto(
       javaKeyPair: JKeyPair,
       keySpec: SigningKeySpec,
       usage: NonEmpty[Set[SigningKeyUsage]],
-  ): SigningKeyPair = {
+  ): Either[SigningKeyGenerationError, SigningKeyPair] = {
     val javaEncodedKeyPair = fromJavaKeyPair(javaKeyPair)
     SigningKeyPair.create(
       publicFormat = CryptoKeyFormat.DerX509Spki,
@@ -84,7 +84,12 @@ class JcePrivateCrypto(
       javaKeyPair <- Either
         .catchOnly[GeneralSecurityException](EllipticCurves.generateKeyPair(curveType))
         .leftMap[SigningKeyGenerationError](SigningKeyGenerationError.GeneralError.apply)
-    } yield fromJavaSigningKeyPair(javaKeyPair, keySpec, usage)
+      keyPair <- fromJavaSigningKeyPair(javaKeyPair, keySpec, usage).leftMap(err =>
+        SigningKeyGenerationError.GeneralError(
+          new IllegalStateException(s"Failed to create signing key pair: $err")
+        )
+      )
+    } yield keyPair
 
   override protected[crypto] def generateEncryptionKeypair(keySpec: EncryptionKeySpec)(implicit
       traceContext: TraceContext
@@ -147,14 +152,16 @@ class JcePrivateCrypto(
           algoId,
           new DEROctetString(rawKeyPair.getPrivateKey),
         ).getEncoded
-        keyPair = SigningKeyPair.create(
-          publicFormat = CryptoKeyFormat.DerX509Spki,
-          publicKeyBytes = ByteString.copyFrom(publicKey),
-          privateFormat = CryptoKeyFormat.DerPkcs8Pki,
-          privateKeyBytes = ByteString.copyFrom(privateKey),
-          keySpec = keySpec,
-          usage = usage,
-        )
+        keyPair <- SigningKeyPair
+          .create(
+            publicFormat = CryptoKeyFormat.DerX509Spki,
+            publicKeyBytes = ByteString.copyFrom(publicKey),
+            privateFormat = CryptoKeyFormat.DerPkcs8Pki,
+            privateKeyBytes = ByteString.copyFrom(privateKey),
+            keySpec = keySpec,
+            usage = usage,
+          )
+          .toEitherT[FutureUnlessShutdown]
       } yield keyPair
 
     case SigningKeySpec.EcP256 =>

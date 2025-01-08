@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.indexer.parallel
@@ -13,7 +13,7 @@ import com.digitalasset.canton.ledger.participant.state.Update.{
 }
 import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, TransactionMeta}
 import com.digitalasset.canton.logging.{NamedLogging, SuppressingLogger}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 import com.digitalasset.daml.lf.crypto
@@ -29,7 +29,7 @@ import java.util.UUID
 class PostPublishDataSpec extends AnyFlatSpec with Matchers with NamedLogging {
   override val loggerFactory: SuppressingLogger = SuppressingLogger(getClass)
 
-  private val domainId = DomainId.tryFromString("x::domain1")
+  private val synchronizerId = SynchronizerId.tryFromString("x::domain1")
   private val party = Ref.Party.assertFromString("party")
   private val applicationId = Ref.ApplicationId.assertFromString("applicationid1")
   private val cantonTime1 = CantonTimestamp.now()
@@ -72,7 +72,7 @@ class PostPublishDataSpec extends AnyFlatSpec with Matchers with NamedLogging {
         updateId = updateId,
         hostedWitnesses = Nil,
         contractMetadata = Map.empty,
-        domainId = domainId,
+        synchronizerId = synchronizerId,
         requestCounter = RequestCounter(65),
         sequencerCounter = SequencerCounter(11),
         recordTime = cantonTime2,
@@ -81,7 +81,7 @@ class PostPublishDataSpec extends AnyFlatSpec with Matchers with NamedLogging {
       publicationTime = cantonTime1,
     ) shouldBe Some(
       PostPublishData(
-        submissionDomainId = domainId,
+        submissionSynchronizerId = synchronizerId,
         publishSource = PublishSource.Sequencer(
           requestSequencerCounter = SequencerCounter(11),
           sequencerTimestamp = cantonTime2,
@@ -107,7 +107,7 @@ class PostPublishDataSpec extends AnyFlatSpec with Matchers with NamedLogging {
         updateId = updateId,
         hostedWitnesses = Nil,
         contractMetadata = Map.empty,
-        domainId = domainId,
+        synchronizerId = synchronizerId,
         requestCounter = RequestCounter(65),
         sequencerCounter = SequencerCounter(11),
         recordTime = cantonTime2,
@@ -125,7 +125,7 @@ class PostPublishDataSpec extends AnyFlatSpec with Matchers with NamedLogging {
         updateId = updateId,
         hostedWitnesses = Nil,
         contractMetadata = Map.empty,
-        domainId = domainId,
+        synchronizerId = synchronizerId,
         requestCounter = RequestCounter(65),
         recordTime = cantonTime2,
       )(TraceContext.empty),
@@ -145,7 +145,7 @@ class PostPublishDataSpec extends AnyFlatSpec with Matchers with NamedLogging {
           submissionId = submissionId,
         ),
         reasonTemplate = FinalReason(status),
-        domainId = domainId,
+        synchronizerId = synchronizerId,
         requestCounter = RequestCounter(65),
         sequencerCounter = SequencerCounter(11),
         recordTime = cantonTime2,
@@ -154,7 +154,7 @@ class PostPublishDataSpec extends AnyFlatSpec with Matchers with NamedLogging {
       publicationTime = cantonTime1,
     ) shouldBe Some(
       PostPublishData(
-        submissionDomainId = domainId,
+        submissionSynchronizerId = synchronizerId,
         publishSource = PublishSource.Sequencer(
           requestSequencerCounter = SequencerCounter(11),
           sequencerTimestamp = cantonTime2,
@@ -182,7 +182,7 @@ class PostPublishDataSpec extends AnyFlatSpec with Matchers with NamedLogging {
           submissionId = submissionId,
         ),
         reasonTemplate = FinalReason(status),
-        domainId = domainId,
+        synchronizerId = synchronizerId,
         recordTime = cantonTime2,
         messageUuid = messageUuid,
       )(TraceContext.empty),
@@ -190,7 +190,7 @@ class PostPublishDataSpec extends AnyFlatSpec with Matchers with NamedLogging {
       publicationTime = cantonTime1,
     ) shouldBe Some(
       PostPublishData(
-        submissionDomainId = domainId,
+        submissionSynchronizerId = synchronizerId,
         publishSource = PublishSource.Local(messageUuid),
         applicationId = applicationId,
         commandId = commandId,

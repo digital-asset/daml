@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.demo
@@ -105,12 +105,12 @@ class ParticipantTab(
       templateIdO: String,
       packageIdO: String,
       argumentsO: String,
-      domainId: String,
+      synchronizerId: String,
   ) {
     val state = new StringProperty(this, "state", if (activeO) "Active" else "Archived")
     val templateId = new StringProperty(this, "templateId", templateIdO)
     val arguments = new StringProperty(this, "arguments", argumentsO)
-    val domain = new StringProperty(this, "domain", domainId)
+    val domain = new StringProperty(this, "domain", synchronizerId)
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Null"))
@@ -290,9 +290,9 @@ class ParticipantTab(
                 participant.ledger_api.state.acs
                   .of_all()
                   .flatMap(_.entry.activeContract)
-                  .map(c => c.domainId -> c.createdEvent)
-                  .collect { case (domainId, Some(createdEvent)) =>
-                    LfContractId.assertFromString(createdEvent.contractId) -> domainId
+                  .map(c => c.synchronizerId -> c.createdEvent)
+                  .collect { case (synchronizerId, Some(createdEvent)) =>
+                    LfContractId.assertFromString(createdEvent.contractId) -> synchronizerId
                   }
                   .filter { case (contractId, createdEventO) =>
                     coids.contains(contractId)
@@ -383,7 +383,7 @@ class ParticipantTab(
       cellValueFactory = { _.value.templateId }
       prefWidth = 100.0
     }
-    private val colDomainId = new TableColumn[TxData, String]("Domain") {
+    private val colSynchronizerId = new TableColumn[TxData, String]("Domain") {
       cellValueFactory = { _.value.domain }
       prefWidth = 100.0
     }
@@ -395,7 +395,7 @@ class ParticipantTab(
       editable = false
       hgrow = Always
       vgrow = Always
-      (columns ++= List(colState, coltemplateId, colDomainId, colArgs)).discard
+      (columns ++= List(colState, coltemplateId, colSynchronizerId, colArgs)).discard
     }
     // resize the argument column automatically such that it fills out the entire rest of the table while
     // still permitting the user to resize the columns himself (so don't set a resize policy on the tableview)
@@ -404,7 +404,7 @@ class ParticipantTab(
       .bind(
         contracts
           .widthProperty()
-          .subtract(colDomainId.widthProperty())
+          .subtract(colSynchronizerId.widthProperty())
           .subtract(colState.widthProperty())
           .subtract(coltemplateId.widthProperty())
           .subtract(2)
@@ -428,7 +428,7 @@ class ParticipantTab(
           .toSet
           .mkString("\n")
         val connected =
-          participant.domains.list_connected().map(_.domainAlias.unwrap).mkString("\n")
+          participant.synchronizers.list_connected().map(_.synchronizerAlias.unwrap).mkString("\n")
         MetaInfo(currentDars, hosted, connected)
       }
     }) {

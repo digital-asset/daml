@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.admin.api.client.commands
@@ -129,6 +129,7 @@ import com.daml.ledger.api.v2.transaction_filter.{
 import com.daml.ledger.api.v2.update_service.UpdateServiceGrpc.UpdateServiceStub
 import com.daml.ledger.api.v2.update_service.{
   GetTransactionByIdRequest,
+  GetTransactionByOffsetRequest,
   GetTransactionTreeResponse,
   GetUpdateTreesResponse,
   GetUpdatesRequest,
@@ -159,7 +160,7 @@ import com.digitalasset.canton.networking.grpc.ForwardingStreamObserver
 import com.digitalasset.canton.platform.apiserver.execution.CommandStatus
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.serialization.ProtoConverter
-import com.digitalasset.canton.topology.{DomainId, PartyId}
+import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.{LfPackageId, LfPartyId}
 import com.google.protobuf.empty.Empty
@@ -1017,7 +1018,7 @@ object LedgerApiCommands {
           case _: UpdateService.TopologyTransactionWrapper => None
         }
 
-      def domainId: String
+      def synchronizerId: String
     }
     object UpdateWrapper {
       def isUnassignedWrapper(wrapper: UpdateWrapper): Boolean = wrapper match {
@@ -1033,7 +1034,7 @@ object LedgerApiCommands {
       override def updateId: String = transaction.updateId
       override def isUnassignment: Boolean = false
 
-      override def domainId: String = transaction.domainId
+      override def synchronizerId: String = transaction.synchronizerId
     }
     final case class TopologyTransactionWrapper(topologyTransaction: TopologyTransaction)
         extends UpdateTreeWrapper
@@ -1041,7 +1042,7 @@ object LedgerApiCommands {
       override def updateId: String = topologyTransaction.updateId
       override def isUnassignment: Boolean = false
 
-      override def domainId: String = topologyTransaction.domainId
+      override def synchronizerId: String = topologyTransaction.synchronizerId
     }
     sealed trait ReassignmentWrapper extends UpdateTreeWrapper with UpdateWrapper {
       def reassignment: Reassignment
@@ -1068,14 +1069,14 @@ object LedgerApiCommands {
       override def updateId: String = reassignment.updateId
       override def isUnassignment: Boolean = false
 
-      override def domainId: String = assignedEvent.target
+      override def synchronizerId: String = assignedEvent.target
     }
     final case class UnassignedWrapper(reassignment: Reassignment, unassignedEvent: UnassignedEvent)
         extends ReassignmentWrapper {
       override def updateId: String = reassignment.updateId
       override def isUnassignment: Boolean = true
 
-      override def domainId: String = unassignedEvent.source
+      override def synchronizerId: String = unassignedEvent.source
 
     }
 
@@ -1191,6 +1192,44 @@ object LedgerApiCommands {
         )
     }
 
+    final case class GetTransactionByOffset(parties: Set[LfPartyId], offset: Long)(implicit
+        ec: ExecutionContext
+    ) extends BaseCommand[GetTransactionByOffsetRequest, GetTransactionTreeResponse, Option[
+          TransactionTree
+        ]]
+        with PrettyPrinting {
+      override protected def createRequest(): Either[String, GetTransactionByOffsetRequest] =
+        Right {
+          GetTransactionByOffsetRequest(
+            offset = offset,
+            requestingParties = parties.toSeq,
+          )
+        }
+
+      override protected def submitRequest(
+          service: UpdateServiceStub,
+          request: GetTransactionByOffsetRequest,
+      ): Future[GetTransactionTreeResponse] =
+        // The Ledger API will throw an error if it can't find a transaction by ID.
+        // However, as Canton is distributed, a transaction ID might show up later, so we don't treat this as
+        // an error and change it to a None
+        service.getTransactionTreeByOffset(request).recover {
+          case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND =>
+            GetTransactionTreeResponse(None)
+        }
+
+      override protected def handleResponse(
+          response: GetTransactionTreeResponse
+      ): Either[String, Option[TransactionTree]] =
+        Right(response.transaction)
+
+      override protected def pretty: Pretty[GetTransactionByOffset] =
+        prettyOfClass(
+          param("offset", _.offset),
+          param("parties", _.parties),
+        )
+    }
+
   }
 
   private[commands] trait SubmitCommand extends PrettyPrinting {
@@ -1203,7 +1242,7 @@ object LedgerApiCommands {
     def submissionId: String
     def minLedgerTimeAbs: Option[Instant]
     def disclosedContracts: Seq[DisclosedContract]
-    def domainId: Option[DomainId]
+    def synchronizerId: Option[SynchronizerId]
     def applicationId: String
     def packageIdSelectionPreference: Seq[LfPackageId]
 
@@ -1229,7 +1268,7 @@ object LedgerApiCommands {
       minLedgerTimeAbs = minLedgerTimeAbs.map(ProtoConverter.InstantConverter.toProtoPrimitive),
       submissionId = submissionId,
       disclosedContracts = disclosedContracts,
-      domainId = domainId.map(_.toProtoPrimitive).getOrElse(""),
+      synchronizerId = synchronizerId.map(_.toProtoPrimitive).getOrElse(""),
       packageIdSelectionPreference = packageIdSelectionPreference.map(_.toString),
     )
 
@@ -1263,7 +1302,7 @@ object LedgerApiCommands {
         override val submissionId: String,
         override val minLedgerTimeAbs: Option[Instant],
         override val disclosedContracts: Seq[DisclosedContract],
-        override val domainId: Option[DomainId],
+        override val synchronizerId: Option[SynchronizerId],
         override val applicationId: String,
         override val packageIdSelectionPreference: Seq[LfPackageId],
     ) extends SubmitCommand
@@ -1293,8 +1332,8 @@ object LedgerApiCommands {
         submitter: LfPartyId,
         submissionId: String,
         unassignId: String,
-        source: DomainId,
-        target: DomainId,
+        source: SynchronizerId,
+        target: SynchronizerId,
     ) extends BaseCommand[SubmitReassignmentRequest, SubmitReassignmentResponse, Unit] {
       override protected def createRequest(): Either[String, SubmitReassignmentRequest] = Right(
         SubmitReassignmentRequest(
@@ -1336,8 +1375,8 @@ object LedgerApiCommands {
         submitter: LfPartyId,
         submissionId: String,
         contractId: LfContractId,
-        source: DomainId,
-        target: DomainId,
+        source: SynchronizerId,
+        target: SynchronizerId,
     ) extends BaseCommand[SubmitReassignmentRequest, SubmitReassignmentResponse, Unit] {
       override protected def createRequest(): Either[String, SubmitReassignmentRequest] = Right(
         SubmitReassignmentRequest(
@@ -1387,7 +1426,7 @@ object LedgerApiCommands {
         commandId: String,
         minLedgerTimeAbs: Option[Instant],
         disclosedContracts: Seq[DisclosedContract],
-        domainId: Option[DomainId],
+        synchronizerId: Option[SynchronizerId],
         applicationId: String,
         packageIdSelectionPreference: Seq[LfPackageId],
         verboseHashing: Boolean,
@@ -1410,7 +1449,7 @@ object LedgerApiCommands {
             actAs = actAs,
             readAs = readAs,
             disclosedContracts = disclosedContracts,
-            domainId = domainId.map(_.toProtoPrimitive).getOrElse(""),
+            synchronizerId = synchronizerId.map(_.toProtoPrimitive).getOrElse(""),
             packageIdSelectionPreference = packageIdSelectionPreference,
             verboseHashing = verboseHashing,
           )
@@ -1518,7 +1557,7 @@ object LedgerApiCommands {
         override val submissionId: String,
         override val minLedgerTimeAbs: Option[Instant],
         override val disclosedContracts: Seq[DisclosedContract],
-        override val domainId: Option[DomainId],
+        override val synchronizerId: Option[SynchronizerId],
         override val applicationId: String,
         override val packageIdSelectionPreference: Seq[LfPackageId],
     ) extends SubmitCommand
@@ -1561,7 +1600,7 @@ object LedgerApiCommands {
         override val submissionId: String,
         override val minLedgerTimeAbs: Option[Instant],
         override val disclosedContracts: Seq[DisclosedContract],
-        override val domainId: Option[DomainId],
+        override val synchronizerId: Option[SynchronizerId],
         override val applicationId: String,
         override val packageIdSelectionPreference: Seq[LfPackageId],
     ) extends SubmitCommand

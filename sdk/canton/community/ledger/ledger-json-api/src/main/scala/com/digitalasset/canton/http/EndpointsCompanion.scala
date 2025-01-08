@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http
@@ -22,7 +22,6 @@ import com.digitalasset.canton.http.util.Logging.{
 }
 import com.digitalasset.canton.ledger.api.domain.UserRight
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
-import com.digitalasset.canton.ledger.client.services.admin.UserManagementClient
 import com.digitalasset.canton.ledger.service.Grpc.StatusEnvelope
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.tracing.NoTracing
@@ -45,6 +44,7 @@ import UserRight.{CanActAs, CanReadAs}
 object EndpointsCompanion extends NoTracing {
 
   type ValidateJwt = Jwt => Unauthorized \/ DecodedJwt[String]
+  type ResolveUser = Jwt => UserId => Future[Seq[UserRight]]
 
   sealed abstract class Error extends Product with Serializable
 
@@ -257,7 +257,7 @@ object EndpointsCompanion extends NoTracing {
   def decodeAndParsePayload[A](
       jwt: Jwt,
       decodeJwt: ValidateJwt,
-      userManagementClient: UserManagementClient,
+      resolveUser: ResolveUser,
   )(implicit
       createFromUserToken: CreateFromUserToken[A],
       fm: Monad[Future],
@@ -268,7 +268,7 @@ object EndpointsCompanion extends NoTracing {
         case standardToken: StandardJWTPayload =>
           createFromUserToken(
             standardToken,
-            userId => userManagementClient.listUserRights(userId = userId, token = Some(jwt.value)),
+            resolveUser(jwt),
           ).leftMap(identity[Error])
       }
     } yield (jwt, p: A)

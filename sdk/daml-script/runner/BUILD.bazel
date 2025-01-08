@@ -78,6 +78,7 @@ da_scala_library(
         "//libs-scala/nonempty",
         "//libs-scala/rs-grpc-bridge",
         "//libs-scala/rs-grpc-pekko",
+        "//libs-scala/timer-utils",
         "@maven//:com_google_guava_guava",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_netty_netty_handler",

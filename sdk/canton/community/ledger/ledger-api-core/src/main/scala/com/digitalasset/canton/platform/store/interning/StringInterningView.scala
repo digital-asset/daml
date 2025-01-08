@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.interning
@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store.interning
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.{Identifier, PackageName, Party}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.Ref.PackageVersion
 
 import scala.concurrent.{Future, blocking}
@@ -14,7 +14,7 @@ import scala.concurrent.{Future, blocking}
 class DomainStringIterators(
     val parties: Iterator[String],
     val templateIds: Iterator[String],
-    val domainIds: Iterator[String],
+    val synchronizerIds: Iterator[String],
     val packageNames: Iterator[String],
     val packageVersions: Iterator[String],
 )
@@ -83,7 +83,7 @@ class StringInterningView(override protected val loggerFactory: NamedLoggerFacto
 
   private val TemplatePrefix = "t|"
   private val PartyPrefix = "p|"
-  private val DomainIdPrefix = "d|"
+  private val SynchronizerIdPrefix = "d|"
   private val PackageNamePrefix = "n|"
   private val PackageVersionPrefix = "v|"
 
@@ -103,11 +103,11 @@ class StringInterningView(override protected val loggerFactory: NamedLoggerFacto
       from = identity,
     )
 
-  override val domainId: StringInterningDomain[DomainId] =
+  override val synchronizerId: StringInterningDomain[SynchronizerId] =
     StringInterningDomain.prefixing(
-      prefix = DomainIdPrefix,
+      prefix = SynchronizerIdPrefix,
       prefixedAccessor = rawAccessor,
-      to = DomainId.tryFromString,
+      to = SynchronizerId.tryFromString,
       from = _.toProtoPrimitive,
     )
 
@@ -132,7 +132,7 @@ class StringInterningView(override protected val loggerFactory: NamedLoggerFacto
       val allPrefixedStrings =
         domainStringIterators.parties.map(PartyPrefix + _) ++
           domainStringIterators.templateIds.map(TemplatePrefix + _) ++
-          domainStringIterators.domainIds.map(DomainIdPrefix + _) ++
+          domainStringIterators.synchronizerIds.map(SynchronizerIdPrefix + _) ++
           domainStringIterators.packageNames.map(PackageNamePrefix + _) ++
           domainStringIterators.packageVersions.map(PackageVersionPrefix + _)
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.admin.grpc
@@ -16,7 +16,7 @@ import com.digitalasset.canton.topology.admin.v30
 import com.digitalasset.canton.topology.client.*
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.topology.{DomainId, MemberCode, ParticipantId, PartyId}
+import com.digitalasset.canton.topology.{MemberCode, ParticipantId, PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.{MonadUtil, OptionUtil}
 import com.google.protobuf.timestamp.Timestamp as ProtoTimestamp
@@ -24,7 +24,7 @@ import com.google.protobuf.timestamp.Timestamp as ProtoTimestamp
 import scala.concurrent.{ExecutionContext, Future}
 
 class GrpcTopologyAggregationService(
-    stores: => Seq[TopologyStore[TopologyStoreId.DomainStore]],
+    stores: => Seq[TopologyStore[TopologyStoreId.SynchronizerStore]],
     ips: IdentityProvidingServiceClient,
     val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
@@ -33,33 +33,33 @@ class GrpcTopologyAggregationService(
 
   private def getTopologySnapshot(
       asOf: CantonTimestamp,
-      store: TopologyStore[TopologyStoreId.DomainStore],
+      store: TopologyStore[TopologyStoreId.SynchronizerStore],
   ): TopologySnapshotLoader =
     new StoreBasedTopologySnapshot(
       asOf,
       store,
-      StoreBasedDomainTopologyClient.NoPackageDependencies,
+      StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
       loggerFactory,
     )
 
   private def snapshots(filterStore: String, asOf: Option[ProtoTimestamp])(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CantonError, List[(DomainId, TopologySnapshotLoader)]] =
+  ): EitherT[FutureUnlessShutdown, CantonError, List[(SynchronizerId, TopologySnapshotLoader)]] =
     for {
       asOfO <- wrapErrUS(asOf.traverse(CantonTimestamp.fromProtoTimestamp))
     } yield {
       stores.collect {
         case store if store.storeId.filterName.startsWith(filterStore) =>
-          val domainId = store.storeId.domainId
+          val synchronizerId = store.storeId.synchronizerId
           // get approximate timestamp from domain client to prevent race conditions (when we have written data into the stores but haven't yet updated the client)
           val asOf = asOfO.getOrElse(
             ips
-              .forDomain(domainId)
+              .forSynchronizer(synchronizerId)
               .map(_.approximateTimestamp)
               .getOrElse(CantonTimestamp.MaxValue)
           )
           (
-            domainId,
+            synchronizerId,
             getTopologySnapshot(asOf, store),
           )
       }.toList
@@ -76,7 +76,7 @@ class GrpcTopologyAggregationService(
     }
 
   private def findMatchingParties(
-      clients: List[(DomainId, TopologySnapshotLoader)],
+      clients: List[(SynchronizerId, TopologySnapshotLoader)],
       filterParty: String,
       filterParticipant: String,
       limit: Int,
@@ -92,17 +92,17 @@ class GrpcTopologyAggregationService(
     .map(_._1)
 
   private def findParticipants(
-      clients: List[(DomainId, TopologySnapshotLoader)],
+      clients: List[(SynchronizerId, TopologySnapshotLoader)],
       partyId: PartyId,
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[ParticipantId, Map[DomainId, ParticipantPermission]]] =
+  ): FutureUnlessShutdown[Map[ParticipantId, Map[SynchronizerId, ParticipantPermission]]] =
     clients
-      .parFlatTraverse { case (domainId, client) =>
+      .parFlatTraverse { case (synchronizerId, client) =>
         client
           .activeParticipantsOf(partyId.toLf)
           .map(_.map { case (participantId, attributes) =>
-            (domainId, participantId, attributes.permission)
+            (synchronizerId, participantId, attributes.permission)
           }.toList)
       }
       .map(_.groupBy { case (_, participantId, _) => participantId }.map { case (k, v) =>
@@ -128,12 +128,12 @@ class GrpcTopologyAggregationService(
         results = results.map { case (partyId, participants) =>
           v30.ListPartiesResponse.Result(
             party = partyId.toProtoPrimitive,
-            participants = participants.map { case (participantId, domains) =>
-              v30.ListPartiesResponse.Result.ParticipantDomains(
+            participants = participants.map { case (participantId, synchronizers) =>
+              v30.ListPartiesResponse.Result.ParticipantSynchronizers(
                 participantUid = participantId.uid.toProtoPrimitive,
-                domains = domains.map { case (domainId, permission) =>
-                  v30.ListPartiesResponse.Result.ParticipantDomains.DomainPermissions(
-                    domain = domainId.toProtoPrimitive,
+                synchronizers = synchronizers.map { case (synchronizerId, permission) =>
+                  v30.ListPartiesResponse.Result.ParticipantSynchronizers.SynchronizerPermissions(
+                    synchronizerId = synchronizerId.toProtoPrimitive,
                     permission = permission.toProtoV30,
                   )
                 }.toSeq,
@@ -156,7 +156,7 @@ class GrpcTopologyAggregationService(
           .emptyStringAsNone(request.filterKeyOwnerType)
           .traverse(code => MemberCode.fromProtoPrimitive(code, "filterKeyOwnerType"))
       ): EitherT[FutureUnlessShutdown, CantonError, Option[MemberCode]]
-      matched <- snapshots(request.filterDomain, request.asOf)
+      matched <- snapshots(request.filterSynchronizerId, request.asOf)
       res <- EitherT.right(matched.parTraverse { case (storeId, client) =>
         client.inspectKeys(request.filterKeyOwnerUid, keyOwnerTypeO, request.limit).map { res =>
           (storeId, res)
@@ -170,10 +170,10 @@ class GrpcTopologyAggregationService(
       })
       v30.ListKeyOwnersResponse(
         results = mapped.toSeq.flatMap { case (owner, domainData) =>
-          domainData.map { case (domain, keys) =>
+          domainData.map { case (synchronizerId, keys) =>
             v30.ListKeyOwnersResponse.Result(
               keyOwner = owner.toProtoPrimitive,
-              domain = domain.toProtoPrimitive,
+              synchronizerId = synchronizerId.toProtoPrimitive,
               signingKeys = keys.signingKeys.map(_.toProtoV30),
               encryptionKeys = keys.encryptionKeys.map(_.toProtoV30),
             )

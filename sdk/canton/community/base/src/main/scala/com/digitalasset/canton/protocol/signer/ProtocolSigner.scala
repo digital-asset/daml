@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol.signer
@@ -6,7 +6,13 @@ package com.digitalasset.canton.protocol.signer
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.{Hash, Signature, SignatureCheckError, SyncCryptoError}
+import com.digitalasset.canton.crypto.{
+  Hash,
+  Signature,
+  SignatureCheckError,
+  SigningKeyUsage,
+  SyncCryptoError,
+}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -22,6 +28,7 @@ trait ProtocolSigner {
   def sign(
       topologySnapshot: TopologySnapshot,
       hash: Hash,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, Signature]

@@ -1,0 +1,26 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.sequencer.admin.v30;
+
+message BftSequencerSnapshotAdditionalInfo {
+  // State transfer metadata for onboarding
+  map<string, PeerActiveAt> peers_active_at = 1;
+
+  // Protobuf does not support optional map values, so each field needs to be optional
+  // Introducing another (wrapper) message as an alternative seems like overkill so far
+  message PeerActiveAt {
+    // Onboarding topology activation timestamp (in microseconds of UTC time since Unix epoch)
+    optional int64 timestamp = 1;
+    // An epoch where the onboarding transaction became effective, used as state transfer start epoch
+    optional int64 epoch_number = 2;
+    // Needed to properly set the initial block in the Output module (due to transferring full epochs)
+    optional int64 first_block_number_in_epoch = 3;
+    // Needed for emitting topology ticks consistently.
+    optional bool pending_topology_changes_in_epoch = 4;
+    // BFT time of the last block in the previous epoch (in microseconds of UTC time since Unix epoch)
+    optional int64 previous_bft_time = 5;
+  }
+}

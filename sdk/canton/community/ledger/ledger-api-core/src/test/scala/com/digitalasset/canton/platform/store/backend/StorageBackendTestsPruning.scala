@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
@@ -217,7 +217,7 @@ private[backend] trait StorageBackendTestsPruning
       signatory = signatoryParty,
       observer = observerParty,
       nonStakeholderInformees = Set(nonStakeholderInformeeParty),
-      domainId = "x::sourcedomain",
+      synchronizerId = "x::sourcedomain",
     )
     // a consuming event in its own transaction
     val archive = dtoExercise(
@@ -226,7 +226,7 @@ private[backend] trait StorageBackendTestsPruning
       consuming = true,
       contractId = hashCid("#1"),
       signatory = signatoryParty,
-      domainId = "x::sourcedomain",
+      synchronizerId = "x::sourcedomain",
     )
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     // Ingest a create and archive event
@@ -292,7 +292,7 @@ private[backend] trait StorageBackendTestsPruning
       signatory = signatoryParty,
       observer = observerParty,
       nonStakeholderInformees = Set(nonStakeholderInformeeParty),
-      domainId = "x::sourcedomain",
+      synchronizerId = "x::sourcedomain",
     )
     // a consuming event in its own transaction
     val unassign = dtoUnassign(
@@ -357,7 +357,7 @@ private[backend] trait StorageBackendTestsPruning
       contractId = hashCid("#1"),
       signatory = signatoryParty,
       nonStakeholderInformees = Set(nonStakeholderInformeeParty),
-      domainId = "x::sourcedomain",
+      synchronizerId = "x::sourcedomain",
     )
     val archiveDifferentDomain = dtoExercise(
       offset = offset(3),
@@ -365,7 +365,7 @@ private[backend] trait StorageBackendTestsPruning
       consuming = true,
       contractId = hashCid("#1"),
       signatory = signatoryParty,
-      domainId = "x::targetdomain",
+      synchronizerId = "x::targetdomain",
     )
     val archiveDifferentContractId = dtoExercise(
       offset = offset(4),
@@ -373,23 +373,23 @@ private[backend] trait StorageBackendTestsPruning
       consuming = true,
       contractId = hashCid("#2"),
       signatory = signatoryParty,
-      domainId = "x::sourcedomain",
+      synchronizerId = "x::sourcedomain",
     )
     val unassignDifferentDomain = dtoUnassign(
       offset = offset(5),
       eventSequentialId = 4L,
       contractId = hashCid("#1"),
       signatory = signatoryParty,
-      sourceDomainId = "x::targetdomain",
-      targetDomainId = "x::sourcedomain",
+      sourceSynchronizerId = "x::targetdomain",
+      targetSynchronizerId = "x::sourcedomain",
     )
     val unassignDifferentContractId = dtoUnassign(
       offset = offset(6),
       eventSequentialId = 5L,
       contractId = hashCid("#2"),
       signatory = signatoryParty,
-      sourceDomainId = "x::sourcedomain",
-      targetDomainId = "x::targetdomain",
+      sourceSynchronizerId = "x::sourcedomain",
+      targetSynchronizerId = "x::targetdomain",
     )
     val archiveAfter = dtoExercise(
       offset = offset(7),
@@ -397,15 +397,15 @@ private[backend] trait StorageBackendTestsPruning
       consuming = true,
       contractId = hashCid("#1"),
       signatory = signatoryParty,
-      domainId = "x::sourcedomain",
+      synchronizerId = "x::sourcedomain",
     )
     val unassignAfter = dtoUnassign(
       offset = offset(8),
       eventSequentialId = 7L,
       contractId = hashCid("#1"),
       signatory = signatoryParty,
-      sourceDomainId = "x::sourcedomain",
-      targetDomainId = "x::targetdomain",
+      sourceSynchronizerId = "x::sourcedomain",
+      targetSynchronizerId = "x::targetdomain",
     )
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     // Ingest a create and archive event
@@ -544,8 +544,8 @@ private[backend] trait StorageBackendTestsPruning
       contractId = hashCid("#1"),
       signatory = signatoryParty,
       observer = observerParty,
-      sourceDomainId = "x::sourcedomain",
-      targetDomainId = "x::targetdomain",
+      sourceSynchronizerId = "x::sourcedomain",
+      targetSynchronizerId = "x::targetdomain",
     )
     // a consuming event in its own transaction
     val archive = dtoExercise(
@@ -554,7 +554,7 @@ private[backend] trait StorageBackendTestsPruning
       consuming = true,
       contractId = hashCid("#1"),
       signatory = signatoryParty,
-      domainId = "x::targetdomain",
+      synchronizerId = "x::targetdomain",
     )
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     // Ingest an assign and an archive event
@@ -610,8 +610,8 @@ private[backend] trait StorageBackendTestsPruning
       contractId = hashCid("#1"),
       signatory = signatoryParty,
       observer = observerParty,
-      sourceDomainId = "x::sourcedomain",
-      targetDomainId = "x::targetdomain",
+      sourceSynchronizerId = "x::sourcedomain",
+      targetSynchronizerId = "x::targetdomain",
     )
 
     // an unassign event in its own transaction
@@ -620,8 +620,8 @@ private[backend] trait StorageBackendTestsPruning
       eventSequentialId = 2L,
       contractId = hashCid("#1"),
       signatory = signatoryParty,
-      sourceDomainId = "x::targetdomain",
-      targetDomainId = "x::sourcedomain",
+      sourceSynchronizerId = "x::targetdomain",
+      targetSynchronizerId = "x::sourcedomain",
     )
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     // Ingest the assign and unassign event
@@ -670,7 +670,7 @@ private[backend] trait StorageBackendTestsPruning
         offsetInt: Int,
         eventSequentialId: Long,
         hashCidString: String = "#1",
-        domainId: String = "x::targetdomain",
+        synchronizerId: String = "x::targetdomain",
     ): Vector[DbDto] = {
       val archive = dtoExercise(
         offset = offset(offsetInt.toLong),
@@ -678,7 +678,7 @@ private[backend] trait StorageBackendTestsPruning
         consuming = true,
         contractId = hashCid(hashCidString),
         signatory = signatoryParty,
-        domainId = domainId,
+        synchronizerId = synchronizerId,
       )
       Vector(
         archive,
@@ -691,15 +691,15 @@ private[backend] trait StorageBackendTestsPruning
         offsetInt: Int,
         eventSequentialId: Long,
         hashCidString: String = "#1",
-        domainId: String = "x::targetdomain",
+        synchronizerId: String = "x::targetdomain",
     ): Vector[DbDto] = {
       val unassign = dtoUnassign(
         offset = offset(offsetInt.toLong),
         eventSequentialId = eventSequentialId,
         contractId = hashCid(hashCidString),
         signatory = signatoryParty,
-        sourceDomainId = domainId,
-        targetDomainId = "x::thirddomain",
+        sourceSynchronizerId = synchronizerId,
+        targetSynchronizerId = "x::thirddomain",
       )
       Vector(
         unassign,
@@ -712,12 +712,12 @@ private[backend] trait StorageBackendTestsPruning
     val archiveDifferentDomainEarlierThanAssing = archive(
       offsetInt = 2,
       eventSequentialId = 1,
-      domainId = "x::sourcedomain",
+      synchronizerId = "x::sourcedomain",
     )
     val unassignDifferentDomainEarlierThanAssing = unassign(
       offsetInt = 3,
       eventSequentialId = 2,
-      domainId = "x::sourcedomain",
+      synchronizerId = "x::sourcedomain",
     )
     val unassignEarlierThanAssing = unassign(
       offsetInt = 4,
@@ -728,8 +728,8 @@ private[backend] trait StorageBackendTestsPruning
       eventSequentialId = 4L,
       contractId = hashCid("#1"),
       signatory = signatoryParty,
-      sourceDomainId = "x::sourcedomain",
-      targetDomainId = "x::targetdomain",
+      sourceSynchronizerId = "x::sourcedomain",
+      targetSynchronizerId = "x::targetdomain",
     )
     val assignEvents = Vector(
       assign,
@@ -739,7 +739,7 @@ private[backend] trait StorageBackendTestsPruning
     val archiveDifferentDomainEarlierThanPruning = archive(
       offsetInt = 6,
       eventSequentialId = 5,
-      domainId = "x::sourcedomain",
+      synchronizerId = "x::sourcedomain",
     )
     val archiveDifferentCidEarlierThanPruning = archive(
       offsetInt = 7,
@@ -749,7 +749,7 @@ private[backend] trait StorageBackendTestsPruning
     val unassignDifferentDomainEarlierThanPruning = unassign(
       offsetInt = 8,
       eventSequentialId = 7,
-      domainId = "x::sourcedomain",
+      synchronizerId = "x::sourcedomain",
     )
     val unassignDifferentCidEarlierThanPruning = unassign(
       offsetInt = 9, // pruning offset

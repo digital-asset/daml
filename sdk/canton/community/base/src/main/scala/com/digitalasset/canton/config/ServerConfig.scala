@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.config
@@ -95,21 +95,7 @@ trait ServerConfig extends Product with Serializable {
       adminToken: Option[CantonAdminToken],
       jwtTimestampLeeway: Option[JwtTimestampLeeway],
       telemetry: Telemetry,
-  ): CantonServerInterceptors
-
-}
-
-trait CommunityServerConfig extends ServerConfig {
-  override def instantiateServerInterceptors(
-      tracingConfig: TracingConfig,
-      apiLoggingConfig: ApiLoggingConfig,
-      loggerFactory: NamedLoggerFactory,
-      grpcMetrics: GrpcServerMetrics,
-      authServices: Seq[AuthServiceConfig],
-      adminToken: Option[CantonAdminToken],
-      jwtTimestampLeeway: Option[JwtTimestampLeeway],
-      telemetry: Telemetry,
-  ) = new CantonCommunityServerInterceptors(
+  ): CantonServerInterceptors = new CantonCommunityServerInterceptors(
     tracingConfig,
     apiLoggingConfig,
     loggerFactory,
@@ -119,6 +105,7 @@ trait CommunityServerConfig extends ServerConfig {
     jwtTimestampLeeway,
     telemetry,
   )
+
 }
 
 object ServerConfig {
@@ -127,12 +114,18 @@ object ServerConfig {
 
 /** A variant of [[ServerConfig]] that by default listens to connections only on the loopback interface.
   */
-trait AdminServerConfig extends ServerConfig {
-
-  override val address: String = defaultAddress
-
-  def tls: Option[TlsServerConfig]
-
+final case class AdminServerConfig(
+    override val address: String = defaultAddress,
+    override val internalPort: Option[Port] = None,
+    tls: Option[TlsServerConfig] = None,
+    override val jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
+    override val keepAliveServer: Option[BasicKeepAliveServerConfig] = Some(
+      BasicKeepAliveServerConfig()
+    ),
+    override val maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize,
+    override val authServices: Seq[AuthServiceConfig] = Seq.empty,
+    override val adminToken: Option[String] = None,
+) extends ServerConfig {
   def clientConfig: ClientConfig =
     ClientConfig(
       address,
@@ -148,18 +141,6 @@ trait AdminServerConfig extends ServerConfig {
 object AdminServerConfig {
   val defaultAddress: String = "127.0.0.1"
 }
-
-final case class CommunityAdminServerConfig(
-    override val address: String = defaultAddress,
-    internalPort: Option[Port] = None,
-    tls: Option[TlsServerConfig] = None,
-    jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
-    keepAliveServer: Option[BasicKeepAliveServerConfig] = Some(BasicKeepAliveServerConfig()),
-    maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize,
-    authServices: Seq[AuthServiceConfig] = Seq.empty,
-    adminToken: Option[String] = None,
-) extends AdminServerConfig
-    with CommunityServerConfig
 
 /** GRPC keep alive server configuration. */
 trait KeepAliveServerConfig {

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.common
@@ -14,7 +14,7 @@ import com.digitalasset.canton.platform.store.backend.Conversions.offset
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.backend.{Conversions, ParameterStorageBackend}
 import com.digitalasset.canton.platform.store.interning.StringInterning
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 import scalaz.syntax.tag.*
@@ -31,7 +31,7 @@ private[backend] class ParameterStorageBackendImpl(
 
   override def updateLedgerEnd(
       ledgerEnd: ParameterStorageBackend.LedgerEnd,
-      lastDomainIndex: Map[DomainId, DomainIndex] = Map.empty,
+      lastDomainIndex: Map[SynchronizerId, DomainIndex] = Map.empty,
   )(connection: Connection): Unit = discard {
     queryStrategy.forceSynchronousCommitForCurrentTransactionForPostgreSQL(connection)
     discard(
@@ -50,9 +50,9 @@ private[backend] class ParameterStorageBackendImpl(
     batchUpsert(
       """INSERT INTO
         |  lapi_ledger_end_domain_index
-        |  (domain_id, sequencer_counter, sequencer_timestamp, request_counter, request_timestamp, request_sequencer_counter, record_time)
+        |  (synchronizer_id, sequencer_counter, sequencer_timestamp, request_counter, request_timestamp, request_sequencer_counter, record_time)
         |VALUES
-        |  ({internalizedDomainId}, {sequencerCounter}, {sequencerTimestampMicros}, {requestCounter}, {requestTimestampMicros}, {requestSequencerCounter}, {recordTimeMicros})
+        |  ({internalizedSynchronizerId}, {sequencerCounter}, {sequencerTimestampMicros}, {requestCounter}, {requestTimestampMicros}, {requestSequencerCounter}, {recordTimeMicros})
         |""".stripMargin,
       """UPDATE
         |  lapi_ledger_end_domain_index
@@ -64,11 +64,13 @@ private[backend] class ParameterStorageBackendImpl(
         |  request_sequencer_counter = case when {requestCounter} is null then request_sequencer_counter else {requestSequencerCounter} end,
         |  record_time = {recordTimeMicros}
         |WHERE
-        |  domain_id = {internalizedDomainId}
+        |  synchronizer_id = {internalizedSynchronizerId}
         |""".stripMargin,
-      lastDomainIndex.toList.map { case (domainId, domainIndex) =>
+      lastDomainIndex.toList.map { case (synchronizerId, domainIndex) =>
         Seq[NamedParameter](
-          "internalizedDomainId" -> stringInterning.domainId.internalize(domainId),
+          "internalizedSynchronizerId" -> stringInterning.synchronizerId.internalize(
+            synchronizerId
+          ),
           "sequencerCounter" -> domainIndex.sequencerIndex.map(_.counter.unwrap),
           "sequencerTimestampMicros" -> domainIndex.sequencerIndex.map(_.timestamp.toMicros),
           "requestCounter" -> domainIndex.requestIndex.map(_.counter.unwrap),
@@ -262,17 +264,17 @@ private[backend] class ParameterStorageBackendImpl(
         )
       )
 
-  override def cleanDomainIndex(domainId: DomainId)(
+  override def cleanDomainIndex(synchronizerId: SynchronizerId)(
       connection: Connection
   ): Option[DomainIndex] =
     // not using stringInterning here to allow broader usage with tricky state inspection integration tests
     SQL"""
       SELECT internal_id
       FROM lapi_string_interning
-      WHERE external_string = ${"d|" + domainId.toProtoPrimitive}
+      WHERE external_string = ${"d|" + synchronizerId.toProtoPrimitive}
       """
       .asSingleOpt(int("internal_id"))(connection)
-      .flatMap(internedDomainId =>
+      .flatMap(internedSynchronizerId =>
         SQL"""
             SELECT
               sequencer_counter,
@@ -284,7 +286,7 @@ private[backend] class ParameterStorageBackendImpl(
             FROM
               lapi_ledger_end_domain_index
             WHERE
-              domain_id = $internedDomainId
+              synchronizer_id = $internedSynchronizerId
             """
           .asSingleOpt(
             for {
@@ -312,7 +314,7 @@ private[backend] class ParameterStorageBackendImpl(
 
                 case _ =>
                   throw new IllegalStateException(
-                    s"Invalid persisted data in lapi_ledger_end_domain_index table: either both request_counter and request_timestamp should be defined or none of them, but an invalid combination found for domain:${domainId.toProtoPrimitive} request_counter: $requestCounterO, request_timestamp: $requestTimestampO"
+                    s"Invalid persisted data in lapi_ledger_end_domain_index table: either both request_counter and request_timestamp should be defined or none of them, but an invalid combination found for domain:${synchronizerId.toProtoPrimitive} request_counter: $requestCounterO, request_timestamp: $requestTimestampO"
                   )
               }
               val sequencerIndex = (sequencerCounterO, sequencerTimestampO) match {
@@ -331,7 +333,7 @@ private[backend] class ParameterStorageBackendImpl(
 
                 case _ =>
                   throw new IllegalStateException(
-                    s"Invalid persisted data in lapi_ledger_end_domain_index table: either both sequencer_counter and sequencer_timestamp should be defined or none of them, but an invalid combination found for domain:${domainId.toProtoPrimitive} sequencer_counter: $sequencerCounterO, sequencer_timestamp: $sequencerTimestampO"
+                    s"Invalid persisted data in lapi_ledger_end_domain_index table: either both sequencer_counter and sequencer_timestamp should be defined or none of them, but an invalid combination found for domain:${synchronizerId.toProtoPrimitive} sequencer_counter: $sequencerCounterO, sequencer_timestamp: $sequencerTimestampO"
                   )
               }
               val recordTimeDomainIndex = DomainIndex.of(
@@ -341,7 +343,7 @@ private[backend] class ParameterStorageBackendImpl(
                 .reduceOption(_ max _)
                 .getOrElse(
                   throw new IllegalStateException(
-                    s"Invalid persisted data in lapi_ledger_end_domain_index table: none of the optional fields are defined for domain ${domainId.toProtoPrimitive}"
+                    s"Invalid persisted data in lapi_ledger_end_domain_index table: none of the optional fields are defined for domain ${synchronizerId.toProtoPrimitive}"
                   )
                 )
             }

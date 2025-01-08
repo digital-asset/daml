@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.console.commands
@@ -14,11 +14,11 @@ import com.digitalasset.canton.console.{
   Helpful,
 }
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
+import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.traffic.{
   SequencerTrafficStatus,
   TimestampSelector,
 }
-import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.topology.*
 
 class TrafficControlSequencerAdministrationGroup(

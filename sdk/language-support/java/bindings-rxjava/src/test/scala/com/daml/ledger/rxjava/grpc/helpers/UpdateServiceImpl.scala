@@ -10,7 +10,6 @@ import com.daml.ledger.rxjava.grpc.helpers.UpdateServiceImpl.LedgerItem
 import com.digitalasset.canton.auth.Authorizer
 import com.digitalasset.canton.ledger.api.auth.services.UpdateServiceAuthorization
 import com.daml.ledger.api.v2.event.Event
-import com.daml.ledger.api.v2.event.Event.Event.{Archived, Created, Empty}
 import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.api.v2.update_service.UpdateServiceGrpc.UpdateService
 import com.daml.ledger.api.v2.update_service._
@@ -28,9 +27,9 @@ final class UpdateServiceImpl(ledgerContent: Observable[LedgerItem])
 
   val lastUpdatesRequest = new AtomicReference[GetUpdatesRequest]()
   val lastUpdatesTreesRequest = new AtomicReference[GetUpdatesRequest]()
-  val lastTransactionTreeByEventIdRequest = new AtomicReference[GetTransactionByEventIdRequest]()
+  val lastTransactionTreeByOffsetRequest = new AtomicReference[GetTransactionByOffsetRequest]()
   val lastTransactionTreeByIdRequest = new AtomicReference[GetTransactionByIdRequest]()
-  val lastTransactionByEventIdRequest = new AtomicReference[GetTransactionByEventIdRequest]()
+  val lastTransactionByOffsetRequest = new AtomicReference[GetTransactionByOffsetRequest]()
   val lastTransactionByIdRequest = new AtomicReference[GetTransactionByIdRequest]()
 
   override def getUpdates(
@@ -68,10 +67,10 @@ final class UpdateServiceImpl(ledgerContent: Observable[LedgerItem])
     responseObserver.onCompleted()
   }
 
-  override def getTransactionTreeByEventId(
-      request: GetTransactionByEventIdRequest
+  override def getTransactionTreeByOffset(
+      request: GetTransactionByOffsetRequest
   ): Future[GetTransactionTreeResponse] = {
-    lastTransactionTreeByEventIdRequest.set(request)
+    lastTransactionTreeByOffsetRequest.set(request)
     Future.successful(
       new GetTransactionTreeResponse(None)
     ) // just a mock, not intended for consumption
@@ -86,10 +85,10 @@ final class UpdateServiceImpl(ledgerContent: Observable[LedgerItem])
     ) // just a mock, not intended for consumption
   }
 
-  override def getTransactionByEventId(
-      request: GetTransactionByEventIdRequest
+  override def getTransactionByOffset(
+      request: GetTransactionByOffsetRequest
   ): Future[GetTransactionResponse] = {
-    lastTransactionByEventIdRequest.set(request)
+    lastTransactionByOffsetRequest.set(request)
     Future.successful(
       new GetTransactionResponse(None)
     ) // just a mock, not intended for consumption
@@ -129,12 +128,6 @@ object UpdateServiceImpl {
         domainId,
         Some(traceContext),
       )
-  }
-
-  def eventId(event: Event): String = event.event match {
-    case Archived(archivedEvent) => archivedEvent.eventId
-    case Created(createdEvent) => createdEvent.eventId
-    case Empty => ""
   }
 
   def createWithRef(ledgerContent: Observable[LedgerItem], authorizer: Authorizer)(implicit

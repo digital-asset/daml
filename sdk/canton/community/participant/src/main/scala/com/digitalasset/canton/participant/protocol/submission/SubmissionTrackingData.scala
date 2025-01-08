@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.submission
@@ -18,7 +18,7 @@ import com.digitalasset.canton.participant.store.{
 }
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{
   HasProtocolVersionedCompanion,
@@ -100,7 +100,7 @@ object SubmissionTrackingData
 final case class TransactionSubmissionTrackingData(
     completionInfo: CompletionInfo,
     rejectionCause: TransactionSubmissionTrackingData.RejectionCause,
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
       SubmissionTrackingData.type
@@ -120,7 +120,7 @@ final case class TransactionSubmissionTrackingData(
       // notification will be tracked based on this as a non-sequenced in-flight reference
       completionInfo,
       reasonTemplate,
-      domainId,
+      synchronizerId,
       recordTime,
       messageUuid,
     )
@@ -141,7 +141,7 @@ final case class TransactionSubmissionTrackingData(
     val transactionTracking = v30.TransactionSubmissionTrackingData(
       completionInfo = completionInfoP.some,
       rejectionCause = rejectionCause.toProtoV30.some,
-      domainId = domainId.toProtoPrimitive,
+      synchronizerId = synchronizerId.toProtoPrimitive,
     )
     v30.SubmissionTrackingData(v30.SubmissionTrackingData.Tracking.Transaction(transactionTracking))
   }
@@ -156,17 +156,17 @@ object TransactionSubmissionTrackingData {
   def apply(
       completionInfo: CompletionInfo,
       rejectionCause: TransactionSubmissionTrackingData.RejectionCause,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       protocolVersion: ProtocolVersion,
   ): TransactionSubmissionTrackingData =
-    TransactionSubmissionTrackingData(completionInfo, rejectionCause, domainId)(
+    TransactionSubmissionTrackingData(completionInfo, rejectionCause, synchronizerId)(
       SubmissionTrackingData.protocolVersionRepresentativeFor(protocolVersion)
     )
 
   def fromProtoV30(
       tracking: v30.TransactionSubmissionTrackingData
   ): ParsingResult[TransactionSubmissionTrackingData] = {
-    val v30.TransactionSubmissionTrackingData(completionInfoP, causeP, domainIdP) = tracking
+    val v30.TransactionSubmissionTrackingData(completionInfoP, causeP, synchronizerIdP) = tracking
     for {
       completionInfo <- ProtoConverter.parseRequired(
         SerializableCompletionInfo.fromProtoV30,
@@ -174,12 +174,12 @@ object TransactionSubmissionTrackingData {
         completionInfoP,
       )
       cause <- ProtoConverter.parseRequired(RejectionCause.fromProtoV30, "rejection cause", causeP)
-      domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
+      synchronizerId <- SynchronizerId.fromProtoPrimitive(synchronizerIdP, "synchronizer_id")
       rpv <- SubmissionTrackingData.protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield TransactionSubmissionTrackingData(
       completionInfo,
       cause,
-      domainId,
+      synchronizerId,
     )(rpv)
   }
 

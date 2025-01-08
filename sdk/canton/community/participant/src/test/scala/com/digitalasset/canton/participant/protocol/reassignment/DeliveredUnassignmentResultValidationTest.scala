@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.protocol.reassignment
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.SignatureCheckError.SignatureWithWrongKey
-import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, HashPurpose}
+import com.digitalasset.canton.crypto.{HashPurpose, SynchronizerSnapshotSyncCryptoApi}
 import com.digitalasset.canton.data.ViewType.{AssignmentViewType, UnassignmentViewType}
 import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
 import com.digitalasset.canton.error.MediatorError
@@ -45,11 +45,11 @@ class DeliveredUnassignmentResultValidationTest
     with HasActorSystem
     with HasExecutionContext {
   private val sourceDomain = Source(
-    DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::source"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::source"))
   )
   private val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.zero)
   private val targetDomain = Target(
-    DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
   )
 
   private val signatory: LfPartyId = PartyId(
@@ -69,7 +69,7 @@ class DeliveredUnassignmentResultValidationTest
   )
 
   private val identityFactory: TestingIdentityFactory = TestingTopology()
-    .withDomains(sourceDomain.unwrap)
+    .withSynchronizers(sourceDomain.unwrap)
     .withReversedTopology(
       Map(
         submittingParticipant -> Map(
@@ -82,15 +82,15 @@ class DeliveredUnassignmentResultValidationTest
     .build(loggerFactory)
 
   private lazy val mediatorCrypto = identityFactory
-    .forOwnerAndDomain(DefaultTestIdentities.mediatorId, sourceDomain.unwrap)
+    .forOwnerAndSynchronizer(DefaultTestIdentities.mediatorId, sourceDomain.unwrap)
     .currentSnapshotApproximation
 
   private lazy val sequencerCrypto = identityFactory
-    .forOwnerAndDomain(DefaultTestIdentities.sequencerId, sourceDomain.unwrap)
+    .forOwnerAndSynchronizer(DefaultTestIdentities.sequencerId, sourceDomain.unwrap)
     .currentSnapshotApproximation
 
   private val cryptoClient = identityFactory
-    .forOwnerAndDomain(submittingParticipant, sourceDomain.unwrap)
+    .forOwnerAndSynchronizer(submittingParticipant, sourceDomain.unwrap)
 
   private val cryptoSnapshot = cryptoClient.currentSnapshotApproximation
 
@@ -148,8 +148,8 @@ class DeliveredUnassignmentResultValidationTest
   private def updateAndValidate(
       transform: ConfirmationResultMessage => ConfirmationResultMessage = identity,
       sequencingTime: CantonTimestamp = CantonTimestamp.Epoch,
-      overrideCryptoSnapshotMediator: Option[DomainSnapshotSyncCryptoApi] = None,
-      overrideCryptoSnapshotSequencer: Option[DomainSnapshotSyncCryptoApi] = None,
+      overrideCryptoSnapshotMediator: Option[SynchronizerSnapshotSyncCryptoApi] = None,
+      overrideCryptoSnapshotSequencer: Option[SynchronizerSnapshotSyncCryptoApi] = None,
   ): Either[DeliveredUnassignmentResultValidation.Error, Unit] = {
     val result = reassignmentDataHelpers
       .unassignmentResult(
@@ -261,9 +261,11 @@ class DeliveredUnassignmentResultValidationTest
       validateResult(unassignmentResult).value shouldBe ()
     }
 
-    "detect incorrect domain id" in {
-      updateAndValidate(_.copy(domainId = sourceDomain.unwrap)).value shouldBe ()
-      updateAndValidate(_.copy(domainId = targetDomain.unwrap)).left.value shouldBe IncorrectDomain(
+    "detect incorrect synchronizer id" in {
+      updateAndValidate(_.copy(synchronizerId = sourceDomain.unwrap)).value shouldBe ()
+      updateAndValidate(
+        _.copy(synchronizerId = targetDomain.unwrap)
+      ).left.value shouldBe IncorrectDomain(
         sourceDomain.unwrap,
         targetDomain.unwrap,
       )
@@ -323,11 +325,11 @@ class DeliveredUnassignmentResultValidationTest
 
     "detect incorrect mediator signature" in {
       val mediatorCrypto = identityFactory
-        .forOwnerAndDomain(DefaultTestIdentities.mediatorId, sourceDomain.unwrap)
+        .forOwnerAndSynchronizer(DefaultTestIdentities.mediatorId, sourceDomain.unwrap)
         .currentSnapshotApproximation
 
       val sequencerCrypto = identityFactory
-        .forOwnerAndDomain(DefaultTestIdentities.sequencerId, sourceDomain.unwrap)
+        .forOwnerAndSynchronizer(DefaultTestIdentities.sequencerId, sourceDomain.unwrap)
         .currentSnapshotApproximation
 
       updateAndValidate(
@@ -344,7 +346,7 @@ class DeliveredUnassignmentResultValidationTest
     "detect stakeholder not hosted on some reassigning participant" in {
       // Stakeholder observer is not in this topology, which means that it will not have a reassigning participant
       val observerMissing = TestingTopology()
-        .withDomains(targetDomain.unwrap)
+        .withSynchronizers(targetDomain.unwrap)
         .withReversedTopology(
           Map(
             submittingParticipant -> Map(
@@ -354,7 +356,7 @@ class DeliveredUnassignmentResultValidationTest
         )
         .withSimpleParticipants(submittingParticipant)
         .build(loggerFactory)
-        .forOwnerAndDomain(submittingParticipant, targetDomain.unwrap)
+        .forOwnerAndSynchronizer(submittingParticipant, targetDomain.unwrap)
         .currentSnapshotApproximation
         .ipsSnapshot
 
@@ -393,8 +395,8 @@ class DeliveredUnassignmentResultValidationTest
       validateResult(unassignmentResult).value shouldBe ()
     }
 
-    "detect incorrect domain id" in {
-      def validate(domainId: DomainId) = {
+    "detect incorrect synchronizer id" in {
+      def validate(synchronizerId: SynchronizerId) = {
         val result = ReassignmentDataHelpers
           .unassignmentResult(
             unassignmentResult.unwrap,
@@ -402,7 +404,7 @@ class DeliveredUnassignmentResultValidationTest
             protocolVersion = testedProtocolVersion,
             cryptoSnapshotMediator = mediatorCrypto,
             cryptoSnapshotSequencer = sequencerCrypto,
-          )(domainId)
+          )(synchronizerId)
           .futureValue
 
         validateResult(result)

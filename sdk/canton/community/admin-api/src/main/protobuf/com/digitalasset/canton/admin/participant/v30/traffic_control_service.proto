@@ -13,7 +13,7 @@ service TrafficControlService {
 }
 
 message TrafficControlStateRequest {
-  string domain_id = 1; // Domain id for which to retrieve the traffic state
+  string synchronizer_id = 1; // Synchronizer id for which to retrieve the traffic state
 }
 
 message TrafficControlStateResponse {

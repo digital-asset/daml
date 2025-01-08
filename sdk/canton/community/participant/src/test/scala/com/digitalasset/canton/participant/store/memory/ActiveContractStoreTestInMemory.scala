@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.memory
@@ -20,7 +20,7 @@ class ActiveContractStoreTestInMemory
 
   /*
     We need 3 domains.
-    In `DbActiveContractStoreTest`, we have an `acsDomainId` which takes index 1, so we start at 2.
+    In `DbActiveContractStoreTest`, we have an `acsSynchronizerId` which takes index 1, so we start at 2.
    */
   private lazy val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 2, maxIndex = 4)
 

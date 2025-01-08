@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store
@@ -19,13 +19,13 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.protocol.DynamicDomainParameters
+import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.v30 as topoV30
-import com.digitalasset.canton.topology.client.DomainTopologyClient
+import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.{
@@ -60,20 +60,20 @@ sealed trait TopologyStoreId extends PrettyPrinting {
   def dbString: LengthLimitedString
   def dbStringWithDaml2xUniquifier(uniquifier: String): LengthLimitedString
   def isAuthorizedStore: Boolean
-  def isDomainStore: Boolean
+  def isSynchronizerStore: Boolean
 }
 
 object TopologyStoreId {
 
   /** A topology store storing sequenced topology transactions
     *
-    * @param domainId the domain id of the store
+    * @param synchronizerId the synchronizer id of the store
     * @param discriminator the discriminator of the store. used for mediator confirmation request store
     *                      or in daml 2.x for embedded mediator topology stores
     */
-  final case class DomainStore(domainId: DomainId, discriminator: String = "")
+  final case class SynchronizerStore(synchronizerId: SynchronizerId, discriminator: String = "")
       extends TopologyStoreId {
-    private val dbStringWithoutDiscriminator = domainId.toLengthLimitedString
+    private val dbStringWithoutDiscriminator = synchronizerId.toLengthLimitedString
     val dbString: LengthLimitedString =
       if (discriminator.isEmpty) dbStringWithoutDiscriminator
       else
@@ -87,14 +87,14 @@ object TopologyStoreId {
     override protected def pretty: Pretty[this.type] =
       if (discriminator.nonEmpty) {
         prettyOfString(storeId =>
-          show"${storeId.discriminator}${UniqueIdentifier.delimiter}${storeId.domainId}"
+          show"${storeId.discriminator}${UniqueIdentifier.delimiter}${storeId.synchronizerId}"
         )
       } else {
-        prettyOfParam(_.domainId)
+        prettyOfParam(_.synchronizerId)
       }
 
     // The reason for this somewhat awkward method is backward compat with uniquifier inserted in the middle of
-    // discriminator and domain id. Can be removed once fully on daml 3.0:
+    // discriminator and synchronizer id. Can be removed once fully on daml 3.0:
     override def dbStringWithDaml2xUniquifier(uniquifier: String): LengthLimitedString = {
       require(uniquifier.nonEmpty)
       LengthLimitedString
@@ -106,7 +106,7 @@ object TopologyStoreId {
     }
 
     override def isAuthorizedStore: Boolean = false
-    override def isDomainStore: Boolean = true
+    override def isSynchronizerStore: Boolean = true
   }
 
   // authorized transactions (the topology managers store)
@@ -125,12 +125,13 @@ object TopologyStoreId {
     )
 
     override def isAuthorizedStore: Boolean = true
-    override def isDomainStore: Boolean = false
+    override def isSynchronizerStore: Boolean = false
   }
 
   def apply(fName: String): TopologyStoreId = fName.toLowerCase match {
     case "authorized" => AuthorizedStore
-    case domain => DomainStore(DomainId(UniqueIdentifier.tryFromProtoPrimitive(domain)))
+    case synchronizer =>
+      SynchronizerStore(SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive(synchronizer)))
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
@@ -261,7 +262,7 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
             SequencedTime.MinValue,
             EffectiveTime.MinValue,
             storedDelays.headOption.map(_.validFrom),
-            DynamicDomainParameters.topologyChangeDelayIfAbsent,
+            DynamicSynchronizerParameters.topologyChangeDelayIfAbsent,
           )
         )
     }
@@ -294,13 +295,13 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
         asOf = asOfExclusive,
         asOfInclusive = false,
         isProposal = false,
-        types = Seq(DomainParametersState.code),
+        types = Seq(SynchronizerParametersState.code),
         filterUid = None,
         filterNamespace = None,
       )
     } yield {
       txs.collectLatestByUniqueKey
-        .collectOfMapping[DomainParametersState]
+        .collectOfMapping[SynchronizerParametersState]
         .result
         .headOption
         .map(tx =>
@@ -316,7 +317,7 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
             SequencedTime(CantonTimestamp.MinValue),
             EffectiveTime(CantonTimestamp.MinValue),
             None,
-            DynamicDomainParameters.topologyChangeDelayIfAbsent,
+            DynamicSynchronizerParameters.topologyChangeDelayIfAbsent,
           )
         )
     }
@@ -441,7 +442,7 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[
-    Option[StoredTopologyTransaction[TopologyChangeOp.Replace, SequencerDomainState]]
+    Option[StoredTopologyTransaction[TopologyChangeOp.Replace, SequencerSynchronizerState]]
   ]
 
   /** Finds the topology transaction that first onboarded the mediator with ID `mediatorId`
@@ -451,7 +452,7 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[
-    Option[StoredTopologyTransaction[TopologyChangeOp.Replace, MediatorDomainState]]
+    Option[StoredTopologyTransaction[TopologyChangeOp.Replace, MediatorSynchronizerState]]
   ]
 
   /** Finds the topology transaction that first onboarded the participant with ID `participantId`
@@ -461,7 +462,7 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[
-    Option[StoredTopologyTransaction[TopologyChangeOp.Replace, DomainTrustCertificate]]
+    Option[StoredTopologyTransaction[TopologyChangeOp.Replace, SynchronizerTrustCertificate]]
   ]
 
   /** Yields all transactions with sequenced time less than or equal to `asOfInclusive`.
@@ -483,9 +484,9 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       inStore.validUntil.isEmpty
     })
 
-  /** Returns initial set of onboarding transactions that should be dispatched to the domain.
+  /** Returns initial set of onboarding transactions that should be dispatched to the synchronizer.
     * Includes:
-    * - DomainTrustCertificates for the given participantId
+    * - SynchronizerTrustCertificates for the given participantId
     * - OwnerToKeyMappings for the given participantId
     * - NamespaceDelegations for the participantId's namespace
     * - The above even if they are expired.
@@ -493,10 +494,13 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
     * Excludes:
     * - Proposals
     * - Rejected transactions
-    * - Transactions that are not valid for domainId
+    * - Transactions that are not valid for synchronizerId
     */
-  def findParticipantOnboardingTransactions(participantId: ParticipantId, domainId: DomainId)(
-      implicit traceContext: TraceContext
+  def findParticipantOnboardingTransactions(
+      participantId: ParticipantId,
+      synchronizerId: SynchronizerId,
+  )(implicit
+      traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]]
 
   /** Yields transactions with `validFrom` strictly greater than `timestampExclusive`.
@@ -572,7 +576,7 @@ object TopologyStore {
 
     def selectChange(tx: GenericStoredTopologyTransaction): Change =
       (tx, tx.mapping) match {
-        case (tx, x: DomainParametersState) =>
+        case (tx, x: SynchronizerParametersState) =>
           Change.TopologyDelay(
             tx.sequenced,
             tx.validFrom,
@@ -585,7 +589,7 @@ object TopologyStore {
     def selectTopologyDelay(
         tx: GenericStoredTopologyTransaction
     ): Option[TopologyDelay] = (tx.operation, tx.mapping) match {
-      case (Replace, DomainParametersState(_, parameters)) =>
+      case (Replace, SynchronizerParametersState(_, parameters)) =>
         Some(
           Change.TopologyDelay(
             tx.sequenced,
@@ -617,26 +621,26 @@ object TopologyStore {
   }
 
   lazy val initialParticipantDispatchingSet: Set[TopologyMapping.Code] = Set(
-    TopologyMapping.Code.DomainTrustCertificate,
+    TopologyMapping.Code.SynchronizerTrustCertificate,
     TopologyMapping.Code.OwnerToKeyMapping,
     TopologyMapping.Code.NamespaceDelegation,
   )
 
   def filterInitialParticipantDispatchingTransactions(
       participantId: ParticipantId,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       transactions: Seq[GenericStoredTopologyTransaction],
   ): Seq[GenericSignedTopologyTransaction] =
     transactions.map(_.transaction).filter { signedTx =>
       initialParticipantDispatchingSet.contains(signedTx.mapping.code) &&
       signedTx.mapping.maybeUid.forall(_ == participantId.uid) &&
       signedTx.mapping.namespace == participantId.namespace &&
-      signedTx.mapping.restrictedToDomain.forall(_ == domainId)
+      signedTx.mapping.restrictedToSynchronizer.forall(_ == synchronizerId)
     }
 
-  /** convenience method waiting until the last eligible transaction inserted into the source store has been dispatched successfully to the target domain */
+  /** convenience method waiting until the last eligible transaction inserted into the source store has been dispatched successfully to the target synchronizer */
   def awaitTxObserved(
-      client: DomainTopologyClient,
+      client: SynchronizerTopologyClient,
       transaction: GenericSignedTopologyTransaction,
       target: TopologyStore[?],
       timeout: Duration,
@@ -646,7 +650,7 @@ object TopologyStore {
   ): FutureUnlessShutdown[Boolean] =
     client.awaitUS(
       // we know that the transaction is stored and effective once we find it in the target
-      // domain store and once the effective time (valid from) is smaller than the client timestamp
+      // synchronizer store and once the effective time (valid from) is smaller than the client timestamp
       sp =>
         target
           .findStored(sp.timestamp, transaction, includeRejected = true)

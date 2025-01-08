@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -8,15 +8,12 @@ import com.digitalasset.canton.ReassignmentCounter
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt, SaltSeed}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
-  ReassignmentProcessorError,
-  StakeholderHostingErrors,
-}
+import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentValidationError.PackageIdUnknownOrUnvetted
 import com.digitalasset.canton.participant.protocol.submission.UsableDomains
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, TimeProof}
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -35,10 +32,10 @@ final case class UnassignmentRequest(
     submitterMetadata: ReassignmentSubmitterMetadata,
     reassigningParticipants: Set[ParticipantId],
     contract: SerializableContract,
-    sourceDomain: Source[DomainId],
+    sourceDomain: Source[SynchronizerId],
     sourceProtocolVersion: Source[ProtocolVersion],
     sourceMediator: MediatorGroupRecipient,
-    targetDomain: Target[DomainId],
+    targetDomain: Target[SynchronizerId],
     targetProtocolVersion: Target[ProtocolVersion],
     targetTimeProof: TimeProof,
     reassignmentCounter: ReassignmentCounter,
@@ -87,10 +84,10 @@ object UnassignmentRequest {
       timeProof: TimeProof,
       contract: SerializableContract,
       submitterMetadata: ReassignmentSubmitterMetadata,
-      sourceDomain: Source[DomainId],
+      sourceDomain: Source[SynchronizerId],
       sourceProtocolVersion: Source[ProtocolVersion],
       sourceMediator: MediatorGroupRecipient,
-      targetDomain: Target[DomainId],
+      targetDomain: Target[SynchronizerId],
       targetProtocolVersion: Target[ProtocolVersion],
       sourceTopology: Source[TopologySnapshot],
       targetTopology: Target[TopologySnapshot],
@@ -100,7 +97,7 @@ object UnassignmentRequest {
       ec: ExecutionContext,
   ): EitherT[
     FutureUnlessShutdown,
-    ReassignmentProcessorError,
+    ReassignmentValidationError,
     UnassignmentRequestValidated,
   ] = {
     val contractId = contract.contractId
@@ -120,7 +117,9 @@ object UnassignmentRequest {
       unassignmentRequestRecipients <- sourceTopology.unwrap
         .activeParticipantsOfAll(stakeholders.all.toList)
         .leftMap(inactiveParties =>
-          StakeholderHostingErrors(s"The following stakeholders are not active: $inactiveParties")
+          ReassignmentValidationError.StakeholderHostingErrors(
+            s"The following stakeholders are not active: $inactiveParties"
+          )
         )
 
       reassigningParticipants <- new ReassigningParticipantsComputation(
@@ -136,9 +135,8 @@ object UnassignmentRequest {
           stakeholders.all.view.map(_ -> Set(templateId.packageId)).toMap,
           targetTopology.unwrap.referenceTime,
         )
-        .leftMap[ReassignmentProcessorError](unknownPackage =>
-          UnassignmentProcessorError
-            .PackageIdUnknownOrUnvetted(contractId, unknownPackage.unknownTo)
+        .leftMap[ReassignmentValidationError](unknownPackage =>
+          PackageIdUnknownOrUnvetted(contractId, unknownPackage.unknownTo)
         )
     } yield {
       val unassignmentRequest = UnassignmentRequest(

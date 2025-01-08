@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client
@@ -37,14 +37,14 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
   NamedLoggingContext,
 }
-import com.digitalasset.canton.protocol.DynamicDomainParametersWithValidity
+import com.digitalasset.canton.protocol.DynamicSynchronizerParametersWithValidity
 import com.digitalasset.canton.sequencing.client.SequencedEventValidationError.UpstreamSubscriptionError
 import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, SequencedEvent}
 import com.digitalasset.canton.sequencing.{OrdinarySerializedEvent, PossiblyIgnoredSerializedEvent}
 import com.digitalasset.canton.store.SequencedEventStore.IgnoredSequencedEvent
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{DomainId, SequencerId}
+import com.digitalasset.canton.topology.{SequencerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.PekkoUtil.WithKillSwitch
@@ -60,9 +60,9 @@ object SequencedEventValidationError {
       extends SequencedEventValidationError[E] {
     override protected def pretty: Pretty[this.type] = prettyOfParam(_.error)
   }
-  final case class BadDomainId(expected: DomainId, received: DomainId)
+  final case class BadSynchronizerId(expected: SynchronizerId, received: SynchronizerId)
       extends SequencedEventValidationError[Nothing] {
-    override protected def pretty: Pretty[BadDomainId] = prettyOfClass(
+    override protected def pretty: Pretty[BadSynchronizerId] = prettyOfClass(
       param("expected", _.expected),
       param("received", _.received),
     )
@@ -233,22 +233,22 @@ object SequencedEventValidator extends HasLoggerName {
     * @param warn whether to log a warning when used
     */
   def noValidation(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       warn: Boolean = true,
   )(implicit
       loggingContext: NamedLoggingContext
   ): SequencedEventValidator = {
     if (warn) {
       loggingContext.warn(
-        s"You have opted to skip event validation for domain $domainId. You should not do this unless you know what you are doing."
+        s"You have opted to skip event validation for domain $synchronizerId. You should not do this unless you know what you are doing."
       )
     }
     NoValidation
   }
 
   /** Validates the requested topology timestamp against the sequencing timestamp and the
-    * [[com.digitalasset.canton.protocol.DynamicDomainParameters.sequencerTopologyTimestampTolerance]]
-    * of the domain parameters valid at the requested topology timestamp.
+    * [[com.digitalasset.canton.protocol.DynamicSynchronizerParameters.sequencerTopologyTimestampTolerance]]
+    * of the synchronizer parameters valid at the requested topology timestamp.
     *
     * @param latestTopologyClientTimestamp The timestamp of an earlier event sent to the topology client
     *                                      such that no topology update has happened
@@ -256,7 +256,7 @@ object SequencedEventValidator extends HasLoggerName {
     * @param warnIfApproximate             Whether to emit a warning if an approximate topology snapshot is used
     * @return [[scala.Left$]] if the topology timestamp is after the sequencing timestamp or the sequencing timestamp
     *         is after the topology timestamp by more than the
-    *         [[com.digitalasset.canton.protocol.DynamicDomainParameters.sequencerTopologyTimestampTolerance]] valid at the topology timestamp.
+    *         [[com.digitalasset.canton.protocol.DynamicSynchronizerParameters.sequencerTopologyTimestampTolerance]] valid at the topology timestamp.
     *         [[scala.Right$]] the topology snapshot that can be used for signing the event
     *         and verifying the signature on the event;
     */
@@ -267,7 +267,7 @@ object SequencedEventValidator extends HasLoggerName {
       latestTopologyClientTimestamp: Option[CantonTimestamp],
       protocolVersion: ProtocolVersion,
       warnIfApproximate: Boolean,
-      getTolerance: DynamicDomainParametersWithValidity => NonNegativeFiniteDuration,
+      getTolerance: DynamicSynchronizerParametersWithValidity => NonNegativeFiniteDuration,
   )(implicit
       loggingContext: NamedLoggingContext,
       executionContext: ExecutionContext,
@@ -282,7 +282,7 @@ object SequencedEventValidator extends HasLoggerName {
       getTolerance,
     )(
       SyncCryptoClient.getSnapshotForTimestamp _,
-      (topology, traceContext) => topology.findDynamicDomainParameters()(traceContext),
+      (topology, traceContext) => topology.findDynamicSynchronizerParameters()(traceContext),
     )
 
   def validateTopologyTimestampUS(
@@ -292,7 +292,7 @@ object SequencedEventValidator extends HasLoggerName {
       latestTopologyClientTimestamp: Option[CantonTimestamp],
       protocolVersion: ProtocolVersion,
       warnIfApproximate: Boolean,
-      getTolerance: DynamicDomainParametersWithValidity => NonNegativeFiniteDuration,
+      getTolerance: DynamicSynchronizerParametersWithValidity => NonNegativeFiniteDuration,
   )(implicit
       loggingContext: NamedLoggingContext,
       executionContext: ExecutionContext,
@@ -310,7 +310,7 @@ object SequencedEventValidator extends HasLoggerName {
       SyncCryptoClient.getSnapshotForTimestampUS _,
       (topology, traceContext) =>
         closeContext.context.performUnlessClosingUSF("get-dynamic-parameters")(
-          topology.findDynamicDomainParameters()(traceContext)
+          topology.findDynamicSynchronizerParameters()(traceContext)
         )(executionContext, traceContext),
     )
 
@@ -324,7 +324,7 @@ object SequencedEventValidator extends HasLoggerName {
       latestTopologyClientTimestamp: Option[CantonTimestamp],
       protocolVersion: ProtocolVersion,
       warnIfApproximate: Boolean,
-      getTolerance: DynamicDomainParametersWithValidity => NonNegativeFiniteDuration,
+      getTolerance: DynamicSynchronizerParametersWithValidity => NonNegativeFiniteDuration,
   )(
       getSnapshotF: (
           SyncCryptoClient[SyncCryptoApi],
@@ -336,7 +336,7 @@ object SequencedEventValidator extends HasLoggerName {
       getDynamicDomainParameters: (
           TopologySnapshot,
           TraceContext,
-      ) => F[Either[String, DynamicDomainParametersWithValidity]],
+      ) => F[Either[String, DynamicSynchronizerParametersWithValidity]],
   )(implicit
       loggingContext: NamedLoggingContext
   ): EitherT[F, TopologyTimestampVerificationError, SyncCryptoApi] = {
@@ -425,13 +425,13 @@ object SequencedEventValidatorFactory {
     * @param warn whether to log a warning
     */
   def noValidation(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       warn: Boolean = true,
   ): SequencedEventValidatorFactory = new SequencedEventValidatorFactory {
     override def create(loggerFactory: NamedLoggerFactory)(implicit
         traceContext: TraceContext
     ): SequencedEventValidator =
-      SequencedEventValidator.noValidation(domainId, warn)(
+      SequencedEventValidator.noValidation(synchronizerId, warn)(
         NamedLoggingContext(loggerFactory, traceContext)
       )
   }
@@ -439,7 +439,7 @@ object SequencedEventValidatorFactory {
 
 /** Validate whether a received event is valid for processing. */
 class SequencedEventValidatorImpl(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
     syncCryptoApi: SyncCryptoClient[SyncCryptoApi],
     protected val loggerFactory: NamedLoggerFactory,
@@ -498,12 +498,12 @@ class SequencedEventValidatorImpl(
       _ <- EitherT.fromEither[FutureUnlessShutdown](
         Seq(
           checkCounterIncreases,
-          checkDomainId(event),
+          checkSynchronizerId(event),
           checkTimestampIncreases,
         ).sequence_
       )
       _ = logger.debug(
-        s"Successfully checked domain ID (${event.signedEvent.content.domainId}), " +
+        s"Successfully checked synchronizer id (${event.signedEvent.content.synchronizerId}), " +
           s"increasing counter (old = $oldCounter, new = $newCounter) " +
           s"and increasing timestamp (old = ${priorEventO.map(_.timestamp)}, new = $newTimestamp)"
       )
@@ -562,7 +562,7 @@ class SequencedEventValidatorImpl(
     for {
       _ <- EitherT.fromEither[FutureUnlessShutdown](
         Seq(
-          checkDomainId(reconnectEvent),
+          checkSynchronizerId(reconnectEvent),
           checkFork,
         ).sequence_
       )
@@ -571,9 +571,13 @@ class SequencedEventValidatorImpl(
     // do not update the priorEvent because if it was ignored, then it was ignored for a reason.
   }
 
-  private def checkDomainId(event: OrdinarySerializedEvent): ValidationResult = {
-    val receivedDomainId = event.signedEvent.content.domainId
-    Either.cond(receivedDomainId == domainId, (), BadDomainId(domainId, receivedDomainId))
+  private def checkSynchronizerId(event: OrdinarySerializedEvent): ValidationResult = {
+    val receivedSynchronizerId = event.signedEvent.content.synchronizerId
+    Either.cond(
+      receivedSynchronizerId == synchronizerId,
+      (),
+      BadSynchronizerId(synchronizerId, receivedSynchronizerId),
+    )
   }
 
   @VisibleForTesting

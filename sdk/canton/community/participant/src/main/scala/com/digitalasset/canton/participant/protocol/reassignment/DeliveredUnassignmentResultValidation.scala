@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -18,7 +18,7 @@ import com.digitalasset.canton.protocol.messages.{
   DeliveredUnassignmentResult,
 }
 import com.digitalasset.canton.protocol.{RequestId, RootHash}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
@@ -38,7 +38,7 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
   private def result: ConfirmationResultMessage = deliveredUnassignmentResult.unwrap
 
   private val stakeholders = unassignmentRequest.stakeholders
-  private val sourceDomainId = unassignmentRequest.sourceDomain
+  private val sourceSynchronizerId = unassignmentRequest.sourceSynchronizer
   private val reassigningParticipants = unassignmentRequest.reassigningParticipants
 
   def validate: EitherT[FutureUnlessShutdown, Error, Unit] =
@@ -49,7 +49,7 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
 
   private def confirmationResultMessageValidation: EitherT[FutureUnlessShutdown, Error, Unit] =
     for {
-      _ <- validateDomainId(result.domainId)
+      _ <- validateSynchronizerId(result.synchronizerId)
       _ <- validateRequestId
       _ <- validateRootHash
       _ <- validateInformees
@@ -60,7 +60,7 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
     val deliver = deliveredUnassignmentResult.result.content
 
     for {
-      _ <- validateDomainId(deliver.domainId)
+      _ <- validateSynchronizerId(deliver.synchronizerId)
       _ <- EitherTUtil
         .condUnitET[FutureUnlessShutdown][Error](
           deliver.timestamp <= unassignmentDecisionTime,
@@ -72,10 +72,12 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
     } yield ()
   }
 
-  private def validateDomainId(domainId: DomainId): EitherT[FutureUnlessShutdown, Error, Unit] =
+  private def validateSynchronizerId(
+      synchronizerId: SynchronizerId
+  ): EitherT[FutureUnlessShutdown, Error, Unit] =
     EitherTUtil.condUnitET[FutureUnlessShutdown](
-      domainId == sourceDomainId.unwrap,
-      IncorrectDomain(sourceDomainId.unwrap, domainId),
+      synchronizerId == sourceSynchronizerId.unwrap,
+      IncorrectDomain(sourceSynchronizerId.unwrap, synchronizerId),
     )
 
   private def validateRequestId: EitherT[FutureUnlessShutdown, Error, Unit] = {
@@ -183,8 +185,8 @@ object DeliveredUnassignmentResultValidation {
   }
 
   final case class IncorrectDomain(
-      expected: DomainId,
-      found: DomainId,
+      expected: SynchronizerId,
+      found: SynchronizerId,
   ) extends Error {
     override def error: String = s"Incorrect domain: found $found but expected $expected"
   }

@@ -1,9 +1,9 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http.json
 
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import scalaz.{@@, Tag}
 import spray.json.{JsNumber, JsString, JsValue, JsonFormat, deserializationError}
 
@@ -22,16 +22,16 @@ trait ExtraFormats {
     }
   }
 
-  implicit val domainIdFormat: JsonFormat[DomainId] = new JsonFormat[DomainId] {
-    override def write(obj: DomainId): JsValue = JsString(obj.toProtoPrimitive)
+  implicit val synchronizerIdFormat: JsonFormat[SynchronizerId] = new JsonFormat[SynchronizerId] {
+    override def write(obj: SynchronizerId): JsValue = JsString(obj.toProtoPrimitive)
 
-    override def read(json: JsValue): DomainId = json match {
-      case JsString(stringDomainId) =>
-        DomainId.fromString(stringDomainId) match {
+    override def read(json: JsValue): SynchronizerId = json match {
+      case JsString(stringSynchronizerId) =>
+        SynchronizerId.fromString(stringSynchronizerId) match {
           case Left(err) => deserializationError(err)
-          case Right(domainId) => domainId
+          case Right(synchronizerId) => synchronizerId
         }
-      case _ => deserializationError("Domain ID must be a string")
+      case _ => deserializationError("Synchronizer id must be a string")
     }
   }
 }

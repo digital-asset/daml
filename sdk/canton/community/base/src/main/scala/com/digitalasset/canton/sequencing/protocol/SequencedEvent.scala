@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.protocol
@@ -15,7 +15,7 @@ import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.sequencing.{EnvelopeBox, RawSignedContentEnvelopeBox}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.NoCopy
 import com.digitalasset.canton.version.{
   HasMemoizedProtocolVersionedWrapperCompanion2,
@@ -53,7 +53,7 @@ sealed trait SequencedEvent[+Env <: Envelope[?]]
   val timestamp: CantonTimestamp
 
   /** The domain which this deliver event belongs to */
-  val domainId: DomainId
+  val synchronizerId: SynchronizerId
 
   def isTombstone: Boolean = false
 
@@ -91,7 +91,7 @@ object SequencedEvent
     val v30.SequencedEvent(
       counter,
       tsP,
-      domainIdP,
+      synchronizerIdP,
       mbMsgIdP,
       mbBatchP,
       mbDeliverErrorReasonP,
@@ -104,7 +104,10 @@ object SequencedEvent
     for {
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       timestamp <- CantonTimestamp.fromProtoPrimitive(tsP)
-      domainId <- DomainId.fromProtoPrimitive(domainIdP, "SequencedEvent.domainId")
+      synchronizerId <- SynchronizerId.fromProtoPrimitive(
+        synchronizerIdP,
+        "SequencedEvent.synchronizerId",
+      )
       mbBatch <- mbBatchP.traverse(
         // TODO(i10428) Prevent zip bombing when decompressing the request
         Batch.fromProtoV30(_, maxRequestSize = MaxRequestSizeToDeserialize.NoLimit)
@@ -129,7 +132,7 @@ object SequencedEvent
           } yield new DeliverError(
             sequencerCounter,
             timestamp,
-            domainId,
+            synchronizerId,
             msgId,
             deliverErrorReason,
             trafficConsumed,
@@ -141,7 +144,7 @@ object SequencedEvent
           } yield Deliver(
             sequencerCounter,
             timestamp,
-            domainId,
+            synchronizerId,
             msgIdO,
             batch,
             topologyTimestampO,
@@ -194,7 +197,7 @@ object SequencedEvent
 sealed abstract case class DeliverError private[sequencing] (
     override val counter: SequencerCounter,
     override val timestamp: CantonTimestamp,
-    override val domainId: DomainId,
+    override val synchronizerId: SynchronizerId,
     messageId: MessageId,
     reason: Status,
     trafficReceipt: Option[TrafficReceipt],
@@ -207,7 +210,7 @@ sealed abstract case class DeliverError private[sequencing] (
   def toProtoV30: v30.SequencedEvent = v30.SequencedEvent(
     counter = counter.toProtoPrimitive,
     timestamp = timestamp.toProtoPrimitive,
-    domainId = domainId.toProtoPrimitive,
+    synchronizerId = synchronizerId.toProtoPrimitive,
     messageId = Some(messageId.toProtoPrimitive),
     batch = None,
     deliverErrorReason = Some(reason),
@@ -218,7 +221,7 @@ sealed abstract case class DeliverError private[sequencing] (
   def updateTrafficReceipt(trafficReceipt: Option[TrafficReceipt]): DeliverError = new DeliverError(
     counter,
     timestamp,
-    domainId,
+    synchronizerId,
     messageId,
     reason,
     trafficReceipt,
@@ -234,7 +237,7 @@ sealed abstract case class DeliverError private[sequencing] (
   override protected def pretty: Pretty[DeliverError] = prettyOfClass(
     param("counter", _.counter),
     param("timestamp", _.timestamp),
-    param("domain id", _.domainId),
+    param("synchronizer id", _.synchronizerId),
     param("message id", _.messageId),
     param("reason", _.reason),
     paramIfDefined("traffic receipt", _.trafficReceipt),
@@ -266,7 +269,7 @@ object DeliverError {
   def create(
       counter: SequencerCounter,
       timestamp: CantonTimestamp,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       messageId: MessageId,
       sequencerError: SequencerDeliverError,
       protocolVersion: ProtocolVersion,
@@ -275,7 +278,7 @@ object DeliverError {
     new DeliverError(
       counter,
       timestamp,
-      domainId,
+      synchronizerId,
       messageId,
       sequencerError.rpcStatusWithoutLoggingContext(),
       trafficReceipt,
@@ -287,13 +290,13 @@ object DeliverError {
   def create(
       counter: SequencerCounter,
       timestamp: CantonTimestamp,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       messageId: MessageId,
       status: Status,
       protocolVersion: ProtocolVersion,
       trafficReceipt: Option[TrafficReceipt],
   ): DeliverError =
-    new DeliverError(counter, timestamp, domainId, messageId, status, trafficReceipt)(
+    new DeliverError(counter, timestamp, synchronizerId, messageId, status, trafficReceipt)(
       SequencedEvent.protocolVersionRepresentativeFor(protocolVersion),
       None,
     ) {}
@@ -313,7 +316,7 @@ object DeliverError {
 case class Deliver[+Env <: Envelope[_]] private[sequencing] (
     override val counter: SequencerCounter,
     override val timestamp: CantonTimestamp,
-    override val domainId: DomainId,
+    override val synchronizerId: SynchronizerId,
     messageIdO: Option[MessageId],
     batch: Batch[Env],
     topologyTimestampO: Option[CantonTimestamp],
@@ -331,7 +334,7 @@ case class Deliver[+Env <: Envelope[_]] private[sequencing] (
   protected[sequencing] def toProtoV30: v30.SequencedEvent = v30.SequencedEvent(
     counter = counter.toProtoPrimitive,
     timestamp = timestamp.toProtoPrimitive,
-    domainId = domainId.toProtoPrimitive,
+    synchronizerId = synchronizerId.toProtoPrimitive,
     messageId = messageIdO.map(_.toProtoPrimitive),
     batch = Some(batch.toProtoV30),
     deliverErrorReason = None,
@@ -343,7 +346,15 @@ case class Deliver[+Env <: Envelope[_]] private[sequencing] (
       f: Env => F[Env2]
   )(implicit F: Applicative[F]): F[SequencedEvent[Env2]] =
     F.map(batch.traverse(f))(
-      Deliver(counter, timestamp, domainId, messageIdO, _, topologyTimestampO, trafficReceipt)(
+      Deliver(
+        counter,
+        timestamp,
+        synchronizerId,
+        messageIdO,
+        _,
+        topologyTimestampO,
+        trafficReceipt,
+      )(
         representativeProtocolVersion,
         deserializedFrom,
       )
@@ -353,7 +364,7 @@ case class Deliver[+Env <: Envelope[_]] private[sequencing] (
   private[canton] def copy[Env2 <: Envelope[?]](
       counter: SequencerCounter = this.counter,
       timestamp: CantonTimestamp = this.timestamp,
-      domainId: DomainId = this.domainId,
+      synchronizerId: SynchronizerId = this.synchronizerId,
       messageIdO: Option[MessageId] = this.messageIdO,
       batch: Batch[Env2] = this.batch,
       topologyTimestampO: Option[CantonTimestamp] = this.topologyTimestampO,
@@ -363,7 +374,7 @@ case class Deliver[+Env <: Envelope[_]] private[sequencing] (
     Deliver[Env2](
       counter,
       timestamp,
-      domainId,
+      synchronizerId,
       messageIdO,
       batch,
       topologyTimestampO,
@@ -378,7 +389,7 @@ case class Deliver[+Env <: Envelope[_]] private[sequencing] (
       param("counter", _.counter),
       param("timestamp", _.timestamp),
       paramIfNonEmpty("message id", _.messageIdO),
-      param("domain id", _.domainId),
+      param("synchronizer id", _.synchronizerId),
       paramIfDefined("topology timestamp", _.topologyTimestampO),
       unnamedParam(_.batch),
       paramIfDefined("traffic receipt", _.trafficReceipt),
@@ -393,7 +404,7 @@ object Deliver {
   def create[Env <: Envelope[_]](
       counter: SequencerCounter,
       timestamp: CantonTimestamp,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       messageIdO: Option[MessageId],
       batch: Batch[Env],
       topologyTimestampO: Option[CantonTimestamp],
@@ -403,7 +414,7 @@ object Deliver {
     Deliver[Env](
       counter,
       timestamp,
-      domainId,
+      synchronizerId,
       messageIdO,
       batch,
       topologyTimestampO,

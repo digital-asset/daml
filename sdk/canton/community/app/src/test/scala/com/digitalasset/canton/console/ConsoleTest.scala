@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.console
@@ -19,11 +19,11 @@ import com.digitalasset.canton.console.HeadlessConsole.{
   HeadlessConsoleError,
   RuntimeError,
 }
-import com.digitalasset.canton.domain.mediator.MediatorNodeBootstrap
-import com.digitalasset.canton.domain.sequencing.SequencerNodeBootstrap
 import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.metrics.OnDemandMetricsReader.NoOpOnDemandMetricsReader$
 import com.digitalasset.canton.participant.{ParticipantNode, ParticipantNodeBootstrap}
+import com.digitalasset.canton.synchronizer.mediator.MediatorNodeBootstrap
+import com.digitalasset.canton.synchronizer.sequencing.SequencerNodeBootstrap
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
 import com.digitalasset.canton.{BaseTest, ConfigStubs}
 import io.grpc.stub.AbstractStub
@@ -303,7 +303,7 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
           helpText should include("start") // from instance extensions
           helpText should include("stop")
           helpText should include("dars")
-          helpText should include("domains")
+          helpText should include("synchronizers")
         },
       )
     }

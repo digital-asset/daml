@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.indexer
@@ -9,7 +9,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.{RepairUpdate, Update}
 import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.platform.indexer.IndexerState.RepairInProgress
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.PekkoUtil.{FutureQueue, RecoveringFutureQueue}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
 import org.apache.pekko.Done
@@ -1275,9 +1275,9 @@ class IndexerStateSpec extends AnyFlatSpec with BaseTest with HasExecutionContex
   behavior of "ensureNoProcessingForDomain"
 
   it should "work as expected" in {
-    val domain1 = DomainId.tryFromString("x::domain1")
-    val domain2 = DomainId.tryFromString("x::domain2")
-    val domain3 = DomainId.tryFromString("x::domain3")
+    val domain1 = SynchronizerId.tryFromString("x::domain1")
+    val domain2 = SynchronizerId.tryFromString("x::domain2")
+    val domain3 = SynchronizerId.tryFromString("x::domain3")
 
     val initialIndexer = new TestRecoveringIndexer
     val afterRepairIndexer = new TestRecoveringIndexer
@@ -1304,12 +1304,12 @@ class IndexerStateSpec extends AnyFlatSpec with BaseTest with HasExecutionContex
       Vector(
         1L -> update,
         2L -> update,
-        3L -> update.copy(domainId = domain1),
-        4L -> update.copy(domainId = domain1),
-        5L -> update.copy(domainId = domain2),
-        6L -> update.copy(domainId = domain2),
-        7L -> update.copy(domainId = domain3),
-        8L -> update.copy(domainId = domain3),
+        3L -> update.copy(synchronizerId = domain1),
+        4L -> update.copy(synchronizerId = domain1),
+        5L -> update.copy(synchronizerId = domain2),
+        6L -> update.copy(synchronizerId = domain2),
+        7L -> update.copy(synchronizerId = domain3),
+        8L -> update.copy(synchronizerId = domain3),
       )
     )
     val ensureDomain1 = indexerState.ensureNoProcessingForDomain(domain1)
@@ -1324,9 +1324,9 @@ class IndexerStateSpec extends AnyFlatSpec with BaseTest with HasExecutionContex
       Vector(
         1L -> update,
         2L -> update,
-        6L -> update.copy(domainId = domain2),
-        7L -> update.copy(domainId = domain3),
-        8L -> update.copy(domainId = domain3),
+        6L -> update.copy(synchronizerId = domain2),
+        7L -> update.copy(synchronizerId = domain3),
+        8L -> update.copy(synchronizerId = domain3),
       )
     )
     Threading.sleep(110)
@@ -1337,8 +1337,8 @@ class IndexerStateSpec extends AnyFlatSpec with BaseTest with HasExecutionContex
     initialIndexer.uncommittedQueueSnapshotRef.set(
       Vector(
         1L -> update,
-        7L -> update.copy(domainId = domain3),
-        8L -> update.copy(domainId = domain3),
+        7L -> update.copy(synchronizerId = domain3),
+        8L -> update.copy(synchronizerId = domain3),
       )
     )
     Threading.sleep(110)
@@ -1472,7 +1472,7 @@ class IndexerStateSpec extends AnyFlatSpec with BaseTest with HasExecutionContex
   }
 
   it should "stop waiting if shutting down" in {
-    val domain1 = DomainId.tryFromString("x::domain1")
+    val domain1 = SynchronizerId.tryFromString("x::domain1")
 
     val initialIndexer = new TestRecoveringIndexer
 
@@ -1490,8 +1490,8 @@ class IndexerStateSpec extends AnyFlatSpec with BaseTest with HasExecutionContex
       Vector(
         1L -> update,
         2L -> update,
-        3L -> update.copy(domainId = domain1),
-        4L -> update.copy(domainId = domain1),
+        3L -> update.copy(synchronizerId = domain1),
+        4L -> update.copy(synchronizerId = domain1),
       )
     )
     val ensureDomain1 = indexerState.ensureNoProcessingForDomain(domain1)
@@ -1598,7 +1598,7 @@ class IndexerStateSpec extends AnyFlatSpec with BaseTest with HasExecutionContex
 
   def update: Update.SequencerIndexMoved =
     Update.SequencerIndexMoved(
-      domainId = DomainId.tryFromString("x::domain"),
+      synchronizerId = SynchronizerId.tryFromString("x::domain"),
       sequencerCounter = SequencerCounter(15L),
       recordTime = CantonTimestamp.now(),
       requestCounterO = None,

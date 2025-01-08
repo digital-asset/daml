@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.client
@@ -21,8 +21,8 @@ class DefaultHeadStateInitializerTest
 
   "DefaultHeadStateInitializer" should {
     "initialize when topology store is non-empty" in {
-      val topologyClientMock = mock[DomainTopologyClientWithInit]
-      val topologyStoreMock = mock[TopologyStore[TopologyStoreId.DomainStore]]
+      val topologyClientMock = mock[SynchronizerTopologyClientWithInit]
+      val topologyStoreMock = mock[TopologyStore[TopologyStoreId.SynchronizerStore]]
       val initializer = new DefaultHeadStateInitializer(topologyStoreMock)
 
       val maxSequencedTimestamp =
@@ -49,8 +49,8 @@ class DefaultHeadStateInitializerTest
     }
 
     "not initialize when the topology store is empty" in {
-      val topologyClientMock = mock[DomainTopologyClientWithInit]
-      val topologyStoreMock = mock[TopologyStore[TopologyStoreId.DomainStore]]
+      val topologyClientMock = mock[SynchronizerTopologyClientWithInit]
+      val topologyStoreMock = mock[TopologyStore[TopologyStoreId.SynchronizerStore]]
       when(topologyStoreMock.maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true))
         .thenReturn(FutureUnlessShutdown.pure(None))
       val initializer = new DefaultHeadStateInitializer(topologyStoreMock)

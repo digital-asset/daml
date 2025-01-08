@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store
@@ -8,10 +8,10 @@ import com.digitalasset.canton.FailOnShutdown
 import com.digitalasset.canton.config.CantonRequireTypes.String256M
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
-import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
+import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -20,7 +20,9 @@ trait DownloadTopologyStateForInitializationServiceTest
     with TopologyStoreTestBase
     with FailOnShutdown {
 
-  protected def createTopologyStore(domainId: DomainId): TopologyStore[DomainStore]
+  protected def createTopologyStore(
+      synchronizerId: SynchronizerId
+  ): TopologyStore[SynchronizerStore]
 
   val testData = new TopologyStoreTestData(testedProtocolVersion, loggerFactory, executionContext)
   import testData.*
@@ -69,8 +71,8 @@ trait DownloadTopologyStateForInitializationServiceTest
 
   private def initializeStore(
       storedTransactions: GenericStoredTopologyTransactions
-  ): FutureUnlessShutdown[TopologyStore[DomainStore]] = {
-    val store = createTopologyStore(domain1_p1p2_domainId)
+  ): FutureUnlessShutdown[TopologyStore[SynchronizerStore]] = {
+    val store = createTopologyStore(domain1_p1p2_synchronizerId)
     val groupedBySequencedTime =
       storedTransactions.result.groupBy(tx => (tx.sequenced, tx.validFrom)).toSeq.sortBy {
         case (sequenced, _) => sequenced

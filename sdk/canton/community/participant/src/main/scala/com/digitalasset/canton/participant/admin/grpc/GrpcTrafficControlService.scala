@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin.grpc
@@ -13,7 +13,7 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.participant.admin.traffic.TrafficStateAdmin
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.participant.sync.SyncServiceInjectionError.NotConnectedToDomain
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.NoTracing
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -30,18 +30,18 @@ class GrpcTrafficControlService(
       request: v30.TrafficControlStateRequest
   ): Future[v30.TrafficControlStateResponse] = {
     val result = for {
-      domainId <- EitherT
+      synchronizerId <- EitherT
         .fromEither[Future]
-        .apply[CantonError, DomainId](
-          DomainId
-            .fromProtoPrimitive(request.domainId, "domain_id")
+        .apply[CantonError, SynchronizerId](
+          SynchronizerId
+            .fromProtoPrimitive(request.synchronizerId, "synchronizer_id")
             .leftMap(ProtoDeserializationFailure.Wrap(_))
         )
       syncDomain <- EitherT
         .fromEither[Future](
           service
-            .readySyncDomainById(domainId)
-            .toRight(NotConnectedToDomain.Error(request.domainId))
+            .readySyncDomainById(synchronizerId)
+            .toRight(NotConnectedToDomain.Error(request.synchronizerId))
         )
         .leftWiden[BaseCantonError]
       trafficState <- EitherT.right[BaseCantonError](

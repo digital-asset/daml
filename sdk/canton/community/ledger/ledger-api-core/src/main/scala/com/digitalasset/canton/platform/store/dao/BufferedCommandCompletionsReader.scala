@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao
@@ -47,6 +47,8 @@ class BufferedCommandCompletionsReader(
     case rejected: TransactionLogUpdate.TransactionRejected =>
       Some(rejected.completionStreamResponse)
     case u: TransactionLogUpdate.ReassignmentAccepted => u.completionStreamResponse
+    case _: TransactionLogUpdate.PartyAllocationResponse => None
+    case _: TransactionLogUpdate.TopologyTransactionEffective => None
   }).flatMap(toApiCompletion(_, parties, applicationId))
 
   private def toApiCompletion(

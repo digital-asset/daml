@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.util
@@ -8,9 +8,9 @@ import com.digitalasset.canton.AllowTraverseSingleContainer
 import com.digitalasset.canton.logging.pretty.Pretty
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
 
-/** In reassignment transactions, we deal with two domains: the source domain and the target domain.
-  * The `Source` and `Target` wrappers help differentiate between these two domains, allowing us to manage
-  * their specific characteristics, such as protocol versions, static domain parameters, and other domain-specific details.
+/** In reassignment transactions, we deal with two synchronizers: the source synchronizer and the target synchronizer.
+  * The `Source` and `Target` wrappers help differentiate between these two synchronizers, allowing us to manage
+  * their specific characteristics, such as protocol versions, static synchronizer parameters, and other synchronizer-specific details.
   */
 sealed trait ReassignmentTag[+T] extends Product with Serializable {
   def unwrap: T

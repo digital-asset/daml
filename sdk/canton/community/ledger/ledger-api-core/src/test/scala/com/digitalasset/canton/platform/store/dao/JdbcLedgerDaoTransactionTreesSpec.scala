@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao
@@ -10,8 +10,7 @@ import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.platform.store.entries.LedgerEntry
 import com.digitalasset.canton.platform.store.utils.EventOps.TreeEventOps
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.ledger.EventId
-import com.digitalasset.daml.lf.transaction.{Node, NodeId}
+import com.digitalasset.daml.lf.transaction.Node
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.scalatest.*
@@ -26,7 +25,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     with LoneElement {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 
-  behavior of "JdbcLedgerDao (lookupTransactionTreeById)"
+  behavior of "JdbcLedgerDao (lookupTransactionTreeById, lookupTransactionTreeByOffset)"
 
   it should "return nothing for a mismatching transaction id" in {
     for {
@@ -38,23 +37,38 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     }
   }
 
-  it should "return nothing for a mismatching party" in {
+  it should "return nothing for a mismatching offset" in {
     for {
       (_, tx) <- store(singleCreate)
       result <- ledgerDao.transactionsReader
-        .lookupTransactionTreeById(tx.updateId, Set("WRONG"))
+        .lookupTransactionTreeByOffset(offset = Offset.tryFromLong(12345678L), tx.actAs.toSet)
     } yield {
       result shouldBe None
+    }
+  }
+
+  it should "return nothing for a mismatching party" in {
+    for {
+      (offset, tx) <- store(singleCreate)
+      resultById <- ledgerDao.transactionsReader
+        .lookupTransactionTreeById(tx.updateId, Set("WRONG"))
+      resultByOffset <- ledgerDao.transactionsReader
+        .lookupTransactionTreeByOffset(offset, Set("WRONG"))
+    } yield {
+      resultById shouldBe None
+      resultByOffset shouldBe resultById
     }
   }
 
   it should "return the expected transaction tree for a correct request (create)" in {
     for {
       (offset, tx) <- store(singleCreate)
-      result <- ledgerDao.transactionsReader
+      resultById <- ledgerDao.transactionsReader
         .lookupTransactionTreeById(tx.updateId, tx.actAs.toSet)
+      resultByOffset <- ledgerDao.transactionsReader
+        .lookupTransactionTreeByOffset(offset, tx.actAs.toSet)
     } yield {
-      inside(result.value.transaction) { case Some(transaction) =>
+      inside(resultById.value.transaction) { case Some(transaction) =>
         inside(tx.transaction.nodes.headOption) { case Some((nodeId, createNode: Node.Create)) =>
           transaction.commandId shouldBe tx.commandId.value
           transaction.offset shouldBe offset.unwrap
@@ -65,8 +79,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           transaction.updateId shouldBe tx.updateId
           transaction.workflowId shouldBe tx.workflowId.getOrElse("")
           val created = transaction.eventsById.values.loneElement.getCreated
-          transaction.rootEventIds.loneElement shouldEqual created.eventId
-          created.eventId shouldBe EventId(tx.updateId, nodeId).toLedgerString
+          transaction.rootNodeIds.loneElement shouldEqual created.nodeId
           created.offset shouldBe offset.unwrap
           created.nodeId shouldBe nodeId.index
           created.witnessParties should contain only (tx.actAs*)
@@ -79,6 +92,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           created.templateId shouldNot be(None)
         }
       }
+      resultByOffset shouldBe resultById
     }
   }
 
@@ -86,10 +100,12 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     for {
       (_, create) <- store(singleCreate)
       (offset, exercise) <- store(singleExercise(nonTransient(create).loneElement))
-      result <- ledgerDao.transactionsReader
+      resultById <- ledgerDao.transactionsReader
         .lookupTransactionTreeById(exercise.updateId, exercise.actAs.toSet)
+      resultByOffset <- ledgerDao.transactionsReader
+        .lookupTransactionTreeByOffset(offset, exercise.actAs.toSet)
     } yield {
-      inside(result.value.transaction) { case Some(transaction) =>
+      inside(resultById.value.transaction) { case Some(transaction) =>
         inside(exercise.transaction.nodes.headOption) {
           case Some((nodeId, exerciseNode: Node.Exercise)) =>
             transaction.commandId shouldBe exercise.commandId.value
@@ -101,31 +117,33 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             transaction.updateId shouldBe exercise.updateId
             transaction.workflowId shouldBe exercise.workflowId.getOrElse("")
             val exercised = transaction.eventsById.values.loneElement.getExercised
-            transaction.rootEventIds.loneElement shouldEqual exercised.eventId
-            exercised.eventId shouldBe EventId(transaction.updateId, nodeId).toLedgerString
+            transaction.rootNodeIds.loneElement shouldEqual exercised.nodeId
             exercised.offset shouldBe offset.unwrap
             exercised.nodeId shouldBe nodeId.index
             exercised.witnessParties should contain only (exercise.actAs*)
             exercised.contractId shouldBe exerciseNode.targetCoid.coid
             exercised.templateId shouldNot be(None)
             exercised.actingParties should contain theSameElementsAs exerciseNode.actingParties
-            exercised.childEventIds shouldBe Seq.empty
+            exercised.childNodeIds shouldBe Seq.empty
             exercised.choice shouldBe exerciseNode.choiceId
             exercised.choiceArgument shouldNot be(None)
             exercised.consuming shouldBe true
             exercised.exerciseResult shouldNot be(None)
         }
       }
+      resultByOffset shouldBe resultById
     }
   }
 
   it should "return the expected transaction tree for a correct request (create, exercise)" in {
     for {
       (offset, tx) <- store(fullyTransient())
-      result <- ledgerDao.transactionsReader
+      resultById <- ledgerDao.transactionsReader
         .lookupTransactionTreeById(tx.updateId, tx.actAs.toSet)
+      resultByOffset <- ledgerDao.transactionsReader
+        .lookupTransactionTreeByOffset(offset, tx.actAs.toSet)
     } yield {
-      inside(result.value.transaction) { case Some(transaction) =>
+      inside(resultById.value.transaction) { case Some(transaction) =>
         val (createNodeId, createNode) =
           tx.transaction.nodes.collectFirst { case (nodeId, node: Node.Create) =>
             nodeId -> node
@@ -144,24 +162,17 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           TimestampConversion.ConversionMode.Exact,
         ) shouldBe tx.ledgerEffectiveTime
 
-        transaction.rootEventIds should have size 2
-        transaction.rootEventIds(0) shouldBe EventId(
-          transaction.updateId,
-          createNodeId,
-        ).toLedgerString
-        transaction.rootEventIds(1) shouldBe EventId(
-          transaction.updateId,
-          exerciseNodeId,
-        ).toLedgerString
+        transaction.rootNodeIds should have size 2
+        transaction.rootNodeIds(0) shouldBe createNodeId.index
+        transaction.rootNodeIds(1) shouldBe exerciseNodeId.index
 
         val created = transaction
-          .eventsById(EventId(transaction.updateId, createNodeId).toLedgerString)
+          .eventsById(createNodeId.index)
           .getCreated
         val exercised = transaction
-          .eventsById(EventId(transaction.updateId, exerciseNodeId).toLedgerString)
+          .eventsById(exerciseNodeId.index)
           .getExercised
 
-        created.eventId shouldBe EventId(transaction.updateId, createNodeId).toLedgerString
         created.offset shouldBe offset.unwrap
         created.nodeId shouldBe createNodeId.index
         created.witnessParties should contain only (tx.actAs*)
@@ -173,44 +184,41 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
         )
         created.templateId shouldNot be(None)
 
-        exercised.eventId shouldBe EventId(transaction.updateId, exerciseNodeId).toLedgerString
         exercised.offset shouldBe offset.unwrap
         exercised.nodeId shouldBe exerciseNodeId.index
         exercised.witnessParties should contain only (tx.actAs*)
         exercised.contractId shouldBe exerciseNode.targetCoid.coid
         exercised.templateId shouldNot be(None)
         exercised.actingParties should contain theSameElementsAs exerciseNode.actingParties
-        exercised.childEventIds shouldBe Seq.empty
+        exercised.childNodeIds shouldBe Seq.empty
         exercised.choice shouldBe exerciseNode.choiceId
         exercised.choiceArgument shouldNot be(None)
         exercised.consuming shouldBe true
         exercised.exerciseResult shouldNot be(None)
       }
+      resultByOffset shouldBe resultById
     }
   }
 
   it should "return a transaction tree with the expected shape for a partially visible transaction" in {
     for {
-      (_, tx) <- store(partiallyVisible)
-      result <- ledgerDao.transactionsReader
+      (offset, tx) <- store(partiallyVisible)
+      resultById <- ledgerDao.transactionsReader
         .lookupTransactionTreeById(
           tx.updateId,
           Set(alice),
         ) // only two children are visible to Alice
+      resultByOffset <- ledgerDao.transactionsReader
+        .lookupTransactionTreeByOffset(offset, Set(alice))
     } yield {
-      inside(result.value.transaction) { case Some(transaction) =>
+      inside(resultById.value.transaction) { case Some(transaction) =>
         transaction.eventsById should have size 2
 
-        transaction.rootEventIds should have size 2
-        transaction.rootEventIds(0) shouldBe EventId(
-          transaction.updateId,
-          NodeId(2),
-        ).toLedgerString
-        transaction.rootEventIds(1) shouldBe EventId(
-          transaction.updateId,
-          NodeId(3),
-        ).toLedgerString
+        transaction.rootNodeIds should have size 2
+        transaction.rootNodeIds(0) shouldBe 2
+        transaction.rootNodeIds(1) shouldBe 3
       }
+      resultByOffset shouldBe resultById
     }
   }
 

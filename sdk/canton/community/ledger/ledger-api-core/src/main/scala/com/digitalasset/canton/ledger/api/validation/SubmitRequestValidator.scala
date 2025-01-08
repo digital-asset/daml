@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.api.validation
@@ -27,7 +27,7 @@ import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidField
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.topology.{DomainId, PartyId as TopologyPartyId}
+import com.digitalasset.canton.topology.{PartyId as TopologyPartyId, SynchronizerId}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.HashingSchemeVersion
 import com.digitalasset.canton.version.HashingSchemeVersion.V1
@@ -181,11 +181,11 @@ class SubmitRequestValidator(
       partySignaturesP <- requirePresence(partySignaturesOP, "parties_signatures")
       partySignatures <- validatePartySignatures(partySignaturesP)
       version <- validateHashingSchemeVersion(hashingSchemeVersionP).leftMap(_.asGrpcError)
-      domainIdString <- requirePresence(
-        preparedTransactionP.flatMap(_.metadata.map(_.domainId)),
-        "domain_id",
+      synchronizerIdString <- requirePresence(
+        preparedTransactionP.flatMap(_.metadata.map(_.synchronizerId)),
+        "synchronizer_id",
       )
-      domainId <- validateDomainId(domainIdString).leftMap(_.asGrpcError)
+      synchronizerId <- validateSynchronizerId(synchronizerIdString).leftMap(_.asGrpcError)
     } yield {
       ExecuteRequest(
         applicationId,
@@ -194,19 +194,19 @@ class SubmitRequestValidator(
         partySignatures,
         preparedTransaction,
         version,
-        domainId,
+        synchronizerId,
       )
     }
   }
 
-  private def validateDomainId(string: String)(implicit
+  private def validateSynchronizerId(string: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[DamlError, DomainId] =
-    DomainId
+  ): Either[DamlError, SynchronizerId] =
+    SynchronizerId
       .fromString(string)
       .leftMap(err =>
         RequestValidationErrors.InvalidField
-          .Reject("domain_id", err)
+          .Reject("synchronizer_id", err)
       )
 
   private def validateHashingSchemeVersion(protoVersion: iss.HashingSchemeVersion)(implicit
@@ -244,8 +244,8 @@ class SubmitRequestValidator(
           Left(ValidationErrors.missingField("command"))
         case assignCommand: ReassignmentCommand.Command.AssignCommand =>
           for {
-            sourceDomainId <- requireDomainId(assignCommand.value.source, "source")
-            targetDomainId <- requireDomainId(assignCommand.value.target, "target")
+            sourceSynchronizerId <- requireSynchronizerId(assignCommand.value.source, "source")
+            targetSynchronizerId <- requireSynchronizerId(assignCommand.value.target, "target")
             longUnassignId <- Try(assignCommand.value.unassignId.toLong).toEither.left.map(_ =>
               ValidationErrors.invalidField("unassign_id", "Invalid unassign ID")
             )
@@ -255,20 +255,20 @@ class SubmitRequestValidator(
               .map(_ => ValidationErrors.invalidField("unassign_id", "Invalid unassign ID"))
           } yield Left(
             submission.AssignCommand(
-              sourceDomainId = Source(sourceDomainId),
-              targetDomainId = Target(targetDomainId),
+              sourceSynchronizerId = Source(sourceSynchronizerId),
+              targetSynchronizerId = Target(targetSynchronizerId),
               unassignId = timestampUnassignId,
             )
           )
         case unassignCommand: ReassignmentCommand.Command.UnassignCommand =>
           for {
-            sourceDomainId <- requireDomainId(unassignCommand.value.source, "source")
-            targetDomainId <- requireDomainId(unassignCommand.value.target, "target")
+            sourceSynchronizerId <- requireSynchronizerId(unassignCommand.value.source, "source")
+            targetSynchronizerId <- requireSynchronizerId(unassignCommand.value.target, "target")
             cid <- requireContractId(unassignCommand.value.contractId, "contract_id")
           } yield Right(
             submission.UnassignCommand(
-              sourceDomainId = Source(sourceDomainId),
-              targetDomainId = Target(targetDomainId),
+              sourceSynchronizerId = Source(sourceSynchronizerId),
+              targetSynchronizerId = Target(targetSynchronizerId),
               contractId = cid,
             )
           )

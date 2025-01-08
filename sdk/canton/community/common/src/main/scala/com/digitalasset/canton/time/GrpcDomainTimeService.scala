@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.time
@@ -12,7 +12,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.admin.v30
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.EitherTUtil
 import io.grpc.Status
@@ -21,7 +21,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** Admin service to expose the time of domains to a participant and other nodes */
 private[time] class GrpcDomainTimeService(
-    lookupTimeTracker: Option[DomainId] => Either[String, DomainTimeTracker],
+    lookupTimeTracker: Option[SynchronizerId] => Either[String, SynchronizerTimeTracker],
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends v30.DomainTimeServiceGrpc.DomainTimeService
@@ -35,7 +35,7 @@ private[time] class GrpcDomainTimeService(
           .fromEither[Future](FetchTimeRequest.fromProto(requestP))
           .leftMap(err => Status.INVALID_ARGUMENT.withDescription(err.toString))
         timeTracker <- EitherT
-          .fromEither[Future](lookupTimeTracker(request.domainIdO))
+          .fromEither[Future](lookupTimeTracker(request.synchronizerIdO))
           .leftMap(Status.INVALID_ARGUMENT.withDescription)
         timestamp <- EitherT(
           timeTracker
@@ -55,10 +55,10 @@ private[time] class GrpcDomainTimeService(
           .fromEither[Future](AwaitTimeRequest.fromProto(requestP))
           .leftMap(err => Status.INVALID_ARGUMENT.withDescription(err.toString))
         timeTracker <- EitherT
-          .fromEither[Future](lookupTimeTracker(request.domainIdO))
+          .fromEither[Future](lookupTimeTracker(request.synchronizerIdO))
           .leftMap(Status.INVALID_ARGUMENT.withDescription)
         _ = logger.debug(
-          s"Waiting for domain [${request.domainIdO}] to reach time ${request.timestamp} (is at ${timeTracker.latestTime})"
+          s"Waiting for domain [${request.synchronizerIdO}] to reach time ${request.timestamp} (is at ${timeTracker.latestTime})"
         )
         _ <- EitherT.right(
           timeTracker
@@ -74,11 +74,14 @@ private[time] class GrpcDomainTimeService(
 }
 
 final case class FetchTimeRequest(
-    domainIdO: Option[DomainId],
+    synchronizerIdO: Option[SynchronizerId],
     freshnessBound: NonNegativeFiniteDuration,
 ) {
   def toProtoV30: v30.FetchTimeRequest =
-    v30.FetchTimeRequest(domainIdO.map(_.toProtoPrimitive), freshnessBound.toProtoPrimitive.some)
+    v30.FetchTimeRequest(
+      synchronizerIdO.map(_.toProtoPrimitive),
+      freshnessBound.toProtoPrimitive.some,
+    )
 }
 
 object FetchTimeRequest {
@@ -86,13 +89,15 @@ object FetchTimeRequest {
       requestP: v30.FetchTimeRequest
   ): ParsingResult[FetchTimeRequest] =
     for {
-      domainIdO <- requestP.domainId.traverse(DomainId.fromProtoPrimitive(_, "domainId"))
+      synchronizerIdO <- requestP.synchronizerId.traverse(
+        SynchronizerId.fromProtoPrimitive(_, "synchronizerId")
+      )
       freshnessBound <- ProtoConverter.parseRequired(
         NonNegativeFiniteDuration.fromProtoPrimitive("freshnessBound"),
         "freshnessBound",
         requestP.freshnessBound,
       )
-    } yield FetchTimeRequest(domainIdO, freshnessBound)
+    } yield FetchTimeRequest(synchronizerIdO, freshnessBound)
 }
 
 final case class FetchTimeResponse(timestamp: CantonTimestamp) {
@@ -113,9 +118,12 @@ object FetchTimeResponse {
     } yield FetchTimeResponse(timestamp)
 }
 
-final case class AwaitTimeRequest(domainIdO: Option[DomainId], timestamp: CantonTimestamp) {
+final case class AwaitTimeRequest(
+    synchronizerIdO: Option[SynchronizerId],
+    timestamp: CantonTimestamp,
+) {
   def toProtoV30: v30.AwaitTimeRequest =
-    v30.AwaitTimeRequest(domainIdO.map(_.toProtoPrimitive), timestamp.toProtoTimestamp.some)
+    v30.AwaitTimeRequest(synchronizerIdO.map(_.toProtoPrimitive), timestamp.toProtoTimestamp.some)
 }
 
 object AwaitTimeRequest {
@@ -123,49 +131,51 @@ object AwaitTimeRequest {
       requestP: v30.AwaitTimeRequest
   ): ParsingResult[AwaitTimeRequest] =
     for {
-      domainIdO <- requestP.domainId.traverse(DomainId.fromProtoPrimitive(_, "domainId"))
+      synchronizerIdO <- requestP.synchronizerId.traverse(
+        SynchronizerId.fromProtoPrimitive(_, "synchronizerId")
+      )
       timestamp <- ProtoConverter.parseRequired(
         CantonTimestamp.fromProtoTimestamp,
         "timestamp",
         requestP.timestamp,
       )
-    } yield AwaitTimeRequest(domainIdO, timestamp)
+    } yield AwaitTimeRequest(synchronizerIdO, timestamp)
 }
 
 object GrpcDomainTimeService {
 
-  /** To use the time service for a participant a DomainId must be specified as a participant can be connected to many domains */
+  /** To use the time service for a participant a SynchronizerId must be specified as a participant can be connected to many domains */
   def forParticipant(
-      timeTrackerLookup: DomainId => Option[DomainTimeTracker],
+      timeTrackerLookup: SynchronizerId => Option[SynchronizerTimeTracker],
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): GrpcDomainTimeService =
     new GrpcDomainTimeService(
-      domainIdO =>
+      synchronizerIdO =>
         for {
-          domainId <- domainIdO.toRight(
-            "Domain id must be specified to lookup a time on a participant"
+          synchronizerId <- synchronizerIdO.toRight(
+            "Synchronizer id must be specified to lookup a time on a participant"
           )
-          timeTracker <- timeTrackerLookup(domainId).toRight(
-            s"Time tracker for domain $domainId not found"
+          timeTracker <- timeTrackerLookup(synchronizerId).toRight(
+            s"Time tracker for domain $synchronizerId not found"
           )
         } yield timeTracker,
       loggerFactory,
     )
 
-  /** Domain entities have a constant domain id so always have the same time tracker and cannot fetch another */
+  /** Domain entities have a constant synchronizer id so always have the same time tracker and cannot fetch another */
   def forDomainEntity(
-      domainId: DomainId,
-      timeTracker: DomainTimeTracker,
+      synchronizerId: SynchronizerId,
+      timeTracker: SynchronizerTimeTracker,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): GrpcDomainTimeService =
     new GrpcDomainTimeService(
-      // allow none or the actual domainId to return the time tracker
-      domainIdO =>
+      // allow none or the actual synchronizerId to return the time tracker
+      synchronizerIdO =>
         for {
           _ <- Either.cond(
-            domainIdO.forall(_ == domainId),
+            synchronizerIdO.forall(_ == synchronizerId),
             (),
-            "Provided domain id does not match running domain",
+            "Provided synchronizer id does not match running domain",
           )
         } yield timeTracker,
       loggerFactory,

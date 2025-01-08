@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.processing
@@ -9,7 +9,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.*
-import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
+import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Replace
@@ -31,7 +31,7 @@ class TopologyManagerSigningKeyDetectionTest
     def mk() =
       new TopologyManagerSigningKeyDetection(
         new InMemoryTopologyStore(
-          DomainStore(Factory.domainId1),
+          SynchronizerStore(Factory.synchronizerId1),
           testedProtocolVersion,
           loggerFactory,
           timeouts,
@@ -44,14 +44,14 @@ class TopologyManagerSigningKeyDetectionTest
     val dtc_uid1a = TopologyTransaction(
       Replace,
       PositiveInt.one,
-      DomainTrustCertificate(ParticipantId(uid1a), domainId1),
+      SynchronizerTrustCertificate(ParticipantId(uid1a), synchronizerId1),
       testedProtocolVersion,
     )
 
     val dtc_uid1b = TopologyTransaction(
       Replace,
       PositiveInt.one,
-      DomainTrustCertificate(ParticipantId(uid1b), domainId1),
+      SynchronizerTrustCertificate(ParticipantId(uid1b), synchronizerId1),
       testedProtocolVersion,
     )
 

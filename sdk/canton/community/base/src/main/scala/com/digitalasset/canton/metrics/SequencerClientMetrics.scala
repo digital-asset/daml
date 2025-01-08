@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.metrics
@@ -133,7 +133,7 @@ class SequencerClientMetrics(
         0L,
       )(context.withExtraLabels("sequencer" -> alias.unwrap))
 
-      // Two concurrent calls with the same domain alias may cause getOrElseUpdate to evaluate the new value expression twice,
+      // Two concurrent calls with the same synchronizer alias may cause getOrElseUpdate to evaluate the new value expression twice,
       // even though only one of the results will be stored in the map.
       // Eval.later ensures that we actually create only one instance of SyncDomainMetrics in such a case
       // by delaying the creation until the getOrElseUpdate call has finished.

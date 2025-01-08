@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.networking.grpc
@@ -6,12 +6,12 @@ package com.digitalasset.canton.networking.grpc
 import cats.data.EitherT
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
-import com.digitalasset.canton.domain.api.v0.HelloServiceGrpc.{HelloService, HelloServiceStub}
-import com.digitalasset.canton.domain.api.v0.{Hello, HelloServiceGrpc}
 import com.digitalasset.canton.lifecycle.OnShutdownRunner.PureOnShutdownRunner
 import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.networking.grpc.GrpcError.*
+import com.digitalasset.canton.protobuf.HelloServiceGrpc.{HelloService, HelloServiceStub}
+import com.digitalasset.canton.protobuf.{Hello, HelloServiceGrpc}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import io.grpc.*
@@ -282,7 +282,7 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
             forEvery(unavailableEntries) { logEntry =>
               logEntry.warningMessage shouldBe
                 s"""Request failed for serverName. Is the server initialized or is the server incompatible?
-                   |  GrpcServiceUnavailable: UNIMPLEMENTED/Method not found: com.digitalasset.canton.domain.api.v0.HelloService/Hello
+                   |  GrpcServiceUnavailable: UNIMPLEMENTED/Method not found: com.digitalasset.canton.protobuf.HelloService/Hello
                    |  Request: command""".stripMargin
             }
 

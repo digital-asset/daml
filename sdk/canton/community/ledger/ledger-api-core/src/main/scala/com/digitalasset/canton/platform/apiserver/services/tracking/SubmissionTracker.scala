@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services.tracking
@@ -16,6 +16,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker.SubmissionKey
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
+import io.grpc.StatusRuntimeException
 import io.opentelemetry.api.trace.Tracer
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -37,6 +38,29 @@ trait SubmissionTracker extends AutoCloseable {
 object SubmissionTracker {
   type Submitters = Set[String]
 
+  implicit object Errors extends StreamTracker.Errors[SubmissionKey] {
+    import com.digitalasset.canton.ledger.error.groups.ConsistencyErrors
+
+    override def timedOut(k: SubmissionKey)(implicit
+        errorLogger: ContextualizedErrorLogger
+    ): StatusRuntimeException =
+      CommonErrors.RequestTimeOut
+        .Reject(
+          s"Timed out while awaiting for a completion corresponding to a command submission with command-id=${k.commandId} and submission-id=${k.submissionId}.",
+          definiteAnswer = false,
+        )
+        .asGrpcError
+
+    override def duplicated(k: SubmissionKey)(implicit
+        errorLogger: ContextualizedErrorLogger
+    ): StatusRuntimeException =
+      ConsistencyErrors.DuplicateCommand
+        .Reject(existingCommandSubmissionId = Some(k.submissionId))
+        .asGrpcError
+  }
+
+  def toKey(c: Completion) = Some(SubmissionKey.fromCompletion(c))
+
   def owner(
       maxCommandsInFlight: Int,
       metrics: LedgerApiServerMetrics,
@@ -46,10 +70,9 @@ object SubmissionTracker {
     for {
       streamTracker <- StreamTracker.owner(
         trackerThreadName = "submission-tracker",
-        itemKey = SubmissionKey.fromCompletion,
-        maxInFlight = maxCommandsInFlight,
-        inFlightCount = metrics.commands.maxInFlightLength,
-        loggerFactory = loggerFactory,
+        toKey,
+        InFlight.Limited(maxCommandsInFlight, metrics.commands.maxInFlightLength),
+        loggerFactory,
       )
       tracker <- ResourceOwner.forCloseable(() =>
         new SubmissionTrackerImpl(
@@ -86,7 +109,7 @@ object SubmissionTracker {
     ): Future[CompletionResponse] =
       ensuringSubmissionIdPopulated(submissionKey) {
         streamTracker
-          .track(submissionKey, timeout, submit)
+          .track(submissionKey, timeout)(submit)
           .flatMap(c => Future.fromTry(Result.fromCompletion(errorLogger, c)))
       }
 
@@ -118,12 +141,7 @@ object SubmissionTracker {
       submissionId: String,
       applicationId: String,
       parties: Set[String],
-  ) extends Errors.KeyDescriptions {
-    def requestDescription =
-      s"a command submission with command-id=$commandId and submission-id=$submissionId"
-    def streamItemDescription = "a completion"
-    def requestId = submissionId
-  }
+  )
 
   object SubmissionKey {
     def fromCompletion(completion: Completion): SubmissionKey =
@@ -137,7 +155,6 @@ object SubmissionTracker {
 
   object Result {
     import com.google.rpc.status
-    import io.grpc.StatusRuntimeException
     import io.grpc.protobuf.StatusProto
 
     def fromCompletion(

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.party
@@ -25,8 +25,8 @@ import com.digitalasset.canton.protocol.{
   TransactionId,
 }
 import com.digitalasset.canton.sequencing.client.channel.SequencerChannelProtocolProcessor
-import com.digitalasset.canton.topology.client.DomainTopologyClient
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
+import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
+import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.version.ProtocolVersion
@@ -59,13 +59,13 @@ trait PersistsContracts {
   * - and sends only deserializable payloads.
   */
 class PartyReplicationTargetParticipantProcessor(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     participantId: ParticipantId,
     partyId: PartyId,
     partyToParticipantEffectiveAt: CantonTimestamp,
     persistContracts: PersistsContracts,
     recordOrderPublisher: PublishesOnlinePartyReplicationEvents,
-    topologyClient: DomainTopologyClient,
+    topologyClient: SynchronizerTopologyClient,
     pureCrypto: CryptoPureApi,
     protected val protocolVersion: ProtocolVersion,
     protected val timeouts: ProcessingTimeout,
@@ -81,7 +81,7 @@ class PartyReplicationTargetParticipantProcessor(
   private lazy val indexerUpdateIdBaseHash = pureCrypto
     .build(HashPurpose.OnlinePartyReplicationId)
     .add(partyId.toProtoPrimitive)
-    .add(domainId.toProtoPrimitive)
+    .add(synchronizerId.toProtoPrimitive)
     .add(partyToParticipantEffectiveAt.toProtoPrimitive)
     .finish()
 
@@ -218,7 +218,7 @@ class PartyReplicationTargetParticipantProcessor(
         )
         .forgetNE
         .toMap,
-      domainId = domainId,
+      synchronizerId = synchronizerId,
       requestCounter = RequestCounter(1L),
       recordTime = timestamp,
     )
@@ -231,13 +231,13 @@ class PartyReplicationTargetParticipantProcessor(
 
 object PartyReplicationTargetParticipantProcessor {
   def apply(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       participantId: ParticipantId,
       partyId: PartyId,
       partyToParticipantEffectiveAt: CantonTimestamp,
       persistContracts: PersistsContracts,
       recordOrderPublisher: RecordOrderPublisher,
-      topologyClient: DomainTopologyClient,
+      topologyClient: SynchronizerTopologyClient,
       pureCrypto: CryptoPureApi,
       protocolVersion: ProtocolVersion,
       timeouts: ProcessingTimeout,
@@ -247,7 +247,7 @@ object PartyReplicationTargetParticipantProcessor {
       traceContext: TraceContext,
   ): PartyReplicationTargetParticipantProcessor =
     new PartyReplicationTargetParticipantProcessor(
-      domainId,
+      synchronizerId,
       participantId,
       partyId,
       partyToParticipantEffectiveAt,
@@ -258,7 +258,7 @@ object PartyReplicationTargetParticipantProcessor {
       protocolVersion,
       timeouts,
       loggerFactory
-        .append("domainId", domainId.toProtoPrimitive)
+        .append("synchronizerId", synchronizerId.toProtoPrimitive)
         .append("partyId", partyId.toProtoPrimitive),
     )
 }

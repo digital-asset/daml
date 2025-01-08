@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.store.db
@@ -36,7 +36,7 @@ trait DbPrunableByTime extends PrunableByTime {
     */
   protected[this] def pruning_status_table: String
 
-  protected[this] def partitionColumn: String = "domain_idx"
+  protected[this] def partitionColumn: String = "synchronizer_idx"
 
   protected[this] def partitionKey: IndexedDomain
 

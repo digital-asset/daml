@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.api.services
@@ -17,7 +17,7 @@ import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-import com.digitalasset.canton.topology.{DomainId, PartyId}
+import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.version.HashingSchemeVersion
 import com.digitalasset.daml.lf.data.Ref.{ApplicationId, SubmissionId}
 
@@ -31,7 +31,7 @@ object InteractiveSubmissionService {
       signatures: Map[PartyId, Seq[Signature]],
       preparedTransaction: PreparedTransaction,
       serializationVersion: HashingSchemeVersion,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
   )
 }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.processing
@@ -6,15 +6,19 @@ package com.digitalasset.canton.topology.processing
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.crypto.{DomainCryptoPureApi, SigningPublicKey}
+import com.digitalasset.canton.crypto.{SigningPublicKey, SynchronizerCryptoPureApi}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.protocol.DynamicDomainParameters
+import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast
 import com.digitalasset.canton.sequencing.SubscriptionStart.FreshSubscription
-import com.digitalasset.canton.sequencing.protocol.{AllMembersOfDomain, OpenEnvelope, Recipients}
+import com.digitalasset.canton.sequencing.protocol.{
+  AllMembersOfSynchronizer,
+  OpenEnvelope,
+  Recipients,
+}
 import com.digitalasset.canton.store.db.{DbTest, PostgresTest}
-import com.digitalasset.canton.time.{DomainTimeTracker, NonNegativeFiniteDuration}
+import com.digitalasset.canton.time.{NonNegativeFiniteDuration, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.db.DbTopologyStoreHelper
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
@@ -35,13 +39,13 @@ abstract class TopologyTransactionProcessorTest
   import Factory.*
 
   protected def mk(
-      store: TopologyStore[TopologyStoreId.DomainStore] = mkStore(Factory.domainId1a),
-      domainId: DomainId = Factory.domainId1a,
-  ): (TopologyTransactionProcessor, TopologyStore[TopologyStoreId.DomainStore]) = {
+      store: TopologyStore[TopologyStoreId.SynchronizerStore] = mkStore(Factory.synchronizerId1a),
+      synchronizerId: SynchronizerId = Factory.synchronizerId1a,
+  ): (TopologyTransactionProcessor, TopologyStore[TopologyStoreId.SynchronizerStore]) = {
 
     val proc = new TopologyTransactionProcessor(
-      domainId,
-      new DomainCryptoPureApi(defaultStaticDomainParameters, crypto),
+      synchronizerId,
+      new SynchronizerCryptoPureApi(defaultStaticSynchronizerParameters, crypto),
       store,
       _ => (),
       TerminateProcessing.NoOpTerminateTopologyProcessing,
@@ -72,10 +76,10 @@ abstract class TopologyTransactionProcessorTest
     )
 
   "topology transaction processor" when {
-    "processing transactions from a domain" should {
+    "processing transactions from a synchronizer" should {
       "deal with additions" in {
         val (proc, store) = mk()
-        // topology processor assumes to be able to find domain parameters in the store for additional checks
+        // topology processor assumes to be able to find synchronizer parameters in the store for additional checks
         val block1 = List(ns1k1_k1, dmp1_k1)
         val block2Adds = List(ns1k2_k1, okm1bk5k1E_k1, dtcp1_k1)
         val block3Replaces = List(ns1k1_k1, setSerial(dmp1_k1_bis, PositiveInt.two))
@@ -251,7 +255,7 @@ abstract class TopologyTransactionProcessorTest
         validate(st5, List(ns1k1_k1, ns1k2_k1p, id1ak4_k2, okm1bk5k1E_k4))
       }
 
-      "cascading update and domain parameters change" in {
+      "cascading update and synchronizer parameters change" in {
         val (proc, store) = mk()
         val block1 = List(ns1k1_k1, ns1k2_k1, dmp1_k2)
         process(proc, ts(0), 0, block1)
@@ -262,10 +266,10 @@ abstract class TopologyTransactionProcessorTest
 
         /*
           dmp1_k2 is not revoked
-          Domain governance transaction are not removed by cascading updates. The
-          idea behind is that the change of domain parameters is authorized and then
+          Synchronizer governance transaction are not removed by cascading updates. The
+          idea behind is that the change of synchronizer parameters is authorized and then
           the new parameters stay valid even if the authorizing key is revoked. That
-          also ensures that we always have some domain parameters set.
+          also ensures that we always have some synchronizer parameters set.
          */
         validate(st2, List(ns1k1_k1, dmp1_k2))
       }
@@ -288,7 +292,8 @@ abstract class TopologyTransactionProcessorTest
         import SigningKeys.{ec as _, *}
         val dnsNamespace =
           DecentralizedNamespaceDefinition.computeNamespace(Set(ns1, ns7, ns8, ns9))
-        val domainId = DomainId(UniqueIdentifier.tryCreate("test-domain", dnsNamespace))
+        val synchronizerId =
+          SynchronizerId(UniqueIdentifier.tryCreate("test-synchronizer", dnsNamespace))
 
         val dns = mkAddMultiKey(
           DecentralizedNamespaceDefinition
@@ -301,16 +306,16 @@ abstract class TopologyTransactionProcessorTest
           NonEmpty(Set, key1, key7, key8, key9),
         )
 
-        val dopMapping = DomainParametersState(
-          domainId,
-          DynamicDomainParameters.defaultValues(testedProtocolVersion),
+        val dopMapping = SynchronizerParametersState(
+          synchronizerId,
+          DynamicSynchronizerParameters.defaultValues(testedProtocolVersion),
         )
         val dop = mkAddMultiKey(
           dopMapping,
           NonEmpty(Set, key1, key7, key8),
         )
 
-        val (proc, store) = mk(mkStore(domainId), domainId)
+        val (proc, store) = mk(mkStore(synchronizerId), synchronizerId)
 
         def checkDop(
             ts: CantonTimestamp,
@@ -463,7 +468,8 @@ abstract class TopologyTransactionProcessorTest
         import SigningKeys.{ec as _, *}
         val dnsNamespace =
           DecentralizedNamespaceDefinition.computeNamespace(Set(ns1, ns7, ns8))
-        val domainId = DomainId(UniqueIdentifier.tryCreate("test-domain", dnsNamespace))
+        val synchronizerId =
+          SynchronizerId(UniqueIdentifier.tryCreate("test-synchronizer", dnsNamespace))
 
         val dns = mkAddMultiKey(
           DecentralizedNamespaceDefinition
@@ -477,9 +483,9 @@ abstract class TopologyTransactionProcessorTest
         )
 
         // mapping and transactions for serial=1
-        val dopMapping1 = DomainParametersState(
-          domainId,
-          DynamicDomainParameters.defaultValues(testedProtocolVersion),
+        val dopMapping1 = SynchronizerParametersState(
+          synchronizerId,
+          DynamicSynchronizerParameters.defaultValues(testedProtocolVersion),
         )
         val dop1_k1k7 = mkAddMultiKey(
           dopMapping1,
@@ -490,13 +496,13 @@ abstract class TopologyTransactionProcessorTest
           mkAdd(dopMapping1, key8, isProposal = true, serial = PositiveInt.one)
 
         // mapping and transactions for serial=2
-        val dopMapping2 = DomainParametersState(
-          domainId,
-          DynamicDomainParameters
+        val dopMapping2 = SynchronizerParametersState(
+          synchronizerId,
+          DynamicSynchronizerParameters
             .defaultValues(testedProtocolVersion)
             .update(
               confirmationRequestsMaxRate =
-                DynamicDomainParameters.defaultConfirmationRequestsMaxRate + NonNegativeInt.one
+                DynamicSynchronizerParameters.defaultConfirmationRequestsMaxRate + NonNegativeInt.one
             ),
         )
         val dop2_k1_proposal =
@@ -506,7 +512,7 @@ abstract class TopologyTransactionProcessorTest
         val dop2_k7_proposal =
           mkAdd(dopMapping2, signingKey = key7, serial = PositiveInt.two, isProposal = true)
 
-        val (proc, store) = mk(mkStore(domainId), domainId)
+        val (proc, store) = mk(mkStore(synchronizerId), synchronizerId)
 
         def checkDop(
             ts: CantonTimestamp,
@@ -608,22 +614,23 @@ abstract class TopologyTransactionProcessorTest
           .value shouldBe ts(3)
       }
 
-      /** this test checks that only fully authorized domain parameter changes are used
+      /** this test checks that only fully authorized synchronizer parameter changes are used
         * to update the topology change delay for adjusting the effective time
         *
         * 0. initialize the topology store with a decentralized namespace with 2 owners
-        * and default domain parameters (topologyChangeDelay=250ms)
+        * and default synchronizer parameters (topologyChangeDelay=250ms)
         * 1. process a proposal to update the topology change delay
         * 2. process the fully authorized update to the topology change delay
         * 3. process some other topology change delay
         *
         * only in step 3. should the updated topology change delay be used to compute the effective time
         */
-      "only track fully authorized domain parameter state changes" in {
+      "only track fully authorized synchronizer parameter state changes" in {
         import SigningKeys.{ec as _, *}
         val dnsNamespace =
           DecentralizedNamespaceDefinition.computeNamespace(Set(ns1, ns2))
-        val domainId = DomainId(UniqueIdentifier.tryCreate("test-domain", dnsNamespace))
+        val synchronizerId =
+          SynchronizerId(UniqueIdentifier.tryCreate("test-synchronizer", dnsNamespace))
 
         val dns = mkAddMultiKey(
           DecentralizedNamespaceDefinition
@@ -635,39 +642,39 @@ abstract class TopologyTransactionProcessorTest
             .value,
           signingKeys = NonEmpty(Set, key1, key2),
         )
-        val initialDomainParameters = mkAddMultiKey(
-          DomainParametersState(
-            domainId,
-            DynamicDomainParameters.defaultValues(testedProtocolVersion),
+        val initialSynchronizerParameters = mkAddMultiKey(
+          SynchronizerParametersState(
+            synchronizerId,
+            DynamicSynchronizerParameters.defaultValues(testedProtocolVersion),
           ),
           signingKeys = NonEmpty(Set, key1, key2),
         )
 
         val initialTopologyChangeDelay =
-          initialDomainParameters.mapping.parameters.topologyChangeDelay.duration
+          initialSynchronizerParameters.mapping.parameters.topologyChangeDelay.duration
         val updatedTopologyChangeDelay = initialTopologyChangeDelay.plusMillis(50)
 
-        val updatedDomainParams = DomainParametersState(
-          domainId,
-          DynamicDomainParameters.initialValues(
+        val updatedSynchronizerParams = SynchronizerParametersState(
+          synchronizerId,
+          DynamicSynchronizerParameters.initialValues(
             topologyChangeDelay = NonNegativeFiniteDuration.tryCreate(updatedTopologyChangeDelay),
             testedProtocolVersion,
           ),
         )
-        val domainParameters_k1 = mkAdd(
-          updatedDomainParams,
+        val synchronizerParameters_k1 = mkAdd(
+          updatedSynchronizerParams,
           signingKey = key1,
           serial = PositiveInt.two,
           isProposal = true,
         )
-        val domainParameters_k2 = mkAdd(
-          updatedDomainParams,
+        val synchronizerParameters_k2 = mkAdd(
+          updatedSynchronizerParams,
           signingKey = key2,
           serial = PositiveInt.two,
           isProposal = true,
         )
 
-        val initialTopologyState = List(ns1k1_k1, ns2k2_k2, dns, initialDomainParameters)
+        val initialTopologyState = List(ns1k1_k1, ns2k2_k2, dns, initialSynchronizerParameters)
           .map(ValidatedTopologyTransaction(_))
 
         def mkEnvelope(transaction: GenericSignedTopologyTransaction) =
@@ -675,11 +682,11 @@ abstract class TopologyTransactionProcessorTest
             List(
               OpenEnvelope(
                 TopologyTransactionsBroadcast(
-                  domainId,
+                  synchronizerId,
                   List(transaction),
                   testedProtocolVersion,
                 ),
-                recipients = Recipients.cc(AllMembersOfDomain),
+                recipients = Recipients.cc(AllMembersOfSynchronizer),
               )(testedProtocolVersion)
             )
           )
@@ -687,13 +694,13 @@ abstract class TopologyTransactionProcessorTest
         // in block1 we propose a new topology change delay. the transaction itself will be
         // stored with the default topology change delay of 250ms and should NOT trigger a change
         // in topology change delay, because it's only a proposal
-        val block1 = mkEnvelope(domainParameters_k1)
-        // in block2 we fully authorize the update to domain parameters
-        val block2 = mkEnvelope(domainParameters_k2)
+        val block1 = mkEnvelope(synchronizerParameters_k1)
+        // in block2 we fully authorize the update to synchronizer parameters
+        val block2 = mkEnvelope(synchronizerParameters_k2)
         // in block3 we should see the new topology change delay being used to compute the effective time
         val block3 = mkEnvelope(ns3k3_k3)
 
-        val store = mkStore(domainId)
+        val store = mkStore(synchronizerId)
 
         store
           .update(
@@ -705,13 +712,13 @@ abstract class TopologyTransactionProcessorTest
           )
           .futureValueUS
 
-        val (proc, _) = mk(store, domainId)
+        val (proc, _) = mk(store, synchronizerId)
 
-        val domainTimeTrackerMock = mock[DomainTimeTracker]
-        when(domainTimeTrackerMock.awaitTick(any[CantonTimestamp])(anyTraceContext))
+        val synchronizerTimeTrackerMock = mock[SynchronizerTimeTracker]
+        when(synchronizerTimeTrackerMock.awaitTick(any[CantonTimestamp])(anyTraceContext))
           .thenAnswer(None)
 
-        proc.subscriptionStartsAt(FreshSubscription, domainTimeTrackerMock).futureValueUS
+        proc.subscriptionStartsAt(FreshSubscription, synchronizerTimeTrackerMock).futureValueUS
 
         // ==================
         // process the blocks
@@ -739,20 +746,21 @@ abstract class TopologyTransactionProcessorTest
         // check the applied topology change delays
 
         // 1. fetch the proposal from block1 at a time when it has become effective
-        val storedDomainParametersProposal = fetchTx(store, ts(0).plusSeconds(1), isProposal = true)
-          .collectOfMapping[DomainParametersState]
-          .result
-          .loneElement
+        val storedSynchronizerParametersProposal =
+          fetchTx(store, ts(0).plusSeconds(1), isProposal = true)
+            .collectOfMapping[SynchronizerParametersState]
+            .result
+            .loneElement
         // the proposal itself should be processed with the default topology change delay
-        storedDomainParametersProposal.validFrom.value - storedDomainParametersProposal.sequenced.value shouldBe initialTopologyChangeDelay
+        storedSynchronizerParametersProposal.validFrom.value - storedSynchronizerParametersProposal.sequenced.value shouldBe initialTopologyChangeDelay
 
-        // 2. fetch the latest fully authorized domain parameters transaction from block2 at a time when it has become effective
-        val storedDomainParametersUpdate = fetchTx(store, ts(1).plusSeconds(1))
-          .collectOfMapping[DomainParametersState]
+        // 2. fetch the latest fully authorized synchronizer parameters transaction from block2 at a time when it has become effective
+        val storedSynchronizerParametersUpdate = fetchTx(store, ts(1).plusSeconds(1))
+          .collectOfMapping[SynchronizerParametersState]
           .result
           .loneElement
         // the transaction to change the topology change delay itself should still be processed with the default topology change delay
-        storedDomainParametersUpdate.validFrom.value - storedDomainParametersUpdate.sequenced.value shouldBe initialTopologyChangeDelay
+        storedSynchronizerParametersUpdate.validFrom.value - storedSynchronizerParametersUpdate.sequenced.value shouldBe initialTopologyChangeDelay
 
         // 3. fetch the topology transaction from block3 at a time when it has become effective
         val storedNSD3 = fetchTx(store, ts(2).plusSeconds(1))
@@ -769,10 +777,10 @@ abstract class TopologyTransactionProcessorTest
 
 class TopologyTransactionProcessorTestInMemory extends TopologyTransactionProcessorTest {
   protected def mkStore(
-      domainId: DomainId = DomainId(Factory.uid1a)
-  ): TopologyStore[TopologyStoreId.DomainStore] =
+      synchronizerId: SynchronizerId = SynchronizerId(Factory.uid1a)
+  ): TopologyStore[TopologyStoreId.SynchronizerStore] =
     new InMemoryTopologyStore(
-      TopologyStoreId.DomainStore(domainId),
+      TopologyStoreId.SynchronizerStore(synchronizerId),
       testedProtocolVersion,
       loggerFactory,
       timeouts,
@@ -784,6 +792,8 @@ class TopologyTransactionProcessorTestPostgres
     with DbTest
     with DbTopologyStoreHelper
     with PostgresTest {
-  override protected def mkStore(domainId: DomainId): TopologyStore[TopologyStoreId.DomainStore] =
-    createTopologyStore(domainId)
+  override protected def mkStore(
+      synchronizerId: SynchronizerId
+  ): TopologyStore[TopologyStoreId.SynchronizerStore] =
+    createTopologyStore(synchronizerId)
 }

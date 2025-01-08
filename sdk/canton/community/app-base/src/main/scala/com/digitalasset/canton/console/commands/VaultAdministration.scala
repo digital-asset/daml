@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.console.commands
@@ -498,13 +498,13 @@ class PublicKeyAdministration(
   def list_owners(
       filterKeyOwnerUid: String = "",
       filterKeyOwnerType: Option[MemberCode] = None,
-      filterDomain: String = "",
+      filterSynchronizerId: String = "",
       asOf: Option[Instant] = None,
       limit: PositiveInt = defaultLimit,
   ): Seq[ListKeyOwnersResult] = consoleEnvironment.run {
     adminCommand(
       TopologyAdminCommands.Aggregation
-        .ListKeyOwners(filterDomain, filterKeyOwnerType, filterKeyOwnerUid, asOf, limit)
+        .ListKeyOwners(filterSynchronizerId, filterKeyOwnerType, filterKeyOwnerUid, asOf, limit)
     )
   }
 
@@ -515,14 +515,14 @@ class PublicKeyAdministration(
   )
   def list_by_owner(
       keyOwner: Member,
-      filterDomain: String = "",
+      filterSynchronizerId: String = "",
       asOf: Option[Instant] = None,
       limit: PositiveInt = defaultLimit,
   ): Seq[ListKeyOwnersResult] =
     consoleEnvironment.run {
       adminCommand(
         TopologyAdminCommands.Aggregation.ListKeyOwners(
-          filterDomain = filterDomain,
+          filterSynchronizerId = filterSynchronizerId,
           filterKeyOwnerType = Some(keyOwner.code),
           filterKeyOwnerUid = keyOwner.uid.toProtoPrimitive,
           asOf,

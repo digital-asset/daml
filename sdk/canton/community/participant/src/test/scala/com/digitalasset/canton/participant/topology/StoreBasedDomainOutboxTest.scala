@@ -1,10 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.topology
 
 import cats.implicits.*
-import com.digitalasset.canton.common.domain.RegisterTopologyTransactionHandle
+import com.digitalasset.canton.common.sequencer.RegisterTopologyTransactionHandle
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{ProcessingTimeout, TopologyConfig}
@@ -21,8 +21,8 @@ import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast.S
 import com.digitalasset.canton.time.WallClock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{
-  DomainTopologyClientWithInit,
-  StoreBasedDomainTopologyClient,
+  StoreBasedSynchronizerTopologyClient,
+  SynchronizerTopologyClientWithInit,
 }
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.*
@@ -35,10 +35,10 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.{
   BaseTest,
-  DomainAlias,
   FailOnShutdown,
   ProtocolVersionChecksAsyncWordSpec,
   SequencerCounter,
+  SynchronizerAlias,
 }
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -60,7 +60,7 @@ class StoreBasedDomainOutboxTest
     SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
   private lazy val publicKey = crypto.generateSymbolicSigningKey()
   private lazy val namespace = Namespace(publicKey.id)
-  private lazy val domain = DomainAlias.tryCreate("target")
+  private lazy val domain = SynchronizerAlias.tryCreate("target")
   private lazy val transactions =
     Seq[TopologyMapping](
       NamespaceDelegation.tryCreate(namespace, publicKey, isRootDelegation = true),
@@ -85,7 +85,7 @@ class StoreBasedDomainOutboxTest
       timeouts,
     )
     val target = new InMemoryTopologyStore(
-      TopologyStoreId.DomainStore(DefaultTestIdentities.domainId),
+      TopologyStoreId.SynchronizerStore(DefaultTestIdentities.synchronizerId),
       testedProtocolVersion,
       loggerFactory,
       timeouts,
@@ -101,11 +101,11 @@ class StoreBasedDomainOutboxTest
       futureSupervisor,
       loggerFactory,
     )
-    val client = new StoreBasedDomainTopologyClient(
+    val client = new StoreBasedSynchronizerTopologyClient(
       clock,
-      domainId,
+      synchronizerId,
       store = target,
-      packageDependenciesResolver = StoreBasedDomainTopologyClient.NoPackageDependencies,
+      packageDependenciesResolver = StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
       timeouts = timeouts,
       futureSupervisor = futureSupervisor,
       loggerFactory = loggerFactory,
@@ -126,7 +126,7 @@ class StoreBasedDomainOutboxTest
       expectI: Int,
       responses: Iterator[State],
       store: TopologyStore[TopologyStoreId],
-      targetClient: StoreBasedDomainTopologyClient,
+      targetClient: StoreBasedSynchronizerTopologyClient,
       rejections: Iterator[Option[TopologyTransactionRejection]] = Iterator.continually(None),
   ) extends RegisterTopologyTransactionHandle {
 
@@ -225,14 +225,14 @@ class StoreBasedDomainOutboxTest
   private def outboxConnected(
       manager: AuthorizedTopologyManager,
       handle: RegisterTopologyTransactionHandle,
-      client: DomainTopologyClientWithInit,
+      client: SynchronizerTopologyClientWithInit,
       source: TopologyStore[TopologyStoreId.AuthorizedStore],
-      target: TopologyStore[TopologyStoreId.DomainStore],
+      target: TopologyStore[TopologyStoreId.SynchronizerStore],
       broadcastBatchSize: PositiveInt = TopologyConfig.defaultBroadcastBatchSize,
-  ): FutureUnlessShutdown[StoreBasedDomainOutbox] = {
-    val domainOutbox = new StoreBasedDomainOutbox(
+  ): FutureUnlessShutdown[StoreBasedSynchronizerOutbox] = {
+    val domainOutbox = new StoreBasedSynchronizerOutbox(
       domain,
-      domainId,
+      synchronizerId,
       participant1,
       testedProtocolVersion,
       handle,
@@ -247,7 +247,7 @@ class StoreBasedDomainOutboxTest
     )
     domainOutbox
       .startup()
-      .fold[StoreBasedDomainOutbox](
+      .fold[StoreBasedSynchronizerOutbox](
         s => fail(s"Failed to start domain outbox $s"),
         _ =>
           domainOutbox.tap(outbox =>
@@ -333,7 +333,7 @@ class StoreBasedDomainOutboxTest
       } yield {
         observed1.map(_.transaction) shouldBe slice1
         handle.buffer.map(_.transaction) shouldBe slice2
-        handle.batches should not be (empty)
+        handle.batches should not be empty
         forAll(handle.batches)(_.size shouldBe 1)
       }
     }

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin
@@ -9,7 +9,7 @@ import com.digitalasset.canton.error.{CantonError, ParentCantonError}
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.participant.admin.PackageService.DarDescriptor
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.value.Value.ContractId
 import io.grpc.StatusRuntimeException
@@ -86,10 +86,14 @@ object CantonPackageServiceError extends PackageServiceErrorGroup {
     @Resolution(
       s"""To cleanly remove the package, you must archive all contracts from the package."""
     )
-    class PackageInUse(val pkg: PackageId, val contract: ContractId, val domain: DomainId)(implicit
+    class PackageInUse(
+        val pkg: PackageId,
+        val contract: ContractId,
+        val synchronizerId: SynchronizerId,
+    )(implicit
         val loggingContext: ErrorLoggingContext
     ) extends PackageRemovalError(
-          s"Package $pkg is currently in-use by contract $contract on domain $domain. " +
+          s"Package $pkg is currently in-use by contract $contract on domain $synchronizerId. " +
             s"It may also be in-use by other contracts."
         )
 
@@ -128,12 +132,12 @@ object CantonPackageServiceError extends PackageServiceErrorGroup {
         val pkg: PackageId,
         dar: DarDescriptor,
         contractId: ContractId,
-        domainId: DomainId,
+        synchronizerId: SynchronizerId,
     )(implicit
         val loggingContext: ErrorLoggingContext
     ) extends PackageRemovalError(
           s"""The DAR $dar cannot be removed because its main package $pkg is in-use by contract $contractId
-         |on domain $domainId.""".stripMargin
+         |on domain $synchronizerId.""".stripMargin
         )
 
     @Resolution(

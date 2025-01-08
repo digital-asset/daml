@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.config
@@ -52,9 +52,8 @@ trait LocalParticipantConfig extends BaseParticipantConfig with LocalNodeConfig 
 
   /** parameters for configuring the interaction with ledger via the HTTP JSON API.
     * Configuring this key will enable the HTTP JSON API server.
-    * NOTE: This feature is experimental and MUST NOT be used in production code.
     */
-  def httpLedgerApiExperimental: Option[JsonApiConfig]
+  def httpLedgerApi: Option[JsonApiConfig]
 
   /** parameters of the interface used to administrate the participant */
   def adminApi: AdminServerConfig
@@ -91,16 +90,16 @@ final case class CommunityParticipantConfig(
     override val init: ParticipantInitConfig = ParticipantInitConfig(),
     override val crypto: CommunityCryptoConfig = CommunityCryptoConfig(),
     override val ledgerApi: LedgerApiServerConfig = LedgerApiServerConfig(),
-    override val httpLedgerApiExperimental: Option[JsonApiConfig] = None,
-    override val adminApi: CommunityAdminServerConfig = CommunityAdminServerConfig(),
-    override val storage: CommunityStorageConfig = CommunityStorageConfig.Memory(),
+    override val httpLedgerApi: Option[JsonApiConfig] = None,
+    override val adminApi: AdminServerConfig = AdminServerConfig(),
+    override val storage: StorageConfig = StorageConfig.Memory(),
     override val testingTime: Option[TestingTimeServiceConfig] = None,
     override val parameters: ParticipantNodeParameterConfig = ParticipantNodeParameterConfig(),
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig(),
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig(),
     override val topology: TopologyConfig = TopologyConfig(),
 ) extends LocalParticipantConfig
-    with CommunityLocalNodeConfig
+    with LocalNodeConfig
     with ConfigDefaults[DefaultPorts, CommunityParticipantConfig] {
 
   override def clientAdminApi: ClientConfig = adminApi.clientConfig
@@ -184,7 +183,7 @@ final case class LedgerApiServerConfig(
       LedgerApiServerConfig.DefaultIdentityProviderManagementConfig,
     interactiveSubmissionService: InteractiveSubmissionServiceConfig =
       InteractiveSubmissionServiceConfig.Default,
-) extends CommunityServerConfig // We can't currently expose enterprise server features at the ledger api anyway
+) extends ServerConfig // We can't currently expose enterprise server features at the ledger api anyway
     {
 
   lazy val clientConfig: ClientConfig =

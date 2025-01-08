@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
@@ -37,7 +37,7 @@ object DbDto {
       create_key_value_compression: Option[Int],
       event_sequential_id: Long,
       driver_metadata: Array[Byte],
-      domain_id: String,
+      synchronizer_id: String,
       trace_context: Array[Byte],
       record_time: Long,
   ) extends DbDto
@@ -64,12 +64,12 @@ object DbDto {
       exercise_argument: Array[Byte],
       exercise_result: Option[Array[Byte]],
       exercise_actors: Set[String],
-      exercise_child_event_ids: Vector[String],
+      exercise_child_node_ids: Vector[Int],
       create_key_value_compression: Option[Int],
       exercise_argument_compression: Option[Int],
       exercise_result_compression: Option[Int],
       event_sequential_id: Long,
-      domain_id: String,
+      synchronizer_id: String,
       trace_context: Array[Byte],
       record_time: Long,
   ) extends DbDto
@@ -96,8 +96,8 @@ object DbDto {
       event_sequential_id: Long,
       ledger_effective_time: Long,
       driver_metadata: Array[Byte],
-      source_domain_id: String,
-      target_domain_id: String,
+      source_synchronizer_id: String,
+      target_synchronizer_id: String,
       unassign_id: String,
       reassignment_counter: Long,
       trace_context: Array[Byte],
@@ -115,8 +115,8 @@ object DbDto {
       package_name: String,
       flat_event_witnesses: Set[String],
       event_sequential_id: Long,
-      source_domain_id: String,
-      target_domain_id: String,
+      source_synchronizer_id: String,
+      target_synchronizer_id: String,
       unassign_id: String,
       reassignment_counter: Long,
       assignment_exclusivity: Option[Long],
@@ -131,7 +131,7 @@ object DbDto {
       party_id: String,
       participant_id: String,
       participant_permission: Int,
-      domain_id: String,
+      synchronizer_id: String,
       record_time: Long,
       trace_context: Array[Byte],
   ) extends DbDto
@@ -161,7 +161,7 @@ object DbDto {
       deduplication_offset: Option[Long],
       deduplication_duration_seconds: Option[Long],
       deduplication_duration_nanos: Option[Int],
-      domain_id: String,
+      synchronizer_id: String,
       message_uuid: Option[String],
       request_sequencer_counter: Option[Long],
       is_transaction: Boolean,
@@ -222,7 +222,7 @@ object DbDto {
       event_offset: Long,
       publication_time: Long,
       record_time: Long,
-      domain_id: String,
+      synchronizer_id: String,
       event_sequential_id_first: Long,
       event_sequential_id_last: Long,
   ) extends DbDto
@@ -234,5 +234,5 @@ object DbDto {
       ledger_offset: Long,
   ) extends DbDto
 
-  final case class SequencerIndexMoved(domainId: String) extends DbDto
+  final case class SequencerIndexMoved(synchronizerId: String) extends DbDto
 }

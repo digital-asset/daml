@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.client
@@ -18,13 +18,13 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.protocol.{
-  DynamicDomainParameters,
-  DynamicDomainParametersWithValidity,
   DynamicSequencingParametersWithValidity,
+  DynamicSynchronizerParameters,
+  DynamicSynchronizerParametersWithValidity,
 }
 import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
-import com.digitalasset.canton.time.DomainTimeTracker
+import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.PartyKeyTopologySnapshotClient.PartyAuthorizationInfo
@@ -49,31 +49,35 @@ import scala.concurrent.{ExecutionContext, Future}
 // architecture-handbook-entry-begin: IdentityProvidingServiceClient
 
 /** Client side API for the Identity Providing Service. This API is used to get information about the layout of
-  * the domains, such as party-participant relationships, used encryption and signing keys,
-  * package information, participant states, domain parameters, and so on.
+  * the synchronizers, such as party-participant relationships, used encryption and signing keys,
+  * package information, participant states, synchronizer parameters, and so on.
   */
 class IdentityProvidingServiceClient {
 
-  private val domains = TrieMap.empty[DomainId, DomainTopologyClient]
+  private val synchronizers = TrieMap.empty[SynchronizerId, SynchronizerTopologyClient]
 
-  def add(domainClient: DomainTopologyClient): this.type = {
-    domains += (domainClient.domainId -> domainClient)
+  def add(synchronizerClient: SynchronizerTopologyClient): this.type = {
+    synchronizers += (synchronizerClient.synchronizerId -> synchronizerClient)
     this
   }
 
-  def allDomains: Iterable[DomainTopologyClient] = domains.values
+  def allSynchronizers: Iterable[SynchronizerTopologyClient] = synchronizers.values
 
-  def tryForDomain(domain: DomainId): DomainTopologyClient =
-    domains.getOrElse(domain, sys.error("unknown domain " + domain.toString))
+  def tryForSynchronizer(synchronizerId: SynchronizerId): SynchronizerTopologyClient =
+    synchronizers.getOrElse(
+      synchronizerId,
+      sys.error("unknown synchronizer " + synchronizerId.toString),
+    )
 
-  def forDomain(domain: DomainId): Option[DomainTopologyClient] = domains.get(domain)
+  def forSynchronizer(synchronizerId: SynchronizerId): Option[SynchronizerTopologyClient] =
+    synchronizers.get(synchronizerId)
 
 }
 
 trait TopologyClientApi[+T] { this: HasFutureSupervision =>
 
-  /** The domain this client applies to */
-  def domainId: DomainId
+  /** The synchronizer this client applies to */
+  def synchronizerId: SynchronizerId
 
   /** Our current snapshot approximation
     *
@@ -108,7 +112,7 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
   /** The most recently observed effective timestamp
     *
     * The effective timestamp is sequencer_time + epsilon(sequencer_time), where
-    * epsilon is given by the topology change delay time, defined using the domain parameters.
+    * epsilon is given by the topology change delay time, defined using the synchronizer parameters.
     *
     * This is the highest timestamp for which we can serve snapshots
     */
@@ -191,9 +195,9 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]]
 }
 
-/** The client that provides the topology information on a per-domain basis
+/** The client that provides the topology information on a per-synchronizer basis
   */
-trait DomainTopologyClient extends TopologyClientApi[TopologySnapshot] with AutoCloseable {
+trait SynchronizerTopologyClient extends TopologyClientApi[TopologySnapshot] with AutoCloseable {
   this: HasFutureSupervision =>
 
   /** Wait for a condition to become true according to the current snapshot approximation
@@ -309,7 +313,7 @@ trait PartyTopologySnapshotClient {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Set[LfPartyId], Set[ParticipantId]]
 
-  /** Returns a list of all known parties on this domain. */
+  /** Returns a list of all known parties on this synchronizer. */
   def inspectKnownParties(
       filterParty: String,
       filterParticipant: String,
@@ -397,7 +401,7 @@ trait KeyTopologySnapshotClient {
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[Member, Seq[EncryptionPublicKey]]]
 
-  /** Returns a list of all known keys on this domain */
+  /** Returns a list of all known keys on this synchronizer */
   def inspectKeys(
       filterOwner: String,
       filterOwnerType: Option[MemberCode],
@@ -413,8 +417,8 @@ trait ParticipantTopologySnapshotClient {
 
   /** Checks whether the provided participant exists and is active.
     * Active means:
-    * 1. The participant has a DomainTrustCertificate.
-    * 2. The domain is either unrestricted or there is a ParticipantDomainPermission for the participant.
+    * 1. The participant has a SynchronizerTrustCertificate.
+    * 2. The synchronizer is either unrestricted or there is a ParticipantSynchronizerPermission for the participant.
     * 3. The participant has an OwnerToKeyMapping with signing and encryption keys.
     */
   def isParticipantActive(participantId: ParticipantId)(implicit
@@ -433,7 +437,7 @@ trait ParticipantTopologySnapshotClient {
 }
 
 /** The subset of the topology client providing mediator state information */
-trait MediatorDomainStateClient {
+trait MediatorSynchronizerStateClient {
   this: BaseTopologySnapshotClient & KeyTopologySnapshotClient =>
 
   def mediatorGroups()(implicit
@@ -490,12 +494,12 @@ trait MediatorDomainStateClient {
 }
 
 /** The subset of the topology client providing sequencer state information */
-trait SequencerDomainStateClient {
+trait SequencerSynchronizerStateClient {
   this: BaseTopologySnapshotClient =>
 
   /** The returned sequencer group contains all sequencers that
     * <ul>
-    *   <li>are mentioned in the SequencerDomainState topology transaction and</li>
+    *   <li>are mentioned in the SequencerSynchronizerState topology transaction and</li>
     *   <li>have at least 1 signing key</li>
     * </ul>
     */
@@ -536,48 +540,51 @@ trait VettedPackagesSnapshotClient {
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PackageId]]
 }
 
-trait DomainGovernanceSnapshotClient {
+trait SynchronizerGovernanceSnapshotClient {
   this: BaseTopologySnapshotClient with NamedLogging =>
 
   def trafficControlParameters[A](
       protocolVersion: ProtocolVersion,
       warnOnUsingDefault: Boolean = true,
   )(implicit tc: TraceContext): FutureUnlessShutdown[Option[TrafficControlParameters]] =
-    findDynamicDomainParametersOrDefault(protocolVersion, warnOnUsingDefault = warnOnUsingDefault)
+    findDynamicSynchronizerParametersOrDefault(
+      protocolVersion,
+      warnOnUsingDefault = warnOnUsingDefault,
+    )
       .map(_.trafficControlParameters)
 
-  def findDynamicDomainParametersOrDefault(
+  def findDynamicSynchronizerParametersOrDefault(
       protocolVersion: ProtocolVersion,
       warnOnUsingDefault: Boolean = true,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[DynamicDomainParameters] =
-    findDynamicDomainParameters().map {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[DynamicSynchronizerParameters] =
+    findDynamicSynchronizerParameters().map {
       case Right(value) => value.parameters
       case Left(_) =>
         if (warnOnUsingDefault) {
-          logger.warn(s"Unexpectedly using default domain parameters at $timestamp")
+          logger.warn(s"Unexpectedly using default synchronizer parameters at $timestamp")
         }
 
-        DynamicDomainParameters.initialValues(
+        DynamicSynchronizerParameters.initialValues(
           // we must use zero as default change delay parameter, as otherwise static time tests will not work
-          // however, once the domain has published the initial set of domain parameters, the zero time will be
+          // however, once the synchronizer has published the initial set of synchronizer parameters, the zero time will be
           // adjusted.
-          topologyChangeDelay = DynamicDomainParameters.topologyChangeDelayIfAbsent,
+          topologyChangeDelay = DynamicSynchronizerParameters.topologyChangeDelayIfAbsent,
           protocolVersion = protocolVersion,
         )
     }
 
-  def findDynamicDomainParameters()(implicit
+  def findDynamicSynchronizerParameters()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Either[String, DynamicDomainParametersWithValidity]]
+  ): FutureUnlessShutdown[Either[String, DynamicSynchronizerParametersWithValidity]]
 
   def findDynamicSequencingParameters()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Either[String, DynamicSequencingParametersWithValidity]]
 
-  /** List all the dynamic domain parameters (past and current) */
-  def listDynamicDomainParametersChanges()(implicit
+  /** List all the dynamic synchronizer parameters (past and current) */
+  def listDynamicSynchronizerParametersChanges()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Seq[DynamicDomainParametersWithValidity]]
+  ): FutureUnlessShutdown[Seq[DynamicSynchronizerParametersWithValidity]]
 }
 
 trait MembersTopologySnapshotClient {
@@ -586,8 +593,8 @@ trait MembersTopologySnapshotClient {
   /** Convenience method to determin all members with `isMemberKnown`. */
   def allMembers()(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[Member]]
 
-  /** Determines if a member is known on the domain (through a DomainTrustCertificate, MediatorDomainState, or SequencerDomainState).
-    * Note that a "known" member is not necessarily authorized to use the domain.
+  /** Determines if a member is known on the synchronizer (through a SynchronizerTrustCertificate, MediatorSynchronizerState, or SequencerSynchronizerState).
+    * Note that a "known" member is not necessarily authorized to use the synchronizer.
     */
   def isMemberKnown(member: Member)(implicit
       traceContext: TraceContext
@@ -609,27 +616,28 @@ trait TopologySnapshot
     with ParticipantTopologySnapshotClient
     with KeyTopologySnapshotClient
     with VettedPackagesSnapshotClient
-    with MediatorDomainStateClient
-    with SequencerDomainStateClient
-    with DomainGovernanceSnapshotClient
+    with MediatorSynchronizerStateClient
+    with SequencerSynchronizerStateClient
+    with SynchronizerGovernanceSnapshotClient
     with MembersTopologySnapshotClient
     with PartyKeyTopologySnapshotClient { this: BaseTopologySnapshotClient with NamedLogging => }
 
 // architecture-handbook-entry-end: IdentityProvidingServiceClient
 
-/** The internal domain topology client interface used for initialisation and efficient processing */
-trait DomainTopologyClientWithInit
-    extends DomainTopologyClient
+/** The internal synchronizer topology client interface used for initialisation and efficient processing */
+trait SynchronizerTopologyClientWithInit
+    extends SynchronizerTopologyClient
     with TopologyTransactionProcessingSubscriber
     with HasFutureSupervision
     with NamedLogging {
 
   implicit override protected def executionContext: ExecutionContext
 
-  protected val domainTimeTracker: SingleUseCell[DomainTimeTracker] = new SingleUseCell()
+  protected val synchronizerTimeTracker: SingleUseCell[SynchronizerTimeTracker] =
+    new SingleUseCell()
 
-  def setDomainTimeTracker(tracker: DomainTimeTracker): Unit =
-    domainTimeTracker.putIfAbsent(tracker).discard
+  def setSynchronizerTimeTracker(tracker: SynchronizerTimeTracker): Unit =
+    synchronizerTimeTracker.putIfAbsent(tracker).discard
 
   /** current number of changes waiting to become effective */
   def numPendingChanges: Int
@@ -786,8 +794,8 @@ private[client] trait ParticipantTopologySnapshotLoader extends ParticipantTopol
     loadParticipantStates(Seq(participantId)).map(_.get(participantId))
 
   /** Loads the participant state for the given set of participant ids.
-    * The result covers only active participants, i.e., only participants with DomainTrustCertificates,
-    * ParticipantDomainPermission (if the domain is restricted), and signing and encryption keys.
+    * The result covers only active participants, i.e., only participants with SynchronizerTrustCertificates,
+    * ParticipantSynchronizerPermission (if the synchronizer is restricted), and signing and encryption keys.
     */
   def loadParticipantStates(
       participants: Seq[ParticipantId]
@@ -1009,7 +1017,7 @@ trait VettedPackagesSnapshotLoader extends VettedPackagesSnapshotClient with Vet
     }
 }
 
-trait DomainGovernanceSnapshotLoader extends DomainGovernanceSnapshotClient {
+trait SynchronizerGovernanceSnapshotLoader extends SynchronizerGovernanceSnapshotClient {
   this: BaseTopologySnapshotClient with NamedLogging =>
 }
 
@@ -1026,5 +1034,5 @@ trait TopologySnapshotLoader
     with ParticipantTopologySnapshotLoader
     with KeyTopologySnapshotClientLoader
     with VettedPackagesSnapshotLoader
-    with DomainGovernanceSnapshotLoader
+    with SynchronizerGovernanceSnapshotLoader
     with NamedLogging

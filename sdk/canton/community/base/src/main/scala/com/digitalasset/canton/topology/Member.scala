@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology
@@ -62,7 +62,7 @@ object MemberCode {
 
 }
 
-/** A member in a domain such as a participant and or domain entities
+/** A member in a synchronizer such as a participant and or synchronizer entities
   *
   * A member can be addressed and talked to on the transaction level
   * through the sequencer.
@@ -144,40 +144,42 @@ object Member {
 
 }
 
-final case class DomainId(uid: UniqueIdentifier) extends Identity {
+final case class SynchronizerId(uid: UniqueIdentifier) extends Identity {
   def unwrap: UniqueIdentifier = uid
   def toLengthLimitedString: String255 = uid.toLengthLimitedString
-
 }
 
-object DomainId {
+object SynchronizerId {
 
-  implicit val orderDomainId: Order[DomainId] = Order.by[DomainId, String](_.toProtoPrimitive)
-  implicit val domainIdEncoder: Encoder[DomainId] =
+  implicit val orderSynchronizerId: Order[SynchronizerId] =
+    Order.by[SynchronizerId, String](_.toProtoPrimitive)
+  implicit val synchronizerIdEncoder: Encoder[SynchronizerId] =
     Encoder.encodeString.contramap(_.unwrap.toProtoPrimitive)
 
   // Instances for slick (db) queries
-  implicit val getResultDomainId: GetResult[DomainId] =
-    UniqueIdentifier.getResult.andThen(DomainId(_))
+  implicit val getResultSynchronizerId: GetResult[SynchronizerId] =
+    UniqueIdentifier.getResult.andThen(SynchronizerId(_))
 
-  implicit val getResultDomainIdO: GetResult[Option[DomainId]] =
-    UniqueIdentifier.getResultO.andThen(_.map(DomainId(_)))
+  implicit val getResultSynchronizerIdO: GetResult[Option[SynchronizerId]] =
+    UniqueIdentifier.getResultO.andThen(_.map(SynchronizerId(_)))
 
-  implicit val setParameterDomainId: SetParameter[DomainId] =
-    (d: DomainId, pp: PositionedParameters) => pp >> d.toLengthLimitedString
-  implicit val setParameterDomainIdO: SetParameter[Option[DomainId]] =
-    (d: Option[DomainId], pp: PositionedParameters) => pp >> d.map(_.toLengthLimitedString)
+  implicit val setParameterSynchronizerId: SetParameter[SynchronizerId] =
+    (d: SynchronizerId, pp: PositionedParameters) => pp >> d.toLengthLimitedString
+  implicit val setParameterSynchronizerIdO: SetParameter[Option[SynchronizerId]] =
+    (d: Option[SynchronizerId], pp: PositionedParameters) => pp >> d.map(_.toLengthLimitedString)
 
   def fromProtoPrimitive(
       proto: String,
       fieldName: String,
-  ): ParsingResult[DomainId] =
-    UniqueIdentifier.fromProtoPrimitive(proto, fieldName).map(DomainId(_))
+  ): ParsingResult[SynchronizerId] =
+    UniqueIdentifier.fromProtoPrimitive(proto, fieldName).map(SynchronizerId(_))
 
-  def tryFromString(str: String): DomainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive(str))
+  def tryFromString(str: String): SynchronizerId = SynchronizerId(
+    UniqueIdentifier.tryFromProtoPrimitive(str)
+  )
 
-  def fromString(str: String): Either[String, DomainId] =
-    UniqueIdentifier.fromProtoPrimitive_(str).map(DomainId(_)).leftMap(_.message)
+  def fromString(str: String): Either[String, SynchronizerId] =
+    UniqueIdentifier.fromProtoPrimitive_(str).map(SynchronizerId(_)).leftMap(_.message)
 
 }
 
@@ -327,9 +329,9 @@ object MediatorId {
 
 }
 
-/** Contains only sequencers from SequencerDomainState that also have at least 1 signing key.
+/** Contains only sequencers from SequencerSynchronizerState that also have at least 1 signing key.
   *
-  * When reading `threshold`, recall the contract of `SequencerDomainState`:
+  * When reading `threshold`, recall the contract of `SequencerSynchronizerState`:
   * The system must tolerate up to `min(threshold - 1, (active.size - 1)/3)` malicious active sequencers.
   */
 final case class SequencerGroup(

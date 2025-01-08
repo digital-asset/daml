@@ -1,74 +1,151 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.*
-import cats.syntax.either.*
+import cats.syntax.traverse.*
 import com.digitalasset.canton.data.{FullUnassignmentTree, ReassignmentRef}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
+import com.digitalasset.canton.participant.protocol.conflictdetection.ActivenessResult
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
-import com.digitalasset.canton.protocol.Stakeholders
-import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.participant.protocol.validation.AuthenticationValidator
+import com.digitalasset.canton.participant.protocol.{EngineController, ProcessingSteps}
+import com.digitalasset.canton.participant.util.DAMLe
+import com.digitalasset.canton.protocol.{ReassignmentId, Stakeholders}
+import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
-private[reassignment] object UnassignmentValidation {
+private[reassignment] class UnassignmentValidation(
+    participantId: ParticipantId,
+    engine: DAMLe,
+) {
 
   /** @param targetTopology Defined if and only if the participant is reassigning
     */
   def perform(
-      serializableContractAuthenticator: SerializableContractAuthenticator,
-      sourceProtocolVersion: Source[ProtocolVersion],
       sourceTopology: Source[TopologySnapshot],
       targetTopology: Option[Target[TopologySnapshot]],
-      recipients: Recipients,
-  )(request: FullUnassignmentTree)(implicit
+      activenessF: FutureUnlessShutdown[ActivenessResult],
+      engineController: EngineController,
+  )(parsedRequest: ParsedReassignmentRequest[FullUnassignmentTree])(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, UnassignmentValidationResult] = {
+    val fullTree = parsedRequest.fullViewTree
 
-    val authenticationCheckF = EitherT.fromEither[FutureUnlessShutdown](
-      serializableContractAuthenticator
-        .authenticate(request.contract)
-        .leftMap[ReassignmentProcessorError](ContractError.apply)
-    )
+    val reassignmentId: ReassignmentId =
+      ReassignmentId(fullTree.sourceSynchronizer, parsedRequest.requestTimestamp)
+    val contract = fullTree.contract
 
     for {
-      _ <- authenticationCheckF
+
+      validationResult <- EitherT.right(
+        performValidation(
+          sourceTopology,
+          targetTopology,
+          activenessF,
+          engineController,
+        )(parsedRequest)
+      )
+
+      hostedStakeholders <- EitherT.right(
+        sourceTopology.unwrap
+          .hostedOn(fullTree.stakeholders.all, participantId)
+          .map(_.keySet)
+      )
+
+      assignmentExclusivity <- targetTopology.traverse { targetTopology =>
+        ProcessingSteps
+          .getAssignmentExclusivity(targetTopology, fullTree.targetTimeProof.timestamp)
+          .leftMap(
+            ReassignmentParametersError(
+              fullTree.targetSynchronizer.unwrap,
+              _,
+            ): ReassignmentProcessorError
+          )
+      }
+
+    } yield UnassignmentValidationResult(
+      rootHash = fullTree.rootHash,
+      contractId = fullTree.contractId,
+      reassignmentCounter = fullTree.reassignmentCounter,
+      templateId = contract.rawContractInstance.contractInstance.unversioned.template,
+      packageName = contract.rawContractInstance.contractInstance.unversioned.packageName,
+      submitterMetadata = fullTree.submitterMetadata,
+      reassignmentId = reassignmentId,
+      targetDomain = fullTree.targetSynchronizer,
+      stakeholders = fullTree.stakeholders.all,
+      targetTimeProof = fullTree.targetTimeProof,
+      hostedStakeholders = hostedStakeholders,
+      assignmentExclusivity = assignmentExclusivity,
+      validationResult = validationResult,
+    )
+  }
+
+  private def performValidation(
+      sourceTopology: Source[TopologySnapshot],
+      targetTopology: Option[Target[TopologySnapshot]],
+      activenessF: FutureUnlessShutdown[ActivenessResult],
+      engineController: EngineController,
+  )(parsedRequest: ParsedReassignmentRequest[FullUnassignmentTree])(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): FutureUnlessShutdown[UnassignmentValidationResult.ValidationResult] = {
+    val fullTree = parsedRequest.fullViewTree
+    val recipients = parsedRequest.recipients
+
+    // check asynchronously so that we can complete the pending request
+    // in the Phase37Synchronizer without waiting for it, thereby allowing us to concurrently receive a
+    // mediator verdict.
+    val metadataResultET = new ReassignmentValidation(engine)
+      .checkMetadata(fullTree, () => engineController.abortStatus)
+      .mapK(FutureUnlessShutdown.outcomeK)
+
+    for {
+      activenessResult <- activenessF
+      authenticationErrorO <- AuthenticationValidator.verifyViewSignature(parsedRequest)
 
       // Now that the contract and metadata are validated, this is safe to use
-      expectedStakeholders = Stakeholders(request.contract.metadata)
+      expectedStakeholders = Stakeholders(fullTree.contract.metadata)
       expectedTemplateId =
-        request.contract.rawContractInstance.contractInstance.unversioned.template
+        fullTree.contract.rawContractInstance.contractInstance.unversioned.template
 
-      _ <- ReassignmentValidation
-        .checkSubmitter(
-          ReassignmentRef(request.contractId),
-          topologySnapshot = sourceTopology,
-          submitter = request.submitter,
-          participantId = request.submitterMetadata.submittingParticipant,
-          stakeholders = expectedStakeholders.all,
-        )
+      submitterCheckResult <-
+        ReassignmentValidation
+          .checkSubmitter(
+            ReassignmentRef(fullTree.contractId),
+            topologySnapshot = sourceTopology,
+            submitter = fullTree.submitter,
+            participantId = fullTree.submitterMetadata.submittingParticipant,
+            stakeholders = expectedStakeholders.all,
+          )
+          .value
+          .map(_.swap.toSeq)
 
-      _ <- targetTopology match {
+      reassigningParticipantCheckResult <- targetTopology match {
         case Some(targetTopology) =>
-          UnassignmentValidationReassigningParticipant(
-            expectedStakeholders = expectedStakeholders,
-            expectedTemplateId,
-            sourceProtocolVersion,
+          new UnassignmentValidationReassigningParticipant(
             sourceTopology,
             targetTopology,
-            recipients,
-          )(request)
-        case None => EitherT.pure[FutureUnlessShutdown, ReassignmentProcessorError](())
+          )(fullTree, recipients)
+            .check(expectedStakeholders, expectedTemplateId)
+            .value
+            .map(_.swap.toSeq)
+        case None =>
+          FutureUnlessShutdown.pure(Seq.empty)
       }
-    } yield ()
+
+    } yield UnassignmentValidationResult.ValidationResult(
+      activenessResult = activenessResult,
+      authenticationErrorO = authenticationErrorO,
+      metadataResultET = metadataResultET,
+      validationErrors = submitterCheckResult ++ reassigningParticipantCheckResult,
+    )
   }
 
 }

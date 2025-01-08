@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.common
@@ -12,8 +12,12 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawFlatEvent,
   RawTreeEvent,
 }
-import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
+import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.{
+  CompositeSql,
+  SqlStringInterpolation,
+}
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
+import com.digitalasset.canton.platform.store.backend.common.TransactionPointwiseQueries.LookupKey
 import com.digitalasset.canton.platform.store.cache.LedgerEndCache
 import com.digitalasset.canton.platform.store.interning.StringInterning
 
@@ -28,29 +32,34 @@ class TransactionPointwiseQueries(
   /** Fetches a matching event sequential id range unless it's within the pruning offset.
     */
   def fetchIdsFromTransactionMeta(
-      updateId: data.UpdateId
+      lookupKey: LookupKey
   )(connection: Connection): Option[(Long, Long)] = {
     import com.digitalasset.canton.platform.store.backend.Conversions.ledgerStringToStatement
     import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
     // 1. Checking whether "event_offset <= ledgerEndOffset" is needed because during indexing
     // the events and transaction_meta tables are written to prior to the ledger end being updated.
-    // 2. Checking "event_offset > participant_pruned_up_to_inclusive" is needed in order to
-    // prevent fetching data that is within the pruning offset. (Such data may only be accessed by retrieving an ACS)
     val ledgerEndOffsetO: Option[Offset] = ledgerEndCache().map(_.lastOffset)
-    ledgerEndOffsetO match {
-      case Some(ledgerEndOffset) =>
-        SQL"""
+
+    ledgerEndOffsetO.flatMap { ledgerEndOffset =>
+      val lookupKeyClause: CompositeSql =
+        lookupKey match {
+          case LookupKey.UpdateId(updateId) =>
+            cSQL"t.update_id = $updateId"
+          case LookupKey.Offset(offset) =>
+            cSQL"t.event_offset = $offset"
+        }
+
+      SQL"""
          SELECT
             t.event_sequential_id_first,
             t.event_sequential_id_last
          FROM
             lapi_transaction_meta t
          WHERE
-            t.update_id = $updateId
-            AND
+            $lookupKeyClause
+           AND
             t.event_offset <= $ledgerEndOffset
        """.as(EventSequentialIdFirstLast.singleOpt)(connection)
-      case None => None
     }
   }
 
@@ -167,4 +176,12 @@ class TransactionPointwiseQueries(
     parsedRows
   }
 
+}
+
+object TransactionPointwiseQueries {
+  sealed trait LookupKey
+  object LookupKey {
+    final case class UpdateId(updateId: data.UpdateId) extends LookupKey
+    final case class Offset(offset: data.Offset) extends LookupKey
+  }
 }

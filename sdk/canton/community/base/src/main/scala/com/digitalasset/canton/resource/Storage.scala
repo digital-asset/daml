@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.resource
@@ -129,7 +129,7 @@ object StorageFactory {
   class StorageCreationException(message: String) extends RuntimeException(message)
 }
 
-class CommunityStorageFactory(val config: CommunityStorageConfig) extends StorageFactory {
+class CommunityStorageFactory(val config: StorageConfig) extends StorageFactory {
   override def create(
       connectionPoolForParticipant: Boolean,
       logQueryCost: Option[QueryCostMonitoringConfig],
@@ -144,7 +144,7 @@ class CommunityStorageFactory(val config: CommunityStorageConfig) extends Storag
       closeContext: CloseContext,
   ): EitherT[UnlessShutdown, String, Storage] =
     config match {
-      case CommunityStorageConfig.Memory(_, _) =>
+      case StorageConfig.Memory(_, _) =>
         EitherT.rightT(new MemoryStorage(loggerFactory, timeouts))
       case db: DbConfig =>
         DbStorageSingle
@@ -731,9 +731,8 @@ object DbStorage {
 
   def profile(config: DbConfig): Profile =
     config match {
-      case _: H2DbConfig => H2(H2Profile)
-      case _: PostgresDbConfig => Postgres(PostgresProfile)
-      case other => throw new IllegalArgumentException(s"Unsupported DbConfig: $other")
+      case _: DbConfig.H2 => H2(H2Profile)
+      case _: DbConfig.Postgres => Postgres(PostgresProfile)
     }
 
   def createDatabase(

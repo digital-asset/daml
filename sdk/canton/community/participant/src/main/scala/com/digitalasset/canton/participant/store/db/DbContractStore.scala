@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.db
@@ -26,7 +26,7 @@ import com.digitalasset.canton.util.EitherUtil.RichEitherIterable
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{BatchAggregator, ErrorUtil}
 import com.digitalasset.canton.version.ReleaseProtocolVersion
-import com.digitalasset.canton.{LfPartyId, RequestCounter, checked}
+import com.digitalasset.canton.{LfPartyId, checked}
 import com.github.blemale.scaffeine.AsyncCache
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
 
@@ -54,30 +54,27 @@ class DbContractStore(
 
   override protected[store] def logger: TracedLogger = super.logger
 
-  private implicit val storedContractGetResult: GetResult[StoredContract] = GetResult { r =>
+  private implicit val contractGetResult: GetResult[SerializableContract] = GetResult { r =>
     val contractId = r.<<[LfContractId]
     val contractInstance = r.<<[SerializableRawContractInstance]
     val metadata = r.<<[ContractMetadata]
     val ledgerCreateTime = r.<<[CantonTimestamp]
-    val requestCounter = r.<<[RequestCounter]
     val contractSalt = r.<<[Option[Salt]]
 
-    val contract =
-      SerializableContract(
-        contractId,
-        contractInstance,
-        metadata,
-        LedgerCreateTime(ledgerCreateTime),
-        contractSalt,
-      )
-    StoredContract(contract, requestCounter)
+    SerializableContract(
+      contractId,
+      contractInstance,
+      metadata,
+      LedgerCreateTime(ledgerCreateTime),
+      contractSalt,
+    )
   }
 
   private implicit val setParameterContractMetadata: SetParameter[ContractMetadata] =
     ContractMetadata.getVersionedSetParameter(protocolVersion.v)
 
-  private val cache: AsyncCache[LfContractId, Option[StoredContract]] =
-    cacheConfig.buildScaffeine().buildAsync[LfContractId, Option[StoredContract]]()
+  private val cache: AsyncCache[LfContractId, Option[SerializableContract]] =
+    cacheConfig.buildScaffeine().buildAsync[LfContractId, Option[SerializableContract]]()
 
   private def invalidateCache(key: LfContractId): Unit =
     cache.synchronous().invalidate(key)
@@ -88,15 +85,15 @@ class DbContractStore(
   // together. so if there is high load with a lot of interpretation happening in parallel
   // batching will kick in.
   private val batchAggregatorLookup = {
-    val processor: BatchAggregator.Processor[LfContractId, Option[StoredContract]] =
-      new BatchAggregator.Processor[LfContractId, Option[StoredContract]] {
-        override val kind: String = "stored contract"
+    val processor: BatchAggregator.Processor[LfContractId, Option[SerializableContract]] =
+      new BatchAggregator.Processor[LfContractId, Option[SerializableContract]] {
+        override val kind: String = "serializable contract"
         override def logger: TracedLogger = DbContractStore.this.logger
 
         override def executeBatch(ids: NonEmpty[Seq[Traced[LfContractId]]])(implicit
             traceContext: TraceContext,
             callerCloseContext: CloseContext,
-        ): Future[Iterable[Option[StoredContract]]] =
+        ): Future[Iterable[Option[SerializableContract]]] =
           lookupManyUncachedInternal(ids.map(_.value))
 
         override def prettyItem: Pretty[LfContractId] = implicitly
@@ -108,20 +105,20 @@ class DbContractStore(
   }
 
   private val contractsBaseQuery =
-    sql"""select contract_id, instance, metadata, ledger_create_time, request_counter, contract_salt
+    sql"""select contract_id, instance, metadata, ledger_create_time, contract_salt
           from par_contracts"""
 
   private def lookupQuery(
       ids: NonEmpty[Seq[LfContractId]]
-  ): DbAction.ReadOnly[Seq[Option[StoredContract]]] = {
+  ): DbAction.ReadOnly[Seq[Option[SerializableContract]]] = {
     import DbStorage.Implicits.BuilderChain.*
 
     val inClause = DbStorage.toInClause("contract_id", ids)
     (contractsBaseQuery ++ sql" where " ++ inClause)
-      .as[StoredContract]
-      .map { storedContracts =>
-        val foundContracts = storedContracts
-          .map(storedContract => (storedContract.contractId, storedContract))
+      .as[SerializableContract]
+      .map { contracts =>
+        val foundContracts = contracts
+          .map(contract => (contract.contractId, contract))
           .toMap
         ids.map(foundContracts.get)
       }
@@ -129,22 +126,24 @@ class DbContractStore(
 
   private def bulkLookupQuery(
       ids: NonEmpty[Seq[LfContractId]]
-  ): DbAction.ReadOnly[immutable.Iterable[StoredContract]] = {
+  ): DbAction.ReadOnly[immutable.Iterable[SerializableContract]] = {
     val inClause = DbStorage.toInClause("contract_id", ids)
     import DbStorage.Implicits.BuilderChain.*
     val query =
       contractsBaseQuery ++ sql" where " ++ inClause
-    query.as[StoredContract]
+    query.as[SerializableContract]
   }
 
   def lookup(
       id: LfContractId
-  )(implicit traceContext: TraceContext): OptionT[Future, StoredContract] =
+  )(implicit traceContext: TraceContext): OptionT[Future, SerializableContract] =
     OptionT(cache.getFuture(id, _ => batchAggregatorLookup.run(id)))
 
   override def lookupManyExistingUncached(
       ids: Seq[LfContractId]
-  )(implicit traceContext: TraceContext): EitherT[Future, LfContractId, List[StoredContract]] =
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, LfContractId, List[SerializableContract]] =
     NonEmpty
       .from(ids)
       .map(ids =>
@@ -201,8 +200,8 @@ class DbContractStore(
     val contractsQuery = contractsBaseQuery ++ whereClause ++ limitFilter
 
     storage
-      .queryUnlessShutdown(contractsQuery.as[StoredContract], functionFullName)
-      .map(_.map(_.contract).toList)
+      .queryUnlessShutdown(contractsQuery.as[SerializableContract], functionFullName)
+      .map(_.toList)
   }
 
   override def findWithPayload(
@@ -216,51 +215,44 @@ class DbContractStore(
         bulkLookupQuery(contractIds),
         functionFullName,
       )
-      .map(_.map(c => c.contractId -> c.contract).toMap)
+      .map(_.map(c => c.contractId -> c).toMap)
 
-  override def storeCreatedContracts(
-      creations: Seq[(SerializableContract, RequestCounter)]
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    creations.parTraverse_ { case (creation, requestCounter) =>
-      storeContract(StoredContract(creation, requestCounter))
-    }
+  override def storeContracts(contracts: Seq[SerializableContract])(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] =
+    contracts.parTraverse_(storeContract)
 
-  private def storeContract(
-      contract: StoredContract
-  )(implicit
+  private def storeContract(contract: SerializableContract)(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): FutureUnlessShutdown[Unit] =
     FutureUnlessShutdown.outcomeF(batchAggregatorInsert.run(contract).flatMap(Future.fromTry))
 
   private val batchAggregatorInsert = {
-    val processor = new DbBulkUpdateProcessor[StoredContract, Unit] {
+    val processor = new DbBulkUpdateProcessor[SerializableContract, Unit] {
       override protected implicit def executionContext: ExecutionContext =
         DbContractStore.this.ec
       override protected def storage: DbStorage = DbContractStore.this.storage
       override def kind: String = "stored contract"
       override def logger: TracedLogger = DbContractStore.this.logger
 
-      override def executeBatch(items: NonEmpty[Seq[Traced[StoredContract]]])(implicit
+      override def executeBatch(items: NonEmpty[Seq[Traced[SerializableContract]]])(implicit
           traceContext: TraceContext,
           callerCloseContext: CloseContext,
       ): Future[Iterable[Try[Unit]]] =
         bulkUpdateWithCheck(items, "DbContractStore.insert")(traceContext, self.closeContext)
 
-      override protected def bulkUpdateAction(items: NonEmpty[Seq[Traced[StoredContract]]])(implicit
-          batchTraceContext: TraceContext
+      override protected def bulkUpdateAction(items: NonEmpty[Seq[Traced[SerializableContract]]])(
+          implicit batchTraceContext: TraceContext
       ): DBIOAction[Array[Int], NoStream, Effect.All] = {
-        def setParams(pp: PositionedParameters)(storedContract: StoredContract): Unit = {
-          val StoredContract(
-            SerializableContract(
-              contractId: LfContractId,
-              instance: SerializableRawContractInstance,
-              metadata: ContractMetadata,
-              ledgerCreateTime: LedgerCreateTime,
-              contractSalt: Option[Salt],
-            ),
-            requestCounter: RequestCounter,
-          ) = storedContract
+        def setParams(pp: PositionedParameters)(contract: SerializableContract): Unit = {
+          val SerializableContract(
+            contractId: LfContractId,
+            instance: SerializableRawContractInstance,
+            metadata: ContractMetadata,
+            ledgerCreateTime: LedgerCreateTime,
+            contractSalt: Option[Salt],
+          ) = contract
 
           val template = instance.contractInstance.unversioned.template
           val packageId = template.packageId
@@ -269,7 +261,6 @@ class DbContractStore(
           pp >> contractId
           pp >> metadata
           pp >> ledgerCreateTime.ts
-          pp >> requestCounter
           pp >> packageId
           pp >> templateId
           pp >> contractSalt
@@ -283,42 +274,35 @@ class DbContractStore(
             case _: DbStorage.Profile.Postgres =>
               """insert into par_contracts as c (
                    contract_id, metadata,
-                   ledger_create_time, request_counter, package_id, template_id, contract_salt, instance)
-                 values (?, ?, ?, ?, ?, ?, ?, ?)
-                 on conflict(contract_id) do update
-                   set
-                     request_counter = excluded.request_counter
-                   where (c.request_counter < excluded.request_counter)"""
+                   ledger_create_time, package_id, template_id, contract_salt, instance)
+                 values (?, ?, ?, ?, ?, ?, ?)
+                 on conflict(contract_id) do nothing"""
             case _: DbStorage.Profile.H2 =>
               """merge into par_contracts c
                  using (select cast(? as varchar(300)) contract_id,
                                cast(? as binary large object) metadata,
                                cast(? as varchar(300)) ledger_create_time,
-                               cast(? as bigint) request_counter,
                                cast(? as varchar(300)) package_id,
                                cast(? as varchar) template_id,
                                cast(? as binary large object) contract_salt,
                                cast(? as binary large object) instance
                                from dual) as input
                  on (c.contract_id = input.contract_id)
-                 when matched and (c.request_counter < input.request_counter)
-                 then
-                   update set
-                     request_counter = input.request_counter
                  when not matched then
                   insert (contract_id, instance, metadata, ledger_create_time,
-                    request_counter, package_id, template_id, contract_salt)
+                    package_id, template_id, contract_salt)
                   values (input.contract_id, input.instance, input.metadata, input.ledger_create_time,
-                    input.request_counter, input.package_id, input.template_id, input.contract_salt)"""
+                    input.package_id, input.template_id, input.contract_salt)"""
           }
         DbStorage.bulkOperation(query, items.map(_.value), profile)(setParams)
 
       }
 
-      override protected def onSuccessItemUpdate(item: Traced[StoredContract]): Try[Unit] = Try {
-        val contract = item.value
-        cache.put(contract.contractId, Future(Option(contract))(executionContext))
-      }
+      override protected def onSuccessItemUpdate(item: Traced[SerializableContract]): Try[Unit] =
+        Try {
+          val contract = item.value
+          cache.put(contract.contractId, Future(Option(contract))(executionContext))
+        }
 
       private val success: Try[Unit] = Success(())
 
@@ -327,9 +311,10 @@ class DbContractStore(
       ): Failure[Nothing] =
         ErrorUtil.internalErrorTry(new IllegalStateException(message))
 
-      override protected type CheckData = StoredContract
+      override protected type CheckData = SerializableContract
       override protected type ItemIdentifier = LfContractId
-      override protected def itemIdentifier(item: StoredContract): ItemIdentifier = item.contractId
+      override protected def itemIdentifier(item: SerializableContract): ItemIdentifier =
+        item.contractId
       override protected def dataIdentifier(state: CheckData): ItemIdentifier = state.contractId
 
       override protected def checkQuery(itemsToCheck: NonEmpty[Seq[ItemIdentifier]])(implicit
@@ -338,8 +323,8 @@ class DbContractStore(
         bulkLookupQuery(itemsToCheck)
 
       override protected def analyzeFoundData(
-          item: StoredContract,
-          foundData: Option[StoredContract],
+          item: SerializableContract,
+          foundData: Option[SerializableContract],
       )(implicit
           traceContext: TraceContext
       ): Try[Unit] =
@@ -353,22 +338,14 @@ class DbContractStore(
               cache.put(item.contractId, Future(Option(item))(executionContext))
               success
             } else {
-              (item, data) match {
-                case (StoredContract(_, rcItem), StoredContract(_, rcFound)) =>
-                  // a non-divulged contract must overwrite another non-divulged contract when its request counter is
-                  // higher
-                  if (rcItem > rcFound) {
-                    invalidateCache(data.contractId)
-                    failWith(
-                      s"""Non-divulged contract ${item.contractId} with request counter $rcItem did not
-                           |replace non-divulged contract ${data.contractId} with request counter $rcFound""".stripMargin
-                    )
-                  } else success
-              }
+              invalidateCache(data.contractId)
+              failWith(
+                s"Stored contracts are immutable, but found different contract ${item.contractId}"
+              )
             }
         }
 
-      override def prettyItem: Pretty[StoredContract] = implicitly
+      override def prettyItem: Pretty[SerializableContract] = implicitly
     }
 
     BatchAggregator(processor, insertBatchAggregatorConfig)

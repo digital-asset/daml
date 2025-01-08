@@ -138,28 +138,28 @@ public final class UpdateClientImpl implements UpdateClient {
         .map(GetTransactionTreeResponse::getTransactionTree);
   }
 
-  private Single<TransactionTree> getTransactionTreeByEventId(
-      String eventId, Set<String> requestingParties, Optional<String> accessToken) {
-    UpdateServiceOuterClass.GetTransactionByEventIdRequest request =
-        UpdateServiceOuterClass.GetTransactionByEventIdRequest.newBuilder()
-            .setEventId(eventId)
+  private Single<TransactionTree> getTransactionTreeByOffset(
+      Long offset, Set<String> requestingParties, Optional<String> accessToken) {
+    UpdateServiceOuterClass.GetTransactionByOffsetRequest request =
+        UpdateServiceOuterClass.GetTransactionByOffsetRequest.newBuilder()
+            .setOffset(offset)
             .addAllRequestingParties(requestingParties)
             .build();
     return extractTransactionTree(
         StubHelper.authenticating(this.serviceFutureStub, accessToken)
-            .getTransactionTreeByEventId(request));
+            .getTransactionTreeByOffset(request));
   }
 
   @Override
-  public Single<TransactionTree> getTransactionTreeByEventId(
-      String eventId, Set<String> requestingParties) {
-    return getTransactionTreeByEventId(eventId, requestingParties, Optional.empty());
+  public Single<TransactionTree> getTransactionTreeByOffset(
+      Long offset, Set<String> requestingParties) {
+    return getTransactionTreeByOffset(offset, requestingParties, Optional.empty());
   }
 
   @Override
-  public Single<TransactionTree> getTransactionTreeByEventId(
-      String eventId, Set<String> requestingParties, String accessToken) {
-    return getTransactionTreeByEventId(eventId, requestingParties, Optional.of(accessToken));
+  public Single<TransactionTree> getTransactionTreeByOffset(
+      Long offset, Set<String> requestingParties, String accessToken) {
+    return getTransactionTreeByOffset(offset, requestingParties, Optional.of(accessToken));
   }
 
   private Single<TransactionTree> getTransactionTreeById(
@@ -193,28 +193,27 @@ public final class UpdateClientImpl implements UpdateClient {
         .map(GetTransactionResponse::getTransaction);
   }
 
-  private Single<Transaction> getTransactionByEventId(
-      String eventId, Set<String> requestingParties, Optional<String> accessToken) {
-    UpdateServiceOuterClass.GetTransactionByEventIdRequest request =
-        UpdateServiceOuterClass.GetTransactionByEventIdRequest.newBuilder()
-            .setEventId(eventId)
+  private Single<Transaction> getTransactionByOffset(
+      Long offset, Set<String> requestingParties, Optional<String> accessToken) {
+    UpdateServiceOuterClass.GetTransactionByOffsetRequest request =
+        UpdateServiceOuterClass.GetTransactionByOffsetRequest.newBuilder()
+            .setOffset(offset)
             .addAllRequestingParties(requestingParties)
             .build();
     return extractTransaction(
         StubHelper.authenticating(this.serviceFutureStub, accessToken)
-            .getTransactionByEventId(request));
+            .getTransactionByOffset(request));
   }
 
   @Override
-  public Single<Transaction> getTransactionByEventId(
-      String eventId, Set<String> requestingParties) {
-    return getTransactionByEventId(eventId, requestingParties, Optional.empty());
+  public Single<Transaction> getTransactionByOffset(Long offset, Set<String> requestingParties) {
+    return getTransactionByOffset(offset, requestingParties, Optional.empty());
   }
 
   @Override
-  public Single<Transaction> getTransactionByEventId(
-      String eventId, Set<String> requestingParties, String accessToken) {
-    return getTransactionByEventId(eventId, requestingParties, Optional.of(accessToken));
+  public Single<Transaction> getTransactionByOffset(
+      Long offset, Set<String> requestingParties, String accessToken) {
+    return getTransactionByOffset(offset, requestingParties, Optional.of(accessToken));
   }
 
   private Single<Transaction> getTransactionById(

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
@@ -23,7 +23,7 @@ import com.digitalasset.canton.protocol.ExampleTransactionFactory.{asSerializabl
 import com.digitalasset.canton.protocol.{ExampleTransactionFactory, LfContractId}
 import com.digitalasset.canton.pruning.{PruningPhase, PruningStatus}
 import com.digitalasset.canton.store.PrunableByTimeTest
-import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
@@ -46,7 +46,8 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
   protected implicit def closeContext: CloseContext
 
   protected lazy val acsDomainStr: String300 = String300.tryCreate("active-contract-store::default")
-  protected lazy val acsDomainId: DomainId = DomainId.tryFromString(acsDomainStr.unwrap)
+  protected lazy val acsSynchronizerId: SynchronizerId =
+    SynchronizerId.tryFromString(acsDomainStr.unwrap)
 
   protected lazy val initialReassignmentCounter: ReassignmentCounter = ReassignmentCounter.Genesis
 
@@ -91,13 +92,13 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
 
     // Domain with index 2
     val domain1Idx = 2
-    val sourceDomain1 = Source(DomainId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))
-    val targetDomain1 = Target(DomainId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))
+    val sourceDomain1 = Source(SynchronizerId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))
+    val targetDomain1 = Target(SynchronizerId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))
 
     // Domain with index 3
     val domain2Idx = 3
-    val sourceDomain2 = Source(DomainId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2")))
-    val targetDomain2 = Target(DomainId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2")))
+    val sourceDomain2 = Source(SynchronizerId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2")))
+    val targetDomain2 = Target(SynchronizerId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2")))
 
     behave like prunableByTime(mkAcs)
 
@@ -2081,8 +2082,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
           contracts: List[(LfContractId, LfPackageId)],
       ): Future[Unit] =
         contracts.parTraverse_ { case (contractId, pkg) =>
-          contractStore.storeCreatedContract(
-            RequestCounter(0),
+          contractStore.storeContract(
             asSerializable(
               contractId,
               contractInstance = contractInstance(
@@ -2091,7 +2091,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
                   moduleName,
                 )
               ),
-            ),
+            )
           )
         }.failOnShutdown
 
@@ -2144,7 +2144,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
               .assignContract(
                 coid00,
                 toc1,
-                Source(acsDomainId),
+                Source(acsSynchronizerId),
                 initialReassignmentCounter,
               )
               .failOnShutdown
@@ -2218,7 +2218,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
             acs.assignContract(
               coid00,
               toc3,
-              Source(acsDomainId),
+              Source(acsSynchronizerId),
               reassignmentCounter2,
             )
           )(

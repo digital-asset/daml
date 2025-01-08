@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.metrics
@@ -13,7 +13,7 @@ import com.daml.metrics.api.{
   MetricQualification,
   MetricsContext,
 }
-import com.digitalasset.canton.DomainAlias
+import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.metrics.HasDocumentedMetrics
 import com.digitalasset.canton.topology.ParticipantId
 
@@ -33,7 +33,7 @@ class CommitmentHistograms(parent: MetricName)(implicit inventory: HistogramInve
 }
 
 class CommitmentMetrics(
-    domainAlias: DomainAlias,
+    synchronizerAlias: SynchronizerAlias,
     histograms: CommitmentHistograms,
     metricsFactory: LabeledMetricsFactory,
 ) extends HasDocumentedMetrics {
@@ -66,7 +66,7 @@ class CommitmentMetrics(
   val largestDistinguishedCounterParticipantLatency: Gauge[Long] =
     metricsFactory.gauge(
       MetricInfo(
-        prefix :+ s"${domainAlias.unquoted}.largest-distinguished-counter-participant-latency",
+        prefix :+ s"${synchronizerAlias.unquoted}.largest-distinguished-counter-participant-latency",
         summary =
           "The biggest latency to a currently distinguished counter-participant measured in micros.",
         description = counterParticipantLatencyDescription,
@@ -78,7 +78,7 @@ class CommitmentMetrics(
   val largestCounterParticipantLatency: Gauge[Long] =
     metricsFactory.gauge(
       MetricInfo(
-        prefix :+ s"${domainAlias.unquoted}.largest-counter-participant-latency",
+        prefix :+ s"${synchronizerAlias.unquoted}.largest-counter-participant-latency",
         summary =
           "The biggest latency to a currently non-ignored counter-participant measured in micros.",
         description = counterParticipantLatencyDescription,
@@ -93,7 +93,7 @@ class CommitmentMetrics(
   def counterParticipantLatency(participant: ParticipantId): Gauge[Long] = {
     def createMonitoredParticipant: Gauge[Long] = metricsFactory.gauge(
       MetricInfo(
-        prefix :+ s"${domainAlias.unquoted}.counter-participant-latency.${participant.uid.identifier}",
+        prefix :+ s"${synchronizerAlias.unquoted}.counter-participant-latency.${participant.uid.identifier}",
         summary = "The latency to a specific counter-participant measured in micros.",
         description = counterParticipantLatencyDescription,
         qualification = MetricQualification.Debug,

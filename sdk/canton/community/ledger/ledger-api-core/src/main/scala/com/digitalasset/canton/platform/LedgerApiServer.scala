@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform
@@ -12,12 +12,14 @@ import com.digitalasset.canton.platform.index.InMemoryStateUpdater
 import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
 import com.digitalasset.canton.platform.store.interning.StringInterningView
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.data.Ref
 import io.opentelemetry.api.trace.Tracer
 
 import scala.concurrent.ExecutionContext
 
 object LedgerApiServer {
   def createInMemoryStateAndUpdater(
+      participantId: Ref.ParticipantId,
       commandProgressTracker: CommandProgressTracker,
       indexServiceConfig: IndexServiceConfig,
       maxCommandsInFlight: Int,
@@ -33,6 +35,7 @@ object LedgerApiServer {
   ): ResourceOwner[(InMemoryState, InMemoryStateUpdater.UpdaterFlow)] =
     for {
       inMemoryState <- InMemoryState.owner(
+        participantId = participantId,
         commandProgressTracker = commandProgressTracker,
         apiStreamShutdownTimeout = indexServiceConfig.apiStreamShutdownTimeout,
         bufferedStreamsPageSize = indexServiceConfig.bufferedStreamsPageSize,

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin.inspection
@@ -11,7 +11,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.admin.inspection.AcsInspectionTest.{
-  FakeDomainId,
+  FakeSynchronizerId,
   readAllVisibleActiveContracts,
 }
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
@@ -21,7 +21,6 @@ import com.digitalasset.canton.participant.store.{
   ActiveContractStore,
   ContractStore,
   RequestJournalStore,
-  StoredContract,
   SyncDomainPersistentState,
 }
 import com.digitalasset.canton.protocol.ContractIdSyntax.orderingLfContractId
@@ -34,7 +33,7 @@ import com.digitalasset.canton.protocol.{
   SerializableRawContractInstance,
 }
 import com.digitalasset.canton.store.IndexedDomain
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{
   BaseTest,
@@ -134,7 +133,7 @@ final class AcsInspectionTest
         )
           yield {
             contracts.left.value shouldBe AcsInspectionError.InconsistentSnapshot(
-              FakeDomainId,
+              FakeSynchronizerId,
               contract('2'),
             )
           }
@@ -146,7 +145,7 @@ final class AcsInspectionTest
 
 object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with BaseTest {
 
-  private val FakeDomainId = DomainId.tryFromString(s"acme::${"0" * 68}")
+  private val FakeSynchronizerId = SynchronizerId.tryFromString(s"acme::${"0" * 68}")
 
   private val MaxDomainIndex: DomainIndex =
     DomainIndex.of(
@@ -177,16 +176,15 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
   private def mockContract(
       contractId: LfContractId,
       stakeholders: Set[LfPartyId],
-  ): StoredContract = {
+  ): SerializableContract = {
     val metadata = ContractMetadata.tryCreate(stakeholders, stakeholders, None)
-    val serializableContract = SerializableContract(
+    SerializableContract(
       contractId,
       MockedSerializableRawContractInstance,
       metadata,
       LedgerCreateTime(CantonTimestamp.Epoch),
       None,
     )
-    StoredContract(serializableContract, RequestCounter.MaxValue)
   }
 
   private def mockSyncDomainPersistentState(
@@ -219,11 +217,11 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
     val rjs = mock[RequestJournalStore]
 
     val state = mock[SyncDomainPersistentState]
-    val acsInspection = new AcsInspection(FakeDomainId, acs, cs, Eval.now(mockLedgerApiStore))
+    val acsInspection = new AcsInspection(FakeSynchronizerId, acs, cs, Eval.now(mockLedgerApiStore))
 
     when(state.activeContractStore).thenAnswer(acs)
     when(state.requestJournalStore).thenAnswer(rjs)
-    when(state.indexedDomain).thenAnswer(IndexedDomain.tryCreate(FakeDomainId, 1))
+    when(state.indexedDomain).thenAnswer(IndexedDomain.tryCreate(FakeSynchronizerId, 1))
     when(state.acsInspection).thenAnswer(acsInspection)
 
     state
@@ -231,7 +229,9 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
 
   private val mockLedgerApiStore: LedgerApiStore = {
     val mockStore = mock[LedgerApiStore]
-    when(mockStore.cleanDomainIndex(same(FakeDomainId))(any[TraceContext], any[ExecutionContext]))
+    when(
+      mockStore.cleanDomainIndex(same(FakeSynchronizerId))(any[TraceContext], any[ExecutionContext])
+    )
       .thenAnswer(FutureUnlessShutdown.pure(Some(MaxDomainIndex)))
     mockStore
   }
@@ -246,7 +246,7 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
       val builder = Vector.newBuilder[SerializableContract]
       state.acsInspection
         .forEachVisibleActiveContract(
-          FakeDomainId,
+          FakeSynchronizerId,
           parties,
           timestamp = None,
         ) { case (contract, _) =>

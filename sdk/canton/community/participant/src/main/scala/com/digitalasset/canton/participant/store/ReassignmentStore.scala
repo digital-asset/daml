@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
@@ -22,7 +22,7 @@ import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.platform.indexer.parallel.ReassignmentOffsetPersistence
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
 import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
@@ -121,11 +121,12 @@ trait ReassignmentStore extends ReassignmentLookup {
 object ReassignmentStore {
   def reassignmentStoreFor(
       syncDomainPersistentStates: SyncDomainPersistentStateLookup
-  ): Target[DomainId] => Either[String, ReassignmentStore] = (domainId: Target[DomainId]) =>
-    syncDomainPersistentStates.getAll
-      .get(domainId.unwrap)
-      .toRight(s"Unknown domain `${domainId.unwrap}`")
-      .map(_.reassignmentStore)
+  ): Target[SynchronizerId] => Either[String, ReassignmentStore] =
+    (synchronizerId: Target[SynchronizerId]) =>
+      syncDomainPersistentStates.getAll
+        .get(synchronizerId.unwrap)
+        .toRight(s"Unknown domain `${synchronizerId.unwrap}`")
+        .map(_.reassignmentStore)
 
   def reassignmentOffsetPersistenceFor(
       syncDomainPersistentStates: SyncDomainPersistentStateLookup
@@ -365,25 +366,25 @@ trait ReassignmentLookup {
     * Results need not be consistent with [[lookup]].
     */
   def find(
-      filterSource: Option[Source[DomainId]],
+      filterSource: Option[Source[SynchronizerId]],
       filterRequestTimestamp: Option[CantonTimestamp],
       filterSubmitter: Option[LfPartyId],
       limit: Int,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[ReassignmentData]]
 
   /** Find utility to look for in-flight reassignments.
-    * Reassignments are ordered by the tuple (request timestamp, source domain ID), ie reassignments are ordered by request timestamps
-    * and ties are broken with lexicographic ordering on domain IDs.
+    * Reassignments are ordered by the tuple (request timestamp, source synchronizer id), ie reassignments are ordered by request timestamps
+    * and ties are broken with lexicographic ordering on synchronizer ids.
     *
     * The ordering here has been chosen to allow a participant to fetch all the pending reassignments. The ordering has to
     * be consistent accross calls and uniquely identify a pending reassignment, but is otherwise arbitrary.
     *
     * @param requestAfter optionally, specify a strict lower bound for the reassignments returned, according to the
-    *                     (request timestamp, source domain ID) ordering
+    *                     (request timestamp, source synchronizer id) ordering
     * @param limit limit the number of results
     */
-  def findAfter(requestAfter: Option[(CantonTimestamp, Source[DomainId])], limit: Int)(implicit
-      traceContext: TraceContext
+  def findAfter(requestAfter: Option[(CantonTimestamp, Source[SynchronizerId])], limit: Int)(
+      implicit traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[ReassignmentData]]
 
   /** Find utility to look for incomplete reassignments.
@@ -408,7 +409,7 @@ trait ReassignmentLookup {
     * @param limit limit the number of results
     */
   def findIncomplete(
-      sourceDomain: Option[Source[DomainId]],
+      sourceDomain: Option[Source[SynchronizerId]],
       validAt: Offset,
       stakeholders: Option[NonEmpty[Set[LfPartyId]]],
       limit: NonNegativeInt,
@@ -416,20 +417,20 @@ trait ReassignmentLookup {
 
   /** Find utility to look for the earliest incomplete reassignment w.r.t. the ledger end.
     * If an incomplete reassignment exists, the method returns the global offset of the incomplete reassignment for either the
-    * unassignment or the assignment, whichever of these is not null, the reassignment id and the target domain id.
+    * unassignment or the assignment, whichever of these is not null, the reassignment id and the target synchronizer id.
     * It returns None if there is no incomplete reassignment (either because all reassignments are complete or are in-flight,
     * or because there are no reassignments), or the reassignment table is empty.
     */
   def findEarliestIncomplete()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[(Offset, ReassignmentId, Target[DomainId])]]
+  ): FutureUnlessShutdown[Option[(Offset, ReassignmentId, Target[SynchronizerId])]]
 
   /** Queries the reassignment ids for the given contract ids. Optional filtering by unassignment and
     * completion (assignment) timestamps, and by source domain.
     */
   def findContractReassignmentId(
       contractIds: Seq[LfContractId],
-      sourceDomain: Option[Source[DomainId]],
+      sourceDomain: Option[Source[SynchronizerId]],
       unassignmentTs: Option[CantonTimestamp],
       completionTs: Option[CantonTimestamp],
   )(implicit

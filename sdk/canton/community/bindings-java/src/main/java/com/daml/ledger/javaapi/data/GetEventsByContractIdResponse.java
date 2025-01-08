@@ -1,5 +1,5 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data;
 
@@ -66,11 +66,11 @@ public final class GetEventsByContractIdResponse {
 
   public static final class Created {
     @NonNull private final CreatedEvent createdEvent;
-    @NonNull private final String domainId;
+    @NonNull private final String synchronizerId;
 
-    public Created(@NonNull CreatedEvent createdEvent, @NonNull String domainId) {
+    public Created(@NonNull CreatedEvent createdEvent, @NonNull String synchronizerId) {
       this.createdEvent = createdEvent;
-      this.domainId = domainId;
+      this.synchronizerId = synchronizerId;
     }
 
     @NonNull
@@ -79,24 +79,31 @@ public final class GetEventsByContractIdResponse {
     }
 
     @NonNull
-    public String getDomainId() {
-      return domainId;
+    public String getSynchronizerId() {
+      return synchronizerId;
     }
 
     public static Created fromProto(EventQueryServiceOuterClass.Created created) {
-      return new Created(CreatedEvent.fromProto(created.getCreatedEvent()), created.getDomainId());
+      return new Created(
+          CreatedEvent.fromProto(created.getCreatedEvent()), created.getSynchronizerId());
     }
 
     public EventQueryServiceOuterClass.Created toProto() {
       return EventQueryServiceOuterClass.Created.newBuilder()
           .setCreatedEvent(createdEvent.toProto())
-          .setDomainId(domainId)
+          .setSynchronizerId(synchronizerId)
           .build();
     }
 
     @Override
     public String toString() {
-      return "Created{" + "createdEvent=" + createdEvent + ", domainId='" + domainId + '\'' + '}';
+      return "Created{"
+          + "createdEvent="
+          + createdEvent
+          + ", synchronizerId='"
+          + synchronizerId
+          + '\''
+          + '}';
     }
 
     @Override
@@ -105,22 +112,22 @@ public final class GetEventsByContractIdResponse {
       if (o == null || getClass() != o.getClass()) return false;
       Created that = (Created) o;
       return Objects.equals(createdEvent, that.createdEvent)
-          && Objects.equals(domainId, that.domainId);
+          && Objects.equals(synchronizerId, that.synchronizerId);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(createdEvent, domainId);
+      return Objects.hash(createdEvent, synchronizerId);
     }
   }
 
   public static final class Archived {
     @NonNull private final ArchivedEvent archivedEvent;
-    @NonNull private final String domainId;
+    @NonNull private final String synchronizerId;
 
-    public Archived(@NonNull ArchivedEvent archivedEvent, @NonNull String domainId) {
+    public Archived(@NonNull ArchivedEvent archivedEvent, @NonNull String synchronizerId) {
       this.archivedEvent = archivedEvent;
-      this.domainId = domainId;
+      this.synchronizerId = synchronizerId;
     }
 
     @NonNull
@@ -129,19 +136,19 @@ public final class GetEventsByContractIdResponse {
     }
 
     @NonNull
-    public String getDomainId() {
-      return domainId;
+    public String getSynchronizerId() {
+      return synchronizerId;
     }
 
     public static Archived fromProto(EventQueryServiceOuterClass.Archived archived) {
       return new Archived(
-          ArchivedEvent.fromProto(archived.getArchivedEvent()), archived.getDomainId());
+          ArchivedEvent.fromProto(archived.getArchivedEvent()), archived.getSynchronizerId());
     }
 
     public EventQueryServiceOuterClass.Archived toProto() {
       return EventQueryServiceOuterClass.Archived.newBuilder()
           .setArchivedEvent(archivedEvent.toProto())
-          .setDomainId(domainId)
+          .setSynchronizerId(synchronizerId)
           .build();
     }
 
@@ -150,8 +157,8 @@ public final class GetEventsByContractIdResponse {
       return "Archived{"
           + "archivedEvent="
           + archivedEvent
-          + ", domainId='"
-          + domainId
+          + ", synchronizerId='"
+          + synchronizerId
           + '\''
           + '}';
     }
@@ -162,12 +169,12 @@ public final class GetEventsByContractIdResponse {
       if (o == null || getClass() != o.getClass()) return false;
       Archived that = (Archived) o;
       return Objects.equals(archivedEvent, that.archivedEvent)
-          && Objects.equals(domainId, that.domainId);
+          && Objects.equals(synchronizerId, that.synchronizerId);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(archivedEvent, domainId);
+      return Objects.hash(archivedEvent, synchronizerId);
     }
   }
 }

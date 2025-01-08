@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin
@@ -35,7 +35,7 @@ class GrpcTrafficControlServiceTest
 
     "return traffic state for domain" in {
       val (service, syncService) = setupTest
-      val did = DefaultTestIdentities.domainId
+      val did = DefaultTestIdentities.synchronizerId
       val syncDomain = mock[SyncDomain]
       when(syncService.readySyncDomainById(did)).thenReturn(Some(syncDomain))
       val status = TrafficState(
@@ -56,7 +56,7 @@ class GrpcTrafficControlServiceTest
 
     "return FAILED_PRECONDITION if the participant is not connected to the domain" in {
       val (service, syncService) = setupTest
-      val did = DefaultTestIdentities.domainId
+      val did = DefaultTestIdentities.synchronizerId
       when(syncService.readySyncDomainById(did)).thenReturn(None)
       val response = the[StatusRuntimeException] thrownBy {
         timeouts.default.await("wait_for_response") {

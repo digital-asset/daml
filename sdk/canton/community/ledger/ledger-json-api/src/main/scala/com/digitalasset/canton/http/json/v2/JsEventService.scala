@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http.json.v2
@@ -62,11 +62,11 @@ class JsEventService(
 
 final case class JsCreated(
     created_event: JsEvent.CreatedEvent,
-    domain_id: String,
+    synchronizer_id: String,
 )
 final case class JsArchived(
     archived_event: JsEvent.ArchivedEvent,
-    domain_id: String,
+    synchronizer_id: String,
 )
 
 final case class JsGetEventsByContractIdResponse(

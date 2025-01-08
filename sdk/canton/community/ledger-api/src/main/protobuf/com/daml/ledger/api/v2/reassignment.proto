@@ -75,12 +75,12 @@ message UnassignedEvent {
   Identifier template_id = 3;
 
   // The ID of the source domain
-  // Must be a valid domain ID
+  // Must be a valid synchronizer id
   // Required
   string source = 4;
 
   // The ID of the target domain
-  // Must be a valid domain ID
+  // Must be a valid synchronizer id
   // Required
   string target = 5;
 
@@ -114,12 +114,12 @@ message UnassignedEvent {
 // Records that a contract has been assigned, and it can be used on the target domain.
 message AssignedEvent {
   // The ID of the source domain.
-  // Must be a valid domain ID.
+  // Must be a valid synchronizer id.
   // Required
   string source = 1;
 
   // The ID of the target domain.
-  // Must be a valid domain ID.
+  // Must be a valid synchronizer id.
   // Required
   string target = 2;
 

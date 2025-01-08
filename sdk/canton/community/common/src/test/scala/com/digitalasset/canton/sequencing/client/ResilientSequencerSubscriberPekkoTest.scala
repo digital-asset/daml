@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client
@@ -376,7 +376,7 @@ object TestSequencerSubscriptionFactoryPekko {
     val sequencedEvent = Deliver.create(
       counter,
       CantonTimestamp.Epoch.addMicros(counter.unwrap),
-      DefaultTestIdentities.domainId,
+      DefaultTestIdentities.synchronizerId,
       None,
       Batch.empty(BaseTest.testedProtocolVersion),
       None,

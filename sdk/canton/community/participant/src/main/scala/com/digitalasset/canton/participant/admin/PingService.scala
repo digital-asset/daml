@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin
@@ -44,7 +44,7 @@ import com.digitalasset.canton.participant.ledger.api.client.{
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.TopologyErrors
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
-import com.digitalasset.canton.topology.{DomainId, PartyId}
+import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
 import com.digitalasset.canton.util.{FutureUtil, LoggerUtil}
@@ -100,9 +100,9 @@ class PingService(
 
   override protected def isActive: Boolean = syncService.isActive
   // Execute vacuuming task when (re)connecting to a new domain
-  syncService.subscribeToConnections(_.withTraceContext { implicit traceContext => domainId =>
-    logger.debug(s"Received connection notification from $domainId")
-    vacuumStaleContracts(domainId)
+  syncService.subscribeToConnections(_.withTraceContext { implicit traceContext => synchronizerId =>
+    logger.debug(s"Received connection notification from $synchronizerId")
+    vacuumStaleContracts(synchronizerId)
   })
 
   private def applicationId = "PingService"
@@ -137,7 +137,7 @@ class PingService(
       id: String,
       action: String,
       cmds: Seq[Command],
-      domainId: Option[DomainId],
+      synchronizerId: Option[SynchronizerId],
       workflowId: Option[WorkflowId],
       deduplicationDuration: NonNegativeFiniteDuration,
       timeout: NonNegativeFiniteDuration,
@@ -154,7 +154,7 @@ class PingService(
         actAs = Seq(adminPartyId.toProtoPrimitive),
         commands = cmds.map(LedgerClientUtils.javaCodegenToScalaProto),
         deduplicationPeriod = DeduplicationDuration(deduplicationDuration.toProtoPrimitive),
-        domainId = domainId.map(_.toProtoPrimitive).getOrElse(""),
+        synchronizerId = synchronizerId.map(_.toProtoPrimitive).getOrElse(""),
       ),
       timeout.duration.toScala,
     )
@@ -166,7 +166,7 @@ object PingService {
 
   trait SyncServiceHandle {
     def isActive: Boolean
-    def subscribeToConnections(subscriber: Traced[DomainId] => Unit): Unit
+    def subscribeToConnections(subscriber: Traced[SynchronizerId] => Unit): Unit
   }
 
   private val DefaultRetryableDelay = 1.second
@@ -195,7 +195,7 @@ object PingService {
   final case class Failure(reason: String) extends Result
 
   private[admin] final case class TxContext(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       workflowId: WorkflowId,
       effectiveAt: CantonTimestamp,
   )
@@ -222,7 +222,7 @@ object PingService {
     private[admin] abstract class ContractWithExpiry(
         val contractId: ContractId[?],
         val template: Identifier,
-        initialDomainId: DomainId,
+        initialSynchronizerId: SynchronizerId,
         val workflowId: WorkflowId,
         val expire: CantonTimestamp,
     ) extends PrettyPrinting {
@@ -233,7 +233,8 @@ object PingService {
 
       // on creation, we assume that the reassignment counter is 0 as we are anyway only interested in the
       // most recently known location
-      protected val currentDomain = new AtomicReference[(DomainId, Long)]((initialDomainId, 0))
+      protected val currentDomain =
+        new AtomicReference[(SynchronizerId, Long)]((initialSynchronizerId, 0))
 
       override protected def pretty: Pretty[ContractWithExpiry] = prettyOfClass(
         param("coid", x => x.contractId.contractId.readableHash),
@@ -245,17 +246,17 @@ object PingService {
                 .take(8)}...".singleQuoted,
         ),
         param("expire", _.expire),
-        param("domainId", _.domainId),
+        param("synchronizerId", _.synchronizerId),
       )
 
-      def domainId: DomainId = currentDomain.get()._1
+      def synchronizerId: SynchronizerId = currentDomain.get()._1
 
-      def updateDomainId(newDomainId: DomainId, counter: Long): Unit =
-        currentDomain.updateAndGet { case (currentDomainId, currentCounter) =>
+      def updateSynchronizerId(newSynchronizerId: SynchronizerId, counter: Long): Unit =
+        currentDomain.updateAndGet { case (currentSynchronizerId, currentCounter) =>
           if (counter > currentCounter)
-            (newDomainId, counter)
+            (newSynchronizerId, counter)
           else
-            (currentDomainId, currentCounter)
+            (currentSynchronizerId, currentCounter)
         }.discard
 
       def active: Boolean = acs.contains(contractId.contractId)
@@ -295,7 +296,10 @@ object PingService {
       val workflowId = WorkflowId(scalaTx.workflowId)
 
       val res = for {
-        domainId <- DomainId.fromProtoPrimitive(scalaTx.domainId, "domainId")
+        synchronizerId <- SynchronizerId.fromProtoPrimitive(
+          scalaTx.synchronizerId,
+          "synchronizerId",
+        )
         effectiveP <- ProtoConverter.required("effectiveAt", scalaTx.effectiveAt)
         effective <- CantonTimestamp.fromProtoTimestamp(effectiveP)
       } yield {
@@ -306,7 +310,7 @@ object PingService {
           }
         )
         // process created
-        val context = TxContext(domainId, workflowId, effective)
+        val context = TxContext(synchronizerId, workflowId, effective)
         processCreatedEvents(scalaTx.events.map(_.event).collect { case Event.Created(value) =>
           (value, context)
         })
@@ -423,7 +427,7 @@ object PingService {
         // we only look at assign events
         case Reassignment.Event.AssignedEvent(event) =>
           val process = for {
-            target <- DomainId.fromProtoPrimitive(event.target, "target")
+            target <- SynchronizerId.fromProtoPrimitive(event.target, "target")
             created <- ProtoConverter.required("createdEvent", event.createdEvent)
             createdAt <- ProtoConverter.parseRequired(
               CantonTimestamp.fromProtoTimestamp,
@@ -432,7 +436,7 @@ object PingService {
             )
           } yield {
             acs.get(created.contractId) match {
-              case Some(value) => value.updateDomainId(target, event.reassignmentCounter)
+              case Some(value) => value.updateSynchronizerId(target, event.reassignmentCounter)
               case None => // haven't seen this contract yet, we need to create it
                 processCreatedEvents(Seq((created, TxContext(target, WorkflowId(""), createdAt))))
             }
@@ -452,7 +456,9 @@ object PingService {
       val wf = WorkflowId("")
       val loaded = acs.mapFilter { event =>
         val parsed = for {
-          domainId <- DomainId.fromProtoPrimitive(event.domainId, "domain_id").leftMap(_.toString)
+          synchronizerId <- SynchronizerId
+            .fromProtoPrimitive(event.synchronizerId, "synchronizer_id")
+            .leftMap(_.toString)
           createEvent <- event.createdEvent.toRight(s"Empty created event for $event???")
           createdAt <- ProtoConverter
             .parseRequired(
@@ -462,7 +468,7 @@ object PingService {
             )
             .leftMap(_.toString)
         } yield {
-          (createEvent, TxContext(domainId, wf, createdAt))
+          (createEvent, TxContext(synchronizerId, wf, createdAt))
         }
         parsed match {
           case Right(value) => Some(value)
@@ -479,7 +485,7 @@ object PingService {
         id: String,
         action: String,
         cmds: Seq[Command],
-        domainId: Option[DomainId],
+        synchronizerId: Option[SynchronizerId],
         workflowId: Option[WorkflowId],
         deduplicationDuration: NonNegativeFiniteDuration,
         timeout: NonNegativeFiniteDuration,
@@ -552,14 +558,14 @@ object PingService {
       * @param targetParties String     the parties to send ping to
       * @param validators    additional validators (signatories) of the contracts
       * @param timeout  how long to wait for pong
-      * @param domainId      the domain to send the ping to
+      * @param synchronizerId      the domain to send the ping to
       */
     def ping(
         targetParties: Set[PartyId],
         validators: Set[PartyId],
         timeout: NonNegativeFiniteDuration,
         maxLevel: NonNegativeInt = NonNegativeInt.tryCreate(0),
-        domainId: Option[DomainId] = None,
+        synchronizerId: Option[SynchronizerId] = None,
         workflowId: Option[WorkflowId] = None,
         id: String = UUID.randomUUID().toString,
     )(implicit traceContext: TraceContext): Future[PingService.Result] = {
@@ -579,7 +585,7 @@ object PingService {
           targetParties = targetParties,
           validators = validators,
           maxLevel = maxLevel,
-          domainId = domainId,
+          synchronizerId = synchronizerId,
           workflowId = workflowId,
         )
         requests.putIfAbsent(id, request) match {
@@ -620,7 +626,7 @@ object PingService {
         targetParties: Set[PartyId],
         validators: Set[PartyId],
         maxLevel: NonNegativeInt,
-        domainId: Option[DomainId],
+        synchronizerId: Option[SynchronizerId],
         workflowId: Option[WorkflowId],
     )(implicit val traceContext: TraceContext)
         extends PrettyPrinting {
@@ -684,7 +690,7 @@ object PingService {
 
       override protected def pretty: Pretty[PingRequest] = prettyOfClass(
         param("id", _.id.singleQuoted),
-        paramIfNonEmpty("domainId", _.domainId),
+        paramIfNonEmpty("synchronizerId", _.synchronizerId),
         paramIfNonEmpty("workflowId", _.workflowId.map(Tag.unwrap(_).singleQuoted)),
         param("target", _.targetParties),
         param("timeout", _.timeout),
@@ -727,7 +733,7 @@ object PingService {
             id,
             name,
             command.create.commands.asScala.toSeq,
-            domainId,
+            synchronizerId,
             workflowId,
             pingDeduplicationDuration,
             timeout,
@@ -770,7 +776,7 @@ object PingService {
       new ContractWithExpiry(
         ping.id,
         ping.getContractTypeId,
-        context.domainId,
+        context.synchronizerId,
         context.workflowId,
         // using clock.now as with the ping, it doesn't really make a difference if we vacuum or respond
         expire = clock.now + timeout,
@@ -816,7 +822,7 @@ object PingService {
       new ContractWithExpiry(
         bong.id,
         bong.getContractTypeId,
-        context.domainId,
+        context.synchronizerId,
         context.workflowId,
         expire = toCappedBongExpiry(bong.data.timeout),
       ) {
@@ -863,7 +869,7 @@ object PingService {
       new ContractWithExpiry(
         proposal.id,
         proposal.getContractTypeId,
-        context.domainId,
+        context.synchronizerId,
         context.workflowId,
         expire = toCappedBongExpiry(proposal.data.timeout),
       ) {
@@ -907,7 +913,7 @@ object PingService {
     ): ContractWithExpiry = new ContractWithExpiry(
       contract.id,
       contract.getContractTypeId,
-      context.domainId,
+      context.synchronizerId,
       context.workflowId,
       expire = toCappedBongExpiry(contract.data.timeout),
     ) {
@@ -952,7 +958,7 @@ object PingService {
     ): ContractWithExpiry = new ContractWithExpiry(
       contract.id,
       contract.getContractTypeId,
-      context.domainId,
+      context.synchronizerId,
       context.workflowId,
       expire = toCappedBongExpiry(contract.data.timeout),
     ) {
@@ -983,7 +989,7 @@ object PingService {
     ): ContractWithExpiry = new ContractWithExpiry(
       contract.id,
       contract.getContractTypeId,
-      context.domainId,
+      context.synchronizerId,
       context.workflowId,
       expire = toCappedBongExpiry(contract.data.timeout),
     ) {
@@ -1036,14 +1042,14 @@ object PingService {
     }
 
     protected def vacuumStaleContracts(
-        domainId: DomainId
+        synchronizerId: SynchronizerId
     )(implicit traceContext: TraceContext): Unit = {
       val now = clock.now
       val items = acs.collect {
-        case (_, value) if value.domainId == domainId && value.expire < now => value
+        case (_, value) if value.synchronizerId == synchronizerId && value.expire < now => value
       }
       if (items.nonEmpty) {
-        logger.info(s"Vacuuming ${items.size} stale contracts for $domainId")
+        logger.info(s"Vacuuming ${items.size} stale contracts for $synchronizerId")
         items.foreach(_.vacuum())
       }
     }

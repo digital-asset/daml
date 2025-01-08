@@ -1,11 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
 
 package com.digitalasset.canton.topology.admin.v30;
 
-import "com/digitalasset/canton/protocol/v30/domain_parameters.proto";
+import "com/digitalasset/canton/protocol/v30/synchronizer_parameters.proto";
 import "com/digitalasset/canton/protocol/v30/topology.proto";
 import "com/digitalasset/canton/topology/admin/v30/topology_ext.proto";
 import "google/protobuf/empty.proto";
@@ -19,16 +19,16 @@ service TopologyManagerReadService {
   rpc ListOwnerToKeyMapping(ListOwnerToKeyMappingRequest) returns (ListOwnerToKeyMappingResponse);
   rpc ListPartyToKeyMapping(ListPartyToKeyMappingRequest) returns (ListPartyToKeyMappingResponse);
 
-  rpc ListDomainTrustCertificate(ListDomainTrustCertificateRequest) returns (ListDomainTrustCertificateResponse);
-  rpc ListParticipantDomainPermission(ListParticipantDomainPermissionRequest) returns (ListParticipantDomainPermissionResponse);
+  rpc ListSynchronizerTrustCertificate(ListSynchronizerTrustCertificateRequest) returns (ListSynchronizerTrustCertificateResponse);
+  rpc ListParticipantSynchronizerPermission(ListParticipantSynchronizerPermissionRequest) returns (ListParticipantSynchronizerPermissionResponse);
   rpc ListPartyHostingLimits(ListPartyHostingLimitsRequest) returns (ListPartyHostingLimitsResponse);
   rpc ListVettedPackages(ListVettedPackagesRequest) returns (ListVettedPackagesResponse);
 
   rpc ListPartyToParticipant(ListPartyToParticipantRequest) returns (ListPartyToParticipantResponse);
 
-  rpc ListDomainParametersState(ListDomainParametersStateRequest) returns (ListDomainParametersStateResponse);
-  rpc ListMediatorDomainState(ListMediatorDomainStateRequest) returns (ListMediatorDomainStateResponse);
-  rpc ListSequencerDomainState(ListSequencerDomainStateRequest) returns (ListSequencerDomainStateResponse);
+  rpc ListSynchronizerParametersState(ListSynchronizerParametersStateRequest) returns (ListSynchronizerParametersStateResponse);
+  rpc ListMediatorSynchronizerState(ListMediatorSynchronizerStateRequest) returns (ListMediatorSynchronizerStateResponse);
+  rpc ListSequencerSynchronizerState(ListSequencerSynchronizerStateRequest) returns (ListSequencerSynchronizerStateResponse);
 
   rpc ListPurgeTopologyTransaction(ListPurgeTopologyTransactionRequest) returns (ListPurgeTopologyTransactionResponse);
 
@@ -67,13 +67,13 @@ message BaseQuery {
 message Store {
   message Authorized {}
 
-  message Domain {
+  message Synchronizer {
     string id = 1;
   }
 
   oneof store {
     Authorized authorized = 1;
-    Domain domain = 2;
+    Synchronizer synchronizer = 2;
   }
 }
 
@@ -156,28 +156,28 @@ message ListPartyToKeyMappingResponse {
   repeated Result results = 1;
 }
 
-message ListDomainTrustCertificateRequest {
+message ListSynchronizerTrustCertificateRequest {
   BaseQuery base_query = 1;
   string filter_uid = 2;
 }
 
-message ListDomainTrustCertificateResponse {
+message ListSynchronizerTrustCertificateResponse {
   message Result {
     BaseResult context = 1;
-    com.digitalasset.canton.protocol.v30.DomainTrustCertificate item = 2;
+    com.digitalasset.canton.protocol.v30.SynchronizerTrustCertificate item = 2;
   }
   repeated Result results = 1;
 }
 
-message ListParticipantDomainPermissionRequest {
+message ListParticipantSynchronizerPermissionRequest {
   BaseQuery base_query = 1;
   string filter_uid = 2;
 }
 
-message ListParticipantDomainPermissionResponse {
+message ListParticipantSynchronizerPermissionResponse {
   message Result {
     BaseResult context = 1;
-    com.digitalasset.canton.protocol.v30.ParticipantDomainPermission item = 2;
+    com.digitalasset.canton.protocol.v30.ParticipantSynchronizerPermission item = 2;
   }
   repeated Result results = 1;
 }
@@ -221,48 +221,48 @@ message ListPartyToParticipantResponse {
   repeated Result results = 2;
 }
 
-message ListDomainParametersStateRequest {
+message ListSynchronizerParametersStateRequest {
   BaseQuery base_query = 1;
-  string filter_domain = 2;
+  string filter_synchronizer_id = 2;
 }
 
-message ListDomainParametersStateResponse {
+message ListSynchronizerParametersStateResponse {
   message Result {
     BaseResult context = 1;
-    com.digitalasset.canton.protocol.v30.DynamicDomainParameters item = 2;
+    com.digitalasset.canton.protocol.v30.DynamicSynchronizerParameters item = 2;
   }
   repeated Result results = 1;
 }
 
-message ListMediatorDomainStateRequest {
+message ListMediatorSynchronizerStateRequest {
   BaseQuery base_query = 1;
-  string filter_domain = 2;
+  string filter_synchronizer_id = 2;
 }
 
-message ListMediatorDomainStateResponse {
+message ListMediatorSynchronizerStateResponse {
   message Result {
     BaseResult context = 1;
-    com.digitalasset.canton.protocol.v30.MediatorDomainState item = 2;
+    com.digitalasset.canton.protocol.v30.MediatorSynchronizerState item = 2;
   }
   repeated Result results = 1;
 }
 
-message ListSequencerDomainStateRequest {
+message ListSequencerSynchronizerStateRequest {
   BaseQuery base_query = 1;
-  string filter_domain = 2;
+  string filter_synchronizer_id = 2;
 }
 
-message ListSequencerDomainStateResponse {
+message ListSequencerSynchronizerStateResponse {
   message Result {
     BaseResult context = 1;
-    com.digitalasset.canton.protocol.v30.SequencerDomainState item = 2;
+    com.digitalasset.canton.protocol.v30.SequencerSynchronizerState item = 2;
   }
   repeated Result results = 1;
 }
 
 message ListPurgeTopologyTransactionRequest {
   BaseQuery base_query = 1;
-  string filter_domain = 2;
+  string filter_synchronizer_id = 2;
 }
 
 message ListPurgeTopologyTransactionResponse {
@@ -302,7 +302,7 @@ message ExportTopologySnapshotResponse {
 
 message GenesisStateRequest {
   // Must be specified if the genesis state is requested from a participant node.
-  Store filter_domain_store = 1;
+  Store filter_synchronizer_store = 1;
   // Optional - the effective time used to fetch the topology transactions. If not provided the effective time of the last topology transaction is used.
   google.protobuf.Timestamp timestamp = 2;
 }

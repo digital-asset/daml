@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store.db
@@ -64,7 +64,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
 
   private implicit val getResultSignedTopologyTransaction
       : GetResult[GenericSignedTopologyTransaction] =
-    SignedTopologyTransaction.createGetResultDomainTopologyTransaction
+    SignedTopologyTransaction.createGetResultSynchronizerTopologyTransaction
 
   protected val transactionStoreIdName: LengthLimitedString = storeId.dbString
 
@@ -309,10 +309,10 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
             ++ sql")"
         )
         ++ sql" OR "
-        // DomainTrustCertificate filtering
+        // SynchronizerTrustCertificate filtering
         ++ Seq(
-          sql"(transaction_type = ${DomainTrustCertificate.code}"
-          // In DomainTrustCertificate part of the filter, compare not only to participant, but also to party identifier
+          sql"(transaction_type = ${SynchronizerTrustCertificate.code}"
+          // In SynchronizerTrustCertificate part of the filter, compare not only to participant, but also to party identifier
           // to enable searching for the admin party
             ++ conditionalAppend(filterParty, sqlPartyIdentifier, sqlPartyNS)
             ++ conditionalAppend(filterParticipant, sqlParticipantIdentifier, sqlParticipantNS)
@@ -331,7 +331,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
                       .matchesPrefixes(prefixParticipantIdentifier, prefixParticipantNS)
                   ) =>
               Set(ptp.partyId)
-            case cert: DomainTrustCertificate
+            case cert: SynchronizerTrustCertificate
                 if filterParty.isEmpty || cert.participantId.adminParty.uid
                   .matchesPrefixes(prefixPartyIdentifier, prefixPartyNS) =>
               Set(cert.participantId.adminParty)
@@ -360,20 +360,22 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
 
   override def findFirstSequencerStateForSequencer(sequencerId: SequencerId)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[StoredTopologyTransaction[Replace, SequencerDomainState]]] = {
+  ): FutureUnlessShutdown[
+    Option[StoredTopologyTransaction[Replace, SequencerSynchronizerState]]
+  ] = {
     logger.debug(s"Querying first sequencer state for $sequencerId")
 
     queryForTransactions(
-      // We don't expect too many MediatorDomainState mappings in a single domain, so fetching them all from the db
+      // We don't expect too many MediatorSynchronizerState mappings in a single synchronizer, so fetching them all from the db
       // is acceptable and also because we don't expect to run this query frequently. We can only evaluate the
       // `mediatorId` field locally as the mediator-id is not exposed in a separate column.
       sql" AND is_proposal = false" ++
         sql" AND operation = ${TopologyChangeOp.Replace}" ++
-        sql" AND transaction_type = ${SequencerDomainState.code}",
+        sql" AND transaction_type = ${SequencerSynchronizerState.code}",
       orderBy = " ORDER BY serial_counter ",
       operation = "firstSequencerState",
     ).map(
-      _.collectOfMapping[SequencerDomainState]
+      _.collectOfMapping[SequencerSynchronizerState]
         .collectOfType[Replace]
         .result
         .find {
@@ -384,20 +386,20 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
 
   override def findFirstMediatorStateForMediator(mediatorId: MediatorId)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[StoredTopologyTransaction[Replace, MediatorDomainState]]] = {
+  ): FutureUnlessShutdown[Option[StoredTopologyTransaction[Replace, MediatorSynchronizerState]]] = {
     logger.debug(s"Querying first mediator state for $mediatorId")
 
     queryForTransactions(
-      // We don't expect too many MediatorDomainState mappings in a single domain, so fetching them all from the db
+      // We don't expect too many MediatorSynchronizerState mappings in a single synchronizer, so fetching them all from the db
       // is acceptable and also because we don't expect to run this query frequently. We can only evaluate the
       // `mediatorId` field locally as the mediator-id is not exposed in a separate column.
       sql" AND is_proposal = false" ++
         sql" AND operation = ${TopologyChangeOp.Replace}" ++
-        sql" AND transaction_type = ${MediatorDomainState.code}",
+        sql" AND transaction_type = ${MediatorSynchronizerState.code}",
       orderBy = " ORDER BY serial_counter ",
       operation = "firstMediatorState",
     ).map(
-      _.collectOfMapping[MediatorDomainState]
+      _.collectOfMapping[MediatorSynchronizerState]
         .collectOfType[Replace]
         .result
         .find(tx =>
@@ -409,19 +411,21 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
 
   override def findFirstTrustCertificateForParticipant(participant: ParticipantId)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[StoredTopologyTransaction[Replace, DomainTrustCertificate]]] = {
+  ): FutureUnlessShutdown[
+    Option[StoredTopologyTransaction[Replace, SynchronizerTrustCertificate]]
+  ] = {
     logger.debug(s"Querying first trust certificate for participant $participant")
 
     queryForTransactions(
       sql" AND is_proposal = false" ++
         sql" AND operation = ${TopologyChangeOp.Replace}" ++
-        sql" AND transaction_type = ${DomainTrustCertificate.code}" ++
+        sql" AND transaction_type = ${SynchronizerTrustCertificate.code}" ++
         sql" AND identifier = ${participant.identifier} AND namespace = ${participant.namespace}",
       limit = storage.limit(1),
       orderBy = " ORDER BY serial_counter ",
       operation = "participantFirstTrustCertificate",
     ).map(
-      _.collectOfMapping[DomainTrustCertificate]
+      _.collectOfMapping[SynchronizerTrustCertificate]
         .collectOfType[Replace]
         .result
         .headOption
@@ -456,7 +460,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
   protected def doFindCurrentAndUpcomingChangeDelays(sequencedTime: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Iterable[GenericStoredTopologyTransaction]] = queryForTransactions(
-    sql""" AND transaction_type = ${DomainParametersState.code}
+    sql""" AND transaction_type = ${SynchronizerParametersState.code}
              AND (valid_from >= $sequencedTime OR valid_until is NULL OR valid_until >= $sequencedTime)
              AND (valid_until is NULL or valid_from != valid_until)
              AND sequenced < $sequencedTime
@@ -471,7 +475,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[TopologyStore.Change.TopologyDelay]] =
     queryForTransactions(
-      sql" AND transaction_type = ${DomainParametersState.code} AND $validUntilMinInclusive <= valid_until AND valid_until < $validUntilMaxExclusive AND is_proposal = false ",
+      sql" AND transaction_type = ${SynchronizerParametersState.code} AND $validUntilMinInclusive <= valid_until AND valid_until < $validUntilMaxExclusive AND is_proposal = false ",
       operation = functionFullName,
     ).map(_.result.mapFilter(TopologyStore.Change.selectTopologyDelay))
 
@@ -539,12 +543,12 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
 
   override def findParticipantOnboardingTransactions(
       participantId: ParticipantId,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]] = {
     logger.debug(
-      s"Querying participant onboarding transactions for participant $participantId on domain $domainId"
+      s"Querying participant onboarding transactions for participant $participantId on synchronizer $synchronizerId"
     )
 
     for {
@@ -557,7 +561,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       )
       filteredTransactions = TopologyStore.filterInitialParticipantDispatchingTransactions(
         participantId,
-        domainId,
+        synchronizerId,
         transactions.result,
       )
     } yield filteredTransactions

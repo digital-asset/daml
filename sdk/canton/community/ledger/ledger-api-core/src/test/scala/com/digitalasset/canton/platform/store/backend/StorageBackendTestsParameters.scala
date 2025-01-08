@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
@@ -36,32 +36,36 @@ private[backend] trait StorageBackendTestsParameters
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(backend.parameter.ledgerEnd) shouldBe LedgerEnd.beforeBegin
     executeSql(
-      backend.parameter.cleanDomainIndex(StorageBackendTestValues.someDomainId)
+      backend.parameter.cleanDomainIndex(StorageBackendTestValues.someSynchronizerId)
     ) shouldBe None
-    val someDomainIdInterned =
-      backend.stringInterningSupport.domainId.internalize(StorageBackendTestValues.someDomainId)
+    val someSynchronizerIdInterned =
+      backend.stringInterningSupport.synchronizerId.internalize(
+        StorageBackendTestValues.someSynchronizerId
+      )
     executeSql(connection =>
       ingest(
         Vector(
           DbDto.StringInterningDto(
-            someDomainIdInterned,
-            "d|" + StorageBackendTestValues.someDomainId.toProtoPrimitive,
+            someSynchronizerIdInterned,
+            "d|" + StorageBackendTestValues.someSynchronizerId.toProtoPrimitive,
           )
         ),
         connection,
       )
     )
     executeSql(
-      backend.parameter.cleanDomainIndex(StorageBackendTestValues.someDomainId2)
+      backend.parameter.cleanDomainIndex(StorageBackendTestValues.someSynchronizerId2)
     ) shouldBe None
-    val someDomainIdInterned2 =
-      backend.stringInterningSupport.domainId.internalize(StorageBackendTestValues.someDomainId2)
+    val someSynchronizerIdInterned2 =
+      backend.stringInterningSupport.synchronizerId.internalize(
+        StorageBackendTestValues.someSynchronizerId2
+      )
     executeSql(connection =>
       ingest(
         Vector(
           DbDto.StringInterningDto(
-            someDomainIdInterned2,
-            "d|" + StorageBackendTestValues.someDomainId2.toProtoPrimitive,
+            someSynchronizerIdInterned2,
+            "d|" + StorageBackendTestValues.someSynchronizerId2.toProtoPrimitive,
           )
         ),
         connection,
@@ -78,7 +82,7 @@ private[backend] trait StorageBackendTestsParameters
           lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(10),
         ),
         lastDomainIndex = Map(
-          StorageBackendTestValues.someDomainId -> someDomainIndex
+          StorageBackendTestValues.someSynchronizerId -> someDomainIndex
         ),
       )
     )
@@ -91,7 +95,7 @@ private[backend] trait StorageBackendTestsParameters
       )
     )
     val resultDomainIndex = executeSql(
-      backend.parameter.cleanDomainIndex(StorageBackendTestValues.someDomainId)
+      backend.parameter.cleanDomainIndex(StorageBackendTestValues.someSynchronizerId)
     )
     resultDomainIndex.value.requestIndex shouldBe someDomainIndex.requestIndex
     resultDomainIndex.value.sequencerIndex shouldBe someDomainIndex.sequencerIndex
@@ -120,8 +124,8 @@ private[backend] trait StorageBackendTestsParameters
           lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(100),
         ),
         lastDomainIndex = Map(
-          StorageBackendTestValues.someDomainId -> someDomainIndexSecond,
-          StorageBackendTestValues.someDomainId2 -> someDomainIndex2,
+          StorageBackendTestValues.someSynchronizerId -> someDomainIndexSecond,
+          StorageBackendTestValues.someSynchronizerId2 -> someDomainIndex2,
         ),
       )
     )
@@ -134,12 +138,12 @@ private[backend] trait StorageBackendTestsParameters
       )
     )
     val resultDomainIndexSecond = executeSql(
-      backend.parameter.cleanDomainIndex(StorageBackendTestValues.someDomainId)
+      backend.parameter.cleanDomainIndex(StorageBackendTestValues.someSynchronizerId)
     )
     resultDomainIndexSecond.value.requestIndex shouldBe someDomainIndexSecond.requestIndex
     resultDomainIndexSecond.value.sequencerIndex shouldBe someDomainIndex.sequencerIndex
     val resultDomainIndexSecond2 = executeSql(
-      backend.parameter.cleanDomainIndex(StorageBackendTestValues.someDomainId2)
+      backend.parameter.cleanDomainIndex(StorageBackendTestValues.someSynchronizerId2)
     )
     resultDomainIndexSecond.value.recordTime shouldBe someDomainIndexSecond.recordTime
     resultDomainIndexSecond2.value.requestIndex shouldBe None
@@ -159,7 +163,7 @@ private[backend] trait StorageBackendTestsParameters
           lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(200),
         ),
         lastDomainIndex = Map(
-          StorageBackendTestValues.someDomainId -> someDomainIndexThird
+          StorageBackendTestValues.someSynchronizerId -> someDomainIndexThird
         ),
       )
     )
@@ -172,7 +176,7 @@ private[backend] trait StorageBackendTestsParameters
       )
     )
     val resultDomainIndexThird = executeSql(
-      backend.parameter.cleanDomainIndex(StorageBackendTestValues.someDomainId)
+      backend.parameter.cleanDomainIndex(StorageBackendTestValues.someSynchronizerId)
     )
     resultDomainIndexThird.value.requestIndex shouldBe someDomainIndexSecond.requestIndex
     resultDomainIndexThird.value.sequencerIndex shouldBe someDomainIndex.sequencerIndex

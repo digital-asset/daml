@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.validation
@@ -8,10 +8,10 @@ import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.{
-  DomainSnapshotSyncCryptoApi,
   Hash,
   InteractiveSubmission,
   Signature,
+  SynchronizerSnapshotSyncCryptoApi,
 }
 import com.digitalasset.canton.data.{
   FullReassignmentViewTree,
@@ -33,7 +33,7 @@ import com.digitalasset.canton.participant.protocol.validation.AuthenticationErr
 import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.LazyAsyncReInterpretation
 import com.digitalasset.canton.participant.util.DAMLe.TransactionEnricher
 import com.digitalasset.canton.protocol.{ExternalAuthorization, RequestId}
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.ProtocolVersion
@@ -44,7 +44,7 @@ private[protocol] object AuthenticationValidator {
   def verifyViewSignatures(
       parsedRequest: ParsedTransactionRequest,
       reInterpretedTopLevelViewsEval: LazyAsyncReInterpretation,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       protocolVersion: ProtocolVersion,
       transactionEnricher: TransactionEnricher,
       logger: TracedLogger,
@@ -73,7 +73,7 @@ private[protocol] object AuthenticationValidator {
                 protocolVersion = protocolVersion,
                 reInterpretedTopLevelViews = reInterpretedTopLevelViewsEval,
                 requestId = parsedRequest.requestId,
-                domainId = domainId,
+                synchronizerId = synchronizerId,
                 transactionEnricher = transactionEnricher,
                 logger = logger,
               )
@@ -97,7 +97,7 @@ private[protocol] object AuthenticationValidator {
 
   private def verifyParticipantSignature(
       requestId: RequestId,
-      snapshot: DomainSnapshotSyncCryptoApi,
+      snapshot: SynchronizerSnapshotSyncCryptoApi,
       view: ViewTree,
       signatureO: Option[Signature],
       submittingParticipant: ParticipantId,
@@ -150,10 +150,10 @@ private[protocol] object AuthenticationValidator {
   def verifyExternalPartySignature(
       viewTree: FullTransactionViewTree,
       submitterMetadata: SubmitterMetadata,
-      topology: DomainSnapshotSyncCryptoApi,
+      topology: SynchronizerSnapshotSyncCryptoApi,
       protocolVersion: ProtocolVersion,
       reInterpretedTopLevelViews: LazyAsyncReInterpretation,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       transactionEnricher: TransactionEnricher,
       requestId: RequestId,
       logger: TracedLogger,
@@ -186,7 +186,7 @@ private[protocol] object AuthenticationValidator {
                   submitterMetadata.commandId.unwrap,
                   viewTree.transactionUuid,
                   viewTree.mediator.group.value,
-                  domainId,
+                  synchronizerId,
                   protocolVersion,
                   transactionEnricher,
                 )

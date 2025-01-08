@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store.db
@@ -136,7 +136,7 @@ class DbPartyMetadataStore(
   private def dbValue(participantId: Option[ParticipantId]): Option[String300] =
     participantId.map(_.uid.toLengthLimitedString.asString300)
 
-  /** mark the given metadata has having been successfully forwarded to the domain */
+  /** mark the given metadata has having been successfully forwarded to the synchronizer */
   override def markNotified(
       effectiveAt: CantonTimestamp,
       partyIds: Seq[PartyId],

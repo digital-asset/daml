@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
@@ -14,7 +14,7 @@ import com.digitalasset.canton.pruning.{
   ConfigForSlowCounterParticipants,
 }
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
@@ -39,7 +39,7 @@ trait AcsCommitmentSlowCounterParticipantConfigStore {
   /** remove all slow configurations for the given domains.
     * if the sequence of domains is empty, then everything is purged.
     */
-  def clearSlowCounterParticipants(domainIds: Seq[DomainId])(implicit
+  def clearSlowCounterParticipants(synchronizerIds: Seq[SynchronizerId])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 }
@@ -57,15 +57,18 @@ trait AcsCommitmentNoWaitCounterParticipantConfigStore {
     * if participants are empty then given domains have all values removed.
     * if both are empty then everything is removed.
     */
-  def removeNoWaitCounterParticipant(domains: Seq[DomainId], participants: Seq[ParticipantId])(
-      implicit traceContext: TraceContext
+  def removeNoWaitCounterParticipant(
+      domains: Seq[SynchronizerId],
+      participants: Seq[ParticipantId],
+  )(implicit
+      traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 
   /** get all active no wait configurations, with possibility to filter by domains and participants.
     * if no filter is applied all active no waits are returned.
     */
   def getAllActiveNoWaitCounterParticipants(
-      filterDomains: Seq[DomainId],
+      filterDomains: Seq[SynchronizerId],
       filterParticipants: Seq[ParticipantId],
   )(implicit
       traceContext: TraceContext

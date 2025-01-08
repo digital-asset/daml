@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.conflictdetection
@@ -26,7 +26,7 @@ import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.{
@@ -64,7 +64,7 @@ private[protocol] trait ConflictDetectionHelpers {
   def mkReassignmentCache(
       loggerFactory: NamedLoggerFactory,
       store: ReassignmentStore = new InMemoryReassignmentStore(
-        ReassignmentStoreTest.targetDomainId,
+        ReassignmentStoreTest.targetSynchronizerId,
         loggerFactory,
       ),
   )(
@@ -75,7 +75,7 @@ private[protocol] trait ConflictDetectionHelpers {
         val reassignmentData = ReassignmentStoreTest.mkReassignmentDataForDomain(
           reassignmentId,
           sourceMediator,
-          targetDomainId = ReassignmentStoreTest.targetDomainId,
+          targetSynchronizerId = ReassignmentStoreTest.targetSynchronizerId,
         )
 
         for {
@@ -195,7 +195,7 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
   def mkCommitSet(
       arch: Set[LfContractId] = Set.empty,
       create: Set[LfContractId] = Set.empty,
-      unassign: Map[LfContractId, (DomainId, ReassignmentCounter)] = Map.empty,
+      unassign: Map[LfContractId, (SynchronizerId, ReassignmentCounter)] = Map.empty,
       assign: Map[LfContractId, ReassignmentId] = Map.empty,
   ): CommitSet =
     CommitSet(

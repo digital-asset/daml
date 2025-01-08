@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.memory
@@ -37,7 +37,7 @@ import com.digitalasset.canton.protocol.ContractIdSyntax.*
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.store.memory.InMemoryPrunableByTime
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
@@ -138,8 +138,8 @@ class InMemoryActiveContractStore(
         case assignment: ActivenessChangeDetail.Assignment =>
           FutureUnlessShutdown.pure(Active(assignment.reassignmentCounter))
         case unassignment: ActivenessChangeDetail.Unassignment =>
-          domainIdFromIdxFUS(unassignment.remoteDomainIdx).map(domainId =>
-            ReassignedAway(Target(domainId), unassignment.reassignmentCounter)
+          synchronizerIdFromIdxFUS(unassignment.remoteSynchronizerIdx).map(synchronizerId =>
+            ReassignedAway(Target(synchronizerId), unassignment.reassignmentCounter)
           )
 
         case ActivenessChangeDetail.Purge => FutureUnlessShutdown.pure(Purged)
@@ -244,7 +244,7 @@ class InMemoryActiveContractStore(
 
   private def prepareReassignments(
       reassignments: Seq[
-        (LfContractId, ReassignmentTag[DomainId], ReassignmentCounter, TimeOfChange)
+        (LfContractId, ReassignmentTag[SynchronizerId], ReassignmentCounter, TimeOfChange)
       ]
   ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Seq[
     (LfContractId, Int, ReassignmentCounter, TimeOfChange)
@@ -261,7 +261,7 @@ class InMemoryActiveContractStore(
         domainIndices
           .get(remoteDomain.unwrap)
           .toRight[AcsError](UnableToFindIndex(remoteDomain.unwrap))
-          .map(domainIdx => (cid, domainIdx.index, reassignmentCounter, toc))
+          .map(synchronizerIdx => (cid, synchronizerIdx.index, reassignmentCounter, toc))
       }
 
       preparedReassignments <- CheckedT.fromChecked(
@@ -276,7 +276,7 @@ class InMemoryActiveContractStore(
   }
 
   override def assignContracts(
-      assignments: Seq[(LfContractId, Source[DomainId], ReassignmentCounter, TimeOfChange)]
+      assignments: Seq[(LfContractId, Source[SynchronizerId], ReassignmentCounter, TimeOfChange)]
   )(implicit
       traceContext: TraceContext
   ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] = {
@@ -295,7 +295,7 @@ class InMemoryActiveContractStore(
   }
 
   override def unassignContracts(
-      unassignments: Seq[(LfContractId, Target[DomainId], ReassignmentCounter, TimeOfChange)]
+      unassignments: Seq[(LfContractId, Target[SynchronizerId], ReassignmentCounter, TimeOfChange)]
   )(implicit
       traceContext: TraceContext
   ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] = {
@@ -499,17 +499,23 @@ object InMemoryActiveContractStore {
       Deactivation(toc) -> ActivenessChangeDetail.Purge
     def assign(
         toc: TimeOfChange,
-        remoteDomainIdx: Int,
+        remoteSynchronizerIdx: Int,
         reassignmentCounter: ReassignmentCounter,
     ): IndividualChange =
-      Activation(toc) -> ActivenessChangeDetail.Assignment(reassignmentCounter, remoteDomainIdx)
+      Activation(toc) -> ActivenessChangeDetail.Assignment(
+        reassignmentCounter,
+        remoteSynchronizerIdx,
+      )
 
     def unassign(
         toc: TimeOfChange,
-        remoteDomainIdx: Int,
+        remoteSynchronizerIdx: Int,
         reassignmentCounter: ReassignmentCounter,
     ): IndividualChange =
-      Deactivation(toc) -> ActivenessChangeDetail.Unassignment(reassignmentCounter, remoteDomainIdx)
+      Deactivation(toc) -> ActivenessChangeDetail.Unassignment(
+        reassignmentCounter,
+        remoteSynchronizerIdx,
+      )
   }
 
   final case class ActivenessChange(toc: TimeOfChange, isActivation: Boolean) {
@@ -611,13 +617,13 @@ object InMemoryActiveContractStore {
     private[InMemoryActiveContractStore] def addAssignment(
         contractId: LfContractId,
         toc: TimeOfChange,
-        sourceDomainIdx: Int,
+        sourceSynchronizerIdx: Int,
         reassignmentCounter: ReassignmentCounter,
     ): Checked[AcsError, AcsWarning, ContractStatus] =
       for {
         nextChanges <- addIndividualChange(
           contractId,
-          IndividualChange.assign(toc, sourceDomainIdx, reassignmentCounter),
+          IndividualChange.assign(toc, sourceSynchronizerIdx, reassignmentCounter),
         )
         _ <- checkReassignmentCounterIncreases(
           contractId,
@@ -631,13 +637,13 @@ object InMemoryActiveContractStore {
     private[InMemoryActiveContractStore] def addUnassignment(
         contractId: LfContractId,
         toc: TimeOfChange,
-        targetDomainIdx: Int,
+        targetSynchronizerIdx: Int,
         reassignmentCounter: ReassignmentCounter,
     ): Checked[AcsError, AcsWarning, ContractStatus] =
       for {
         nextChanges <- addIndividualChange(
           contractId,
-          IndividualChange.unassign(toc, targetDomainIdx, reassignmentCounter),
+          IndividualChange.unassign(toc, targetSynchronizerIdx, reassignmentCounter),
         )
         _ <-
           checkReassignmentCounterIncreases(

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin
@@ -18,7 +18,7 @@ import com.digitalasset.canton.participant.admin.PingServiceTest.RequestResponse
 import com.digitalasset.canton.participant.admin.workflows.java.canton.internal as M
 import com.digitalasset.canton.participant.ledger.api.client.CommandResult
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, SimClock}
-import com.digitalasset.canton.topology.{DefaultTestIdentities, DomainId, PartyId}
+import com.digitalasset.canton.topology.{DefaultTestIdentities, PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, Spanning, TraceContext}
 import com.digitalasset.canton.{BaseTestWordSpec, HasExecutionContext}
 import com.google.rpc.status.Status
@@ -81,7 +81,7 @@ class PingServiceTest extends BaseTestWordSpec with HasExecutionContext {
         id: PingId,
         action: String,
         cmds: Seq[Command],
-        domainId: Option[DomainId],
+        synchronizerId: Option[SynchronizerId],
         workflowId: Option[WorkflowId],
         deduplicationDuration: NonNegativeFiniteDuration,
         timeout: NonNegativeFiniteDuration,
@@ -124,7 +124,7 @@ class PingServiceTest extends BaseTestWordSpec with HasExecutionContext {
         Seq(
           service.pingCreated(
             PingService
-              .TxContext(DefaultTestIdentities.domainId, workflowId, effectiveAt = clock.now),
+              .TxContext(DefaultTestIdentities.synchronizerId, workflowId, effectiveAt = clock.now),
             contract,
           )
         )
@@ -150,7 +150,7 @@ class PingServiceTest extends BaseTestWordSpec with HasExecutionContext {
         Seq(
           service.bongCreated(
             PingService
-              .TxContext(DefaultTestIdentities.domainId, workflowId, effectiveAt = clock.now),
+              .TxContext(DefaultTestIdentities.synchronizerId, workflowId, effectiveAt = clock.now),
             contract,
           )
         )

@@ -39,11 +39,10 @@ public interface UpdateClient {
       boolean verbose,
       String accessToken);
 
-  Single<TransactionTree> getTransactionTreeByEventId(
-      String eventId, Set<String> requestingParties);
+  Single<TransactionTree> getTransactionTreeByOffset(Long offset, Set<String> requestingParties);
 
-  Single<TransactionTree> getTransactionTreeByEventId(
-      String eventId, Set<String> requestingParties, String accessToken);
+  Single<TransactionTree> getTransactionTreeByOffset(
+      Long offset, Set<String> requestingParties, String accessToken);
 
   Single<TransactionTree> getTransactionTreeById(
       String transactionId, Set<String> requestingParties);
@@ -51,10 +50,10 @@ public interface UpdateClient {
   Single<TransactionTree> getTransactionTreeById(
       String transactionId, Set<String> requestingParties, String accessToken);
 
-  Single<Transaction> getTransactionByEventId(String eventId, Set<String> requestingParties);
+  Single<Transaction> getTransactionByOffset(Long offset, Set<String> requestingParties);
 
-  Single<Transaction> getTransactionByEventId(
-      String eventId, Set<String> requestingParties, String accessToken);
+  Single<Transaction> getTransactionByOffset(
+      Long offset, Set<String> requestingParties, String accessToken);
 
   Single<Transaction> getTransactionById(String transactionId, Set<String> requestingParties);
 

@@ -22,7 +22,7 @@ trait DataLayerHelpers {
       ContractEntry.ActiveContract(
         new ActiveContract(
           createdEvent = TransactionGenerator.createdEventGen.sample.map(_._1.value),
-          domainId = "someDomain",
+          synchronizerId = "someSynchronizer",
           reassignmentCounter = 0,
         )
       ),
@@ -35,13 +35,13 @@ trait DataLayerHelpers {
 
   def genCommands(
       commands: List[Command],
-      domainId: Option[String] = None,
+      synchronizerId: Option[String] = None,
   ): CommandsSubmission = {
     CommandsSubmission
       .create(
         "applicationId",
         "commandId",
-        domainId.getOrElse("domainId"),
+        synchronizerId.getOrElse("synchronizerId"),
         commands.asJava,
       )
       .withWorkflowId("workflowId")

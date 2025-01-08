@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -9,10 +9,10 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.DecryptionError.FailedToDecrypt
 import com.digitalasset.canton.crypto.SyncCryptoError.SyncCryptoDecryptionError
 import com.digitalasset.canton.crypto.{
-  DomainSnapshotSyncCryptoApi,
   Hash,
   HashOps,
   Signature,
+  SynchronizerSnapshotSyncCryptoApi,
   TestHash,
 }
 import com.digitalasset.canton.data.*
@@ -42,7 +42,7 @@ import com.digitalasset.canton.participant.store.{
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessageError.SyncCryptoDecryptError
 import com.digitalasset.canton.protocol.{
-  DynamicDomainParametersWithValidity,
+  DynamicSynchronizerParametersWithValidity,
   RootHash,
   ViewHash,
   v30,
@@ -50,7 +50,12 @@ import com.digitalasset.canton.protocol.{
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
-import com.digitalasset.canton.topology.{DefaultTestIdentities, DomainId, Member, ParticipantId}
+import com.digitalasset.canton.topology.{
+  DefaultTestIdentities,
+  Member,
+  ParticipantId,
+  SynchronizerId,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.HasToByteString
 import com.digitalasset.canton.{BaseTest, LfPartyId, RequestCounter, SequencerCounter}
@@ -121,7 +126,7 @@ class TestProcessingSteps(
       submissionParam: Int,
       mediator: MediatorGroupRecipient,
       ephemeralState: SyncDomainEphemeralStateLookup,
-      recentSnapshot: DomainSnapshotSyncCryptoApi,
+      recentSnapshot: SynchronizerSnapshotSyncCryptoApi,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TestProcessingError, Submission] = {
@@ -158,7 +163,7 @@ class TestProcessingSteps(
 
   override def decryptViews(
       batch: NonEmpty[Seq[OpenEnvelope[EncryptedViewMessage[TestViewType]]]],
-      snapshot: DomainSnapshotSyncCryptoApi,
+      snapshot: SynchronizerSnapshotSyncCryptoApi,
       sessionKeyStore: ConfirmationRequestSessionKeyStore,
   )(implicit
       traceContext: TraceContext
@@ -203,8 +208,8 @@ class TestProcessingSteps(
       isFreshOwnTimelyRequest: Boolean,
       malformedPayloads: Seq[ProtocolProcessor.MalformedPayload],
       mediator: MediatorGroupRecipient,
-      snapshot: DomainSnapshotSyncCryptoApi,
-      domainParameters: DynamicDomainParametersWithValidity,
+      snapshot: SynchronizerSnapshotSyncCryptoApi,
+      domainParameters: DynamicSynchronizerParametersWithValidity,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[TestParsedRequest] =
     FutureUnlessShutdown.pure(
       TestParsedRequest(
@@ -322,7 +327,7 @@ object TestProcessingSteps {
       rootHash: RootHash,
       informees: Set[LfPartyId] = Set.empty,
       viewPosition: ViewPosition = ViewPosition(List(MerkleSeqIndex(List.empty))),
-      domainId: DomainId = DefaultTestIdentities.domainId,
+      synchronizerId: SynchronizerId = DefaultTestIdentities.synchronizerId,
       mediator: MediatorGroupRecipient = MediatorGroupRecipient(MediatorGroupIndex.zero),
   ) extends ViewTree
       with HasToByteString {
@@ -349,10 +354,10 @@ object TestProcessingSteps {
       override val requestTimestamp: CantonTimestamp,
       override val sc: SequencerCounter,
       override val malformedPayloads: Seq[ProtocolProcessor.MalformedPayload],
-      override val snapshot: DomainSnapshotSyncCryptoApi,
+      override val snapshot: SynchronizerSnapshotSyncCryptoApi,
       override val mediator: MediatorGroupRecipient,
       override val isFreshOwnTimelyRequest: Boolean,
-      override val domainParameters: DynamicDomainParametersWithValidity,
+      override val domainParameters: DynamicSynchronizerParametersWithValidity,
   ) extends ParsedRequest[TestViewType.ViewSubmitterMetadata] {
     override def submitterMetadataO: None.type = None
     override def rootHash: RootHash = TestHash.dummyRootHash

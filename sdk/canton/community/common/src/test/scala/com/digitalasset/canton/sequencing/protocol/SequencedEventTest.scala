@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.protocol
@@ -11,7 +11,7 @@ import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.DefaultTestIdentities
-import com.digitalasset.canton.topology.DefaultTestIdentities.domainId
+import com.digitalasset.canton.topology.DefaultTestIdentities.synchronizerId
 import com.digitalasset.canton.version.v1.UntypedVersionedMessage
 import com.digitalasset.canton.{BaseTestWordSpec, SequencerCounter}
 import com.google.protobuf.ByteString
@@ -24,7 +24,7 @@ class SequencedEventTest extends BaseTestWordSpec {
       val message =
         SignedProtocolMessage.from(
           ConfirmationResultMessage.create(
-            domainId,
+            synchronizerId,
             ViewType.UnassignmentViewType,
             RequestId(CantonTimestamp.now()),
             TestHash.dummyRootHash,
@@ -43,7 +43,7 @@ class SequencedEventTest extends BaseTestWordSpec {
         Deliver.create[DefaultOpenEnvelope](
           SequencerCounter(42),
           CantonTimestamp.now(),
-          domainId,
+          synchronizerId,
           Some(MessageId.tryCreate("some-message-id")),
           batch,
           Some(CantonTimestamp.ofEpochSecond(1)),
@@ -61,7 +61,7 @@ class SequencedEventTest extends BaseTestWordSpec {
       val deliverError: DeliverError = DeliverError.create(
         SequencerCounter(42),
         CantonTimestamp.now(),
-        domainId,
+        synchronizerId,
         MessageId.tryCreate("some-message-id"),
         SequencerErrors.SubmissionRequestRefused("no batches here please"),
         testedProtocolVersion,

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -24,7 +24,7 @@ import com.digitalasset.canton.sequencing.protocol.{
 }
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
@@ -132,7 +132,7 @@ object AssignmentViewTree
 /** Aggregates the data of an assignment request that is sent to the mediator and the involved participants.
   *
   * @param salt Salt for blinding the Merkle hash
-  * @param targetDomain The domain on which the contract is assigned
+  * @param targetSynchronizerId The domain on which the contract is assigned
   * @param targetMediatorGroup The mediator that coordinates the assignment request on the target domain
   * @param stakeholders The stakeholders of the reassigned contract
   * @param uuid The uuid of the assignment request
@@ -141,7 +141,7 @@ object AssignmentViewTree
   */
 final case class AssignmentCommonData private (
     override val salt: Salt,
-    targetDomain: Target[DomainId],
+    targetSynchronizerId: Target[SynchronizerId],
     targetMediatorGroup: MediatorGroupRecipient,
     stakeholders: Stakeholders,
     uuid: UUID,
@@ -165,7 +165,7 @@ final case class AssignmentCommonData private (
   protected def toProtoV30: v30.AssignmentCommonData =
     v30.AssignmentCommonData(
       salt = Some(salt.toProtoV30),
-      targetDomain = targetDomain.unwrap.toProtoPrimitive,
+      targetSynchronizerId = targetSynchronizerId.unwrap.toProtoPrimitive,
       targetMediatorGroup = targetMediatorGroup.group.value,
       stakeholders = Some(stakeholders.toProtoV30),
       uuid = ProtoConverter.UuidConverter.toProtoPrimitive(uuid),
@@ -180,7 +180,7 @@ final case class AssignmentCommonData private (
 
   override protected def pretty: Pretty[AssignmentCommonData] = prettyOfClass(
     param("submitter metadata", _.submitterMetadata),
-    param("target domain", _.targetDomain),
+    param("target synchronizer id", _.targetSynchronizerId),
     param("target mediator group", _.targetMediatorGroup),
     param("stakeholders", _.stakeholders),
     param("reassigning participants", _.reassigningParticipants),
@@ -205,7 +205,7 @@ object AssignmentCommonData
 
   def create(hashOps: HashOps)(
       salt: Salt,
-      targetDomain: Target[DomainId],
+      targetDomain: Target[SynchronizerId],
       targetMediatorGroup: MediatorGroupRecipient,
       stakeholders: Stakeholders,
       uuid: UUID,
@@ -214,7 +214,7 @@ object AssignmentCommonData
       reassigningParticipants: Set[ParticipantId],
   ): AssignmentCommonData = AssignmentCommonData(
     salt = salt,
-    targetDomain = targetDomain,
+    targetSynchronizerId = targetDomain,
     targetMediatorGroup = targetMediatorGroup,
     stakeholders = stakeholders,
     uuid = uuid,
@@ -241,7 +241,9 @@ object AssignmentCommonData
 
     for {
       salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
-      targetDomain <- DomainId.fromProtoPrimitive(targetDomainP, "target_domain").map(Target(_))
+      targetSynchronizerId <- SynchronizerId
+        .fromProtoPrimitive(targetDomainP, "target_domain")
+        .map(Target(_))
       targetMediatorGroup <- ProtoConverter.parseNonNegativeInt(
         "target_mediator_group",
         targetMediatorGroupP,
@@ -263,7 +265,7 @@ object AssignmentCommonData
       )
     } yield AssignmentCommonData(
       salt,
-      targetDomain,
+      targetSynchronizerId,
       MediatorGroupRecipient(targetMediatorGroup),
       stakeholders = stakeholders,
       uuid,
@@ -444,10 +446,10 @@ final case class FullAssignmentTree(tree: AssignmentViewTree)
   ): AssignmentMediatorMessage = tree.mediatorMessage(submittingParticipantSignature)
 
   // Domains
-  override def sourceDomain: Source[DomainId] =
+  override def sourceSynchronizer: Source[SynchronizerId] =
     view.unassignmentResultEvent.reassignmentId.sourceDomain
-  override def targetDomain: Target[DomainId] = commonData.targetDomain
-  override def domainId: DomainId = commonData.targetDomain.unwrap
+  override def targetSynchronizer: Target[SynchronizerId] = commonData.targetSynchronizerId
+  override def synchronizerId: SynchronizerId = commonData.targetSynchronizerId.unwrap
   override def mediator: MediatorGroupRecipient = commonData.targetMediatorGroup
 
   override def toBeSigned: Option[RootHash] = Some(tree.rootHash)

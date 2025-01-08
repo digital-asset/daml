@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.processing
@@ -99,8 +99,8 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     extends NamedLogging
     with TransactionAuthorizationCache[PureCrypto] {
 
-  private val domainId =
-    TopologyStoreId.select[TopologyStoreId.DomainStore](store).map(_.storeId.domainId)
+  private val synchronizerId =
+    TopologyStoreId.select[TopologyStoreId.SynchronizerStore](store).map(_.storeId.synchronizerId)
 
   /** Validates the provided topology transactions and applies the certificates to the auth state
     *
@@ -117,7 +117,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[GenericValidatedTopologyTransaction] =
-    verifyDomain(toValidate) match {
+    verifySynchronizer(toValidate) match {
       case ValidatedTopologyTransaction(tx, None, _) =>
         populateCaches(effectiveTime, toValidate.transaction, inStore.map(_.transaction)).map(_ =>
           processTransaction(
@@ -134,7 +134,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     * <ol>
     *   <li>check that the transaction has valid signatures and is sufficiently authorized. if not, reject.</li>
     *   <li>if there are no missing authorizers, as is the case for proposals, we update internal caches for NSD, IDD, and DND</li>
-    *   <li>if this validation is run to determine a final verdict, as is the case for processing topology transactions coming from the domain,
+    *   <li>if this validation is run to determine a final verdict, as is the case for processing topology transactions coming from the synchronizer,
     *   automatically clear the proposal flag for transactions with sufficent authorizing signatures.</li>
     * </ol>
     */
@@ -377,9 +377,9 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     val acceptMissingAuthorizers = toValidate.isProposal && !expectFullAuthorization
 
     // if the result of this validation is final (when processing transactions for the authorized store
-    // or sequenced transactions from the domain) we set the proposal flag according to whether the transaction
+    // or sequenced transactions from the synchronizer) we set the proposal flag according to whether the transaction
     // is fully authorized or not.
-    // This must not be done when preliminarily validating transactions via the DomainTopologyManager, because
+    // This must not be done when preliminarily validating transactions via the SynchronizerTopologyManager, because
     // the validation outcome might change when validating the transaction again after it has been sequenced.
     val finalTransaction =
       if (validationIsFinal) toValidate.copy(isProposal = !missingAuthorizers.isEmpty)
@@ -483,14 +483,15 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     }
   }
 
-  private def verifyDomain(
+  private def verifySynchronizer(
       toValidate: GenericSignedTopologyTransaction
   ): GenericValidatedTopologyTransaction =
-    toValidate.restrictedToDomain.zip(domainId) match {
-      case Some((txDomainId, underlyingDomainId)) if txDomainId != underlyingDomainId =>
+    toValidate.restrictedToSynchronizer.zip(synchronizerId) match {
+      case Some((txSynchronizerId, underlyingSynchronizerId))
+          if txSynchronizerId != underlyingSynchronizerId =>
         ValidatedTopologyTransaction(
           toValidate,
-          Some(TopologyTransactionRejection.InvalidDomain(txDomainId)),
+          Some(TopologyTransactionRejection.InvalidSynchronizer(txSynchronizerId)),
         )
       case _ => ValidatedTopologyTransaction(toValidate, None)
     }

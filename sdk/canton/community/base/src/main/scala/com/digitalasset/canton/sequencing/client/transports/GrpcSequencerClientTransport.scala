@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client.transports
@@ -9,9 +9,6 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.pekko.ClientAdapter
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.domain.api.v30
-import com.digitalasset.canton.domain.api.v30.SequencerServiceGrpc.SequencerServiceStub
-import com.digitalasset.canton.domain.api.v30.VersionedSubscriptionResponse
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
@@ -26,6 +23,9 @@ import com.digitalasset.canton.networking.grpc.{
   GrpcError,
   GrpcManagedChannel,
 }
+import com.digitalasset.canton.sequencer.api.v30
+import com.digitalasset.canton.sequencer.api.v30.SequencerServiceGrpc.SequencerServiceStub
+import com.digitalasset.canton.sequencer.api.v30.VersionedSubscriptionResponse
 import com.digitalasset.canton.sequencing.SerializedEventHandler
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.{

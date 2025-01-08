@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.console
@@ -11,7 +11,7 @@ import com.digitalasset.canton.admin.api.client.data.{CantonStatus, NodeStatus}
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{NonNegativeDuration, Password}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.FutureInstances.*
 import io.circe.{Encoder, Json, KeyEncoder, jawn}
@@ -54,7 +54,8 @@ object CantonHealthAdministrationEncoders {
     Encoder.encodeString.contramap(_.toString)
   implicit val threadKeyEncoder: KeyEncoder[Thread] = (thread: Thread) => thread.getName
 
-  implicit val domainIdEncoder: KeyEncoder[DomainId] = (ref: DomainId) => ref.toString
+  implicit val synchronizerIdEncoder: KeyEncoder[SynchronizerId] = (ref: SynchronizerId) =>
+    ref.toString
 
   implicit val encodePort: Encoder[Port] = Encoder.encodeInt.contramap[Port](_.unwrap)
 

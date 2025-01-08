@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http.json.v2
@@ -9,6 +9,7 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.pekko.ClientAdapter
 import com.digitalasset.canton.http.WebsocketConfig
 import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
+import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidArgument
 import com.digitalasset.canton.logging.NamedLogging
@@ -83,7 +84,15 @@ trait Endpoints extends NamedLogging {
               )
             )
           )
-        case _ => Failure(unhandled)
+        case _ =>
+          val internalError =
+            LedgerApiErrors.InternalError.Generic(unhandled.getMessage, Some(unhandled.getCause))
+
+          Success(
+            Left(
+              JsCantonError.fromErrorCode(internalError)
+            )
+          )
       }
   }
 
@@ -141,7 +150,17 @@ trait Endpoints extends NamedLogging {
                       )
                   )
                 )
-              case NonFatal(e) => throw e
+              case NonFatal(e) =>
+                // TODO(i19103)  decide if tracecontext headers on websockets are handled
+                implicit val tc = TraceContext.empty
+                val internalError =
+                  LedgerApiErrors.InternalError.Generic(
+                    e.getMessage,
+                    Some(e.getCause),
+                  )
+                Left(
+                  JsCantonError.fromErrorCode(internalError)
+                )
             }
         Future.successful(errorHandlingService)
       }

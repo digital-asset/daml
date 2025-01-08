@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client
@@ -28,15 +28,15 @@ import com.digitalasset.canton.health.{
   DelegatingMutableHealthComponent,
   HealthComponent,
 }
+import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.lifecycle.LifeCycle.toCloseableOption
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, *}
 import com.digitalasset.canton.logging.pretty.{CantonPrettyPrinter, Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.SequencerClientMetrics
-import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
-import com.digitalasset.canton.protocol.DomainParametersLookup.SequencerDomainParameters
-import com.digitalasset.canton.protocol.DynamicDomainParametersLookup
+import com.digitalasset.canton.protocol.DynamicSynchronizerParametersLookup
+import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
+import com.digitalasset.canton.protocol.SynchronizerParametersLookup.SequencerSynchronizerParameters
 import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
 import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
 import com.digitalasset.canton.sequencing.*
@@ -66,7 +66,7 @@ import com.digitalasset.canton.sequencing.traffic.{TrafficReceipt, TrafficStateC
 import com.digitalasset.canton.store.*
 import com.digitalasset.canton.store.CursorPrehead.SequencerCounterCursorPrehead
 import com.digitalasset.canton.store.SequencedEventStore.PossiblyIgnoredSequencedEvent
-import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
+import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.tracing.{HasTraceContext, Spanning, TraceContext, Traced}
@@ -121,7 +121,7 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
   def subscribeTracking(
       sequencerCounterTrackerStore: SequencerCounterTrackerStore,
       eventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
-      timeTracker: DomainTimeTracker,
+      timeTracker: SynchronizerTimeTracker,
       onCleanHandler: Traced[SequencerCounterCursorPrehead] => Unit = _ => (),
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
@@ -149,7 +149,7 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
       priorTimestamp: CantonTimestamp,
       cleanPreheadTsO: Option[CantonTimestamp],
       eventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
-      timeTracker: DomainTimeTracker,
+      timeTracker: SynchronizerTimeTracker,
       fetchCleanTimestamp: PeriodicAcknowledgements.FetchCleanTimestamp,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
@@ -191,13 +191,13 @@ trait RichSequencerClient extends SequencerClient {
 }
 
 abstract class SequencerClientImpl(
-    val domainId: DomainId,
+    val synchronizerId: SynchronizerId,
     val member: Member,
     sequencerTransports: SequencerTransports[?],
     val config: SequencerClientConfig,
     testingConfig: TestingConfigInternal,
     val protocolVersion: ProtocolVersion,
-    domainParametersLookup: DynamicDomainParametersLookup[SequencerDomainParameters],
+    domainParametersLookup: DynamicSynchronizerParametersLookup[SequencerSynchronizerParameters],
     override val timeouts: ProcessingTimeout,
     clock: Clock,
     val requestSigner: RequestSigner,
@@ -271,7 +271,7 @@ abstract class SequencerClientImpl(
       serializedRequestSize <= maxRequestSize.unwrap,
       (),
       SendAsyncClientError.RequestInvalid(
-        s"Batch size ($serializedRequestSize bytes) is exceeding maximum size ($maxRequestSize bytes) for domain $domainId"
+        s"Batch size ($serializedRequestSize bytes) is exceeding maximum size ($maxRequestSize bytes) for domain $synchronizerId"
       ),
     )
   }
@@ -289,7 +289,7 @@ abstract class SequencerClientImpl(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] = {
     implicit val metricsContextImplicit =
-      metricsContext.withExtraLabels("domain" -> domainId.toString)
+      metricsContext.withExtraLabels("domain" -> synchronizerId.toString)
     withSpan("SequencerClient.sendAsync") { implicit traceContext => span =>
       def mkRequestE(
           cost: Option[SequencingSubmissionCost]
@@ -356,7 +356,7 @@ abstract class SequencerClientImpl(
               Deliver.create(
                 SequencerCounter.Genesis,
                 CantonTimestamp.now(),
-                domainId,
+                synchronizerId,
                 messageIdO = None,
                 Batch(List.empty, protocolVersion),
                 topologyTimestampO = None,
@@ -636,7 +636,7 @@ abstract class SequencerClientImpl(
   def subscribeTracking(
       sequencerCounterTrackerStore: SequencerCounterTrackerStore,
       eventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
-      timeTracker: DomainTimeTracker,
+      timeTracker: SynchronizerTimeTracker,
       onCleanHandler: Traced[SequencerCounterCursorPrehead] => Unit = _ => (),
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     FutureUnlessShutdown.outcomeF(sequencerCounterTrackerStore.preheadSequencerCounter).flatMap {
@@ -682,7 +682,7 @@ abstract class SequencerClientImpl(
       priorTimestamp: CantonTimestamp,
       cleanPreheadTsO: Option[CantonTimestamp],
       eventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
-      timeTracker: DomainTimeTracker,
+      timeTracker: SynchronizerTimeTracker,
       fetchCleanTimestamp: PeriodicAcknowledgements.FetchCleanTimestamp,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val timeLimittedEventHandler = new TimeLimitingApplicationEventHandler(
@@ -705,7 +705,7 @@ abstract class SequencerClientImpl(
       priorTimestamp: CantonTimestamp,
       cleanPreheadTsO: Option[CantonTimestamp],
       nonThrottledEventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
-      timeTracker: DomainTimeTracker,
+      timeTracker: SynchronizerTimeTracker,
       fetchCleanTimestamp: PeriodicAcknowledgements.FetchCleanTimestamp,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
@@ -753,13 +753,13 @@ object SequencerClientImpl {
   * such that this functionality does not have to be duplicated throughout the participant node.
   */
 class RichSequencerClientImpl(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     member: Member,
     sequencerTransports: SequencerTransports[?],
     config: SequencerClientConfig,
     testingConfig: TestingConfigInternal,
     protocolVersion: ProtocolVersion,
-    domainParametersLookup: DynamicDomainParametersLookup[SequencerDomainParameters],
+    domainParametersLookup: DynamicSynchronizerParametersLookup[SequencerSynchronizerParameters],
     timeouts: ProcessingTimeout,
     eventValidatorFactory: SequencedEventValidatorFactory,
     clock: Clock,
@@ -778,7 +778,7 @@ class RichSequencerClientImpl(
     initialCounterLowerBound: SequencerCounter,
 )(implicit executionContext: ExecutionContext, tracer: Tracer)
     extends SequencerClientImpl(
-      domainId,
+      synchronizerId,
       member,
       sequencerTransports,
       config,
@@ -855,7 +855,7 @@ class RichSequencerClientImpl(
       priorTimestamp: CantonTimestamp,
       cleanPreheadTsO: Option[CantonTimestamp],
       nonThrottledEventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
-      timeTracker: DomainTimeTracker,
+      timeTracker: SynchronizerTimeTracker,
       fetchCleanTimestamp: PeriodicAcknowledgements.FetchCleanTimestamp,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val throttledEventHandler = ThrottlingApplicationEventHandler.throttle(
@@ -931,7 +931,7 @@ class RichSequencerClientImpl(
           loggerFactory,
         )
         val eventHandler = monotonicityChecker.handler(
-          StoreSequencedEvent(sequencedEventStore, domainId, loggerFactory).apply(
+          StoreSequencedEvent(sequencedEventStore, synchronizerId, loggerFactory).apply(
             timeTracker.wrapHandler(throttledEventHandler)
           )
         )
@@ -990,14 +990,14 @@ class RichSequencerClientImpl(
     val eventDelay: DelaySequencedEvent = {
       val first = testingConfig.testSequencerClientFor.find(elem =>
         elem.memberName == member.identifier.unwrap &&
-          elem.domainName == domainId.identifier.unwrap
+          elem.domainName == synchronizerId.identifier.unwrap
       )
 
       first match {
         case Some(value) =>
           DelayedSequencerClient.registerAndCreate(
             value.environmentId,
-            domainId,
+            synchronizerId,
             member.uid.toString,
           )
         case None => NoDelay
@@ -1292,7 +1292,7 @@ class RichSequencerClientImpl(
           }
 
           def handleAsyncResult(
-              asyncResultF: FutureUnlessShutdown[AsyncResult]
+              asyncResultF: FutureUnlessShutdown[AsyncResult[Unit]]
           ): EitherT[FutureUnlessShutdown, ApplicationHandlerFailure, Unit] =
             EitherT(asyncResultF.transformIntoSuccess {
               case Success(UnlessShutdown.Outcome(result)) =>
@@ -1429,13 +1429,13 @@ class RichSequencerClientImpl(
 }
 
 class SequencerClientImplPekko[E: Pretty](
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     member: Member,
     sequencerTransports: SequencerTransports[E],
     config: SequencerClientConfig,
     testingConfig: TestingConfigInternal,
     protocolVersion: ProtocolVersion,
-    domainParametersLookup: DynamicDomainParametersLookup[SequencerDomainParameters],
+    domainParametersLookup: DynamicSynchronizerParametersLookup[SequencerSynchronizerParameters],
     timeouts: ProcessingTimeout,
     eventValidatorFactory: SequencedEventValidatorFactory,
     clock: Clock,
@@ -1454,7 +1454,7 @@ class SequencerClientImplPekko[E: Pretty](
     initialCounterLowerBound: SequencerCounter,
 )(implicit executionContext: ExecutionContext, tracer: Tracer, materializer: Materializer)
     extends SequencerClientImpl(
-      domainId,
+      synchronizerId,
       member,
       sequencerTransports,
       config,
@@ -1485,7 +1485,7 @@ class SequencerClientImplPekko[E: Pretty](
       priorTimestamp: CantonTimestamp,
       cleanPreheadTsO: Option[CantonTimestamp],
       nonThrottledEventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
-      timeTracker: DomainTimeTracker,
+      timeTracker: SynchronizerTimeTracker,
       fetchCleanTimestamp: FetchCleanTimestamp,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val throttledEventHandler = ThrottlingApplicationEventHandler.throttle(
@@ -1559,7 +1559,7 @@ class SequencerClientImplPekko[E: Pretty](
         logger.debug(subscriptionStartLogMessage)
 
         val aggregator = new SequencerAggregatorPekko(
-          domainId,
+          synchronizerId,
           eventValidatorFactory.create(_),
           bufferSize = PositiveInt.one,
           syncCryptoClient.pureCrypto,
@@ -1609,7 +1609,8 @@ class SequencerClientImplPekko[E: Pretty](
           preSubscriptionEvent.fold(CantonTimestamp.MinValue)(_.timestamp),
           loggerFactory,
         )
-        val storeSequencedEvent = StoreSequencedEvent(sequencedEventStore, domainId, loggerFactory)
+        val storeSequencedEvent =
+          StoreSequencedEvent(sequencedEventStore, synchronizerId, loggerFactory)
 
         val aggregatorFlow = aggregator.aggregateFlow(initialCounterOrPriorEvent)
         val subscriptionSource = configSource

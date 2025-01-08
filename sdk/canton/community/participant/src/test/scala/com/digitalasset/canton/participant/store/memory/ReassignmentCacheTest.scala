@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.memory
@@ -19,7 +19,7 @@ import com.digitalasset.canton.participant.store.{ReassignmentStore, Reassignmen
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
 import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{Checked, CheckedT}
@@ -38,12 +38,12 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
     mkReassignmentDataForDomain(
       reassignment10,
       mediator1,
-      targetDomainId = targetDomainId,
+      targetSynchronizerId = targetSynchronizerId,
     )
   private val toc = TimeOfChange(RequestCounter(0), CantonTimestamp.Epoch)
 
   private def createStore: InMemoryReassignmentStore =
-    new InMemoryReassignmentStore(targetDomainId, loggerFactory)
+    new InMemoryReassignmentStore(targetSynchronizerId, loggerFactory)
 
   "find reassignments in the backing store" in {
     val store = createStore
@@ -320,19 +320,22 @@ object ReassignmentCacheTest extends BaseTest {
       baseStore.deleteCompletionsSince(criterionInclusive)
 
     override def find(
-        filterSource: Option[Source[DomainId]],
+        filterSource: Option[Source[SynchronizerId]],
         filterTimestamp: Option[CantonTimestamp],
         filterSubmitter: Option[LfPartyId],
         limit: Int,
     )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[ReassignmentData]] =
       baseStore.find(filterSource, filterTimestamp, filterSubmitter, limit)
 
-    override def findAfter(requestAfter: Option[(CantonTimestamp, Source[DomainId])], limit: Int)(
-        implicit traceContext: TraceContext
+    override def findAfter(
+        requestAfter: Option[(CantonTimestamp, Source[SynchronizerId])],
+        limit: Int,
+    )(implicit
+        traceContext: TraceContext
     ): FutureUnlessShutdown[Seq[ReassignmentData]] = baseStore.findAfter(requestAfter, limit)
 
     override def findIncomplete(
-        sourceDomain: Option[Source[DomainId]],
+        sourceDomain: Option[Source[SynchronizerId]],
         validAt: Offset,
         stakeholders: Option[NonEmpty[Set[LfPartyId]]],
         limit: NonNegativeInt,
@@ -341,7 +344,7 @@ object ReassignmentCacheTest extends BaseTest {
 
     override def findEarliestIncomplete()(implicit
         traceContext: TraceContext
-    ): FutureUnlessShutdown[Option[(Offset, ReassignmentId, Target[DomainId])]] =
+    ): FutureUnlessShutdown[Option[(Offset, ReassignmentId, Target[SynchronizerId])]] =
       baseStore.findEarliestIncomplete()
 
     override def lookup(reassignmentId: ReassignmentId)(implicit
@@ -351,7 +354,7 @@ object ReassignmentCacheTest extends BaseTest {
 
     override def findContractReassignmentId(
         contractIds: Seq[LfContractId],
-        sourceDomain: Option[Source[DomainId]],
+        sourceDomain: Option[Source[SynchronizerId]],
         unassignmentTs: Option[CantonTimestamp],
         completionTs: Option[CantonTimestamp],
     )(implicit

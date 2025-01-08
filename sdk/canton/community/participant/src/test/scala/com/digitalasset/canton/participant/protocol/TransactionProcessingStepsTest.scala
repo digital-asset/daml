@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -7,7 +7,7 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.crypto.DomainSyncCryptoClient
+import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.SubmissionErrors.ContractAuthenticationFailed
@@ -16,24 +16,24 @@ import com.digitalasset.canton.participant.protocol.submission.TransactionConfir
 import com.digitalasset.canton.participant.protocol.validation.*
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.protocol.{ContractMetadata, LfContractId, SerializableContract}
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 
 class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
-  private val domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("the::domain"))
+  private val synchronizerId = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("the::domain"))
   private val participantId: ParticipantId = ParticipantId("participant")
 
   private def buildTestInstance(
       contractAuthenticatorBehaviors: (SerializableContract, Either[String, Unit])*
   ) = new TransactionProcessingSteps(
-    domainId = domainId,
+    synchronizerId = synchronizerId,
     participantId = participantId,
     confirmationRequestFactory = mock[TransactionConfirmationRequestFactory],
     confirmationResponseFactory = mock[TransactionConfirmationResponseFactory],
     modelConformanceChecker = mock[ModelConformanceChecker],
-    staticDomainParameters = defaultStaticDomainParameters,
-    crypto = mock[DomainSyncCryptoClient],
+    staticSynchronizerParameters = defaultStaticSynchronizerParameters,
+    crypto = mock[SynchronizerSyncCryptoClient],
     metrics = ParticipantTestMetrics.domain.transactionProcessing,
     serializableContractAuthenticator = new SerializableContractAuthenticator {
       val behaviors: Map[SerializableContract, Either[String, Unit]] =

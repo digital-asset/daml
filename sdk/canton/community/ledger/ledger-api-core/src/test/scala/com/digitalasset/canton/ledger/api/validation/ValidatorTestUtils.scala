@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.api.validation
@@ -33,7 +33,6 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues {
   protected val party = Ref.Party.assertFromString("party")
   protected val party2 = Ref.Party.assertFromString("party2")
   protected val verbose = false
-  protected val eventId = "eventId"
   protected val updateId = "42"
   protected val ledgerEnd = Some(Offset.tryFromLong(1000))
   protected val contractId = ContractId.V1.assertFromString("00" * 32 + "0001")

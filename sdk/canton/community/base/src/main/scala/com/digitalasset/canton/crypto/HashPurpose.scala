@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto
@@ -66,8 +66,8 @@ object HashPurpose {
   val _TransactionResultSignature = HashPurpose(17, "TransactionResultSignature")
   val _TransferResultSignature = HashPurpose(19, "TransferResultSignature")
   val _ParticipantStateSignature = HashPurpose(20, "ParticipantStateSignature")
-  val _DomainTopologyTransactionMessageSignature =
-    HashPurpose(21, "DomainTopologyTransactionMessageSignature")
+  val _SynchronizerTopologyTransactionMessageSignature =
+    HashPurpose(21, "SynchronizerTopologyTransactionMessageSignature")
   val _AcsCommitment = HashPurpose(22, "AcsCommitment")
   val Stakeholders = HashPurpose(23, "Stakeholders")
   val UnassignmentCommonData = HashPurpose(24, "UnassignmentCommonData")

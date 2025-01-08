@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.admin.api.client.commands
@@ -16,7 +16,7 @@ import com.daml.ledger.api.v2.value.{Record, RecordField, Value}
 import com.digitalasset.canton.admin.api.client.data.TemplateId
 import com.digitalasset.canton.crypto.Salt
 import com.digitalasset.canton.protocol.LfContractId
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.{LfPackageName, LfPackageVersion}
 import com.digitalasset.daml.lf.data.Time
 import com.google.protobuf.timestamp.Timestamp
@@ -54,16 +54,16 @@ object LedgerApiTypeWrappers {
 
     def contractId: String = event.contractId
 
-    def domainId: Option[DomainId] = {
+    def synchronizerId: Option[SynchronizerId] = {
       val domainStr = entry match {
         case ContractEntry.Empty => None
-        case ContractEntry.ActiveContract(contract) => contract.domainId.some
+        case ContractEntry.ActiveContract(contract) => contract.synchronizerId.some
         case ContractEntry.IncompleteUnassigned(unassigned) =>
           unassigned.unassignedEvent.map(_.source)
         case ContractEntry.IncompleteAssigned(assigned) => assigned.assignedEvent.map(_.target)
       }
 
-      domainStr.map(DomainId.tryFromString)
+      domainStr.map(SynchronizerId.tryFromString)
     }
 
     def templateId: TemplateId = TemplateId.fromIdentifier(
@@ -85,8 +85,8 @@ object LedgerApiTypeWrappers {
     def unassignId: String = event.unassignId
     def assignmentExclusivity: Option[Timestamp] = event.assignmentExclusivity
 
-    def source: DomainId = DomainId.tryFromString(event.source)
-    def target: DomainId = DomainId.tryFromString(event.target)
+    def source: SynchronizerId = SynchronizerId.tryFromString(event.source)
+    def target: SynchronizerId = SynchronizerId.tryFromString(event.target)
   }
 
   final case class WrappedIncompleteAssigned(entry: IncompleteAssigned) {
@@ -100,8 +100,8 @@ object LedgerApiTypeWrappers {
     def reassignmentCounter: Long = event.reassignmentCounter
     def contractId: String = createdEvent.contractId
 
-    def source: DomainId = DomainId.tryFromString(event.source)
-    def target: DomainId = DomainId.tryFromString(event.target)
+    def source: SynchronizerId = SynchronizerId.tryFromString(event.source)
+    def target: SynchronizerId = SynchronizerId.tryFromString(event.target)
 
   }
 
@@ -116,13 +116,14 @@ object LedgerApiTypeWrappers {
    */
   final case class WrappedCreatedEvent(event: CreatedEvent) {
 
-    private def corrupt: String = s"corrupt event ${event.eventId} / ${event.contractId}"
+    private def corrupt: String =
+      s"corrupt event ${event.nodeId} / ${event.contractId} at ${event.offset}"
 
     def templateId: TemplateId =
       TemplateId.fromIdentifier(
         event.templateId.getOrElse(
           throw new IllegalArgumentException(
-            s"Template Id not specified for event ${event.eventId} / ${event.contractId}"
+            s"Template Id not specified for event ${event.nodeId} / ${event.contractId} at ${event.offset}"
           )
         )
       )

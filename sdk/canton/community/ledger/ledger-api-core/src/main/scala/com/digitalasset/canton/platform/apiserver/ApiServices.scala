@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver
@@ -75,7 +75,6 @@ private final case class ApiServicesBundle(services: immutable.Seq[BindableServi
 }
 
 object ApiServices {
-
   def apply(
       participantId: Ref.ParticipantId,
       syncService: state.SyncService,
@@ -88,6 +87,7 @@ object ApiServices {
       timeProvider: TimeProvider,
       timeProviderType: TimeProviderType,
       submissionTracker: SubmissionTracker,
+      partyAllocationTracker: PartyAllocationTracker,
       commandProgressTracker: CommandProgressTracker,
       commandConfig: CommandServiceConfig,
       optTimeServiceBackend: Option[TimeServiceBackend],
@@ -107,7 +107,7 @@ object ApiServices {
       authenticateContract: AuthenticateContract,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
-      dynParamGetter: DynamicDomainParameterGetter,
+      dynParamGetter: DynamicSynchronizerParameterGetter,
       interactiveSubmissionServiceConfig: InteractiveSubmissionServiceConfig,
       lfValueTranslation: LfValueTranslation,
       logger: TracedLogger,
@@ -310,6 +310,7 @@ object ApiServices {
         syncService,
         managementServiceTimeout,
         telemetry = telemetry,
+        partyAllocationTracker = partyAllocationTracker,
         loggerFactory = loggerFactory,
       )
 

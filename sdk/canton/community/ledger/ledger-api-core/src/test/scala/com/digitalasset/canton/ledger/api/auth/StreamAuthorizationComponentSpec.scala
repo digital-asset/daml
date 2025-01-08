@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.api.auth
@@ -271,16 +271,16 @@ class StreamAuthorizationComponentSpec
           responseObserver: StreamObserver[GetUpdateTreesResponse],
       ): Unit = notSupported
 
-      override def getTransactionTreeByEventId(
-          request: GetTransactionByEventIdRequest
+      override def getTransactionTreeByOffset(
+          request: GetTransactionByOffsetRequest
       ): Future[GetTransactionTreeResponse] = notSupported
 
       override def getTransactionTreeById(
           request: GetTransactionByIdRequest
       ): Future[GetTransactionTreeResponse] = notSupported
 
-      override def getTransactionByEventId(
-          request: GetTransactionByEventIdRequest
+      override def getTransactionByOffset(
+          request: GetTransactionByOffsetRequest
       ): Future[GetTransactionResponse] = notSupported
 
       override def getTransactionById(

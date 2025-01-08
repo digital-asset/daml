@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol
@@ -9,14 +9,14 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
+import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
 import com.digitalasset.canton.pruning.CounterParticipantIntervalsBehind
 import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, PositiveSeconds}
-import com.digitalasset.canton.topology.transaction.ParticipantDomainLimits
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
+import com.digitalasset.canton.topology.transaction.ParticipantSynchronizerLimits
+import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId}
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
 import com.digitalasset.daml.lf.transaction.Versioned
 import com.google.protobuf.ByteString
@@ -34,7 +34,7 @@ final class GeneratorsProtocol(
   import com.digitalasset.canton.topology.GeneratorsTopology.*
   import org.scalatest.EitherValues.*
 
-  implicit val staticDomainParametersArb: Arbitrary[StaticDomainParameters] =
+  implicit val staticSynchronizerParametersArb: Arbitrary[StaticSynchronizerParameters] =
     Arbitrary(for {
       requiredSigningAlgorithmSpecs <- nonEmptySetGen[SigningAlgorithmSpec]
       requiredSigningKeySpecs <- nonEmptySetGen[SigningKeySpec]
@@ -44,7 +44,7 @@ final class GeneratorsProtocol(
       requiredHashAlgorithms <- nonEmptySetGen[HashAlgorithm]
       requiredCryptoKeyFormats <- nonEmptySetGen[CryptoKeyFormat]
 
-      parameters = StaticDomainParameters(
+      parameters = StaticSynchronizerParameters(
         RequiredSigningSpecs(requiredSigningAlgorithmSpecs, requiredSigningKeySpecs),
         RequiredEncryptionSpecs(requiredEncryptionAlgorithmSpecs, requiredEncryptionKeySpecs),
         requiredSymmetricKeySchemes,
@@ -55,85 +55,88 @@ final class GeneratorsProtocol(
 
     } yield parameters)
 
-  implicit val dynamicDomainParametersArb: Arbitrary[DynamicDomainParameters] = Arbitrary(
-    for {
-      confirmationResponseTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
-      mediatorReactionTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
-      assignmentExclusivityTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
-      topologyChangeDelay <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
+  implicit val dynamicSynchronizerParametersArb: Arbitrary[DynamicSynchronizerParameters] =
+    Arbitrary(
+      for {
+        confirmationResponseTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
+        mediatorReactionTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
+        assignmentExclusivityTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
+        topologyChangeDelay <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
 
-      mediatorDeduplicationMargin <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
-      // Because of the potential multiplication by 2 below, we want a reasonably small value
-      ledgerTimeRecordTimeTolerance <- Gen
-        .choose(0L, 10000L)
-        .map(NonNegativeFiniteDuration.tryOfMicros)
+        mediatorDeduplicationMargin <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
+        // Because of the potential multiplication by 2 below, we want a reasonably small value
+        ledgerTimeRecordTimeTolerance <- Gen
+          .choose(0L, 10000L)
+          .map(NonNegativeFiniteDuration.tryOfMicros)
 
-      representativePV = DynamicDomainParameters.protocolVersionRepresentativeFor(protocolVersion)
+        representativePV = DynamicSynchronizerParameters.protocolVersionRepresentativeFor(
+          protocolVersion
+        )
 
-      reconciliationInterval <- Arbitrary.arbitrary[PositiveSeconds]
-      maxRequestSize <- Arbitrary.arbitrary[MaxRequestSize]
+        reconciliationInterval <- Arbitrary.arbitrary[PositiveSeconds]
+        maxRequestSize <- Arbitrary.arbitrary[MaxRequestSize]
 
-      trafficControlConfig <- Gen.option(Arbitrary.arbitrary[TrafficControlParameters])
+        trafficControlConfig <- Gen.option(Arbitrary.arbitrary[TrafficControlParameters])
 
-      updatedMediatorDeduplicationTimeout = ledgerTimeRecordTimeTolerance * NonNegativeInt
-        .tryCreate(2) + mediatorDeduplicationMargin
+        updatedMediatorDeduplicationTimeout = ledgerTimeRecordTimeTolerance * NonNegativeInt
+          .tryCreate(2) + mediatorDeduplicationMargin
 
-      sequencerAggregateSubmissionTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
-      onboardingRestriction <- Arbitrary.arbitrary[OnboardingRestriction]
+        sequencerAggregateSubmissionTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
+        onboardingRestriction <- Arbitrary.arbitrary[OnboardingRestriction]
 
-      participantDomainLimits <- Arbitrary.arbitrary[ParticipantDomainLimits]
+        participantDomainLimits <- Arbitrary.arbitrary[ParticipantSynchronizerLimits]
 
-      acsCommitmentsCatchupConfig <-
-        for {
-          isNone <- Gen.oneOf(true, false)
-          skip <- Gen.choose(1, Math.sqrt(PositiveInt.MaxValue.value.toDouble).intValue)
-          trigger <- Gen.choose(1, Math.sqrt(PositiveInt.MaxValue.value.toDouble).intValue)
-        } yield {
-          if (!isNone)
-            Some(
-              new AcsCommitmentsCatchUpConfig(
-                PositiveInt.tryCreate(skip),
-                PositiveInt.tryCreate(trigger),
+        acsCommitmentsCatchupConfig <-
+          for {
+            isNone <- Gen.oneOf(true, false)
+            skip <- Gen.choose(1, Math.sqrt(PositiveInt.MaxValue.value.toDouble).intValue)
+            trigger <- Gen.choose(1, Math.sqrt(PositiveInt.MaxValue.value.toDouble).intValue)
+          } yield {
+            if (!isNone)
+              Some(
+                new AcsCommitmentsCatchUpConfig(
+                  PositiveInt.tryCreate(skip),
+                  PositiveInt.tryCreate(trigger),
+                )
               )
-            )
-          else None
-        }
+            else None
+          }
 
-      // Because of the potential multiplication by 2 below, we want a reasonably small value
-      submissionTimeRecordTimeTolerance <- Gen
-        .choose(0L, 10000L)
-        .map(NonNegativeFiniteDuration.tryOfMicros)
+        // Because of the potential multiplication by 2 below, we want a reasonably small value
+        submissionTimeRecordTimeTolerance <- Gen
+          .choose(0L, 10000L)
+          .map(NonNegativeFiniteDuration.tryOfMicros)
 
-      dynamicDomainParameters = DynamicDomainParameters.tryCreate(
-        confirmationResponseTimeout,
-        mediatorReactionTimeout,
-        assignmentExclusivityTimeout,
-        topologyChangeDelay,
-        ledgerTimeRecordTimeTolerance,
-        updatedMediatorDeduplicationTimeout,
-        reconciliationInterval,
-        maxRequestSize,
-        sequencerAggregateSubmissionTimeout,
-        trafficControlConfig,
-        onboardingRestriction,
-        acsCommitmentsCatchupConfig,
-        participantDomainLimits,
-        submissionTimeRecordTimeTolerance,
-      )(representativePV)
+        dynamicDomainParameters = DynamicSynchronizerParameters.tryCreate(
+          confirmationResponseTimeout,
+          mediatorReactionTimeout,
+          assignmentExclusivityTimeout,
+          topologyChangeDelay,
+          ledgerTimeRecordTimeTolerance,
+          updatedMediatorDeduplicationTimeout,
+          reconciliationInterval,
+          maxRequestSize,
+          sequencerAggregateSubmissionTimeout,
+          trafficControlConfig,
+          onboardingRestriction,
+          acsCommitmentsCatchupConfig,
+          participantDomainLimits,
+          submissionTimeRecordTimeTolerance,
+        )(representativePV)
 
-    } yield dynamicDomainParameters
-  )
+      } yield dynamicDomainParameters
+    )
 
   implicit val counterParticipantIntervalsBehindArb: Arbitrary[CounterParticipantIntervalsBehind] =
     Arbitrary(
       for {
-        domainId <- Arbitrary.arbitrary[DomainId]
+        synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
         participantId <- Arbitrary.arbitrary[ParticipantId]
         intervalsBehind <- Arbitrary.arbitrary[NonNegativeLong]
         timeBehind <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
         asOfSequencingTime <- Arbitrary.arbitrary[CantonTimestamp]
       } yield CounterParticipantIntervalsBehind(
-        domainId,
+        synchronizerId,
         participantId,
         intervalsBehind,
         timeBehind,
@@ -182,14 +185,14 @@ final class GeneratorsProtocol(
         metadata <- contractMetadataArb(canHaveEmptyKey).arbitrary
         ledgerCreateTime <- Arbitrary.arbitrary[LedgerCreateTime]
 
-        domainId <- Arbitrary.arbitrary[DomainId]
+        synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
         mediatorGroup <- Arbitrary.arbitrary[MediatorGroupRecipient]
 
         saltIndex <- Gen.choose(Int.MinValue, Int.MaxValue)
         transactionUUID <- Gen.uuid
 
         (computedSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
-          domainId = domainId,
+          synchronizerId = synchronizerId,
           mediator = mediatorGroup,
           transactionUuid = transactionUUID,
           viewPosition = ViewPosition(List.empty),

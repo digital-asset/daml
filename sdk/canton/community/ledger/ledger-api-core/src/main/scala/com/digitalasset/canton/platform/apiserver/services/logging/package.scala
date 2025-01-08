@@ -1,16 +1,14 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import com.daml.logging.entries.LoggingValue.OfString
 import com.daml.logging.entries.ToLoggingKey.*
 import com.daml.logging.entries.{LoggingEntries, LoggingEntry, LoggingKey, LoggingValue}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.{
   Commands,
   CumulativeFilter,
-  EventId,
   TemplateWildcardFilter,
   TransactionFilter,
   UpdateId,
@@ -64,9 +62,6 @@ package object logging {
 
   private[services] def commandId(id: String): LoggingEntry =
     "commandId" -> id
-
-  private[services] def eventId(id: EventId): LoggingEntry =
-    "eventId" -> OfString(id.unwrap)
 
   private[services] def filters(
       filters: TransactionFilter

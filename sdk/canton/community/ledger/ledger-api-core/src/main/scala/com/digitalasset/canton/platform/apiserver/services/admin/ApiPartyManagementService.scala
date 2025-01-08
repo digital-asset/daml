@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services.admin
@@ -28,7 +28,6 @@ import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.auth.AuthorizationChecksErrors
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, ObjectMeta, PartyDetails}
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
@@ -47,6 +46,7 @@ import com.digitalasset.canton.ledger.localstore.api.{
 }
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.index.*
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.*
 import com.digitalasset.canton.logging.LoggingContextUtil.createLoggingContext
 import com.digitalasset.canton.logging.LoggingContextWithTrace.{
@@ -54,15 +54,16 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace.{
   withEnrichedLoggingContext,
 }
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiPartyManagementService.*
-import com.digitalasset.canton.platform.apiserver.services.logging
+import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocationTracker
+import com.digitalasset.canton.platform.apiserver.services.tracking.StreamTracker
+import com.digitalasset.canton.platform.apiserver.services.{PartyAllocationKey, logging}
 import com.digitalasset.canton.platform.apiserver.update
 import com.digitalasset.canton.platform.apiserver.update.PartyRecordUpdateMapper
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.Source
+import io.opentelemetry.api.trace.Tracer
 import scalaz.std.either.*
 import scalaz.std.list.*
 import scalaz.syntax.traverse.*
@@ -83,10 +84,11 @@ private[apiserver] final class ApiPartyManagementService private (
     managementServiceTimeout: FiniteDuration,
     submissionIdGenerator: String => Ref.SubmissionId,
     telemetry: Telemetry,
+    partyAllocationTracker: PartyAllocationTracker,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
-    materializer: Materializer,
     executionContext: ExecutionContext,
+    tracer: Tracer,
 ) extends PartyManagementService
     with GrpcApiService
     with NamedLogging {
@@ -94,16 +96,7 @@ private[apiserver] final class ApiPartyManagementService private (
   private implicit val loggingContext: LoggingContext =
     createLoggingContext(loggerFactory)(identity)
 
-  private val synchronousResponse = new SynchronousResponse(
-    new SynchronousResponseStrategy(
-      syncService,
-      partyManagementService,
-      loggerFactory,
-    ),
-    loggerFactory,
-  )
-
-  override def close(): Unit = synchronousResponse.close()
+  override def close(): Unit = partyAllocationTracker.close()
 
   override def bindService(): ServerServiceDefinition =
     PartyManagementServiceGrpc.bindService(this, executionContext)
@@ -198,6 +191,27 @@ private[apiserver] final class ApiPartyManagementService private (
     }
   }
 
+  implicit object PartyAllocationErrors extends StreamTracker.Errors[PartyAllocationKey] {
+    import com.digitalasset.canton.ledger.error.CommonErrors
+
+    def timedOut(key: PartyAllocationKey)(implicit
+        errorLogger: ContextualizedErrorLogger
+    ): StatusRuntimeException =
+      CommonErrors.RequestTimeOut
+        .Reject(
+          s"Timed out while awaiting item corresponding to ${key.requestId}.",
+          definiteAnswer = false,
+        )
+        .asGrpcError
+
+    def duplicated(
+        key: PartyAllocationKey
+    )(implicit errorLogger: ContextualizedErrorLogger): StatusRuntimeException =
+      CommonErrors.RequestAlreadyInFlight
+        .Reject(requestId = key.requestId)
+        .asGrpcError
+  }
+
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] = {
     val submissionId = submissionIdGenerator(request.partyIdHint)
     withEnrichedLoggingContext(telemetry)(
@@ -209,6 +223,7 @@ private[apiserver] final class ApiPartyManagementService private (
       )
       implicit val errorLoggingContext: ErrorLoggingContext =
         new ErrorLoggingContext(logger, loggingContext.toPropertiesMap, loggingContext.traceContext)
+      import com.digitalasset.canton.config.NonNegativeFiniteDuration
 
       withValidation {
         for {
@@ -234,12 +249,19 @@ private[apiserver] final class ApiPartyManagementService private (
         (for {
           _ <- identityProviderExistsOrError(identityProviderId)
           ledgerEndbeforeRequest <- transactionService.currentLedgerEnd()
-          allocated <- synchronousResponse.submitAndWait(
-            submissionId,
-            partyIdHintO,
-            ledgerEndbeforeRequest,
-            managementServiceTimeout,
-          )
+          allocated <- partyAllocationTracker
+            .track(
+              PartyAllocationKey(submissionId),
+              NonNegativeFiniteDuration(managementServiceTimeout),
+            ) { _ =>
+              FutureUnlessShutdown {
+                for {
+                  result <- syncService.allocateParty(partyIdHintO, submissionId).toScalaUnwrapped
+                  _ <- checkSubmissionResult(result)
+                } yield UnlessShutdown.unit
+              }
+            }
+            .flatMap(checkAllocationResult)
           _ <- verifyPartyIsNonExistentOrInIdp(
             identityProviderId,
             allocated.partyDetails.party,
@@ -263,6 +285,30 @@ private[apiserver] final class ApiPartyManagementService private (
         })
       }
     }
+  }
+
+  private def checkSubmissionResult(r: state.SubmissionResult) = r match {
+    case state.SubmissionResult.Acknowledged =>
+      Future.successful(())
+    case synchronousError: state.SubmissionResult.SynchronousError =>
+      Future.failed(synchronousError.exception)
+  }
+
+  private def checkAllocationResult(
+      r: PartyEntry
+  )(implicit loggingContext: LoggingContextWithTrace) = r match {
+    case allocated: PartyEntry.AllocationAccepted => Future(allocated)
+    case PartyEntry.AllocationRejected(submissionId, rejectionReason) =>
+      Future.failed(
+        ValidationErrors.invalidArgument(rejectionReason)(
+          LedgerErrorLoggingContext(
+            logger,
+            loggingContext.toPropertiesMap,
+            loggingContext.traceContext,
+            submissionId,
+          )
+        )
+      )
   }
 
   override def updatePartyDetails(
@@ -601,10 +647,11 @@ private[apiserver] object ApiPartyManagementService {
       managementServiceTimeout: FiniteDuration,
       submissionIdGenerator: String => Ref.SubmissionId = CreateSubmissionId.withPrefix,
       telemetry: Telemetry,
+      partyAllocationTracker: PartyAllocationTracker,
       loggerFactory: NamedLoggerFactory,
   )(implicit
-      materializer: Materializer,
       executionContext: ExecutionContext,
+      tracer: Tracer,
   ): PartyManagementServiceGrpc.PartyManagementService & GrpcApiService =
     new ApiPartyManagementService(
       partyManagementServiceBackend,
@@ -616,6 +663,7 @@ private[apiserver] object ApiPartyManagementService {
       managementServiceTimeout,
       submissionIdGenerator,
       telemetry,
+      partyAllocationTracker,
       loggerFactory,
     )
 
@@ -629,53 +677,6 @@ private[apiserver] object ApiPartyManagementService {
       augmentSubmissionId(
         Ref.SubmissionId.fromString(partyHint.take(PrefixMaxLength)).getOrElse("")
       )
-  }
-
-  private final class SynchronousResponseStrategy(
-      syncService: state.PartySyncService,
-      partyManagementService: IndexPartyManagementService,
-      val loggerFactory: NamedLoggerFactory,
-  ) extends SynchronousResponse.Strategy[
-        Option[Ref.Party],
-        PartyEntry,
-        PartyEntry.AllocationAccepted,
-      ]
-      with NamedLogging {
-
-    override def submit(
-        submissionId: Ref.SubmissionId,
-        partyHint: Option[Ref.Party],
-    )(implicit
-        loggingContext: LoggingContextWithTrace
-    ): Future[state.SubmissionResult] =
-      syncService.allocateParty(partyHint, submissionId).toScalaUnwrapped
-
-    override def entries(offset: Option[Offset])(implicit
-        loggingContext: LoggingContextWithTrace
-    ): Source[PartyEntry, ?] =
-      partyManagementService.partyEntries(offset)
-
-    override def accept(
-        submissionId: Ref.SubmissionId
-    ): PartialFunction[PartyEntry, PartyEntry.AllocationAccepted] = {
-      case entry @ PartyEntry.AllocationAccepted(Some(`submissionId`), _) => entry
-    }
-
-    override def reject(
-        submissionId: Ref.SubmissionId
-    )(implicit
-        loggingContext: LoggingContextWithTrace
-    ): PartialFunction[PartyEntry, StatusRuntimeException] = {
-      case PartyEntry.AllocationRejected(`submissionId`, reason) =>
-        ValidationErrors.invalidArgument(reason)(
-          LedgerErrorLoggingContext(
-            logger,
-            loggingContext.toPropertiesMap,
-            loggingContext.traceContext,
-            submissionId,
-          )
-        )
-    }
   }
 
   def decodePartyFromPageToken(pageToken: String)(implicit

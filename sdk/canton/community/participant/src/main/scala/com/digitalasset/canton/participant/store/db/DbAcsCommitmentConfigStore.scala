@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.db
@@ -18,7 +18,7 @@ import com.digitalasset.canton.pruning.{
 import com.digitalasset.canton.resource.DbStorage.Implicits.BuilderChain
 import com.digitalasset.canton.resource.DbStorage.SQLActionBuilderChain
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
@@ -44,37 +44,37 @@ class DbAcsCommitmentConfigStore(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
     val query =
-      sql"""select participant.domain_id, participant.participant_id, participant.is_distinguished, participant.is_added_to_metrics
+      sql"""select participant.synchronizer_id, participant.participant_id, participant.is_distinguished, participant.is_added_to_metrics
                from acs_slow_counter_participants participant
          """
 
     val queryThreshold =
       sql"""
-           select domain_id, threshold_distinguished,threshold_default
+           select synchronizer_id, threshold_distinguished,threshold_default
                   from acs_slow_participant_config
          """
 
     val mapped = for {
-      data <- query.as[(DomainId, ParticipantId, Boolean, Boolean)]
+      data <- query.as[(SynchronizerId, ParticipantId, Boolean, Boolean)]
     } yield data.map {
       case (
-            domainId,
+            synchronizerId,
             participantId,
             isDistinguished,
             isAddedToMetrics,
           ) =>
         ConfigForSlowCounterParticipants(
-          domainId,
+          synchronizerId,
           participantId,
           isDistinguished,
           isAddedToMetrics,
         )
     }
     val mappedThreshold = for {
-      data <- queryThreshold.as[(DomainId, Long, Long)]
-    } yield data.map { case (domainId, thresholdDistinguished, thresholdDefault) =>
+      data <- queryThreshold.as[(SynchronizerId, Long, Long)]
+    } yield data.map { case (synchronizerId, thresholdDistinguished, thresholdDefault) =>
       ConfigForDomainThresholds(
-        domainId,
+        synchronizerId,
         NonNegativeLong.tryCreate(thresholdDistinguished),
         NonNegativeLong.tryCreate(thresholdDefault),
       )
@@ -106,34 +106,34 @@ class DbAcsCommitmentConfigStore(
     val updateSlowParticipantConfig: String =
       storage.profile match {
         case _: DbStorage.Profile.H2 =>
-          """merge into acs_slow_counter_participants (domain_id, participant_id, is_distinguished, is_added_to_metrics)
+          """merge into acs_slow_counter_participants (synchronizer_id, participant_id, is_distinguished, is_added_to_metrics)
                    values (?, ?, ?, ?)"""
 
         case _: DbStorage.Profile.Postgres =>
-          """insert into acs_slow_counter_participants (domain_id, participant_id, is_distinguished, is_added_to_metrics)
-                 values (?, ?, ?, ?) on conflict (domain_id, participant_id) do update set is_distinguished = excluded.is_distinguished, is_added_to_metrics = excluded.is_added_to_metrics"""
+          """insert into acs_slow_counter_participants (synchronizer_id, participant_id, is_distinguished, is_added_to_metrics)
+                 values (?, ?, ?, ?) on conflict (synchronizer_id, participant_id) do update set is_distinguished = excluded.is_distinguished, is_added_to_metrics = excluded.is_added_to_metrics"""
       }
     val updateDomainConfig: String =
       storage.profile match {
         case _: DbStorage.Profile.H2 =>
-          """merge into acs_slow_participant_config (domain_id,threshold_distinguished,threshold_default)
+          """merge into acs_slow_participant_config (synchronizer_id,threshold_distinguished,threshold_default)
                    values (?, ?, ?)"""
 
         case _: DbStorage.Profile.Postgres =>
-          """insert into acs_slow_participant_config (domain_id,threshold_distinguished,threshold_default)
-                 values (?, ?, ?) on conflict (domain_id) do update set threshold_distinguished = excluded.threshold_distinguished, threshold_default = excluded.threshold_default"""
+          """insert into acs_slow_participant_config (synchronizer_id,threshold_distinguished,threshold_default)
+                 values (?, ?, ?) on conflict (synchronizer_id) do update set threshold_distinguished = excluded.threshold_distinguished, threshold_default = excluded.threshold_default"""
       }
 
     for {
       _ <- storage.queryAndUpdateUnlessShutdown(
         DBIO.seq(
-          clearSlowCounterParticipantsDBIO(configs.collect(_.domainId)),
+          clearSlowCounterParticipantsDBIO(configs.collect(_.synchronizerId)),
           DbStorage.bulkOperation_(
             updateSlowParticipantConfig,
             configs,
             storage.profile,
           ) { pp => config =>
-            pp >> config.domainId
+            pp >> config.synchronizerId
             pp >> config.participantId
             pp >> config.isDistinguished
             pp >> config.isAddedToMetrics
@@ -143,7 +143,7 @@ class DbAcsCommitmentConfigStore(
             thresholds,
             storage.profile,
           ) { pp => config =>
-            pp >> config.domainId
+            pp >> config.synchronizerId
             pp >> config.thresholdDistinguished
             pp >> config.thresholdDefault
           },
@@ -157,30 +157,30 @@ class DbAcsCommitmentConfigStore(
   }
 
   private def clearSlowCounterParticipantsDBIO(
-      domainIds: Seq[DomainId]
+      synchronizerIds: Seq[SynchronizerId]
   )(implicit traceContext: TraceContext): DBIOAction[Unit, NoStream, Effect.All] =
     DBIO.seq(
-      if (domainIds.isEmpty) {
+      if (synchronizerIds.isEmpty) {
         sqlu"""DELETE FROM acs_slow_counter_participants"""
       } else {
         DbStorage.bulkOperation_(
           """DELETE FROM acs_slow_counter_participants
-                WHERE domain_id = ?
+                WHERE synchronizer_id = ?
              """,
-          domainIds,
+          synchronizerIds,
           storage.profile,
         ) { pp => domain =>
           pp >> domain
         }
       },
-      if (domainIds.isEmpty) {
+      if (synchronizerIds.isEmpty) {
         sqlu"""DELETE FROM acs_slow_participant_config"""
       } else {
         DbStorage.bulkOperation_(
           """DELETE FROM acs_slow_participant_config
-                WHERE domain_id = ?
+                WHERE synchronizer_id = ?
              """,
-          domainIds,
+          synchronizerIds,
           storage.profile,
         ) { pp => domain =>
           pp >> domain
@@ -189,11 +189,11 @@ class DbAcsCommitmentConfigStore(
     )
 
   override def clearSlowCounterParticipants(
-      domainIds: Seq[DomainId]
+      synchronizerIds: Seq[SynchronizerId]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     for {
       _ <- storage.queryAndUpdateUnlessShutdown(
-        clearSlowCounterParticipantsDBIO(domainIds),
+        clearSlowCounterParticipantsDBIO(synchronizerIds),
         functionFullName,
       )
       _ <- refreshSlowCounterParticipantConfigsCache()
@@ -205,10 +205,10 @@ class DbAcsCommitmentConfigStore(
     val updateNoWait: String =
       storage.profile match {
         case _: DbStorage.Profile.H2 =>
-          """merge into acs_no_wait_counter_participants (domain_id,participant_id)
+          """merge into acs_no_wait_counter_participants (synchronizer_id,participant_id)
                    values (?, ?)"""
         case _: DbStorage.Profile.Postgres =>
-          """insert into acs_no_wait_counter_participants (domain_id,participant_id)
+          """insert into acs_no_wait_counter_participants (synchronizer_id,participant_id)
                  values (?, ?) on conflict do nothing"""
       }
 
@@ -218,7 +218,7 @@ class DbAcsCommitmentConfigStore(
         configs,
         storage.profile,
       ) { pp => config =>
-        pp >> config.domainId
+        pp >> config.synchronizerId
         pp >> config.participantId
       },
       functionFullName,
@@ -226,7 +226,7 @@ class DbAcsCommitmentConfigStore(
   }
 
   override def removeNoWaitCounterParticipant(
-      domains: Seq[DomainId],
+      domains: Seq[SynchronizerId],
       participants: Seq[ParticipantId],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val crossProduct = for {
@@ -236,7 +236,7 @@ class DbAcsCommitmentConfigStore(
     storage.queryAndUpdateUnlessShutdown(
       DbStorage.bulkOperation_(
         """DELETE FROM acs_no_wait_counter_participants
-                WHERE domain_id = ? AND participant_id = ?
+                WHERE synchronizer_id = ? AND participant_id = ?
              """,
         crossProduct,
         storage.profile,
@@ -250,13 +250,13 @@ class DbAcsCommitmentConfigStore(
   }
 
   override def getAllActiveNoWaitCounterParticipants(
-      filterDomains: Seq[DomainId],
+      filterDomains: Seq[SynchronizerId],
       filterParticipants: Seq[ParticipantId],
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[ConfigForNoWaitCounterParticipants]] = {
     import DbStorage.Implicits.BuilderChain.*
-    val baseQuery = sql"""select cs.domain_id, cs.participant_id
+    val baseQuery = sql"""select cs.synchronizer_id, cs.participant_id
                from acs_no_wait_counter_participants cs
                where 1=1 """
 
@@ -278,29 +278,29 @@ class DbAcsCommitmentConfigStore(
 
     val queries = (domains, participants) match {
       case (None, None) =>
-        BuilderChain.toSQLActionBuilderChain(baseQuery).as[(DomainId, ParticipantId)]
+        BuilderChain.toSQLActionBuilderChain(baseQuery).as[(SynchronizerId, ParticipantId)]
       case (Some(dom), None) =>
         queryDomain(
           baseQuery,
           DbStorage
-            .toInClause("cs.domain_id", dom),
-        ).as[(DomainId, ParticipantId)]
+            .toInClause("cs.synchronizer_id", dom),
+        ).as[(SynchronizerId, ParticipantId)]
       case (None, Some(par)) =>
         queryParticipant(
           baseQuery,
           DbStorage
             .toInClause("cs.participant_id", par),
-        ).as[(DomainId, ParticipantId)]
+        ).as[(SynchronizerId, ParticipantId)]
       case (Some(dom), Some(par)) =>
         queryParticipant(
           queryDomain(
             baseQuery,
             DbStorage
-              .toInClause("cs.domain_id", dom),
+              .toInClause("cs.synchronizer_id", dom),
           ),
           DbStorage.toInClause("cs.participant_id", par),
         )
-          .as[(DomainId, ParticipantId)]
+          .as[(SynchronizerId, ParticipantId)]
 
     }
 
@@ -310,11 +310,11 @@ class DbAcsCommitmentConfigStore(
 
     } yield data.map {
       case (
-            domainId,
+            synchronizerId,
             participantId,
           ) =>
         ConfigForNoWaitCounterParticipants(
-          domainId,
+          synchronizerId,
           participantId,
         )
     }

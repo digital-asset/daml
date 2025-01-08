@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol.messages
@@ -12,7 +12,7 @@ import com.digitalasset.canton.protocol.messages.RootHashMessage.RootHashMessage
 import com.digitalasset.canton.protocol.{RootHash, v30}
 import com.digitalasset.canton.serialization.HasCryptographicEvidence
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.version.{
   HasProtocolVersionedWithContextCompanion,
   ProtoVersion,
@@ -30,7 +30,7 @@ import com.google.protobuf.ByteString
   */
 final case class RootHashMessage[+Payload <: RootHashMessagePayload](
     rootHash: RootHash,
-    override val domainId: DomainId,
+    override val synchronizerId: SynchronizerId,
     viewType: ViewType,
     submissionTopologyTimestamp: CantonTimestamp,
     payload: Payload,
@@ -43,7 +43,7 @@ final case class RootHashMessage[+Payload <: RootHashMessagePayload](
 
   def toProtoV30: v30.RootHashMessage = v30.RootHashMessage(
     rootHash = rootHash.toProtoPrimitive,
-    domainId = domainId.toProtoPrimitive,
+    synchronizerId = synchronizerId.toProtoPrimitive,
     viewType = viewType.toProtoEnum,
     submissionTopologyTime = submissionTopologyTimestamp.toProtoPrimitive,
     payload = payload.getCryptographicEvidence,
@@ -79,7 +79,7 @@ final case class RootHashMessage[+Payload <: RootHashMessagePayload](
   ): RootHashMessage[Payload2] =
     RootHashMessage(
       rootHash,
-      domainId,
+      synchronizerId,
       viewType,
       submissionTopologyTime,
       payload,
@@ -102,14 +102,14 @@ object RootHashMessage
 
   def apply[Payload <: RootHashMessagePayload](
       rootHash: RootHash,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       protocolVersion: ProtocolVersion,
       viewType: ViewType,
       submissionTopologyTime: CantonTimestamp,
       payload: Payload,
   ): RootHashMessage[Payload] = RootHashMessage(
     rootHash,
-    domainId,
+    synchronizerId,
     viewType,
     submissionTopologyTime,
     payload,
@@ -120,18 +120,24 @@ object RootHashMessage
   )(
       rootHashMessageP: v30.RootHashMessage
   ): ParsingResult[RootHashMessage[Payload]] = {
-    val v30.RootHashMessage(rootHashP, domainIdP, viewTypeP, submissionTopologyTimeP, payloadP) =
+    val v30.RootHashMessage(
+      rootHashP,
+      synchronizerIdP,
+      viewTypeP,
+      submissionTopologyTimeP,
+      payloadP,
+    ) =
       rootHashMessageP
     for {
       rootHash <- RootHash.fromProtoPrimitive(rootHashP)
-      domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
+      synchronizerId <- SynchronizerId.fromProtoPrimitive(synchronizerIdP, "synchronizer_id")
       viewType <- ViewType.fromProtoEnum(viewTypeP)
       submissionTopologyTime <- CantonTimestamp.fromProtoPrimitive(submissionTopologyTimeP)
       payloadO <- payloadDeserializer(payloadP)
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield RootHashMessage(
       rootHash,
-      domainId,
+      synchronizerId,
       viewType,
       submissionTopologyTime,
       payloadO,

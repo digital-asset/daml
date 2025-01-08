@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao.events
@@ -36,29 +36,49 @@ private[dao] sealed class ContractsReader(
     extends LedgerDaoContractsReader
     with NamedLogging {
 
+  /** Batch lookup of contract keys
+    *
+    * Used to unit test the SQL queries for key lookups. Does not use batching.
+    */
+  override def lookupKeyStatesFromDb(keys: Seq[Key], notEarlierThanOffset: Offset)(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Future[Map[Key, KeyState]] =
+    Timed.future(
+      metrics.index.db.lookupKey,
+      dispatcher.executeSql(metrics.index.db.lookupContractByKeyDbMetrics)(
+        storageBackend.keyStates(keys, notEarlierThanOffset)
+      ),
+    )
+
   /** Lookup a contract key state at a specific ledger offset.
     *
     * @param key the contract key
-    * @param validAt the offset of the ledger at which to query for the key state
+    * @param notEarlierThanOffset the lower bound offset of the ledger for which to query for the key state
     * @return the key state.
     */
-  override def lookupKeyState(key: Key, validAt: Offset)(implicit
+  override def lookupKeyState(key: Key, notEarlierThanOffset: Offset)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[KeyState] =
     Timed.future(
       metrics.index.db.lookupKey,
-      dispatcher.executeSql(metrics.index.db.lookupContractByKeyDbMetrics)(
-        storageBackend.keyState(key, validAt)
-      ),
+      contractLoader.keys.load(key -> notEarlierThanOffset).map {
+        case Some(value) => value
+        case None =>
+          logger
+            .error(s"Key $key resulted in an invalid empty load at offset $notEarlierThanOffset")(
+              loggingContext.traceContext
+            )
+          KeyUnassigned
+      },
     )
 
-  override def lookupContractState(contractId: ContractId, before: Offset)(implicit
+  override def lookupContractState(contractId: ContractId, notEarlierThanOffset: Offset)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Option[ContractState]] =
     Timed.future(
       metrics.index.db.lookupActiveContract,
-      contractLoader
-        .load(contractId -> before)
+      contractLoader.contracts
+        .load(contractId -> notEarlierThanOffset)
         .map(_.map {
           case raw: RawCreatedContract =>
             val decompressionTimer =

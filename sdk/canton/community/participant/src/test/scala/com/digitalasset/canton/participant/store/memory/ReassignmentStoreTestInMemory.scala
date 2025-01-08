@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.memory
@@ -16,7 +16,7 @@ class ReassignmentStoreTestInMemory
     with ReassignmentStoreTest {
 
   private def mk(domain: IndexedDomain): InMemoryReassignmentStore =
-    new InMemoryReassignmentStore(Target(domain.domainId), loggerFactory)
+    new InMemoryReassignmentStore(Target(domain.synchronizerId), loggerFactory)
 
   "ReassignmentStoreTestInMemory" should {
     behave like reassignmentStore(mk)

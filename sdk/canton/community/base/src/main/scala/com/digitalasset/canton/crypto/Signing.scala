@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto
@@ -48,18 +48,25 @@ trait SigningOps {
   def defaultSigningAlgorithmSpec: SigningAlgorithmSpec
   def supportedSigningAlgorithmSpecs: NonEmpty[Set[SigningAlgorithmSpec]]
 
-  /** Signs the given hash using the private signing key. */
+  /** Signs the given hash using the private signing key.
+    *
+    * @param usage the usage we intend to enforce. If multiple usages are enforced,
+    *              at least one of them must be satisfied. In other words, the provided signing key's usage
+    *              must intersect with the specified usages.
+    */
   def sign(
       hash: Hash,
       signingKey: SigningPrivateKey,
+      usage: NonEmpty[Set[SigningKeyUsage]],
       signingAlgorithmSpec: SigningAlgorithmSpec = defaultSigningAlgorithmSpec,
   ): Either[SigningError, Signature] =
-    signBytes(hash.getCryptographicEvidence, signingKey, signingAlgorithmSpec)
+    signBytes(hash.getCryptographicEvidence, signingKey, usage, signingAlgorithmSpec)
 
   /** Preferably, we sign a hash; however, we also allow signing arbitrary bytes when necessary. */
   protected[crypto] def signBytes(
       bytes: ByteString,
       signingKey: SigningPrivateKey,
+      usage: NonEmpty[Set[SigningKeyUsage]],
       signingAlgorithmSpec: SigningAlgorithmSpec = defaultSigningAlgorithmSpec,
   ): Either[SigningError, Signature]
 
@@ -88,16 +95,18 @@ trait SigningPrivateOps {
   def sign(
       hash: Hash,
       signingKeyId: Fingerprint,
+      usage: NonEmpty[Set[SigningKeyUsage]],
       signingAlgorithmSpec: SigningAlgorithmSpec = defaultSigningAlgorithmSpec,
   )(implicit
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, SigningError, Signature] =
-    signBytes(hash.getCryptographicEvidence, signingKeyId, signingAlgorithmSpec)
+    signBytes(hash.getCryptographicEvidence, signingKeyId, usage, signingAlgorithmSpec)
 
   /** Signs the byte string directly, however it is encouraged to sign a hash. */
   protected[crypto] def signBytes(
       bytes: ByteString,
       signingKeyId: Fingerprint,
+      usage: NonEmpty[Set[SigningKeyUsage]],
       signingAlgorithmSpec: SigningAlgorithmSpec = defaultSigningAlgorithmSpec,
   )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, SigningError, Signature]
 
@@ -124,13 +133,16 @@ trait SigningPrivateStoreOps extends SigningPrivateOps {
   override protected[crypto] def signBytes(
       bytes: ByteString,
       signingKeyId: Fingerprint,
+      usage: NonEmpty[Set[SigningKeyUsage]],
       signingAlgorithmSpec: SigningAlgorithmSpec,
   )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, SigningError, Signature] =
     store
       .signingKey(signingKeyId)
       .leftMap(storeError => SigningError.KeyStoreError(storeError.show))
       .subflatMap(_.toRight(SigningError.UnknownSigningKey(signingKeyId)))
-      .subflatMap(signingKey => signingOps.signBytes(bytes, signingKey, signingAlgorithmSpec))
+      .subflatMap(signingKey =>
+        signingOps.signBytes(bytes, signingKey, usage, signingAlgorithmSpec)
+      )
 
   /** Internal method to generate and return the entire signing key pair */
   protected[crypto] def generateSigningKeypair(
@@ -261,7 +273,7 @@ final case class SignatureDelegationValidityPeriod(
   * @param validityPeriod indicates the 'lifespan' (i.e. how long the key is valid) of a session signing key
   * @param signature this signature authorizes the session key to act on behalf of a long-term key
   *                  We sign over the combined hash of the fingerprint of the session key, the validity period, and
-  *                  the domain ID.
+  *                  the synchronizer id.
   */
 final case class SignatureDelegation private[crypto] (
     sessionKey: SigningPublicKey,
@@ -271,10 +283,10 @@ final case class SignatureDelegation private[crypto] (
     with Serializable {
 
   // All session signing keys must be an ASN.1 + DER-encoding of X.509 SubjectPublicKeyInfo structure and be
-  // set to be used for protocol messages.
+  // set to be used for protocol messages
   require(
     sessionKey.format == CryptoKeyFormat.DerX509Spki &&
-      sessionKey.usage == SigningKeyUsage.ProtocolOnly &&
+      SigningKeyUsage.nonEmptyIntersection(sessionKey.usage, SigningKeyUsage.ProtocolOnly) &&
       signature.signatureDelegation.isEmpty // we don't support recursive delegations
   )
 
@@ -309,7 +321,7 @@ object SignatureDelegation {
         )
       _ <-
         Either.cond(
-          sessionKey.usage == SigningKeyUsage.ProtocolOnly,
+          sessionKey.usage == SigningKeyUsage.ProtocolWithProofOfOwnership,
           (),
           s"session key must only be used for protocol messages (${sessionKey.usage})",
         )
@@ -423,13 +435,43 @@ sealed trait SigningKeyUsage extends Product with Serializable with PrettyPrinti
 object SigningKeyUsage {
 
   val All: NonEmpty[Set[SigningKeyUsage]] =
-    NonEmpty.mk(Set, Namespace, IdentityDelegation, SequencerAuthentication, Protocol)
+    NonEmpty.mk(
+      Set,
+      Namespace,
+      IdentityDelegation,
+      SequencerAuthentication,
+      Protocol,
+      ProofOfOwnership,
+    )
 
   val NamespaceOnly: NonEmpty[Set[SigningKeyUsage]] = NonEmpty.mk(Set, Namespace)
   val IdentityDelegationOnly: NonEmpty[Set[SigningKeyUsage]] = NonEmpty.mk(Set, IdentityDelegation)
+  val NamespaceOrIdentityDelegation: NonEmpty[Set[SigningKeyUsage]] =
+    NonEmpty.mk(Set, Namespace, IdentityDelegation)
   val SequencerAuthenticationOnly: NonEmpty[Set[SigningKeyUsage]] =
     NonEmpty.mk(Set, SequencerAuthentication)
   val ProtocolOnly: NonEmpty[Set[SigningKeyUsage]] = NonEmpty.mk(Set, Protocol)
+  val ProofOfOwnershipOnly: NonEmpty[Set[SigningKeyUsage]] = NonEmpty.mk(Set, ProofOfOwnership)
+  val ProtocolWithProofOfOwnership: NonEmpty[Set[SigningKeyUsage]] =
+    NonEmpty.mk(Set, Protocol, ProofOfOwnership)
+
+  /** The following combinations are invalid because:
+    *   - `ProofOfOwnership` is an internal type and must always be associated with another usage. It identifies that
+    *     a key can be used to prove ownership within the context of `OwnerToKeyMappings` and `PartyToKeyMappings`
+    *     topology transactions.
+    *   - Keys associated with `Namespace` and `IdentityDelegation` are not part of `OwnerToKeyMappings` or
+    *     `PartyToKeyMappings`, and therefore are not used to prove ownership.
+    */
+  private val invalidUsageCombinations: Set[NonEmpty[Set[SigningKeyUsage]]] =
+    Set(
+      ProofOfOwnershipOnly,
+      NamespaceOnly ++ ProofOfOwnershipOnly,
+      IdentityDelegationOnly ++ ProofOfOwnershipOnly,
+      NamespaceOnly ++ IdentityDelegationOnly ++ ProofOfOwnershipOnly,
+    )
+
+  def isUsageValid(usage: NonEmpty[Set[SigningKeyUsage]]): Boolean =
+    !SigningKeyUsage.invalidUsageCombinations.contains(usage)
 
   def fromDbTypeToSigningKeyUsage(dbTypeInt: Int): SigningKeyUsage =
     All
@@ -465,6 +507,18 @@ object SigningKeyUsage {
       v30.SigningKeyUsage.SIGNING_KEY_USAGE_PROTOCOL
   }
 
+  /** Internal type used to identify keys that can self-sign to prove ownership,
+    * required for topology requests such as OwnerToKeyMappings and PartyToKeyMappings.
+    * Generally, any key not intended for namespace or identity delegation will have this usage automatically assigned.
+    */
+  private case object ProofOfOwnership extends SigningKeyUsage {
+    override val identifier: String = "proof-of-ownership"
+    override val dbType: Byte = 4
+    override def toProtoEnum: v30.SigningKeyUsage =
+      v30.SigningKeyUsage.SIGNING_KEY_USAGE_PROOF_OF_OWNERSHIP
+
+  }
+
   def fromProtoEnum(
       field: String,
       usageP: v30.SigningKeyUsage,
@@ -480,6 +534,7 @@ object SigningKeyUsage {
       case v30.SigningKeyUsage.SIGNING_KEY_USAGE_SEQUENCER_AUTHENTICATION =>
         Right(SequencerAuthentication)
       case v30.SigningKeyUsage.SIGNING_KEY_USAGE_PROTOCOL => Right(Protocol)
+      case v30.SigningKeyUsage.SIGNING_KEY_USAGE_PROOF_OF_OWNERSHIP => Right(ProofOfOwnership)
     }
 
   /** When deserializing the usages for a signing key, if the usages are empty, we default to allowing all usages to
@@ -507,6 +562,15 @@ object SigningKeyUsage {
       filterUsage: NonEmpty[Set[SigningKeyUsage]],
   ): Boolean =
     usage.intersect(filterUsage).nonEmpty
+
+  /** Adds the `ProofOfOwnershipOnly` usage to the list of usages, unless it forms an
+    * invalid combination.
+    */
+  def addProofOfOwnership(usage: NonEmpty[Set[SigningKeyUsage]]): NonEmpty[Set[SigningKeyUsage]] = {
+    val newUsage = usage ++ ProofOfOwnershipOnly
+    if (SigningKeyUsage.invalidUsageCombinations.contains(newUsage)) usage
+    else newUsage
+  }
 
 }
 
@@ -759,13 +823,24 @@ object SigningKeyPair {
       privateKeyBytes: ByteString,
       keySpec: SigningKeySpec,
       usage: NonEmpty[Set[SigningKeyUsage]],
-  ): SigningKeyPair = {
-    val publicKey = SigningPublicKey
-      .create(publicFormat, publicKeyBytes, keySpec, usage)
-      .valueOr(err => throw new IllegalStateException(s"Failed to create public signing key: $err"))
-    val privateKey =
-      SigningPrivateKey.create(publicKey.id, privateFormat, privateKeyBytes, keySpec, usage)
-    SigningKeyPair(publicKey, privateKey)
+  ): Either[SigningKeyGenerationError, SigningKeyPair] = {
+    val usageUpdate = SigningKeyUsage.addProofOfOwnership(usage)
+    for {
+      publicKey <- SigningPublicKey
+        .create(publicFormat, publicKeyBytes, keySpec, usageUpdate)
+        .leftMap[SigningKeyGenerationError](err =>
+          SigningKeyGenerationError.GeneralError(
+            new IllegalStateException(s"Failed to create public signing key: $err")
+          )
+        )
+      privateKey <- SigningPrivateKey
+        .create(publicKey.id, privateFormat, privateKeyBytes, keySpec, usageUpdate)
+        .leftMap[SigningKeyGenerationError](err =>
+          SigningKeyGenerationError.GeneralError(
+            new IllegalStateException(s"Failed to create private signing key: $err")
+          )
+        )
+    } yield SigningKeyPair(publicKey, privateKey)
   }
 
   def fromProtoV30(
@@ -798,6 +873,11 @@ final case class SigningPublicKey private[crypto] (
     with HasVersionedWrapper[SigningPublicKey] {
 
   override type K = SigningPublicKey
+
+  require(
+    SigningKeyUsage.isUsageValid(usage),
+    s"Invalid usage $usage",
+  )
 
   override val purpose: KeyPurpose = KeyPurpose.Signing
 
@@ -925,10 +1005,28 @@ object SigningPublicKey
       usage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.All,
   ): Either[ProtoDeserializationError.CryptoDeserializationError, SigningPublicKey] =
     for {
+      _ <- Either
+        .cond(
+          SigningKeyUsage.isUsageValid(usage),
+          (),
+          s"Invalid usage $usage",
+        )
+        .leftMap(err =>
+          ProtoDeserializationError.CryptoDeserializationError(DefaultDeserializationError(s"$err"))
+        )
       dataForFingerprintO <- getDataForFingerprint(keySpec, format, key).leftMap(err =>
         ProtoDeserializationError.CryptoDeserializationError(DefaultDeserializationError(s"$err"))
       )
-      keyBeforeMigration = SigningPublicKey(format, key, keySpec, usage, dataForFingerprintO)()
+
+      keyBeforeMigration = SigningPublicKey(
+        format,
+        key,
+        keySpec,
+        // if a key is something else than a namespace or identity delegation, then it can be used to sign itself to
+        // prove ownership for OwnerToKeyMapping and PartyToKeyMapping requests.
+        SigningKeyUsage.addProofOfOwnership(usage),
+        dataForFingerprintO,
+      )()
       keyAfterMigrationO <- keyBeforeMigration
         .migrate()
         .leftMap(err =>
@@ -1005,6 +1103,8 @@ final case class SigningPrivateKey private (
     with HasVersionedWrapper[SigningPrivateKey] {
 
   override type K = SigningPrivateKey
+
+  require(SigningKeyUsage.isUsageValid(usage), s"Invalid usage $usage")
 
   override protected def companionObj: SigningPrivateKey.type = SigningPrivateKey
 
@@ -1096,12 +1196,17 @@ object SigningPrivateKey extends HasVersionedMessageCompanion[SigningPrivateKey]
       key: ByteString,
       keySpec: SigningKeySpec,
       usage: NonEmpty[Set[SigningKeyUsage]],
-  ): SigningPrivateKey = {
-    val keyBeforeMigration = SigningPrivateKey(id, format, key, keySpec, usage)()
-    val keyAfterMigration = keyBeforeMigration.migrate().getOrElse(keyBeforeMigration)
-
-    keyAfterMigration
-  }
+  ): Either[ProtoDeserializationError.CryptoDeserializationError, SigningPrivateKey] =
+    Either.cond(
+      SigningKeyUsage.isUsageValid(usage), {
+        val keyBeforeMigration = SigningPrivateKey(id, format, key, keySpec, usage)()
+        val keyAfterMigration = keyBeforeMigration.migrate().getOrElse(keyBeforeMigration)
+        keyAfterMigration
+      },
+      ProtoDeserializationError.CryptoDeserializationError(
+        DefaultDeserializationError(s"Invalid usage $usage")
+      ),
+    )
 
   @nowarn("cat=deprecation")
   def fromProtoV30(
@@ -1115,7 +1220,8 @@ object SigningPrivateKey extends HasVersionedMessageCompanion[SigningPrivateKey]
         privateKeyP.scheme,
       )
       usage <- SigningKeyUsage.fromProtoListWithDefault(privateKeyP.usage)
-    } yield SigningPrivateKey.create(id, format, privateKeyP.privateKey, keySpec, usage)
+      key <- SigningPrivateKey.create(id, format, privateKeyP.privateKey, keySpec, usage)
+    } yield key
 
 }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto
@@ -24,13 +24,16 @@ import com.digitalasset.canton.lifecycle.{
 }
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.signer.{ProtocolSigner, ProtocolSignerDefault}
-import com.digitalasset.canton.protocol.{DynamicDomainParameters, StaticDomainParameters}
+import com.digitalasset.canton.protocol.{
+  DynamicSynchronizerParameters,
+  StaticSynchronizerParameters,
+}
 import com.digitalasset.canton.serialization.DeserializationError
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.{
-  DomainTopologyClient,
   IdentityProvidingServiceClient,
+  SynchronizerTopologyClient,
   TopologyClientApi,
   TopologySnapshot,
 }
@@ -65,35 +68,35 @@ class SyncCryptoApiProvider(
 
   def pureCrypto: CryptoPureApi = crypto.pureCrypto
 
-  def tryForDomain(
-      domain: DomainId,
-      staticDomainParameters: StaticDomainParameters,
-  ): DomainSyncCryptoClient =
-    new DomainSyncCryptoClient(
+  def tryForSynchronizer(
+      synchronizerId: SynchronizerId,
+      staticSynchronizerParameters: StaticSynchronizerParameters,
+  ): SynchronizerSyncCryptoClient =
+    new SynchronizerSyncCryptoClient(
       member,
-      domain,
-      ips.tryForDomain(domain),
+      synchronizerId,
+      ips.tryForSynchronizer(synchronizerId),
       crypto,
       sessionSigningKeysConfig,
-      staticDomainParameters,
+      staticSynchronizerParameters,
       timeouts,
       futureSupervisor,
-      loggerFactory.append("domainId", domain.toString),
+      loggerFactory.append("synchronizerId", synchronizerId.toString),
     )
 
-  def forDomain(
-      domain: DomainId,
-      staticDomainParameters: StaticDomainParameters,
-  ): Option[DomainSyncCryptoClient] =
+  def forSynchronizer(
+      synchronizerId: SynchronizerId,
+      staticSynchronizerParameters: StaticSynchronizerParameters,
+  ): Option[SynchronizerSyncCryptoClient] =
     for {
-      dips <- ips.forDomain(domain)
-    } yield new DomainSyncCryptoClient(
+      dips <- ips.forSynchronizer(synchronizerId)
+    } yield new SynchronizerSyncCryptoClient(
       member,
-      domain,
+      synchronizerId,
       dips,
       crypto,
       sessionSigningKeysConfig,
-      staticDomainParameters,
+      staticSynchronizerParameters,
       timeouts,
       futureSupervisor,
       loggerFactory,
@@ -103,7 +106,7 @@ class SyncCryptoApiProvider(
 trait SyncCryptoClient[+T <: SyncCryptoApi] extends TopologyClientApi[T] {
   this: HasFutureSupervision =>
 
-  val pureCrypto: DomainCryptoPureApi
+  val pureCrypto: SynchronizerCryptoPureApi
 
   /** Returns a snapshot of the current member topology for the given domain.
     * The future will log a warning and await the snapshot if the data is not there yet.
@@ -161,7 +164,7 @@ object SyncCryptoClient {
         "get-dynamic-domain-parameters"
       ) {
         snapshot
-          .findDynamicDomainParametersOrDefault(
+          .findDynamicSynchronizerParametersOrDefault(
             protocolVersion = protocolVersion,
             warnOnUsingDefault = false,
           )(traceContext)
@@ -195,7 +198,7 @@ object SyncCryptoClient {
         client.awaitSnapshotUSSupervised(description)(timestamp)(traceContext),
       (snapshot, traceContext) =>
         snapshot
-          .findDynamicDomainParametersOrDefault(
+          .findDynamicSynchronizerParametersOrDefault(
             protocolVersion = protocolVersion,
             warnOnUsingDefault = false,
           )(traceContext),
@@ -212,14 +215,16 @@ object SyncCryptoClient {
   )(
       getSnapshot: (CantonTimestamp, TraceContext) => F[SyncCryptoApi],
       awaitSnapshotSupervised: (String, CantonTimestamp, TraceContext) => F[SyncCryptoApi],
-      dynamicDomainParameters: (TopologySnapshot, TraceContext) => F[DynamicDomainParameters],
+      dynamicDomainParameters: (TopologySnapshot, TraceContext) => F[DynamicSynchronizerParameters],
   )(implicit
       loggingContext: ErrorLoggingContext,
       monad: Monad[F],
   ): F[SyncCryptoApi] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
 
-    def lookupDynamicDomainParameters(timestamp: CantonTimestamp): F[DynamicDomainParameters] =
+    def lookupDynamicDomainParameters(
+        timestamp: CantonTimestamp
+    ): F[DynamicSynchronizerParameters] =
       for {
         snapshot <- awaitSnapshotSupervised(
           s"searching for topology change delay at $timestamp for desired timestamp $desiredTimestamp and known until ${client.topologyKnownUntilTimestamp}",
@@ -266,7 +271,7 @@ object SyncCryptoClient {
       currentApproximateTimestamp: CantonTimestamp,
       warnIfApproximate: Boolean,
   )(
-      domainParamsLookup: CantonTimestamp => F[DynamicDomainParameters]
+      domainParamsLookup: CantonTimestamp => F[DynamicSynchronizerParameters]
   )(implicit
       loggingContext: ErrorLoggingContext,
       // executionContext: ExecutionContext,
@@ -306,65 +311,67 @@ object SyncCryptoClient {
 
 /** Crypto operations on a particular domain
   */
-class DomainSyncCryptoClient(
+class SynchronizerSyncCryptoClient(
     val member: Member,
-    val domainId: DomainId,
-    val ips: DomainTopologyClient,
+    val synchronizerId: SynchronizerId,
+    val ips: SynchronizerTopologyClient,
     val crypto: Crypto,
     @unused sessionSigningKeysConfig: SessionSigningKeysConfig,
-    val staticDomainParameters: StaticDomainParameters,
+    val staticSynchronizerParameters: StaticSynchronizerParameters,
     override val timeouts: ProcessingTimeout,
     override protected val futureSupervisor: FutureSupervisor,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit override protected val executionContext: ExecutionContext)
-    extends SyncCryptoClient[DomainSnapshotSyncCryptoApi]
+    extends SyncCryptoClient[SynchronizerSnapshotSyncCryptoApi]
     with HasFutureSupervision
     with NamedLogging
     with FlagCloseable {
 
-  override val pureCrypto: DomainCryptoPureApi =
-    new DomainCryptoPureApi(staticDomainParameters, crypto.pureCrypto)
+  override val pureCrypto: SynchronizerCryptoPureApi =
+    new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto)
 
   override def snapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[DomainSnapshotSyncCryptoApi] =
+  ): Future[SynchronizerSnapshotSyncCryptoApi] =
     ips.snapshot(timestamp).map(create)
 
   override def snapshotUS(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[DomainSnapshotSyncCryptoApi] =
+  ): FutureUnlessShutdown[SynchronizerSnapshotSyncCryptoApi] =
     ips.snapshotUS(timestamp).map(create)
 
   override def trySnapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): DomainSnapshotSyncCryptoApi =
+  ): SynchronizerSnapshotSyncCryptoApi =
     create(ips.trySnapshot(timestamp))
 
-  override def headSnapshot(implicit traceContext: TraceContext): DomainSnapshotSyncCryptoApi =
+  override def headSnapshot(implicit
+      traceContext: TraceContext
+  ): SynchronizerSnapshotSyncCryptoApi =
     create(ips.headSnapshot)
 
   override def awaitSnapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[DomainSnapshotSyncCryptoApi] =
+  ): Future[SynchronizerSnapshotSyncCryptoApi] =
     ips.awaitSnapshot(timestamp).map(create)
 
   override def awaitSnapshotUS(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[DomainSnapshotSyncCryptoApi] =
+  ): FutureUnlessShutdown[SynchronizerSnapshotSyncCryptoApi] =
     ips.awaitSnapshotUS(timestamp).map(create)
 
   private val topologySigner = new ProtocolSignerDefault(
     member,
-    new DomainCryptoPureApi(staticDomainParameters, pureCrypto),
+    new SynchronizerCryptoPureApi(staticSynchronizerParameters, pureCrypto),
     crypto.privateCrypto,
     crypto.cryptoPrivateStore,
     logger,
   )
 
-  private def create(snapshot: TopologySnapshot): DomainSnapshotSyncCryptoApi =
-    new DomainSnapshotSyncCryptoApi(
-      domainId,
-      staticDomainParameters,
+  private def create(snapshot: TopologySnapshot): SynchronizerSnapshotSyncCryptoApi =
+    new SynchronizerSnapshotSyncCryptoApi(
+      synchronizerId,
+      staticSynchronizerParameters,
       snapshot,
       crypto,
       topologySigner,
@@ -396,7 +403,7 @@ class DomainSyncCryptoClient(
 
   override def currentSnapshotApproximation(implicit
       traceContext: TraceContext
-  ): DomainSnapshotSyncCryptoApi =
+  ): SynchronizerSnapshotSyncCryptoApi =
     create(ips.currentSnapshotApproximation)
 
   override def topologyKnownUntilTimestamp: CantonTimestamp = ips.topologyKnownUntilTimestamp
@@ -411,10 +418,10 @@ class DomainSyncCryptoClient(
     ips.awaitMaxTimestampUS(sequencedTime)
 }
 
-/** crypto operations for a (domain,timestamp) */
-class DomainSnapshotSyncCryptoApi(
-    val domainId: DomainId,
-    staticDomainParameters: StaticDomainParameters,
+/** crypto operations for a (synchronizer,timestamp) */
+class SynchronizerSnapshotSyncCryptoApi(
+    val synchronizerId: SynchronizerId,
+    staticSynchronizerParameters: StaticSynchronizerParameters,
     override val ipsSnapshot: TopologySnapshot,
     val crypto: Crypto,
     val protocolSigner: ProtocolSigner,
@@ -424,14 +431,15 @@ class DomainSnapshotSyncCryptoApi(
     with NamedLogging {
 
   override val pureCrypto: CryptoPureApi =
-    new DomainCryptoPureApi(staticDomainParameters, crypto.pureCrypto)
+    new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto)
 
   override def sign(
-      hash: Hash
+      hash: Hash,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, Signature] =
-    protocolSigner.sign(ipsSnapshot, hash)
+    protocolSigner.sign(ipsSnapshot, hash, usage)
 
   override def verifySignature(
       hash: Hash,

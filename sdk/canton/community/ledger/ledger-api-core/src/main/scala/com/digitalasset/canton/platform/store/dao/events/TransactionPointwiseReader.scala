@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao.events
@@ -8,7 +8,6 @@ import com.daml.ledger.api.v2.transaction.TreeEvent
 import com.daml.ledger.api.v2.update_service.{GetTransactionResponse, GetTransactionTreeResponse}
 import com.daml.metrics.{DatabaseMetrics, Timed}
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.data
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.Party
@@ -19,6 +18,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawFlatEvent,
   RawTreeEvent,
 }
+import com.digitalasset.canton.platform.store.backend.common.TransactionPointwiseQueries.LookupKey
 import com.digitalasset.canton.platform.store.dao.events.EventsTable.TransactionConversions
 import com.digitalasset.canton.platform.store.dao.{DbDispatcher, EventProjectionProperties}
 import com.digitalasset.canton.util.MonadUtil
@@ -45,7 +45,6 @@ sealed trait TransactionPointwiseReader {
       firstEventSequentialId: Long,
       lastEventSequentialId: Long,
       requestingParties: Set[Party],
-      eventProjectionProperties: EventProjectionProperties,
   )(connection: Connection): Vector[EventStorageBackend.Entry[RawEventT]]
 
   protected def deserializeEntry(
@@ -62,8 +61,8 @@ sealed trait TransactionPointwiseReader {
       events: Seq[Entry[EventT]]
   ): Option[RespT]
 
-  final def lookupTransactionById(
-      updateId: data.UpdateId,
+  final def lookupTransactionBy(
+      lookupKey: LookupKey,
       requestingParties: Set[Party],
       eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[RespT]] = {
@@ -71,8 +70,8 @@ sealed trait TransactionPointwiseReader {
     for {
       // Fetching event sequential id range corresponding to the requested transaction id
       eventSeqIdRangeO <- dbDispatcher.executeSql(dbMetric)(
-        eventStorageBackend.transactionPointwiseQueries.fetchIdsFromTransactionMeta(updateId =
-          updateId
+        eventStorageBackend.transactionPointwiseQueries.fetchIdsFromTransactionMeta(lookupKey =
+          lookupKey
         )
       )
       response <- eventSeqIdRangeO match {
@@ -84,7 +83,6 @@ sealed trait TransactionPointwiseReader {
                 firstEventSequentialId = firstEventSeqId,
                 lastEventSequentialId = lastEventSeqId,
                 requestingParties = requestingParties,
-                eventProjectionProperties = eventProjectionProperties,
               )
             )
             // Filtering by requesting parties
@@ -133,7 +131,6 @@ final class TransactionTreePointwiseReader(
       firstEventSequentialId: Long,
       lastEventSequentialId: Long,
       requestingParties: Set[Party],
-      eventProjectionProperties: EventProjectionProperties,
   )(connection: Connection): Vector[Entry[RawEventT]] =
     eventStorageBackend.transactionPointwiseQueries.fetchTreeTransactionEvents(
       firstEventSequentialId = firstEventSequentialId,
@@ -175,7 +172,6 @@ final class TransactionFlatPointwiseReader(
       firstEventSequentialId: Long,
       lastEventSequentialId: Long,
       requestingParties: Set[Party],
-      eventProjectionProperties: EventProjectionProperties,
   )(connection: Connection): Vector[EventStorageBackend.Entry[RawEventT]] =
     eventStorageBackend.transactionPointwiseQueries.fetchFlatTransactionEvents(
       firstEventSequentialId = firstEventSequentialId,

@@ -910,12 +910,12 @@ scala_library(
     ],
 )
 
-### community/domain ###
+### community/synchronizer ###
 
 proto_library(
-    name = "community_domain_proto",
-    srcs = glob(["community/domain/src/main/protobuf/**/*.proto"]),
-    strip_import_prefix = "community/domain/src/main/protobuf",
+    name = "community_synchronizer_proto",
+    srcs = glob(["community/synchronizer/src/main/protobuf/**/*.proto"]),
+    strip_import_prefix = "community/synchronizer/src/main/protobuf",
     deps = [
         ":community_admin-api_proto",
         ":community_base_proto",
@@ -929,8 +929,8 @@ proto_library(
 )
 
 proto_gen(
-    name = "community_domain_proto_scala",
-    srcs = [":community_domain_proto"],
+    name = "community_synchronizer_proto_scala",
+    srcs = [":community_synchronizer_proto"],
     plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
     plugin_name = "scalapb",
     plugin_options = [
@@ -940,8 +940,8 @@ proto_gen(
 )
 
 scala_library(
-    name = "community_domain",
-    srcs = glob(["community/domain/src/main/scala/**/*.scala"]) + [":community_domain_proto_scala"],
+    name = "community_synchronizer",
+    srcs = glob(["community/synchronizer/src/main/scala/**/*.scala"]) + [":community_synchronizer_proto_scala"],
     plugins = [kind_projector_plugin],
     scalacopts = canton_scalacopts + ["-language:postfixOps"],
     unused_dependency_checker_mode = "error",
@@ -1266,7 +1266,6 @@ scala_library(
         ":community_admin-api",
         ":community_base",
         ":community_common",
-        ":community_domain",
         ":community_kms-driver-api",
         ":community_ledger_ledger-api-core",
         ":community_ledger_ledger-common",
@@ -1274,6 +1273,7 @@ scala_library(
         ":community_lib_wartremover",
         ":community_participant",
         ":community_sequencer-driver",
+        ":community_synchronizer",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
         ":daml-common-staging_daml-jwt",
@@ -1362,10 +1362,10 @@ scala_library(
         ":community_base",
         ":community_buildinfo",
         ":community_common",
-        ":community_domain",
         ":community_ledger_ledger-api-core",
         ":community_ledger_ledger-json-api",
         ":community_participant",
+        ":community_synchronizer",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
         ":daml-common-staging_daml-jwt",

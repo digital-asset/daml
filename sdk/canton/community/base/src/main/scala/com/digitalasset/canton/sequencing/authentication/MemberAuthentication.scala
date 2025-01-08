@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.authentication
@@ -8,7 +8,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.AuthenticationError
-import com.digitalasset.canton.topology.{DomainId, *}
+import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
@@ -17,7 +17,7 @@ trait MemberAuthentication {
 
   def hashDomainNonce(
       nonce: Nonce,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       pureCrypto: CryptoPureApi,
   ): Hash
 
@@ -26,7 +26,7 @@ trait MemberAuthentication {
   def signDomainNonce(
       member: Member,
       nonce: Nonce,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       possibleSigningKeys: NonEmpty[Seq[Fingerprint]],
       crypto: Crypto,
   )(implicit
@@ -70,10 +70,10 @@ object MemberAuthentication extends MemberAuthentication {
         s"Authentication token for member $member has expired. Please reauthenticate.",
         "MissingToken",
       )
-  final case class NonMatchingDomainId(member: Member, domainId: DomainId)
+  final case class NonMatchingSynchronizerId(member: Member, synchronizerId: SynchronizerId)
       extends AuthenticationError(
-        show"Domain id $domainId provided by member $member does not match the domain id of the domain the ${member.description} is trying to connect to",
-        "NonMatchingDomainId",
+        show"Synchronizer id $synchronizerId provided by member $member does not match the synchronizer id of the domain the ${member.description} is trying to connect to",
+        "NonMatchingSynchronizerId",
       )
   final case class MemberAccessDisabled(member: Member)
       extends AuthenticationError(
@@ -99,24 +99,24 @@ object MemberAuthentication extends MemberAuthentication {
 
   def hashDomainNonce(
       nonce: Nonce,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       pureCrypto: CryptoPureApi,
   ): Hash = {
-    val builder = commonNonce(pureCrypto, nonce, domainId)
+    val builder = commonNonce(pureCrypto, nonce, synchronizerId)
     builder.finish()
   }
 
   def signDomainNonce(
       member: Member,
       nonce: Nonce,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       possibleSigningKeys: NonEmpty[Seq[Fingerprint]],
       crypto: Crypto,
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, AuthenticationError, Signature] = {
-    val hash = hashDomainNonce(nonce, domainId, crypto.pureCrypto)
+    val hash = hashDomainNonce(nonce, synchronizerId, crypto.pureCrypto)
 
     for {
       // see if we have any of the possible keys with the correct usage that could be used to sign
@@ -136,7 +136,7 @@ object MemberAuthentication extends MemberAuthentication {
             )
           )
       sig <- crypto.privateCrypto
-        .sign(hash, availableSigningKey)
+        .sign(hash, availableSigningKey, SigningKeyUsage.SequencerAuthenticationOnly)
         .leftMap[AuthenticationError](FailedToSign(member, _))
     } yield sig
   }
@@ -144,12 +144,16 @@ object MemberAuthentication extends MemberAuthentication {
   /** Hash the common fields of the nonce.
     * Implementations of MemberAuthentication can then add their own fields as appropriate.
     */
-  protected def commonNonce(pureApi: CryptoPureApi, nonce: Nonce, domainId: DomainId): HashBuilder =
+  protected def commonNonce(
+      pureApi: CryptoPureApi,
+      nonce: Nonce,
+      synchronizerId: SynchronizerId,
+  ): HashBuilder =
     pureApi
       .build(HashPurpose.AuthenticationToken)
       .addWithoutLengthPrefix(
         nonce.getCryptographicEvidence
       ) // Nonces have a fixed length so it's fine to not add a length prefix
-      .add(domainId.toProtoPrimitive)
+      .add(synchronizerId.toProtoPrimitive)
 
 }

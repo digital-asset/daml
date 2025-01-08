@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.config
@@ -100,8 +100,8 @@ object CommunityConfigValidations
           port <- getPropInt("portNumber")
           dbName <- getPropStr("databaseName")
           url <- dbConfig match {
-            case _: H2DbConfig => Some(DbConfig.h2Url(dbName))
-            case _: PostgresDbConfig => Some(DbConfig.postgresUrl(server, port, dbName))
+            case _: DbConfig.H2 => Some(DbConfig.h2Url(dbName))
+            case _: DbConfig.Postgres => Some(DbConfig.postgresUrl(server, port, dbName))
             case other => throw new IllegalArgumentException(s"Unsupported DbConfig: $other")
           }
         } yield url

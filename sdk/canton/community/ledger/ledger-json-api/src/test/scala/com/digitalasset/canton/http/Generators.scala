@@ -1,11 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http
 
 import com.daml.ledger.api.v2 as lav2
 import com.digitalasset.canton.http.domain.ContractTypeId
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.Ref
 import org.scalacheck.Gen
 import scalaz.{-\/, \/, \/-}
@@ -147,8 +147,8 @@ object Generators {
   def metaGen: Gen[domain.CommandMeta.NoDisclosed] =
     for {
       commandId <- Gen.option(Gen.identifier.map(domain.CommandId(_)))
-      domainId <- Gen.option(Gen.const(DomainId.tryFromString("some::domainid")))
-    } yield domain.CommandMeta(commandId, None, None, None, None, None, None, domainId, None)
+      synchronizerId <- Gen.option(Gen.const(SynchronizerId.tryFromString("some::synchronizerid")))
+    } yield domain.CommandMeta(commandId, None, None, None, None, None, None, synchronizerId, None)
 
   private def genJsObj: Gen[JsObject] =
     Gen.listOf(genJsValPair).map(xs => JsObject(xs.toMap))

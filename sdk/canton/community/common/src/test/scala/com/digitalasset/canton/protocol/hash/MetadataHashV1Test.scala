@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol.hash
@@ -12,8 +12,9 @@ class MetadataHashV1Test extends BaseTest with AnyWordSpecLike with Matchers wit
 
   "Metadata Encoding" should {
     val metadataHash = Hash
-      .fromHexStringRaw("e195ab4339850289226f5324c3b6e0d0734353b95ffe231b9caff9bdd2e4dd81")
+      .fromHexStringRaw("bdf59f1d269c1df19683ee6d6c144deec7733c9dec1d3356c8bf98076a16e950")
       .getOrElse(fail("Invalid hash"))
+
     "be stable" in {
       TransactionMetadataHashBuilder
         .hashTransactionMetadataV1(metadata)
@@ -26,6 +27,7 @@ class MetadataHashV1Test extends BaseTest with AnyWordSpecLike with Matchers wit
         metadata,
         hashTracer,
       ) shouldBe metadataHash
+
       hashTracer.result shouldBe """'00000030' # Hash Purpose
                                    |'01' # 01 (Node Encoding Version)
                                    |# Act As Parties
@@ -42,9 +44,9 @@ class MetadataHashV1Test extends BaseTest with AnyWordSpecLike with Matchers wit
                                    |'34633634373164332d346530392d343964642d616464662d366364393065313963353833' # 4c6471d3-4e09-49dd-addf-6cd90e19c583 (string)
                                    |# Mediator Group
                                    |'00000000' # 0 (int)
-                                   |# Domain Id
-                                   |'00000008' # 8 (int)
-                                   |'646f6d61696e4964' # domainId (string)
+                                   |# Synchronizer Id
+                                   |'0000000e' # 14 (int)
+                                   |'73796e6368726f6e697a65724964' # synchronizerId (string)
                                    |# Ledger Effective Time
                                    |'01' # Some
                                    |'0000000000000000' # 0 (long)

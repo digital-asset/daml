@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -9,7 +9,7 @@ import com.digitalasset.canton.data.{CantonTimestamp, FullUnassignmentTree, Offs
 import com.digitalasset.canton.participant.protocol.reassignment.IncompleteReassignmentData.ReassignmentEventGlobalOffset
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.ProtocolVersion
 import io.scalaland.chimney.dsl.*
@@ -34,8 +34,8 @@ final case class IncompleteReassignmentData private (
     queryOffset: Offset,
 ) {
 
-  def sourceDomain: Source[DomainId] = unassignmentRequest.sourceDomain
-  def targetDomain: Target[DomainId] = unassignmentRequest.targetDomain
+  def sourceDomain: Source[SynchronizerId] = unassignmentRequest.sourceSynchronizer
+  def targetDomain: Target[SynchronizerId] = unassignmentRequest.targetSynchronizer
 
   def unassignmentGlobalOffset: Option[Offset] =
     reassignmentEventGlobalOffset.unassignmentGlobalOffset

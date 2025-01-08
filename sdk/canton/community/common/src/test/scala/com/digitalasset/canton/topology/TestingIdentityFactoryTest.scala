@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology
@@ -8,7 +8,7 @@ import cats.syntax.either.*
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.protocol.{DomainParameters, DynamicDomainParameters}
+import com.digitalasset.canton.protocol.{DynamicSynchronizerParameters, SynchronizerParameters}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.transaction.{ParticipantAttributes, ParticipantPermission}
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext}
@@ -30,36 +30,39 @@ class TestingIdentityFactoryTest
   def await(eitherT: EitherT[FutureUnlessShutdown, SignatureCheckError, Unit]) =
     eitherT.value.futureValueUS
 
-  private def increaseConfirmationResponseTimeout(old: DynamicDomainParameters) =
+  private def increaseConfirmationResponseTimeout(old: DynamicSynchronizerParameters) =
     old.tryUpdate(confirmationResponseTimeout =
       old.confirmationResponseTimeout + NonNegativeFiniteDuration.tryOfSeconds(1)
     )
 
-  private val domainParameters1 = DomainParameters.WithValidity(
+  private val synchronizerParameters1 = SynchronizerParameters.WithValidity(
     CantonTimestamp.Epoch,
     Some(CantonTimestamp.ofEpochSecond(10)),
-    increaseConfirmationResponseTimeout(defaultDynamicDomainParameters),
+    increaseConfirmationResponseTimeout(defaultDynamicSynchronizerParameters),
   )
 
-  private val domainParameters2 = DomainParameters.WithValidity(
+  private val synchronizerParameters2 = SynchronizerParameters.WithValidity(
     CantonTimestamp.ofEpochSecond(10),
     None,
-    increaseConfirmationResponseTimeout(domainParameters1.parameter),
+    increaseConfirmationResponseTimeout(synchronizerParameters1.parameter),
   )
 
-  val domainParameters = List(domainParameters1, domainParameters2)
+  val synchronizerParameters = List(synchronizerParameters1, synchronizerParameters2)
 
   "testing topology" when {
 
     def compare(setup: TestingIdentityFactory): Unit = {
-      val p1 = setup.forOwnerAndDomain(participant1)
-      val p2 = setup.forOwnerAndDomain(participant2)
+      val p1 = setup.forOwnerAndSynchronizer(participant1)
+      val p2 = setup.forOwnerAndSynchronizer(participant2)
       val hash = getMyHash(p1.pureCrypto)
       val hash2 = getMyHash(p1.pureCrypto, "somethingElse")
 
       val signature =
         Await
-          .result(p1.currentSnapshotApproximation.sign(hash).value, 10.seconds)
+          .result(
+            p1.currentSnapshotApproximation.sign(hash, SigningKeyUsage.ProtocolOnly).value,
+            10.seconds,
+          )
           .failOnShutdown
           .valueOr(err => fail(s"Failed to sign: $err"))
 
@@ -102,13 +105,16 @@ class TestingIdentityFactoryTest
       }
       "participant2 can't sign messages without appropriate keys" in {
         Await
-          .result(p2.currentSnapshotApproximation.sign(hash).value, 10.seconds)
+          .result(
+            p2.currentSnapshotApproximation.sign(hash, SigningKeyUsage.ProtocolOnly).value,
+            10.seconds,
+          )
           .failOnShutdown
           .left
           .value shouldBe a[SyncCryptoError]
       }
 
-      def checkDomainKeys(
+      def checkSynchronizerKeys(
           sequencers: Seq[SequencerId],
           mediators: Seq[MediatorId],
           expectedLength: Int,
@@ -122,42 +128,44 @@ class TestingIdentityFactoryTest
           .foreach(_ should have length expectedLength.toLong)
       }
 
-      "domain entities have keys" in {
+      "synchronizer entities have keys" in {
         val sequencers = p1.currentSnapshotApproximation.ipsSnapshot
           .sequencerGroup()
           .futureValueUS
-          .valueOrFail("did not find SequencerDomainState")
+          .valueOrFail("did not find SequencerSynchronizerState")
           .active
 
         val mediators =
           p1.currentSnapshotApproximation.ipsSnapshot.mediatorGroups().futureValueUS.flatMap(_.all)
-        checkDomainKeys(sequencers, mediators, 1)
+        checkSynchronizerKeys(sequencers, mediators, 1)
       }
-      "invalid domain entities don't have keys" in {
+      "invalid synchronizer entities don't have keys" in {
         val did = participant2.uid
-        require(did != DefaultTestIdentities.domainId.unwrap)
-        checkDomainKeys(
+        require(did != DefaultTestIdentities.synchronizerId.unwrap)
+        checkSynchronizerKeys(
           sequencers = Seq(SequencerId(participant2.uid.tryChangeId("fake-sequencer"))),
           mediators = Seq(MediatorId(participant2.uid.tryChangeId("fake-mediator"))),
           0,
         )
       }
 
-      "serve domain parameters corresponding to correct timestamp" in {
-        def getParameters(ts: CantonTimestamp): DynamicDomainParameters =
+      "serve synchronizer parameters corresponding to correct timestamp" in {
+        def getParameters(ts: CantonTimestamp): DynamicSynchronizerParameters =
           p1.ips
             .awaitSnapshotUS(ts)
-            .flatMap(_.findDynamicDomainParametersOrDefault(testedProtocolVersion))
+            .flatMap(_.findDynamicSynchronizerParametersOrDefault(testedProtocolVersion))
             .futureValueUS
 
-        val transitionTs = domainParameters1.validUntil.value
+        val transitionTs = synchronizerParameters1.validUntil.value
 
-        getParameters(CantonTimestamp.Epoch) shouldBe defaultDynamicDomainParameters
-        getParameters(transitionTs.minusMillis(1)) shouldBe domainParameters1.parameter
+        getParameters(CantonTimestamp.Epoch) shouldBe defaultDynamicSynchronizerParameters
+        getParameters(transitionTs.minusMillis(1)) shouldBe synchronizerParameters1.parameter
 
-        getParameters(transitionTs) shouldBe domainParameters1.parameter // validFrom is exclusive
+        getParameters(
+          transitionTs
+        ) shouldBe synchronizerParameters1.parameter // validFrom is exclusive
 
-        getParameters(transitionTs.plusMillis(1)) shouldBe domainParameters2.parameter
+        getParameters(transitionTs.plusMillis(1)) shouldBe synchronizerParameters2.parameter
       }
 
     }
@@ -171,7 +179,7 @@ class TestingIdentityFactoryTest
       val setup = TestingTopology
         .from(
           topology = topology,
-          domainParameters = domainParameters,
+          synchronizerParameters = synchronizerParameters,
           participants = Map(
             participant1 -> ParticipantAttributes(ParticipantPermission.Confirmation)
           ),
@@ -180,14 +188,14 @@ class TestingIdentityFactoryTest
       compare(setup)
       // extend with admin parties should give participant2 a signing key
       val crypto2 = TestingTopology
-        .from(topology = topology, domainParameters = domainParameters)
+        .from(topology = topology, synchronizerParameters = synchronizerParameters)
         .withParticipants(
           participant1 -> ParticipantAttributes(ParticipantPermission.Confirmation),
           participant2 -> ParticipantAttributes(ParticipantPermission.Submission),
         )
         .build()
-      val p1 = crypto2.forOwnerAndDomain(participant1)
-      val p2 = crypto2.forOwnerAndDomain(participant2)
+      val p1 = crypto2.forOwnerAndSynchronizer(participant1)
+      val p2 = crypto2.forOwnerAndSynchronizer(participant2)
 
       "extending with admin parties works" in {
         def check(p: ParticipantId) =
@@ -204,7 +212,10 @@ class TestingIdentityFactoryTest
 
       val signature =
         Await
-          .result(p2.currentSnapshotApproximation.sign(hash).value, 10.seconds)
+          .result(
+            p2.currentSnapshotApproximation.sign(hash, SigningKeyUsage.ProtocolOnly).value,
+            10.seconds,
+          )
           .failOnShutdown
           .valueOr(err => fail(s"Failed to sign: $err"))
 
@@ -220,7 +231,7 @@ class TestingIdentityFactoryTest
     }
 
     "using reverse topology" should {
-      val setup = TestingTopology(domainParameters = domainParameters)
+      val setup = TestingTopology(synchronizerParameters = synchronizerParameters)
         .withReversedTopology(
           Map(participant1 -> Map(party1.toLf -> ParticipantPermission.Confirmation))
         )
@@ -243,7 +254,7 @@ class TestingIdentityFactoryTest
               )
             )
             .build()
-            .forOwnerAndDomain(participant1)
+            .forOwnerAndSynchronizer(participant1)
             .currentSnapshotApproximation
         def ol(permission: ParticipantPermission) =
           ParticipantAttributes(permission)
@@ -259,7 +270,7 @@ class TestingIdentityFactoryTest
     }
 
     "withTopology" should {
-      val setup = TestingTopology(domainParameters = domainParameters)
+      val setup = TestingTopology(synchronizerParameters = synchronizerParameters)
         .withTopology(
           Map(party1.toLf -> participant1),
           ParticipantPermission.Confirmation,

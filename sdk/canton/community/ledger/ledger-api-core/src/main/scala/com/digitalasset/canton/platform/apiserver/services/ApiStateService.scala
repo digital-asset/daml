@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services
@@ -8,7 +8,11 @@ import com.daml.ledger.api.v2.state_service.*
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.ValidationLogger
 import com.digitalasset.canton.ledger.api.grpc.{GrpcApiService, StreamingServiceLifecycleManagement}
-import com.digitalasset.canton.ledger.api.validation.{FieldValidator, TransactionFilterValidator}
+import com.digitalasset.canton.ledger.api.validation.{
+  FieldValidator,
+  ParticipantOffsetValidator,
+  TransactionFilterValidator,
+}
 import com.digitalasset.canton.ledger.participant.state.SyncService
 import com.digitalasset.canton.ledger.participant.state.index.{
   IndexActiveContractsService as ACSBackend,
@@ -62,7 +66,7 @@ final class ApiStateService(
           request.getFilter
         )
 
-        activeAt <- FieldValidator.requireNonNegativeOffset(
+        activeAt <- ParticipantOffsetValidator.validateNonNegative(
           request.activeAtOffset,
           "active_at_offset",
         )
@@ -124,8 +128,8 @@ final class ApiStateService(
                   }
                   permissions.map(permission =>
                     GetConnectedDomainsResponse.ConnectedDomain(
-                      domainAlias = connectedDomain.domainAlias.toProtoPrimitive,
-                      domainId = connectedDomain.domainId.toProtoPrimitive,
+                      synchronizerAlias = connectedDomain.synchronizerAlias.toProtoPrimitive,
+                      synchronizerId = connectedDomain.synchronizerId.toProtoPrimitive,
                       permission = permission,
                     )
                   )

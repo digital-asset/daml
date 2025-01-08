@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client
@@ -26,7 +26,7 @@ import com.digitalasset.canton.sequencing.client.TestSubscriptionError.{
 import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, SequencedEvent, SignedContent}
 import com.digitalasset.canton.sequencing.{SequencerTestUtils, SerializedEventHandler}
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
-import com.digitalasset.canton.topology.{DomainId, SequencerId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{SequencerId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, SequencerCounter}
 import org.scalatest.Assertion
@@ -34,7 +34,7 @@ import org.scalatest.wordspec.{AnyWordSpec, AsyncWordSpec}
 
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.collection.mutable
-import scala.concurrent.duration.{FiniteDuration, *}
+import scala.concurrent.duration.*
 import scala.concurrent.{Future, Promise}
 
 sealed trait TestSubscriptionError
@@ -78,7 +78,9 @@ class ResilientSequencerSubscriptionTest
     with ResilientSequencerSubscriptionTestUtils
     with HasExecutionContext {
 
-  private lazy val domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain1::test"))
+  private lazy val synchronizerId = SynchronizerId(
+    UniqueIdentifier.tryFromProtoPrimitive("domain1::test")
+  )
 
   "ResilientSequencerSubscription" should {
     "not retry on an unrecoverable error" in {
@@ -243,7 +245,7 @@ class ResilientSequencerSubscriptionTest
         }
 
       val resilientSequencerSubscription = new ResilientSequencerSubscription[TestHandlerError](
-        SequencerId(domainId.uid),
+        SequencerId(synchronizerId.uid),
         SequencerCounter(0),
         _ => FutureUnlessShutdown.pure(Either.unit[TestHandlerError]),
         subscriptionFactory,
@@ -274,7 +276,7 @@ class ResilientSequencerSubscriptionTest
         }
 
       val resilientSequencerSubscription = new ResilientSequencerSubscription[TestHandlerError](
-        SequencerId(domainId.uid),
+        SequencerId(synchronizerId.uid),
         SequencerCounter(0),
         _ => FutureUnlessShutdown.pure(Either.unit[TestHandlerError]),
         subscriptionFactory,
@@ -347,7 +349,9 @@ trait ResilientSequencerSubscriptionTestUtils {
   val MaxDelay: FiniteDuration =
     1025.millis // 1 + power of 2 because InitialDelay keeps being doubled
 
-  private lazy val domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain1::test"))
+  private lazy val synchronizerId = SynchronizerId(
+    UniqueIdentifier.tryFromProtoPrimitive("domain1::test")
+  )
 
   def retryDelay(maxDelay: FiniteDuration = MaxDelay) =
     SubscriptionRetryDelayRule(InitialDelay, maxDelay, maxDelay)
@@ -357,7 +361,7 @@ trait ResilientSequencerSubscriptionTestUtils {
       retryDelayRule: SubscriptionRetryDelayRule = retryDelay(),
   ): ResilientSequencerSubscription[TestHandlerError] = {
     val subscription = new ResilientSequencerSubscription(
-      SequencerId(domainId.uid), // only used for logging
+      SequencerId(synchronizerId.uid), // only used for logging
       SequencerCounter(0),
       _ => FutureUnlessShutdown.pure(Either.unit[TestHandlerError]),
       subscriptionTestFactory,

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin.grpc
@@ -17,7 +17,7 @@ import com.digitalasset.canton.participant.admin.PartyReplicationCoordinator.{
   ChannelId,
   PartyReplicationArguments,
 }
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.EitherTUtil
 import io.grpc.{Status, StatusRuntimeException}
@@ -65,12 +65,12 @@ class GrpcPartyManagementService(
         "sourceParticipantUid",
         ParticipantId(_),
       )
-      domainId <- convert(
+      synchronizerId <- convert(
         request.domainUid,
         "domainUid",
-        DomainId(_),
+        SynchronizerId(_),
       )
-    } yield PartyReplicationArguments(id, partyId, sourceParticipantId, domainId)
+    } yield PartyReplicationArguments(id, partyId, sourceParticipantId, synchronizerId)
 
   private def convert[T](
       rawId: String,

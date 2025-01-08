@@ -1,10 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.participant.state
 
 import com.digitalasset.canton.data.ProcessedDisclosedContract
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
@@ -62,7 +62,7 @@ trait SubmissionSyncService {
     * @param submitterInfo               the information provided by the submitter for
     *                                    correlating this submission with its acceptance or rejection on the
     *                                    associated [[com.digitalasset.canton.ledger.participant.state.Update]].
-    * @param optDomainId                 the optional ID of the domain on which the submitter wants the transaction to be sequenced.
+    * @param optSynchronizerId                 the optional ID of the domain on which the submitter wants the transaction to be sequenced.
     *                                    if empty, the participant will automatically attempt to find a suitable domain based on the
     *                                    parties and contracts involved in the submission.
     * @param transactionMeta             the meta-data accessible to all consumers of the transaction.
@@ -81,7 +81,7 @@ trait SubmissionSyncService {
     */
   def submitTransaction(
       submitterInfo: SubmitterInfo,
-      optDomainId: Option[DomainId],
+      optSynchronizerId: Option[SynchronizerId],
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,

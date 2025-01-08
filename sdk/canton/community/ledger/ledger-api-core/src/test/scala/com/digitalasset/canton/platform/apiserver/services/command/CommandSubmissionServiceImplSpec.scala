@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services.command
@@ -23,7 +23,7 @@ import com.digitalasset.canton.platform.apiserver.execution.{
   CommandExecutor,
 }
 import com.digitalasset.canton.platform.apiserver.services.{ErrorCause, TimeProviderType}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.digitalasset.daml.lf
@@ -213,7 +213,7 @@ class CommandSubmissionServiceImplSpec
     val commandExecutor = mock[CommandExecutor]
     val metrics = LedgerApiServerMetrics.ForTesting
 
-    val domainId: DomainId = DomainId.tryFromString("x::domainId")
+    val synchronizerId: SynchronizerId = SynchronizerId.tryFromString("x::synchronizerId")
     val disclosedContract = DisclosedContract(
       FatContractInstance.fromCreateNode(
         LfNode.Create(
@@ -230,7 +230,7 @@ class CommandSubmissionServiceImplSpec
         createTime = Timestamp.Epoch,
         cantonData = Bytes.Empty,
       ),
-      domainIdO = Some(domainId),
+      synchronizerIdO = Some(synchronizerId),
     )
 
     val processedDisclosedContract = com.digitalasset.canton.data.ProcessedDisclosedContract(
@@ -262,7 +262,8 @@ class CommandSubmissionServiceImplSpec
         commandsReference = "",
       ),
       disclosedContracts = ImmArray(disclosedContract),
-      domainId = None,
+      synchronizerId = None,
+      prefetchKeys = Seq.empty,
     )
 
     val submitterInfo = SubmitterInfo(
@@ -287,7 +288,7 @@ class CommandSubmissionServiceImplSpec
     val processedDisclosedContracts = ImmArray(processedDisclosedContract)
     val commandExecutionResult = CommandExecutionResult(
       submitterInfo = submitterInfo,
-      optDomainId = None,
+      optSynchronizerId = None,
       transactionMeta = transactionMeta,
       transaction = transaction,
       dependsOnLedgerTime = false,

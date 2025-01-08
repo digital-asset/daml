@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao
@@ -9,13 +9,13 @@ import com.daml.ledger.api.v2.update_service.GetUpdatesResponse
 import com.daml.ledger.resources.ResourceContext
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
+import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.platform.TemplatePartiesFilter
 import com.digitalasset.canton.platform.store.dao.*
 import com.digitalasset.canton.platform.store.entries.{LedgerEntry, PartyLedgerEntry}
 import com.digitalasset.canton.platform.store.utils.EventOps.EventOps
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.ledger.EventId
 import com.digitalasset.daml.lf.transaction.Node
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
@@ -24,7 +24,6 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, LoneElement, OptionValues}
 
-import java.util.UUID
 import scala.concurrent.Future
 
 private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Inside with LoneElement {
@@ -32,7 +31,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 
   import JdbcLedgerDaoTransactionsSpec.*
 
-  behavior of "JdbcLedgerDao (lookupFlatTransactionById)"
+  behavior of "JdbcLedgerDao (lookupFlatTransactionById, lookupFlatTransactionByOffset)"
 
   it should "return nothing for a mismatching transaction id" in {
     for {
@@ -44,23 +43,38 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     }
   }
 
-  it should "return nothing for a mismatching party" in {
+  it should "return nothing for a mismatching offset" in {
     for {
       (_, tx) <- store(singleCreate)
       result <- ledgerDao.transactionsReader
-        .lookupFlatTransactionById(tx.updateId, Set("WRONG"))
+        .lookupFlatTransactionByOffset(offset = Offset.tryFromLong(12345678L), tx.actAs.toSet)
     } yield {
       result shouldBe None
+    }
+  }
+
+  it should "return nothing for a mismatching party" in {
+    for {
+      (offset, tx) <- store(singleCreate)
+      resultById <- ledgerDao.transactionsReader
+        .lookupFlatTransactionById(tx.updateId, Set("WRONG"))
+      resultByOffset <- ledgerDao.transactionsReader
+        .lookupFlatTransactionByOffset(offset, Set("WRONG"))
+    } yield {
+      resultById shouldBe None
+      resultByOffset shouldBe resultById
     }
   }
 
   it should "return the expected flat transaction for a correct request (create)" in {
     for {
       (offset, tx) <- store(singleCreate)
-      result <- ledgerDao.transactionsReader
+      resultById <- ledgerDao.transactionsReader
         .lookupFlatTransactionById(tx.updateId, tx.actAs.toSet)
+      resultByOffset <- ledgerDao.transactionsReader
+        .lookupFlatTransactionByOffset(offset, tx.actAs.toSet)
     } yield {
-      inside(result.value.transaction) { case Some(transaction) =>
+      inside(resultById.value.transaction) { case Some(transaction) =>
         transaction.commandId shouldBe tx.commandId.value
         transaction.offset shouldBe offset.unwrap
         TimestampConversion.toLf(
@@ -71,7 +85,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         transaction.workflowId shouldBe tx.workflowId.getOrElse("")
         inside(transaction.events.loneElement.event.created) { case Some(created) =>
           inside(tx.transaction.nodes.headOption) { case Some((nodeId, createNode: Node.Create)) =>
-            created.eventId shouldBe EventId(tx.updateId, nodeId).toLedgerString
             created.offset shouldBe offset.unwrap
             created.nodeId shouldBe nodeId.index
             created.witnessParties should contain only (tx.actAs*)
@@ -85,6 +98,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           }
         }
       }
+      resultByOffset shouldBe resultById
     }
   }
 
@@ -92,10 +106,12 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     for {
       (_, create) <- store(singleCreate)
       (offset, exercise) <- store(singleExercise(nonTransient(create).loneElement))
-      result <- ledgerDao.transactionsReader
+      resultById <- ledgerDao.transactionsReader
         .lookupFlatTransactionById(exercise.updateId, exercise.actAs.toSet)
+      resultByOffset <- ledgerDao.transactionsReader
+        .lookupFlatTransactionByOffset(offset, exercise.actAs.toSet)
     } yield {
-      inside(result.value.transaction) { case Some(transaction) =>
+      inside(resultById.value.transaction) { case Some(transaction) =>
         transaction.commandId shouldBe exercise.commandId.value
         transaction.offset shouldBe offset.unwrap
         transaction.updateId shouldBe exercise.updateId
@@ -107,7 +123,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         inside(transaction.events.loneElement.event.archived) { case Some(archived) =>
           inside(exercise.transaction.nodes.headOption) {
             case Some((nodeId, exerciseNode: Node.Exercise)) =>
-              archived.eventId shouldBe EventId(transaction.updateId, nodeId).toLedgerString
               archived.offset shouldBe offset.unwrap
               archived.nodeId shouldBe nodeId.index
               archived.witnessParties should contain only (exercise.actAs*)
@@ -116,10 +131,11 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           }
         }
       }
+      resultByOffset shouldBe resultById
     }
   }
 
-  it should "show command IDs to the original submitters" in {
+  it should "show command IDs to the original submitters (lookupFlatTransactionById)" in {
     val signatories = Set(alice, bob)
     val stakeholders = Set(alice, bob, charlie) // Charlie is only stakeholder
     val actAs = List(alice, bob, david) // David is submitter but not signatory
@@ -141,26 +157,53 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     }
   }
 
+  it should "show command IDs to the original submitters (lookupFlatTransactionByOffset)" in {
+    val signatories = Set(alice, bob)
+    val stakeholders = Set(alice, bob, charlie) // Charlie is only stakeholder
+    val actAs = List(alice, bob, david) // David is submitter but not signatory
+    for {
+      (offset, tx) <- store(singleCreate(createNode(_, signatories, stakeholders), actAs))
+      // Response 1: querying as all submitters
+      result1 <- ledgerDao.transactionsReader
+        .lookupFlatTransactionByOffset(offset, Set(alice, bob, david))
+      // Response 2: querying as a proper subset of all submitters
+      result2 <- ledgerDao.transactionsReader
+        .lookupFlatTransactionByOffset(offset, Set(alice, david))
+      // Response 3: querying as a proper superset of all submitters
+      result3 <- ledgerDao.transactionsReader
+        .lookupFlatTransactionByOffset(offset, Set(alice, bob, charlie, david))
+    } yield {
+      result1.value.transaction.value.commandId shouldBe tx.commandId.value
+      result2.value.transaction.value.commandId shouldBe tx.commandId.value
+      result3.value.transaction.value.commandId shouldBe tx.commandId.value
+    }
+  }
+
   it should "hide command IDs from non-submitters" in {
     val signatories = Set(alice, bob)
     val stakeholders = Set(alice, bob, charlie) // Charlie is only stakeholder
     val actAs = List(alice, bob, david) // David is submitter but not signatory
     for {
-      (_, tx) <- store(singleCreate(createNode(_, signatories, stakeholders), actAs))
-      result <- ledgerDao.transactionsReader
+      (offset, tx) <- store(singleCreate(createNode(_, signatories, stakeholders), actAs))
+      resultById <- ledgerDao.transactionsReader
         .lookupFlatTransactionById(tx.updateId, Set(charlie))
+      resultByOffset <- ledgerDao.transactionsReader
+        .lookupFlatTransactionByOffset(offset, Set(charlie))
     } yield {
-      result.value.transaction.value.commandId shouldBe ""
+      resultById.value.transaction.value.commandId shouldBe ""
+      resultByOffset shouldBe resultById
     }
   }
 
   it should "hide events on transient contracts to the original submitter" in {
     for {
       (offset, tx) <- store(fullyTransient())
-      result <- ledgerDao.transactionsReader
+      resultById <- ledgerDao.transactionsReader
         .lookupFlatTransactionById(tx.updateId, tx.actAs.toSet)
+      resultByOffset <- ledgerDao.transactionsReader
+        .lookupFlatTransactionByOffset(offset, tx.actAs.toSet)
     } yield {
-      inside(result.value.transaction) { case Some(transaction) =>
+      inside(resultById.value.transaction) { case Some(transaction) =>
         transaction.commandId shouldBe tx.commandId.value
         transaction.offset shouldBe offset.unwrap
         transaction.updateId shouldBe tx.updateId
@@ -171,6 +214,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         transaction.workflowId shouldBe tx.workflowId.getOrElse("")
         transaction.events shouldBe Seq.empty
       }
+      resultByOffset shouldBe resultById
     }
   }
 
@@ -573,7 +617,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       // just for having the ledger end bumped
       _ <- ledgerDao.storePartyEntry(
         endOffset,
-        PartyLedgerEntry.AllocationRejected(UUID.randomUUID().toString, Timestamp.now(), "reason"),
+        PartyLedgerEntry.AllocationAccepted(None, Timestamp.now(), IndexerPartyDetails(alice, true)),
       )
 
       // `pageSize = 2` and the offset gaps in the `commandWithOffsetGaps` above are to make sure

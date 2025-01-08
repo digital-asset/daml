@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.config
@@ -75,7 +75,8 @@ final case class CachingConfigs(
     indexedStrings: CacheConfig = CachingConfigs.defaultStaticStringCache,
     contractStore: CacheConfig = CachingConfigs.defaultContractStoreCache,
     topologySnapshot: CacheConfig = CachingConfigs.defaultTopologySnapshotCache,
-    domainClientMaxTimestamp: CacheConfig = CachingConfigs.defaultDomainClientMaxTimestampCache,
+    synchronizerClientMaxTimestamp: CacheConfig =
+      CachingConfigs.defaultSynchronizerClientMaxTimestampCache,
     partyCache: CacheConfig = CachingConfigs.defaultPartyCache,
     participantCache: CacheConfig = CachingConfigs.defaultParticipantCache,
     keyCache: CacheConfig = CachingConfigs.defaultKeyCache,
@@ -94,7 +95,7 @@ object CachingConfigs {
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(10000))
   val defaultContractStoreCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(10000))
-  val defaultDomainClientMaxTimestampCache: CacheConfig =
+  val defaultSynchronizerClientMaxTimestampCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(100))
   val defaultTopologySnapshotCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(100))

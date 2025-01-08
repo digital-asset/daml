@@ -1,10 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.participant.state
 
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
@@ -56,8 +56,8 @@ object Reassignment {
   * Except from the hosted and reassigning stakeholders, all fields are the same for
   * reassign and assign updates, which belong to the same reassignment.
   *
-  * @param sourceDomain            The domain ID from the contract is unassigned.
-  * @param targetDomain            The domain ID to the contract is assigned.
+  * @param sourceDomain            The synchronizer ID from the contract is unassigned.
+  * @param targetDomain            The synchronizer ID to the contract is assigned.
   * @param submitter               Submitter of the command, unless the operation is performed offline.
   * @param reassignmentCounter     This counter is strictly increasing with each reassignment
   *                                for one contract.
@@ -67,8 +67,8 @@ object Reassignment {
   *                                command.
   */
 final case class ReassignmentInfo(
-    sourceDomain: Source[DomainId],
-    targetDomain: Target[DomainId],
+    sourceDomain: Source[SynchronizerId],
+    targetDomain: Target[SynchronizerId],
     submitter: Option[Ref.Party],
     reassignmentCounter: Long,
     hostedStakeholders: List[Ref.Party],

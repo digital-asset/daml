@@ -24,6 +24,7 @@ import com.daml.ledger.api.v2.transaction_filter.{
   InterfaceFilter,
   TemplateFilter,
 }
+import com.daml.timer.RetryStrategy
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.daml.lf.command
 import com.digitalasset.daml.lf.data.Ref._
@@ -53,6 +54,7 @@ import scalaz.std.set._
 import scalaz.syntax.foldable._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.DurationInt
 
 class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[Ref.ApplicationId])
     extends ScriptLedgerClient {
@@ -291,7 +293,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       }
     transactionTreeF.map(r =>
       r.map(transactionTree => {
-        val events = transactionTree.getTransaction.rootEventIds
+        val events = transactionTree.getTransaction.rootNodeIds
           .map(evId => transactionTree.getTransaction.eventsById(evId))
           .toList
         events.traverse(fromTreeEvent(_)) match {
@@ -350,11 +352,26 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
   override def allocateParty(partyIdHint: String)(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ) = {
-    grpcClient.partyManagementClient
-      .allocateParty(hint = Some(partyIdHint), token = None)
-      .map(_.party)
-  }
+  ) =
+    for {
+      party <- grpcClient.partyManagementClient
+        .allocateParty(hint = Some(partyIdHint), token = None)
+        .map(_.party)
+      _ <- RetryStrategy.constant(5, 200.milliseconds) { case (_, _) =>
+        for {
+          res <- grpcClient.stateService
+            .getConnectedDomains(party = party, token = None)
+          _ <-
+            if (res.connectedDomains.isEmpty)
+              Future.failed(
+                new java.util.concurrent.TimeoutException(
+                  "Party not allocated on any domains within 1 second"
+                )
+              )
+            else Future.unit
+        } yield ()
+      }
+    } yield party
 
   override def listKnownParties()(implicit
       ec: ExecutionContext,

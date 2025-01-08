@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton
@@ -30,7 +30,7 @@ package object sequencing {
     * Asynchronous processing may run concurrently with later events' synchronous processing
     * and with asynchronous processing of other events.
     */
-  type HandlerResult = FutureUnlessShutdown[AsyncResult]
+  type HandlerResult = FutureUnlessShutdown[AsyncResult[Unit]]
 
   ///////////////////////////////
   // The boxes and their handlers

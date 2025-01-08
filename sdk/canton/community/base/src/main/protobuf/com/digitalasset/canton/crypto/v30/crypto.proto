@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -66,7 +66,7 @@ message SignatureDelegation {
   // TODO(#20066) remove after format is standardized
   SignatureFormat format = 5;
 
-  // The signature of the combined hash of the session key fingerprint, validity period, and domain ID, by the
+  // The signature of the combined hash of the session key fingerprint, validity period, and synchronizer id, by the
   // long-term key. This signature authorizes the session key to act on behalf of the long-term key.
   bytes signature = 6;
 
@@ -145,6 +145,8 @@ enum SigningKeyUsage {
   SIGNING_KEY_USAGE_SEQUENCER_AUTHENTICATION = 3;
   // keys that deal with all the signing that happens as part of the protocol
   SIGNING_KEY_USAGE_PROTOCOL = 4;
+  // used internally to identify keys that can self-sign to prove ownership
+  SIGNING_KEY_USAGE_PROOF_OF_OWNERSHIP = 5;
 }
 
 message SigningPublicKey {
@@ -216,7 +218,7 @@ enum SigningKeyScheme {
   SIGNING_KEY_SCHEME_EC_DSA_P384 = 3;
 }
 
-// Used to announce the required signing key and algorithm specifications in the static domain parameters.
+// Used to announce the required signing key and algorithm specifications in the static synchronizer parameters.
 message RequiredSigningSpecs {
   repeated SigningAlgorithmSpec algorithms = 1;
   repeated SigningKeySpec keys = 2;
@@ -289,7 +291,7 @@ enum EncryptionKeyScheme {
   ENCRYPTION_KEY_SCHEME_RSA2048_OAEP_SHA256 = 3;
 }
 
-// Used to announce the required encryption key and algorithm specifications in the static domain parameters.
+// Used to announce the required encryption key and algorithm specifications in the static synchronizer parameters.
 message RequiredEncryptionSpecs {
   repeated EncryptionAlgorithmSpec algorithms = 1;
   repeated EncryptionKeySpec keys = 2;

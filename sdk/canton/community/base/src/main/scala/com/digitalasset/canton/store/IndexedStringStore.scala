@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.store
@@ -14,7 +14,7 @@ import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory,
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.store.db.DbIndexedStringStore
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 import slick.jdbc.{PositionedParameters, SetParameter}
@@ -76,36 +76,36 @@ abstract class IndexedStringFromDb[A <: IndexedString[B], B] {
     })
 }
 
-final case class IndexedDomain private (domainId: DomainId, index: Int)
-    extends IndexedString.Impl[DomainId](domainId) {
+final case class IndexedDomain private (synchronizerId: SynchronizerId, index: Int)
+    extends IndexedString.Impl[SynchronizerId](synchronizerId) {
   require(
     index > 0,
     s"Illegal index $index. The index must be positive to prevent clashes with participant event log ids.",
   )
 }
 
-object IndexedDomain extends IndexedStringFromDb[IndexedDomain, DomainId] {
+object IndexedDomain extends IndexedStringFromDb[IndexedDomain, SynchronizerId] {
 
   /** @throws java.lang.IllegalArgumentException if `index <= 0`.
     */
   @VisibleForTesting
-  def tryCreate(domainId: DomainId, index: Int): IndexedDomain =
-    IndexedDomain(domainId, index)
+  def tryCreate(synchronizerId: SynchronizerId, index: Int): IndexedDomain =
+    IndexedDomain(synchronizerId, index)
 
-  override protected def dbTyp: IndexedStringType = IndexedStringType.domainId
+  override protected def dbTyp: IndexedStringType = IndexedStringType.synchronizerId
 
-  override protected def buildIndexed(item: DomainId, index: Int): IndexedDomain =
+  override protected def buildIndexed(item: SynchronizerId, index: Int): IndexedDomain =
     // save, because buildIndexed is only called with indices created by IndexedStringStores.
     // These indices are positive by construction.
     checked(tryCreate(item, index))
 
-  override protected def asString(item: DomainId): String300 =
+  override protected def asString(item: SynchronizerId): String300 =
     item.toLengthLimitedString.asString300
 
   override protected def fromString(str: String300, index: Int): Either[String, IndexedDomain] =
     // save, because fromString is only called with indices created by IndexedStringStores.
     // These indices are positive by construction.
-    DomainId.fromString(str.unwrap).map(checked(tryCreate(_, index)))
+    SynchronizerId.fromString(str.unwrap).map(checked(tryCreate(_, index)))
 }
 
 final case class IndexedStringType private (source: Int, description: String)
@@ -125,7 +125,7 @@ object IndexedStringType {
     item
   }
 
-  val domainId: IndexedStringType = IndexedStringType(1, "domainId")
+  val synchronizerId: IndexedStringType = IndexedStringType(1, "synchronizerId")
 
 }
 

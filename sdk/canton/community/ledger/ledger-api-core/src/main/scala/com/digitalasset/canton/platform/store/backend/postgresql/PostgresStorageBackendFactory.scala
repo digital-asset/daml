@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.postgresql
@@ -33,7 +33,7 @@ final case class PostgresStorageBackendFactory(loggerFactory: NamedLoggerFactory
   override def createContractStorageBackend(
       stringInterning: StringInterning
   ): ContractStorageBackend =
-    new ContractStorageBackendTemplate(PostgresQueryStrategy, stringInterning)
+    new PostgresContractStorageBackend(stringInterning)
 
   override def createEventStorageBackend(
       ledgerEndCache: LedgerEndCache,

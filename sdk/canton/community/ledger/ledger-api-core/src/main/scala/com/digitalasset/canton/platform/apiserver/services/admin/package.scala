@@ -1,8 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services
 
+import com.digitalasset.canton.ledger.participant.state.index.PartyEntry
+import com.digitalasset.canton.platform.apiserver.services.tracking.StreamTracker
 import com.digitalasset.daml.lf.data.Ref
 
 import java.util.UUID
@@ -13,4 +15,8 @@ package object admin {
     val raw = if (submissionId.isEmpty) uuid else s"$submissionId-$uuid"
     Ref.SubmissionId.assertFromString(raw)
   }
+
+  type PartyAllocationTracker = StreamTracker[PartyAllocationKey, PartyEntry]
 }
+
+final case class PartyAllocationKey(requestId: String)

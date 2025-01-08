@@ -1,10 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store.db
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.DomainCryptoPureApi
+import com.digitalasset.canton.crypto.SynchronizerCryptoPureApi
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.topology.PartyId
@@ -32,7 +32,7 @@ trait DbTopologyStoreTest extends TopologyStoreTest with DbTopologyStoreHelper {
     behave like topologyStore(createTopologyStore)
 
     "properly handle insertion order for large topology snapshots" in {
-      val store = createTopologyStore(testData.domain1_p1p2_domainId)
+      val store = createTopologyStore(testData.domain1_p1p2_synchronizerId)
 
       val domainSetup = Seq(
         0 -> testData.nsd_p1,
@@ -68,9 +68,9 @@ trait DbTopologyStoreTest extends TopologyStoreTest with DbTopologyStoreHelper {
 
       for {
         _ <- new InitialTopologySnapshotValidator(
-          testData.domain1_p1p2_domainId,
-          new DomainCryptoPureApi(
-            defaultStaticDomainParameters,
+          testData.domain1_p1p2_synchronizerId,
+          new SynchronizerCryptoPureApi(
+            defaultStaticSynchronizerParameters,
             testData.factory.cryptoApi.crypto.pureCrypto,
           ),
           store,

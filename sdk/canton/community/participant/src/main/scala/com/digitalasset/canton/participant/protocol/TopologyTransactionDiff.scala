@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -13,22 +13,22 @@ import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransacti
 }
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactions.PositiveSignedTopologyTransactions
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LedgerParticipantId, LedgerTransactionId, LfPartyId}
 
-// TODO(i21350): Handle changes to the domainId and authorization levels, also consider threshold
+// TODO(i21350): Handle changes to the synchronizerId and authorization levels, also consider threshold
 private[protocol] object TopologyTransactionDiff {
 
   /** Compute a set of topology events from the old state and the current state
-    * @param domainId Domain on which the topology transactions were sequenced
+    * @param synchronizerId Domain on which the topology transactions were sequenced
     * @param oldRelevantState Previous topology state
     * @param currentRelevantState Current state, after applying the batch of transactions
     * @param participantId The local participant that may require initiation of online party replication
     * @return The set of events, the update_id, and whether a party needs to be replicated to this participant
     */
   private[protocol] def apply(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       oldRelevantState: PositiveSignedTopologyTransactions,
       currentRelevantState: PositiveSignedTopologyTransactions,
       participantId: ParticipantId,
@@ -62,14 +62,14 @@ private[protocol] object TopologyTransactionDiff {
         }
         TopologyTransactionDiff(
           events,
-          updateId(domainId, protocolVersion, oldRelevantState, currentRelevantState),
+          updateId(synchronizerId, protocolVersion, oldRelevantState, currentRelevantState),
           requiresLocalParticipantPartyReplication = partiesExistingOnOtherParticipants.nonEmpty,
         )
       }
   }
 
   private[protocol] def updateId(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       protocolVersion: ProtocolVersion,
       oldRelevantState: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
       currentRelevantState: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
@@ -84,7 +84,7 @@ private[protocol] object TopologyTransactionDiff {
         .sorted // for not relying on retrieval order
         .foreach(builder.add)
 
-    builder.add(domainId.toProtoPrimitive)
+    builder.add(synchronizerId.toProtoPrimitive)
     builder.add("old-relevant-state")
     addToBuilder(oldRelevantState)
     // the same state-tx can be either current or old, but these hashes should be different

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -13,7 +13,7 @@ import com.digitalasset.canton.protocol.{
   ViewHash,
 }
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.{LfPartyId, LfWorkflowId, ReassignmentCounter}
 
@@ -33,13 +33,13 @@ trait ViewTree extends PrettyPrinting {
 
   /** The root hash of the view tree.
     *
-    * Two view trees with the same [[rootHash]] must also have the same [[domainId]] and [[mediator]]
+    * Two view trees with the same [[rootHash]] must also have the same [[synchronizerId]] and [[mediator]]
     * (except for hash collisions).
     */
   def rootHash: RootHash
 
   /** The domain to which the [[com.digitalasset.canton.protocol.messages.EncryptedViewMessage]] should be sent to */
-  def domainId: DomainId
+  def synchronizerId: SynchronizerId
 
   /** The mediator group that is responsible for coordinating this request */
   def mediator: MediatorGroupRecipient
@@ -59,8 +59,8 @@ trait FullReassignmentViewTree extends ViewTree {
   val viewPosition: ViewPosition =
     ViewPosition.root // Use a dummy value, as there is only one view.
 
-  def sourceDomain: Source[DomainId]
-  def targetDomain: Target[DomainId]
+  def sourceSynchronizer: Source[SynchronizerId]
+  def targetSynchronizer: Target[SynchronizerId]
 
   // Submissions
   def submitterMetadata: ReassignmentSubmitterMetadata = commonData.submitterMetadata

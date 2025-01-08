@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store.backend
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.platform.indexer.parallel.{PostPublishData, PublishSource}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -364,7 +364,7 @@ private[backend] trait StorageBackendTestsCompletions
         commandId = commandId,
         applicationId = "applicationid1",
         submissionId = Some(submissionId),
-        domainId = "x::domain1",
+        synchronizerId = "x::domain1",
         messageUuid = Some(messageUuid.toString),
         publicationTime = publicationTime,
         isTransaction = true,
@@ -375,7 +375,7 @@ private[backend] trait StorageBackendTestsCompletions
         commandId = commandId,
         applicationId = "applicationid1",
         submissionId = Some(submissionId),
-        domainId = "x::domain1",
+        synchronizerId = "x::domain1",
         messageUuid = Some(messageUuid.toString),
         publicationTime = publicationTime,
         isTransaction = false,
@@ -386,7 +386,7 @@ private[backend] trait StorageBackendTestsCompletions
         commandId = commandId,
         applicationId = "applicationid1",
         submissionId = Some(submissionId),
-        domainId = "x::domain1",
+        synchronizerId = "x::domain1",
         recordTime = recordTime,
         messageUuid = None,
         updateId = None,
@@ -400,7 +400,7 @@ private[backend] trait StorageBackendTestsCompletions
         commandId = commandId,
         applicationId = "applicationid1",
         submissionId = Some(submissionId),
-        domainId = "x::domain1",
+        synchronizerId = "x::domain1",
         recordTime = recordTime,
         messageUuid = None,
         updateId = None,
@@ -416,7 +416,7 @@ private[backend] trait StorageBackendTestsCompletions
       backend.completion.commandCompletionsForRecovery(offset(2), offset(10))
     ) shouldBe Vector(
       PostPublishData(
-        submissionDomainId = DomainId.tryFromString("x::domain1"),
+        submissionSynchronizerId = SynchronizerId.tryFromString("x::domain1"),
         publishSource = PublishSource.Local(messageUuid),
         applicationId = Ref.ApplicationId.assertFromString("applicationid1"),
         commandId = Ref.CommandId.assertFromString(commandId),
@@ -428,7 +428,7 @@ private[backend] trait StorageBackendTestsCompletions
         traceContext = TraceContext.empty,
       ),
       PostPublishData(
-        submissionDomainId = DomainId.tryFromString("x::domain1"),
+        submissionSynchronizerId = SynchronizerId.tryFromString("x::domain1"),
         publishSource = PublishSource.Sequencer(
           requestSequencerCounter = SequencerCounter(11),
           sequencerTimestamp = CantonTimestamp(recordTime),

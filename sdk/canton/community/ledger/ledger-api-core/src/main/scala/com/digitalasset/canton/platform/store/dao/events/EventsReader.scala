@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao.events
@@ -62,15 +62,15 @@ private[dao] sealed class EventsReader(
         MonadUtil.sequentialTraverse(rawEvents) { event =>
           TransactionsReader
             .deserializeFlatEvent(eventProjectionProperties, lfValueTranslation)(event)
-            .map(_ -> event.domainId)
+            .map(_ -> event.synchronizerId)
         }
       }
 
-      createEvent = deserialized.flatMap { case (entry, domainId) =>
-        entry.event.event.created.map(create => Created(Some(create), domainId))
+      createEvent = deserialized.flatMap { case (entry, synchronizerId) =>
+        entry.event.event.created.map(create => Created(Some(create), synchronizerId))
       }.headOption
-      archiveEvent = deserialized.flatMap { case (entry, domainId) =>
-        entry.event.event.archived.map(archive => Archived(Some(archive), domainId))
+      archiveEvent = deserialized.flatMap { case (entry, synchronizerId) =>
+        entry.event.event.archived.map(archive => Archived(Some(archive), synchronizerId))
       }.headOption
 
     } yield {

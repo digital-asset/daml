@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao
@@ -11,7 +11,7 @@ import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer
 import com.digitalasset.canton.platform.store.dao.BufferedStreamsReader.FetchFromPersistence
 import com.digitalasset.canton.platform.store.dao.BufferedStreamsReaderSpec.*
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, HasExecutorServiceGeneric}
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -468,7 +468,7 @@ object BufferedStreamsReaderSpec {
     }
   }
 
-  private val someDomainId = DomainId.tryFromString("some::domain-id")
+  private val someSynchronizerId = SynchronizerId.tryFromString("some::synchronizer id")
 
   private def transaction(i: Long) =
     TransactionLogUpdate.TransactionAccepted(
@@ -479,7 +479,7 @@ object BufferedStreamsReaderSpec {
       offset = offset(i),
       events = Vector(null),
       completionStreamResponse = None,
-      domainId = someDomainId.toProtoPrimitive,
+      synchronizerId = someSynchronizerId.toProtoPrimitive,
       recordTime = Timestamp.Epoch,
     )(TraceContext.empty)
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -7,7 +7,10 @@ import cats.data.EitherT
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
-import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, DomainSyncCryptoClient}
+import com.digitalasset.canton.crypto.{
+  SynchronizerSnapshotSyncCryptoApi,
+  SynchronizerSyncCryptoClient,
+}
 import com.digitalasset.canton.data.ViewType.AssignmentViewType
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, PromiseUnlessShutdownFactory}
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -22,9 +25,9 @@ import com.digitalasset.canton.participant.protocol.{
 }
 import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
 import com.digitalasset.canton.participant.util.DAMLe
-import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.sequencing.client.SequencerClient
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.version.ProtocolVersion
@@ -32,14 +35,14 @@ import com.digitalasset.canton.version.ProtocolVersion
 import scala.concurrent.ExecutionContext
 
 class AssignmentProcessor(
-    domainId: Target[DomainId],
+    synchronizerId: Target[SynchronizerId],
     override val participantId: ParticipantId,
     damle: DAMLe,
-    staticDomainParameters: Target[StaticDomainParameters],
+    staticSynchronizerParameters: Target[StaticSynchronizerParameters],
     reassignmentCoordination: ReassignmentCoordination,
     inFlightSubmissionDomainTracker: InFlightSubmissionDomainTracker,
     ephemeral: SyncDomainEphemeralState,
-    domainCrypto: DomainSyncCryptoClient,
+    domainCrypto: SynchronizerSyncCryptoClient,
     seedGenerator: SeedGenerator,
     sequencerClient: SequencerClient,
     override protected val timeouts: ProcessingTimeout,
@@ -56,13 +59,13 @@ class AssignmentProcessor(
       ReassignmentProcessorError,
     ](
       new AssignmentProcessingSteps(
-        domainId,
+        synchronizerId,
         participantId,
         damle,
         reassignmentCoordination,
         seedGenerator,
         SerializableContractAuthenticator(domainCrypto.pureCrypto),
-        staticDomainParameters,
+        staticSynchronizerParameters,
         targetProtocolVersion,
         loggerFactory,
       ),
@@ -70,7 +73,7 @@ class AssignmentProcessor(
       ephemeral,
       domainCrypto,
       sequencerClient,
-      domainId.unwrap,
+      synchronizerId.unwrap,
       targetProtocolVersion.unwrap,
       loggerFactory,
       futureSupervisor,
@@ -86,7 +89,7 @@ class AssignmentProcessor(
 
   override protected def preSubmissionValidations(
       params: AssignmentProcessingSteps.SubmissionParam,
-      cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
       protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext

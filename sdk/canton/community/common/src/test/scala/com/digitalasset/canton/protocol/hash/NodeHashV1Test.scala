@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol.hash
@@ -822,7 +822,7 @@ class NodeHashV1Test extends BaseTest with AnyWordSpecLike with Matchers with Ha
     )
 
     val defaultHash = Hash
-      .fromHexStringRaw("8170f1b08e2ff9ba0a47db505ed82188f0fe265772fb8a34aa9f7b8ad5c95c3d")
+      .fromHexStringRaw("38c2a61da11ba27fb82214726099c848185727b1e6dae39051d36b3440cbce91")
       .getOrElse(fail("Invalid hash"))
 
     "be stable" in {
@@ -841,7 +841,7 @@ class NodeHashV1Test extends BaseTest with AnyWordSpecLike with Matchers with Ha
       )
       hashTracer.result shouldBe s"""'00000030' # Hash Purpose
                                       |'3dd9e6ca04bd97b2138fc645ad2b9e917cf6a5db5557155b7e4d3e97ad4ffbf2' # Transaction
-                                      |'e195ab4339850289226f5324c3b6e0d0734353b95ffe231b9caff9bdd2e4dd81' # Metadata
+                                      |'bdf59f1d269c1df19683ee6d6c144deec7733c9dec1d3356c8bf98076a16e950' # Metadata
                                       |""".stripMargin
       assertStringTracer(hashTracer, hash)
     }

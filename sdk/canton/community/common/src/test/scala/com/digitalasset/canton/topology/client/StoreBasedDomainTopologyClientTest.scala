@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.client
@@ -66,11 +66,11 @@ trait StoreBasedTopologySnapshotTest
     class Fixture {
       val store: TopologyStore[TopologyStoreId] = mk()
       val client =
-        new StoreBasedDomainTopologyClient(
+        new StoreBasedSynchronizerTopologyClient(
           mock[Clock],
-          domainId,
+          synchronizerId,
           store,
-          StoreBasedDomainTopologyClient.NoPackageDependencies,
+          StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
           DefaultProcessingTimeouts.testing,
           FutureSupervisor.Noop,
           loggerFactory,
@@ -371,7 +371,7 @@ trait DbStoreBasedTopologySnapshotTest
   this: AsyncWordSpec with BaseTest with HasExecutionContext with DbTest =>
 
   "DbStoreBasedTopologySnapshot" should {
-    behave like topologySnapshot(() => createTopologyStore(DefaultTestIdentities.domainId))
+    behave like topologySnapshot(() => createTopologyStore(DefaultTestIdentities.synchronizerId))
   }
 
 }

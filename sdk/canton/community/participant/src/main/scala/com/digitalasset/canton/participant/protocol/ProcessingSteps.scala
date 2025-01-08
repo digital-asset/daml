@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -7,7 +7,7 @@ import cats.data.{EitherT, OptionT}
 import cats.syntax.alternative.*
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, HashOps, Signature}
+import com.digitalasset.canton.crypto.{HashOps, Signature, SynchronizerSnapshotSyncCryptoApi}
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod, ViewType}
 import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.ledger.participant.state.SequencedUpdate
@@ -149,7 +149,7 @@ trait ProcessingSteps[
       submissionParam: SubmissionParam,
       mediator: MediatorGroupRecipient,
       ephemeralState: SyncDomainEphemeralStateLookup,
-      recentSnapshot: DomainSnapshotSyncCryptoApi,
+      recentSnapshot: SynchronizerSnapshotSyncCryptoApi,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SubmissionError, Submission]
 
   def embedNoMediatorError(error: NoMediatorError): SubmissionError
@@ -326,7 +326,7 @@ trait ProcessingSteps[
     */
   def decryptViews(
       batch: NonEmpty[Seq[OpenEnvelope[EncryptedViewMessage[RequestViewType]]]],
-      snapshot: DomainSnapshotSyncCryptoApi,
+      snapshot: SynchronizerSnapshotSyncCryptoApi,
       sessionKeyStore: ConfirmationRequestSessionKeyStore,
   )(implicit
       traceContext: TraceContext
@@ -378,8 +378,8 @@ trait ProcessingSteps[
       isFreshOwnTimelyRequest: Boolean,
       malformedPayloads: Seq[MalformedPayload],
       mediator: MediatorGroupRecipient,
-      snapshot: DomainSnapshotSyncCryptoApi,
-      domainParameters: DynamicDomainParametersWithValidity,
+      snapshot: SynchronizerSnapshotSyncCryptoApi,
+      domainParameters: DynamicSynchronizerParametersWithValidity,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[ParsedRequestType]
 
   /** Phase 3, step 2 (some good views) */
@@ -547,7 +547,7 @@ object ProcessingSteps {
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, String, Target[CantonTimestamp]] =
     for {
-      domainParameters <- EitherT(topologySnapshot.unwrap.findDynamicDomainParameters())
+      domainParameters <- EitherT(topologySnapshot.unwrap.findDynamicSynchronizerParameters())
 
       assignmentExclusivity <- EitherT
         .fromEither[FutureUnlessShutdown](domainParameters.assignmentExclusivityLimitFor(ts))
@@ -561,7 +561,7 @@ object ProcessingSteps {
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, String, CantonTimestamp] =
     for {
-      domainParameters <- EitherT(topologySnapshot.findDynamicDomainParameters())
+      domainParameters <- EitherT(topologySnapshot.findDynamicSynchronizerParameters())
       decisionTime <- EitherT.fromEither[FutureUnlessShutdown](domainParameters.decisionTimeFor(ts))
     } yield decisionTime
 
@@ -613,10 +613,10 @@ object ProcessingSteps {
     def sc: SequencerCounter
     def submitterMetadataO: Option[ViewSubmitterMetadata]
     def malformedPayloads: Seq[MalformedPayload]
-    def snapshot: DomainSnapshotSyncCryptoApi
+    def snapshot: SynchronizerSnapshotSyncCryptoApi
     def mediator: MediatorGroupRecipient
     def isFreshOwnTimelyRequest: Boolean
-    def domainParameters: DynamicDomainParametersWithValidity
+    def domainParameters: DynamicSynchronizerParametersWithValidity
     def rootHash: RootHash
 
     def decisionTime: CantonTimestamp = domainParameters

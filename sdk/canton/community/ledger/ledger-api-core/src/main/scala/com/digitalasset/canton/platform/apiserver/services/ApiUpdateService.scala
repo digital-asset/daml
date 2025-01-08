@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services
@@ -9,13 +9,11 @@ import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.api.v2.update_service.*
 import com.daml.logging.entries.LoggingEntries
 import com.daml.tracing.Telemetry
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.ValidationLogger
 import com.digitalasset.canton.ledger.api.domain.UpdateId
 import com.digitalasset.canton.ledger.api.grpc.StreamingServiceLifecycleManagement
-import com.digitalasset.canton.ledger.api.validation.{
-  UpdateServiceRequestValidator,
-  ValidationErrors,
-}
+import com.digitalasset.canton.ledger.api.validation.UpdateServiceRequestValidator
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state.index.IndexTransactionsService
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
@@ -29,7 +27,6 @@ import com.digitalasset.canton.logging.{
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.ledger.EventId
 import io.grpc.stub.StreamObserver
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
@@ -156,49 +153,41 @@ final class ApiUpdateService(
     }
   }
 
-  override def getTransactionTreeByEventId(
-      req: GetTransactionByEventIdRequest
+  override def getTransactionTreeByOffset(
+      req: GetTransactionByOffsetRequest
   ): Future[GetTransactionTreeResponse] = {
     implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
     implicit val errorLoggingContext = ErrorLoggingContext(logger, loggingContextWithTrace)
 
     validator
-      .validateTransactionByEventId(req)
+      .validateTransactionByOffset(req)
       .fold(
         t => Future.failed(ValidationLogger.logFailureWithTrace(logger, req, t)),
         request => {
           implicit val enrichedLoggingContext: LoggingContextWithTrace =
             LoggingContextWithTrace.enriched(
-              logging.eventId(request.eventId),
+              logging.offset(request.offset.unwrap),
               logging.parties(request.requestingParties),
             )(loggingContextWithTrace)
-          logger.info(s"Received request for transaction tree by event ID, ${enrichedLoggingContext
-              .serializeFiltered("eventId", "parties")}.")(loggingContextWithTrace.traceContext)
-          logger.trace(s"Transaction tree by event ID request: $request")(
+          logger.info(s"Received request for transaction tree by offset, ${enrichedLoggingContext
+              .serializeFiltered("offset", "parties")}.")(loggingContextWithTrace.traceContext)
+          logger.trace(s"Transaction tree by offset request: $request")(
             loggingContextWithTrace.traceContext
           )
-          EventId
-            .fromString(request.eventId.unwrap)
-            .map { case EventId(updateId, _) =>
-              transactionsService
-                .getTransactionTreeById(UpdateId(updateId), request.requestingParties)(
-                  loggingContextWithTrace
+          val offset = request.offset
+          transactionsService
+            .getTransactionTreeByOffset(offset, request.requestingParties)(
+              loggingContextWithTrace
+            )
+            .flatMap {
+              case None =>
+                Future.failed(
+                  RequestValidationErrors.NotFound.Transaction
+                    .RejectWithOffset(offset.unwrap)
+                    .asGrpcError
                 )
-                .flatMap {
-                  case None =>
-                    Future.failed(
-                      RequestValidationErrors.NotFound.Transaction
-                        .Reject(updateId)
-                        .asGrpcError
-                    )
-                  case Some(transactionTree) =>
-                    Future.successful(transactionTree)
-                }
-            }
-            .getOrElse {
-              Future.failed {
-                ValidationErrors.invalidArgument(s"invalid eventId: ${request.eventId}")
-              }
+              case Some(transactionTree) =>
+                Future.successful(transactionTree)
             }
             .thereafter(
               logger
@@ -237,7 +226,7 @@ final class ApiUpdateService(
               case None =>
                 Future.failed(
                   RequestValidationErrors.NotFound.Transaction
-                    .Reject(request.updateId.unwrap)
+                    .RejectWithTxId(request.updateId.unwrap)
                     .asGrpcError
                 )
               case Some(transactionTree) =>
@@ -251,42 +240,33 @@ final class ApiUpdateService(
       )
   }
 
-  override def getTransactionByEventId(
-      req: GetTransactionByEventIdRequest
+  override def getTransactionByOffset(
+      req: GetTransactionByOffsetRequest
   ): Future[GetTransactionResponse] = {
     implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
     implicit val errorLoggingContext = ErrorLoggingContext(logger, loggingContextWithTrace)
 
     validator
-      .validateTransactionByEventId(req)
+      .validateTransactionByOffset(req)
       .fold(
         t => Future.failed(ValidationLogger.logFailureWithTrace(logger, req, t)),
         request => {
           implicit val enrichedLoggingContext: LoggingContextWithTrace =
             LoggingContextWithTrace.enriched(
-              logging.eventId(request.eventId),
+              logging.offset(request.offset.unwrap),
               logging.parties(request.requestingParties),
             )(loggingContextWithTrace)
-          logger.info(s"Received request for transaction by event ID, ${enrichedLoggingContext
-              .serializeFiltered("eventId", "parties")}.")(loggingContextWithTrace.traceContext)
-          logger.trace(s"Transaction by event ID request: $request")(
+          logger.info(s"Received request for transaction by offset, ${enrichedLoggingContext
+              .serializeFiltered("offset", "parties")}.")(loggingContextWithTrace.traceContext)
+          logger.trace(s"Transaction by offset request: $request")(
             loggingContextWithTrace.traceContext
           )
-          EventId
-            .fromString(request.eventId.unwrap)
-            .map { case EventId(updateId, _) =>
-              internalGetTransactionById(UpdateId(updateId), request.requestingParties)(
-                loggingContextWithTrace
-              )
-            }
-            .getOrElse {
-              Future.failed {
-                ValidationErrors.invalidArgument(s"invalid eventId: ${request.eventId}")
-              }
-            }
-            .thereafter(
-              logger.logErrorsOnCall[GetTransactionResponse](loggingContextWithTrace.traceContext)
-            )
+          val offset = request.offset
+          internalGetTransactionByOffset(offset, request.requestingParties)(
+            loggingContextWithTrace
+          ).thereafter(
+            logger.logErrorsOnCall[GetTransactionResponse](loggingContextWithTrace.traceContext)
+          )
         },
       )
   }
@@ -321,6 +301,25 @@ final class ApiUpdateService(
       )
   }
 
+  private def emptyTransactionFromTransactionTree(
+      tree: GetTransactionTreeResponse
+  ): GetTransactionResponse =
+    GetTransactionResponse(
+      tree.transaction.map(transaction =>
+        Transaction(
+          updateId = transaction.updateId,
+          commandId = transaction.commandId,
+          workflowId = transaction.workflowId,
+          effectiveAt = transaction.effectiveAt,
+          events = Seq.empty,
+          offset = transaction.offset,
+          synchronizerId = transaction.synchronizerId,
+          traceContext = transaction.traceContext,
+          recordTime = transaction.recordTime,
+        )
+      )
+    )
+
   private def internalGetTransactionById(
       updateId: UpdateId,
       requestingParties: Set[Party],
@@ -339,27 +338,37 @@ final class ApiUpdateService(
         // In these situations, we fallback to a transaction tree lookup and populate the flat transaction response
         // with its details but no events.
         OptionT(transactionsService.getTransactionTreeById(updateId, requestingParties))
-          .map(tree =>
-            GetTransactionResponse(
-              tree.transaction.map(transaction =>
-                Transaction(
-                  updateId = transaction.updateId,
-                  commandId = transaction.commandId,
-                  workflowId = transaction.workflowId,
-                  effectiveAt = transaction.effectiveAt,
-                  events = Seq.empty,
-                  offset = transaction.offset,
-                  domainId = transaction.domainId,
-                  traceContext = transaction.traceContext,
-                  recordTime = transaction.recordTime,
-                )
-              )
-            )
-          )
+          .map(emptyTransactionFromTransactionTree)
       }
       .getOrElseF(
         Future.failed(
-          RequestValidationErrors.NotFound.Transaction.Reject(updateId.unwrap).asGrpcError
+          RequestValidationErrors.NotFound.Transaction.RejectWithTxId(updateId.unwrap).asGrpcError
+        )
+      )
+
+  private def internalGetTransactionByOffset(
+      offset: Offset,
+      requestingParties: Set[Party],
+  )(implicit
+      loggingContextWithTrace: LoggingContextWithTrace
+  ): Future[GetTransactionResponse] =
+    OptionT(transactionsService.getTransactionByOffset(offset, requestingParties))
+      .orElse {
+        logger.debug(
+          s"Transaction not found in flat transaction lookup for offset $offset and requestingParties $requestingParties, falling back to transaction tree lookup."
+        )
+        // When a command submission completes successfully,
+        // the submitters can end up getting a TRANSACTION_NOT_FOUND when querying its corresponding flat transaction that either:
+        // * has only non-consuming events
+        // * has only events of contracts which have stakeholders that are not amongst the requestingParties
+        // In these situations, we fallback to a transaction tree lookup and populate the flat transaction response
+        // with its details but no events.
+        OptionT(transactionsService.getTransactionTreeByOffset(offset, requestingParties))
+          .map(emptyTransactionFromTransactionTree)
+      }
+      .getOrElseF(
+        Future.failed(
+          RequestValidationErrors.NotFound.Transaction.RejectWithOffset(offset.unwrap).asGrpcError
         )
       )
 

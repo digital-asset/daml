@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin.repair
@@ -37,19 +37,19 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.admin.repair.RepairService.{ContractToAdd, DomainLookup}
-import com.digitalasset.canton.participant.domain.DomainAliasManager
 import com.digitalasset.canton.participant.event.RecordTime
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.RequestJournal.RequestState
 import com.digitalasset.canton.participant.store.*
+import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
 import com.digitalasset.canton.participant.topology.TopologyComponentFactory
 import com.digitalasset.canton.participant.util.DAMLe.ContractWithMetadata
 import com.digitalasset.canton.participant.util.{DAMLe, TimeOfChange}
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.{LfChoiceName, *}
 import com.digitalasset.canton.store.SequencedEventStore
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.FutureInstances.*
@@ -94,7 +94,7 @@ final class RepairService(
     damle: DAMLe,
     contractStore: Eval[ContractStore],
     ledgerApiIndexer: Eval[LedgerApiIndexer],
-    aliasManager: DomainAliasManager,
+    aliasManager: SynchronizerAliasManager,
     parameters: ParticipantNodeParameters,
     threadsAvailableForWriting: PositiveInt,
     val domainLookup: DomainLookup,
@@ -106,24 +106,28 @@ final class RepairService(
     with FlagCloseable
     with HasCloseContext {
 
-  private type MissingContract = (SerializableContract, RequestCounter)
+  private type MissingContract = SerializableContract
   private type MissingAssignment =
-    (LfContractId, Source[DomainId], ReassignmentCounter, TimeOfChange)
+    (LfContractId, Source[SynchronizerId], ReassignmentCounter, TimeOfChange)
   private type MissingAdd = (LfContractId, ReassignmentCounter, TimeOfChange)
   private type MissingPurge = (LfContractId, TimeOfChange)
 
   override protected def timeouts: ProcessingTimeout = parameters.processingTimeouts
 
-  private def aliasToDomainId(alias: DomainAlias): EitherT[Future, String, DomainId] =
+  private def aliasToSynchronizerId(
+      alias: SynchronizerAlias
+  ): EitherT[Future, String, SynchronizerId] =
     EitherT.fromEither[Future](
-      aliasManager.domainIdForAlias(alias).toRight(s"Could not find $alias")
+      aliasManager.synchronizerIdForAlias(alias).toRight(s"Could not find $alias")
     )
 
-  private def domainNotConnected(domainId: DomainId): EitherT[FutureUnlessShutdown, String, Unit] =
+  private def domainNotConnected(
+      synchronizerId: SynchronizerId
+  ): EitherT[FutureUnlessShutdown, String, Unit] =
     EitherT.cond(
-      !domainLookup.isConnected(domainId),
+      !domainLookup.isConnected(synchronizerId),
       (),
-      s"Participant is still connected to domain $domainId",
+      s"Participant is still connected to domain $synchronizerId",
     )
 
   private def contractToAdd(
@@ -137,7 +141,7 @@ final class RepairService(
     val contractId = repairContract.contract.contractId
 
     def addContract(
-        reassigningFrom: Option[Source[DomainId]]
+        reassigningFrom: Option[Source[SynchronizerId]]
     ): EitherT[FutureUnlessShutdown, String, Option[ContractToAdd]] = Right(
       Option(
         ContractToAdd(
@@ -264,18 +268,18 @@ final class RepairService(
   // If this repair request succeeds, it will advance the clean RequestIndex to this time of change.
   // That's why it is important that there are no inflight validation requests before the repair request.
   private def readDomainData(
-      domainId: DomainId,
-      domainAlias: DomainAlias,
+      synchronizerId: SynchronizerId,
+      synchronizerAlias: SynchronizerAlias,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, RepairRequest.DomainData] =
     for {
       persistentState <- EitherT.fromEither[FutureUnlessShutdown](
-        lookUpDomainPersistence(domainId, s"domain $domainAlias")
+        lookUpDomainPersistence(synchronizerId, s"synchronizer $synchronizerAlias")
       )
       domainIndex <- EitherT
         .right(
-          ledgerApiIndexer.value.ledgerApiStore.value.cleanDomainIndex(domainId)
+          ledgerApiIndexer.value.ledgerApiStore.value.cleanDomainIndex(synchronizerId)
         )
       startingPoints <- EitherT
         .right(
@@ -287,8 +291,8 @@ final class RepairService(
         )
 
       topologyFactory <- domainLookup
-        .topologyFactoryFor(domainId)
-        .toRight(s"No topology factory for domain $domainAlias")
+        .topologyFactoryFor(synchronizerId)
+        .toRight(s"No topology factory for synchronizer $synchronizerAlias")
         .toEitherT[FutureUnlessShutdown]
 
       topologySnapshot = topologyFactory.createTopologySnapshot(
@@ -297,11 +301,11 @@ final class RepairService(
         preferCaching = true,
       )
       domainParameters <- OptionT(persistentState.parameterStore.lastParameters)
-        .toRight(log(s"No static domains parameters found for $domainAlias"))
+        .toRight(log(s"No static domains parameters found for $synchronizerAlias"))
         .mapK(FutureUnlessShutdown.outcomeK)
     } yield RepairRequest.DomainData(
-      domainId,
-      domainAlias,
+      synchronizerId,
+      synchronizerAlias,
       topologySnapshot,
       persistentState,
       domainParameters,
@@ -310,7 +314,7 @@ final class RepairService(
 
   /** Participant repair utility for manually adding contracts to a domain in an offline fashion.
     *
-    * @param domain             alias of domain to add contracts to. The domain needs to be configured, but disconnected
+    * @param synchronizerAlias             alias of domain to add contracts to. The domain needs to be configured, but disconnected
     *                           to prevent race conditions.
     * @param contracts          contracts to add. Relevant pieces of each contract: create-arguments (LfContractInst),
     *                           template-id (LfContractInst), contractId, ledgerCreateTime, salt (to be added to
@@ -324,14 +328,14 @@ final class RepairService(
     *                           generated as part of the addition (e.g. `import-foo-1-2`, `import-foo-2-2`)
     */
   def addContracts(
-      domain: DomainAlias,
+      synchronizerAlias: SynchronizerAlias,
       contracts: Seq[RepairContract],
       ignoreAlreadyAdded: Boolean,
       ignoreStakeholderCheck: Boolean,
       workflowIdPrefix: Option[String] = None,
   )(implicit traceContext: TraceContext): Either[String, Unit] = {
     logger.info(
-      s"Adding ${contracts.length} contracts to domain $domain with ignoreAlreadyAdded=$ignoreAlreadyAdded and ignoreStakeholderCheck=$ignoreStakeholderCheck"
+      s"Adding ${contracts.length} contracts to synchronizer $synchronizerAlias with ignoreAlreadyAdded=$ignoreAlreadyAdded and ignoreStakeholderCheck=$ignoreStakeholderCheck"
     )
     if (contracts.isEmpty) {
       Either.right(logger.info("No contracts to add specified"))
@@ -340,14 +344,16 @@ final class RepairService(
         "repair.add",
         withRepairIndexer { repairIndexer =>
           (for {
-            domainId <- EitherT.fromEither[FutureUnlessShutdown](
-              aliasManager.domainIdForAlias(domain).toRight(s"Could not find $domain")
+            synchronizerId <- EitherT.fromEither[FutureUnlessShutdown](
+              aliasManager
+                .synchronizerIdForAlias(synchronizerAlias)
+                .toRight(s"Could not find $synchronizerAlias")
             )
-            domain <- readDomainData(domainId, domain)
+            synchronizer <- readDomainData(synchronizerId, synchronizerAlias)
 
             contractStates <- EitherT.right[String](
               readContractAcsStates(
-                domain.persistentState,
+                synchronizer.persistentState,
                 contracts.map(_.contract.contractId),
               )
             )
@@ -359,7 +365,7 @@ final class RepairService(
               "Unable to lookup contracts in contract store",
             )
               .map { contracts =>
-                contracts.view.flatMap(_.map(c => c.contractId -> c.contract)).toMap
+                contracts.view.flatMap(_.map(c => c.contractId -> c)).toMap
               }
 
             filteredContracts <- contracts.zip(contractStates).parTraverseFilter {
@@ -388,13 +394,13 @@ final class RepairService(
                   val workflowIds = workflowIdsFromPrefix(workflowIdPrefix, groupCount)
                   for {
                     repair <- initRepairRequestAndVerifyPreconditions(
-                      domain = domain,
+                      domain = synchronizer,
                       requestCountersToAllocate = groupCount,
                     )
 
                     hostedWitnesses <- EitherT.right(
                       hostsParties(
-                        repair.domain.topologySnapshot,
+                        repair.synchronizer.topologySnapshot,
                         filteredContracts.flatMap(_.witnesses).toSet,
                         participantId,
                       )
@@ -462,25 +468,27 @@ final class RepairService(
     * @param ignoreAlreadyPurged whether to ignore already purged contracts.
     */
   def purgeContracts(
-      domain: DomainAlias,
+      SynchronizerAlias: SynchronizerAlias,
       contractIds: NonEmpty[Seq[LfContractId]],
       ignoreAlreadyPurged: Boolean,
   )(implicit traceContext: TraceContext): Either[String, Unit] = {
     logger.info(
-      s"Purging ${contractIds.length} contracts from $domain with ignoreAlreadyPurged=$ignoreAlreadyPurged"
+      s"Purging ${contractIds.length} contracts from $SynchronizerAlias with ignoreAlreadyPurged=$ignoreAlreadyPurged"
     )
     runConsecutiveAndAwaitUS(
       "repair.purge",
       withRepairIndexer { repairIndexer =>
         (for {
-          domainId <- EitherT.fromEither[FutureUnlessShutdown](
-            aliasManager.domainIdForAlias(domain).toRight(s"Could not find $domain")
+          synchronizerId <- EitherT.fromEither[FutureUnlessShutdown](
+            aliasManager
+              .synchronizerIdForAlias(SynchronizerAlias)
+              .toRight(s"Could not find $SynchronizerAlias")
           )
-          repair <- initRepairRequestAndVerifyPreconditions(domainId)
+          repair <- initRepairRequestAndVerifyPreconditions(synchronizerId)
 
           contractStates <- EitherT.right[String](
             readContractAcsStates(
-              repair.domain.persistentState,
+              repair.synchronizer.persistentState,
               contractIds,
             )
           )
@@ -491,7 +499,7 @@ final class RepairService(
               "Unable to lookup contracts in contract store",
             )
               .map { contracts =>
-                contracts.view.flatMap(_.map(c => c.contractId -> c.contract)).toMap
+                contracts.view.flatMap(_.map(c => c.contractId -> c)).toMap
               }
 
           operationsE = contractIds
@@ -508,7 +516,7 @@ final class RepairService(
           (contractsToPublishUpstream, missingPurges, missingAssignments) = operations
 
           // Update the stores
-          _ <- repair.domain.persistentState.activeContractStore
+          _ <- repair.synchronizer.persistentState.activeContractStore
             .purgeContracts(missingPurges)
             .toEitherTWithNonaborts
             .leftMap(e =>
@@ -516,7 +524,7 @@ final class RepairService(
             )
             .mapK(FutureUnlessShutdown.outcomeK)
 
-          _ <- repair.domain.persistentState.activeContractStore
+          _ <- repair.synchronizer.persistentState.activeContractStore
             .assignContracts(missingAssignments)
             .toEitherTWithNonaborts
             .leftMap(e =>
@@ -547,28 +555,28 @@ final class RepairService(
     */
   def changeAssignationAwait(
       contractIds: NonEmpty[Seq[LfContractId]],
-      sourceDomain: DomainAlias,
-      targetDomain: DomainAlias,
+      sourceSynchronizerAlias: SynchronizerAlias,
+      targetSynchronizerAlias: SynchronizerAlias,
       skipInactive: Boolean,
       batchSize: PositiveInt,
   )(implicit traceContext: TraceContext): Either[String, Unit] = {
     logger.info(
-      s"Change assignation request for ${contractIds.length} contracts from $sourceDomain to $targetDomain with skipInactive=$skipInactive"
+      s"Change assignation request for ${contractIds.length} contracts from $sourceSynchronizerAlias to $targetSynchronizerAlias with skipInactive=$skipInactive"
     )
     runConsecutiveAndAwaitUS(
       "repair.change_assignation",
       for {
         domains <- (
-          aliasToDomainId(sourceDomain),
-          aliasToDomainId(targetDomain),
+          aliasToSynchronizerId(sourceSynchronizerAlias),
+          aliasToSynchronizerId(targetSynchronizerAlias),
         ).tupled
           .mapK(FutureUnlessShutdown.outcomeK)
 
-        (sourceDomainId, targetDomainId) = domains
+        (sourceSynchronizerId, targetSynchronizerId) = domains
         _ <- changeAssignation(
           contractIds,
-          Source(sourceDomainId),
-          Target(targetDomainId),
+          Source(sourceSynchronizerId),
+          Target(targetSynchronizerId),
           skipInactive,
           batchSize,
         )
@@ -587,26 +595,26 @@ final class RepairService(
     */
   def changeAssignation(
       contractIds: NonEmpty[Seq[LfContractId]],
-      sourceDomainId: Source[DomainId],
-      targetDomainId: Target[DomainId],
+      sourceSynchronizerId: Source[SynchronizerId],
+      targetSynchronizerId: Target[SynchronizerId],
       skipInactive: Boolean,
       batchSize: PositiveInt,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] = {
     val numberOfContracts = PositiveInt.tryCreate(contractIds.size)
     for {
       _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
-        sourceDomainId.unwrap != targetDomainId.unwrap,
+        sourceSynchronizerId.unwrap != targetSynchronizerId.unwrap,
         "Source must differ from target domain!",
       )
 
-      repairSource <- sourceDomainId.traverse(
+      repairSource <- sourceSynchronizerId.traverse(
         initRepairRequestAndVerifyPreconditions(
           _,
           numberOfContracts,
         )
       )
 
-      repairTarget <- targetDomainId.traverse(
+      repairTarget <- targetSynchronizerId.traverse(
         initRepairRequestAndVerifyPreconditions(
           _,
           numberOfContracts,
@@ -646,7 +654,7 @@ final class RepairService(
   }
 
   def ignoreEvents(
-      domain: DomainId,
+      synchronizerId: SynchronizerId,
       fromInclusive: SequencerCounter,
       toInclusive: SequencerCounter,
       force: Boolean,
@@ -657,8 +665,8 @@ final class RepairService(
     runConsecutive(
       "repair.skip_messages",
       for {
-        _ <- domainNotConnected(domain)
-        _ <- performIfRangeSuitableForIgnoreOperations(domain, fromInclusive, force)(
+        _ <- domainNotConnected(synchronizerId)
+        _ <- performIfRangeSuitableForIgnoreOperations(synchronizerId, fromInclusive, force)(
           _.ignoreEvents(fromInclusive, toInclusive).leftMap(_.toString)
         )
       } yield (),
@@ -671,7 +679,7 @@ final class RepairService(
     */
   def rollbackUnassignment(
       reassignmentId: ReassignmentId,
-      target: Target[DomainId],
+      target: Target[SynchronizerId],
   )(implicit context: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
     withRepairIndexer { repairIndexer =>
       (for {
@@ -680,7 +688,7 @@ final class RepairService(
         )
         targetRepairRequest <- target.traverse(initRepairRequestAndVerifyPreconditions(_))
         reassignmentData <-
-          targetRepairRequest.unwrap.domain.persistentState.reassignmentStore
+          targetRepairRequest.unwrap.synchronizer.persistentState.reassignmentStore
             .lookup(reassignmentId)
             .leftMap(_.message)
 
@@ -718,7 +726,7 @@ final class RepairService(
     }
 
   private def performIfRangeSuitableForIgnoreOperations[T](
-      domain: DomainId,
+      synchronizerId: SynchronizerId,
       from: SequencerCounter,
       force: Boolean,
   )(
@@ -726,14 +734,14 @@ final class RepairService(
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, T] =
     for {
       persistentState <- EitherT.fromEither[FutureUnlessShutdown](
-        lookUpDomainPersistence(domain, domain.show)
+        lookUpDomainPersistence(synchronizerId, synchronizerId.show)
       )
       _ <- EitherT.right(
         ledgerApiIndexer.value
-          .ensureNoProcessingForDomain(domain)
+          .ensureNoProcessingForDomain(synchronizerId)
       )
       domainIndex <- EitherT.right(
-        ledgerApiIndexer.value.ledgerApiStore.value.cleanDomainIndex(domain)
+        ledgerApiIndexer.value.ledgerApiStore.value.cleanDomainIndex(synchronizerId)
       )
       startingPoints <- EitherT.right(
         SyncDomainEphemeralStateFactory.startingPoints(
@@ -752,7 +760,7 @@ final class RepairService(
     } yield res
 
   def unignoreEvents(
-      domain: DomainId,
+      synchronizerId: SynchronizerId,
       fromInclusive: SequencerCounter,
       toInclusive: SequencerCounter,
       force: Boolean,
@@ -763,8 +771,8 @@ final class RepairService(
     runConsecutive(
       "repair.unskip_messages",
       for {
-        _ <- domainNotConnected(domain)
-        _ <- performIfRangeSuitableForIgnoreOperations(domain, fromInclusive, force)(
+        _ <- domainNotConnected(synchronizerId)
+        _ <- performIfRangeSuitableForIgnoreOperations(synchronizerId, fromInclusive, force)(
           sequencedEventStore =>
             sequencedEventStore.unignoreEvents(fromInclusive, toInclusive).leftMap(_.toString)
         )
@@ -827,7 +835,7 @@ final class RepairService(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
-    val topologySnapshot = repair.domain.topologySnapshot
+    val topologySnapshot = repair.synchronizer.topologySnapshot
     val contract = contractToAdd.contract
     val contractId = contractToAdd.cid
     for {
@@ -842,7 +850,7 @@ final class RepairService(
       _witnessesKnownLocallyE = NonEmpty.from(missingWitnesses).toLeft(()).leftMap {
         missingWitnessesNE =>
           log(
-            s"Witnesses $missingWitnessesNE not active on domain ${repair.domain.alias} and local participant"
+            s"Witnesses $missingWitnessesNE not active on domain ${repair.synchronizer.alias} and local participant"
           )
       }
 
@@ -872,7 +880,7 @@ final class RepairService(
               .allHaveActiveParticipants(contract.metadata.stakeholders)
               .leftMap { missingStakeholders =>
                 log(
-                  s"Domain ${repair.domain.alias} missing stakeholders $missingStakeholders of contract ${contract.contractId}"
+                  s"Domain ${repair.synchronizer.alias} missing stakeholders $missingStakeholders of contract ${contract.contractId}"
                 )
               }
           } yield ()
@@ -882,7 +890,7 @@ final class RepairService(
         .allHaveActiveParticipants(contractToAdd.witnesses)
         .leftMap { missingWitnesses =>
           log(
-            s"Domain ${repair.domain.alias} missing witnesses $missingWitnesses of contract ${contract.contractId}"
+            s"Domain ${repair.synchronizer.alias} missing witnesses $missingWitnesses of contract ${contract.contractId}"
           )
         }
     } yield ()
@@ -918,11 +926,11 @@ final class RepairService(
       // We compute first which changes we need to persist
       missingContracts <- contractsToAdd
         .parTraverseFilter[EitherT[FutureUnlessShutdown, String, *], MissingContract] {
-          case (contractToAdd, toc) =>
+          case (contractToAdd, _) =>
             storedContracts.get(contractToAdd.cid) match {
               case None =>
                 EitherT.pure[FutureUnlessShutdown, String](
-                  Some((contractToAdd.contract, toc.rc))
+                  Some(contractToAdd.contract)
                 )
 
               case Some(storedContract) =>
@@ -939,8 +947,9 @@ final class RepairService(
         (Seq.empty[MissingAssignment], Seq.empty[MissingAdd])
       ) { case ((missingAssignments, missingAdds), (contract, toc)) =>
         contract.reassigningFrom match {
-          case Some(sourceDomainId) =>
-            val newAssignment = (contract.cid, sourceDomainId, contract.reassignmentCounter, toc)
+          case Some(sourceSynchronizerId) =>
+            val newAssignment =
+              (contract.cid, sourceSynchronizerId, contract.reassignmentCounter, toc)
             (newAssignment +: missingAssignments, missingAdds)
 
           case None =>
@@ -951,11 +960,11 @@ final class RepairService(
 
       // Now, we update the stores
       _ <- logOnFailureWithInfoLevelUS(
-        contractStore.value.storeCreatedContracts(missingContracts),
+        contractStore.value.storeContracts(missingContracts),
         "Unable to store missing contracts",
       )
 
-      _ <- repair.domain.persistentState.activeContractStore
+      _ <- repair.synchronizer.persistentState.activeContractStore
         .markContractsAdded(missingAdds)
         .toEitherTWithNonaborts
         .leftMap(e =>
@@ -965,7 +974,7 @@ final class RepairService(
         )
         .mapK(FutureUnlessShutdown.outcomeK)
 
-      _ <- repair.domain.persistentState.activeContractStore
+      _ <- repair.synchronizer.persistentState.activeContractStore
         .assignContracts(missingAssignments)
         .toEitherTWithNonaborts
         .leftMap(e =>
@@ -1082,7 +1091,7 @@ final class RepairService(
       updateId = repair.transactionId.tryAsLedgerTransactionId,
       hostedWitnesses = hostedWitnesses.toList,
       contractMetadata = Map.empty,
-      domainId = repair.domain.id,
+      synchronizerId = repair.synchronizer.id,
       requestCounter = repair.tryExactlyOneRequestCounter,
       recordTime = repair.timestamp,
     )
@@ -1099,7 +1108,9 @@ final class RepairService(
       workflowIdProvider: () => Option[LfWorkflowId],
   )(implicit traceContext: TraceContext): RepairUpdate = {
     val contractMetadata = contractsAdded.view
-      .map(c => c.contract.contractId -> c.driverMetadata(repair.domain.parameters.protocolVersion))
+      .map(c =>
+        c.contract.contractId -> c.driverMetadata(repair.synchronizer.parameters.protocolVersion)
+      )
       .toMap
     val nodeIds = LazyList.from(0).map(LfNodeId)
     val txNodes = nodeIds.zip(contractsAdded.map(_.contract.toLf)).toMap
@@ -1122,7 +1133,7 @@ final class RepairService(
       updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
       hostedWitnesses = contractsAdded.flatMap(_.witnesses.intersect(hostedParties)).toList,
       contractMetadata = contractMetadata,
-      domainId = repair.domain.id,
+      synchronizerId = repair.synchronizer.id,
       requestCounter = requestCounter,
       recordTime = repair.timestamp,
     )
@@ -1168,14 +1179,14 @@ final class RepairService(
 
   /** Allows to wait until clean sequencer index has progressed up to a certain timestamp */
   def awaitCleanSequencerTimestamp(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       timestamp: CantonTimestamp,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] = {
     def check(
         persistentState: SyncDomainPersistentState
     ): FutureUnlessShutdown[Either[String, Unit]] =
       ledgerApiIndexer.value.ledgerApiStore.value
-        .cleanDomainIndex(domainId)
+        .cleanDomainIndex(synchronizerId)
         .flatMap(d =>
           SyncDomainEphemeralStateFactory.startingPoints(
             persistentState.requestJournalStore,
@@ -1198,7 +1209,7 @@ final class RepairService(
         }
     EitherT
       .fromEither[FutureUnlessShutdown](
-        lookUpDomainPersistence(domainId, s"domain $domainId")
+        lookUpDomainPersistence(synchronizerId, s"domain $synchronizerId")
       )
       .flatMap { persistentState =>
         EitherT(
@@ -1208,7 +1219,7 @@ final class RepairService(
               this,
               retry.Forever,
               50.milliseconds,
-              s"awaiting clean-head for=$domainId at ts=$timestamp",
+              s"awaiting clean-head for=$synchronizerId at ts=$timestamp",
             )
             .unlessShutdown(
               check(persistentState),
@@ -1231,20 +1242,20 @@ final class RepairService(
 
   /** Repair commands are inserted where processing starts again upon reconnection.
     *
-    * @param domainId The ID of the domain for which the request is valid
+    * @param synchronizerId The ID of the domain for which the request is valid
     * @param requestCountersToAllocate The number of request counters to allocate in order to fulfill the request
     */
   private def initRepairRequestAndVerifyPreconditions(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       requestCountersToAllocate: PositiveInt = PositiveInt.one,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, RepairRequest] =
     for {
-      domainAlias <- EitherT.fromEither[FutureUnlessShutdown](
+      synchronizerAlias <- EitherT.fromEither[FutureUnlessShutdown](
         aliasManager
-          .aliasForDomainId(domainId)
-          .toRight(s"domain alias for $domainId not found")
+          .aliasForSynchronizerId(synchronizerId)
+          .toRight(s"synchronizer alias for $synchronizerId not found")
       )
-      domainData <- readDomainData(domainId, domainAlias)
+      domainData <- readDomainData(synchronizerId, synchronizerAlias)
       repairRequest <- initRepairRequestAndVerifyPreconditions(
         domainData,
         requestCountersToAllocate,
@@ -1311,14 +1322,16 @@ final class RepairService(
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
     repair.requestCounters.forgetNE
       .parTraverse_(
-        repair.domain.persistentState.requestJournalStore.replace(
+        repair.synchronizer.persistentState.requestJournalStore.replace(
           _,
           repair.timestamp,
           RequestState.Clean,
           Some(repair.timestamp),
         )
       )
-      .leftMap(t => log(s"Failed to update request journal store on ${repair.domain.alias}: $t"))
+      .leftMap(t =>
+        log(s"Failed to update request journal store on ${repair.synchronizer.alias}: $t")
+      )
       .mapK(FutureUnlessShutdown.outcomeK)
 
   private def cleanRepairRequests(
@@ -1345,12 +1358,12 @@ final class RepairService(
       }
 
   // Looks up domain persistence erroring if domain is based on in-memory persistence for which repair is not supported.
-  private def lookUpDomainPersistence(domainId: DomainId, domainDescription: String)(implicit
-      traceContext: TraceContext
+  private def lookUpDomainPersistence(synchronizerId: SynchronizerId, domainDescription: String)(
+      implicit traceContext: TraceContext
   ): Either[String, SyncDomainPersistentState] =
     for {
       dp <- domainLookup
-        .persistentStateFor(domainId)
+        .persistentStateFor(synchronizerId)
         .toRight(log(s"Could not find $domainDescription"))
       _ <- Either.cond(
         !dp.isMemory,
@@ -1510,7 +1523,7 @@ object RepairService {
       contract: SerializableContract,
       witnesses: Set[LfPartyId],
       reassignmentCounter: ReassignmentCounter,
-      reassigningFrom: Option[Source[DomainId]],
+      reassigningFrom: Option[Source[SynchronizerId]],
   ) {
     def cid: LfContractId = contract.contractId
 
@@ -1521,13 +1534,13 @@ object RepairService {
   }
 
   trait DomainLookup {
-    def isConnected(domainId: DomainId): Boolean
+    def isConnected(synchronizerId: SynchronizerId): Boolean
 
     def isConnectedToAnyDomain: Boolean
 
-    def persistentStateFor(domainId: DomainId): Option[SyncDomainPersistentState]
+    def persistentStateFor(synchronizerId: SynchronizerId): Option[SyncDomainPersistentState]
 
-    def topologyFactoryFor(domainId: DomainId)(implicit
+    def topologyFactoryFor(synchronizerId: SynchronizerId)(implicit
         traceContext: TraceContext
     ): Option[TopologyComponentFactory]
   }

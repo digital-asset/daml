@@ -1,11 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.topology.transaction.MediatorDomainState
+import com.digitalasset.canton.topology.transaction.MediatorSynchronizerState
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.annotation.nowarn
@@ -19,11 +19,11 @@ class MediatorGroupDeltaComputationsTest extends AnyWordSpec with BaseTest {
 
   def range(from: Int, to: Int): Seq[MediatorId] = from to to map mediatorIdFor
 
-  def mds(active: Seq[MediatorId], observers: Seq[MediatorId]): Option[MediatorDomainState] =
+  def mds(active: Seq[MediatorId], observers: Seq[MediatorId]): Option[MediatorSynchronizerState] =
     Some(
-      MediatorDomainState
+      MediatorSynchronizerState
         .create(
-          DefaultTestIdentities.domainId,
+          DefaultTestIdentities.synchronizerId,
           NonNegativeInt.zero,
           PositiveInt.one,
           active,

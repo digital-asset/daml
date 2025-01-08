@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.submission.routing
@@ -7,7 +7,7 @@ import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.{LfContractId, Stakeholders}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
@@ -15,7 +15,7 @@ import scala.concurrent.ExecutionContext
 private[routing] final case class ContractsDomainData private (
     withDomainData: Seq[ContractData]
 ) {
-  val domains: Set[DomainId] = withDomainData.map(_.domain).toSet
+  val domains: Set[SynchronizerId] = withDomainData.map(_.synchronizerId).toSet
 }
 
 private[routing] object ContractsDomainData {
@@ -40,8 +40,8 @@ private[routing] object ContractsDomainData {
         val (bad, good) = contractsStakeholders.toSeq
           .partitionMap { case (coid, stakeholders) =>
             domainMap.get(coid) match {
-              case Some(domainId) =>
-                Right(ContractData(coid, domainId, stakeholders))
+              case Some(synchronizerId) =>
+                Right(ContractData(coid, synchronizerId, stakeholders))
               case None => Left(coid)
             }
           }
@@ -56,6 +56,6 @@ private[routing] object ContractsDomainData {
 
 private[routing] final case class ContractData(
     id: LfContractId,
-    domain: DomainId,
+    synchronizerId: SynchronizerId,
     stakeholders: Stakeholders,
 )

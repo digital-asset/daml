@@ -72,7 +72,7 @@ CREATE TABLE lapi_post_processing_end (
 );
 
 CREATE TABLE lapi_ledger_end_domain_index (
-  domain_id INTEGER PRIMARY KEY not null,
+  synchronizer_id INTEGER PRIMARY KEY not null,
   sequencer_counter BIGINT,
   sequencer_timestamp BIGINT,
   request_counter BIGINT,
@@ -113,7 +113,7 @@ CREATE TABLE lapi_command_completions (
     rejection_status_message varchar(4000) collate "C",
     rejection_status_details bytea,
 
-    domain_id integer not null,
+    synchronizer_id integer not null,
     message_uuid varchar(4000) collate "C",
     request_sequencer_counter bigint,
     is_transaction boolean not null,
@@ -123,8 +123,8 @@ CREATE TABLE lapi_command_completions (
 CREATE INDEX lapi_command_completions_application_id_offset_idx ON lapi_command_completions USING btree (application_id, completion_offset);
 CREATE INDEX lapi_command_completions_offset_idx ON lapi_command_completions USING btree (completion_offset);
 CREATE INDEX lapi_command_completions_publication_time_idx ON lapi_command_completions USING btree (publication_time, completion_offset);
-CREATE INDEX lapi_command_completions_domain_record_time_idx ON lapi_command_completions USING btree (domain_id, record_time);
-CREATE INDEX lapi_command_completions_domain_offset_idx ON lapi_command_completions USING btree (domain_id, completion_offset);
+CREATE INDEX lapi_command_completions_domain_record_time_idx ON lapi_command_completions USING btree (synchronizer_id, record_time);
+CREATE INDEX lapi_command_completions_domain_offset_idx ON lapi_command_completions USING btree (synchronizer_id, completion_offset);
 ---------------------------------------------------------------------------------------------------
 -- Events: Assign
 ---------------------------------------------------------------------------------------------------
@@ -152,8 +152,8 @@ CREATE TABLE lapi_events_assign (
     flat_event_witnesses integer[] default '{}'::integer[] not null, -- stakeholders
 
     -- * common reassignment
-    source_domain_id integer not null,
-    target_domain_id integer not null,
+    source_synchronizer_id integer not null,
+    target_synchronizer_id integer not null,
     unassign_id text not null,
     reassignment_counter bigint not null,
 
@@ -175,6 +175,9 @@ CREATE TABLE lapi_events_assign (
 
 -- index for queries resolving contract ID to sequential IDs.
 CREATE INDEX lapi_events_assign_event_contract_id_idx ON lapi_events_assign USING btree (contract_id, event_sequential_id);
+
+-- index for queries resolving (contract ID, synchronizer id, sequential ID) to sequential IDs.
+CREATE INDEX lapi_events_assign_event_contract_id_synchronizer_id_seq_id_idx ON lapi_events_assign USING btree (contract_id, target_synchronizer_id, event_sequential_id);
 
 -- covering index for queries resolving offsets to sequential IDs. For temporary incomplete reassignments implementation.
 CREATE INDEX lapi_events_assign_event_offset_idx ON lapi_events_assign USING btree (event_offset, event_sequential_id);
@@ -218,14 +221,14 @@ CREATE TABLE lapi_events_consuming_exercise (
     exercise_argument bytea not null,
     exercise_result bytea,
     exercise_actors integer[] not null,
-    exercise_child_event_ids text[] not null,
+    exercise_child_node_ids integer[] not null,
 
     -- * compression flags
     create_key_value_compression smallint,
     exercise_argument_compression smallint,
     exercise_result_compression smallint,
 
-    domain_id integer not null,
+    synchronizer_id integer not null,
     trace_context bytea,
     record_time bigint not null
 );
@@ -279,13 +282,13 @@ CREATE TABLE lapi_events_create (
     create_argument_compression smallint,
     create_key_value_compression smallint,
     driver_metadata bytea not null,
-    domain_id integer not null,
+    synchronizer_id integer not null,
     create_key_maintainers integer[],
     trace_context bytea,
     record_time bigint not null
 );
 
--- lookup by contract id
+-- lookup by contract_id
 CREATE INDEX lapi_events_create_contract_id_idx ON lapi_events_create USING hash (contract_id);
 
 -- lookup by contract_key
@@ -332,14 +335,14 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     exercise_argument bytea not null,
     exercise_result bytea,
     exercise_actors integer[] not null,
-    exercise_child_event_ids text[] not null,
+    exercise_child_node_ids integer[] not null,
 
     -- * compression flags
     create_key_value_compression smallint,
     exercise_argument_compression smallint,
     exercise_result_compression smallint,
 
-    domain_id integer not null,
+    synchronizer_id integer not null,
     trace_context bytea,
     record_time bigint not null
 );
@@ -376,8 +379,8 @@ CREATE TABLE lapi_events_unassign (
     flat_event_witnesses integer[] default '{}'::integer[] not null, -- stakeholders
 
     -- * common reassignment
-    source_domain_id integer not null,
-    target_domain_id integer not null,
+    source_synchronizer_id integer not null,
+    target_synchronizer_id integer not null,
     unassign_id text not null,
     reassignment_counter bigint not null,
 
@@ -389,7 +392,7 @@ CREATE TABLE lapi_events_unassign (
 );
 
 -- multi-column index supporting per contract per domain lookup before/after sequential id query
-CREATE INDEX lapi_events_unassign_contract_id_composite_idx ON lapi_events_unassign USING btree (contract_id, source_domain_id, event_sequential_id);
+CREATE INDEX lapi_events_unassign_contract_id_composite_idx ON lapi_events_unassign USING btree (contract_id, source_synchronizer_id, event_sequential_id);
 
 -- covering index for queries resolving offsets to sequential IDs. For temporary incomplete reassignments implementation.
 CREATE INDEX lapi_events_unassign_event_offset_idx ON lapi_events_unassign USING btree (event_offset, event_sequential_id);
@@ -407,7 +410,7 @@ CREATE TABLE lapi_events_party_to_participant (
     party_id integer not null,
     participant_id varchar(255) collate "C" not null,
     participant_permission integer not null,
-    domain_id integer not null,
+    synchronizer_id integer not null,
     record_time bigint not null,
     trace_context bytea
 );
@@ -422,7 +425,7 @@ CREATE INDEX lapi_events_party_to_participant_event_sequential_id_idx ON lapi_ev
 CREATE INDEX lapi_events_party_to_participant_event_party_sequential_id_idx ON lapi_events_party_to_participant USING btree (party_id, event_sequential_id);
 
 -- party_id with event_sequential_id for id queries
-CREATE INDEX lapi_events_party_to_participant_event_did_recordt_idx ON lapi_events_party_to_participant USING btree (domain_id, record_time);
+CREATE INDEX lapi_events_party_to_participant_event_did_recordt_idx ON lapi_events_party_to_participant USING btree (synchronizer_id, record_time);
 
 ---------------------------------------------------------------------------------------------------
 -- Identity provider configs
@@ -474,7 +477,7 @@ CREATE TABLE lapi_transaction_meta (
     event_offset bigint not null,
     publication_time bigint not null,
     record_time bigint not null,
-    domain_id integer not null,
+    synchronizer_id integer not null,
     event_sequential_id_first bigint not null,
     event_sequential_id_last bigint not null
 );
@@ -482,8 +485,8 @@ CREATE TABLE lapi_transaction_meta (
 CREATE INDEX lapi_transaction_meta_event_offset_idx ON lapi_transaction_meta USING btree (event_offset);
 CREATE INDEX lapi_transaction_meta_uid_idx ON lapi_transaction_meta USING btree (update_id);
 CREATE INDEX lapi_transaction_meta_publication_time_idx ON lapi_transaction_meta USING btree (publication_time, event_offset);
-CREATE INDEX lapi_transaction_meta_domain_record_time_idx ON lapi_transaction_meta USING btree (domain_id, record_time);
-CREATE INDEX lapi_transaction_meta_domain_offset_idx ON lapi_transaction_meta USING btree (domain_id, event_offset);
+CREATE INDEX lapi_transaction_meta_domain_record_time_idx ON lapi_transaction_meta USING btree (synchronizer_id, record_time);
+CREATE INDEX lapi_transaction_meta_domain_offset_idx ON lapi_transaction_meta USING btree (synchronizer_id, event_offset);
 
 ---------------------------------------------------------------------------------------------------
 -- User entries

@@ -1,5 +1,5 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data;
 
@@ -42,8 +42,9 @@ public final class UpdateSubmission<U> {
   @NonNull private final Optional<String> accessToken;
   @NonNull private final List<DisclosedContract> disclosedContracts;
   @NonNull private final List<@NonNull String> packageIdSelectionPreference;
+  @NonNull private List<@NonNull PrefetchContractKey> prefetchContractKeys;
 
-  @NonNull private final String domainId;
+  @NonNull private final String synchronizerId;
 
   private UpdateSubmission(
       @NonNull String applicationId,
@@ -57,9 +58,10 @@ public final class UpdateSubmission<U> {
       @NonNull Optional<Duration> deduplicationDuration,
       @NonNull Optional<Long> deduplicationOffset,
       @NonNull Optional<String> accessToken,
-      @NonNull String domainId,
+      @NonNull String synchronizerId,
       @NonNull List<DisclosedContract> disclosedContracts,
-      @NonNull List<@NonNull String> packageIdSelectionPreference) {
+      @NonNull List<@NonNull String> packageIdSelectionPreference,
+      @NonNull List<@NonNull PrefetchContractKey> prefetchContractKeys) {
     this.workflowId = workflowId;
     this.applicationId = applicationId;
     this.commandId = commandId;
@@ -71,9 +73,10 @@ public final class UpdateSubmission<U> {
     this.deduplicationOffset = deduplicationOffset;
     this.update = update;
     this.accessToken = accessToken;
-    this.domainId = domainId;
+    this.synchronizerId = synchronizerId;
     this.disclosedContracts = disclosedContracts;
     this.packageIdSelectionPreference = packageIdSelectionPreference;
+    this.prefetchContractKeys = prefetchContractKeys;
   }
 
   public static <U> UpdateSubmission<U> create(
@@ -91,6 +94,7 @@ public final class UpdateSubmission<U> {
         empty(),
         empty(),
         "",
+        emptyList(),
         emptyList(),
         emptyList());
   }
@@ -139,8 +143,8 @@ public final class UpdateSubmission<U> {
     return accessToken;
   }
 
-  public String getDomainId() {
-    return domainId;
+  public String getSynchronizerId() {
+    return synchronizerId;
   }
 
   public @NonNull List<DisclosedContract> getDisclosedContracts() {
@@ -149,6 +153,10 @@ public final class UpdateSubmission<U> {
 
   public List<String> getPackageIdSelectionPreference() {
     return unmodifiableList(packageIdSelectionPreference);
+  }
+
+  public List<PrefetchContractKey> getPrefetchContractKeys() {
+    return unmodifiableList(prefetchContractKeys);
   }
 
   public UpdateSubmission<U> withWorkflowId(String workflowId) {
@@ -164,9 +172,10 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId,
+        synchronizerId,
         disclosedContracts,
-        packageIdSelectionPreference);
+        packageIdSelectionPreference,
+        prefetchContractKeys);
   }
 
   public UpdateSubmission<U> withActAs(String actAs) {
@@ -182,9 +191,10 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId,
+        synchronizerId,
         disclosedContracts,
-        packageIdSelectionPreference);
+        packageIdSelectionPreference,
+        prefetchContractKeys);
   }
 
   public UpdateSubmission<U> withActAs(List<@NonNull String> actAs) {
@@ -200,9 +210,10 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId,
+        synchronizerId,
         disclosedContracts,
-        packageIdSelectionPreference);
+        packageIdSelectionPreference,
+        prefetchContractKeys);
   }
 
   public UpdateSubmission<U> withReadAs(List<@NonNull String> readAs) {
@@ -218,9 +229,10 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId,
+        synchronizerId,
         disclosedContracts,
-        packageIdSelectionPreference);
+        packageIdSelectionPreference,
+        prefetchContractKeys);
   }
 
   public UpdateSubmission<U> withMinLedgerTimeAbs(Optional<Instant> minLedgerTimeAbs) {
@@ -236,9 +248,10 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId,
+        synchronizerId,
         disclosedContracts,
-        packageIdSelectionPreference);
+        packageIdSelectionPreference,
+        prefetchContractKeys);
   }
 
   public UpdateSubmission<U> withMinLedgerTimeRel(Optional<Duration> minLedgerTimeRel) {
@@ -254,9 +267,10 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId,
+        synchronizerId,
         disclosedContracts,
-        packageIdSelectionPreference);
+        packageIdSelectionPreference,
+        prefetchContractKeys);
   }
 
   public UpdateSubmission<U> withDeduplicationDuration(Optional<Duration> deduplicationDuration) {
@@ -272,9 +286,10 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId,
+        synchronizerId,
         disclosedContracts,
-        packageIdSelectionPreference);
+        packageIdSelectionPreference,
+        prefetchContractKeys);
   }
 
   public UpdateSubmission<U> withDeduplicationOffset(Optional<Long> deduplicationOffset) {
@@ -290,9 +305,10 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId,
+        synchronizerId,
         disclosedContracts,
-        packageIdSelectionPreference);
+        packageIdSelectionPreference,
+        prefetchContractKeys);
   }
 
   public UpdateSubmission<U> withAccessToken(Optional<String> accessToken) {
@@ -308,12 +324,13 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId,
+        synchronizerId,
         disclosedContracts,
-        packageIdSelectionPreference);
+        packageIdSelectionPreference,
+        prefetchContractKeys);
   }
 
-  public UpdateSubmission<U> withDomainId(String domanId) {
+  public UpdateSubmission<U> withSynchronizerId(String synchronizerId) {
     return new UpdateSubmission<U>(
         applicationId,
         commandId,
@@ -326,9 +343,10 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId,
+        this.synchronizerId,
         disclosedContracts,
-        packageIdSelectionPreference);
+        packageIdSelectionPreference,
+        prefetchContractKeys);
   }
 
   public UpdateSubmission<U> withDisclosedContracts(
@@ -345,9 +363,10 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId,
+        synchronizerId,
         disclosedContracts,
-        packageIdSelectionPreference);
+        packageIdSelectionPreference,
+        prefetchContractKeys);
   }
 
   public UpdateSubmission<U> withPackageIdSelectionPreference(
@@ -364,9 +383,30 @@ public final class UpdateSubmission<U> {
         deduplicationDuration,
         deduplicationOffset,
         accessToken,
-        domainId,
+        synchronizerId,
         disclosedContracts,
-        packageIdSelectionPreference);
+        packageIdSelectionPreference,
+        prefetchContractKeys);
+  }
+
+  public UpdateSubmission<U> withPrefetchContractKeys(
+      List<PrefetchContractKey> prefetchContractKeys) {
+    return new UpdateSubmission<U>(
+        applicationId,
+        commandId,
+        update,
+        actAs,
+        readAs,
+        workflowId,
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationDuration,
+        deduplicationOffset,
+        accessToken,
+        synchronizerId,
+        disclosedContracts,
+        packageIdSelectionPreference,
+        prefetchContractKeys);
   }
 
   public CommandsSubmission toCommandsSubmission() {
@@ -383,8 +423,9 @@ public final class UpdateSubmission<U> {
         readAs,
         empty(),
         emptyList(),
-        domainId,
+        synchronizerId,
         accessToken,
-        packageIdSelectionPreference);
+        packageIdSelectionPreference,
+        prefetchContractKeys);
   }
 }

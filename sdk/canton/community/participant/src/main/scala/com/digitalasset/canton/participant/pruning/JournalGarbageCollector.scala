@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.pruning
@@ -13,7 +13,7 @@ import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, H
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureUtil
 import com.digitalasset.canton.util.Thereafter.syntax.*
@@ -35,7 +35,7 @@ private[participant] class JournalGarbageCollector(
     acs: ActiveContractStore,
     submissionTrackerStore: SubmissionTrackerStore,
     inFlightSubmissionStore: Eval[InFlightSubmissionStore],
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     journalGarbageCollectionDelay: NonNegativeFiniteDuration,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
@@ -57,7 +57,7 @@ private[participant] class JournalGarbageCollector(
             sortedReconciliationIntervalsProvider,
             acsCommitmentStore,
             inFlightSubmissionStore.value,
-            domainId,
+            synchronizerId,
             checkForOutstandingCommitments = false,
           )
         _ <- safeToPruneTsO.fold(FutureUnlessShutdown.unit) { ts =>

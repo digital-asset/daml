@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao
@@ -46,6 +46,11 @@ private[platform] trait LedgerDaoTransactionsReader {
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]]
 
+  def lookupFlatTransactionByOffset(
+      offset: Offset,
+      requestingParties: Set[Party],
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]]
+
   def getTransactionTrees(
       startInclusive: Offset,
       endInclusive: Offset,
@@ -57,6 +62,11 @@ private[platform] trait LedgerDaoTransactionsReader {
 
   def lookupTransactionTreeById(
       updateId: UpdateId,
+      requestingParties: Set[Party],
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]]
+
+  def lookupTransactionTreeByOffset(
+      offset: Offset,
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]]
 
@@ -124,13 +134,6 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[List[IndexerPartyDetails]]
-
-  def getPartyEntries(
-      startInclusive: Offset,
-      endInclusive: Offset,
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Source[(Offset, PartyLedgerEntry), NotUsed]
 
   /** Prunes participant events and completions in archived history and remembers largest
     * pruning offset processed thus far.

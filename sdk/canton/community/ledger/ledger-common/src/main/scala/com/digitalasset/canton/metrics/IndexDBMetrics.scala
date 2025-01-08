@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.metrics
@@ -6,13 +6,7 @@ package com.digitalasset.canton.metrics
 import com.daml.metrics.DatabaseMetrics
 import com.daml.metrics.api.HistogramInventory.Item
 import com.daml.metrics.api.MetricHandle.{Counter, Histogram, LabeledMetricsFactory, Timer}
-import com.daml.metrics.api.{
-  HistogramInventory,
-  MetricInfo,
-  MetricName,
-  MetricQualification,
-  MetricsContext,
-}
+import com.daml.metrics.api.{HistogramInventory, MetricName, MetricQualification, MetricsContext}
 
 trait TransactionStreamsDbHistograms {
 
@@ -146,6 +140,53 @@ trait TransactionStreamsDbMetrics {
   }
 }
 
+class BatchLoaderMetricsInventory(parent: MetricName)(implicit inventory: HistogramInventory) {
+  private val prefix = parent :+ "batch"
+
+  val bufferLength: Item =
+    Item(
+      prefix :+ "buffer_length",
+      summary = "The number of the currently pending lookups.",
+      description =
+        "The number of the currently pending lookups in the batch-loading queue of the Contract Service.",
+      qualification = MetricQualification.Debug,
+    )
+
+  val bufferCapacity: Item =
+    Item(
+      prefix :+ "buffer_capacity",
+      summary = "The capacity of the lookup queue.",
+      description = """The maximum number of elements that can be kept in the queue of lookups
+                      |in the batch-loading queue of the Contract Service.""",
+      qualification = MetricQualification.Debug,
+    )
+
+  val bufferDelay: Item =
+    Item(
+      prefix :+ "buffer_delay",
+      summary = "The queuing delay for the lookup queue.",
+      description =
+        "The queuing delay for the pending lookups in the batch-loading queue of the Contract Service.",
+      qualification = MetricQualification.Debug,
+    )
+
+  val batchSize: Item =
+    Item(
+      prefix :+ "batch_size",
+      summary = "The batch sizes in the lookup batch-loading Contract Service.",
+      description =
+        """The number of lookups contained in a batch, used in the batch-loading Contract Service.""",
+      qualification = MetricQualification.Debug,
+    )
+}
+
+class BatchLoaderMetrics(inventory: BatchLoaderMetricsInventory, factory: LabeledMetricsFactory) {
+  val bufferLength: Counter = factory.counter(inventory.bufferLength.info)
+  val bufferCapacity: Counter = factory.counter(inventory.bufferCapacity.info)
+  val bufferDelay: Timer = factory.timer(inventory.bufferDelay.info)
+  val batchSize: Histogram = factory.histogram(inventory.batchSize.info)
+}
+
 class MainIndexDBHistograms(val prefix: MetricName)(implicit
     inventory: HistogramInventory
 ) {
@@ -168,20 +209,12 @@ class MainIndexDBHistograms(val prefix: MetricName)(implicit
     qualification = MetricQualification.Debug,
   )
 
-  private[metrics] val activeContractLookupBufferDelay: Item = Item(
-    prefix :+ "active_contract_lookup_buffer_delay",
-    summary = "The queuing delay for the active contract lookup queue.",
-    description =
-      "The queuing delay for the pending active contract lookups in the batch-loading queue of the Contract Service.",
-    qualification = MetricQualification.Debug,
+  private[metrics] val activeContracts = new BatchLoaderMetricsInventory(
+    prefix :+ "active_contract_lookup"
   )
 
-  private[metrics] val activeContractLookupBatchSize: Item = Item(
-    prefix :+ "active_contract_lookup_batch_size",
-    summary = "The batch sizes in the active contract lookup batch-loading Contract Service.",
-    description =
-      """The number of active contract lookups contained in a batch, used in the batch-loading Contract Service.""",
-    qualification = MetricQualification.Debug,
+  private[metrics] val activeContractKeys = new BatchLoaderMetricsInventory(
+    prefix :+ "active_contract_keys_lookup"
   )
 
   private val translationPrefix = prefix :+ "translation"
@@ -275,34 +308,10 @@ class MainIndexDBMetrics(
   val lookupActiveContract: Timer =
     openTelemetryMetricsFactory.timer(inventory.lookupActiveContract.info)
 
-  val activeContractLookupBufferLength: Counter =
-    openTelemetryMetricsFactory.counter(
-      MetricInfo(
-        prefix :+ "active_contract_lookup_buffer_length",
-        summary = "The number of the currently pending active contract lookups.",
-        description =
-          "The number of the currently pending active contract lookups in the batch-loading queue of the Contract Service.",
-        qualification = MetricQualification.Debug,
-      )
-    )
-
-  val activeContractLookupBufferCapacity: Counter =
-    openTelemetryMetricsFactory.counter(
-      MetricInfo(
-        prefix :+ "active_contract_lookup_buffer_capacity",
-        summary = "The capacity of the active contract lookup queue.",
-        description =
-          """The maximum number of elements that can be kept in the queue of active contract lookups
-          |in the batch-loading queue of the Contract Service.""",
-        qualification = MetricQualification.Debug,
-      )
-    )
-
-  val activeContractLookupBufferDelay: Timer =
-    openTelemetryMetricsFactory.timer(inventory.activeContractLookupBufferDelay.info)
-
-  val activeContractLookupBatchSize: Histogram =
-    openTelemetryMetricsFactory.histogram(inventory.activeContractLookupBatchSize.info)
+  val activeContracts =
+    new BatchLoaderMetrics(inventory.activeContracts, openTelemetryMetricsFactory)
+  val activeContractKeys =
+    new BatchLoaderMetrics(inventory.activeContractKeys, openTelemetryMetricsFactory)
 
   private val overall = createDbMetrics("all")
   val waitAll: Timer = overall.waitTimer

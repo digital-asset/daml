@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.interfaces
@@ -9,30 +9,47 @@ import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.*
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.GlobalKey
+import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.Future
 
 private[platform] trait LedgerDaoContractsReader {
 
-  /** Looks up the contract by id at a specific offset.
+  /** Looks up the contract by id
+    *
+    * Due to batching of several requests, we may return newer information than at the provided offset, but never
+    * older information.
     *
     * @param contractId the contract id to query
-    * @param validAt the offset at which to resolve the contract state
+    * @param notEarlierThanOffset the offset threshold to resolve the contract state (state can be newer, but not older)
     * @return the optional [[ContractState]]
     */
-  def lookupContractState(contractId: ContractId, validAt: Offset)(implicit
+  def lookupContractState(contractId: ContractId, notEarlierThanOffset: Offset)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Option[ContractState]]
 
-  /** Looks up the state of a contract key at a specific offset.
+  /** Looks up the state of a contract key
+    *
+    * Due to batching of several requests, we may return newer information than at the provided offset, but never
+    * older information.
     *
     * @param key the contract key to query
-    * @param validAt the offset at which to resolve the key state
+    * @param notEarlierThanOffset the offset threshold to resolve the key state (state can be newer, but not older)
     * @return the [[KeyState]]
     */
-  def lookupKeyState(key: GlobalKey, validAt: Offset)(implicit
+  def lookupKeyState(key: GlobalKey, notEarlierThanOffset: Offset)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[KeyState]
+
+  /** Batch lookup of contract keys
+    *
+    * Used to unit test the SQL queries for key lookups. Does not use batching.
+    */
+  @VisibleForTesting
+  def lookupKeyStatesFromDb(keys: Seq[GlobalKey], notEarlierThanOffset: Offset)(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Future[Map[GlobalKey, KeyState]]
+
 }
 
 object LedgerDaoContractsReader {

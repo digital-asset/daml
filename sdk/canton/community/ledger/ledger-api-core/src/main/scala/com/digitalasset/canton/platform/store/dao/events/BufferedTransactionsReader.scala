@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao.events
@@ -118,6 +118,12 @@ private[events] class BufferedTransactionsReader(
       bufferedFlatTransactionByIdReader.fetch(updateId, requestingParties)
     )
 
+  override def lookupFlatTransactionByOffset(
+      offset: data.Offset,
+      requestingParties: Set[Party],
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] =
+    delegate.lookupFlatTransactionByOffset(offset, requestingParties)
+
   override def lookupTransactionTreeById(
       updateId: data.UpdateId,
       requestingParties: Set[Party],
@@ -125,6 +131,12 @@ private[events] class BufferedTransactionsReader(
     Future.delegate(
       bufferedTransactionTreeByIdReader.fetch(updateId, requestingParties)
     )
+
+  override def lookupTransactionTreeByOffset(
+      offset: Offset,
+      requestingParties: Set[Party],
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]] =
+    delegate.lookupTransactionTreeByOffset(offset, requestingParties)
 
   override def getActiveContracts(
       activeAt: Option[Offset],

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -60,6 +60,7 @@ import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFa
   SerializableContractOfId,
   UnknownPackageError,
 }
+import com.digitalasset.canton.participant.protocol.validation.*
 import com.digitalasset.canton.participant.protocol.validation.ContractConsistencyChecker.ReferenceToFutureContractError
 import com.digitalasset.canton.participant.protocol.validation.InternalConsistencyChecker.ErrorWithInternalConsistencyCheck
 import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.{
@@ -67,7 +68,6 @@ import com.digitalasset.canton.participant.protocol.validation.ModelConformanceC
   LazyAsyncReInterpretation,
 }
 import com.digitalasset.canton.participant.protocol.validation.TimeValidator.TimeCheckFailure
-import com.digitalasset.canton.participant.protocol.validation.{AuthenticationError, *}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.*
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
@@ -87,7 +87,7 @@ import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.{ConfirmationRequestSessionKeyStore, SessionKeyStore}
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
@@ -118,13 +118,13 @@ import scala.util.{Failure, Success}
   */
 @nowarn("msg=dead code following this construct")
 class TransactionProcessingSteps(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     participantId: ParticipantId,
     confirmationRequestFactory: TransactionConfirmationRequestFactory,
     confirmationResponseFactory: TransactionConfirmationResponseFactory,
     modelConformanceChecker: ModelConformanceChecker,
-    staticDomainParameters: StaticDomainParameters,
-    crypto: DomainSyncCryptoClient,
+    staticSynchronizerParameters: StaticSynchronizerParameters,
+    crypto: SynchronizerSyncCryptoClient,
     metrics: TransactionProcessingMetrics,
     serializableContractAuthenticator: SerializableContractAuthenticator,
     transactionEnricher: TransactionEnricher,
@@ -141,7 +141,7 @@ class TransactionProcessingSteps(
       TransactionSubmissionError,
     ]
     with NamedLogging {
-  private def protocolVersion = staticDomainParameters.protocolVersion
+  private def protocolVersion = staticSynchronizerParameters.protocolVersion
 
   override type SubmissionSendError = TransactionProcessor.SubmissionErrors.SequencerRequest.Error
   override type PendingSubmissions = Unit
@@ -181,7 +181,7 @@ class TransactionProcessingSteps(
       submissionParam: SubmissionParam,
       mediator: MediatorGroupRecipient,
       ephemeralState: SyncDomainEphemeralStateLookup,
-      recentSnapshot: DomainSnapshotSyncCryptoApi,
+      recentSnapshot: SynchronizerSnapshotSyncCryptoApi,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionSubmissionError, Submission] = {
@@ -208,7 +208,7 @@ class TransactionProcessingSteps(
   }
 
   override def embedNoMediatorError(error: NoMediatorError): TransactionSubmissionError =
-    DomainWithoutMediatorError.Error(error.topologySnapshotTimestamp, domainId)
+    DomainWithoutMediatorError.Error(error.topologySnapshotTimestamp, synchronizerId)
 
   override def getSubmitterInformation(
       views: Seq[DecryptedView]
@@ -221,7 +221,7 @@ class TransactionProcessingSteps(
       keyResolver: LfKeyResolver,
       wfTransaction: WellFormedTransaction[WithoutSuffixes],
       mediator: MediatorGroupRecipient,
-      recentSnapshot: DomainSnapshotSyncCryptoApi,
+      recentSnapshot: SynchronizerSnapshotSyncCryptoApi,
       contractLookup: ContractLookup,
       disclosedContracts: Map[LfContractId, SerializableContract],
   )(implicit traceContext: TraceContext)
@@ -289,14 +289,14 @@ class TransactionProcessingSteps(
       TransactionSubmissionTrackingData(
         completionInfo,
         TransactionSubmissionTrackingData.CauseWithTemplate(error),
-        domainId,
+        synchronizerId,
         protocolVersion,
       )
 
     override def submissionId: Option[LedgerSubmissionId] = submitterInfo.submissionId
 
     override def maxSequencingTimeO: OptionT[FutureUnlessShutdown, CantonTimestamp] = OptionT.liftF(
-      recentSnapshot.ipsSnapshot.findDynamicDomainParametersOrDefault(protocolVersion).map {
+      recentSnapshot.ipsSnapshot.findDynamicSynchronizerParametersOrDefault(protocolVersion).map {
         domainParameters =>
           CantonTimestamp(transactionMeta.ledgerEffectiveTime)
             .add(domainParameters.ledgerTimeRecordTimeTolerance.unwrap)
@@ -404,7 +404,7 @@ class TransactionProcessingSteps(
         val trackingData = TransactionSubmissionTrackingData(
           submitterInfoWithDedupPeriod.toCompletionInfo,
           rejectionCause,
-          domainId,
+          synchronizerId,
           protocolVersion,
         )
         Success(Outcome(Left(trackingData)))
@@ -435,7 +435,7 @@ class TransactionProcessingSteps(
       TransactionSubmissionTrackingData(
         submitterInfo.toCompletionInfo.copy(optDeduplicationPeriod = None),
         TransactionSubmissionTrackingData.TimeoutCause,
-        domainId,
+        synchronizerId,
         protocolVersion,
       )
 
@@ -446,7 +446,7 @@ class TransactionProcessingSteps(
         TransactionProcessor.SubmissionErrors.SubmissionAlreadyInFlight(
           changeId,
           existingSubmission.submissionId,
-          existingSubmission.submissionDomain,
+          existingSubmission.submissionSynchronizerId,
         )
       case TimeoutTooLow(_submission, lowerBound) =>
         TransactionProcessor.SubmissionErrors.TimeoutError.Error(lowerBound)
@@ -505,7 +505,7 @@ class TransactionProcessingSteps(
       TransactionSubmissionTrackingData(
         completionInfo,
         rejectionCause,
-        domainId,
+        synchronizerId,
         protocolVersion,
       )
     }
@@ -527,7 +527,7 @@ class TransactionProcessingSteps(
   // TODO(#8057) extract the decryption into a helper class that can be unit-tested.
   override def decryptViews(
       batch: NonEmpty[Seq[OpenEnvelope[EncryptedViewMessage[TransactionViewType]]]],
-      snapshot: DomainSnapshotSyncCryptoApi,
+      snapshot: SynchronizerSnapshotSyncCryptoApi,
       sessionKeyStore: ConfirmationRequestSessionKeyStore,
   )(implicit
       traceContext: TraceContext
@@ -552,7 +552,7 @@ class TransactionProcessingSteps(
           optRandomness: Option[SecureRandomness],
       ): EitherT[FutureUnlessShutdown, EncryptedViewMessageError, LightTransactionViewTree] =
         EncryptedViewMessage.decryptFor(
-          staticDomainParameters,
+          staticSynchronizerParameters,
           snapshot,
           sessionKeyStore,
           vt,
@@ -615,7 +615,7 @@ class TransactionProcessingSteps(
           val message = transactionViewEnvelope.protocolMessage
           val randomnessF = EncryptedViewMessage
             .decryptRandomness(
-              staticDomainParameters.requiredEncryptionSpecs,
+              staticSynchronizerParameters.requiredEncryptionSpecs,
               snapshot,
               sessionKeyStore,
               message,
@@ -653,7 +653,7 @@ class TransactionProcessingSteps(
         for {
           ltvt <- decryptTree(viewMessage, Some(randomness))
           _ = ltvt.subviewHashesAndKeys
-            .map { case ViewHashAndKey(subviewHash, subviewKey) =>
+            .foreach { case ViewHashAndKey(subviewHash, subviewKey) =>
               randomnessMap.get(subviewHash) match {
                 case Some(promise) =>
                   promise.outcome(addRandomnessToMap(subviewHash, subviewKey))
@@ -741,8 +741,8 @@ class TransactionProcessingSteps(
       isFreshOwnTimelyRequest: Boolean,
       malformedPayloads: Seq[MalformedPayload],
       mediator: MediatorGroupRecipient,
-      snapshot: DomainSnapshotSyncCryptoApi,
-      domainParameters: DynamicDomainParametersWithValidity,
+      snapshot: SynchronizerSnapshotSyncCryptoApi,
+      domainParameters: DynamicSynchronizerParametersWithValidity,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[ParsedTransactionRequest] = {
     val rootViewTrees = rootViewsWithMetadata.map { case (WithRecipients(view, _), _) => view }
     for {
@@ -839,7 +839,6 @@ class TransactionProcessingSteps(
                 .reInterpret(
                   viewTree.view,
                   keyResolverFor(viewTree.view),
-                  rc,
                   ledgerTime,
                   parsedRequest.submissionTime,
                   () => engineController.abortStatus,
@@ -852,7 +851,7 @@ class TransactionProcessingSteps(
         authenticationResult <- AuthenticationValidator.verifyViewSignatures(
           parsedRequest,
           reInterpretedTopLevelViews,
-          domainId,
+          synchronizerId,
           protocolVersion,
           transactionEnricher,
           logger,
@@ -865,7 +864,7 @@ class TransactionProcessingSteps(
           )
 
         domainParameters <-
-          ipsSnapshot.findDynamicDomainParametersOrDefault(protocolVersion)
+          ipsSnapshot.findDynamicSynchronizerParametersOrDefault(protocolVersion)
 
         // `tryCommonData` should never throw here because all views have the same root hash
         // which already commits to the ParticipantMetadata and CommonMetadata
@@ -893,7 +892,6 @@ class TransactionProcessingSteps(
           .check(
             parsedRequest.rootViewTrees,
             keyResolverFor(_),
-            rc,
             ipsSnapshot,
             commonData,
             getEngineAbortStatus = () => engineController.abortStatus,
@@ -1077,7 +1075,7 @@ class TransactionProcessingSteps(
         Update.SequencedCommandRejected(
           completionInfo,
           rejection,
-          domainId,
+          synchronizerId,
           rc,
           sc,
           ts,
@@ -1120,7 +1118,7 @@ class TransactionProcessingSteps(
       Update.SequencedCommandRejected(
         info,
         rejection,
-        domainId,
+        synchronizerId,
         requestCounter,
         requestSequencerCounter,
         requestTime,
@@ -1276,7 +1274,7 @@ class TransactionProcessingSteps(
           updateId = lfTxId,
           hostedWitnesses = hostedWitnesses.toList,
           contractMetadata = contractMetadata,
-          domainId = domainId,
+          synchronizerId = synchronizerId,
           requestCounter = requestCounter,
           sequencerCounter = requestSequencerCounter,
           recordTime = requestTime,
@@ -1464,7 +1462,7 @@ class TransactionProcessingSteps(
 
       maxDecisionTime <- ProcessingSteps
         .getDecisionTime(topologySnapshot, pendingRequestData.requestTime)
-        .leftMap(DomainParametersError(domainId, _))
+        .leftMap(SynchronizerParametersError(synchronizerId, _))
 
       _ <-
         (if (ts <= maxDecisionTime) EitherT.pure[Future, TransactionProcessorError](())
@@ -1542,8 +1540,8 @@ object TransactionProcessingSteps {
       override val mediator: MediatorGroupRecipient,
       usedAndCreated: UsedAndCreated,
       workflowIdO: Option[WorkflowId],
-      override val snapshot: DomainSnapshotSyncCryptoApi,
-      override val domainParameters: DynamicDomainParametersWithValidity,
+      override val snapshot: SynchronizerSnapshotSyncCryptoApi,
+      override val domainParameters: DynamicSynchronizerParametersWithValidity,
   ) extends ParsedRequest[SubmitterMetadata] {
 
     lazy val rootViewTrees: NonEmpty[Seq[FullTransactionViewTree]] = rootViewTreesWithMetadata.map {

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto.provider.jce
@@ -326,6 +326,7 @@ class JcePureCrypto(
   override protected[crypto] def signBytes(
       bytes: ByteString,
       signingKey: SigningPrivateKey,
+      usage: NonEmpty[Set[SigningKeyUsage]],
       signingAlgorithmSpec: SigningAlgorithmSpec = defaultSigningAlgorithmSpec,
   ): Either[SigningError, Signature] = {
 
@@ -344,6 +345,13 @@ class JcePureCrypto(
         )
 
     for {
+      _ <- CryptoKeyValidation
+        .ensureUsage(
+          usage,
+          signingKey.usage,
+          signingKey.id,
+          err => SigningError.InvalidSigningKey(err),
+        )
       _ <- CryptoKeyValidation.ensureFormat(
         signingKey.format,
         Set(CryptoKeyFormat.DerPkcs8Pki),

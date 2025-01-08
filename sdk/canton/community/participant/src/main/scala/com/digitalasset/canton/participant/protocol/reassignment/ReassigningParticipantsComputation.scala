@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -10,7 +10,7 @@ import cats.syntax.foldable.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.StakeholderHostingErrors
+import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentValidationError.StakeholderHostingErrors
 import com.digitalasset.canton.protocol.Stakeholders
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.PartyInfo
@@ -38,7 +38,7 @@ private[protocol] class ReassigningParticipantsComputation(
     * - one signatory does not have enough signatory reassigning participants to meet
     *   the thresholds defined on both source and target domain
     */
-  def compute: EitherT[FutureUnlessShutdown, UnassignmentProcessorError, Set[ParticipantId]] =
+  def compute: EitherT[FutureUnlessShutdown, ReassignmentValidationError, Set[ParticipantId]] =
     for {
       sourceStakeholdersInfo <- getStakeholdersPartyInfo(sourceTopology)
       targetStakeholdersInfo <- getStakeholdersPartyInfo(targetTopology)
@@ -47,14 +47,14 @@ private[protocol] class ReassigningParticipantsComputation(
         .fromEither[FutureUnlessShutdown](
           computeReassigningParticipants(sourceStakeholdersInfo, targetStakeholdersInfo)
         )
-        .leftWiden[UnassignmentProcessorError]
+        .leftWiden[ReassignmentValidationError]
 
       _ <- EitherT
         .fromEither[FutureUnlessShutdown](
           Seq(sourceStakeholdersInfo, targetStakeholdersInfo)
             .traverse_(checkSignatoryReassigningParticipants(_, reassigningParticipants))
         )
-        .leftWiden[UnassignmentProcessorError]
+        .leftWiden[ReassignmentValidationError]
 
     } yield reassigningParticipants
 

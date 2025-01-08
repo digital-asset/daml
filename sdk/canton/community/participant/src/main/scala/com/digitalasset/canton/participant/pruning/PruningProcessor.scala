@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.pruning
@@ -34,17 +34,17 @@ import com.digitalasset.canton.participant.metrics.PruningMetrics
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.CommitmentsPruningBound
 import com.digitalasset.canton.participant.store.{
   AcsCommitmentStore,
-  DomainConnectionConfigStore,
   InFlightSubmissionStore,
   ParticipantNodePersistentState,
   RequestJournalStore,
   SyncDomainEphemeralStateFactory,
   SyncDomainPersistentState,
+  SynchronizerConnectionConfigStore,
 }
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.pruning.ConfigForNoWaitCounterParticipants
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{
@@ -75,7 +75,7 @@ class PruningProcessor(
     maxPruningBatchSize: PositiveInt,
     metrics: PruningMetrics,
     exitOnFatalFailures: Boolean,
-    domainConnectionStatus: DomainId => Option[DomainConnectionConfigStore.Status],
+    domainConnectionStatus: SynchronizerId => Option[SynchronizerConnectionConfigStore.Status],
     override protected val timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -194,21 +194,23 @@ class PruningProcessor(
 
   /** Purge all data of the specified domain that must be inactive.
     */
-  def purgeInactiveDomain(domainId: DomainId)(implicit
+  def purgeInactiveDomain(synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, LedgerPruningError, Unit] = for {
     persistenceState <- EitherT.fromEither[FutureUnlessShutdown](
-      syncDomainPersistentStateManager.get(domainId).toRight(PurgingUnknownDomain(domainId))
+      syncDomainPersistentStateManager
+        .get(synchronizerId)
+        .toRight(PurgingUnknownDomain(synchronizerId))
     )
     domainStatus <- EitherT.fromEither[FutureUnlessShutdown](
-      domainConnectionStatus(domainId).toRight(PurgingUnknownDomain(domainId))
+      domainConnectionStatus(synchronizerId).toRight(PurgingUnknownDomain(synchronizerId))
     )
     _ <- EitherT.cond[FutureUnlessShutdown](
-      domainStatus == DomainConnectionConfigStore.Inactive,
+      domainStatus == SynchronizerConnectionConfigStore.Inactive,
       (),
-      PurgingOnlyAllowedOnInactiveDomain(domainId, domainStatus),
+      PurgingOnlyAllowedOnInactiveDomain(synchronizerId, domainStatus),
     )
-    _ = logger.info(s"Purging inactive domain $domainId")
+    _ = logger.info(s"Purging inactive domain $synchronizerId")
 
     _ <- EitherT.right(
       performUnlessClosingUSF("Purge inactive domain")(purgeDomain(persistenceState))
@@ -216,25 +218,25 @@ class PruningProcessor(
   } yield ()
 
   private def firstUnsafeOffset(
-      allDomains: List[(DomainId, SyncDomainPersistentState)],
+      allDomains: List[(SynchronizerId, SyncDomainPersistentState)],
       pruneUptoInclusive: Offset,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, LedgerPruningError, Option[UnsafeOffset]] = {
 
     def firstUnsafeEventFor(
-        domainId: DomainId,
+        synchronizerId: SynchronizerId,
         persistent: SyncDomainPersistentState,
     ): EitherT[FutureUnlessShutdown, LedgerPruningError, Option[UnsafeOffset]] =
       for {
         domainIndex <- EitherT
           .right(
             participantNodePersistentState.value.ledgerApiStore
-              .cleanDomainIndex(domainId)
+              .cleanDomainIndex(synchronizerId)
           )
         sortedReconciliationIntervalsProvider <- sortedReconciliationIntervalsProviderFactory
           .get(
-            domainId,
+            synchronizerId,
             domainIndex
               .flatMap(_.sequencerIndex)
               .map(_.timestamp)
@@ -251,26 +253,28 @@ class PruningProcessor(
               sortedReconciliationIntervalsProvider,
               persistent.acsCommitmentStore,
               participantNodePersistentState.value.inFlightSubmissionStore,
-              domainId,
+              synchronizerId,
               checkForOutstandingCommitments = true,
             ),
-            Pruning.LedgerPruningOffsetUnsafeDomain(domainId),
+            Pruning.LedgerPruningOffsetUnsafeDomain(synchronizerId),
           )
-        _ = logger.debug(s"Safe commitment tick for domain $domainId at $safeCommitmentTick")
+        _ = logger.debug(s"Safe commitment tick for domain $synchronizerId at $safeCommitmentTick")
 
         firstUnsafeOffsetO <- EitherT
           .right(
             participantNodePersistentState.value.ledgerApiStore.firstDomainOffsetAfterOrAt(
-              domainId,
+              synchronizerId,
               safeCommitmentTick.forgetRefinement,
             )
           )
       } yield {
-        logger.debug(s"First unsafe pruning offset for domain $domainId at $firstUnsafeOffsetO")
+        logger.debug(
+          s"First unsafe pruning offset for domain $synchronizerId at $firstUnsafeOffsetO"
+        )
         firstUnsafeOffsetO.map(domainOffset =>
           UnsafeOffset(
             offset = domainOffset.offset,
-            domainId = domainId,
+            synchronizerId = synchronizerId,
             recordTime = CantonTimestamp(domainOffset.recordTime),
             cause = s"ACS background reconciliation and crash recovery",
           )
@@ -278,7 +282,7 @@ class PruningProcessor(
       }
 
     def firstUnsafeReassignmentEventFor(
-        domainId: DomainId,
+        synchronizerId: SynchronizerId,
         persistent: SyncDomainPersistentState,
     ): EitherT[FutureUnlessShutdown, LedgerPruningError, Option[UnsafeOffset]] =
       for {
@@ -293,7 +297,7 @@ class PruningProcessor(
           val (
             earliestIncompleteReassignmentGlobalOffset,
             earliestIncompleteReassignmentId,
-            targetDomainId,
+            targetSynchronizerId,
           ) = earliestIncompleteReassignment
           for {
             unsafeOffsetForReassignments <- EitherT(
@@ -302,7 +306,7 @@ class PruningProcessor(
                 .map(
                   _.toRight(
                     Pruning.LedgerPruningInternalError(
-                      s"incomplete reassignment from $earliestIncompleteReassignmentGlobalOffset not found on $domainId"
+                      s"incomplete reassignment from $earliestIncompleteReassignmentGlobalOffset not found on $synchronizerId"
                     ): LedgerPruningError
                   )
                 )
@@ -310,16 +314,16 @@ class PruningProcessor(
             unsafeOffsetEarliestIncompleteReassignmentO = Option(
               UnsafeOffset(
                 unsafeOffsetForReassignments.offset,
-                unsafeOffsetForReassignments.domainId,
+                unsafeOffsetForReassignments.synchronizerId,
                 CantonTimestamp(unsafeOffsetForReassignments.recordTime),
-                s"incomplete reassignment from ${earliestIncompleteReassignmentId.sourceDomain} to $targetDomainId (reassignmentId $earliestIncompleteReassignmentId)",
+                s"incomplete reassignment from ${earliestIncompleteReassignmentId.sourceDomain} to $targetSynchronizerId (reassignmentId $earliestIncompleteReassignmentId)",
               )
             )
 
           } yield unsafeOffsetEarliestIncompleteReassignmentO
         }
       } yield {
-        logger.debug(s"First unsafe pruning offset for domain $domainId at $unsafeOffset")
+        logger.debug(s"First unsafe pruning offset for domain $synchronizerId at $unsafeOffset")
         unsafeOffset
       }
 
@@ -354,7 +358,7 @@ class PruningProcessor(
           _.map(domainOffset =>
             UnsafeOffset(
               offset = domainOffset.offset,
-              domainId = domainOffset.domainId,
+              synchronizerId = domainOffset.synchronizerId,
               recordTime = CantonTimestamp(domainOffset.recordTime),
               cause = s"max deduplication duration of $maxDedupDuration",
             )
@@ -365,16 +369,18 @@ class PruningProcessor(
     val allActiveDomainsE = {
       // Check that no migration is running concurrently.
       // This is just a sanity check; it does not prevent a migration from being started concurrently with pruning
-      import DomainConnectionConfigStore.*
-      allDomains.filterA { case (domainId, _state) =>
-        domainConnectionStatus(domainId) match {
+      import SynchronizerConnectionConfigStore.*
+      allDomains.filterA { case (synchronizerId, _state) =>
+        domainConnectionStatus(synchronizerId) match {
           case None =>
-            Left(LedgerPruningInternalError(s"No domain status for $domainId"))
+            Left(LedgerPruningInternalError(s"No domain status for $synchronizerId"))
           case Some(Active) => Right(true)
           case Some(Inactive) => Right(false)
           case Some(migratingStatus) =>
-            logger.warn(s"Unable to prune while $domainId is being migrated ($migratingStatus)")
-            Left(LedgerPruningNotPossibleDuringHardMigration(domainId, migratingStatus))
+            logger.warn(
+              s"Unable to prune while $synchronizerId is being migrated ($migratingStatus)"
+            )
+            Left(LedgerPruningNotPossibleDuringHardMigration(synchronizerId, migratingStatus))
         }
       }
     }
@@ -389,10 +395,11 @@ class PruningProcessor(
       )
       allActiveDomains <- EitherT.fromEither[FutureUnlessShutdown](allActiveDomainsE)
       affectedDomainsOffsets <- EitherT
-        .right[LedgerPruningError](allActiveDomains.parFilterA { case (domainId, _persistent) =>
-          participantNodePersistentState.value.ledgerApiStore
-            .lastDomainOffsetBeforeOrAt(domainId, pruneUptoInclusive)
-            .map(_.isDefined)
+        .right[LedgerPruningError](allActiveDomains.parFilterA {
+          case (synchronizerId, _persistent) =>
+            participantNodePersistentState.value.ledgerApiStore
+              .lastDomainOffsetBeforeOrAt(synchronizerId, pruneUptoInclusive)
+              .map(_.isDefined)
         })
       _ <- EitherT.cond[FutureUnlessShutdown](
         affectedDomainsOffsets.nonEmpty,
@@ -400,12 +407,12 @@ class PruningProcessor(
         LedgerPruningNothingToPrune: LedgerPruningError,
       )
       unsafeDomainOffsets <- affectedDomainsOffsets.parTraverseFilter {
-        case (domainId, persistent) =>
-          firstUnsafeEventFor(domainId, persistent)
+        case (synchronizerId, persistent) =>
+          firstUnsafeEventFor(synchronizerId, persistent)
       }
       unsafeIncompleteReassignmentOffsets <- allDomains.parTraverseFilter {
-        case (domainId, persistent) =>
-          firstUnsafeReassignmentEventFor(domainId, persistent)
+        case (synchronizerId, persistent) =>
+          firstUnsafeReassignmentEventFor(synchronizerId, persistent)
       }
       unsafeDedupOffset <- EitherT
         .right(firstUnsafeOffsetPublicationTime)
@@ -449,9 +456,9 @@ class PruningProcessor(
           )
         )
       domainOffsets <- syncDomainPersistentStateManager.getAll.toList.parTraverseFilter {
-        case (domainId, state) =>
+        case (synchronizerId, state) =>
           participantNodePersistentState.value.ledgerApiStore
-            .lastDomainOffsetBeforeOrAt(domainId, pruneUpToInclusive)
+            .lastDomainOffsetBeforeOrAt(synchronizerId, pruneUpToInclusive)
             .flatMap(
               _.filter(domainOffset => Option(domainOffset.offset) > pruneFromExclusive)
                 .map(domainOffset =>
@@ -507,7 +514,7 @@ class PruningProcessor(
             .apply[LedgerPruningError](
               Pruning.LedgerPruningOffsetUnsafeToPrune(
                 offset,
-                unsafe.domainId,
+                unsafe.synchronizerId,
                 unsafe.recordTime,
                 unsafe.cause,
                 unsafe.offset.decrement,
@@ -550,7 +557,7 @@ class PruningProcessor(
     val PruningCutoffs.DomainOffset(state, lastTimestamp, lastRequestCounter) = domainOffset
 
     logger.info(
-      show"Pruning ${state.indexedDomain.domainId} up to $lastTimestamp and request counter $lastRequestCounter"
+      show"Pruning ${state.indexedDomain.synchronizerId} up to $lastTimestamp and request counter $lastRequestCounter"
     )
 
     // we don't prune stores that are pruned by the JournalGarbageCollector regularly anyway
@@ -571,7 +578,7 @@ class PruningProcessor(
   private def purgeDomain(state: SyncDomainPersistentState)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
-    logger.info(s"Purging domain ${state.indexedDomain.domainId}")
+    logger.info(s"Purging domain ${state.indexedDomain.synchronizerId}")
 
     logger.debug("Purging active contract store...")
     for {
@@ -592,7 +599,7 @@ class PruningProcessor(
 
       // TODO(#2600) Purge the reassignment store when implementing pruning
     } yield {
-      logger.info(s"Purging domain ${state.indexedDomain.domainId} has been completed")
+      logger.info(s"Purging domain ${state.indexedDomain.synchronizerId} has been completed")
     }
   }
 
@@ -616,7 +623,7 @@ class PruningProcessor(
       .addNoWaitCounterParticipant(configs)
 
   def acsGetNoWaitCommitmentsFrom(
-      domains: Seq[DomainId],
+      domains: Seq[SynchronizerId],
       participants: Seq[ParticipantId],
   )(implicit
       traceContext: TraceContext
@@ -633,7 +640,7 @@ class PruningProcessor(
       configs: Seq[ConfigForNoWaitCounterParticipants]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     participantNodePersistentState.value.acsCounterParticipantConfigStore
-      .removeNoWaitCounterParticipant(configs.map(_.domainId), configs.map(_.participantId))
+      .removeNoWaitCounterParticipant(configs.map(_.synchronizerId), configs.map(_.participantId))
 
   /** Providing the next Offset for iterative pruning: computed by the current pruning Offset increased by the max pruning batch size.
     */
@@ -661,7 +668,7 @@ private[pruning] object PruningProcessor extends HasLoggerName {
       commitmentsPruningBound: CommitmentsPruningBound,
       earliestInFlightSubmissionFUS: FutureUnlessShutdown[Option[CantonTimestamp]],
       sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
   )(implicit
       ec: ExecutionContext,
       loggingContext: NamedLoggingContext,
@@ -686,12 +693,12 @@ private[pruning] object PruningProcessor extends HasLoggerName {
           .map(_.tickBeforeOrAt(ts))
           .flatMap {
             case Some(tick) =>
-              loggingContext.debug(s"Tick before or at $ts yields $tick on domain $domainId")
+              loggingContext.debug(s"Tick before or at $ts yields $tick on domain $synchronizerId")
               FutureUnlessShutdown.pure(tick)
             case None =>
               FutureUnlessShutdown.failed(
                 new RuntimeException(
-                  s"Unable to compute tick before or at `$ts` for domain $domainId"
+                  s"Unable to compute tick before or at `$ts` for domain $synchronizerId"
                 )
               )
           }
@@ -727,14 +734,14 @@ private[pruning] object PruningProcessor extends HasLoggerName {
           "tsSafeToPruneUpTo" -> tsSafeToPruneUpTo.toString,
         )
 
-        s"Getting safe to prune commitment tick with data $timestamps on domain $domainId"
+        s"Getting safe to prune commitment tick with data $timestamps on domain $synchronizerId"
       }
 
       // Sanity check that safe pruning timestamp has not "increased" (which would be a coding bug).
       _ = tsSafeToPruneUpTo.foreach(ts =>
         ErrorUtil.requireState(
           ts <= latestTickBeforeOrAt,
-          s"limit $tsSafeToPruneUpTo after $latestTickBeforeOrAt on domain $domainId",
+          s"limit $tsSafeToPruneUpTo after $latestTickBeforeOrAt on domain $synchronizerId",
         )
       )
     } yield tsSafeToPruneUpTo
@@ -746,7 +753,7 @@ private[pruning] object PruningProcessor extends HasLoggerName {
       sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
       acsCommitmentStore: AcsCommitmentStore,
       inFlightSubmissionStore: InFlightSubmissionStore,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       checkForOutstandingCommitments: Boolean,
   )(implicit
       ec: ExecutionContext,
@@ -764,19 +771,19 @@ private[pruning] object PruningProcessor extends HasLoggerName {
           acsCommitmentStore.lastComputedAndSent.map(_.map(_.forgetRefinement))
         )
 
-    val earliestInFlightF = inFlightSubmissionStore.lookupEarliest(domainId)
+    val earliestInFlightF = inFlightSubmissionStore.lookupEarliest(synchronizerId)
 
     safeToPrune_(
       cleanReplayF,
       commitmentsPruningBound = commitmentsPruningBound,
       earliestInFlightF,
       sortedReconciliationIntervalsProvider,
-      domainId,
+      synchronizerId,
     )
   }
   private final case class UnsafeOffset(
       offset: Offset,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       recordTime: CantonTimestamp,
       cause: String,
   )

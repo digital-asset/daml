@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.localstore
@@ -35,7 +35,8 @@ class CachedUserManagementStore(
     ScaffeineCache.buildAsync[Future, CacheKey, Result[UserInfo]](
       Scaffeine()
         .expireAfterWrite(expiryAfterWriteInSeconds.seconds)
-        .maximumSize(maximumCacheSize.toLong),
+        .maximumSize(maximumCacheSize.toLong)
+        .executor(executionContext.execute(_)),
       loader = key => delegate.getUserInfo(key.id, key.identityProviderId),
       metrics = Some(metrics.userManagement.cache),
     )(logger, "cache")

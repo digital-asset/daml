@@ -1,10 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.ledger.api
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.config.CommunityDbConfig.*
+import com.digitalasset.canton.config.DbConfig.*
 import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapper.FailedToConfigureLedgerApiStorage
 import com.typesafe.config.ConfigFactory
 import org.scalatest.wordspec.AnyWordSpec

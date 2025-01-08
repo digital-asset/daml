@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.common
@@ -10,7 +10,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.platform.store.backend.IntegrityStorageBackend
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.`SimpleSql ops`
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 
 import java.sql.Connection
 
@@ -142,23 +142,23 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
 
     // Verify monotonic record times per domain
     val offsetDomainRecordTime = SQL"""
-       SELECT event_offset as _offset, record_time, domain_id FROM lapi_events_create
+       SELECT event_offset as _offset, record_time, synchronizer_id FROM lapi_events_create
        UNION ALL
-       SELECT event_offset as _offset, record_time, domain_id FROM lapi_events_consuming_exercise
+       SELECT event_offset as _offset, record_time, synchronizer_id FROM lapi_events_consuming_exercise
        UNION ALL
-       SELECT event_offset as _offset, record_time, domain_id FROM lapi_events_non_consuming_exercise
+       SELECT event_offset as _offset, record_time, synchronizer_id FROM lapi_events_non_consuming_exercise
        UNION ALL
-       SELECT event_offset as _offset, record_time, source_domain_id as domain_id FROM lapi_events_unassign
+       SELECT event_offset as _offset, record_time, source_synchronizer_id as synchronizer_id FROM lapi_events_unassign
        UNION ALL
-       SELECT event_offset as _offset, record_time, target_domain_id as domain_id FROM lapi_events_assign
+       SELECT event_offset as _offset, record_time, target_synchronizer_id as synchronizer_id FROM lapi_events_assign
        UNION ALL
-       SELECT completion_offset as _offset, record_time, domain_id FROM lapi_command_completions
+       SELECT completion_offset as _offset, record_time, synchronizer_id FROM lapi_command_completions
        UNION ALL
-       SELECT event_offset as _offset, record_time, domain_id FROM lapi_events_party_to_participant
+       SELECT event_offset as _offset, record_time, synchronizer_id FROM lapi_events_party_to_participant
        """.asVectorOf(
-      offset("_offset") ~ long("record_time") ~ int("domain_id") map {
-        case offset ~ recordTimeMicros ~ internedDomainId =>
-          (offset.unwrap, internedDomainId, recordTimeMicros)
+      offset("_offset") ~ long("record_time") ~ int("synchronizer_id") map {
+        case offset ~ recordTimeMicros ~ internedSynchronizerId =>
+          (offset.unwrap, internedSynchronizerId, recordTimeMicros)
       }
     )(connection)
     offsetDomainRecordTime.groupBy(_._2).foreach { case (_, offsetRecordTimePerDomain) =>
@@ -243,7 +243,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
             submission_id,
             message_uuid,
             request_sequencer_counter,
-            domain_id
+            synchronizer_id
           FROM lapi_command_completions
       """
       .asVectorOf(
@@ -255,8 +255,8 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
           str("submission_id").? ~
           str("message_uuid").? ~
           long("request_sequencer_counter").? ~
-          long("domain_id") map {
-            case offset ~ applicationId ~ submitters ~ commandId ~ updateId ~ submissionId ~ messageUuid ~ requestSequencerCounter ~ domainId =>
+          long("synchronizer_id") map {
+            case offset ~ applicationId ~ submitters ~ commandId ~ updateId ~ submissionId ~ messageUuid ~ requestSequencerCounter ~ synchronizerId =>
               CompletionEntry(
                 applicationId,
                 submitters.toList,
@@ -265,7 +265,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
                 submissionId,
                 messageUuid,
                 requestSequencerCounter,
-                domainId,
+                synchronizerId,
               ) -> offset
           }
       )(connection)
@@ -316,17 +316,17 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
   }
 
   override def onlyForTestingNumberOfAcceptedTransactionsFor(
-      domainId: DomainId
+      synchronizerId: SynchronizerId
   )(connection: Connection): Int =
     SQL"""SELECT internal_id
           FROM lapi_string_interning
-          WHERE external_string = ${"d|" + domainId.toProtoPrimitive}
+          WHERE external_string = ${"d|" + synchronizerId.toProtoPrimitive}
        """
       .asSingleOpt(int("internal_id"))(connection)
-      .map(internedDomainId => SQL"""
+      .map(internedSynchronizerId => SQL"""
         SELECT COUNT(*) as count
         FROM lapi_transaction_meta
-        WHERE domain_id = $internedDomainId
+        WHERE synchronizer_id = $internedSynchronizerId
        """.asSingle(int("count"))(connection))
       .getOrElse(0)
 
@@ -351,6 +351,6 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
       submissionId: Option[String],
       messageUuid: Option[String],
       requestSequencerCounter: Option[Long],
-      domainId: Long,
+      synchronizerId: Long,
   )
 }

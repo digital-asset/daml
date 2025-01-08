@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.topology
@@ -85,14 +85,14 @@ class PackageOpsImpl(
   ): EitherT[FutureUnlessShutdown, PackageInUse, Unit] =
     stateManager.getAll.toList
       // Sort to keep tests deterministic
-      .sortBy { case (domainId, _) => domainId.toProtoPrimitive }
+      .sortBy { case (synchronizerId, _) => synchronizerId.toProtoPrimitive }
       .parTraverse_ { case (_, state) =>
         EitherT(
           state.activeContractStore
             .packageUsage(packageId, stateManager.contractStore.value)
             .map(opt =>
               opt.fold(Either.unit[PackageInUse])(contractId =>
-                Left(new PackageInUse(packageId, contractId, state.indexedDomain.domainId))
+                Left(new PackageInUse(packageId, contractId, state.indexedDomain.synchronizerId))
               )
             )
         )

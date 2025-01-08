@@ -313,10 +313,10 @@ withCantonSandbox options remainingArgs k = do
             [ "import com.digitalasset.canton.config.RequireTypes.PositiveInt"
             , "import com.digitalasset.canton.version.ProtocolVersion"
             , ""
-            , "val staticDomainParameters = StaticDomainParameters.defaults(sequencer1.config.crypto, ProtocolVersion.latest)"
-            , "val domainOwners = Seq(sequencer1, mediator1)"
-            , "bootstrap.domain(\"mydomain\", Seq(sequencer1), Seq(mediator1), domainOwners, PositiveInt.one, staticDomainParameters)"
-            , "sandbox.domains.connect_local(sequencer1, \"mydomain\")"
+            , "val staticSynchronizerParameters = StaticSynchronizerParameters.defaults(sequencer1.config.crypto, ProtocolVersion.latest)"
+            , "val synchronizerOwners = Seq(sequencer1, mediator1)"
+            , "bootstrap.synchronizer(\"mysynchronizer\", Seq(sequencer1), Seq(mediator1), synchronizerOwners, PositiveInt.one, staticSynchronizerParameters)"
+            , "sandbox.synchronizers.connect_local(sequencer1, \"mysynchronizer\")"
             , "os.copy(os.Path(" <> show altPortFile <> "), os.Path(" <> show portFile <> "))"
             ]
 
@@ -372,7 +372,7 @@ cantonConfig CantonOptions{..} =
                      [ "testing-time" Aeson..= Aeson.object [ "type" Aeson..= ("monotonic-time" :: T.Text) ]
                      | StaticTime True <- [cantonStaticTime]
                      ] <>
-                     [ "http-ledger-api-experimental" Aeson..= Aeson.object
+                     [ "http-ledger-api" Aeson..= Aeson.object
                              [ "allow-insecure-tokens" Aeson..= True
                              , "server" Aeson..= Aeson.object ( concat
                                [ [ "port" Aeson..= port | Just port <- [cantonJsonApi] ]

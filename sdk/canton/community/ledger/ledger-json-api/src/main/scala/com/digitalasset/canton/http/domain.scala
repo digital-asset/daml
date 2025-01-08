@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http
@@ -86,7 +86,7 @@ package domain {
   import com.daml.ledger.api.v2.commands.Commands
   import com.digitalasset.daml.lf.data.Ref.{HexString, PackageId, PackageRef}
   import com.digitalasset.canton.fetchcontracts.domain.`fc domain ErrorOps`
-  import com.digitalasset.canton.topology.DomainId
+  import com.digitalasset.canton.topology.SynchronizerId
 
   sealed trait SubmissionIdTag
 
@@ -315,7 +315,7 @@ package domain {
       workflowId: Option[WorkflowId],
       deduplicationPeriod: Option[domain.DeduplicationPeriod],
       disclosedContracts: Option[List[DisclosedContract[TmplId]]],
-      domainId: Option[DomainId],
+      synchronizerId: Option[SynchronizerId],
       packageIdSelectionPreference: Option[List[PackageId]],
   )
 
@@ -392,19 +392,19 @@ package domain {
     def fromTransactionTree(
         tx: lav2.transaction.TransactionTree
     ): Error \/ Vector[Contract[lav2.value.Value]] =
-      tx.rootEventIds.toVector
+      tx.rootNodeIds.toVector
         .map(fromTreeEvent(tx.eventsById))
         .sequence
         .map(_.flatten)
 
     private[this] def fromTreeEvent(
-        eventsById: Map[String, lav2.transaction.TreeEvent]
-    )(eventId: String): Error \/ Vector[Contract[lav2.value.Value]] = {
+        eventsById: Map[Int, lav2.transaction.TreeEvent]
+    )(nodeId: Int): Error \/ Vector[Contract[lav2.value.Value]] = {
       @tailrec
       def loop(
-          es: Vector[String],
+          nodeIds: Vector[Int],
           acc: Error \/ Vector[Contract[lav2.value.Value]],
-      ): Error \/ Vector[Contract[lav2.value.Value]] = es match {
+      ): Error \/ Vector[Contract[lav2.value.Value]] = nodeIds match {
         case head +: tail =>
           eventsById(head).kind match {
             case lav2.transaction.TreeEvent.Kind.Created(created) =>
@@ -419,7 +419,7 @@ package domain {
                 .fromLedgerApi(exercised)
                 .map(_.map(a => Contract[lav2.value.Value](-\/(a))))
               val newAcc = ^(acc, a)(_ ++ _.toVector)
-              loop(exercised.childEventIds.toVector ++ tail, newAcc)
+              loop(exercised.childNodeIds.toVector ++ tail, newAcc)
             case lav2.transaction.TreeEvent.Kind.Empty =>
               val errorMsg = s"Expected either Created or Exercised event, got: Empty"
               -\/(Error(Symbol("Contract_fromTreeEvent"), errorMsg))
@@ -429,7 +429,7 @@ package domain {
           acc
       }
 
-      loop(Vector(eventId), \/-(Vector()))
+      loop(Vector(nodeId), \/-(Vector()))
     }
 
     implicit val covariant: Traverse[Contract] = new Traverse[Contract] {

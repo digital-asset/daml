@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin.grpc
@@ -36,7 +36,7 @@ import com.digitalasset.canton.pruning.ConfigForNoWaitCounterParticipants
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.client.IdentityProvidingServiceClient
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.EitherTUtil
 import io.grpc.{Status, StatusRuntimeException}
@@ -189,7 +189,9 @@ class GrpcPruningService(
   ): Future[SetNoWaitCommitmentsFrom.Response] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val result = for {
-      domains <- wrapErrUS(request.domainIds.traverse(DomainId.fromProtoPrimitive(_, "domain_id")))
+      domains <- wrapErrUS(
+        request.synchronizerIds.traverse(SynchronizerId.fromProtoPrimitive(_, "synchronizer_id"))
+      )
       participants <- wrapErrUS(
         request.counterParticipantUids.traverse(
           ParticipantId.fromProtoPrimitive(_, "counter_participant_uid")
@@ -228,7 +230,9 @@ class GrpcPruningService(
   ): Future[GetNoWaitCommitmentsFrom.Response] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val result = for {
-      domains <- wrapErrUS(request.domainIds.traverse(DomainId.fromProtoPrimitive(_, "domain_id")))
+      domains <- wrapErrUS(
+        request.synchronizerIds.traverse(SynchronizerId.fromProtoPrimitive(_, "synchronizer_id"))
+      )
       participants <- wrapErrUS(
         request.participantUids.traverse(
           ParticipantId.fromProtoPrimitive(_, "counter_participant_uid")
@@ -251,7 +255,7 @@ class GrpcPruningService(
       allParticipantsFiltered = allParticipants
         .map { case (domain, participants) =>
           val noWaitParticipants =
-            noWaitConfig.filter(_.domainId == domain).collect(_.participantId)
+            noWaitConfig.filter(_.synchronizerId == domain).collect(_.participantId)
           (domain, participants.filter(!noWaitParticipants.contains(_)))
         }
     } yield GetNoWaitCommitmentsFrom.Response(
@@ -276,7 +280,7 @@ class GrpcPruningService(
     val result =
       for {
         domains <- wrapErrUS(
-          request.domainIds.traverse(DomainId.fromProtoPrimitive(_, "domain_id"))
+          request.synchronizerIds.traverse(SynchronizerId.fromProtoPrimitive(_, "synchronizer_id"))
         )
         participants <- wrapErrUS(
           request.counterParticipantUids
@@ -297,19 +301,19 @@ class GrpcPruningService(
   }
 
   private def findAllKnownParticipants(
-      domainFilter: Seq[DomainId],
+      domainFilter: Seq[SynchronizerId],
       participantFilter: Seq[ParticipantId],
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[DomainId, Set[ParticipantId]]] = {
+  ): FutureUnlessShutdown[Map[SynchronizerId, Set[ParticipantId]]] = {
     val result = for {
-      (domainId, _) <-
-        syncDomainPersistentStateManager.getAll.filter { case (domainId, _) =>
-          domainFilter.contains(domainId) || domainFilter.isEmpty
+      (synchronizerId, _) <-
+        syncDomainPersistentStateManager.getAll.filter { case (synchronizerId, _) =>
+          domainFilter.contains(synchronizerId) || domainFilter.isEmpty
         }
     } yield for {
       _ <- FutureUnlessShutdown.unit
-      domainTopoClient = ips.tryForDomain(domainId)
+      domainTopoClient = ips.tryForSynchronizer(synchronizerId)
       ipsSnapshot <- domainTopoClient.awaitSnapshotUS(domainTopoClient.approximateTimestamp)
       allMembers <- ipsSnapshot.allMembers()
       allParticipants = allMembers
@@ -317,7 +321,7 @@ class GrpcPruningService(
         .map(member => ParticipantId.apply(member.uid))
         .excl(participantId)
         .filter(participantFilter.contains(_) || participantFilter.isEmpty)
-    } yield (domainId, allParticipants)
+    } yield (synchronizerId, allParticipants)
 
     FutureUnlessShutdown.sequence(result).map(_.toMap)
   }
@@ -420,15 +424,15 @@ object PruningServiceError extends PruningServiceErrorGroup {
   }
 
   @Explanation("""Domain purging has been invoked on an unknown domain.""")
-  @Resolution("Ensure that the specified domain id exists.")
+  @Resolution("Ensure that the specified synchronizer id exists.")
   object PurgingUnknownDomain
       extends ErrorCode(
         id = "PURGE_UNKNOWN_DOMAIN_ERROR",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
-    final case class Error(domainId: DomainId)(implicit
+    final case class Error(synchronizerId: SynchronizerId)(implicit
         val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(cause = s"Domain $domainId does not exist.")
+    ) extends CantonError.Impl(cause = s"Domain $synchronizerId does not exist.")
         with PruningServiceError
   }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.config
@@ -112,7 +112,9 @@ object DbParametersConfig {
     PositiveFiniteDuration.ofSeconds(5)
 }
 
-trait StorageConfig {
+/** Determines how a node stores persistent data.
+  */
+sealed trait StorageConfig {
   type Self <: StorageConfig
 
   /** Database specific configuration parameters used by Slick.
@@ -216,13 +218,7 @@ trait StorageConfig {
     )
 }
 
-/** Determines how a node stores persistent data.
-  */
-sealed trait CommunityStorageConfig extends StorageConfig
-
-trait MemoryStorageConfig extends StorageConfig
-
-object CommunityStorageConfig {
+object StorageConfig {
 
   /** Dictates that persistent data is stored in memory.
     * So in fact, the data is not persistent. It is deleted whenever the node is stopped.
@@ -232,8 +228,7 @@ object CommunityStorageConfig {
   final case class Memory(
       override val config: Config = ConfigFactory.empty(),
       override val parameters: DbParametersConfig = DbParametersConfig(),
-  ) extends CommunityStorageConfig
-      with MemoryStorageConfig {
+  ) extends StorageConfig {
     override type Self = Memory
 
   }
@@ -241,7 +236,7 @@ object CommunityStorageConfig {
 
 /** Dictates that persistent data is stored in a database.
   */
-trait DbConfig extends StorageConfig with PrettyPrinting {
+sealed trait DbConfig extends StorageConfig with PrettyPrinting {
 
   /** Function to combine the defined migration path together with dev version changes */
   final def buildMigrationsPaths(alphaVersionSupport: Boolean): Seq[String] =
@@ -264,47 +259,51 @@ trait DbConfig extends StorageConfig with PrettyPrinting {
     )
 }
 
-trait H2DbConfig extends DbConfig {
-  def databaseName: Option[String] =
-    if (config.hasPath("url")) {
-      val url = config.getString("url")
-      "(:mem:|:file:)([^:;]+)([:;])".r.findFirstMatchIn(url).map(_.group(2))
-    } else None
-  private val defaultDriver: String = "org.h2.Driver"
-  val defaultConfig: Config = DbConfig.toConfig(Map("driver" -> defaultDriver))
+sealed trait ModifiableDbConfig[A <: ModifiableDbConfig[A]] extends DbConfig {
+  override type Self = A
+
+  def modify(
+      config: Config = this.config,
+      parameters: DbParametersConfig = this.parameters,
+  ): Self
 }
 
-trait PostgresDbConfig extends DbConfig
-
-sealed trait CommunityDbConfig extends CommunityStorageConfig with DbConfig
-
-object CommunityDbConfig {
+object DbConfig {
   final case class H2(
       override val config: Config,
       override val parameters: DbParametersConfig = DbParametersConfig(),
-  ) extends CommunityDbConfig
-      with H2DbConfig {
-    override type Self = H2
+  ) extends ModifiableDbConfig[H2] {
+    def databaseName: Option[String] =
+      if (config.hasPath("url")) {
+        val url = config.getString("url")
+        "(:mem:|:file:)([^:;]+)([:;])".r.findFirstMatchIn(url).map(_.group(2))
+      } else None
 
     protected val devMigrationPath: String = DbConfig.h2MigrationsPathDev
     protected val stableMigrationPath: String = DbConfig.h2MigrationsPathStable
 
+    def modify(config: Config = this.config, parameters: DbParametersConfig = this.parameters): H2 =
+      H2(config, parameters)
+  }
+
+  object H2 {
+    private val defaultDriver: String = "org.h2.Driver"
+    val defaultConfig: Config = DbConfig.toConfig(Map("driver" -> defaultDriver))
   }
 
   final case class Postgres(
       override val config: Config,
       override val parameters: DbParametersConfig = DbParametersConfig(),
-  ) extends CommunityDbConfig
-      with PostgresDbConfig {
-    override type Self = Postgres
-
+  ) extends ModifiableDbConfig[Postgres] {
     protected def devMigrationPath: String = DbConfig.postgresMigrationsPathDev
     protected val stableMigrationPath: String = DbConfig.postgresMigrationsPathStable
 
+    def modify(
+        config: Config = this.config,
+        parameters: DbParametersConfig = this.parameters,
+    ): Postgres =
+      Postgres(config, parameters)
   }
-}
-
-object DbConfig {
 
   val defaultConnectionTimeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(5)
 
@@ -341,7 +340,7 @@ object DbConfig {
       )
     )
     (dbConfig match {
-      case h2: H2DbConfig =>
+      case h2: H2 =>
         def containsOption(c: Config, optionName: String, optionValue: String) = {
           val propertiesPath = s"properties.$optionName"
           val valueIsInProperties =
@@ -374,8 +373,8 @@ object DbConfig {
         }
         enforceDelayClose(
           enforcePgMode(enforceSingleConnection(writeH2UrlIfNotSet(h2.config)))
-        ).withFallback(h2.defaultConfig)
-      case postgres: PostgresDbConfig => postgres.config
+        ).withFallback(H2.defaultConfig)
+      case postgres: Postgres => postgres.config
       case other => other.config
     }).withFallback(commonDefaults)
   }

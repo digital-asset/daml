@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.submission.routing
@@ -21,7 +21,7 @@ import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.PartyInfo
 import com.digitalasset.canton.topology.transaction.ParticipantAttributes
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
@@ -41,14 +41,14 @@ private[routing] final class AdmissibleDomains(
   def forParties(submitters: Set[LfPartyId], informees: Set[LfPartyId])(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[Set[DomainId]]] = {
+  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[Set[SynchronizerId]]] = {
 
     def queryPartyTopologySnapshotClient(
-        domainPartyTopologySnapshotClient: (DomainId, PartyTopologySnapshotClient)
+        domainPartyTopologySnapshotClient: (SynchronizerId, PartyTopologySnapshotClient)
     ): EitherT[FutureUnlessShutdown, TransactionRoutingError, Option[
-      (DomainId, Map[LfPartyId, PartyInfo])
+      (SynchronizerId, Map[LfPartyId, PartyInfo])
     ]] = {
-      val (domainId, partyTopologySnapshotClient) = domainPartyTopologySnapshotClient
+      val (synchronizerId, partyTopologySnapshotClient) = domainPartyTopologySnapshotClient
       val allParties = submitters.view ++ informees.view
       partyTopologySnapshotClient
         .activeParticipantsOfPartiesWithInfo(allParties.toSeq)
@@ -58,17 +58,17 @@ private[routing] final class AdmissibleDomains(
             .filter { case (_, partyInfo) => partyInfo.participants.nonEmpty }
 
           Option.when(partyTopologyWithThresholds.nonEmpty) {
-            domainId -> partyTopologyWithThresholds
+            synchronizerId -> partyTopologyWithThresholds
           }
         }
         .leftMap { throwable =>
           logger.warn("Unable to query the topology information", throwable)
-          UnableToQueryTopologySnapshot.Failed(domainId)
+          UnableToQueryTopologySnapshot.Failed(synchronizerId)
         }
     }
 
     def queryTopology(): EitherT[FutureUnlessShutdown, TransactionRoutingError, Map[
-      DomainId,
+      SynchronizerId,
       Map[LfPartyId, PartyInfo],
     ]] =
       connectedDomains.snapshot.view
@@ -115,25 +115,25 @@ private[routing] final class AdmissibleDomains(
       EitherT.fromEither[FutureUnlessShutdown](NonEmpty.from(iterable).toRight(ifEmpty))
 
     def domainWithAll(parties: Set[LfPartyId])(
-        topology: (DomainId, Map[LfPartyId, PartyInfo])
+        topology: (SynchronizerId, Map[LfPartyId, PartyInfo])
     ): Boolean =
       parties.subsetOf(topology._2.keySet)
 
     def domainsWithAll(
         parties: Set[LfPartyId],
-        topology: Map[DomainId, Map[LfPartyId, PartyInfo]],
-        ifEmpty: Set[DomainId] => TransactionRoutingError,
+        topology: Map[SynchronizerId, Map[LfPartyId, PartyInfo]],
+        ifEmpty: Set[SynchronizerId] => TransactionRoutingError,
     ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[
-      Map[DomainId, Map[LfPartyId, PartyInfo]]
+      Map[SynchronizerId, Map[LfPartyId, PartyInfo]]
     ]] = {
       val domainsWithAllParties = topology.filter(domainWithAll(parties))
       ensureNonEmpty(domainsWithAllParties, ifEmpty(topology.keySet))
     }
 
     def domainsWithAllSubmitters(
-        topology: Map[DomainId, Map[LfPartyId, PartyInfo]]
+        topology: Map[SynchronizerId, Map[LfPartyId, PartyInfo]]
     ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[
-      Map[DomainId, Map[LfPartyId, PartyInfo]]
+      Map[SynchronizerId, Map[LfPartyId, PartyInfo]]
     ]] =
       domainsWithAll(
         parties = submitters,
@@ -142,9 +142,9 @@ private[routing] final class AdmissibleDomains(
       )
 
     def domainsWithAllInformees(
-        topology: Map[DomainId, Map[LfPartyId, PartyInfo]]
+        topology: Map[SynchronizerId, Map[LfPartyId, PartyInfo]]
     ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[
-      Map[DomainId, Map[LfPartyId, PartyInfo]]
+      Map[SynchronizerId, Map[LfPartyId, PartyInfo]]
     ]] =
       domainsWithAll(
         parties = informees,
@@ -153,14 +153,17 @@ private[routing] final class AdmissibleDomains(
       )
 
     def suitableDomains(
-        domainsWithAllSubmitters: NonEmpty[Map[DomainId, Map[LfPartyId, PartyInfo]]]
-    ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[Set[DomainId]]] = {
+        domainsWithAllSubmitters: NonEmpty[Map[SynchronizerId, Map[LfPartyId, PartyInfo]]]
+    ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[Set[SynchronizerId]]] = {
       logger.debug(
         s"Checking whether one domain in ${domainsWithAllSubmitters.keys} is suitable for submission"
       )
 
       // Return true if all submitters are locally hosted with correct permissions
-      def canUseDomain(domainId: DomainId, parties: Map[LfPartyId, PartyInfo]): Boolean = {
+      def canUseDomain(
+          synchronizerId: SynchronizerId,
+          parties: Map[LfPartyId, PartyInfo],
+      ): Boolean = {
         // We keep only the relevant topology (submitter on the local participant)
         val locallyHostedSubmitters: Map[LfPartyId, (ParticipantAttributes, PositiveInt)] =
           parties.toSeq.mapFilter { case (party, partyInfo) =>
@@ -188,26 +191,26 @@ private[routing] final class AdmissibleDomains(
             "unknown submitters" -> unknownSubmitters,
             "incorrect permissions" -> incorrectPermissionSubmitters,
           )
-          logger.debug(s"Cannot use domain $domainId: $context")
+          logger.debug(s"Cannot use domain $synchronizerId: $context")
         }
 
         canUseDomain
       }
 
       val suitableDomains = for {
-        (domainId, topology) <- domainsWithAllSubmitters
-        if canUseDomain(domainId, topology)
-      } yield domainId
+        (synchronizerId, topology) <- domainsWithAllSubmitters
+        if canUseDomain(synchronizerId, topology)
+      } yield synchronizerId
 
       ensureNonEmpty(suitableDomains.toSet, noDomainWhereAllSubmittersCanSubmit)
     }
 
-    def commonDomainIds(
-        submittersDomainIds: Set[DomainId],
-        informeesDomainIds: Set[DomainId],
-    ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[Set[DomainId]]] =
+    def commonsynchronizerIds(
+        submitterssynchronizerIds: Set[SynchronizerId],
+        informeessynchronizerIds: Set[SynchronizerId],
+    ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[Set[SynchronizerId]]] =
       ensureNonEmpty(
-        submittersDomainIds.intersect(informeesDomainIds),
+        submitterssynchronizerIds.intersect(informeessynchronizerIds),
         TopologyErrors.NoCommonDomain.Error(submitters, informees),
       )
 
@@ -230,10 +233,13 @@ private[routing] final class AdmissibleDomains(
       domainsWithAllInformees <- domainsWithAllInformees(topology)
       _ = logger.debug(s"Domains with all informees: ${domainsWithAllInformees.keySet}")
 
-      submittersDomainIds <- suitableDomains(domainsWithAllSubmitters)
-      informeesDomainIds = domainsWithAllInformees.keySet
-      commonDomainIds <- commonDomainIds(submittersDomainIds, informeesDomainIds)
-    } yield commonDomainIds
+      submitterssynchronizerIds <- suitableDomains(domainsWithAllSubmitters)
+      informeessynchronizerIds = domainsWithAllInformees.keySet
+      commonsynchronizerIds <- commonsynchronizerIds(
+        submitterssynchronizerIds,
+        informeessynchronizerIds,
+      )
+    } yield commonsynchronizerIds
 
   }
 }

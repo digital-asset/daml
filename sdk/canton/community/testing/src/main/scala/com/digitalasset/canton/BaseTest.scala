@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton
@@ -14,7 +14,7 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCryptoProvider
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLogging, SuppressingLogger}
 import com.digitalasset.canton.metrics.OpenTelemetryOnDemandMetricsReader
-import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
 import com.digitalasset.canton.time.WallClock
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, W3CTraceContext}
@@ -73,8 +73,8 @@ trait TestEssentials
     BaseTest.testedProtocolVersionValidation
   protected lazy val testedReleaseProtocolVersion: ReleaseProtocolVersion =
     BaseTest.testedReleaseProtocolVersion
-  protected lazy val defaultStaticDomainParameters: StaticDomainParameters =
-    BaseTest.defaultStaticDomainParameters
+  protected lazy val defaultStaticSynchronizerParameters: StaticSynchronizerParameters =
+    BaseTest.defaultStaticSynchronizerParameters
 
   // default to providing an empty trace context to all tests
   protected implicit def traceContext: TraceContext = TraceContext.empty
@@ -472,12 +472,12 @@ object BaseTest {
   }
 
   // Uses SymbolicCrypto for the configured crypto schemes
-  lazy val defaultStaticDomainParameters: StaticDomainParameters =
-    defaultStaticDomainParametersWith()
+  lazy val defaultStaticSynchronizerParameters: StaticSynchronizerParameters =
+    defaultStaticSynchronizerParametersWith()
 
-  def defaultStaticDomainParametersWith(
+  def defaultStaticSynchronizerParametersWith(
       protocolVersion: ProtocolVersion = testedProtocolVersion
-  ): StaticDomainParameters = StaticDomainParameters(
+  ): StaticSynchronizerParameters = StaticSynchronizerParameters(
     requiredSigningSpecs = SymbolicCryptoProvider.supportedSigningSpecs,
     requiredEncryptionSpecs = SymbolicCryptoProvider.supportedEncryptionSpecs,
     requiredSymmetricKeySchemes = SymbolicCryptoProvider.supportedSymmetricKeySchemes,
@@ -489,8 +489,8 @@ object BaseTest {
   lazy val testedProtocolVersion: ProtocolVersion =
     tryGetProtocolVersionFromEnv.getOrElse(ProtocolVersion.latest)
 
-  lazy val testedStaticDomainParameters: StaticDomainParameters =
-    defaultStaticDomainParametersWith(testedProtocolVersion)
+  lazy val testedStaticSynchronizerParameters: StaticSynchronizerParameters =
+    defaultStaticSynchronizerParametersWith(testedProtocolVersion)
 
   lazy val testedProtocolVersionValidation: ProtocolVersionValidation =
     ProtocolVersionValidation(testedProtocolVersion)

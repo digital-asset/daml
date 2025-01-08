@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.admin.api.client.commands
@@ -12,27 +12,27 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   TimeoutType,
 }
 import com.digitalasset.canton.admin.api.client.data.{NodeStatus, SequencerStatus}
-import com.digitalasset.canton.admin.domain.v30.SequencerStatusServiceGrpc.SequencerStatusServiceStub
-import com.digitalasset.canton.admin.domain.v30.{
+import com.digitalasset.canton.admin.pruning.v30.LocatePruningTimestamp
+import com.digitalasset.canton.admin.sequencer.v30.SequencerStatusServiceGrpc.SequencerStatusServiceStub
+import com.digitalasset.canton.admin.sequencer.v30.{
   SequencerStatusRequest,
   SequencerStatusResponse,
   SequencerStatusServiceGrpc,
 }
-import com.digitalasset.canton.admin.pruning.v30.LocatePruningTimestamp
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.sequencing.admin.grpc.InitializeSequencerResponse
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.TimestampSelector.TimestampSelector
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
+import com.digitalasset.canton.sequencer.admin.v30
+import com.digitalasset.canton.sequencing.protocol.TrafficState
+import com.digitalasset.canton.synchronizer.sequencing.admin.grpc.InitializeSequencerResponse
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.traffic.TimestampSelector.TimestampSelector
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.traffic.{
   SequencerTrafficStatus,
   TimestampSelector,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.{
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.{
   SequencerPruningStatus,
   SequencerSnapshot,
 }
-import com.digitalasset.canton.sequencer.admin.v30
-import com.digitalasset.canton.sequencing.protocol.TrafficState
 import com.digitalasset.canton.topology.{Member, SequencerId}
 import com.digitalasset.canton.util.GrpcStreamingUtils
 import com.google.protobuf.ByteString
@@ -165,7 +165,7 @@ object SequencerAdminCommands {
   }
   final case class InitializeFromGenesisState(
       topologySnapshot: ByteString,
-      domainParameters: com.digitalasset.canton.protocol.StaticDomainParameters,
+      domainParameters: com.digitalasset.canton.protocol.StaticSynchronizerParameters,
   ) extends GrpcAdminCommand[
         v30.InitializeSequencerFromGenesisStateRequest,
         v30.InitializeSequencerFromGenesisStateResponse,

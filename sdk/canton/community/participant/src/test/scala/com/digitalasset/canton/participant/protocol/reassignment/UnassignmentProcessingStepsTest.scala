@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -11,9 +11,10 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{
-  DomainSnapshotSyncCryptoApi,
   Signature,
+  SigningKeyUsage,
   SyncCryptoError,
+  SynchronizerSnapshotSyncCryptoApi,
   TestHash,
 }
 import com.digitalasset.canton.data.*
@@ -31,6 +32,7 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDe
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessingSteps.PendingUnassignment
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.*
+import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentValidationError.PackageIdUnknownOrUnvetted
 import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.{
   ViewHashAndRecipients,
   ViewKeyData,
@@ -66,7 +68,7 @@ import com.digitalasset.canton.store.{
   IndexedDomain,
   SessionKeyStoreWithInMemoryCache,
 }
-import com.digitalasset.canton.time.{DomainTimeTracker, TimeProofTestUtil, WallClock}
+import com.digitalasset.canton.time.{SynchronizerTimeTracker, TimeProofTestUtil, WallClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -110,11 +112,11 @@ final class UnassignmentProcessingStepsTest
   private val testTopologyTimestamp = CantonTimestamp.Epoch
 
   private lazy val sourceDomain = Source(
-    DomainId(UniqueIdentifier.tryFromProtoPrimitive("source::domain"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("source::domain"))
   )
   private lazy val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(100))
   private lazy val targetDomain = Target(
-    DomainId(UniqueIdentifier.tryFromProtoPrimitive("target::domain"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("target::domain"))
   )
 
   private lazy val submitter: LfPartyId = PartyId(
@@ -159,7 +161,7 @@ final class UnassignmentProcessingStepsTest
       clock,
       crypto,
       IndexedDomain.tryCreate(sourceDomain.unwrap, 1),
-      defaultStaticDomainParameters,
+      defaultStaticSynchronizerParameters,
       enableAdditionalConsistencyChecks = true,
       indexedStringStore = indexedStringStore,
       contractStore = contractStore,
@@ -176,7 +178,7 @@ final class UnassignmentProcessingStepsTest
     new SyncDomainEphemeralState(
       submittingParticipant,
       mock[RecordOrderPublisher],
-      mock[DomainTimeTracker],
+      mock[SynchronizerTimeTracker],
       mock[InFlightSubmissionDomainTracker],
       persistentState,
       ledgerApiIndexer,
@@ -213,7 +215,7 @@ final class UnassignmentProcessingStepsTest
   private def createTestingIdentityFactory(
       topology: Map[ParticipantId, Map[LfPartyId, ParticipantPermission]],
       packages: Map[ParticipantId, Seq[LfPackageId]],
-      domains: Set[DomainId] = Set(DefaultTestIdentities.domainId),
+      domains: Set[SynchronizerId] = Set(DefaultTestIdentities.synchronizerId),
   ) =
     TestingTopology(domains)
       .withReversedTopology(topology)
@@ -256,7 +258,7 @@ final class UnassignmentProcessingStepsTest
       testingIdentityFactory: TestingIdentityFactory = cryptoFactory
   ) =
     testingIdentityFactory
-      .forOwnerAndDomain(submittingParticipant, sourceDomain.unwrap)
+      .forOwnerAndSynchronizer(submittingParticipant, sourceDomain.unwrap)
       .currentSnapshotApproximation
 
   private lazy val cryptoSnapshot = createCryptoSnapshot()
@@ -264,7 +266,7 @@ final class UnassignmentProcessingStepsTest
   private lazy val seedGenerator = new SeedGenerator(crypto.pureCrypto)
 
   private def createReassignmentCoordination(
-      cryptoSnapshot: DomainSnapshotSyncCryptoApi = cryptoSnapshot
+      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi = cryptoSnapshot
   ) =
     TestReassignmentCoordination(
       Set(Target(sourceDomain.unwrap), targetDomain),
@@ -287,7 +289,7 @@ final class UnassignmentProcessingStepsTest
       damle,
       reassignmentCoordination,
       seedGenerator,
-      Source(defaultStaticDomainParameters),
+      Source(defaultStaticSynchronizerParameters),
       SerializableContractAuthenticator(crypto.pureCrypto),
       Source(testedProtocolVersion),
       loggerFactory,
@@ -334,11 +336,10 @@ final class UnassignmentProcessingStepsTest
     signatureO,
     None,
     isFreshOwnTimelyRequest = true,
-    isReassigningParticipant = true,
     Seq.empty,
     sourceMediator,
     cryptoSnapshot,
-    cryptoSnapshot.ipsSnapshot.findDynamicDomainParameters().futureValueUS.value,
+    cryptoSnapshot.ipsSnapshot.findDynamicSynchronizerParameters().futureValueUS.value,
   )
 
   "UnassignmentRequest.validated" should {
@@ -354,7 +355,7 @@ final class UnassignmentProcessingStepsTest
         sourceTopologySnapshot: TopologySnapshot,
         targetTopologySnapshot: TopologySnapshot,
         stakeholdersOverride: Option[Stakeholders] = None,
-    ): Either[ReassignmentProcessorError, UnassignmentRequestValidated] = {
+    ): Either[ReassignmentValidationError, UnassignmentRequestValidated] = {
       val updatedContract = stakeholdersOverride.fold(contract)(stakeholders =>
         contract.copy(metadata = ContractMetadata(stakeholders))
       )
@@ -385,7 +386,7 @@ final class UnassignmentProcessingStepsTest
         testingTopology,
         testingTopology,
         stakeholdersOverride = Some(stakeholders),
-      ).left.value shouldBe SubmitterMustBeStakeholder(
+      ).left.value shouldBe ReassignmentValidationError.SubmitterMustBeStakeholder(
         ReassignmentRef(contractId),
         submitter,
         stakeholders.all,
@@ -399,7 +400,7 @@ final class UnassignmentProcessingStepsTest
       mkUnassignmentResult(
         ipsNotHostedOnParticipant,
         testingTopology,
-      ).left.value shouldBe NotHostedOnParticipant(
+      ).left.value shouldBe ReassignmentValidationError.NotHostedOnParticipant(
         ReassignmentRef(contractId),
         submitter,
         submittingParticipant,
@@ -445,8 +446,8 @@ final class UnassignmentProcessingStepsTest
         stakeholdersOverride = Some(stakeholders),
       )
 
-      val expectedError = StakeholderHostingErrors(
-        s"Signatory $party1 requires at least 1 signatory reassigning participants on target domain, but only 0 are available"
+      val expectedError = ReassignmentValidationError.StakeholderHostingErrors(
+        s"Signatory $party1 requires at least 1 signatory reassigning participants on domain target, but only 0 are available"
       )
 
       result.left.value shouldBe expectedError
@@ -454,7 +455,7 @@ final class UnassignmentProcessingStepsTest
 
     // TODO(i13201) This should ideally be covered in integration tests as well
     "fail if the package for the contract being reassigned is unvetted on the target domain" in {
-      val sourceDomainTopology =
+      val sourceSynchronizerTopology =
         createTestingTopologySnapshot(
           Map(
             submittingParticipant -> Map(submitter -> Submission),
@@ -468,7 +469,7 @@ final class UnassignmentProcessingStepsTest
           ),
         )
 
-      val targetDomainTopology =
+      val targetSynchronizerTopology =
         createTestingTopologySnapshot(
           topology = Map(
             submittingParticipant -> Map(submitter -> Submission),
@@ -479,8 +480,8 @@ final class UnassignmentProcessingStepsTest
 
       val stakeholders = Stakeholders.tryCreate(Set(submitter, adminSubmitter, admin1), Set())
       val result = mkUnassignmentResult(
-        sourceTopologySnapshot = sourceDomainTopology,
-        targetTopologySnapshot = targetDomainTopology,
+        sourceTopologySnapshot = sourceSynchronizerTopology,
+        targetTopologySnapshot = targetSynchronizerTopology,
         stakeholdersOverride = Some(stakeholders),
       )
 
@@ -497,7 +498,7 @@ final class UnassignmentProcessingStepsTest
 
     "fail if the package for the contract being reassigned is unvetted on one non-reassigning participant connected to the target domain" in {
 
-      val sourceDomainTopology =
+      val sourceSynchronizerTopology =
         createTestingIdentityFactory(
           topology = Map(
             submittingParticipant -> Map(submitter -> Submission),
@@ -509,7 +510,7 @@ final class UnassignmentProcessingStepsTest
             .toMap,
         ).topologySnapshot()
 
-      val targetDomainTopology =
+      val targetSynchronizerTopology =
         createTestingIdentityFactory(
           topology = Map(
             submittingParticipant -> Map(submitter -> Submission),
@@ -525,8 +526,8 @@ final class UnassignmentProcessingStepsTest
 
       val result =
         mkUnassignmentResult(
-          sourceTopologySnapshot = sourceDomainTopology,
-          targetTopologySnapshot = targetDomainTopology,
+          sourceTopologySnapshot = sourceSynchronizerTopology,
+          targetTopologySnapshot = targetSynchronizerTopology,
           stakeholdersOverride = Some(stakeholders),
         )
 
@@ -657,7 +658,7 @@ final class UnassignmentProcessingStepsTest
         )
 
       for {
-        _ <- state.contractStore.storeCreatedContract(RequestCounter(1), contract).failOnShutdown
+        _ <- state.contractStore.storeContract(contract).failOnShutdown
         _ <- persistentState.activeContractStore
           .markContractsCreated(
             Seq(contractId -> initialReassignmentCounter),
@@ -690,7 +691,7 @@ final class UnassignmentProcessingStepsTest
       )
 
       for {
-        _ <- state.contractStore.storeCreatedContract(RequestCounter(1), contract).failOnShutdown
+        _ <- state.contractStore.storeContract(contract).failOnShutdown
         submissionResult <- leftOrFailShutdown(
           unassignmentProcessingSteps.createSubmission(
             submissionParam,
@@ -761,12 +762,12 @@ final class UnassignmentProcessingStepsTest
       val fullUnassignmentTree = makeFullUnassignmentTree(unassignmentRequest)
 
       state.contractStore
-        .storeCreatedContract(RequestCounter(1), contract)
+        .storeContract(contract)
         .failOnShutdown
         .futureValue
 
       val signature = cryptoSnapshot
-        .sign(fullUnassignmentTree.rootHash.unwrap)
+        .sign(fullUnassignmentTree.rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
         .value
         .onShutdown(fail("unexpected shutdown during a test"))
         .futureValue
@@ -809,9 +810,11 @@ final class UnassignmentProcessingStepsTest
         createUnassignmentProcessingSteps(c)
       }
 
-      constructPendingDataAndResponseWith(unassignmentProcessingStepsWithoutPackages).leftOrFail(
-        "construction of pending data and response succeeded unexpectedly"
-      ) shouldBe a[PackageIdUnknownOrUnvetted]
+      constructPendingDataAndResponseWith(
+        unassignmentProcessingStepsWithoutPackages
+      ).value.pendingData.unassignmentValidationResult.validationErrors.head shouldBe a[
+        PackageIdUnknownOrUnvetted
+      ]
     }
   }
 
@@ -831,8 +834,8 @@ final class UnassignmentProcessingStepsTest
           testedProtocolVersion,
         )
 
-      val domainParameters = DynamicDomainParametersWithValidity(
-        DynamicDomainParameters.defaultValues(testedProtocolVersion),
+      val domainParameters = DynamicSynchronizerParametersWithValidity(
+        DynamicSynchronizerParameters.defaultValues(testedProtocolVersion),
         CantonTimestamp.MinValue,
         None,
         targetDomain.unwrap,
@@ -869,22 +872,33 @@ final class UnassignmentProcessingStepsTest
         assignmentExclusivity = domainParameters
           .assignmentExclusivityLimitFor(timeProof.timestamp)
           .value
+
+        unassignmentValidationResult = UnassignmentValidationResult(
+          rootHash = rootHash,
+          contractId = contractId,
+          reassignmentCounter = ReassignmentCounter.Genesis,
+          templateId = ExampleTransactionFactory.templateId,
+          packageName = ExampleTransactionFactory.packageName,
+          submitterMetadata = submitterMetadata(submitter),
+          reassignmentId = reassignmentId,
+          targetDomain = targetDomain,
+          stakeholders = Set(party1),
+          targetTimeProof = timeProof,
+          assignmentExclusivity = Some(Target(assignmentExclusivity)),
+          hostedStakeholders = Set(party1),
+          validationResult = UnassignmentValidationResult.ValidationResult(
+            activenessResult = mkActivenessResult(),
+            authenticationErrorO = None,
+            metadataResultET = EitherT.right(FutureUnlessShutdown.unit),
+            validationErrors = Nil,
+          ),
+        )
+
         pendingUnassignment = PendingUnassignment(
           RequestId(CantonTimestamp.Epoch),
           RequestCounter(1),
           SequencerCounter(1),
-          rootHash,
-          contractId,
-          ReassignmentCounter.Genesis,
-          templateId = ExampleTransactionFactory.templateId,
-          packageName = ExampleTransactionFactory.packageName,
-          submitterMetadata = submitterMetadata(submitter),
-          reassignmentId,
-          targetDomain,
-          stakeholders = Set(party1),
-          hostedStakeholders = Set(party1),
-          timeProof,
-          Some(Target(assignmentExclusivity)),
+          unassignmentValidationResult,
           MediatorGroupRecipient(MediatorGroupIndex.one),
           locallyRejectedF = FutureUnlessShutdown.pure(false),
           abortEngine = _ => (),
@@ -911,7 +925,7 @@ final class UnassignmentProcessingStepsTest
     "succeed when the signature is correct" in {
       for {
         signature <- cryptoSnapshot
-          .sign(fullUnassignmentTree.rootHash.unwrap)
+          .sign(fullUnassignmentTree.rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
           .failOnShutdown
 
         parsed = mkParsedRequest(
@@ -945,7 +959,7 @@ final class UnassignmentProcessingStepsTest
     "fail when the signature is incorrect" in {
       for {
         signature <- cryptoSnapshot
-          .sign(TestHash.digest("wrong signature"))
+          .sign(TestHash.digest("wrong signature"), SigningKeyUsage.ProtocolOnly)
           .valueOrFailShutdown("signing failed")
 
         parsed = mkParsedRequest(
@@ -958,7 +972,7 @@ final class UnassignmentProcessingStepsTest
       } yield {
         parsed.requestId
         authenticationError.value should matchPattern {
-          case AuthenticationError.InvalidSignature(requestId, ViewPosition(List()), _) =>
+          case AuthenticationError.InvalidSignature(_, ViewPosition(List()), _) =>
         }
       }
     }

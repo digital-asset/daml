@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http
@@ -53,6 +53,7 @@ class Endpoints(
     encoder: DomainJsonEncoder,
     decoder: DomainJsonDecoder,
     shouldLogHttpBodies: Boolean,
+    resolveUser: ResolveUser,
     userManagementClient: UserManagementClient,
     val loggerFactory: NamedLoggerFactory,
     maxTimeToCollectRequest: FiniteDuration = FiniteDuration(5, "seconds"),
@@ -64,7 +65,7 @@ class Endpoints(
     allowNonHttps = allowNonHttps,
     decodeJwt = decodeJwt,
     encoder = encoder,
-    userManagementClient,
+    resolveUser,
     maxTimeToCollectRequest = maxTimeToCollectRequest,
     loggerFactory = loggerFactory,
   )

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.admin.api.client.commands
@@ -12,13 +12,13 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
 import com.digitalasset.canton.admin.pruning.v30.LocatePruningTimestamp
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.mediator.admin.gprc.{
+import com.digitalasset.canton.mediator.admin.v30
+import com.digitalasset.canton.sequencing.{SequencerConnectionValidation, SequencerConnections}
+import com.digitalasset.canton.synchronizer.mediator.admin.gprc.{
   InitializeMediatorRequest,
   InitializeMediatorResponse,
 }
-import com.digitalasset.canton.mediator.admin.v30
-import com.digitalasset.canton.sequencing.{SequencerConnectionValidation, SequencerConnections}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import io.grpc.ManagedChannel
 
 import scala.concurrent.Future
@@ -43,7 +43,7 @@ object MediatorAdministrationCommands {
   }
 
   final case class Initialize(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       sequencerConnections: SequencerConnections,
       validation: SequencerConnectionValidation,
   ) extends BaseMediatorInitializationCommand[
@@ -54,7 +54,7 @@ object MediatorAdministrationCommands {
     override protected def createRequest(): Either[String, v30.InitializeMediatorRequest] =
       Right(
         InitializeMediatorRequest(
-          domainId,
+          synchronizerId,
           sequencerConnections,
           validation,
         ).toProtoV30

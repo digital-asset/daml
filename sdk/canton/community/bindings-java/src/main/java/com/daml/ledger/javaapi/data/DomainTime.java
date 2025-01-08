@@ -1,5 +1,5 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data;
 
@@ -11,26 +11,26 @@ import java.util.Objects;
 
 public final class DomainTime {
 
-  private final String domainId;
+  private final String synchronizerId;
 
   private final Instant recordTime;
 
-  public DomainTime(@NonNull String domainId, @NonNull Instant recordTime) {
-    this.domainId = domainId;
+  public DomainTime(@NonNull String synchronizerId, @NonNull Instant recordTime) {
+    this.synchronizerId = synchronizerId;
     this.recordTime = recordTime;
   }
 
   public static DomainTime fromProto(OffsetCheckpointOuterClass.DomainTime domainTime) {
 
     return new DomainTime(
-        domainTime.getDomainId(),
+        domainTime.getSynchronizerId(),
         Instant.ofEpochSecond(
             domainTime.getRecordTime().getSeconds(), domainTime.getRecordTime().getNanos()));
   }
 
   public OffsetCheckpointOuterClass.DomainTime toProto() {
     return OffsetCheckpointOuterClass.DomainTime.newBuilder()
-        .setDomainId(this.domainId)
+        .setSynchronizerId(this.synchronizerId)
         .setRecordTime(
             com.google.protobuf.Timestamp.newBuilder()
                 .setSeconds(this.recordTime.getEpochSecond())
@@ -40,8 +40,8 @@ public final class DomainTime {
   }
 
   @NonNull
-  public String getDomainId() {
-    return domainId;
+  public String getSynchronizerId() {
+    return synchronizerId;
   }
 
   public @NonNull Instant getRecordTime() {
@@ -50,7 +50,7 @@ public final class DomainTime {
 
   @Override
   public String toString() {
-    return "DomainTime{" + "domainId=" + domainId + ", recordTime=" + recordTime + '}';
+    return "DomainTime{" + "synchronizerId=" + synchronizerId + ", recordTime=" + recordTime + '}';
   }
 
   @Override
@@ -58,12 +58,13 @@ public final class DomainTime {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     DomainTime that = (DomainTime) o;
-    return Objects.equals(domainId, that.domainId) && Objects.equals(recordTime, that.recordTime);
+    return Objects.equals(synchronizerId, that.synchronizerId)
+        && Objects.equals(recordTime, that.recordTime);
   }
 
   @Override
   public int hashCode() {
 
-    return Objects.hash(domainId, recordTime);
+    return Objects.hash(synchronizerId, recordTime);
   }
 }

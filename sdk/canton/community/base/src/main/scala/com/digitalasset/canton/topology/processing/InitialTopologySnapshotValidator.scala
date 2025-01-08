@@ -1,14 +1,14 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.processing
 
 import cats.data.EitherT
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.DomainCryptoPureApi
+import com.digitalasset.canton.crypto.SynchronizerCryptoPureApi
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransaction,
@@ -39,9 +39,9 @@ import scala.concurrent.ExecutionContext
   * Any inconsistency between the topology snapshot and the outcome of the validation is reported.
   */
 class InitialTopologySnapshotValidator(
-    domainId: DomainId,
-    pureCrypto: DomainCryptoPureApi,
-    store: TopologyStore[TopologyStoreId.DomainStore],
+    synchronizerId: SynchronizerId,
+    pureCrypto: SynchronizerCryptoPureApi,
+    store: TopologyStore[TopologyStoreId.SynchronizerStore],
     timeouts: ProcessingTimeout,
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -56,7 +56,7 @@ class InitialTopologySnapshotValidator(
       initialSnapshot: GenericStoredTopologyTransactions
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] = {
     logger.debug(
-      s"Validating ${initialSnapshot.result.size} transactions to initialize the topology store for domain $domainId"
+      s"Validating ${initialSnapshot.result.size} transactions to initialize the topology store for synchronizer $synchronizerId"
     )
     val groupedBySequencedTime: Seq[
       (

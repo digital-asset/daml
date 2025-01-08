@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.cache
@@ -125,10 +125,21 @@ private[platform] class MutableCacheBackedContractStore(
   private def readThroughKeyCache(
       key: GlobalKey
   )(implicit loggingContext: LoggingContextWithTrace): Future[ContractKeyStateValue] =
-    contractStateCaches.keyState.putAsync(
-      key,
-      contractsReader.lookupKeyState(key, _).map(toKeyCacheValue),
-    )
+    contractStateCaches.keyState
+      .putAsync(
+        key,
+        contractsReader.lookupKeyState(key, _).map(toKeyCacheValue),
+      )
+      .flatMap {
+        case result: Assigned =>
+          // TODO(#23152) Why do we have to make the loading of the contract ID synchronous? This will overall increase latency!
+          // if we have a contract id, we'll also automatically trigger the loading of the contract
+          // as in almost all cases, the contract will be needed after the key lookup
+          lookupContractState(result.contractId).map { _ =>
+            result
+          }
+        case ContractKeyStateValue.Unassigned => Future.successful(ContractKeyStateValue.Unassigned)
+      }
 
   private def nonEmptyIntersection[T](one: Set[T], other: Set[T]): Boolean =
     one.intersect(other).nonEmpty

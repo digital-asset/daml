@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.conflictdetection
@@ -90,7 +90,7 @@ class ConflictDetectorTest
 
   private def defaultReassignmentCache: ReassignmentCache =
     new ReassignmentCache(
-      new InMemoryReassignmentStore(targetDomainId, loggerFactory),
+      new InMemoryReassignmentStore(targetSynchronizerId, loggerFactory),
       futureSupervisor,
       timeouts,
       loggerFactory,
@@ -1635,7 +1635,7 @@ class ConflictDetectorTest
     "detect conflicts between racing assignments" in {
       val reassignmentStore =
         new InMemoryReassignmentStore(
-          Target(ReassignmentStoreTest.indexedTargetDomain.domainId),
+          Target(ReassignmentStoreTest.indexedTargetDomain.synchronizerId),
           loggerFactory,
         )
       val hookedStore = new ReassignmentCacheTest.HookReassignmentStore(reassignmentStore)

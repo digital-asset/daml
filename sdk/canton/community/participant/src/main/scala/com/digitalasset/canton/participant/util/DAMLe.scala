@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.util
@@ -443,7 +443,9 @@ class DAMLe(
           contracts.verifyMetadata(coid, metadata).value.flatMap { verification =>
             handleResultInternal(contracts, resume(verification))
           }
-        case ResultPrefetch(_, resume) => handleResultInternal(contracts, resume())
+        case ResultPrefetch(_, resume) =>
+          // we do not need to prefetch here as Canton includes the keys as a static map in Phase 3
+          handleResultInternal(contracts, resume())
       }
     }
 

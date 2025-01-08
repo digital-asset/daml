@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -6,8 +6,8 @@ syntax = "proto3";
 package com.digitalasset.canton.protocol.v30;
 
 import "com/digitalasset/canton/crypto/v30/crypto.proto";
-import "com/digitalasset/canton/protocol/v30/domain_parameters.proto";
 import "com/digitalasset/canton/protocol/v30/sequencing_parameters.proto";
+import "com/digitalasset/canton/protocol/v30/synchronizer_parameters.proto";
 import "google/protobuf/timestamp.proto";
 import "scalapb/scalapb.proto";
 
@@ -100,51 +100,51 @@ message OwnerToKeyMapping {
   // the designated keys
   repeated com.digitalasset.canton.crypto.v30.PublicKey public_keys = 2;
 
-  reserved 3; // was domain = 3;
+  reserved 3; // was synchronizer = 3;
 }
 
 // mapping a party to a key
 // authorization: whoever controls the party uid
-// UNIQUE(party, domain)
+// UNIQUE(party)
 message PartyToKeyMapping {
   // the party
   string party = 1;
-  // optionally restricted to domain
-  string domain = 2;
   // the authorization threshold
   uint32 threshold = 3;
   // the designated signing keys
   repeated com.digitalasset.canton.crypto.v30.SigningPublicKey signing_keys = 4;
+
+  reserved 2; // was synchronizer_id = 2
 }
 
 // the trust certificate issued by the participant confirming that the participant
-// wishes to be present on the given domain
+// wishes to be present on the given synchronizer
 // authorization: whoever controls the participant uid
-// UNIQUE(participant,domain)
-message DomainTrustCertificate {
+// UNIQUE(participant,synchronizer_id)
+message SynchronizerTrustCertificate {
   // the uid of the participant
   string participant_uid = 1;
 
-  // the uid of the domain that the participant trusts
-  string domain = 2;
+  // the uid of the synchronizer that the participant trusts
+  string synchronizer_id = 2;
 
-  reserved 3; // was bool reassignment_only_to_given_target_domains = 3;
+  reserved 3; // was bool reassignment_only_to_given_target_synchronizer_ids = 3;
 
-  reserved 4; // was repeated string target_domains = 4;
+  reserved 4; // was repeated string target_synchronizer_ids = 4;
 }
 
-// the optional trust certificate of the domain towards the participant
-// authorization: whoever controls the domain uid
-// UNIQUE(domain,participant)
-message ParticipantDomainPermission {
-  string domain = 1;
+// the optional trust certificate of the synchronizer towards the participant
+// authorization: whoever controls the synchronizer id
+// UNIQUE(synchronizer_id,participant)
+message ParticipantSynchronizerPermission {
+  string synchronizer_id = 1;
   string participant_uid = 2;
 
-  // the permission level of the participant on this domain (usually submission)
+  // the permission level of the participant on this synchronizer (usually submission)
   Enums.ParticipantPermission permission = 3;
 
   // optional individual limits for this participant
-  ParticipantDomainLimits limits = 4;
+  ParticipantSynchronizerLimits limits = 4;
 
   // optional earliest time when participant can log in (again)
   // used to temporarily disable participants
@@ -152,12 +152,12 @@ message ParticipantDomainPermission {
   optional int64 login_after = 5;
 }
 
-// the optional hosting limits for a party on a given domain
+// the optional hosting limits for a party on a given synchronizer
 // these limits can be used to limit the number of participants that can host a given party
-// authorization: whoever controls the domain uid
-// UNIQUE(domain,party)
+// authorization: whoever controls the synchronizer id
+// UNIQUE(synchronizer_id,party)
 message PartyHostingLimits {
-  string domain = 1;
+  string synchronizer_id = 1;
   string party = 2;
   reserved 3; // was quota = 3;
 }
@@ -189,7 +189,7 @@ message VettedPackages {
   // only one entry per package_id is permitted.
   repeated VettedPackage packages = 4;
 
-  reserved 3; // was domain = 3;
+  reserved 3; // was synchronizer_id = 3;
 }
 
 // mapping that maps a party to a participant
@@ -207,7 +207,7 @@ message PartyToParticipant {
     string participant_uid = 1;
 
     // permission of the participant for this particular party (the actual
-    // will be min of ParticipantDomainPermission.ParticipantPermission and this setting)
+    // will be min of ParticipantSynchronizerPermission.ParticipantPermission and this setting)
     Enums.ParticipantPermission permission = 2;
   }
 
@@ -224,35 +224,35 @@ message PartyToParticipant {
 
   reserved 4; // was group_addressing = 4;
 
-  reserved 5; // was domain = 5;
+  reserved 5; // was synchronizer = 5;
 }
 
-// which dynamic domain parameters are supposed to be used on the given domain
-// authorization: whoever controls the domain
-// UNIQUE(domain)
-message DomainParametersState {
-  // domain affected by the new domain parameters
-  string domain = 1;
+// which dynamic synchronizer parameters are supposed to be used on the given synchronizer
+// authorization: whoever controls the synchronizer
+// UNIQUE(synchronizer_id)
+message SynchronizerParametersState {
+  // synchronizer affected by the new synchronizer parameters
+  string synchronizer_id = 1;
 
-  DynamicDomainParameters domain_parameters = 2;
+  DynamicSynchronizerParameters synchronizer_parameters = 2;
 }
 
-// which sequencing dynamic parameters are supposed to be used on the given domain; defaults are used when not set
-// authorization: whoever controls the domain
-// UNIQUE(domain)
+// which sequencing dynamic parameters are supposed to be used on the given synchronizer; defaults are used when not set
+// authorization: whoever controls the synchronizer
+// UNIQUE(synchronizer_id)
 message DynamicSequencingParametersState {
-  // domain affected by the new domain parameters
-  string domain = 1;
+  // synchronizer affected by the new synchronizer parameters
+  string synchronizer_id = 1;
 
   DynamicSequencingParameters sequencing_parameters = 2;
 }
 
-// which mediators and mediator groups are active on the given domain
-// authorization: whoever controls the domain
-// UNIQUE(domain, group)
-message MediatorDomainState {
-  // the domain-id of the mediator group
-  string domain = 1;
+// which mediators and mediator groups are active on the given synchronizer
+// authorization: whoever controls the synchronizer
+// UNIQUE(synchronizer_id, group)
+message MediatorSynchronizerState {
+  // the synchronizer id of the mediator group
+  string synchronizer_id = 1;
 
   // the group-id used for sharding multiple mediator groups
   uint32 group = 2;
@@ -267,12 +267,12 @@ message MediatorDomainState {
   repeated string observers = 5;
 }
 
-// which sequencers are active on the given domain
-// authorization: whoever controls the domain
-// UNIQUE(domain)
-message SequencerDomainState {
-  // the domain-id of the sequencer group
-  string domain = 1;
+// which sequencers are active on the given synchronizer
+// authorization: whoever controls the synchronizer
+// UNIQUE(synchronizer_id)
+message SequencerSynchronizerState {
+  // the synchronizer id of the sequencer group
+  string synchronizer_id = 1;
 
   // The system can tolerate up to min(threshold - 1, (activeWithSigningKey.size - 1)/3) malicious active sequencers,
   // where activeWithSigningKey is the set of sequencers from active that have an active OwnerToKeyMapping with a signing key.
@@ -291,15 +291,15 @@ message SequencerDomainState {
 }
 
 // explicitly invalidate topology transactions for good
-// this can be used by the domain to offboard participants forcefully or to
+// this can be used by the synchronizer to offboard participants forcefully or to
 // remove stray topology transactions
-// authorization: whoever controls the domain
-// UNIQUE(domain)
+// authorization: whoever controls the synchronizer
+// UNIQUE(synchronizer_id)
 message PurgeTopologyTransaction {
-  // the domain-id
-  string domain = 1;
+  // the synchronizer id
+  string synchronizer_id = 1;
 
-  // the list of mappings to remove from this domain
+  // the list of mappings to remove from this synchronizer
   repeated TopologyMapping mappings = 2;
 }
 
@@ -311,16 +311,16 @@ message TopologyMapping {
 
     OwnerToKeyMapping owner_to_key_mapping = 4;
 
-    DomainTrustCertificate domain_trust_certificate = 5;
-    ParticipantDomainPermission participant_permission = 6;
+    SynchronizerTrustCertificate synchronizer_trust_certificate = 5;
+    ParticipantSynchronizerPermission participant_permission = 6;
     PartyHostingLimits party_hosting_limits = 7;
     VettedPackages vetted_packages = 8;
 
     PartyToParticipant party_to_participant = 9;
 
-    DomainParametersState domain_parameters_state = 11;
-    MediatorDomainState mediator_domain_state = 12;
-    SequencerDomainState sequencer_domain_state = 13;
+    SynchronizerParametersState synchronizer_parameters_state = 11;
+    MediatorSynchronizerState mediator_synchronizer_state = 12;
+    SequencerSynchronizerState sequencer_synchronizer_state = 13;
     PurgeTopologyTransaction purge_topology_txs = 14;
     DynamicSequencingParametersState sequencing_dynamic_parameters_state = 15;
 
@@ -369,12 +369,12 @@ message SignedTopologyTransactions {
 /** Accepted topology transaction
  *
  * A member sends topology transactions to the topology transaction broadcast address.
- * The transactions are validated by all members individually against their respective domain store,
+ * The transactions are validated by all members individually against their respective synchronizer store,
  * including the member the submitted the broadcast.
  */
 message TopologyTransactionsBroadcast {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
-  string domain = 1;
+  string synchronizer_id = 1;
   SignedTopologyTransactions signed_transactions = 2;
 }

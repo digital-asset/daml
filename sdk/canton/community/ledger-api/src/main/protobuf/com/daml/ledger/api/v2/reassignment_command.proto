@@ -58,12 +58,12 @@ message UnassignCommand {
   string contract_id = 1;
 
   // The ID of the source domain
-  // Must be a valid domain ID
+  // Must be a valid synchronizer id
   // Required
   string source = 2;
 
   // The ID of the target domain
-  // Must be a valid domain ID
+  // Must be a valid synchronizer id
   // Required
   string target = 3;
 }
@@ -76,12 +76,12 @@ message AssignCommand {
   string unassign_id = 1;
 
   // The ID of the source domain
-  // Must be a valid domain ID
+  // Must be a valid synchronizer id
   // Required
   string source = 2;
 
   // The ID of the target domain
-  // Must be a valid domain ID
+  // Must be a valid synchronizer id
   // Required
   string target = 3;
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services.command
@@ -223,7 +223,7 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
     submissionSyncService
       .submitTransaction(
         result.submitterInfo,
-        result.optDomainId,
+        result.optSynchronizerId,
         result.transactionMeta,
         result.transaction,
         result.interpretationTimeNanos,

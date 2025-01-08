@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.traffic
@@ -9,7 +9,10 @@ import cats.syntax.parallel.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
-import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, DomainSyncCryptoClient}
+import com.digitalasset.canton.crypto.{
+  SynchronizerSnapshotSyncCryptoApi,
+  SynchronizerSyncCryptoClient,
+}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -22,8 +25,8 @@ import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.sequencing.client.{SendCallback, SendResult, SequencerClientSend}
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.TrafficControlError
-import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
-import com.digitalasset.canton.topology.{DomainId, Member}
+import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
+import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil}
@@ -42,7 +45,7 @@ class TrafficPurchasedSubmissionHandler(
 
   /** Send a signed traffic purchased entry request.
     * @param member recipient of the new balance
-    * @param domainId domainId of the domain where the top up is being sent to
+    * @param synchronizerId synchronizerId of the domain where the top up is being sent to
     * @param protocolVersion protocol version used
     * @param serial monotonically increasing serial number for the request
     * @param totalTrafficPurchased new total traffic purchased entry
@@ -51,18 +54,18 @@ class TrafficPurchasedSubmissionHandler(
     */
   def sendTrafficPurchasedRequest(
       member: Member,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       protocolVersion: ProtocolVersion,
       serial: PositiveInt,
       totalTrafficPurchased: NonNegativeLong,
       sequencerClient: SequencerClientSend,
-      domainTimeTracker: DomainTimeTracker,
-      cryptoApi: DomainSyncCryptoClient,
+      synchronizerTimeTracker: SynchronizerTimeTracker,
+      cryptoApi: SynchronizerSyncCryptoClient,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, TrafficControlError, Unit] = {
-    val topology: DomainSnapshotSyncCryptoApi = cryptoApi.currentSnapshotApproximation
+    val topology: SynchronizerSnapshotSyncCryptoApi = cryptoApi.currentSnapshotApproximation
     val snapshot = topology.ipsSnapshot
 
     def send(
@@ -80,7 +83,7 @@ class TrafficPurchasedSubmissionHandler(
           )
           sendRequest(
             sequencerClient,
-            domainTimeTracker,
+            synchronizerTimeTracker,
             batch,
             aggregationRule,
             maxSequencingTime,
@@ -136,7 +139,7 @@ class TrafficPurchasedSubmissionHandler(
         member,
         serial,
         totalTrafficPurchased,
-        domainId,
+        synchronizerId,
         protocolVersion,
       )
       signedTrafficPurchasedMessage <- EitherT
@@ -159,7 +162,7 @@ class TrafficPurchasedSubmissionHandler(
                 RecipientsTree.recipientsLeaf( // Leaf of the tree: sequencers of domain group
                   NonEmpty.mk(
                     Set,
-                    SequencersOfDomain: Recipient,
+                    SequencersOfSynchronizer: Recipient,
                   )
                 )
               ),
@@ -174,7 +177,7 @@ class TrafficPurchasedSubmissionHandler(
 
   private def sendRequest(
       sequencerClient: SequencerClientSend,
-      domainTimeTracker: DomainTimeTracker,
+      synchronizerTimeTracker: SynchronizerTimeTracker,
       batch: Batch[DefaultOpenEnvelope],
       aggregationRule: AggregationRule,
       maxSequencingTime: CantonTimestamp,
@@ -185,7 +188,7 @@ class TrafficPurchasedSubmissionHandler(
     val callback = SendCallback.future
     implicit val metricsContext: MetricsContext = MetricsContext("type" -> "traffic-purchase")
     // Make sure that the sequencer will ask for a time proof if it doesn't observe the sequencing in time
-    domainTimeTracker.requestTick(maxSequencingTime)
+    synchronizerTimeTracker.requestTick(maxSequencingTime)
     for {
       _ <- sequencerClient
         .sendAsync(

@@ -1,11 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.metrics
 
 import com.daml.metrics.api.{HistogramInventory, MetricName}
-import com.digitalasset.canton.domain.metrics.{MediatorHistograms, SequencerHistograms}
 import com.digitalasset.canton.participant.metrics.ParticipantHistograms
+import com.digitalasset.canton.synchronizer.metrics.{MediatorHistograms, SequencerHistograms}
 
 /** Pre-register histogram metrics
   *

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
@@ -20,14 +20,13 @@ import com.digitalasset.canton.platform.store.dao.events.{
   LfValueSerialization,
 }
 import com.digitalasset.canton.platform.{ContractId, Create, Exercise}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext.Implicits.Empty.emptyTraceContext
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
-import com.digitalasset.daml.lf.ledger.EventId
 import com.digitalasset.daml.lf.transaction.GlobalKey
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateKey
 import com.digitalasset.daml.lf.transaction.test.{
@@ -134,7 +133,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       val update = state.Update.SequencedCommandRejected(
         completionInfo,
         state.Update.CommandRejected.FinalReason(status),
-        someDomainId1,
+        someSynchronizerId1,
         RequestCounter(11),
         SequencerCounter(15),
         CantonTimestamp.ofEpochMicro(1234567),
@@ -157,7 +156,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_offset = None,
           deduplication_duration_seconds = None,
           deduplication_duration_nanos = None,
-          domain_id = someDomainId1.toProtoPrimitive,
+          synchronizer_id = someSynchronizerId1.toProtoPrimitive,
           message_uuid = None,
           request_sequencer_counter = Some(15),
           is_transaction = true,
@@ -173,7 +172,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       val update = state.Update.UnSequencedCommandRejected(
         completionInfo,
         state.Update.CommandRejected.FinalReason(status),
-        someDomainId1,
+        someSynchronizerId1,
         someRecordTime,
         messageUuid,
       )
@@ -195,7 +194,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_offset = None,
           deduplication_duration_seconds = None,
           deduplication_duration_nanos = None,
-          domain_id = someDomainId1.toProtoPrimitive,
+          synchronizer_id = someSynchronizerId1.toProtoPrimitive,
           message_uuid = Some(messageUuid.toString),
           request_sequencer_counter = None,
           is_transaction = true,
@@ -231,7 +230,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         updateId = updateId,
         contractMetadata = Map(contractId -> someContractDriverMetadata),
         hostedWitnesses = Nil,
-        domainId = someDomainId1,
+        synchronizerId = someSynchronizerId1,
         requestCounter = someRequestCounter,
         sequencerCounter = someSequencerCounter,
         recordTime = someRecordTime,
@@ -271,7 +270,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         create_key_value_compression = compressionAlgorithmId,
         event_sequential_id = 0,
         driver_metadata = someContractDriverMetadata.toByteArray,
-        domain_id = someDomainId1.toProtoPrimitive,
+        synchronizer_id = someSynchronizerId1.toProtoPrimitive,
         trace_context = serializedEmptyTraceContext,
         record_time = someRecordTime.toMicros,
       )
@@ -290,7 +289,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         deduplication_offset = None,
         deduplication_duration_nanos = None,
         deduplication_duration_seconds = None,
-        domain_id = someDomainId1.toProtoPrimitive,
+        synchronizer_id = someSynchronizerId1.toProtoPrimitive,
         message_uuid = None,
         request_sequencer_counter = Some(10),
         is_transaction = true,
@@ -301,7 +300,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_offset = someOffset.unwrap,
         publication_time = 0,
         record_time = someRecordTime.toMicros,
-        domain_id = someDomainId1.toProtoPrimitive,
+        synchronizer_id = someSynchronizerId1.toProtoPrimitive,
         event_sequential_id_first = 0,
         event_sequential_id_last = 0,
       )
@@ -346,7 +345,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         updateId = updateId,
         contractMetadata = Map.empty,
         hostedWitnesses = Nil,
-        domainId = someDomainId1,
+        synchronizerId = someSynchronizerId1,
         requestCounter = RequestCounter(100),
         sequencerCounter = SequencerCounter(110),
         recordTime = CantonTimestamp.ofEpochMicro(120),
@@ -374,12 +373,12 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_argument = emptyArray,
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
-          exercise_child_event_ids = Vector.empty,
+          exercise_child_node_ids = Vector.empty,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
           event_sequential_id = 0,
-          domain_id = someDomainId1.toProtoPrimitive,
+          synchronizer_id = someSynchronizerId1.toProtoPrimitive,
           trace_context = serializedEmptyTraceContext,
           record_time = 120,
         ),
@@ -408,7 +407,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_offset = None,
           deduplication_duration_nanos = None,
           deduplication_duration_seconds = None,
-          domain_id = someDomainId1.toProtoPrimitive,
+          synchronizer_id = someSynchronizerId1.toProtoPrimitive,
           message_uuid = None,
           request_sequencer_counter = Some(110),
           is_transaction = true,
@@ -419,7 +418,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_offset = someOffset.unwrap,
           publication_time = 0,
           record_time = 120,
-          domain_id = someDomainId1.toProtoPrimitive,
+          synchronizer_id = someSynchronizerId1.toProtoPrimitive,
           event_sequential_id_first = 0,
           event_sequential_id_last = 0,
         ),
@@ -458,7 +457,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         updateId = updateId,
         contractMetadata = Map.empty,
         hostedWitnesses = Nil,
-        domainId = someDomainId1,
+        synchronizerId = someSynchronizerId1,
         requestCounter = someRequestCounter,
         sequencerCounter = someSequencerCounter,
         recordTime = someRecordTime,
@@ -486,12 +485,12 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_argument = emptyArray,
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
-          exercise_child_event_ids = Vector.empty,
+          exercise_child_node_ids = Vector.empty,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
           event_sequential_id = 0,
-          domain_id = someDomainId1.toProtoPrimitive,
+          synchronizer_id = someSynchronizerId1.toProtoPrimitive,
           trace_context = serializedEmptyTraceContext,
           record_time = someRecordTime.toMicros,
         ),
@@ -514,7 +513,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_offset = None,
           deduplication_duration_nanos = None,
           deduplication_duration_seconds = None,
-          domain_id = someDomainId1.toProtoPrimitive,
+          synchronizer_id = someSynchronizerId1.toProtoPrimitive,
           message_uuid = None,
           request_sequencer_counter = Some(10),
           is_transaction = true,
@@ -525,7 +524,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_offset = someOffset.unwrap,
           publication_time = 0,
           record_time = someRecordTime.toMicros,
-          domain_id = someDomainId1.toProtoPrimitive,
+          synchronizer_id = someSynchronizerId1.toProtoPrimitive,
           event_sequential_id_first = 0,
           event_sequential_id_last = 0,
         ),
@@ -590,7 +589,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         updateId = updateId,
         contractMetadata = Map.empty,
         hostedWitnesses = Nil,
-        domainId = someDomainId1,
+        synchronizerId = someSynchronizerId1,
         requestCounter = someRequestCounter,
         sequencerCounter = someSequencerCounter,
         recordTime = someRecordTime,
@@ -618,15 +617,15 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_argument = emptyArray,
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
-          exercise_child_event_ids = Vector(
-            EventId(updateId, exerciseNodeBId).toLedgerString,
-            EventId(updateId, exerciseNodeCId).toLedgerString,
+          exercise_child_node_ids = Vector(
+            exerciseNodeBId.index,
+            exerciseNodeCId.index,
           ),
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
           event_sequential_id = 0,
-          domain_id = someDomainId1.toProtoPrimitive,
+          synchronizer_id = someSynchronizerId1.toProtoPrimitive,
           trace_context = serializedEmptyTraceContext,
           record_time = someRecordTime.toMicros,
         ),
@@ -654,12 +653,12 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_argument = emptyArray,
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
-          exercise_child_event_ids = Vector.empty,
+          exercise_child_node_ids = Vector.empty,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
           event_sequential_id = 0,
-          domain_id = someDomainId1.toProtoPrimitive,
+          synchronizer_id = someSynchronizerId1.toProtoPrimitive,
           trace_context = serializedEmptyTraceContext,
           record_time = someRecordTime.toMicros,
         ),
@@ -687,12 +686,12 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_argument = emptyArray,
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
-          exercise_child_event_ids = Vector.empty,
+          exercise_child_node_ids = Vector.empty,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
           event_sequential_id = 0,
-          domain_id = someDomainId1.toProtoPrimitive,
+          synchronizer_id = someSynchronizerId1.toProtoPrimitive,
           trace_context = serializedEmptyTraceContext,
           record_time = someRecordTime.toMicros,
         ),
@@ -715,7 +714,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_offset = None,
           deduplication_duration_nanos = None,
           deduplication_duration_seconds = None,
-          domain_id = someDomainId1.toProtoPrimitive,
+          synchronizer_id = someSynchronizerId1.toProtoPrimitive,
           message_uuid = None,
           request_sequencer_counter = Some(10),
           is_transaction = true,
@@ -726,7 +725,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_offset = someOffset.unwrap,
           publication_time = 0,
           record_time = someRecordTime.toMicros,
-          domain_id = someDomainId1.toProtoPrimitive,
+          synchronizer_id = someSynchronizerId1.toProtoPrimitive,
           event_sequential_id_first = 0,
           event_sequential_id_last = 0,
         ),
@@ -773,7 +772,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         updateId = updateId,
         hostedWitnesses = Nil,
         contractMetadata = Map.empty,
-        domainId = someDomainId1,
+        synchronizerId = someSynchronizerId1,
         requestCounter = someRequestCounter,
         sequencerCounter = someSequencerCounter,
         recordTime = someRecordTime,
@@ -797,7 +796,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_offset = None,
           deduplication_duration_nanos = None,
           deduplication_duration_seconds = None,
-          domain_id = someDomainId1.toProtoPrimitive,
+          synchronizer_id = someSynchronizerId1.toProtoPrimitive,
           message_uuid = None,
           request_sequencer_counter = Some(10),
           is_transaction = true,
@@ -808,7 +807,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_offset = someOffset.unwrap,
           publication_time = 0,
           record_time = someRecordTime.toMicros,
-          domain_id = someDomainId1.toProtoPrimitive,
+          synchronizer_id = someSynchronizerId1.toProtoPrimitive,
           event_sequential_id_first = 0,
           event_sequential_id_last = 0,
         ),
@@ -849,7 +848,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         updateId = updateId,
         hostedWitnesses = Nil,
         contractMetadata = Map.empty,
-        domainId = someDomainId1,
+        synchronizerId = someSynchronizerId1,
         requestCounter = someRequestCounter,
         sequencerCounter = someSequencerCounter,
         recordTime = someRecordTime,
@@ -877,12 +876,12 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_argument = emptyArray,
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
-          exercise_child_event_ids = Vector.empty,
+          exercise_child_node_ids = Vector.empty,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
           event_sequential_id = 0,
-          domain_id = someDomainId1.toProtoPrimitive,
+          synchronizer_id = someSynchronizerId1.toProtoPrimitive,
           trace_context = serializedEmptyTraceContext,
           record_time = someRecordTime.toMicros,
         ),
@@ -915,7 +914,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_offset = None,
           deduplication_duration_nanos = None,
           deduplication_duration_seconds = None,
-          domain_id = someDomainId1.toProtoPrimitive,
+          synchronizer_id = someSynchronizerId1.toProtoPrimitive,
           message_uuid = None,
           request_sequencer_counter = Some(10),
           is_transaction = true,
@@ -926,7 +925,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_offset = someOffset.unwrap,
           publication_time = 0,
           record_time = someRecordTime.toMicros,
-          domain_id = someDomainId1.toProtoPrimitive,
+          synchronizer_id = someSynchronizerId1.toProtoPrimitive,
           event_sequential_id_first = 0,
           event_sequential_id_last = 0,
         ),
@@ -968,7 +967,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         updateId = updateId,
         hostedWitnesses = Nil,
         contractMetadata = Map(contractId -> someContractDriverMetadata),
-        domainId = someDomainId1,
+        synchronizerId = someSynchronizerId1,
         requestCounter = someRequestCounter,
         sequencerCounter = someSequencerCounter,
         recordTime = someRecordTime,
@@ -1000,7 +999,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         create_key_value_compression = None,
         event_sequential_id = 0,
         driver_metadata = someContractDriverMetadata.toByteArray,
-        domain_id = someDomainId1.toProtoPrimitive,
+        synchronizer_id = someSynchronizerId1.toProtoPrimitive,
         trace_context = serializedEmptyTraceContext,
         record_time = someRecordTime.toMicros,
       )
@@ -1028,12 +1027,12 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         exercise_argument = emptyArray,
         exercise_result = Some(emptyArray),
         exercise_actors = Set("signatory"),
-        exercise_child_event_ids = Vector.empty,
+        exercise_child_node_ids = Vector.empty,
         create_key_value_compression = compressionAlgorithmId,
         exercise_argument_compression = compressionAlgorithmId,
         exercise_result_compression = compressionAlgorithmId,
         event_sequential_id = 0,
-        domain_id = someDomainId1.toProtoPrimitive,
+        synchronizer_id = someSynchronizerId1.toProtoPrimitive,
         trace_context = serializedEmptyTraceContext,
         record_time = someRecordTime.toMicros,
       )
@@ -1066,7 +1065,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         deduplication_offset = None,
         deduplication_duration_nanos = None,
         deduplication_duration_seconds = None,
-        domain_id = someDomainId1.toProtoPrimitive,
+        synchronizer_id = someSynchronizerId1.toProtoPrimitive,
         message_uuid = None,
         request_sequencer_counter = Some(10),
         is_transaction = true,
@@ -1077,7 +1076,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_offset = someOffset.unwrap,
         publication_time = 0,
         record_time = someRecordTime.toMicros,
-        domain_id = someDomainId1.toProtoPrimitive,
+        synchronizer_id = someSynchronizerId1.toProtoPrimitive,
         event_sequential_id_first = 0,
         event_sequential_id_last = 0,
       )
@@ -1122,7 +1121,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         updateId = updateId,
         hostedWitnesses = Nil,
         contractMetadata = Map.empty,
-        domainId = someDomainId1,
+        synchronizerId = someSynchronizerId1,
         requestCounter = someRequestCounter,
         sequencerCounter = someSequencerCounter,
         recordTime = someRecordTime,
@@ -1145,7 +1144,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_offset = None,
           deduplication_duration_nanos = None,
           deduplication_duration_seconds = None,
-          domain_id = someDomainId1.toProtoPrimitive,
+          synchronizer_id = someSynchronizerId1.toProtoPrimitive,
           message_uuid = None,
           request_sequencer_counter = Some(10),
           is_transaction = true,
@@ -1156,7 +1155,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_offset = someOffset.unwrap,
           publication_time = 0,
           record_time = someRecordTime.toMicros,
-          domain_id = someDomainId1.toProtoPrimitive,
+          synchronizer_id = someSynchronizerId1.toProtoPrimitive,
           event_sequential_id_first = 0,
           event_sequential_id_last = 0,
         ),
@@ -1185,7 +1184,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         updateId = Ref.TransactionId.assertFromString("UpdateId"),
         hostedWitnesses = Nil,
         contractMetadata = Map(contractId -> someContractDriverMetadata),
-        domainId = someDomainId1,
+        synchronizerId = someSynchronizerId1,
         requestCounter = someRequestCounter,
         sequencerCounter = someSequencerCounter,
         recordTime = someRecordTime,
@@ -1217,7 +1216,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         create_key_value_compression = None,
         event_sequential_id = 0,
         driver_metadata = someContractDriverMetadata.toByteArray,
-        domain_id = someDomainId1.toProtoPrimitive,
+        synchronizer_id = someSynchronizerId1.toProtoPrimitive,
         trace_context = serializedEmptyTraceContext,
         record_time = someRecordTime.toMicros,
       )
@@ -1263,7 +1262,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           val update = state.Update.SequencedCommandRejected(
             completionInfo,
             state.Update.CommandRejected.FinalReason(status),
-            someDomainId1,
+            someSynchronizerId1,
             RequestCounter(10),
             SequencerCounter(10),
             someRecordTime,
@@ -1286,7 +1285,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
               deduplication_offset = expectedDeduplicationOffset,
               deduplication_duration_seconds = expectedDeduplicationDurationSeconds,
               deduplication_duration_nanos = expectedDeduplicationDurationNanos,
-              domain_id = someDomainId1.toProtoPrimitive,
+              synchronizer_id = someSynchronizerId1.toProtoPrimitive,
               message_uuid = None,
               request_sequencer_counter = Some(10),
               is_transaction = true,
@@ -1325,7 +1324,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             updateId = updateId,
             hostedWitnesses = Nil,
             contractMetadata = Map(contractId -> someContractDriverMetadata),
-            domainId = someDomainId1,
+            synchronizerId = someSynchronizerId1,
             requestCounter = someRequestCounter,
             sequencerCounter = someSequencerCounter,
             recordTime = someRecordTime,
@@ -1357,7 +1356,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             create_key_value_compression = None,
             event_sequential_id = 0,
             driver_metadata = someContractDriverMetadata.toByteArray,
-            domain_id = someDomainId1.toProtoPrimitive,
+            synchronizer_id = someSynchronizerId1.toProtoPrimitive,
             trace_context = serializedEmptyTraceContext,
             record_time = someRecordTime.toMicros,
           )
@@ -1380,7 +1379,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             deduplication_offset = expectedDeduplicationOffset,
             deduplication_duration_seconds = expectedDeduplicationDurationSeconds,
             deduplication_duration_nanos = expectedDeduplicationDurationNanos,
-            domain_id = someDomainId1.toProtoPrimitive,
+            synchronizer_id = someSynchronizerId1.toProtoPrimitive,
             message_uuid = None,
             request_sequencer_counter = Some(10),
             is_transaction = true,
@@ -1391,7 +1390,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             event_offset = someOffset.unwrap,
             publication_time = 0,
             record_time = someRecordTime.toMicros,
-            domain_id = someDomainId1.toProtoPrimitive,
+            synchronizer_id = someSynchronizerId1.toProtoPrimitive,
             event_sequential_id_first = 0,
             event_sequential_id_last = 0,
           )
@@ -1417,8 +1416,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         workflowId = Some(someWorkflowId),
         updateId = updateId,
         reassignmentInfo = ReassignmentInfo(
-          sourceDomain = Source(DomainId.tryFromString("x::domain1")),
-          targetDomain = Target(DomainId.tryFromString("x::domain2")),
+          sourceDomain = Source(SynchronizerId.tryFromString("x::domain1")),
+          targetDomain = Target(SynchronizerId.tryFromString("x::domain2")),
           submitter = Option(someParty),
           reassignmentCounter = 1500L,
           hostedStakeholders = Nil,
@@ -1459,8 +1458,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_sequential_id = 0,
         ledger_effective_time = 17000000,
         driver_metadata = someContractDriverMetadata.toByteArray,
-        source_domain_id = "x::domain1",
-        target_domain_id = "x::domain2",
+        source_synchronizer_id = "x::domain1",
+        target_synchronizer_id = "x::domain2",
         unassign_id = "1000000000",
         reassignment_counter = 1500L,
         trace_context = serializedEmptyTraceContext,
@@ -1481,7 +1480,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         deduplication_offset = None,
         deduplication_duration_nanos = None,
         deduplication_duration_seconds = None,
-        domain_id = "x::domain2",
+        synchronizer_id = "x::domain2",
         message_uuid = None,
         request_sequencer_counter = Some(10),
         is_transaction = false,
@@ -1492,7 +1491,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_offset = someOffset.unwrap,
         publication_time = 0,
         record_time = someRecordTime.toMicros,
-        domain_id = "x::domain2",
+        synchronizer_id = "x::domain2",
         event_sequential_id_first = 0,
         event_sequential_id_last = 0,
       )
@@ -1522,8 +1521,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         workflowId = Some(someWorkflowId),
         updateId = updateId,
         reassignmentInfo = ReassignmentInfo(
-          sourceDomain = Source(DomainId.tryFromString("x::domain1")),
-          targetDomain = Target(DomainId.tryFromString("x::domain2")),
+          sourceDomain = Source(SynchronizerId.tryFromString("x::domain1")),
+          targetDomain = Target(SynchronizerId.tryFromString("x::domain2")),
           submitter = Option(someParty),
           reassignmentCounter = 1500L,
           hostedStakeholders = Nil,
@@ -1556,8 +1555,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         package_name = createNode.packageName,
         flat_event_witnesses = Set("signatory12", "observer23", "asdasdasd"),
         event_sequential_id = 0,
-        source_domain_id = "x::domain1",
-        target_domain_id = "x::domain2",
+        source_synchronizer_id = "x::domain1",
+        target_synchronizer_id = "x::domain2",
         unassign_id = "1000000000",
         reassignment_counter = 1500L,
         assignment_exclusivity = Some(123456L),
@@ -1579,7 +1578,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         deduplication_offset = None,
         deduplication_duration_nanos = None,
         deduplication_duration_seconds = None,
-        domain_id = "x::domain1",
+        synchronizer_id = "x::domain1",
         message_uuid = None,
         request_sequencer_counter = Some(110),
         is_transaction = false,
@@ -1590,7 +1589,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_offset = someOffset.unwrap,
         publication_time = 0,
         record_time = 120L,
-        domain_id = "x::domain1",
+        synchronizer_id = "x::domain1",
         event_sequential_id_first = 0,
         event_sequential_id_last = 0,
       )
@@ -1619,7 +1618,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       val update = state.Update.TopologyTransactionEffective(
         updateId = updateId,
         events = events,
-        domainId = someDomainId1,
+        synchronizerId = someSynchronizerId1,
         effectiveTime = someRecordTime,
       )
 
@@ -1632,7 +1631,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         party_id = someParty,
         participant_id = someParticipantId,
         participant_permission = UpdateToDbDto.authorizationLevelToInt(Submission),
-        domain_id = someDomainId1.toProtoPrimitive,
+        synchronizer_id = someSynchronizerId1.toProtoPrimitive,
         record_time = someRecordTime.toMicros,
         trace_context = serializedEmptyTraceContext,
       )
@@ -1643,7 +1642,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         party_id = someParty,
         participant_id = otherParticipantId,
         participant_permission = UpdateToDbDto.authorizationLevelToInt(Revoked),
-        domain_id = someDomainId1.toProtoPrimitive,
+        synchronizer_id = someSynchronizerId1.toProtoPrimitive,
         record_time = someRecordTime.toMicros,
         trace_context = serializedEmptyTraceContext,
       )
@@ -1652,7 +1651,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_offset = someOffset.unwrap,
         publication_time = 0,
         record_time = someRecordTime.toMicros,
-        domain_id = "x::domain1",
+        synchronizer_id = "x::domain1",
         event_sequential_id_first = 0,
         event_sequential_id_last = 0,
       )
@@ -1661,7 +1660,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
     "handle SequencerIndexMoved" in {
       val update = state.Update.SequencerIndexMoved(
-        domainId = someDomainId1,
+        synchronizerId = someSynchronizerId1,
         sequencerCounter = SequencerCounter(1000),
         recordTime = CantonTimestamp.ofEpochMicro(2000),
         requestCounterO = None,
@@ -1669,7 +1668,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       val dtos = updateToDtos(update)
 
       dtos.head shouldEqual DbDto.SequencerIndexMoved(
-        domainId = someDomainId1.toProtoPrimitive
+        synchronizerId = someSynchronizerId1.toProtoPrimitive
       )
       dtos.size shouldEqual 1
     }
@@ -1706,8 +1705,7 @@ object UpdateToDbDtoSpec {
 
     /** Returns (choice argument, exercise result, contract key) */
     override def serialize(
-        eventId: EventId,
-        exercise: Exercise,
+        exercise: Exercise
     ): (Array[Byte], Option[Array[Byte]], Option[Array[Byte]]) =
       (
         emptyArray,
@@ -1751,7 +1749,7 @@ object UpdateToDbDtoSpec {
     optDeduplicationPeriod = None,
     submissionId = Some(someSubmissionId),
   )
-  private val someDomainId1 = DomainId.tryFromString("x::domain1")
+  private val someSynchronizerId1 = SynchronizerId.tryFromString("x::domain1")
   private val someTransactionMeta = state.TransactionMeta(
     ledgerEffectiveTime = Time.Timestamp.assertFromLong(2),
     workflowId = Some(someWorkflowId),

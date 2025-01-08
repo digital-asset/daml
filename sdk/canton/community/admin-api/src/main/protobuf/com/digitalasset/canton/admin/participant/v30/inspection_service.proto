@@ -61,7 +61,7 @@ message OpenCommitment {
   message Request {
     // the commitment to be opened
     bytes commitment = 1;
-    string domain_id = 2;
+    string synchronizer_id = 2;
     // the participant for whom the receiving participant computed the commitment
     string computed_for_counter_participant_uid = 3;
     // interval end tick which the commitment corresponds to
@@ -88,7 +88,7 @@ message InspectCommitmentContracts {
     // the contracts whose state and payload we want to retrieve
     repeated bytes cids = 1;
     // the domain on which we expect the contracts to be active
-    string expected_domain_id = 2;
+    string expected_synchronizer_id = 2;
     // timestamp at which we retrieve the state of the contracts on the expected domain
     google.protobuf.Timestamp timestamp = 3;
     // whether to retrieve the payload of the contracts
@@ -113,7 +113,7 @@ message ContractState {
 
   message DomainState {
     option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
-    string domain_id = 1;
+    string synchronizer_id = 1;
     // The Canton ACS has a few more states, e.g., "purged". However, we do not include them because they will likely
     // not be accessible over the ledger API when we switch to that.
     oneof state {
@@ -141,7 +141,7 @@ message ContractState {
 
   message Unassigned {
     option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
-    string target_domain_id = 1;
+    string target_synchronizer_id = 1;
     int64 reassignment_counter_src = 2;
     ReassignmentId reassignment_id = 3;
   }
@@ -153,7 +153,7 @@ message ContractState {
 
   message ReassignmentId {
     option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
-    string source_domain_id = 1;
+    string source_synchronizer_id = 1;
     google.protobuf.Timestamp unassign_timestamp = 2;
   }
 }
@@ -199,7 +199,7 @@ message TimeRange {
 }
 
 message DomainTimeRange {
-  string domain_id = 1;
+  string synchronizer_id = 1;
   // optional; if not given, the latest reconciliation period the participant knows of for that domain is considered
   optional TimeRange interval = 2;
 }
@@ -226,7 +226,7 @@ message ReceivedAcsCommitment {
 }
 
 message ReceivedAcsCommitmentPerDomain {
-  string domain_id = 1;
+  string synchronizer_id = 1;
   repeated ReceivedAcsCommitment received = 2;
 }
 
@@ -257,7 +257,7 @@ message SentAcsCommitment {
 }
 
 message SentAcsCommitmentPerDomain {
-  string domain_id = 1;
+  string synchronizer_id = 1;
   repeated SentAcsCommitment sent = 2;
 }
 
@@ -315,7 +315,7 @@ threshold_distinguished & threshold_default are overwritten, distinguished_parti
  */
 message SlowCounterParticipantDomainConfig {
   // the domains for which we apply the settings below
-  repeated string domain_ids = 1;
+  repeated string synchronizer_ids = 1;
   // all non-distinguished counter-participants are implicitly part of the group "default"
   repeated string distinguished_participant_uids = 2;
   // the number of reconciliation intervals for a distinguished counter-participant to be considered slow
@@ -329,7 +329,7 @@ message SlowCounterParticipantDomainConfig {
 message SetConfigForSlowCounterParticipants {
   message Request {
     // we can specify multiple configurations, each being applied to one or more domains
-    // if the domain IDs in the different configs overlap, the latest config in the order of the "configs" takes precedence
+    // if the synchronizer ids in the different configs overlap, the latest config in the order of the "configs" takes precedence
     repeated SlowCounterParticipantDomainConfig configs = 1;
   }
   message Response {}
@@ -338,7 +338,7 @@ message SetConfigForSlowCounterParticipants {
 message GetConfigForSlowCounterParticipants {
   message Request {
     // filters by domains
-    repeated string domain_ids = 2;
+    repeated string synchronizer_ids = 2;
   }
   message Response {
     repeated SlowCounterParticipantDomainConfig configs = 1;
@@ -349,7 +349,7 @@ message GetIntervalsBehindForCounterParticipants {
 
   message CounterParticipantInfo {
     string counter_participant_uid = 1;
-    string domain_id = 2;
+    string synchronizer_id = 2;
     // MaxInt(2147483647) means that the counter-participant never sent a commitment
     uint64 intervals_behind = 3;
     // how long time the corresponding intervals correlate to (Timestamp in the future means it has never sent a commitment)
@@ -366,7 +366,7 @@ message GetIntervalsBehindForCounterParticipants {
     // if empty, all counter-participants are considered
     repeated string counter_participant_uids = 1;
     // if empty, all domains are considered
-    repeated string domain_ids = 2;
+    repeated string synchronizer_ids = 2;
     // if set, only counter-participants that are behind by at least this number of intervals are returned
     optional uint64 threshold = 3;
   }
@@ -379,7 +379,7 @@ message GetIntervalsBehindForCounterParticipants {
 message CountInFlight {
   message Request {
     // the domain to query for pending submissions and in-flight transactions
-    string domain_id = 1;
+    string synchronizer_id = 1;
   }
 
   message Response {

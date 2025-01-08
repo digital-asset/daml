@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.plugins
@@ -6,15 +6,15 @@ package com.digitalasset.canton.integration.plugins
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.domain.sequencing.sequencer.SequencerConfig
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.{
-  MultiDomain,
+  MultiSynchronizer,
   SequencerDomainGroups,
-  SingleDomain,
+  SingleSynchronizer,
 }
 import com.digitalasset.canton.integration.{EnvironmentSetupPlugin, TestConsoleEnvironment}
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.SequencerConfig
 
 /** @param sequencerGroups If sequencerGroups is defined, all the sequencers of the same set will share the same storage
   *                        (which means they are part of the same domain).
@@ -30,14 +30,14 @@ abstract class UseReferenceBlockSequencerBase[
 ](
     override protected val loggerFactory: NamedLoggerFactory,
     driverSingleWordName: String,
-    sequencerGroups: SequencerDomainGroups = SingleDomain,
+    sequencerGroups: SequencerDomainGroups = SingleSynchronizer,
 ) extends EnvironmentSetupPlugin[EnvT, TestConsoleEnvT] {
 
   protected final def dbNameForGroup(group: Int): String = s"${driverSingleWordName}_db_$group"
 
   protected val dbNames: NonEmpty[List[String]] = sequencerGroups match {
-    case SingleDomain => NonEmpty(List, dbNameForGroup(0))
-    case MultiDomain(_) =>
+    case SingleSynchronizer => NonEmpty(List, dbNameForGroup(0))
+    case MultiSynchronizer(_) =>
       NonEmpty(
         List,
         dbNameForGroup(0), // db 0 is the default one
@@ -57,17 +57,17 @@ object UseReferenceBlockSequencerBase {
     def numberOfDomains: Int
   }
 
-  case object SingleDomain extends SequencerDomainGroups {
+  case object SingleSynchronizer extends SequencerDomainGroups {
     override val numberOfDomains: Int = 1
   }
 
-  final case class MultiDomain(sequencerGroups: Seq[Set[InstanceName]])
+  final case class MultiSynchronizer(sequencerGroups: Seq[Set[InstanceName]])
       extends SequencerDomainGroups {
     override val numberOfDomains: Int = sequencerGroups.size
   }
 
-  object MultiDomain {
-    def tryCreate(sequencerGroups: Set[String]*): MultiDomain =
-      MultiDomain(sequencerGroups.map(_.map(InstanceName.tryCreate)))
+  object MultiSynchronizer {
+    def tryCreate(sequencerGroups: Set[String]*): MultiSynchronizer =
+      MultiSynchronizer(sequencerGroups.map(_.map(InstanceName.tryCreate)))
   }
 }

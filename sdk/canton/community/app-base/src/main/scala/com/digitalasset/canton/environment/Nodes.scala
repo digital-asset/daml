@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.environment
@@ -11,23 +11,23 @@ import cats.{Applicative, Id}
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.{DbConfig, LocalNodeConfig, ProcessingTimeout, StorageConfig}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.domain.mediator.{
-  MediatorNode,
-  MediatorNodeBootstrap,
-  MediatorNodeConfigCommon,
-  MediatorNodeParameters,
-}
-import com.digitalasset.canton.domain.sequencing.config.{
-  SequencerNodeConfigCommon,
-  SequencerNodeParameters,
-}
-import com.digitalasset.canton.domain.sequencing.{SequencerNode, SequencerNodeBootstrap}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.*
 import com.digitalasset.canton.participant.config.LocalParticipantConfig
 import com.digitalasset.canton.resource.DbStorage.RetryConfig
 import com.digitalasset.canton.resource.{DbMigrations, DbMigrationsFactory}
+import com.digitalasset.canton.synchronizer.mediator.{
+  MediatorNode,
+  MediatorNodeBootstrap,
+  MediatorNodeConfigCommon,
+  MediatorNodeParameters,
+}
+import com.digitalasset.canton.synchronizer.sequencing.config.{
+  SequencerNodeConfigCommon,
+  SequencerNodeParameters,
+}
+import com.digitalasset.canton.synchronizer.sequencing.{SequencerNode, SequencerNodeBootstrap}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 

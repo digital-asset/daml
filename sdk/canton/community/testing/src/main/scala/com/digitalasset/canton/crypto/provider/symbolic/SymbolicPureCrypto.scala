@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto.provider.symbolic
@@ -50,11 +50,20 @@ class SymbolicPureCrypto extends CryptoPureApi {
   override protected[crypto] def signBytes(
       bytes: ByteString,
       signingKey: SigningPrivateKey,
+      usage: NonEmpty[Set[SigningKeyUsage]],
       signingAlgorithmSpec: SigningAlgorithmSpec = defaultSigningAlgorithmSpec,
-  ): Either[SigningError, Signature] = {
-    val counter = signatureCounter.getAndIncrement()
-    Right(SymbolicPureCrypto.createSignature(bytes, signingKey.id, counter))
-  }
+  ): Either[SigningError, Signature] =
+    CryptoKeyValidation
+      .ensureUsage(
+        usage,
+        signingKey.usage,
+        signingKey.id,
+        err => SigningError.InvalidSigningKey(err),
+      )
+      .flatMap { _ =>
+        val counter = signatureCounter.getAndIncrement()
+        Right(SymbolicPureCrypto.createSignature(bytes, signingKey.id, counter))
+      }
 
   override protected[crypto] def verifySignature(
       bytes: ByteString,

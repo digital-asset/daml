@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.metrics
@@ -13,11 +13,11 @@ import com.daml.metrics.{HistogramDefinition, MetricsFilterConfig}
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.{Port, PositiveInt}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.domain.metrics.{MediatorMetrics, SequencerMetrics}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.MetricsConfig.JvmMetrics
 import com.digitalasset.canton.metrics.MetricsReporterConfig.{Csv, Logging, Prometheus}
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
+import com.digitalasset.canton.synchronizer.metrics.{MediatorMetrics, SequencerMetrics}
 import com.digitalasset.canton.telemetry.OpenTelemetryFactory
 import com.typesafe.scalalogging.LazyLogging
 import io.opentelemetry.api.OpenTelemetry

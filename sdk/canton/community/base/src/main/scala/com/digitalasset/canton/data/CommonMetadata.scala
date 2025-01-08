@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -20,7 +20,7 @@ import java.util.UUID
 /** Information concerning every '''member''' involved in the underlying transaction.
   */
 final case class CommonMetadata private (
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     mediator: MediatorGroupRecipient,
     salt: Salt,
     uuid: UUID,
@@ -38,7 +38,7 @@ final case class CommonMetadata private (
   override val hashPurpose: HashPurpose = HashPurpose.CommonMetadata
 
   override protected def pretty: Pretty[CommonMetadata] = prettyOfClass(
-    param("domain id", _.domainId),
+    param("synchronizer id", _.synchronizerId),
     param("mediator", _.mediator),
     param("uuid", _.uuid),
     param("salt", _.salt),
@@ -48,7 +48,7 @@ final case class CommonMetadata private (
 
   private def toProtoV30: v30.CommonMetadata =
     v30.CommonMetadata(
-      domainId = domainId.toProtoPrimitive,
+      synchronizerId = synchronizerId.toProtoPrimitive,
       salt = Some(salt.toProtoV30),
       uuid = ProtoConverter.UuidConverter.toProtoPrimitive(uuid),
       mediatorGroup = mediator.group.value,
@@ -73,25 +73,25 @@ object CommonMetadata
       hashOps: HashOps,
       protocolVersion: ProtocolVersion,
   )(
-      domain: DomainId,
+      synchronizerId: SynchronizerId,
       mediator: MediatorGroupRecipient,
       salt: Salt,
       uuid: UUID,
   ): CommonMetadata = create(
     hashOps,
     protocolVersionRepresentativeFor(protocolVersion),
-  )(domain, mediator, salt, uuid)
+  )(synchronizerId, mediator, salt, uuid)
 
   def create(
       hashOps: HashOps,
       protocolVersion: RepresentativeProtocolVersion[CommonMetadata.type],
   )(
-      domain: DomainId,
+      synchronizerId: SynchronizerId,
       mediator: MediatorGroupRecipient,
       salt: Salt,
       uuid: UUID,
   ): CommonMetadata =
-    CommonMetadata(domain, mediator, salt, uuid)(
+    CommonMetadata(synchronizerId, mediator, salt, uuid)(
       hashOps,
       protocolVersion,
       None,
@@ -100,11 +100,13 @@ object CommonMetadata
   private def fromProtoV30(hashOps: HashOps, metaDataP: v30.CommonMetadata)(
       bytes: ByteString
   ): ParsingResult[CommonMetadata] = {
-    val v30.CommonMetadata(saltP, domainIdP, uuidP, mediatorP) = metaDataP
+    val v30.CommonMetadata(saltP, synchronizerIdP, uuidP, mediatorP) = metaDataP
     for {
       domainUid <- UniqueIdentifier
-        .fromProtoPrimitive_(domainIdP)
-        .leftMap(e => ProtoDeserializationError.ValueDeserializationError("domainId", e.message))
+        .fromProtoPrimitive_(synchronizerIdP)
+        .leftMap(e =>
+          ProtoDeserializationError.ValueDeserializationError("synchronizerId", e.message)
+        )
       mediatorGroup <- ProtoConverter.parseNonNegativeInt("mediator", mediatorP)
       mediatorGroupRecipient = MediatorGroupRecipient.apply(mediatorGroup)
       salt <- ProtoConverter
@@ -112,7 +114,7 @@ object CommonMetadata
         .leftMap(_.inField("salt"))
       uuid <- ProtoConverter.UuidConverter.fromProtoPrimitive(uuidP).leftMap(_.inField("uuid"))
       pv <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield CommonMetadata(DomainId(domainUid), mediatorGroupRecipient, salt, uuid)(
+    } yield CommonMetadata(SynchronizerId(domainUid), mediatorGroupRecipient, salt, uuid)(
       hashOps,
       pv,
       Some(bytes),

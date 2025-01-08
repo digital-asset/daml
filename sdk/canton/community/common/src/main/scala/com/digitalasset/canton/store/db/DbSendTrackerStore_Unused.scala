@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.store.db
@@ -34,7 +34,7 @@ class DbSendTrackerStore_Unused(
     for {
       rowsUpdated <- EitherT.right(
         storage.update(
-          sqlu"""insert into sequencer_client_pending_sends (domain_idx, message_id, max_sequencing_time)
+          sqlu"""insert into sequencer_client_pending_sends (synchronizer_idx, message_id, max_sequencing_time)
                  values ($indexedDomain, $messageId, $maxSequencingTime)
                  on conflict do nothing""",
           operationName = s"${this.getClass}: save pending send",
@@ -48,7 +48,7 @@ class DbSendTrackerStore_Unused(
           EitherT(for {
             existingMaxSequencingTimeO <- storage.query(
               sql"""select max_sequencing_time from sequencer_client_pending_sends
-                    where domain_idx = $indexedDomain and message_id = $messageId"""
+                    where synchronizer_idx = $indexedDomain and message_id = $messageId"""
                 .as[CantonTimestamp]
                 .headOption,
               functionFullName,
@@ -68,7 +68,7 @@ class DbSendTrackerStore_Unused(
   ): Future[Map[MessageId, CantonTimestamp]] =
     for {
       items <- storage.query(
-        sql"select message_id, max_sequencing_time from sequencer_client_pending_sends where domain_idx = $indexedDomain"
+        sql"select message_id, max_sequencing_time from sequencer_client_pending_sends where synchronizer_idx = $indexedDomain"
           .as[(MessageId, CantonTimestamp)],
         functionFullName,
       )
@@ -78,7 +78,7 @@ class DbSendTrackerStore_Unused(
       messageId: MessageId
   )(implicit traceContext: TraceContext): Future[Unit] =
     storage.update_(
-      sqlu"delete from sequencer_client_pending_sends where domain_idx = $indexedDomain and message_id = $messageId",
+      sqlu"delete from sequencer_client_pending_sends where synchronizer_idx = $indexedDomain and message_id = $messageId",
       functionFullName,
     )
 

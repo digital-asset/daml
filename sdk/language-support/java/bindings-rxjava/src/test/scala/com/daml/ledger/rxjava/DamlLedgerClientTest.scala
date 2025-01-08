@@ -129,9 +129,9 @@ class DamlLedgerClientTest
       val recordId = new Identifier("recordPackageId", "recordModuleName", "recordEntityName")
       val record = new DamlRecord(recordId, List.empty[DamlRecord.Field].asJava)
       val command = new CreateCommand(new Identifier("a", "a", "b"), record)
-      val domainId = UUID.randomUUID().toString
+      val synchronizerId = UUID.randomUUID().toString
 
-      val params = genCommands(List(command), Some(domainId))
+      val params = genCommands(List(command), Some(synchronizerId))
         .withActAs(someParty)
 
       commandClient
@@ -139,7 +139,7 @@ class DamlLedgerClientTest
         .timeout(1L, TimeUnit.SECONDS)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingGet()
-      commandServiceImpl.getLastRequest.value.getCommands.domainId shouldBe domainId
+      commandServiceImpl.getLastRequest.value.getCommands.synchronizerId shouldBe synchronizerId
     }
   }
 
@@ -164,9 +164,9 @@ class DamlLedgerClientTest
       val recordId = new Identifier("recordPackageId", "recordModuleName", "recordEntityName")
       val record = new DamlRecord(recordId, List.empty[DamlRecord.Field].asJava)
       val command = new CreateCommand(new Identifier("a", "a", "b"), record)
-      val domainId = UUID.randomUUID().toString
+      val synchronizerId = UUID.randomUUID().toString
 
-      val params = genCommands(List(command), Some(domainId))
+      val params = genCommands(List(command), Some(synchronizerId))
         .withActAs(someParty)
 
       commandSubmissionClient
@@ -174,7 +174,7 @@ class DamlLedgerClientTest
         .timeout(1L, TimeUnit.SECONDS)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingGet()
-      commandSubmissionServiceImpl.getSubmittedRequest.value.getCommands.domainId shouldBe domainId
+      commandSubmissionServiceImpl.getSubmittedRequest.value.getCommands.synchronizerId shouldBe synchronizerId
     }
   }
 

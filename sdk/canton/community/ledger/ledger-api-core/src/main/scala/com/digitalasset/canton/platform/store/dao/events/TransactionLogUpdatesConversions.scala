@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao.events
@@ -8,6 +8,13 @@ import com.daml.ledger.api.v2.reassignment.{
   AssignedEvent as ApiAssignedEvent,
   Reassignment as ApiReassignment,
   UnassignedEvent as ApiUnassignedEvent,
+}
+import com.daml.ledger.api.v2.state_service.ParticipantPermission as ApiParticipantPermission
+import com.daml.ledger.api.v2.topology_transaction.{
+  ParticipantAuthorizationChanged,
+  ParticipantAuthorizationRevoked,
+  TopologyEvent,
+  TopologyTransaction,
 }
 import com.daml.ledger.api.v2.transaction.{
   Transaction as FlatTransaction,
@@ -21,6 +28,7 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdatesResponse,
 }
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.store.ScalaPbStreamingOptimizations.*
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties
@@ -86,6 +94,13 @@ private[events] object TransactionLogUpdatesConversions {
             })
           )
         )(u)
+      case _: TransactionLogUpdate.PartyAllocationResponse => None
+      case u: TransactionLogUpdate.TopologyTransactionEffective =>
+        val filteredEvents =
+          u.events.filter(topologyEventPredicate(templateWildcardParties, templateSpecificParties))
+        Option.when(filteredEvents.nonEmpty)(
+          u.copy(events = filteredEvents)(u.traceContext)
+        )
     }
 
     def toGetTransactionsResponse(
@@ -121,6 +136,12 @@ private[events] object TransactionLogUpdatesConversions {
             GetUpdatesResponse(GetUpdatesResponse.Update.Reassignment(reassignment))
               .withPrecomputedSerializedSize()
           )
+
+      case topologyTransaction: TransactionLogUpdate.TopologyTransactionEffective =>
+        toTopologyTransaction(topologyTransaction).map(transaction =>
+          GetUpdatesResponse(GetUpdatesResponse.Update.TopologyTransaction(transaction))
+            .withPrecomputedSerializedSize()
+        )
 
       case illegal => throw new IllegalStateException(s"$illegal is not expected here")
     }
@@ -182,7 +203,7 @@ private[events] object TransactionLogUpdatesConversions {
               effectiveAt = Some(TimestampConversion.fromLf(transactionAccepted.effectiveAt)),
               events = flatEvents,
               offset = transactionAccepted.offset.unwrap,
-              domainId = transactionAccepted.domainId,
+              synchronizerId = transactionAccepted.synchronizerId,
               traceContext = SerializableTraceContext(traceContext).toDamlProtoOpt,
               recordTime = Some(TimestampConversion.fromLf(transactionAccepted.recordTime)),
             )
@@ -221,6 +242,13 @@ private[events] object TransactionLogUpdatesConversions {
 
     }
 
+    private def topologyEventPredicate(
+        templateWildcardParties: Option[Set[Party]],
+        templateSpecificParties: Map[Identifier, Option[Set[Party]]],
+    )(event: TransactionLogUpdate.PartyToParticipantAuthorization) =
+      matchPartyInSet(event.party)(templateWildcardParties) || templateSpecificParties.values
+        .exists(matchPartyInSet(event.party))
+
     private def toFlatEvent(
         event: TransactionLogUpdate.Event,
         requestingParties: Option[Set[Party]],
@@ -253,7 +281,6 @@ private[events] object TransactionLogUpdatesConversions {
       apiEvent.Event(
         apiEvent.Event.Event.Archived(
           apiEvent.ArchivedEvent(
-            eventId = exercisedEvent.eventId.toLedgerString,
             offset = exercisedEvent.eventOffset.unwrap,
             nodeId = exercisedEvent.nodeIndex,
             contractId = exercisedEvent.contractId.coid,
@@ -285,6 +312,13 @@ private[events] object TransactionLogUpdatesConversions {
         Option.when(
           requestingParties.fold(true)(u.reassignmentInfo.hostedStakeholders.exists(_))
         )(u)
+      case _: TransactionLogUpdate.PartyAllocationResponse => None
+      case u: TransactionLogUpdate.TopologyTransactionEffective =>
+        val filteredEvents =
+          u.events.filter(event => matchPartyInSet(event.party)(requestingParties))
+        Option.when(filteredEvents.nonEmpty)(
+          u.copy(events = filteredEvents)(u.traceContext)
+        )
     }
 
     def toGetTransactionResponse(
@@ -344,6 +378,12 @@ private[events] object TransactionLogUpdatesConversions {
               .withPrecomputedSerializedSize()
           )
 
+      case topologyTransaction: TransactionLogUpdate.TopologyTransactionEffective =>
+        toTopologyTransaction(topologyTransaction).map(transaction =>
+          GetUpdateTreesResponse(GetUpdateTreesResponse.Update.TopologyTransaction(transaction))
+            .withPrecomputedSerializedSize()
+        )
+
       case illegal => throw new IllegalStateException(s"$illegal is not expected here")
     }
 
@@ -367,18 +407,18 @@ private[events] object TransactionLogUpdatesConversions {
             )(event)
           )
           .map { treeEvents =>
-            val visible = treeEvents.map(_.eventId)
+            val visible = treeEvents.map(_.nodeId)
             val visibleSet = visible.toSet
             val eventsById = treeEvents.iterator
-              .map(e => e.eventId -> e.filterChildEventIds(visibleSet))
+              .map(e => e.nodeId -> e.filterChildNodeIds(visibleSet))
               .toMap
 
             // All event identifiers that appear as a child of another item in this response
-            val children = eventsById.valuesIterator.flatMap(_.childEventIds).toSet
+            val children = eventsById.valuesIterator.flatMap(_.childNodeIds).toSet
 
             // The roots for this request are all visible items
             // that are not a child of some other visible item
-            val rootEventIds = visible.filterNot(children)
+            val rootNodeIds = visible.filterNot(children)
 
             TransactionTree(
               updateId = transactionAccepted.updateId,
@@ -387,8 +427,8 @@ private[events] object TransactionLogUpdatesConversions {
               effectiveAt = Some(TimestampConversion.fromLf(transactionAccepted.effectiveAt)),
               offset = transactionAccepted.offset.unwrap,
               eventsById = eventsById,
-              rootEventIds = rootEventIds,
-              domainId = transactionAccepted.domainId,
+              rootNodeIds = rootNodeIds,
+              synchronizerId = transactionAccepted.synchronizerId,
               traceContext = SerializableTraceContext(traceContext).toDamlProtoOpt,
               recordTime = Some(TimestampConversion.fromLf(transactionAccepted.recordTime)),
             )
@@ -474,7 +514,6 @@ private[events] object TransactionLogUpdatesConversions {
       } yield TreeEvent(
         TreeEvent.Kind.Exercised(
           apiEvent.ExercisedEvent(
-            eventId = exercisedEvent.eventId.toLedgerString,
             offset = exercisedEvent.eventOffset.unwrap,
             nodeId = exercisedEvent.nodeIndex,
             contractId = exercisedEvent.contractId.coid,
@@ -490,7 +529,7 @@ private[events] object TransactionLogUpdatesConversions {
                 _.filter(exercisedEvent.treeEventWitnesses)
               )
               .toSeq,
-            childEventIds = exercisedEvent.children,
+            childNodeIds = exercisedEvent.children,
             exerciseResult = maybeExerciseResult,
           )
         )
@@ -555,7 +594,6 @@ private[events] object TransactionLogUpdatesConversions {
       )
       .map(apiContractData =>
         apiEvent.CreatedEvent(
-          eventId = createdEvent.eventId.toLedgerString,
           offset = createdEvent.eventOffset.unwrap,
           nodeId = createdEvent.nodeIndex,
           contractId = createdEvent.contractId.coid,
@@ -572,6 +610,12 @@ private[events] object TransactionLogUpdatesConversions {
         )
       )
   }
+
+  private def matchPartyInSet(party: Party)(optSet: Option[Set[Party]]) =
+    optSet match {
+      case Some(filterParties) => filterParties.contains(party)
+      case None => true
+    }
 
   private def getCommandId(
       flatTransactionEvents: Vector[TransactionLogUpdate.Event],
@@ -652,5 +696,50 @@ private[events] object TransactionLogUpdatesConversions {
       )
     )
   }
+
+  private def toPermissionLevel(permission: AuthorizationLevel): Option[ApiParticipantPermission] =
+    permission match {
+      case AuthorizationLevel.Submission =>
+        Some(ApiParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION)
+      case AuthorizationLevel.Observation =>
+        Some(ApiParticipantPermission.PARTICIPANT_PERMISSION_OBSERVATION)
+      case AuthorizationLevel.Confirmation =>
+        Some(ApiParticipantPermission.PARTICIPANT_PERMISSION_CONFIRMATION)
+      case AuthorizationLevel.Revoked => None
+    }
+
+  private def toTopologyTransaction(
+      topologyTransaction: TransactionLogUpdate.TopologyTransactionEffective
+  ): Future[TopologyTransaction] = Future.successful(
+    TopologyTransaction(
+      updateId = topologyTransaction.updateId,
+      offset = topologyTransaction.offset.unwrap,
+      synchronizerId = topologyTransaction.synchronizerId,
+      recordTime = Some(TimestampConversion.fromLf(topologyTransaction.effectiveTime)),
+      events = topologyTransaction.events.map(event =>
+        toPermissionLevel(event.level).fold(
+          TopologyEvent(
+            TopologyEvent.Event.ParticipantAuthorizationRevoked(
+              ParticipantAuthorizationRevoked(
+                partyId = event.party,
+                participantId = event.participant,
+              )
+            )
+          )
+        )(permission =>
+          TopologyEvent(
+            TopologyEvent.Event.ParticipantAuthorizationChanged(
+              ParticipantAuthorizationChanged(
+                partyId = event.party,
+                participantId = event.participant,
+                particiantPermission = permission,
+              )
+            )
+          )
+        )
+      ),
+      traceContext = SerializableTraceContext(topologyTransaction.traceContext).toDamlProtoOpt,
+    )
+  )
 
 }

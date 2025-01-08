@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.entries
@@ -19,12 +19,4 @@ private[platform] object PartyLedgerEntry {
       recordTime: Timestamp,
       partyDetails: IndexerPartyDetails,
   ) extends PartyLedgerEntry
-
-  final case class AllocationRejected(
-      submissionId: SubmissionId,
-      recordTime: Timestamp,
-      reason: String,
-  ) extends PartyLedgerEntry {
-    override val submissionIdOpt: Option[SubmissionId] = Some(submissionId)
-  }
 }

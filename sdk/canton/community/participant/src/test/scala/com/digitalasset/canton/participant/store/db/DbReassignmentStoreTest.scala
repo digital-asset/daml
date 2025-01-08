@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.db
@@ -29,10 +29,10 @@ trait DbReassignmentStoreTest extends AsyncWordSpec with BaseTest with Reassignm
 
     val indexStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 100)
 
-    behave like reassignmentStore(domainId =>
+    behave like reassignmentStore(synchronizerId =>
       new DbReassignmentStore(
         storage,
-        ReassignmentTag.Target(domainId),
+        ReassignmentTag.Target(synchronizerId),
         indexStore,
         Target(testedProtocolVersion),
         new SymbolicPureCrypto,

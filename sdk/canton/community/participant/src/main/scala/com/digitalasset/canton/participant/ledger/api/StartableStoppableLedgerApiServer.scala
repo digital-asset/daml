@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.ledger.api
@@ -299,6 +299,7 @@ class StartableStoppableLedgerApiServer(
       _ <- ApiServiceOwner(
         indexService = indexService,
         submissionTracker = inMemoryState.submissionTracker,
+        partyAllocationTracker = inMemoryState.partyAllocationTracker,
         commandProgressTracker = commandProgressTracker,
         userManagementStore = userManagementStore,
         identityProviderConfigStore = getIdentityProviderConfigStore(

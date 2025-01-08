@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client.channel.endpoint
@@ -26,7 +26,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * [[com.digitalasset.canton.sequencing.client.channel.endpoint.SequencerChannelClientEndpoint]], and destroyed when
   * such endpoint is no longer needed.
   *
-  * Using the [[com.digitalasset.canton.crypto.DomainSyncCryptoClient]] as opposed to using
+  * Using the [[com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient]] as opposed to using
   * [[com.digitalasset.canton.crypto.SyncCryptoClient]] (`SyncCryptoClient[SyncCryptoApi]`) ensures that the crypto
   * schemes that the domain prescribes are actually used. Doing so prevents downgrading attacks where a weaker scheme
   * is used.
@@ -40,7 +40,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * @param timestamp   Determines the public key for asymmetric encryption.
   */
 private[endpoint] final class SequencerChannelSecurity(
-    domainCryptoApi: DomainSyncCryptoClient,
+    domainCryptoApi: SynchronizerSyncCryptoClient,
     protocolVersion: ProtocolVersion,
     timestamp: CantonTimestamp,
 )(implicit executionContext: ExecutionContext) {

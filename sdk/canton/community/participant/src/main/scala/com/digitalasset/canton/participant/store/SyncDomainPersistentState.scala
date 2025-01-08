@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
@@ -12,17 +12,21 @@ import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.store.db.DbSyncDomainPersistentState
 import com.digitalasset.canton.participant.store.memory.InMemorySyncDomainPersistentState
-import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.store.*
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.store.TopologyStore
-import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
-import com.digitalasset.canton.topology.{DomainOutboxQueue, DomainTopologyManager, ParticipantId}
+import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
+import com.digitalasset.canton.topology.{
+  ParticipantId,
+  SynchronizerOutboxQueue,
+  SynchronizerTopologyManager,
+}
 
 import scala.concurrent.ExecutionContext
 
-/** The state of a synchronization domain that is independent of the connectivity to the domain. */
+/** The state of a synchronizer that is independent of the connectivity to the synchronizer. */
 trait SyncDomainPersistentState extends NamedLogging with AutoCloseable {
 
   protected[participant] def loggerFactory: NamedLoggerFactory
@@ -30,7 +34,7 @@ trait SyncDomainPersistentState extends NamedLogging with AutoCloseable {
   /** The crypto operations used on the domain */
   def pureCryptoApi: CryptoPureApi
   def indexedDomain: IndexedDomain
-  def staticDomainParameters: StaticDomainParameters
+  def staticSynchronizerParameters: StaticSynchronizerParameters
   def enableAdditionalConsistencyChecks: Boolean
   def reassignmentStore: ReassignmentStore
   def activeContractStore: ActiveContractStore
@@ -38,13 +42,13 @@ trait SyncDomainPersistentState extends NamedLogging with AutoCloseable {
   def sendTrackerStore: SendTrackerStore
   def requestJournalStore: RequestJournalStore
   def acsCommitmentStore: AcsCommitmentStore
-  def parameterStore: DomainParameterStore
+  def parameterStore: SynchronizerParameterStore
   def submissionTrackerStore: SubmissionTrackerStore
   def isMemory: Boolean
 
-  def topologyStore: TopologyStore[DomainStore]
-  def topologyManager: DomainTopologyManager
-  def domainOutboxQueue: DomainOutboxQueue
+  def topologyStore: TopologyStore[SynchronizerStore]
+  def topologyManager: SynchronizerTopologyManager
+  def domainOutboxQueue: SynchronizerOutboxQueue
   def acsInspection: AcsInspection
 }
 
@@ -53,8 +57,8 @@ object SyncDomainPersistentState {
   def create(
       participantId: ParticipantId,
       storage: Storage,
-      domainId: IndexedDomain,
-      staticDomainParameters: StaticDomainParameters,
+      synchronizerIdx: IndexedDomain,
+      staticSynchronizerParameters: StaticSynchronizerParameters,
       clock: Clock,
       crypto: Crypto,
       parameters: ParticipantNodeParameters,
@@ -66,15 +70,16 @@ object SyncDomainPersistentState {
       loggerFactory: NamedLoggerFactory,
       futureSupervisor: FutureSupervisor,
   )(implicit ec: ExecutionContext): SyncDomainPersistentState = {
-    val domainLoggerFactory = loggerFactory.append("domainId", domainId.domainId.toString)
+    val domainLoggerFactory =
+      loggerFactory.append("synchronizerId", synchronizerIdx.synchronizerId.toString)
     storage match {
       case _: MemoryStorage =>
         new InMemorySyncDomainPersistentState(
           participantId,
           clock,
           crypto,
-          domainId,
-          staticDomainParameters,
+          synchronizerIdx,
+          staticSynchronizerParameters,
           parameters.enableAdditionalConsistencyChecks,
           indexedStringStore,
           contractStore.value,
@@ -89,8 +94,8 @@ object SyncDomainPersistentState {
       case db: DbStorage =>
         new DbSyncDomainPersistentState(
           participantId,
-          domainId,
-          staticDomainParameters,
+          synchronizerIdx,
+          staticSynchronizerParameters,
           clock,
           db,
           crypto,

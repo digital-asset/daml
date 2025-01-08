@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.interfaces
@@ -6,6 +6,8 @@ package com.digitalasset.canton.platform.store.interfaces
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.ReassignmentInfo
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel
+import com.digitalasset.canton.ledger.participant.state.index.PartyEntry
 import com.digitalasset.canton.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.digitalasset.canton.platform.{ContractId, Identifier}
 import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}
@@ -13,7 +15,6 @@ import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.{PackageName, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
-import com.digitalasset.daml.lf.ledger.EventId
 import com.digitalasset.daml.lf.transaction.GlobalKey
 import com.digitalasset.daml.lf.value.Value as LfValue
 
@@ -45,7 +46,7 @@ object TransactionLogUpdate {
       offset: Offset,
       events: Vector[Event],
       completionStreamResponse: Option[CompletionStreamResponse],
-      domainId: String,
+      synchronizerId: String,
       recordTime: Timestamp,
   )(implicit override val traceContext: TraceContext)
       extends TransactionLogUpdate
@@ -73,6 +74,21 @@ object TransactionLogUpdate {
   )(implicit override val traceContext: TraceContext)
       extends TransactionLogUpdate
 
+  final case class PartyAllocationResponse(
+      offset: Offset,
+      partyEntry: PartyEntry,
+  )(implicit override val traceContext: TraceContext)
+      extends TransactionLogUpdate
+
+  final case class TopologyTransactionEffective(
+      updateId: String,
+      offset: Offset,
+      effectiveTime: Timestamp,
+      synchronizerId: String,
+      events: Vector[PartyToParticipantAuthorization],
+  )(implicit override val traceContext: TraceContext)
+      extends TransactionLogUpdate
+
   object ReassignmentAccepted {
     sealed trait Reassignment
     final case class Assigned(createdEvent: CreatedEvent) extends Reassignment
@@ -86,7 +102,6 @@ object TransactionLogUpdate {
     def eventOffset: Offset
     def eventSequentialId: EventSequentialId
     def updateId: String
-    def eventId: EventId
     def commandId: String
     def workflowId: String
     def ledgerEffectiveTime: Timestamp
@@ -102,7 +117,6 @@ object TransactionLogUpdate {
       updateId: String,
       nodeIndex: Int,
       eventSequentialId: Long,
-      eventId: EventId,
       contractId: ContractId,
       ledgerEffectiveTime: Timestamp,
       templateId: Identifier,
@@ -128,7 +142,6 @@ object TransactionLogUpdate {
       updateId: String,
       nodeIndex: Int,
       eventSequentialId: Long,
-      eventId: EventId,
       contractId: ContractId,
       ledgerEffectiveTime: Timestamp,
       templateId: Identifier,
@@ -142,9 +155,16 @@ object TransactionLogUpdate {
       submitters: Set[Party],
       choice: String,
       actingParties: Set[Party],
-      children: Seq[String],
+      children: Seq[Int],
       exerciseArgument: LfValue.VersionedValue,
       exerciseResult: Option[LfValue.VersionedValue],
       consuming: Boolean,
   ) extends Event
+
+  final case class PartyToParticipantAuthorization(
+      party: Party,
+      participant: Ref.ParticipantId,
+      level: AuthorizationLevel,
+  )
+
 }

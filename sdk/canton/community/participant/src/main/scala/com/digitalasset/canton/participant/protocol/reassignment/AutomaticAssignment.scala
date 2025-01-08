@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -32,8 +32,8 @@ import scala.concurrent.{ExecutionContext, Future}
 private[participant] object AutomaticAssignment {
   def perform(
       id: ReassignmentId,
-      targetDomain: Target[DomainId],
-      targetStaticDomainParameters: Target[StaticDomainParameters],
+      targetDomain: Target[SynchronizerId],
+      targetStaticSynchronizerParameters: Target[StaticSynchronizerParameters],
       reassignmentCoordination: ReassignmentCoordination,
       stakeholders: Set[LfPartyId],
       unassignmentSubmitterMetadata: ReassignmentSubmitterMetadata,
@@ -63,7 +63,7 @@ private[participant] object AutomaticAssignment {
         : EitherT[FutureUnlessShutdown, ReassignmentProcessorError, com.google.rpc.status.Status] =
       for {
         targetIps <- reassignmentCoordination
-          .getTimeProofAndSnapshot(targetDomain, targetStaticDomainParameters)
+          .getTimeProofAndSnapshot(targetDomain, targetStaticSynchronizerParameters)
           .map(_._2)
         possibleSubmittingParties <- EitherT.right(hostedStakeholders(targetIps.map(_.ipsSnapshot)))
         assignmentSubmitter <- EitherT.fromOption[FutureUnlessShutdown](
@@ -115,7 +115,7 @@ private[participant] object AutomaticAssignment {
 
     def triggerAutoAssignment(
         targetSnapshot: Target[TopologySnapshot],
-        targetDomainParameters: Target[DynamicDomainParametersWithValidity],
+        targetDomainParameters: Target[DynamicSynchronizerParametersWithValidity],
     ): Unit = {
 
       val autoAssignment = for {
@@ -140,9 +140,11 @@ private[participant] object AutomaticAssignment {
               _ <- reassignmentCoordination
                 .awaitTimestamp(
                   targetDomain,
-                  targetStaticDomainParameters,
+                  targetStaticSynchronizerParameters,
                   exclusivityLimit,
-                  Future.successful(logger.debug(s"Automatic assignment triggered immediately")),
+                  Future.successful(
+                    logger.debug(s"Automatic assignment triggered immediately")
+                  ),
                 )
                 .mapK(FutureUnlessShutdown.outcomeK)
 
@@ -169,16 +171,17 @@ private[participant] object AutomaticAssignment {
       targetIps <- reassignmentCoordination
         .cryptoSnapshot(
           targetDomain,
-          targetStaticDomainParameters,
+          targetStaticSynchronizerParameters,
           t0,
         )
         .mapK(FutureUnlessShutdown.outcomeK)
+
       targetSnapshot = targetIps.map(_.ipsSnapshot)
 
       targetDomainParameters <- EitherT(
         targetSnapshot
           .traverse(
-            _.findDynamicDomainParameters()
+            _.findDynamicSynchronizerParameters()
               .map(_.leftMap(DomainNotReady(targetDomain.unwrap, _)))
           )
           .map(_.sequence)

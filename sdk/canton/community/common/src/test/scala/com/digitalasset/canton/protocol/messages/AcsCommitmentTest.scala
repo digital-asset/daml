@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol.messages
@@ -9,13 +9,13 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.serialization.HasCryptographicEvidenceTest
 import com.digitalasset.canton.time.PositiveSeconds
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec
 
 class AcsCommitmentTest extends AnyWordSpec with BaseTest with HasCryptographicEvidenceTest {
   val cryptoApi = new SymbolicPureCrypto
-  val domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::da"))
+  val synchronizerId = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::da"))
   val sender = ParticipantId(UniqueIdentifier.tryFromProtoPrimitive("participant::da"))
   val counterParticipant = ParticipantId(UniqueIdentifier.tryFromProtoPrimitive("participant2::da"))
   val interval = PositiveSeconds.tryOfSeconds(1)
@@ -40,7 +40,7 @@ class AcsCommitmentTest extends AnyWordSpec with BaseTest with HasCryptographicE
 
   val commitment1 = AcsCommitment
     .create(
-      domainId,
+      synchronizerId,
       sender,
       counterParticipant,
       period1,
@@ -50,7 +50,7 @@ class AcsCommitmentTest extends AnyWordSpec with BaseTest with HasCryptographicE
 
   val commitment2 = AcsCommitment
     .create(
-      domainId,
+      synchronizerId,
       sender,
       counterParticipant,
       period2,

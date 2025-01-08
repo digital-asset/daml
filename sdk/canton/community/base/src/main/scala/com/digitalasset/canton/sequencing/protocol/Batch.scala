@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.protocol
@@ -52,7 +52,7 @@ final case class Batch[+Env <: Envelope[?]] private (envelopes: List[Env])(
     allRecipients.collect {
       case r @ MemberRecipient(_: MediatorId) => r
       case r: MediatorGroupRecipient => r
-      case AllMembersOfDomain => AllMembersOfDomain
+      case AllMembersOfSynchronizer => AllMembersOfSynchronizer
     }
 
   private[protocol] def toProtoV30: v30.CompressedBatch = {

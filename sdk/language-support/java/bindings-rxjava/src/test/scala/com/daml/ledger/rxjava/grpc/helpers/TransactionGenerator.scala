@@ -209,7 +209,6 @@ object TransactionGenerator {
   )
 
   val createdEventGen: Gen[(Created, data.CreatedEvent)] = for {
-    eventId <- nonEmptyId
     offset <- Gen.posNum[Long]
     nodeId <- Gen.posNum[Int]
     contractId <- nonEmptyId
@@ -225,7 +224,6 @@ object TransactionGenerator {
   } yield (
     Created(
       CreatedEvent(
-        eventId = eventId,
         offset = offset,
         nodeId = nodeId,
         contractId = contractId,
@@ -243,7 +241,6 @@ object TransactionGenerator {
     ),
     new data.CreatedEvent(
       witnessParties = (signatories ++ observers).asJava,
-      eventId = eventId,
       offset = offset,
       nodeId = nodeId,
       templateId = javaTemplateId,
@@ -263,7 +260,6 @@ object TransactionGenerator {
   )
 
   val archivedEventGen: Gen[(Archived, data.ArchivedEvent)] = for {
-    eventId <- nonEmptyId
     offset <- Gen.posNum[Long]
     nodeId <- Gen.posNum[Int]
     pkgName <- nonEmptyId
@@ -273,7 +269,6 @@ object TransactionGenerator {
   } yield (
     Archived(
       ArchivedEvent(
-        eventId = eventId,
         offset = offset,
         nodeId = nodeId,
         contractId = contractId,
@@ -284,7 +279,6 @@ object TransactionGenerator {
     ),
     new data.ArchivedEvent(
       parties.asJava,
-      eventId,
       offset,
       nodeId,
       javaTemplateId,
@@ -294,7 +288,6 @@ object TransactionGenerator {
   )
 
   val exercisedEventGen: Gen[(Exercised, data.ExercisedEvent)] = for {
-    eventId <- nonEmptyId
     offset <- Gen.posNum[Long]
     nodeId <- Gen.posNum[Int]
     contractId <- nonEmptyId
@@ -313,7 +306,6 @@ object TransactionGenerator {
   } yield (
     Exercised(
       ExercisedEvent(
-        eventId = eventId,
         offset = offset,
         nodeId = nodeId,
         contractId = contractId,
@@ -324,14 +316,13 @@ object TransactionGenerator {
         actingParties = actingParties,
         consuming = consuming,
         witnessParties = witnessParties,
-        childEventIds = Nil,
+        childNodeIds = Nil,
         exerciseResult = Some(scalaExerciseResult),
         packageName = pkgName,
       )
     ),
     new data.ExercisedEvent(
       witnessParties.asJava,
-      eventId,
       offset,
       nodeId,
       javaTemplateId,
@@ -430,14 +421,12 @@ object TransactionGenerator {
   val ledgerContentTreeGen: Gen[(List[LedgerItem], List[TransactionTree])] =
     Gen.listOf(transactionTreeGen).map(_.unzip)
 
-  val ledgerContentWithEventIdGen: Gen[(List[LedgerItem], String, TransactionTree)] = for {
+  val ledgerContentWithOffsetGen: Gen[(List[LedgerItem], Long, TransactionTree)] = for {
     (arbitraryLedgerContent, _) <- ledgerContentTreeGen
     (queriedLedgerContent, queriedTransaction) <- transactionTreeGen.suchThat(_._1.events.nonEmpty)
     ledgerContent = arbitraryLedgerContent :+ queriedLedgerContent
-    eventIds = queriedLedgerContent.events.map(UpdateServiceImpl.eventId)
-    eventIdList <- Gen.pick(1, eventIds)
-    eventId = eventIdList.head
-  } yield (ledgerContent, eventId, queriedTransaction)
+    txOffset = queriedTransaction.getOffset
+  } yield (ledgerContent, txOffset, queriedTransaction)
 
   val ledgerContentWithTransactionIdGen: Gen[(List[LedgerItem], String, TransactionTree)] =
     for {

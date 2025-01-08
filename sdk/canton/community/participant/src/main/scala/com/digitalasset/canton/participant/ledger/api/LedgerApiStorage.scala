@@ -1,10 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.ledger.api
 
 import com.digitalasset.canton.LedgerParticipantId
-import com.digitalasset.canton.config.{DbConfig, MemoryStorageConfig, StorageConfig}
+import com.digitalasset.canton.config.{DbConfig, StorageConfig}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapper.LedgerApiServerError
 import com.digitalasset.canton.util.ResourceUtil.withResource
@@ -65,7 +65,7 @@ object LedgerApiStorage {
   ): Either[LedgerApiServerError, LedgerApiStorage] =
     (config: @unchecked) match {
       // although canton is running using in-memory data structures, ledger-api still needs a sql database so allocate its own h2 instance
-      case _: MemoryStorageConfig => allocateInMemoryH2Database(participantId)
+      case _: StorageConfig.Memory => allocateInMemoryH2Database(participantId)
       // reuse the configured database
       case dbConfig: DbConfig => fromDbConfig(dbConfig)
     }

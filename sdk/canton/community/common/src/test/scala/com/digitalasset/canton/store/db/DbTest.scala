@@ -1,10 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.store.db
 
-import com.digitalasset.canton.config.CommunityDbConfig.{H2, Postgres}
 import com.digitalasset.canton.config.DbConfig
+import com.digitalasset.canton.config.DbConfig.{H2, Postgres}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext}
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.resource.DbStorage
